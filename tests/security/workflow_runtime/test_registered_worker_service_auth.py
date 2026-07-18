@@ -10,6 +10,7 @@ from flask import Flask, g
 
 from agent.auth import admin_required, check_auth, check_service_auth
 from agent.services.workflow_worker_service_auth import (
+    KNOWLEDGE_INDEX_PAYLOAD_SCOPE,
     RUNTIME_SERVICE_KEYRING_SCHEMA,
     STRICT_WORKER_REGISTRATION_PROVENANCE,
     WORKER_REGISTRATION_KEYRING_SCHEMA,
@@ -193,6 +194,65 @@ def test_registered_worker_token_is_identity_bound_scoped_and_never_admin(
     # Temporal retains its separate legacy runtime-service boundary. A Native
     # Worker credential still cannot use that endpoint.
     assert temporal.status_code == 401
+
+
+def test_knowledge_index_payload_scope_requires_index_worker_capability(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    worker = _agent(
+        name="worker-alpha",
+        url="http://worker-alpha:5000",
+        token=ALPHA_TOKEN,
+        capabilities=["retrieval", "index_write"],
+    )
+    keyring = tmp_path / "index-worker-keyring.json"
+    keyring.write_text(
+        json.dumps(
+            {
+                "schema": WORKER_REGISTRATION_KEYRING_SCHEMA,
+                "workers": {
+                    "worker-alpha": {
+                        "worker_url": "http://worker-alpha:5000",
+                        "registration_token": ALPHA_BOOTSTRAP,
+                        "service_token_sha256": _sha256(ALPHA_TOKEN),
+                        "session_signing_key_sha256": _sha256(ALPHA_SESSION_KEY),
+                        "allowed_capabilities": ["retrieval", "index_write"],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    keyring.chmod(0o440)
+    app = Flask(__name__)
+    app.config.update(
+        TESTING=True,
+        AGENT_TOKEN=HUB_TOKEN,
+        ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH=True,
+        ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE=str(keyring),
+    )
+    app.extensions["repository_registry"] = SimpleNamespace(
+        agent_repo=_AgentRepo([worker])
+    )
+    monkeypatch.setattr("agent.auth.log_audit", lambda *_args, **_kwargs: None)
+
+    @app.get("/knowledge-index-payload")
+    @check_service_auth(scope=KNOWLEDGE_INDEX_PAYLOAD_SCOPE)
+    def payload():
+        return {"scope": g.auth_payload["service_scope"]}
+
+    response = app.test_client().get(
+        "/knowledge-index-payload",
+        headers=_headers(
+            ALPHA_TOKEN,
+            worker_id="worker-alpha",
+            worker_url="http://worker-alpha:5000",
+        ),
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["scope"] == KNOWLEDGE_INDEX_PAYLOAD_SCOPE
 
 
 def test_worker_cannot_claim_another_registered_identity_or_use_hub_admin_token(

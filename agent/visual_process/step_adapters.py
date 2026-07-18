@@ -744,6 +744,11 @@ class MlInternTrainLoraAdapter(StepAdapter):
             dataset_id = self._dataset_id(metadata, artifacts)
             legacy_path = self._legacy_dataset_path(metadata, artifacts)
             legacy_mode = not dataset_id and bool(legacy_path)
+            if legacy_mode and self._requested_mode(metadata, artifacts, config) == "live":
+                raise MlInternVisualProcessAdapterError(
+                    "legacy_dataset_live_training_forbidden",
+                    "migrate the quarantined dataset into the Hub catalog before starting a live run",
+                )
             if legacy_mode:
                 dataset_id = self._legacy_dataset_import_factory(config).import_relative_path(principal, legacy_path)
             if not dataset_id:
@@ -813,6 +818,18 @@ class MlInternTrainLoraAdapter(StepAdapter):
             or metadata.get("datasetPath")
             or ""
         ).strip()
+
+    @classmethod
+    def _requested_mode(
+        cls,
+        metadata: Mapping[str, Any],
+        artifacts: Mapping[str, Any],
+        config: Mapping[str, Any],
+    ) -> str:
+        normalized = cls._normalized_config(config)
+        return str(
+            artifacts.get("mode") or metadata.get("mode") or normalized["mode"]
+        ).strip().lower()
 
     def _training_profile(
         self,
@@ -1042,7 +1059,9 @@ class RerankAdapter(StepAdapter):
         from worker.retrieval.reranker import Reranker
         query = str(artifacts.get("query") or step.metadata.get("query") or "")
         candidates = list(artifacts.get("candidates") or [])
-        weight = float(step.metadata.get("weight") or 0.15)
+        # ``reranker_weight`` is a read-only compatibility alias. New writes
+        # and NodeDefinitions expose only the canonical ``weight`` field.
+        weight = float(step.metadata.get("weight", step.metadata.get("reranker_weight", 0.15)))
         enabled = bool(step.metadata.get("enabled", True))
         reranker = Reranker(enabled=enabled, weight=weight)
         reranked = reranker.rerank(query=query, candidates=candidates)
@@ -1058,6 +1077,15 @@ class RerankAdapter(StepAdapter):
 # ── Embed API ─────────────────────────────────────────────────────────────────
 
 class EmbedApiAdapter(StepAdapter):
+    def __init__(self, *, secret_resolver: Any | None = None) -> None:
+        if secret_resolver is None:
+            from agent.services.opaque_secret_reference_service import (
+                opaque_secret_reference_service,
+            )
+
+            secret_resolver = opaque_secret_reference_service
+        self._secret_resolver = secret_resolver
+
     @property
     def kind(self) -> str:
         return "embed_api"
@@ -1090,8 +1118,7 @@ class EmbedApiAdapter(StepAdapter):
             execution_reason=f"vp_adapter: embed_api provider={provider_name!r}",
         )
 
-    @staticmethod
-    def _build_provider(step: VisualProcessStep, provider_name: str) -> Any:
+    def _build_provider(self, step: VisualProcessStep, provider_name: str) -> Any:
         from worker.retrieval.embedding_provider import (
             FakeEmbeddingProvider,
             HashEmbeddingProvider,
@@ -1103,10 +1130,18 @@ class EmbedApiAdapter(StepAdapter):
         if provider_name == "fake":
             return FakeEmbeddingProvider(dimensions=max(dims, 4))
         if provider_name in ("openai_compatible", "openai"):
+            if "api_key" in step.metadata:
+                raise ValueError("legacy_plaintext_api_key_quarantined")
+            if not bool(step.metadata.get("external_calls_allowed", False)):
+                raise ValueError("embedding_provider_external_calls_not_allowed")
+            secret_ref = str(step.metadata.get("api_key_secret_ref") or "").strip()
+            if not secret_ref:
+                raise ValueError("embedding_provider_secret_reference_required")
+            api_key = self._secret_resolver.resolve(secret_ref)
             return OpenAICompatibleEmbeddingProvider(
                 base_url=str(step.metadata.get("base_url") or ""),
                 model=str(step.metadata.get("model") or "text-embedding-3-small"),
-                api_key=str(step.metadata.get("api_key") or ""),
+                api_key=api_key,
                 dimensions=max(dims, 1536),
             )
         raise ValueError(f"Unknown embedding provider: {provider_name!r}")
@@ -1128,7 +1163,7 @@ class SignRotationAdapter(StepAdapter):
                 execution_reason="sign_rotation: no vector provided",
                 backend_service="DeterministicSignRotation",
             )
-        seed = int(step.metadata.get("seed") or 888)
+        seed = int(step.metadata.get("seed", 888))
         rotation = DeterministicSignRotation(seed=seed)
         rotated = rotation.apply(vector)
         return StepExecutionResult(
@@ -1157,8 +1192,8 @@ class TurboQuantMseAdapter(StepAdapter):
                 backend_service="TurboQuantMseEncoder",
                 warnings=["TQ-012 is experimental (no production codebook). TQ-013 ProdStub is a separate unused stub."],
             )
-        seed = int(step.metadata.get("seed") or 888)
-        levels = int(step.metadata.get("levels") or 7)
+        seed = int(step.metadata.get("seed", 888))
+        levels = int(step.metadata.get("levels", 7))
         encoder = TurboQuantMseEncoder(seed=seed, levels=levels)
         encoded = encoder.encode(vector)
         outputs: dict[str, Any] = (

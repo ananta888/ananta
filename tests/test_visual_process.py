@@ -179,6 +179,26 @@ class TestValidator:
         r = GraphValidator().validate(g)
         assert any(i.code == "unreachable_step" and i.step_id == "s3" for i in r.warnings())
 
+    def test_model_routing_and_runtime_truth_are_independent_validator_passes(self):
+        from agent.visual_process.models import VisualProcessGraph, VisualProcessStep
+        from agent.visual_process.validator import GraphValidator
+
+        step = VisualProcessStep(
+            id="embed",
+            label="Embed",
+            kind="embed_api",
+            metadata={
+                "provider": "hash",
+                "model_routing": {"allow_cloud": False},
+            },
+        )
+        result = GraphValidator().validate(
+            VisualProcessGraph(id="routing-runtime-truth", name="Routing", steps=[step])
+        )
+
+        assert result.valid
+        assert any(issue.code == "step_uses_network" for issue in result.issues)
+
 
 # ── VPDF-003: Context Assembly ────────────────────────────────────────────────
 
@@ -669,3 +689,73 @@ def test_graph_crud_is_authenticated_and_tenant_owned(flask_client, simple_graph
     finally:
         deleted = flask_client.delete(f"/api/visual-process/graphs/{graph_id}", headers=owner_headers)
         assert deleted.status_code == 204
+
+
+def test_graph_v2_save_uses_authoritative_cas_and_etag(flask_client, simple_graph):
+    graph_id = f"graph-cas-{uuid.uuid4().hex[:12]}"
+    graph = simple_graph.model_copy(update={"id": graph_id})
+    headers = _visual_auth_headers("admin")
+    second_client = flask_client.application.test_client()
+    assert second_client is not flask_client
+
+    created = flask_client.post(
+        "/api/visual-process/v2/graphs",
+        json={"graph": graph.model_dump()},
+        headers=headers,
+    )
+    assert created.status_code == 200
+    assert created.json["definition_revision"] == 1
+    assert created.json["base_graph_hash"]
+    assert created.headers["ETag"] == f'"{created.json["base_graph_hash"]}"'
+
+    try:
+        first_loaded = flask_client.get(f"/api/visual-process/graphs/{graph_id}", headers=headers)
+        second_loaded = second_client.get(f"/api/visual-process/graphs/{graph_id}", headers=headers)
+        assert first_loaded.status_code == second_loaded.status_code == 200
+        assert first_loaded.json["definition_revision"] == second_loaded.json["definition_revision"] == 1
+        assert (
+            first_loaded.json["base_graph_hash"]
+            == second_loaded.json["base_graph_hash"]
+            == created.json["base_graph_hash"]
+        )
+
+        changed_graph = dict(first_loaded.json)
+        changed_graph["name"] = "CAS update"
+        changed = flask_client.put(
+            f"/api/visual-process/v2/graphs/{graph_id}",
+            json={"graph": changed_graph, "expected_revision": 1},
+            headers={**headers, "If-Match": f'"{created.json["base_graph_hash"]}"'},
+        )
+        assert changed.status_code == 200
+        assert changed.json["definition_revision"] == 2
+        assert changed.json["version"] == "1.1"
+
+        stale_graph = dict(second_loaded.json)
+        stale_graph["name"] = "Second client local draft"
+        stale = second_client.put(
+            f"/api/visual-process/v2/graphs/{graph_id}",
+            json={"graph": stale_graph, "expected_revision": 1},
+            headers={**headers, "If-Match": f'"{created.json["base_graph_hash"]}"'},
+        )
+        assert stale.status_code == 409
+        assert stale.json["error_code"] == "visual_process_definition_conflict"
+        assert stale.json["actual_revision"] == 2
+        assert stale_graph["name"] == "Second client local draft"
+        assert stale_graph["definition_revision"] == 1
+
+        current = second_client.get(f"/api/visual-process/graphs/{graph_id}", headers=headers)
+        assert current.json["name"] == "CAS update"
+
+        legacy_graph = dict(current.json)
+        legacy_graph.pop("definition_revision", None)
+        legacy_graph.pop("base_graph_hash", None)
+        legacy_graph["name"] = "Compatibility update"
+        compatible = second_client.put(
+            f"/api/visual-process/graphs/{graph_id}",
+            json=legacy_graph,
+            headers=headers,
+        )
+        assert compatible.status_code == 200
+        assert compatible.json["definition_revision"] == 3
+    finally:
+        flask_client.delete(f"/api/visual-process/graphs/{graph_id}", headers=headers)

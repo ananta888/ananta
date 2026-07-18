@@ -357,10 +357,15 @@ def run_propose_orchestrator_path(
     if isinstance(source_catalog, dict):
         verification_status = dict(task.get("verification_status") or {})
         verification_status["source_catalog"] = {
+            "schema": source_catalog.get("schema"),
             "source_catalog_id": source_catalog.get("catalog_id"),
             "source_catalog_hash": source_catalog.get("catalog_hash"),
+            "catalog_state": source_catalog.get("catalog_state"),
             "source_count": len(list(source_catalog.get("sources") or [])),
+            "rejected_count": len(list(source_catalog.get("rejected_candidates") or [])),
             "retrieval_trace_id": source_catalog.get("retrieval_trace_id"),
+            "retrieval_context_hash": source_catalog.get("retrieval_context_hash"),
+            "retrieval_manifest_hash": source_catalog.get("retrieval_manifest_hash"),
             "sources": list(source_catalog.get("sources") or []),
         }
         verification_status["answer_verification"] = {

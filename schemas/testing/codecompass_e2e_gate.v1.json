@@ -1,0 +1,298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.codecompass-e2e-gate.v1",
+  "title": "CodeCompass reproducible Hub to Worker acceptance gate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "gate_id",
+    "fixture_version",
+    "status",
+    "release_allowed",
+    "pipeline",
+    "reproducibility",
+    "negative_gates",
+    "source_grounding",
+    "security"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.codecompass-e2e-gate.v1"},
+    "gate_id": {"const": "codecompass-e2e"},
+    "fixture_version": {"const": "codecompass-e2e-fixture.v1"},
+    "status": {"const": "passed"},
+    "release_allowed": {"type": "boolean"},
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stages", "counts", "hashes"],
+      "properties": {
+        "stages": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["stage_id", "status"],
+            "properties": {
+              "stage_id": {
+                "enum": [
+                  "hub_task_persisted",
+                  "worker_ingestion_completed",
+                  "worker_artifacts_published",
+                  "hub_artifacts_materialized_atomically",
+                  "productive_search_port_queried",
+                  "hub_source_catalog_failed_closed_without_authority",
+                  "evidence_release_blocked_without_authority",
+                  "hub_source_catalog_authority_verified",
+                  "evidence_release_verified"
+                ]
+              },
+              "status": {"const": "passed"}
+            }
+          }
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "snapshot_paths",
+            "indexed_paths",
+            "worker_records",
+            "worker_artifacts",
+            "search_results",
+            "catalog_sources",
+            "released_evidence",
+            "negative_gates"
+          ],
+          "properties": {
+            "snapshot_paths": {"type": "integer", "minimum": 4},
+            "indexed_paths": {"type": "integer", "minimum": 4},
+            "worker_records": {"type": "integer", "minimum": 5},
+            "worker_artifacts": {"type": "integer", "minimum": 2},
+            "search_results": {"type": "integer", "minimum": 4},
+            "catalog_sources": {"type": "integer", "minimum": 0},
+            "released_evidence": {"type": "integer", "minimum": 0},
+            "negative_gates": {"const": 6}
+          }
+        },
+        "hashes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "snapshot_manifest",
+            "records",
+            "materialized_index",
+            "retrieval_order",
+            "source_catalog",
+            "evidence_release_decision"
+          ],
+          "properties": {
+            "snapshot_manifest": {"$ref": "#/$defs/sha256"},
+            "records": {"$ref": "#/$defs/sha256"},
+            "materialized_index": {"$ref": "#/$defs/sha256"},
+            "retrieval_order": {"$ref": "#/$defs/sha256"},
+            "source_catalog": {"$ref": "#/$defs/sha256"},
+            "evidence_release_decision": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    },
+    "reproducibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "two_pass_snapshot_equal",
+        "two_pass_records_equal",
+        "two_pass_retrieval_equal",
+        "two_pass_source_catalog_equal",
+        "two_pass_release_decision_equal",
+        "stable_projection_hash"
+      ],
+      "properties": {
+        "two_pass_snapshot_equal": {"const": true},
+        "two_pass_records_equal": {"const": true},
+        "two_pass_retrieval_equal": {"const": true},
+        "two_pass_source_catalog_equal": {"const": true},
+        "two_pass_release_decision_equal": {"const": true},
+        "stable_projection_hash": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "negative_gates": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gate_id", "status", "observed_reason_code"],
+        "properties": {
+          "gate_id": {
+            "enum": [
+              "required_path_missing",
+              "silently_skipped_nonzero",
+              "production_channel_empty",
+              "unverified_source_identity",
+              "stale_revision",
+              "prompt_injection"
+            ]
+          },
+          "status": {"const": "passed"},
+          "observed_reason_code": {
+            "enum": [
+              "required_path_missing",
+              "silently_skipped_nonzero",
+              "production_channel_empty",
+              "source_id_unverified",
+              "repository_revision_mismatch",
+              "prompt_injection_detected"
+            ]
+          }
+        }
+      }
+    },
+    "source_grounding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "status",
+        "provided_source_count",
+        "source_ids_synthesized",
+        "grounded_claims_released",
+        "fail_closed_reason_code"
+      ],
+      "properties": {
+        "authority": {"enum": ["unavailable", "external_environment"]},
+        "status": {"enum": ["unverified", "verified"]},
+        "provided_source_count": {"type": "integer", "minimum": 0},
+        "source_ids_synthesized": {"const": false},
+        "grounded_claims_released": {"type": "boolean"},
+        "fail_closed_reason_code": {
+          "type": ["string", "null"],
+          "minLength": 1
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timestamps_in_report",
+        "absolute_paths_in_report",
+        "repository_full_text_in_report",
+        "secrets_in_report"
+      ],
+      "properties": {
+        "timestamps_in_report": {"const": false},
+        "absolute_paths_in_report": {"const": false},
+        "repository_full_text_in_report": {"const": false},
+        "secrets_in_report": {"const": false}
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "release_allowed": {"const": false},
+        "pipeline": {
+          "properties": {
+            "stages": {
+              "allOf": [
+                {
+                  "contains": {
+                    "required": ["stage_id"],
+                    "properties": {
+                      "stage_id": {
+                        "const": "hub_source_catalog_failed_closed_without_authority"
+                      }
+                    }
+                  }
+                },
+                {
+                  "contains": {
+                    "required": ["stage_id"],
+                    "properties": {
+                      "stage_id": {
+                        "const": "evidence_release_blocked_without_authority"
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "counts": {
+              "properties": {
+                "catalog_sources": {"const": 0},
+                "released_evidence": {"const": 0}
+              }
+            }
+          }
+        },
+        "source_grounding": {
+          "properties": {
+            "authority": {"const": "unavailable"},
+            "status": {"const": "unverified"},
+            "provided_source_count": {"const": 0},
+            "grounded_claims_released": {"const": false},
+            "fail_closed_reason_code": {
+              "const": "source_catalog_not_current"
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "release_allowed": {"const": true},
+        "pipeline": {
+          "properties": {
+            "stages": {
+              "allOf": [
+                {
+                  "contains": {
+                    "required": ["stage_id"],
+                    "properties": {
+                      "stage_id": {
+                        "const": "hub_source_catalog_authority_verified"
+                      }
+                    }
+                  }
+                },
+                {
+                  "contains": {
+                    "required": ["stage_id"],
+                    "properties": {
+                      "stage_id": {"const": "evidence_release_verified"}
+                    }
+                  }
+                }
+              ]
+            },
+            "counts": {
+              "properties": {
+                "catalog_sources": {"type": "integer", "minimum": 1},
+                "released_evidence": {"type": "integer", "minimum": 1}
+              }
+            }
+          }
+        },
+        "source_grounding": {
+          "properties": {
+            "authority": {"const": "external_environment"},
+            "status": {"const": "verified"},
+            "provided_source_count": {"type": "integer", "minimum": 1},
+            "grounded_claims_released": {"const": true},
+            "fail_closed_reason_code": {"const": null}
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  }
+}

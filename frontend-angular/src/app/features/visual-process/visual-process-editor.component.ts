@@ -4,7 +4,7 @@ import {
 } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subscription, map } from 'rxjs';
 import {
   VisualProcessApiService,
   VpGraph, VpStep, VpEdge,
@@ -19,6 +19,14 @@ import { VpWorkflowRunnerService } from './vp-workflow-runner.service';
 import { VisualProcessCanvasComponent } from './visual-process-canvas.component';
 import { VpEditorStateFacade } from './vp-editor-state.facade';
 import { VpModelTrainingOptionsService } from './vp-model-training-options.service';
+import { CanvasHitTarget } from './vp-editor-context.models';
+import { VpAssistantBridgeService } from './vp-assistant-bridge.service';
+import { VpAssistantBubbleComponent } from './vp-assistant-bubble.component';
+import { VP_NODE_REGISTRY_VERSION, VpNodeDefinitionRegistryService } from './vp-node-definition-registry.service';
+import { VpNodePaletteComponent } from './vp-node-palette.component';
+import { VpResourceOptionProvider } from './vp-resource-option-provider';
+import { VpAssistantPatchPreview } from './vp-assistant-api.service';
+import { VpWorkflowPatchPreviewComponent } from './vp-workflow-patch-preview.component';
 import {
   DatasetSummary,
   TrainingBaseModel,
@@ -33,21 +41,25 @@ import {
 @Component({
   standalone: true,
   selector: 'app-visual-process-editor',
-  imports: [FormsModule, VpStepInspectorComponent, VisualProcessCanvasComponent],
-  providers: [VpCanvasInteractionService, VpImportExportService, VpWorkflowRunnerService, VpEditorStateFacade],
+  imports: [FormsModule, VpStepInspectorComponent, VisualProcessCanvasComponent, VpNodePaletteComponent, VpAssistantBubbleComponent, VpWorkflowPatchPreviewComponent],
+  providers: [VpCanvasInteractionService, VpImportExportService, VpWorkflowRunnerService, VpEditorStateFacade, VpAssistantBridgeService, VpResourceOptionProvider],
   templateUrl: './visual-process-editor.component.html',
   styleUrls: ['./visual-process-editor.component.scss'],
 })
 export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChanges {
   @Input() graphId = '';
-  @Input() editorMode: 'embedded-edit'|'full-editor' = 'full-editor';
+  @Input() editorMode: 'compact-readonly'|'embedded-edit'|'full-editor' = 'full-editor';
   private api = inject(VisualProcessApiService);
   private interaction = inject(VpCanvasInteractionService);
   private importExport = inject(VpImportExportService);
   private workflowRunner = inject(VpWorkflowRunnerService);
   private editorState = inject(VpEditorStateFacade);
   private trainingOptions = inject(VpModelTrainingOptionsService);
+  private nodeRegistry = inject(VpNodeDefinitionRegistryService);
+  private resourceOptions = inject(VpResourceOptionProvider);
+  readonly assistant = inject(VpAssistantBridgeService);
   private subs = new Subscription();
+  private suppressNextAssistantSelection = false;
 
   @ViewChild('bpmnFileInput') bpmnFileInputRef!: ElementRef<HTMLInputElement>;
   readonly NODE_W = NODE_W;
@@ -60,6 +72,10 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   presets = signal<PresetSummary[]>([]);
   skillProfiles = signal<SkillProfile[]>([]);
   taskKindList = signal<TaskKindInfo[]>(FALLBACK_KINDS);
+  nodeDefinitions = signal(this.nodeRegistry.definitions(FALLBACK_KINDS));
+  registrySource = signal<'backend' | 'fallback' | 'degraded'>('fallback');
+  registryStatus = signal(`Offline-Fallback ${VP_NODE_REGISTRY_VERSION}`);
+  saveConflict = signal(false);
   savedGraphs = signal<SavedGraphSummary[]>([]);
   modelProfiles = signal<ModelProfileSummary[]>([]);
   fallbackGroups = signal<Record<string, FallbackGroupSummary>>({});
@@ -79,13 +95,47 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   workflowStatus = this.workflowRunner.workflowStatus;
   runtimeOverlay = this.workflowRunner.runtimeOverlay;
 
-  loadPresetMenu = false;
-  loadSavedMenu = false;
-  showGraphDetails = false;
+  private _loadPresetMenu = false;
+  private _loadSavedMenu = false;
+  private _showGraphDetails = false;
+  private _showNodePalette = false;
   mermaidTab: 'mermaid' | 'tui' = 'mermaid';
 
   private _showMermaidDialog = false;
-  constructor(){effect(()=>this.editorState.validation.set(this.workflowRunner.validationResult()));}
+  constructor() {
+    effect(() => this.editorState.validation.set(this.workflowRunner.validationResult()));
+    effect(() => {
+      this.dryRunResult();
+      this.assistant.patchPreview();
+      this.edgeMode();
+      this.drawingEdge();
+      this.syncAssistantPreviewSuppression();
+    });
+  }
+
+  get loadPresetMenu(): boolean { return this._loadPresetMenu; }
+  set loadPresetMenu(value: boolean) {
+    this._loadPresetMenu = value;
+    this.syncAssistantPreviewSuppression();
+  }
+
+  get loadSavedMenu(): boolean { return this._loadSavedMenu; }
+  set loadSavedMenu(value: boolean) {
+    this._loadSavedMenu = value;
+    this.syncAssistantPreviewSuppression();
+  }
+
+  get showGraphDetails(): boolean { return this._showGraphDetails; }
+  set showGraphDetails(value: boolean) {
+    this._showGraphDetails = value;
+    this.syncAssistantPreviewSuppression();
+  }
+
+  get showNodePalette(): boolean { return this._showNodePalette; }
+  set showNodePalette(value: boolean) {
+    this._showNodePalette = value;
+    this.syncAssistantPreviewSuppression();
+  }
 
   readonly drawingEdge = this.interaction.drawingEdge;
   selectedStep = computed<VpStep | null>(() => {
@@ -99,6 +149,14 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   });
 
   readonly canvasTransform = this.interaction.canvasTransform;
+  readonly canUndo = this.editorState.canUndo;
+  readonly canRedo = this.editorState.canRedo;
+  readonly undoLabel = this.editorState.undoLabel;
+  readonly redoLabel = this.editorState.redoLabel;
+  readonly applyInspectorMutation = (label: string, mutator: (graph: VpGraph) => void, coalesceKey?: string): void => {
+    if (this.editorMode === 'compact-readonly') return;
+    this.editorState.mutate(label, mutator, { coalesceKey });
+  };
 
   graphTagsStr = computed(() => this.graph().tags.join(', '));
 
@@ -150,20 +208,60 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
     return true;
   });
   ngOnInit(): void {
+    this.resourceOptions.register('skills', () => this.api.listSkillProfiles().pipe(map(items => items.map(item => ({ id: item.id, label: item.name, description: item.description })))));
+    this.resourceOptions.register('models', () => this.api.listModelProfiles().pipe(map(result => (result.profiles ?? []).map(item => ({ id: item.profile_id, label: `${item.profile_id} · ${item.provider_id}` })) )));
+    this.resourceOptions.register('fallback-groups', () => this.api.listModelProfiles().pipe(map(result => Object.keys(result.fallback_groups ?? {}).map(id => ({ id, label: id })))));
+    this.resourceOptions.register('processes', () => this.api.listSavedGraphs().pipe(map(items => items.map(item => ({ id: item.id, label: item.name, description: item.description })) )));
+    this.resourceOptions.register('training-datasets', () => this.trainingOptions.load().pipe(map(options => options.datasets.map(item => ({ id: item.id, label: item.name })) )));
+    this.resourceOptions.register('training-profiles', () => this.trainingOptions.load().pipe(map(options => options.trainingProfiles.map(item => ({ id: item.id, label: item.label || item.id })) )));
+    this.resourceOptions.register('training-base-models', () => this.trainingOptions.load().pipe(map(options => options.baseModels.map(item => ({ id: item.id, label: item.label || item.id })) )));
+    this.resourceOptions.setStatic('rag-channels', this.ragChannels.map(value => ({ id: value, label: value })));
+    this.resourceOptions.setStatic('encoding-modes', this.encodingModes.map(value => ({ id: value, label: value })));
     this.subs.add(this.api.listPresets().subscribe(p => this.presets.set(p)));
-    this.subs.add(this.api.listSkillProfiles().subscribe(p => this.skillProfiles.set(p)));
+    this.subs.add(this.api.listSkillProfiles().subscribe(p => {
+      this.skillProfiles.set(p);
+      this.resourceOptions.setStatic('skills', p.map(item => ({ id: item.id, label: item.name, description: item.description })));
+    }));
     this.subs.add(this.api.listTaskKinds().subscribe({
-      next: k => this.taskKindList.set(k),
+      next: k => {
+        this.taskKindList.set(k);
+      },
       error: () => { /* keep fallback */ },
     }));
+    this.subs.add(this.api.listNodeDefinitions().subscribe({
+      next: payload => {
+        const definitions = this.nodeRegistry.fromContract(payload);
+        const version = payload.registry_version
+          || [...new Set(payload.definitions.map(definition => definition.registry_version).filter(Boolean))][0]
+          || '';
+        if (!definitions.length || payload.schema !== 'ananta.visual_process.node_definition_registry.v1') {
+          this.useRegistryFallback('Hub-Registry ist leer oder inkompatibel; der generierte Offline-Vertrag bleibt aktiv.');
+          return;
+        }
+        this.nodeDefinitions.set(definitions);
+        if (version !== VP_NODE_REGISTRY_VERSION) {
+          this.registrySource.set('degraded');
+          this.registryStatus.set(`Hub-Version ${version || 'unbekannt'} weicht vom Build-Fallback ${VP_NODE_REGISTRY_VERSION} ab; Verträge werden nicht vermischt.`);
+        } else {
+          this.registrySource.set('backend');
+          this.registryStatus.set(`Hub-Registry ${version}${payload.registry_hash ? ` · ${payload.registry_hash.slice(0, 12)}` : ''}`);
+        }
+      },
+      error: () => this.useRegistryFallback('Hub-Registry nicht erreichbar; kompatibler generierter Offline-Vertrag aktiv.'),
+    }));
     this.subs.add(this.api.listSavedGraphs().subscribe({
-      next: g => this.savedGraphs.set(g),
+      next: g => {
+        this.savedGraphs.set(g);
+        this.resourceOptions.setStatic('processes', g.map(item => ({ id: item.id, label: item.name, description: item.description })));
+      },
       error: () => { /* ignore if backend not running */ },
     }));
     this.subs.add(this.api.listModelProfiles().subscribe({
       next: result => {
         this.modelProfiles.set(result.profiles ?? []);
         this.fallbackGroups.set(result.fallback_groups ?? {});
+        this.resourceOptions.setStatic('models', (result.profiles ?? []).map(item => ({ id: item.profile_id, label: `${item.profile_id} · ${item.provider_id}` })));
+        this.resourceOptions.setStatic('fallback-groups', Object.keys(result.fallback_groups ?? {}).map(id => ({ id, label: id })));
       },
       error: () => {
         this.modelProfiles.set([]);
@@ -174,6 +272,9 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
       this.trainingDatasets.set(options.datasets);
       this.trainingProfiles.set(options.trainingProfiles);
       this.trainingBaseModels.set(options.baseModels);
+      this.resourceOptions.setStatic('training-datasets', options.datasets.map(item => ({ id: item.id, label: item.name })));
+      this.resourceOptions.setStatic('training-profiles', options.trainingProfiles.map(item => ({ id: item.id, label: item.label || item.id })));
+      this.resourceOptions.setStatic('training-base-models', options.baseModels.map(item => ({ id: item.id, label: item.label || item.id })));
     }));
     if (this.graphId) this.loadSavedGraphById(this.graphId);
   }
@@ -189,13 +290,29 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   }
   @HostListener('document:keydown', ['$event'])
   onKey(e: KeyboardEvent): void {
-    if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
-    if (e.key === 'Delete' || e.key === 'Backspace') this.deleteSelected();
-    if (e.key === 'n' || e.key === 'N') this.addStep();
-    if (e.key === 'e' || e.key === 'E') this.toggleEdgeMode();
+    if (this.editorMode === 'compact-readonly') return;
+    const target = e.target as HTMLElement | null;
+    if (target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return;
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      if (e.shiftKey) this.redo(); else this.undo();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'y') {
+      e.preventDefault();
+      this.redo();
+      return;
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); this.deleteSelected(); }
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'n' || e.key === 'N')) {
+      e.preventDefault();
+      if (!this.showNodePalette) this.toggleNodePalette();
+    }
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'e' || e.key === 'E')) { e.preventDefault(); this.toggleEdgeMode(); }
     if (e.key === 'Escape') { this.edgeMode.set(false); this.edgeSourceId.set(null); this.drawingEdge.set(false); }
   }
   onCanvasMouseDown(e: MouseEvent): void {
+    if (e.altKey) this.onAssistantTargetPreview(null);
     this.interaction.onCanvasMouseDown(e, () => {
       this.selectedId.set(null);
       this.loadPresetMenu = false;
@@ -208,19 +325,32 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   }
   onCanvasNodeMouseDown(payload: { event: MouseEvent; stepId: string }): void { this.onNodeMouseDown(payload.event, payload.stepId); }
 
-  onMouseUp(e: MouseEvent): void { this.interaction.onMouseUp(e); }
+  onMouseUp(e: MouseEvent): void {
+    if (this.interaction.onMouseUp(e)) {
+      this.editorState.commitTransaction();
+      this.suppressNextAssistantSelection = true;
+      setTimeout(() => this.suppressNextAssistantSelection = false, 0);
+    }
+  }
 
-  onWheel(e: WheelEvent): void { this.interaction.onWheel(e); }
+  onWheel(e: WheelEvent): void {
+    this.onAssistantTargetPreview(null);
+    this.interaction.onWheel(e);
+  }
 
   onNodeMouseDown(e: MouseEvent, id: string): void {
     const step = this.graph().steps.find(candidate => candidate.id === id);
-    if (step) this.interaction.onNodeMouseDown(e, id, step, this.edgeMode());
+    if (!step) return;
+    this.onAssistantTargetPreview(null);
+    if (!this.edgeMode()) this.editorState.beginTransaction(`Node „${step.label}“ verschieben`);
+    if (!this.interaction.onNodeMouseDown(e, id, step, this.edgeMode())) this.editorState.cancelTransaction();
   }
 
   selectStep(id: string): void {
     if (this.edgeMode()) {
       const src = this.edgeSourceId();
       if (!src) {
+        this.onAssistantTargetPreview(null);
         this.edgeSourceId.set(id);
         this.drawingEdge.set(true);
         this.statusMsg.set('Klicke Zielknoten…');
@@ -240,39 +370,35 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
     if (this.edgeMode()) return;
     this.selectedId.set(id);
   }
-  addStep(): void {
+  addStep(kind = 'patch_propose'): void {
     const id = stepId();
-    const x = 60 + Math.random() * 300;
-    const y = 80 + Math.random() * 200;
-    const newStep: VpStep = {
-      id, label: 'Neuer Schritt', kind: 'patch_propose', role: '',
-      io: { inputs: [], outputs: [] },
-      position: { x, y }, policy_hints: [], gate: false, metadata: {},
-    };
-    this.graph.update(g => ({ ...g, steps: [...g.steps, newStep] }));
+    const definition = this.nodeDefinitions().find(item => item.kind === kind)
+      ?? this.nodeRegistry.find(kind, this.taskKindList());
+    const newStep = this.nodeRegistry.createStep(
+      definition,
+      id,
+      this.nodeRegistry.nextPosition(this.graph(), this.interaction.viewportAnchor()),
+    );
+    this.editorState.mutate(`Node „${definition.label}“ hinzufügen`, graph => { graph.steps.push(newStep); });
     this.selectedId.set(id);
-    this.validationResult.set(null);
-    this.isDirty.set(true);
+    this.showNodePalette = false;
+    this.onAssistantTargetSelected({ kind: 'node', entityId: id, graphId: this.graph().id, role: kind, stepId: id });
   }
 
   addEdge(source: string, target: string): void {
     const e: VpEdge = { id: edgeId(), source, target, condition: { kind: 'always' } };
-    this.graph.update(g => ({ ...g, edges: [...g.edges, e] }));
-    this.validationResult.set(null);
-    this.isDirty.set(true);
+    this.editorState.mutate('Kante hinzufügen', graph => { graph.edges.push(e); });
   }
 
   deleteSelected(): void {
     const id = this.selectedId();
     if (!id) return;
-    this.graph.update(g => ({
-      ...g,
-      steps: g.steps.filter(s => s.id !== id),
-      edges: g.edges.filter(e => e.id !== id && e.source !== id && e.target !== id),
+    this.editorState.execute('Auswahl löschen', graph => ({
+      ...graph,
+      steps: graph.steps.filter(step => step.id !== id),
+      edges: graph.edges.filter(edge => edge.id !== id && edge.source !== id && edge.target !== id),
     }));
     this.selectedId.set(null);
-    this.validationResult.set(null);
-    this.isDirty.set(true);
   }
 
   toggleEdgeMode(): void {
@@ -282,20 +408,22 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
     else this.statusMsg.set('Kante-Modus: klicke Quell-Knoten');
   }
 
+  toggleNodePalette(): void {
+    this.onAssistantTargetPreview(null);
+    this.showNodePalette = !this.showNodePalette;
+  }
+
   setGraphName(val: string): void {
-    this.graph.update(g => ({ ...g, name: val }));
-    this.isDirty.set(true);
+    this.editorState.mutate('Graphname ändern', graph => { graph.name = val; }, { coalesceKey: 'graph:name' });
   }
 
   setGraphDescription(val: string): void {
-    this.graph.update(g => ({ ...g, description: val }));
-    this.isDirty.set(true);
+    this.editorState.mutate('Graphbeschreibung ändern', graph => { graph.description = val; }, { coalesceKey: 'graph:description' });
   }
 
   setTags(val: string): void {
     const tags = val.split(',').map(t => t.trim()).filter(Boolean);
-    this.graph.update(g => ({ ...g, tags }));
-    this.isDirty.set(true);
+    this.editorState.mutate('Graph-Tags ändern', graph => { graph.tags = tags; }, { coalesceKey: 'graph:tags' });
   }
 
   graphRouting(): ModelRoutingConfig {
@@ -308,16 +436,14 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   }
 
   setGraphRoutingField(key: keyof ModelRoutingConfig, value: unknown): void {
-    this.graph.update(g => {
-      const metadata = { ...(g.metadata ?? {}) };
+    this.editorState.execute('Model-Routing ändern', graph => {
+      const metadata = { ...(graph.metadata ?? {}) };
       const routing = { ...((metadata['model_routing'] as ModelRoutingConfig | undefined) ?? {}) };
       if (value === '' || value === null || value === undefined) delete (routing as Record<string, unknown>)[key as string];
       else (routing as Record<string, unknown>)[key as string] = value;
       metadata['model_routing'] = routing;
-      return { ...g, metadata };
-    });
-    this.validationResult.set(null);
-    this.isDirty.set(true);
+      return { ...graph, metadata };
+    }, { coalesceKey: `graph:model-routing:${key}` });
   }
 
   validateModelRouting(): void {
@@ -337,12 +463,9 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
     this.loadPresetMenu = false;
     this.subs.add(this.api.getPreset(id).subscribe({
       next: g => {
-        this.graph.set(g);
-        this.selectedId.set(null);
-        this.validationResult.set(null);
-        this.isDirty.set(false);
+        this.editorState.initialize(g);
         this.statusMsg.set(`Preset "${g.name}" geladen`);
-        setTimeout(() => this.refreshPolicyHints(), 300);
+        setTimeout(() => this.refreshPolicyHints(true), 300);
       },
       error: () => this.statusMsg.set('Preset konnte nicht geladen werden'),
     }));
@@ -352,12 +475,10 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
     this.loadSavedMenu = false;
     this.subs.add(this.api.loadSavedGraph(id).subscribe({
       next: g => {
-        this.graph.set(g);
-        this.selectedId.set(null);
-        this.validationResult.set(null);
-        this.isDirty.set(false);
+        this.editorState.initialize(g);
+        this.saveConflict.set(false);
         this.statusMsg.set(`"${g.name}" geladen`);
-        setTimeout(() => this.refreshPolicyHints(), 300);
+        setTimeout(() => this.refreshPolicyHints(true), 300);
       },
       error: () => this.statusMsg.set('Graph konnte nicht geladen werden'),
     }));
@@ -366,18 +487,52 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   saveGraphToServer(): void {
     this.subs.add(this.api.saveGraph(this.graph()).subscribe({
       next: r => {
-        this.isDirty.set(false);
+        this.editorState.acceptSaveResult(r);
+        this.saveConflict.set(false);
         this.statusMsg.set(`Gespeichert ✓ (${this.graph().name})`);
         this.api.listSavedGraphs().subscribe(g => this.savedGraphs.set(g));
       },
-      error: () => this.statusMsg.set('Speichern fehlgeschlagen'),
+      error: error => {
+        this.saveConflict.set(error?.status === 409);
+        this.statusMsg.set(error?.status === 409
+          ? 'Speicherkonflikt: Der Hub-Graph ist neuer. Lokaler Draft und Undo/Redo bleiben erhalten.'
+          : 'Speichern fehlgeschlagen');
+      },
     }));
+  }
+
+  reloadAfterSaveConflict(): void {
+    const id = this.graph().id;
+    if (id) this.loadSavedGraphById(id);
+  }
+
+  forkAfterSaveConflict(): void {
+    if (!this.saveConflict()) return;
+    const uuid = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`;
+    this.editorState.execute('Konflikt-Draft als Kopie vorbereiten', graph => {
+      const fork = structuredClone(graph);
+      fork.id = `vp-fork-${uuid}`;
+      fork.name = `${graph.name} (Kopie)`;
+      fork.definition_revision = 0;
+      delete fork.base_graph_hash;
+      return fork;
+    });
+    this.saveConflict.set(false);
+    this.statusMsg.set('Lokaler Draft als neue Kopie vorbereitet; Änderungen und Undo bleiben erhalten.');
   }
 
   validateGraph(): void { this.workflowRunner.validate(this.graph()); }
   runDryRun(): void { this.workflowRunner.dryRun(this.graph()); }
   saveAsBlueprintFromDryRun(): void { this.workflowRunner.saveAsBlueprint(this.graph()); }
-  refreshPolicyHints(): void { this.workflowRunner.refreshPolicyHints(this.graph); }
+  refreshPolicyHints(preserveCleanBaseline = false): void {
+    const wasClean = !this.isDirty();
+    this.workflowRunner.refreshPolicyHints(this.graph(), perStep => {
+      this.editorState.mutate('Policy-Hinweise aktualisieren', graph => {
+        for (const step of graph.steps) step.policy_hints = perStep[step.id] ?? step.policy_hints;
+      }, { recordHistory: false });
+      if (preserveCleanBaseline && wasClean) this.editorState.markSaved();
+    });
+  }
   startWorkflow(): void { this.workflowRunner.start(this.graph); }
   cancelWorkflow(): void { this.workflowRunner.cancel(); }
   approveGate(): void { this.workflowRunner.signalGate('approve', this.gateStepId()); }
@@ -398,18 +553,17 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
     if (!file) return;
     this.subs.add(this.importExport.importBpmn(file).subscribe({
         next: result => {
-          this.graph.set(result.graph);
-          this.validationResult.set(result.validation);
-          this.isDirty.set(true);
+          this.editorState.replaceGraph(result.graph, { markDirty: true, validation: result.validation });
           const warns = result.warnings?.length ? ` (${result.warnings.join(', ')})` : '';
           this.statusMsg.set(`BPMN importiert: ${result.graph.steps.length} Schritte${warns}`);
-          setTimeout(() => this.refreshPolicyHints(), 300);
+          setTimeout(() => this.refreshPolicyHints(true), 300);
         },
         error: (err) => this.statusMsg.set(`BPMN-Import-Fehler: ${err?.error?.detail ?? 'ungültige Datei'}`),
       }));
     (event.target as HTMLInputElement).value = '';
   }
   openMermaid(): void {
+    this.onAssistantTargetPreview(null);
     this._showMermaidDialog = true;
     this.mermaidTab = 'mermaid';
     this.subs.add(this.importExport.mermaid(this.graph()).subscribe({
@@ -419,7 +573,10 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   }
 
   get showMermaidDialog(): boolean { return this._showMermaidDialog; }
-  set showMermaidDialog(val: boolean) { this._showMermaidDialog = val; }
+  set showMermaidDialog(val: boolean) {
+    this._showMermaidDialog = val;
+    this.syncAssistantPreviewSuppression();
+  }
 
   copyMermaid(): void {
     this.importExport.copyMermaid(this.mermaidText()).then(() => this.statusMsg.set('Mermaid kopiert ✓'));
@@ -430,8 +587,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   }
 
   autoLayout(): void {
-    this.graph.update(autoLayoutGraph);
-    this.isDirty.set(true);
+    this.editorState.execute('Auto-Layout anwenden', autoLayoutGraph);
     this.statusMsg.set('Auto-Layout angewendet');
   }
   formatDate(ts: number): string {
@@ -478,15 +634,110 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
     return this.graph().steps.find(s => s.id === id)?.label ?? id;
   }
 
+  undo(): void {
+    if (this.editorState.undo()) this.statusMsg.set(`Rückgängig${this.redoLabel() ? `: ${this.redoLabel()}` : ''}`);
+  }
+
+  redo(): void {
+    if (this.editorState.redo()) this.statusMsg.set(`Wiederholt${this.undoLabel() ? `: ${this.undoLabel()}` : ''}`);
+  }
+
+  onAssistantTargetPreview(target: CanvasHitTarget | null): void {
+    this.editorState.previewTarget(target);
+    this.assistant.preview(this.assistantOptions(target));
+  }
+
+  onAssistantTargetFocused(target: CanvasHitTarget): void {
+    this.editorState.focusTarget(target);
+    this.assistant.preview(this.assistantOptions(target));
+  }
+
+  onAssistantTargetSelected(target: CanvasHitTarget): void {
+    if (this.edgeMode() || this.suppressNextAssistantSelection) {
+      this.suppressNextAssistantSelection = false;
+      return;
+    }
+    this.editorState.focusTarget(target);
+    this.assistant.select(this.assistantOptions(target));
+  }
+
+  askAssistant(question: string): void {
+    this.editorState.freezeConversationTarget(this.assistant.target());
+    const target = this.editorState.conversationTarget();
+    if (target) void this.assistant.show({ ...this.assistantOptions(target), detailLevel: 'conversation' });
+    if (!this.assistant.ask(question)) this.statusMsg.set('Die Frage ist leer oder eine Assistant-Anfrage läuft bereits.');
+  }
+
+  previewAssistantPatch(): void { this.assistant.previewWorkflowPatch(this.graph()); }
+
+  refreshAssistantPatch(): void {
+    this.assistant.refreshWorkflowPatch(
+      () => this.graph(),
+      this.validationResult()?.issues ?? [],
+      this.runtimeOverlay(),
+    );
+  }
+
+  acceptAssistantPatch(): void {
+    this.assistant.acceptWorkflowPatch(() => this.graph(), preview => this.applyAssistantPatch(preview));
+  }
+
+  private applyAssistantPatch(preview: VpAssistantPatchPreview): boolean {
+    if (this.editorMode === 'compact-readonly') return false;
+    const current = this.graph();
+    const candidate: VpGraph = {
+      ...structuredClone(preview.preview_graph),
+      version: current.version,
+      graph_schema_version: current.graph_schema_version,
+      node_registry_version: current.node_registry_version,
+      definition_revision: current.definition_revision,
+      base_graph_hash: current.base_graph_hash,
+    };
+    const applied = this.editorState.execute('Freigegebenen AI-Patch übernehmen', () => candidate);
+    if (applied) this.editorState.validation.set(preview.validation);
+    return applied;
+  }
+
+  private assistantOptions(target: CanvasHitTarget | null) {
+    const step = target?.stepId ? this.graph().steps.find(item => item.id === target.stepId) : null;
+    const definitionKind = target?.kind === 'palette_item' ? target.entityId : step?.kind;
+    const definition = definitionKind
+      ? this.nodeDefinitions().find(item => item.kind === definitionKind) ?? null
+      : null;
+    return {
+      graph: this.graph(),
+      target,
+      definition,
+      validationIssues: this.validationResult()?.issues ?? [],
+      runtime: this.runtimeOverlay(),
+      editorMode: this.editorMode,
+    };
+  }
+
+  private syncAssistantPreviewSuppression(): void {
+    this.assistant.setPreviewSuppressed(
+      this._loadPresetMenu
+      || this._loadSavedMenu
+      || this._showGraphDetails
+      || this._showNodePalette
+      || this._showMermaidDialog
+      || !!this.dryRunResult()
+      || !!this.assistant.patchPreview()
+      || this.edgeMode()
+      || this.drawingEdge(),
+    );
+  }
+
+  private useRegistryFallback(message: string): void {
+    this.nodeDefinitions.set(this.nodeRegistry.definitions(FALLBACK_KINDS));
+    this.registrySource.set('degraded');
+    this.registryStatus.set(message);
+  }
+
   private mutateStep(id: string, fn: (s: VpStep) => void): void {
-    this.graph.update(g => ({
-      ...g,
-      steps: g.steps.map(s => {
-        if (s.id !== id) return s;
-        const copy = JSON.parse(JSON.stringify(s)) as VpStep;
-        fn(copy);
-        return copy;
-      }),
-    }));
+    this.editorState.mutate('Node verschieben', graph => {
+      const step = graph.steps.find(item => item.id === id);
+      if (step) fn(step);
+    }, { recordHistory: false });
   }
 }

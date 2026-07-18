@@ -398,6 +398,32 @@ def test_legacy_dataset_path_is_imported_but_never_forwarded_to_job(tmp_path) ->
     assert any("output_dir" in warning for warning in result.warnings)
 
 
+def test_legacy_dataset_path_cannot_materialize_a_live_training_job(tmp_path) -> None:
+    control = _ControlStub({"job_id": "must-not-exist", "status": "queued"})
+    importer = _LegacyImporterStub("dataset-quarantined")
+    adapter = MlInternTrainLoraAdapter(
+        control_factory=lambda _config: control,
+        legacy_dataset_import_factory=lambda _config: importer,
+    )
+
+    result = adapter.execute(
+        _step(
+            dataset_path="legacy/train.jsonl",
+            training_profile_id="generic-safe",
+            base_model="local-model",
+            mode="live",
+            output_name="legacy-live",
+        ),
+        artifacts={"approval_id": "approval-1", "live_confirmed": True},
+        context=_context(tmp_path),
+    )
+
+    assert result.status == "failed"
+    assert result.diagnostics["reason_code"] == "legacy_dataset_live_training_forbidden"
+    assert importer.calls == []
+    assert control.calls == []
+
+
 @pytest.mark.parametrize("value", ["../outside.jsonl", "/absolute/train.jsonl", "nested\\train.jsonl"])
 def test_legacy_dataset_path_rejects_escape_and_platform_ambiguity(tmp_path, value: str) -> None:
     importer = MlInternLegacyDatasetImportAdapter(

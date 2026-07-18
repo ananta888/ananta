@@ -65,6 +65,7 @@ from agent.routes.teams import teams_bp
 from agent.routes.terminal import terminal_bp
 from agent.routes.text_quality import text_quality_bp
 from agent.routes.visual_process import vp_bp
+from agent.routes.visual_process_assistant import visual_process_assistant_bp
 from agent.routes.voice import voice_bp
 from agent.routes.voice_configuration import voice_configuration_bp
 from agent.routes.voice_governance import voice_governance_bp
@@ -156,6 +157,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(diff3_bp)
     app.register_blueprint(snapshot_diff_bp)
     app.register_blueprint(vp_bp)
+    app.register_blueprint(visual_process_assistant_bp)
     app.register_blueprint(det_run_bp)
     app.register_blueprint(wiki_graph_bp)
     app.register_blueprint(run_control_bp)

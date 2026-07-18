@@ -1,0 +1,196 @@
+{
+  "$defs": {
+    "WorkflowPatchOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "edge_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Edge Id"
+        },
+        "evidence_refs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "expected_old_value": {
+          "default": null,
+          "title": "Expected Old Value"
+        },
+        "op": {
+          "enum": [
+            "add_step",
+            "remove_step",
+            "update_step_field",
+            "add_edge",
+            "remove_edge",
+            "update_edge_condition"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "operation_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "step_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Step Id"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "temp_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temp Id"
+        },
+        "value": {
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "operation_id",
+        "op"
+      ],
+      "title": "WorkflowPatchOperation",
+      "type": "object"
+    }
+  },
+  "$id": "https://ananta.local/schemas/visual_process/workflow_patch.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "base_graph_hash": {
+      "title": "Base Graph Hash",
+      "type": "string"
+    },
+    "contract_version": {
+      "const": "ananta.visual_process.workflow_patch.v1",
+      "default": "ananta.visual_process.workflow_patch.v1",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "definition_revision": {
+      "minimum": 0,
+      "title": "Definition Revision",
+      "type": "integer"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "extensions": {
+      "additionalProperties": true,
+      "title": "Extensions",
+      "type": "object"
+    },
+    "graph_id": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Graph Id",
+      "type": "string"
+    },
+    "operations": {
+      "items": {
+        "$ref": "#/$defs/WorkflowPatchOperation"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "title": "Operations",
+      "type": "array"
+    }
+  },
+  "required": [
+    "graph_id",
+    "definition_revision",
+    "base_graph_hash",
+    "operations"
+  ],
+  "title": "WorkflowPatch",
+  "type": "object"
+}

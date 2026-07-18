@@ -29,6 +29,12 @@ def test_mermaid_golden_diagrams_emit_nodes_edges_and_positions(
     assert stats["node_count"] == expected_nodes
     assert stats["edge_count"] == expected_edges
     assert all(record.get("line", 1) >= 1 for record in details)
+    assert all(
+        record["trust_level"] == "inferred"
+        and record["verification_status"] == "unverified"
+        for record in details
+        if record.get("kind") != "diagnostic"
+    )
     assert all(relation["target_resolved"] for relation in relations if relation["relation"] == "diagram_edge")
 
 
@@ -113,6 +119,12 @@ def test_drawio_decodes_bounded_compressed_pages_and_resolves_edges() -> None:
     edge = next(item for item in relations if item["relation"] == "diagram_edge")
     assert edge["label"] == "SQL"
     assert edge["resolution_status"] == "resolved"
+    assert edge["verification_status"] == "verified"
+    assert all(
+        item["verification_status"] == "verified"
+        for item in details
+        if item["kind"] in {"drawio_page", "drawio_node"}
+    )
 
 
 def test_drawio_invalid_compressed_content_reports_failure_instead_of_fake_success() -> None:
@@ -124,6 +136,91 @@ def test_drawio_invalid_compressed_content_reports_failure_instead_of_fake_succe
     assert stats["node_count"] == 0
     assert relations == []
     assert any(item.get("code") == "drawio_page_decode_failed" for item in details)
+
+
+def test_drawio_encrypted_and_decoded_budget_exceeded_have_stable_reason_codes() -> None:
+    _, encrypted_details, encrypted_relations, encrypted_stats = DrawioExtractor().parse(
+        "architecture/encrypted.drawio",
+        '<mxfile encrypted="true"><diagram name="Encrypted">opaque</diagram></mxfile>',
+    )
+    assert encrypted_relations == []
+    assert encrypted_stats["failed_page_count"] == 1
+    assert any(
+        item.get("code") == "drawio_encrypted_content_unsupported"
+        for item in encrypted_details
+    )
+
+    oversized_inner = (
+        "<mxGraphModel><root><mxCell id=\"0\"/>"
+        f'<mxCell id="large" value="{"x" * 4_096}" vertex="1"/>'
+        "</root></mxGraphModel>"
+    )
+    payload = _compressed_drawio_page(oversized_inner)
+    _, budget_details, budget_relations, budget_stats = DrawioExtractor(
+        max_decoded_page_size_kb=1
+    ).parse(
+        "architecture/oversized.drawio",
+        f'<mxfile><diagram name="Oversized">{payload}</diagram></mxfile>',
+    )
+    assert budget_relations == []
+    assert budget_stats["failed_page_count"] == 1
+    assert any(
+        item.get("code") == "drawio_decoded_page_budget_exceeded"
+        for item in budget_details
+    )
+
+
+def test_diagram_hidden_unicode_is_rejected_before_structural_inference() -> None:
+    index, details, relations, stats = DiagramExtractor().parse(
+        "architecture/hidden.mmd",
+        "flowchart TD\nA[Visible]\u202e --> B[Hidden]\n",
+    )
+    assert index[0]["parser_mode"] == "static_diagram_lexer_rejected"
+    assert relations == []
+    assert stats["node_count"] == 0
+    assert details[0]["code"] == "diagram_hidden_unicode_forbidden"
+    assert details[0]["severity"] == "security"
+
+
+@pytest.mark.parametrize(
+    ("rel_path", "source", "reason_code"),
+    [
+        ("architecture/malformed.mmd", "A[Guessed] --> B[Guessed]\n", "mermaid_unknown_diagram_declaration"),
+        ("architecture/malformed.puml", "component API\nAPI --> DB\n", "plantuml_boundary_missing"),
+    ],
+)
+def test_malformed_text_diagrams_do_not_publish_guessed_graph_records(
+    rel_path: str,
+    source: str,
+    reason_code: str,
+) -> None:
+    index, details, relations, stats = DiagramExtractor().parse(rel_path, source)
+    assert index[0]["summary"]["node_count"] == 0
+    assert stats["edge_count"] == 0
+    assert relations == []
+    assert [record.get("code") for record in details] == [reason_code]
+
+
+def test_plantuml_sequence_participants_and_message_are_deterministic() -> None:
+    index, details, relations, stats = DiagramExtractor().parse(
+        "architecture/login.puml",
+        (
+            "@startuml\n"
+            "participant Browser\n"
+            "participant API\n"
+            "Browser -> API : login\n"
+            "@enduml\n"
+        ),
+    )
+    assert index[0]["summary"]["node_count"] == 2
+    assert {record["name"] for record in details if record["kind"] == "plantuml_node"} == {
+        "Browser",
+        "API",
+    }
+    edge = next(record for record in relations if record["relation"] == "diagram_edge")
+    assert edge["label"] == "login"
+    assert edge["resolution_status"] == "resolved"
+    assert stats["edge_count"] == 1
 
 
 def test_drawio_reuses_fail_closed_xml_policy_for_dtd_and_entities() -> None:

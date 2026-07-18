@@ -1,24 +1,28 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 from pathlib import Path
 
 from flask import Blueprint, current_app, g, request, send_file
 
-from agent.auth import check_auth
+from agent.auth import check_auth, check_service_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
 from agent.models import ArtifactRagIndexRequest, ArtifactUploadRequest
 from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.execution_audit_service import get_execution_audit_service
 from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.mutation_gate_service import get_mutation_gate_service
-from agent.services.retrieval_orchestration_contract import build_retrieval_orchestration_contract
-from agent.services.repository_registry import get_repository_registry
-from agent.services.retrieval_service import get_retrieval_service
 from agent.services.remote_federation_policy_service import get_remote_federation_policy_service
+from agent.services.repository_registry import get_repository_registry
+from agent.services.retrieval_orchestration_contract import build_retrieval_orchestration_contract
+from agent.services.retrieval_service import get_retrieval_service
 from agent.services.service_registry import get_core_services
+from agent.services.workflow_worker_service_auth import KNOWLEDGE_INDEX_PAYLOAD_SCOPE
 
 artifacts_bp = Blueprint("artifacts", __name__)
+_KNOWLEDGE_INDEX_PAYLOAD_MEDIA_TYPE = "application/vnd.ananta.knowledge-index-job+json"
+_KNOWLEDGE_INDEX_PAYLOAD_MAX_BYTES = 128 * 1024 * 1024
 
 
 def get_ingestion_service():
@@ -422,6 +426,44 @@ def get_artifact_content(artifact_id: str):
         as_attachment=True,
         download_name=latest.original_filename or "artifact.bin",
     )
+
+
+@artifacts_bp.route(
+    "/internal/knowledge-index/payload-artifacts/<artifact_id>",
+    methods=["GET"],
+)
+@check_service_auth(scope=KNOWLEDGE_INDEX_PAYLOAD_SCOPE)
+def get_knowledge_index_payload_artifact(artifact_id: str):
+    """Serve only bounded system payloads to an identity-bound index worker."""
+
+    artifact = _artifact_repo().get_by_id(artifact_id)
+    metadata = dict(getattr(artifact, "artifact_metadata", None) or {}) if artifact else {}
+    if artifact is None or metadata.get("system_artifact_kind") != "knowledge_index_job_payload":
+        raise NotFoundError()
+    latest_version_id = str(getattr(artifact, "latest_version_id", None) or "").strip()
+    latest = _artifact_version_repo().get_by_id(latest_version_id) if latest_version_id else None
+    if latest is None or str(latest.media_type or "").lower() != _KNOWLEDGE_INDEX_PAYLOAD_MEDIA_TYPE:
+        raise NotFoundError("knowledge_index_payload_not_found")
+    size_bytes = int(latest.size_bytes or 0)
+    if size_bytes < 0 or size_bytes > _KNOWLEDGE_INDEX_PAYLOAD_MAX_BYTES:
+        raise NotFoundError("knowledge_index_payload_size_invalid")
+    storage_path = Path(str(latest.storage_path or ""))
+    try:
+        content = storage_path.read_bytes()
+    except OSError as exc:
+        raise NotFoundError("knowledge_index_payload_not_found") from exc
+    digest = hashlib.sha256(content).hexdigest()
+    if len(content) != size_bytes or digest != str(latest.sha256 or "").lower():
+        raise NotFoundError("knowledge_index_payload_integrity_invalid")
+    response = send_file(
+        str(storage_path),
+        mimetype=_KNOWLEDGE_INDEX_PAYLOAD_MEDIA_TYPE,
+        as_attachment=True,
+        download_name=latest.original_filename or "knowledge-index-payload.json",
+    )
+    response.headers["X-Artifact-SHA256"] = digest
+    response.headers["X-Artifact-Size"] = str(size_bytes)
+    return response
 
 
 @artifacts_bp.route("/artifacts/<artifact_id>/rag-preview", methods=["GET"])

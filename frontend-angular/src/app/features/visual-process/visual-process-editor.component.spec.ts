@@ -11,6 +11,8 @@ import { FALLBACK_KINDS, nodeKindColor } from './vp-editor-config';
 import { VpImportExportService } from './vp-import-export.service';
 import { VpWorkflowRunnerService } from './vp-workflow-runner.service';
 import { VpModelTrainingOptionsService } from './vp-model-training-options.service';
+import { VP_NODE_REGISTRY_VERSION } from './vp-node-definition-registry.service';
+import { GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS } from './vp-node-definitions.generated';
 
 beforeAll(async () => {
   await ɵresolveComponentResources(resource =>
@@ -41,8 +43,11 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
     listPresets: ReturnType<typeof vi.fn>;
     listSkillProfiles: ReturnType<typeof vi.fn>;
     listTaskKinds: ReturnType<typeof vi.fn>;
+    listNodeDefinitions: ReturnType<typeof vi.fn>;
     listSavedGraphs: ReturnType<typeof vi.fn>;
     listModelProfiles: ReturnType<typeof vi.fn>;
+    saveGraph: ReturnType<typeof vi.fn>;
+    loadSavedGraph: ReturnType<typeof vi.fn>;
     validate: ReturnType<typeof vi.fn>;
     dryRun: ReturnType<typeof vi.fn>;
   };
@@ -52,8 +57,11 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
       listPresets: vi.fn().mockReturnValue(of([])),
       listSkillProfiles: vi.fn().mockReturnValue(of([])),
       listTaskKinds: vi.fn().mockReturnValue(of([])),
+      listNodeDefinitions: vi.fn().mockReturnValue(of({ schema: 'ananta.visual_process.node_definition_registry.v1', definitions: [] })),
       listSavedGraphs: vi.fn().mockReturnValue(of([])),
       listModelProfiles: vi.fn().mockReturnValue(of({ profiles: [], fallback_groups: {}, status: 'ok' })),
+      saveGraph: vi.fn().mockReturnValue(of({ id: 'g', version: '1', definition_revision: 1, base_graph_hash: 'a'.repeat(64), saved: true })),
+      loadSavedGraph: vi.fn().mockReturnValue(of(emptyGraph())),
       validate: vi.fn().mockReturnValue(of({ valid: true, error_count: 0, warning_count: 0, issues: [] })),
       dryRun: vi.fn().mockReturnValue(of({} as any)),
     };
@@ -84,12 +92,76 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
     expect(Array.isArray(graph.edges)).toBe(true);
   });
 
+  it('isolates editor commands and Assistant context across parallel instances', () => {
+    const first = TestBed.createComponent(VisualProcessEditorComponent);
+    const second = TestBed.createComponent(VisualProcessEditorComponent);
+    first.detectChanges(); second.detectChanges();
+    expect(first.componentInstance.assistant).not.toBe(second.componentInstance.assistant);
+    first.componentInstance.addStep('review');
+    first.componentInstance.assistant.target.set({
+      kind: 'node', graphId: first.componentInstance.graph().id, entityId: 'first-only', stepId: 'first-only', role: 'review',
+    });
+    expect(first.componentInstance.graph().steps).toHaveLength(1);
+    expect(second.componentInstance.graph().steps).toHaveLength(0);
+    expect(second.componentInstance.assistant.target()).toBeNull();
+  });
+
+  it('centrally suppresses pending Assistant hover for panels, palettes and dialogs', () => {
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const suppression = vi.spyOn(component.assistant, 'setPreviewSuppressed');
+
+    component.showGraphDetails = true;
+    component.showGraphDetails = false;
+    component.showNodePalette = true;
+    component.showNodePalette = false;
+    component.showMermaidDialog = true;
+
+    expect(suppression).toHaveBeenCalledWith(true);
+    expect(suppression).toHaveBeenCalledWith(false);
+    expect(suppression).toHaveBeenLastCalledWith(true);
+  });
+
   it('loads presets, skill profiles, task kinds and saved graphs on init', () => {
     TestBed.createComponent(VisualProcessEditorComponent).detectChanges();
     expect(api.listPresets).toHaveBeenCalledTimes(1);
     expect(api.listSkillProfiles).toHaveBeenCalledTimes(1);
     expect(api.listTaskKinds).toHaveBeenCalledTimes(1);
+    expect(api.listNodeDefinitions).toHaveBeenCalledTimes(1);
     expect(api.listSavedGraphs).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses a matching Hub registry without mixing it with fallback definitions', () => {
+    const hubDefinition = GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS[0];
+    api.listNodeDefinitions.mockReturnValueOnce(of({
+      schema: 'ananta.visual_process.node_definition_registry.v1', registry_version: VP_NODE_REGISTRY_VERSION,
+      registry_hash: 'a'.repeat(64), definitions: [hubDefinition],
+    }));
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.registrySource()).toBe('backend');
+    expect(fixture.componentInstance.nodeDefinitions().map(definition => definition.kind)).toEqual([hubDefinition.kind]);
+  });
+
+  it('explains registry version drift and network fallback as degraded states', () => {
+    const hubDefinition = GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS[0];
+    api.listNodeDefinitions.mockReturnValueOnce(of({
+      schema: 'ananta.visual_process.node_definition_registry.v1', registry_version: 'future-registry',
+      registry_hash: 'b'.repeat(64), definitions: [hubDefinition],
+    }));
+    const drift = TestBed.createComponent(VisualProcessEditorComponent);
+    drift.detectChanges();
+    expect(drift.componentInstance.registrySource()).toBe('degraded');
+    expect(drift.componentInstance.registryStatus()).toContain('Verträge werden nicht vermischt');
+    expect(drift.componentInstance.nodeDefinitions()).toHaveLength(1);
+
+    api.listNodeDefinitions.mockReturnValueOnce(throwError(() => new Error('offline')));
+    const offline = TestBed.createComponent(VisualProcessEditorComponent);
+    offline.detectChanges();
+    expect(offline.componentInstance.registrySource()).toBe('degraded');
+    expect(offline.componentInstance.registryStatus()).toContain('Offline-Vertrag');
+    expect(offline.componentInstance.nodeDefinitions()).toHaveLength(FALLBACK_KINDS.length);
   });
 
   it('adds a new step via addStep and updates the graph signal', () => {
@@ -156,5 +228,80 @@ it('routes validation calls through VpWorkflowRunnerService, not directly to api
     const html = fixture.nativeElement as HTMLElement;
     const svg = html.querySelector('svg');
     expect(svg).not.toBeNull();
+  });
+
+  it('applies an approved patch as one undoable command while retaining the persisted revision identity', () => {
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const before = { ...component.graph(), definition_revision: 7, base_graph_hash: 'a'.repeat(64) };
+    (component as unknown as { editorState: { initialize: (graph: VpGraph) => void } }).editorState.initialize(before);
+    const previewGraph = { ...before, steps: [step('approved-step')], base_graph_hash: 'b'.repeat(64) };
+    const applied = (component as unknown as { applyAssistantPatch: (preview: unknown) => boolean }).applyAssistantPatch({
+      patch_hash: 'patch', base_graph_hash: before.base_graph_hash, preview_graph_hash: 'b'.repeat(64), preview_graph: previewGraph,
+      validation: { valid: true, error_count: 0, warning_count: 0, issues: [] }, operation_count: 1,
+      audit_id: 'audit', decision: 'accepted',
+    });
+
+    expect(applied).toBe(true);
+    expect(component.graph().steps.map(item => item.id)).toEqual(['approved-step']);
+    expect(component.graph().definition_revision).toBe(7);
+    expect(component.graph().base_graph_hash).toBe('a'.repeat(64));
+    expect(component.isDirty()).toBe(true);
+    expect(component.canUndo()).toBe(true);
+    component.undo();
+    expect(component.graph().steps).toEqual([]);
+    expect(component.graph().definition_revision).toBe(7);
+  });
+
+  it('keeps compact read-only mode free of editor and patch mutations', () => {
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.componentInstance.editorMode = 'compact-readonly';
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.vpe-toolbar')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.vpe-canvas-wrap')?.classList.contains('readonly')).toBe(true);
+    const component = fixture.componentInstance;
+    const applied = (component as unknown as { applyAssistantPatch: (preview: unknown) => boolean }).applyAssistantPatch({});
+    expect(applied).toBe(false);
+    expect(component.isDirty()).toBe(false);
+  });
+
+  it('preserves draft, history and dirty state on 409 and offers reload or an undoable fork', () => {
+    api.saveGraph.mockReturnValueOnce(throwError(() => ({ status: 409 })));
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const state = (component as unknown as { editorState: {
+      initialize: (graph: VpGraph) => void;
+      mutate: (label: string, mutation: (graph: VpGraph) => void) => void;
+    } }).editorState;
+    state.initialize({ ...emptyGraph(), id: 'hub-graph', name: 'Hub Graph', definition_revision: 2, base_graph_hash: 'b'.repeat(64) });
+    state.mutate('local edit', draft => { draft.name = 'Lokaler Draft'; });
+    component.saveGraphToServer();
+    fixture.detectChanges();
+
+    expect(component.graph().name).toBe('Lokaler Draft');
+    expect(component.graph().definition_revision).toBe(2);
+    expect(component.isDirty()).toBe(true);
+    expect(component.canUndo()).toBe(true);
+    expect(component.saveConflict()).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Hub-Version neu laden');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Lokalen Draft als Kopie behalten');
+
+    component.undo();
+    expect(component.graph().name).toBe('Hub Graph');
+    expect(component.canRedo()).toBe(true);
+    expect(component.saveConflict()).toBe(true);
+    component.redo();
+    expect(component.graph().name).toBe('Lokaler Draft');
+    expect(component.isDirty()).toBe(true);
+    expect(component.canUndo()).toBe(true);
+
+    component.forkAfterSaveConflict();
+    expect(component.graph().id).toMatch(/^vp-fork-/);
+    expect(component.graph().definition_revision).toBe(0);
+    expect(component.graph().base_graph_hash).toBeUndefined();
+    expect(component.isDirty()).toBe(true);
+    expect(component.canUndo()).toBe(true);
   });
 });

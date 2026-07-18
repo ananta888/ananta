@@ -88,7 +88,21 @@ def load_graph(
                 row.graph_json = json.dumps(graph)
                 db.add(row)
                 db.commit()
-        return graph
+        definition = VisualProcessGraph.model_validate(graph).model_copy(
+            update={
+                "definition_revision": int(row.definition_revision or 1),
+                "base_graph_hash": str(row.base_graph_hash or ""),
+                "graph_schema_version": str(row.graph_schema_version or "1"),
+                "node_registry_version": str(row.node_registry_version or "1"),
+            }
+        )
+        base_hash = definition.base_graph_hash or definition.definition_hash()
+        payload = definition.definition_payload(public=False)
+        payload["definition_revision"] = definition.definition_revision
+        payload["base_graph_hash"] = base_hash
+        if definition.runtime_overlay:
+            payload["runtime_overlay"] = copy.deepcopy(definition.runtime_overlay)
+        return payload
 
 
 def resolve_effective_process(
@@ -123,7 +137,7 @@ def resolve_effective_process(
 
 
 def graph_snapshot_hash(graph: dict[str, Any]) -> str:
-    return hashlib.sha256(json.dumps(graph, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return VisualProcessGraph.model_validate(graph).definition_hash()
 
 
 def start_session_process(
@@ -138,7 +152,10 @@ def start_session_process(
     validation = VisualProcessValidator().validate(definition)
     if not validation.valid:
         raise ValueError("invalid_process_definition")
-    snapshot_hash = graph_snapshot_hash(graph)
+    graph_snapshot = definition.definition_payload(public=True)
+    graph_snapshot["definition_revision"] = definition.definition_revision
+    graph_snapshot["base_graph_hash"] = definition.base_graph_hash or definition.definition_hash()
+    snapshot_hash = graph_snapshot_hash(graph_snapshot)
     request = graph_to_workflow_request(
         definition,
         workflow_type="chat_session_process",
@@ -164,7 +181,7 @@ def start_session_process(
         "process_id": definition.id,
         "process_version": definition.version,
         "snapshot_hash": snapshot_hash,
-        "graph_snapshot": copy.deepcopy(graph),
+        "graph_snapshot": copy.deepcopy(graph_snapshot),
         "status": status.get("status"),
         "message_id": message_id,
         "control_principal": {
@@ -342,12 +359,34 @@ def bind_graph_owner(
 
 
 def public_graph(graph: dict[str, Any]) -> dict[str, Any]:
-    """Strip server-side owner metadata from the established graph contract."""
+    """Strip server-only ownership and quarantine legacy inline credentials.
+
+    Old rows are deliberately not rewritten during a read.  Their credential
+    values remain inaccessible to clients and execution; saving the returned
+    graph removes the legacy field unless a user explicitly adds an opaque
+    ``*_secret_ref`` through the validated editor contract.
+    """
 
     result = copy.deepcopy(graph)
     metadata = dict(result.get("metadata") or {})
     metadata.pop("owner_principal", None)
     result["metadata"] = metadata
+    quarantined_paths: list[str] = []
+    for step_index, step in enumerate(result.get("steps") or []):
+        if not isinstance(step, dict):
+            continue
+        step_metadata = step.get("metadata")
+        if not isinstance(step_metadata, dict) or "api_key" not in step_metadata:
+            continue
+        step_metadata.pop("api_key", None)
+        quarantined_paths.append(f"/steps/{step_index}/metadata/api_key")
+        step["metadata"] = step_metadata
+    if quarantined_paths:
+        result["security_quarantine"] = {
+            "reason_code": "legacy_inline_secret_quarantined",
+            "field_paths": quarantined_paths,
+            "migration": "remove legacy value and explicitly set an opaque *_secret_ref",
+        }
     nested_graph = result.get("graph")
     if isinstance(nested_graph, dict):
         result["graph"] = public_graph(nested_graph)

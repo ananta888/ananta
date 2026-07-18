@@ -3,7 +3,11 @@ import { of } from 'rxjs';
 import { vi } from 'vitest';
 
 import { AgentDirectoryService } from './agent-directory.service';
-import { ChatSessionsService, ReorganizeProposal } from './chat-sessions.service';
+import {
+  ChatSessionsService,
+  normalizeEffectiveChatProcessSource,
+  ReorganizeProposal,
+} from './chat-sessions.service';
 import { HubApiCoreService } from './hub-api-core.service';
 
 describe('ChatSessionsService organization workflow', () => {
@@ -74,5 +78,15 @@ describe('ChatSessionsService organization workflow', () => {
     expect(core.post).toHaveBeenCalledWith(
       'http://hub/api/chat/organization/history/revision-1/revert', {}, 'http://hub',
     );
+  });
+});
+
+describe('effective process source compatibility', () => {
+  it('maps legacy values onto the shared backend enum', () => {
+    expect(normalizeEffectiveChatProcessSource('session')).toBe('session_override');
+    expect(normalizeEffectiveChatProcessSource('session_override')).toBe('session_override');
+    expect(normalizeEffectiveChatProcessSource('profile')).toBe('profile');
+    expect(normalizeEffectiveChatProcessSource('none')).toBe('global');
+    expect(normalizeEffectiveChatProcessSource('unexpected')).toBe('global');
   });
 });

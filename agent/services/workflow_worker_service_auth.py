@@ -26,6 +26,7 @@ RUNTIME_SERVICE_KEYRING_SCHEMA = "ananta.workflow-runtime-service-keyring.v1"
 WORKFLOW_WORKER_COMMAND_SCOPE = "workflow.worker.commands"
 WORKFLOW_LANGGRAPH_CHECKPOINT_SCOPE = "workflow.langgraph.checkpoints"
 WORKFLOW_TEMPORAL_TASK_SCOPE = "workflow.temporal.tasks"
+KNOWLEDGE_INDEX_PAYLOAD_SCOPE = "knowledge.index.payloads"
 
 _STRICT_ENV = "ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH"
 _KEYRING_FILE_ENV = "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE"
@@ -41,6 +42,7 @@ _SCOPE_CAPABILITIES = {
     WORKFLOW_TEMPORAL_TASK_SCOPE: frozenset(
         {"workflow.adapter.temporal", "workflow.runtime.temporal"}
     ),
+    KNOWLEDGE_INDEX_PAYLOAD_SCOPE: frozenset({"retrieval", "index_write"}),
 }
 _RUNTIME_SERVICE_SCOPES = frozenset({WORKFLOW_TEMPORAL_TASK_SCOPE})
 
@@ -925,6 +927,7 @@ __all__ = [
     "WORKER_REGISTRATION_KEYRING_SCHEMA",
     "WORKER_URL_HEADER",
     "WORKFLOW_LANGGRAPH_CHECKPOINT_SCOPE",
+    "KNOWLEDGE_INDEX_PAYLOAD_SCOPE",
     "WORKFLOW_TEMPORAL_TASK_SCOPE",
     "WORKFLOW_WORKER_COMMAND_SCOPE",
     "WorkflowWorkerAuthConfigurationError",

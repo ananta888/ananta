@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/visual_process/node_definition.v1.json",
+  "title": "Ananta Visual Process NodeDefinition v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version", "registry_version", "kind", "label", "category",
+    "purpose", "runtime", "execution", "inputs", "outputs", "fields",
+    "defaults", "help_text", "examples", "capabilities"
+  ],
+  "properties": {
+    "contract_version": {"const": "ananta.visual_process.node_definition.v1"},
+    "registry_version": {"type": "string", "minLength": 1},
+    "kind": {"type": "string", "minLength": 1},
+    "label": {"type": "string", "minLength": 1},
+    "category": {"type": "string", "minLength": 1},
+    "purpose": {"type": "string"},
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["implementation_status", "implementation_state", "backend_service", "deterministic", "uses_llm", "uses_network", "side_effects", "risk_level", "legacy_aliases", "requires_approval", "dispatch_capable"],
+      "properties": {
+        "implementation_status": {"type": "string"},
+        "implementation_state": {"type": "string"},
+        "backend_service": {"type": "string"},
+        "deterministic": {"type": "boolean"},
+        "uses_llm": {"type": "boolean"},
+        "uses_network": {"type": "boolean"},
+        "side_effects": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "risk_level": {"type": "string"},
+        "legacy_aliases": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "requires_approval": {"type": "boolean"},
+        "dispatch_capable": {"type": "boolean"}
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_mode", "visual_process_executable", "worker_dispatch_capable", "adapter_available"],
+      "properties": {
+        "execution_mode": {"enum": ["worker_dispatch", "vp_adapter", "not_executable"]},
+        "visual_process_executable": {"type": "boolean"},
+        "worker_dispatch_capable": {"type": "boolean"},
+        "adapter_available": {"type": "boolean"}
+      }
+    },
+    "inputs": {"type": "array", "items": {"type": "object"}},
+    "outputs": {"type": "array", "items": {"type": "object"}},
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "label", "field_type", "help_text", "required"],
+        "properties": {
+          "path": {"type": "string", "pattern": "^/"},
+          "label": {"type": "string"},
+          "field_type": {"enum": ["text", "number", "boolean", "enum", "multi_select", "resource_reference", "expression", "secret_reference", "io_port", "structured_list"]},
+          "help_text": {"type": "string"},
+          "required": {"type": "boolean"},
+          "essential": {"type": "boolean"},
+          "deprecated": {"type": "boolean"},
+          "read_only": {"type": "boolean"},
+          "default": {},
+          "example": {},
+          "effect": {"type": "string"},
+          "constraints": {"type": "object"},
+          "options": {"type": "array", "items": {"type": "object"}},
+          "resource_type": {"type": "string"},
+          "visible_when": {"type": "object"},
+          "required_when": {"type": "object"}
+        }
+      }
+    },
+    "defaults": {"type": "object"},
+    "help_text": {"type": "string"},
+    "examples": {"type": "array", "items": {"type": "object"}},
+    "capabilities": {"type": "object"}
+  }
+}

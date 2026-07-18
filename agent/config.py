@@ -245,6 +245,30 @@ class Settings(BaseSettings):
     ssh_audit_enabled: bool = Field(default=True, validation_alias="SSH_AUDIT_ENABLED")
     goal_workflow_enabled: bool = Field(default=True, validation_alias="GOAL_WORKFLOW_ENABLED")
     persisted_plans_enabled: bool = Field(default=True, validation_alias="PERSISTED_PLANS_ENABLED")
+    visual_process_registry_inspector_enabled: bool = Field(
+        default=False,
+        validation_alias="VISUAL_PROCESS_REGISTRY_INSPECTOR_ENABLED",
+    )
+    visual_process_hover_help_enabled: bool = Field(
+        default=False,
+        validation_alias="VISUAL_PROCESS_HOVER_HELP_ENABLED",
+    )
+    visual_process_assistant_chat_enabled: bool = Field(
+        default=False,
+        validation_alias="VISUAL_PROCESS_ASSISTANT_CHAT_ENABLED",
+    )
+    visual_process_ai_patches_enabled: bool = Field(
+        default=False,
+        validation_alias="VISUAL_PROCESS_AI_PATCHES_ENABLED",
+    )
+    visual_process_assistant_retrieval_timeout_ms: int = Field(
+        default=5_000,
+        validation_alias="VISUAL_PROCESS_ASSISTANT_RETRIEVAL_TIMEOUT_MS",
+    )
+    visual_process_assistant_model_timeout_ms: int = Field(
+        default=120_000,
+        validation_alias="VISUAL_PROCESS_ASSISTANT_MODEL_TIMEOUT_MS",
+    )
 
     # Task Engine (te-004)
     task_engine_enabled: bool = Field(default=True, validation_alias="TASK_ENGINE_ENABLED")

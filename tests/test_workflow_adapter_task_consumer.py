@@ -401,3 +401,256 @@ def test_forwarded_result_merges_native_verification_for_hub_polling(monkeypatch
     verification = updates[0][1]["verification_status"]
     assert verification["native_node_result"] == native_result
     assert verification["workflow_adapter_task_result"]["adapter_kind"] == "native"
+
+
+def test_forwarded_knowledge_index_result_is_validated_and_persisted(monkeypatch) -> None:
+    from agent.services._task_scoped_forwarding import persist_forwarded_execution
+
+    updates = []
+    validated = []
+
+    class JobService:
+        def materialize_worker_result(self, *, job_id, result, task):
+            assert job_id == "knowledge-index-" + "a" * 32
+            assert task["verification_status"] == {}
+            assert set(result) == {
+                "schema",
+                "job_id",
+                "idempotency_fingerprint",
+                "status",
+                "reason_code",
+                "knowledge_index",
+                "run",
+                "results",
+                "artifact_refs",
+                "error",
+            }
+            validated.append(result)
+            return dict(result)
+
+    monkeypatch.setattr(
+        "agent.services._task_scoped_forwarding.get_core_services",
+        lambda: SimpleNamespace(knowledge_index_job_service=JobService()),
+    )
+    monkeypatch.setattr(
+        "agent.services._task_scoped_forwarding.update_local_task_status",
+        lambda *args, **kwargs: updates.append((args, kwargs)),
+    )
+    job_id = "knowledge-index-" + "a" * 32
+    response = {
+        "schema": "ananta.knowledge_index_job_result.v1",
+        "job_id": job_id,
+        "idempotency_fingerprint": "b" * 64,
+        "status": "completed",
+        "reason_code": None,
+        "knowledge_index": {"id": "idx-1"},
+        "run": {"id": "run-1"},
+        "results": None,
+        "artifact_refs": [],
+        "error": None,
+        "handler_contract": {"task_kind": "codecompass_index_build"},
+    }
+
+    persist_forwarded_execution(
+        tid=job_id,
+        response=response,
+        task={"history": [], "last_proposal": {}, "verification_status": {}},
+        request_data=SimpleNamespace(command=None),
+    )
+
+    assert len(validated) == 1
+    verification = updates[0][1]["verification_status"]
+    assert verification["knowledge_index_job_result"]["knowledge_index"]["id"] == "idx-1"
+
+
+def test_forwarded_visual_process_result_dispatches_to_hub_acceptance(monkeypatch) -> None:
+    from agent.services._task_scoped_forwarding import persist_forwarded_execution
+
+    updates = []
+    accepted_results = []
+
+    class AssistantService:
+        def accept_worker_result(self, *, task_id, result):
+            assert task_id == "vpa-retrieval-task"
+            assert "handler_contract" not in result
+            accepted_results.append(result)
+            return {
+                "request_id": result["request_id"],
+                "status": "queued_inference",
+                "prompt_context_id": "ctx-prompt",
+            }
+
+    monkeypatch.setattr(
+        "agent.services._task_scoped_forwarding._get_visual_process_assistant_service",
+        lambda: AssistantService(),
+    )
+    monkeypatch.setattr(
+        "agent.services._task_scoped_forwarding.update_local_task_status",
+        lambda *args, **kwargs: updates.append((args, kwargs)),
+    )
+    response = {
+        "schema": "ananta.visual_process_assistant.retrieval_result.v1",
+        "task_id": "vpa-retrieval-task",
+        "request_id": "vpa-request-a",
+        "context_id": "ctx-source",
+        "status": "completed",
+        "evidence": [],
+        "rejected_count": 0,
+        "rejection_reasons": [],
+        "consistency_state": "current",
+        "handler_contract": {"task_kind": "visual_process_assistant_retrieval"},
+    }
+
+    persist_forwarded_execution(
+        tid="vpa-retrieval-task",
+        response=response,
+        task={
+            "task_kind": "visual_process_assistant_retrieval",
+            "history": [],
+            "last_proposal": {},
+            "verification_status": {},
+        },
+        request_data=SimpleNamespace(command=None),
+    )
+
+    assert len(accepted_results) == 1
+    verification = updates[0][1]["verification_status"]
+    assert verification["visual_process_assistant_request"] == {
+        "request_id": "vpa-request-a",
+        "status": "queued_inference",
+        "prompt_context_id": "ctx-prompt",
+    }
+
+
+def test_forwarded_visual_process_inference_result_dispatches_by_contract(monkeypatch) -> None:
+    from agent.services._task_scoped_forwarding import persist_forwarded_execution
+
+    updates = []
+
+    class AssistantService:
+        def accept_worker_result(self, *, task_id, result):
+            assert task_id == "vpa-inference-task"
+            assert result["schema"] == "ananta.visual_process_assistant.inference_result.v1"
+            return {"request_id": result["request_id"], "status": "completed"}
+
+    monkeypatch.setattr(
+        "agent.services._task_scoped_forwarding._get_visual_process_assistant_service",
+        lambda: AssistantService(),
+    )
+    monkeypatch.setattr(
+        "agent.services._task_scoped_forwarding.update_local_task_status",
+        lambda *args, **kwargs: updates.append((args, kwargs)),
+    )
+    response = {
+        "schema": "ananta.visual_process_assistant.inference_result.v1",
+        "task_id": "vpa-inference-task",
+        "request_id": "vpa-request-a",
+        "context_id": "ctx-prompt",
+        "prompt_hash": "a" * 64,
+        "status": "completed",
+        "reason_code": None,
+        "response": {},
+        "model_metadata": {},
+        "handler_contract": {"task_kind": "visual_process_assistant_inference"},
+    }
+
+    persist_forwarded_execution(
+        tid="vpa-inference-task",
+        response=response,
+        task={
+            "task_kind": "visual_process_assistant_inference",
+            "history": [],
+            "last_proposal": {},
+            "verification_status": {},
+        },
+        request_data=SimpleNamespace(command=None),
+    )
+
+    assert updates[0][1]["verification_status"]["visual_process_assistant_request"] == {
+        "request_id": "vpa-request-a",
+        "status": "completed",
+    }
+
+
+def test_forwarded_visual_process_result_rejects_schema_kind_mismatch(monkeypatch) -> None:
+    import pytest
+
+    from agent.services._task_scoped_forwarding import persist_forwarded_execution
+
+    updates = []
+    acceptance_calls = []
+    monkeypatch.setattr(
+        "agent.services._task_scoped_forwarding._get_visual_process_assistant_service",
+        lambda: SimpleNamespace(
+            accept_worker_result=lambda **kwargs: acceptance_calls.append(kwargs)
+        ),
+    )
+    monkeypatch.setattr(
+        "agent.services._task_scoped_forwarding.update_local_task_status",
+        lambda *args, **kwargs: updates.append((args, kwargs)),
+    )
+
+    with pytest.raises(ValueError, match="schema_kind_mismatch"):
+        persist_forwarded_execution(
+            tid="vpa-retrieval-task",
+            response={
+                "schema": "ananta.visual_process_assistant.inference_result.v1",
+                "status": "completed",
+            },
+            task={
+                "task_kind": "visual_process_assistant_retrieval",
+                "history": [],
+                "last_proposal": {},
+                "verification_status": {},
+            },
+            request_data=SimpleNamespace(command=None),
+        )
+
+    assert acceptance_calls == []
+    assert updates == []
+
+
+def test_rejected_visual_process_acceptance_never_persists_readmodel(monkeypatch) -> None:
+    import pytest
+
+    from agent.services._task_scoped_forwarding import persist_forwarded_execution
+
+    updates = []
+
+    class AssistantService:
+        def accept_worker_result(self, **_kwargs):
+            raise ValueError("assistant_worker_context_binding_mismatch")
+
+    monkeypatch.setattr(
+        "agent.services._task_scoped_forwarding._get_visual_process_assistant_service",
+        lambda: AssistantService(),
+    )
+    monkeypatch.setattr(
+        "agent.services._task_scoped_forwarding.update_local_task_status",
+        lambda *args, **kwargs: updates.append((args, kwargs)),
+    )
+
+    with pytest.raises(ValueError, match="context_binding_mismatch"):
+        persist_forwarded_execution(
+            tid="vpa-retrieval-task",
+            response={
+                "schema": "ananta.visual_process_assistant.retrieval_result.v1",
+                "task_id": "vpa-retrieval-task",
+                "request_id": "vpa-request-a",
+                "context_id": "ctx-forged",
+                "status": "completed",
+                "evidence": [],
+                "rejected_count": 0,
+                "rejection_reasons": [],
+                "consistency_state": "current",
+            },
+            task={
+                "task_kind": "visual_process_assistant_retrieval",
+                "history": [],
+                "last_proposal": {},
+                "verification_status": {},
+            },
+            request_data=SimpleNamespace(command=None),
+        )
+
+    assert updates == []

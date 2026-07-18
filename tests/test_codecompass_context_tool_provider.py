@@ -13,14 +13,17 @@ class _FakeRag:
     def __init__(self, hits):
         self._hits = list(hits)
 
-    def retrieve(self, *, profile, query, limit):
-        del profile, query
+    def search_records(self, query, *, limit, **_kwargs):
+        del query
         return self._hits[:limit]
+
+    def current_manifest_identity(self):
+        return {"state": "current", "snapshot_revision": "a" * 64}
 
 
 def _patch_rag(monkeypatch, hits):
     monkeypatch.setattr(
-        "agent.services.rag_helper_index_service.get_rag_helper_index_service",
+        "agent.services.knowledge_index_retrieval_service.get_knowledge_index_retrieval_service",
         lambda: _FakeRag(hits),
     )
 

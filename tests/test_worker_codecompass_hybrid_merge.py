@@ -37,6 +37,12 @@ def test_worker_hybrid_merge_deduplicates_same_record_and_keeps_channel_contribu
                 {
                     "source": "src/PaymentController.java",
                     "score": 0.4,
+                    "source_id": "SRC_0001",
+                    "source_version": "snapshot-1",
+                    "tenant_id": "tenant-1",
+                    "scope": "worker_retrieval",
+                    "provenance": {"provider": "graph"},
+                    "provenance_digest": "a" * 64,
                     "metadata": {
                         "record_id": "type:PaymentController",
                         "record_kind": "java_type",
@@ -68,6 +74,11 @@ def test_worker_hybrid_merge_deduplicates_same_record_and_keeps_channel_contribu
     assert graph_provenance[0]["relation_path"] == "calls_probable_target"
     assert graph_provenance[0]["line_start"] == 10
     assert graph_provenance[0]["line_end"] == 28
+    graph_selected = next(item for item in selected if item["channel"] == "codecompass_graph")
+    assert graph_selected["source_id"] == "SRC_0001"
+    assert graph_selected["source_version"] == "snapshot-1"
+    assert graph_selected["tenant_id"] == "tenant-1"
+    assert graph_selected["scope"] == "worker_retrieval"
     assert payload["retrieval_trace"]["trace_id"].startswith("retrieval-")
     assert payload["retrieval_trace"]["context_hash"]
     assert payload["retrieval_trace"]["manifest_hash"] == "mh-1"

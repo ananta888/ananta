@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.knowledge_index_job_result.v1",
+  "title": "Knowledge index worker result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "job_id",
+    "idempotency_fingerprint",
+    "status",
+    "reason_code",
+    "knowledge_index",
+    "run",
+    "results",
+    "artifact_refs",
+    "error"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.knowledge_index_job_result.v1"},
+    "job_id": {"type": "string", "pattern": "^knowledge-index-[a-f0-9]{32}$"},
+    "idempotency_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "status": {"enum": ["completed", "failed"]},
+    "reason_code": {"type": ["string", "null"]},
+    "knowledge_index": {"type": ["object", "null"]},
+    "run": {"type": ["object", "null"]},
+    "results": {"type": ["array", "null"], "items": {"type": "object"}},
+    "artifact_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_id", "sha256", "media_type"],
+        "properties": {
+          "artifact_id": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "media_type": {"type": "string", "minLength": 1},
+          "role": {"enum": ["manifest", "index", "details", "relations"]},
+          "filename": {"enum": ["manifest.json", "index.jsonl", "details.jsonl", "relations.jsonl"]},
+          "size_bytes": {"type": "integer", "minimum": 0, "maximum": 134217728},
+          "knowledge_index_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "run_id": {"type": "string", "minLength": 1, "maxLength": 256}
+        }
+      }
+    },
+    "error": {"type": ["string", "null"]}
+  }
+}

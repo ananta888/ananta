@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "codecompass_snapshot_manifest.v1",
+  "title": "CodeCompass immutable repository snapshot manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "snapshot_revision",
+    "source_revision",
+    "registry_version",
+    "registry_digest",
+    "pipeline",
+    "profile",
+    "profile_digest",
+    "files",
+    "required_paths",
+    "budget_visibility",
+    "silently_skipped"
+  ],
+  "properties": {
+    "schema": {"const": "codecompass.snapshot_manifest.v1"},
+    "snapshot_revision": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "source_revision": {"type": ["string", "null"]},
+    "registry_version": {"type": "string", "minLength": 1},
+    "registry_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "pipeline": {"type": "string", "minLength": 1},
+    "profile": {"type": "object"},
+    "profile_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "content_sha256",
+          "content_state",
+          "byte_size",
+          "detected_type",
+          "support_level",
+          "parser_strategy",
+          "extractor_id",
+          "extractor_version",
+          "outcome",
+          "exclusion_reason",
+          "diagnostics",
+          "fallback_reason"
+        ],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "content_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+          "content_state": {"enum": ["hashed", "not_read_by_policy"]},
+          "byte_size": {"type": "integer", "minimum": 0},
+          "detected_type": {"type": "string", "minLength": 1},
+          "support_level": {"type": "string", "minLength": 1},
+          "parser_strategy": {"type": "string", "minLength": 1},
+          "extractor_id": {"type": ["string", "null"]},
+          "extractor_version": {"type": ["string", "null"]},
+          "outcome": {"enum": ["indexed", "excluded", "unsupported", "failed"]},
+          "exclusion_reason": {"type": ["string", "null"]},
+          "diagnostics": {"type": "array", "items": {"type": "string"}},
+          "fallback_reason": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "required_paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "rule_count", "failed_patterns", "rules"],
+      "properties": {
+        "passed": {"type": "boolean"},
+        "rule_count": {"type": "integer", "minimum": 0},
+        "failed_patterns": {"type": "array", "items": {"type": "string"}},
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "pattern",
+              "minimum_indexed",
+              "maximum_indexed",
+              "matched_count",
+              "indexed_count",
+              "matched_paths",
+              "indexed_paths",
+              "passed",
+              "reason_code"
+            ],
+            "properties": {
+              "pattern": {"type": "string", "minLength": 1},
+              "minimum_indexed": {"type": "integer", "minimum": 0},
+              "maximum_indexed": {"type": ["integer", "null"], "minimum": 0},
+              "matched_count": {"type": "integer", "minimum": 0},
+              "indexed_count": {"type": "integer", "minimum": 0},
+              "matched_paths": {"type": "array", "items": {"type": "string"}},
+              "indexed_paths": {"type": "array", "items": {"type": "string"}},
+              "passed": {"type": "boolean"},
+              "reason_code": {
+                "enum": [
+                  "required_path_missing",
+                  "required_path_not_indexed",
+                  "required_path_maximum_exceeded",
+                  "required_path_satisfied"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "budget_visibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inventory_count",
+        "accounted_count",
+        "cap_truncated",
+        "oversized",
+        "budget_exceeded",
+        "by_outcome"
+      ],
+      "properties": {
+        "inventory_count": {"type": "integer", "minimum": 0},
+        "accounted_count": {"type": "integer", "minimum": 0},
+        "cap_truncated": {"type": "integer", "minimum": 0},
+        "oversized": {"type": "integer", "minimum": 0},
+        "budget_exceeded": {"type": "integer", "minimum": 0},
+        "by_outcome": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "silently_skipped": {
+      "type": "null"
+    }
+  }
+}

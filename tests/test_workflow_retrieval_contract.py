@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from ananta_contracts.retrieval import RetrievalRequest
+import hashlib
+import json
+
+import pytest
+
+from ananta_contracts.retrieval import RetrievalRequest, SourceRef
 from worker.retrieval.codecompass_retriever import (
     CodeCompassRetriever,
     retrieval_request_from_payload,
@@ -148,9 +153,8 @@ def test_provenance_mismatch_and_prompt_injection_are_never_treated_as_authority
 
     assert mismatched == []
     assert mismatch_reasons == ["source_provenance_mismatch"]
-    assert injection_reasons == []
-    assert injected[0].provenance["trust_boundary"] == "untrusted_retrieval_content"
-    assert injected[0].provenance["prompt_injection_risk"] is True
+    assert injected == []
+    assert injection_reasons == ["prompt_injection_detected"]
 
 
 def test_all_framework_adapters_build_the_same_tenant_bound_request() -> None:
@@ -173,3 +177,94 @@ def test_all_framework_adapters_build_the_same_tenant_bound_request() -> None:
 
     assert native == langchain
     assert native.allowed_source_ids == frozenset({"SRC_0001"})
+
+
+def test_source_ref_v2_binds_version_scope_tenant_and_provenance_digest() -> None:
+    provenance = {
+        "source_id": "SRC_0001",
+        "source_version": "snapshot-1",
+        "provider": "symbol",
+    }
+    digest = hashlib.sha256(
+        json.dumps(provenance, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    source_ref = SourceRef(
+        source_id="SRC_0001",
+        source_version="snapshot-1",
+        tenant_id="tenant-1",
+        scope="worker_retrieval",
+        provenance_digest=digest,
+    )
+    request_v2 = RetrievalRequest(
+        query="runtime",
+        tenant_id="tenant-1",
+        scope="worker_retrieval",
+        allowed_source_ids=frozenset({"SRC_0001"}),
+        allowed_source_refs=(source_ref,),
+    )
+
+    sources, rejected = CodeCompassRetriever._extract_sources(  # noqa: SLF001
+        {
+            "selected": [
+                {
+                    "source_id": "SRC_0001",
+                    "source_version": "snapshot-1",
+                    "tenant_id": "tenant-1",
+                    "scope": "worker_retrieval",
+                    "path": "agent/runtime.py",
+                    "content": "runtime evidence",
+                    "final_score": 0.75,
+                    "provenance": provenance,
+                }
+            ]
+        },
+        request_v2,
+    )
+
+    assert rejected == []
+    assert sources[0].source_ref == source_ref
+    assert sources[0].score == 0.75
+
+
+def test_retrieval_request_payload_accepts_source_ref_v2() -> None:
+    payload = {
+        "tenant_id": "tenant-1",
+        "retrieval_scope": "repo",
+        "allowed_source_refs": [
+            {
+                "schema": "ananta.source_ref.v2",
+                "source_id": "SRC_0007",
+                "source_version": "snapshot-7",
+                "tenant_id": "tenant-1",
+                "scope": "repo",
+                "provenance_digest": "a" * 64,
+            }
+        ],
+    }
+
+    value = retrieval_request_from_payload(query="q", payload=payload, default_scope="worker")
+
+    assert value.allowed_source_ids == frozenset({"SRC_0007"})
+    assert value.allowed_source_refs[0].source_version == "snapshot-7"
+
+
+def test_retrieval_request_rejects_source_ref_outside_request_boundary() -> None:
+    with pytest.raises(ValueError, match="tenant_mismatch"):
+        retrieval_request_from_payload(
+            query="q",
+            payload={
+                "tenant_id": "tenant-1",
+                "retrieval_scope": "repo",
+                "allowed_source_refs": [
+                    {
+                        "schema": "ananta.source_ref.v2",
+                        "source_id": "SRC_0007",
+                        "source_version": "snapshot-7",
+                        "tenant_id": "tenant-other",
+                        "scope": "repo",
+                        "provenance_digest": "a" * 64,
+                    }
+                ],
+            },
+            default_scope="worker",
+        )

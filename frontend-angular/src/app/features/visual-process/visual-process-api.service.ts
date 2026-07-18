@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { AgentDirectoryService } from '../../services/agent-directory.service';
 import type { VpDatasetBuildRuntimeView, VpTrainingRuntimeView } from './vp-model-training-contract';
@@ -81,9 +81,20 @@ export interface VpEdge {
 export interface VpGraph {
   id: string; name: string; description: string; version: string;
   steps: VpStep[]; edges: VpEdge[]; tags: string[]; metadata?: Record<string, unknown>;
+  graph_schema_version?: string; node_registry_version?: string;
+  definition_revision?: number; base_graph_hash?: string;
 }
-export interface ValidationIssue { severity: string; code: string; message: string; step_id?: string; edge_id?: string; artifact_name?: string; }
+export interface ValidationIssue { severity: string; code: string; message: string; path?: string; step_id?: string; edge_id?: string; artifact_name?: string; }
 export interface ValidationResult { valid: boolean; error_count: number; warning_count: number; issues: ValidationIssue[]; }
+
+export function sortValidationIssues(issues: readonly ValidationIssue[]): ValidationIssue[] {
+  const severityOrder: Record<string, number> = { error: 0, warning: 1, info: 2 };
+  return [...issues].sort((left, right) =>
+    (severityOrder[left.severity] ?? 99) - (severityOrder[right.severity] ?? 99)
+    || left.code.localeCompare(right.code)
+    || (left.path || '/').localeCompare(right.path || '/')
+    || left.message.localeCompare(right.message));
+}
 export interface SkillProfile { id: string; name: string; description: string; role: string; task_kinds: string[]; tags: string[]; }
 export interface PresetSummary { id: string; name: string; description: string; tags: string[]; }
 export interface DryRunResult {
@@ -124,6 +135,39 @@ export interface TaskKindInfo {
   risk_level?: string;              // "none"|"low"|"medium"|"high"|"critical"
   legacy_aliases?: string[];
   requires_approval?: boolean;
+}
+export interface NodeDefinitionFieldContract {
+  path: string; label: string; field_type: string; help_text: string; required?: boolean;
+  default?: unknown; constraints?: Record<string, unknown>; options?: Array<{label:string;value:unknown}>;
+  resource_type?: string;
+  example?: unknown; effect?: string; essential?: boolean;
+  visible_when?: NodeDefinitionFieldConditionContract;
+  required_when?: NodeDefinitionFieldConditionContract;
+  deprecated?: boolean; read_only?: boolean;
+}
+export interface NodeDefinitionFieldConditionContract {
+  path: string;
+  equals?: unknown;
+  equals_any?: unknown[];
+  not_equals?: unknown;
+  not_equals_any?: unknown[];
+  exists?: boolean;
+}
+export interface NodeDefinitionContract {
+  contract_version: string; registry_version: string; kind: string; label: string; category: string; purpose: string;
+  runtime: Record<string, unknown>; execution: Record<string, unknown>; inputs: unknown[]; outputs: unknown[];
+  fields: NodeDefinitionFieldContract[]; defaults?: {metadata?:Record<string,unknown>}; help_text?: string;
+  examples?: unknown[]; capabilities?: Record<string, unknown>;
+}
+export interface NodeDefinitionRegistryResult {
+  schema: string;
+  registry_version?: string;
+  registry_hash?: string;
+  definitions: NodeDefinitionContract[];
+}
+export interface GraphSaveResult {
+  id: string; version: string; graph_schema_version?: string; node_registry_version?: string;
+  definition_revision: number; base_graph_hash: string; saved: boolean; changed?: boolean;
 }
 export interface StepExecutionPlan {
   step_id: string; step_label: string; kind: string;
@@ -169,6 +213,10 @@ export class VisualProcessApiService {
 
   listTaskKinds(): Observable<TaskKindInfo[]> {
     return this.http.get<TaskKindInfo[]>(`${this.baseUrl}/api/visual-process/task-kinds`);
+  }
+
+  listNodeDefinitions(): Observable<NodeDefinitionRegistryResult> {
+    return this.http.get<NodeDefinitionRegistryResult>(`${this.baseUrl}/api/visual-process/node-definitions`);
   }
 
   // ── Validation ───────────────────────────────────────────────────────────────
@@ -258,8 +306,18 @@ export class VisualProcessApiService {
 
   // ── Graph persistence (VPPERS-001) ───────────────────────────────────────────
 
-  saveGraph(graph: VpGraph): Observable<{ id: string; saved: boolean }> {
-    return this.http.post<{ id: string; saved: boolean }>(`${this.baseUrl}/api/visual-process/graphs`, graph);
+  saveGraph(graph: VpGraph): Observable<GraphSaveResult> {
+    if ((graph.definition_revision ?? 0) > 0) {
+      const headers = graph.base_graph_hash
+        ? new HttpHeaders({ 'If-Match': `"${graph.base_graph_hash}"` })
+        : undefined;
+      return this.http.put<GraphSaveResult>(
+        `${this.baseUrl}/api/visual-process/v2/graphs/${encodeURIComponent(graph.id)}`,
+        { graph, expected_revision: graph.definition_revision, base_graph_hash: graph.base_graph_hash },
+        { headers },
+      );
+    }
+    return this.http.post<GraphSaveResult>(`${this.baseUrl}/api/visual-process/graphs`, graph);
   }
 
   listSavedGraphs(): Observable<SavedGraphSummary[]> {

@@ -1,0 +1,130 @@
+{
+  "schema": "ananta.visual_process.graph_roundtrip_vectors.v1",
+  "vectors": [
+    {
+      "name": "legacy-minimal-graph",
+      "input": {
+        "id": "legacy-minimal",
+        "name": "Legacy minimal",
+        "version": "0.8",
+        "steps": []
+      },
+      "preserve_paths": ["/id", "/name", "/version"]
+    },
+    {
+      "name": "legacy-step-runtime-overlay",
+      "input": {
+        "id": "legacy-runtime",
+        "name": "Legacy runtime",
+        "steps": [
+          {
+            "id": "running-step",
+            "label": "Running",
+            "kind": "review",
+            "run_state": "running"
+          }
+        ]
+      },
+      "preserve_paths": ["/steps/0/id", "/steps/0/kind"],
+      "excluded_definition_paths": ["/steps/0/run_state"],
+      "runtime_status": "running"
+    },
+    {
+      "name": "unknown-node-kind",
+      "input": {
+        "id": "future-kind",
+        "name": "Future kind",
+        "steps": [
+          {
+            "id": "future-step",
+            "label": "Future",
+            "kind": "vendor_future_kind"
+          }
+        ]
+      },
+      "preserve_paths": ["/steps/0/id", "/steps/0/kind"]
+    },
+    {
+      "name": "unknown-step-field",
+      "input": {
+        "id": "future-step-field",
+        "name": "Future step field",
+        "steps": [
+          {
+            "id": "step",
+            "label": "Step",
+            "kind": "review",
+            "vendor_payload": {"mode": "safe", "rank": 2}
+          }
+        ]
+      },
+      "preserve_paths": ["/steps/0/vendor_payload"]
+    },
+    {
+      "name": "unknown-metadata-field",
+      "input": {
+        "id": "future-metadata",
+        "name": "Future metadata",
+        "steps": [
+          {
+            "id": "step",
+            "label": "Step",
+            "kind": "review",
+            "metadata": {"vendor_setting": {"enabled": true}}
+          }
+        ]
+      },
+      "preserve_paths": ["/steps/0/metadata/vendor_setting"]
+    },
+    {
+      "name": "unknown-top-level-field",
+      "input": {
+        "id": "future-top-level",
+        "name": "Future top level",
+        "steps": [],
+        "vendor_graph_data": {"format": 3, "labels": ["one", "two"]}
+      },
+      "preserve_paths": ["/vendor_graph_data"]
+    },
+    {
+      "name": "unknown-edge-field",
+      "input": {
+        "id": "future-edge",
+        "name": "Future edge",
+        "steps": [
+          {"id": "a", "label": "A", "kind": "review"},
+          {"id": "b", "label": "B", "kind": "review"}
+        ],
+        "edges": [
+          {
+            "id": "a-b",
+            "source": "a",
+            "target": "b",
+            "vendor_edge_data": {"routing": "future"}
+          }
+        ]
+      },
+      "preserve_paths": ["/edges/0/vendor_edge_data"]
+    },
+    {
+      "name": "current-versioned-graph",
+      "input": {
+        "id": "current-versioned",
+        "name": "Current versioned",
+        "version": "4.2",
+        "graph_schema_version": "1",
+        "node_registry_version": "task-kind-registry-v1",
+        "definition_revision": 7,
+        "base_graph_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "steps": [],
+        "extensions": {"vendor.feature": {"enabled": true}}
+      },
+      "preserve_paths": [
+        "/version",
+        "/graph_schema_version",
+        "/node_registry_version",
+        "/extensions/vendor.feature"
+      ]
+    }
+  ]
+}

@@ -1,11 +1,314 @@
-import { Injectable, signal } from '@angular/core';
-import { ValidationResult, VpGraph } from './visual-process-api.service';
-import { emptyGraph } from './vp-editor-config';
+import { Inject, Injectable, InjectionToken, Optional, computed, signal } from '@angular/core';
 
+import { GraphSaveResult, ValidationResult, VpGraph } from './visual-process-api.service';
+import { emptyGraph } from './vp-editor-config';
+import { CanvasHitTarget } from './vp-editor-context.models';
+
+export interface VpGraphMutationOptions {
+  coalesceKey?: string;
+  invalidateValidation?: boolean;
+  markDirty?: boolean;
+  recordHistory?: boolean;
+}
+
+export interface VpEditorCommand {
+  label: string;
+  apply(graph: VpGraph): VpGraph;
+  coalesceKey?: string;
+}
+
+interface VpHistoryEntry {
+  before: VpGraph;
+  after: VpGraph;
+  label: string;
+  coalesceKey?: string;
+}
+
+interface VpOpenTransaction {
+  before: VpGraph;
+  label: string;
+}
+
+interface VpPersistenceIdentity {
+  version: string;
+  graphSchemaVersion?: string;
+  nodeRegistryVersion?: string;
+  definitionRevision?: number;
+  baseGraphHash?: string;
+}
+
+export const VP_EDITOR_HISTORY_LIMIT = new InjectionToken<number>('VP_EDITOR_HISTORY_LIMIT', {
+  factory: () => 100,
+});
+
+function cloneGraph(graph: VpGraph): VpGraph {
+  return structuredClone(graph);
+}
+
+function graphFingerprint(graph: VpGraph): string {
+  return JSON.stringify(graph);
+}
+
+/**
+ * Instance-scoped source of truth for editor mutations.
+ *
+ * Components never need to coordinate dirty-state, validation invalidation or
+ * undo/redo independently. A drag may update the graph many times while one
+ * open transaction records a single history entry.
+ */
 @Injectable()
-export class VpEditorStateFacade{
-  readonly graph=signal<VpGraph>(emptyGraph());readonly selectedId=signal<string|null>(null);readonly dirty=signal(false);
-  readonly validation=signal<ValidationResult|null>(null);readonly edgeMode=signal(false);readonly edgeSourceId=signal<string|null>(null);
-  initialize(graph:VpGraph):void{this.graph.set(structuredClone(graph));this.selectedId.set(null);this.dirty.set(false);this.validation.set(null);}
-  destroy():void{this.selectedId.set(null);this.edgeMode.set(false);this.edgeSourceId.set(null);}
+export class VpEditorStateFacade {
+  readonly graph = signal<VpGraph>(emptyGraph());
+  readonly selectedId = signal<string | null>(null);
+  readonly dirty = signal(false);
+  readonly validation = signal<ValidationResult | null>(null);
+  readonly edgeMode = signal(false);
+  readonly edgeSourceId = signal<string | null>(null);
+  readonly revision = signal(0);
+  readonly hoverTarget = signal<CanvasHitTarget | null>(null);
+  readonly focusedTarget = signal<CanvasHitTarget | null>(null);
+  readonly conversationTarget = signal<CanvasHitTarget | null>(null);
+
+  private readonly undoEntries = signal<VpHistoryEntry[]>([]);
+  private readonly redoEntries = signal<VpHistoryEntry[]>([]);
+  private savedFingerprint = graphFingerprint(this.graph());
+  private transaction: VpOpenTransaction | null = null;
+  private readonly historyLimit: number;
+  private persistenceIdentity = this.capturePersistenceIdentity(this.graph());
+
+  constructor(@Optional() @Inject(VP_EDITOR_HISTORY_LIMIT) historyLimit: number | null = null) {
+    this.historyLimit = Math.max(1, Math.floor(historyLimit ?? 100));
+  }
+
+  readonly canUndo = computed(() => this.undoEntries().length > 0);
+  readonly canRedo = computed(() => this.redoEntries().length > 0);
+  readonly undoLabel = computed(() => this.undoEntries().at(-1)?.label ?? '');
+  readonly redoLabel = computed(() => this.redoEntries().at(-1)?.label ?? '');
+
+  initialize(graph: VpGraph): void {
+    const next = cloneGraph(graph);
+    this.persistenceIdentity = this.capturePersistenceIdentity(next);
+    this.graph.set(next);
+    this.savedFingerprint = graphFingerprint(next);
+    this.selectedId.set(null);
+    this.dirty.set(false);
+    this.validation.set(null);
+    this.edgeMode.set(false);
+    this.edgeSourceId.set(null);
+    this.hoverTarget.set(null);
+    this.focusedTarget.set(null);
+    this.conversationTarget.set(null);
+    this.undoEntries.set([]);
+    this.redoEntries.set([]);
+    this.transaction = null;
+    this.revision.update(value => value + 1);
+  }
+
+  replaceGraph(
+    graph: VpGraph,
+    options: { markDirty?: boolean; validation?: ValidationResult | null; resetHistory?: boolean } = {},
+  ): void {
+    const before = cloneGraph(this.graph());
+    const after = cloneGraph(graph);
+    this.persistenceIdentity = this.capturePersistenceIdentity(after);
+    this.graph.set(after);
+    if (options.resetHistory !== false) {
+      this.undoEntries.set([]);
+      this.redoEntries.set([]);
+      this.transaction = null;
+    } else if (graphFingerprint(before) !== graphFingerprint(after)) {
+      this.pushHistory({ before, after: cloneGraph(after), label: 'Graph ersetzen' });
+    }
+    if (!options.markDirty) this.savedFingerprint = graphFingerprint(after);
+    this.validation.set(options.validation ?? null);
+    this.dirty.set(options.markDirty === true);
+    this.selectedId.set(null);
+    this.revision.update(value => value + 1);
+  }
+
+  execute(
+    label: string,
+    reducer: (graph: VpGraph) => VpGraph,
+    options: VpGraphMutationOptions = {},
+  ): boolean {
+    return this.dispatch({ label, apply: reducer, coalesceKey: options.coalesceKey }, options);
+  }
+
+  dispatch(command: VpEditorCommand, options: VpGraphMutationOptions = {}): boolean {
+    const before = cloneGraph(this.graph());
+    const after = cloneGraph(command.apply(cloneGraph(before)));
+    if (graphFingerprint(before) === graphFingerprint(after)) return false;
+
+    this.graph.set(after);
+    if (options.recordHistory !== false && !this.transaction) {
+      this.pushHistory({
+        before,
+        after: cloneGraph(after),
+        label: command.label,
+        coalesceKey: command.coalesceKey ?? options.coalesceKey,
+      });
+    }
+    this.afterMutation(options);
+    return true;
+  }
+
+  mutate(
+    label: string,
+    mutator: (draft: VpGraph) => void,
+    options: VpGraphMutationOptions = {},
+  ): boolean {
+    return this.execute(label, graph => {
+      mutator(graph);
+      return graph;
+    }, options);
+  }
+
+  beginTransaction(label: string): void {
+    if (this.transaction) this.commitTransaction();
+    this.transaction = { before: cloneGraph(this.graph()), label };
+  }
+
+  commitTransaction(): boolean {
+    const open = this.transaction;
+    this.transaction = null;
+    if (!open) return false;
+    const after = cloneGraph(this.graph());
+    if (graphFingerprint(open.before) === graphFingerprint(after)) return false;
+    this.pushHistory({ before: open.before, after, label: open.label });
+    this.refreshDirty();
+    return true;
+  }
+
+  cancelTransaction(): void {
+    const open = this.transaction;
+    this.transaction = null;
+    if (!open) return;
+    this.graph.set(this.withCurrentPersistenceIdentity(open.before));
+    this.validation.set(null);
+    this.refreshDirty();
+    this.revision.update(value => value + 1);
+  }
+
+  undo(): boolean {
+    this.commitTransaction();
+    const entries = this.undoEntries();
+    const entry = entries.at(-1);
+    if (!entry) return false;
+    this.undoEntries.set(entries.slice(0, -1));
+    this.redoEntries.set([...this.redoEntries(), entry]);
+    this.graph.set(this.withCurrentPersistenceIdentity(entry.before));
+    this.validation.set(null);
+    this.refreshDirty();
+    this.revision.update(value => value + 1);
+    return true;
+  }
+
+  redo(): boolean {
+    const entries = this.redoEntries();
+    const entry = entries.at(-1);
+    if (!entry) return false;
+    this.redoEntries.set(entries.slice(0, -1));
+    this.undoEntries.set([...this.undoEntries(), entry].slice(-this.historyLimit));
+    this.graph.set(this.withCurrentPersistenceIdentity(entry.after));
+    this.validation.set(null);
+    this.refreshDirty();
+    this.revision.update(value => value + 1);
+    return true;
+  }
+
+  markSaved(): void {
+    this.persistenceIdentity = this.capturePersistenceIdentity(this.graph());
+    this.savedFingerprint = graphFingerprint(this.graph());
+    this.dirty.set(false);
+  }
+
+  acceptSaveResult(result: GraphSaveResult): void {
+    this.graph.update(graph => ({
+      ...graph,
+      version: result.version || graph.version,
+      graph_schema_version: result.graph_schema_version ?? graph.graph_schema_version,
+      node_registry_version: result.node_registry_version ?? graph.node_registry_version,
+      definition_revision: result.definition_revision,
+      base_graph_hash: result.base_graph_hash,
+    }));
+    this.persistenceIdentity = this.capturePersistenceIdentity(this.graph());
+    this.savedFingerprint = graphFingerprint(this.graph());
+    this.dirty.set(false);
+    this.revision.update(value => value + 1);
+  }
+
+  previewTarget(target: CanvasHitTarget | null): void {
+    this.hoverTarget.set(target);
+  }
+
+  focusTarget(target: CanvasHitTarget | null): void {
+    this.focusedTarget.set(target);
+  }
+
+  freezeConversationTarget(target?: CanvasHitTarget | null): void {
+    this.conversationTarget.set(target ?? this.focusedTarget() ?? this.hoverTarget());
+  }
+
+  clearConversationTarget(): void {
+    this.conversationTarget.set(null);
+  }
+
+  destroy(): void {
+    this.selectedId.set(null);
+    this.edgeMode.set(false);
+    this.edgeSourceId.set(null);
+    this.hoverTarget.set(null);
+    this.focusedTarget.set(null);
+    this.conversationTarget.set(null);
+    this.transaction = null;
+  }
+
+  private pushHistory(entry: VpHistoryEntry): void {
+    const entries = this.undoEntries();
+    const previous = entries.at(-1);
+    if (entry.coalesceKey && previous?.coalesceKey === entry.coalesceKey) {
+      this.undoEntries.set([
+        ...entries.slice(0, -1),
+        { ...entry, before: previous.before },
+      ]);
+    } else {
+      this.undoEntries.set([...entries, entry].slice(-this.historyLimit));
+    }
+    this.redoEntries.set([]);
+  }
+
+  private afterMutation(options: VpGraphMutationOptions): void {
+    if (options.invalidateValidation !== false) this.validation.set(null);
+    if (options.markDirty !== false) this.refreshDirty();
+    this.revision.update(value => value + 1);
+  }
+
+  private refreshDirty(): void {
+    this.dirty.set(graphFingerprint(this.graph()) !== this.savedFingerprint);
+  }
+
+  private capturePersistenceIdentity(graph: VpGraph): VpPersistenceIdentity {
+    return {
+      version: graph.version,
+      graphSchemaVersion: graph.graph_schema_version,
+      nodeRegistryVersion: graph.node_registry_version,
+      definitionRevision: graph.definition_revision,
+      baseGraphHash: graph.base_graph_hash,
+    };
+  }
+
+  private withCurrentPersistenceIdentity(graph: VpGraph): VpGraph {
+    const restored = cloneGraph(graph);
+    restored.version = this.persistenceIdentity.version;
+    this.assignOptional(restored, 'graph_schema_version', this.persistenceIdentity.graphSchemaVersion);
+    this.assignOptional(restored, 'node_registry_version', this.persistenceIdentity.nodeRegistryVersion);
+    this.assignOptional(restored, 'definition_revision', this.persistenceIdentity.definitionRevision);
+    this.assignOptional(restored, 'base_graph_hash', this.persistenceIdentity.baseGraphHash);
+    return restored;
+  }
+
+  private assignOptional<K extends keyof VpGraph>(graph: VpGraph, key: K, value: VpGraph[K] | undefined): void {
+    if (value === undefined) delete graph[key];
+    else graph[key] = value;
+  }
 }

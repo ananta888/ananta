@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import re
 
+from rag_helper.extractors.structured_support import normalize_extraction_records
 from rag_helper.utils.embedding_text import build_embedding_text, compact_list
 from rag_helper.utils.ids import safe_id
 
@@ -19,18 +20,33 @@ class TextFileExtractor:
             raise ValueError(f"unsupported text extension: {ext}")
 
         if ext in {"yaml", "yml"}:
-            return self._parse_keyed_file(rel_path, text, kind_prefix="yaml", separator=":")
-        if ext == "properties":
-            return self._parse_keyed_file(rel_path, text, kind_prefix="properties", separator="=")
-        if ext == "md":
-            return self._parse_markdown(rel_path, text)
-        if ext in {"gradle", "kts"} or rel_path.endswith(("build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts")):
-            return self._parse_gradle(rel_path, text)
-        if ext == "sql":
-            return self._parse_sql(rel_path, text)
-        if ext in {"py", "ts", "tsx"}:
-            return self._parse_code_outline(rel_path, text, language="python" if ext == "py" else "typescript")
-        return self._parse_file_only(rel_path, text, kind_prefix=ext)
+            result = self._parse_keyed_file(rel_path, text, kind_prefix="yaml", separator=":")
+        elif ext == "properties":
+            result = self._parse_keyed_file(rel_path, text, kind_prefix="properties", separator="=")
+        elif ext == "md":
+            result = self._parse_markdown(rel_path, text)
+        elif ext in {"gradle", "kts"} or rel_path.endswith(
+            ("build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts")
+        ):
+            result = self._parse_gradle(rel_path, text)
+        elif ext == "sql":
+            result = self._parse_sql(rel_path, text)
+        elif ext in {"py", "ts", "tsx"}:
+            result = self._parse_code_outline(
+                rel_path,
+                text,
+                language="python" if ext == "py" else "typescript",
+            )
+        else:
+            result = self._parse_file_only(rel_path, text, kind_prefix=ext)
+        index, details, relations, stats = result
+        normalize_extraction_records(
+            (index, details, relations),
+            rel_path=rel_path,
+            source_text=text,
+            extractor=type(self).__name__,
+        )
+        return index, details, relations, stats
 
     def _parse_file_only(self, rel_path: str, text: str, kind_prefix: str):
         file_id = f"{kind_prefix}_file:{safe_id(rel_path)}"
@@ -194,7 +210,16 @@ class TextFileExtractor:
                 declarations.append(stripped[:120])
             if "id " in stripped:
                 plugins.extend(re.findall(r'id\s+[("\']?([^"\')\s]+)', stripped))
-            if any(token in stripped for token in ("dependencies", "sourceSets", "repositories", "include ", "project(", "plugins", "pluginManagement")):
+            structural_tokens = (
+                "dependencies",
+                "sourceSets",
+                "repositories",
+                "include ",
+                "project(",
+                "plugins",
+                "pluginManagement",
+            )
+            if any(token in stripped for token in structural_tokens):
                 detail_id = f"gradle_entry:{safe_id(rel_path)}:{index}"
                 detail_records.append({
                     "kind": "gradle_entry",
@@ -259,6 +284,15 @@ class TextFileExtractor:
         detail_records = []
         relation_records = []
         symbols: list[dict] = []
+        local_fixtures: dict[str, str] = {}
+        is_test_file = self._is_python_test_path(rel_path)
+
+        for node in parsed.body:
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            decorators = [self._ast_to_text(decorator) for decorator in node.decorator_list]
+            if self._is_pytest_fixture(decorators):
+                local_fixtures[node.name] = f"python_function:{safe_id(rel_path)}:{node.lineno}"
 
         for node in parsed.body:
             if isinstance(node, ast.Import):
@@ -293,10 +327,25 @@ class TextFileExtractor:
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 function_info = self._python_callable_info(node)
                 functions.append(function_info)
-                symbols.append({"kind": "function", "name": function_info["name"], "line": function_info["line"]})
+                symbols.append(
+                    {
+                        "kind": "function",
+                        "name": function_info["name"],
+                        "line": function_info["line"],
+                    }
+                )
                 detail_id = f"python_function:{safe_id(rel_path)}:{node.lineno}"
+                is_fixture = self._is_pytest_fixture(function_info["decorators"])
+                is_test_case = is_test_file and function_info["name"].startswith("test_")
                 detail_records.append({
                     "kind": "python_function",
+                    "record_kind": (
+                        "fixture"
+                        if is_fixture
+                        else "test_case"
+                        if is_test_case
+                        else "python_function"
+                    ),
                     "file": rel_path,
                     "id": detail_id,
                     "parent_id": file_id,
@@ -318,8 +367,17 @@ class TextFileExtractor:
                 relation_records.append({"from": file_id, "to": class_id, "type": "contains_symbol"})
                 for method in class_info["methods"]:
                     method_id = f"python_method:{safe_id(rel_path)}:{method['line']}:{safe_id(method['name'])}"
+                    is_test_case = (
+                        is_test_file
+                        and method["name"].startswith("test_")
+                        and (
+                            class_info["name"].startswith("Test")
+                            or class_info["name"].endswith(("Test", "Tests", "TestCase"))
+                        )
+                    )
                     detail_records.append({
                         "kind": "python_method",
+                        "record_kind": "test_case" if is_test_case else "python_method",
                         "file": rel_path,
                         "id": method_id,
                         "parent_id": class_id,
@@ -328,8 +386,42 @@ class TextFileExtractor:
                     })
                     relation_records.append({"from": class_id, "to": method_id, "type": "contains_method"})
 
+        test_records = [record for record in detail_records if record.get("record_kind") == "test_case"]
+        for test_record in test_records:
+            parametrized = self._python_parametrized_names(test_record.get("decorators", []))
+            for fixture_name in test_record.get("parameters", []):
+                if fixture_name in {"self", "cls"} or fixture_name in parametrized:
+                    continue
+                target_id = local_fixtures.get(fixture_name)
+                relation_records.append(
+                    {
+                        "kind": "relation",
+                        "record_kind": "fixture_relation",
+                        "file": rel_path,
+                        "id": (
+                            f"fixture_relation:"
+                            f"{safe_id(rel_path, test_record['id'], fixture_name)}"
+                        ),
+                        "record_id": (
+                            f"fixture_relation:"
+                            f"{safe_id(rel_path, test_record['name'], fixture_name)}"
+                        ),
+                        "from": test_record["id"],
+                        "to": target_id or fixture_name,
+                        "type": "uses_fixture",
+                        "source_id": test_record["id"],
+                        "source_kind": test_record["kind"],
+                        "source_name": test_record["name"],
+                        "relation": "uses_fixture",
+                        "target": fixture_name,
+                        "target_resolved": target_id,
+                        "resolution_status": "resolved" if target_id else "unresolved",
+                        "weight": 1,
+                        "line": test_record["line"],
+                    }
+                )
+
         module_docstring = ast.get_docstring(parsed) or ""
-        names = [symbol["name"] for symbol in symbols]
         _doc_prefix = f"{module_docstring[:200]} " if module_docstring else ""
         index_record = {
             "kind": "python_file",
@@ -502,14 +594,31 @@ class TextFileExtractor:
 
             brace_depth += opens - closes
 
+        test_case_count = self._append_typescript_test_records(
+            rel_path=rel_path,
+            lines=text.splitlines(),
+            file_id=file_id,
+            details=detail_records,
+            relations=relation_records,
+        )
         names = [symbol["name"] for symbol in symbols]
-        top_level_symbols = [record for record in detail_records if record.get("parent_id") == file_id and record["kind"] != "typescript_import"]
+        top_level_symbols = [
+            record
+            for record in detail_records
+            if record.get("parent_id") == file_id
+            and record["kind"] != "typescript_import"
+        ]
         framework_info = self._annotate_typescript_frameworks(
             rel_path=rel_path,
             text=text,
             imports=imports,
             top_level_symbols=top_level_symbols,
             detail_records=detail_records,
+        )
+        method_count = sum(
+            1
+            for record in detail_records
+            if record["kind"] in {"typescript_method", "typescript_constructor"}
         )
         index_record = {
             "kind": "typescript_file",
@@ -529,7 +638,7 @@ class TextFileExtractor:
                     f"Symbols: {', '.join(names[:30]) or 'none'}. "
                     f"Frameworks: {', '.join(framework_info['frameworks']) or 'none'}. "
                     f"Frontend artifacts: {', '.join(framework_info['frontend_artifacts'][:20]) or 'none'}. "
-                    f"Methods {sum(1 for record in detail_records if record['kind'] in {'typescript_method', 'typescript_constructor'})}."
+                    f"Methods {method_count}."
                 ),
                 (
                     f"TypeScript {rel_path}. "
@@ -550,9 +659,8 @@ class TextFileExtractor:
                 "react_artifact_count": framework_info["react_artifact_count"],
                 "component_count": framework_info["component_count"],
                 "hook_count": framework_info["hook_count"],
-                "method_count": sum(
-                    1 for record in detail_records if record["kind"] in {"typescript_method", "typescript_constructor"}
-                ),
+                "method_count": method_count,
+                "test_case_count": test_case_count,
                 "parse_mode": "heuristic",
             },
         }
@@ -567,8 +675,125 @@ class TextFileExtractor:
             "component_count": index_record["summary"]["component_count"],
             "hook_count": index_record["summary"]["hook_count"],
             "method_count": index_record["summary"]["method_count"],
+            "test_case_count": test_case_count,
             "parse_mode": "heuristic",
         }
+
+    def _append_typescript_test_records(
+        self,
+        *,
+        rel_path: str,
+        lines: list[str],
+        file_id: str,
+        details: list[dict],
+        relations: list[dict],
+    ) -> int:
+        if not self._is_typescript_test_path(rel_path):
+            return 0
+        count = 0
+        for index, raw in enumerate(lines):
+            match = TYPESCRIPT_TEST_CASE_PATTERN.match(raw)
+            if match is None:
+                continue
+            count += 1
+            line_start = index + 1
+            line_end = self._typescript_call_end_line(lines, index)
+            test_name = match.group("name").strip()
+            test_id = (
+                f"typescript_call:"
+                f"{safe_id(rel_path, match.group('call_kind'), test_name, str(count))}"
+            )
+            record = {
+                "kind": "typescript_call",
+                "record_kind": "test_case",
+                "file": rel_path,
+                "id": test_id,
+                "parent_id": file_id,
+                "name": test_name,
+                "call_kind": match.group("call_kind"),
+                "line": line_start,
+                "end_line": line_end,
+            }
+            details.append(record)
+            relations.append(
+                {
+                    "kind": "relation",
+                    "file": rel_path,
+                    "id": f"relation:{safe_id(rel_path, file_id, 'contains_test_case', test_name)}",
+                    "from": file_id,
+                    "to": test_id,
+                    "type": "contains_test_case",
+                    "source_id": file_id,
+                    "source_kind": "typescript_file",
+                    "source_name": rel_path,
+                    "relation": "contains_test_case",
+                    "target": test_name,
+                    "target_resolved": test_id,
+                    "resolution_status": "resolved",
+                    "weight": 1,
+                    "line": line_start,
+                }
+            )
+
+            statement = "\n".join(lines[index:line_end])
+            fixture_match = TYPESCRIPT_FIXTURE_ARGUMENT_PATTERN.search(statement)
+            if fixture_match is None:
+                continue
+            for fixture_name in self._typescript_fixture_names(fixture_match.group("fixtures")):
+                relations.append(
+                    {
+                        "kind": "relation",
+                        "record_kind": "fixture_relation",
+                        "file": rel_path,
+                        "id": f"fixture_relation:{safe_id(rel_path, test_id, fixture_name)}",
+                        "record_id": (
+                            f"fixture_relation:{safe_id(rel_path, test_name, fixture_name)}"
+                        ),
+                        "from": test_id,
+                        "to": fixture_name,
+                        "type": "uses_fixture",
+                        "source_id": test_id,
+                        "source_kind": "typescript_call",
+                        "source_name": test_name,
+                        "relation": "uses_fixture",
+                        "target": fixture_name,
+                        "target_resolved": None,
+                        "resolution_status": "unresolved",
+                        "weight": 1,
+                        "line": line_start,
+                    }
+                )
+        return count
+
+    @staticmethod
+    def _is_typescript_test_path(rel_path: str) -> bool:
+        normalized = rel_path.replace("\\", "/").lower()
+        basename = normalized.rsplit("/", 1)[-1]
+        return (
+            basename.endswith((".spec.ts", ".spec.tsx", ".test.ts", ".test.tsx"))
+            or "/tests/" in f"/{normalized}"
+        )
+
+    @staticmethod
+    def _typescript_call_end_line(lines: list[str], start_index: int) -> int:
+        balance = 0
+        seen_open = False
+        for index in range(start_index, min(len(lines), start_index + 200)):
+            raw = lines[index]
+            balance += raw.count("(") - raw.count(")")
+            seen_open = seen_open or "(" in raw
+            if seen_open and balance <= 0:
+                return index + 1
+        return start_index + 1
+
+    @staticmethod
+    def _typescript_fixture_names(raw: str) -> list[str]:
+        fixtures: list[str] = []
+        for item in raw.split(","):
+            candidate = item.strip().split(":", 1)[0].split("=", 1)[0].strip()
+            if re.fullmatch(r"[A-Za-z_$][\w$]*", candidate):
+                fixtures.append(candidate)
+        return list(dict.fromkeys(fixtures))
 
     def _parse_code_outline_fallback(self, rel_path: str, text: str, language: str, parse_mode: str):
         file_id = f"{language}_file:{safe_id(rel_path)}"
@@ -651,9 +876,41 @@ class TextFileExtractor:
         return {
             "name": node.name,
             "line": node.lineno,
+            "end_line": getattr(node, "end_lineno", node.lineno),
             "async": isinstance(node, ast.AsyncFunctionDef),
             "decorators": [self._ast_to_text(decorator) for decorator in node.decorator_list],
+            "parameters": [
+                argument.arg
+                for argument in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
+            ],
         }
+
+    @staticmethod
+    def _is_python_test_path(rel_path: str) -> bool:
+        normalized = rel_path.replace("\\", "/").lower()
+        basename = normalized.rsplit("/", 1)[-1]
+        return basename.startswith("test_") or basename.endswith("_test.py") or "/tests/" in f"/{normalized}"
+
+    @staticmethod
+    def _is_pytest_fixture(decorators: list[str]) -> bool:
+        return any(
+            decorator == "fixture"
+            or decorator.startswith("fixture(")
+            or decorator == "pytest.fixture"
+            or decorator.startswith("pytest.fixture(")
+            for decorator in decorators
+        )
+
+    @staticmethod
+    def _python_parametrized_names(decorators: list[str]) -> set[str]:
+        result: set[str] = set()
+        for decorator in decorators:
+            if "parametrize" not in decorator:
+                continue
+            match = re.search(r"parametrize\(\s*['\"]([^'\"]+)['\"]", decorator)
+            if match:
+                result.update(item.strip() for item in match.group(1).split(",") if item.strip())
+        return result
 
     def _ast_to_text(self, node: ast.AST) -> str:
         if hasattr(ast, "unparse"):
@@ -664,7 +921,12 @@ class TextFileExtractor:
             return f"{self._ast_to_text(node.value)}.{node.attr}"
         return node.__class__.__name__
 
-    def _match_typescript_top_level_symbol(self, stripped: str, line: int, decorators: list[dict[str, str]]) -> dict | None:
+    def _match_typescript_top_level_symbol(
+        self,
+        stripped: str,
+        line: int,
+        decorators: list[dict[str, str]],
+    ) -> dict | None:
         for kind, pattern in TYPESCRIPT_TOP_LEVEL_PATTERNS:
             match = pattern.match(stripped)
             if not match:
@@ -715,7 +977,11 @@ class TextFileExtractor:
         detail_records: list[dict],
     ) -> dict[str, object]:
         has_angular_import = any(module.startswith("@angular/") for module in imports)
-        has_react_import = any(module in {"react", "react-dom", "react/jsx-runtime"} or module.startswith("react/") for module in imports)
+        has_react_import = any(
+            module in {"react", "react-dom", "react/jsx-runtime"}
+            or module.startswith("react/")
+            for module in imports
+        )
         has_jsx = rel_path.endswith(".tsx") or bool(JSX_TAG_PATTERN.search(text))
         hook_calls = sorted({match.group(1) for match in REACT_HOOK_CALL_PATTERN.finditer(text)})
         frameworks: set[str] = set()
@@ -765,7 +1031,10 @@ class TextFileExtractor:
         angular_artifact_count = sum(1 for record in top_level_symbols if record.get("framework") == "angular")
         react_artifact_count = sum(1 for record in top_level_symbols if record.get("framework") == "react")
         component_count = sum(
-            1 for record in top_level_symbols if record.get("framework_role") in {"angular_component", "react_component"}
+            1
+            for record in top_level_symbols
+            if record.get("framework_role")
+            in {"angular_component", "react_component"}
         )
         hook_count = sum(1 for record in top_level_symbols if record.get("framework_role") == "react_hook")
         return {
@@ -803,7 +1072,11 @@ class TextFileExtractor:
         for decorator_name, framework_role in angular_roles.items():
             if decorator_name in decorators:
                 return "angular", framework_role
-        if has_angular_import and kind == "typescript_class" and name.endswith(("Component", "Service", "Directive", "Pipe", "Module")):
+        if (
+            has_angular_import
+            and kind == "typescript_class"
+            and name.endswith(("Component", "Service", "Directive", "Pipe", "Module"))
+        ):
             suffix_map = {
                 "Component": "angular_component",
                 "Service": "angular_service",
@@ -815,7 +1088,10 @@ class TextFileExtractor:
                 if name.endswith(suffix):
                     return "angular", framework_role
 
-        if kind == "typescript_class" and ("React.Component" in extends_value or extends_value in {"Component", "PureComponent"}):
+        if kind == "typescript_class" and (
+            "React.Component" in extends_value
+            or extends_value in {"Component", "PureComponent"}
+        ):
             return "react", "react_component"
 
         if kind in {"typescript_function", "typescript_const"} and REACT_HOOK_NAME_PATTERN.match(name):
@@ -877,6 +1153,13 @@ TYPESCRIPT_SYMBOL_PATTERNS = [
 
 TYPESCRIPT_IMPORT_PATTERN = re.compile(
     r"^import\s+(?P<clause>.+?)\s+from\s+[\"'](?P<module>[^\"']+)[\"'];?$"
+)
+TYPESCRIPT_TEST_CASE_PATTERN = re.compile(
+    r"^\s*(?P<call_kind>it|test)(?:\.(?:only|skip|todo))?\s*\(\s*"
+    r"(?P<quote>['\"])(?P<name>.*?)(?P=quote)\s*,"
+)
+TYPESCRIPT_FIXTURE_ARGUMENT_PATTERN = re.compile(
+    r"(?:async\s*)?\(\s*\{(?P<fixtures>[^}]+)\}\s*\)\s*=>"
 )
 
 TYPESCRIPT_TOP_LEVEL_PATTERNS = [

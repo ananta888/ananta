@@ -69,6 +69,22 @@ def test_normalize_chunk_metadata_preserves_chunk_level_security_tags() -> None:
     assert payload.get("source_id_verified") is False
 
 
+def test_repo_path_index_does_not_fall_back_to_internal_index_identity() -> None:
+    payload = normalize_chunk_metadata(
+        engine="knowledge_index",
+        source="agent/runtime.py",
+        content="runtime context",
+        metadata={
+            "source_scope": "repo_path",
+            "knowledge_index_id": "internal-index-row",
+        },
+    )
+
+    assert payload["source_type"] == "repo"
+    assert payload["source_id"] is None
+    assert payload["source_id_verification"]["reason_code"] == "source_id_missing"
+
+
 @pytest.mark.parametrize(
     ("source_type", "source", "metadata"),
     [

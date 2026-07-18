@@ -13,9 +13,12 @@ import pytest
 
 from agent.services.ananta_tool_registry_service import AnantaToolRegistryService
 
-
 _CODECOMPASS_SPECS: dict[str, set[str]] = {
-    "codecompass.plan_context": {"query", "max_ranges", "include_neighbors", "task_kind"},
+    "codecompass.plan_context": {
+        "query", "intent", "detail_level", "registry_version", "node_kind",
+        "field_path", "backend_contract", "symbols", "graph_neighbors",
+        "max_ranges", "include_neighbors", "task_kind",
+    },
     "codecompass.resolve_context": {
         "query", "task_kind", "mode", "working_files", "domain_hint",
         "domain_scope", "max_tokens", "max_files", "include_original_files",

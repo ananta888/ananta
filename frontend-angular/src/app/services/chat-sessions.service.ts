@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { map, tap } from 'rxjs/operators';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
 
@@ -42,9 +42,21 @@ export type ChatSettingsMap = Record<string,ChatSettingValue>;
 export interface ChatProcessRef { graph_id: string; version: string; }
 export interface EffectiveChatProcess {
   process_ref: ChatProcessRef | null;
-  source: 'session' | 'profile' | 'none';
+  source: EffectiveChatProcessSource;
   graph: Record<string, unknown> | null;
   run: Record<string, unknown> | null;
+}
+export type EffectiveChatProcessSource = 'session_override' | 'profile' | 'global';
+
+/** Compatibility boundary for responses written before the shared source enum. */
+export function normalizeEffectiveChatProcessSource(value: unknown): EffectiveChatProcessSource {
+  if (value === 'session' || value === 'session_override') return 'session_override';
+  if (value === 'profile') return 'profile';
+  return 'global';
+}
+
+function normalizeEffectiveChatProcess(value: EffectiveChatProcess): EffectiveChatProcess {
+  return { ...value, source: normalizeEffectiveChatProcessSource(value?.source) };
 }
 export interface ChatProcessRunSummary { run_id:string; workflow_id:string; process_id:string; process_version:string; snapshot_hash:string; status:string; message_id?:string; started_at:number; }
 
@@ -306,12 +318,15 @@ export class ChatSessionsService {
 
   getEffectiveProcess(sessionId: string): Observable<EffectiveChatProcess> {
     const url = this.hubUrl;
-    return this.core.get<EffectiveChatProcess>(`${url}/api/chat/sessions/${sessionId}/process`, url);
+    return this.core.get<EffectiveChatProcess>(`${url}/api/chat/sessions/${sessionId}/process`, url).pipe(
+      map(normalizeEffectiveChatProcess),
+    );
   }
 
   cloneEffectiveProcess(sessionId: string): Observable<EffectiveChatProcess> {
     const url = this.hubUrl;
     return this.core.post<EffectiveChatProcess>(`${url}/api/chat/sessions/${sessionId}/process/clone`, {}, url).pipe(
+      map(normalizeEffectiveChatProcess),
       tap(() => this.load()),
     );
   }

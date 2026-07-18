@@ -1,0 +1,325 @@
+{
+  "algorithm": "ananta-editor-context-canonical-json-v1",
+  "schema": "ananta.visual_process.context_canonicalization_vectors.v1",
+  "vectors": [
+    {
+      "canonical_utf8": "{}",
+      "input": {},
+      "name": "empty",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "canonical_utf8": "{\"a\":2,\"z\":1}",
+      "input": {
+        "a": 2,
+        "z": 1
+      },
+      "name": "key-order",
+      "sha256": "c2985c5ba6f7d2a55e768f92490ca09388e95bc4cccb9fdf11b15f4d42f93e73"
+    },
+    {
+      "canonical_utf8": "{\"outer\":{\"a\":1,\"b\":2}}",
+      "input": {
+        "outer": {
+          "a": 1,
+          "b": 2
+        }
+      },
+      "name": "nested-key-order",
+      "sha256": "8a14b37c210b85f40e7290a8e55658a59f90ad6fae1f315627109854d34d71e8"
+    },
+    {
+      "canonical_utf8": "{\"name\":\"Café\"}",
+      "input": {
+        "name": "Café"
+      },
+      "name": "nfc-value",
+      "sha256": "659906f125d844f7081786e4a1cba739414e49a9b9061d80ce09c691b5f56602"
+    },
+    {
+      "canonical_utf8": "{\"Café\":\"value\"}",
+      "input": {
+        "Café": "value"
+      },
+      "name": "nfc-key",
+      "sha256": "3f2c129d9ddcec0b43d7fcc6a74b0379add995c737afa93779279c97fb7473dd"
+    },
+    {
+      "canonical_utf8": "{\"present\":null}",
+      "input": {
+        "present": null
+      },
+      "name": "null-distinct",
+      "sha256": "924c481da1aca4bbd856f20e4aaef20f67c34fccd0b5e27cb2647b8c45ee21ac"
+    },
+    {
+      "canonical_utf8": "{\"false\":false,\"true\":true}",
+      "input": {
+        "false": false,
+        "true": true
+      },
+      "name": "booleans",
+      "sha256": "f666b107781ba633213b7021b9e29fa35b075c6aa362d5989071194cde91cd43"
+    },
+    {
+      "canonical_utf8": "{\"value\":9007199254740991}",
+      "input": {
+        "value": 9007199254740991
+      },
+      "name": "safe-integer-max",
+      "sha256": "16c63bddb910905c4ee8abf36273baa20dba53020dbaf265da5936013ded185d"
+    },
+    {
+      "canonical_utf8": "{\"value\":-42}",
+      "input": {
+        "value": -42
+      },
+      "name": "safe-integer-negative",
+      "sha256": "fba1a125f133e3f2bffea14e675dbb239901421340cde588d8989ee0b8beb79c"
+    },
+    {
+      "canonical_utf8": "{\"value\":1}",
+      "input": {
+        "value": 1.0
+      },
+      "name": "float-integral",
+      "sha256": "48208f9428d64634bd8e28ff345bf0eab60d53c18fa2fbdb0b9bc1e84df2b5f6"
+    },
+    {
+      "canonical_utf8": "{\"value\":12.5}",
+      "input": {
+        "value": 12.5
+      },
+      "name": "float-fraction",
+      "sha256": "ed0c83b3c650493fdc8d8e9ec45521e6e6435888b087c1fccd223f9e94359e71"
+    },
+    {
+      "canonical_utf8": "{\"value\":0}",
+      "input": {
+        "value": -0.0
+      },
+      "name": "float-negative-zero",
+      "sha256": "23d7b286bd429460b92a2a1c21b6afc34110446c5034c17363fda363aa0a7c5d"
+    },
+    {
+      "canonical_utf8": "{\"value\":0.000000001}",
+      "input": {
+        "value": 1e-09
+      },
+      "name": "float-small",
+      "sha256": "65b9c4011a1cbe4aea308e049e9cacf81b48032d0a9c64513e6192eb887442f7"
+    },
+    {
+      "canonical_utf8": "{\"values\":[3,1,2]}",
+      "input": {
+        "values": [
+          3,
+          1,
+          2
+        ]
+      },
+      "name": "array-order-preserved",
+      "sha256": "c2d02feadd9a74ac8989f91e0f89044215f3f18e368c414771d457b8246ce293"
+    },
+    {
+      "canonical_utf8": "{\"steps\":[{\"id\":\"a\"},{\"id\":\"b\"}]}",
+      "input": {
+        "steps": [
+          {
+            "id": "b"
+          },
+          {
+            "id": "a"
+          }
+        ]
+      },
+      "name": "steps-domain-sort",
+      "sha256": "07de34ddbee9660b63b808af14ccd14d9ca58a13902c261d9e70c68e820c230a"
+    },
+    {
+      "canonical_utf8": "{\"edges\":[{\"id\":\"e1\",\"source\":\"a\",\"target\":\"b\"},{\"id\":\"e2\",\"source\":\"b\",\"target\":\"c\"}]}",
+      "input": {
+        "edges": [
+          {
+            "id": "e2",
+            "source": "b",
+            "target": "c"
+          },
+          {
+            "id": "e1",
+            "source": "a",
+            "target": "b"
+          }
+        ]
+      },
+      "name": "edges-domain-sort",
+      "sha256": "4d2ac953e6f817f1a89e1bd43b5a0a1bf54a73ffbe9424784c1fc073993e12ca"
+    },
+    {
+      "canonical_utf8": "{\"validation_issues\":[{\"code\":\"a\",\"path\":\"/a\"},{\"code\":\"z\",\"path\":\"/b\"}]}",
+      "input": {
+        "validation_issues": [
+          {
+            "code": "z",
+            "path": "/b"
+          },
+          {
+            "code": "a",
+            "path": "/a"
+          }
+        ]
+      },
+      "name": "validation-domain-sort",
+      "sha256": "1948bcb2db27e9cfffdd8827a3dfd18cd9b91c737a52d88150c6de121ae927cf"
+    },
+    {
+      "canonical_utf8": "{\"evidence_refs\":[{\"evidence_id\":\"e1\",\"source_version\":\"1\"},{\"evidence_id\":\"e2\",\"source_version\":\"1\"}]}",
+      "input": {
+        "evidence_refs": [
+          {
+            "evidence_id": "e2",
+            "source_version": "1"
+          },
+          {
+            "evidence_id": "e1",
+            "source_version": "1"
+          }
+        ]
+      },
+      "name": "evidence-domain-sort",
+      "sha256": "e573f8b2ad73f5f7b23aa6190277799fd3bca6073b2fabeee933a589f3ef7dea"
+    },
+    {
+      "canonical_utf8": "{\"stable\":1}",
+      "input": {
+        "created_at": "ignored",
+        "stable": 1
+      },
+      "name": "volatile-created-at",
+      "sha256": "c3adab499dd3e863ccd5faadb78b89c816f235478d7620bd061fbd4861b9b34e"
+    },
+    {
+      "canonical_utf8": "{\"stable\":\"yes\"}",
+      "input": {
+        "duration_ms": 10,
+        "stable": "yes"
+      },
+      "name": "volatile-duration",
+      "sha256": "a432f0bb78867e37da71dd8b1944a280cdac14d42f530c77502075f5f47b1acd"
+    },
+    {
+      "canonical_utf8": "{\"entity_id\":\"step-1\"}",
+      "input": {
+        "dom_id": "node-1",
+        "entity_id": "step-1"
+      },
+      "name": "volatile-dom",
+      "sha256": "a0a07a46146002d64bface63a0567cb0bc3a4dbfb26f1cdacf4edfd736e3eabe"
+    },
+    {
+      "canonical_utf8": "{\"a\":\"ascii\",\"ä\":\"umlaut\",\"😀\":\"emoji\"}",
+      "input": {
+        "a": "ascii",
+        "ä": "umlaut",
+        "😀": "emoji"
+      },
+      "name": "unicode-supplementary",
+      "sha256": "e57964ddf08f338607e972e87d5393e5723699e25469c3df815fbd371bcaa67f"
+    },
+    {
+      "canonical_utf8": "{\"text\":\"say \\\"hi\\\"\"}",
+      "input": {
+        "text": "say \"hi\""
+      },
+      "name": "escaped-quote",
+      "sha256": "816d906ba684ed400396584d696d107eaf784005b38c4ba279e035910779f2ea"
+    },
+    {
+      "canonical_utf8": "{\"path\":\"a\\\\b\"}",
+      "input": {
+        "path": "a\\b"
+      },
+      "name": "escaped-backslash",
+      "sha256": "46cfa8597aadeec32eaa59f32d17e6505dfdcc855d34d8db734600f3c58b7903"
+    },
+    {
+      "canonical_utf8": "{\"text\":\"a\\nb\"}",
+      "input": {
+        "text": "a\nb"
+      },
+      "name": "escaped-newline",
+      "sha256": "cf5320d4ddc3bacec3f9a069add037c0084788c1a5d1b02028d174710a5b680f"
+    },
+    {
+      "canonical_utf8": "{\"array\":[],\"object\":{}}",
+      "input": {
+        "array": [],
+        "object": {}
+      },
+      "name": "empty-containers",
+      "sha256": "13b38aeab2e18a2c62de2945db9600720801b483e41936f5a154dbda7261be70"
+    },
+    {
+      "canonical_utf8": "{\"items\":[null,true,1,1.25,\"x\",{\"a\":1,\"b\":2}]}",
+      "input": {
+        "items": [
+          null,
+          true,
+          1,
+          1.25,
+          "x",
+          {
+            "a": 1,
+            "b": 2
+          }
+        ]
+      },
+      "name": "mixed-array",
+      "sha256": "718989488d12a83a467b9c1480f3d0ad08bac952b8b276cb96168317b9536540"
+    },
+    {
+      "canonical_utf8": "{\"graph_excerpt\":{\"edges\":[],\"steps\":[{\"id\":\"s1\",\"position\":{\"x\":1,\"y\":0}},{\"id\":\"s2\",\"position\":{\"x\":2.5,\"y\":0}}]}}",
+      "input": {
+        "graph_excerpt": {
+          "edges": [],
+          "steps": [
+            {
+              "id": "s2",
+              "position": {
+                "x": 2.5,
+                "y": 0
+              }
+            },
+            {
+              "id": "s1",
+              "position": {
+                "x": 1,
+                "y": 0
+              }
+            }
+          ]
+        }
+      },
+      "name": "graph-excerpt",
+      "sha256": "26485d2831abf9b90963870060a814afae3014b8a7e67fd544361e6e3bffcecc"
+    },
+    {
+      "canonical_utf8": "{\"empty\":\"\",\"missing_semantics\":null}",
+      "input": {
+        "empty": "",
+        "missing_semantics": null
+      },
+      "name": "null-versus-empty",
+      "sha256": "e1205cb9433f87c391a5040821fb24cf58376301e321799a7a73aeadbd8f447c"
+    },
+    {
+      "canonical_utf8": "{\"locale\":\"de-DE\",\"summary\":\"Änderung prüfen\"}",
+      "input": {
+        "locale": "de-DE",
+        "summary": "Änderung prüfen"
+      },
+      "name": "locale-text",
+      "sha256": "ab50f9f2978da10255fbe04fa3ea24edf1fd14ae261e5f72d66fc5a3acecdd56"
+    }
+  ]
+}

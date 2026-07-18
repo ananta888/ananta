@@ -6,7 +6,13 @@ import json
 import re
 
 from rag_helper.extractors.base import FileSkipped
-from rag_helper.extractors.structured_support import StructuredRecordFactory, line_number, stats_for
+from rag_helper.extractors.planning_todo_extractor import PlanningTodoExtractor
+from rag_helper.extractors.structured_support import (
+    StructuredRecordFactory,
+    line_number,
+    normalize_extraction_records,
+    stats_for,
+)
 
 
 class JsonDocumentExtractor:
@@ -18,11 +24,19 @@ class JsonDocumentExtractor:
         embedding_text_mode: str = "verbose",
         max_nodes: int = 20_000,
         max_depth: int = 64,
+        planning_todo_extractor: PlanningTodoExtractor | None = None,
     ) -> None:
         self.fallback_extractor = fallback_extractor
         self.embedding_text_mode = embedding_text_mode
         self.max_nodes = max_nodes
         self.max_depth = max_depth
+        self.planning_todo_extractor = (
+            planning_todo_extractor
+            or PlanningTodoExtractor(
+                embedding_text_mode=embedding_text_mode,
+                max_records=max_nodes,
+            )
+        )
 
     def parse(self, rel_path: str, text: str):
         try:
@@ -34,6 +48,8 @@ class JsonDocumentExtractor:
                 "unsupported_extension",
                 {"format_candidate": "json_schema", "diagnostic": "invalid_json"},
             )
+        if self.planning_todo_extractor.supports(rel_path, parsed):
+            return self.planning_todo_extractor.parse(rel_path, text, parsed)
         if not self._is_json_schema(parsed):
             if self.fallback_extractor is not None:
                 return self.fallback_extractor.parse(rel_path, text)
@@ -83,8 +99,53 @@ class JsonDocumentExtractor:
             if not isinstance(value, dict):
                 return
 
+            pointer_token = pointer.rsplit("/", 1)[-1] if "/" in pointer else "#"
+            pointer_line, pointer_column = (1, 1) if pointer == "#" else locate(
+                pointer_token.replace("~1", "/").replace("~0", "~")
+            )
+            pointer_record = factory.symbol(
+                kind="json_schema_pointer",
+                name=pointer,
+                line=pointer_line,
+                column=pointer_column,
+                parent_id=parent_id,
+                ordinal=node_count,
+                pointer=pointer,
+                schema_type=self._schema_type(value),
+            )
+            details.append(pointer_record)
+
+            node_schema_id = value.get("$id")
+            if isinstance(node_schema_id, str):
+                id_line, id_column = locate("$id")
+                details.append(
+                    factory.symbol(
+                        kind="json_schema_id",
+                        name=node_schema_id,
+                        line=id_line,
+                        column=id_column,
+                        parent_id=pointer_record["id"],
+                        ordinal=node_count,
+                        pointer=f"{pointer}/$id" if pointer != "#" else "#/$id",
+                        schema_id=node_schema_id,
+                    )
+                )
+
             ref = value.get("$ref")
             if isinstance(ref, str):
+                ref_line, ref_column = locate("$ref")
+                details.append(
+                    factory.symbol(
+                        kind="json_schema_ref",
+                        name=ref,
+                        line=ref_line,
+                        column=ref_column,
+                        parent_id=pointer_record["id"],
+                        ordinal=node_count,
+                        pointer=f"{pointer}/$ref" if pointer != "#" else "#/$ref",
+                        ref=ref,
+                    )
+                )
                 relations.append(
                     factory.relation(
                         source_id=parent_id,
@@ -93,7 +154,7 @@ class JsonDocumentExtractor:
                         relation="references_schema",
                         target=ref,
                         target_resolved=symbols.get(ref),
-                        line=locate("$ref")[0],
+                        line=ref_line,
                     )
                 )
 
@@ -207,12 +268,20 @@ class JsonDocumentExtractor:
                     "definition_count": sum(item.get("kind") == "json_schema_definition" for item in details),
                     "property_count": sum(item.get("kind") == "json_schema_property" for item in details),
                     "reference_count": sum(item.get("relation") == "references_schema" for item in relations),
+                    "pointer_count": sum(item.get("kind") == "json_schema_pointer" for item in details),
+                    "id_record_count": sum(item.get("kind") == "json_schema_id" for item in details),
                     "diagnostic_count": len(diagnostics),
                 },
                 labels=[item["name"] for item in details if item.get("name")],
                 parser_mode="stdlib_json",
             )
         ]
+        normalize_extraction_records(
+            (index, details, relations),
+            rel_path=rel_path,
+            source_text=text,
+            extractor=type(self).__name__,
+        )
         return (
             index,
             details,
@@ -229,6 +298,8 @@ class JsonDocumentExtractor:
                 definition_count=sum(item.get("kind") == "json_schema_definition" for item in details),
                 property_count=sum(item.get("kind") == "json_schema_property" for item in details),
                 reference_count=sum(item.get("relation") == "references_schema" for item in relations),
+                pointer_count=sum(item.get("kind") == "json_schema_pointer" for item in details),
+                id_record_count=sum(item.get("kind") == "json_schema_id" for item in details),
             ),
         )
 

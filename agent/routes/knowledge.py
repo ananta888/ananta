@@ -404,7 +404,7 @@ def index_knowledge_collection(collection_id: str):
         raise NotFoundError("collection_has_no_artifacts")
 
     payload = _collection_index_request()
-    if payload.async_mode:
+    try:
         job = get_knowledge_index_job_service().submit_collection_job(
             collection_id=collection_id,
             artifact_ids=artifact_ids,
@@ -412,34 +412,15 @@ def index_knowledge_collection(collection_id: str):
             profile_name=payload.profile_name,
             profile_overrides=payload.profile_overrides,
         )
-        return api_response(status="accepted", code=202, data={"collection": collection.model_dump(), "job": job})
-    results = []
-    failed = False
-    index_service = get_rag_helper_index_service()
-    for artifact_id in artifact_ids:
-        knowledge_index, run = index_service.index_artifact(
-            artifact_id,
-            created_by=_current_username(),
-            profile_name=payload.profile_name,
-            profile_overrides=payload.profile_overrides,
-        )
-        results.append(
-            {
-                "artifact_id": artifact_id,
-                "knowledge_index": knowledge_index.model_dump(),
-                "run": run.model_dump(),
-            }
-        )
-        if _model_status(run) != "completed":
-            failed = True
-
+    except ValueError as exc:
+        raise BadRequestError(str(exc)) from exc
     return api_response(
-        status="error" if failed else "success",
-        message="collection_index_failed" if failed else None,
-        code=500 if failed else 200,
+        status="accepted",
+        code=202,
         data={
             "collection": collection.model_dump(),
-            "results": results,
+            "job": job,
+            "execution_mode": "hub_delegated",
         },
     )
 
@@ -628,18 +609,8 @@ def index_knowledge_source_records():
         raise BadRequestError("source_scope_required")
     if not source_id:
         raise BadRequestError("source_id_required")
-    if payload.async_mode:
-        job = get_knowledge_index_job_service().submit_source_records_job(
-            source_scope=source_scope,
-            source_id=source_id,
-            records=list(payload.records or []),
-            created_by=_current_username(),
-            profile_name=payload.profile_name,
-            source_metadata=dict(payload.source_metadata or {}),
-        )
-        return api_response(status="accepted", code=202, data={"job": job})
     try:
-        knowledge_index, run = get_rag_helper_index_service().index_source_records(
+        job = get_knowledge_index_job_service().submit_source_records_job(
             source_scope=source_scope,
             source_id=source_id,
             records=list(payload.records or []),
@@ -649,16 +620,10 @@ def index_knowledge_source_records():
         )
     except ValueError as exc:
         raise BadRequestError(str(exc)) from exc
-    run_status = _model_status(run)
-    status = "success" if run_status == "completed" else "error"
     return api_response(
-        status=status,
-        code=200 if run_status == "completed" else 500,
-        message=None if run_status == "completed" else "source_index_failed",
-        data={
-            "knowledge_index": knowledge_index.model_dump(),
-            "run": run.model_dump(),
-        },
+        status="accepted",
+        code=202,
+        data={"job": job, "execution_mode": "hub_delegated"},
     )
 
 
@@ -687,7 +652,7 @@ def import_wiki_corpus():
         "import_stats": dict(report.get("stats") or {}),
     }
 
-    if payload["async_mode"]:
+    try:
         job = get_knowledge_index_job_service().submit_source_records_job(
             source_scope="wiki",
             source_id=str(report.get("source_id") or ""),
@@ -697,37 +662,11 @@ def import_wiki_corpus():
             source_metadata=source_metadata,
             codecompass_prerender=payload["codecompass_prerender"],
         )
-        return api_response(
-            status="accepted",
-            code=202,
-            data={
-                "import_report": {
-                    "source_scope": report.get("source_scope"),
-                    "source_id": report.get("source_id"),
-                    "corpus_path": report.get("corpus_path"),
-                    "index_path": report.get("index_path"),
-                    "jsonl_cache_path": report.get("jsonl_cache_path"),
-                    "format": report.get("format"),
-                    "stats": report.get("stats"),
-                    "issues": report.get("issues"),
-                },
-                "job": job,
-            },
-        )
-    knowledge_index, run = get_rag_helper_index_service().index_source_records(
-        source_scope="wiki",
-        source_id=str(report.get("source_id") or ""),
-        records=list(report.get("records") or []),
-        created_by=_current_username(),
-        profile_name=payload["profile_name"],
-        source_metadata=source_metadata,
-        codecompass_prerender=payload["codecompass_prerender"],
-    )
-    run_status = _model_status(run)
+    except ValueError as exc:
+        raise BadRequestError(str(exc)) from exc
     return api_response(
-        status="success" if run_status == "completed" else "error",
-        code=200 if run_status == "completed" else 500,
-        message=None if run_status == "completed" else "wiki_import_failed",
+        status="accepted",
+        code=202,
         data={
             "import_report": {
                 "source_scope": report.get("source_scope"),
@@ -739,8 +678,8 @@ def import_wiki_corpus():
                 "stats": report.get("stats"),
                 "issues": report.get("issues"),
             },
-            "knowledge_index": knowledge_index.model_dump(),
-            "run": run.model_dump(),
+            "job": job,
+            "execution_mode": "hub_delegated",
         },
     )
 
@@ -753,7 +692,7 @@ def import_wiki_corpus_from_url():
 
 
 def _import_wiki_corpus_from_url_legacy(payload: dict | None = None):
-    """Kept for reference — was the synchronous path that caused timeouts."""
+    """Compatibility entrypoint; indexing is always delegated to a worker task."""
     payload = payload or _wiki_import_url_request()
     try:
         report = get_ingestion_service().import_wiki_jsonl_from_url(
@@ -778,7 +717,7 @@ def _import_wiki_corpus_from_url_legacy(payload: dict | None = None):
         "import_stats": dict(report.get("stats") or {}),
     }
 
-    if payload["async_mode"]:
+    try:
         job = get_knowledge_index_job_service().submit_source_records_job(
             source_scope="wiki",
             source_id=str(report.get("source_id") or ""),
@@ -788,39 +727,11 @@ def _import_wiki_corpus_from_url_legacy(payload: dict | None = None):
             source_metadata=source_metadata,
             codecompass_prerender=payload["codecompass_prerender"],
         )
-        return api_response(
-            status="accepted",
-            code=202,
-            data={
-                "import_report": {
-                    "source_scope": report.get("source_scope"),
-                    "source_id": report.get("source_id"),
-                    "corpus_path": report.get("corpus_path"),
-                    "index_path": report.get("index_path"),
-                    "jsonl_cache_path": report.get("jsonl_cache_path"),
-                    "corpus_url": payload["corpus_url"],
-                    "index_url": payload["index_url"],
-                    "download": report.get("download"),
-                    "stats": report.get("stats"),
-                    "issues": report.get("issues"),
-                },
-                "job": job,
-            },
-        )
-    knowledge_index, run = get_rag_helper_index_service().index_source_records(
-        source_scope="wiki",
-        source_id=str(report.get("source_id") or ""),
-        records=list(report.get("records") or []),
-        created_by=_current_username(),
-        profile_name=payload["profile_name"],
-        source_metadata=source_metadata,
-        codecompass_prerender=payload["codecompass_prerender"],
-    )
-    run_status = _model_status(run)
+    except ValueError as exc:
+        raise BadRequestError(str(exc)) from exc
     return api_response(
-        status="success" if run_status == "completed" else "error",
-        code=200 if run_status == "completed" else 500,
-        message=None if run_status == "completed" else "wiki_import_failed",
+        status="accepted",
+        code=202,
         data={
             "import_report": {
                 "source_scope": report.get("source_scope"),
@@ -834,8 +745,8 @@ def _import_wiki_corpus_from_url_legacy(payload: dict | None = None):
                 "stats": report.get("stats"),
                 "issues": report.get("issues"),
             },
-            "knowledge_index": knowledge_index.model_dump(),
-            "run": run.model_dump(),
+            "job": job,
+            "execution_mode": "hub_delegated",
         },
     )
 

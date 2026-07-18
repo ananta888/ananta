@@ -339,6 +339,75 @@ class KnowledgeIndexRetrievalService:
             ),
         }
 
+    def current_manifest_identity(self) -> dict[str, Any]:
+        """Return the newest immutable snapshot revision, never a host-path hash."""
+
+        indices = sorted(
+            list(self._iter_completed_indices()),
+            key=lambda item: (
+                -float(getattr(item, "updated_at", 0.0) or 0.0),
+                str(getattr(item, "id", "") or ""),
+            ),
+        )
+        for index in indices:
+            metadata = dict(getattr(index, "index_metadata", None) or {})
+            nested = dict(metadata.get("codecompass_snapshot_manifest") or {})
+            revision = str(
+                metadata.get("codecompass_snapshot_revision")
+                or nested.get("snapshot_revision")
+                or ""
+            ).strip().lower()
+            if _is_sha256(revision):
+                return {
+                    "state": "current",
+                    "snapshot_revision": revision,
+                    "source_revision": nested.get("source_revision"),
+                    "knowledge_index_id": str(getattr(index, "id", "") or ""),
+                    "source": "knowledge_index_metadata",
+                }
+            manifest_path = Path(str(getattr(index, "manifest_path", "") or ""))
+            manifest = self._read_manifest_identity(manifest_path)
+            if manifest is not None:
+                return {
+                    **manifest,
+                    "knowledge_index_id": str(getattr(index, "id", "") or ""),
+                }
+        return {
+            "state": "degraded",
+            "snapshot_revision": None,
+            "source_revision": None,
+            "knowledge_index_id": None,
+            "source": "snapshot_manifest_unavailable",
+        }
+
+    @staticmethod
+    def _read_manifest_identity(path: Path) -> dict[str, Any] | None:
+        if not str(path) or path.is_symlink() or not path.is_file():
+            return None
+        try:
+            if path.stat().st_size > 2_000_000:
+                return None
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+        nested = dict(payload.get("codecompass_snapshot_manifest") or payload.get("snapshot_manifest") or {})
+        revision = str(
+            payload.get("codecompass_snapshot_revision")
+            or payload.get("snapshot_revision")
+            or nested.get("snapshot_revision")
+            or ""
+        ).strip().lower()
+        if not _is_sha256(revision):
+            return None
+        return {
+            "state": "current",
+            "snapshot_revision": revision,
+            "source_revision": nested.get("source_revision"),
+            "source": "snapshot_manifest",
+        }
+
     def _duplicate_candidate_ids(self, records: list[tuple[str, dict[str, Any]]]) -> set[str]:
         duplicate_ids: set[str] = set()
         for _filename, record in records:
@@ -579,6 +648,18 @@ class KnowledgeIndexRetrievalService:
                     ) else "unknown",
                     "repo_relative_path": str(record.get("path") or record.get("file") or "").strip() or None,
                     "symbol": str(record.get("symbol") or "").strip() or None,
+                    # Provider-issued identity remains unverified here and is
+                    # released only after SourceCatalogAuthority validation.
+                    "source_id": str(record.get("source_id") or "").strip() or None,
+                    "source_version": str(record.get("source_version") or "").strip() or None,
+                    "tenant_id": str(record.get("tenant_id") or "").strip() or None,
+                    "scope": str(record.get("scope") or record.get("source_scope") or "").strip() or None,
+                    "provenance_digest": str(record.get("provenance_digest") or "").strip() or None,
+                    "source_provenance": dict(record.get("provenance") or {}),
+                    "content_hash": str(record.get("content_hash") or "").strip() or None,
+                    "source_manifest_hash": str(record.get("manifest_hash") or "").strip() or None,
+                    "line_start": record.get("line_start", record.get("start_line")),
+                    "line_end": record.get("line_end", record.get("end_line")),
                 }
                 candidates.append(
                     ContextChunk(
@@ -601,9 +682,51 @@ class KnowledgeIndexRetrievalService:
         )
         return ranked[: max(1, int(top_k))]
 
+    def search_records(
+        self,
+        query: str,
+        *,
+        limit: int = 8,
+        task_kind: str | None = None,
+        retrieval_intent: str | None = None,
+        source_scopes: set[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Stable dict projection for CodeCompass tools and context planners."""
+
+        chunks = self.search(
+            query,
+            top_k=max(1, int(limit)),
+            task_kind=task_kind,
+            retrieval_intent=retrieval_intent,
+            source_scopes=source_scopes,
+        )
+        records: list[dict[str, Any]] = []
+        for chunk in chunks:
+            metadata = dict(chunk.metadata or {})
+            records.append(
+                {
+                    "id": str(metadata.get("record_id") or metadata.get("chunk_id") or ""),
+                    "path": str(metadata.get("repo_relative_path") or chunk.source or ""),
+                    "source": str(chunk.source or ""),
+                    "content": str(chunk.content or ""),
+                    "score": float(chunk.score or 0.0),
+                    "symbol": str(metadata.get("symbol") or ""),
+                    "kind": str(metadata.get("record_kind") or "retrieval_chunk"),
+                    "metadata": metadata,
+                    "verification_status": (
+                        "verified" if bool(metadata.get("source_id_verified")) else "unverified"
+                    ),
+                }
+            )
+        return records
+
 
 knowledge_index_retrieval_service = KnowledgeIndexRetrievalService()
 
 
 def get_knowledge_index_retrieval_service() -> KnowledgeIndexRetrievalService:
     return knowledge_index_retrieval_service
+
+
+def _is_sha256(value: str) -> bool:
+    return len(value) == 64 and all(char in "0123456789abcdef" for char in value)

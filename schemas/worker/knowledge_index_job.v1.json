@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.knowledge_index_job.v1",
+  "title": "Worker-delegated persistent knowledge index job",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "job_id",
+    "job_type",
+    "scope_id",
+    "source_scope",
+    "profile_name",
+    "created_by",
+    "created_at",
+    "idempotency_fingerprint",
+    "record_count",
+    "artifact_ids",
+    "payload"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.knowledge_index_job.v1"},
+    "job_id": {"type": "string", "pattern": "^knowledge-index-[a-f0-9]{32}$"},
+    "job_type": {"enum": ["artifact", "collection", "source_records"]},
+    "scope_id": {"type": "string", "minLength": 1},
+    "source_scope": {"type": ["string", "null"]},
+    "profile_name": {"type": "string", "minLength": 1},
+    "created_by": {"type": ["string", "null"]},
+    "created_at": {"type": "number"},
+    "idempotency_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "record_count": {"type": "integer", "minimum": 0},
+    "artifact_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "payload": {"type": "object"}
+  }
+}

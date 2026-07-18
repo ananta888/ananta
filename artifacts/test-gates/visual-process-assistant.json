@@ -1,0 +1,224 @@
+{
+  "gate_id": "visual-process-assistant",
+  "policy": {
+    "all_required": true,
+    "missing_evidence_blocks_release": true,
+    "source_grounding_fail_closed": true
+  },
+  "reason_codes": [
+    "grounded_source_authority_positive:authoritative_source_evidence_unavailable"
+  ],
+  "release_allowed": false,
+  "schema": "ananta.visual-process-assistant-functional-gate.v1",
+  "source_revision": "worktree-sha256:fff6f477e50aee72d448378643528852689c856968a0f38f187448ad26cdecc6",
+  "status": "blocked",
+  "suites": [
+    {
+      "evidence_paths": [
+        "tests/test_visual_process_assistant_baseline.py",
+        "tests/test_visual_process_assistant_contracts.py",
+        "tests/test_visual_process_definition_contract.py"
+      ],
+      "implementation_paths": [
+        "tests/test_visual_process_assistant_contracts.py",
+        "tests/test_visual_process_definition_contract.py",
+        "tests/test_visual_process_assistant_baseline.py"
+      ],
+      "implementation_status": "available",
+      "purpose": "Python-/TypeScript-Parität für Graph, NodeDefinition, Context, HelpResponse und WorkflowPatch",
+      "reason_code": "",
+      "reproduce": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_visual_process_assistant_contracts.py",
+        "tests/test_visual_process_definition_contract.py",
+        "tests/test_visual_process_assistant_baseline.py"
+      ],
+      "status": "passed",
+      "suite_id": "contract_parity",
+      "test_count": 56
+    },
+    {
+      "evidence_paths": [
+        "tests/integration/visual_process_assistant/test_hub_worker_matrix.py",
+        "tests/test_visual_process_assistant_service.py"
+      ],
+      "forbidden_source_markers": [
+        "class _Retriever"
+      ],
+      "implementation_paths": [
+        "tests/test_visual_process_assistant_service.py",
+        "tests/integration/visual_process_assistant/test_hub_worker_matrix.py"
+      ],
+      "implementation_status": "available",
+      "missing_reason_code": "authoritative_source_evidence_unavailable",
+      "purpose": "Reale Hub-Tasks über Worker, CodeCompass, Prompt-Snapshot und HelpResponse als persistierte Outcome-Matrix ohne Retrieval-Fake",
+      "reason_code": "",
+      "reproduce": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_visual_process_assistant_service.py",
+        "tests/integration/visual_process_assistant/test_hub_worker_matrix.py"
+      ],
+      "required_source_markers": [
+        "JsonlSymbolProvider",
+        "CodeCompassRetriever"
+      ],
+      "status": "passed",
+      "suite_id": "hub_worker_codecompass_integration",
+      "test_count": 7
+    },
+    {
+      "evidence_paths": [
+        "tests/test_visual_process_registry_migration_acceptance.py"
+      ],
+      "implementation_paths": [
+        "tests/test_visual_process_registry_migration_acceptance.py"
+      ],
+      "implementation_status": "available",
+      "purpose": "Parametrische Registry-, Adapter-, Legacy-Alias- und Zwei-Client-CAS-Matrix für alle migrierten Node-Kinds",
+      "reason_code": "",
+      "reproduce": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_visual_process_registry_migration_acceptance.py"
+      ],
+      "status": "passed",
+      "suite_id": "registry_backend_acceptance",
+      "test_count": 116
+    },
+    {
+      "evidence_paths": [
+        "frontend-angular/src/app/features/visual-process/vp-registry-migration-acceptance.spec.ts"
+      ],
+      "implementation_paths": [
+        "frontend-angular/src/app/features/visual-process/vp-registry-migration-acceptance.spec.ts"
+      ],
+      "implementation_status": "available",
+      "purpose": "Angular-Registry-Migration mit EditorCommand, Option-Isolation, kanonischen Pfaden und konfliktfestem Undo/Redo",
+      "reason_code": "",
+      "reproduce": [
+        "npx",
+        "vitest",
+        "run",
+        "src/app/features/visual-process/vp-registry-migration-acceptance.spec.ts"
+      ],
+      "status": "passed",
+      "suite_id": "registry_frontend_acceptance",
+      "test_count": 3,
+      "working_directory": "frontend-angular"
+    },
+    {
+      "evidence_mode": "positive_source_authority",
+      "evidence_paths": [],
+      "implementation_paths": [
+        "scripts/generate_codecompass_e2e_gate.py",
+        "tests/test_codecompass_e2e_acceptance_gate.py"
+      ],
+      "implementation_status": "available",
+      "missing_reason_code": "authoritative_source_evidence_unavailable",
+      "purpose": "Positiver CodeCompass-Authority-Pfad mit extern bereitgestellter, verifizierter Source-Identität",
+      "reason_code": "authoritative_source_evidence_unavailable",
+      "reproduce": [
+        "python",
+        "scripts/generate_codecompass_e2e_gate.py",
+        "--check"
+      ],
+      "status": "not_run",
+      "suite_id": "grounded_source_authority_positive",
+      "test_count": 0
+    },
+    {
+      "evidence_paths": [
+        "frontend-angular/tests/visual-process-assistant-patch.spec.ts"
+      ],
+      "implementation_paths": [
+        "frontend-angular/tests/visual-process-assistant-patch.spec.ts"
+      ],
+      "implementation_status": "available",
+      "purpose": "Node konfigurieren, belegte Frage, Evidence, Patch-Bestätigung, Undo/Redo und CAS-Speichern",
+      "reason_code": "",
+      "reproduce": [
+        "npx",
+        "playwright",
+        "test",
+        "--config=playwright.vpa-functional.config.ts",
+        "tests/visual-process-assistant-patch.spec.ts"
+      ],
+      "status": "passed",
+      "suite_id": "editor_patch_e2e",
+      "test_count": 2,
+      "working_directory": "frontend-angular"
+    },
+    {
+      "evidence_paths": [
+        "frontend-angular/tests/visual-process-assistant-isolation.spec.ts"
+      ],
+      "implementation_paths": [
+        "frontend-angular/tests/visual-process-assistant-isolation.spec.ts"
+      ],
+      "implementation_status": "available",
+      "purpose": "Zwei isolierte Editorinstanzen und Read-only-AI-Snake ohne Mutationsaktionen",
+      "reason_code": "",
+      "reproduce": [
+        "npx",
+        "playwright",
+        "test",
+        "--config=playwright.vpa-functional.config.ts",
+        "tests/visual-process-assistant-isolation.spec.ts"
+      ],
+      "status": "passed",
+      "suite_id": "editor_isolation_e2e",
+      "test_count": 1,
+      "working_directory": "frontend-angular"
+    },
+    {
+      "evidence_paths": [
+        "tests/security/visual_process_assistant/test_security_gates.py"
+      ],
+      "implementation_paths": [
+        "tests/security/visual_process_assistant/test_security_gates.py"
+      ],
+      "implementation_status": "available",
+      "purpose": "Fail-closed Source-, Secret-, Injection-, Revision-, Tenant- und Patch-Governance",
+      "reason_code": "",
+      "reproduce": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/security/visual_process_assistant"
+      ],
+      "status": "passed",
+      "suite_id": "assistant_security",
+      "test_count": 7
+    },
+    {
+      "evidence_paths": [
+        "tests/integration/visual_process_assistant/test_rollback.py"
+      ],
+      "implementation_paths": [
+        "tests/integration/visual_process_assistant/test_rollback.py"
+      ],
+      "implementation_status": "available",
+      "purpose": "Vier deaktivierte Flags erhalten Legacy-Editor, Graphen, Runtime-Overlay und Read-only-Ansicht",
+      "reason_code": "",
+      "reproduce": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/integration/visual_process_assistant/test_rollback.py"
+      ],
+      "status": "passed",
+      "suite_id": "feature_flag_rollback",
+      "test_count": 5
+    }
+  ]
+}

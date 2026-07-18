@@ -35,7 +35,9 @@ def test_knowledge_collection_create_list_and_detail(client, admin_auth_header):
     assert payload["knowledge_links"][0]["artifact_id"] == artifact_id
 
 
-def test_knowledge_collection_index_route_indexes_linked_artifacts(client, admin_auth_header, monkeypatch):
+def test_knowledge_collection_index_route_always_delegates_linked_artifacts(
+    client, admin_auth_header, monkeypatch
+):
     create_res = client.post(
         "/knowledge/collections",
         headers=admin_auth_header,
@@ -55,22 +57,15 @@ def test_knowledge_collection_index_route_indexes_linked_artifacts(client, admin
     artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
     captured: dict[str, object] = {}
 
-    class StubRagService:
-        def index_artifact(
-            self,
-            artifact_id: str,
-            *,
-            created_by: str | None,
-            profile_name: str | None = None,
-            profile_overrides: dict | None = None,
-        ):
-            captured["profile_name"] = profile_name
-            return (
-                SimpleNamespace(model_dump=lambda: {"id": "idx-1", "artifact_id": artifact_id, "status": "completed"}),
-                SimpleNamespace(model_dump=lambda: {"id": "run-1", "artifact_id": artifact_id, "status": "completed"}),
-            )
+    class StubJobService:
+        def submit_collection_job(self, **kwargs):
+            captured.update(kwargs)
+            return {"job_id": "job-collection-sync-compat", "status": "queued"}
 
-    monkeypatch.setattr("agent.routes.knowledge.get_rag_helper_index_service", lambda: StubRagService())
+    monkeypatch.setattr(
+        "agent.routes.knowledge.get_knowledge_index_job_service",
+        lambda: StubJobService(),
+    )
 
     response = client.post(
         f"/knowledge/collections/{collection_id}/index",
@@ -78,10 +73,11 @@ def test_knowledge_collection_index_route_indexes_linked_artifacts(client, admin
         json={"profile_name": "fast_docs"},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     payload = response.get_json()["data"]
-    assert payload["results"][0]["artifact_id"] == artifact_id
-    assert payload["results"][0]["run"]["status"] == "completed"
+    assert payload["job"]["job_id"] == "job-collection-sync-compat"
+    assert payload["execution_mode"] == "hub_delegated"
+    assert captured["artifact_ids"] == [artifact_id]
     assert captured["profile_name"] == "fast_docs"
 
 
@@ -283,27 +279,23 @@ def test_knowledge_retrieval_preflight_route_returns_source_diagnostics(client, 
     assert payload["sources"]["artifact"]["status"] == "ok"
 
 
-def test_knowledge_source_records_index_route_indexes_wiki_records(client, admin_auth_header, monkeypatch):
-    class StubRagService:
-        def index_source_records(
-            self,
-            *,
-            source_scope: str,
-            source_id: str,
-            records: list[dict],
-            created_by: str | None,
-            profile_name: str | None = None,
-            source_metadata: dict | None = None,
-        ):
+def test_knowledge_source_records_index_route_always_delegates_wiki_records(
+    client, admin_auth_header, monkeypatch
+):
+    class StubJobService:
+        def submit_source_records_job(self, **kwargs):
+            source_scope = kwargs["source_scope"]
+            source_id = kwargs["source_id"]
+            records = kwargs["records"]
             assert source_scope == "wiki"
             assert source_id == "wiki-mvp"
             assert records and records[0]["article_title"] == "Payment retries"
-            return (
-                SimpleNamespace(model_dump=lambda: {"id": "idx-wiki-1", "source_scope": "wiki", "status": "completed"}),
-                SimpleNamespace(model_dump=lambda: {"id": "run-wiki-1", "status": "completed"}),
-            )
+            return {"job_id": "job-wiki-sync-compat", "status": "queued"}
 
-    monkeypatch.setattr("agent.routes.knowledge.get_rag_helper_index_service", lambda: StubRagService())
+    monkeypatch.setattr(
+        "agent.routes.knowledge.get_knowledge_index_job_service",
+        lambda: StubJobService(),
+    )
     response = client.post(
         "/knowledge/sources/index-records",
         headers=admin_auth_header,
@@ -322,10 +314,10 @@ def test_knowledge_source_records_index_route_indexes_wiki_records(client, admin
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     payload = response.get_json()["data"]
-    assert payload["knowledge_index"]["source_scope"] == "wiki"
-    assert payload["run"]["status"] == "completed"
+    assert payload["job"]["job_id"] == "job-wiki-sync-compat"
+    assert payload["execution_mode"] == "hub_delegated"
 
 
 def test_knowledge_source_records_index_route_supports_async_jobs(client, admin_auth_header, monkeypatch):
@@ -398,30 +390,31 @@ def test_knowledge_wiki_import_route_indexes_normalized_records(client, admin_au
                 "stats": {"input_lines": 1, "normalized_records": 1, "issues": 0},
             }
 
-    class StubRagService:
-        def index_source_records(self, **kwargs):
+    class StubJobService:
+        def submit_source_records_job(self, **kwargs):
             assert kwargs["source_scope"] == "wiki"
             assert kwargs["source_id"] == "wiki-mvp"
             assert kwargs["records"][0]["article_title"] == "Payment retries"
             assert kwargs["source_metadata"]["import_stats"]["normalized_records"] == 1
-            return (
-                SimpleNamespace(model_dump=lambda: {"id": "idx-wiki-1", "source_scope": "wiki", "status": "completed"}),
-                SimpleNamespace(model_dump=lambda: {"id": "run-wiki-1", "status": "completed"}),
-            )
+            return {"job_id": "job-wiki-import-sync-compat", "status": "queued"}
 
     monkeypatch.setattr("agent.routes.knowledge.get_ingestion_service", lambda: StubIngestionService())
-    monkeypatch.setattr("agent.routes.knowledge.get_rag_helper_index_service", lambda: StubRagService())
+    monkeypatch.setattr(
+        "agent.routes.knowledge.get_knowledge_index_job_service",
+        lambda: StubJobService(),
+    )
     response = client.post(
         "/knowledge/wiki/import",
         headers=admin_auth_header,
         json={"corpus_path": "/tmp/wiki.jsonl", "source_id": "wiki-mvp", "async": False},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     payload = response.get_json()["data"]
     assert payload["import_report"]["source_scope"] == "wiki"
     assert payload["import_report"]["stats"]["normalized_records"] == 1
-    assert payload["knowledge_index"]["source_scope"] == "wiki"
+    assert payload["job"]["job_id"] == "job-wiki-import-sync-compat"
+    assert payload["execution_mode"] == "hub_delegated"
 
 
 def test_knowledge_wiki_import_route_supports_async_jobs(client, admin_auth_header, monkeypatch):
@@ -510,15 +503,17 @@ def test_knowledge_wiki_import_url_route_passes_multistream_index(client, admin_
                 "download": {"url": kwargs["corpus_url"], "index": {"url": kwargs["index_url"]}},
             }
 
-    class StubRagService:
-        def index_source_records(self, **kwargs):
-            return (
-                SimpleNamespace(model_dump=lambda: {"id": "idx-wiki", "source_scope": "wiki", "status": "completed"}),
-                SimpleNamespace(model_dump=lambda: {"id": "run-wiki", "status": "completed"}),
-            )
+    class StubJobService:
+        def submit_source_records_job(self, **kwargs):
+            assert kwargs["source_scope"] == "wiki"
+            assert kwargs["source_id"] == "dewiki"
+            return {"job_id": "job-wiki-url-sync-compat", "status": "queued"}
 
     monkeypatch.setattr("agent.routes.knowledge.get_ingestion_service", lambda: StubIngestionService())
-    monkeypatch.setattr("agent.routes.knowledge.get_rag_helper_index_service", lambda: StubRagService())
+    monkeypatch.setattr(
+        "agent.routes.knowledge.get_knowledge_index_job_service",
+        lambda: StubJobService(),
+    )
 
     response = client.post(
         "/knowledge/wiki/import-url",
@@ -526,10 +521,13 @@ def test_knowledge_wiki_import_url_route_passes_multistream_index(client, admin_
         json={"preset_id": "wikipedia-de-multistream-latest", "async": False, "codecompass_prerender": False},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     assert captured["corpus_url"].endswith("dewiki-latest-pages-articles-multistream.xml.bz2")
     assert captured["index_url"].endswith("dewiki-latest-pages-articles-multistream-index.txt.bz2")
-    assert response.get_json()["data"]["import_report"]["jsonl_cache_path"] == "/tmp/dewiki.normalized.jsonl"
+    data = response.get_json()["data"]
+    assert data["import_report"]["jsonl_cache_path"] == "/tmp/dewiki.normalized.jsonl"
+    assert data["job"]["job_id"] == "job-wiki-url-sync-compat"
+    assert data["execution_mode"] == "hub_delegated"
 
 
 def test_knowledge_wiki_import_url_route_defaults_to_async_jobs(client, admin_auth_header, monkeypatch):

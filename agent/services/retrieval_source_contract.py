@@ -160,6 +160,8 @@ def infer_source_type(*, engine: str, metadata: Mapping[str, Any] | None) -> str
         return "open_notebook"
     if source_scope in {"artifact", "knowledge"}:
         return "artifact"
+    if source_scope in {"repo", "repo_path", "repository"}:
+        return "repo"
 
     normalized_engine = str(engine or "").strip().lower()
     if normalized_engine == "result_memory":

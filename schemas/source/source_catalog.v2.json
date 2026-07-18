@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source_catalog.v2",
+  "title": "Fail-closed authoritative source catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "catalog_id",
+    "task_id",
+    "retrieval_trace_id",
+    "retrieval_context_hash",
+    "retrieval_manifest_hash",
+    "catalog_hash",
+    "catalog_state",
+    "sources",
+    "rejected_candidates"
+  ],
+  "properties": {
+    "schema": {"const": "source_catalog.v2"},
+    "catalog_id": {"type": "string", "pattern": "^catalog-[a-f0-9]{16}$"},
+    "task_id": {"type": "string", "minLength": 1},
+    "retrieval_trace_id": {"type": ["string", "null"]},
+    "retrieval_context_hash": {"type": ["string", "null"]},
+    "retrieval_manifest_hash": {"type": ["string", "null"]},
+    "catalog_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "catalog_state": {"enum": ["current", "degraded"]},
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_ref",
+          "source_id",
+          "source_version",
+          "tenant_id",
+          "scope",
+          "provenance_digest",
+          "source_type",
+          "path",
+          "record_id",
+          "line_start",
+          "line_end",
+          "content_hash",
+          "manifest_hash",
+          "sensitivity",
+          "allowed_for_llm_scope",
+          "task_id"
+        ],
+        "properties": {
+          "source_ref": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["schema", "source_id", "source_version", "tenant_id", "scope", "provenance_digest"],
+            "properties": {
+              "schema": {"const": "ananta.source_ref.v2"},
+              "source_id": {"type": "string", "pattern": "^(SRC|RUN)_[0-9]{4}$"},
+              "source_version": {"type": "string", "minLength": 1, "maxLength": 256},
+              "tenant_id": {"type": "string", "minLength": 1, "maxLength": 256},
+              "scope": {"type": "string", "minLength": 1, "maxLength": 256},
+              "provenance_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+            }
+          },
+          "source_id": {"type": "string", "pattern": "^(SRC|RUN)_[0-9]{4}$"},
+          "source_version": {"type": "string", "minLength": 1},
+          "tenant_id": {"type": "string", "minLength": 1},
+          "scope": {"type": "string", "minLength": 1},
+          "provenance_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "source_type": {
+            "enum": [
+              "rag_chunk",
+              "repo_file",
+              "artifact",
+              "wiki_chunk",
+              "tool_run",
+              "test_result",
+              "generated_artifact"
+            ]
+          },
+          "path": {"type": ["string", "null"]},
+          "record_id": {"type": ["string", "null"]},
+          "line_start": {"type": ["integer", "null"], "minimum": 1},
+          "line_end": {"type": ["integer", "null"], "minimum": 1},
+          "content_hash": {"type": "string", "minLength": 8},
+          "manifest_hash": {"type": ["string", "null"]},
+          "sensitivity": {
+            "enum": ["public", "internal", "internal_high", "secret", "credential", "security_sensitive"]
+          },
+          "allowed_for_llm_scope": {"type": "boolean"},
+          "task_id": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "rejected_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidate_digest", "reason_code"],
+        "properties": {
+          "candidate_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "reason_code": {
+            "enum": [
+              "source_id_missing",
+              "source_id_invalid",
+              "source_version_missing",
+              "source_tenant_missing",
+              "source_scope_missing",
+              "source_provenance_missing",
+              "source_content_hash_missing",
+              "source_ref_invalid",
+              "source_duplicate"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

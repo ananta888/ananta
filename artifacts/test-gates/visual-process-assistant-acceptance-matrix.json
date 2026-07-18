@@ -1,0 +1,177 @@
+{
+  "gate_source_revisions": {
+    "functional": "worktree-sha256:fff6f477e50aee72d448378643528852689c856968a0f38f187448ad26cdecc6",
+    "performance": "worktree-sha256:06815d230b56bcb797f74a2eca4de322dd5cf65254b0feb32dd9e1464001e8ce"
+  },
+  "reason_codes": [
+    "authoritative_source_evidence_unavailable"
+  ],
+  "release_allowed": false,
+  "schema": "ananta.visual-process-assistant-acceptance-matrix.v1",
+  "source_revision": "worktree-sha256:734e3dd16062a74220564822fbfe8bfefb4356d5a810265857330e36f0a4d919",
+  "status": "blocked",
+  "tasks": [
+    {
+      "criteria": [
+        {
+          "criterion_id": "VPA-QA-001-AC1",
+          "evidence_paths": [
+            "frontend-angular/src/app/features/visual-process/vp-registry-migration-acceptance.spec.ts",
+            "tests/test_visual_process_assistant_baseline.py",
+            "tests/test_visual_process_assistant_contracts.py",
+            "tests/test_visual_process_definition_contract.py",
+            "tests/test_visual_process_registry_migration_acceptance.py"
+          ],
+          "reason_code": "",
+          "statement": "Python-/TypeScript-Contracts für Graph, NodeDefinitions, Context, HelpResponse und WorkflowPatch sind paritätisch; die Registry-Migration ist backend- und frontendseitig ausführbar.",
+          "status": "passed"
+        },
+        {
+          "criterion_id": "VPA-QA-001-AC2",
+          "evidence_paths": [
+            "tests/integration/visual_process_assistant/test_hub_worker_matrix.py",
+            "tests/test_visual_process_assistant_service.py"
+          ],
+          "reason_code": "authoritative_source_evidence_unavailable",
+          "statement": "Hub-Task, Worker, CodeCompass, Prompt-Snapshot und HelpResponse laufen ohne Retrieval-Fake; positives Grounding besitzt externe Autorität.",
+          "status": "blocked"
+        },
+        {
+          "criterion_id": "VPA-QA-001-AC3",
+          "evidence_paths": [
+            "frontend-angular/tests/visual-process-assistant-patch.spec.ts"
+          ],
+          "reason_code": "",
+          "statement": "Der Patch-E2E deckt Konfiguration, Frage, Evidence-Darstellung, Bestätigung, Undo/Redo und CAS-Save ab.",
+          "status": "passed"
+        },
+        {
+          "criterion_id": "VPA-QA-001-AC4",
+          "evidence_paths": [
+            "frontend-angular/tests/visual-process-assistant-isolation.spec.ts"
+          ],
+          "reason_code": "",
+          "statement": "Zwei Editorinstanzen bleiben isoliert und die AI-Snake-Prozessansicht ist read-only.",
+          "status": "passed"
+        },
+        {
+          "criterion_id": "VPA-QA-001-AC5",
+          "evidence_paths": [
+            "tests/security/visual_process_assistant/test_security_gates.py"
+          ],
+          "reason_code": "",
+          "statement": "Source-, Secret-, Injection-, stale-, Tenant-, Konflikt- und Bestätigungsgates sind fail-closed.",
+          "status": "passed"
+        }
+      ],
+      "status": "blocked",
+      "task_id": "VPA-QA-001"
+    },
+    {
+      "criteria": [
+        {
+          "criterion_id": "VPA-QA-002-AC1",
+          "evidence_paths": [
+            "tests/benchmarks/visual_process_assistant/test_operational_budgets.py"
+          ],
+          "reason_code": "",
+          "statement": "Hover und Topologie halten das 500/1000-Referenzbudget ohne Retrieval oder LLM ein.",
+          "status": "passed"
+        },
+        {
+          "criterion_id": "VPA-QA-002-AC2",
+          "evidence_paths": [
+            "tests/benchmarks/visual_process_assistant/test_operational_budgets.py",
+            "tests/test_visual_process_assistant_operations.py"
+          ],
+          "reason_code": "",
+          "statement": "Warmer CodeCompass-Retrieval findet reale Kandidaten, bleibt ohne Authority fail-closed und hält Latenz/Timeout ein.",
+          "status": "passed"
+        },
+        {
+          "criterion_id": "VPA-QA-002-AC3",
+          "evidence_paths": [
+            "tests/benchmarks/visual_process_assistant/test_operational_budgets.py"
+          ],
+          "reason_code": "",
+          "statement": "Selected- und Conversation-Kontexte erzwingen Range-, Zeilen-, Evidence- und Tokenbudgets deterministisch.",
+          "status": "passed"
+        },
+        {
+          "criterion_id": "VPA-QA-002-AC4",
+          "evidence_paths": [
+            "frontend-angular/tests/visual-process-assistant-performance.spec.ts"
+          ],
+          "reason_code": "",
+          "statement": "1000 echte Browser-Fokuswechsel halten Heap- und Subscription-Grenzen ein.",
+          "status": "passed"
+        },
+        {
+          "criterion_id": "VPA-QA-002-AC5",
+          "evidence_paths": [
+            "artifacts/test-gates/visual-process-assistant-frontend-performance-evidence.json",
+            "artifacts/test-gates/visual-process-assistant-performance.json"
+          ],
+          "reason_code": "",
+          "statement": "Der Benchmarkreport enthält Browser, Build, Hardware, Warmup, Wiederholungen, p50/p95 und Pass/Fail.",
+          "status": "passed"
+        }
+      ],
+      "status": "passed",
+      "task_id": "VPA-QA-002"
+    },
+    {
+      "criteria": [
+        {
+          "criterion_id": "VPA-QA-003-AC1",
+          "evidence_paths": [
+            "tests/integration/visual_process_assistant/test_rollback.py"
+          ],
+          "reason_code": "",
+          "statement": "Registry, Hover, Chat und Patch besitzen getrennte, standardmäßig deaktivierte Flags.",
+          "status": "passed"
+        },
+        {
+          "criterion_id": "VPA-QA-003-AC2",
+          "evidence_paths": [
+            "tests/integration/visual_process_assistant/test_rollback.py"
+          ],
+          "reason_code": "",
+          "statement": "Legacy-Graphen überstehen Öffnen, Bearbeiten, Speichern sowie Migration ohne Datenverlust.",
+          "status": "passed"
+        },
+        {
+          "criterion_id": "VPA-QA-003-AC3",
+          "evidence_paths": [
+            "docs/architecture/visual-process-assistant.md",
+            "tests/integration/visual_process_assistant/test_rollback.py"
+          ],
+          "reason_code": "",
+          "statement": "Die Architektur dokumentiert Grenzen, Registry, Versionen, Context, Evidence, Budgets, Patches und Diagnose.",
+          "status": "passed"
+        },
+        {
+          "criterion_id": "VPA-QA-003-AC4",
+          "evidence_paths": [
+            "tests/integration/visual_process_assistant/test_rollback.py"
+          ],
+          "reason_code": "",
+          "statement": "Rollback mit vier deaktivierten Flags erhält Editor, Graph, Runtime-Overlay und Read-only-Ansicht.",
+          "status": "passed"
+        },
+        {
+          "criterion_id": "VPA-QA-003-AC5",
+          "evidence_paths": [
+            "artifacts/test-gates/visual-process-assistant-performance.json",
+            "artifacts/test-gates/visual-process-assistant.json"
+          ],
+          "reason_code": "",
+          "statement": "Rollout ist ausschließlich bei vollständigen Functional-, Security-, E2E- und Performance-Gates erlaubt.",
+          "status": "passed"
+        }
+      ],
+      "status": "passed",
+      "task_id": "VPA-QA-003"
+    }
+  ]
+}

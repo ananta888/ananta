@@ -176,9 +176,14 @@ def codecompass_search(*, workspace_dir: str, arguments: dict[str, Any], tool_ca
         )
     limit = max(1, min(int(args.get("limit") or 8), _MAX_SEARCH_LIMIT))
     try:
-        from agent.services.rag_helper_index_service import get_rag_helper_index_service
+        from agent.services.knowledge_index_retrieval_service import (
+            get_knowledge_index_retrieval_service,
+        )
 
-        chunks = get_rag_helper_index_service().retrieve(profile=None, query=query, limit=limit)
+        chunks = get_knowledge_index_retrieval_service().search_records(
+            query,
+            limit=limit,
+        )
     except Exception as exc:
         return build_tool_result(
             tool_name="codecompass.search",
@@ -226,17 +231,44 @@ def codecompass_plan_context(*, workspace_dir: str, arguments: dict[str, Any], t
         )
     from agent.services.codecompass_context_planner_service import get_codecompass_context_planner
 
-    bundle = get_codecompass_context_planner().plan_context(
-        query=query,
-        task_kind=str(args.get("task_kind") or "").strip() or None,
-        budget={
-            "max_ranges": args.get("max_ranges"),
-            "max_lines_per_range": args.get("max_lines_per_range"),
-            "max_neighbors": args.get("max_neighbors"),
-        },
-        workspace_dir=workspace_dir,
-        include_neighbors=bool(args.get("include_neighbors", True)),
-    )
+    planner = get_codecompass_context_planner()
+    intent = str(args.get("intent") or "").strip()
+    try:
+        if intent:
+            bundle = planner.plan_editor_context(
+                query_input={
+                    "intent": intent,
+                    "detail_level": str(args.get("detail_level") or "conversation"),
+                    "registry_version": args.get("registry_version"),
+                    "node_kind": args.get("node_kind"),
+                    "field_path": args.get("field_path"),
+                    "backend_contract": args.get("backend_contract"),
+                    "symbols": args.get("symbols") or [],
+                    "graph_neighbors": args.get("graph_neighbors") or [],
+                    "user_language": query,
+                },
+                workspace_dir=workspace_dir,
+                include_neighbors=bool(args.get("include_neighbors", True)),
+            )
+        else:
+            bundle = planner.plan_context(
+                query=query,
+                task_kind=str(args.get("task_kind") or "").strip() or None,
+                budget={
+                    "max_ranges": args.get("max_ranges"),
+                    "max_lines_per_range": args.get("max_lines_per_range"),
+                    "max_neighbors": args.get("max_neighbors"),
+                },
+                workspace_dir=workspace_dir,
+                include_neighbors=bool(args.get("include_neighbors", True)),
+            )
+    except (TypeError, ValueError) as exc:
+        return build_tool_result(
+            tool_name="codecompass.plan_context",
+            tool_call_id=tool_call_id,
+            status="error",
+            error=str(exc),
+        )
     evidence: list[dict[str, Any]] = []
     for ref in list(bundle.get("location_refs") or [])[:10]:
         entry, _ = build_evidence_entry(

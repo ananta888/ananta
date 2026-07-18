@@ -90,6 +90,29 @@ def test_scan_file_limit_balances_p0_families(monkeypatch, tmp_path, registry):
     assert excluded
 
 
+def test_scan_file_limit_reserves_required_snapshot_paths(monkeypatch, tmp_path, registry):
+    paths = []
+    for index in range(6):
+        relative = f"module_{index}.py"
+        (tmp_path / relative).write_text(f"def f_{index}(): pass\n", encoding="utf-8")
+        paths.append(relative)
+    required = tmp_path / "todos" / "plan.json"
+    required.parent.mkdir(parents=True)
+    required.write_text('{"tasks": []}\n', encoding="utf-8")
+    paths.append("todos/plan.json")
+    _configure_scan(monkeypatch, tmp_path, registry, paths)
+
+    plan = setup_index._collect_index_plan(
+        max_records=2,
+        required_path_rules=["todos/**"],
+    )
+    setup_index._build_records_from_plan(plan)
+    manifest = plan.coverage.snapshot_manifest(required_path_rules=["todos/**"])
+
+    assert "todos/plan.json" in {candidate.relative_path for candidate in plan.selected}
+    assert manifest["required_paths"]["passed"] is True
+
+
 def test_record_builder_redacts_secret_values_and_persists_registry_evidence(
     monkeypatch,
     tmp_path,
@@ -226,3 +249,20 @@ def test_record_builder_measures_selected_file_duration(monkeypatch, tmp_path, r
 
     record = next(item for item in plan.coverage.as_dict()["files"] if item["path"] == "README.md")
     assert record["duration_seconds"] == 0.25
+
+
+def test_scan_snapshot_records_content_hash_and_required_path_gate(monkeypatch, tmp_path, registry):
+    source = tmp_path / "AGENTS.md"
+    source.write_text("# Rules\n", encoding="utf-8")
+    _configure_scan(monkeypatch, tmp_path, registry, ["AGENTS.md"])
+
+    plan = setup_index._collect_index_plan(max_records=1)
+    setup_index._build_records_from_plan(plan)
+    manifest = plan.coverage.snapshot_manifest(
+        required_path_rules=["AGENTS.md"],
+        profile={"profile_id": "test"},
+    )
+
+    assert manifest["required_paths"]["passed"] is True
+    assert manifest["files"][0]["content_sha256"]
+    assert manifest["files"][0]["extractor_id"] == "setup_index.plain_text"

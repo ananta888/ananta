@@ -100,6 +100,13 @@ from .teams import (
 from .temporal_runtime import TemporalHistoryProjectionDB, TemporalProjectedEventDB
 from .text_quality import TextQualityCriteriaSetDB, TextQualityEvaluationDB
 from .visual_process import VisualProcessGraphDB
+from .visual_process_assistant import (
+    VisualProcessAssistantContextDB,
+    VisualProcessAssistantConversationDB,
+    VisualProcessAssistantRateLimitDB,
+    VisualProcessAssistantRequestDB,
+    VisualProcessPatchAuditDB,
+)
 from .voice_configuration import VoiceConfigurationDeltaDB
 from .voice_governance import (
     VoiceConsentDB,
@@ -241,7 +248,12 @@ __all__ = [
     "UserDB",
     "UserInstructionProfileDB",
     "VerificationRecordDB",
+    "VisualProcessAssistantContextDB",
+    "VisualProcessAssistantConversationDB",
+    "VisualProcessAssistantRateLimitDB",
+    "VisualProcessAssistantRequestDB",
     "VisualProcessGraphDB",
+    "VisualProcessPatchAuditDB",
     "VoiceConsentDB",
     "VoiceDeletionTombstoneDB",
     "VoiceConfigurationDeltaDB",

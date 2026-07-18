@@ -2,6 +2,7 @@
 <input type="file" #bpmnFileInput accept=".bpmn,.xml" hidden (change)="onBpmnFile($event)" />
 
 <!-- ── toolbar ───────────────────────────────────────────────────────────── -->
+@if (editorMode !== 'compact-readonly') {
 <div class="vpe-toolbar" [class.embedded]="editorMode === 'embedded-edit'">
   <span class="vpe-title">
     <input class="vpe-title-input" [ngModel]="graph().name" (ngModelChange)="setGraphName($event)"
@@ -11,7 +12,9 @@
   <button class="vpe-btn-icon" (click)="showGraphDetails = !showGraphDetails" title="Graph-Details">⚙</button>
 
   <div class="vpe-tb-group">
-    <button class="vpe-btn" (click)="addStep()" title="Neuer Schritt (N)">+ Schritt</button>
+    <button class="vpe-btn" [attr.aria-expanded]="showNodePalette" (click)="toggleNodePalette()" title="Node-Palette (N)">+ Schritt</button>
+    <button class="vpe-btn" [disabled]="!canUndo()" (click)="undo()" [title]="undoLabel() || 'Rückgängig (Strg+Z)'">↶</button>
+    <button class="vpe-btn" [disabled]="!canRedo()" (click)="redo()" [title]="redoLabel() || 'Wiederholen (Strg+Y)'">↷</button>
     <button class="vpe-btn" [class.active]="edgeMode()" (click)="toggleEdgeMode()" title="Kante zeichnen (E)">
       {{ edgeMode() ? '✏ Kante… klicke Quelle' : '→ Kante' }}
     </button>
@@ -63,9 +66,10 @@
     }
   </div>
 </div>
+}
 
 <!-- ── graph details panel ────────────────────────────────────────────────── -->
-@if (showGraphDetails) {
+@if (showGraphDetails && editorMode !== 'compact-readonly') {
   <div class="vpe-graph-meta">
     <label class="vpe-meta-label">Beschreibung
       <textarea class="vpe-meta-input" rows="2" [ngModel]="graph().description"
@@ -131,34 +135,68 @@
 <!-- ── main area ─────────────────────────────────────────────────────────── -->
 <div class="vpe-main">
 
+  @if (showNodePalette && editorMode !== 'compact-readonly') {
+    <app-vp-node-palette [definitions]="nodeDefinitions()" [graphId]="graph().id"
+      (selected)="addStep($event)" (previewed)="onAssistantTargetPreview($event)"
+      (closed)="showNodePalette = false" />
+  }
+
   <app-visual-process-canvas
     [graph]="graph()" [runtimeOverlay]="runtimeOverlay()" [selectedId]="selectedId()"
+    [validationIssues]="validationResult()?.issues ?? []"
     [canvasTransform]="canvasTransform()" [drawingEdge]="drawingEdge()" [edgeSourceId]="edgeSourceId()"
-    [mode]="editorMode" (stepSelected)="selectStep($event)" (edgeSelected)="selectEdge($event)"
+    [mode]="editorMode" [readOnly]="editorMode === 'compact-readonly'" (stepSelected)="selectStep($event)" (edgeSelected)="selectEdge($event)"
     (nodeMouseDown)="onCanvasNodeMouseDown($event)" (canvasMouseDown)="onCanvasMouseDown($event)"
-    (canvasMouseMove)="onMouseMove($event)" (canvasMouseUp)="onMouseUp($event)" (canvasWheel)="onWheel($event)" />
+    (canvasMouseMove)="onMouseMove($event)" (canvasMouseUp)="onMouseUp($event)" (canvasWheel)="onWheel($event)"
+    (targetPreviewed)="onAssistantTargetPreview($event)" (targetFocused)="onAssistantTargetFocused($event)"
+    (targetSelected)="onAssistantTargetSelected($event)" />
 
   <!-- right panel -->
   <div class="vpe-panel">
 
     <app-vp-step-inspector
+      [mode]="editorMode === 'compact-readonly' ? 'runtime-readonly' : 'edit'"
       [graph]="graph" [selectedId]="selectedId"
       [runtimeOverlay]="runtimeOverlay()"
       [taskKindList]="taskKindList" [skillProfiles]="skillProfiles"
       [modelProfiles]="modelProfiles" [fallbackGroups]="fallbackGroups"
       [trainingDatasets]="trainingDatasets()" [trainingProfiles]="trainingProfiles()"
       [trainingBaseModels]="trainingBaseModels()"
+      [nodeDefinitions]="nodeDefinitions()" [validationIssues]="validationResult()?.issues ?? []"
+      [graphMutator]="applyInspectorMutation"
       [artifactKinds]="artifactKinds" [edgeKinds]="edgeKinds"
       [encodingModes]="encodingModes" [ragChannels]="ragChannels"
-      (changed)="isDirty.set(true)"
       (policyRefreshRequested)="refreshPolicyHints()"
       (statusChanged)="statusMsg.set($event)" />
   </div>
+
+  <app-vp-assistant-bubble [visible]="assistant.visible()" [mode]="assistant.mode()"
+    [response]="assistant.response()" [target]="assistant.target()" [context]="assistant.context()"
+    [requestStatus]="assistant.requestStatus()" [errorCode]="assistant.errorCode()"
+    [awaitingReply]="assistant.awaitingReply()" [canCancel]="assistant.canCancel()" [canRetry]="assistant.canRetry()"
+    [contextSwitchPending]="assistant.contextSwitchPending()" [patchAllowed]="assistant.patchAllowed()"
+    (modeChange)="assistant.setMode($event)" (questionAsked)="askAssistant($event)"
+    (cancelRequested)="assistant.cancelRequest()" (retryRequested)="assistant.retryRequest()"
+    (contextSwitchConfirmed)="assistant.confirmContextSwitch()" (contextSwitchRejected)="assistant.rejectContextSwitch()"
+    (patchPreviewRequested)="previewAssistantPatch()"
+    (closed)="assistant.close()" />
+
+  @if (assistant.patchPreview(); as patchPreview) {
+    @if (assistant.patchProposal(); as workflowPatch) {
+      <app-vp-workflow-patch-preview [preview]="patchPreview" [patch]="workflowPatch" [originalGraph]="assistant.patchBaseGraph() ?? graph()"
+        [currentValidation]="validationResult()" [evidence]="assistant.response()?.evidence ?? []"
+        [status]="assistant.patchStatus()" [errorCode]="assistant.patchError()" [readOnly]="editorMode === 'compact-readonly'"
+        (accepted)="acceptAssistantPatch()" (rejected)="assistant.rejectWorkflowPatch()"
+        (refreshRequested)="refreshAssistantPatch()"
+        (closed)="assistant.clearPatchPreview()" />
+    }
+  }
 </div>
 
 <!-- ── status bar ─────────────────────────────────────────────────────────── -->
 <div class="vpe-status">
   <span>{{ graph().steps.length }} Schritte · {{ graph().edges.length }} Kanten</span>
+  <span title="Node-Definition-Quelle">Registry: {{ registrySource() }} · {{ registryStatus() }}</span>
   @if (validationResult()) {
     <span [class.ok]="validationResult()!.valid" [class.err]="!validationResult()!.valid">
       {{ validationResult()!.valid ? '✓ Gültig' : '✗ ' + validationResult()!.error_count + ' Fehler' }}
@@ -170,6 +208,11 @@
   }
   @if (statusMsg()) {
     <span class="vpe-status-msg">{{ statusMsg() }}</span>
+  }
+  @if (saveConflict()) {
+    <span class="vpe-status-msg err" role="alert">Hub-Version ist neuer.</span>
+    <button type="button" class="vpe-btn-xs" (click)="reloadAfterSaveConflict()">Hub-Version neu laden</button>
+    <button type="button" class="vpe-btn-xs" (click)="forkAfterSaveConflict()">Lokalen Draft als Kopie behalten</button>
   }
   <span class="vpe-zoom-hint">Scroll = Zoom · Alt+Drag = Verschieben</span>
 </div>

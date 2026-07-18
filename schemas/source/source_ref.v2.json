@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.source_ref.v2",
+  "title": "Authoritative version-qualified source reference",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "source_id",
+    "source_version",
+    "tenant_id",
+    "scope",
+    "provenance_digest"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.source_ref.v2"},
+    "source_id": {"type": "string", "pattern": "^(SRC|RUN)_[0-9]{4}$"},
+    "source_version": {"type": "string", "minLength": 1, "maxLength": 256},
+    "tenant_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "scope": {"type": "string", "minLength": 1, "maxLength": 256},
+    "provenance_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  }
+}

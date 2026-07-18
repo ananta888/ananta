@@ -18,7 +18,7 @@ import { OidcAuthService } from '../services/oidc-auth.service';
   template: `
     <section class="process-panel">
       <header>
-        <div><strong>Session-Prozess</strong><small>{{ effective?.source === 'profile' ? 'vom Profil geerbt' : effective?.source === 'session' ? 'Session-spezifisch' : 'nicht konfiguriert' }}</small></div>
+        <div><strong>Session-Prozess</strong><small>{{ effective?.source === 'profile' ? 'vom Profil geerbt' : effective?.source === 'session_override' ? 'Session-spezifisch' : 'nicht konfiguriert' }}</small></div>
         @if (effective?.source === 'profile') { <button (click)="clone()">Für diese Session klonen</button> }
         <button (click)="reload()">↻ Status</button>
         @if (effective?.process_ref) { <button (click)="startRun()">▶ Start</button> }

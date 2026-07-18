@@ -15,7 +15,12 @@ from rag_helper.domain.xml_security import (
     DEFAULT_MAX_XML_INPUT_SIZE_KB,
     DEFAULT_MAX_XML_NODES,
 )
-from rag_helper.extractors.structured_support import StructuredRecordFactory, line_number, stats_for
+from rag_helper.extractors.structured_support import (
+    StructuredRecordFactory,
+    line_number,
+    normalize_extraction_records,
+    stats_for,
+)
 from rag_helper.extractors.xml_security import XmlSecurityError, parse_untrusted_xml
 
 
@@ -23,11 +28,15 @@ class DiagramExtractor:
     SUPPORTED_EXTENSIONS = {"mmd", "mermaid", "puml", "plantuml", "dot", "gv"}
 
     def __init__(self, embedding_text_mode: str = "verbose", max_records: int = 10_000) -> None:
+        if max_records <= 0:
+            raise ValueError("diagram_max_records_must_be_positive")
         self.embedding_text_mode = embedding_text_mode
         self.max_records = max_records
 
     def parse(self, rel_path: str, text: str):
         ext = rel_path.rsplit(".", 1)[-1].lower()
+        if self._has_hidden_unicode(text):
+            return self._hidden_unicode_result(rel_path, text, ext)
         if ext in {"mmd", "mermaid"}:
             return self._parse_mermaid(rel_path, text)
         if ext in {"puml", "plantuml"}:
@@ -179,7 +188,7 @@ class DiagramExtractor:
             if node_match:
                 ensure_node(node_match.group(1), next(item for item in node_match.group(2, 3, 4) if item), line_no)
 
-        if not first_command or diagram_kind not in {
+        supported_declarations = {
             "flowchart",
             "graph",
             "sequencediagram",
@@ -194,7 +203,8 @@ class DiagramExtractor:
             "timeline",
             "gitgraph",
             "quadrantchart",
-        }:
+        }
+        if not first_command or diagram_kind not in supported_declarations:
             diagnostic = factory.diagnostic(
                 "mermaid_unknown_diagram_declaration",
                 "Mermaid diagram declaration is missing or unsupported.",
@@ -202,9 +212,22 @@ class DiagramExtractor:
                 fallback="text_index",
             )
             diagnostics.append(diagnostic)
+            details = [diagnostic]
+            relations = []
+            nodes = {}
+            subgraphs = []
+        elif diagram_kind in {"flowchart", "graph", "sequencediagram", "classdiagram"} and not nodes:
+            diagnostic = factory.diagnostic(
+                "mermaid_no_supported_elements",
+                "Mermaid declaration was recognized but no supported nodes or edges could be extracted.",
+                line=1,
+                severity="error",
+                fallback="text_index",
+            )
+            diagnostics.append(diagnostic)
             details.append(diagnostic)
         return self._finish(
-            factory, "mermaid", rel_path, details, relations, diagnostics, nodes, subgraphs, diagram_kind
+            factory, "mermaid", rel_path, text, details, relations, diagnostics, nodes, subgraphs, diagram_kind
         )
 
     def _parse_plantuml(self, rel_path: str, text: str):
@@ -343,9 +366,12 @@ class DiagramExtractor:
                 fallback="partial_declaration_index",
             )
             diagnostics.append(diagnostic)
-            details.append(diagnostic)
+            details = [diagnostic]
+            relations = []
+            nodes = {}
+            packages = []
         return self._finish(
-            factory, "plantuml", rel_path, details, relations, diagnostics, nodes, packages, "component"
+            factory, "plantuml", rel_path, text, details, relations, diagnostics, nodes, packages, "component"
         )
 
     def _parse_dot(self, rel_path: str, text: str):
@@ -438,13 +464,14 @@ class DiagramExtractor:
             )
             diagnostics.append(diagnostic)
             details.append(diagnostic)
-        return self._finish(factory, "dot", rel_path, details, relations, diagnostics, nodes, subgraphs, "graph")
+        return self._finish(factory, "dot", rel_path, text, details, relations, diagnostics, nodes, subgraphs, "graph")
 
     def _finish(
         self,
         factory: StructuredRecordFactory,
         format_name: str,
         rel_path: str,
+        source_text: str,
         details: list[dict],
         relations: list[dict],
         diagnostics: list[dict],
@@ -473,9 +500,16 @@ class DiagramExtractor:
                 },
                 labels=[item.get("label") or item["name"] for item in nodes.values()] + groups,
                 parser_mode="static_diagram_lexer",
-                confidence=0.75,
+                confidence=0.65,
             )
         ]
+        normalize_extraction_records(
+            (index, details, relations),
+            rel_path=rel_path,
+            source_text=source_text,
+            extractor=type(self).__name__,
+            trust_level="inferred",
+        )
         return (
             index,
             details,
@@ -506,6 +540,83 @@ class DiagramExtractor:
             or bool(re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", normalized))
         )
 
+    @staticmethod
+    def _has_hidden_unicode(text: str) -> bool:
+        forbidden = {
+            "\u200b",
+            "\u200c",
+            "\u200d",
+            "\u202a",
+            "\u202b",
+            "\u202c",
+            "\u202d",
+            "\u202e",
+            "\u2066",
+            "\u2067",
+            "\u2068",
+            "\u2069",
+            "\ufeff",
+        }
+        return any(char in forbidden for char in text)
+
+    def _hidden_unicode_result(self, rel_path: str, text: str, ext: str):
+        format_name = {
+            "mmd": "mermaid",
+            "mermaid": "mermaid",
+            "puml": "plantuml",
+            "plantuml": "plantuml",
+            "dot": "dot",
+            "gv": "dot",
+        }.get(ext)
+        if format_name is None:
+            raise ValueError(f"unsupported_diagram_extension:{ext}")
+        factory = StructuredRecordFactory(rel_path, format_name, self.embedding_text_mode)
+        diagnostic = factory.diagnostic(
+            "diagram_hidden_unicode_forbidden",
+            "Diagram source contains hidden Unicode controls and was not structurally parsed.",
+            severity="security",
+            fallback="text_index",
+        )
+        details = [diagnostic]
+        relations: list[dict] = []
+        index = [
+            factory.file_record(
+                summary={
+                    "diagram_kind": "unknown",
+                    "node_count": 0,
+                    "edge_count": 0,
+                    "group_count": 0,
+                    "diagnostic_count": 1,
+                },
+                parser_mode="static_diagram_lexer_rejected",
+                confidence=0.0,
+            )
+        ]
+        normalize_extraction_records(
+            (index, details, relations),
+            rel_path=rel_path,
+            source_text=text,
+            extractor=type(self).__name__,
+        )
+        return (
+            index,
+            details,
+            relations,
+            stats_for(
+                format_name,
+                rel_path,
+                index,
+                details,
+                relations,
+                parser_mode="static_diagram_lexer_rejected",
+                diagnostics=details,
+                diagram_kind="unknown",
+                node_count=0,
+                edge_count=0,
+                group_count=0,
+            ),
+        )
+
 
 class DrawioExtractor:
     def __init__(
@@ -517,6 +628,8 @@ class DrawioExtractor:
         max_decoded_page_size_kb: int = 5 * 1024,
         embedding_text_mode: str = "verbose",
     ) -> None:
+        if max_decoded_page_size_kb <= 0:
+            raise ValueError("drawio_decoded_page_limit_must_be_positive")
         self.max_xml_nodes = max_xml_nodes
         self.max_xml_input_size_kb = max_xml_input_size_kb
         self.max_xml_depth = max_xml_depth
@@ -554,6 +667,18 @@ class DrawioExtractor:
                 ordinal=page_index,
             )
             details.append(page_id)
+            if self._is_encrypted(root, diagram):
+                diagnostic = factory.diagnostic(
+                    "drawio_encrypted_content_unsupported",
+                    f"draw.io page {page_name} is encrypted and cannot be inspected safely.",
+                    line=getattr(diagram, "sourceline", None) or 1,
+                    severity="error",
+                    fallback="page_metadata_only",
+                )
+                diagnostics.append(diagnostic)
+                details.append(diagnostic)
+                failed_pages += 1
+                continue
             graph_model = next(
                 (
                     child
@@ -587,8 +712,9 @@ class DrawioExtractor:
                     graph_model = inner.root
                     decoded_pages += 1
                 except (ValueError, UnicodeError, zlib.error, XmlSecurityError) as exc:
+                    reason_code = self._decode_failure_code(exc)
                     diagnostic = factory.diagnostic(
-                        "drawio_page_decode_failed",
+                        reason_code,
                         f"draw.io page {page_name} could not be decoded safely ({str(exc).split(':', 1)[0]}).",
                         line=getattr(diagram, "sourceline", None) or 1,
                         severity="error",
@@ -625,6 +751,7 @@ class DrawioExtractor:
                                 "target": cell.get("target"),
                                 "label": label or None,
                                 "page_name": page_name,
+                                "line": line,
                             },
                             page_index,
                             cell.get("source"),
@@ -644,6 +771,7 @@ class DrawioExtractor:
                     target=target or "unknown",
                     target_resolved=target_id,
                     label=edge["label"],
+                    line=edge["line"],
                 )
             )
 
@@ -663,6 +791,20 @@ class DrawioExtractor:
                 confidence=1.0 if failed_pages == 0 else 0.6,
             )
         ]
+        normalize_extraction_records(
+            (index, details, relations),
+            rel_path=rel_path,
+            source_text=text,
+            extractor=type(self).__name__,
+        )
+        for record in index + details + relations:
+            if record.get("kind") in {"drawio_page", "drawio_node"} or (
+                record.get("kind") == "relation"
+                and record.get("relation") == "diagram_edge"
+                and record.get("resolution_status") == "resolved"
+            ):
+                record["verification_status"] = "verified"
+                record["evidence"]["verification_status"] = "verified"
         return (
             index,
             details,
@@ -697,6 +839,31 @@ class DrawioExtractor:
         if not decompressor.eof:
             raise ValueError("drawio_compressed_stream_incomplete")
         return unquote(decoded.decode("utf-8", errors="strict"))
+
+    @staticmethod
+    def _decode_failure_code(exc: BaseException) -> str:
+        reason = str(exc).split(":", 1)[0]
+        if reason in {
+            "drawio_decoded_page_size_exceeded",
+            "max_xml_input_size_kb_exceeded",
+            "max_xml_nodes_exceeded",
+            "max_xml_depth_exceeded",
+            "max_xml_attributes_exceeded",
+        }:
+            return "drawio_decoded_page_budget_exceeded"
+        if reason == "xml_dtd_or_entity_declaration_forbidden":
+            return "drawio_decoded_page_security_rejected"
+        return "drawio_page_decode_failed"
+
+    @staticmethod
+    def _is_encrypted(root, diagram) -> bool:
+        markers = (
+            root.get("encrypted"),
+            root.get("encryption"),
+            diagram.get("encrypted"),
+            diagram.get("encryption"),
+        )
+        return any(str(value or "").strip().lower() in {"1", "true", "yes", "encrypted"} for value in markers)
 
     @staticmethod
     def _plain_label(value: str) -> str:

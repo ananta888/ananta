@@ -94,6 +94,15 @@ SHELL_POOL_FREE = Gauge("shell_pool_free", "Number of free shells in the pool")
 RAG_RETRIEVAL_DURATION = Histogram("rag_retrieval_duration_seconds", "Duration of RAG retrieval calls")
 RAG_CHUNKS_SELECTED = Histogram("rag_chunks_selected", "Number of chunks selected for context")
 RAG_REQUESTS_TOTAL = Counter("rag_requests_total", "Total RAG requests", ["mode"])
+VISUAL_PROCESS_ASSISTANT_REQUESTS_TOTAL = Counter(
+    "visual_process_assistant_requests_total",
+    "Visual Process Assistant lifecycle transitions",
+    ["status"],
+)
+VISUAL_PROCESS_ASSISTANT_ACTIVE = Gauge(
+    "visual_process_assistant_active",
+    "Current Visual Process Assistant requests in a non-terminal state",
+)
 KNOWLEDGE_INDEX_RUNS_TOTAL = Counter(
     "knowledge_index_runs_total",
     "Total knowledge index runs",

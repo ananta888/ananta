@@ -27,3 +27,21 @@ Der Planner liefert keine unbounded Volltextantworten. Wenn CodeCompass nur
 Treffer ohne LineRange liefert, werden sie nicht als harte `LocationRef`
 verwendet; der Worker muss dann mit `repo.grep` oder anderen read-only Tools
 weiter eingrenzen.
+
+## Editor-Kontext
+
+Der additive Vertrag `codecompass.editor_query.v1` unterstützt die Intents
+`node_explanation`, `field_effect`, `io_contract`, `validation_issue`,
+`runtime_error`, `dependency` und `safe_change`. Registry-Version, Node-Kind,
+optionaler Feldpfad, Backend-Contract oder Symbole sowie Graphnachbarn bilden
+den strukturellen Query-Kern. Freie Nutzersprache ist auf 600 Zeichen begrenzt
+und darf nie das einzige Retrieval-Signal sein.
+
+`preview` ist rein metadatenbasiert und löst weder Retrieval noch
+Graph-Expansion, Repository-Content-Reads oder Modellaufrufe aus. `selected`
+und `conversation` verwenden exakt die operativen Range-, Zeilen-, Evidence-
+und Tokenbudgets des Visual-Process-Promptpfads. Treffer werden nach
+Verification, Trust, Score absteigend, Pfad, Startzeile und Record-ID sortiert.
+Das `codecompass_editor_context_bundle.v1` enthält für jede Auswahl oder
+Verwerfung einen Budget-Trace; Content oder Vollrepository-Prompts gehören
+nicht zu diesem Bundle.

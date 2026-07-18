@@ -6,6 +6,11 @@ via JSON blobs or a future migration.
 """
 from __future__ import annotations
 
+import copy
+import hashlib
+import json
+import re
+import unicodedata
 from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field, model_validator
 import uuid
@@ -96,6 +101,10 @@ class VisualProcessEdge(BaseModel):
     label: Optional[str] = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    # Preserve additive edge fields introduced by a newer graph contract. The
+    # registry/validator still decides which fields are writable/executable.
+    model_config = {"extra": "allow"}
+
     def is_back_edge(self) -> bool:
         return self.condition.kind == "back_edge"
 
@@ -121,6 +130,11 @@ class VisualProcessStep(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     # Runtime state (VPAD-011) — set during execution, not persisted in design
     run_state: Optional[str] = None  # "pending" | "running" | "done" | "failed" | "skipped"
+
+    # Unknown additive fields from newer node contracts must survive a legacy
+    # Hub roundtrip.  Mutation authorization still happens against the
+    # NodeDefinition registry; preserving a field does not make it writable.
+    model_config = {"extra": "allow"}
 
 
 class ModelRoutingConfig(BaseModel):
@@ -161,10 +175,84 @@ class VisualProcessGraph(BaseModel):
     name: str
     description: str = ""
     version: str = "1.0"
+    graph_schema_version: str = "1"
+    node_registry_version: str = "1"
+    definition_revision: int = Field(default=0, ge=0)
+    base_graph_hash: str = ""
     steps: list[VisualProcessStep] = Field(default_factory=list)
     edges: list[VisualProcessEdge] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     tags: list[str] = Field(default_factory=list)
+    extensions: dict[str, Any] = Field(default_factory=dict)
+    # Runtime state is returned beside a definition for legacy compatibility,
+    # but is never included in a persisted definition or its content hash.
+    runtime_overlay: Optional[dict[str, Any]] = Field(default=None, exclude=True)
+
+    model_config = {"extra": "allow"}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _capture_legacy_runtime(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        data = copy.deepcopy(value)
+        overlay = data.get("runtime_overlay") if isinstance(data.get("runtime_overlay"), dict) else {}
+        step_states = dict(overlay.get("step_states") or {})
+        for raw_step in data.get("steps") or []:
+            if not isinstance(raw_step, dict):
+                continue
+            state = raw_step.get("run_state")
+            step_id = str(raw_step.get("id") or "")
+            if state is not None and step_id:
+                step_states[step_id] = {"step_id": step_id, "status": str(state)}
+        if step_states:
+            overlay["schema"] = "ananta.visual_process.runtime_overlay.v1"
+            overlay["step_states"] = step_states
+            data["runtime_overlay"] = overlay
+        return data
+
+    @model_validator(mode="after")
+    def _validate_extensions(self) -> "VisualProcessGraph":
+        namespace = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)+$")
+        for key in self.extensions:
+            if not namespace.fullmatch(str(key)):
+                raise ValueError("extension_namespace_invalid")
+        return self
+
+    def definition_payload(self, *, public: bool = True) -> dict[str, Any]:
+        """Return the stable design-time representation.
+
+        Legacy ``run_state`` values are retained in ``runtime_overlay`` by the
+        parser, then excluded here.  Server ownership is also omitted from the
+        public hash so clients can reproduce the authoritative value.
+        """
+
+        payload = self.model_dump(exclude={"runtime_overlay"})
+        for step in payload.get("steps") or []:
+            if isinstance(step, dict):
+                step.pop("run_state", None)
+        payload.pop("base_graph_hash", None)
+        payload.pop("definition_revision", None)
+        if public:
+            metadata = dict(payload.get("metadata") or {})
+            metadata.pop("owner_principal", None)
+            payload["metadata"] = metadata
+        return payload
+
+    def canonical_definition_bytes(self) -> bytes:
+        """Canonical UTF-8 JSON bytes for optimistic content comparison."""
+
+        normalized = _normalize_json_strings(self.definition_payload(public=True))
+        return json.dumps(
+            normalized,
+            ensure_ascii=False,
+            allow_nan=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+
+    def definition_hash(self) -> str:
+        return hashlib.sha256(self.canonical_definition_bytes()).hexdigest()
 
     def step_by_id(self, step_id: str) -> Optional[VisualProcessStep]:
         return next((s for s in self.steps if s.id == step_id), None)
@@ -204,3 +292,18 @@ class VisualProcessGraph(BaseModel):
             return False
 
         return any(dfs(s.id) for s in self.steps if s.id not in visited)
+
+
+def _normalize_json_strings(value: Any) -> Any:
+    """Apply the contract's NFC pre-normalization without mutating callers."""
+
+    if isinstance(value, str):
+        return unicodedata.normalize("NFC", value)
+    if isinstance(value, list):
+        return [_normalize_json_strings(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            unicodedata.normalize("NFC", str(key)): _normalize_json_strings(item)
+            for key, item in value.items()
+        }
+    return value

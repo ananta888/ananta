@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 SCHEMA_CONTEXT_PACKAGE = "codecompass_context_package.v1"
 SCHEMA_SEARCH_RESULT = "codecompass_search_result.v1"
 SCHEMA_FILE_CONTEXT_RESULT = "codecompass_file_context_result.v1"
@@ -95,8 +94,23 @@ class CodeCompassContextToolConfig:
 class CodeCompassContextService:
     """Hub-side facade for policy-bounded CodeCompass context tools."""
 
-    def __init__(self, *, config: CodeCompassContextToolConfig | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        config: CodeCompassContextToolConfig | None = None,
+        retrieval_service: Any | None = None,
+    ) -> None:
         self._config = config or CodeCompassContextToolConfig()
+        self._retrieval_service = retrieval_service
+
+    def _retrieval(self) -> Any:
+        if self._retrieval_service is not None:
+            return self._retrieval_service
+        from agent.services.knowledge_index_retrieval_service import (
+            get_knowledge_index_retrieval_service,
+        )
+
+        return get_knowledge_index_retrieval_service()
 
     def resolve_context(
         self,
@@ -135,7 +149,10 @@ class CodeCompassContextService:
             warnings.append("deep_context_downgraded_requires_domain_scope_or_working_files")
 
         llm_scope_value = str(llm_scope or "local").strip().lower()
-        if llm_scope_value.startswith("external") and self._config.external_cloud_policy == "metadata_only_unless_allowed":
+        if (
+            llm_scope_value.startswith("external")
+            and self._config.external_cloud_policy == "metadata_only_unless_allowed"
+        ):
             if include_original_files:
                 denied_items.append({
                     "kind": "context_files",
@@ -269,9 +286,11 @@ class CodeCompassContextService:
         records = []
         warnings: list[str] = []
         try:
-            from agent.services.rag_helper_index_service import get_rag_helper_index_service
-
-            hits = get_rag_helper_index_service().retrieve(profile=None, query=q, limit=effective_limit)
+            hits = self._retrieval().search_records(
+                q,
+                limit=effective_limit,
+                retrieval_intent="exact_symbol",
+            )
         except Exception as exc:
             hits = []
             warnings.append(f"codecompass_search_unavailable:{exc}")
@@ -389,7 +408,12 @@ class CodeCompassContextService:
             }
         root = Path(workspace_dir or ".").resolve()
         per_file_limit = self._bounded_int(max_bytes_per_file, 32_768, 128, 1_000_000)
-        total_limit = self._bounded_int(max_total_bytes, self._config.max_total_bytes, 128, self._config.max_total_bytes)
+        total_limit = self._bounded_int(
+            max_total_bytes,
+            self._config.max_total_bytes,
+            128,
+            self._config.max_total_bytes,
+        )
         range_map = self._line_range_map(line_ranges or [])
         context_files: list[dict[str, Any]] = []
         denied_items: list[dict[str, Any]] = []
@@ -477,7 +501,11 @@ class CodeCompassContextService:
                 })
         edges = []
         if include_edges and files:
-            graph = self.expand_graph(seeds=[row["path"] for row in files[:5]], max_nodes=max_entries, domain_scope=hint)
+            graph = self.expand_graph(
+                seeds=[row["path"] for row in files[:5]],
+                max_nodes=max_entries,
+                domain_scope=hint,
+            )
             edges = list(graph.get("graph_edges") or [])
         return {
             "schema": SCHEMA_DOMAIN_MAP,
@@ -616,18 +644,17 @@ class CodeCompassContextService:
 
     def _manifest_hash(self) -> str:
         try:
-            from agent.config import settings
-
-            root = Path(getattr(settings, "rag_repo_root", ".")).resolve()
-            marker = str(root)
+            identity = dict(self._retrieval().current_manifest_identity() or {})
         except Exception:
-            marker = "."
-        return hashlib.sha256(marker.encode("utf-8")).hexdigest()
+            return ""
+        return str(identity.get("snapshot_revision") or "")
 
     def _provenance(self, *, source: str, path: str, score: Any) -> dict[str, Any]:
+        manifest_hash = self._manifest_hash()
         return {
             "source": source,
-            "manifest_hash": self._manifest_hash(),
+            "manifest_hash": manifest_hash or None,
+            "manifest_state": "current" if manifest_hash else "degraded",
             "record_type": "codecompass_context",
             "score": self._to_float(score),
             "path": path,

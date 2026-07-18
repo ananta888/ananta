@@ -1,0 +1,35 @@
+{
+  "schema": "codecompass.snapshot-policy.v1",
+  "profile_id": "ananta-repository-default",
+  "required_paths": [
+    {
+      "pattern": "AGENTS.md",
+      "minimum_indexed": 1,
+      "maximum_indexed": 1
+    },
+    {
+      "pattern": "docs/**",
+      "minimum_indexed": 1
+    },
+    {
+      "pattern": "schemas/**",
+      "minimum_indexed": 1
+    },
+    {
+      "pattern": "todos/**",
+      "minimum_indexed": 1
+    },
+    {
+      "pattern": "agent/visual_process/**",
+      "minimum_indexed": 1
+    },
+    {
+      "pattern": "frontend-angular/src/app/features/visual-process/**",
+      "minimum_indexed": 1
+    },
+    {
+      "pattern": "tests/**",
+      "minimum_indexed": 1
+    }
+  ]
+}

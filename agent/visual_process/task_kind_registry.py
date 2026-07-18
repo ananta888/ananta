@@ -24,7 +24,7 @@ from typing import TypedDict
 
 WORKER_TASK_KINDS: frozenset[str] = frozenset({
     "patch_apply", "patch_propose", "command_execute", "shell_execute",
-    "shell_execution", "plan_only", "review", "summarize", "research_limited",
+    "plan_only", "review", "summarize", "research_limited",
     "run_tests", "script", "git_op", "file_check", "regex_check",
     "fork", "join", "approval",
     "workspace_snapshot", "workspace_diff",
@@ -72,6 +72,7 @@ LEGACY_MAP: dict[str, str] = {
     "vector_encode":     "embed_api",
     "turboquant_encode": "turboquant_mse",
     "cluster":           "domain_cluster",
+    "shell_execution":   "shell_execute",
 }
 
 ALL_TASK_KINDS: frozenset[str] = WORKER_TASK_KINDS | ML_TASK_KINDS | RETRIEVAL_TASK_KINDS
@@ -322,7 +323,7 @@ _KIND_INFO: dict[str, TaskKindInfo] = {
     "embed_chunk": {
         "id": "embed_chunk", "label": "Chunk + Einbetten", "group": "ml", "dispatch_capable": False,
         "description": "Chunked Dokumente und bettet jeden Chunk via embed_api ein (index_builder._build_entries_for_paths)",
-        "implementation_status": "production", "implementation_state": "wired_and_executable",
+        "implementation_status": "production", "implementation_state": "implemented_not_exposed",
         "backend_service": "CodeCompassIndexBuilder._build_entries_for_paths",
         "deterministic": False, "uses_llm": False, "uses_network": True,
         "side_effects": ["read_workspace", "network_egress"], "risk_level": "none",
@@ -357,7 +358,7 @@ _KIND_INFO: dict[str, TaskKindInfo] = {
     "rag_retrieve": {
         "id": "rag_retrieve", "label": "RAG Abruf", "group": "ml", "dispatch_capable": False,
         "description": "HybridRetrievalService: 6 Channels (dense, lexical, symbol, codecompass_fts, codecompass_vector, codecompass_graph)",
-        "implementation_status": "production", "implementation_state": "wired_and_executable",
+        "implementation_status": "production", "implementation_state": "implemented_not_exposed",
         "backend_service": "HybridRetrievalService",
         "deterministic": False, "uses_llm": False, "uses_network": False,
         "side_effects": [], "risk_level": "none",
@@ -478,6 +479,12 @@ _GROUP_ORDER = {"control_flow": 0, "worker": 1, "retrieval": 2, "ml": 3}
 def list_task_kinds() -> list[TaskKindInfo]:
     """Return all task kinds ordered: control_flow → worker → retrieval → ml."""
     return sorted(_KIND_INFO.values(), key=lambda k: (_GROUP_ORDER.get(k["group"], 9), k["id"]))
+
+
+def canonical_task_kind_ids() -> frozenset[str]:
+    """Return registry entries only; aliases never become canonical nodes."""
+
+    return frozenset(_KIND_INFO)
 
 
 def get_task_kind_info(kind: str) -> TaskKindInfo | None:

@@ -1,0 +1,144 @@
+{
+  "results": {
+    "assistant_security": {
+      "evidence_paths": [
+        "tests/security/visual_process_assistant/test_security_gates.py"
+      ],
+      "status": "passed",
+      "test_count": 7
+    },
+    "contract_parity": {
+      "evidence_paths": [
+        "tests/test_visual_process_assistant_baseline.py",
+        "tests/test_visual_process_assistant_contracts.py",
+        "tests/test_visual_process_definition_contract.py"
+      ],
+      "status": "passed",
+      "test_count": 56
+    },
+    "editor_isolation_e2e": {
+      "evidence_paths": [
+        "frontend-angular/tests/visual-process-assistant-isolation.spec.ts"
+      ],
+      "status": "passed",
+      "test_count": 1
+    },
+    "editor_patch_e2e": {
+      "evidence_paths": [
+        "frontend-angular/tests/visual-process-assistant-patch.spec.ts"
+      ],
+      "status": "passed",
+      "test_count": 2
+    },
+    "feature_flag_rollback": {
+      "evidence_paths": [
+        "tests/integration/visual_process_assistant/test_rollback.py"
+      ],
+      "status": "passed",
+      "test_count": 5
+    },
+    "hub_worker_codecompass_integration": {
+      "evidence_paths": [
+        "tests/integration/visual_process_assistant/test_hub_worker_matrix.py",
+        "tests/test_visual_process_assistant_service.py"
+      ],
+      "status": "passed",
+      "test_count": 7
+    },
+    "registry_backend_acceptance": {
+      "evidence_paths": [
+        "tests/test_visual_process_registry_migration_acceptance.py"
+      ],
+      "status": "passed",
+      "test_count": 116
+    },
+    "registry_frontend_acceptance": {
+      "evidence_paths": [
+        "frontend-angular/src/app/features/visual-process/vp-registry-migration-acceptance.spec.ts"
+      ],
+      "status": "passed",
+      "test_count": 3
+    }
+  },
+  "schema": "ananta.visual-process-assistant-functional-evidence.v1",
+  "source_hashes": {
+    "agent/config.py": "8a6012d64b5c37cfcea9ebbfddbefb6750183369753240553362882e2f46fcd4",
+    "agent/db_models/visual_process.py": "8b789b6c74439a6d9c150ab1fa2330b9be18f03b2358c0122da1d0874c28c4f6",
+    "agent/db_models/visual_process_assistant.py": "db553b6dd36a2fc90ebada0d082146bff46e1356096f49a78c427eec4c0bd893",
+    "agent/routes/visual_process.py": "cc4f4ec48ef90439e2d507a01b9e8b5f8c27b8213f002d6e89e6ca41c74b5383",
+    "agent/routes/visual_process_assistant.py": "a3a6c4f5dc415a9c3ce7fb0f09ae415245478a8b5fa36e5e49b801b0a5ef3760",
+    "agent/services/codecompass_editor_context_contract.py": "9de1049e8a1db86b836d77b64ee0d423e7646705f8f8af208677b0fb73a3117e",
+    "agent/services/retrieval_source_contract.py": "4b5eb8034b1ab687072cd330fbf36fe4c0d5b1903295ffd399da151d18840580",
+    "agent/services/source_catalog_authority_service.py": "5186e473d26a58cee65aa43747ef44850b906aae3f974b65410cd10ec0d2cfb6",
+    "agent/services/visual_process_assistant_service.py": "e5e927aba8db1f04b720e9fc5c1acf4880293b9f5dac38ca9e99238c4f20c3fc",
+    "agent/services/visual_process_context_service.py": "82abbdd9c2f0608e82db3cffb6f491adf613c12eae6caa0363157091aaecc6c4",
+    "agent/services/visual_process_definition_service.py": "4010e7a49570733ed9a8aca5db8e5a8af794b1eefca9353fd83bef9b499af43f",
+    "agent/services/visual_process_location_service.py": "afd6dc504c5f2f8bb2a2106dea1d929732dfc87ca1e6c53ed6fef2a0d84c4b08",
+    "agent/services/visual_process_patch_service.py": "7e1a753bcbda2e83ddeff87ab604f62513f154b2bd6e6f93bd8cfcec157ef233",
+    "agent/visual_process/models.py": "f74ec09cd1b921ecb26ccbe38036fb7bdaa8f57af543f916014d9e59854f50a9",
+    "agent/visual_process/node_definitions.py": "1304bc8e56c0ad0397c2f187703418e0f49373cd7f9267072fc3073882210e1e",
+    "agent/visual_process/step_adapters.py": "19f989fd10d6b9c49b85a8f270da643fbb72db3870767475ee625a602257644b",
+    "agent/visual_process/task_kind_registry.py": "391f567d6955287b18d3ac95bdc9f07416839d0ac509a37abedb3589d76369d0",
+    "agent/visual_process/validator.py": "977a7cae11f8e930523e8a61ed21ff5300fb5a3ef05ca16483672e8cc72e5e05",
+    "ananta_contracts/retrieval.py": "5f907ddc7f77072798840137370b505e9739689fd4d500d0279afa6f34a1ac7d",
+    "ananta_contracts/visual_process_assistant.py": "2a8c6550b253fc13c64cf21a9a7cabaf275176983d402b53ee05b9f1f94450d5",
+    "artifacts/domain/visual-process-assistant-baseline.json": "0265aab998c6a9bdf59468910f5604de297b11f575b8120f8126864e89c2f16d",
+    "artifacts/test-gates/codecompass-e2e.json": "e46cbdc47af078df3ebae3a27991d1c397a9a8932127fbc023d6a9760be87476",
+    "docs/architecture/visual-process-assistant.md": "5ddc3f2e6dd04bfcd9cfbe341819772622107e3ea06c23d2e827785938d8cc41",
+    "frontend-angular/playwright.vpa-functional.config.ts": "b8ffdf52793ac8c7fddd21f89f782eff026459779e75f74317a11cf7cce0df40",
+    "frontend-angular/src/app/components/ai-snake-process-panel.component.ts": "7fcee5067c48a466f29c8a4c38b468c12fc8cc5340b64551955b664f6c0adbea",
+    "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts": "bdd7acbecb4d85f8e12c5f9822ced248f423c49b2af964596b8058de8e50d914",
+    "frontend-angular/src/app/features/visual-process/visual-process-canvas.component.ts": "b3d87f019593b8dd20459c544fbe81bf41c3111cfb9e1dd7811414a02ba667aa",
+    "frontend-angular/src/app/features/visual-process/visual-process-editor.component.html": "0f099fdca8a5b02f8de1e895623e5a1464837a51bd0487e759e88ecff17df7f1",
+    "frontend-angular/src/app/features/visual-process/visual-process-editor.component.scss": "80f50761d2a173c94f501b48b3aa9de5d69128b3cc32dd5e62b114fbd006fb96",
+    "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts": "ece6b69fb4fe5eeabe99534fa6a4bbc0e28e1ebc8d293b3ca5d8b05847e33c44",
+    "frontend-angular/src/app/features/visual-process/vp-assistant-api.service.ts": "924732b95fbf4e60ccb0d1456aaa23b16168e4f046b012f055ad663ac6ccc3ea",
+    "frontend-angular/src/app/features/visual-process/vp-assistant-bridge.service.ts": "53490d0ab548f516728d8a21feafbfb53e90b697290ddca9b64c83e422d657d3",
+    "frontend-angular/src/app/features/visual-process/vp-assistant-bubble.component.ts": "0dc9834b431719c346ba63ecf1dc773b8dcb7bc5d0a82fcd5a1f5478da52c7b3",
+    "frontend-angular/src/app/features/visual-process/vp-assistant-context.service.ts": "7d79366426457645e7f7aa0be91d423450707921271d25bd7d771de229275339",
+    "frontend-angular/src/app/features/visual-process/vp-canvas-interaction.service.ts": "1e1518d56cfec992f9d68c770e42fe6575ea7a86248dbe16102b3e5416073a6a",
+    "frontend-angular/src/app/features/visual-process/vp-editor-config.ts": "b07bb796ada48f5a41612b1f058d9816ac4b630835eaccecf0702f3fffb34f6c",
+    "frontend-angular/src/app/features/visual-process/vp-editor-context.models.ts": "8b0f74c439d691deca92edaf9cdd6a578e249db6c8015b039ef973444c63b3ac",
+    "frontend-angular/src/app/features/visual-process/vp-editor-state.facade.ts": "31f079841d0f791e3a37bc0c52cc90d605d72e162e7265ca520414034700e7e1",
+    "frontend-angular/src/app/features/visual-process/vp-node-definition-registry.service.ts": "51ad4906f74f700be89320c6122500a98ec39392b2d9991c611beb9c7a12e04c",
+    "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts": "c2a1a3083ba1e76282fc229e7349215c28e573a13f14c14ca9f65c92834c1c80",
+    "frontend-angular/src/app/features/visual-process/vp-node-field-renderer.component.ts": "57f60aa4ba968e62a4b7e3098265619951b09e3d934106e4faa0c9ad9872fea0",
+    "frontend-angular/src/app/features/visual-process/vp-node-palette.component.ts": "94de7df33552b26300a99af2032efdb57cf6a45533924aba0f349958d24b6ed9",
+    "frontend-angular/src/app/features/visual-process/vp-registry-migration-acceptance.spec.ts": "cf99521d41c6ac0336e87fc3c03c4b9d54c32fa9322ae5bf632f12ec4b59ef22",
+    "frontend-angular/src/app/features/visual-process/vp-resource-option-provider.ts": "f71ffe704c6352b4fc6882520d7fb7c55ad39ec5ad73a427b2f83dcae304b7b4",
+    "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html": "5564197081abcc0b2b64b407af1d883b7e4276c0eb0fc3048798654a6ad29f86",
+    "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.ts": "d921344a38e9e756274cd61da30045e620b797992f7a1af86c03a643e45d6b31",
+    "frontend-angular/src/app/features/visual-process/vp-training-node-extension.component.ts": "1669eee011b5cce2713c6b956f1188a9759f084a28fde0d62b56b17c3d612a2e",
+    "frontend-angular/src/app/features/visual-process/vp-workflow-patch-preview.component.ts": "008ce62afc3b3e5608587ee10f307d5f7f7577b5c79bd66f7dec426a70ef5b1b",
+    "frontend-angular/src/app/features/visual-process/vp-workflow-runner.service.ts": "11bd5d38ce64287982c7dfb4b10613b1c06c7cc3218591e8a22ffdcc3fa89936",
+    "frontend-angular/tests/visual-process-assistant-isolation.spec.ts": "78d809c7f8a87dfe63a0da72c7a66d7d1edb8467105d0213d186bcc5441cbeb3",
+    "frontend-angular/tests/visual-process-assistant-patch.spec.ts": "e98683c8f52c27683b94b148bfca6c3349bd9c8f69dd5a960e25ad460d8e2d44",
+    "migrations/versions/a5b6c7d8e9f0_add_visual_process_definition_revision.py": "e5f6817cb2daaafd6b408ffe530c39f6e973495d1b062b17c3f32b3a9fb93045",
+    "migrations/versions/b6c7d8e9f0a1_add_visual_process_assistant_control_plane.py": "57a411d8816cc0192765ba3fad7472a60c47b3769833ada7c12e53ffadcc60e3",
+    "schemas/source/source_catalog.v2.json": "5fe03cb59a74ce1605b1f49d380bf01f1145a2c0b8067e65a035065f244dc346",
+    "schemas/source/source_ref.v2.json": "cdbc2aa0b1f8865a26af309fffc4f7e2709ba71fe01bdd3f419cc017a78ff7a7",
+    "schemas/visual_process/editor_context.v1.json": "dd13af44dc5c3cad75ac3db817853ed0f566fb78b4bb407b844c914c9b93ef41",
+    "schemas/visual_process/help_response.v1.json": "93cfb03b1639bc36a4517a600d901aa0d2d34e7e9db7c2613fd6e043ef60cbc5",
+    "schemas/visual_process/node_definition.v1.json": "4aaa01b4733d115edf5984f9fbbaf859999f40a222fa31d0b2c73eb50f56eacf",
+    "schemas/visual_process/workflow_patch.v1.json": "852fbe1d7c898a653f9907f85f4c5736d1d15c60b153d2e9a0422926067d8595",
+    "schemas/worker/codecompass_snapshot_manifest.v1.json": "0730ed26187be8a12b199813c637b5c92bbd94dbe2c5d3a8812606de6d54c37e",
+    "scripts/generate_codecompass_e2e_gate.py": "6c9fa6a1a0a0995405c3bb7e1af4e925216202ff9c869b1f408194f3e962da8e",
+    "scripts/generate_visual_process_assistant_baseline.py": "ff0be383754974b4fc2873ef0b302d1356aea96e4650c689102f4045ff748f1a",
+    "scripts/generate_visual_process_assistant_gates.py": "181d37c148af75a263c45547ab5897bfe38cac6384f070851e61a1bdb85c48c7",
+    "scripts/run_visual_process_assistant_functional_gate.py": "14bcb220035b89f250e23d7057d5f5f368a0883adb9f283749760d498c3bb328",
+    "tests/integration/visual_process_assistant/test_hub_worker_matrix.py": "0fb9e0f74c3922088b9e8bf78e2ddb34dd39c2917d36283fad3a94a5ceac704b",
+    "tests/integration/visual_process_assistant/test_rollback.py": "f5cf5f46e007935b44e6086ea1000bc875e1b7bc239a7ad0e371acf83a0e7e83",
+    "tests/security/visual_process_assistant/test_security_gates.py": "95cff74670d77a4d2f91afe91711e715869cab97ae2a80b5c1186805628377e3",
+    "tests/test_codecompass_e2e_acceptance_gate.py": "f365cb763144e47b3af3a2adf75cb1542b4847d0ecec500053498cfcebab47d6",
+    "tests/test_visual_process_assistant_baseline.py": "c9c4d565521c755d132cfc0c650b3bbdca66bd8d35d12ba2c1c4e421e8832647",
+    "tests/test_visual_process_assistant_contracts.py": "9af1c3eec595f02c2307c5bc5cd5403d64e0399e6c7d145e2836c599c8e8071b",
+    "tests/test_visual_process_assistant_service.py": "098c6de1183ac1f7b1a6fd64e4ad2c97448813a2af4d690ed64fc73d77e9f96a",
+    "tests/test_visual_process_definition_contract.py": "e22aa13513745c93c70da4af710383aaece226f62f467669b2808c0e666c5211",
+    "tests/test_visual_process_registry_migration_acceptance.py": "28d05c3333483fdc3b782f0c985be18d776c5dca92cea221067020c3af83b41d",
+    "worker/retrieval/codecompass_channel_providers.py": "e79159d8f4923aede39f79df99abcea8a95e131ad975e7b0265176fea36efd9a",
+    "worker/retrieval/codecompass_retriever.py": "b108e9f3c6d5d5abc9911cff52b884b1f0f6579390ea890bfe4ef97d05cfd377",
+    "worker/visual_process_assistant/evidence_gate.py": "242394c084b2440b852d63cfca3d0ed97b111d2f33ec04f9acad577e37f02be4",
+    "worker/visual_process_assistant/handlers.py": "eb2d39f432548753eef3e1e28db91b07a40b53098d30fa44a7445d6794f94476"
+  },
+  "source_revision": "worktree-sha256:fff6f477e50aee72d448378643528852689c856968a0f38f187448ad26cdecc6"
+}

@@ -17,6 +17,7 @@ from agent.visual_process.models import (
     VisualProcessGraph,
     VisualProcessStep,
 )
+from agent.visual_process.node_definition_validator import NodeDefinitionStepValidator
 from agent.visual_process.task_kind_registry import (
     get_task_kind_info,
     is_legacy_kind,
@@ -34,6 +35,19 @@ class ValidationIssue:
     step_id: str | None = None
     edge_id: str | None = None
     artifact_name: str | None = None
+    path: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.path:
+            return
+        if self.step_id:
+            self.path = f"/steps/{self.step_id}"
+        elif self.edge_id:
+            self.path = f"/edges/{self.edge_id}"
+        elif self.artifact_name:
+            self.path = f"/artifacts/{self.artifact_name}"
+        else:
+            self.path = "/"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -43,6 +57,7 @@ class ValidationIssue:
             "step_id": self.step_id,
             "edge_id": self.edge_id,
             "artifact_name": self.artifact_name,
+            "path": self.path,
         }
 
 
@@ -58,11 +73,21 @@ class ValidationResult:
         return [i for i in self.issues if i.severity == "warning"]
 
     def as_dict(self) -> dict[str, Any]:
+        severity_order = {"error": 0, "warning": 1, "info": 2}
+        stable_issues = sorted(
+            self.issues,
+            key=lambda issue: (
+                severity_order.get(issue.severity, 99),
+                issue.code,
+                issue.path or "/",
+                issue.message,
+            ),
+        )
         return {
             "valid": self.valid,
             "error_count": len(self.errors()),
             "warning_count": len(self.warnings()),
-            "issues": [i.as_dict() for i in self.issues],
+            "issues": [i.as_dict() for i in stable_issues],
         }
 
 
@@ -70,6 +95,9 @@ class ValidationResult:
 
 class GraphValidator:
     """Validates structural integrity of a VisualProcessGraph."""
+
+    def __init__(self, node_fields: NodeDefinitionStepValidator | None = None) -> None:
+        self._node_fields = node_fields or NodeDefinitionStepValidator()
 
     def validate(self, graph: VisualProcessGraph) -> ValidationResult:
         issues: list[ValidationIssue] = []
@@ -206,9 +234,9 @@ class GraphValidator:
         for step in graph.steps:
             if step.kind == "evolve_project" and step.metadata.get("apply_allowed") and not step.gate:
                 issues.append(ValidationIssue(
-                    "warning", "high_risk_no_gate",
+                    "error", "evolve_project_apply_requires_gate",
                     f"Step '{step.label}' has apply_allowed=true but gate=false; "
-                    "recommend setting gate=true for evolve_project steps that apply changes",
+                    "the Hub requires an approval gate for project mutations",
                     step_id=step.id,
                 ))
             if step.kind == "evolution_apply" and not step.gate:
@@ -217,6 +245,18 @@ class GraphValidator:
                     f"Step '{step.label}' (kind=evolution_apply) must have gate=true — "
                     "EvolutionService.apply() modifies the codebase via MutationGateService",
                     step_id=step.id,
+                ))
+            if (
+                step.kind == "ml_intern_train_lora"
+                and str(step.metadata.get("mode") or "dry_run").strip().lower() == "live"
+                and not step.gate
+            ):
+                issues.append(ValidationIssue(
+                    "error",
+                    "training_live_requires_gate",
+                    f"Step '{step.label}' requests a live training run without an approval gate.",
+                    step_id=step.id,
+                    path=f"/steps/{step.id}/gate",
                 ))
 
         # turboquant_mse: funktionierender experimenteller Encoder — nur Hinweis, kein Warning
@@ -245,12 +285,37 @@ class GraphValidator:
         for step in graph.steps:
             if step.kind == "embed_api":
                 provider = step.metadata.get("provider", "")
+                if "api_key" in step.metadata:
+                    issues.append(ValidationIssue(
+                        "error", "embed_api_plaintext_secret_quarantined",
+                        f"Step '{step.label}' contains deprecated plaintext metadata.api_key. "
+                        "Remove it and explicitly configure api_key_secret_ref.",
+                        step_id=step.id,
+                        path=f"/steps/{step.id}/metadata/api_key",
+                    ))
                 if provider in ("openai", "openai_compatible") and not step.metadata.get("base_url"):
                     issues.append(ValidationIssue(
                         "warning", "embed_api_missing_base_url",
                         f"Step '{step.label}' (kind=embed_api) uses provider='{provider}' "
                         "but no base_url is configured in metadata",
                         step_id=step.id,
+                        path=f"/steps/{step.id}/metadata/base_url",
+                    ))
+                if provider in ("openai", "openai_compatible") and not step.metadata.get("api_key_secret_ref"):
+                    issues.append(ValidationIssue(
+                        "error", "embed_api_secret_reference_required",
+                        f"Step '{step.label}' requires an opaque api_key_secret_ref.",
+                        step_id=step.id,
+                        path=f"/steps/{step.id}/metadata/api_key_secret_ref",
+                    ))
+                if provider in ("openai", "openai_compatible") and not bool(
+                    step.metadata.get("external_calls_allowed", False)
+                ):
+                    issues.append(ValidationIssue(
+                        "error", "embed_api_external_calls_not_allowed",
+                        f"Step '{step.label}' requires an explicit external_calls_allowed opt-in.",
+                        step_id=step.id,
+                        path=f"/steps/{step.id}/metadata/external_calls_allowed",
                     ))
 
         # codecompass_index_build should precede vector/fts search in same graph
@@ -278,6 +343,15 @@ class GraphValidator:
                 ))
 
         # VPRT-003: Runtime-Truth consistency checks
+        for step in graph.steps:
+            for violation in self._node_fields.validate(step):
+                issues.append(ValidationIssue(
+                    "error",
+                    violation.code,
+                    violation.message,
+                    step_id=step.id,
+                    path=violation.path,
+                ))
         self._check_runtime_truth(graph, issues)
         self._check_model_routing(graph, issues)
 
@@ -318,6 +392,38 @@ class GraphValidator:
                         "zwingend Approval (requires_approval=true), hat aber gate=false.",
                         step_id=step.id,
                     ))
+
+            # Runtime-truth diagnostics belong to this registry-backed pass;
+            # keeping them here avoids leaking loop-local state into the
+            # independent model-routing validator.
+            if uses_network:
+                issues.append(ValidationIssue(
+                    "info", "step_uses_network",
+                    f"Step '{step.label}' (kind={step.kind}) macht Netzwerk-Anfragen "
+                    f"(uses_network=true, backend={backend}). "
+                    "Stell sicher, dass Netzwerk-Egress in deiner Umgebung erlaubt ist.",
+                    step_id=step.id,
+                ))
+
+            if impl_status in ("stub", "not_implemented"):
+                issues.append(ValidationIssue(
+                    "warning", "step_is_stub",
+                    f"Step '{step.label}' (kind={step.kind}) hat implementation_status='{impl_status}'. "
+                    "Dieser Step ist ein Stub (NotImplementedError) und nicht ausführbar.",
+                    step_id=step.id,
+                ))
+
+            risk = info.get("risk_level", "none")
+            explicitly_governed_kinds = {
+                "shell_execute", "command_execute", "run_tests", "patch_apply", "script", "git_op",
+            }
+            if risk in ("high", "critical") and not step.gate and step.kind not in explicitly_governed_kinds:
+                issues.append(ValidationIssue(
+                    "info", "high_risk_step_no_gate",
+                    f"Step '{step.label}' (kind={step.kind}) hat risk_level='{risk}' aber gate=false. "
+                    "Erwäge gate=true für kritische Steps.",
+                    step_id=step.id,
+                ))
 
     @staticmethod
     def _check_model_routing(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
@@ -367,35 +473,6 @@ class GraphValidator:
                     "info",
                     "model_cloud_gate_missing",
                     f"Step '{step.label}' may require approval for cloud or cost escalation but gate=false.",
-                    step_id=step.id,
-                ))
-
-            # uses_network=true — inform user
-            if uses_network:
-                issues.append(ValidationIssue(
-                    "info", "step_uses_network",
-                    f"Step '{step.label}' (kind={step.kind}) macht Netzwerk-Anfragen "
-                    f"(uses_network=true, backend={backend}). "
-                    "Stell sicher, dass Netzwerk-Egress in deiner Umgebung erlaubt ist.",
-                    step_id=step.id,
-                ))
-
-            # stub/not_implemented status — hard warning
-            if impl_status in ("stub", "not_implemented"):
-                issues.append(ValidationIssue(
-                    "warning", "step_is_stub",
-                    f"Step '{step.label}' (kind={step.kind}) hat implementation_status='{impl_status}'. "
-                    "Dieser Step ist ein Stub (NotImplementedError) und nicht ausführbar.",
-                    step_id=step.id,
-                ))
-
-            # high/critical risk without approval gate
-            risk = info.get("risk_level", "none")
-            if risk in ("high", "critical") and not step.gate and step.kind not in ("shell_execute", "command_execute", "run_tests", "patch_apply", "script", "git_op"):
-                issues.append(ValidationIssue(
-                    "info", "high_risk_step_no_gate",
-                    f"Step '{step.label}' (kind={step.kind}) hat risk_level='{risk}' aber gate=false. "
-                    "Erwäge gate=true für kritische Steps.",
                     step_id=step.id,
                 ))
 

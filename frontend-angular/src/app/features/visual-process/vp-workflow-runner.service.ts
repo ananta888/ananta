@@ -7,6 +7,7 @@ import {
   VpGraph,
   WorkflowStatus,
   VpRuntimeOverlay,
+  sortValidationIssues,
 } from './visual-process-api.service';
 import { extractVpDatasetBuildRuntime, extractVpTrainingRuntime } from './vp-model-training-contract';
 
@@ -31,7 +32,7 @@ export class VpWorkflowRunnerService {
   validate(graph: VpGraph): void {
     this.api.validate(graph).subscribe({
       next: result => {
-        this.validationResult.set(result);
+        this.validationResult.set({ ...result, issues: sortValidationIssues(result.issues) });
         this.status.set(result.valid ? 'Gültig ✓' : `${result.error_count} Fehler`);
       },
       error: () => this.status.set('Validierung fehlgeschlagen'),
@@ -43,7 +44,7 @@ export class VpWorkflowRunnerService {
     this.api.dryRun(graph).subscribe({
       next: result => {
         this.dryRunResult.set(result);
-        this.validationResult.set(result.validation);
+        this.validationResult.set({ ...result.validation, issues: sortValidationIssues(result.validation.issues) });
         this.status.set('Dry-Run abgeschlossen');
       },
       error: () => this.status.set('Dry-Run fehlgeschlagen'),
@@ -57,15 +58,9 @@ export class VpWorkflowRunnerService {
     });
   }
 
-  refreshPolicyHints(graph: WritableSignal<VpGraph>): void {
-    this.api.policySummary(graph()).subscribe({
-      next: result => graph.update(current => ({
-        ...current,
-        steps: current.steps.map(step => ({
-          ...step,
-          policy_hints: result.per_step[step.id] ?? step.policy_hints,
-        })),
-      })),
+  refreshPolicyHints(graph: VpGraph, apply: (perStep: Record<string, string[]>) => void): void {
+    this.api.policySummary(graph).subscribe({
+      next: result => apply(result.per_step),
       error: () => undefined,
     });
   }

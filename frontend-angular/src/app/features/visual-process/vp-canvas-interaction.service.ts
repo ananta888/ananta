@@ -7,6 +7,8 @@ const NODE_H = 52;
 @Injectable()
 export class VpCanvasInteractionService {
 
+  private canvasElement: HTMLElement | null = null;
+
   // ── Pan/Zoom State ─────────────────────────────────────────────────────────
   private _panX = signal(20);
   private _panY = signal(20);
@@ -27,6 +29,14 @@ export class VpCanvasInteractionService {
   canvasTransform = computed(
     () => `translate(${this._panX()}, ${this._panY()}) scale(${this._zoom()})`,
   );
+
+  bindCanvas(element: HTMLElement): void {
+    this.canvasElement = element;
+  }
+
+  unbindCanvas(element?: HTMLElement): void {
+    if (!element || this.canvasElement === element) this.canvasElement = null;
+  }
 
   // ── Mouse / Wheel Handlers ─────────────────────────────────────────────────
   onCanvasMouseDown(e: MouseEvent, onClearSelection: () => void): void {
@@ -69,9 +79,11 @@ export class VpCanvasInteractionService {
     }
   }
 
-  onMouseUp(_e: MouseEvent): void {
+  onMouseUp(_e: MouseEvent): boolean {
+    const wasDragging = this.dragId !== null;
     this.isPanning = false;
     this.dragId = null;
+    return wasDragging;
   }
 
   onWheel(e: WheelEvent): void {
@@ -85,23 +97,32 @@ export class VpCanvasInteractionService {
     this._zoom.set(Math.min(4, Math.max(0.2, this._zoom() * factor)));
   }
 
-  onNodeMouseDown(e: MouseEvent, id: string, step: VpStep, isEdgeMode: boolean): void {
+  onNodeMouseDown(e: MouseEvent, id: string, step: VpStep, isEdgeMode: boolean): boolean {
     e.stopPropagation();
-    if (isEdgeMode) return;
+    if (isEdgeMode) return false;
     const { svgX, svgY } = this.clientToSvg(e.clientX, e.clientY);
     this.dragId = id;
     this.dragOffset = { x: svgX - step.position.x, y: svgY - step.position.y };
+    return true;
   }
 
   // ── SVG Coordinate Helpers ─────────────────────────────────────────────────
   clientToSvg(cx: number, cy: number): { svgX: number; svgY: number } {
-    const wrap = document.querySelector('.vpe-canvas-wrap');
+    const wrap = this.canvasElement;
     if (!wrap) return { svgX: cx, svgY: cy };
     const rect = wrap.getBoundingClientRect();
     return {
       svgX: (cx - rect.left - this._panX()) / this._zoom(),
       svgY: (cy - rect.top  - this._panY()) / this._zoom(),
     };
+  }
+
+  viewportAnchor(padding = 40): { x: number; y: number } {
+    const wrap = this.canvasElement;
+    if (!wrap) return { x: 40, y: 40 };
+    const rect = wrap.getBoundingClientRect();
+    const point = this.clientToSvg(rect.left + padding, rect.top + padding);
+    return { x: point.svgX, y: point.svgY };
   }
 
   edgePath(edge: VpEdge, steps: VpStep[]): string {

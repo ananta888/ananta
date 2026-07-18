@@ -1,42 +1,18 @@
 import { TaskKindInfo, VpGraph, VpStep } from './visual-process-api.service';
+import { GENERATED_VISUAL_PROCESS_TASK_KINDS } from './vp-node-definitions.generated';
 
-// ── constants ─────────────────────────────────────────────────────────────────
 export const NODE_W = 140;
 export const NODE_H = 52;
-export const FALLBACK_KINDS: TaskKindInfo[] = [
-  { id: 'patch_propose',   label: 'Patch Vorschlagen',    group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: true,  uses_network: false, side_effects: [] },
-  { id: 'plan_only',       label: 'Planen (LLM)',          group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: true,  uses_network: false, side_effects: [] },
-  { id: 'review',          label: 'Review (LLM)',           group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'none',   uses_llm: true,  uses_network: false, side_effects: [] },
-  { id: 'run_tests',       label: 'Tests Ausführen',        group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: false, uses_network: false, side_effects: ['shell_execution'] },
-  { id: 'shell_execute',   label: 'Shell Ausführen',        group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'high',   uses_llm: false, uses_network: false, side_effects: ['shell_execution'] },
-  { id: 'workspace_snapshot', label: 'Workspace Snapshot', group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'none',   uses_llm: false, uses_network: false, side_effects: ['read_workspace'] },
-  { id: 'workspace_diff',    label: 'Workspace Diff',      group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: false, uses_network: false, side_effects: ['read_workspace', 'write_manifest'] },
-  { id: 'fork',            label: 'Fork (Parallel)',        group: 'control_flow', dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: false, uses_network: false, side_effects: [] },
-  { id: 'join',            label: 'Join (Sync)',            group: 'control_flow', dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: false, uses_network: false, side_effects: [] },
-  { id: 'approval',        label: 'Approval Gate',          group: 'control_flow', dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: false, uses_network: false, side_effects: [], requires_approval: true },
-  { id: 'codecompass_index_build',   label: 'CC: Index aufbauen', group: 'retrieval', dispatch_capable: false, description: '', implementation_status: 'production', implementation_state: 'registered_only', risk_level: 'low',  uses_llm: false, uses_network: false, side_effects: ['write_index'] },
-  { id: 'codecompass_vector_search', label: 'CC: Semantic Search', group: 'retrieval', dispatch_capable: false, description: '', implementation_status: 'production', implementation_state: 'registered_only', risk_level: 'none', uses_llm: false, uses_network: false, side_effects: [] },
-  { id: 'codecompass_fts_search',    label: 'CC: Full-Text Search', group: 'retrieval', dispatch_capable: false, description: '', implementation_status: 'production', implementation_state: 'registered_only', risk_level: 'none', uses_llm: false, uses_network: false, side_effects: [] },
-  { id: 'codecompass_graph_expand',  label: 'CC: Graph-Expansion', group: 'retrieval', dispatch_capable: false, description: '', implementation_status: 'production', implementation_state: 'registered_only', risk_level: 'none', uses_llm: false, uses_network: false, side_effects: [] },
-  { id: 'embed_api',       label: 'Embedding API',          group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: true,  side_effects: ['network_egress'] },
-  { id: 'embed_chunk',     label: 'Chunk + Einbetten',      group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: true,  side_effects: ['read_workspace', 'network_egress'] },
-  { id: 'ml_intern_build_lora_dataset', label: 'ML-Intern: LoRA Dataset', group: 'ml', dispatch_capable: false, description: 'Bounded Upstream-Records oder Dataset-ID werden über Hub-Katalog und Repository verarbeitet; Legacy-Pfade sind nur quarantinierte Migration.', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'medium', uses_llm: false, uses_network: false, side_effects: ['read_workspace', 'write_files', 'write_database'], deterministic: true },
-  { id: 'ml_intern_train_lora', label: 'ML-Intern: LoRA Training', group: 'ml',     dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'high',     uses_llm: false, uses_network: true, side_effects: ['write_database', 'write_files', 'network_egress'], requires_approval: true },
-  { id: 'turboquant_mse',  label: 'TurboQuant MSE (experimentell)', group: 'ml',   dispatch_capable: false, description: '', implementation_status: 'experimental',   implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [] },
-  { id: 'sign_rotation',   label: 'Sign-Rotation (TQ-011)', group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [], deterministic: true },
-  { id: 'rag_retrieve',    label: 'RAG Abruf',              group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [] },
-  { id: 'rerank',          label: 'Reranking',              group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [], deterministic: true },
-  { id: 'query_rewrite',   label: 'Query-Erweiterung',      group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [], deterministic: true },
-  { id: 'evolution_analyze',  label: 'Evolution: Analysieren', group: 'ml',        dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'registered_only',     risk_level: 'medium',   uses_llm: true,  uses_network: false, side_effects: ['write_database'] },
-  { id: 'evolution_validate', label: 'Evolution: Validieren',  group: 'ml',        dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'registered_only',     risk_level: 'low',      uses_llm: false, uses_network: false, side_effects: [] },
-  { id: 'evolution_apply',    label: 'Evolution: Anwenden',    group: 'ml',        dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'registered_only',     risk_level: 'high',     uses_llm: true,  uses_network: false, side_effects: ['write_files', 'write_database'], requires_approval: true },
-  { id: 'evolve_prompt',   label: 'Prompt Evolver',         group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'registered_only',     risk_level: 'medium',   uses_llm: true,  uses_network: false, side_effects: ['write_database'] },
-  { id: 'evolve_project',  label: 'Projekt-Evolver',        group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'registered_only',     risk_level: 'critical', uses_llm: true,  uses_network: false, side_effects: ['write_files', 'write_database'], requires_approval: true },
-  { id: 'domain_cluster',  label: 'Domain-Clustering',      group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'registered_only',     risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [], deterministic: true },
-];
+
+/** Offline fallback generated from the same Hub NodeDefinition registry contract. */
+export const FALLBACK_KINDS: TaskKindInfo[] = GENERATED_VISUAL_PROCESS_TASK_KINDS.map(kind => ({
+  ...kind,
+  side_effects: [...(kind.side_effects ?? [])],
+  legacy_aliases: [...(kind.legacy_aliases ?? [])],
+}));
 
 export const ENCODING_MODES = ['off', 'float32', 'float16', 'int8', 'symmetric4bit', 'turboquant_mse_experimental'];
-export const RAG_CHANNELS   = ['dense', 'lexical', 'symbol', 'codecompass_fts', 'codecompass_vector', 'codecompass_graph'];
+export const RAG_CHANNELS = ['dense', 'lexical', 'symbol', 'codecompass_fts', 'codecompass_vector', 'codecompass_graph'];
 export const POLL_INTERVAL_MS = 3000;
 export const POLL_MAX_MS = 10 * 60 * 1000;
 
@@ -45,10 +21,17 @@ export function edgeId(): string { return `edge-${uid()}`; }
 export function stepId(): string { return `step-${uid()}`; }
 
 export function emptyGraph(): VpGraph {
-  return { id: `vp-${uid()}`, name: 'Neuer Prozess', description: '', version: '1.0',
-           steps: [], edges: [], tags: [], metadata: {} };
+  return {
+    id: `vp-${uid()}`,
+    name: 'Neuer Prozess',
+    description: '',
+    version: '1.0',
+    steps: [],
+    edges: [],
+    tags: [],
+    metadata: {},
+  };
 }
-
 export function hintColor(hints: string[]): string {
   if (hints.includes('high_risk') || hints.includes('mutates_production')) return '#ff6b6b';
   if (hints.includes('requires_approval')) return '#fdcb6e';

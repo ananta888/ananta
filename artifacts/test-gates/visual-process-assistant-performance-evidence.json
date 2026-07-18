@@ -1,0 +1,121 @@
+{
+  "environment": {
+    "browser": "Chromium 143.0.7499.4",
+    "build": "ananta-angular-0.7.0-angular-21.2.17",
+    "hardware_class": "local-cpu-16-logical-memory-43-gib",
+    "repetitions": 1000,
+    "warmup_iterations": 100
+  },
+  "results": {
+    "codecompass_warm_retrieval": {
+      "evidence_paths": [
+        "tests/benchmarks/visual_process_assistant/test_operational_budgets.py",
+        "tests/test_visual_process_assistant_operations.py"
+      ],
+      "measurements": {
+        "fixture_record_count": 512,
+        "hard_timeout_ms": 5000,
+        "max_ms": 20.044116,
+        "p50_ms": 2.917343,
+        "p95_ms": 4.372956,
+        "rejected_count": 8,
+        "released_source_count": 0,
+        "repetitions": 100,
+        "search_candidate_count": 24,
+        "ungrounded_fixture_release_blocked": true,
+        "warmup_iterations": 10
+      }
+    },
+    "context_budgets": {
+      "evidence_paths": [
+        "tests/benchmarks/visual_process_assistant/test_operational_budgets.py"
+      ],
+      "measurements": {
+        "conversation_discarded_reason_counts": {
+          "evidence_item_budget_exceeded": 6,
+          "range_budget_exceeded": 2
+        },
+        "conversation_evidence_items": 0,
+        "conversation_limits": {
+          "evidence_items": 12,
+          "lines_per_range": 120,
+          "prompt_tokens": 12000,
+          "ranges": 8
+        },
+        "conversation_lines_per_range": 120,
+        "conversation_prompt_tokens": 463,
+        "conversation_ranges": 8,
+        "conversation_rejection_reasons": [
+          "evidence_item_budget_exceeded",
+          "evidence_not_verified",
+          "range_budget_exceeded",
+          "source_authority_unavailable"
+        ],
+        "oversized_prompt_blocked": true,
+        "rejected_overflow_count": 40,
+        "selected_discarded_reason_counts": {
+          "evidence_item_budget_exceeded": 16
+        },
+        "selected_evidence_items": 0,
+        "selected_limits": {
+          "lines_per_range": 80,
+          "prompt_tokens": 4096,
+          "ranges": 4
+        },
+        "selected_lines_per_range": 80,
+        "selected_prompt_tokens": 457,
+        "selected_ranges": 4,
+        "selected_rejection_reasons": [
+          "evidence_item_budget_exceeded",
+          "evidence_not_verified",
+          "source_authority_unavailable"
+        ],
+        "token_budget_rejection_count": 1
+      }
+    },
+    "frontend_focus_stability": {
+      "evidence_paths": [
+        "frontend-angular/tests/visual-process-assistant-performance.spec.ts"
+      ],
+      "measurements": {
+        "active_conversation_requests_after_completion": 0,
+        "active_hover_timers_after_stabilization": 0,
+        "conversation_subscriptions_per_editor": 1,
+        "editor_instances": 1,
+        "focus_transitions": 1000,
+        "heap_after_mib": 8.876316,
+        "heap_before_mib": 8.799145,
+        "heap_growth_mib": 0.077171,
+        "hover_subscriptions_per_editor": 0,
+        "p50_ms": 0.1,
+        "p95_ms": 0.2,
+        "warmup_iterations": 100
+      }
+    },
+    "hover_reference_graph": {
+      "evidence_paths": [
+        "tests/benchmarks/visual_process_assistant/test_operational_budgets.py"
+      ],
+      "measurements": {
+        "delay_ms": 350,
+        "edges": 1000,
+        "llm_requests": 0,
+        "max_ms": 35.686934,
+        "p50_ms": 3.385152,
+        "p95_ms": 5.762444,
+        "reference_p95_ms": 2.637813,
+        "reference_result_step_count": 500,
+        "repetitions": 100,
+        "retrieval_requests": 0,
+        "steps": 500,
+        "stress_edges": 2000,
+        "stress_p95_ms": 5.762444,
+        "stress_result_step_count": 1000,
+        "stress_steps": 1000,
+        "warmup_iterations": 10
+      }
+    }
+  },
+  "schema": "ananta.visual-process-assistant-performance-evidence.v1",
+  "source_revision": "worktree-sha256:06815d230b56bcb797f74a2eca4de322dd5cf65254b0feb32dd9e1464001e8ce"
+}

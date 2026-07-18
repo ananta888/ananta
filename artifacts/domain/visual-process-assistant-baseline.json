@@ -1,0 +1,5299 @@
+{
+  "artifact_type": "domain_baseline",
+  "consumed_field_inventory": [
+    {
+      "canonical_kind": "approval",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/approval_message"
+    },
+    {
+      "canonical_kind": "approval",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "codecompass_fts_search",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "codecompass_fts_search",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/query"
+    },
+    {
+      "canonical_kind": "codecompass_fts_search",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/top_k"
+    },
+    {
+      "canonical_kind": "codecompass_graph_expand",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "codecompass_graph_expand",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/max_nodes"
+    },
+    {
+      "canonical_kind": "codecompass_graph_expand",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/seed_refs"
+    },
+    {
+      "canonical_kind": "codecompass_index_build",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "codecompass_index_build",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/incremental"
+    },
+    {
+      "canonical_kind": "codecompass_index_build",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/snapshot_ref"
+    },
+    {
+      "canonical_kind": "codecompass_vector_search",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "codecompass_vector_search",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/query"
+    },
+    {
+      "canonical_kind": "codecompass_vector_search",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/top_k"
+    },
+    {
+      "canonical_kind": "command_execute",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/command"
+    },
+    {
+      "canonical_kind": "command_execute",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "domain_cluster",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "domain_cluster",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/min_domain_size"
+    },
+    {
+      "canonical_kind": "embed_api",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/texts"
+    },
+    {
+      "canonical_kind": "embed_api",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/api_key_secret_ref"
+    },
+    {
+      "canonical_kind": "embed_api",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/base_url"
+    },
+    {
+      "canonical_kind": "embed_api",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "embed_api",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/dimensions"
+    },
+    {
+      "canonical_kind": "embed_api",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/external_calls_allowed"
+    },
+    {
+      "canonical_kind": "embed_api",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/model"
+    },
+    {
+      "canonical_kind": "embed_api",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/provider"
+    },
+    {
+      "canonical_kind": "embed_api",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/texts"
+    },
+    {
+      "canonical_kind": "embed_chunk",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/chunk_overlap"
+    },
+    {
+      "canonical_kind": "embed_chunk",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/chunk_size"
+    },
+    {
+      "canonical_kind": "embed_chunk",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "evolution_analyze",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/analyze_only"
+    },
+    {
+      "canonical_kind": "evolution_analyze",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "evolution_analyze",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/allow_cloud"
+    },
+    {
+      "canonical_kind": "evolution_analyze",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/fallback_group_id"
+    },
+    {
+      "canonical_kind": "evolution_analyze",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "evolution_analyze",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/provider_name"
+    },
+    {
+      "canonical_kind": "evolution_analyze",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/trigger_type"
+    },
+    {
+      "canonical_kind": "evolution_apply",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/apply_allowed"
+    },
+    {
+      "canonical_kind": "evolution_apply",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "evolution_apply",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/allow_cloud"
+    },
+    {
+      "canonical_kind": "evolution_apply",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/fallback_group_id"
+    },
+    {
+      "canonical_kind": "evolution_apply",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "evolution_apply",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/proposal_id"
+    },
+    {
+      "canonical_kind": "evolution_apply",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/provider_name"
+    },
+    {
+      "canonical_kind": "evolution_validate",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "evolution_validate",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/proposal_id"
+    },
+    {
+      "canonical_kind": "evolution_validate",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/provider_name"
+    },
+    {
+      "canonical_kind": "evolve_project",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/apply_allowed"
+    },
+    {
+      "canonical_kind": "evolve_project",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "evolve_project",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/allow_cloud"
+    },
+    {
+      "canonical_kind": "evolve_project",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/fallback_group_id"
+    },
+    {
+      "canonical_kind": "evolve_project",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "evolve_project",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/project_ref"
+    },
+    {
+      "canonical_kind": "evolve_prompt",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "evolve_prompt",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/allow_cloud"
+    },
+    {
+      "canonical_kind": "evolve_prompt",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/fallback_group_id"
+    },
+    {
+      "canonical_kind": "evolve_prompt",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "evolve_prompt",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/prompt_template_ref"
+    },
+    {
+      "canonical_kind": "evolve_prompt",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/target_model_family"
+    },
+    {
+      "canonical_kind": "file_check",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "file_check",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/path"
+    },
+    {
+      "canonical_kind": "fork",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/branch_labels"
+    },
+    {
+      "canonical_kind": "fork",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "git_op",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "git_op",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/operation"
+    },
+    {
+      "canonical_kind": "join",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/datasetId"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/datasetPath"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/dataset_id"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/dataset_path"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/sourcePaths"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/source_paths"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/execution_id"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/graph_id"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/idempotency_key"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/run_id"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/visual_process_id"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/visual_process_run_id"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/datasetId"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/datasetPath"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/dataset_id"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/dataset_name"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/dataset_path"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/format"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/idempotency_key"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/license"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/name"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/privacy"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/purpose"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/sourcePaths"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/source_paths"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/splitSeed"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/split_seed"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/validationRatio"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/validation_ratio"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/backend"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/base_model"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/base_model_id"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/datasetId"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/datasetPath"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/dataset_id"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/dataset_path"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/gpu_profile"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/hyperparameters"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/idempotency_key"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/method"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/mode"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/output_name"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/trainingProfileId"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/training_profile"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/training_profile_id"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/execution_id"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/graph_id"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/idempotency_key"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/run_id"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/task_id"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/visual_process_id"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/visual_process_run_id"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/backend"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/baseModel"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/base_model"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/base_model_id"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/datasetId"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/datasetPath"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/dataset_id"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/dataset_path"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/gpu_profile"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/hyperparameters"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/idempotency_key"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/lora_rank"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/max_steps"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/method"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/mode"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/outputDir"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/outputName"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/output_dir"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/output_name"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/require_dataset_validation"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/require_secret_scan"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/trainingProfile"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/trainingProfileId"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/training_profile"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/training_profile_id"
+    },
+    {
+      "canonical_kind": "patch_apply",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "patch_apply",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/patch_artifact_ref"
+    },
+    {
+      "canonical_kind": "patch_propose",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/allowed_tools"
+    },
+    {
+      "canonical_kind": "patch_propose",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "patch_propose",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/instructions"
+    },
+    {
+      "canonical_kind": "patch_propose",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/allow_cloud"
+    },
+    {
+      "canonical_kind": "patch_propose",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/fallback_group_id"
+    },
+    {
+      "canonical_kind": "patch_propose",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "plan_only",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "plan_only",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/instructions"
+    },
+    {
+      "canonical_kind": "plan_only",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/allow_cloud"
+    },
+    {
+      "canonical_kind": "plan_only",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/fallback_group_id"
+    },
+    {
+      "canonical_kind": "plan_only",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "query_rewrite",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/query"
+    },
+    {
+      "canonical_kind": "query_rewrite",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "query_rewrite",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/query"
+    },
+    {
+      "canonical_kind": "rag_retrieve",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/channels"
+    },
+    {
+      "canonical_kind": "rag_retrieve",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "rag_retrieve",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/query"
+    },
+    {
+      "canonical_kind": "rag_retrieve",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/top_k"
+    },
+    {
+      "canonical_kind": "regex_check",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "regex_check",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/path"
+    },
+    {
+      "canonical_kind": "regex_check",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/pattern"
+    },
+    {
+      "canonical_kind": "rerank",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/candidates"
+    },
+    {
+      "canonical_kind": "rerank",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/query"
+    },
+    {
+      "canonical_kind": "rerank",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "rerank",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/enabled"
+    },
+    {
+      "canonical_kind": "rerank",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/query"
+    },
+    {
+      "canonical_kind": "rerank",
+      "classification": "drift",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/reranker_weight"
+    },
+    {
+      "canonical_kind": "rerank",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/weight"
+    },
+    {
+      "canonical_kind": "research_limited",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "research_limited",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/allow_cloud"
+    },
+    {
+      "canonical_kind": "research_limited",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/fallback_group_id"
+    },
+    {
+      "canonical_kind": "research_limited",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "research_limited",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/question"
+    },
+    {
+      "canonical_kind": "review",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "review",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/allow_cloud"
+    },
+    {
+      "canonical_kind": "review",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/fallback_group_id"
+    },
+    {
+      "canonical_kind": "review",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "review",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/review_focus"
+    },
+    {
+      "canonical_kind": "run_tests",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "run_tests",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/test_command"
+    },
+    {
+      "canonical_kind": "script",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "script",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/script_ref"
+    },
+    {
+      "canonical_kind": "shell_execute",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/command"
+    },
+    {
+      "canonical_kind": "shell_execute",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "sign_rotation",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/vector"
+    },
+    {
+      "canonical_kind": "sign_rotation",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "sign_rotation",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/seed"
+    },
+    {
+      "canonical_kind": "sign_rotation",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/vector"
+    },
+    {
+      "canonical_kind": "summarize",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "summarize",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/instructions"
+    },
+    {
+      "canonical_kind": "summarize",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/allow_cloud"
+    },
+    {
+      "canonical_kind": "summarize",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/fallback_group_id"
+    },
+    {
+      "canonical_kind": "summarize",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "turboquant_mse",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/vector"
+    },
+    {
+      "canonical_kind": "turboquant_mse",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "turboquant_mse",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/levels"
+    },
+    {
+      "canonical_kind": "turboquant_mse",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/seed"
+    },
+    {
+      "canonical_kind": "turboquant_mse",
+      "classification": "alias",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/metadata/vector"
+    },
+    {
+      "canonical_kind": "workspace_diff",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/after_snapshot"
+    },
+    {
+      "canonical_kind": "workspace_diff",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/after_snapshot_id"
+    },
+    {
+      "canonical_kind": "workspace_diff",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/before_snapshot"
+    },
+    {
+      "canonical_kind": "workspace_diff",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/before_snapshot_id"
+    },
+    {
+      "canonical_kind": "workspace_diff",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/workspace_root"
+    },
+    {
+      "canonical_kind": "workspace_diff",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/execution_id"
+    },
+    {
+      "canonical_kind": "workspace_diff",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/goal_id"
+    },
+    {
+      "canonical_kind": "workspace_diff",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/task_id"
+    },
+    {
+      "canonical_kind": "workspace_diff",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/trace_id"
+    },
+    {
+      "canonical_kind": "workspace_diff",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/workspace_root"
+    },
+    {
+      "canonical_kind": "workspace_diff",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "workspace_diff",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/workspace_root"
+    },
+    {
+      "canonical_kind": "workspace_snapshot",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/artifacts/workspace_root"
+    },
+    {
+      "canonical_kind": "workspace_snapshot",
+      "classification": "canonical",
+      "consumers": [
+        "backend_adapter"
+      ],
+      "path": "/context/workspace_root"
+    },
+    {
+      "canonical_kind": "workspace_snapshot",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/description"
+    },
+    {
+      "canonical_kind": "workspace_snapshot",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition",
+        "backend_adapter"
+      ],
+      "path": "/metadata/workspace_root"
+    }
+  ],
+  "contract_findings": [
+    {
+      "evidence": [
+        {
+          "line_end": 1064,
+          "line_start": 1064,
+          "path": "agent/visual_process/step_adapters.py",
+          "symbol": "RerankAdapter.execute",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 1,
+          "line_start": 1,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "rerank inspector",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 169,
+          "line_start": 169,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "_KIND_FIELDS.rerank",
+          "verification_status": "verified"
+        }
+      ],
+      "finding": "Der historische Feldpfad reranker_weight gegen den kanonischen Backendpfad weight wurde geprüft.",
+      "finding_id": "reranker-weight-contract",
+      "observed": {
+        "backend_compatibility_alias_read": true,
+        "backend_path": "/metadata/weight",
+        "frontend_path": "/metadata/weight"
+      },
+      "state": "aligned_with_read_only_alias",
+      "verification_status": "verified"
+    },
+    {
+      "evidence": [
+        {
+          "line_end": 1079,
+          "line_start": 1079,
+          "path": "agent/visual_process/step_adapters.py",
+          "symbol": "EmbedApiAdapter",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 363,
+          "line_start": 363,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "_KIND_FIELDS.embed_api",
+          "verification_status": "verified"
+        }
+      ],
+      "finding": "Der frühere Klartextpfad metadata.api_key wurde gegen die opaque Secret-Referenz geprüft.",
+      "finding_id": "embed-api-plaintext-secret",
+      "observed": {
+        "opaque_secret_resolution_present": true,
+        "plaintext_adapter_read": false,
+        "plaintext_rejection_present": true,
+        "secret_reference_defined": true
+      },
+      "state": "quarantined",
+      "verification_status": "verified"
+    },
+    {
+      "evidence": [
+        {
+          "line_end": 120,
+          "line_start": 120,
+          "path": "agent/services/chat_process_binding.py",
+          "symbol": "resolve_effective_process_ref",
+          "verification_status": "verified"
+        }
+      ],
+      "finding": "Die Quelle der effektiven Prozessbindung besitzt drei explizite Werte.",
+      "finding_id": "effective-process-source-enum",
+      "observed": {
+        "values": [
+          "global",
+          "profile",
+          "session_override"
+        ]
+      },
+      "state": "explicit",
+      "verification_status": "verified"
+    },
+    {
+      "evidence": [
+        {
+          "line_end": 31,
+          "line_start": 31,
+          "path": "agent/visual_process/validator.py",
+          "symbol": "ValidationIssue",
+          "verification_status": "verified"
+        }
+      ],
+      "finding": "Der historisch fehlende ValidationIssue.path-Vertrag wurde geprüft.",
+      "finding_id": "validation-issue-path",
+      "observed": {
+        "path_field_present": true
+      },
+      "state": "present",
+      "verification_status": "verified"
+    },
+    {
+      "evidence": [
+        {
+          "line_end": 280,
+          "line_start": 280,
+          "path": "frontend-angular/src/app/features/visual-process/vp-editor-state.facade.ts",
+          "symbol": "VpEditorStateFacade.afterMutation",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 326,
+          "line_start": 326,
+          "path": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+          "symbol": "VisualProcessEditorComponent.onNodeMouseDown",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 328,
+          "line_start": 328,
+          "path": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+          "symbol": "VisualProcessEditorComponent.onMouseUp",
+          "verification_status": "verified"
+        }
+      ],
+      "finding": "Dragging wurde auf atomare Command-History, Dirty-State und Validierungsinvalidierung geprüft.",
+      "finding_id": "drag-dirty-validation-invalidation",
+      "observed": {
+        "atomic_drag_transaction": true
+      },
+      "state": "atomic_command_transaction",
+      "verification_status": "verified"
+    }
+  ],
+  "reproduce": [
+    "python scripts/generate_visual_process_assistant_baseline.py --check",
+    "python -m pytest -q tests/test_visual_process_assistant_baseline.py"
+  ],
+  "schema": "ananta.visual-process-assistant-baseline.v1",
+  "source_grounding": {
+    "generated_run_identifiers": false,
+    "generated_source_identifiers": false,
+    "repository_relative_evidence_only": true
+  },
+  "summary": {
+    "adapter_count": 9,
+    "canonical_kind_count": 37,
+    "consumed_field_count": 221,
+    "contract_finding_count": 5,
+    "frontend_fallback_count": 37,
+    "legacy_alias_count": 24,
+    "validation_error_count": 0
+  },
+  "task_kind_inventory": [
+    {
+      "canonical_kind": "review",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 53,
+          "line_start": 53,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.analysis",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "ReviewWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "analysis"
+    },
+    {
+      "canonical_kind": "approval",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/approval_message",
+        "/metadata/description",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 120,
+          "line_start": 120,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.approval",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7397,
+          "line_start": 7397,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.approval",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "MutationGateService",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "approval"
+    },
+    {
+      "canonical_kind": "patch_apply",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 61,
+          "line_start": 61,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.bugfix",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "PatchApplyWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "bugfix"
+    },
+    {
+      "canonical_kind": "run_tests",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 70,
+          "line_start": 70,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.ci",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "RunTestsWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "ci"
+    },
+    {
+      "canonical_kind": "domain_cluster",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 74,
+          "line_start": 74,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.cluster",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "rag-helper domain_discovery.clustering",
+        "dispatch_capable": false,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "cluster"
+    },
+    {
+      "canonical_kind": "review",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 54,
+          "line_start": 54,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.code_review",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "ReviewWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "code_review"
+    },
+    {
+      "canonical_kind": "codecompass_fts_search",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/query",
+        "/metadata/top_k",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 291,
+          "line_start": 291,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.codecompass_fts_search",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7758,
+          "line_start": 7758,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.codecompass_fts_search",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "CodeCompassFtsEngine",
+        "dispatch_capable": false,
+        "execution_mode": "not_executable",
+        "implementation_state": "registered_only",
+        "implementation_status": "production"
+      },
+      "token": "codecompass_fts_search"
+    },
+    {
+      "canonical_kind": "codecompass_graph_expand",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/max_nodes",
+        "/metadata/seed_refs",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 300,
+          "line_start": 300,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.codecompass_graph_expand",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7775,
+          "line_start": 7775,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.codecompass_graph_expand",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "CodeCompassGraphExpansion",
+        "dispatch_capable": false,
+        "execution_mode": "not_executable",
+        "implementation_state": "registered_only",
+        "implementation_status": "production"
+      },
+      "token": "codecompass_graph_expand"
+    },
+    {
+      "canonical_kind": "codecompass_index_build",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/incremental",
+        "/metadata/snapshot_ref",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 273,
+          "line_start": 273,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.codecompass_index_build",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7792,
+          "line_start": 7792,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.codecompass_index_build",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "CodeCompassIndexBuilder",
+        "dispatch_capable": false,
+        "execution_mode": "not_executable",
+        "implementation_state": "registered_only",
+        "implementation_status": "production"
+      },
+      "token": "codecompass_index_build"
+    },
+    {
+      "canonical_kind": "codecompass_vector_search",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/query",
+        "/metadata/top_k",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 282,
+          "line_start": 282,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.codecompass_vector_search",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7811,
+          "line_start": 7811,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.codecompass_vector_search",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "CodeCompassVectorEngine",
+        "dispatch_capable": false,
+        "execution_mode": "not_executable",
+        "implementation_state": "registered_only",
+        "implementation_status": "production"
+      },
+      "token": "codecompass_vector_search"
+    },
+    {
+      "canonical_kind": "patch_propose",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 52,
+          "line_start": 52,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.coding",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "PatchProposeWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "coding"
+    },
+    {
+      "canonical_kind": "command_execute",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/command",
+        "/metadata/description",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 148,
+          "line_start": 148,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.command_execute",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7450,
+          "line_start": 7450,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.command_execute",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "CommandExecuteWorker",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "command_execute"
+    },
+    {
+      "canonical_kind": "shell_execute",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 56,
+          "line_start": 56,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.deploy",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "ShellExecuteWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "deploy"
+    },
+    {
+      "canonical_kind": "domain_cluster",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/min_domain_size",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 462,
+          "line_start": 462,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.domain_cluster",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7828,
+          "line_start": 7828,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.domain_cluster",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "rag-helper domain_discovery.clustering",
+        "dispatch_capable": false,
+        "execution_mode": "not_executable",
+        "implementation_state": "registered_only",
+        "implementation_status": "production"
+      },
+      "token": "domain_cluster"
+    },
+    {
+      "canonical_kind": "embed_api",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/artifacts/texts",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/api_key_secret_ref",
+        "/metadata/base_url",
+        "/metadata/description",
+        "/metadata/dimensions",
+        "/metadata/external_calls_allowed",
+        "/metadata/model",
+        "/metadata/provider",
+        "/metadata/texts",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 311,
+          "line_start": 311,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.embed_api",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7847,
+          "line_start": 7847,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.embed_api",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": "EmbedApiAdapter",
+        "adapter_active": true,
+        "backend_service": "OpenAICompatibleEmbeddingProvider / HashEmbeddingProvider",
+        "dispatch_capable": false,
+        "execution_mode": "vp_adapter",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "embed_api"
+    },
+    {
+      "canonical_kind": "embed_chunk",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/chunk_overlap",
+        "/metadata/chunk_size",
+        "/metadata/description",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 323,
+          "line_start": 323,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.embed_chunk",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7868,
+          "line_start": 7868,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.embed_chunk",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "CodeCompassIndexBuilder._build_entries_for_paths",
+        "dispatch_capable": false,
+        "execution_mode": "not_executable",
+        "implementation_state": "implemented_not_exposed",
+        "implementation_status": "production"
+      },
+      "token": "embed_chunk"
+    },
+    {
+      "canonical_kind": "evolution_analyze",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/analyze_only",
+        "/metadata/description",
+        "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/fallback_group_id",
+        "/metadata/model_routing/preferred_profile_id",
+        "/metadata/provider_name",
+        "/metadata/trigger_type",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 415,
+          "line_start": 415,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.evolution_analyze",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7888,
+          "line_start": 7888,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.evolution_analyze",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "EvolutionService.analyze",
+        "dispatch_capable": false,
+        "execution_mode": "not_executable",
+        "implementation_state": "registered_only",
+        "implementation_status": "production"
+      },
+      "token": "evolution_analyze"
+    },
+    {
+      "canonical_kind": "evolution_apply",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/apply_allowed",
+        "/metadata/description",
+        "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/fallback_group_id",
+        "/metadata/model_routing/preferred_profile_id",
+        "/metadata/proposal_id",
+        "/metadata/provider_name",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 433,
+          "line_start": 433,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.evolution_apply",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7907,
+          "line_start": 7907,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.evolution_apply",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "EvolutionService.apply",
+        "dispatch_capable": false,
+        "execution_mode": "not_executable",
+        "implementation_state": "registered_only",
+        "implementation_status": "production"
+      },
+      "token": "evolution_apply"
+    },
+    {
+      "canonical_kind": "evolution_validate",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/proposal_id",
+        "/metadata/provider_name",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 424,
+          "line_start": 424,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.evolution_validate",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7927,
+          "line_start": 7927,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.evolution_validate",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "EvolutionService.validate",
+        "dispatch_capable": false,
+        "execution_mode": "not_executable",
+        "implementation_state": "registered_only",
+        "implementation_status": "production"
+      },
+      "token": "evolution_validate"
+    },
+    {
+      "canonical_kind": "evolve_project",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/apply_allowed",
+        "/metadata/description",
+        "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/fallback_group_id",
+        "/metadata/model_routing/preferred_profile_id",
+        "/metadata/project_ref",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 451,
+          "line_start": 451,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.evolve_project",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7944,
+          "line_start": 7944,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.evolve_project",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "EvolutionService (full pipeline)",
+        "dispatch_capable": false,
+        "execution_mode": "not_executable",
+        "implementation_state": "registered_only",
+        "implementation_status": "production"
+      },
+      "token": "evolve_project"
+    },
+    {
+      "canonical_kind": "evolve_prompt",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/fallback_group_id",
+        "/metadata/model_routing/preferred_profile_id",
+        "/metadata/prompt_template_ref",
+        "/metadata/target_model_family",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 442,
+          "line_start": 442,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.evolve_prompt",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7964,
+          "line_start": 7964,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.evolve_prompt",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "PlanningPromptEvolverService",
+        "dispatch_capable": false,
+        "execution_mode": "not_executable",
+        "implementation_state": "registered_only",
+        "implementation_status": "production"
+      },
+      "token": "evolve_prompt"
+    },
+    {
+      "canonical_kind": "file_check",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/path",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 233,
+          "line_start": 233,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.file_check",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7469,
+          "line_start": 7469,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.file_check",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "FileCheckWorker",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "file_check"
+    },
+    {
+      "canonical_kind": "fork",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/branch_labels",
+        "/metadata/description",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 104,
+          "line_start": 104,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.fork",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7414,
+          "line_start": 7414,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.fork",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "WorkflowExecutor",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "fork"
+    },
+    {
+      "canonical_kind": "git_op",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 67,
+          "line_start": 67,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.git_diff",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "GitOpWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "git_diff"
+    },
+    {
+      "canonical_kind": "git_op",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/operation",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 224,
+          "line_start": 224,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.git_op",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7491,
+          "line_start": 7491,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.git_op",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "GitOpWorker",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "git_op"
+    },
+    {
+      "canonical_kind": "git_op",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 66,
+          "line_start": 66,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.git_status",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "GitOpWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "git_status"
+    },
+    {
+      "canonical_kind": "plan_only",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 59,
+          "line_start": 59,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.goal_plan",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "PlanOnlyWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "goal_plan"
+    },
+    {
+      "canonical_kind": "plan_only",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 60,
+          "line_start": 60,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.goal_propose",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "PlanOnlyWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "goal_propose"
+    },
+    {
+      "canonical_kind": "script",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 65,
+          "line_start": 65,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.grep_search",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "ScriptWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "grep_search"
+    },
+    {
+      "canonical_kind": "shell_execute",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 69,
+          "line_start": 69,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.infra",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "ShellExecuteWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "infra"
+    },
+    {
+      "canonical_kind": "join",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 112,
+          "line_start": 112,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.join",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7433,
+          "line_start": 7433,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.join",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "WorkflowExecutor",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "join"
+    },
+    {
+      "canonical_kind": "file_check",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 71,
+          "line_start": 71,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.list_files",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "FileCheckWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "list_files"
+    },
+    {
+      "canonical_kind": "summarize",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 55,
+          "line_start": 55,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.llm_generate",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "SummarizeWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "llm_generate"
+    },
+    {
+      "canonical_kind": "ml_intern_build_lora_dataset",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/artifacts/datasetId",
+        "/artifacts/datasetPath",
+        "/artifacts/dataset_id",
+        "/artifacts/dataset_path",
+        "/artifacts/sourcePaths",
+        "/artifacts/source_paths",
+        "/context/execution_id",
+        "/context/graph_id",
+        "/context/idempotency_key",
+        "/context/run_id",
+        "/context/visual_process_id",
+        "/context/visual_process_run_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/datasetId",
+        "/metadata/datasetPath",
+        "/metadata/dataset_id",
+        "/metadata/dataset_name",
+        "/metadata/dataset_path",
+        "/metadata/description",
+        "/metadata/format",
+        "/metadata/idempotency_key",
+        "/metadata/license",
+        "/metadata/name",
+        "/metadata/privacy",
+        "/metadata/purpose",
+        "/metadata/sourcePaths",
+        "/metadata/source_paths",
+        "/metadata/splitSeed",
+        "/metadata/split_seed",
+        "/metadata/validationRatio",
+        "/metadata/validation_ratio",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 387,
+          "line_start": 387,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.ml_intern_build_lora_dataset",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7983,
+          "line_start": 7983,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.ml_intern_build_lora_dataset",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": "MlInternBuildLoraDatasetAdapter",
+        "adapter_active": true,
+        "backend_service": "MlInternDatasetCatalogService + MlInternDatasetRepositoryBridgeService",
+        "dispatch_capable": false,
+        "execution_mode": "vp_adapter",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "ml_intern_build_lora_dataset"
+    },
+    {
+      "canonical_kind": "ml_intern_train_lora",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/artifacts/backend",
+        "/artifacts/base_model",
+        "/artifacts/base_model_id",
+        "/artifacts/datasetId",
+        "/artifacts/datasetPath",
+        "/artifacts/dataset_id",
+        "/artifacts/dataset_path",
+        "/artifacts/gpu_profile",
+        "/artifacts/hyperparameters",
+        "/artifacts/idempotency_key",
+        "/artifacts/method",
+        "/artifacts/mode",
+        "/artifacts/output_name",
+        "/artifacts/trainingProfileId",
+        "/artifacts/training_profile",
+        "/artifacts/training_profile_id",
+        "/context/execution_id",
+        "/context/graph_id",
+        "/context/idempotency_key",
+        "/context/run_id",
+        "/context/task_id",
+        "/context/visual_process_id",
+        "/context/visual_process_run_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/backend",
+        "/metadata/baseModel",
+        "/metadata/base_model",
+        "/metadata/base_model_id",
+        "/metadata/datasetId",
+        "/metadata/datasetPath",
+        "/metadata/dataset_id",
+        "/metadata/dataset_path",
+        "/metadata/description",
+        "/metadata/gpu_profile",
+        "/metadata/hyperparameters",
+        "/metadata/idempotency_key",
+        "/metadata/lora_rank",
+        "/metadata/max_steps",
+        "/metadata/method",
+        "/metadata/mode",
+        "/metadata/outputDir",
+        "/metadata/outputName",
+        "/metadata/output_dir",
+        "/metadata/output_name",
+        "/metadata/require_dataset_validation",
+        "/metadata/require_secret_scan",
+        "/metadata/trainingProfile",
+        "/metadata/trainingProfileId",
+        "/metadata/training_profile",
+        "/metadata/training_profile_id",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 400,
+          "line_start": 400,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.ml_intern_train_lora",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 8004,
+          "line_start": 8004,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.ml_intern_train_lora",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": "MlInternTrainLoraAdapter",
+        "adapter_active": true,
+        "backend_service": "MlInternTrainingControlService.create_job",
+        "dispatch_capable": false,
+        "execution_mode": "vp_adapter",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "ml_intern_train_lora"
+    },
+    {
+      "canonical_kind": "fork",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 68,
+          "line_start": 68,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.parallel",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "WorkflowExecutor",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "parallel"
+    },
+    {
+      "canonical_kind": "patch_apply",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/patch_artifact_ref",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 130,
+          "line_start": 130,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.patch_apply",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7513,
+          "line_start": 7513,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.patch_apply",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "PatchApplyWorker",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "patch_apply"
+    },
+    {
+      "canonical_kind": "patch_propose",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/allowed_tools",
+        "/metadata/description",
+        "/metadata/instructions",
+        "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/fallback_group_id",
+        "/metadata/model_routing/preferred_profile_id",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 139,
+          "line_start": 139,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.patch_propose",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7536,
+          "line_start": 7536,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.patch_propose",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "PatchProposeWorker",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "patch_propose"
+    },
+    {
+      "canonical_kind": "plan_only",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/instructions",
+        "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/fallback_group_id",
+        "/metadata/model_routing/preferred_profile_id",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 168,
+          "line_start": 168,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.plan_only",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7555,
+          "line_start": 7555,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.plan_only",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "PlanOnlyWorker",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "plan_only"
+    },
+    {
+      "canonical_kind": "query_rewrite",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/artifacts/query",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/query",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 376,
+          "line_start": 376,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.query_rewrite",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 8025,
+          "line_start": 8025,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.query_rewrite",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": "QueryRewriteAdapter",
+        "adapter_active": true,
+        "backend_service": "rewrite_query (worker/retrieval/query_rewrite.py)",
+        "dispatch_capable": false,
+        "execution_mode": "vp_adapter",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "query_rewrite"
+    },
+    {
+      "canonical_kind": "rag_retrieve",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/channels",
+        "/metadata/description",
+        "/metadata/query",
+        "/metadata/top_k",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 358,
+          "line_start": 358,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.rag_retrieve",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 8042,
+          "line_start": 8042,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.rag_retrieve",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "HybridRetrievalService",
+        "dispatch_capable": false,
+        "execution_mode": "not_executable",
+        "implementation_state": "implemented_not_exposed",
+        "implementation_status": "production"
+      },
+      "token": "rag_retrieve"
+    },
+    {
+      "canonical_kind": "file_check",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 64,
+          "line_start": 64,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.read_file",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "FileCheckWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "read_file"
+    },
+    {
+      "canonical_kind": "patch_apply",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 58,
+          "line_start": 58,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.refactor",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "PatchApplyWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "refactor"
+    },
+    {
+      "canonical_kind": "regex_check",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/path",
+        "/metadata/pattern",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 242,
+          "line_start": 242,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.regex_check",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7575,
+          "line_start": 7575,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.regex_check",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "RegexCheckWorker",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "regex_check"
+    },
+    {
+      "canonical_kind": "rerank",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/artifacts/candidates",
+        "/artifacts/query",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/enabled",
+        "/metadata/query",
+        "/metadata/reranker_weight",
+        "/metadata/weight",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 367,
+          "line_start": 367,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.rerank",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 8059,
+          "line_start": 8059,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.rerank",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": "RerankAdapter",
+        "adapter_active": true,
+        "backend_service": "Reranker",
+        "dispatch_capable": false,
+        "execution_mode": "vp_adapter",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "rerank"
+    },
+    {
+      "canonical_kind": "research_limited",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 57,
+          "line_start": 57,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.research",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "ResearchWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "research"
+    },
+    {
+      "canonical_kind": "research_limited",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/fallback_group_id",
+        "/metadata/model_routing/preferred_profile_id",
+        "/metadata/question",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 195,
+          "line_start": 195,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.research_limited",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7594,
+          "line_start": 7594,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.research_limited",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "ResearchWorker",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "research_limited"
+    },
+    {
+      "canonical_kind": "review",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/fallback_group_id",
+        "/metadata/model_routing/preferred_profile_id",
+        "/metadata/review_focus",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 177,
+          "line_start": 177,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.review",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7613,
+          "line_start": 7613,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.review",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "ReviewWorker",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "review"
+    },
+    {
+      "canonical_kind": "run_tests",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/test_command",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 206,
+          "line_start": 206,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.run_tests",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7633,
+          "line_start": 7633,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.run_tests",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "RunTestsWorker",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "run_tests"
+    },
+    {
+      "canonical_kind": "script",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/script_ref",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 215,
+          "line_start": 215,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.script",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7656,
+          "line_start": 7656,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.script",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "ScriptWorker",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "script"
+    },
+    {
+      "canonical_kind": "shell_execute",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/command",
+        "/metadata/description",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 157,
+          "line_start": 157,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.shell_execute",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7677,
+          "line_start": 7677,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.shell_execute",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "ShellExecuteWorker",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "shell_execute"
+    },
+    {
+      "canonical_kind": "shell_execute",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 75,
+          "line_start": 75,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.shell_execution",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "ShellExecuteWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "shell_execution"
+    },
+    {
+      "canonical_kind": "sign_rotation",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/artifacts/vector",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/seed",
+        "/metadata/vector",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 334,
+          "line_start": 334,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.sign_rotation",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 8076,
+          "line_start": 8076,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.sign_rotation",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": "SignRotationAdapter",
+        "adapter_active": true,
+        "backend_service": "DeterministicSignRotation",
+        "dispatch_capable": false,
+        "execution_mode": "vp_adapter",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "sign_rotation"
+    },
+    {
+      "canonical_kind": "summarize",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/instructions",
+        "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/fallback_group_id",
+        "/metadata/model_routing/preferred_profile_id",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 186,
+          "line_start": 186,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.summarize",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7700,
+          "line_start": 7700,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.summarize",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "SummarizeWorker",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "summarize"
+    },
+    {
+      "canonical_kind": "run_tests",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 62,
+          "line_start": 62,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.testing",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "RunTestsWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "testing"
+    },
+    {
+      "canonical_kind": "turboquant_mse",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 73,
+          "line_start": 73,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.turboquant_encode",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "TurboQuantMseEncoder",
+        "dispatch_capable": false,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "experimental"
+      },
+      "token": "turboquant_encode"
+    },
+    {
+      "canonical_kind": "turboquant_mse",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/artifacts/vector",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/levels",
+        "/metadata/seed",
+        "/metadata/vector",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 343,
+          "line_start": 343,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.turboquant_mse",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 8093,
+          "line_start": 8093,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.turboquant_mse",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": "TurboQuantMseAdapter",
+        "adapter_active": true,
+        "backend_service": "TurboQuantMseEncoder",
+        "dispatch_capable": false,
+        "execution_mode": "vp_adapter",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "experimental"
+      },
+      "token": "turboquant_mse"
+    },
+    {
+      "canonical_kind": "embed_api",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 72,
+          "line_start": 72,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.vector_encode",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "OpenAICompatibleEmbeddingProvider / HashEmbeddingProvider",
+        "dispatch_capable": false,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "vector_encode"
+    },
+    {
+      "canonical_kind": "workspace_diff",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/artifacts/after_snapshot",
+        "/artifacts/after_snapshot_id",
+        "/artifacts/before_snapshot",
+        "/artifacts/before_snapshot_id",
+        "/artifacts/workspace_root",
+        "/context/execution_id",
+        "/context/goal_id",
+        "/context/task_id",
+        "/context/trace_id",
+        "/context/workspace_root",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/workspace_root",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 262,
+          "line_start": 262,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.workspace_diff",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7719,
+          "line_start": 7719,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.workspace_diff",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": "WorkspaceDiffAdapter",
+        "adapter_active": false,
+        "backend_service": "WorkspaceDiffService.compute_diff + synthesize_manifest",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "workspace_diff"
+    },
+    {
+      "canonical_kind": "workspace_snapshot",
+      "classification": "canonical",
+      "consumed_field_paths": [
+        "/agent_skill_profile_id",
+        "/artifacts/workspace_root",
+        "/context/workspace_root",
+        "/gate",
+        "/io/inputs",
+        "/io/outputs",
+        "/label",
+        "/metadata/description",
+        "/metadata/workspace_root",
+        "/policy_hints",
+        "/role"
+      ],
+      "evidence": [
+        {
+          "line_end": 253,
+          "line_start": 253,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "_KIND_INFO.workspace_snapshot",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 109,
+          "line_start": 109,
+          "path": "agent/visual_process/step_executor.py",
+          "symbol": "StepExecutor.execution_mode",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 777,
+          "line_start": 777,
+          "path": "agent/visual_process/node_definitions.py",
+          "symbol": "compose_node_definition",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 7739,
+          "line_start": 7739,
+          "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
+          "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.workspace_snapshot",
+          "verification_status": "verified"
+        },
+        {
+          "line_end": 44,
+          "line_start": 44,
+          "path": "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+          "symbol": "schema-driven field loop",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": true,
+        "inspector_modes": [
+          "schema_driven"
+        ]
+      },
+      "runtime": {
+        "adapter": "WorkspaceSnapshotAdapter",
+        "adapter_active": false,
+        "backend_service": "WorkspaceDiffService.take_before_snapshot",
+        "dispatch_capable": true,
+        "execution_mode": "worker_dispatch",
+        "implementation_state": "wired_and_executable",
+        "implementation_status": "production"
+      },
+      "token": "workspace_snapshot"
+    },
+    {
+      "canonical_kind": "run_tests",
+      "classification": "alias",
+      "consumed_field_paths": [],
+      "evidence": [
+        {
+          "line_end": 63,
+          "line_start": 63,
+          "path": "agent/visual_process/task_kind_registry.py",
+          "symbol": "LEGACY_MAP.write_tests",
+          "verification_status": "verified"
+        }
+      ],
+      "frontend": {
+        "fallback_present": false,
+        "inspector_modes": []
+      },
+      "runtime": {
+        "adapter": null,
+        "adapter_active": false,
+        "backend_service": "RunTestsWorker",
+        "dispatch_capable": true,
+        "execution_mode": "canonicalize_before_execution",
+        "implementation_state": "legacy_alias",
+        "implementation_status": "production"
+      },
+      "token": "write_tests"
+    }
+  ],
+  "validation_errors": [],
+  "verification_status": "verified"
+}

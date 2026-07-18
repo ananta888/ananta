@@ -26,13 +26,13 @@ class FakeRagService:
     def __init__(self, hits):
         self.hits = hits
 
-    def retrieve(self, *, profile, query, limit):
+    def search_records(self, query, *, limit, **_kwargs):
         return list(self.hits)[:limit]
 
 
 def _patch_rag(monkeypatch, hits):
     monkeypatch.setattr(
-        "agent.services.rag_helper_index_service.get_rag_helper_index_service",
+        "agent.services.knowledge_index_retrieval_service.get_knowledge_index_retrieval_service",
         lambda: FakeRagService(hits),
     )
 

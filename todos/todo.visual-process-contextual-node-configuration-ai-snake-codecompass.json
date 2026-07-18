@@ -5,7 +5,7 @@
   "track": "visual-process-contextual-node-configuration-ai-snake-codecompass",
   "created": "2026-07-18",
   "updated": "2026-07-18",
-  "status": "todo",
+  "status": "blocked",
   "priority": "P0",
   "status_scale": [
     "todo",
@@ -32,7 +32,8 @@
     "Reine Spezifikations- und Sammel-Testaufgaben wurden durch implementierbare Contracts, Adapter, Gates und reale Integrationstests ersetzt.",
     "Die vier bisherigen CodeCompass-Sammelaufgaben wurden in Snapshot-, Source-Identity-, Ingestion-, Extraktor-, Retrieval- und Security-Aufgaben aufgeteilt.",
     "Die bestehende agent.visual_process.task_kind_registry bleibt Runtime-Source-of-Truth und wird komponiert statt dupliziert.",
-    "Editor-Command-History, Hub-Worker-Orchestrierung, revisionsfeste Context-Snapshots und Hub-seitige Patch-Governance sind explizite Vorbedingungen fuer Chat und Rollout."
+    "Editor-Command-History, Hub-Worker-Orchestrierung, revisionsfeste Context-Snapshots und Hub-seitige Patch-Governance sind explizite Vorbedingungen fuer Chat und Rollout.",
+    "Die Implementierung und alle lokal ausfuehrbaren Gates sind abgeschlossen; positiver Grounding-Erfolg bleibt bis zu einer extern autorisierten Source-ID fail-closed blockiert."
   ],
   "core_decisions": [
     "Der bestehende VisualProcessCanvasComponent bleibt die einzige Canvas-Implementierung fuer Standalone-, Embedded- und AI-Snake-Ansichten.",
@@ -340,7 +341,7 @@
         "VPA-CORE-002",
         "VPA-CORE-003"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VPA-M2",
@@ -356,7 +357,7 @@
         "VPA-CC-008",
         "VPA-CC-009"
       ],
-      "status": "todo"
+      "status": "blocked"
     },
     {
       "id": "VPA-M3",
@@ -373,7 +374,7 @@
         "VPA-ED-009",
         "VPA-ED-010"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VPA-M4",
@@ -385,7 +386,7 @@
         "VPA-CTX-004",
         "VPA-CTX-005"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VPA-M5",
@@ -397,7 +398,7 @@
         "VPA-AI-004",
         "VPA-AI-005"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VPA-M6",
@@ -407,7 +408,7 @@
         "VPA-UX-002",
         "VPA-UX-003"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VPA-M7",
@@ -417,7 +418,7 @@
         "VPA-QA-002",
         "VPA-QA-003"
       ],
-      "status": "todo"
+      "status": "blocked"
     }
   ],
   "tasks": [
@@ -427,8 +428,8 @@
       "description": "Die vorhandenen Visual-Process-, Inspector-, Adapter-, Runtime- und Chatpfade werden als belastbare Baseline dokumentiert. Der Task produziert keine parallele Architektur.",
       "type": "analysis",
       "milestone_id": "VPA-M1",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "medium",
       "depends_on": [],
@@ -455,8 +456,8 @@
       "description": "Der bestehende version-Wert bleibt kompatible Inhaltsrevision. Neue additive Felder modellieren Schema-, Registry- und Optimistic-Concurrency-Semantik.",
       "type": "contract",
       "milestone_id": "VPA-M1",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -483,8 +484,8 @@
       "description": "UI-Definitionen komponieren die vorhandene Runtime-Registry. Runtime-Wahrheit, Formularschema und Darstellungsmetadaten bleiben getrennte fokussierte Interfaces.",
       "type": "contract",
       "milestone_id": "VPA-M1",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -512,8 +513,8 @@
       "description": "Das bisherige best-effort Scanning wird durch ein vollstaendiges, revisionsfestes Inventar mit expliziter Klassifikation jedes Snapshot-Pfads ersetzt.",
       "type": "contract-indexing",
       "milestone_id": "VPA-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [],
@@ -538,8 +539,8 @@
       "description": "SourceCatalog, Retrieval-Contract und Graph-Evidence werden auf echte, vom Hub aufgeloeste Ursprungsidentitaeten und revisionsgebundene Provenienz vereinheitlicht.",
       "type": "contract-security",
       "milestone_id": "VPA-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -566,8 +567,8 @@
       "description": "Der Hub besitzt Authentifizierung, Snapshot, Policy, Taskstatus und atomare Veroeffentlichung. Worker fuehren begrenzte Enumeration, Extraktion und Indexerstellung aus.",
       "type": "hub-worker-integration",
       "milestone_id": "VPA-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -596,8 +597,8 @@
       "description": "Fokussierte Worker-Extraktoren liefern stabile Record-Kinds und Provenienz. Bestehende Graph-Evidence-source_kind-Werte werden nicht zweckentfremdet.",
       "type": "worker-indexing",
       "milestone_id": "VPA-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -624,8 +625,8 @@
       "description": "Architekturdiagramme erhalten eigene sichere Extraktoradapter. Nicht deterministisch parsebare Inhalte werden nicht geraten.",
       "type": "worker-indexing",
       "milestone_id": "VPA-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -640,7 +641,7 @@
       ],
       "acceptance_criteria": [
         "mmd, puml, plantuml und eingebettete Mermaid-Bloecke erzeugen Textrecords und nur bei erfolgreichem Parser Knoten, Kanten und Labels mit Range, Record-ID und Dokumentreferenz.",
-        "Plain-XML-Draw.io wird mit einem Entity-sicheren Parser verarbeitet; komprimierte, verschluesselte oder nicht sicher erkennbare Varianten werden unsupported mit festem Reason-Code.",
+        "Plain-XML-Draw.io und begrenzte, erkannte komprimierte Draw.io-Payloads werden mit Entity-sicherem Parser beziehungsweise budgetiertem Decoder verarbeitet; verschluesselte, nicht sicher erkennbare oder Budgetgrenzen ueberschreitende Varianten werden unsupported mit festem Reason-Code.",
         "Heuristische Elemente tragen inferred oder ambiguous und niemals verified; deterministisch gegen das Original gepruefte Elemente koennen extracted und verified sein.",
         "Malformed-, Hidden-Unicode-, Out-of-root- und XML-Entity-Testvektoren werden sicher abgelehnt und erzeugen keine externen Zugriffe.",
         "Deterministische Tests decken Mermaid flowchart und sequence, PlantUML component und sequence sowie unterstuetztes und nicht unterstuetztes Draw.io ab."
@@ -652,8 +653,8 @@
       "description": "Die Fake-only retrieve-Luecke, leeren Hybridkanaele und widerspruechlichen Graph-Artefaktnamen werden durch einen kleinen injizierbaren Produktionsport ersetzt.",
       "type": "retrieval-integration",
       "milestone_id": "VPA-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -685,8 +686,8 @@
       "description": "Der vorhandene ContextPlanner wird erweitert; es entsteht kein paralleler Retrieval- oder Query-Assembler.",
       "type": "domain-retrieval",
       "milestone_id": "VPA-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -713,8 +714,8 @@
       "description": "Nur deterministisch policy-gepruefte Evidence darf den Prompt-Assembler oder Patch-Aktionen erreichen.",
       "type": "security-quality",
       "milestone_id": "VPA-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -743,8 +744,10 @@
       "description": "Das Gate prueft den realen Hub-Worker-Index- und Retrievalpfad ohne Produkt-Fakes und verhindert eine erneute false-complete Integration.",
       "type": "acceptance-test",
       "milestone_id": "VPA-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "blocked",
+      "progress_percent": 80,
+      "blocked_reason_code": "authoritative_source_evidence_unavailable",
+      "blocked_on": "Ein externer Authority-Dienst muss mindestens eine gueltige SRC_*- oder RUN_*-ID fuer den opt-in Positivlauf bereitstellen; der Defaultlauf darf keine Identitaet erzeugen.",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -774,8 +777,8 @@
       "description": "Der Hub projiziert NodeDefinitions aus der TaskKindRegistry. Der Frontend-Fallback wird aus demselben Contract erzeugt und nicht manuell gepflegt.",
       "type": "frontend-backend",
       "milestone_id": "VPA-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -802,8 +805,8 @@
       "description": "Die im Baseline-Report belegten Feld-, Enum- und Validation-Differenzen werden mit Compatibility-Adaptern und Migrationstests korrigiert.",
       "type": "bugfix-contract",
       "milestone_id": "VPA-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -833,8 +836,8 @@
       "description": "Alle Graphmutationen werden aus Editor-Shell und Einzelkomponenten in einen testbaren Command-Port verschoben.",
       "type": "frontend-domain",
       "milestone_id": "VPA-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -862,8 +865,8 @@
       "description": "Der bestehende Inspector wird schrittweise auf kleine Renderer und Registry-Schemas migriert; Editor-Shell und Inspector enthalten keine neue Kind-Switch-Logik.",
       "type": "frontend",
       "milestone_id": "VPA-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -889,8 +892,8 @@
       "description": "Der vorhandene Modell-/Trainingsoptionsdienst wird zu kleinen Provider-Ports fuer Modelle, Skills, RAG, Training, Fallback und Prozessreferenzen erweitert.",
       "type": "frontend-backend",
       "milestone_id": "VPA-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -916,8 +919,8 @@
       "description": "Die aktuelle generische Plus-Schritt-Erzeugung wird durch eine erklaerte Palette ersetzt; es wird keine bestehende Palette vorausgesetzt.",
       "type": "frontend-ux",
       "milestone_id": "VPA-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P2",
       "risk": "low",
       "depends_on": [
@@ -943,8 +946,8 @@
       "description": "Gemeinsame Worker-, Steuerungs- und CodeCompass-Konfiguration wird aus den bisherigen Sondermasken in NodeDefinitions oder klar begrenzte Extension-Renderer ueberfuehrt.",
       "type": "frontend-migration",
       "milestone_id": "VPA-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -971,8 +974,8 @@
       "description": "Die daten- und modellnahen ML-Kinds werden deklarativ und ohne Credential-Felder abgebildet.",
       "type": "frontend-migration",
       "milestone_id": "VPA-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -998,8 +1001,8 @@
       "description": "Training und Evolution nutzen bestehende Control-Center-Referenzen, behalten Runtime-Daten ausserhalb der Definition und erzwingen bestehende Governance.",
       "type": "frontend-migration",
       "milestone_id": "VPA-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1026,8 +1029,8 @@
       "description": "Der Editor uebernimmt die autoritative Hub-Revision und bewahrt bei Konflikten Draft, History und Dirty-State.",
       "type": "frontend-backend",
       "milestone_id": "VPA-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1054,8 +1057,8 @@
       "description": "DOM- und Pixelereignisse werden ueber einen instanzgebundenen Viewport-Port in stabile semantische Ziele uebersetzt.",
       "type": "frontend-domain",
       "milestone_id": "VPA-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1081,8 +1084,8 @@
       "description": "Kurzlebige Vorschau und eingefrorener Arbeits- beziehungsweise Conversation-Kontext erhalten getrennte instanzlokale Zustandsautomaten.",
       "type": "frontend-state",
       "milestone_id": "VPA-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -1107,8 +1110,8 @@
       "description": "Ein reiner Hub-Domainservice beschreibt die semantische Position eines Ziels aus dem Graphen; eine lokale Vorschau darf nur aus denselben Fakten degradieren.",
       "type": "hub-domain",
       "milestone_id": "VPA-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P2",
       "risk": "medium",
       "depends_on": [
@@ -1135,8 +1138,8 @@
       "description": "Frontend und Hub verwenden einen versionierten Context-Contract mit eindeutiger Domain-, Draft-, Runtime- und Evidence-Semantik.",
       "type": "frontend-backend-contract",
       "milestone_id": "VPA-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1167,8 +1170,8 @@
       "description": "CodeCompassContextService, ContextPlanner und PromptSnapshotService werden komponiert. Es entsteht kein paralleler Prompt- oder Context-Store.",
       "type": "hub-domain",
       "milestone_id": "VPA-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1196,8 +1199,8 @@
       "description": "Response- und Patch-Vertraege werden vor Transport und UI implementiert und referenzieren die kanonischen Graph-, Registry-, Context- und Evidence-Versionen.",
       "type": "contract",
       "milestone_id": "VPA-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1225,8 +1228,8 @@
       "description": "Versionierte APIs erstellen Hub-Tasks und persistente Conversation-Snapshots. Der Hub fuehrt keine delegierbare LLM-Arbeit selbst aus.",
       "type": "hub-orchestration",
       "milestone_id": "VPA-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1256,8 +1259,8 @@
       "description": "Ein fokussierter Worker-Adapter konsumiert den Hub-Envelope, fuehrt Retrieval und Modellinferenz aus und liefert einen validierten Vorschlag ohne Orchestrierungs- oder Persistenzhoheit.",
       "type": "worker-execution",
       "milestone_id": "VPA-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1287,8 +1290,8 @@
       "description": "Jeder Modellpatch wird vor Anzeige und Uebernahme durch einen deterministischen Hub-Domainservice autorisiert, auf einen Graphklon angewendet und vollstaendig validiert.",
       "type": "hub-domain-security",
       "milestone_id": "VPA-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1318,8 +1321,8 @@
       "description": "Operational Controls begrenzen Requests und Caches deterministisch, ohne Conversation- oder Evidence-Semantik zu veraendern.",
       "type": "operations",
       "milestone_id": "VPA-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1347,8 +1350,8 @@
       "description": "Die interaktive Sprechblase wird nicht in den bereits grossen Physics-/Canvas-Overlay-Code eingebaut, sondern ueber den vorhandenen Visual-Guide-Fluss komponiert.",
       "type": "frontend-ux",
       "milestone_id": "VPA-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P2",
       "risk": "medium",
       "depends_on": [
@@ -1379,8 +1382,8 @@
       "description": "Bubble und angedockter Chat verwenden dieselbe persistente Hub-Conversation und zeigen den eingefrorenen Kontext nachvollziehbar an.",
       "type": "frontend-backend",
       "milestone_id": "VPA-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1412,8 +1415,8 @@
       "description": "Nur vom Hub freigegebene Patches koennen nach sichtbarer Bestaetigung als lokale atomare Editortransaktion angewendet werden.",
       "type": "frontend-domain",
       "milestone_id": "VPA-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1442,8 +1445,10 @@
       "description": "Das Gate prueft die realen Ports ueber Frontend, Hub und Worker und ersetzt keine task-lokalen Unit- oder Securitytests.",
       "type": "acceptance-test",
       "milestone_id": "VPA-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "blocked",
+      "progress_percent": 80,
+      "blocked_reason_code": "authoritative_source_evidence_unavailable",
+      "blocked_on": "Alle lokalen Contract-, Registry-, Hub-Worker-, Browser- und Security-Suites sind gruen; die positive Grounding-Suite benoetigt eine extern autorisierte Source-ID.",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1477,8 +1482,8 @@
       "description": "Reproduzierbare Benchmarks pruefen die im Track definierten Budgets auf einer dokumentierten lokalen Referenzumgebung.",
       "type": "performance-test",
       "milestone_id": "VPA-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1506,8 +1511,8 @@
       "description": "Der einzige Rollout-Endpunkt wird erst nach allen Funktions-, Security-, E2E- und Performance-Gates freigegeben.",
       "type": "release",
       "milestone_id": "VPA-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1554,17 +1559,18 @@
   "tasks_status_summary": {
     "total": 38,
     "by_status": {
-      "todo": 38,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
-      "blocked": 0,
-      "done": 0
+      "blocked": 2,
+      "done": 36
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 94.74,
     "by_priority": {
       "P0": 18,
       "P1": 17,
-      "P2": 3
+      "P2": 3,
+      "P3": 0
     },
     "by_risk": {
       "low": 1,
@@ -1574,15 +1580,16 @@
     },
     "critical_path": {
       "total": 19,
-      "done": 0,
-      "remaining": 19
+      "done": 18,
+      "remaining": 1
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
-      "blocked": 0,
-      "done": 0
+      "partial": 0,
+      "blocked": 2,
+      "done": 5
     }
   },
   "definition_of_done": [
@@ -1603,6 +1610,422 @@
   "summary_notes": [
     "tasks ist die einzige Source-of-Truth; Summary-Felder werden nach jeder Statusaenderung kanonisch neu berechnet.",
     "Der kritische Pfad verwendet Gleichgewichtung, bis belastbare Aufwandsschaetzungen vorliegen; das Taskset enthaelt beide gleich langen Parallelzweige ContextAssembler und Assistant-Contract vor ihrem Join.",
-    "Feature-Flags werden mit den jeweiligen Implementierungen eingefuehrt und nicht erst im abschliessenden Rollouttask."
-  ]
+    "Feature-Flags werden mit den jeweiligen Implementierungen eingefuehrt und nicht erst im abschliessenden Rollouttask.",
+    "36 von 38 Tasks sind lokal vollstaendig abgenommen. VPA-CC-009 und VPA-QA-001 bleiben mit authoritative_source_evidence_unavailable blockiert; der Rollout ist deshalb weiterhin deaktiviert."
+  ],
+  "tasks_type_summary": {
+    "total": 38,
+    "by_type": {
+      "analysis": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "contract": {
+        "total": 3,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        }
+      },
+      "contract-indexing": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "contract-security": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "hub-worker-integration": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "worker-indexing": {
+        "total": 2,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "retrieval-integration": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "domain-retrieval": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "security-quality": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "acceptance-test": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 2,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 80.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 2,
+          "done": 0
+        }
+      },
+      "frontend-backend": {
+        "total": 4,
+        "done": 4,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 4
+        }
+      },
+      "bugfix-contract": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "frontend-domain": {
+        "total": 3,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        }
+      },
+      "frontend": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "frontend-ux": {
+        "total": 2,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "frontend-migration": {
+        "total": 3,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        }
+      },
+      "frontend-state": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "hub-domain": {
+        "total": 2,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "frontend-backend-contract": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "hub-orchestration": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "worker-execution": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "hub-domain-security": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "operations": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "performance-test": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "release": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "in_progress",
+    "todo_remaining": 2,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 2,
+    "done": 36,
+    "milestones_done": 5,
+    "milestones_total": 7
+  }
 }

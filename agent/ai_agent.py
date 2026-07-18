@@ -147,6 +147,69 @@ def _register_template_propose_handler(app: Flask) -> None:
         )
 
 
+def _register_worker_domain_handlers(app: Flask) -> None:
+    """Compose worker-only execution adapters behind the shared task registry."""
+
+    if settings.role != "worker":
+        app.extensions["worker_domain_handler_registration"] = {
+            "registered": [],
+            "reason": "worker_role_required",
+        }
+        return
+
+    from worker.core.model_provider import build_model_provider
+    from worker.retrieval.knowledge_index_job_handler import (
+        build_knowledge_index_task_handler,
+    )
+    from worker.visual_process_assistant import (
+        VisualProcessAssistantInferenceHandler,
+        VisualProcessAssistantRetrievalHandler,
+    )
+
+    register_task_handler(
+        "codecompass_index_build",
+        build_knowledge_index_task_handler(),
+        app=app,
+        capabilities=["retrieval", "index_write"],
+        safety_flags={
+            "requires_review": False,
+            "worker_only": True,
+            "network_access": "hub_artifact_only",
+        },
+        verification_hooks=[
+            "knowledge_index_job_result_schema",
+            "idempotency_fingerprint",
+            "artifact_first",
+        ],
+    )
+    register_task_handler(
+        "visual_process_assistant_retrieval",
+        VisualProcessAssistantRetrievalHandler(),
+        app=app,
+        capabilities=["retrieval", "codecompass"],
+        safety_flags={"requires_review": False, "worker_only": True, "read_only": True},
+        verification_hooks=["source_ref_v2", "context_scanner", "evidence_release_gate"],
+    )
+    agent_config = dict(app.config.get("AGENT_CONFIG") or {})
+    model_config = agent_config.get("visual_process_assistant_model")
+    provider = build_model_provider(dict(model_config)) if isinstance(model_config, dict) else None
+    register_task_handler(
+        "visual_process_assistant_inference",
+        VisualProcessAssistantInferenceHandler(provider),
+        app=app,
+        capabilities=["llm", "structured_output"],
+        safety_flags={"requires_review": False, "worker_only": True, "mutation_forbidden": True},
+        verification_hooks=["help_response_v1", "workflow_patch_v1", "source_ref_v2"],
+    )
+    app.extensions["worker_domain_handler_registration"] = {
+        "registered": [
+            "codecompass_index_build",
+            "visual_process_assistant_retrieval",
+            "visual_process_assistant_inference",
+        ]
+    }
+
+
 def _check_token_rotation(app: Flask) -> None:
     """Backward-compatible token-rotation check used by legacy tests."""
     if str((app.config or {}).get("AGENT_TOKEN_FILE") or settings.agent_token_file or "").strip():
@@ -231,6 +294,7 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
         _initialize_workflow_adapter_worker_runtime,
         app,
     )
+    run_startup_phase("worker_domain_handlers", _register_worker_domain_handlers, app)
     if not testing: # Skip background services in testing mode
         run_startup_phase("background_services", start_background_services, app)
 

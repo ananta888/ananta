@@ -2,10 +2,9 @@ import time
 from typing import Any, Callable, Dict, List, Optional
 
 from agent.repository import task_repo
-from agent.routes.tasks.orchestration_policy.routing import build_dispatch_queue
+from agent.services.task_runtime_service import update_local_task_status
 from agent.services.task_state_machine_service import can_autopilot_dispatch
 from agent.services.task_status_service import normalize_task_status
-from agent.services.task_runtime_service import update_local_task_status
 
 
 class TaskQueueService:
@@ -18,13 +17,21 @@ class TaskQueueService:
 
     def get_dispatch_queue(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Gibt die sortierte Liste der dispatch-bereiten Tasks zurueck."""
+        from agent.routes.tasks.orchestration_policy.routing import build_dispatch_queue
+
         tasks = [t.model_dump() for t in task_repo.get_all()]
         queue = build_dispatch_queue(tasks)
         if limit:
             return queue[:limit]
         return queue
 
-    def get_scoped_dispatch_queue(self, team_id: Optional[str] = None, now: Optional[float] = None) -> List[Dict[str, Any]]:
+    def get_scoped_dispatch_queue(
+        self,
+        team_id: Optional[str] = None,
+        now: Optional[float] = None,
+    ) -> List[Dict[str, Any]]:
+        from agent.routes.tasks.orchestration_policy.routing import build_dispatch_queue
+
         now = float(now or time.time())
         tasks = task_repo.get_all()
         if team_id:
@@ -38,7 +45,11 @@ class TaskQueueService:
             )
         }
         queue = build_dispatch_queue([task.model_dump() for task in candidate_map.values()])
-        return [{**item, "task": candidate_map.get(item["task_id"])} for item in queue if item["task_id"] in candidate_map]
+        return [
+            {**item, "task": candidate_map.get(item["task_id"])}
+            for item in queue
+            if item["task_id"] in candidate_map
+        ]
 
     def get_queue_stats(self) -> Dict[str, Any]:
         """Berechnet Statistiken ueber den aktuellen Zustand der Queue."""
@@ -184,11 +195,20 @@ class TaskQueueService:
             if my_status in {"blocked", "blocked_by_dependency"} and all_done:
                 update_local_task_status(live_task.id, "todo")
                 transitions.append(
-                    {"task_id": live_task.id, "event_type": "dependency_unblocked", "depends_on": deps, "reason": "all_dependencies_completed"}
+                    {
+                        "task_id": live_task.id,
+                        "event_type": "dependency_unblocked",
+                        "depends_on": deps,
+                        "reason": "all_dependencies_completed",
+                    }
                 )
             elif my_status in {"blocked", "blocked_by_dependency"} and has_failed:
                 failed_dependency_ids = [dep_id for status, dep_id in dep_statuses if status == "failed"]
-                update_local_task_status(live_task.id, "failed", error=f"dependency_failed:{','.join(failed_dependency_ids)}")
+                update_local_task_status(
+                    live_task.id,
+                    "failed",
+                    error=f"dependency_failed:{','.join(failed_dependency_ids)}",
+                )
                 transitions.append(
                     {
                         "task_id": live_task.id,
@@ -201,7 +221,12 @@ class TaskQueueService:
             elif my_status in {"todo", "created", "assigned"} and not all_done:
                 update_local_task_status(live_task.id, "blocked_by_dependency")
                 transitions.append(
-                    {"task_id": live_task.id, "event_type": "dependency_blocked", "depends_on": deps, "reason": "waiting_for_dependencies"}
+                    {
+                        "task_id": live_task.id,
+                        "event_type": "dependency_blocked",
+                        "depends_on": deps,
+                        "reason": "waiting_for_dependencies",
+                    }
                 )
         return transitions
 

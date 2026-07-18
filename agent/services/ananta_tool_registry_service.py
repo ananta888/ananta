@@ -139,6 +139,30 @@ _REGISTRY: dict[str, AnantaToolSpec] = {
             "Plan bounded CodeCompass LocationRefs and patch_targets for a query; returns location references and candidate patch ranges for subsequent resolve/patch steps.",
             {
                 "query": {"type": "string"},
+                "intent": {
+                    "type": "string",
+                    "enum": [
+                        "node_explanation",
+                        "field_effect",
+                        "io_contract",
+                        "validation_issue",
+                        "runtime_error",
+                        "dependency",
+                        "safe_change",
+                    ],
+                },
+                "detail_level": {
+                    "type": "string",
+                    "enum": ["preview", "selected", "conversation"],
+                },
+                "registry_version": {"type": "string"},
+                "node_kind": {"type": "string"},
+                "field_path": {"type": "string"},
+                "backend_contract": {
+                    "oneOf": [{"type": "string"}, {"type": "object"}],
+                },
+                "symbols": {"type": "array", "items": {"type": "string"}},
+                "graph_neighbors": {"type": "array", "items": {"type": "string"}},
                 "max_ranges": {"type": "integer"},
                 "include_neighbors": {"type": "boolean"},
                 "task_kind": {"type": "string"},

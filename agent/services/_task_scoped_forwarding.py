@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import hashlib
 import time
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, Callable
+from urllib.parse import urlparse
 
 from flask import current_app
 
@@ -26,10 +28,106 @@ from agent.llm_integration import normalize_llm_call_profile_entry
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.task_runtime_service import update_local_task_status
-from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
+
+
+_VISUAL_PROCESS_ASSISTANT_RESULT_CONTRACTS: dict[str, tuple[str, frozenset[str]]] = {
+    "visual_process_assistant_retrieval": (
+        "ananta.visual_process_assistant.retrieval_result.v1",
+        frozenset(
+            {
+                "schema",
+                "task_id",
+                "request_id",
+                "context_id",
+                "status",
+                "evidence",
+                "rejected_count",
+                "rejection_reasons",
+                "consistency_state",
+                "blocked_stubs",
+                "evidence_conflicts",
+            }
+        ),
+    ),
+    "visual_process_assistant_inference": (
+        "ananta.visual_process_assistant.inference_result.v1",
+        frozenset(
+            {
+                "schema",
+                "task_id",
+                "request_id",
+                "context_id",
+                "prompt_hash",
+                "status",
+                "reason_code",
+                "response",
+                "model_metadata",
+            }
+        ),
+    ),
+}
+_VISUAL_PROCESS_ASSISTANT_RESULT_SCHEMAS = frozenset(
+    schema for schema, _fields in _VISUAL_PROCESS_ASSISTANT_RESULT_CONTRACTS.values()
+)
+_FORWARDED_HANDLER_FRAMEWORK_FIELDS = frozenset({"handler_contract"})
+
+
+def _get_visual_process_assistant_service() -> Any:
+    """Resolve the Hub-owned service lazily and avoid a forwarding import cycle."""
+
+    from agent.services.visual_process_assistant_service import (
+        visual_process_assistant_service,
+    )
+
+    return visual_process_assistant_service
+
+
+def _accept_visual_process_assistant_result(
+    *,
+    tid: str,
+    response: Mapping[str, Any],
+    task: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Dispatch a bound Visual Process worker result to its Hub owner.
+
+    A Visual Process schema or task kind activates this fail-closed boundary.
+    Framework metadata is validated separately and is never passed into the
+    domain result contract.
+    """
+
+    task_kind = str(task.get("task_kind") or "").strip().lower()
+    schema = str(response.get("schema") or "").strip()
+    expected = _VISUAL_PROCESS_ASSISTANT_RESULT_CONTRACTS.get(task_kind)
+    if expected is None and schema not in _VISUAL_PROCESS_ASSISTANT_RESULT_SCHEMAS:
+        return None
+    if expected is None:
+        raise ValueError("visual_process_assistant_result_task_kind_unknown")
+    expected_schema, result_fields = expected
+    if schema != expected_schema:
+        raise ValueError("visual_process_assistant_result_schema_kind_mismatch")
+
+    handler_contract = response.get("handler_contract")
+    if handler_contract is not None:
+        if not isinstance(handler_contract, Mapping):
+            raise ValueError("visual_process_assistant_handler_contract_invalid")
+        handler_task_kind = str(handler_contract.get("task_kind") or "").strip().lower()
+        if handler_task_kind != task_kind:
+            raise ValueError("visual_process_assistant_handler_task_kind_mismatch")
+
+    unknown_fields = set(response) - result_fields - _FORWARDED_HANDLER_FRAMEWORK_FIELDS
+    if unknown_fields:
+        raise ValueError("visual_process_assistant_result_forwarding_fields_unknown")
+    candidate = {field: response.get(field) for field in result_fields}
+    accepted = _get_visual_process_assistant_service().accept_worker_result(
+        task_id=tid,
+        result=candidate,
+    )
+    if not isinstance(accepted, Mapping):
+        raise ValueError("visual_process_assistant_acceptance_readmodel_invalid")
+    return dict(accepted)
 
 
 def forward_task_request_if_remote(
@@ -83,7 +181,10 @@ def forward_task_request_if_remote(
             resolved_token
             and isinstance(response, dict)
             and str(response.get("status") or "").strip().lower() == "error"
-            and ("401" in str(response.get("message") or "").lower() or "unauthorized" in str(response.get("message") or "").lower())
+            and (
+                "401" in str(response.get("message") or "").lower()
+                or "unauthorized" in str(response.get("message") or "").lower()
+            )
         ):
             response = forwarder(worker_url, endpoint, payload, token=None)
         # Worker returned 404: task not in worker DB (split-DB dev setup).
@@ -95,7 +196,9 @@ def forward_task_request_if_remote(
         ):
             _fallback_policy = {}
             try:
-                _fallback_policy = dict(current_app.config.get("AGENT_CONFIG", {}).get("execution_fallback_policy") or {})
+                _fallback_policy = dict(
+                    current_app.config.get("AGENT_CONFIG", {}).get("execution_fallback_policy") or {}
+                )
             except Exception:
                 pass
             if bool(_fallback_policy.get("worker_404_hub_fallback_enabled", True)):
@@ -142,7 +245,11 @@ def persist_forwarded_proposal(
         "prompt_preview": prompt_text[:240],
         "prompt_hash_sha256": hashlib.sha256(prompt_text.encode("utf-8")).hexdigest() if prompt_text else None,
         "provider": str(request_payload.get("provider") or "").strip() or None,
-        "providers": list(request_payload.get("providers") or []) if isinstance(request_payload.get("providers"), list) else None,
+        "providers": (
+            list(request_payload.get("providers") or [])
+            if isinstance(request_payload.get("providers"), list)
+            else None
+        ),
         "model": str(request_payload.get("model") or "").strip() or None,
         "temperature": request_payload.get("temperature"),
         "strategy_mode": str(request_payload.get("strategy_mode") or "").strip() or None,
@@ -263,14 +370,26 @@ def persist_forwarded_proposal(
         command=(str(response.get("command") or "").strip() or None),
         tool_calls=response.get("tool_calls") if isinstance(response.get("tool_calls"), list) else None,
         comparisons=response.get("comparisons") if isinstance(response.get("comparisons"), dict) else None,
-        research_artifact=response.get("research_artifact") if isinstance(response.get("research_artifact"), dict) else None,
-        research_context=response.get("research_context") if isinstance(response.get("research_context"), dict) else None,
+        research_artifact=(
+            response.get("research_artifact")
+            if isinstance(response.get("research_artifact"), dict)
+            else None
+        ),
+        research_context=(
+            response.get("research_context")
+            if isinstance(response.get("research_context"), dict)
+            else None
+        ),
         forwarded_request=forwarded_request,
         history_event={
             "event_type": "proposal_result",
             "reason": str(response.get("reason") or ""),
             "backend": response.get("backend"),
-            "routing_reason": ((response.get("routing") or {}).get("reason")) if isinstance(response.get("routing"), dict) else None,
+            "routing_reason": (
+                (response.get("routing") or {}).get("reason")
+                if isinstance(response.get("routing"), dict)
+                else None
+            ),
             "forwarded_request": forwarded_request,
             "forwarded": True,
             "timestamp": time.time(),
@@ -293,6 +412,37 @@ def persist_forwarded_execution(*, tid: str, response: dict, task: dict, request
         artifacts=list(response.get("artifacts") or []) if isinstance(response.get("artifacts"), list) else None,
     )
     review = response.get("review") if isinstance(response.get("review"), dict) else None
+    assistant_request = _accept_visual_process_assistant_result(
+        tid=tid,
+        response=response,
+        task=task,
+    )
+    if assistant_request is not None:
+        verification_status["visual_process_assistant_request"] = assistant_request
+    if str(response.get("schema") or "") == "ananta.knowledge_index_job_result.v1":
+        result_fields = {
+            "schema",
+            "job_id",
+            "idempotency_fingerprint",
+            "status",
+            "reason_code",
+            "knowledge_index",
+            "run",
+            "results",
+            "artifact_refs",
+            "error",
+        }
+        framework_fields = {"handler_contract"}
+        unknown_fields = set(response) - result_fields - framework_fields
+        if unknown_fields:
+            raise ValueError("knowledge_index_result_forwarding_fields_unknown")
+        candidate = {field: response.get(field) for field in result_fields}
+        normalized_result = (
+            get_core_services()
+            .knowledge_index_job_service
+            .materialize_worker_result(job_id=tid, result=candidate, task=task)
+        )
+        verification_status["knowledge_index_job_result"] = normalized_result
     if execution_scope:
         verification_status["execution_scope"] = dict(execution_scope)
     if execution_provenance:

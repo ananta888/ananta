@@ -1,0 +1,406 @@
+{
+  "$defs": {
+    "AssistantLocation": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Id"
+        },
+        "field_path": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Field Path"
+        },
+        "graph_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Graph Id",
+          "type": "string"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "target_kind": {
+          "enum": [
+            "node",
+            "field",
+            "edge",
+            "canvas",
+            "validation",
+            "runtime",
+            "palette_item"
+          ],
+          "title": "Target Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_kind",
+        "graph_id"
+      ],
+      "title": "AssistantLocation",
+      "type": "object"
+    },
+    "EvidenceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "excerpt": {
+          "anyOf": [
+            {
+              "maxLength": 4000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Excerpt"
+        },
+        "line_end": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line End"
+        },
+        "line_start": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Start"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "provenance_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provenance Digest"
+        },
+        "reason_codes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Reason Codes",
+          "type": "array"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scope"
+        },
+        "source_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Id"
+        },
+        "source_version": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Version"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        },
+        "trust_level": {
+          "$ref": "#/$defs/TrustLevel"
+        },
+        "verification_status": {
+          "$ref": "#/$defs/VerificationStatus"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "trust_level",
+        "verification_status"
+      ],
+      "title": "EvidenceRef",
+      "type": "object"
+    },
+    "TrustLevel": {
+      "enum": [
+        "extracted",
+        "declared",
+        "inferred",
+        "manual"
+      ],
+      "title": "TrustLevel",
+      "type": "string"
+    },
+    "VerificationStatus": {
+      "enum": [
+        "verified",
+        "unverified",
+        "failed"
+      ],
+      "title": "VerificationStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://ananta.local/schemas/visual_process/editor_context.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "allowed_mutations": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Allowed Mutations",
+      "type": "array"
+    },
+    "codecompass_manifest_hash": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Codecompass Manifest Hash",
+      "type": "string"
+    },
+    "contract_version": {
+      "const": "ananta.visual_process.editor_context.v1",
+      "default": "ananta.visual_process.editor_context.v1",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "definition_hash": {
+      "title": "Definition Hash",
+      "type": "string"
+    },
+    "definition_revision": {
+      "minimum": 0,
+      "title": "Definition Revision",
+      "type": "integer"
+    },
+    "draft_hash": {
+      "title": "Draft Hash",
+      "type": "string"
+    },
+    "editor_mode": {
+      "enum": [
+        "editor",
+        "ai_snake",
+        "read_only"
+      ],
+      "title": "Editor Mode",
+      "type": "string"
+    },
+    "effective_configuration": {
+      "additionalProperties": true,
+      "title": "Effective Configuration",
+      "type": "object"
+    },
+    "evidence_refs": {
+      "items": {
+        "$ref": "#/$defs/EvidenceRef"
+      },
+      "maxItems": 100,
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "extensions": {
+      "additionalProperties": true,
+      "title": "Extensions",
+      "type": "object"
+    },
+    "graph_excerpt": {
+      "additionalProperties": true,
+      "title": "Graph Excerpt",
+      "type": "object"
+    },
+    "graph_id": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Graph Id",
+      "type": "string"
+    },
+    "graph_schema_version": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Graph Schema Version",
+      "type": "string"
+    },
+    "locale": {
+      "default": "de",
+      "maxLength": 20,
+      "minLength": 2,
+      "title": "Locale",
+      "type": "string"
+    },
+    "location": {
+      "$ref": "#/$defs/AssistantLocation"
+    },
+    "node_registry_version": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Node Registry Version",
+      "type": "string"
+    },
+    "prompt_version": {
+      "maxLength": 160,
+      "minLength": 1,
+      "title": "Prompt Version",
+      "type": "string"
+    },
+    "repository_revision": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Repository Revision",
+      "type": "string"
+    },
+    "runtime_overlay": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runtime Overlay"
+    },
+    "runtime_snapshot_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runtime Snapshot Hash"
+    },
+    "source_allowlist_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Source Allowlist Version",
+      "type": "string"
+    },
+    "validation_issues": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "maxItems": 1000,
+      "title": "Validation Issues",
+      "type": "array"
+    }
+  },
+  "required": [
+    "graph_id",
+    "repository_revision",
+    "codecompass_manifest_hash",
+    "source_allowlist_version",
+    "prompt_version",
+    "graph_schema_version",
+    "node_registry_version",
+    "definition_revision",
+    "definition_hash",
+    "draft_hash",
+    "editor_mode",
+    "location",
+    "graph_excerpt"
+  ],
+  "title": "EditorContextEnvelope",
+  "type": "object"
+}

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import hashlib
 import importlib.util
 import json
 import os
@@ -31,7 +32,11 @@ from pathlib import Path
 
 from agent.codecompass.parser_limits import ParserGuardViolation, ParserLimits
 from ananta_contracts.file_type_classifier import FileTypeClassification, FileTypeClassifier, FileTypeMatchKind
-from ananta_contracts.file_type_coverage import CoverageOutcome, FileTypeCoverageReport
+from ananta_contracts.file_type_coverage import (
+    CoverageOutcome,
+    FileTypeCoverageReport,
+    RequiredPathRule,
+)
 from ananta_contracts.file_type_rollout import FileTypeRolloutPolicy
 from ananta_contracts.file_type_support import (
     FileTypeDescriptor,
@@ -49,6 +54,8 @@ EXCLUDE_DIRS = {
 EXCLUDE_FILE_PATTERNS = {"*.pyc", "package-lock.json", "yarn.lock", "pnpm-lock.yaml"}
 MAX_FILE_BYTES = 48_000  # skip files larger than this
 MAX_RECORDS = 2000       # hard cap to avoid overwhelming the indexer
+MAX_SNAPSHOT_HASH_BYTES = 8_000_000
+SNAPSHOT_POLICY_PATH = ROOT / "config" / "codecompass" / "snapshot_policy.v1.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +65,7 @@ class IndexCandidate:
     descriptor: FileTypeDescriptor | None
     classification: FileTypeClassification | None
     byte_size: int
+    content_sha256: str | None = None
     diagnostics: tuple[str, ...] = ()
 
 
@@ -201,6 +209,21 @@ def _probe_text(path: Path) -> tuple[str | None, bool]:
     return (text.splitlines()[0] if text else "", True)
 
 
+def _content_sha256(path: Path, *, byte_size: int) -> str | None:
+    """Hash bounded regular files without following symlinks."""
+
+    if byte_size < 0 or byte_size > MAX_SNAPSHOT_HASH_BYTES or path.is_symlink():
+        return None
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as handle:
+            while chunk := handle.read(64 * 1024):
+                digest.update(chunk)
+    except OSError:
+        return None
+    return digest.hexdigest()
+
+
 def _runtime_availability(registry: FileTypeSupportRegistry) -> dict[str, bool]:
     requirements = {
         requirement
@@ -250,12 +273,43 @@ def _fair_candidate_order(candidates: list[IndexCandidate]) -> list[IndexCandida
     return ordered
 
 
+def _reserve_required_candidates(
+    ordered: list[IndexCandidate],
+    *,
+    max_records: int,
+    required_path_rules: list[RequiredPathRule | dict | str] | None,
+) -> list[IndexCandidate]:
+    """Reserve the minimum required matches before filling the fair-share cap."""
+
+    limit = max(0, int(max_records))
+    if not required_path_rules or limit == 0:
+        return ordered[:limit]
+    rules = [RequiredPathRule.from_value(item) for item in required_path_rules]
+    reserved: list[IndexCandidate] = []
+    reserved_paths: set[str] = set()
+    for rule in sorted(rules, key=lambda item: item.pattern):
+        matches = [
+            candidate
+            for candidate in ordered
+            if fnmatch.fnmatchcase(candidate.relative_path, rule.pattern)
+            and candidate.relative_path not in reserved_paths
+        ]
+        for candidate in matches[: rule.minimum_indexed]:
+            if len(reserved) >= limit:
+                break
+            reserved.append(candidate)
+            reserved_paths.add(candidate.relative_path)
+    remainder = [candidate for candidate in ordered if candidate.relative_path not in reserved_paths]
+    return [*reserved, *remainder[: max(0, limit - len(reserved))]]
+
+
 def _collect_index_plan(
     *,
     max_records: int = MAX_RECORDS,
     priorities: set[str] | None = None,
     enabled_formats: set[str] | None = None,
     disabled_formats: set[str] | None = None,
+    required_path_rules: list[RequiredPathRule | dict | str] | None = None,
     limits: ParserLimits | None = None,
 ) -> IndexScanPlan:
     effective_limits = limits or ParserLimits.from_environment()
@@ -305,6 +359,7 @@ def _collect_index_plan(
                 byte_size=byte_size,
             )
             continue
+        content_sha256 = _content_sha256(path, byte_size=byte_size)
         first_line, is_text = _probe_text(path)
         classification = classifier.classify(normalized, first_line=first_line, is_text=is_text)
         if not is_text:
@@ -315,6 +370,7 @@ def _collect_index_plan(
                 outcome=CoverageOutcome.UNSUPPORTED,
                 diagnostics=("binary_content_blocked",),
                 byte_size=byte_size,
+                content_sha256=content_sha256,
             )
             continue
         if classification is None:
@@ -325,6 +381,7 @@ def _collect_index_plan(
                 outcome=CoverageOutcome.UNSUPPORTED,
                 diagnostics=("unknown_text_type",),
                 byte_size=byte_size,
+                content_sha256=content_sha256,
             )
             continue
         descriptor = classification.descriptor
@@ -339,6 +396,7 @@ def _collect_index_plan(
                 outcome=CoverageOutcome.EXCLUDED,
                 exclusion_reason="file_type_feature_disabled",
                 byte_size=byte_size,
+                content_sha256=content_sha256,
             )
             continue
         if not descriptor.support_for("setup_index").indexed.configured:
@@ -349,6 +407,7 @@ def _collect_index_plan(
                 outcome=CoverageOutcome.UNSUPPORTED,
                 diagnostics=("setup_index_not_configured",),
                 byte_size=byte_size,
+                content_sha256=content_sha256,
             )
             continue
         if byte_size > min(MAX_FILE_BYTES, effective_limits.max_file_bytes):
@@ -360,6 +419,7 @@ def _collect_index_plan(
                 exclusion_reason="file_size_limit",
                 diagnostics=("file_size_limit_exceeded",),
                 byte_size=byte_size,
+                content_sha256=content_sha256,
             )
             continue
         indexable.append(
@@ -369,13 +429,21 @@ def _collect_index_plan(
                 descriptor=descriptor,
                 classification=classification,
                 byte_size=byte_size,
+                content_sha256=content_sha256,
                 diagnostics=("unknown_text_type",) if detected_type == "unknown_text" else (),
             )
         )
 
     ordered = _fair_candidate_order(indexable)
-    selected = ordered[: max(0, int(max_records))]
-    for candidate in ordered[len(selected) :]:
+    selected = _reserve_required_candidates(
+        ordered,
+        max_records=max_records,
+        required_path_rules=required_path_rules,
+    )
+    selected_paths = {candidate.relative_path for candidate in selected}
+    for candidate in ordered:
+        if candidate.relative_path in selected_paths:
+            continue
         coverage.add(
             path=candidate.relative_path,
             descriptor=candidate.descriptor,
@@ -389,6 +457,7 @@ def _collect_index_plan(
             exclusion_reason="max_files_fair_share",
             diagnostics=("selection_limit",),
             byte_size=candidate.byte_size,
+            content_sha256=candidate.content_sha256,
         )
     return IndexScanPlan(
         registry=registry,
@@ -454,6 +523,9 @@ def _build_records_from_plan(plan: IndexScanPlan) -> tuple[list[dict], FileTypeC
                     exclusion_reason="empty_file",
                     byte_size=candidate.byte_size,
                     duration_seconds=time.perf_counter() - started,
+                    content_sha256=candidate.content_sha256,
+                    extractor_id="setup_index.plain_text",
+                    extractor_version="1",
                 )
                 continue
             content, was_redacted = _redact_sensitive_values(content)
@@ -487,6 +559,9 @@ def _build_records_from_plan(plan: IndexScanPlan) -> tuple[list[dict], FileTypeC
                 diagnostics=diagnostics,
                 byte_size=candidate.byte_size,
                 duration_seconds=time.perf_counter() - started,
+                content_sha256=candidate.content_sha256,
+                extractor_id="setup_index.plain_text",
+                extractor_version="1",
             )
         except ParserGuardViolation as exc:
             plan.coverage.add(
@@ -498,6 +573,9 @@ def _build_records_from_plan(plan: IndexScanPlan) -> tuple[list[dict], FileTypeC
                 diagnostics=(exc.diagnostic_code, exc.reason_code),
                 byte_size=candidate.byte_size,
                 duration_seconds=time.perf_counter() - started,
+                content_sha256=candidate.content_sha256,
+                extractor_id="setup_index.plain_text",
+                extractor_version="1",
             )
             continue
         except Exception as exc:
@@ -509,6 +587,9 @@ def _build_records_from_plan(plan: IndexScanPlan) -> tuple[list[dict], FileTypeC
                 diagnostics=(f"file_read_failed:{type(exc).__name__}",),
                 byte_size=candidate.byte_size,
                 duration_seconds=time.perf_counter() - started,
+                content_sha256=candidate.content_sha256,
+                extractor_id="setup_index.plain_text",
+                extractor_version="1",
             )
             continue
     return records, plan.coverage
@@ -541,6 +622,7 @@ def _build_records(files: list[Path]) -> list[dict]:
                 descriptor=descriptor,
                 classification=classification,
                 byte_size=resolved.stat().st_size,
+                content_sha256=_content_sha256(resolved, byte_size=resolved.stat().st_size),
             )
         )
     plan = IndexScanPlan(registry=registry, selected=candidates, coverage=coverage, truncated=False)
@@ -605,9 +687,21 @@ def _build_semantic_translation_records(files: list[Path]) -> tuple[list[dict], 
         "recognized_languages": sorted(analyzed_by_language),
         "parser_strategies": dict(sorted(parser_strategies.items())),
         "record_count": len(records),
-        "node_count": sum(1 for row in records if (row.get("_provenance") or {}).get("output_kind") == "semantic_nodes"),
-        "edge_count": sum(1 for row in records if (row.get("_provenance") or {}).get("output_kind") == "semantic_edges"),
-        "rule_count": sum(1 for row in records if (row.get("_provenance") or {}).get("output_kind") == "equivalence_rules"),
+        "node_count": sum(
+            1
+            for row in records
+            if (row.get("_provenance") or {}).get("output_kind") == "semantic_nodes"
+        ),
+        "edge_count": sum(
+            1
+            for row in records
+            if (row.get("_provenance") or {}).get("output_kind") == "semantic_edges"
+        ),
+        "rule_count": sum(
+            1
+            for row in records
+            if (row.get("_provenance") or {}).get("output_kind") == "equivalence_rules"
+        ),
         "warnings": [str(row.get("code") or row) for row in diagnostics],
         "diagnostics": diagnostics,
     }
@@ -642,7 +736,9 @@ def _post_index(
         "source_scope": "artifact",
         "source_id": source_id,
         "records": records,
-        "async": False,
+        # Index builds are delegated to the persistent Hub task queue.  The
+        # field remains explicit for compatibility with older Hub versions.
+        "async": True,
         "profile_name": "deep_code",
         "source_metadata": {
             "project": "ananta",
@@ -667,6 +763,47 @@ def _post_index(
         raise RuntimeError(f"HTTP {exc.code}: {body[:400]}") from exc
 
 
+def _get_index_job(hub: str, token: str, job_id: str) -> dict:
+    encoded_job_id = urllib.parse.quote(str(job_id), safe="")
+    req = urllib.request.Request(
+        f"{hub.rstrip('/')}/knowledge/index-jobs/{encoded_job_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            return json.loads(response.read())
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"HTTP {exc.code}: {body[:400]}") from exc
+
+
+def _wait_for_index_job(
+    hub: str,
+    token: str,
+    job_id: str,
+    *,
+    timeout_seconds: float,
+) -> dict:
+    deadline = time.monotonic() + max(0.0, float(timeout_seconds))
+    while True:
+        response = _get_index_job(hub, token, job_id)
+        job = dict((response.get("data") or {}).get("job") or {})
+        if str(job.get("status") or "").strip().lower() in {
+            "completed",
+            "failed",
+            "cancelled",
+        }:
+            return job
+        if time.monotonic() >= deadline:
+            return {
+                **job,
+                "job_id": str(job.get("job_id") or job_id),
+                "status": "wait_timeout",
+            }
+        time.sleep(min(1.0, max(0.0, deadline - time.monotonic())))
+
+
 def _csv_environment(name: str) -> list[str]:
     return sorted(
         {
@@ -675,6 +812,29 @@ def _csv_environment(name: str) -> list[str]:
             if item.strip()
         }
     )
+
+
+def _load_snapshot_policy(path: Path = SNAPSHOT_POLICY_PATH) -> dict:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if str(payload.get("schema") or "") != "codecompass.snapshot-policy.v1":
+        raise ValueError("snapshot_policy_schema_invalid")
+    rules = [RequiredPathRule.from_value(item).as_dict() for item in list(payload.get("required_paths") or [])]
+    return {
+        "schema": "codecompass.snapshot-policy.v1",
+        "profile_id": str(payload.get("profile_id") or "default"),
+        "required_paths": rules,
+    }
+
+
+def _git_source_revision() -> str | None:
+    completed = subprocess.run(
+        ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    revision = completed.stdout.strip() if completed.returncode == 0 else ""
+    return revision or None
 
 
 def main() -> int:
@@ -688,6 +848,17 @@ def main() -> int:
         "--coverage-json",
         type=Path,
         help="Write deterministic per-file coverage evidence to this JSON file.",
+    )
+    parser.add_argument(
+        "--snapshot-manifest-json",
+        type=Path,
+        help="Write the immutable content snapshot and required-path gate to JSON.",
+    )
+    parser.add_argument(
+        "--required-path",
+        action="append",
+        default=[],
+        help="Add an exact path or glob that must have at least one indexed match.",
     )
     parser.add_argument(
         "--priorities",
@@ -707,6 +878,12 @@ def main() -> int:
         help="Disable this registry format id (repeatable).",
     )
     parser.add_argument("--max-records", type=int, default=MAX_RECORDS)
+    parser.add_argument(
+        "--wait-seconds",
+        type=float,
+        default=float(os.environ.get("ANANTA_CODECOMPASS_INDEX_WAIT_SECONDS", "0")),
+        help="Wait this many seconds for the delegated index job (0 only queues it).",
+    )
     args = parser.parse_args()
 
     print(f"Scanning {ROOT} for source files…")
@@ -714,13 +891,16 @@ def main() -> int:
     if not priorities or priorities - {"P0", "P1", "P2"}:
         parser.error("--priorities must contain only P0, P1, P2")
     try:
+        snapshot_policy = _load_snapshot_policy()
+        required_rules = [*snapshot_policy["required_paths"], *list(args.required_path or [])]
         plan = _collect_index_plan(
             max_records=max(1, min(int(args.max_records), 100_000)),
             priorities=priorities,
             enabled_formats=set(args.enable_format),
             disabled_formats=set(args.disable_format),
+            required_path_rules=required_rules,
         )
-    except ValueError as exc:
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
         parser.error(str(exc))
     records, coverage_report = _build_records_from_plan(plan)
     files = [candidate.path for candidate in plan.selected]
@@ -729,6 +909,21 @@ def main() -> int:
         records.extend(semantic_records)
     coverage_payload = coverage_report.as_dict()
     manifest_coverage = coverage_report.manifest_coverage(truncated=plan.truncated)
+    try:
+        snapshot_manifest = coverage_report.snapshot_manifest(
+            required_path_rules=required_rules,
+            profile={
+                "profile_id": snapshot_policy["profile_id"],
+                "priorities": sorted(priorities),
+                "enabled_formats": sorted(set(args.enable_format)),
+                "disabled_formats": sorted(set(args.disable_format)),
+                "max_records": max(1, min(int(args.max_records), 100_000)),
+                "max_file_bytes": min(MAX_FILE_BYTES, plan.limits.max_file_bytes),
+            },
+            source_revision=_git_source_revision(),
+        )
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        parser.error(str(exc))
     print(
         f"  {manifest_coverage['manifest_candidate_count']} candidates, "
         f"{manifest_coverage['indexed']} indexed files → {len(records)} records"
@@ -741,6 +936,20 @@ def main() -> int:
             encoding="utf-8",
         )
         print(f"  Coverage: {args.coverage_json}")
+
+    if args.snapshot_manifest_json:
+        args.snapshot_manifest_json.parent.mkdir(parents=True, exist_ok=True)
+        args.snapshot_manifest_json.write_text(
+            json.dumps(snapshot_manifest, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        print(f"  Snapshot manifest: {args.snapshot_manifest_json}")
+
+    required_gate = dict(snapshot_manifest.get("required_paths") or {})
+    if not bool(required_gate.get("passed")):
+        failed = ", ".join(str(item) for item in list(required_gate.get("failed_patterns") or []))
+        print(f"  ERROR: required-path gate failed: {failed}", file=sys.stderr)
+        return 2
 
     if semantic_summary.get("enabled"):
         langs = ", ".join(semantic_summary.get("recognized_languages") or ["none"])
@@ -788,6 +997,8 @@ def main() -> int:
             "file_type_priorities": sorted(priorities),
             "file_type_coverage": manifest_coverage,
             "file_type_metrics_snapshot": coverage_report.metrics_snapshot(),
+            "codecompass_snapshot_revision": snapshot_manifest["snapshot_revision"],
+            "codecompass_snapshot_manifest": snapshot_manifest,
             "semantic_parser_strategies": semantic_summary.get("parser_strategies") or {},
         },
     )
@@ -801,9 +1012,34 @@ def main() -> int:
         print(f"  Records indexed    : {(run.get('run_metadata') or {}).get('record_count', '?')}")
         print("\nDone. The snake chat will now have real Ananta project context.")
         return 0
-    else:
-        print(f"  ERROR: {result}", file=sys.stderr)
+    if status == "accepted":
+        job = dict((result.get("data") or {}).get("job") or {})
+        job_id = str(job.get("job_id") or "").strip()
+        if not job_id:
+            print(f"  ERROR: accepted response omitted job_id: {result}", file=sys.stderr)
+            return 1
+        print(f"  Job ID             : {job_id}")
+        print(f"  Job status         : {job.get('status', 'queued')}")
+        if args.wait_seconds <= 0:
+            print("\nQueued. Query /knowledge/index-jobs/<job-id> for persistent status.")
+            return 0
+        terminal_job = _wait_for_index_job(
+            args.hub,
+            token,
+            job_id,
+            timeout_seconds=args.wait_seconds,
+        )
+        terminal_status = str(terminal_job.get("status") or "unknown")
+        print(f"  Final job status   : {terminal_status}")
+        if terminal_status == "completed":
+            run = dict(terminal_job.get("run") or {})
+            print(f"  Run ID             : {run.get('id', '?')}")
+            print("\nDone. The delegated CodeCompass index job completed.")
+            return 0
+        print(f"  ERROR: {terminal_job}", file=sys.stderr)
         return 1
+    print(f"  ERROR: {result}", file=sys.stderr)
+    return 1
 
 
 if __name__ == "__main__":

@@ -10,8 +10,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from rag_helper.extractors.diagram_extractor import DiagramExtractor
 from rag_helper.extractors.structured_support import (
     StructuredRecordFactory,
+    normalize_extraction_records,
     stats_for,
 )
 from rag_helper.utils.ids import safe_id
@@ -26,6 +28,7 @@ _RST_LINK = re.compile(r"`([^`<]+?)\s*<([^>]+)>`_")
 _LIST_ITEM = re.compile(r"^(\s*)(?:[-+*]|\d+[.)])\s+(.+)$")
 _MDX_IMPORT = re.compile(r"^\s*(?:import|export)\s+.+?\s+from\s+['\"]([^'\"]+)['\"]")
 _JSX_TAG = re.compile(r"<([A-Z][\w.]*)\b")
+_TABLE_DELIMITER_CELL = re.compile(r"^:?-{3,}:?$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,12 +47,17 @@ class DocumentationExtractor:
         embedding_text_mode: str = "verbose",
         max_code_block_chars: int = 16_000,
         max_records: int = 5_000,
+        diagram_extractor: DiagramExtractor | None = None,
     ) -> None:
         if max_code_block_chars <= 0 or max_records <= 0:
             raise ValueError("documentation_limits_must_be_positive")
         self.embedding_text_mode = embedding_text_mode
         self.max_code_block_chars = max_code_block_chars
         self.max_records = max_records
+        self.diagram_extractor = diagram_extractor or DiagramExtractor(
+            embedding_text_mode=embedding_text_mode,
+            max_records=max_records,
+        )
 
     def parse(self, rel_path: str, text: str):
         ext = rel_path.rsplit(".", 1)[-1].lower()
@@ -72,6 +80,8 @@ class DocumentationExtractor:
         code_blocks = 0
         link_count = 0
         list_count = 0
+        table_count = 0
+        embedded_diagram_count = 0
 
         cursor = 0
         if lines and lines[0].strip() == "---":
@@ -157,7 +167,7 @@ class DocumentationExtractor:
                     content = "\n".join(fence_lines)
                     truncated = len(content) > self.max_code_block_chars
                     details.append(
-                        {
+                        code_block := {
                             "kind": f"{format_name}_code_block",
                             "file": rel_path,
                             "id": block_id,
@@ -190,6 +200,21 @@ class DocumentationExtractor:
                         )
                         diagnostics.append(diagnostic)
                         details.append(diagnostic)
+                    if self._is_mermaid_language(fence_language):
+                        embedded_diagram_count += 1
+                        self._append_embedded_mermaid(
+                            factory=factory,
+                            format_name=format_name,
+                            rel_path=rel_path,
+                            content=content,
+                            fence_start=fence_start,
+                            ordinal=embedded_diagram_count,
+                            code_block=code_block,
+                            truncated=truncated,
+                            details=details,
+                            relations=relations,
+                            diagnostics=diagnostics,
+                        )
                     in_fence = False
                     fence_lines = []
                     i += 1
@@ -208,7 +233,47 @@ class DocumentationExtractor:
                 continue
 
             heading_match = _ATX_HEADING.match(raw)
-            if heading_match:
+            table = self._markdown_table_at(lines, i)
+            if table is not None:
+                headers, alignments, last_index = table
+                table_count += 1
+                parent_id = stack[-1].symbol_id if stack else factory.file_id
+                table_record = factory.symbol(
+                    kind=f"{format_name}_table",
+                    name=" | ".join(headers)[:240] or f"table_{table_count}",
+                    line=line_no,
+                    end_line=last_index + 1,
+                    parent_id=parent_id,
+                    ordinal=table_count,
+                    columns=headers,
+                    alignments=alignments,
+                    row_count=max(0, last_index - i - 1),
+                )
+                details.append(table_record)
+                relations.append(
+                    factory.relation(
+                        source_id=parent_id,
+                        source_kind=f"{format_name}_section" if stack else f"{format_name}_file",
+                        source_name=stack[-1].heading if stack else rel_path,
+                        relation="contains_table",
+                        target=f"table_{table_count}",
+                        target_resolved=table_record["id"],
+                        line=line_no,
+                    )
+                )
+                for table_line_index in range(i, last_index + 1):
+                    link_count += self._append_markdown_links(
+                        factory,
+                        format_name,
+                        lines[table_line_index],
+                        table_line_index + 1,
+                        stack,
+                        details,
+                        relations,
+                        reference_targets,
+                    )
+                i = last_index
+            elif heading_match:
                 level = len(heading_match.group(1))
                 heading = self._plain_heading(heading_match.group(2))
                 self._append_section(factory, format_name, sections, stack, details, relations, heading, level, line_no)
@@ -322,12 +387,20 @@ class DocumentationExtractor:
                     "code_block_count": code_blocks,
                     "link_count": link_count,
                     "list_item_count": list_count,
+                    "table_count": table_count,
+                    "embedded_diagram_count": embedded_diagram_count,
                     "frontmatter_key_count": len(frontmatter_keys),
                     "diagnostic_count": len(diagnostics),
                 },
                 labels=[section.heading for section in sections],
             )
         ]
+        normalize_extraction_records(
+            (index, details, relations),
+            rel_path=rel_path,
+            source_text=text,
+            extractor=type(self).__name__,
+        )
         return (
             index,
             details,
@@ -343,6 +416,8 @@ class DocumentationExtractor:
                 code_block_count=code_blocks,
                 link_count=link_count,
                 list_item_count=list_count,
+                table_count=table_count,
+                embedded_diagram_count=embedded_diagram_count,
                 frontmatter_key_count=len(frontmatter_keys),
             ),
         )
@@ -566,6 +641,12 @@ class DocumentationExtractor:
                 labels=[section.heading for section in sections],
             )
         ]
+        normalize_extraction_records(
+            (index, details, relations),
+            rel_path=rel_path,
+            source_text=text,
+            extractor=type(self).__name__,
+        )
         return (
             index,
             details,
@@ -594,3 +675,120 @@ class DocumentationExtractor:
         value = re.sub(r"[`*_~]", "", value)
         value = re.sub(r"<[^>]+>", "", value)
         return " ".join(value.split())
+
+    @staticmethod
+    def _split_table_row(raw: str) -> list[str]:
+        stripped = raw.strip()
+        if stripped.startswith("|"):
+            stripped = stripped[1:]
+        if stripped.endswith("|") and not stripped.endswith("\\|"):
+            stripped = stripped[:-1]
+        return [
+            cell.replace("\\|", "|").strip()
+            for cell in re.split(r"(?<!\\)\|", stripped)
+        ]
+
+    @classmethod
+    def _markdown_table_at(
+        cls, lines: list[str], index: int
+    ) -> tuple[list[str], list[str], int] | None:
+        if index + 1 >= len(lines) or "|" not in lines[index]:
+            return None
+        headers = cls._split_table_row(lines[index])
+        delimiters = cls._split_table_row(lines[index + 1])
+        if not headers or len(headers) != len(delimiters):
+            return None
+        if not all(_TABLE_DELIMITER_CELL.fullmatch(cell) for cell in delimiters):
+            return None
+        alignments = [
+            "center" if cell.startswith(":") and cell.endswith(":")
+            else "right" if cell.endswith(":")
+            else "left" if cell.startswith(":")
+            else "default"
+            for cell in delimiters
+        ]
+        last_index = index + 1
+        while last_index + 1 < len(lines):
+            candidate = lines[last_index + 1]
+            if not candidate.strip() or "|" not in candidate:
+                break
+            if len(cls._split_table_row(candidate)) != len(headers):
+                break
+            last_index += 1
+        return headers, alignments, last_index
+
+    @staticmethod
+    def _is_mermaid_language(language: str) -> bool:
+        normalized = str(language or "").strip().lower().strip("{}")
+        normalized = normalized.lstrip(".")
+        return normalized in {"mermaid", "mmd"}
+
+    def _append_embedded_mermaid(
+        self,
+        *,
+        factory: StructuredRecordFactory,
+        format_name: str,
+        rel_path: str,
+        content: str,
+        fence_start: int,
+        ordinal: int,
+        code_block: dict,
+        truncated: bool,
+        details: list[dict],
+        relations: list[dict],
+        diagnostics: list[dict],
+    ) -> None:
+        if truncated:
+            diagnostic = factory.diagnostic(
+                "embedded_mermaid_block_truncated",
+                "Embedded Mermaid was not parsed because the retained code block is truncated.",
+                line=fence_start,
+                fallback="inert_code_block_only",
+            )
+            diagnostics.append(diagnostic)
+            details.append(diagnostic)
+            return
+
+        virtual_path = f"{rel_path}#embedded-mermaid-{ordinal}.mmd"
+        diagram_index, diagram_details, diagram_relations, diagram_stats = self.diagram_extractor.parse(
+            virtual_path,
+            content,
+        )
+        all_diagram_records = diagram_index + diagram_details + diagram_relations
+        for record in all_diagram_records:
+            record["file"] = rel_path
+            record["document_id"] = factory.file_id
+            record["embedded"] = True
+            if "line" in record:
+                record["line"] = int(record["line"]) + fence_start
+            if "end_line" in record:
+                record["end_line"] = int(record["end_line"]) + fence_start
+            for normalized_field in (
+                "content_hash",
+                "evidence",
+                "line_end",
+                "line_start",
+                "record_id",
+                "record_kind",
+            ):
+                record.pop(normalized_field, None)
+
+        embedded_file = diagram_index[0]
+        embedded_file["parent_id"] = code_block["id"]
+        embedded_file["line"] = fence_start + 1
+        embedded_file["end_line"] = max(fence_start + 1, fence_start + len(content.splitlines()))
+        embedded_file["embedded_diagnostic_count"] = diagram_stats.get("diagnostic_count", 0)
+        details.append(embedded_file)
+        details.extend(diagram_details)
+        relations.append(
+            factory.relation(
+                source_id=code_block["id"],
+                source_kind=f"{format_name}_code_block",
+                source_name=f"embedded_mermaid_{ordinal}",
+                relation="contains_embedded_diagram",
+                target=f"embedded_mermaid_{ordinal}",
+                target_resolved=embedded_file["id"],
+                line=fence_start,
+            )
+        )
+        relations.extend(diagram_relations)

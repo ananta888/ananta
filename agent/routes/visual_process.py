@@ -28,6 +28,7 @@ DELETE /api/visual-process/graphs/<id>          — delete graph
 
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 from dataclasses import replace
@@ -39,10 +40,17 @@ from agent.auth import check_strict_auth, check_user_auth, get_request_auth_cont
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.common.redaction import VisibilityLevel, redact
+from agent.config import settings
 from agent.database import engine
 from agent.db_models.visual_process import VisualProcessGraphDB
 from agent.services.chat_process_binding import authorize_graph, bind_graph_owner, public_graph
 from agent.services.chat_session_security import ChatSessionPrincipal
+from agent.services.visual_process_definition_service import (
+    VisualProcessDefinitionConflict,
+    VisualProcessDefinitionSecurityError,
+    visual_process_definition_service,
+)
+from agent.services.visual_process_location_service import visual_process_location_service
 from agent.services.workflow_backend import WorkflowRequest, WorkflowSignal
 from agent.services.workflow_route_authorization_service import workflow_route_authorization_service
 from agent.services.workflow_runtime._serialization import redact_json
@@ -56,6 +64,11 @@ from agent.visual_process.bpmn_adapter import export_bpmn_xml, import_bpmn_xml
 from agent.visual_process.context_assembly import StepContextAssembler
 from agent.visual_process.mermaid_export import to_mermaid, to_tui_text
 from agent.visual_process.models import VisualProcessGraph
+from agent.visual_process.node_definitions import (
+    NODE_REGISTRY_VERSION,
+    get_node_definition,
+    list_node_definitions,
+)
 from agent.visual_process.policy_hints import annotate_graph, policy_summary
 from agent.visual_process.presets import get_preset, list_presets
 from agent.visual_process.skill_profiles import get_skill_profile_registry
@@ -102,14 +115,6 @@ def _owned_graph_model(
     return VisualProcessGraph.model_validate(bind_graph_owner(graph.model_dump(), principal))
 
 
-def _next_process_version(version: str) -> str:
-    parts = str(version or "1.0").split(".")
-    try:
-        return f"{int(parts[0])}.{int(parts[1] if len(parts) > 1 else 0) + 1}"
-    except ValueError:
-        return f"{version}.1"
-
-
 def _archive_graph_revision(db: Session, row: VisualProcessGraphDB) -> None:
     try:
         data = json.loads(row.graph_json)
@@ -125,6 +130,10 @@ def _archive_graph_revision(db: Session, row: VisualProcessGraphDB) -> None:
                 description=row.description,
                 tags=row.tags,
                 graph_json=row.graph_json,
+                definition_revision=row.definition_revision,
+                base_graph_hash=row.base_graph_hash,
+                graph_schema_version=row.graph_schema_version,
+                node_registry_version=row.node_registry_version,
                 created_at=row.created_at,
                 updated_at=row.updated_at,
             )
@@ -138,6 +147,56 @@ def _parse_graph() -> tuple[VisualProcessGraph | None, dict | None]:
         return VisualProcessGraph.model_validate(graph_data), None
     except Exception as exc:
         return None, {"error": "invalid_graph", "detail": str(exc)}
+
+
+def _definition_preconditions(graph: VisualProcessGraph) -> tuple[int | None, str | None]:
+    body = request.get_json(silent=True) or {}
+    expected_raw = body.get("expected_revision")
+    if expected_raw is None and isinstance(body.get("graph"), dict):
+        expected_raw = body["graph"].get("definition_revision")
+    if expected_raw is None and graph.definition_revision > 0:
+        expected_raw = graph.definition_revision
+    expected_revision: int | None
+    try:
+        expected_revision = int(expected_raw) if expected_raw is not None else None
+    except (TypeError, ValueError):
+        expected_revision = None
+
+    expected_hash = str(body.get("base_graph_hash") or graph.base_graph_hash or "").strip() or None
+    if isinstance(body.get("graph"), dict):
+        expected_hash = str(body["graph"].get("base_graph_hash") or expected_hash or "").strip() or None
+    if_match = str(request.headers.get("If-Match") or "").strip()
+    if if_match:
+        if if_match.startswith("W/"):
+            if_match = if_match[2:]
+        expected_hash = if_match.strip('"') or expected_hash
+    return expected_revision, expected_hash
+
+
+def _definition_error(exc: Exception):
+    if isinstance(exc, VisualProcessDefinitionConflict):
+        return jsonify(exc.as_dict()), 409
+    if isinstance(exc, VisualProcessDefinitionSecurityError):
+        status = 428 if exc.reason_code == "definition_precondition_required" else 422
+        return jsonify(
+            {"error": exc.reason_code, "error_code": exc.reason_code, "path": exc.path}
+        ), status
+    raise exc
+
+
+def _definition_save_response(write, *, saved: bool = True):
+    return jsonify(
+        {
+            "id": write.graph.id,
+            "version": write.graph.version,
+            "graph_schema_version": write.graph.graph_schema_version,
+            "node_registry_version": write.graph.node_registry_version,
+            "definition_revision": write.definition_revision,
+            "base_graph_hash": write.base_graph_hash,
+            "saved": saved,
+            "changed": write.changed,
+        }
+    ), 200
 
 
 def _workflow_options(body: dict) -> dict:
@@ -289,6 +348,64 @@ def task_kinds():
     return jsonify(list_task_kinds()), 200
 
 
+def _node_definition_registry_response():
+    if not settings.visual_process_registry_inspector_enabled:
+        return jsonify(
+            {
+                "error": "visual_process_registry_inspector_disabled",
+                "error_code": "visual_process_registry_inspector_disabled",
+            }
+        ), 404
+    definitions = list_node_definitions()
+    canonical = json.dumps(
+        {"registry_version": NODE_REGISTRY_VERSION, "definitions": definitions},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    registry_hash = hashlib.sha256(canonical).hexdigest()
+    etag = f'"{registry_hash}"'
+    if str(request.headers.get("If-None-Match") or "").strip() == etag:
+        response = Response(status=304)
+    else:
+        response = jsonify(
+            {
+                "schema": "ananta.visual_process.node_definition_registry.v1",
+                "registry_version": NODE_REGISTRY_VERSION,
+                "registry_hash": registry_hash,
+                "definitions": definitions,
+            }
+        )
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "private, max-age=300, must-revalidate"
+    return response
+
+
+@vp_bp.get("/node-definitions")
+@vp_bp.get("/v1/node-definitions")
+@check_user_auth
+def node_definitions():
+    return _node_definition_registry_response()
+
+
+@vp_bp.get("/node-definitions/<kind>")
+@vp_bp.get("/v1/node-definitions/<kind>")
+@check_user_auth
+def node_definition(kind: str):
+    if not settings.visual_process_registry_inspector_enabled:
+        return jsonify(
+            {
+                "error": "visual_process_registry_inspector_disabled",
+                "error_code": "visual_process_registry_inspector_disabled",
+            }
+        ), 404
+    definition = get_node_definition(kind)
+    if definition is None:
+        return jsonify({"error": "node_kind_not_found", "error_code": "node_kind_not_found"}), 404
+    return jsonify(definition), 200
+
+
 # ── Validate (VPAD-002 + VPDF-002) ───────────────────────────────────────────
 
 
@@ -373,16 +490,7 @@ def save_graph():
     if err:
         return jsonify(err), 400
     graph = _owned_graph_model(graph, principal)
-    now = time.time()
-    row = VisualProcessGraphDB(
-        id=graph.id,
-        name=graph.name,
-        description=graph.description,
-        tags=",".join(graph.tags),
-        graph_json=json.dumps(graph.model_dump()),
-        created_at=now,
-        updated_at=now,
-    )
+    expected_revision, expected_hash = _definition_preconditions(graph)
     with Session(engine) as session:
         existing = session.get(VisualProcessGraphDB, graph.id)
         if existing:
@@ -396,21 +504,26 @@ def save_graph():
             if migrated:
                 existing.graph_json = json.dumps(previous)
             _archive_graph_revision(session, existing)
-            if previous != graph.model_dump():
-                graph = graph.model_copy(
-                    update={"version": _next_process_version(str(previous.get("version") or graph.version))}
+            try:
+                write = visual_process_definition_service.replace(
+                    session,
+                    existing,
+                    graph,
+                    expected_revision=expected_revision,
+                    expected_hash=expected_hash,
+                    require_precondition=False,
                 )
-                row.graph_json = json.dumps(graph.model_dump())
-            existing.name = row.name
-            existing.description = row.description
-            existing.tags = row.tags
-            existing.graph_json = row.graph_json
-            existing.updated_at = now
-            session.add(existing)
+            except (VisualProcessDefinitionConflict, VisualProcessDefinitionSecurityError) as exc:
+                session.rollback()
+                return _definition_error(exc)
         else:
-            session.add(row)
+            try:
+                write = visual_process_definition_service.create(session, graph)
+            except VisualProcessDefinitionSecurityError as exc:
+                session.rollback()
+                return _definition_error(exc)
         session.commit()
-    return jsonify({"id": graph.id, "version": graph.version, "saved": True}), 200
+    return _definition_save_response(write)
 
 
 @vp_bp.get("/graphs")
@@ -451,6 +564,10 @@ def list_graphs():
                 "updated_at": row.updated_at,
                 "created_at": row.created_at,
                 "version": str(graph_data.get("version") or "1.0"),
+                "graph_schema_version": row.graph_schema_version,
+                "node_registry_version": row.node_registry_version,
+                "definition_revision": row.definition_revision,
+                "base_graph_hash": row.base_graph_hash,
                 "origin": "revision" if "@" in row.id else "custom",
             }
             for row, graph_data in rows_sorted
@@ -479,7 +596,20 @@ def load_graph(graph_id: str):
             row.graph_json = json.dumps(data)
             session.add(row)
             session.commit()
-    return jsonify(public_graph(data)), 200
+        graph = VisualProcessGraph.model_validate(data).model_copy(
+            update={
+                "definition_revision": int(row.definition_revision or 1),
+                "base_graph_hash": str(row.base_graph_hash or ""),
+                "graph_schema_version": str(row.graph_schema_version or "1"),
+                "node_registry_version": str(row.node_registry_version or "1"),
+            }
+        )
+        if not graph.base_graph_hash:
+            graph = graph.model_copy(update={"base_graph_hash": graph.definition_hash()})
+        payload = graph.model_dump(exclude={"runtime_overlay"})
+        if graph.runtime_overlay:
+            payload["runtime_overlay"] = graph.runtime_overlay
+    return jsonify(public_graph(payload)), 200
 
 
 @vp_bp.put("/graphs/<graph_id>")
@@ -494,6 +624,7 @@ def update_graph(graph_id: str):
     if graph.id != graph_id:
         return jsonify({"error": "graph_id_mismatch", "error_code": "graph_id_mismatch"}), 400
     graph = _owned_graph_model(graph, principal)
+    expected_revision, expected_hash = _definition_preconditions(graph)
     with Session(engine) as session:
         row = session.get(VisualProcessGraphDB, graph_id)
         if not row:
@@ -508,18 +639,87 @@ def update_graph(graph_id: str):
         if migrated:
             row.graph_json = json.dumps(previous)
         _archive_graph_revision(session, row)
-        if previous != graph.model_dump():
-            graph = graph.model_copy(
-                update={"version": _next_process_version(str(previous.get("version") or graph.version))}
+        try:
+            write = visual_process_definition_service.replace(
+                session,
+                row,
+                graph,
+                expected_revision=expected_revision,
+                expected_hash=expected_hash,
+                require_precondition=False,
             )
-        row.name = graph.name
-        row.description = graph.description
-        row.tags = ",".join(graph.tags)
-        row.graph_json = json.dumps(graph.model_dump())
-        row.updated_at = time.time()
-        session.add(row)
+        except (VisualProcessDefinitionConflict, VisualProcessDefinitionSecurityError) as exc:
+            session.rollback()
+            return _definition_error(exc)
         session.commit()
-    return jsonify({"id": graph_id, "version": graph.version, "saved": True}), 200
+    return _definition_save_response(write)
+
+
+@vp_bp.post("/v2/graphs")
+@check_user_auth
+def save_graph_v2():
+    """Create or replace a definition; replacements require revision and ETag."""
+
+    return _save_graph_v2_impl(None)
+
+
+@vp_bp.put("/v2/graphs/<graph_id>")
+@check_user_auth
+def update_graph_v2(graph_id: str):
+    return _save_graph_v2_impl(graph_id)
+
+
+def _save_graph_v2_impl(graph_id: str | None):
+    principal = _graph_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    graph, err = _parse_graph()
+    if err:
+        return jsonify(err), 400
+    assert graph is not None
+    if graph_id is not None and graph.id != graph_id:
+        return jsonify({"error": "graph_id_mismatch", "error_code": "graph_id_mismatch"}), 400
+    graph = _owned_graph_model(graph, principal)
+    expected_revision, expected_hash = _definition_preconditions(graph)
+    with Session(engine) as session:
+        row = session.get(VisualProcessGraphDB, graph.id)
+        if row is None:
+            if graph_id is not None:
+                return jsonify({"error": "not_found", "error_code": "not_found"}), 404
+            try:
+                write = visual_process_definition_service.create(session, graph)
+            except VisualProcessDefinitionSecurityError as exc:
+                session.rollback()
+                return _definition_error(exc)
+        else:
+            try:
+                previous = json.loads(row.graph_json)
+            except (TypeError, ValueError):
+                return jsonify({"error": "corrupt_graph_json", "error_code": "corrupt_graph_json"}), 500
+            authorized, migrated = authorize_graph(previous, principal)
+            if not authorized:
+                status = 409 if graph_id is None else 404
+                code = "resource_id_unavailable" if graph_id is None else "not_found"
+                return jsonify({"error": code, "error_code": code}), status
+            if migrated:
+                row.graph_json = json.dumps(previous)
+            _archive_graph_revision(session, row)
+            try:
+                write = visual_process_definition_service.replace(
+                    session,
+                    row,
+                    graph,
+                    expected_revision=expected_revision,
+                    expected_hash=expected_hash,
+                    require_precondition=True,
+                )
+            except (VisualProcessDefinitionConflict, VisualProcessDefinitionSecurityError) as exc:
+                session.rollback()
+                return _definition_error(exc)
+        session.commit()
+    response, status = _definition_save_response(write)
+    response.headers["ETag"] = f'"{write.base_graph_hash}"'
+    return response, status
 
 
 @vp_bp.delete("/graphs/<graph_id>")
@@ -541,6 +741,65 @@ def delete_graph(graph_id: str):
         session.delete(row)
         session.commit()
     return "", 204
+
+
+@vp_bp.post("/v1/location")
+@check_user_auth
+def workflow_location():
+    """Return deterministic topology facts for one persisted definition/draft."""
+
+    principal = _graph_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    body = request.get_json(silent=True) or {}
+    graph_id = str(body.get("graph_id") or "")
+    with Session(engine) as session:
+        row = session.get(VisualProcessGraphDB, graph_id)
+        if row is None:
+            return jsonify({"error": "not_found", "error_code": "not_found"}), 404
+        try:
+            stored = json.loads(row.graph_json)
+        except (TypeError, ValueError):
+            return jsonify({"error": "corrupt_graph_json", "error_code": "corrupt_graph_json"}), 500
+        if not authorize_graph(stored, principal)[0]:
+            return jsonify({"error": "not_found", "error_code": "not_found"}), 404
+        authoritative = VisualProcessGraph.model_validate(stored).model_copy(
+            update={
+                "definition_revision": int(row.definition_revision or 1),
+                "base_graph_hash": str(row.base_graph_hash or ""),
+                "graph_schema_version": str(row.graph_schema_version or "1"),
+                "node_registry_version": str(row.node_registry_version or "1"),
+            }
+        )
+    try:
+        draft = (
+            VisualProcessGraph.model_validate(body["draft_graph"])
+            if isinstance(body.get("draft_graph"), dict)
+            else authoritative
+        )
+        if draft.id != authoritative.id:
+            return jsonify({"error": "draft_graph_mismatch", "error_code": "draft_graph_mismatch"}), 409
+        if draft.definition_revision != authoritative.definition_revision:
+            return jsonify(
+                {
+                    "error": "definition_revision_conflict",
+                    "error_code": "definition_revision_conflict",
+                    "expected_revision": authoritative.definition_revision,
+                    "actual_revision": draft.definition_revision,
+                }
+            ), 409
+        result = visual_process_location_service.analyze(
+            graph=draft,
+            location=body.get("location") or {},
+            draft_hash=(
+                draft.definition_hash()
+                if isinstance(body.get("draft_graph"), dict)
+                else authoritative.base_graph_hash or authoritative.definition_hash()
+            ),
+        )
+    except Exception as exc:
+        return jsonify({"error": "invalid_location_request", "detail": str(exc)[:1000]}), 422
+    return jsonify(result.as_dict()), 200
 
 
 # ── Save as Blueprint (VPBLUEPR-001) ─────────────────────────────────────────

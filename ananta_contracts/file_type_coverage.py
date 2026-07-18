@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import fnmatch
+import hashlib
+import json
 import math
 from collections import Counter
 from dataclasses import dataclass
@@ -34,6 +37,9 @@ class FileCoverageRecord:
     symbol_count: int = 0
     edge_count: int = 0
     fallback_reason: str | None = None
+    content_sha256: str | None = None
+    extractor_id: str | None = None
+    extractor_version: str | None = None
 
     def __post_init__(self) -> None:
         normalized = str(self.path or "").replace("\\", "/").strip()
@@ -46,6 +52,11 @@ class FileCoverageRecord:
             raise ValueError("coverage_duration_must_be_finite_and_non_negative")
         if self.symbol_count < 0 or self.edge_count < 0:
             raise ValueError("coverage_record_counts_must_be_non_negative")
+        if self.content_sha256 is not None and (
+            len(self.content_sha256) != 64
+            or any(char not in "0123456789abcdef" for char in self.content_sha256)
+        ):
+            raise ValueError("coverage_content_sha256_invalid")
         if self.indexed != (self.outcome is CoverageOutcome.INDEXED):
             raise ValueError("coverage_indexed_outcome_mismatch")
         if self.outcome is CoverageOutcome.EXCLUDED and not self.exclusion_reason:
@@ -68,6 +79,9 @@ class FileCoverageRecord:
             "symbol_count": self.symbol_count,
             "edge_count": self.edge_count,
             "fallback_reason": self.fallback_reason,
+            "content_sha256": self.content_sha256,
+            "extractor_id": self.extractor_id,
+            "extractor_version": self.extractor_version,
         }
 
 
@@ -109,6 +123,9 @@ class FileTypeCoverageReport:
         symbol_count: int = 0,
         edge_count: int = 0,
         fallback_reason: str | None = None,
+        content_sha256: str | None = None,
+        extractor_id: str | None = None,
+        extractor_version: str | None = None,
     ) -> FileCoverageRecord:
         normalized_outcome = CoverageOutcome(str(getattr(outcome, "value", outcome)))
         format_id = str(detected_type or (descriptor.format_id if descriptor else "unknown_text"))
@@ -129,6 +146,9 @@ class FileTypeCoverageReport:
             symbol_count=int(symbol_count),
             edge_count=int(edge_count),
             fallback_reason=(str(fallback_reason).strip() or None) if fallback_reason else None,
+            content_sha256=(str(content_sha256).strip().lower() or None) if content_sha256 else None,
+            extractor_id=(str(extractor_id).strip() or None) if extractor_id else None,
+            extractor_version=(str(extractor_version).strip() or None) if extractor_version else None,
         )
         if record.path in self._records:
             raise ValueError(f"duplicate_file_coverage_record:{record.path}")
@@ -232,6 +252,85 @@ class FileTypeCoverageReport:
             )
         return snapshot
 
+    def snapshot_manifest(
+        self,
+        *,
+        required_path_rules: Iterable["RequiredPathRule | Mapping[str, Any] | str"] = (),
+        profile: Mapping[str, Any] | None = None,
+        source_revision: str | None = None,
+    ) -> dict[str, Any]:
+        """Build the immutable content projection for one repository snapshot.
+
+        Operational fields such as duration, timestamps, absolute output paths and
+        mtimes are deliberately excluded.  As a result, equal repository bytes and
+        classification policy produce the same ``snapshot_revision`` in every
+        container, while a content, registry, extractor or profile change invalidates
+        the revision.
+        """
+
+        normalized_profile = _canonical_mapping(profile or {})
+        profile_digest = _stable_digest(normalized_profile)
+        files = [
+            {
+                "path": record.path,
+                "content_sha256": record.content_sha256,
+                "content_state": "hashed" if record.content_sha256 else "not_read_by_policy",
+                "byte_size": record.byte_size,
+                "detected_type": record.detected_type,
+                "support_level": record.support_level,
+                "parser_strategy": record.parser_strategy,
+                "extractor_id": record.extractor_id,
+                "extractor_version": record.extractor_version,
+                "outcome": record.outcome.value,
+                "exclusion_reason": record.exclusion_reason,
+                "diagnostics": list(record.diagnostics),
+                "fallback_reason": record.fallback_reason,
+            }
+            for record in self.records
+        ]
+        normalized_rules = tuple(RequiredPathRule.from_value(value) for value in required_path_rules)
+        required_gate = evaluate_required_paths(files=files, rules=normalized_rules)
+        outcome_counts = Counter(record.outcome.value for record in self.records)
+        cap_truncated = sum(
+            record.exclusion_reason == "max_files_fair_share" for record in self.records
+        )
+        oversized = sum(
+            record.exclusion_reason == "file_size_limit" for record in self.records
+        )
+        budget_exceeded = sum(
+            record.exclusion_reason not in {None, "file_size_limit", "max_files_fair_share"}
+            and (
+                "limit" in str(record.exclusion_reason)
+                or any("limit" in code for code in record.diagnostics)
+            )
+            for record in self.records
+        )
+        budget_visibility = {
+            "inventory_count": len(files),
+            "accounted_count": sum(outcome_counts.values()),
+            "cap_truncated": cap_truncated,
+            "oversized": oversized,
+            "budget_exceeded": budget_exceeded,
+            "by_outcome": dict(sorted(outcome_counts.items())),
+        }
+        projection = {
+            "registry_version": self.registry.registry_version,
+            "registry_digest": self.registry.digest,
+            "pipeline": self.pipeline,
+            "profile": normalized_profile,
+            "profile_digest": profile_digest,
+            "files": files,
+            "required_paths": required_gate,
+            "budget_visibility": budget_visibility,
+            "silently_skipped": None,
+        }
+        return {
+            "schema": "codecompass.snapshot_manifest.v1",
+            "snapshot_revision": _stable_digest(projection),
+            "source_revision": str(source_revision or "").strip() or None,
+            **projection,
+        }
+
     def _support_level(self, format_id: str, descriptor: FileTypeDescriptor | None) -> str:
         row = self._matrix_by_type.get(format_id)
         if not row:
@@ -261,6 +360,131 @@ class FileTypeCoverageReport:
         if descriptor is not None and descriptor.enabled:
             return "discovery"
         return "unsupported"
+
+
+@dataclass(frozen=True, slots=True)
+class RequiredPathRule:
+    """A deterministic exact/glob requirement for a snapshot inventory."""
+
+    pattern: str
+    minimum_indexed: int = 1
+    maximum_indexed: int | None = None
+
+    def __post_init__(self) -> None:
+        normalized = str(self.pattern or "").replace("\\", "/").lstrip("/").strip()
+        if not normalized or ".." in PurePosixPath(normalized).parts:
+            raise ValueError("required_path_pattern_invalid")
+        if self.minimum_indexed < 0:
+            raise ValueError("required_path_minimum_invalid")
+        if self.maximum_indexed is not None and self.maximum_indexed < self.minimum_indexed:
+            raise ValueError("required_path_maximum_invalid")
+        object.__setattr__(self, "pattern", normalized)
+
+    @classmethod
+    def from_value(cls, value: "RequiredPathRule | Mapping[str, Any] | str") -> "RequiredPathRule":
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            return cls(pattern=value)
+        if isinstance(value, Mapping):
+            return cls(
+                pattern=str(value.get("pattern") or value.get("path") or value.get("glob") or ""),
+                minimum_indexed=int(value.get("minimum_indexed", value.get("min_matches", 1))),
+                maximum_indexed=(
+                    int(value["maximum_indexed"])
+                    if value.get("maximum_indexed") is not None
+                    else int(value["max_matches"])
+                    if value.get("max_matches") is not None
+                    else None
+                ),
+            )
+        raise ValueError("required_path_rule_invalid")
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "pattern": self.pattern,
+            "minimum_indexed": self.minimum_indexed,
+            "maximum_indexed": self.maximum_indexed,
+        }
+
+
+def evaluate_required_paths(
+    *,
+    files: Iterable[Mapping[str, Any]],
+    rules: Iterable[RequiredPathRule],
+) -> dict[str, Any]:
+    """Evaluate requirements against classified files, never the host filesystem."""
+
+    rows = [dict(item) for item in files]
+    results: list[dict[str, Any]] = []
+    for rule in sorted(rules, key=lambda item: item.pattern):
+        matching = sorted(
+            str(row.get("path") or "")
+            for row in rows
+            if fnmatch.fnmatchcase(str(row.get("path") or ""), rule.pattern)
+        )
+        indexed = sorted(
+            str(row.get("path") or "")
+            for row in rows
+            if fnmatch.fnmatchcase(str(row.get("path") or ""), rule.pattern)
+            and str(row.get("outcome") or "") == CoverageOutcome.INDEXED.value
+        )
+        passed = len(indexed) >= rule.minimum_indexed and (
+            rule.maximum_indexed is None or len(indexed) <= rule.maximum_indexed
+        )
+        if not matching:
+            reason_code = "required_path_missing"
+        elif len(indexed) < rule.minimum_indexed:
+            reason_code = "required_path_not_indexed"
+        elif rule.maximum_indexed is not None and len(indexed) > rule.maximum_indexed:
+            reason_code = "required_path_maximum_exceeded"
+        else:
+            reason_code = "required_path_satisfied"
+        results.append(
+            {
+                **rule.as_dict(),
+                "matched_count": len(matching),
+                "indexed_count": len(indexed),
+                "matched_paths": matching,
+                "indexed_paths": indexed,
+                "passed": passed,
+                "reason_code": reason_code,
+            }
+        )
+    failed = [row["pattern"] for row in results if not row["passed"]]
+    return {
+        "passed": not failed,
+        "rule_count": len(results),
+        "failed_patterns": failed,
+        "rules": results,
+    }
+
+
+def _canonical_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Reject non-JSON profile values before they influence a snapshot revision."""
+
+    rendered = json.dumps(
+        dict(value),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    parsed = json.loads(rendered)
+    if not isinstance(parsed, dict):  # pragma: no cover - guarded by the Mapping input
+        raise ValueError("snapshot_profile_invalid")
+    return parsed
+
+
+def _stable_digest(value: Any) -> str:
+    rendered = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(rendered).hexdigest()
 
 
 def _share(count: int, total: int) -> float:

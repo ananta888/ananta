@@ -6,8 +6,8 @@ from worker.retrieval.codecompass_budgeting import apply_codecompass_budget, res
 from worker.retrieval.query_rewrite import rewrite_query
 from worker.retrieval.ranking import merge_rank_candidates
 from worker.retrieval.reranker import Reranker
-from worker.retrieval.retrieval_trace import build_retrieval_trace
 from worker.retrieval.retrieval_contract import DEFAULT_FALLBACK_ORDER, validate_pipeline_payload
+from worker.retrieval.retrieval_trace import build_retrieval_trace
 
 
 class HybridRetrievalService:
@@ -28,10 +28,31 @@ class HybridRetrievalService:
                 {
                     "path": str(item.get("source") or metadata.get("file") or ""),
                     "record_id": str(metadata.get("record_id") or item.get("record_id") or ""),
-                    "content_hash": str(metadata.get("record_id") or item.get("record_id") or item.get("source") or ""),
+                    "content_hash": str(
+                        item.get("content_hash")
+                        or metadata.get("content_hash")
+                        or metadata.get("record_id")
+                        or item.get("record_id")
+                        or item.get("source")
+                        or ""
+                    ),
                     "score": float(item.get("score") or 0.15),
                     "metadata": metadata,
                     "content": str(item.get("content") or ""),
+                    "source_id": str(item.get("source_id") or metadata.get("source_id") or ""),
+                    "source_version": str(
+                        item.get("source_version") or metadata.get("source_version") or ""
+                    ),
+                    "tenant_id": str(item.get("tenant_id") or metadata.get("tenant_id") or ""),
+                    "scope": str(item.get("scope") or metadata.get("scope") or ""),
+                    "provenance": dict(
+                        item.get("provenance") or metadata.get("provenance") or {}
+                    ),
+                    "provenance_digest": str(
+                        item.get("provenance_digest")
+                        or metadata.get("provenance_digest")
+                        or ""
+                    ),
                 }
             )
         return ranked
@@ -67,11 +88,19 @@ class HybridRetrievalService:
             channel_enabled = bool(normalized_config.get(channel, True))
             candidates = [dict(item) for item in list(channel_results.get(channel) or []) if isinstance(item, dict)]
             if not channel_enabled and channel.startswith("codecompass_"):
-                diagnostics[channel] = {"status": "disabled", "reason": "flag_disabled", "candidate_count": len(candidates)}
+                diagnostics[channel] = {
+                    "status": "disabled",
+                    "reason": "flag_disabled",
+                    "candidate_count": len(candidates),
+                }
                 continue
             channel_error = normalized_errors.get(channel)
             if channel_error and channel.startswith("codecompass_"):
-                diagnostics[channel] = {"status": "degraded", "reason": channel_error, "candidate_count": len(candidates)}
+                diagnostics[channel] = {
+                    "status": "degraded",
+                    "reason": channel_error,
+                    "candidate_count": len(candidates),
+                }
                 continue
             if candidates:
                 for item in candidates:
@@ -81,7 +110,11 @@ class HybridRetrievalService:
                         item["record_id"] = str(metadata.get("record_id"))
                 merged_candidates.extend(candidates)
                 used_channels.append(channel)
-                diagnostics[channel] = {"status": "ready", "reason": "candidates_available", "candidate_count": len(candidates)}
+                diagnostics[channel] = {
+                    "status": "ready",
+                    "reason": "candidates_available",
+                    "candidate_count": len(candidates),
+                }
             elif channel.startswith("codecompass_"):
                 diagnostics[channel] = {"status": "degraded", "reason": "channel_empty", "candidate_count": 0}
 
@@ -113,7 +146,11 @@ class HybridRetrievalService:
                     "expanded_count": len(expanded_candidates),
                 }
             elif "codecompass_graph" not in diagnostics:
-                diagnostics["codecompass_graph"] = {"status": "degraded", "reason": "expansion_empty", "candidate_count": 0}
+                diagnostics["codecompass_graph"] = {
+                    "status": "degraded",
+                    "reason": "expansion_empty",
+                    "candidate_count": 0,
+                }
 
         ranked = merge_rank_candidates(
             candidates=merged_candidates,
@@ -139,6 +176,7 @@ class HybridRetrievalService:
             selected.append(
                 {
                     "path": str(item.get("path") or ""),
+                    "content": str(item.get("content") or ""),
                     "record_id": str(
                         item.get("record_id")
                         or (item.get("metadata") or {}).get("record_id")
@@ -152,6 +190,31 @@ class HybridRetrievalService:
                     "source_id": str(
                         item.get("source_id")
                         or (item.get("metadata") or {}).get("source_id")
+                        or ""
+                    ),
+                    "source_version": str(
+                        item.get("source_version")
+                        or (item.get("metadata") or {}).get("source_version")
+                        or ""
+                    ),
+                    "tenant_id": str(
+                        item.get("tenant_id")
+                        or (item.get("metadata") or {}).get("tenant_id")
+                        or ""
+                    ),
+                    "scope": str(
+                        item.get("scope")
+                        or (item.get("metadata") or {}).get("scope")
+                        or ""
+                    ),
+                    "provenance": dict(
+                        item.get("provenance")
+                        or (item.get("metadata") or {}).get("provenance")
+                        or {}
+                    ),
+                    "provenance_digest": str(
+                        item.get("provenance_digest")
+                        or (item.get("metadata") or {}).get("provenance_digest")
                         or ""
                     ),
                     "final_score": float(item.get("final_score") or 0.0),
@@ -184,7 +247,14 @@ class HybridRetrievalService:
             }
             for item in selected
         ]
-        manifest_hash = next((str(item.get("manifest_hash") or "") for item in provenance if str(item.get("manifest_hash") or "")), "")
+        manifest_hash = next(
+            (
+                str(item.get("manifest_hash") or "")
+                for item in provenance
+                if str(item.get("manifest_hash") or "")
+            ),
+            "",
+        )
         graph_diag = dict(diagnostics.get("codecompass_graph") or {})
         retrieval_trace = build_retrieval_trace(
             query_original=str(rewrite["original"]),

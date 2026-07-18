@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from ananta_contracts.file_type_coverage import CoverageOutcome, FileTypeCoverageReport
+from ananta_contracts.file_type_coverage import (
+    CoverageOutcome,
+    FileTypeCoverageReport,
+    RequiredPathRule,
+)
 from ananta_contracts.file_type_support import load_file_type_support_registry
 
 
@@ -139,3 +143,71 @@ def test_coverage_rejects_invalid_operational_metrics(registry, field, value, me
             byte_size=1,
             **kwargs,
         )
+
+
+def test_snapshot_manifest_hashes_only_stable_content_projection(registry):
+    left = FileTypeCoverageReport(registry, pipeline="setup_index")
+    right = FileTypeCoverageReport(registry, pipeline="setup_index")
+    values = {
+        "path": "AGENTS.md",
+        "descriptor": registry.descriptor("markdown"),
+        "outcome": "indexed",
+        "byte_size": 12,
+        "content_sha256": "a" * 64,
+        "extractor_id": "setup_index.plain_text",
+        "extractor_version": "1",
+    }
+    left.add(**values, duration_seconds=0.1)
+    right.add(**values, duration_seconds=999.0)
+
+    left_manifest = left.snapshot_manifest(
+        required_path_rules=[RequiredPathRule("AGENTS.md")],
+        profile={"max_records": 20},
+        source_revision="commit-a",
+    )
+    right_manifest = right.snapshot_manifest(
+        required_path_rules=["AGENTS.md"],
+        profile={"max_records": 20},
+        source_revision="commit-b",
+    )
+
+    assert left_manifest["snapshot_revision"] == right_manifest["snapshot_revision"]
+    assert left_manifest["required_paths"]["passed"] is True
+    assert left_manifest["silently_skipped"] is None
+    assert left_manifest["budget_visibility"] == {
+        "inventory_count": 1,
+        "accounted_count": 1,
+        "cap_truncated": 0,
+        "oversized": 0,
+        "budget_exceeded": 0,
+        "by_outcome": {"indexed": 1},
+    }
+    assert left_manifest["source_revision"] != right_manifest["source_revision"]
+
+
+def test_snapshot_manifest_revision_and_required_gate_fail_closed(registry):
+    report = FileTypeCoverageReport(registry, pipeline="setup_index")
+    report.add(
+        path="docs/architecture.md",
+        descriptor=registry.descriptor("markdown"),
+        outcome="excluded",
+        exclusion_reason="max_files_fair_share",
+        byte_size=12,
+        content_sha256="a" * 64,
+    )
+    first = report.snapshot_manifest(required_path_rules=["docs/**"])
+
+    changed = FileTypeCoverageReport(registry, pipeline="setup_index")
+    changed.add(
+        path="docs/architecture.md",
+        descriptor=registry.descriptor("markdown"),
+        outcome="excluded",
+        exclusion_reason="max_files_fair_share",
+        byte_size=12,
+        content_sha256="b" * 64,
+    )
+    second = changed.snapshot_manifest(required_path_rules=["docs/**"])
+
+    assert first["required_paths"]["passed"] is False
+    assert first["required_paths"]["rules"][0]["reason_code"] == "required_path_not_indexed"
+    assert first["snapshot_revision"] != second["snapshot_revision"]

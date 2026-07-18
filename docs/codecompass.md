@@ -14,6 +14,62 @@ plumbing stay versioned and reproducible.
 | Semantic / RAG (snippets, docs, embeddings) | existing CodeCompass retrieval | `codecompass.semantic_translation_graph.v1` |
 | Policy / Trust / Evidence | in-house | `codecompass.graph-evidence.v1` |
 
+## Revisionsfeste Indexierung und Editor-Assistent
+
+Der produktive Indexlauf ist ein Hub-eigener Task. Der Hub authentifiziert
+Principal und Tenant, friert Workspace-Revision und Snapshot-Policy ein und
+bleibt Eigentümer von Idempotenz, Status, Retry und atomarer Veröffentlichung.
+Ein Worker enumeriert den materialisierten Snapshot, extrahiert Records und
+liefert ausschließlich gehashte Artefakt- und Coverage-Referenzen zurück. Hub
+und Worker setzen dabei kein gemeinsam beschreibbares Dateisystem voraus.
+
+Die relevanten versionierten Verträge sind:
+
+| Vertrag | Zweck |
+| --- | --- |
+| `schemas/worker/codecompass_snapshot_manifest.v1.json` | vollständige Klassifikation jedes Snapshot-Pfads als indexed, excluded, unsupported oder failed |
+| `schemas/worker/knowledge_index_job.v1.json` | begrenzter Hub-zu-Worker-Auftrag |
+| `schemas/worker/knowledge_index_job_result.v1.json` | content-freies Worker-Ergebnis und Publish-Hashes |
+| `schemas/source/source_catalog.v2.json` | revisions- und tenantgebundener autoritativer Source-Katalog |
+| `schemas/source/source_ref.v2.json` | unveränderte, vom Hub bereitgestellte Source-Identität |
+
+Große, nicht unterstützte oder budgetüberschreitende Dateien verschwinden
+nicht still: Manifest und Coverage-Gate führen sie mit stabilem Reason-Code.
+Die produktive Suche komponiert injizierbare FTS-, Vector-, Symbol- und
+Graph-Provider. Ein unverdrahteter oder leerer Produktionskanal ist
+`degraded`/`no_results`, niemals implizit `current`.
+
+Für den Visual Process Editor erweitert
+`CodeCompassContextPlannerService` den bestehenden Retrieval-Pfad um die
+typisierten Intents `node_explanation`, `field_effect`, `io_contract`,
+`validation_issue`, `runtime_error`, `dependency` und `safe_change`.
+Strukturelle Registry-, Node-, Feld-, Contract-, Symbol- und
+Nachbarschaftsdaten bilden die Query; Nutzersprache bleibt ein begrenztes
+Zusatzsignal. `preview` liest kein Repository und ruft kein Modell auf.
+`selected` und `conversation` erzwingen getrennte Range-, Zeilen-, Evidence-
+und Tokenbudgets und protokollieren jedes verworfene Element content-frei.
+
+## Source-Autorität und Evidence-Release
+
+Record-ID, Pfad, Hash, Task-ID und Listenposition sind keine Source-Identität.
+Nur eine bereits im autoritativen Hub-Katalog vorhandene und für Tenant,
+Scope, Revision, Manifest und Allowlist freigegebene Kennung darf unverändert
+als verifizierte Evidence weitergegeben werden. Fehlt diese Autorität, bleibt
+der Treffer `unverified` oder `failed`; CodeCompass erzeugt keinen Ersatzwert.
+
+Vor einem Assistant-Prompt durchläuft jeder Retrievalblock Access-Policy,
+Redaction und Injection-Scan. Secrets, Credential-Inhalte, fremde Tenants,
+stale Revisionen und High-Risk-Injection werden nicht als Inhalt freigegeben.
+Explizit deklarierte Widersprüche zwischen Dokumentation und aktuellem
+Code/Schema werden mit beiden zugelassenen Quellen als `evidence_conflict`
+angezeigt; keine Seite wird heuristisch bevorzugt.
+
+Der reproduzierbare technische Lauf liegt in
+`artifacts/test-gates/codecompass-e2e.json`. Ohne extern bereitgestellte
+autoritative Source-Evidence darf er die Ingestion-, Such- und negativen
+Security-Stufen nachweisen, setzt aber `release_allowed=false` und gibt keine
+grounded Claims frei. Das ist ein absichtlicher Release-Blocker.
+
 ## Position relative to CRG and RIG/SPADE
 
 | Aspect | Ananta CodeCompass | CRG v2.3.6 | SPADE ref-impl |

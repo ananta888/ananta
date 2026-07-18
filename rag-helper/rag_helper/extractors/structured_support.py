@@ -8,9 +8,11 @@ inside focused, format-specific modules.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Sequence
 
 from rag_helper.utils.embedding_text import build_embedding_text, compact_list
 from rag_helper.utils.ids import safe_id
@@ -74,6 +76,128 @@ def line_number(text: str, offset: int) -> int:
     """Translate a character offset into a stable one-based line number."""
 
     return text.count("\n", 0, max(0, offset)) + 1
+
+
+_POSITIONAL_FIELDS = {
+    "column",
+    "content_hash",
+    "end_line",
+    "evidence",
+    "id",
+    "line",
+    "line_end",
+    "line_start",
+    "parent_id",
+    "record_id",
+    "source_id",
+    "target_resolved",
+}
+
+
+def normalize_extraction_records(
+    record_groups: Sequence[list[dict]],
+    *,
+    rel_path: str,
+    source_text: str,
+    extractor: str,
+    trust_level: str = "extracted",
+    verification_status: str = "unverified",
+) -> None:
+    """Add the common CodeCompass record/evidence projection in-place.
+
+    The established ``kind``, ``id``, ``line`` and ``end_line`` fields are
+    deliberately retained.  Their normalized aliases are additive so older
+    consumers keep working while retrieval consumers get one stable shape.
+
+    ``record_id`` is based on the non-positional semantic projection and an
+    occurrence counter.  Consequently inserting blank lines updates the range
+    and ``content_hash`` without changing the semantic record identity.
+    ``content_hash`` binds the exact source evidence *and* its range; it does
+    not serialize the raw evidence into metadata.
+    """
+
+    lines = source_text.splitlines()
+    source_lines = source_text.splitlines(keepends=True)
+    line_count = max(1, len(lines))
+    occurrence_by_projection: dict[str, int] = {}
+
+    for records in record_groups:
+        for record in records:
+            kind = str(record.get("record_kind") or record.get("kind") or "record")
+            record.setdefault("record_kind", kind)
+            record.setdefault("trust_level", trust_level)
+            record.setdefault(
+                "verification_status",
+                "failed" if kind == "diagnostic" else verification_status,
+            )
+            record.setdefault(
+                "provenance",
+                {
+                    "source": "tool-output",
+                    "provider_id": "rag-helper",
+                    "extractor_id": extractor,
+                    "extractor_version": "structured-record.v1",
+                },
+            )
+
+            is_file_record = kind.endswith("_file")
+            raw_start = record.get("line_start", record.get("line", 1))
+            raw_end = record.get("line_end", record.get("end_line"))
+            try:
+                line_start = max(1, int(raw_start or 1))
+            except (TypeError, ValueError):
+                line_start = 1
+            if raw_end is None:
+                line_end = line_count if is_file_record else line_start
+            else:
+                try:
+                    line_end = max(line_start, int(raw_end))
+                except (TypeError, ValueError):
+                    line_end = line_start
+            line_start = min(line_start, line_count)
+            line_end = min(max(line_start, line_end), line_count)
+            record.setdefault("line_start", line_start)
+            record.setdefault("line_end", line_end)
+
+            semantic_projection = {
+                key: value
+                for key, value in record.items()
+                if key not in _POSITIONAL_FIELDS
+            }
+            projection_json = json.dumps(
+                semantic_projection,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                default=str,
+            )
+            projection_hash = hashlib.sha256(projection_json.encode("utf-8")).hexdigest()
+            occurrence = occurrence_by_projection.get(projection_hash, 0) + 1
+            occurrence_by_projection[projection_hash] = occurrence
+            record.setdefault(
+                "record_id",
+                f"{kind}:{safe_id(rel_path, projection_hash, str(occurrence))}",
+            )
+
+            evidence_text = "".join(source_lines[line_start - 1 : line_end])
+            hash_material = (
+                f"{rel_path}\0{line_start}\0{line_end}\0{evidence_text}"
+            ).encode("utf-8")
+            content_hash = hashlib.sha256(hash_material).hexdigest()
+            record.setdefault("content_hash", content_hash)
+
+            existing_evidence = record.get("evidence")
+            evidence = dict(existing_evidence) if isinstance(existing_evidence, dict) else {}
+            evidence.setdefault("path", rel_path)
+            evidence.setdefault("source_file", rel_path)
+            evidence.setdefault("source_kind", "tool_output")
+            evidence.setdefault("source_record_id", record["record_id"])
+            evidence.setdefault("extractor", extractor)
+            evidence.setdefault("line_start", line_start)
+            evidence.setdefault("line_end", line_end)
+            evidence.setdefault("content_hash", content_hash)
+            evidence.setdefault("verification_status", record["verification_status"])
+            record["evidence"] = evidence
 
 
 @dataclass(frozen=True, slots=True)
