@@ -1,74 +1,196 @@
 {
   "$schema": "todo.track.schema.json",
-  "version": "1.0",
+  "version": "2.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "visual-process-contextual-node-configuration-ai-snake-codecompass",
   "created": "2026-07-18",
+  "updated": "2026-07-18",
   "status": "todo",
   "priority": "P0",
-  "purpose": "Den bestehenden Visual Process Editor zu einer leicht bedienbaren, schema-gesteuerten Konfigurationsoberflaeche fuer Ananta-Workflows ausbauen. Jeder Node soll seine gueltigen Ananta-Konfigurationsmoeglichkeiten erklaert und passend zu seinem Typ editierbar anbieten. AI-Snake begleitet den Nutzer mit einer groesseren kontextsensitiven Sprechblase und einem Chat, dessen deterministischer Initialkontext aus der aktuell fokussierten Canvas-Position sowie dem vollstaendig auf Ananta angewendeten CodeCompass-Index erzeugt wird.",
-  "goal": "Ein Nutzer kann einen Ananta-Workflow visuell konfigurieren, ohne interne JSON-Strukturen oder Implementierungsdetails kennen zu muessen. Beim Hover, Fokus oder Auswaehlen eines Nodes erklaert AI-Snake reproduzierbar, wo sich der Nutzer im Workflow befindet, welche Wirkung der Node besitzt, welche Parameter konfigurierbar sind, welche Abhaengigkeiten bestehen und welche sicheren naechsten Schritte moeglich sind. Rueckfragen im eingebetteten Chat erhalten denselben strukturierten Editor-Kontext plus nachweisbare CodeCompass-Evidenz aus Quellcode, Markdown-Dokumentation, Architekturplaenen, Schemas und Tests.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "purpose": "Den bestehenden Visual Process Editor zu einer leicht bedienbaren, schema-gesteuerten Konfigurationsoberflaeche fuer Ananta-Workflows ausbauen. AI-Snake erklaert den aktuellen Workflow-Kontext reproduzierbar, nutzt ausschliesslich revisionsgebundene und policy-gepruefte CodeCompass-Evidence und kann typisierte Aenderungsvorschlaege erstellen, die erst nach Hub-Validierung und expliziter Nutzerbestaetigung in den Editor-State gelangen.",
+  "goal": "Ein Nutzer kann einen Ananta-Workflow visuell konfigurieren, ohne interne JSON-Strukturen oder Implementierungsdetails kennen zu muessen. Node-Definitionen, Formularfelder, Kontext, Quellen und Aenderungsvorschlaege sind versioniert, nachvollziehbar und sicher. Der Hub bleibt Eigentuemer aller Assistant-, Retrieval-, Index- und Patch-Entscheidungen; Worker fuehren delegierte LLM-, Extraktions- und Retrieval-Arbeit aus.",
+  "revision_notes": [
+    "Der Track verwendet den Planning-Vertrag mit depends_on, milestone_id, Skalen, kritischem Pfad und abgeleiteter Status-Summary.",
+    "Reine Spezifikations- und Sammel-Testaufgaben wurden durch implementierbare Contracts, Adapter, Gates und reale Integrationstests ersetzt.",
+    "Die vier bisherigen CodeCompass-Sammelaufgaben wurden in Snapshot-, Source-Identity-, Ingestion-, Extraktor-, Retrieval- und Security-Aufgaben aufgeteilt.",
+    "Die bestehende agent.visual_process.task_kind_registry bleibt Runtime-Source-of-Truth und wird komponiert statt dupliziert.",
+    "Editor-Command-History, Hub-Worker-Orchestrierung, revisionsfeste Context-Snapshots und Hub-seitige Patch-Governance sind explizite Vorbedingungen fuer Chat und Rollout."
+  ],
   "core_decisions": [
-    "VisualProcessCanvasComponent, VpGraph und VpRuntimeOverlay bleiben die einzigen kanonischen Canvas-, Graph- und Runtime-Modelle.",
-    "Node-Konfiguration wird schema- und registry-gesteuert; keine hart codierte Sondermaske pro Node im Editor-Shell.",
-    "Der deterministische Initialprompt wird nicht von einem LLM erfunden, sondern durch einen versionierten Context-Assembler aus stabil sortierten strukturierten Daten erzeugt.",
-    "CodeCompass liefert belegten Repository-Kontext. Das LLM formuliert Erklaerungen, darf aber keine unbekannten Konfigurationsfelder oder Beziehungen erfinden.",
-    "Hover erzeugt nur eine Vorschau. Auswahl oder explizites Oeffnen friert den Kontext fuer Chat und Bearbeitung ein, damit Mausbewegungen keine laufende Unterhaltung veraendern.",
-    "Alle Markdown-Dateien, Architekturplaene, Contracts, Schemas, relevante Konfigurationen, Quelltexte und Tests muessen im Ananta-CodeCompass-Index sichtbar und mit Provenienz abfragbar sein.",
-    "AI-Snake darf Konfigurationsaenderungen vorschlagen, aber erst nach expliziter Nutzerbestaetigung in VpGraph uebernehmen.",
-    "Initialkontext, Quellenmenge, Sortierung und Prompt-Version werden protokolliert, damit gleiche Eingaben denselben Initialprompt ergeben."
+    "Der bestehende VisualProcessCanvasComponent bleibt die einzige Canvas-Implementierung fuer Standalone-, Embedded- und AI-Snake-Ansichten.",
+    "Der Graph-Contract umfasst Frontend-DTO und Hub-Domainmodell; der Hub bleibt autoritativ fuer Validierung und Persistenz.",
+    "Die bestehende TaskKindRegistry bleibt kanonische Runtime-Source-of-Truth. UI-Felddefinitionen werden daraus komponiert und als versionierter Contract ausgeliefert.",
+    "Graph-Schemaversion, Node-Registry-Version und gespeicherte Definitionsrevision werden getrennt modelliert; das bestehende version-Feld wird nicht semantisch umgedeutet.",
+    "Alle Graphmutationen laufen durch einen EditorCommand-Port mit atomarer Transaktion, Dirty-State, Validierungsinvalidierung und Undo/Redo.",
+    "Ein ContextEnvelope wird kanonisch serialisiert und an Repository-, Index-, Registry-, Graph- und Fokusrevision gebunden. Volatile Runtime- und UI-Werte werden projiziert oder ausgeschlossen.",
+    "Der Hub erstellt und besitzt Index-, Retrieval-, Assistant- und Patch-Aufgaben. Worker orchestrieren keine anderen Worker und duerfen keine Workflowmutation persistieren.",
+    "CodeCompass-Quellen werden vor Ingestion und Promptaufbau policy-geprueft. Fehlende oder unbekannte Source-/Run-IDs werden niemals synthetisiert und bleiben unverified oder failed.",
+    "AI-Snake darf WorkflowPatch-Vorschlaege erzeugen. Nur der Hub autorisiert und validiert sie; die UI uebernimmt sie erst nach expliziter Bestaetigung und speichert niemals automatisch.",
+    "Neue Funktionen werden additiv ueber versionierte Endpunkte, Compatibility-Adapter und getrennte Feature-Flags eingefuehrt."
   ],
   "current_state_findings": [
-    "Der Visual Process Editor verwendet bereits VisualProcessCanvasComponent, VpStepInspectorComponent, VpEditorStateFacade und VpWorkflowRunnerService.",
-    "Der Canvas wird bereits in Standalone-, Embedded- und AI-Snake-Read-only-Kontexten wiederverwendet.",
-    "VpGraph und VpRuntimeOverlay sind getrennt; diese Trennung muss fuer die neue Hilfe- und Konfigurationsschicht erhalten bleiben.",
-    "Der Editor besitzt bereits zahlreiche globale Listen und Optionen, unter anderem Task-Kinds, Skills, Modellprofile, Fallback-Gruppen, Trainingsdaten und RAG-Kanaele.",
-    "Die aktuelle Step-Erzeugung startet mit generischen Defaultfeldern und bildet die verfuegbaren Konfigurationsmoeglichkeiten noch nicht als erklaerte typisierte Form-Schemata ab.",
-    "CodeCompass kombiniert Symbolgraph, Repository Intelligence, semantische Dokumentenabfrage sowie Trust- und Evidence-Informationen, ist damit als Grundlage fuer belegte Editorhilfe geeignet.",
-    "Die bestehende CodeCompass-Dokumentation nennt Semantic/RAG fuer Snippets und Dokumente; die Vollstaendigkeit aller Ananta-Markdown- und Architekturdateien muss fuer diesen Use Case explizit nachgewiesen werden."
+    {
+      "status": "verified",
+      "finding": "Standalone-Editor, Chat-Einbettung und AI-Snake-Read-only-Ansicht verwenden bereits denselben VisualProcessCanvasComponent.",
+      "evidence_paths": [
+        "frontend-angular/src/app/features/visual-process/visual-process.routes.ts",
+        "frontend-angular/src/app/components/chat-process-binding-editor.component.ts",
+        "frontend-angular/src/app/components/ai-snake-process-panel.component.ts"
+      ]
+    },
+    {
+      "status": "verified",
+      "finding": "Frontend-VpGraph und Backend-VisualProcessGraph bilden gemeinsam den Graph-Contract. Legacy run_state liegt weiterhin in Step-Modellen und benoetigt einen kompatiblen Migrationspfad.",
+      "evidence_paths": [
+        "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
+        "agent/visual_process/models.py",
+        "agent/services/chat_process_binding.py"
+      ]
+    },
+    {
+      "status": "verified",
+      "finding": "agent.visual_process.task_kind_registry ist bereits kanonische Runtime-Registry; der manuelle Frontend-Fallback ist unvollstaendig und kann driften.",
+      "evidence_paths": [
+        "agent/visual_process/task_kind_registry.py",
+        "frontend-angular/src/app/features/visual-process/vp-editor-config.ts"
+      ]
+    },
+    {
+      "status": "verified",
+      "finding": "Der Inspector enthaelt zahlreiche kind-spezifische Masken. reranker_weight im Frontend und weight im Backend sind ein bestaetigter wirkungsloser Feldpfad.",
+      "evidence_paths": [
+        "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+        "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.ts",
+        "agent/visual_process/step_adapters.py"
+      ]
+    },
+    {
+      "status": "verified",
+      "finding": "VpEditorStateFacade besitzt keine Command-History oder Undo/Redo-Transaktionen; Dragging setzt nicht verlaesslich Dirty-State und Validierungsinvalidierung.",
+      "evidence_paths": [
+        "frontend-angular/src/app/features/visual-process/vp-editor-state.facade.ts",
+        "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+      ]
+    },
+    {
+      "status": "verified",
+      "finding": "VpCanvasInteractionService verwendet eine globale DOM-Abfrage und ist deshalb bei zwei Editorinstanzen nicht sicher instanzlokal.",
+      "evidence_paths": [
+        "frontend-angular/src/app/features/visual-process/vp-canvas-interaction.service.ts"
+      ]
+    },
+    {
+      "status": "verified",
+      "finding": "CodeCompass-Ingestion ist durch Dateitypfilter, Testausschluesse, 48-KB-Limit und 2000-Dateien-Cap unvollstaendig; Auslassungen sind nicht als hartes Coverage-Gate modelliert.",
+      "evidence_paths": [
+        "scripts/setup_codecompass_index.py",
+        "agent/services/rag_helper_index_service.py"
+      ]
+    },
+    {
+      "status": "verified",
+      "finding": "Mehrere produktive CodeCompass-Consumer rufen eine nicht vorhandene RagHelperIndexService.retrieve-Methode auf; der Worker-Hybrid-Retriever erhaelt leere channel_results und bestehende Tests verdecken dies mit Fakes.",
+      "evidence_paths": [
+        "agent/services/codecompass_context_service.py",
+        "agent/services/codecompass_context_planner_service.py",
+        "agent/services/tools/codecompass_tools.py",
+        "worker/retrieval/codecompass_retriever.py",
+        "tests/test_codecompass_context_tool_provider.py"
+      ]
+    },
+    {
+      "status": "verified",
+      "finding": "SourceCatalogService erzeugt SRC-Kennungen und Fallback-Hashes aus unzureichender Ursprungsprovenienz. Dies widerspricht der fail-closed Source-Grounding-Regel.",
+      "evidence_paths": [
+        "agent/services/source_catalog_service.py",
+        "agent/services/retrieval_source_contract.py",
+        "schemas/source/source_catalog.v1.json",
+        "schemas/codecompass.graph-evidence.schema.json"
+      ]
+    },
+    {
+      "status": "verified",
+      "finding": "PromptSnapshotService, CodeCompassContextService, CodeCompassContextPlanner, VisualGuideService und immutable Chat-Graph-Snapshots existieren bereits und muessen erweitert statt parallel neu gebaut werden.",
+      "evidence_paths": [
+        "agent/services/prompt_snapshot_service.py",
+        "agent/services/codecompass_context_service.py",
+        "agent/services/codecompass_context_planner_service.py",
+        "agent/services/visual_guide/service.py",
+        "agent/services/chat_process_binding.py"
+      ]
+    }
+  ],
+  "source_grounding_policy": [
+    "Jede implementierungsbezogene Feststellung in Artefakten nennt Repository-Pfad, Symbol oder Zeilenbereich und verification_status.",
+    "Es werden keine SRC_*-, RUN_*- oder vergleichbaren Evidence-IDs erfunden. Nur vom Hub aufgeloeste und im autorisierten Source-Katalog vorhandene IDs duerfen als Grounding ausgegeben werden.",
+    "Fehlende, unbekannte, tenantfremde, scope-fremde oder revisionsfremde IDs werden mit stabilem Reason-Code abgelehnt und als unverified oder failed behandelt.",
+    "Interne context_id-, location_id-, record_id- oder Pfadwerte werden niemals in Source-IDs umgedeutet."
   ],
   "non_goals": [
-    "Kein zweiter Visual Process Editor oder AI-Snake-spezifischer Canvas.",
+    "Kein zweiter Visual Process Editor und kein AI-Snake-spezifischer Canvas.",
+    "Keine zweite Runtime-TaskKindRegistry und kein manuell gepflegter paralleler Node-Kind-Katalog.",
     "Kein freies, nicht validiertes JSON-Formular als primaere Node-Konfiguration.",
-    "Kein LLM-generierter Initialprompt ohne deterministischen strukturierten Vorbau.",
-    "Keine automatische Mutation des Workflows durch Hover oder Chatantworten.",
-    "Keine Aufnahme von Secrets, lokalen Credentials, Build-Artefakten oder personenbezogenen Daten in den CodeCompass-Index.",
-    "Keine Vermischung von aktuellem Editorentwurf und historischem Runtime-Snapshot.",
-    "Keine Volltextuebergabe des gesamten Repositories an ein Modell pro Hover-Ereignis."
+    "Keine automatische Workflowmutation oder Persistenz durch Hover, Chat oder Modellantwort.",
+    "Keine direkte LLM-, Index- oder Retrieval-Ausfuehrung im Hub, wenn sie an Worker delegierbar ist.",
+    "Keine Worker-zu-Worker-Orchestrierung und keine implizite Shared-Filesystem-Abhaengigkeit zwischen Containern.",
+    "Keine Aufnahme von Secrets, Credentials, Runtime-Daten, personenbezogenen Daten oder ungeprueften lokalen Overrides in den Index.",
+    "Keine Volltextuebergabe des gesamten Repositories und keine Modellanfrage bei reinem Hover.",
+    "Keine stillen Indexauslassungen, erfundenen Quellenkennungen oder als verified markierten revisionslosen Treffer.",
+    "Keine Favoriten-, Zuletzt-verwendet- oder Teilpatch-Funktion im ersten Release; diese Funktionen sind fuer das Kernziel nicht erforderlich."
   ],
   "target_user_flow": [
     "Der Nutzer oeffnet einen Prozess im bestehenden Visual Process Editor.",
-    "Die Node-Palette zeigt verstaendliche Kategorien, Kurzbeschreibungen und Suchbegriffe statt nur interner Kinds.",
-    "Beim Hover ueber Palette, Node, Kante, Port oder Canvas-Leerflaeche erscheint nach kurzer Verzoegerung eine groessere AI-Snake-Sprechblase mit einer kompakten Orientierung.",
-    "Die Sprechblase nennt Position im Workflow, Zweck, Ein- und Ausgaben, relevante Konfiguration, Warnungen und einen sinnvollen naechsten Schritt.",
-    "Ein Klick auf den Node oeffnet den schema-gesteuerten Inspector mit einfachen Feldern, Erklaerungen, Defaults, Beispielen, Validierung und einem optionalen Expertenbereich.",
-    "Der Nutzer kann direkt in der Sprechblase oder im angedockten Chat eine Frage stellen.",
-    "Beim ersten Chatbeitrag wird ein deterministischer Initialprompt aus Graph-, Node-, Runtime-, Inspector-, UI- und CodeCompass-Kontext erstellt und fuer die Unterhaltung eingefroren.",
-    "CodeCompass liefert dazu nur relevante, evidenzbehaftete Quellen aus Ananta; die Antwort zeigt verwendete Dateien beziehungsweise Architekturdokumente nachvollziehbar an.",
-    "AI-Snake kann konkrete Konfigurationsaenderungen als typisierten Patch vorschlagen.",
-    "Der Nutzer sieht eine Diff-Vorschau, Validierungsfolgen und betroffene Nodes und uebernimmt oder verwirft den Vorschlag explizit."
+    "Die Palette zeigt Registry-gesteuerte Kategorien, Beschreibungen, Runtime-Status und sichere Defaults.",
+    "Hover zeigt nach 350 ms eine rein lokale Orientierung; es startet weder Retrieval noch Modellinferenz.",
+    "Auswahl friert den semantischen Fokus ein und oeffnet den schema-gesteuerten Inspector.",
+    "Die AI-Snake-Sprechblase zeigt Workflowposition, Zweck, wichtigste Einstellungen, Warnungen und einen naechsten Schritt.",
+    "Eine explizite Frage erstellt im Hub eine Conversation mit revisionsgebundenem Context- und Prompt-Snapshot.",
+    "Der Hub delegiert Retrieval und LLM-Ausfuehrung an einen Worker und akzeptiert nur policy-gepruefte Evidence.",
+    "Die Antwort zeigt Trust-, Verification-, Pfad-, Zeilen- und Revisionsinformationen nachvollziehbar an.",
+    "Ein optionaler WorkflowPatch wird vom Hub autorisiert und gegen Registry, Graphrevision und Backend-Validierung geprueft.",
+    "Die UI zeigt Diff und Validierungsfolgen; erst eine explizite Bestaetigung erzeugt eine lokale EditorCommand-Transaktion.",
+    "Speichern bleibt eine getrennte bewusste Aktion mit optimistischer Konflikterkennung."
   ],
   "deterministic_context_contract": {
-    "context_id": "SHA-256 ueber kanonisch serialisierten ContextEnvelope ohne volatile Zeitstempel",
-    "prompt_version": "vp-assistant-context.v1",
-    "stable_inputs": [
-      "repository_revision",
-      "codecompass_index_revision",
-      "process_definition_id und process_version oder draft_hash",
-      "selected_or_hovered_entity_type und entity_id",
-      "kanonischer VpGraph-Ausschnitt",
-      "NodeDefinitionRegistry-Version",
-      "effektive Node-Konfiguration inklusive vererbter Defaults",
-      "Validation-Issues stabil nach severity, code und path sortiert",
-      "Runtime-Overlay nur wenn explizit im Live-Modus, volatile Dauerwerte ausgeschlossen",
-      "CodeCompass-Treffer stabil nach Evidence-Tier, Score, Pfad und Zeilenbereich sortiert",
-      "locale, editor_mode und user_expertise_mode"
+    "schema": "visual_process.editor_context.v1",
+    "hash_algorithm": "SHA-256",
+    "encoding": "UTF-8",
+    "unicode_normalization": "NFC",
+    "canonicalization": [
+      "Objektschluessel werden lexikografisch nach Unicode-Codepoints sortiert.",
+      "Fehlende Felder werden ausgelassen, explizites null bleibt erhalten.",
+      "NaN, Infinity und nicht typisierte Zahlenstrings sind unzulaessig.",
+      "Steps, Edges, Ports, Tags, Issues und Evidence werden mit vertraglich festgelegten stabilen Schluesseln sortiert.",
+      "definition_hash, draft_hash und runtime_snapshot_hash bleiben getrennte Werte.",
+      "Mauskoordinaten, DOM-Referenzen, Zeitstempel, Pollingzaehler, Animation und zufaellige IDs werden ausgeschlossen."
     ],
-    "excluded_or_normalized_inputs": [
-      "Mauskoordinaten werden auf semantisches Canvas-Ziel normalisiert und nicht roh in den Prompt aufgenommen",
-      "Zeitstempel, zufaellige IDs, Polling-Zaehler und UI-Animationszustand werden ausgeschlossen",
-      "Secrets und Credential-Werte werden vor Hashing und Promptaufbau entfernt",
-      "Freitext-Metadaten werden kanonisch normalisiert und laengenbegrenzt"
+    "required_revisions": [
+      "repository_revision",
+      "codecompass_manifest_hash",
+      "graph_schema_version",
+      "node_registry_version",
+      "definition_revision oder draft_hash",
+      "focused_entity_type und focused_entity_id",
+      "source_allowlist_version",
+      "prompt_version"
     ],
     "sections": [
       "system_constraints",
@@ -78,456 +200,1409 @@
       "effective_configuration",
       "validation_and_runtime",
       "allowed_mutations",
-      "codecompass_evidence",
+      "approved_evidence",
+      "rejected_evidence_summary",
       "response_contract"
     ],
-    "response_contract": [
-      "Erklaerung",
-      "Konfigurationsoptionen",
-      "Risiken oder Validierungsprobleme",
-      "naechster sinnvoller Schritt",
-      "optionaler typisierter Patch",
-      "Quellennachweise"
+    "storage_policy": [
+      "Conversationen speichern Context-ID, Revisionsreferenzen, Prompt-Version und Evidence-Referenzen.",
+      "Rohprompt und Repository-Volltext werden standardmaessig nicht dauerhaft gespeichert.",
+      "Auditdaten enthalten Hashes, Reason-Codes und Entscheidungen, aber keine Secrets oder Credential-Werte."
     ]
   },
+  "operational_budgets": {
+    "reference_graph": {
+      "steps": 500,
+      "edges": 1000,
+      "test_iterations": 100
+    },
+    "hover_preview": {
+      "delay_ms": 350,
+      "local_p95_ms": 100,
+      "retrieval_requests": 0,
+      "llm_requests": 0
+    },
+    "selected_context": {
+      "max_ranges": 4,
+      "max_lines_per_range": 80,
+      "max_prompt_tokens": 4096
+    },
+    "conversation_context": {
+      "max_ranges": 8,
+      "max_lines_per_range": 120,
+      "max_prompt_tokens": 12000,
+      "max_evidence_items": 12
+    },
+    "retrieval": {
+      "warm_p95_ms": 2000,
+      "hard_timeout_ms": 5000
+    },
+    "assistant_api": {
+      "max_in_flight_per_conversation": 2,
+      "max_requests_per_principal_per_minute": 20,
+      "model_timeout_ms": 120000
+    },
+    "frontend_stability": {
+      "focus_transitions": 1000,
+      "max_heap_growth_mib": 20
+    }
+  },
   "codecompass_index_scope": {
-    "required_inclusions": [
+    "inventory_source": "Hub-materialisierter Git- oder Workspace-Snapshot; Standardinventar git ls-files -z",
+    "rule_precedence": "Explizite Conditional-Regeln werden zuerst ausgewertet; .env.example ist nur als getracktes, secret-geprueftes Template zulaessig. Danach greifen deny_globs vor include_globs.",
+    "include_globs": [
+      "**/*.py",
+      "**/*.ts",
+      "**/*.html",
+      "**/*.scss",
+      "**/*.css",
+      "**/*.java",
+      "**/*.sh",
       "**/*.md",
-      "docs/**",
-      "architektur/**",
-      "architecture/**",
+      "**/*.json",
+      "**/*.yaml",
+      "**/*.yml",
       "**/*.mmd",
       "**/*.puml",
       "**/*.plantuml",
-      "**/*.drawio sofern Text extrahierbar oder Begleitmanifest vorhanden",
-      "**/*.json und **/*.schema.json fuer Contracts und Konfiguration",
-      "frontend-angular/src/**",
-      "agent/**",
-      "worker/**",
-      "hub/** beziehungsweise vorhandene Backend-Pfade",
-      "tests/** und dateinahe Testdateien",
-      "AGENTS.md und weitere Repository-Instruktionsdateien"
+      "**/*.drawio",
+      "Dockerfile*",
+      "AGENTS.md",
+      "CONTRIBUTING.md",
+      "README.md"
     ],
-    "required_exclusions": [
-      "Secrets und Credential-Dateien",
-      ".env und lokale Overrides",
-      "node_modules, dist, build, coverage und Cache-Verzeichnisse",
-      "Binaerdateien ohne expliziten sicheren Extraktor",
-      "generierte Artefakte ohne Provenienz oder mit dupliziertem Inhalt"
+    "required_paths": [
+      "AGENTS.md",
+      "docs/**",
+      "schemas/**",
+      "todos/**",
+      "agent/visual_process/**",
+      "frontend-angular/src/app/features/visual-process/**",
+      "tests/**"
     ],
-    "evidence_requirements": [
-      "Jeder Treffer enthaelt repository_revision, path, line_range oder symbol_id, source_kind, trust_level und verification_status.",
-      "Markdown-Ueberschriften und Architekturdiagramm-Knoten werden als adressierbare semantische Einheiten indexiert.",
-      "Architekturdiagramme behalten Kanten, Labels und Referenzen auf zugehoerige Dokumente.",
-      "Ein Coverage-Report weist Anzahl, Typ und Ausschlussgrund aller Repository-Dateien aus.",
-      "Ein CI-Gate schlaegt fehl, wenn fuer den Editor relevante Registry-, Schema- oder Dokumentpfade ungeplant aus dem Index verschwinden."
+    "deny_globs": [
+      ".git/**",
+      "**/.env",
+      "**/.env.*",
+      "data/**",
+      "project-workspaces/**",
+      "node_modules/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/coverage/**",
+      "**/__pycache__/**",
+      "**/.cache/**",
+      "autoimport-state/hash/**",
+      "autoimport-state/logs/**"
+    ],
+    "conditional_rules": [
+      {
+        "glob": "**/*.drawio",
+        "condition": "plain XML with secure parser",
+        "unsupported_reason": "drawio_unsupported_encoding"
+      },
+      {
+        "glob": "**/.env.example",
+        "condition": "tracked template passes pre-ingestion secret scan",
+        "unsupported_reason": "template_contains_secret"
+      },
+      {
+        "glob": "**/*",
+        "condition": "regular file inside pinned snapshot; no out-of-root symlink",
+        "unsupported_reason": "unsafe_path"
+      }
+    ],
+    "coverage_classes": [
+      "indexed",
+      "excluded",
+      "unsupported",
+      "failed"
+    ],
+    "mandatory_reason_codes": [
+      "policy_excluded",
+      "unsupported_type",
+      "unsafe_path",
+      "secret_detected",
+      "pii_detected",
+      "binary_content",
+      "oversized",
+      "budget_exceeded",
+      "extractor_failed",
+      "cap_truncated"
     ]
   },
   "milestones": [
-    {"id": "VPA-M1", "title": "Ist-Analyse und Contracts", "task_ids": ["VPA-001", "VPA-002", "VPA-003"], "status": "todo"},
-    {"id": "VPA-M2", "title": "Node Definition Registry und Formulare", "task_ids": ["VPA-004", "VPA-005", "VPA-006", "VPA-007"], "status": "todo"},
-    {"id": "VPA-M3", "title": "Semantischer Canvas-Fokus", "task_ids": ["VPA-008", "VPA-009", "VPA-010"], "status": "todo"},
-    {"id": "VPA-M4", "title": "AI-Snake Hilfe und Chat", "task_ids": ["VPA-011", "VPA-012", "VPA-013", "VPA-014"], "status": "todo"},
-    {"id": "VPA-M5", "title": "CodeCompass Vollindex und Retrieval", "task_ids": ["VPA-015", "VPA-016", "VPA-017", "VPA-018"], "status": "todo"},
-    {"id": "VPA-M6", "title": "Sichere Aenderungsvorschlaege", "task_ids": ["VPA-019", "VPA-020", "VPA-021"], "status": "todo"},
-    {"id": "VPA-M7", "title": "Tests, UX und Rollout", "task_ids": ["VPA-022", "VPA-023", "VPA-024", "VPA-025"], "status": "todo"}
+    {
+      "id": "VPA-M1",
+      "title": "Quellcode-Baseline und Visual-Process-Contracts",
+      "task_ids": [
+        "VPA-CORE-001",
+        "VPA-CORE-002",
+        "VPA-CORE-003"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "VPA-M2",
+      "title": "CodeCompass Snapshot, Ingestion, Retrieval und Evidence",
+      "task_ids": [
+        "VPA-CC-001",
+        "VPA-CC-002",
+        "VPA-CC-003",
+        "VPA-CC-004",
+        "VPA-CC-005",
+        "VPA-CC-006",
+        "VPA-CC-007",
+        "VPA-CC-008",
+        "VPA-CC-009"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "VPA-M3",
+      "title": "Registry-gesteuerter Editor",
+      "task_ids": [
+        "VPA-ED-001",
+        "VPA-ED-002",
+        "VPA-ED-003",
+        "VPA-ED-004",
+        "VPA-ED-005",
+        "VPA-ED-006",
+        "VPA-ED-007",
+        "VPA-ED-008",
+        "VPA-ED-009",
+        "VPA-ED-010"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "VPA-M4",
+      "title": "Semantischer Canvas und deterministischer Kontext",
+      "task_ids": [
+        "VPA-CTX-001",
+        "VPA-CTX-002",
+        "VPA-CTX-003",
+        "VPA-CTX-004",
+        "VPA-CTX-005"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "VPA-M5",
+      "title": "Hub-gesteuerter Assistant und Patch-Governance",
+      "task_ids": [
+        "VPA-AI-001",
+        "VPA-AI-002",
+        "VPA-AI-003",
+        "VPA-AI-004",
+        "VPA-AI-005"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "VPA-M6",
+      "title": "AI-Snake UX und explizite Patch-Uebernahme",
+      "task_ids": [
+        "VPA-UX-001",
+        "VPA-UX-002",
+        "VPA-UX-003"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "VPA-M7",
+      "title": "Acceptance Gates und Rollout",
+      "task_ids": [
+        "VPA-QA-001",
+        "VPA-QA-002",
+        "VPA-QA-003"
+      ],
+      "status": "todo"
+    }
   ],
   "tasks": [
     {
-      "id": "VPA-001",
-      "title": "Aktuelle Node-Typen, Konfigurationsfelder und Datenquellen inventarisieren",
+      "id": "VPA-CORE-001",
+      "title": "Produktionspfade, Node-Kinds und bestaetigte Contract-Drift inventarisieren",
+      "description": "Die vorhandenen Visual-Process-, Inspector-, Adapter-, Runtime- und Chatpfade werden als belastbare Baseline dokumentiert. Der Task produziert keine parallele Architektur.",
       "type": "analysis",
+      "milestone_id": "VPA-M1",
       "status": "todo",
-      "priority": "P0",
+      "progress_percent": 0,
+      "priority": "P1",
       "risk": "medium",
-      "dependencies": [],
+      "depends_on": [],
+      "affected_files": [
+        "agent/visual_process/task_kind_registry.py",
+        "agent/visual_process/models.py",
+        "agent/visual_process/step_adapters.py",
+        "agent/visual_process/step_executor.py",
+        "agent/visual_process/validator.py",
+        "frontend-angular/src/app/features/visual-process/**",
+        "agent/services/chat_process_binding.py"
+      ],
+      "acceptance_criteria": [
+        "Ein deterministisches Artefakt artifacts/domain/visual-process-assistant-baseline.json enthaelt jeden Eintrag aus list_task_kinds sowie jedes zusaetzliche ALL_TASK_KINDS- oder Legacy-Token, Runtime-Status, Adapter, Inspector-Zweig und konsumierten Feldpfad genau einmal mit kanonisch, alias oder drift klassifiziert.",
+        "Der Report belegt mindestens die Drift reranker_weight gegen weight, Klartext metadata.api_key, die Effective-Process-source-Enums, den fehlenden ValidationIssue.path und Dragging ohne verlaessliche Dirty-/Validation-Invalidierung.",
+        "Jede Feststellung enthaelt Repository-Pfad, Symbol oder Zeilenbereich sowie verified, unverified oder failed; es werden keine SRC_* oder RUN_* Kennungen erzeugt.",
+        "Ein Test vergleicht Registry, Frontend-Fallback und ausfuehrbare Adapter und schlaegt bei unbekannter oder nur einseitig vorhandener Runtime-Faehigkeit fehl.",
+        "Das Artefakt ist ohne Zeitstempel, absolute Pfade und zufaellige IDs byte-identisch reproduzierbar."
+      ]
+    },
+    {
+      "id": "VPA-CORE-002",
+      "title": "Graph-Schema, Registry-Version und Definitionsrevision trennen",
+      "description": "Der bestehende version-Wert bleibt kompatible Inhaltsrevision. Neue additive Felder modellieren Schema-, Registry- und Optimistic-Concurrency-Semantik.",
+      "type": "contract",
+      "milestone_id": "VPA-M1",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "VPA-CORE-001"
+      ],
+      "affected_files": [
+        "agent/visual_process/models.py",
+        "agent/routes/visual_process.py",
+        "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
+        "agent/services/chat_process_binding.py",
+        "tests/test_visual_process*.py"
+      ],
+      "acceptance_criteria": [
+        "Der versionierte Contract unterscheidet graph_schema_version, node_registry_version, definition_revision und base_graph_hash; das bestehende version-Feld behaelt seine bisherige API-Bedeutung.",
+        "Neue gespeicherte Definitionsgraphen enthalten keine volatilen Runtime-Werte; Legacy run_state wird beim Lesen akzeptiert, in ein Runtime-Overlay projiziert und nicht verlustreich still verworfen.",
+        "Unknown Node-Kinds, unbekannte Metadata-Felder und unbekannte additive Top-Level-Felder ueberstehen Load-Save-Load ohne Datenverlust.",
+        "Save mit veraltetem definition_revision oder base_graph_hash liefert einen stabilen 409-Konflikt und ueberschreibt keine neuere Definition.",
+        "Mindestens acht Roundtrip-Fixtures pruefen alte Graphversionen, Legacy run_state, unbekannte Kinds, unbekannte Felder und aktuelle Graphen in Frontend- und Backend-Contracttests."
+      ]
+    },
+    {
+      "id": "VPA-CORE-003",
+      "title": "NodeDefinition-Contract aus der kanonischen TaskKindRegistry ableiten",
+      "description": "UI-Definitionen komponieren die vorhandene Runtime-Registry. Runtime-Wahrheit, Formularschema und Darstellungsmetadaten bleiben getrennte fokussierte Interfaces.",
+      "type": "contract",
+      "milestone_id": "VPA-M1",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "VPA-CORE-001",
+        "VPA-CORE-002"
+      ],
+      "affected_files": [
+        "agent/visual_process/task_kind_registry.py",
+        "agent/visual_process/step_adapters.py",
+        "agent/visual_process/step_executor.py",
+        "schemas/visual_process/**",
+        "frontend-angular/src/app/features/visual-process/vp-editor-config.ts"
+      ],
+      "acceptance_criteria": [
+        "Jeder Eintrag aus ALL_TASK_KINDS besitzt genau eine komponierte NodeDefinition mit Label, Kategorie, Zweck, Runtime-Status, Inputs, Outputs, Feldschema, Defaults, Hilfetext, Beispielen und Capability-Flags.",
+        "implementation_state, side_effects, requires_approval und dispatch_capable werden ausschliesslich aus der bestehenden TaskKindRegistry bezogen und nicht in einer zweiten Registry dupliziert.",
+        "Feldschemas unterstuetzen Text, Number, Boolean, Enum, Multi-Select, Resource-Reference, Expression, Secret-Reference, IO-Port und strukturierte Listen mit typisierten Constraints.",
+        "registered_only, not_implemented oder nicht verdrahtete Kinds bleiben sichtbar, sind aber nicht als ausfuehrbar oder sicher konfigurierbar markiert.",
+        "Contracttests schlagen fehl, wenn Registry-Kind, Adapter, Default oder Feldpfad nicht eindeutig aufloesbar ist."
+      ]
+    },
+    {
+      "id": "VPA-CC-001",
+      "title": "Versioniertes Repository-Snapshot- und Coverage-Manifest implementieren",
+      "description": "Das bisherige best-effort Scanning wird durch ein vollstaendiges, revisionsfestes Inventar mit expliziter Klassifikation jedes Snapshot-Pfads ersetzt.",
+      "type": "contract-indexing",
+      "milestone_id": "VPA-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [],
+      "affected_files": [
+        "scripts/setup_codecompass_index.py",
+        "agent/services/rag_helper_index_service.py",
+        "worker/retrieval/index_state.py",
+        "schemas/worker/codecompass_output_manifest.v1.json",
+        "tests/test_codecompass*.py"
+      ],
+      "acceptance_criteria": [
+        "Fuer einen Git-Commit oder Hub-materialisierten Workspace-Snapshot erscheint jeder Snapshot-Pfad genau einmal als indexed, excluded, unsupported oder failed; die Summe entspricht exakt dem Inventar.",
+        "include_globs, deny_globs, conditional_rules, Extractor und Reason-Codes sind getrennte maschinenlesbare Felder; kein Glob enthaelt erlaeuternde Prosa.",
+        "manifest_hash wird aus stabil sortiertem Repository-Pfad, Content-SHA-256, Klassifikation, Extractor-Version und Profil gebildet; gleiche Snapshots sind byte-identisch und eine Ein-Byte-Aenderung aendert Revision und Hash.",
+        "Das bisherige 2000-Records- und 48-KB-Skip-Verhalten wird entfernt oder als cap_truncated, oversized oder budget_exceeded sichtbar; silently_skipped ist immer null.",
+        "Ein CI-Test entfernt jeweils einen required_path und beweist, dass Coverage-Gate und Indexlauf mit stabilem Reason-Code fehlschlagen."
+      ]
+    },
+    {
+      "id": "VPA-CC-002",
+      "title": "Source-Identity, Provenienz und Evidence fail-closed ausrichten",
+      "description": "SourceCatalog, Retrieval-Contract und Graph-Evidence werden auf echte, vom Hub aufgeloeste Ursprungsidentitaeten und revisionsgebundene Provenienz vereinheitlicht.",
+      "type": "contract-security",
+      "milestone_id": "VPA-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "VPA-CC-001"
+      ],
+      "affected_files": [
+        "agent/services/source_catalog_service.py",
+        "agent/services/retrieval_source_contract.py",
+        "schemas/source/source_catalog.v1.json",
+        "schemas/codecompass.graph-evidence.schema.json",
+        "ananta_contracts/retrieval.py"
+      ],
+      "acceptance_criteria": [
+        "Worker und LLM erhalten nur vom Hub aufgeloeste origin source_id und source_version; fehlende oder unbekannte IDs bleiben unverified oder failed und erzeugen keine grounded citation.",
+        "SourceCatalogService erzeugt keine SRC_* oder RUN_* Kennung aus Listenposition, Pfad, Record-ID, Task-ID oder Hash. resolve_source_identity darf nur eine bereits vom autoritativen Hub-Source-Katalog bereitgestellte und erlaubte ID unveraendert uebernehmen.",
+        "Es gibt keinen Content-Hash-, Trace-ID-, Manifest- oder Run-ID-Fallback aus Pfad oder Task-ID; fehlende Ursprungsfelder fuehren zu einem stabilen Rejection-Reason.",
+        "trust_level bleibt deterministic, extracted, manual, inferred oder ambiguous; verification_status bleibt verified, unverified oder failed. partial und unknown sind nur abgeleitete UI-Coverage-Zustaende.",
+        "Negative Tests decken missing, unknown, forged, tenant mismatch, scope mismatch, revision mismatch und provenance mismatch ab; bereitgestellte gueltige Source-/Run-IDs bleiben unveraendert."
+      ]
+    },
+    {
+      "id": "VPA-CC-003",
+      "title": "Repository-Indexierung als Hub-Task mit Worker-Ausfuehrung implementieren",
+      "description": "Der Hub besitzt Authentifizierung, Snapshot, Policy, Taskstatus und atomare Veroeffentlichung. Worker fuehren begrenzte Enumeration, Extraktion und Indexerstellung aus.",
+      "type": "hub-worker-integration",
+      "milestone_id": "VPA-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "VPA-CC-001",
+        "VPA-CC-002"
+      ],
+      "affected_files": [
+        "agent/routes/knowledge.py",
+        "agent/services/knowledge_index_job_service.py",
+        "agent/services/rag_helper_index_service.py",
+        "agent/services/retrieval_orchestration_contract.py",
+        "worker/retrieval/**",
+        "scripts/setup_codecompass_index.py"
+      ],
+      "acceptance_criteria": [
+        "Der Hub authentifiziert Principal und Tenant, validiert Snapshot und Policy, erzeugt den zentralen Task und persistiert queued, running, completed oder failed; der Worker liefert nur das delegierte Ergebnis.",
+        "Der neue Produktionspfad verwendet weder ThreadPoolExecutor noch ein prozesslokales Job-Dictionary als Source-of-Truth und setzt kein containeruebergreifendes Shared Filesystem voraus.",
+        "Der Idempotency-Key besteht aus Tenant, Source, workspace_revision und profile_hash; parallele identische Requests erzeugen genau einen aktiven Lauf.",
+        "Hub- oder Worker-Neustart verliert weder Jobstatus noch Manifest-, Policy- und Ergebnisreferenzen; Retry-Entscheidungen trifft ausschliesslich der Hub.",
+        "Ein Integrationstest beweist, dass Hub-Route und Hub-Service keine Repository-Extraktion ausfuehren und dass der Worker Manifest-, Coverage- und Output-Hashes zurueckliefert."
+      ]
+    },
+    {
+      "id": "VPA-CC-004",
+      "title": "Markdown-, Schema-, Todo-, Contract- und Testrecords strukturiert extrahieren",
+      "description": "Fokussierte Worker-Extraktoren liefern stabile Record-Kinds und Provenienz. Bestehende Graph-Evidence-source_kind-Werte werden nicht zweckentfremdet.",
+      "type": "worker-indexing",
+      "milestone_id": "VPA-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "VPA-CC-002",
+        "VPA-CC-003"
+      ],
+      "affected_files": [
+        "rag-helper/rag_helper/extractors/**",
+        "worker/retrieval/chunking.py",
+        "worker/retrieval/chunk_metadata.py",
+        "tests/fixtures/codecompass/**"
+      ],
+      "acceptance_criteria": [
+        "Markdown erzeugt Dokument-, Heading-, Tabellen-, fenced-code- und Link-Records mit repository-relativem Pfad, exakter einbasierter line_start/line_end, Content-Hash und stabiler Record-ID.",
+        "JSON-Schemas erzeugen JSON-Pointer-, $id- und $ref-Records; todo-Dateien erzeugen Task-, Decision- und Acceptance-Records; Tests erzeugen test_case- und fixture_relation-Records.",
+        "Record-Arten werden als record_kind modelliert und nicht als inkompatible neue source_kind-Werte in das bestehende Graph-Evidence-Schema geschrieben.",
+        "Gleicher Inhalt erzeugt unabhaengig von Dateisystemreihenfolge identische Records; reine Zeilenverschiebung aktualisiert Range und Hash nachvollziehbar.",
+        "Parserfehler erscheinen als failed mit Pfad, Extractor und Reason-Code; ein Test beweist, dass Secret-Testvektoren weder Records noch Logs erreichen."
+      ]
+    },
+    {
+      "id": "VPA-CC-005",
+      "title": "Mermaid-, PlantUML- und Draw.io-Evidence sicher extrahieren",
+      "description": "Architekturdiagramme erhalten eigene sichere Extraktoradapter. Nicht deterministisch parsebare Inhalte werden nicht geraten.",
+      "type": "worker-indexing",
+      "milestone_id": "VPA-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "VPA-CC-002",
+        "VPA-CC-003"
+      ],
+      "affected_files": [
+        "worker/retrieval/extractors/**",
+        "rag-helper/rag_helper/extractors/**",
+        "schemas/codecompass.graph-evidence.schema.json",
+        "tests/fixtures/codecompass/**"
+      ],
+      "acceptance_criteria": [
+        "mmd, puml, plantuml und eingebettete Mermaid-Bloecke erzeugen Textrecords und nur bei erfolgreichem Parser Knoten, Kanten und Labels mit Range, Record-ID und Dokumentreferenz.",
+        "Plain-XML-Draw.io wird mit einem Entity-sicheren Parser verarbeitet; komprimierte, verschluesselte oder nicht sicher erkennbare Varianten werden unsupported mit festem Reason-Code.",
+        "Heuristische Elemente tragen inferred oder ambiguous und niemals verified; deterministisch gegen das Original gepruefte Elemente koennen extracted und verified sein.",
+        "Malformed-, Hidden-Unicode-, Out-of-root- und XML-Entity-Testvektoren werden sicher abgelehnt und erzeugen keine externen Zugriffe.",
+        "Deterministische Tests decken Mermaid flowchart und sequence, PlantUML component und sequence sowie unterstuetztes und nicht unterstuetztes Draw.io ab."
+      ]
+    },
+    {
+      "id": "VPA-CC-006",
+      "title": "Kanonischen CodeCompass-Suchport produktiv verdrahten",
+      "description": "Die Fake-only retrieve-Luecke, leeren Hybridkanaele und widerspruechlichen Graph-Artefaktnamen werden durch einen kleinen injizierbaren Produktionsport ersetzt.",
+      "type": "retrieval-integration",
+      "milestone_id": "VPA-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "VPA-CC-002",
+        "VPA-CC-003",
+        "VPA-CC-004",
+        "VPA-CC-005"
+      ],
+      "affected_files": [
+        "agent/services/codecompass_context_service.py",
+        "agent/services/codecompass_context_planner_service.py",
+        "agent/services/tools/codecompass_tools.py",
+        "agent/services/knowledge_index_retrieval_service.py",
+        "agent/services/retrieval_service.py",
+        "worker/retrieval/codecompass_retriever.py",
+        "worker/retrieval/output_reader.py"
+      ],
+      "acceptance_criteria": [
+        "Alle Produktionsconsumer verwenden einen fokussierten Search-Port mit realem Backend; kein Aufruf auf eine nicht vorhandene RagHelperIndexService.retrieve-Methode bleibt.",
+        "CodeCompassRetriever erhaelt echte FTS-, Vector-, Symbol- und Graph-channel_results ueber injizierte Provider; ein leeres channel_results-Objekt ist nur ein expliziter degraded-Testfall.",
+        "Graph-Aufloesung verwendet das kanonische versionierte OutputManifest und nicht unterschiedliche hart codierte Dateinamen pro Consumer.",
+        "Keine Treffer liefern degraded/no_results, Providerfehler degraded mit stabilem Reason-Code und ein unverdrahteter Kanal niemals current.",
+        "Ein Temp-Index-Integrationstest ohne FakeRag und ohne Mock-Hybrid findet je einen Code-, Dokument-, Schema- und Testtreffer und weist Manifest-, Source- und Content-Hash nach."
+      ]
+    },
+    {
+      "id": "VPA-CC-007",
+      "title": "Editor-Intents und budgetierten CodeCompassContextPlanner implementieren",
+      "description": "Der vorhandene ContextPlanner wird erweitert; es entsteht kein paralleler Retrieval- oder Query-Assembler.",
+      "type": "domain-retrieval",
+      "milestone_id": "VPA-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "VPA-CORE-003",
+        "VPA-CC-006"
+      ],
+      "affected_files": [
+        "agent/services/codecompass_context_planner_service.py",
+        "agent/services/codecompass_context_service.py",
+        "agent/services/context_budget_policy_service.py",
+        "tests/test_codecompass_context_planner*.py"
+      ],
+      "acceptance_criteria": [
+        "Der bestehende Planner unterstuetzt node_explanation, field_effect, io_contract, validation_issue, runtime_error, dependency und safe_change als typisierte Intents.",
+        "Queryinput besteht aus Registry-Version, Node-Kind, Feldpfad, Backend-Contract oder Symbolen und Graphnachbarschaft; Nutzersprache ist nur ein laengenbegrenzter Zusatz.",
+        "preview fuehrt null Repository-Content-Reads und null LLM-Aufrufe aus; selected und conversation halten exakt die in operational_budgets definierten Range-, Zeilen-, Evidence- und Tokenlimits ein.",
+        "Treffer werden stabil nach Verification-Rang, Trust-Rang, Score absteigend, Pfad, line_start und record_id sortiert; identische Inputs erzeugen byte-identische Bundle-IDs.",
+        "Budgetueberschreitungen werden mit discarded Reason und Trace ausgewiesen; ein Test beweist, dass kein Vollrepository-Prompt erzeugt werden kann."
+      ]
+    },
+    {
+      "id": "VPA-CC-008",
+      "title": "Evidence-Release-Gate fuer Staleness, Konflikte, Secrets und Prompt Injection implementieren",
+      "description": "Nur deterministisch policy-gepruefte Evidence darf den Prompt-Assembler oder Patch-Aktionen erreichen.",
+      "type": "security-quality",
+      "milestone_id": "VPA-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "VPA-CC-002",
+        "VPA-CC-006",
+        "VPA-CC-007"
+      ],
+      "affected_files": [
+        "agent/services/context_access_policy_service.py",
+        "agent/services/retrieval_policy_filter_service.py",
+        "agent/services/codecompass_context_service.py",
+        "worker/retrieval/context_scanner.py",
+        "agent/services/prompt_snapshot_service.py"
+      ],
+      "acceptance_criteria": [
+        "Jeder rohe Retrievalblock durchlaeuft vor Promptaufbau ContextAccessPolicy, Redaction und ContextScanner; High-Risk-Injection oder versteckte Steuerzeichen werden durch einen neutralen Stub ersetzt und mit Source-ID und Reason auditiert.",
+        "Repository-Revision und Index-Manifest muessen zum eingefrorenen EditorContext passen; ein Mismatch liefert stale_context, entfernt verified und deaktiviert Patch-Aktionen bis zum expliziten Refresh.",
+        "Widersprueche zwischen aktueller Registry, Code oder Schema und Dokumentation werden als evidence_conflict mit beiden zugelassenen IDs dargestellt; keine Seite wird still priorisiert.",
+        "secret, credential, denied und tenantfremde Inhalte erreichen weder Modell noch Prompt-Snapshot oder Logs.",
+        "Tests decken Repository-Injection, HTML-Kommentar, Unicode-Steuerzeichen, API-Key, stale manifest, forged ID und Code-gegen-Dokumentation-Konflikt ab."
+      ]
+    },
+    {
+      "id": "VPA-CC-009",
+      "title": "Reproduzierbares CodeCompass-End-to-End-Acceptance-Gate erstellen",
+      "description": "Das Gate prueft den realen Hub-Worker-Index- und Retrievalpfad ohne Produkt-Fakes und verhindert eine erneute false-complete Integration.",
+      "type": "acceptance-test",
+      "milestone_id": "VPA-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "VPA-CC-003",
+        "VPA-CC-004",
+        "VPA-CC-005",
+        "VPA-CC-006",
+        "VPA-CC-007",
+        "VPA-CC-008"
+      ],
+      "affected_files": [
+        "tests/integration/codecompass/**",
+        "artifacts/test-gates/codecompass-editor-assistant.json",
+        "scripts/check_codecompass_editor_gate.py"
+      ],
+      "acceptance_criteria": [
+        "Zwei identische Fixture-Laeufe erzeugen byte-identisches Snapshot-Manifest, Records, Retrieval-Reihenfolge, Source-Katalog und Prompt-Evidence-Bundle.",
+        "Ein realer Test durchlaeuft Hub-Task, Worker-Ingestion, atomare Publikation, Search-Port, Source-Aufloesung und Evidence-Gate ohne FakeRag oder Mock-Hybrid.",
+        "Das Gate schlaegt bei required_path missing, silently_skipped groesser null, leerem Produktionskanal, unbekannter Source-ID, stale Revision oder Prompt-Injection fehl.",
+        "Der strukturierte Gate-Report enthaelt stabile Counts und Hashes, aber keine Zeitstempel, absolute Pfade, Repository-Volltexte oder Secrets.",
+        "Bestehende kompatible CodeCompass-APIs bleiben ueber Adapter nutzbar und sind durch Regressionstests abgedeckt."
+      ]
+    },
+    {
+      "id": "VPA-ED-001",
+      "title": "NodeDefinitionRegistry-Endpunkt und generierten Frontend-Fallback implementieren",
+      "description": "Der Hub projiziert NodeDefinitions aus der TaskKindRegistry. Der Frontend-Fallback wird aus demselben Contract erzeugt und nicht manuell gepflegt.",
+      "type": "frontend-backend",
+      "milestone_id": "VPA-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "VPA-CORE-003"
+      ],
+      "affected_files": [
+        "agent/routes/visual_process.py",
+        "agent/visual_process/task_kind_registry.py",
+        "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
+        "frontend-angular/src/app/features/visual-process/vp-editor-config.ts"
+      ],
+      "acceptance_criteria": [
+        "Ein additiver versionierter Hub-Endpunkt liefert NodeDefinitions mit ETag oder Registry-Hash und authentifiziert den Principal.",
+        "Der gebaute Frontend-Fallback wird aus demselben Contract generiert; ein Test beweist identische Kind-Menge, Version und Runtime-Flags.",
+        "Bei Netzwerkfehler wird nur ein kompatibler Fallback verwendet; Versionskonflikt zeigt einen erklaerten degraded state statt stiller Vermischung.",
+        "Unbekannte oder nicht ausfuehrbare Kinds bleiben lesbar und roundtrip-faehig, sind aber als unsupported beziehungsweise nicht dispatch-capable markiert.",
+        "Der Endpunkt exponiert keine Secrets, Credential-Werte oder tenantfremden Resource-Optionen.",
+        "Das Flag visual_process_registry_inspector wird mit dem Endpunkt eingefuehrt und ist bis zu bestandenen Registry- und Migrationstests standardmaessig deaktiviert."
+      ]
+    },
+    {
+      "id": "VPA-ED-002",
+      "title": "Bestaetigte Visual-Process-Contract-Drift kompatibel beheben",
+      "description": "Die im Baseline-Report belegten Feld-, Enum- und Validation-Differenzen werden mit Compatibility-Adaptern und Migrationstests korrigiert.",
+      "type": "bugfix-contract",
+      "milestone_id": "VPA-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "VPA-CORE-001",
+        "VPA-CORE-002",
+        "VPA-ED-001"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+        "agent/visual_process/step_adapters.py",
+        "frontend-angular/src/app/services/chat-sessions.service.ts",
+        "agent/services/chat_process_binding.py",
+        "agent/visual_process/validator.py"
+      ],
+      "acceptance_criteria": [
+        "Reranker-Gewicht verwendet einen kanonischen Feldnamen; der alte Name wird beim Lesen kompatibel migriert und beeinflusst nachweislich die Backend-Ausfuehrung.",
+        "Effective-Process-source besitzt einen gemeinsamen Frontend-/Backend-Enum-Contract und einen Adapter fuer bisherige Werte.",
+        "ValidationIssue besitzt einen kanonischen JSON-Pfad; Frontend und Backend sortieren gleiche Issues stabil nach Severity, Code und Path.",
+        "Klartext metadata.api_key wird fuer neue oder geaenderte Graphen Hub-seitig abgewiesen; bestehende Werte werden quarantainisiert und koennen nur explizit in eine opake Credential-Referenz migriert werden.",
+        "Ein Test fuer jeden bestaetigten Driftfall scheitert auf dem alten Verhalten und besteht mit dem Compatibility-Adapter.",
+        "Load-Save-Load veraendert keine unbekannten Metadata-Felder und keine nicht betroffenen Graphbereiche."
+      ]
+    },
+    {
+      "id": "VPA-ED-003",
+      "title": "EditorCommand-Port, Graphrevision und Undo-Redo-Transaktionen implementieren",
+      "description": "Alle Graphmutationen werden aus Editor-Shell und Einzelkomponenten in einen testbaren Command-Port verschoben.",
+      "type": "frontend-domain",
+      "milestone_id": "VPA-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "VPA-CORE-002",
+        "VPA-ED-002"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/features/visual-process/vp-editor-state.facade.ts",
+        "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+        "frontend-angular/src/app/features/visual-process/vp-canvas-interaction.service.ts",
+        "frontend-angular/src/app/features/visual-process/vp-editor-command.port.ts",
+        "frontend-angular/src/app/features/visual-process/vp-editor-history.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Add, Remove, Move, Feldupdate, Edge-Operation und spaetere AI-Patch-Uebernahme laufen ausschliesslich ueber einen kleinen EditorCommand-Port.",
+        "Jeder erfolgreiche Command erhoeht die Draft-Revision, setzt Dirty-State und invalidiert veraltete Validation; ein fehlgeschlagener Command veraendert keinen Zustand.",
+        "Mehrere Operationen koennen atomar als eine Transaktion angewendet, rueckgaengig gemacht und wiederhergestellt werden.",
+        "Dragging nutzt denselben Port und setzt Dirty-State; eine History-Grenze von 100 Transaktionen ist konfigurierbar und verwirft atomar nur die aeltesten Eintraege.",
+        "Tests pruefen Undo/Redo, Fehlerrollback, Revision, Dirty-State, Validation-Invalidierung und Isolation zweier Editorinstanzen."
+      ]
+    },
+    {
+      "id": "VPA-ED-004",
+      "title": "Schema-gesteuerten Node-Inspector aus fokussierten Feldrenderern bauen",
+      "description": "Der bestehende Inspector wird schrittweise auf kleine Renderer und Registry-Schemas migriert; Editor-Shell und Inspector enthalten keine neue Kind-Switch-Logik.",
+      "type": "frontend",
+      "milestone_id": "VPA-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "VPA-ED-001",
+        "VPA-ED-003"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.ts",
+        "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+        "frontend-angular/src/app/features/visual-process/field-renderers/**"
+      ],
+      "acceptance_criteria": [
+        "Text, Number, Boolean, Enum, Multi-Select, Resource-Reference, Expression, Secret-Reference, IO-Port und strukturierte Listen werden ueber fokussierte generische Renderer dargestellt.",
+        "Jedes Feld zeigt Label, Kurzbeschreibung, Wirkung, Default, Beispiel, Pflichtstatus und kanonischen Validierungsfehler direkt am Control.",
+        "Einfach-Modus zeigt nur essential-Felder; Expertenmodus zeigt erweiterte Felder und kanonisches JSON read-only. Kontrollierte Rohbearbeitung ist nur ueber denselben Validator und Command-Port moeglich.",
+        "Unbekannte Kinds und Felder bleiben lesbar und verlustfrei, koennen aber ohne passende Registry-Definition nicht unsicher editiert werden.",
+        "Componenttests beweisen, dass neue Test-Kinds nur durch Registry-Fixture und Renderer-Contract darstellbar sind, ohne Aenderung an der Inspector-Shell."
+      ]
+    },
+    {
+      "id": "VPA-ED-005",
+      "title": "Typisierte ResourceOptionProvider vereinheitlichen",
+      "description": "Der vorhandene Modell-/Trainingsoptionsdienst wird zu kleinen Provider-Ports fuer Modelle, Skills, RAG, Training, Fallback und Prozessreferenzen erweitert.",
+      "type": "frontend-backend",
+      "milestone_id": "VPA-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "VPA-ED-001",
+        "VPA-ED-004"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/features/visual-process/vp-model-training-options.service.ts",
+        "frontend-angular/src/app/features/visual-process/vp-resource-option-provider.ts",
+        "agent/routes/visual_process.py"
+      ],
+      "acceptance_criteria": [
+        "Modelle, Skills, RAG-Kanaele, Trainingsprofile, Datensaetze, Fallback-Gruppen und Prozessreferenzen verwenden fokussierte typisierte Provider mit loading, ready, empty, degraded und failed.",
+        "Optionen sind Principal- und Tenant-gefiltert und enthalten nur autorisierte IDs, Labels und nicht sensible Metadaten; Secret- oder Credential-Werte verlassen den Hub nie.",
+        "Feldsichtbarkeit, Pflichtstatus und erlaubte Werte koennen deterministisch von anderen Feldwerten abhaengen; Zyklen in Abhaengigkeiten werden als Registry-Fehler abgelehnt.",
+        "Cache-TTL und manueller Refresh sind konfigurierbar; Resource-Loeschung zeigt einen erklaerten stale/degraded Zustand statt leerer Auswahl.",
+        "Tests decken Erfolg, leere Daten, 403, 404, Timeout, Refresh, Cache-Invalidierung und tenantfremde Option ab."
+      ]
+    },
+    {
+      "id": "VPA-ED-006",
+      "title": "Registry-gesteuerte Node-Palette mit deterministischer Platzierung einfuehren",
+      "description": "Die aktuelle generische Plus-Schritt-Erzeugung wird durch eine erklaerte Palette ersetzt; es wird keine bestehende Palette vorausgesetzt.",
+      "type": "frontend-ux",
+      "milestone_id": "VPA-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P2",
+      "risk": "low",
+      "depends_on": [
+        "VPA-ED-001",
+        "VPA-ED-003"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+        "frontend-angular/src/app/features/visual-process/visual-process-editor.component.html",
+        "frontend-angular/src/app/features/visual-process/node-palette/**"
+      ],
+      "acceptance_criteria": [
+        "Paletteintraege stammen aus NodeDefinitions und sind nach Label, Synonym, Kategorie, Capability und Beschreibung suchbar.",
+        "Ein Eintrag zeigt Zweck, Runtime-Status, benoetigte Inputs, erzeugte Outputs, Side Effects und Approval-Anforderung.",
+        "Neue Nodes erhalten Registry-Defaults und werden relativ zu sichtbarem Viewport und Raster deterministisch kollisionsarm platziert; Math.random beeinflusst weder Typ noch Position.",
+        "Nicht ausfuehrbare oder policy-verbotene Kinds sind sichtbar erklaert, aber nicht hinzufuegbar.",
+        "Componenttests pruefen Suche, Keyboard-Navigation, Kategorien und deterministische Platzierung; Favoriten und Zuletzt-verwendet sind im ersten Release nicht implementiert."
+      ]
+    },
+    {
+      "id": "VPA-ED-007",
+      "title": "Worker-, Control-Flow- und CodeCompass-Kinds auf Registry-Formulare migrieren",
+      "description": "Gemeinsame Worker-, Steuerungs- und CodeCompass-Konfiguration wird aus den bisherigen Sondermasken in NodeDefinitions oder klar begrenzte Extension-Renderer ueberfuehrt.",
+      "type": "frontend-migration",
+      "milestone_id": "VPA-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "VPA-ED-004",
+        "VPA-ED-005"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+        "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.ts",
+        "agent/visual_process/task_kind_registry.py",
+        "agent/visual_process/step_adapters.py"
+      ],
+      "acceptance_criteria": [
+        "Alle kanonischen Worker-, Control-Flow- und vier CodeCompass-Kinds besitzen eine NodeDefinition und einen Roundtrip-Test fuer jedes angebotene Feld.",
+        "Gemeinsame Felder, Model-Routing, IO, Approval und Edge-Bedingungen schreiben ausschliesslich ueber EditorCommand auf Backend-gelesene kanonische Pfade.",
+        "Workspace- und CodeCompass-Sonderbloecke werden durch Definitionen oder registrierte fokussierte Extension-Renderer ersetzt; die Inspector-Shell enthaelt danach keine Kind-Verzweigung fuer diese Kinds.",
+        "Reranker schreibt ausschliesslich metadata.weight; bestehendes reranker_weight bleibt als Legacy-Alias lesbar und wird nur bei expliziter Migration entfernt.",
+        "Ein parametrischer Test erzeugt jeden betroffenen Kind aus Defaults, aendert jedes sichtbare Feld und verifiziert den tatsaechlich vom produktiven Adapter gelesenen Wert."
+      ]
+    },
+    {
+      "id": "VPA-ED-008",
+      "title": "Retrieval-, Embedding- und Quantisierungs-Kinds auf Registry-Formulare migrieren",
+      "description": "Die daten- und modellnahen ML-Kinds werden deklarativ und ohne Credential-Felder abgebildet.",
+      "type": "frontend-migration",
+      "milestone_id": "VPA-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "VPA-ED-004",
+        "VPA-ED-005"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+        "agent/visual_process/task_kind_registry.py",
+        "agent/visual_process/step_adapters.py"
+      ],
+      "acceptance_criteria": [
+        "domain_cluster, embed_api, embed_chunk, query_rewrite, rag_retrieve, rerank, sign_rotation und turboquant_mse sind vollstaendig registry-gesteuert.",
+        "vector_encode, turboquant_encode und cluster bleiben als erkennbare Legacy-Aliase verlustfrei lesbar und werden nicht als zusaetzliche kanonische Definitionen dupliziert.",
+        "Provider-, Base-URL-, Dimensions- und Modellfelder werden ausschliesslich ueber deklarative Regeln ein- und ausgeblendet; eval oder Kind-Switches sind nicht zulaessig.",
+        "Defaults, Min-/Max-Grenzen und Feldpfade stimmen mit den produktiven Step-Adaptern ueberein; kein Eintrag bietet api_key oder einen anderen Secretwert als editierbares Feld an.",
+        "Pro Kind pruefen Tests Default, ungueltigen Wert, Roundtrip, Option-Isolation und Adapterwirkung."
+      ]
+    },
+    {
+      "id": "VPA-ED-009",
+      "title": "Training- und Evolution-Kinds auf Registry-Formulare migrieren",
+      "description": "Training und Evolution nutzen bestehende Control-Center-Referenzen, behalten Runtime-Daten ausserhalb der Definition und erzwingen bestehende Governance.",
+      "type": "frontend-migration",
+      "milestone_id": "VPA-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "VPA-ED-004",
+        "VPA-ED-005"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html",
+        "frontend-angular/src/app/features/visual-process/vp-model-training-options.service.ts",
+        "agent/visual_process/task_kind_registry.py",
+        "agent/visual_process/step_adapters.py"
+      ],
+      "acceptance_criteria": [
+        "ml_intern_build_lora_dataset, ml_intern_train_lora und alle kanonischen Evolution-Kinds sind registry- oder Extension-Renderer-gesteuert.",
+        "Dataset-, Trainingsprofil-, Adapter- und Basismodell-Auswahl verwenden autorisierte Control-Center-IDs statt lokaler Dateipfade oder Klartext-Credentials.",
+        "Legacy-Trainingspfade bleiben als quarantainisierte Migration sichtbar, koennen aber keinen neuen Live-Run starten.",
+        "evolution_apply und schreibende evolve_project-Konfigurationen behalten requires_approval, MutationGate und Side-Effect-Warnungen; Runtime-Jobstatus bleibt ausserhalb der editierbaren Definition.",
+        "Pro Kind existieren Contract-, Renderer-, Hub-Validierungs- und Roundtrip-Tests; die Inspector-Shell enthaelt danach keine direkte Kind-Verzweigung fuer diese Kinds."
+      ]
+    },
+    {
+      "id": "VPA-ED-010",
+      "title": "Optimistische Graph-Persistenz im Angular-Editor vervollstaendigen",
+      "description": "Der Editor uebernimmt die autoritative Hub-Revision und bewahrt bei Konflikten Draft, History und Dirty-State.",
+      "type": "frontend-backend",
+      "milestone_id": "VPA-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "VPA-CORE-002",
+        "VPA-ED-003"
+      ],
       "affected_files": [
         "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
-        "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.ts",
-        "frontend-angular/src/app/features/visual-process/vp-editor-config.ts",
+        "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+        "frontend-angular/src/app/features/visual-process/vp-editor-state.facade.ts",
+        "agent/routes/visual_process.py"
+      ],
+      "acceptance_criteria": [
+        "Nach erfolgreichem Speichern uebernimmt der Angular-State exakt definition_revision, version und base_graph_hash aus der Hub-Antwort und setzt daraus seine neue Baseline.",
+        "Neue Graphen verwenden den bestehenden Create-Pfad; bestehende Graphen senden If-Match, expected_version oder einen gleichwertigen additiven Revisionswert.",
+        "Ein 409 graph_version_conflict veraendert weder Draft noch Dirty-State, Command-History oder Hub-Graph und bietet Reload oder Fork statt stillem Ueberschreiben.",
+        "Legacy-Aufrufer ohne Revisionsbedingung bleiben ueber einen dokumentierten Compatibility-Adapter funktionsfaehig und erhalten keine neue staerkere Vorbedingung.",
+        "Ein Integrationstest mit zwei Clients beweist, dass der zweite Client die neuere Version des ersten nicht ueberschreibt und nach Konflikt weiter lokal undo/redo ausfuehren kann."
+      ]
+    },
+    {
+      "id": "VPA-CTX-001",
+      "title": "Instanzlokales semantisches CanvasHitTarget-Modell implementieren",
+      "description": "DOM- und Pixelereignisse werden ueber einen instanzgebundenen Viewport-Port in stabile semantische Ziele uebersetzt.",
+      "type": "frontend-domain",
+      "milestone_id": "VPA-M4",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "VPA-CORE-003",
+        "VPA-ED-003"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/features/visual-process/visual-process-canvas.component.ts",
+        "frontend-angular/src/app/features/visual-process/vp-canvas-interaction.service.ts",
+        "frontend-angular/src/app/features/visual-process/vp-editor-state.facade.ts"
+      ],
+      "acceptance_criteria": [
+        "Pointer-, Keyboard- und Touch-Ereignisse werden auf node, node_port, edge, edge_condition, canvas_region, validation_badge oder runtime_badge mit stabiler Entity-ID normalisiert.",
+        "clientToSvg und Hit-Testing verwenden ausschliesslich den Host oder Viewport der aktuellen Editorinstanz; keine globale document.querySelector-Abfrage bleibt.",
+        "Zoom, Pan, Ueberlagerung und Z-Index liefern fuer dieselbe semantische Position dasselbe Ziel und speichern keine DOM-Referenz oder rohe Mauskoordinate.",
+        "Ports und Badges besitzen explizite Hit-Areas und aequivalente Keyboard-Fokusziele.",
+        "Ein Test mit zwei gleichzeitig gerenderten Canvasinstanzen beweist getrennte Viewports, Targets, Commands und Subscriptions."
+      ]
+    },
+    {
+      "id": "VPA-CTX-002",
+      "title": "Hover-, Fokus-, Auswahl- und Conversation-Kontext getrennt verwalten",
+      "description": "Kurzlebige Vorschau und eingefrorener Arbeits- beziehungsweise Conversation-Kontext erhalten getrennte instanzlokale Zustandsautomaten.",
+      "type": "frontend-state",
+      "milestone_id": "VPA-M4",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "VPA-CTX-001",
+        "VPA-ED-003"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/features/visual-process/vp-editor-state.facade.ts",
+        "frontend-angular/src/app/features/visual-process/vp-canvas-interaction.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Hover-Vorschau startet nach exakt konfigurierbaren 350 ms, wird bei Zielwechsel abgebrochen und erzeugt null Retrieval- und null LLM-Anfragen.",
+        "Auswahl friert Inspector- und Assistant-Kontext bis zum expliziten Wechsel ein; Mausbewegungen veraendern keine laufende Conversation.",
+        "Dragging, Edge-Zeichnen, Zoom, Pan und Modalinteraktion unterdruecken Hover-Hilfe ohne einen gepinnten Kontext zu verlieren.",
+        "Contextwechsel in einer Conversation verlangt eine sichtbare Bestaetigung und erzeugt einen neuen Context-Snapshot statt Mutation des alten.",
+        "Marble-/Componenttests pruefen Debounce, Cancellation, Keyboard, Touch und zwei voneinander isolierte Editorinstanzen."
+      ]
+    },
+    {
+      "id": "VPA-CTX-003",
+      "title": "Autoritativen deterministischen WorkflowLocationService implementieren",
+      "description": "Ein reiner Hub-Domainservice beschreibt die semantische Position eines Ziels aus dem Graphen; eine lokale Vorschau darf nur aus denselben Fakten degradieren.",
+      "type": "hub-domain",
+      "milestone_id": "VPA-M4",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P2",
+      "risk": "medium",
+      "depends_on": [
+        "VPA-CORE-002",
+        "VPA-CTX-001"
+      ],
+      "affected_files": [
+        "agent/services/visual_process_location_service.py",
+        "agent/routes/visual_process.py",
+        "frontend-angular/src/app/features/visual-process/vp-workflow-location.service.ts",
+        "agent/visual_process/validator.py"
+      ],
+      "acceptance_criteria": [
+        "Ein additiver authentifizierter Hub-Service liefert fuer Graph- oder Draft-Hash maschinenlesbare Fakten zu Startnaehe, Vorgaenger, Nachfolger, Branch, Gate, Schleife, Fehlerpfad, Erreichbarkeit und unverbundenen Elementen.",
+        "Die Berechnung verwendet nur Graph-IDs, Ports und Kantenbedingungen und ist unabhaengig von Layout, Zoom und Pointerposition.",
+        "Parallele Pfade, Zyklen, Self-Loops, mehrere Startknoten und tote Enden besitzen explizite nicht widerspruechliche Zustaende.",
+        "Stabile kurze UI-Texte werden aus den Fakten lokalisiert und enthalten keine LLM-generierte Behauptung; Angular cached hoechstens ein Ergebnis pro Draft-Hash.",
+        "Mindestens 20 deterministische Graph-Fixtures pruefen lineare, verzweigte, parallele, zyklische, fehlerhafte und unverbundene Graphen; 1000 Nodes und 2000 Edges werden auf der Referenzumgebung in hoechstens 250 ms analysiert."
+      ]
+    },
+    {
+      "id": "VPA-CTX-004",
+      "title": "EditorContextEnvelope und plattformgleiche Kanonisierung implementieren",
+      "description": "Frontend und Hub verwenden einen versionierten Context-Contract mit eindeutiger Domain-, Draft-, Runtime- und Evidence-Semantik.",
+      "type": "frontend-backend-contract",
+      "milestone_id": "VPA-M4",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "VPA-CORE-002",
+        "VPA-CORE-003",
+        "VPA-CC-002",
+        "VPA-CTX-002",
+        "VPA-CTX-003"
+      ],
+      "affected_files": [
+        "schemas/visual_process/editor_context.v1.json",
+        "frontend-angular/src/app/features/visual-process/vp-editor-context.ts",
+        "frontend-angular/src/app/features/visual-process/vp-editor-context-canonicalizer.service.ts",
+        "agent/services/visual_process_context_service.py",
+        "ananta_contracts/visual_process_assistant.py"
+      ],
+      "acceptance_criteria": [
+        "Der Contract bildet semantisches Ziel, Graph-Ausschnitt, effektive Konfiguration, Validation, optional gepinntes Runtime-Overlay, Editor-Modus und Evidence-Referenzen ab.",
+        "UTF-8, NFC, Schluesselsortierung, null-gegen-fehlend, Zahlendarstellung und Domain-Sortierschluessel entsprechen exakt deterministic_context_contract.",
+        "definition_hash, draft_hash und runtime_snapshot_hash sind getrennt; volatile Zeit-, Polling-, Dauer-, DOM- und Animationswerte werden vor Hashing ausgeschlossen.",
+        "Context groesser als 256 KiB, unbekannte Contractversion, unzulaessige Metadata oder nicht autorisierte Evidence wird mit stabilem 4xx-Reason abgelehnt.",
+        "Mindestens 30 gemeinsame JSON-Testvektoren erzeugen in TypeScript und Python byte-identische kanonische Bytes und SHA-256-IDs."
+      ]
+    },
+    {
+      "id": "VPA-CTX-005",
+      "title": "ContextAssembler und versionierte PromptSnapshots auf bestehende Dienste aufbauen",
+      "description": "CodeCompassContextService, ContextPlanner und PromptSnapshotService werden komponiert. Es entsteht kein paralleler Prompt- oder Context-Store.",
+      "type": "hub-domain",
+      "milestone_id": "VPA-M4",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "VPA-CC-007",
+        "VPA-CC-008",
+        "VPA-CTX-004"
+      ],
+      "affected_files": [
+        "agent/services/codecompass_context_service.py",
+        "agent/services/codecompass_context_planner_service.py",
+        "agent/services/prompt_snapshot_service.py",
+        "agent/services/visual_process_context_service.py"
+      ],
+      "acceptance_criteria": [
+        "Der Assembler erzeugt system_constraints, editor_location, workflow_summary, focused_entity, effective_configuration, validation_and_runtime, allowed_mutations, approved_evidence und response_contract in fester Reihenfolge.",
+        "Gleiche Repository-, Manifest-, Registry-, Graph-, Fokus- und Locale-Eingaben erzeugen byte-identischen Initialprompt und dieselbe Context-ID.",
+        "Nur Evidence aus VPA-CC-008 erreicht den Prompt; Rejected-Evidence wird lediglich als Count und Reason-Code, nicht als Inhalt eingebettet.",
+        "PromptSnapshot speichert Prompt-Version, Template-Hash, Context-ID und Evidence-Referenzen; Rohprompt und Repository-Volltext werden standardmaessig nicht dauerhaft gespeichert.",
+        "Snapshottests decken mindestens 30 Node-, Feld-, Edge-, Canvas-, Validation-, Runtime-, stale- und no-evidence-Kontexte ab."
+      ]
+    },
+    {
+      "id": "VPA-AI-001",
+      "title": "Versionierte HelpResponse- und WorkflowPatch-Contracts definieren",
+      "description": "Response- und Patch-Vertraege werden vor Transport und UI implementiert und referenzieren die kanonischen Graph-, Registry-, Context- und Evidence-Versionen.",
+      "type": "contract",
+      "milestone_id": "VPA-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "VPA-CORE-003",
+        "VPA-CC-002",
+        "VPA-CTX-004"
+      ],
+      "affected_files": [
+        "schemas/visual_process/help_response.v1.json",
+        "schemas/visual_process/workflow_patch.v1.json",
+        "ananta_contracts/visual_process_assistant.py",
+        "frontend-angular/src/app/features/visual-process/visual-process-assistant.contract.ts"
+      ],
+      "acceptance_criteria": [
+        "HelpResponse enthaelt summary, location, explanation, options, warnings, next_actions, evidence und optional workflow_patch; Trust und Verification verwenden die kanonischen getrennten Enums.",
+        "WorkflowPatch erlaubt add_step, remove_step, update_step_field, add_edge, remove_edge und update_edge_condition mit definiertem JSON-Pointer oder fachlichem Graphpfad.",
+        "Jede Operation enthaelt base_graph_hash und expected_old_value oder eine gleichwertige Revisionsbedingung; temporaere Step-IDs, Operationsreihenfolge und Edge-Referenzintegritaet sind eindeutig spezifiziert.",
+        "Erlaubte Metadata-Namespaces und Felder stammen aus NodeDefinition; Secretwerte, unbekannte Pfade und automatische Persistenz sind vertraglich unzulaessig.",
+        "Contracttests pruefen Roundtrip, unbekannte additive Felder, Parserfehler, falsche Enums, Konflikte, Secret-Injection und die atomare Alles-oder-nichts-Semantik."
+      ]
+    },
+    {
+      "id": "VPA-AI-002",
+      "title": "Hub-eigene Assistant- und Conversation-Orchestrierung implementieren",
+      "description": "Versionierte APIs erstellen Hub-Tasks und persistente Conversation-Snapshots. Der Hub fuehrt keine delegierbare LLM-Arbeit selbst aus.",
+      "type": "hub-orchestration",
+      "milestone_id": "VPA-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "VPA-AI-001",
+        "VPA-CC-008",
+        "VPA-CTX-005"
+      ],
+      "affected_files": [
+        "agent/routes/visual_process_assistant.py",
+        "agent/services/visual_process_assistant_service.py",
+        "agent/services/task_runtime_service.py",
+        "agent/services/chat_process_binding.py",
+        "agent/routes/snakes_execution_handlers.py"
+      ],
+      "acceptance_criteria": [
+        "Additive versionierte Endpunkte fuer Context, Conversation, Frage, Status, Abbruch und Kontextwechsel authentifizieren Principal, Tenant und Berechtigung auf Prozessdefinition und Sources.",
+        "Jede Frage erzeugt oder referenziert einen Hub-eigenen Task mit immutable Context-ID, Prompt-Version, Revisions-, Policy- und Evidence-Referenzen.",
+        "Conversation- und Taskstatus sind persistent und nach Hub-Neustart verfuegbar; es entsteht kein neues prozessglobales Dictionary als Source-of-Truth.",
+        "Der Hub delegiert die eigentliche LLM-Ausfuehrung an einen Worker und entscheidet allein ueber Routing, Retry, Cancellation, Policy und Ergebnisannahme.",
+        "Idempotency-Key und Client-Request-ID verhindern Doppeltasks; API-Tests pruefen 401, 403, 404, 409, Retry und Neustartwiederaufnahme.",
+        "Das Flag visual_process_assistant_chat wird mit der Route eingefuehrt und bleibt bis zu bestandenem Hub-Worker- und Evidence-Gate standardmaessig deaktiviert."
+      ]
+    },
+    {
+      "id": "VPA-AI-003",
+      "title": "Worker-Ausfuehrung fuer belegte Editorhilfe implementieren",
+      "description": "Ein fokussierter Worker-Adapter konsumiert den Hub-Envelope, fuehrt Retrieval und Modellinferenz aus und liefert einen validierten Vorschlag ohne Orchestrierungs- oder Persistenzhoheit.",
+      "type": "worker-execution",
+      "milestone_id": "VPA-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "VPA-AI-001",
+        "VPA-AI-002",
+        "VPA-CC-006",
+        "VPA-CC-007",
+        "VPA-CC-008"
+      ],
+      "affected_files": [
+        "worker/visual_process_assistant/**",
+        "worker/retrieval/codecompass_retriever.py",
+        "agent/services/workflow_worker_gateway_service.py",
+        "agent/routes/snakes_worker_routing.py"
+      ],
+      "acceptance_criteria": [
+        "Der Worker akzeptiert nur einen signierten oder authentifizierten Hub-Envelope mit Context-, Prompt-, Budget-, Source-Allowlist- und Contractversion.",
+        "Retrieval nutzt den kanonischen Search-Port und Evidence-Gate; Modellinput bleibt innerhalb der Context- und Timeoutbudgets.",
+        "Die Modellausgabe wird gegen HelpResponse und WorkflowPatch validiert; Schemafehler liefern eine sichere Nur-Text-Erklaerung ohne Patch oder Mutation.",
+        "Der Worker erzeugt keine Tasks, routet keine Worker, persistiert keinen Graph und erfindet keine Source- oder Run-ID.",
+        "Ein Hub-Worker-Integrationstest prueft Erfolg, no_results, Timeout, Cancellation, Worker-Ausfall, ungueltige Evidence und ungueltige Modellausgabe."
+      ]
+    },
+    {
+      "id": "VPA-AI-004",
+      "title": "Hub-seitige WorkflowPatch-Governance und Audit implementieren",
+      "description": "Jeder Modellpatch wird vor Anzeige und Uebernahme durch einen deterministischen Hub-Domainservice autorisiert, auf einen Graphklon angewendet und vollstaendig validiert.",
+      "type": "hub-domain-security",
+      "milestone_id": "VPA-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "VPA-AI-001",
+        "VPA-AI-002",
+        "VPA-AI-003",
+        "VPA-ED-003"
+      ],
+      "affected_files": [
+        "agent/services/visual_process_patch_service.py",
+        "agent/routes/visual_process_assistant.py",
+        "agent/visual_process/validator.py",
+        "agent/routes/visual_process.py"
+      ],
+      "acceptance_criteria": [
+        "Der Hub prueft Principal, Tenant, Prozessberechtigung, Feature-Flag, Registry-Feld, Side-Effect-Policy, base_graph_hash und expected_old_value vor Freigabe eines Patches.",
+        "Der Patch wird atomar auf einen Graphklon angewendet und durch Registry-, Graph- und Backend-Validierung geprueft; der gespeicherte Graph bleibt dabei unveraendert.",
+        "WorkflowPatch v1 wird immer vollstaendig angenommen oder verworfen; Teiluebernahme und stilles Entfernen einzelner Operationen sind nicht zulaessig.",
+        "Konflikte liefern 409 mit maschinenlesbaren betroffenen Pfaden; Secrets, nicht erlaubte Felder und referenzbrechende Operationen liefern 4xx und keine Vorschau.",
+        "Audit speichert Context-ID, Prompt-Version, Patch-Hash, Nutzerentscheidung, Reason-Codes und Ergebnis, aber keinen Rohprompt, Repository-Volltext oder Secretwert.",
+        "Das Flag visual_process_ai_patches wird mit dem Governance-Service eingefuehrt und bleibt bis zu bestandenem Security- und E2E-Gate standardmaessig deaktiviert."
+      ]
+    },
+    {
+      "id": "VPA-AI-005",
+      "title": "Request-Lifecycle, Cache, Limits und Telemetrie absichern",
+      "description": "Operational Controls begrenzen Requests und Caches deterministisch, ohne Conversation- oder Evidence-Semantik zu veraendern.",
+      "type": "operations",
+      "milestone_id": "VPA-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "VPA-AI-002",
+        "VPA-AI-003",
+        "VPA-AI-004"
+      ],
+      "affected_files": [
+        "agent/services/visual_process_assistant_service.py",
+        "agent/services/prompt_snapshot_service.py",
+        "frontend-angular/src/app/services/visual-process-assistant-api.service.ts",
+        "agent/config.py"
+      ],
+      "acceptance_criteria": [
+        "Ein Lasttest beweist: Pro Conversation sind hoechstens zwei Requests gleichzeitig aktiv und pro Principal hoechstens 20 Requests pro Minute; Ueberschreitung liefert 429 mit Retry-After.",
+        "Retrieval bricht nach 5000 ms und Modellinferenz nach 120000 ms ab; Cancellation propagiert vom Client ueber Hub-Task zum Worker.",
+        "Context- und Prompt-Caches sind durch Context-ID und Versionen adressiert; Graph-, Registry-, Index- oder Policy-Wechsel kann keinen veralteten Treffer als current liefern.",
+        "Nondeterministische Modellantworten werden standardmaessig nicht als statische Hilfe wiederverwendet; nur explizit deterministische lokale Hilfetexte duerfen gecacht werden.",
+        "Metriken unterscheiden queued, active, cancelled, timeout, cache_hit, cache_miss, stale, rejected und completed ohne Prompt-, Evidence-Volltext oder personenbezogene Labels."
+      ]
+    },
+    {
+      "id": "VPA-UX-001",
+      "title": "Zugaengliche adaptive AI-Snake-Sprechblase als eigene DOM-Komponente bauen",
+      "description": "Die interaktive Sprechblase wird nicht in den bereits grossen Physics-/Canvas-Overlay-Code eingebaut, sondern ueber den vorhandenen Visual-Guide-Fluss komponiert.",
+      "type": "frontend-ux",
+      "milestone_id": "VPA-M6",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P2",
+      "risk": "medium",
+      "depends_on": [
+        "VPA-CTX-002",
+        "VPA-CTX-003",
+        "VPA-CTX-005"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/components/snake-overlay.component.ts",
+        "frontend-angular/src/app/components/ai-snake-process-panel.component.ts",
+        "frontend-angular/src/app/components/visual-process-assistant-bubble.component.ts",
+        "frontend-angular/src/app/components/visual-process-assistant-bubble.component.html",
+        "frontend-angular/src/app/components/visual-process-assistant-bubble.component.scss",
+        "frontend-angular/src/app/services/snake-guide.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Eine eigene DOM-Komponente bietet compact, expanded und pinned; compact ist maximal 360 px breit, expanded nutzt clamp zwischen 360 und 640 px und maximal 70 vh Hoehe.",
+        "Expanded zeigt Location, Zweck, wichtigste Einstellungen, Warnungen, naechsten Schritt und Evidence-Status ohne weitere Modellanfrage.",
+        "Die Positionierungsstrategie prueft mindestens vier Ankerseiten und waehlt die Variante mit geringster Node-Ueberdeckung; der Nutzer kann pinned verschieben.",
+        "Tab, Shift-Tab, Enter, Escape, Screenreader-Labels, Fokus-Rueckgabe, prefers-reduced-motion und 360x800-Viewport sind in Componenttests abgedeckt.",
+        "Read-only-Modus zeigt Erklaerungen, aber keine Patch-, Apply- oder Editieraktion.",
+        "Das Flag visual_process_hover_help wird mit der Bubble eingefuehrt und bleibt bis zu bestandenem Accessibility- und Multi-Instance-Test standardmaessig deaktiviert."
+      ]
+    },
+    {
+      "id": "VPA-UX-002",
+      "title": "Kontextsensitiven Editor-Chat mit Evidence-Ansicht integrieren",
+      "description": "Bubble und angedockter Chat verwenden dieselbe persistente Hub-Conversation und zeigen den eingefrorenen Kontext nachvollziehbar an.",
+      "type": "frontend-backend",
+      "milestone_id": "VPA-M6",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "VPA-AI-001",
+        "VPA-AI-002",
+        "VPA-AI-003",
+        "VPA-AI-005",
+        "VPA-UX-001"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/components/ai-snake-process-panel.component.ts",
+        "frontend-angular/src/app/services/ai-snake-chat.service.ts",
+        "frontend-angular/src/app/services/snake-events.service.ts",
+        "frontend-angular/src/app/features/visual-process/vp-assistant.facade.ts",
+        "frontend-angular/src/app/services/visual-process-assistant-api.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Eine Frage aus Bubble oder Dock bindet genau einmal den ausgewaehlten Context-Snapshot; spaetere Fokuswechsel aendern die Conversation nur nach sichtbarer Bestaetigung.",
+        "Ein fokussierter VisualProcessAssistantApiPort kommuniziert ausschliesslich mit dem Hub; Visual-Process-Kontext wird nicht als untypisierter DOM- oder ui_context-Blob an AiSnakeChatService angehaengt.",
+        "Die UI zeigt Context-ID, fokussiertes Element, Repository- und Indexrevision sowie Evidence mit Pfad, Range oder Symbol, Trust und Verification.",
+        "Stale, conflict, rejected, no_results, timeout und cancelled besitzen unterschiedliche verstaendliche Zustaende und aktivieren keine Patch-Aktion.",
+        "Kurzfassung und Details werden aus derselben HelpResponse ohne erneute Modellanfrage dargestellt.",
+        "Componenttests pruefen zwei parallele Editorinstanzen, Wiederaufnahme nach Reload, Kontextwechsel, Cancellation, Read-only-Modus und tenantfremde 403-Antwort."
+      ]
+    },
+    {
+      "id": "VPA-UX-003",
+      "title": "Patch-Vorschau und explizite EditorCommand-Uebernahme implementieren",
+      "description": "Nur vom Hub freigegebene Patches koennen nach sichtbarer Bestaetigung als lokale atomare Editortransaktion angewendet werden.",
+      "type": "frontend-domain",
+      "milestone_id": "VPA-M6",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "VPA-AI-004",
+        "VPA-ED-004",
+        "VPA-UX-002"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/features/visual-process/vp-workflow-patch-preview.component.ts",
+        "frontend-angular/src/app/features/visual-process/vp-workflow-patch-preview.component.html",
+        "frontend-angular/src/app/features/visual-process/vp-workflow-patch.service.ts",
+        "frontend-angular/src/app/features/visual-process/vp-editor-state.facade.ts",
         "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
       ],
       "acceptance_criteria": [
-        "Alle VpStep.kind-Werte und ihre aktuell wirksamen metadata-, policy-, io-, model-, rag-, training- und gate-Felder sind dokumentiert.",
-        "Fuer jedes Feld sind Typ, Pflichtstatus, Default, erlaubte Werte, Backend-Wirkung und bestehende Validierung bekannt.",
-        "Globale Optionen wie SkillProfile, TaskKind, ModelProfile, FallbackGroup und Training-Optionen sind ihrer konsumierenden Node-Art zugeordnet.",
-        "Inkonsistente, ungenutzte oder nur implizit ausgewertete Felder sind als Migrationsrisiko markiert."
+        "Die Vorschau zeigt Feld-Diff, betroffene Nodes und Kanten, Validation vor und nach Anwendung, Evidence sowie Hub-Policy-Entscheidung.",
+        "Apply ist erst nach expliziter Bestaetigung aktiv und verwendet genau eine EditorCommand-Transaktion; Undo stellt den byte-identischen vorherigen Draft wieder her.",
+        "Reject oder Schliessen hinterlaesst keine Graphmutation, Revision, Dirty-State- oder Persistenzaenderung.",
+        "Ein 409-Konflikt nach manueller Zwischenaenderung deaktiviert Apply und ueberschreibt keine Werte; Refresh erzeugt einen neuen Hub-validierten Patch.",
+        "Mehrteilige atomare Patches, Secret-Injection, unbekannte Felder, abhaengige Operationen, Read-only-Modus und fehlgeschlagene Backend-Validierung sind in Componenttests abgedeckt."
       ]
     },
     {
-      "id": "VPA-002",
-      "title": "Kanonischen EditorContextEnvelope definieren",
-      "type": "architecture",
+      "id": "VPA-QA-001",
+      "title": "Produktionsnahe Contract-, Integration- und E2E-Gates abschliessen",
+      "description": "Das Gate prueft die realen Ports ueber Frontend, Hub und Worker und ersetzt keine task-lokalen Unit- oder Securitytests.",
+      "type": "acceptance-test",
+      "milestone_id": "VPA-M7",
       "status": "todo",
+      "progress_percent": 0,
       "priority": "P0",
       "risk": "high",
-      "dependencies": ["VPA-001"],
-      "acceptance_criteria": [
-        "Ein versionierter typisierter Contract bildet Canvas-Ziel, Graph-Ausschnitt, effektive Konfiguration, Validation, Runtime, Editor-Modus und CodeCompass-Evidence ab.",
-        "Hover-, Selection- und Chat-Kontext verwenden denselben Contract mit expliziten Detailstufen preview, selected und conversation.",
-        "Der Contract besitzt eine kanonische JSON-Serialisierung und einen reproduzierbaren context_id Hash.",
-        "Volatile und sensible Felder sind explizit ausgeschlossen oder redigiert."
-      ]
-    },
-    {
-      "id": "VPA-003",
-      "title": "Deterministischen Prompt-Assembler spezifizieren",
-      "type": "architecture",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
-      "dependencies": ["VPA-002"],
-      "acceptance_criteria": [
-        "Der Initialprompt entsteht aus festen Templates und kanonisch sortierten ContextEnvelope-Sektionen.",
-        "Gleicher Repository-, Index-, Graph- und Fokusstand erzeugt byte-identischen Initialprompt.",
-        "Prompt-Version, Context-ID und Evidence-IDs werden mit der Unterhaltung gespeichert.",
-        "Ein Snapshot-Test prueft mindestens 20 representative Node-, Kanten-, Canvas- und Runtime-Kontexte."
-      ]
-    },
-    {
-      "id": "VPA-004",
-      "title": "Versionierte NodeDefinitionRegistry einfuehren",
-      "type": "frontend-backend-contract",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "dependencies": ["VPA-001"],
-      "acceptance_criteria": [
-        "Jeder Node-Kind besitzt genau eine Definition mit Label, Kategorie, Zweck, Inputs, Outputs, Feldschema, Defaults, Beispielen, Hilfetexten und Capability-Flags.",
-        "Registry-Definitionen koennen aus einem kanonischen Backend-Contract geladen und offline mit einer kompatiblen gebauten Fallback-Version verwendet werden.",
-        "Unbekannte Node-Kinds bleiben lesbar, werden aber als unsupported markiert und nicht verlustreich gespeichert.",
-        "Registry-Version und VpGraph-Version sind kompatibilitaetsgeprueft."
-      ]
-    },
-    {
-      "id": "VPA-005",
-      "title": "Schema-gesteuerten Node-Inspector implementieren",
-      "type": "frontend",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "dependencies": ["VPA-004"],
-      "acceptance_criteria": [
-        "Text, Number, Boolean, Enum, Multi-Select, Resource-Reference, Expression, Secret-Reference, IO-Port und strukturierte Listen werden generisch gerendert.",
-        "Jedes Feld zeigt Kurzbeschreibung, Wirkung, Default, Beispiel und Validierungsfehler direkt am Feld.",
-        "Ein Einfach-Modus zeigt nur wesentliche Felder; ein Expertenmodus zeigt erweiterte Optionen und das kanonische JSON read-only beziehungsweise kontrolliert editierbar.",
-        "Aenderungen mutieren ausschliesslich den Editor-State und respektieren Dirty-State, Undo/Redo und Validierung."
-      ]
-    },
-    {
-      "id": "VPA-006",
-      "title": "Abhaengige Optionen und dynamische Auswahlwerte vereinheitlichen",
-      "type": "frontend",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "dependencies": ["VPA-004", "VPA-005"],
-      "acceptance_criteria": [
-        "Modelle, Skills, RAG-Kanaele, Trainingsprofile, Datensaetze, Fallback-Gruppen und Prozessreferenzen werden ueber typisierte OptionProvider geladen.",
-        "Felder koennen anhand anderer Feldwerte sichtbar, erforderlich, eingeschraenkt oder deaktiviert werden.",
-        "Fehlende Ressourcen zeigen einen erklaerten degraded state statt leere Dropdowns.",
-        "OptionProvider besitzen Lade-, Fehler-, Cache- und Refresh-Zustaende."
-      ]
-    },
-    {
-      "id": "VPA-007",
-      "title": "Node-Palette mit Suche, Kategorien und erklaerten Vorlagen erweitern",
-      "type": "frontend-ux",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "low",
-      "dependencies": ["VPA-004"],
-      "acceptance_criteria": [
-        "Nodes sind nach Nutzerziel kategorisiert und nach Label, Synonym, Capability und Beschreibung suchbar.",
-        "Hover auf einem Paletteneintrag zeigt Zweck, benoetigte Inputs, erzeugte Outputs und ein Mini-Beispiel.",
-        "Neue Nodes werden deterministisch positioniert und erhalten Registry-Defaults statt zufaelliger fachlicher Konfiguration.",
-        "Favoriten und zuletzt verwendet veraendern nicht die kanonische Registry-Reihenfolge."
-      ]
-    },
-    {
-      "id": "VPA-008",
-      "title": "Semantisches CanvasHitTarget-Modell implementieren",
-      "type": "frontend",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "dependencies": ["VPA-002"],
-      "acceptance_criteria": [
-        "Pointer-Events werden auf node, node_port, edge, edge_condition, canvas_region, validation_badge oder runtime_badge normalisiert.",
-        "Das Modell enthaelt stabile Entity-IDs und semantische Rollen, aber keine rohen DOM-Referenzen im gespeicherten Kontext.",
-        "Z-Index, ueberlappende Elemente, Zoom und Pan liefern reproduzierbar dasselbe semantische Ziel.",
-        "Keyboard-Fokus und Touch-Auswahl erzeugen aequivalente Targets ohne Hover-Abhaengigkeit."
-      ]
-    },
-    {
-      "id": "VPA-009",
-      "title": "Hover-, Fokus- und Auswahlzustand sauber trennen",
-      "type": "frontend-state",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "medium",
-      "dependencies": ["VPA-008"],
-      "acceptance_criteria": [
-        "Hover-Vorschau erscheint erst nach konfigurierbarem Delay und wird debounced beziehungsweise cancellable erzeugt.",
-        "Auswahl friert den Kontext fuer Inspector und Chat ein, bis der Nutzer explizit wechselt.",
-        "Dragging, Edge-Zeichnen, Zoom und Pan unterdruecken stoerende Hilfe-Popups.",
-        "Der Zustand bleibt lokal zur Editorinstanz und beeinflusst keine zweite eingebettete Instanz."
-      ]
-    },
-    {
-      "id": "VPA-010",
-      "title": "Workflow-Positionsbeschreibung berechnen",
-      "type": "domain-service",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "dependencies": ["VPA-002", "VPA-008"],
-      "acceptance_criteria": [
-        "Ein deterministischer Service beschreibt Startnaehe, Vorgaenger, Nachfolger, Branch, Gate, Schleife, Fehlerpfad und Erreichbarkeit des fokussierten Elements.",
-        "Die Beschreibung basiert auf VpGraph und nicht auf visuellen Pixelkoordinaten.",
-        "Bei Zyklen, parallelen Pfaden und unverbundenen Nodes entstehen korrekte erklaerte Zustaende.",
-        "Der Service liefert sowohl maschinenlesbare Fakten als auch stabile kurze UI-Texte."
-      ]
-    },
-    {
-      "id": "VPA-011",
-      "title": "Groessere adaptive AI-Snake-Sprechblase bauen",
-      "type": "frontend-ux",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "medium",
-      "dependencies": ["VPA-009", "VPA-010"],
-      "acceptance_criteria": [
-        "Die Sprechblase bietet mindestens compact, expanded und pinned mit responsive Breite und sinnvoller Maximalhoehe.",
-        "Expanded zeigt Orientierung, Zweck, wichtigste Einstellungen, Warnungen, naechsten Schritt und Quellenindikator.",
-        "Die Blase verdeckt den fokussierten Node nach Moeglichkeit nicht und kann verschoben oder angeheftet werden.",
-        "Tastaturbedienung, Screenreader-Labels, reduzierte Animation und mobile Darstellung sind abgedeckt."
-      ]
-    },
-    {
-      "id": "VPA-012",
-      "title": "Kontextsensitiven Editor-Chat integrieren",
-      "type": "frontend-backend",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "dependencies": ["VPA-003", "VPA-011"],
-      "acceptance_criteria": [
-        "Aus der Sprechblase kann direkt eine Frage eingegeben oder ein angedockter Chat geoeffnet werden.",
-        "Die erste Nutzernachricht bindet den eingefrorenen ContextEnvelope und Prompt-Snapshot an die Unterhaltung.",
-        "Spaetere Fokuswechsel veraendern die laufende Unterhaltung nur nach explizitem Kontextwechsel.",
-        "Der Chat zeigt Context-ID, fokussiertes Element und verwendete CodeCompass-Evidence in einer aufklappbaren Ansicht."
-      ]
-    },
-    {
-      "id": "VPA-013",
-      "title": "Antwortformat fuer erklaerende Editorhilfe erzwingen",
-      "type": "ai-contract",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "dependencies": ["VPA-003", "VPA-012"],
-      "acceptance_criteria": [
-        "Antworten werden als typisierter HelpResponse-Contract mit summary, location, explanation, options, warnings, next_actions, evidence und optional patch geliefert.",
-        "Nicht belegte Implementierungsbehauptungen werden als unbekannt markiert und nicht als Fakt ausgegeben.",
-        "UI kann Kurzfassung und Details ohne erneute Modellanfrage darstellen.",
-        "Parser- oder Schemafehler fallen auf eine sichere Nur-Text-Erklaerung ohne Mutation zurueck."
-      ]
-    },
-    {
-      "id": "VPA-014",
-      "title": "Kontext- und Antwortcache mit klarer Invalidierung einfuehren",
-      "type": "performance",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "dependencies": ["VPA-003", "VPA-013"],
-      "acceptance_criteria": [
-        "Identische Context-IDs verwenden denselben deterministischen Initialprompt und koennen identische statische Hilfetexte cachen.",
-        "Graphmutation, Registry-Wechsel, Index-Revision oder Fokuswechsel invalidieren nur betroffene Eintraege.",
-        "Hover erzeugt keine unkontrollierte Modellanfragenserie.",
-        "Cache-Metriken unterscheiden Hit, Miss, Invalidierung und veraltete Evidence."
-      ]
-    },
-    {
-      "id": "VPA-015",
-      "title": "CodeCompass-Ingestion fuer gesamte Ananta-Wissensbasis auditieren",
-      "type": "analysis-security",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
-      "dependencies": [],
+      "depends_on": [
+        "VPA-CC-009",
+        "VPA-ED-005",
+        "VPA-ED-006",
+        "VPA-ED-007",
+        "VPA-ED-008",
+        "VPA-ED-009",
+        "VPA-ED-010",
+        "VPA-UX-001",
+        "VPA-UX-002",
+        "VPA-UX-003"
+      ],
       "affected_files": [
-        "scripts/setup_codecompass_index.py",
-        "worker/retrieval/codecompass_retriever.py",
-        "docs/codecompass.md",
-        "docs/codecompass-tools.md"
+        "tests/integration/visual_process_assistant/**",
+        "frontend-angular/e2e/**",
+        "artifacts/test-gates/visual-process-assistant.json"
       ],
       "acceptance_criteria": [
-        "Ein reproduzierbarer Coverage-Report listet alle Repository-Dateien nach indexed, excluded, unsupported und failed auf.",
-        "Alle Markdown-Dokumente, Dokumentationspfade und Architekturplaene sind enthalten oder besitzen einen begruendeten expliziten Ausschluss.",
-        "Secrets, lokale Konfigurationen und generierte Artefakte sind sicher ausgeschlossen.",
-        "Der Audit prueft sowohl Volltext-/FTS- als auch Vektor-, Symbol- und Repository-Intelligence-Schichten."
+        "Contracttests beweisen TypeScript-/Python-Paritaet fuer Graphversionen, NodeDefinitions, ContextEnvelope, HelpResponse und WorkflowPatch.",
+        "Ein realer Integrationstest durchlaeuft Hub-Task, Worker, CodeCompass, Prompt-Snapshot und HelpResponse ohne FakeRag, Mock-Hybrid oder direkten Hub-LLM-Aufruf.",
+        "Ein E2E-Fall konfiguriert einen Node, startet eine belegte Frage, zeigt Evidence, bestaetigt einen Patch, fuehrt Undo/Redo aus und speichert den validierten Graph mit Revision.",
+        "Ein zweiter E2E-Fall prueft zwei isolierte Editorinstanzen und einen Read-only-AI-Snake-Kontext ohne Mutationsaktionen.",
+        "Security-Gates schlagen bei erfundener Source-ID, Secret, Prompt-Injection, stale manifest, tenantfremdem Zugriff, Patch-Konflikt und fehlender Nutzerbestaetigung fehl."
       ]
     },
     {
-      "id": "VPA-016",
-      "title": "Markdown- und Architekturplan-Extraktion erweitern",
-      "type": "retrieval-indexing",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "dependencies": ["VPA-015"],
-      "acceptance_criteria": [
-        "Markdown wird nach Dokument, Abschnitt, Tabelle, Codeblock und Referenz mit stabilen IDs indexiert.",
-        "Mermaid- und PlantUML-Dateien liefern Knoten, Kanten, Labels und Dokumentverweise als Graph-Evidence.",
-        "JSON-Schemas, Todo-Architekturentscheidungen und Contracts werden als eigene source_kind-Werte behandelt.",
-        "Zeilenbereiche und Repository-Revision bleiben fuer jede Evidence erhalten."
-      ]
-    },
-    {
-      "id": "VPA-017",
-      "title": "Editor-spezifische CodeCompass Query-Templates implementieren",
-      "type": "retrieval",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "dependencies": ["VPA-002", "VPA-016"],
-      "acceptance_criteria": [
-        "Templates existieren fuer Node-Erklaerung, Feldwirkung, Input/Output, Validierungsfehler, Runtime-Fehler, Abhaengigkeiten und sichere Aenderung.",
-        "Queries nutzen Node-Kind, Feldpfade, Symbole, Contracts und Graphnachbarschaft statt nur freie Nutzersprache.",
-        "Treffer werden stabil nach Evidence-Tier, Verifikation, Relevanz, Pfad und Zeile sortiert.",
-        "Ein hartes Token- und Trefferbudget verhindert Vollrepository-Prompting."
-      ]
-    },
-    {
-      "id": "VPA-018",
-      "title": "CodeCompass-Evidence gegen Halluzination und veraltete Dokumentation absichern",
-      "type": "security-quality",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
-      "dependencies": ["VPA-017"],
-      "acceptance_criteria": [
-        "Antworten unterscheiden verified, inferred, partial und unknown Evidence sichtbar.",
-        "Dokumentation, die dem aktuellen Code widerspricht, wird als Konflikt dargestellt und nicht still priorisiert.",
-        "Repository- und Index-Revision muessen zum Prompt-Snapshot passen oder der Chat zeigt einen stale-context Hinweis.",
-        "Prompt-Injection-Inhalte aus Repository-Dokumenten werden als Daten behandelt und koennen Systemregeln nicht ueberschreiben."
-      ]
-    },
-    {
-      "id": "VPA-019",
-      "title": "Typisierten WorkflowPatch-Contract definieren",
-      "type": "architecture",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
-      "dependencies": ["VPA-004", "VPA-013"],
-      "acceptance_criteria": [
-        "Erlaubte Operationen sind add_step, remove_step, update_step_field, add_edge, remove_edge und update_edge_condition mit stabilen Pfaden.",
-        "Jede Operation enthaelt expected_old_value oder Graph-Revision fuer optimistische Konflikterkennung.",
-        "Secretwerte und nicht registry-erlaubte Felder sind unzulaessig.",
-        "Der Contract kann ohne Modell deterministisch validiert und auf einen Graph-Klon angewendet werden."
-      ]
-    },
-    {
-      "id": "VPA-020",
-      "title": "Patch-Vorschau mit Auswirkungen und Quellen anzeigen",
-      "type": "frontend-ux",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "dependencies": ["VPA-019"],
-      "acceptance_criteria": [
-        "Vor Uebernahme zeigt die UI Feld-Diff, betroffene Nodes/Kanten, Validierung vor/nachher und relevante Evidence.",
-        "Teiluebernahme einzelner unabhaengiger Operationen ist moeglich.",
-        "Konflikte mit zwischenzeitlichen manuellen Aenderungen werden erkannt und nicht ueberschrieben.",
-        "Ablehnen hinterlaesst keinerlei Graphmutation."
-      ]
-    },
-    {
-      "id": "VPA-021",
-      "title": "Validierte AI-Patches kontrolliert in den Editor-State uebernehmen",
-      "type": "frontend-domain",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
-      "dependencies": ["VPA-020"],
-      "acceptance_criteria": [
-        "Uebernahme erfolgt als eine Undo/Redo-Transaktion und setzt Dirty-State korrekt.",
-        "Nach Anwendung laufen Registry-, Graph- und Backend-Validierung erneut.",
-        "Persistenz erfolgt niemals automatisch durch die AI-Patch-Anwendung.",
-        "Auditdaten speichern Context-ID, Prompt-Version, Patch, Nutzerentscheidung und Ergebnis ohne sensible Inhalte."
-      ]
-    },
-    {
-      "id": "VPA-022",
-      "title": "Unit- und Contract-Tests fuer Registry, Context und Prompt erstellen",
-      "type": "test",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "medium",
-      "dependencies": ["VPA-003", "VPA-004", "VPA-019"],
-      "acceptance_criteria": [
-        "Registry-Schemas, Defaults, Abhaengigkeiten und unbekannte Node-Kinds sind getestet.",
-        "ContextEnvelope-Kanonisierung und Hashing sind ueber Plattformen reproduzierbar.",
-        "Prompt-Snapshots erkennen unbeabsichtigte Template- oder Sortierungsveraenderungen.",
-        "Patch-Validierung deckt unzulaessige Pfade, Konflikte und Secret-Injection ab."
-      ]
-    },
-    {
-      "id": "VPA-023",
-      "title": "Component- und E2E-Tests fuer Editorhilfe und Chat erstellen",
-      "type": "test",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "medium",
-      "dependencies": ["VPA-011", "VPA-012", "VPA-020"],
-      "acceptance_criteria": [
-        "Hover, Auswahl, Pinning, Chatstart, Fokuswechsel, Keyboard und Touch sind getestet.",
-        "Zwei parallele Editorinstanzen behalten getrennte Hilfe- und Chatkontexte.",
-        "Ein kompletter E2E-Fall konfiguriert einen Node, fragt AI-Snake, prueft Evidence, uebernimmt einen Patch und speichert den validen Graph.",
-        "Read-only AI-Snake-Liveansicht bietet Erklaerungen, aber keine Mutationsaktionen."
-      ]
-    },
-    {
-      "id": "VPA-024",
-      "title": "Performance-, Last- und Retrieval-Budgets absichern",
+      "id": "VPA-QA-002",
+      "title": "Performance-, Last- und Ressourcenbudgets verifizieren",
+      "description": "Reproduzierbare Benchmarks pruefen die im Track definierten Budgets auf einer dokumentierten lokalen Referenzumgebung.",
       "type": "performance-test",
+      "milestone_id": "VPA-M7",
       "status": "todo",
+      "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
-      "dependencies": ["VPA-014", "VPA-017"],
+      "depends_on": [
+        "VPA-CC-009",
+        "VPA-CTX-005",
+        "VPA-AI-005",
+        "VPA-UX-002",
+        "VPA-UX-003"
+      ],
+      "affected_files": [
+        "tests/benchmarks/visual_process_assistant/**",
+        "artifacts/test-gates/visual-process-assistant-performance.json"
+      ],
       "acceptance_criteria": [
-        "Hover-Vorschau ohne Modell ist lokal innerhalb eines definierten UI-Budgets verfuegbar.",
-        "CodeCompass-Abfrage und Promptaufbau besitzen messbare p50/p95-Ziele und Abbruchverhalten.",
-        "Grosse Graphen und schnelle Pointer-Bewegungen erzeugen keine Request-Flut oder Memory-Leaks.",
-        "Evidence- und Promptbudgets werden in Telemetrie sichtbar."
+        "Auf einem Graphen mit 500 Steps und 1000 Edges liegt lokale Hover-Vorschau ueber 100 Wiederholungen bei p95 hoechstens 100 ms nach dem 350-ms-Delay und erzeugt null Retrieval- oder LLM-Requests.",
+        "Ein warmer lokaler CodeCompass-Lauf liegt bei p95 hoechstens 2000 ms und bricht spaetestens nach 5000 ms mit stabilem Timeoutstatus ab.",
+        "Selected- und Conversation-Kontexte ueberschreiten nie die definierten Range-, Zeilen-, Evidence- und Tokenbudgets; Ueberschreitungen werden deterministisch verworfen und gezaehlt.",
+        "Nach 1000 Fokuswechseln betraegt zusaetzliches stabilisiertes Heap-Wachstum hoechstens 20 MiB und pro Editor bleibt hoechstens eine Hover- sowie eine aktive Conversation-Subscription bestehen.",
+        "Der Benchmarkreport dokumentiert Browser, Build, Hardwareklasse, Warmup, Wiederholungen, p50, p95 und Pass/Fail ohne volatile IDs oder absolute Pfade."
       ]
     },
     {
-      "id": "VPA-025",
-      "title": "Dokumentation, Migration und schrittweisen Rollout abschliessen",
-      "type": "documentation-rollout",
+      "id": "VPA-QA-003",
+      "title": "Migration, Feature-Flags, Dokumentation und Rollback-Gate abschliessen",
+      "description": "Der einzige Rollout-Endpunkt wird erst nach allen Funktions-, Security-, E2E- und Performance-Gates freigegeben.",
+      "type": "release",
+      "milestone_id": "VPA-M7",
       "status": "todo",
+      "progress_percent": 0,
       "priority": "P1",
-      "risk": "medium",
-      "dependencies": ["VPA-022", "VPA-023", "VPA-024"],
+      "risk": "high",
+      "depends_on": [
+        "VPA-QA-001",
+        "VPA-QA-002"
+      ],
+      "affected_files": [
+        "docs/architecture/visual-process-assistant.md",
+        "docs/codecompass.md",
+        "frontend-angular/src/environments/**",
+        "agent/config.py",
+        ".env.example"
+      ],
       "acceptance_criteria": [
-        "Architekturdokumente erklaeren Registry, ContextEnvelope, Prompt-Assembler, CodeCompass-Evidence und Patch-Sicherheit.",
-        "Bestehende Graphen werden ohne Datenverlust geoeffnet und bei Bedarf explizit migriert.",
-        "Feature-Flags trennen schema-gesteuerten Inspector, Hover-Hilfe, Chat und AI-Patches.",
-        "Ein Rollback deaktiviert die neuen Hilfefunktionen, ohne Graphdefinitionen oder Runtime-Anzeige zu beschaedigen."
+        "Getrennte Flags fuer Registry-Inspector, Hover-Hilfe, Assistant-Chat und AI-Patches werden mit dem jeweiligen Implementierungstask eingefuehrt und bleiben bis zum zugehoerigen Gate standardmaessig deaktiviert.",
+        "Migrationstests oeffnen, bearbeiten und speichern Legacy-Graphen mit run_state, unbekannten Kinds, unbekannten Feldern und alten Versionen ohne Datenverlust.",
+        "Architekturdokumentation beschreibt Hub-Worker-Grenze, Registry-Komposition, Versionen, Context-Kanonisierung, Evidence-Policy, Budgets, Patch-Governance und Betriebsdiagnose.",
+        "Ein automatisierter Rollback-Test deaktiviert alle vier Flags, waehrend bestehender Editor, gespeicherte Graphen, Runtime-Overlay und Read-only-Ansicht weiter funktionieren.",
+        "Rollout ist nur erlaubt, wenn CodeCompass-, Security-, Contract-, E2E- und Performance-Gates gruen sind; jeder fehlende Gate-Report blockiert die Freigabe."
       ]
     }
   ],
+  "critical_path_tasks": [
+    "VPA-CORE-001",
+    "VPA-CORE-002",
+    "VPA-CORE-003",
+    "VPA-ED-001",
+    "VPA-ED-002",
+    "VPA-ED-003",
+    "VPA-CTX-001",
+    "VPA-CTX-002",
+    "VPA-CTX-004",
+    "VPA-CTX-005",
+    "VPA-AI-001",
+    "VPA-AI-002",
+    "VPA-AI-003",
+    "VPA-AI-004",
+    "VPA-AI-005",
+    "VPA-UX-002",
+    "VPA-UX-003",
+    "VPA-QA-001",
+    "VPA-QA-003"
+  ],
+  "tasks_status_summary": {
+    "total": 38,
+    "by_status": {
+      "todo": 38,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 18,
+      "P1": 17,
+      "P2": 3
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 5,
+      "high": 20,
+      "critical": 12
+    },
+    "critical_path": {
+      "total": 19,
+      "done": 0,
+      "remaining": 19
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 7,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
   "definition_of_done": [
-    "Mindestens die in Produktion verwendeten Node-Kinds besitzen vollstaendige Registry-Definitionen und einfache Konfigurationsmasken.",
-    "AI-Snake erklaert Node, Kante, Port und Canvas-Position kontextsensitiv in einer groesseren bedienbaren Sprechblase.",
-    "Der Editor-Chat startet mit einem reproduzierbaren, versionierten und auditierbaren Initialprompt.",
-    "CodeCompass indexiert nachweislich alle vorgesehenen Ananta-Markdown-Dateien, Dokumentationen und Architekturplaene mit Provenienz.",
-    "Antworten zeigen belegte Quellen und behandeln unbekannte oder widerspruechliche Informationen explizit.",
-    "AI-Aenderungsvorschlaege werden nur als validierter Patch nach sichtbarer Nutzerbestaetigung uebernommen.",
-    "Bestehende Canvas-, Graph-, Runtime- und Persistenzarchitektur bleibt wiederverwendet und frei von Parallelimplementierungen."
+    "Alle produktiv sichtbaren Task-Kinds besitzen eine aus der kanonischen TaskKindRegistry komponierte NodeDefinition oder einen erklaerten unsupported Zustand.",
+    "Worker-, Control-Flow-, CodeCompass-, Retrieval-, Embedding-, Quantisierungs-, Training- und Evolution-Kinds sind aus den Inspector-Sondermasken migriert und gegen ihre produktiven Adapter getestet.",
+    "Bestehende Graphen, unbekannte Felder und Legacy run_state ueberstehen Migration und Roundtrip ohne Datenverlust.",
+    "Optimistische Persistenz verhindert stille Ueberschreibungen durch parallele Editorclients und bewahrt Draft und History bei Konflikt.",
+    "Jede Graphmutation laeuft ueber EditorCommand mit Revision, Dirty-State, Validation und Undo/Redo.",
+    "Hover, Auswahl, Chat und zwei parallele Editorinstanzen besitzen getrennte reproduzierbare Kontexte.",
+    "Der Hub besitzt Index-, Retrieval-, Assistant- und Patch-Aufgaben; Worker fuehren nur delegierte Arbeit aus.",
+    "CodeCompass klassifiziert jeden Snapshot-Pfad und liefert reale FTS-, Vector-, Symbol- und Graphresultate mit revisionsfester Provenienz.",
+    "Keine unbekannte oder fehlende Source-/Run-ID wird synthetisiert oder als grounded ausgegeben.",
+    "Prompt-Injection, Secrets, stale Evidence, Tenant-Verletzungen und Patch-Konflikte werden fail-closed behandelt.",
+    "AI-Snake zeigt eine zugaengliche Sprechblase und einen Chat mit nachvollziehbarer Evidence.",
+    "WorkflowPatches werden Hub-seitig validiert und erst nach sichtbarer Nutzerbestaetigung als eine lokale Undo/Redo-Transaktion uebernommen.",
+    "Alle Contract-, Security-, Hub-Worker-, E2E-, Performance-, Migration- und Rollback-Gates sind gruen."
+  ],
+  "summary_notes": [
+    "tasks ist die einzige Source-of-Truth; Summary-Felder werden nach jeder Statusaenderung kanonisch neu berechnet.",
+    "Der kritische Pfad verwendet Gleichgewichtung, bis belastbare Aufwandsschaetzungen vorliegen; das Taskset enthaelt beide gleich langen Parallelzweige ContextAssembler und Assistant-Contract vor ihrem Join.",
+    "Feature-Flags werden mit den jeweiligen Implementierungen eingefuehrt und nicht erst im abschliessenden Rollouttask."
   ]
 }
