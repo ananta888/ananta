@@ -1,5 +1,5 @@
 {
-  "$schema": "todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "2.0",
   "id": "todo.production-ai-workflow-runtime-ananta-native-langchain-langgraph-temporal",
   "owner": "ananta-core",
