@@ -34,7 +34,7 @@ describe('GraphStateService', () => {
   let svc: GraphStateService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({ providers: [GraphStateService] });
     svc = TestBed.inject(GraphStateService);
   });
 
@@ -88,9 +88,9 @@ describe('GraphStateService', () => {
     expect(svc.filteredNodes().length).toBe(20);
   });
 
-  it('filteredNodes filters by nodeKindFilter', () => {
+  it('filteredNodes filters by explicit node kind subset', () => {
     svc.setGraph(buildGraph());
-    svc.updateFilter({ nodeKindFilter: ['java_type'] });
+    svc.updateFilter({ nodeKinds: { mode: 'subset', values: ['java_type'] } });
     const kinds = new Set(svc.filteredNodes().map(n => n.kind));
     expect(kinds.has('java_type')).toBe(true);
     expect(kinds.has('java_method')).toBe(false);
@@ -112,7 +112,7 @@ describe('GraphStateService', () => {
 
   it('filteredEdges excludes edges when endpoints are filtered out', () => {
     svc.setGraph(buildGraph());
-    svc.updateFilter({ nodeKindFilter: ['config'] });
+    svc.updateFilter({ nodeKinds: { mode: 'subset', values: ['config'] } });
     const edgeSources = new Set(svc.filteredEdges().map(e => e.source));
     const configIds = new Set(svc.filteredNodes().map(n => n.id));
     for (const src of edgeSources) {
@@ -122,7 +122,7 @@ describe('GraphStateService', () => {
 
   it('resetFilter restores all nodes', () => {
     svc.setGraph(buildGraph());
-    svc.updateFilter({ nodeKindFilter: ['config'] });
+    svc.updateFilter({ nodeKinds: { mode: 'subset', values: ['config'] } });
     svc.resetFilter();
     expect(svc.filteredNodes().length).toBe(20);
   });
@@ -149,5 +149,22 @@ describe('GraphStateService', () => {
 
     svc.setFocus('a', 2);
     expect(svc.filteredNodes().map(n => n.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('represents all, none, and subset without sentinel casts', () => {
+    svc.setGraph(chainGraph());
+    svc.updateFilter({ edgeTypes: { mode: 'none', values: [] } });
+    expect(svc.filteredEdges()).toEqual([]);
+    svc.updateFilter({ edgeTypes: { mode: 'subset', values: ['parent_child'] } });
+    expect(svc.filteredEdges().length).toBe(3);
+    expect(JSON.stringify(svc.filter())).not.toContain('__none__');
+  });
+
+  it('keeps filtered graph wrapper memoized until state changes', () => {
+    svc.setGraph(chainGraph());
+    const first = svc.filteredGraph();
+    expect(svc.filteredGraph()).toBe(first);
+    svc.updateFilter({ searchText: 'a' });
+    expect(svc.filteredGraph()).not.toBe(first);
   });
 });

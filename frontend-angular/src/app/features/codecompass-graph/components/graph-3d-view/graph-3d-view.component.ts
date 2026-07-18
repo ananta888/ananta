@@ -6,30 +6,8 @@ import {
 
 import type { ForceGraph3DInstance } from '3d-force-graph';
 import { GenericGraphModel, GraphEdge, GraphNode } from '../../models/graph.model';
-import { graphEdgeColor } from '../../models/graph-edge-style';
-
-const KIND_COLORS: Record<string, string> = {
-  java_type:   '#3b82f6',
-  java_method: '#10b981',
-  java_file:   '#1d4ed8',
-  python_file: '#f59e0b',
-  python_class: '#d97706',
-  python_function: '#92400e',
-  python_method: '#78350f',
-  python_import: '#a16207',
-  typescript_file: '#0284c7',
-  typescript_class: '#0369a1',
-  typescript_function: '#075985',
-  typescript_import: '#0e7490',
-  config:      '#f59e0b',
-  xml_tag:     '#8b5cf6',
-  unknown:     '#94a3b8',
-};
-
-const DOMAIN_COLORS = [
-  '#60a5fa', '#34d399', '#f87171', '#c084fc', '#22d3ee',
-  '#facc15', '#f472b6', '#818cf8', '#2dd4bf', '#fb923c',
-];
+import { EdgeVisualStyle, GraphVisualProjection, NodeVisualStyle } from '../../models/graph-visual-metrics.model';
+import { graphVisualTooltipElement, graphVisualTooltipText } from '../graph-tooltip/graph-visual-tooltip';
 
 function hasWebGL(): boolean {
   try {
@@ -85,6 +63,11 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
   @Input() graph: GenericGraphModel | null = null;
   @Input() selectedNode: GraphNode | null = null;
   @Input() selectedEdge: GraphEdge | null = null;
+  @Input() visualProjection: GraphVisualProjection | null = null;
+  @Input() visibleNodeIds: ReadonlySet<string> | null = null;
+  @Input() visibleEdgeIds: ReadonlySet<string> | null = null;
+  @Input() highlightedNodeIds: ReadonlySet<string> = new Set();
+  @Input() highlightedEdgeIds: ReadonlySet<string> = new Set();
   @Input() nodeRenderLimit: number | null = null;
   @Input() edgeRenderLimit: number | null = null;
 
@@ -110,15 +93,23 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
   ngOnChanges(changes: SimpleChanges): void {
     const gc = changes['graph'];
     const limitChanged = !!changes['nodeRenderLimit'] || !!changes['edgeRenderLimit'];
+    const projectionChanged = !!changes['visualProjection'];
+    const visibilityChanged = !!changes['visibleNodeIds'] || !!changes['visibleEdgeIds'];
 
     // Only selection changed: update highlight without rebuilding the WebGL scene.
     if (!gc && !limitChanged) {
-      this._updateHighlight(this.selectedNode?.id ?? null);
+      if (projectionChanged || visibilityChanged) {
+        this._setHighlightState(this.selectedNode?.id ?? null);
+        this._applyVisualProjection();
+      } else {
+        this._updateHighlight(this.selectedNode?.id ?? null);
+      }
       return;
     }
-    const prev = gc.previousValue as GenericGraphModel | null;
-    const curr = gc.currentValue as GenericGraphModel | null;
+    const prev = gc?.previousValue as GenericGraphModel | null;
+    const curr = gc?.currentValue as GenericGraphModel | null;
     if (!limitChanged && prev && curr && prev.nodes === curr.nodes && prev.edges === curr.edges) {
+      if (projectionChanged) this._applyVisualProjection();
       this._updateHighlight(this.selectedNode?.id ?? null);
       return;
     }
@@ -147,6 +138,18 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
   }
 
   private _updateHighlight(nodeId: string | null): void {
+    this._setHighlightState(nodeId);
+    if (!this.fg) return;
+    this.fg
+      .nodeColor((n: any) => this._nodeColor(n['id'] as string))
+      .nodeVal((n: any) => this._nodeValue(n['id'] as string))
+      .nodeOpacity(nodeId ? 0.9 : 0.75)
+      .linkColor((link: any) => this._linkColor(link))
+      .linkWidth((link: any) => this._linkWidth(link));
+    this.fg.refresh();
+  }
+
+  private _setHighlightState(nodeId: string | null): void {
     this._focalId = nodeId;
     this._neighbourIds.clear();
     if (nodeId && this.graph) {
@@ -155,56 +158,99 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
         if (e.target === nodeId) this._neighbourIds.add(e.source);
       }
     }
-    if (!this.fg) return;
-    this.fg
-      .nodeColor((n: any) => this._nodeColor(n['id'] as string))
-      .nodeOpacity(nodeId ? 0.9 : 0.75)
-      .linkColor((l: any) => {
-        if (!this._focalId) return l['color'] as string ?? '#94a3b8';
-        const src = typeof l['source'] === 'object' ? l['source']?.id : l['source'];
-        const tgt = typeof l['target'] === 'object' ? l['target']?.id : l['target'];
-        return src === this._focalId || tgt === this._focalId ? '#38bdf8' : 'rgba(148,163,184,0.12)';
-      })
-      .linkWidth((l: any) => {
-        if (!this._focalId) return 1.35;
-        const src = typeof l['source'] === 'object' ? l['source']?.id : l['source'];
-        const tgt = typeof l['target'] === 'object' ? l['target']?.id : l['target'];
-        return src === this._focalId || tgt === this._focalId ? 2.5 : 0.5;
-      });
   }
 
   private _nodeColor(id: string): string {
-    const node = this.nodeMap.get(id);
-    const base = node ? this._domainColor(node) : KIND_COLORS['unknown'];
+    const base = this._nodeVisual(id).baseColor;
+    if (this.highlightedNodeIds.size) {
+      return this.highlightedNodeIds.has(id) ? base : 'rgba(100,116,139,0.2)';
+    }
     if (!this._focalId) return base;
     if (id === this._focalId) return '#f59e0b';
     if (this._neighbourIds.has(id)) return '#38bdf8';
     return 'rgba(100,116,139,0.25)';
   }
 
-  private _hash(value: string): number {
-    let hash = 0;
-    for (let i = 0; i < value.length; i++) {
-      hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
+  private _nodeValue(id: string): number {
+    const style = this._nodeVisual(id);
+    if (this.highlightedNodeIds.has(id)) return style.baseSize * style.highlightFactors.hover;
+    if (id === this._focalId) return style.baseSize * style.highlightFactors.selected;
+    if (this._neighbourIds.has(id)) return style.baseSize * style.highlightFactors.connected;
+    return style.baseSize;
+  }
+
+  private _nodeVisual(id: string): Readonly<NodeVisualStyle> {
+    return this.visualProjection?.nodeStyles[id] ?? {
+      nodeId: id, baseColor: '#64748b', marker: 'circle', baseSize: 5,
+      score: 0, scoreState: 'degraded_no_active_metric', availability: 'unavailable', breakdown: [],
+      highlightFactors: { hover: 1.2, selected: 1.5, connected: 1.1 },
+    };
+  }
+
+  private _nodeVisible(id: string): boolean {
+    return !this.visibleNodeIds || this.visibleNodeIds.has(id);
+  }
+
+  private _edgeVisible(id: string): boolean {
+    return !this.visibleEdgeIds || this.visibleEdgeIds.has(id);
+  }
+
+  private _edgeVisual(id: string): Readonly<EdgeVisualStyle> {
+    return this.visualProjection?.edgeStyles[id] ?? {
+      edgeId: id, baseColor: '#94a3b8', marker: 'triangle', baseThickness: 1,
+      score: 0, scoreState: 'degraded_no_active_metric', availability: 'unavailable', breakdown: [],
+      highlightFactors: { hover: 1.2, selected: 1.5, connected: 1.1 },
+    };
+  }
+
+  private _linkWidth(link: Record<string, unknown>): number {
+    const style = this._edgeVisual(String(link['id'] ?? ''));
+    if (this.highlightedEdgeIds.has(String(link['id'] ?? ''))) {
+      return style.baseThickness * style.highlightFactors.hover;
     }
-    return Math.abs(hash);
+    if (!this._focalId) return style.baseThickness;
+    const source = typeof link['source'] === 'object' ? (link['source'] as { id?: string })?.id : link['source'];
+    const target = typeof link['target'] === 'object' ? (link['target'] as { id?: string })?.id : link['target'];
+    return source === this._focalId || target === this._focalId
+      ? style.baseThickness * style.highlightFactors.selected
+      : style.baseThickness;
   }
 
-  private _domainColor(node: GraphNode): string {
-    const domain = String(node.metadata?.['domain_path'] ?? '');
-    if (!domain) return KIND_COLORS[node.kind] ?? KIND_COLORS['unknown'];
-    return DOMAIN_COLORS[this._hash(domain) % DOMAIN_COLORS.length];
+  private _linkColor(link: Record<string, unknown>): string {
+    const baseColor = this._edgeVisual(String(link['id'] ?? '')).baseColor;
+    if (this.highlightedEdgeIds.size) {
+      return this.highlightedEdgeIds.has(String(link['id'] ?? ''))
+        ? baseColor
+        : 'rgba(148,163,184,0.12)';
+    }
+    if (!this._focalId) return baseColor;
+    const source = typeof link['source'] === 'object' ? (link['source'] as { id?: string })?.id : link['source'];
+    const target = typeof link['target'] === 'object' ? (link['target'] as { id?: string })?.id : link['target'];
+    return source === this._focalId || target === this._focalId
+      ? baseColor
+      : 'rgba(148,163,184,0.12)';
   }
 
-  private _domainLevel(node: GraphNode): number {
-    const raw = Number(node.metadata?.['domain_level'] ?? 0);
-    return Number.isFinite(raw) ? Math.max(0, raw) : 0;
-  }
-
-  private _nodeVal(node: GraphNode): number {
-    const level = Math.min(this._domainLevel(node), 5);
-    const tierBoost = node.kind.endsWith('_file') || node.kind.endsWith('_summary') ? 1.25 : 1;
-    return Math.max(0.9, (6.2 - level * 0.95) * tierBoost);
+  private _applyVisualProjection(): void {
+    if (!this.fg) return;
+    this.fg
+      .nodeColor((node: any) => this._nodeColor(String(node['id'])))
+      .nodeVal((node: any) => this._nodeValue(String(node['id'])))
+      .nodeVisibility((node: any) => this._nodeVisible(String(node['id'])))
+      .nodeOpacity(this._focalId ? 0.9 : 0.75)
+      .nodeLabel((node: any) => {
+        const id = String(node['id']);
+        return graphVisualTooltipElement(graphVisualTooltipText(this.nodeMap.get(id)?.label ?? id, this._nodeVisual(id)));
+      })
+      .linkColor((link: any) => this._linkColor(link))
+      .linkWidth((link: any) => this._linkWidth(link))
+      .linkVisibility((link: any) => this._edgeVisible(String(link['id'])))
+      .linkLabel((link: any) => {
+        const id = String(link['id']);
+        const edge = this.edgeMap.get(id);
+        return graphVisualTooltipElement(graphVisualTooltipText(edge?.rawEdgeType ?? edge?.edgeType ?? id, this._edgeVisual(id)));
+      });
+    this.fg.refresh();
   }
 
   private _normalisedLimit(value: number | null): number | null {
@@ -312,14 +358,12 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
 
       const gNodes = nodes.map(n => ({
         id: n.id, label: n.label, kind: n.kind,
-        domain: String(n.metadata?.['domain_path'] ?? ''),
-        domainLevel: this._domainLevel(n),
-        value: this._nodeVal(n),
-        color: this._domainColor(n),
+        value: this._nodeVisual(n.id).baseSize,
+        color: this._nodeVisual(n.id).baseColor,
       }));
       const gLinks = edges.map(e => ({
-        id: e.id, source: e.source, target: e.target, label: e.edgeType,
-        color: graphEdgeColor(e.edgeType),
+        id: e.id, source: e.source, target: e.target, label: e.rawEdgeType ?? e.edgeType,
+        color: this._edgeVisual(e.id).baseColor,
       }));
 
       const el = this.containerRef.nativeElement;
@@ -329,13 +373,21 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
       this.fg = new ForceGraph3D(el, { controlType: 'orbit' })
         .width(w).height(h)
         .backgroundColor('#0f172a')
-        .nodeLabel((n: any) => `${n['label']}${n['domain'] ? ` · ${n['domain']}` : ''}`)
+        .nodeLabel((n: any) => {
+          const id = String(n['id']);
+          return graphVisualTooltipElement(graphVisualTooltipText(this.nodeMap.get(id)?.label ?? id, this._nodeVisual(id)));
+        })
         .nodeColor((n: any) => this._nodeColor(n['id'] as string))
         .nodeVal((n: any) => n['value'] as number)
+        .nodeVisibility((node: any) => this._nodeVisible(String(node['id'])))
         .nodeRelSize(4.2)
-        .linkLabel((l: any) => l['label'] as string)
+        .linkLabel((l: any) => {
+          const id = String(l['id']);
+          return graphVisualTooltipElement(graphVisualTooltipText(String(l['label'] ?? id), this._edgeVisual(id)));
+        })
         .linkColor((l: any) => l['color'] as string ?? '#94a3b8')
-        .linkWidth(1.35)
+        .linkWidth((link: any) => this._linkWidth(link))
+        .linkVisibility((link: any) => this._edgeVisible(String(link['id'])))
         .linkOpacity(0.85)
         .warmupTicks(60)
         .cooldownTime(6000)

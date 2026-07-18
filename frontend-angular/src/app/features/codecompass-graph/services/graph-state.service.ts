@@ -1,42 +1,75 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+
 import { GenericGraphModel, GraphEdge, GraphNode } from '../models/graph.model';
-import { GraphFilter, EMPTY_FILTER } from '../models/graph-filter.model';
+import {
+  EMPTY_FILTER,
+  GraphFilter,
+  graphSelectionContains,
+  graphSelectionToggle,
+} from '../models/graph-filter.model';
 import { GraphViewMode } from '../models/graph-view-mode';
+import { GraphColorService } from './graph-color.service';
 
-@Injectable({ providedIn: 'root' })
+/** Viewer-local interaction state. GraphViewer provides one instance per viewer. */
+@Injectable()
 export class GraphStateService {
-
+  private readonly colors = inject(GraphColorService);
   readonly viewMode = signal<GraphViewMode>('simple');
   readonly selectedNode = signal<GraphNode | null>(null);
   readonly selectedEdge = signal<GraphEdge | null>(null);
-  readonly filter = signal<GraphFilter>({ ...EMPTY_FILTER });
+  readonly filter = signal<GraphFilter>(EMPTY_FILTER);
   readonly graph = signal<GenericGraphModel | null>(null);
+  readonly hoveredDomainId = signal<string | null>(null);
+  readonly hoveredRawEdgeType = signal<string | null>(null);
 
   readonly focusNodeId = signal<string | null>(null);
   readonly focusHopDepth = signal(0);
 
-  readonly filteredNodes = computed(() => {
-    const g = this.graph();
-    if (!g) return [];
-    const f = this.filter();
-    let nodes = g.nodes.filter(n => this._matchesFilter(n, f));
-    const fid = this.focusNodeId();
-    if (fid) {
-      const inFocus = this._bfsIds(g, fid, this.focusHopDepth());
-      nodes = nodes.filter(n => inFocus.has(n.id));
+  readonly nodeKindInventory = computed<readonly string[]>(() => this._inventory(
+    this.graph()?.nodes.map(node => node.rawNodeType ?? node.kind) ?? [],
+  ));
+
+  readonly edgeTypeInventory = computed<readonly string[]>(() => this._inventory(
+    this.graph()?.edges.map(edge => edge.rawEdgeType ?? edge.edgeType) ?? [],
+  ));
+
+  readonly domainInventory = computed<readonly string[]>(() => this._inventory(
+    this.graph()?.nodes.map(node => this._domainId(node)) ?? [],
+  ));
+
+  readonly filteredNodes = computed<readonly GraphNode[]>(() => {
+    const graph = this.graph();
+    if (!graph) return [];
+    const filter = this.filter();
+    let nodes = graph.nodes.filter(node => this._matchesFilter(node, filter));
+    const focusId = this.focusNodeId();
+    if (focusId) {
+      const inFocus = this._bfsIds(graph, focusId, this.focusHopDepth());
+      nodes = nodes.filter(node => inFocus.has(node.id));
     }
     return nodes;
   });
 
-  readonly filteredEdges = computed(() => {
-    const g = this.graph();
-    if (!g) return [];
-    const f = this.filter();
-    const visibleIds = new Set(this.filteredNodes().map(n => n.id));
-    return g.edges.filter(e =>
-      visibleIds.has(e.source) && visibleIds.has(e.target) &&
-      (f.edgeTypeFilter.length === 0 || f.edgeTypeFilter.includes(e.edgeType)),
+  readonly filteredEdges = computed<readonly GraphEdge[]>(() => {
+    const graph = this.graph();
+    if (!graph) return [];
+    const filter = this.filter();
+    const visibleIds = new Set(this.filteredNodes().map(node => node.id));
+    return graph.edges.filter(edge =>
+      visibleIds.has(edge.source) &&
+      visibleIds.has(edge.target) &&
+      graphSelectionContains(filter.edgeTypes, edge.rawEdgeType ?? edge.edgeType),
     );
+  });
+
+  /** Memoized wrapper: change detection alone never allocates a new graph. */
+  readonly filteredGraph = computed<GenericGraphModel | null>(() => {
+    const graph = this.graph();
+    if (!graph) return null;
+    const nodes = this.filteredNodes();
+    const edges = this.filteredEdges();
+    if (nodes === graph.nodes && edges === graph.edges) return graph;
+    return { ...graph, nodes: [...nodes], edges: [...edges] };
   });
 
   setGraph(graph: GenericGraphModel): void {
@@ -45,6 +78,9 @@ export class GraphStateService {
     this.selectedEdge.set(null);
     this.focusNodeId.set(null);
     this.focusHopDepth.set(0);
+    this.hoveredDomainId.set(null);
+    this.hoveredRawEdgeType.set(null);
+    this.filter.set(EMPTY_FILTER);
   }
 
   setViewMode(mode: GraphViewMode): void {
@@ -68,11 +104,23 @@ export class GraphStateService {
   }
 
   updateFilter(patch: Partial<GraphFilter>): void {
-    this.filter.update(f => ({ ...f, ...patch }));
+    this.filter.update(filter => Object.freeze({ ...filter, ...patch }));
+  }
+
+  setNodeKindVisible(rawNodeType: string, visible: boolean): void {
+    this._toggleSelection('nodeKinds', rawNodeType, visible, this.nodeKindInventory());
+  }
+
+  setEdgeTypeVisible(rawEdgeType: string, visible: boolean): void {
+    this._toggleSelection('edgeTypes', rawEdgeType, visible, this.edgeTypeInventory());
+  }
+
+  setDomainVisible(domainId: string, visible: boolean): void {
+    this._toggleSelection('domains', domainId, visible, this.domainInventory());
   }
 
   resetFilter(): void {
-    this.filter.set({ ...EMPTY_FILTER });
+    this.filter.set(EMPTY_FILTER);
   }
 
   clearSelection(): void {
@@ -80,34 +128,61 @@ export class GraphStateService {
     this.selectedEdge.set(null);
   }
 
-  private _matchesFilter(node: GraphNode, f: GraphFilter): boolean {
-    if (f.nodeKindFilter.length > 0 && !f.nodeKindFilter.includes(node.kind)) {
-      return false;
-    }
-    if (f.searchText) {
-      const q = f.searchText.toLowerCase();
-      if (!node.label.toLowerCase().includes(q) && !node.file.toLowerCase().includes(q)) {
+  clearHover(): void {
+    this.hoveredDomainId.set(null);
+    this.hoveredRawEdgeType.set(null);
+  }
+
+  private _toggleSelection(
+    key: 'nodeKinds' | 'edgeTypes' | 'domains',
+    value: string,
+    visible: boolean,
+    inventory: readonly string[],
+  ): void {
+    this.filter.update(filter => ({
+      ...filter,
+      [key]: graphSelectionToggle(filter[key], value, visible, inventory),
+    }));
+  }
+
+  private _matchesFilter(node: GraphNode, filter: GraphFilter): boolean {
+    if (!graphSelectionContains(filter.nodeKinds, node.rawNodeType ?? node.kind)) return false;
+    if (!graphSelectionContains(filter.domains, this._domainId(node))) return false;
+    if (filter.searchText) {
+      const query = filter.searchText.toLowerCase();
+      if (!node.label.toLowerCase().includes(query) && !node.file.toLowerCase().includes(query)) {
         return false;
       }
     }
     return true;
   }
 
-  private _bfsIds(g: GenericGraphModel, startId: string, hops: number): Set<string> {
-    const adj = new Map<string, string[]>();
-    for (const e of g.edges) {
-      if (!adj.has(e.source)) adj.set(e.source, []);
-      if (!adj.has(e.target)) adj.set(e.target, []);
-      adj.get(e.source)!.push(e.target);
-      adj.get(e.target)!.push(e.source);
+  private _domainId(node: GraphNode): string {
+    return this.colors.resolveCanonicalDomain(node).canonicalId;
+  }
+
+  private _inventory(values: readonly string[]): readonly string[] {
+    return Object.freeze([...new Set(values)].sort((left, right) => left.localeCompare(right)));
+  }
+
+  private _bfsIds(graph: GenericGraphModel, startId: string, hops: number): Set<string> {
+    const adjacent = new Map<string, string[]>();
+    for (const edge of graph.edges) {
+      if (!adjacent.has(edge.source)) adjacent.set(edge.source, []);
+      if (!adjacent.has(edge.target)) adjacent.set(edge.target, []);
+      adjacent.get(edge.source)!.push(edge.target);
+      adjacent.get(edge.target)!.push(edge.source);
     }
     const visited = new Set<string>([startId]);
     let frontier = [startId];
-    for (let h = 0; h < hops; h++) {
+    for (let hop = 0; hop < hops; hop++) {
       const next: string[] = [];
       for (const id of frontier) {
-        for (const nb of adj.get(id) ?? []) {
-          if (!visited.has(nb)) { visited.add(nb); next.push(nb); }
+        for (const neighbour of adjacent.get(id) ?? []) {
+          if (!visited.has(neighbour)) {
+            visited.add(neighbour);
+            next.push(neighbour);
+          }
         }
       }
       frontier = next;

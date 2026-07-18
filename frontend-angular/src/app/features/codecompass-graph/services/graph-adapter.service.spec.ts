@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { GraphAdapterService } from './graph-adapter.service';
 import { MOCK_DOMAIN_GRAPH_ARTIFACT } from '../testing/mock-codecompass-graph';
+import { ALL_EDGE_TYPES, ALL_NODE_KINDS } from '../models/graph-filter.model';
 
 describe('GraphAdapterService', () => {
   let svc: GraphAdapterService;
@@ -57,6 +58,8 @@ describe('GraphAdapterService', () => {
     };
     const model = svc.fromDomainArtifact(raw);
     expect(model.nodes[0].kind).toBe('unknown');
+    expect(model.nodes[0].rawNodeType).toBe('not_a_real_type');
+    expect(model.nodes[0].knownKind).toBeNull();
   });
 
   it('maps unknown relation to "related"', () => {
@@ -69,6 +72,68 @@ describe('GraphAdapterService', () => {
     };
     const model = svc.fromDomainArtifact(raw);
     expect(model.edges[0].edgeType).toBe('related');
+    expect(model.edges[0].rawEdgeType).toBe('fantasy_relation');
+    expect(model.edges[0].knownRelation).toBeNull();
+  });
+
+  it('classifies known values canonically without changing their raw spelling', () => {
+    const model = svc.fromDomainArtifact({
+      nodes: [{ node_id: 'a', node_type: '  TS_FILE  ', attributes: {} }],
+      edges: [{
+        source_id: 'a',
+        target_id: 'a',
+        relation: '  DePeNdS_On  ',
+        attributes: { confidence: 1, multiplicity: 1 },
+      }],
+    });
+
+    expect(model.nodes[0]).toMatchObject({
+      kind: 'typescript_file',
+      knownKind: 'typescript_file',
+      rawNodeType: '  TS_FILE  ',
+    });
+    expect(model.edges[0]).toMatchObject({
+      edgeType: 'depends_on',
+      knownRelation: 'depends_on',
+      rawEdgeType: '  DePeNdS_On  ',
+    });
+  });
+
+  it('honours backend semantic status while preserving fallback values', () => {
+    const model = svc.fromDomainArtifact({
+      nodes: [{
+        node_id: 'a',
+        node_type: 'unknown',
+        attributes: {
+          raw_node_type: 'custom_widget',
+          known_kind: 'unknown',
+          semantic_status: 'semantically_unknown',
+        },
+      }],
+      edges: [{
+        edge_id: 'edge-a',
+        source_id: 'a',
+        target_id: 'a',
+        relation: 'custom_link',
+        attributes: {
+          raw_edge_type: 'custom_link',
+          known_relation: 'related',
+          semantic_status: 'semantically_unknown',
+        },
+      }],
+    });
+
+    expect(model.nodes[0]).toMatchObject({
+      kind: 'unknown',
+      rawNodeType: 'custom_widget',
+      knownKind: null,
+    });
+    expect(model.edges[0]).toMatchObject({
+      id: 'edge-a',
+      edgeType: 'related',
+      rawEdgeType: 'custom_link',
+      knownRelation: null,
+    });
   });
 
   it('returns empty model for null input', () => {
@@ -137,5 +202,223 @@ describe('GraphAdapterService', () => {
 
     expect(model.nodes[0].metadata['domain_path']).toBe('agent.routes.pair_groups');
     expect(model.nodes[0].metadata['domain_level']).toBe(1);
+    expect(model.nodes[0].domainPath).toBe('agent.routes.pair_groups');
+  });
+
+  it('preserves confidence=0, multiplicity=0, direction and self loops', () => {
+    const model = svc.fromDomainArtifact({
+      nodes: [{ node_id: 'a', node_type: 'python_file', attributes: {} }],
+      edges: [{
+        source_id: 'a',
+        target_id: 'a',
+        relation: 'related',
+        attributes: { confidence: 0, multiplicity: 0, directed: false },
+      }],
+    });
+
+    expect(model.edges[0]).toMatchObject({
+      confidence: 0,
+      multiplicity: 0,
+      directed: false,
+      selfLoop: true,
+    });
+    expect(model.edges[0].metrics?.['confidence']).toMatchObject({ value: 0 });
+    expect(model.edges[0].metrics?.['multiplicity']).toMatchObject({ value: 0 });
+  });
+
+  it('assigns deterministic collision-free IDs to parallel edges', () => {
+    const model = svc.fromDomainArtifact({
+      nodes: [],
+      edges: [
+        { source_id: 'a', target_id: 'b', relation: 'depends_on', attributes: {} },
+        { source_id: 'a', target_id: 'b', relation: 'depends_on', attributes: {} },
+        { source_id: 'a', target_id: 'b', relation: 'depends_on', attributes: {} },
+      ],
+    });
+
+    expect(model.edges.map(edge => edge.id)).toEqual([
+      'a|b|depends_on',
+      'a|b|depends_on|parallel:2',
+      'a|b|depends_on|parallel:3',
+    ]);
+    expect(new Set(model.edges.map(edge => edge.id)).size).toBe(3);
+  });
+
+  it('maps graph revision, sorted capabilities, provenance and worker metric aliases', () => {
+    const model = svc.fromDomainArtifact({
+      graph_revision: 'sha256:revision',
+      metric_capabilities: {
+        usage_frequency: {
+          status: 'approximate',
+          source: 'worker-evidence',
+          algorithm_version: 'metrics.v1',
+          reason_code: 'partial_node_evidence',
+        },
+        total_degree: {
+          status: 'available',
+          source: 'worker-topology',
+          algorithm_version: 'metrics.v1',
+        },
+      },
+      nodes: [{
+        node_id: 'a',
+        node_type: 'python_file',
+        attributes: { metrics: { degree: 0, usage: 3 } },
+      }],
+      edges: [],
+    });
+
+    expect(model.metadata.graphRevision).toBe('sha256:revision');
+    expect(model.metadata.metricCapabilities
+      ?.filter(capability => capability.entity === 'node')
+      .map(capability => capability.metricId)).toEqual([
+      'total_degree',
+      'usage_frequency',
+    ]);
+    expect(model.nodes[0].metrics?.['total_degree']).toMatchObject({
+      value: 0,
+      availability: 'available',
+      provenance: { source: 'worker-topology', algorithmVersion: 'metrics.v1' },
+    });
+    expect(model.nodes[0].metrics?.['usage_frequency']).toMatchObject({
+      value: 3,
+      availability: 'approximate',
+      reasonCode: 'partial_node_evidence',
+    });
+    expect(model.metadata.metricCapabilities?.find(capability => capability.metricId === 'confidence'))
+      .toMatchObject({ entity: 'edge', availability: 'not_applicable' });
+  });
+
+  it('projects intrinsic edge metric availability without topology calculations', () => {
+    const model = svc.fromDomainArtifact({
+      nodes: [],
+      edges: [
+        { source_id: 'a', target_id: 'b', relation: 'depends_on', attributes: { dependency_weight: 0 } },
+        { source_id: 'b', target_id: 'c', relation: 'depends_on', attributes: {} },
+      ],
+    });
+
+    expect(model.metadata.metricCapabilities?.filter(capability => capability.entity === 'edge'))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          metricId: 'confidence',
+          availability: 'approximate',
+          reasonCode: 'confidence_defaulted',
+        }),
+        expect.objectContaining({
+          metricId: 'multiplicity',
+          availability: 'approximate',
+          reasonCode: 'multiplicity_defaulted',
+        }),
+        expect.objectContaining({
+          metricId: 'dependency_weight',
+          availability: 'approximate',
+          reasonCode: 'partial_edge_evidence',
+        }),
+      ]));
+    expect(model.edges[0].metrics?.['dependency_weight']).toMatchObject({ value: 0 });
+  });
+
+  it('marks partial and invalid intrinsic edge evidence fail-closed', () => {
+    const model = svc.fromDomainArtifact({
+      nodes: [],
+      edges: [
+        {
+          source_id: 'a', target_id: 'b', relation: 'depends_on',
+          attributes: { confidence: 0, multiplicity: 0 },
+        },
+        {
+          source_id: 'b', target_id: 'c', relation: 'depends_on',
+          attributes: { confidence: 1.01, multiplicity: -1 },
+        },
+      ],
+    });
+
+    expect(model.metadata.metricCapabilities).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        entity: 'edge', metricId: 'confidence', availability: 'approximate',
+        reasonCode: 'partial_edge_evidence', scope: 'subset',
+        limits: { evidence_edge_count: 1, graph_edge_count: 2 },
+      }),
+      expect.objectContaining({
+        entity: 'edge', metricId: 'multiplicity', availability: 'approximate',
+        reasonCode: 'partial_edge_evidence', scope: 'subset',
+        limits: { evidence_edge_count: 1, graph_edge_count: 2 },
+      }),
+    ]));
+    expect(model.edges[1].confidence).toBe(1);
+    expect(model.edges[1].multiplicity).toBe(1);
+    expect(model.edges[1].metrics?.['confidence']).toMatchObject({
+      value: 1,
+      availability: 'approximate',
+      reasonCode: 'partial_edge_evidence',
+    });
+  });
+
+  it('preserves server edge capabilities, scope, limits and evidence revision', () => {
+    const model = svc.fromDomainArtifact({
+      metric_capabilities: {
+        confidence: {
+          entity: 'edge',
+          scope: 'subset',
+          status: 'approximate',
+          source: 'hub-projection',
+          algorithm_version: 'projection.v1',
+          graph_revision: 'evidence-revision',
+          reason_code: 'partial_edge_evidence',
+          limits: { evidence_edge_count: 1, graph_edge_count: 2 },
+        },
+      },
+      nodes: [],
+      edges: [
+        { source_id: 'a', target_id: 'b', relation: 'depends_on', attributes: { confidence: 0 } },
+        { source_id: 'b', target_id: 'c', relation: 'depends_on', attributes: {} },
+      ],
+    });
+
+    const capability = model.metadata.metricCapabilities
+      ?.find(item => item.entity === 'edge' && item.metricId === 'confidence');
+    expect(capability).toMatchObject({
+      availability: 'approximate',
+      source: 'hub-projection',
+      scope: 'subset',
+      graphRevision: 'evidence-revision',
+      reasonCode: 'partial_edge_evidence',
+      limits: { evidence_edge_count: 1, graph_edge_count: 2 },
+    });
+    expect(model.edges[0].metrics?.['confidence']).toMatchObject({
+      value: 0,
+      provenance: { graphRevision: 'evidence-revision' },
+    });
+  });
+
+  it('keeps adapter semantics aligned with the dynamic filter registries', () => {
+    const nodes = ALL_NODE_KINDS
+      .filter(kind => kind !== 'unknown')
+      .map((kind, index) => ({ node_id: `n-${index}`, node_type: kind, attributes: {} }));
+    const edges = ALL_EDGE_TYPES.map((relation, index) => ({
+      source_id: `n-${index}`,
+      target_id: `n-${index + 1}`,
+      relation,
+      attributes: {},
+    }));
+
+    const model = svc.fromDomainArtifact({ nodes, edges });
+
+    expect(model.nodes.map(node => node.knownKind)).toEqual(ALL_NODE_KINDS.filter(kind => kind !== 'unknown'));
+    expect(model.edges.map(edge => edge.knownRelation)).toEqual(ALL_EDGE_TYPES);
+  });
+
+  it('maps the architecture ts_file alias without losing its raw type', () => {
+    const model = svc.fromDomainArtifact({
+      nodes: [{ node_id: 'ts', node_type: 'ts_file', raw_node_type: 'ts_file', attributes: {} }],
+      edges: [],
+    });
+
+    expect(model.nodes[0]).toMatchObject({
+      kind: 'typescript_file',
+      knownKind: 'typescript_file',
+      rawNodeType: 'ts_file',
+    });
   });
 });

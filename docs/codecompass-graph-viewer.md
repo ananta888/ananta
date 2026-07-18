@@ -1,236 +1,533 @@
 # CodeCompass Graph Viewer
 
-Semantic Translation Graph extensions are documented in `docs/codecompass-semantic-translation-graph.md`. The extension is feature-flagged and adds semantic/equivalence/transform records without changing existing graph node or edge outputs.
+The Angular CodeCompass graph viewer renders one canonical graph as a simple
+list, a Cytoscape 2D graph, or a `3d-force-graph` scene. Visual profiles,
+metric scoring, colors, legends, and filtering are renderer-independent.
 
-Angular feature for visualizing CodeCompass static-analysis graphs. The viewer is renderer-independent: a canonical `GenericGraphModel` feeds all view variants (simple list, 2D canvas, 3D WebGL) through a single adapter boundary.
+Semantic Translation Graph extensions remain documented in
+`docs/codecompass-semantic-translation-graph.md`. n8n indexing details remain
+documented in `docs/codecompass-n8n-workflows.md`.
 
----
+## Ownership and data flow
 
-## Architecture overview
-
+```text
+Hub-owned indexing task
+                │
+                ▼
+Worker-local CodeCompass output
+  - materializes cc_graph_index.json
+  - materializes graph_visual_metrics.v1 sidecar
+  - computes supported metrics
+  - records capability, provenance, limits, revision, and content hash
+                │
+                ▼
+Existing worker artifact port
+  - publishes immutable graph and sidecar references
+  - no shared container filesystem
+                │
+                ▼
+Hub artifact admission
+  - verifies size, transport hash, schema, graph revision, and content hash
+  - materializes both files into Hub-owned storage
+  - persists one revision-bound graph-artifact binding on the index/run
+                │
+                ▼
+Hub: CodeCompassGraphProjectionService
+  - resolves the admitted Hub-local binding (legacy output_dir is fallback-only)
+  - validates and reads the sidecar
+  - projects additive fields into domain_graph_artifact.v1
+  - never calculates centrality, descendants, or blast radius in HTTP routes
+                │
+                ▼
+GraphAdapterService → GenericGraphModel
+                │
+        ┌───────┴────────┐
+        ▼                ▼
+viewer-local state       graph/profile projection cache
+filters, selection,      colors, normalized scores,
+hover, active profile    styles, breakdowns, legend counts
+        └───────┬────────┘
+                ▼
+simple list | Cytoscape 2D | 3d-force-graph
 ```
-domain_graph_artifact.v1 (API JSON)
-        │
-        ▼
-GraphAdapterService.fromDomainArtifact()
-        │
-        ▼
-GenericGraphModel  ──────────────────────────────────────────────────────┐
-        │                                                                 │
-        ▼                                                                 │
-GraphStateService (signals)                                               │
-  • graph()          – full model                                         │
-  • filteredNodes()  – after nodeKindFilter + searchText                  │
-  • filteredEdges()  – edges whose endpoints survive the node filter      │
-  • viewMode()       – 'simple' | '2d' | '3d'                             │
-  • selectedNode()   – currently selected node or null                    │
-  • selectedEdge()   – currently selected edge or null                    │
-        │                                                                 │
-        ▼                                                                 │
-GraphViewerComponent (shell)                                              │
-  • GraphToolbarComponent    – mode switch + filters                      │
-  • [viewMode=simple]  →  SimpleGraphViewComponent                        │
-  • [viewMode=2d]      →  Graph2dViewComponent (cytoscape, lazy)          │
-  • [viewMode=3d]      →  Graph3dViewComponent (3d-force-graph, lazy) ◄──┘
-  • GraphDetailPanelComponent – shown when a node or edge is selected
-```
 
-Source root: `frontend-angular/src/app/features/codecompass-graph/`
+The Hub remains the control plane and owns task delegation, artifact admission,
+and the binding used by HTTP routes. A worker does not create tasks or
+orchestrate another worker. Complex metrics are materialized only in a worker.
+The Worker and Hub may run with completely separate filesystems; the only
+handoff is the existing artifact port. The Hub projection service is
+intentionally a read/validation boundary.
 
----
+The implementation separates these responsibilities:
 
-## GenericGraphModel
+- `worker/retrieval/codecompass_graph_visual_metrics.py`: metric materialization
+- `worker/retrieval/codecompass_graph_artifact_materializer.py`: worker-local graph/sidecar build
+- `agent/services/knowledge_index_worker_artifact_service.py`: Hub admission and local materialization
+- `agent/services/codecompass_graph_artifact_resolver.py`: admitted-binding resolution
+- `agent/services/codecompass_graph_projection_service.py`: Hub-side projection
+- `services/graph-adapter.service.ts`: API-to-Angular mapping
+- `services/graph-visual-profile-validator.ts`: pure untrusted-profile validation
+- `services/graph-visual-profile-storage.port.ts`: persistence abstraction
+- `services/graph-metric-score.service.ts`: pure normalization and scoring
+- `services/graph-color.service.ts`: canonical identities, colors, and markers
+- `services/graph-visual-projection.service.ts`: revision/profile cache and styles
+- renderer components: direct consumption of the projected styles
 
-Defined in `models/graph.model.ts`.
+This split protects SRP and DIP. The older Self-Graph route still combines
+several legacy responsibilities; new metric or visualization logic must not be
+added to that route.
+
+## Artifact contracts
+
+### `domain_graph_artifact.v1`
+
+The existing graph contract remains backward-compatible. New fields are
+optional, so legacy artifacts are still accepted. The authoritative schema is
+`schemas/artifacts/domain_graph_artifact.v1.json`.
+
+Relevant additive fields are:
+
+- `metadata.graph_revision`: exact projected graph revision used by normalization and caches
+- `metadata.evidence_graph_revision`: immutable Worker evidence revision
+- `metadata.parent_graph_revision`: evidence revision of a projected subgraph, when applicable
+- `metadata.projection_algorithm_version`: Hub projection contract version
+- `metadata.visual_metrics_content_hash`: accepted Worker-sidecar content hash
+- `metric_capabilities`: availability and provenance per metric
+- node `attributes.raw_node_type` and `attributes.known_kind`
+- edge `attributes.raw_edge_type` and `attributes.known_relation`
+- node or edge `attributes.metrics`
+- canonical `domain_id` and `domain_path`
+- edge `multiplicity`, `directed`, and `self_loop`
+
+For a full graph, projected and evidence revisions are normally identical. An
+expansion or filtered Self-Graph gets its own deterministic projection revision
+while retaining the evidence revision for sidecar validation. This prevents two
+different subgraphs from sharing a style-cache key without weakening the
+Worker-evidence binding.
+
+`confidence: 0` is a valid explicit value; the valid range is `0..1`. It must
+never be replaced by a truthiness fallback. Parallel edges remain separate
+unless the source artifact explicitly supplies an aggregate `multiplicity`.
+
+Unknown raw node and relation values are retained byte-for-byte in the Angular
+model. A known-kind/relation field supplies optional registered semantics. An
+unknown relation may receive a neutral visual fallback, but neither Hub nor UI
+may invent a semantic relation.
+
+### `graph_visual_metrics.v1`
+
+The worker sidecar is revision-bound and content-hashed. Its schema is
+`schemas/artifacts/graph_visual_metrics.v1.json`. Every capability has one of
+these states:
+
+| State | Meaning |
+|---|---|
+| `available` | The declared algorithm produced the value for its full scope. |
+| `approximate` | A bounded or approximate algorithm produced the value. |
+| `unavailable` | The required evidence or algorithm result is absent. |
+| `not_applicable` | The metric does not apply to this graph/entity. |
+
+Missing values are not converted to numeric zero. Capabilities include the
+entity (`node`, `edge`, or `graph`), source, algorithm version, scope, optional
+limits, evidence revision, and a stable reason code.
+The Hub rejects stale revision hashes, invalid content hashes, non-finite
+values, and malformed capability records, then returns a visible degraded
+state instead of fabricated scores.
+
+Supported canonical node metric IDs are:
+
+- `in_degree`, `out_degree`, `total_degree`
+- `direct_containment_children`, `descendant_count`
+- `code_extent`, `usage_frequency`
+- `degree_centrality`, `bridge_score`, `blast_radius`
+
+Supported edge metric IDs are `confidence`, `multiplicity`, and
+`dependency_weight`. Legacy `degree`, `code_size`, and `usage` payload names
+are accepted only as adapter aliases to their canonical names.
+
+## Angular graph model
+
+`models/graph.model.ts` defines the canonical renderer input.
 
 ```typescript
-export interface GraphNode {
-  id:       string;   // from domain artifact node_id
-  kind:     GraphNodeKind;
-  label:    string;   // from attributes.name
-  file:     string;   // from attributes.file
-  content:  string;   // from attributes.content
-  recordId: string;   // from attributes.record_id
+interface GraphNode {
+  id: string;
+  kind: GraphNodeKind;          // registered semantic fallback
+  rawNodeType?: string;         // original value, never discarded
+  knownKind?: GraphNodeKind | null;
+  label: string;
+  file: string;
+  content: string;
+  recordId: string;
+  domainId?: string;
+  domainPath?: string;
+  metrics?: GraphMetricVector;
   metadata: Record<string, unknown>;
 }
 
-export interface GraphEdge {
-  id:       string;   // "<source>→<target>:<edgeType>"
-  source:   string;   // source node id
-  target:   string;   // target node id
-  edgeType: GraphEdgeType;
-  confidence: number; // 0–1 from attributes.confidence
+interface GraphEdge {
+  id: string;                   // collision-free for parallel edges
+  source: string;
+  target: string;
+  edgeType: GraphEdgeType;      // registered semantic fallback
+  rawEdgeType?: string;         // original value, never discarded
+  knownRelation?: GraphEdgeType | null;
+  confidence: number;
+  multiplicity?: number;
+  directed?: boolean;
+  selfLoop?: boolean;
+  metrics?: GraphMetricVector;
   metadata: Record<string, unknown>;
 }
+```
 
-export interface GenericGraphModel {
-  nodes:    GraphNode[];
-  edges:    GraphEdge[];
-  metadata: Record<string, unknown>;
-  warnings: string[];
+`GraphStateService` is provided by each `GraphViewerComponent`, not globally.
+Two viewers therefore do not share graph data, filters, selection, hover, or
+an unsaved active profile. The LocalStorage adapter and immutable projection
+cache may be shared because their keys include graph context, revision, and
+profile hash.
+
+Filter selections use explicit `all`, `none`, or `subset` modes. The old
+`__none__` TypeScript cast is not part of the contract.
+
+## Visual profile
+
+A `GraphVisualProfile` controls enabled metrics, weights, normalization,
+direction, render ranges, highlight factors, color overrides, and legend
+visibility. Five validated presets ship with the viewer:
+
+- Struktur
+- Abhängigkeiten
+- Wichtigkeit
+- Umfang
+- Änderungsrisiko
+
+The following is a complete minimal valid profile. The documentation test
+extracts this block and validates it with the production validator.
+
+<!-- graph-visual-profile-example:start -->
+```json
+{
+  "schemaVersion": 1,
+  "profileId": "example",
+  "name": "Dokumentiertes Beispiel",
+  "nodeMetrics": [
+    {
+      "metricId": "total_degree",
+      "enabled": true,
+      "weight": 1,
+      "normalization": "log1p",
+      "direction": "normal"
+    },
+    {
+      "metricId": "direct_containment_children",
+      "enabled": true,
+      "weight": 0.5,
+      "normalization": "sqrt",
+      "direction": "normal"
+    }
+  ],
+  "edgeMetrics": [
+    {
+      "metricId": "confidence",
+      "enabled": true,
+      "weight": 1,
+      "normalization": "linear",
+      "direction": "normal"
+    }
+  ],
+  "nodeSizeRange": { "min": 5, "max": 24 },
+  "edgeThicknessRange": { "min": 0.75, "max": 6 },
+  "highlightFactors": { "hover": 1.2, "selected": 1.5, "connected": 1.1 },
+  "domainColorOverrides": {},
+  "nodeKindColorOverrides": {},
+  "relationColorOverrides": {},
+  "legend": {
+    "showDomains": true,
+    "showRelations": true,
+    "showMetrics": true,
+    "showUnavailable": true
+  }
+}
+```
+<!-- graph-visual-profile-example:end -->
+
+### Import, export, and persistence
+
+Profiles are treated as untrusted JSON:
+
+- maximum UTF-8 size: 131,072 bytes
+- file size is checked before reading browser file contents
+- maximum nested object depth: 12
+- only documented properties and metric IDs are accepted
+- every number must be finite and within its documented bounds
+- colors must be exactly `#RRGGBB`
+- `__proto__`, `prototype`, and `constructor` are rejected
+- CSS functions, URLs, unknown versions, and unknown fields are rejected
+- an invalid import never changes active or persisted state
+
+Exports are canonical JSON and contain no graph nodes, repository content,
+tokens, or secrets. LocalStorage failures and quota errors are handled without
+breaking the viewer. Reset removes the context-specific override and restores
+the immutable default profile.
+
+## Normalization and scoring
+
+Normalization always uses the complete canonical graph for one revision, not
+the currently visible subset. Filtering a domain or relation therefore does
+not change the remaining nodes' base sizes or edge widths.
+
+For every enabled, available metric `i`:
+
+```text
+x_i' = linear(x_i) | log1p(x_i) | sqrt(x_i)
+n_i  = clamp((x_i' - min_i') / (max_i' - min_i'), 0, 1)
+d_i  = n_i for normal direction, otherwise 1 - n_i
+score = Σ(weight_i × d_i) / Σ(weight_i)
+renderValue = renderMin + clamp(score, 0, 1) × (renderMax - renderMin)
+```
+
+For a constant metric range, `n_i` is deterministically `0.5`. Missing,
+invalid, unavailable, or not-applicable metrics are removed from the active
+denominator and remain visible in the score breakdown. If no active available
+metric remains, the configured minimum render value is used with
+`degraded_no_active_metric`.
+
+Every breakdown records raw value, normalized value, normalization state,
+weight, direction, partial score, availability, provenance, and reason code.
+NaN, Infinity, and negative raw metrics never produce a non-finite render
+value.
+
+## Domains, colors, and legends
+
+Canonical domain identity uses this precedence:
+
+1. explicit `domain_id`
+2. `domain_path`
+3. documented file-path fallback
+4. `unassigned`
+
+Automatic colors and markers depend only on canonical ID and algorithm
+version, not input order or current filters. A manual profile override wins.
+Nodes without a domain receive a registered node-kind color or the neutral
+unknown fallback. Color is never the sole encoding: every legend also displays
+text and a marker.
+
+The domain legend keeps every canonical domain, including hidden ones, and
+shows total/visible nodes, internal edges, incoming/outgoing external edges,
+and score sum. The relation legend is built from raw relation names and shows
+total/visible edges, multiplicity sum, color, marker, and width breakdown.
+
+Legend toggles and the toolbar update the same viewer-local filter state. Hover
+is a temporary highlight layer and never changes filters or base scores.
+Hidden entries remain in the inventory with a visible count of zero so they can
+be enabled again without a backend request.
+
+## Renderer capability matrix
+
+| Capability | Simple | 2D | 3D |
+|---|---:|---:|---:|
+| Canonical color and marker | yes | yes | yes |
+| Numeric score and availability | yes | yes | yes |
+| Node area from projected size | no | yes | yes |
+| Edge width from projected thickness | no | yes | yes |
+| Full score tooltip | text detail | yes | yes |
+| Direct style update without graph reload | yes | yes | yes |
+
+2D and 3D consume identical base colors, scores, sizes, widths, and rankings.
+They do not own palettes or normalization formulas. Highlighting multiplies an
+entity's individual base value, preserving relative rank. A profile update
+must not issue HTTP requests, replace graph data, destroy a renderer, or reset
+viewport and selection.
+
+All untrusted tooltip values are inserted as text. Do not introduce
+`innerHTML`, sanitizer bypasses, or HTML-generating label callbacks.
+
+## Cache and performance budgets
+
+Projection keys contain projected graph revision, accepted visual-metric
+content hash, projection algorithm version, and canonical profile hash. The
+revision normalization context and projected styles use deterministic LRU
+caches, each capped at eight entries. A source revision change removes its old
+normalization and style entries. Highlight-only profile changes reuse the
+semantic score/color projection; hover, selection, and visibility filters are
+overlay operations and do not recompute revision-stable base scores.
+
+Versioned budgets live in
+`config/codecompass/graph_visualization_budgets.v1.json`. The release fixture
+contains 5,000 nodes, 15,000 directed edges, 30 domains, known and unknown raw
+types, partial metrics, explicit zero confidence, and a stable revision.
+
+The release gate requires:
+
+- 100 hover events: zero HTTP requests and zero base-score recomputations
+- profile update: zero renderer reinitializations and graph-data resets
+- at most one projection per animation frame
+- deterministic eviction after more than eight revision/profile combinations
+- all measured browser p95 values within non-zero versioned budgets
+- a deterministic report without timestamps, absolute host paths, full source
+  text, or secrets
+
+Run the report validator with:
+
+```bash
+.venv/bin/python scripts/run_codecompass_graph_visualization_gate.py \
+  --evidence artifacts/test-gates/codecompass-graph-visualization-evidence.json
+```
+
+The validator fails closed when evidence or budgets are missing, zero,
+non-finite, stale, or over budget.
+
+The browser runner writes its measurement handoff only after every Playwright
+assertion passed:
+
+```bash
+cd frontend-angular
+CCGV_MEASUREMENTS_OUTPUT=/tmp/ccgv-measurements.json \
+  npx playwright test --config playwright.ccgv-graph.config.ts
+```
+
+The repository gate then combines that handoff with explicit, hash-bound
+functional, security, accessibility, and production-build evidence. Every
+referenced check file has a strict check ID/status/source-hash contract; a bare
+boolean or an arbitrary file cannot attest a pass.
+
+## Worker materialization and Hub admission
+
+The optional `graph_visual_metrics` object is additive on asynchronous artifact,
+collection, and source-record indexing requests. Its current contract is:
+
+```json
+{
+  "schema": "codecompass_graph_visual_options.v1",
+  "include_advanced_metrics": true,
+  "blast_radius_seeds": ["provided-node-id"]
 }
 ```
 
-### Node kinds
+Seed IDs are caller-provided graph IDs; the Hub and Worker accept at most 256
+unique configured IDs of at most 512 characters and never invent missing IDs.
+Degree is always materialized. Bounded bridge metrics run only through 250
+nodes; larger graphs expose the capability as unavailable with a reason code.
+Blast radius is emitted for at most the first 25 valid configured seeds and
+remains explicitly approximate and subset-scoped. Missing evidence produces a
+valid degraded sidecar instead of a fabricated zero value.
 
-```typescript
-export type GraphNodeKind =
-  | 'java_method'
-  | 'java_type'
-  | 'config'
-  | 'xml_tag'
-  | 'unknown';
-```
+The normal flow is:
 
-Any unrecognized `node_type` from the backend is mapped to `'unknown'`.
+1. The Hub persists one indexing intent in its task queue.
+2. A Worker executes the delegated index and builds both graph artifacts in its
+   own output directory.
+3. The existing publisher uploads the immutable bytes and returns hash- and
+   revision-bound references.
+4. The Hub downloads and validates all referenced bytes before writing them to
+   a run-specific Hub directory and updating index/run metadata.
+5. Graph GET routes resolve the admitted binding. They never access the former
+   Worker directory and never invoke degree, bridge, descendant, or blast
+   algorithms.
 
-### Edge types
+Admission is disk-staged and memory-bounded. A single reference may declare at
+most 128 MiB, all references of one index unit together at most 384 MiB, and
+each graph JSON artifact at most 32 MiB. The default HTTP adapter streams and
+hashes one-MiB chunks directly into a private Hub staging directory. Legacy
+byte-returning adapters remain supported, but the Hub releases each payload
+after staging it instead of retaining the complete unit in memory. Only a
+fully verified unit is promoted; a budget, size, digest, schema, revision, or
+content-hash failure removes staging and publishes no partial output.
 
-```typescript
-export type GraphEdgeType =
-  | 'calls_probable_target'
-  | 'injects_dependency'
-  | 'field_type_uses'
-  | 'extends'
-  | 'implements'
-  | 'child_of_type'
-  | 'child_of_file'
-  | 'declares_method'
-  | 'declares_bean'
-  | 'transactional_boundary'
-  | 'jpa_relation'
-  | 'related';
-```
-
-Any unrecognized `relation` from the backend is mapped to `'related'`.
-
----
-
-## Mapping: domain_graph_artifact.v1 → GenericGraphModel
-
-| domain artifact field        | GenericGraphModel field      | notes                                  |
-|------------------------------|------------------------------|----------------------------------------|
-| `node_id`                    | `GraphNode.id`               |                                        |
-| `node_type`                  | `GraphNode.kind`             | unmapped values → `'unknown'`          |
-| `attributes.name`            | `GraphNode.label`            | fallback: `node_id`                    |
-| `attributes.file`            | `GraphNode.file`             | fallback: `''`                         |
-| `attributes.content`         | `GraphNode.content`          | fallback: `''`                         |
-| `attributes.record_id`       | `GraphNode.recordId`         | fallback: `''`                         |
-| remaining `attributes.*`     | `GraphNode.metadata`         |                                        |
-| `source_id`                  | `GraphEdge.source`           |                                        |
-| `target_id`                  | `GraphEdge.target`           |                                        |
-| `relation`                   | `GraphEdge.edgeType`         | unmapped values → `'related'`          |
-| `attributes.confidence`      | `GraphEdge.confidence`       | fallback: `1.0`                        |
-| remaining `attributes.*`     | `GraphEdge.metadata`         |                                        |
-
-**Never invent semantic relations in the frontend.** If a relation does not appear in the `GraphEdgeType` union above it must not be given a special meaning in any renderer.
-
----
-
-## Backend field names (important)
-
-The Python backend uses different field names than the domain artifact. Relevant for reading `codecompass_graph_store.py` output or the REST API:
-
-| Backend field  | Meaning               | domain artifact key   |
-|----------------|-----------------------|-----------------------|
-| `kind`         | node category         | `node_type`           |
-| `edge_type`    | relation category     | `relation`            |
-| `confidence`   | probability score     | `attributes.confidence` |
-| `record_id`    | originating record    | `attributes.record_id` |
-
-Do **not** use `type` for nodes or `weight` for edges — those fields do not exist in the backend model.
-
----
+Custom legacy publishers remain substitutable and may omit the new graph roles;
+in that compatibility mode the resolver retains the existing `output_dir`
+fallback. New default Worker executions require both graph artifacts together;
+one without the other is rejected.
 
 ## REST API
 
-All endpoints require `Authorization: Bearer <token>` and are registered under `codecompass_graph_bp`.
+All endpoints require `Authorization: Bearer <token>` and remain registered
+under `codecompass_graph_bp`.
 
 | Method | Path | Parameters | Response |
-|--------|------|-----------|----------|
-| GET | `/api/codecompass/graph` | `knowledge_index_id` | `domain_graph_artifact.v1` |
-| GET | `/api/codecompass/graph/node/<node_id>` | `knowledge_index_id` | single-node artifact |
-| GET | `/api/codecompass/graph/expand` | `knowledge_index_id`, `seed`, `profile` | subgraph artifact |
+|---|---|---|---|
+| GET | `/api/codecompass/graph` | `knowledge_index_id` | projected `domain_graph_artifact.v1` |
+| GET | `/api/codecompass/graph/node/<node_id>` | `knowledge_index_id` | single node |
+| GET | `/api/codecompass/graph/expand` | `knowledge_index_id`, `seed`, `profile` | projected subgraph |
+| GET | `/api/codecompass/self-graph` | domain/detail/limit parameters | projected self graph |
 
-### Expansion profiles
-
-| Profile name          | Max depth | Max nodes | Use case                         |
-|-----------------------|-----------|-----------|----------------------------------|
-| `bugfix_local`        | 2         | 20        | Tracing a single bug callsite    |
-| `refactor_navigation` | 3         | 30        | Finding all affected callers     |
-| `architecture_review` | 3         | 40        | High-level dependency mapping    |
-| `config_integration`  | 2         | 24        | Config-to-bean wiring analysis   |
-
----
-
-## Adding a new renderer
-
-1. Create a standalone component in `components/<name>-view/`.
-2. Declare `@Input() graph: GenericGraphModel | null = null` and `@Input() selectedNode: GraphNode | null = null`.
-3. Declare `@Output() nodeSelected = new EventEmitter<GraphNode>()` and `@Output() edgeSelected = new EventEmitter<GraphEdge>()`.
-4. Consume only `graph.nodes` and `graph.edges` — never import backend models.
-5. Use a dynamic `import()` for any heavy library to keep it out of the main bundle.
-6. Register the new `GraphViewMode` in `models/graph-view-mode.ts` and add a `@case` branch in `graph-viewer.component.ts`.
-7. Add the new mode button to `graph-toolbar.component.ts`.
-8. Write a spec that verifies `nodeSelected` and `edgeSelected` emit correctly without requiring a real canvas/WebGL context.
-
----
-
-## Filter model
-
-`GraphFilter` (defined in `models/graph-filter.model.ts`) controls what `GraphStateService.filteredNodes()` and `filteredEdges()` return:
-
-```typescript
-export interface GraphFilter {
-  nodeKindFilter: GraphNodeKind[];   // empty = show all kinds
-  edgeTypeFilter: GraphEdgeType[];   // empty = show all edge types
-  searchText:     string;            // matches label or file (case-insensitive)
-}
-```
-
-`filteredEdges` automatically excludes edges whose source or target node was removed by the node filter — renderers do not need to enforce this.
-
-### n8n workflow legend
-
-When a graph export contains n8n workflow records (see `codecompass-n8n-workflows.md`), the following kinds/edge types appear:
-
-- Node kinds: `n8n_workflow` (container), `n8n_node` (workflow step, `role_labels` such as trigger/webhook/api_call/llm/branch/merge/wait/code/subworkflow), `n8n_credential_ref` (credential reference, never values), `n8n_http_endpoint` (external API target).
-- Edge types: `parent_child` (workflow → node), `n8n_connects`, `n8n_branch_true`/`n8n_branch_false`, `n8n_error_flow`, `n8n_ai_tool_flow`, `n8n_resume_flow`, `n8n_receives_webhook`, `n8n_calls_http_endpoint` (carries `http_method`/`endpoint_path`), `n8n_invokes_subworkflow`, `n8n_uses_credential_ref`, `n8n_uses_llm_provider`, `n8n_reads_data_field`/`n8n_writes_data_field` (carry `field`).
-
----
+Legacy clients may ignore every additive visual field. The normal graph,
+expansion graph, and Self-Graph use the same projection contract.
 
 ## Testing
 
-Test runner: `npm run test:unit` (Vitest) from `frontend-angular/`.
+Targeted unit and contract tests:
 
-Mock data fixture: `testing/mock-codecompass-graph.ts` — exports `MOCK_DOMAIN_GRAPH_ARTIFACT` with 20 nodes (all 5 kinds) and 30 edges (all 12 edge types represented).
+```bash
+cd frontend-angular
+pnpm exec vitest run src/app/features/codecompass-graph
 
-Adapter and state service tests use `new GraphAdapterService().fromDomainArtifact(MOCK_DOMAIN_GRAPH_ARTIFACT)` to build a real graph object without Angular DI.
+cd ..
+.venv/bin/python -m pytest -q \
+  tests/test_codecompass_graph_visual_metrics.py \
+  tests/test_codecompass_graph_projection_service.py \
+  tests/test_codecompass_graph_artifact_flow.py \
+  tests/test_codecompass_graph_api.py \
+  tests/test_codecompass_graph_visualization_gate.py \
+  tests/security/test_codecompass_graph_visual_profile.py
+```
 
-Components use `ChangeDetectionStrategy.OnPush`; input changes in tests must be applied via `fixture.componentRef.setInput('inputName', value)` rather than direct property assignment.
+The frontend gate covers profile validation, storage failure, 30-domain color
+invariance, formulas, missing capabilities, raw types, parallel edges,
+confidence zero, LRU behavior, two-viewer isolation, legends, settings,
+renderer updates, XSS-safe tooltips, keyboard focus, and the large deterministic
+fixture. Playwright adds real Simple/2D/3D, responsive drawer, network-count,
+and Axe scenarios. The Angular production build is release-blocking.
 
-Cytoscape is loaded via dynamic import; JSDOM will log a canvas warning during 2D renderer tests — this is expected and does not indicate a test failure.
+## Adding a renderer
 
----
+1. Create a standalone component below `components/`.
+2. Accept canonical graph data and immutable node/edge style maps separately.
+3. Emit selection intent; never import Hub or worker models.
+4. Use existing profile, projection, filter, and legend state.
+5. Load heavy libraries dynamically.
+6. Update styles through the renderer API without replacing its instance.
+7. Document supported properties in the capability matrix.
+8. Add unit, direct-update, tooltip-security, and viewport-preservation tests.
 
-## Architecture Query UI (CCAQE-018)
+## Troubleshooting
 
-Static page: `web/www/codecompass/query.html` (linked from the CodeCompass page).
+### Every metric is disabled
 
-Usage: enter hub URL + agent token (the page is served statically and calls
-`GET /api/codecompass/query` on the hub), pick a knowledge index id, choose one
-of the four query types (`dto-impact`, `controller-test-coverage`,
-`field-policy-impact`, `service-dependency-chain`), set seed and optional
-field/depth/direction, run.
+Inspect `metric_capabilities` and the visible reason codes. A missing or stale
+worker sidecar is intentionally degraded; do not create zero-valued metrics in
+the UI. Re-run the Hub-owned indexing/metric task for the graph revision.
 
-Results show `result_role`, score, depth, the per-result classification
-(`coverage_kind` / `enforcement` / `dependency_kind`) and up to
-`max_paths_per_result` evidence paths as
-`edge_type(direction, c=confidence)` chains. Top-level and per-result warnings
-are rendered prominently (yellow box), errors such as `seed_not_resolved` or an
-invalid query type are shown as readable messages instead of raw JSON.
+### Sizes change after filtering
 
-Limits: the page renders at most what the API returns (bounded by the
-`CODECOMPASS_QUERY_*` settings); it does not visualize result nodes inside the
-2D/3D graph views yet — that remains a possible follow-up via
-`GraphAdapterService`.
+This indicates normalization was run over the filtered graph. Pass the full
+canonical revision to `GraphVisualProjectionService` and apply visibility only
+with the overlay state.
+
+### A profile cannot be imported
+
+Use the structured validator path and reason code displayed by the settings
+drawer. Check schema version, byte size, unknown properties, finite numeric
+bounds, and `#RRGGBB` color syntax. The previous profile remains active.
+
+### A profile appears to affect another viewer
+
+Confirm `GraphStateService` and `GraphVisualProfileFacade` are provided at the
+`GraphViewerComponent` boundary. Only the storage adapter and projection cache
+may be root-scoped.
+
+### An unknown relation looks like `related`
+
+The visual fallback may be `related`, but `rawEdgeType` must still contain the
+original name and the legend must display it as semantically unknown. A missing
+raw value is an adapter/projection defect.
+
+## Architecture Query UI
+
+The static architecture-query page is `web/www/codecompass/query.html`.
+Operators configure the Hub URL and token, select a knowledge index, and run a
+bounded query. Results show role, score, depth, classification, evidence paths,
+warnings, and readable errors. Query results are not yet injected into the
+Angular 2D/3D viewer; doing so requires the same `GraphAdapterService` boundary
+and must not introduce a second graph contract.

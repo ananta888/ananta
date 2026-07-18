@@ -1,18 +1,17 @@
 import {
-  Component, Input, Output, EventEmitter, ChangeDetectionStrategy, signal, computed,
+  Component, Input, Output, EventEmitter, ChangeDetectionStrategy, signal,
 } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-import { GraphFilter } from '../../models/graph-filter.model';
-import { GraphNodeKind, GraphEdgeType } from '../../models/graph.model';
+import { GraphFilter, GraphFilterSelection, EMPTY_FILTER, graphSelectionContains, graphSelectionFromVisible } from '../../models/graph-filter.model';
 import { GraphViewMode, GRAPH_VIEW_MODES, GRAPH_VIEW_MODE_LABELS } from '../../models/graph-view-mode';
 import { GraphLayoutMode, GRAPH_LAYOUT_MODES, GRAPH_LAYOUT_MODE_LABELS } from '../../models/graph-layout-mode';
 import { ALL_NODE_KINDS, ALL_EDGE_TYPES } from '../../models/graph-filter.model';
 
 // ── Edge-type groups ──────────────────────────────────────────────────────────
 
-interface EdgeGroup { label: string; types: GraphEdgeType[]; }
-interface NodeGroup { label: string; kinds: GraphNodeKind[]; }
+interface EdgeGroup { label: string; types: string[]; }
+interface NodeGroup { label: string; kinds: string[]; }
 
 const EDGE_GROUPS: EdgeGroup[] = [
   { label: 'Aufrufe',            types: ['calls_probable_target', 'returns'] },
@@ -62,6 +61,9 @@ const NODE_GROUPS: NodeGroup[] = [
         @for (mode of viewModes; track mode) {
           @if (mode !== '3d' || webglAvailable) {
             <button class="mode-btn" [class.active]="activeMode === mode"
+                    [attr.aria-label]="modeLabels[mode] + ' Graphansicht'"
+                    [attr.aria-pressed]="activeMode === mode"
+                    [attr.data-testid]="'graph-view-mode-' + mode"
                     (click)="viewModeChange.emit(mode)">{{ modeLabels[mode] }}</button>
           }
         }
@@ -105,6 +107,7 @@ const NODE_GROUPS: NodeGroup[] = [
             </div>
             <div class="panel-body">
               @for (group of edgeGroups; track group.label) {
+                @if (edgeTypesForGroup(group).length) {
                 <div class="group">
                   <label class="group-header">
                     <input type="checkbox"
@@ -114,11 +117,26 @@ const NODE_GROUPS: NodeGroup[] = [
                     <strong>{{ group.label }}</strong>
                   </label>
                   <div class="group-items">
-                    @for (t of group.types; track t) {
+                    @for (t of edgeTypesForGroup(group); track t) {
                       <label class="cb-row">
                         <input type="checkbox" [checked]="isEdgeChecked(t)"
                                (change)="toggleEdge(t, $any($event.target).checked)" />
                         <span class="cb-label">{{ t }}</span>
+                      </label>
+                    }
+                  </div>
+                </div>
+                }
+              }
+              @if (otherEdgeTypes().length) {
+                <div class="group">
+                  <strong class="group-header">Dynamisch / unbekannt</strong>
+                  <div class="group-items">
+                    @for (type of otherEdgeTypes(); track type) {
+                      <label class="cb-row">
+                        <input type="checkbox" [checked]="isEdgeChecked(type)"
+                               (change)="toggleEdge(type, $any($event.target).checked)" />
+                        <span class="cb-label">{{ type }}</span>
                       </label>
                     }
                   </div>
@@ -149,6 +167,7 @@ const NODE_GROUPS: NodeGroup[] = [
             </div>
             <div class="panel-body">
               @for (group of nodeGroups; track group.label) {
+                @if (nodeKindsForGroup(group).length) {
                 <div class="group">
                   <label class="group-header">
                     <input type="checkbox"
@@ -158,11 +177,26 @@ const NODE_GROUPS: NodeGroup[] = [
                     <strong>{{ group.label }}</strong>
                   </label>
                   <div class="group-items">
-                    @for (k of group.kinds; track k) {
+                    @for (k of nodeKindsForGroup(group); track k) {
                       <label class="cb-row">
                         <input type="checkbox" [checked]="isNodeChecked(k)"
                                (change)="toggleNode(k, $any($event.target).checked)" />
                         <span class="cb-label">{{ k }}</span>
+                      </label>
+                    }
+                  </div>
+                </div>
+                }
+              }
+              @if (otherNodeKinds().length) {
+                <div class="group">
+                  <strong class="group-header">Dynamisch / unbekannt</strong>
+                  <div class="group-items">
+                    @for (kind of otherNodeKinds(); track kind) {
+                      <label class="cb-row">
+                        <input type="checkbox" [checked]="isNodeChecked(kind)"
+                               (change)="toggleNode(kind, $any($event.target).checked)" />
+                        <span class="cb-label">{{ kind }}</span>
                       </label>
                     }
                   </div>
@@ -174,7 +208,7 @@ const NODE_GROUPS: NodeGroup[] = [
       </div>
 
       <!-- ── Reset ── -->
-      @if (filter.nodeKindFilter.length || filter.edgeTypeFilter.length || filter.searchText) {
+      @if (hasFilters()) {
         <button class="reset-btn" (click)="filterReset.emit()">Zurücksetzen</button>
       }
     </div>
@@ -259,7 +293,10 @@ const NODE_GROUPS: NodeGroup[] = [
 export class GraphToolbarComponent {
   @Input() activeMode: GraphViewMode = 'simple';
   @Input() layoutMode: GraphLayoutMode = 'tier';
-  @Input() filter: GraphFilter = { searchText: '', nodeKindFilter: [], edgeTypeFilter: [] };
+  @Input() filter: GraphFilter = EMPTY_FILTER;
+  /** Inventory comes from the unfiltered canonical graph and includes unknown raw values. */
+  @Input() nodeKinds: readonly string[] | null = null;
+  @Input() edgeTypes: readonly string[] | null = null;
   @Input() webglAvailable = true;
 
   @Output() viewModeChange   = new EventEmitter<GraphViewMode>();
@@ -277,94 +314,84 @@ export class GraphToolbarComponent {
   readonly edgeOpen = signal(false);
   readonly nodeOpen = signal(false);
 
-  readonly edgeCountLabel = computed(() => {
-    const f = this.filter.edgeTypeFilter;
-    const shown = f.length === 0 ? ALL_EDGE_TYPES.length
-                : f.includes('__none__' as GraphEdgeType) ? 0
-                : f.length;
-    return `${shown}/${ALL_EDGE_TYPES.length}`;
-  });
+  edgeCountLabel(): string {
+    const inventory = this._edgeInventory();
+    return `${this._visibleCount(this.filter.edgeTypes, inventory)}/${inventory.length}`;
+  }
 
-  readonly nodeCountLabel = computed(() => {
-    const f = this.filter.nodeKindFilter;
-    const shown = f.length === 0 ? ALL_NODE_KINDS.length
-                : f.includes('__none__' as GraphNodeKind) ? 0
-                : f.length;
-    return `${shown}/${ALL_NODE_KINDS.length}`;
-  });
+  nodeCountLabel(): string {
+    const inventory = this._nodeInventory();
+    return `${this._visibleCount(this.filter.nodeKinds, inventory)}/${inventory.length}`;
+  }
 
   // panels stay open across filter changes — no ngOnChanges sync needed
 
   // ── Edge helpers ─────────────────────────────────────────────────────────────
 
-  isEdgeChecked(t: GraphEdgeType): boolean {
-    const f = this.filter.edgeTypeFilter;
-    if (f.length === 0) return true;
-    if (f.includes('__none__' as GraphEdgeType)) return false;
-    return f.includes(t);
+  isEdgeChecked(type: string): boolean {
+    return graphSelectionContains(this.filter.edgeTypes, type);
   }
 
   isEdgeGroupAllChecked(g: EdgeGroup): boolean {
-    return g.types.every(t => this.isEdgeChecked(t));
+    return this.edgeTypesForGroup(g).every(type => this.isEdgeChecked(type));
   }
 
   isEdgeGroupPartial(g: EdgeGroup): boolean {
-    const checked = g.types.filter(t => this.isEdgeChecked(t)).length;
-    return checked > 0 && checked < g.types.length;
+    const types = this.edgeTypesForGroup(g);
+    const checked = types.filter(type => this.isEdgeChecked(type)).length;
+    return checked > 0 && checked < types.length;
   }
 
-  toggleEdge(t: GraphEdgeType, checked: boolean): void {
+  toggleEdge(t: string, checked: boolean): void {
     const base = this._edgeBase();
     const next = checked ? [...new Set([...base, t])] : base.filter(x => x !== t);
-    this.filterChange.emit({ edgeTypeFilter: this._edgeNormalize(next) });
+    this.filterChange.emit({ edgeTypes: graphSelectionFromVisible(next, this._edgeInventory()) });
   }
 
   toggleEdgeGroup(g: EdgeGroup, checked: boolean): void {
     const base = this._edgeBase();
     const next = checked
-      ? [...new Set([...base, ...g.types])]
-      : base.filter(t => !g.types.includes(t));
-    this.filterChange.emit({ edgeTypeFilter: this._edgeNormalize(next) });
+      ? [...new Set([...base, ...this.edgeTypesForGroup(g)])]
+      : base.filter(type => !this.edgeTypesForGroup(g).includes(type));
+    this.filterChange.emit({ edgeTypes: graphSelectionFromVisible(next, this._edgeInventory()) });
   }
 
   setAllEdges(checked: boolean): void {
-    this.filterChange.emit({ edgeTypeFilter: checked ? [] : ['__none__' as GraphEdgeType] });
+    this.filterChange.emit({ edgeTypes: checked ? { mode: 'all', values: [] } : { mode: 'none', values: [] } });
   }
 
   // ── Node helpers ─────────────────────────────────────────────────────────────
 
-  isNodeChecked(k: GraphNodeKind): boolean {
-    const f = this.filter.nodeKindFilter;
-    if (f.length === 0) return true;
-    if (f.includes('__none__' as GraphNodeKind)) return false;
-    return f.includes(k);
+  isNodeChecked(kind: string): boolean {
+    return graphSelectionContains(this.filter.nodeKinds, kind);
   }
 
   isNodeGroupAllChecked(g: NodeGroup): boolean {
-    return g.kinds.every(k => this.isNodeChecked(k));
+    return this.nodeKindsForGroup(g).every(kind => this.isNodeChecked(kind));
   }
 
   isNodeGroupPartial(g: NodeGroup): boolean {
-    const checked = g.kinds.filter(k => this.isNodeChecked(k)).length;
-    return checked > 0 && checked < g.kinds.length;
+    const kinds = this.nodeKindsForGroup(g);
+    const checked = kinds.filter(kind => this.isNodeChecked(kind)).length;
+    return checked > 0 && checked < kinds.length;
   }
 
-  toggleNode(k: GraphNodeKind, checked: boolean): void {
+  toggleNode(k: string, checked: boolean): void {
     const base = this._nodeBase();
     const next = checked ? [...new Set([...base, k])] : base.filter(x => x !== k);
-    this.filterChange.emit({ nodeKindFilter: this._nodeNormalize(next) });
+    this.filterChange.emit({ nodeKinds: graphSelectionFromVisible(next, this._nodeInventory()) });
   }
 
   toggleNodeGroup(g: NodeGroup, checked: boolean): void {
     const base = this._nodeBase();
     const next = checked
-      ? [...new Set([...base, ...g.kinds])]
-      : base.filter(k => !g.kinds.includes(k));
-    this.filterChange.emit({ nodeKindFilter: this._nodeNormalize(next) });
+      ? [...new Set([...base, ...this.nodeKindsForGroup(g)])]
+      : base.filter(kind => !this.nodeKindsForGroup(g).includes(kind));
+    this.filterChange.emit({ nodeKinds: graphSelectionFromVisible(next, this._nodeInventory()) });
   }
 
   setAllNodes(checked: boolean): void {
-    this.filterChange.emit({ nodeKindFilter: checked ? [] : ['__none__' as GraphNodeKind] });
+    this.filterChange.emit({ nodeKinds: checked ? { mode: 'all', values: [] } : { mode: 'none', values: [] } });
   }
 
   // ── Search ───────────────────────────────────────────────────────────────────
@@ -375,29 +402,58 @@ export class GraphToolbarComponent {
 
   // ── Private helpers ──────────────────────────────────────────────────────────
 
-  private _edgeBase(): GraphEdgeType[] {
-    const f = this.filter.edgeTypeFilter;
-    if (f.length === 0) return [...ALL_EDGE_TYPES];
-    if (f.includes('__none__' as GraphEdgeType)) return [];
-    return [...f];
+  private _edgeBase(): string[] {
+    const filter = this.filter.edgeTypes;
+    if (filter.mode === 'all') return [...this._edgeInventory()];
+    if (filter.mode === 'none') return [];
+    return [...filter.values];
   }
 
-  private _edgeNormalize(types: GraphEdgeType[]): GraphEdgeType[] {
-    if (types.length === 0) return ['__none__' as GraphEdgeType];
-    if (types.length === ALL_EDGE_TYPES.length) return [];
-    return types;
+  private _nodeBase(): string[] {
+    const filter = this.filter.nodeKinds;
+    if (filter.mode === 'all') return [...this._nodeInventory()];
+    if (filter.mode === 'none') return [];
+    return [...filter.values];
   }
 
-  private _nodeBase(): GraphNodeKind[] {
-    const f = this.filter.nodeKindFilter;
-    if (f.length === 0) return [...ALL_NODE_KINDS];
-    if (f.includes('__none__' as GraphNodeKind)) return [];
-    return [...f];
+  hasFilters(): boolean {
+    return !!this.filter.searchText ||
+      this.filter.nodeKinds.mode !== 'all' ||
+      this.filter.edgeTypes.mode !== 'all' ||
+      this.filter.domains.mode !== 'all';
   }
 
-  private _nodeNormalize(kinds: GraphNodeKind[]): GraphNodeKind[] {
-    if (kinds.length === 0) return ['__none__' as GraphNodeKind];
-    if (kinds.length === ALL_NODE_KINDS.length) return [];
-    return kinds;
+  edgeTypesForGroup(group: EdgeGroup): string[] {
+    const inventory = this._edgeInventory();
+    return group.types.filter(type => inventory.includes(type));
+  }
+
+  nodeKindsForGroup(group: NodeGroup): string[] {
+    const inventory = this._nodeInventory();
+    return group.kinds.filter(kind => inventory.includes(kind));
+  }
+
+  otherEdgeTypes(): string[] {
+    const registered = new Set(this.edgeGroups.flatMap(group => group.types));
+    return this._edgeInventory().filter(type => !registered.has(type));
+  }
+
+  otherNodeKinds(): string[] {
+    const registered = new Set(this.nodeGroups.flatMap(group => group.kinds));
+    return this._nodeInventory().filter(kind => !registered.has(kind));
+  }
+
+  private _edgeInventory(): readonly string[] {
+    return this.edgeTypes ?? ALL_EDGE_TYPES;
+  }
+
+  private _nodeInventory(): readonly string[] {
+    return this.nodeKinds ?? ALL_NODE_KINDS;
+  }
+
+  private _visibleCount(selection: GraphFilterSelection<string>, inventory: readonly string[]): number {
+    if (selection.mode === 'all') return inventory.length;
+    if (selection.mode === 'none') return 0;
+    return selection.values.filter(value => inventory.includes(value)).length;
   }
 }

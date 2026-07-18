@@ -1,7 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { GraphViewerComponent } from './graph-viewer.component';
 import { GraphStateService } from '../../services/graph-state.service';
 import { MOCK_DOMAIN_GRAPH_ARTIFACT } from '../../testing/mock-codecompass-graph';
+import { GraphVisualProfileFacade } from '../../services/graph-visual-profile.facade';
+import { GraphToolbarComponent } from '../graph-toolbar/graph-toolbar.component';
+import { GraphEdgeLegendComponent } from '../graph-legend/graph-edge-legend.component';
 
 describe('GraphViewerComponent', () => {
   let fixture: ComponentFixture<GraphViewerComponent>;
@@ -14,7 +18,7 @@ describe('GraphViewerComponent', () => {
     }).compileComponents();
     fixture = TestBed.createComponent(GraphViewerComponent);
     component = fixture.componentInstance;
-    state = TestBed.inject(GraphStateService);
+    state = fixture.debugElement.injector.get(GraphStateService);
     fixture.detectChanges();
   });
 
@@ -72,5 +76,68 @@ describe('GraphViewerComponent', () => {
     fixture.detectChanges();
     const panel = fixture.nativeElement.querySelector('app-graph-detail-panel');
     expect(panel).toBeNull();
+  });
+
+  it('provides isolated graph and profile state for two viewers', () => {
+    const second = TestBed.createComponent(GraphViewerComponent);
+    second.detectChanges();
+    const secondState = second.debugElement.injector.get(GraphStateService);
+    const firstProfiles = fixture.debugElement.injector.get(GraphVisualProfileFacade);
+    const secondProfiles = second.debugElement.injector.get(GraphVisualProfileFacade);
+    expect(secondState).not.toBe(state);
+    expect(secondProfiles).not.toBe(firstProfiles);
+    state.updateFilter({ searchText: 'Order' });
+    expect(secondState.filter().searchText).toBe('');
+    const changed = {
+      ...firstProfiles.activeProfile(),
+      nodeSizeRange: { min: 8, max: 30 },
+    };
+    expect(firstProfiles.activate(changed).ok).toBe(true);
+    expect(secondProfiles.activeProfile().nodeSizeRange).not.toEqual({ min: 8, max: 30 });
+  });
+
+  it('projects domain and relation legend data from the canonical unfiltered graph', () => {
+    fixture.componentRef.setInput('rawGraphData', MOCK_DOMAIN_GRAPH_ARTIFACT);
+    fixture.detectChanges();
+    expect(component.domainLegend().length).toBeGreaterThan(0);
+    expect(component.edgeLegend().length).toBeGreaterThan(0);
+    expect(component.edgeLegend().reduce((sum, entry) => sum + entry.totalEdges, 0)).toBe(30);
+  });
+
+  it('uses unique legend and settings aria-controls ids for multiple viewers', () => {
+    const second = TestBed.createComponent(GraphViewerComponent);
+    second.detectChanges();
+    const firstIds = [...fixture.nativeElement.querySelectorAll('[aria-controls]')]
+      .map((element: Element) => element.getAttribute('aria-controls'));
+    const secondIds = [...second.nativeElement.querySelectorAll('[aria-controls]')]
+      .map((element: Element) => element.getAttribute('aria-controls'));
+    expect(firstIds.length).toBeGreaterThanOrEqual(3);
+    expect(firstIds.some(id => secondIds.includes(id))).toBe(false);
+  });
+
+  it('does not advertise node size or edge thickness in simple capability mode', () => {
+    fixture.componentRef.setInput('rawGraphData', MOCK_DOMAIN_GRAPH_ARTIFACT);
+    component.openDomainLegend(true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-graph-node-size-legend')).toBeNull();
+    component.openEdgeLegend(true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('section[aria-label="Kantendicke"]')).toBeNull();
+  });
+
+  it('uses one relation-filter state for toolbar and legend toggles', () => {
+    fixture.componentRef.setInput('rawGraphData', MOCK_DOMAIN_GRAPH_ARTIFACT);
+    fixture.detectChanges();
+    const relation = component.edgeLegend()[0].rawEdgeType;
+    const toolbar = fixture.debugElement.query(By.directive(GraphToolbarComponent)).componentInstance as GraphToolbarComponent;
+    const legend = fixture.debugElement.query(By.directive(GraphEdgeLegendComponent)).componentInstance as GraphEdgeLegendComponent;
+
+    legend.toggleRelation(relation, false);
+    fixture.detectChanges();
+    expect(toolbar.isEdgeChecked(relation)).toBe(false);
+
+    toolbar.toggleEdge(relation, true);
+    fixture.detectChanges();
+    expect(component.edgeLegend().find(entry => entry.rawEdgeType === relation)?.visible).toBe(true);
   });
 });

@@ -1,11 +1,31 @@
+import { SimpleChange } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 import { Graph3dViewComponent } from './graph-3d-view.component';
 import { GraphAdapterService } from '../../services/graph-adapter.service';
 import { MOCK_DOMAIN_GRAPH_ARTIFACT } from '../../testing/mock-codecompass-graph';
 import { GenericGraphModel } from '../../models/graph.model';
+import { GraphVisualProjection } from '../../models/graph-visual-metrics.model';
+import { graphVisualTooltipElement } from '../graph-tooltip/graph-visual-tooltip';
 
 function buildGraph(): GenericGraphModel {
   return new GraphAdapterService().fromDomainArtifact(MOCK_DOMAIN_GRAPH_ARTIFACT);
+}
+
+function visualProjection(graph: GenericGraphModel): GraphVisualProjection {
+  return {
+    graphRevision: 'rev', profileHash: 'profile', domainLegend: [], relationLegend: [],
+    nodeStyles: Object.fromEntries(graph.nodes.map((node, index) => [node.id, {
+      nodeId: node.id, baseColor: '#112233', marker: 'circle' as const, baseSize: 4 + index,
+      score: index / 10, scoreState: 'scored' as const, availability: 'available' as const,
+      breakdown: [], highlightFactors: { hover: 1.25, selected: 1.5, connected: 1.1 },
+    }])),
+    edgeStyles: Object.fromEntries(graph.edges.map((edge, index) => [edge.id, {
+      edgeId: edge.id, baseColor: '#445566', marker: 'triangle' as const, baseThickness: 1 + index,
+      score: index / 10, scoreState: 'scored' as const, availability: 'available' as const,
+      breakdown: [], highlightFactors: { hover: 1.25, selected: 1.5, connected: 1.1 },
+    }])),
+  };
 }
 
 describe('Graph3dViewComponent', () => {
@@ -186,5 +206,55 @@ describe('Graph3dViewComponent', () => {
 
     expect(limited.nodes.length).toBe(3);
     expect(limited.edges.length).toBe(1);
+  });
+
+  it('applies a style-only projection change without renderer construction or destruction', () => {
+    const graph = buildGraph();
+    const projection = visualProjection(graph);
+    component.graph = graph;
+    component.visualProjection = projection;
+    const apply = vi.spyOn(component as any, '_applyVisualProjection');
+    const render = vi.spyOn(component as any, '_render');
+    const destroy = vi.spyOn(component as any, '_destroy');
+
+    component.ngOnChanges({ visualProjection: new SimpleChange(null, projection, false) });
+
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(render).not.toHaveBeenCalled();
+    expect(destroy).not.toHaveBeenCalled();
+  });
+
+  it('applies filter visibility without renderer construction or destruction', () => {
+    const graph = buildGraph();
+    component.graph = graph;
+    component.visibleNodeIds = new Set([graph.nodes[0].id]);
+    const apply = vi.spyOn(component as any, '_applyVisualProjection');
+    const render = vi.spyOn(component as any, '_render');
+    const destroy = vi.spyOn(component as any, '_destroy');
+    component.ngOnChanges({
+      visibleNodeIds: new SimpleChange(null, component.visibleNodeIds, false),
+    });
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(render).not.toHaveBeenCalled();
+    expect(destroy).not.toHaveBeenCalled();
+  });
+
+  it('multiplies canonical base sizes for hover and selection', () => {
+    const graph = buildGraph();
+    component.graph = graph;
+    component.visualProjection = visualProjection(graph);
+    const id = graph.nodes[0].id;
+    const base = component.visualProjection.nodeStyles[id].baseSize;
+    component.highlightedNodeIds = new Set([id]);
+    expect((component as any)._nodeValue(id)).toBe(base * 1.25);
+    component.highlightedNodeIds = new Set();
+    (component as any)._focalId = id;
+    expect((component as any)._nodeValue(id)).toBe(base * 1.5);
+  });
+
+  it('creates tooltip elements with textContent instead of executable markup', () => {
+    const tooltip = graphVisualTooltipElement('<img src=x onerror=alert(1)>');
+    expect(tooltip.querySelector('img')).toBeNull();
+    expect(tooltip.textContent).toBe('<img src=x onerror=alert(1)>');
   });
 });

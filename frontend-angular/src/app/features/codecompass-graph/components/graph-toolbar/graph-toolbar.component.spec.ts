@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { GraphToolbarComponent } from './graph-toolbar.component';
 import { GraphViewMode } from '../../models/graph-view-mode';
-import { GraphFilter } from '../../models/graph-filter.model';
+import { EMPTY_FILTER, GraphFilter } from '../../models/graph-filter.model';
 
 describe('GraphToolbarComponent', () => {
   let fixture: ComponentFixture<GraphToolbarComponent>;
@@ -13,7 +13,7 @@ describe('GraphToolbarComponent', () => {
     }).compileComponents();
     fixture = TestBed.createComponent(GraphToolbarComponent);
     component = fixture.componentInstance;
-    component.filter = { searchText: '', nodeKindFilter: [], edgeTypeFilter: [] };
+    component.filter = EMPTY_FILTER;
     fixture.detectChanges();
   });
 
@@ -68,7 +68,7 @@ describe('GraphToolbarComponent', () => {
   });
 
   it('emits filterReset when clear button present and clicked', () => {
-    component.filter = { searchText: 'x', nodeKindFilter: [], edgeTypeFilter: [] };
+    component.filter = { ...EMPTY_FILTER, searchText: 'x' };
     fixture.detectChanges();
     let emitted = false;
     component.filterReset.subscribe(() => (emitted = true));
@@ -81,5 +81,23 @@ describe('GraphToolbarComponent', () => {
   it('does not show reset button when filter is empty', () => {
     const btn = fixture.nativeElement.querySelector('.reset-btn');
     expect(btn).toBeNull();
+  });
+
+  it('renders and filters an unknown raw relation from canonical inventory', () => {
+    component.edgeTypes = ['parent_child', 'custom:unsafe<relation>'];
+    component.edgeOpen.set(true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('custom:unsafe<relation>');
+    let emitted: Partial<GraphFilter> | null = null;
+    component.filterChange.subscribe(value => (emitted = value));
+    component.toggleEdge('custom:unsafe<relation>', false);
+    expect(emitted?.edgeTypes).toEqual({ mode: 'subset', values: ['parent_child'] });
+  });
+
+  it('uses explicit none mode when every edge is disabled', () => {
+    let emitted: Partial<GraphFilter> | null = null;
+    component.filterChange.subscribe(value => (emitted = value));
+    component.setAllEdges(false);
+    expect(emitted?.edgeTypes).toEqual({ mode: 'none', values: [] });
   });
 });

@@ -1,16 +1,71 @@
-import { GraphNodeKind, GraphEdgeType } from './graph.model';
+import { GraphEdgeType, GraphNodeKind } from './graph.model';
 
-export interface GraphFilter {
-  searchText: string;
-  nodeKindFilter: GraphNodeKind[];
-  edgeTypeFilter: GraphEdgeType[];
+export type GraphFilterMode = 'all' | 'none' | 'subset';
+
+/**
+ * Explicit selection state. Empty arrays no longer have two implicit meanings,
+ * and hidden inventory entries remain selectable from legends and toolbars.
+ */
+export interface GraphFilterSelection<T extends string = string> {
+  readonly mode: GraphFilterMode;
+  readonly values: readonly T[];
 }
 
-export const EMPTY_FILTER: GraphFilter = {
+export interface GraphFilter {
+  readonly searchText: string;
+  readonly nodeKinds: GraphFilterSelection<string>;
+  readonly edgeTypes: GraphFilterSelection<string>;
+  readonly domains: GraphFilterSelection<string>;
+}
+
+export const ALL_SELECTION: GraphFilterSelection<string> = Object.freeze({
+  mode: 'all',
+  values: Object.freeze([] as string[]),
+});
+export const NONE_SELECTION: GraphFilterSelection<string> = Object.freeze({
+  mode: 'none',
+  values: Object.freeze([] as string[]),
+});
+
+export const EMPTY_FILTER: GraphFilter = Object.freeze({
   searchText: '',
-  nodeKindFilter: [],
-  edgeTypeFilter: [],
-};
+  nodeKinds: ALL_SELECTION,
+  edgeTypes: ALL_SELECTION,
+  domains: ALL_SELECTION,
+});
+
+export function graphSelectionContains(selection: GraphFilterSelection<string>, value: string): boolean {
+  if (selection.mode === 'all') return true;
+  if (selection.mode === 'none') return false;
+  return selection.values.includes(value);
+}
+
+export function graphSelectionFromVisible(
+  visibleValues: Iterable<string>,
+  inventory: readonly string[],
+): GraphFilterSelection<string> {
+  const inventorySet = new Set(inventory);
+  const values = [...new Set(visibleValues)]
+    .filter(value => inventorySet.has(value))
+    .sort((left, right) => left.localeCompare(right));
+  if (values.length === 0) return NONE_SELECTION;
+  if (values.length === inventorySet.size) return ALL_SELECTION;
+  return Object.freeze({ mode: 'subset', values: Object.freeze(values) });
+}
+
+export function graphSelectionToggle(
+  current: GraphFilterSelection<string>,
+  value: string,
+  visible: boolean,
+  inventory: readonly string[],
+): GraphFilterSelection<string> {
+  const selected = new Set(
+    current.mode === 'all' ? inventory : current.mode === 'none' ? [] : current.values,
+  );
+  if (visible) selected.add(value);
+  else selected.delete(value);
+  return graphSelectionFromVisible(selected, inventory.includes(value) ? inventory : [...inventory, value]);
+}
 
 export const ALL_NODE_KINDS: GraphNodeKind[] = [
   'python_class',
@@ -47,6 +102,15 @@ export const ALL_NODE_KINDS: GraphNodeKind[] = [
   'properties_file',
   'properties_entry',
   'config',
+  'wiki_article',
+  'wiki_section',
+  'wiki_chunk',
+  'package_manager',
+  'external_package',
+  'buildable_component',
+  'aggregator',
+  'runner',
+  'test',
   'unknown',
 ];
 
@@ -66,6 +130,7 @@ export const ALL_EDGE_TYPES: GraphEdgeType[] = [
   'declares_bean',
   'extends',
   'field_type_uses',
+  'frontend_guard_refs_field',
   'generic_type_uses',
   'implements',
   'imports_module',
@@ -73,10 +138,23 @@ export const ALL_EDGE_TYPES: GraphEdgeType[] = [
   'injects_dependency',
   'transactional_boundary',
   'jpa_relation',
+  'mapper_maps_type',
   'method_param_type_uses',
   'method_return_type_uses',
   'parent_child',
+  'permission_checks_field',
+  'policy_applies_to_field',
   'returns',
   'uses_type',
   'related',
+  'wiki_link',
+  'depends_on',
+  'aggregates',
+  'built_by',
+  'tested_by',
+  'test_calls_endpoint',
+  'test_targets_type',
+  'runs',
+  'covers',
+  'service_uses_repository',
 ];
