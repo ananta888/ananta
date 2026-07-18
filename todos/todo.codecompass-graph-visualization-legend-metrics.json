@@ -1,25 +1,124 @@
 {
-  "$schema": "../todo.track.schema.json",
-  "version": "1.0",
+  "$schema": "todo.track.schema.json",
+  "version": "2.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-graph-visualization-legend-metrics",
   "created": "2026-07-18",
-  "status": "todo",
-  "purpose": "Die CodeCompass-Visualisierung in der Angular-App, insbesondere die 3D-Ansicht, durch sichtbare Legenden, deterministische Domain-Farben sowie konfigurierbare Knoten- und Verbindungsmetriken verständlicher, erklärbarer und steuerbar machen.",
-  "goal": "Domains, Hauptknoten und Verbindungen sollen nicht nur optisch unterscheidbar sein, sondern ihre Farbe, Größe und Dicke aus nachvollziehbaren und frei gewichtbaren Kriterien erhalten. Die gleiche Visualisierungslogik soll von 2D und 3D gemeinsam genutzt werden.",
+  "last_reviewed": "2026-07-18",
+  "status": "partial",
+  "purpose": "Die CodeCompass-Graphvisualisierung in der Angular-App durch erklaerbare Legenden, deterministische und zugaengliche Farben sowie frei gewichtbare Knoten- und Kantenmetriken verstaendlich, steuerbar und ansichtsuebergreifend konsistent machen.",
+  "goal": "Ein revisionsgebundenes Visualisierungsprofil erzeugt aus belegten Graphmetriken genau eine kanonische Style-Projektion. 2D und 3D konsumieren dieselben Farben, Scores und Rankings; Legenden und Einstellungen erklaeren jeden Wert und kennzeichnen fehlende Metriken sichtbar, ohne neue Backend-Requests oder Hub-seitige Metrikberechnungen auszuloesen.",
   "source_review": {
-    "summary": "Der aktuelle 3D-Renderer besitzt bereits feste Farben pro Node-Kind, eine zehn Farben umfassende Domain-Palette, eine einfache Knotengröße auf Basis von domain_level und Typ-Boost sowie feste Standard- und Highlight-Linkbreiten. Es fehlen sichtbare Legenden, eine zentrale Visualisierungsconfiguration, gewichtete Metriken und eine gemeinsame Logik für 2D und 3D.",
+    "summary": "Die Renderer und ihre Basisfilter existieren und sind getestet, die Source-Review der Vorversion war jedoch auf den 3D-Component beschraenkt. 2D und 3D verwenden verschiedene Domain-Paletten und unterschiedliche Domain-Fallbacks. Kantenfarben und Relationstyp-Filter sind bereits teilweise zentralisiert. Degree-/Bridge- und Blast-Radius-Algorithmen existieren im Worker, werden aber nicht als revisionsgebundener Visualisierungsvertrag materialisiert oder vom Hub verlustfrei projiziert. Der normale Graph-Endpunkt entfernt Domain- und Wichtigkeitsmetadaten, waehrend der Self-Graph einen Teil davon liefert.",
+    "validation_results": {
+      "frontend_command": "cd frontend-angular && pnpm exec vitest run src/app/features/codecompass-graph",
+      "frontend_result": "10 Testdateien und 72 Tests bestanden",
+      "backend_command": ".venv/bin/python -m pytest -q tests/test_codecompass_graph_api.py tests/test_codecompass_graph_metrics.py",
+      "backend_result": "30 Tests bestanden",
+      "planning_contract_result_before_revision": "ungueltig wegen falschem $schema-Pfad und fehlendem tasks_status_summary"
+    },
     "observed_source_files": [
       {
         "path": "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.ts",
         "observations": [
-          "KIND_COLORS und DOMAIN_COLORS sind direkt im Component definiert.",
-          "Domain-Farben werden per Hash von domain_path auf nur zehn Farben verteilt.",
-          "Die Knotengröße wird aktuell aus domain_level und einem kleinen Datei-/Summary-Boost berechnet.",
-          "Linkbreiten sind fest auf Standard-, Highlight- und Abblendwerte gesetzt.",
-          "Farb-, Größen- und Dickenlogik sind nicht als wiederverwendbarer Service gekapselt."
+          "KIND_COLORS und eine zyklische Zehner-Domainpalette liegen im Renderer.",
+          "Knotengroesse nutzt domain_level und einen Datei-/Summary-Boost; Linkbreiten sind fest.",
+          "Reine Auswahlupdates vermeiden bereits einen Szenenneuaufbau.",
+          "Tooltips enthalten keinen ScoreBreakdown."
+        ]
+      },
+      {
+        "path": "frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/graph-2d-view.component.ts",
+        "observations": [
+          "2D besitzt eine zweite KIND_COLORS- und Domainpalette mit anderen Farbwerten.",
+          "Der Domain-Fallback wird aus dem Dateipfad gebildet und weicht von 3D ab.",
+          "Knotengroesse nutzt domain_level; Highlighting ersetzt individuelle Grundgroessen teilweise durch globale Werte.",
+          "Graphaufbau ist gechunkt und Auswahlupdates koennen ohne kompletten Neuaufbau erfolgen."
+        ]
+      },
+      {
+        "path": "frontend-angular/src/app/features/codecompass-graph/models/graph-edge-style.ts",
+        "observations": [
+          "Kantenfarben und ein neutraler Fallback sind bereits zentral vorhanden und werden von 2D und 3D verwendet."
+        ]
+      },
+      {
+        "path": "frontend-angular/src/app/features/codecompass-graph/components/graph-toolbar/graph-toolbar.component.ts",
+        "observations": [
+          "Relationstyp- und Knotentyp-Toggles existieren bereits.",
+          "Der __none__-Sentinel wird per Type-Cast in GraphEdgeType und GraphNodeKind eingeschleust und soll nicht in neue Legendenlogik uebernommen werden."
+        ]
+      },
+      {
+        "path": "frontend-angular/src/app/features/codecompass-graph/services/graph-state.service.ts",
+        "observations": [
+          "Node-, Edge-, Such- und Fokusfilter werden lokal ohne Backend-Reload berechnet.",
+          "Der Service ist global bereitgestellt und isoliert mehrere Viewerinstanzen derzeit nicht."
+        ]
+      },
+      {
+        "path": "frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.ts",
+        "observations": [
+          "Unbekannte Relationen werden zu related zusammengezogen und verlieren damit ihren Rohname.",
+          "RIG-Knoten und -Kanten werden teilweise erkannt, obwohl TypeScript-Union und Filterkatalog sie nicht vollstaendig enthalten.",
+          "Parallelkanten mit gleichem Source-, Target- und Relationstyp erhalten dieselbe abgeleitete ID."
+        ]
+      },
+      {
+        "path": "schemas/artifacts/domain_graph_artifact.v1.json",
+        "observations": [
+          "Node- und Edge-Attribute sind erweiterbar, garantieren aber keine Visualisierungsmetriken, Capability-Angaben oder Graphrevision."
+        ]
+      },
+      {
+        "path": "agent/routes/codecompass_graph.py",
+        "observations": [
+          "Der normale Graph-Endpunkt projiziert nur file, name, content und record_id sowie Edge-Confidence.",
+          "Der Self-Graph liefert importance_score, domain_path und domain_level, jedoch keine expliziten Degree-Werte.",
+          "Eine numerische Confidence von 0 wird durch value-or-1.0 aktuell faelschlich zu 1.0.",
+          "Routing, Dateizugriff, Domainableitung und Projektion sind bereits stark gekoppelt; neue Metrikberechnung gehoert nicht in diesen Request-Pfad."
+        ]
+      },
+      {
+        "path": "worker/retrieval/codecompass_graph_metrics.py",
+        "observations": [
+          "Kombinierter Degree und eine begrenzte Bridge-/Betweenness-Naeherung sind implementiert und getestet, aber nicht als vollstaendiger Visualisierungsvektor materialisiert."
+        ]
+      },
+      {
+        "path": "worker/retrieval/codecompass_blast_radius.py",
+        "observations": [
+          "Blast-Radius mit Breakdown ist vorhanden, wird jedoch nicht in den Graph-Visualisierungsvertrag projiziert."
+        ]
+      },
+      {
+        "path": "worker/retrieval/codecompass_graph_store.py",
+        "observations": [
+          "state.manifest_hash ist als stabile Revisionsbasis vorhanden, wird vom Graph-Endpunkt aber nicht ausgegeben."
+        ]
+      },
+      {
+        "path": "docs/codecompass-graph-viewer.md",
+        "observations": [
+          "Die bestehende Architektur- und Betriebsdokumentation ist die zu erweiternde Source-of-Truth; eine zweite konkurrierende Visualisierungsdokumentation ist nicht erforderlich."
         ]
       }
+    ],
+    "confirmed_existing_capabilities": [
+      "Simple-, 2D- und 3D-Ansicht konsumieren ein gemeinsames GenericGraphModel.",
+      "Kantenfarben besitzen bereits einen zentralen Fallback.",
+      "Relationstypen und Knotentypen koennen ohne Backend-Request gefiltert werden.",
+      "Auswahl- und Fokusupdates vermeiden in mehreren Pfaden einen vollstaendigen Neuaufbau.",
+      "Renderlimits, Chunking und WebGL-Fallbacks sind vorhanden.",
+      "Worker-Algorithmen fuer Degree, Bridge und Blast Radius sind vorhanden."
+    ],
+    "confirmed_gaps": [
+      "Kein versionierter VisualProfile-Vertrag, kein reiner Validator und kein sicherer Storage-Port.",
+      "Keine gemeinsame Domainidentitaet, Farbzuordnung, Metrikverfuegbarkeit oder Style-Projektion.",
+      "Keine sichtbare Domain-, Groessen-, Relations- oder Dickenlegende.",
+      "Keine verlustfreie Rohrelation, Graphrevision oder Capability-Projektion vom Worker bis Angular.",
+      "Keine gewichtete Score-Engine mit reproduzierbarem Breakdown.",
+      "Keine task-spezifischen Browser-, Accessibility-, Security- oder 5000-Knoten-Performance-Gates."
     ]
   },
   "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
@@ -28,298 +127,828 @@
   "design_decisions": [
     {
       "id": "CCGV-DD-001",
-      "decision": "Farben, Größen und Verbindungsdicken werden außerhalb der Render-Components berechnet.",
-      "rationale": "2D und 3D müssen dieselbe deterministische Logik verwenden und dürfen keine getrennten Metrikimplementierungen besitzen."
+      "decision": "Farben, Rohmetriken, Scores, Style-Projektionen und Legendenstatistiken werden ausserhalb der Render-Components berechnet.",
+      "rationale": "2D und 3D duerfen keine getrennten semantischen Implementierungen besitzen; Renderer bleiben kleine, austauschbare Adapter."
     },
     {
       "id": "CCGV-DD-002",
-      "decision": "Knoten- und Kantengröße werden als gewichteter normalisierter Gesamtscore modelliert.",
-      "rationale": "Ein einzelnes hart codiertes Kriterium bildet Wichtigkeit, Umfang und Vernetzung nicht ausreichend ab."
+      "decision": "Komplexe Graphmetriken werden im Worker waehrend eines Hub-delegierten Index-/Metriklaufs materialisiert; der Hub liest und projiziert nur das versionierte Artefakt.",
+      "rationale": "Der Hub bleibt Control Plane und fuehrt weder Centrality noch Blast-Radius im HTTP-Request-Pfad aus."
     },
     {
       "id": "CCGV-DD-003",
-      "decision": "Highlighting verstärkt den berechneten Grundwert, ersetzt ihn aber nicht.",
-      "rationale": "Die relative Bedeutung von Knoten und Verbindungen muss auch während Auswahl und Hover erhalten bleiben."
+      "decision": "domain_graph_artifact.v1 bleibt rueckwaertskompatibel; Graphrevision, Capabilities und Visualmetriken werden additiv und optional eingefuehrt.",
+      "rationale": "Bestehende Clients und gespeicherte Artefakte muessen ohne Big-Bang-Migration weiter funktionieren."
     },
     {
       "id": "CCGV-DD-004",
-      "decision": "Nicht vorhandene Metriken werden sichtbar als nicht verfügbar markiert und sicher ignoriert.",
-      "rationale": "Die Visualisierung muss mit unterschiedlichen CodeCompass-Graphversionen und unvollständigen Metadaten funktionieren."
+      "decision": "Roh-Knoten- und Roh-Relationstypen bleiben erhalten; bekannte Semantik und visueller Fallback werden getrennt modelliert.",
+      "rationale": "Die UI darf unbekannte Typen anzeigen, aber keine nicht belegte Semantik erfinden."
+    },
+    {
+      "id": "CCGV-DD-005",
+      "decision": "Normalisierung verwendet den vollstaendigen kanonischen Graph einer Revision und nicht den momentan gefilterten Ausschnitt.",
+      "rationale": "Groessen und Dicken duerfen beim Ein- oder Ausblenden einer Domain oder Relation nicht springen."
+    },
+    {
+      "id": "CCGV-DD-006",
+      "decision": "Fehlende, approximierte und nicht anwendbare Metriken werden mit Herkunft und Reason-Code modelliert und niemals als erfundene Nullwerte eingesetzt.",
+      "rationale": "Profile bleiben erklaerbar und koennen sichtbar degraded sein, statt Scheingenauigkeit zu erzeugen."
+    },
+    {
+      "id": "CCGV-DD-007",
+      "decision": "Profilvalidierung, Persistenz, Metrikextraktion, Scoring, Cache und UI-State bleiben getrennte Ports beziehungsweise Services.",
+      "rationale": "Die Trennung schuetzt SRP und DIP und verhindert einen GraphVisualProfile-God-Service."
+    },
+    {
+      "id": "CCGV-DD-008",
+      "decision": "Aktiver Profil- und Interaktionszustand ist pro Viewerinstanz isoliert; nur versionierte Profilwerte duerfen browserlokal geteilt werden.",
+      "rationale": "Zwei Graph-Viewer duerfen Auswahl, Hover, Filter oder ungespeicherte Einstellungen nicht gegenseitig beeinflussen."
+    },
+    {
+      "id": "CCGV-DD-009",
+      "decision": "Highlighting multipliziert den berechneten Grundwert und ersetzt ihn nicht; Farbe ist nie die einzige visuelle Codierung.",
+      "rationale": "Relative Bedeutung bleibt bei Auswahl erhalten und die Darstellung bleibt zugaenglich."
+    },
+    {
+      "id": "CCGV-DD-010",
+      "decision": "Hover, Filter, Slider und Profilwechsel duerfen keine neuen Hub-Requests ausloesen; Style-Updates nutzen die direkten Update-APIs der vorhandenen Renderer.",
+      "rationale": "Visualisierungsinteraktionen bleiben lokal, schnell und operativ vorhersagbar."
     }
   ],
+  "removed_or_merged_scope": [
+    "Die erneute Implementierung eines Relationstyp-Filters entfaellt; CCGV-010 integriert die vorhandenen Toolbar- und GraphState-Toggles als einzige Source-of-Truth.",
+    "Ein neues docs/codecompass-graph-visualization.md entfaellt; CCGV-014 erweitert docs/codecompass-graph-viewer.md.",
+    "Der fruehere monolithische Profilservice wird in reinen Vertrag/Validator und Storage-/Facade-Verantwortlichkeiten geteilt.",
+    "Die einfache Listenansicht muss keine fiktive Groessen- oder Dickenparitaet herstellen; ihre unterstuetzten Eigenschaften werden explizit dokumentiert.",
+    "Die bedingte Formulierung sofern die Renderbibliothek direkte Updates unterstuetzt entfaellt zugunsten pruefbarer Spy- und Browser-Gates.",
+    "Komplexe Metrikberechnung im Hub bleibt ausgeschlossen; bestehende Worker-Algorithmen werden wiederverwendet und als Artefakt materialisiert."
+  ],
   "target_outputs": {
-    "new_or_changed_files_expected": [
+    "contracts_and_backend": [
+      "schemas/artifacts/graph_visual_metrics.v1.json",
+      "schemas/artifacts/domain_graph_artifact.v1.json",
+      "worker/retrieval/codecompass_graph_visual_metrics.py",
+      "worker/retrieval/codecompass_graph_metrics.py",
+      "worker/retrieval/codecompass_blast_radius.py",
+      "agent/services/codecompass_graph_projection_service.py",
+      "agent/routes/codecompass_graph.py"
+    ],
+    "frontend_models_and_services": [
       "frontend-angular/src/app/features/codecompass-graph/models/graph-visual-profile.model.ts",
+      "frontend-angular/src/app/features/codecompass-graph/models/graph-visual-metrics.model.ts",
+      "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile-validator.ts",
+      "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile-storage.port.ts",
+      "frontend-angular/src/app/features/codecompass-graph/services/local-storage-graph-visual-profile.adapter.ts",
       "frontend-angular/src/app/features/codecompass-graph/services/graph-color.service.ts",
       "frontend-angular/src/app/features/codecompass-graph/services/graph-metric-score.service.ts",
-      "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile.service.ts",
+      "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-projection.service.ts",
+      "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile.facade.ts"
+    ],
+    "frontend_components": [
       "frontend-angular/src/app/features/codecompass-graph/components/graph-legend/*",
       "frontend-angular/src/app/features/codecompass-graph/components/graph-visual-settings/*",
-      "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.ts",
+      "frontend-angular/src/app/features/codecompass-graph/components/graph-viewer/*",
+      "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/*",
       "frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/*",
-      "frontend-angular/src/app/features/codecompass-graph/**/*.spec.ts",
-      "docs/codecompass-graph-visualization.md"
+      "frontend-angular/src/app/features/codecompass-graph/components/simple-graph-view/*"
+    ],
+    "quality_and_operations": [
+      "frontend-angular/tests/codecompass-graph-visualization*.spec.ts",
+      "config/codecompass/graph_visualization_budgets.v1.json",
+      "artifacts/test-gates/codecompass-graph-visualization.json",
+      "docs/codecompass-graph-viewer.md"
     ],
     "visual_profiles": [
       "Struktur",
-      "Abhängigkeiten",
+      "Abhaengigkeiten",
       "Wichtigkeit",
       "Umfang",
-      "Änderungsrisiko"
+      "Aenderungsrisiko"
     ]
+  },
+  "operational_budgets": {
+    "profile_import_max_bytes": 131072,
+    "profile_cache_max_entries": 8,
+    "performance_fixture_nodes": 5000,
+    "performance_fixture_edges": 15000,
+    "hover_events_per_gate": 100,
+    "max_http_requests_per_visual_interaction": 0,
+    "max_score_recomputations_per_hover_burst": 0,
+    "max_renderer_reinitializations_per_profile_change": 0,
+    "max_projection_runs_per_animation_frame": 1,
+    "browser_p95_budget_source": "config/codecompass/graph_visualization_budgets.v1.json"
   },
   "milestones": [
     {
       "id": "CCGV-M1",
-      "title": "Gemeinsames Visualisierungsmodell und Scoring",
-      "status": "todo",
+      "title": "Vertrag, Worker-Artefakt und verlustfreie Projektion",
+      "status": "partial",
       "task_ids": ["CCGV-001", "CCGV-002", "CCGV-003"]
     },
     {
       "id": "CCGV-M2",
-      "title": "Legenden und Konfigurationsoberfläche",
-      "status": "todo",
-      "task_ids": ["CCGV-004", "CCGV-005", "CCGV-006"]
+      "title": "Profile, Farben, Scoring und Cache",
+      "status": "partial",
+      "task_ids": ["CCGV-004", "CCGV-005", "CCGV-006", "CCGV-007", "CCGV-008"]
     },
     {
       "id": "CCGV-M3",
-      "title": "Integration, Performance und Qualitätssicherung",
+      "title": "Legenden, Einstellungen und Renderer-Integration",
+      "status": "partial",
+      "task_ids": ["CCGV-009", "CCGV-010", "CCGV-011", "CCGV-012"]
+    },
+    {
+      "id": "CCGV-M4",
+      "title": "Funktionale Freigabe, Performance und Dokumentation",
       "status": "todo",
-      "task_ids": ["CCGV-007", "CCGV-008", "CCGV-009"]
+      "task_ids": ["CCGV-013", "CCGV-014"]
     }
   ],
   "tasks": [
     {
       "id": "CCGV-001",
-      "title": "Typisiertes GraphVisualProfile einführen",
-      "status": "todo",
+      "title": "Additiven Graph-Visualisierungs- und Metrikvertrag definieren",
+      "description": "Der bestehende domain_graph_artifact.v1-Vertrag wird rueckwaertskompatibel um Revision, Metrik-Capabilities, kanonische Domainidentitaet, Roh-Typen und Metrikprovenienz ergaenzt. Der Task definiert Daten, aber keine Renderer- oder Metrikalgorithmen.",
+      "type": "contract",
+      "milestone_id": "CCGV-M1",
+      "status": "partial",
+      "progress_percent": 15,
       "priority": "P0",
-      "risk": "medium",
-      "paths": [
-        "frontend-angular/src/app/features/codecompass-graph/models/graph-visual-profile.model.ts",
-        "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile.service.ts"
+      "risk": "high",
+      "depends_on": [],
+      "affected_files": [
+        "schemas/artifacts/domain_graph_artifact.v1.json",
+        "schemas/artifacts/graph_visual_metrics.v1.json",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph.model.ts",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-filter.model.ts",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-edge-style.ts",
+        "tests/test_codecompass_graph_api.py",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.spec.ts"
       ],
-      "description": "Eine zentrale typisierte Konfiguration für Farben, Knotengrößen, Verbindungsdicken, Legenden und Presets anlegen.",
       "implementation_notes": [
-        "GraphVisualProfile mit domainColorMode, manuellen Domain-Farben, nodeSize, edgeWidth, Wertebereichen und Legendenschaltern definieren.",
-        "WeightedMetricConfig unterstützt aktiv/inaktiv, Gewicht, Normalisierung linear/logarithmisch/Wurzel und inverse Richtung.",
-        "Defaultprofil und Presets Struktur, Abhängigkeiten, Wichtigkeit, Umfang und Änderungsrisiko bereitstellen.",
-        "Profil lokal im Browser persistieren sowie Reset, JSON-Import und JSON-Export ermöglichen."
+        "metadata.graph_revision wird aus einer bereits vorhandenen Manifest-/Snapshot-Revision projiziert und nicht im Browser erfunden.",
+        "metric_capabilities unterscheidet mindestens available, approximate, unavailable und not_applicable und traegt source, algorithm_version sowie reason_code.",
+        "raw_node_type und raw_edge_type bleiben erhalten; known_kind beziehungsweise known_relation klassifizieren nur belegte Semantik.",
+        "Parallelkanten beziehungsweise multiplicity, Richtung, Self-Loops und Aggregationsschluessel werden explizit definiert.",
+        "Legacy-Payloads ohne neue Felder bleiben gueltig."
       ],
       "acceptance_criteria": [
-        "Ein gültiges Defaultprofil wird ohne gespeicherte Nutzereinstellungen geladen.",
-        "Ungültige importierte Profile werden validiert und nicht ungeprüft übernommen.",
-        "Profiländerungen werden lokal persistiert und nach Reload wiederhergestellt.",
-        "Reset stellt das dokumentierte Defaultprofil wieder her."
+        "Schema-Tests validieren je eine Legacy-Fixture, eine vollstaendige Metrik-Fixture und eine Fixture mit partiell fehlenden Metriken.",
+        "Eine fehlende Metrik besitzt keinen erfundenen numerischen Wert und enthaelt einen stabilen unavailable-Reason-Code.",
+        "Eine unbekannte Rohrelation bleibt bytegenau erhalten, wird als semantically_unknown markiert und erhaelt nur einen visuellen Fallback.",
+        "Explizite confidence=0 und multiplicity=0 beziehungsweise 1 bleiben im Contract unterscheidbar und werden nicht durch Truthiness-Fallbacks ersetzt.",
+        "Zwei identische Payloads erzeugen dieselbe kanonische Graphrevision und dieselbe sortierte Capability-Projektion.",
+        "Bestehende domain_graph_artifact.v1-API- und Angular-Adaptertests bleiben ohne Pflichtmigration gruen."
+      ],
+      "test_expectations": [
+        "Python-JSON-Schema-Tests fuer Legacy-, Partial- und Full-Payload.",
+        "Angular-Contracttest fuer Roh-Typ, bekannte Semantik, confidence=0 und Parallelkanten.",
+        "Drifttest vergleicht Model-, Adapter-, Style- und Filterregistry."
       ]
     },
     {
       "id": "CCGV-002",
-      "title": "Deterministische Domain-Farbzuordnung auslagern",
-      "status": "todo",
+      "title": "Graph-Visualmetriken im Worker revisionsgebunden materialisieren",
+      "description": "Vorhandene Degree-/Bridge- und Blast-Radius-Bausteine werden in einen fokussierten Worker-Artefaktgenerator ueberfuehrt. Der Worker berechnet nur belegbare Werte und kennzeichnet begrenzte oder fehlende Berechnungen.",
+      "type": "worker-integration",
+      "milestone_id": "CCGV-M1",
+      "status": "partial",
+      "progress_percent": 25,
       "priority": "P0",
-      "risk": "medium",
-      "paths": [
-        "frontend-angular/src/app/features/codecompass-graph/services/graph-color.service.ts",
-        "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.ts"
+      "risk": "high",
+      "depends_on": ["CCGV-001"],
+      "affected_files": [
+        "worker/retrieval/codecompass_graph_visual_metrics.py",
+        "worker/retrieval/codecompass_graph_metrics.py",
+        "worker/retrieval/codecompass_blast_radius.py",
+        "worker/retrieval/codecompass_graph_store.py",
+        "schemas/artifacts/graph_visual_metrics.v1.json",
+        "tests/test_codecompass_graph_metrics.py",
+        "tests/test_codecompass_blast_radius.py"
       ],
-      "description": "Domain- und Node-Kind-Farben zentral, deterministisch und ansichtsübergreifend berechnen.",
       "implementation_notes": [
-        "Bestehende KIND_COLORS als zentralen Fallback übernehmen.",
-        "Domain-Farben deterministisch aus domain_path oder domain_id generieren.",
-        "Keine zyklische Wiederverwendung einer festen Palette nach nur zehn Domains.",
-        "Manuelle Farbzuordnungen aus dem Visualisierungsprofil müssen automatisch generierte Farben überschreiben."
+        "Mindestens in_degree, out_degree, total_degree und direkte containment-Kinder werden fuer alle Knoten materialisiert.",
+        "Descendants, Bridge/Centrality, Codeumfang, Nutzungsfrequenz und Blast Radius werden nur bei belastbarer Eingabe und mit Algorithmusversion geliefert.",
+        "Grenzen und Approximationen werden pro Metrik offengelegt; Frontend und Hub duerfen sie nicht als exakt umdeuten.",
+        "Der Worker erzeugt keine Tasks und orchestriert keine anderen Worker.",
+        "Das Artefakt enthaelt keine Repository-Volltexte, Secrets, Zeitstempel oder absolute Hostpfade."
       ],
       "acceptance_criteria": [
-        "Die gleiche Domain erhält in 2D, 3D und nach Reload dieselbe Farbe.",
-        "Mindestens 30 Domains erhalten ohne einfache Zehner-Wiederholung unterscheidbare Farben.",
-        "Nodes ohne Domain verwenden einen dokumentierten Node-Kind-Fallback.",
-        "Manuell gesetzte Domain-Farben werden sofort übernommen."
+        "Ein Hub-delegierter Worker-Test erzeugt aus derselben Graphrevision zweimal byte-identische, schema-valide Visualmetrik-Artefakte.",
+        "Jeder materialisierte Wert ist endlich; NaN, Infinity, negative Counts und Werte ausserhalb dokumentierter Bereiche werden fail-closed abgelehnt.",
+        "In-, Out- und Gesamtgrad sowie direkte Kinder stimmen fuer eine gerichtete Golden-Fixture exakt mit den erwarteten Werten ueberein.",
+        "Zyklen, Self-Loops, Parallelkanten und eine erreichte Berechnungsgrenze erzeugen definierte Werte oder definierte approximate-/unavailable-Reason-Codes.",
+        "Centrality und Blast Radius werden nur mit belegter Eingabe freigegeben; ein fehlender Graphstore erzeugt ein gueltiges degraded Artefakt statt erfundener Scores.",
+        "Das Artefakt traegt graph_revision, algorithm_version, capability_status und einen kanonischen Content-Hash."
+      ],
+      "test_expectations": [
+        "Unit-Tests fuer gerichtete Grade, Containment, Zyklen, Self-Loops und Parallelkanten.",
+        "Determinismus- und Schema-Test fuer das Worker-Artefakt.",
+        "Hub-Worker-Integrationstest belegt Delegation und atomare Artefaktpublikation."
       ]
     },
     {
       "id": "CCGV-003",
-      "title": "Gewichtetes Scoring für Knoten und Kanten implementieren",
-      "status": "todo",
+      "title": "Hub-Projektion und Angular-Adapter verlustfrei erweitern",
+      "description": "Ein fokussierter Hub-Projektionsservice liest das Worker-Artefakt, fuegt optionale Visualmetriken additiv in Graphantworten ein und bewahrt Roh-Typen, Confidence und Revision bis zum Angular-Modell. Im Request-Pfad wird keine komplexe Metrik berechnet.",
+      "type": "frontend-backend-contract",
+      "milestone_id": "CCGV-M1",
+      "status": "partial",
+      "progress_percent": 35,
       "priority": "P0",
       "risk": "high",
-      "paths": [
-        "frontend-angular/src/app/features/codecompass-graph/services/graph-metric-score.service.ts",
-        "frontend-angular/src/app/features/codecompass-graph/models/graph.model.ts"
+      "depends_on": ["CCGV-001", "CCGV-002"],
+      "affected_files": [
+        "agent/services/codecompass_graph_projection_service.py",
+        "agent/routes/codecompass_graph.py",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph.model.ts",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-filter.model.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.ts",
+        "tests/test_codecompass_graph_api.py",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.spec.ts"
       ],
-      "description": "Wiederverwendbare normalisierte Gesamtscores für Knotengröße und Verbindungsdicke berechnen.",
       "implementation_notes": [
-        "Knotenkriterien mindestens: Gesamtgrad, eingehender Grad, ausgehender Grad, direkte Kinder, Descendants, Domain-Level, Codeumfang, Centrality und manuelle Wichtigkeit.",
-        "Kantenkriterien mindestens: aggregierte Einzelverbindungen, Relationstyp, Confidence/Gewicht, domain-intern/domain-übergreifend, Nutzungsfrequenz und Blast Radius.",
-        "Normalisierung linear, logarithmisch und Quadratwurzel unterstützen.",
-        "Gewichtete Summe auf konfigurierbaren Min-/Max-Bereich abbilden und Ausreißer clampen.",
-        "Fehlende oder nicht numerische Metriken sicher ignorieren und im Breakdown kennzeichnen."
+        "Der Hub-Service besitzt nur Lese-, Validierungs- und Projektionsverantwortung und importiert keinen neuen Berechnungsalgorithmus aus worker.retrieval.",
+        "Normaler Graph und Self-Graph verwenden denselben optionalen Metrik- und Domainvertrag.",
+        "confidence=0 wird mit expliziter None-Pruefung erhalten.",
+        "Dynamisch sichtbare Roh-Typen werden aus dem Graph inventarisiert; statische Registries liefern nur Labels, Semantik und Fallback-Styles.",
+        "Alte Clients erhalten weiterhin die bekannten Pflichtfelder."
       ],
       "acceptance_criteria": [
-        "Knotengröße kann aus mindestens vier gleichzeitig gewichteten Kriterien berechnet werden.",
-        "Verbindungsdicke kann aus mindestens drei gleichzeitig gewichteten Kriterien berechnet werden.",
-        "ScoreBreakdown enthält Rohwert, normalisierten Wert, Gewicht und Teilscore je Kriterium.",
-        "Unit-Tests decken Normalisierung, Gewichtung, inverse Richtung, Clamping, Nullwerte und Ausreißer ab."
+        "API-Tests belegen, dass Legacy-Graphantworten unveraendert konsumierbar bleiben und neue Felder ausschliesslich additiv sind.",
+        "Normaler Graph und Self-Graph liefern bei vorhandener Worker-Evidence graph_revision, metric_capabilities und kanonische Domainidentitaeten im gleichen Format.",
+        "Ein Test mit confidence=0 kommt im Angular-GraphEdge exakt als 0 an.",
+        "Unbekannte Node- und Relationstypen behalten ihren Rohwert; bekannte RIG-, Wiki- und Sprachtypen sind zwischen Adapter, Modell und Filterregistry konsistent.",
+        "Parallelkanten oder eine gelieferte multiplicity gehen beim Hub- und Angular-Mapping nicht stillschweigend verloren.",
+        "Ein Spy-Test schlaegt fehl, wenn der HTTP-Request-Pfad Degree, Centrality oder Blast Radius neu berechnet."
+      ],
+      "test_expectations": [
+        "Python-API- und Projektionsservicetests fuer Full-, Partial- und Legacy-Artefakte.",
+        "Angular-Adaptertests fuer Roh-Typen, confidence=0, Capabilities und Multiplicity.",
+        "Architekturtest verhindert neue Worker-Berechnungsimporte im Hub-Projektionsservice."
       ]
     },
     {
       "id": "CCGV-004",
-      "title": "Interaktive Domain- und Knotengrößen-Legende erstellen",
+      "title": "Versionierten GraphVisualProfile-Vertrag und reinen Validator einfuehren",
+      "description": "Ein unveraenderlicher Profilvertrag beschreibt Farben, Metrikgewichtung, Normalisierung, Richtung, Wertebereiche, Highlightfaktoren und Legendenschalter. Der Validator bleibt frei von LocalStorage, HTTP, Angular-State und Rendererabhaengigkeiten.",
+      "type": "frontend-contract",
+      "milestone_id": "CCGV-M2",
       "status": "todo",
+      "progress_percent": 0,
       "priority": "P0",
       "risk": "medium",
-      "paths": [
-        "frontend-angular/src/app/features/codecompass-graph/components/graph-legend/*"
+      "depends_on": ["CCGV-001"],
+      "affected_files": [
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-visual-profile.model.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile-validator.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile-validator.spec.ts"
       ],
-      "description": "Eine einblendbare Legende für sichtbare Domains und die Bedeutung der Knotengrößen bereitstellen.",
       "implementation_notes": [
-        "Pro Domain Farbe, Name/Pfad, Knotenanzahl, interne/externe Verbindungen und berechnete Gesamtwichtigkeit anzeigen.",
-        "Klick fokussiert oder filtert die Domain; Hover hebt sie im Graph hervor.",
-        "Größenlegende zeigt mindestens klein, mittel und groß sowie das aktive Größenprofil.",
-        "Legende muss scrollbar, einklappbar und auf kleinen Viewports nutzbar sein."
+        "WeightedMetricConfig erlaubt nur dokumentierte Metric-IDs, enabled, endliches Gewicht, linear/log1p/sqrt und normale/inverse Richtung.",
+        "Node- und Edge-Wertebereiche sowie Highlightfaktoren besitzen harte endliche Grenzen und min kleiner gleich max.",
+        "Defaultprofil und Profilversion sind kanonisch und werden nicht zur Laufzeit mutiert.",
+        "Der Validator liefert strukturierte Issues mit path und reason_code.",
+        "Unbekannte Profilversionen werden nicht implizit migriert."
       ],
       "acceptance_criteria": [
-        "Jede sichtbare Domain erscheint genau einmal in der Legende.",
-        "Hover und Klick wirken ohne erneuten Backend-Load direkt auf den Graph.",
-        "Die Größenlegende benennt die aktuell aktiven Kriterien.",
-        "Die Legende verdeckt den Graph auf kleinen Viewports nicht dauerhaft."
+        "Ein gueltiges Defaultprofil wird ohne Browser- oder Angular-Abhaengigkeit erzeugt und besteht den reinen Validator.",
+        "Alle erlaubten Normalisierungen und Richtungen werden typisiert akzeptiert; unbekannte Werte werden mit stabilem Reason-Code abgelehnt.",
+        "NaN, Infinity, negative Gewichte, Gewicht ueber dem dokumentierten Maximum, min groesser max und unzulaessige Highlightfaktoren werden abgelehnt.",
+        "Gewichtssumme null und ein Profil ohne verfuegbare Metrik besitzen einen definierten validen Fallbackzustand.",
+        "Eine unbekannte schema_version wird abgelehnt und veraendert kein bestehendes Profilobjekt.",
+        "Zwei semantisch gleiche Profile erzeugen denselben kanonischen Profilhash."
+      ],
+      "test_expectations": [
+        "Table-driven Unit-Tests fuer alle Felder, Grenzen und Reason-Codes.",
+        "Mutationstest belegt, dass Defaultprofil und Validierungseingabe unveraendert bleiben.",
+        "Hash- und Kanonisierungs-Golden-Test."
       ]
     },
     {
       "id": "CCGV-005",
-      "title": "Verbindungsarten- und Dicken-Legende erstellen",
+      "title": "Profil-Persistenz, Presets und sicheren Import/Export umsetzen",
+      "description": "Persistenz wird ueber einen kleinen Storage-Port und einen LocalStorage-Adapter realisiert. Presets, Reset, Import und Export verwenden ausschliesslich den reinen Validator und veraendern den aktiven Zustand atomar.",
+      "type": "frontend-storage",
+      "milestone_id": "CCGV-M2",
       "status": "todo",
-      "priority": "P0",
-      "risk": "medium",
-      "paths": [
-        "frontend-angular/src/app/features/codecompass-graph/components/graph-legend/*",
-        "frontend-angular/src/app/features/codecompass-graph/models/graph-edge-style.ts"
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": ["CCGV-004"],
+      "affected_files": [
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile-storage.port.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/local-storage-graph-visual-profile.adapter.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile.facade.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile-storage.spec.ts"
       ],
-      "description": "Kantenarten, Farben, Linienstile, Häufigkeiten und Dickenwerte sichtbar erklären und filterbar machen.",
       "implementation_notes": [
-        "Relationstypen wie Import, Aufruf, Vererbung, Enthält, Abhängigkeit und domain-übergreifend darstellen, soweit in den Daten vorhanden.",
-        "Unbekannte Relation erhält einen eindeutigen Fallback.",
-        "Klick/Toggle blendet Relationstypen ein oder aus.",
-        "Dickenlegende zeigt Referenzwerte und das aktive Kantenprofil."
+        "Der aktive ungespeicherte Zustand bleibt viewerlokal; gespeicherte Profile werden versioniert und mindestens nach sourceRef beziehungsweise Graphkontext getrennt.",
+        "Import akzeptiert hoechstens operational_budgets.profile_import_max_bytes, eine begrenzte Objekttiefe, eigene erlaubte Properties und sichere #RRGGBB-Farbwerte.",
+        "__proto__, constructor, prototype, CSS-Funktionen, URLs, nicht endliche Zahlen und unbekannte Versionen werden abgelehnt.",
+        "LocalStorage-Ausfall, QuotaExceeded und korrupte Daten fallen auf das Defaultprofil zurueck, ohne den Viewer zu blockieren.",
+        "Export ist kanonisch und enthaelt keine Graphknoten, Repository-Inhalte oder Secrets."
       ],
       "acceptance_criteria": [
-        "Jede sichtbare Kantenart erscheint mit Anzahl und visuellem Muster in der Legende.",
-        "Ein Relationstyp kann ohne Graph-Neuladen ein- und ausgeblendet werden.",
-        "Unbekannte Kantenarten verursachen keinen Darstellungsfehler.",
-        "Die Legende erklärt die aktuell verwendete Dickenberechnung."
+        "Die Presets Struktur, Abhaengigkeiten, Wichtigkeit, Umfang und Aenderungsrisiko bestehen denselben Profilvalidator wie importierte Profile.",
+        "Speichern und erneutes Laden stellt ein gueltiges Profil bytekanonisch wieder her; Reset entfernt den Override und liefert das dokumentierte Defaultprofil.",
+        "Ein ungueltiger oder zu grosser Import wird atomar abgelehnt und laesst aktives sowie gespeichertes Profil unveraendert.",
+        "Tests fuer __proto__, CSS-url, NaN, Infinity, unbekannte Keys, unbekannte Version und LocalStorage-Quota enden ohne Codeausfuehrung oder Viewer-Abbruch.",
+        "Zwei Viewerinstanzen koennen unterschiedliche aktive Profile besitzen; ein explizit gespeichertes Profil wird erst nach Reload beziehungsweise Auswahl uebernommen.",
+        "Export und Reimport ergeben denselben Profilhash und persistieren keine Graphdaten."
+      ],
+      "test_expectations": [
+        "Port-Vertragstest laeuft gegen InMemory- und LocalStorage-Adapter.",
+        "Security-Tests fuer untrusted JSON, Property-Pollution und CSS-Werte.",
+        "Reload-, Reset-, Quota- und Zwei-Viewer-Tests."
       ]
     },
     {
       "id": "CCGV-006",
-      "title": "Visualisierungs-Einstellungen als Seitenpanel umsetzen",
-      "status": "todo",
-      "priority": "P1",
+      "title": "Kanonische Domainidentitaet und zugaengliche Farben zentralisieren",
+      "description": "Ein reiner Farbservice erzeugt aus der kanonischen Domainidentitaet ansichts- und reloadstabile Farben, Marker und Node-Kind-Fallbacks. Manuelle Profilzuordnungen haben Vorrang.",
+      "type": "frontend-domain",
+      "milestone_id": "CCGV-M2",
+      "status": "partial",
+      "progress_percent": 30,
+      "priority": "P0",
       "risk": "medium",
-      "paths": [
-        "frontend-angular/src/app/features/codecompass-graph/components/graph-visual-settings/*"
+      "depends_on": ["CCGV-003", "CCGV-004"],
+      "affected_files": [
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-color.service.ts",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-edge-style.ts",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph.model.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-color.service.spec.ts"
       ],
-      "description": "Ein einklappbares Seitenpanel zur Konfiguration aller gewichteten Kriterien und Wertebereiche bereitstellen.",
       "implementation_notes": [
-        "Pro Kriterium Aktiv-Schalter, Gewicht, Normalisierung und Richtung anbieten.",
-        "Min-/Max-Werte für Knotengröße und Verbindungsdicke konfigurierbar machen.",
-        "Relationstyp-spezifische Multiplikatoren für Kanten anbieten.",
-        "Presetauswahl, Reset, Import und Export integrieren.",
-        "Nicht verfügbare Metriken deaktiviert, aber mit Erklärung anzeigen."
+        "Prioritaet der Domainidentitaet ist explizite domain_id, domain_path, dokumentierter Dateipfad-Fallback und zuletzt unassigned.",
+        "Die automatische Farbe haengt nur von kanonischer ID und Algorithmusversion ab, nicht von Reihenfolge, Filter oder Anzahl sichtbarer Domains.",
+        "Eine feste Zehnerpalette mit Modulo-Wiederholung wird entfernt.",
+        "Legenden erhalten neben Farbe einen stabilen Marker beziehungsweise ein Muster und Text.",
+        "Rendererduplikate von KIND_COLORS und DOMAIN_COLORS werden erst in CCGV-012 entfernt."
       ],
       "acceptance_criteria": [
-        "Änderungen aktualisieren die Darstellung unmittelbar ohne Backend-Reload.",
-        "Gewichte können nicht zu NaN oder ungültigen Renderwerten führen.",
-        "Nicht verfügbare Metriken sind erkennbar und werden nicht eingerechnet.",
-        "Alle Presets erzeugen ein gültiges GraphVisualProfile."
+        "Eine deterministische Fixture mit 30 kanonischen Domains erzeugt 30 gueltige und exakt unterschiedliche Farbwerte ohne Zehner-Wiederholung.",
+        "Dieselbe Domain-ID liefert in zwei Serviceinstanzen, nach Reload, bei anderer Sortierung und nach Filterung denselben Farbwert und Marker.",
+        "2D- und 3D-Projektion erhalten fuer dieselbe Domain exakt denselben Basisfarbwert.",
+        "Eine manuelle #RRGGBB-Zuordnung ueberschreibt den automatisch erzeugten Wert sofort und nur fuer die kanonische Domain-ID.",
+        "Nodes ohne Domain verwenden einen dokumentierten Node-Kind-Fallback; ein unbekannter Kind-Wert verwendet den neutralen Fallback und bleibt als Rohwert sichtbar.",
+        "Ein Accessibility-Test belegt, dass Domain- und Relationseintraege zusaetzlich Text und Marker besitzen und nicht ausschliesslich ueber Farbe unterschieden werden."
+      ],
+      "test_expectations": [
+        "Golden-Test mit 30 Domains sowie Reload-, Reihenfolge- und Filterinvarianz.",
+        "Tests fuer manuelle Overrides, unassigned und unbekannte Node-Kinds.",
+        "A11y-Componenttest fuer Text-/Marker-Codierung."
       ]
     },
     {
       "id": "CCGV-007",
-      "title": "3D-Renderer auf zentrale Visualisierungslogik umstellen",
-      "status": "todo",
+      "title": "Reine normalisierte Score-Engine mit vollstaendigem Breakdown implementieren",
+      "description": "Eine rendererunabhaengige Engine berechnet aus verfuegbaren Metrikvektoren gewichtete Node- und Edge-Scores. Normalisierung, Missing-Value-Policy und Ergebnisbereiche sind exakt definiert und testbar.",
+      "type": "frontend-scoring",
+      "milestone_id": "CCGV-M2",
+      "status": "partial",
+      "progress_percent": 10,
       "priority": "P0",
       "risk": "high",
-      "paths": [
-        "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.ts"
+      "depends_on": ["CCGV-003", "CCGV-004"],
+      "affected_files": [
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-visual-metrics.model.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-metric-score.service.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-metric-score.service.spec.ts"
       ],
-      "description": "Fest codierte Farben, Knotengrößen und Linkbreiten durch Services und das aktive Visualisierungsprofil ersetzen.",
       "implementation_notes": [
-        "KIND_COLORS, DOMAIN_COLORS, _domainColor und _nodeVal aus dem Component herauslösen.",
-        "Berechnete Knotengröße und Linkbreite direkt an 3d-force-graph übergeben.",
-        "Highlighting als Multiplikator oder Add-on auf den Grundwert anwenden.",
-        "Tooltip um vollständigen ScoreBreakdown ergänzen.",
-        "Konfigurationsänderungen möglichst über Attributaktualisierung statt vollständiger Szenen-Neuerstellung anwenden."
+        "Normalisierungsraum ist der ungefilterte kanonische Graph derselben Revision.",
+        "linear, log1p und sqrt arbeiten auf dokumentierten nichtnegativen Rohwerten; inverse Richtung verwendet 1 minus normalized.",
+        "Bei konstantem Wertebereich wird normalized=0.5 mit state=constant gesetzt.",
+        "Fehlende oder nicht anwendbare Metriken werden aus dem Nenner entfernt und im Breakdown erklaert; bei keiner aktiven verfuegbaren Metrik wird der konfigurierte Minimalwert mit degraded_no_active_metric verwendet.",
+        "Gewichtete Summe wird durch die Summe aktiver verfuegbarer Gewichte geteilt, auf 0 bis 1 geclamped und anschliessend in den konfigurierten Renderbereich projiziert."
       ],
       "acceptance_criteria": [
-        "3D nutzt ausschließlich die zentrale Farb- und Scorelogik.",
-        "Highlighting erhält die relative Grundgröße und Grunddicke.",
-        "Tooltip erklärt die Größe eines Knotens und die Dicke einer Kante nachvollziehbar.",
-        "Slider-Änderungen lösen keinen Backend-Request aus."
+        "Knotenscores koennen mindestens vier und Kantenscores mindestens drei gleichzeitig aktive verfuegbare Metriken kombinieren.",
+        "Unit-Tests decken linear, log1p, sqrt, inverse Richtung, konstanten Bereich, Gewichtssumme null, Missing Values, Nullwerte, Ausreisser und Clamping ab.",
+        "Negative Rohwerte, NaN und Infinity erzeugen definierte unavailable-/invalid-Reason-Codes und niemals einen nicht endlichen Renderwert.",
+        "ScoreBreakdown enthaelt je Metrik raw_value, normalized_value, normalization_state, weight, direction, partial_score, availability, provenance und reason_code.",
+        "Die Summe der gewichteten Teilwerte entspricht innerhalb einer Toleranz von 1e-9 dem ungeclampeten Gesamtscore.",
+        "Zwei semantisch identische Metrikvektoren und Profile erzeugen byteidentische sortierte Breakdowns."
+      ],
+      "test_expectations": [
+        "Table-driven Pure-Function-Tests fuer jede Formel und jeden Fehlerzustand.",
+        "Property-basierte Tests stellen endliche, monotone und begrenzte Ergebnisse sicher.",
+        "Golden-Test fuer Node- und Edge-Breakdown."
       ]
     },
     {
       "id": "CCGV-008",
-      "title": "2D- und einfache Ansicht an Visualisierungsprofil anbinden",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "paths": [
-        "frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/*",
-        "frontend-angular/src/app/features/codecompass-graph/components/*simple*/*"
+      "title": "Revisionsgebundene Visualisierungsprojektion, Cache und Viewer-State einfuehren",
+      "description": "Eine viewerlokale Facade verbindet Graph, Profil und Score-Engine zu unveraenderlichen Style-Maps und Legendendaten. Rohmetriken und Projektionen werden begrenzt nach Graphrevision und Profilhash gecacht.",
+      "type": "frontend-state",
+      "milestone_id": "CCGV-M2",
+      "status": "partial",
+      "progress_percent": 20,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": ["CCGV-005", "CCGV-006", "CCGV-007"],
+      "affected_files": [
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-projection.service.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile.facade.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-state.service.ts",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-filter.model.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-projection.service.spec.ts"
       ],
-      "description": "Soweit technisch sinnvoll dieselben Farben, Filter, Scores und Legenden auch in den weiteren Graphansichten verwenden.",
       "implementation_notes": [
-        "Keine kopierte Scorelogik in einzelnen Components zulassen.",
-        "Ansichtsspezifische Rendergrenzen dürfen existieren, die semantische Bedeutung muss gleich bleiben.",
-        "Nicht unterstützte visuelle Eigenschaften klar als ansichtsspezifisch markieren."
+        "Cache-Key fuer Rohmetriken enthaelt graph_revision; Style-Projektion enthaelt graph_revision und canonical_profile_hash.",
+        "Cache besitzt hoechstens operational_budgets.profile_cache_max_entries und deterministische LRU-Eviction.",
+        "Hover, Auswahl und reine Sichtbarkeitsfilter veraendern Highlight-/Visibility-Layer, nicht die revisionsstabilen Grundscores.",
+        "Der __none__-Type-Cast wird durch einen expliziten all/none/subset-Filtermodus ersetzt.",
+        "Legendeninventar wird aus dem kanonischen Graph berechnet und traegt total sowie visible Counts, damit ausgeblendete Eintraege wieder aktivierbar bleiben.",
+        "GraphState und aktives Profil werden pro GraphViewer bereitgestellt; der Storage-Adapter darf shared bleiben."
       ],
       "acceptance_criteria": [
-        "Domain-Farben sind in 2D und 3D identisch.",
-        "Knotenranking nach Größe ist in 2D und 3D semantisch gleich.",
-        "Legendenfilter wirken konsistent auf alle unterstützten Ansichten.",
-        "Es existiert keine zweite unabhängige Normalisierungs- oder Gewichtungsimplementierung."
+        "Eine rendererunabhaengige Projektion liefert fuer jede Node-ID und Edge-ID Basisfarbe, Basisgroesse beziehungsweise Basisdicke, Breakdown, Availability und Highlightfaktor.",
+        "100 Hover-Ereignisse und reine Auswahlwechsel erzeugen null Score-Neuberechnungen und null HTTP-Aufrufe.",
+        "Ein Profilwechsel invalidiert nur den passenden Style-Key; ein Revisionswechsel invalidiert Rohmetrik- und Style-Key der alten Revision.",
+        "Nach neun unterschiedlichen Revision/Profil-Kombinationen enthaelt der Cache hoechstens acht Eintraege und entfernt deterministisch den aeltesten unbenutzten Eintrag.",
+        "Zwei gleichzeitig gerenderte GraphViewer behalten Graph, Filter, Hover, Auswahl und aktives Profil strikt isoliert.",
+        "filteredGraph und Style-Projektion sind memoisiert; reine Angular-Change-Detection erzeugt keine neuen Wrapper oder Projektionen."
+      ],
+      "test_expectations": [
+        "Service-Tests zaehlen Score-, Cache- und Projektionsaufrufe.",
+        "Zwei-Viewer-Isolationstest fuer State und Profil.",
+        "Filtermodell-Migrationstest ohne __none__-Cast."
       ]
     },
     {
       "id": "CCGV-009",
-      "title": "Performance, Tests und Dokumentation absichern",
+      "title": "Interaktive Domain- und Knotengroessen-Legende implementieren",
+      "description": "Eine einblendbare Legende erklaert jede kanonische Domain, deren sichtbaren und gesamten Umfang sowie die aktive Knotengroessenberechnung. Hover und explizite Toggles nutzen ausschliesslich die viewerlokale Facade.",
+      "type": "frontend-ux",
+      "milestone_id": "CCGV-M3",
       "status": "todo",
+      "progress_percent": 0,
       "priority": "P0",
-      "risk": "high",
-      "paths": [
-        "frontend-angular/src/app/features/codecompass-graph/**/*.spec.ts",
-        "docs/codecompass-graph-visualization.md"
+      "risk": "medium",
+      "depends_on": ["CCGV-008"],
+      "affected_files": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-legend/graph-domain-legend.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-legend/graph-node-size-legend.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-legend/graph-domain-legend.component.spec.ts"
       ],
-      "description": "Scoring, Legendeninteraktion und Live-Aktualisierung testen sowie das Visualisierungsmodell dokumentieren.",
       "implementation_notes": [
-        "Berechnete Metriken je Graphversion und Profil cachen.",
-        "Keine vollständige Metrik-Neuberechnung pro Hover oder Render-Frame.",
-        "Performance-Test oder Benchmark mit mindestens 5.000 Knoten vorsehen.",
-        "Dokumentation erklärt Farben, Größen, Dicken, Presets, Import/Export und Fallbacks."
+        "Jede kanonische Domain einschliesslich unassigned erscheint genau einmal und behaelt auch im ausgeblendeten Zustand einen Toggle.",
+        "Domainstatistik definiert total_nodes, visible_nodes, internal_edges, outgoing_external_edges, incoming_external_edges und sum_node_score; Self-Loops werden nur internal gezaehlt.",
+        "Hover setzt nur temporaeres Highlight; Checkbox/Toggle aendert Sichtbarkeit; Clear setzt explizit zurueck.",
+        "Groessenreferenzen zeigen klein, mittel und gross, aktives Profil, aktive Gewichtung und unavailable-Reason-Codes.",
+        "Mobile Darstellung verwendet einen schliessbaren Drawer statt einer dauerhaft ueberlagernden Flaeche."
       ],
       "acceptance_criteria": [
-        "Unit-Tests für Farbdeterminismus, Scoreberechnung und Profilvalidierung sind vorhanden.",
-        "Component-Tests decken Domainfilter, Relationstoggle und Live-Aktualisierung ab.",
-        "Bei einem Graphen mit mindestens 5.000 Knoten erfolgt bei Slider-Änderungen keine vollständige Szenen-Neuerstellung, sofern die Renderbibliothek direkte Updates unterstützt.",
-        "Die Dokumentation enthält mindestens ein vollständiges Beispielprofil als JSON."
+        "Eine Fixture mit mehrfach vorkommenden Domains erzeugt genau einen Legendeneintrag je kanonischer Domain und korrekte total/visible/internal/external Counts.",
+        "Hover hebt die Domain lokal hervor, ohne Graphfilter, Scorecache oder Backend zu veraendern; Mouseleave stellt den vorherigen Zustand wieder her.",
+        "Ein Toggle blendet eine Domain aus und wieder ein, obwohl ihr visible Count zwischenzeitlich null ist.",
+        "Die Knotengroessenlegende nennt jede aktive Metrik mit Gewicht und markiert unavailable beziehungsweise approximate sichtbar.",
+        "Alle Aktionen sind per Tab, Enter und Space erreichbar, besitzen zugaengliche Namen und sichtbare Fokusmarkierungen.",
+        "Bei 390 CSS-Pixel Viewportbreite ist die Legende initial geschlossen oder als schliessbarer Drawer bedienbar und blockiert den Graph nicht dauerhaft."
+      ],
+      "test_expectations": [
+        "Componenttests fuer Inventar, Counts, Hover, Toggle und Clear.",
+        "Keyboard- und ARIA-Test.",
+        "Responsive Playwright-Test bei 390 CSS-Pixel Breite."
+      ]
+    },
+    {
+      "id": "CCGV-010",
+      "title": "Relations- und Kantendicken-Legende an vorhandene Filter anbinden",
+      "description": "Die Kantenlegende wird aus den Rohrelationen des kanonischen Graphen erzeugt und verwendet den vorhandenen Filterzustand. Sie erklaert Farbe, Marker beziehungsweise Muster, Counts und Dickenberechnung ohne zweite Toggle-Implementierung.",
+      "type": "frontend-ux",
+      "milestone_id": "CCGV-M3",
+      "status": "partial",
+      "progress_percent": 40,
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": ["CCGV-003", "CCGV-007", "CCGV-008"],
+      "affected_files": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-legend/graph-edge-legend.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-toolbar/graph-toolbar.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-state.service.ts",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-filter.model.ts",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-edge-style.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-legend/graph-edge-legend.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Toolbar und Legende konsumieren denselben expliziten all/none/subset-Filterzustand.",
+        "Inventar wird dynamisch aus raw_edge_type gebildet; bekannte Registry-Eintraege liefern Label und Semantik, unbekannte nur den Rohname und neutralen Fallback.",
+        "Counts unterscheiden total_edges, visible_edges und multiplicity_sum.",
+        "Dickenreferenzen zeigen mindestens Minimal-, Median- und Maximalprojektion sowie aktive Metriken.",
+        "Keine Legendenaktion startet einen Hub-Task oder HTTP-Request."
+      ],
+      "acceptance_criteria": [
+        "Jede im kanonischen Graph vorkommende Rohrelation erscheint genau einmal mit total/visible Count, multiplicity_sum, Farbe, Marker und Dickenreferenz.",
+        "Eine unbekannte Relation wird mit ihrem unveraenderten Rohname, semantically_unknown und neutralem Fallback gerendert und bleibt filterbar.",
+        "Toolbar-Toggle und Legenden-Toggle aktualisieren denselben State; ein Test schlaegt bei einem zweiten unabhaengigen Filterstore fehl.",
+        "Eine ausgeblendete Relation bleibt mit visible_edges=0 in der Legende sichtbar und kann wieder eingeblendet werden.",
+        "Das Dicken-Breakdown nennt jede aktive Kantenmetrik, Gewicht, Teilscore und Availability.",
+        "Toggle und Hover erzeugen null HTTP-Aufrufe, null Grundscore-Neuberechnungen und keine Renderer-Neuinstanziierung."
+      ],
+      "test_expectations": [
+        "Componenttest fuer dynamische bekannte und unbekannte Rohrelationen.",
+        "Integrationstest fuer Toolbar-/Legenden-State-Paritaet.",
+        "Spy-Test fuer HTTP-, Score- und Renderer-Aufrufe."
+      ]
+    },
+    {
+      "id": "CCGV-011",
+      "title": "Zugaengliches Visualisierungs-Einstellungs-Panel implementieren",
+      "description": "Ein viewerlokales, responsives Panel konfiguriert Presets, aktive Metriken, Gewichtung, Normalisierung, Richtung, Renderbereiche, Overrides und Legenden. Es delegiert Validierung und Persistenz an die bestehenden Ports.",
+      "type": "frontend-ux",
+      "milestone_id": "CCGV-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": ["CCGV-005", "CCGV-007", "CCGV-008"],
+      "affected_files": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-visual-settings/graph-visual-settings.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile.facade.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-visual-settings/graph-visual-settings.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Pro Metrik existieren Aktiv-Schalter, Gewicht, Normalisierung, Richtung und erklaerende Capability-Anzeige.",
+        "Node- und Edge-Min/Max, Highlightfaktoren, Domain-Overrides, Presets, Reset, Import und Export sind enthalten.",
+        "Nicht verfuegbare Metriken bleiben sichtbar, deaktiviert und nennen source sowie reason_code.",
+        "Aenderungen werden hoechstens einmal pro Animation-Frame projiziert und nicht als Graphdaten persistiert.",
+        "Mobile Darstellung verwendet einen fokussierten Drawer mit sauberer Fokus-Rueckgabe."
+      ],
+      "acceptance_criteria": [
+        "Jedes Steuerelement ist an ein typisiertes Profilfeld gebunden und kann weder NaN noch Infinity noch min groesser max in den aktiven Zustand schreiben.",
+        "Nicht verfuegbare Metriken sind disabled, nennen ihren stabilen Reason-Code und werden nicht in die aktive Gewichtssumme eingerechnet.",
+        "Preset, Reset, Import und Export verwenden denselben Validator und zeigen strukturierte Fehler ohne partiellen State-Wechsel.",
+        "Zehn Slider-Events innerhalb eines Animation-Frames erzeugen hoechstens eine Style-Projektion und null HTTP-Aufrufe.",
+        "Zwei Viewer behalten unabhaengige ungespeicherte Panelwerte und beeinflussen sich nicht gegenseitig.",
+        "Component- und Browsertests belegen Labels, ARIA-Beziehungen, Keyboardbedienung, Fokusfalle im mobilen Drawer und Fokus-Rueckgabe beim Schliessen."
+      ],
+      "test_expectations": [
+        "Reactive-Form-/Componenttests fuer alle Controls und Validierungsfehler.",
+        "Animation-Frame-Coalescing-Test.",
+        "Keyboard-, Fokus- und Zwei-Viewer-Browsertest."
+      ]
+    },
+    {
+      "id": "CCGV-012",
+      "title": "2D-, 3D- und einfache Ansicht ueber schmale Renderer-Adapter integrieren",
+      "description": "Alle Ansichten konsumieren die kanonische Style-Projektion. 2D und 3D entfernen lokale Farb-, Groessen- und Dickenformeln; die einfache Listenansicht verwendet nur die in einer Capability-Matrix definierten Eigenschaften.",
+      "type": "frontend-migration",
+      "milestone_id": "CCGV-M3",
+      "status": "partial",
+      "progress_percent": 20,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": ["CCGV-008"],
+      "affected_files": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/graph-2d-view.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/simple-graph-view/simple-graph-view.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.spec.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/graph-2d-view.component.spec.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/simple-graph-view/simple-graph-view.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Renderer erhalten Graphdaten und Style-Maps als getrennte Inputs; Profilwechsel ersetzen nicht die Graphdatenreferenz.",
+        "3d-force-graph aktualisiert nodeColor, nodeVal, linkColor, linkWidth und Labels ueber Accessors/refresh statt Destruktor und Neuinstanziierung.",
+        "Cytoscape aktualisiert data/style in batch und bewahrt Instanz, Positionen, Zoom und Auswahl.",
+        "Highlight verwendet baseSize mal factor beziehungsweise baseWidth mal factor und behaelt die relative Rangfolge.",
+        "Tooltips setzen fremde Labels und Metadaten ausschliesslich als Text und zeigen den vollstaendigen Breakdown.",
+        "Simple zeigt Farbe/Marker, Scoretext und Availability, behauptet aber keine Flaechengroesse oder Kantendicke."
+      ],
+      "acceptance_criteria": [
+        "2D und 3D erhalten fuer jede gemeinsame Node-/Edge-ID identische kanonische Basisfarben, Grundscores und Rankings.",
+        "In keinem Renderer verbleiben unabhaengige DOMAIN_COLORS-, KIND_COLORS-, Normalisierungs- oder Gewichtungsimplementierungen.",
+        "Highlighting multipliziert individuelle Basiswerte; die Reihenfolge zweier unterschiedlich grosser Nodes beziehungsweise Kanten bleibt vor und nach Highlight gleich.",
+        "Eine Profil- oder Slideraenderung erzeugt null HTTP-Aufrufe, null Renderer-Konstruktoraufrufe, null Destruktoraufrufe und keinen graphData-Komplettreset.",
+        "Tooltiptests belegen Rohwert, Normalisierung, Gewicht, Teilscore, Gesamtscore, Availability und XSS-sichere Textausgabe.",
+        "Die Simple-Capability-Matrix ist getestet und zeigt keine nicht unterstuetzte Groessen- oder Dickenlegende."
+      ],
+      "test_expectations": [
+        "Cross-Renderer-Golden-Test fuer Style-Maps und Ranking.",
+        "Spy-Tests fuer direkte 2D-/3D-Updates und erhaltenen Viewportzustand.",
+        "Tooltip-XSS- und Simple-Capability-Tests."
+      ]
+    },
+    {
+      "id": "CCGV-013",
+      "title": "Funktionale, Security- und Accessibility-Acceptance-Gates abschliessen",
+      "description": "Unit-, Contract-, Component- und Browser-Gates beweisen die vollstaendige Funktion ueber Legacy-, Partial- und Full-Metrikgraphen sowie mehrere isolierte Viewer. Security- und Accessibility-Pruefungen sind release-blockierend.",
+      "type": "acceptance-test",
+      "milestone_id": "CCGV-M4",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": ["CCGV-009", "CCGV-010", "CCGV-011", "CCGV-012"],
+      "affected_files": [
+        "frontend-angular/src/app/features/codecompass-graph/**/*.spec.ts",
+        "frontend-angular/tests/codecompass-graph-visualization-functional.spec.ts",
+        "frontend-angular/playwright.config.ts",
+        "frontend-angular/package.json",
+        "tests/test_codecompass_graph_api.py",
+        "tests/test_codecompass_graph_metrics.py",
+        "tests/security/test_codecompass_graph_visual_profile.py"
+      ],
+      "implementation_notes": [
+        "Browser-Gates decken Simple, 2D und 3D, Reload, Profilwechsel, Filter, Importfehler, mobile Drawer und zwei Viewer ab.",
+        "Accessibility-Gate verwendet eine etablierte Axe-Integration und blockiert critical sowie serious Findings.",
+        "Security-Gates verwenden untrusted Profile, unbekannte Roh-Typen, Tooltip-Payloads, extreme Zahlen und korrupte Storage-Werte.",
+        "Legacy- und unavailable-Graphen muessen nutzbar bleiben und sichtbare degraded Hinweise liefern.",
+        "Bestehende CodeCompass-Graph-Tests bleiben Teil des Gates."
+      ],
+      "acceptance_criteria": [
+        "Unit- und Contracttests decken 30 Domains, Capability-Fallbacks, confidence=0, unbekannte Rohrelationen, Parallelkanten, Zyklen und Profilvalidierung ab.",
+        "Componenttests decken Domain- und Relationslegende, vorhandene Relationstoggles, Einstellungen, Reset, Import/Export und zwei isolierte Viewer ab.",
+        "Playwright prueft je einen realen Simple-, 2D- und 3D-Pfad sowie Reload, ungueltigen Import, mobile Darstellung und Profilwechsel ohne Backend-Request.",
+        "Axe meldet in Legende, Einstellungs-Drawer und Tooltips keine critical oder serious Accessibility-Verstoesse.",
+        "Keyboard-, Fokus-, Tooltip-XSS-, Property-Pollution-, CSS-Injection- und Storage-Korruptionsszenarien bestehen fail-closed.",
+        "Der vollstaendige bestehende CodeCompass-Graph-Vitest-Scope und die relevanten Python-API-/Worker-Tests bleiben gruen.",
+        "Der Angular-Produktionsbuild ist erfolgreich; neue direkte Renderer- oder Testabhaengigkeiten sind im Package-Manifest und Lockfile reproduzierbar deklariert."
+      ],
+      "test_expectations": [
+        "Targeted Vitest, Pytest und Playwright laufen in einem dokumentierten Gate-Command.",
+        "Axe-, XSS-, Import- und Isolationstests sind release-blockierend.",
+        "Regressionstest prueft den bestehenden Edge-Filter statt eine zweite Implementierung."
+      ]
+    },
+    {
+      "id": "CCGV-014",
+      "title": "Reproduzierbares Performance-Gate, Evidence und Betriebsdokumentation abschliessen",
+      "description": "Ein deterministisches 5000-Knoten-Gate misst Score-, Cache- und Rendereroperationen sowie Browser-p95-Budgets. Der stabile Report und die bestehende Viewer-Dokumentation werden zur Release-Evidence.",
+      "type": "performance-test",
+      "milestone_id": "CCGV-M4",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": ["CCGV-013"],
+      "affected_files": [
+        "frontend-angular/tests/codecompass-graph-visualization-performance.spec.ts",
+        "frontend-angular/src/app/features/codecompass-graph/testing/graph-visualization-performance.fixture.ts",
+        "config/codecompass/graph_visualization_budgets.v1.json",
+        "scripts/run_codecompass_graph_visualization_gate.py",
+        "artifacts/test-gates/codecompass-graph-visualization.json",
+        "docs/codecompass-graph-viewer.md"
+      ],
+      "implementation_notes": [
+        "Die Fixture enthaelt mindestens 5000 Nodes, 15000 gerichtete Kanten, 30 Domains, bekannte und unbekannte Relationen, Partial-Metriken und eine stabile Graphrevision.",
+        "Deterministische Operationszaehler sind primaer; wall-clock p95 wird nur gegen versionierte, nicht leere Budgets aus der Konfigurationsdatei bewertet.",
+        "100 Hover-Ereignisse messen Score- und HTTP-Aufrufe; Profilupdates messen Projektionen, Renderer-Neuinstanziierung, graphData-Reset und Cache-Eviction.",
+        "Der Report enthaelt Umgebungsklasse, Messwert, Budget, Pass/Fail, Counts und stabile Source-Hashes, aber keine Zeitstempel, absoluten Pfade, Volltexte oder Secrets.",
+        "docs/codecompass-graph-viewer.md bleibt die einzige Architektur- und Betriebs-Source-of-Truth."
+      ],
+      "acceptance_criteria": [
+        "Die deterministische Gate-Fixture enthaelt mindestens 5000 Nodes und 15000 Kanten und erzeugt bei zwei Laeufen dieselben Graph-, Profil- und Projektionshashes.",
+        "100 Hover-Ereignisse erzeugen exakt null Grundscore-Neuberechnungen, null HTTP-Aufrufe und null Renderer-Neuinstanziierungen.",
+        "Eine gebuendelte Profilinteraktion erzeugt pro Animation-Frame hoechstens eine Projektion, null HTTP-Aufrufe, null Destruktor-/Konstruktoraufrufe und keinen graphData-Komplettreset.",
+        "Nach mehr als acht Revision/Profil-Kombinationen bleibt der Cache auf acht Eintraege begrenzt und besteht den deterministischen LRU-Test.",
+        "Alle gemessenen p95-Werte liegen innerhalb der versionierten Budgets; fehlende, nullte oder nach dem Lauf veraenderte Budgets lassen das Gate fail-closed fehlschlagen.",
+        "Der strukturierte Gate-Report ist schema-valide, byte-reproduzierbar und frei von Zeitstempeln, absoluten Hostpfaden, Repository-Volltexten und Secrets.",
+        "docs/codecompass-graph-viewer.md dokumentiert Vertrag, Metrikherkunft, Capabilities, Profile, Formel, Legenden, Renderer-Capability-Matrix, Import/Export, Fallbacks, Budgets und Troubleshooting mit einem vollstaendigen validen Beispielprofil."
+      ],
+      "test_expectations": [
+        "Performance-Runner prueft Operationscounts und versionierte Browser-p95-Budgets.",
+        "Report-Schema-, Reproduzierbarkeits- und Redaktions-Test.",
+        "Dokumentationsbeispiel wird maschinell extrahiert und durch den Profilvalidator geprueft."
       ]
     }
   ],
+  "critical_path_tasks": [
+    "CCGV-001",
+    "CCGV-002",
+    "CCGV-003",
+    "CCGV-007",
+    "CCGV-008",
+    "CCGV-012",
+    "CCGV-013",
+    "CCGV-014"
+  ],
+  "release_blocking_tasks": [
+    "CCGV-001",
+    "CCGV-002",
+    "CCGV-003",
+    "CCGV-004",
+    "CCGV-005",
+    "CCGV-006",
+    "CCGV-007",
+    "CCGV-008",
+    "CCGV-009",
+    "CCGV-010",
+    "CCGV-011",
+    "CCGV-012",
+    "CCGV-013",
+    "CCGV-014"
+  ],
   "global_acceptance_criteria": [
-    "In der 3D-Ansicht ist eine Domain-Legende mit Farbe, Umfang und Wichtigkeit sichtbar.",
-    "Die gleiche Domain erhält nach Reload und in allen Ansichten dieselbe Farbe.",
-    "Knotengröße kann aus mindestens vier gewichteten Kriterien berechnet werden.",
-    "Verbindungsdicke kann aus mindestens drei gewichteten Kriterien berechnet werden.",
-    "Gewichte, Normalisierung und Wertebereiche sind im UI konfigurierbar.",
-    "Tooltips erklären Rohwerte, normalisierte Werte, Gewichtungen und Gesamtscore.",
-    "Kantenarten werden in einer separaten Legende angezeigt und können gefiltert werden.",
-    "Einstellungen werden lokal persistiert, können zurückgesetzt sowie als JSON importiert und exportiert werden.",
-    "2D und 3D verwenden dieselbe Farb- und Scorelogik.",
-    "Große Graphen werden nicht bei jeder Interaktion vollständig neu berechnet oder neu aufgebaut."
+    "Normaler Graph und Self-Graph besitzen einen rueckwaertskompatiblen, revisionsgebundenen Visualmetrik- und Capability-Vertrag.",
+    "Komplexe Metriken werden ausschliesslich im Worker materialisiert; Hub-Routes berechnen im Request-Pfad weder Centrality noch Descendants noch Blast Radius.",
+    "Unbekannte Node- und Relationstypen, confidence=0 und Parallelkanten bleiben vom Artefakt bis Angular verlustfrei erhalten.",
+    "2D und 3D verwenden dieselbe kanonische Domainfarbe, denselben Node-/Edge-Grundscore und dieselbe relative Rangfolge.",
+    "Eine 30-Domain-Fixture besitzt keine exakten Farbkollisionen; Text und Marker ergaenzen jede Farbcodierung.",
+    "Knotengroesse kombiniert mindestens vier und Kantendicke mindestens drei gleichzeitig aktive verfuegbare Metriken.",
+    "Jeder Tooltip und jede Legende erklaert Rohwert, Normalisierung, Gewicht, Teilscore, Gesamtscore, Availability und Provenienz.",
+    "Domain- und Relationslegenden zeigen total und visible Counts und koennen ausgeblendete Eintraege ohne Backend-Reload wieder aktivieren.",
+    "Nicht verfuegbare oder approximierte Metriken werden sichtbar und mit stabilem Reason-Code angezeigt und nie als erfundene Nullwerte behandelt.",
+    "Profile sind viewerisoliert, versioniert, lokal persistierbar, resetbar und ueber sicheren atomaren JSON-Import/Export austauschbar.",
+    "Hover, Filter, Slider und Profilwechsel erzeugen keine Hub-Requests und keine unnoetige Grundscore-Neuberechnung.",
+    "Profilupdates aktualisieren 2D und 3D direkt und erzeugen keine Renderer-Neuinstanziierung oder vollstaendigen graphData-Reset.",
+    "Legenden, Einstellungs-Drawer und Tooltips bestehen Keyboard-, Fokus-, responsive-, XSS- und Axe-Gates.",
+    "Das 5000-Node-/15000-Edge-Gate besteht alle Operations- und versionierten p95-Budgets mit reproduzierbarer redigierter Evidence.",
+    "Die bestehende docs/codecompass-graph-viewer.md enthaelt den vollstaendigen Betriebsvertrag und ein maschinell validiertes Beispielprofil."
+  ],
+  "definition_of_done": [
+    "Ein Task wird nur done, wenn jedes Acceptance-Kriterium durch einen benannten automatisierten Test, ein deterministisches Artefakt oder eine explizite Codeinspektion belegt ist.",
+    "Tasks bleibt die einzige Status-Source-of-Truth; Summary-Felder werden nach jeder Statusaenderung kanonisch neu berechnet.",
+    "Neue API-Felder sind additiv und bestehende CodeCompass-Graph-Tests sowie der Angular-Produktionsbuild bleiben gruen.",
+    "Worker orchestrieren keine Worker; der Hub bleibt Owner von Taskdelegation, Artefaktannahme und Projektion.",
+    "Kein Test oder Report erfindet Source-Identitaeten, Graphmetriken, Relationssemantik oder Capability-Werte.",
+    "Performance- und Acceptance-Reports sind reproduzierbar, redigiert und unter artifacts/test-gates/ versioniert."
   ],
   "out_of_scope": [
-    "Backend-Neuberechnung komplexer Graphmetriken, die aktuell nicht in den Graphdaten vorhanden sind.",
-    "Vollständige Neugestaltung des CodeCompass-Datenmodells.",
-    "Ersetzung der verwendeten 2D- oder 3D-Renderbibliothek ohne gesonderte Entscheidung."
+    "Ersetzung von Cytoscape oder 3d-force-graph ohne gesonderte Architekturentscheidung.",
+    "Serverseitige Persistenz persoenlicher VisualProfile; Profile bleiben browserlokal.",
+    "Frontendseitige Erfindung komplexer Metriken oder unbekannter Relationssemantik.",
+    "On-Demand-Berechnung komplexer Graphmetriken im Hub-HTTP-Request-Pfad.",
+    "Vollstaendige Neugestaltung des CodeCompass-Graphstores oder Entfernung bestehender API-Felder.",
+    "Verwendung visueller Scores fuer Governance-, Routing-, Security- oder Freigabeentscheidungen.",
+    "Worker-zu-Worker-Orchestrierung oder implizit geteilter Containerzustand."
+  ],
+  "tasks_status_summary": {
+    "total": 14,
+    "by_status": {
+      "todo": 6,
+      "in_progress": 0,
+      "partial": 8,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 11,
+      "P1": 3,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 5,
+      "high": 9,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 8,
+      "done": 0,
+      "remaining": 8
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 1,
+      "in_progress": 0,
+      "partial": 3,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 14,
+    "by_type": {
+      "contract": 1,
+      "worker-integration": 1,
+      "frontend-backend-contract": 1,
+      "frontend-contract": 1,
+      "frontend-storage": 1,
+      "frontend-domain": 1,
+      "frontend-scoring": 1,
+      "frontend-state": 1,
+      "frontend-ux": 3,
+      "frontend-migration": 1,
+      "acceptance-test": 1,
+      "performance-test": 1
+    }
+  },
+  "progress_summary": {
+    "state": "partial",
+    "todo_remaining": 14,
+    "in_progress": 0,
+    "partial": 8,
+    "blocked": 0,
+    "done": 0,
+    "milestones_done": 0,
+    "milestones_total": 4
+  },
+  "summary_notes": [
+    "Die acht partial Tasks bilden nachgewiesene Vorarbeiten ab; kein Task erfuellt bereits alle neuen Acceptance-Kriterien.",
+    "Die erneute Relationstyp-Filterimplementierung und eine konkurrierende zweite Viewer-Dokumentation wurden aus dem Scope entfernt.",
+    "Der kritische Pfad folgt Vertrag, Worker-Artefakt, verlustfreier Projektion, Scoring, Cache, Renderer sowie Functional- und Performance-Gate.",
+    "progress_percent_done bleibt 0.0, weil noch kein Task vollstaendig done ist; partielle Fortschritte werden ausschliesslich ueber tasks[].progress_percent und progress_summary ausgewiesen."
   ]
 }
