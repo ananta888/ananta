@@ -13,6 +13,9 @@ KNOWLEDGE_INDEX_RESULT_SCHEMA = "ananta.knowledge_index_job_result.v1"
 _INLINE_JOB_PAYLOAD_BYTES = 128 * 1024
 _MAX_JOB_PAYLOAD_BYTES = 128 * 1024 * 1024
 _PAYLOAD_MEDIA_TYPE = "application/vnd.ananta.knowledge-index-job+json"
+_GRAPH_VISUAL_OPTIONS_SCHEMA = "codecompass_graph_visual_options.v1"
+_MAX_GRAPH_BLAST_RADIUS_SEEDS = 256
+_MAX_GRAPH_SEED_ID_LENGTH = 512
 _TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
 _WORKER_RESULT_FIELDS = frozenset(
     {
@@ -28,6 +31,25 @@ _WORKER_RESULT_FIELDS = frozenset(
         "error",
     }
 )
+_WORKER_ARTIFACT_REQUIRED_FIELDS = frozenset({"artifact_id", "sha256", "media_type"})
+_WORKER_ARTIFACT_OUTPUT_FIELDS = frozenset(
+    {"role", "filename", "size_bytes", "knowledge_index_id", "run_id"}
+)
+_WORKER_GRAPH_ARTIFACT_FIELDS = frozenset(
+    {"artifact_schema", "graph_revision", "graph_content_hash"}
+)
+_WORKER_ARTIFACT_FILENAMES = {
+    "manifest": "manifest.json",
+    "index": "index.jsonl",
+    "details": "details.jsonl",
+    "relations": "relations.jsonl",
+    "graph_index": "cc_graph_index.json",
+    "graph_visual_metrics": "cc_graph_index.visual_metrics.json",
+}
+_WORKER_GRAPH_ARTIFACT_SCHEMAS = {
+    "graph_index": "codecompass_graph_index.v1",
+    "graph_visual_metrics": "graph_visual_metrics.v1",
+}
 
 
 class KnowledgeIndexJobRepositoryPort(Protocol):
@@ -60,6 +82,118 @@ def _canonical_json(value: Any) -> bytes:
 
 def _fingerprint(value: Any) -> str:
     return hashlib.sha256(_canonical_json(value)).hexdigest()
+
+
+def _normalize_graph_visual_metrics_options(
+    raw: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Normalize the Hub-owned intent without importing worker algorithms."""
+
+    if raw is not None and not isinstance(raw, Mapping):
+        raise ValueError("graph_visual_options_invalid")
+    options = dict(raw or {})
+    allowed = {"schema", "include_advanced_metrics", "blast_radius_seeds"}
+    if set(options) - allowed:
+        raise ValueError("graph_visual_options_fields_unknown")
+    schema = str(options.get("schema") or _GRAPH_VISUAL_OPTIONS_SCHEMA)
+    if schema != _GRAPH_VISUAL_OPTIONS_SCHEMA:
+        raise ValueError("graph_visual_options_schema_invalid")
+    include_advanced = options.get("include_advanced_metrics", True)
+    if not isinstance(include_advanced, bool):
+        raise ValueError("graph_visual_options_advanced_metrics_invalid")
+    raw_seeds = options.get("blast_radius_seeds", [])
+    if not isinstance(raw_seeds, list) or len(raw_seeds) > _MAX_GRAPH_BLAST_RADIUS_SEEDS:
+        raise ValueError("graph_visual_options_blast_seeds_invalid")
+    seeds: set[str] = set()
+    for raw_seed in raw_seeds:
+        if not isinstance(raw_seed, str):
+            raise ValueError("graph_visual_options_blast_seed_invalid")
+        seed = raw_seed.strip()
+        if not seed or len(seed) > _MAX_GRAPH_SEED_ID_LENGTH:
+            raise ValueError("graph_visual_options_blast_seed_invalid")
+        seeds.add(seed)
+    return {
+        "schema": _GRAPH_VISUAL_OPTIONS_SCHEMA,
+        "include_advanced_metrics": include_advanced,
+        "blast_radius_seeds": sorted(seeds),
+    }
+
+
+def _is_prefixed_sha256(value: str) -> bool:
+    return (
+        value.startswith("sha256:")
+        and len(value) == 71
+        and all(char in "0123456789abcdef" for char in value[7:])
+    )
+
+
+def _validate_worker_graph_artifact_reference(
+    reference: Mapping[str, Any],
+    *,
+    role: str,
+) -> None:
+    if not _WORKER_GRAPH_ARTIFACT_FIELDS.issubset(reference):
+        raise ValueError("knowledge_index_result_graph_artifact_ref_incomplete")
+    if str(reference.get("artifact_schema") or "") != _WORKER_GRAPH_ARTIFACT_SCHEMAS[role]:
+        raise ValueError("knowledge_index_result_graph_artifact_schema_invalid")
+    revision = str(reference.get("graph_revision") or "")
+    content_hash = str(reference.get("graph_content_hash") or "")
+    if not _is_prefixed_sha256(revision):
+        raise ValueError("knowledge_index_result_graph_revision_invalid")
+    if not _is_prefixed_sha256(content_hash):
+        raise ValueError("knowledge_index_result_graph_content_hash_invalid")
+
+
+def _validate_worker_artifact_reference(reference: Any) -> None:
+    if not isinstance(reference, Mapping):
+        raise ValueError("knowledge_index_result_artifact_ref_invalid")
+    allowed_fields = (
+        _WORKER_ARTIFACT_REQUIRED_FIELDS
+        | _WORKER_ARTIFACT_OUTPUT_FIELDS
+        | _WORKER_GRAPH_ARTIFACT_FIELDS
+    )
+    if (
+        not _WORKER_ARTIFACT_REQUIRED_FIELDS.issubset(reference)
+        or set(reference) - allowed_fields
+    ):
+        raise ValueError("knowledge_index_result_artifact_ref_invalid")
+    artifact_id = str(reference.get("artifact_id") or "").strip()
+    digest = str(reference.get("sha256") or "")
+    media_type = str(reference.get("media_type") or "").strip()
+    if not artifact_id or not media_type:
+        raise ValueError("knowledge_index_result_artifact_ref_invalid")
+    if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+        raise ValueError("knowledge_index_result_artifact_ref_digest_invalid")
+
+    has_output_metadata = any(field in reference for field in _WORKER_ARTIFACT_OUTPUT_FIELDS)
+    has_graph_metadata = any(field in reference for field in _WORKER_GRAPH_ARTIFACT_FIELDS)
+    if not has_output_metadata:
+        if has_graph_metadata:
+            raise ValueError("knowledge_index_result_graph_artifact_ref_incomplete")
+        return
+    if not _WORKER_ARTIFACT_OUTPUT_FIELDS.issubset(reference):
+        raise ValueError("knowledge_index_result_artifact_ref_incomplete")
+    role = str(reference.get("role") or "")
+    if role not in _WORKER_ARTIFACT_FILENAMES:
+        raise ValueError("knowledge_index_result_artifact_ref_role_invalid")
+    if str(reference.get("filename") or "") != _WORKER_ARTIFACT_FILENAMES[role]:
+        raise ValueError("knowledge_index_result_artifact_ref_filename_invalid")
+    size_bytes = reference.get("size_bytes")
+    if (
+        isinstance(size_bytes, bool)
+        or not isinstance(size_bytes, int)
+        or size_bytes < 0
+        or size_bytes > 128 * 1024 * 1024
+    ):
+        raise ValueError("knowledge_index_result_artifact_ref_size_invalid")
+    if not str(reference.get("knowledge_index_id") or "").strip():
+        raise ValueError("knowledge_index_result_artifact_ref_index_id_invalid")
+    if not str(reference.get("run_id") or "").strip():
+        raise ValueError("knowledge_index_result_artifact_ref_run_id_invalid")
+    if role in _WORKER_GRAPH_ARTIFACT_SCHEMAS:
+        _validate_worker_graph_artifact_reference(reference, role=role)
+    elif has_graph_metadata:
+        raise ValueError("knowledge_index_result_graph_artifact_ref_unexpected")
 
 
 class KnowledgeIndexJobService:
@@ -218,6 +352,7 @@ class KnowledgeIndexJobService:
         created_by: str | None,
         profile_name: str | None,
         profile_overrides: dict[str, Any] | None,
+        graph_visual_metrics: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         artifact = str(artifact_id or "").strip()
         if not artifact:
@@ -230,6 +365,9 @@ class KnowledgeIndexJobService:
             payload={
                 "artifact_id": artifact,
                 "profile_overrides": dict(profile_overrides or {}),
+                "graph_visual_metrics": _normalize_graph_visual_metrics_options(
+                    graph_visual_metrics
+                ),
             },
         )
 
@@ -241,6 +379,7 @@ class KnowledgeIndexJobService:
         created_by: str | None,
         profile_name: str | None,
         profile_overrides: dict[str, Any] | None,
+        graph_visual_metrics: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         collection = str(collection_id or "").strip()
         artifacts = sorted({str(item).strip() for item in artifact_ids if str(item).strip()})
@@ -257,6 +396,9 @@ class KnowledgeIndexJobService:
                 "collection_id": collection,
                 "artifact_ids": artifacts,
                 "profile_overrides": dict(profile_overrides or {}),
+                "graph_visual_metrics": _normalize_graph_visual_metrics_options(
+                    graph_visual_metrics
+                ),
             },
         )
 
@@ -270,6 +412,7 @@ class KnowledgeIndexJobService:
         profile_name: str | None,
         source_metadata: dict[str, Any] | None = None,
         codecompass_prerender: bool = False,
+        graph_visual_metrics: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         scope = str(source_scope or "").strip().lower()
         source = str(source_id or "").strip()
@@ -292,6 +435,9 @@ class KnowledgeIndexJobService:
                 "records": normalized_records,
                 "source_metadata": dict(source_metadata or {}),
                 "codecompass_prerender": bool(codecompass_prerender),
+                "graph_visual_metrics": _normalize_graph_visual_metrics_options(
+                    graph_visual_metrics
+                ),
             },
         )
 
@@ -391,52 +537,8 @@ class KnowledgeIndexJobService:
         artifact_refs = payload.get("artifact_refs")
         if not isinstance(artifact_refs, list):
             raise ValueError("knowledge_index_result_artifact_refs_invalid")
-        required_reference_fields = {"artifact_id", "sha256", "media_type"}
-        optional_reference_fields = {
-            "role",
-            "filename",
-            "size_bytes",
-            "knowledge_index_id",
-            "run_id",
-        }
         for reference in artifact_refs:
-            if (
-                not isinstance(reference, Mapping)
-                or not required_reference_fields.issubset(reference)
-                or set(reference) - required_reference_fields - optional_reference_fields
-            ):
-                raise ValueError("knowledge_index_result_artifact_ref_invalid")
-            artifact_id = str(reference.get("artifact_id") or "").strip()
-            sha256 = str(reference.get("sha256") or "")
-            media_type = str(reference.get("media_type") or "").strip()
-            if not artifact_id or not media_type:
-                raise ValueError("knowledge_index_result_artifact_ref_invalid")
-            if len(sha256) != 64 or any(char not in "0123456789abcdef" for char in sha256):
-                raise ValueError("knowledge_index_result_artifact_ref_digest_invalid")
-            if any(field in reference for field in optional_reference_fields):
-                if not optional_reference_fields.issubset(reference):
-                    raise ValueError("knowledge_index_result_artifact_ref_incomplete")
-                if str(reference.get("role") or "") not in {
-                    "manifest",
-                    "index",
-                    "details",
-                    "relations",
-                }:
-                    raise ValueError("knowledge_index_result_artifact_ref_role_invalid")
-                if str(reference.get("filename") or "") not in {
-                    "manifest.json",
-                    "index.jsonl",
-                    "details.jsonl",
-                    "relations.jsonl",
-                }:
-                    raise ValueError("knowledge_index_result_artifact_ref_filename_invalid")
-                size_bytes = int(reference.get("size_bytes") or 0)
-                if size_bytes < 0 or size_bytes > 128 * 1024 * 1024:
-                    raise ValueError("knowledge_index_result_artifact_ref_size_invalid")
-                if not str(reference.get("knowledge_index_id") or "").strip():
-                    raise ValueError("knowledge_index_result_artifact_ref_index_id_invalid")
-                if not str(reference.get("run_id") or "").strip():
-                    raise ValueError("knowledge_index_result_artifact_ref_run_id_invalid")
+            _validate_worker_artifact_reference(reference)
         if payload.get("error") is not None and not isinstance(payload.get("error"), str):
             raise ValueError("knowledge_index_result_error_invalid")
         return {

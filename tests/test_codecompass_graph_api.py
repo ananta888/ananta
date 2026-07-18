@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import json
-import uuid
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
+from jsonschema import Draft202012Validator
 
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 
@@ -71,7 +70,7 @@ def _mock_repo(output_dir: str | None = None, missing: bool = False):
 # ── GET /api/codecompass/graph ────────────────────────────────────────────────
 
 def test_get_graph_returns_domain_graph_artifact(client, auth_header, tmp_path):
-    index_path = _build_graph_index(tmp_path)
+    _build_graph_index(tmp_path)
     repo = _mock_repo(output_dir=str(tmp_path))
     with patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo):
         resp = client.get("/api/codecompass/graph?knowledge_index_id=idx-1", headers=auth_header)
@@ -83,7 +82,7 @@ def test_get_graph_returns_domain_graph_artifact(client, auth_header, tmp_path):
 
 
 def test_get_graph_nodes_have_correct_structure(client, auth_header, tmp_path):
-    index_path = _build_graph_index(tmp_path)
+    _build_graph_index(tmp_path)
     repo = _mock_repo(output_dir=str(tmp_path))
     with patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo):
         resp = client.get("/api/codecompass/graph?knowledge_index_id=idx-1", headers=auth_header)
@@ -96,7 +95,7 @@ def test_get_graph_nodes_have_correct_structure(client, auth_header, tmp_path):
 
 
 def test_get_graph_edges_have_correct_structure(client, auth_header, tmp_path):
-    index_path = _build_graph_index(tmp_path)
+    _build_graph_index(tmp_path)
     repo = _mock_repo(output_dir=str(tmp_path))
     with patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo):
         resp = client.get("/api/codecompass/graph?knowledge_index_id=idx-1", headers=auth_header)
@@ -107,13 +106,82 @@ def test_get_graph_edges_have_correct_structure(client, auth_header, tmp_path):
 
 
 def test_get_graph_metadata_has_counts(client, auth_header, tmp_path):
-    index_path = _build_graph_index(tmp_path)
+    _build_graph_index(tmp_path)
     repo = _mock_repo(output_dir=str(tmp_path))
     with patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo):
         resp = client.get("/api/codecompass/graph?knowledge_index_id=idx-1", headers=auth_header)
     meta = resp.json["data"]["metadata"]
     assert meta["node_count"] == 3
     assert meta["edge_count"] == 2
+
+
+def test_get_graph_projects_revision_capabilities_domains_and_worker_metrics(client, auth_header, tmp_path):
+    _build_graph_index(tmp_path)
+    repo = _mock_repo(output_dir=str(tmp_path))
+    with patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo):
+        resp = client.get("/api/codecompass/graph?knowledge_index_id=idx-1", headers=auth_header)
+    data = resp.json["data"]
+
+    assert data["metadata"]["graph_revision"] == "test-hash-1"
+    assert data["metadata"]["visual_metrics_content_hash"].startswith("sha256:")
+    assert data["metric_capabilities"]["in_degree"]["status"] == "available"
+    n1 = next(node for node in data["nodes"] if node["node_id"] == "n1")
+    assert n1["attributes"]["domain_id"] == "src"
+    assert n1["attributes"]["domain_path"] == "src"
+    assert n1["attributes"]["metrics"]["total_degree"] == 2
+    schema = json.loads(Path("schemas/artifacts/domain_graph_artifact.v1.json").read_text(encoding="utf-8"))
+    assert list(Draft202012Validator(schema).iter_errors(data)) == []
+
+
+def test_get_graph_preserves_raw_types_zero_values_and_parallel_edges(client, auth_header, tmp_path):
+    store = CodeCompassGraphStore(index_path=tmp_path / "cc_graph_index.json")
+    store.rebuild_from_output_records(
+        manifest_hash="raw-revision",
+        records=[
+            {"_provenance": {"output_kind": "graph_nodes"}, "id": "a", "kind": "Vendor::Node"},
+            {"_provenance": {"output_kind": "graph_nodes"}, "id": "b", "kind": "python_file"},
+            {
+                "_provenance": {"output_kind": "graph_edges"},
+                "source": "a", "target": "b", "type": "Vendor::Relation",
+                "confidence": 0, "multiplicity": 0,
+            },
+            {
+                "_provenance": {"output_kind": "graph_edges"},
+                "source": "a", "target": "b", "type": "Vendor::Relation",
+                "confidence": 1,
+            },
+        ],
+    )
+    repo = _mock_repo(output_dir=str(tmp_path))
+    with patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo):
+        resp = client.get("/api/codecompass/graph?knowledge_index_id=idx-raw", headers=auth_header)
+    data = resp.json["data"]
+    node = next(item for item in data["nodes"] if item["node_id"] == "a")
+    first, second = data["edges"]
+
+    assert node["attributes"]["raw_node_type"] == "Vendor::Node"
+    assert node["attributes"]["semantic_status"] == "semantically_unknown"
+    assert first["relation"] == "Vendor::Relation"
+    assert first["attributes"]["raw_edge_type"] == "Vendor::Relation"
+    assert first["attributes"]["confidence"] == 0
+    assert first["attributes"]["multiplicity"] == 0
+    assert first["attributes"]["parallel_count"] == 2
+    assert first["edge_id"] != second["edge_id"]
+
+
+def test_get_graph_request_path_does_not_compute_advanced_metrics(client, auth_header, tmp_path):
+    _build_graph_index(tmp_path)
+    repo = _mock_repo(output_dir=str(tmp_path))
+    with (
+        patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo),
+        patch("worker.retrieval.codecompass_graph_metrics.compute_graph_metrics") as degree_spy,
+        patch("worker.retrieval.codecompass_blast_radius.compute_blast_radius") as blast_spy,
+    ):
+        resp = client.get("/api/codecompass/graph?knowledge_index_id=idx-1", headers=auth_header)
+
+    assert resp.status_code == 200
+    degree_spy.assert_not_called()
+    blast_spy.assert_not_called()
 
 
 def test_get_graph_missing_knowledge_index_id_returns_400(client, auth_header):
@@ -181,9 +249,43 @@ def test_expand_graph_returns_traversal(client, auth_header, tmp_path):
     data = resp.json["data"]
     assert data["schema"] == "domain_graph_artifact.v1"
     assert data["source_kind"] == "codecompass_graph_expansion"
+    assert data["source_ref"] == "idx-1:bugfix_local:n2"
+    assert data["metadata"]["parent_graph_revision"] == "test-hash-1"
+    assert data["metadata"]["graph_revision"] != "test-hash-1"
     assert len(data["nodes"]) >= 1
     node_ids = {n["node_id"] for n in data["nodes"]}
     assert "n2" in node_ids
+
+
+def test_expand_graph_preserves_parallel_store_edges(client, auth_header, tmp_path):
+    store = CodeCompassGraphStore(index_path=tmp_path / "cc_graph_index.json")
+    store.rebuild_from_output_records(
+        manifest_hash="parallel-expansion-revision",
+        records=[
+            {"_provenance": {"output_kind": "graph_nodes"}, "id": "a", "kind": "python_file"},
+            {"_provenance": {"output_kind": "graph_nodes"}, "id": "b", "kind": "python_function"},
+            {
+                "_provenance": {"output_kind": "graph_edges"},
+                "source": "a", "target": "b", "type": "calls_probable_target", "confidence": 0,
+            },
+            {
+                "_provenance": {"output_kind": "graph_edges"},
+                "source": "a", "target": "b", "type": "calls_probable_target", "confidence": 1,
+            },
+        ],
+    )
+    repo = _mock_repo(output_dir=str(tmp_path))
+    with patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo):
+        resp = client.get(
+            "/api/codecompass/graph/expand?knowledge_index_id=idx-1&seed=a&profile=bugfix_local",
+            headers=auth_header,
+        )
+
+    assert resp.status_code == 200
+    edges = resp.json["data"]["edges"]
+    assert len(edges) == 2
+    assert {edge["attributes"]["confidence"] for edge in edges} == {0, 1}
+    assert len({edge["edge_id"] for edge in edges}) == 2
 
 
 def test_expand_graph_missing_seed_returns_400(client, auth_header, tmp_path):

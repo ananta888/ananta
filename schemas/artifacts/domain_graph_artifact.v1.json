@@ -32,7 +32,10 @@
         "properties": {
           "node_id": {"type": "string", "minLength": 1},
           "node_type": {"type": "string", "minLength": 1},
-          "attributes": {"type": "object", "additionalProperties": true}
+          "attributes": {
+            "type": "object",
+            "additionalProperties": true
+          }
         },
         "additionalProperties": false
       }
@@ -43,25 +46,164 @@
         "type": "object",
         "required": ["source_id", "target_id", "relation"],
         "properties": {
+          "edge_id": {"type": "string", "minLength": 1},
           "source_id": {"type": "string", "minLength": 1},
           "target_id": {"type": "string", "minLength": 1},
           "relation": {"type": "string", "minLength": 1},
-          "attributes": {"type": "object", "additionalProperties": true}
+          "attributes": {
+            "type": "object",
+            "additionalProperties": true
+          }
         },
         "additionalProperties": false
       }
     },
     "metadata": {
       "type": "object",
+      "properties": {
+        "graph_revision": {"type": "string", "minLength": 1},
+        "evidence_graph_revision": {"type": "string", "minLength": 1},
+        "parent_graph_revision": {"type": "string", "minLength": 1},
+        "visual_metrics_content_hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      },
       "additionalProperties": true
     },
+    "metric_capabilities": {
+      "$ref": "#/$defs/metricCapabilities"
+    },
     "provenance": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "diagnostics": {
       "type": "object",
       "additionalProperties": true
     },
     "warnings": {
       "type": "array",
       "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "metadata": {
+            "type": "object",
+            "required": ["projection_algorithm_version"]
+          }
+        },
+        "required": ["metadata"]
+      },
+      "then": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "properties": {
+                "attributes": {"$ref": "#/$defs/projectedNodeAttributes"}
+              }
+            }
+          },
+          "edges": {
+            "items": {
+              "properties": {
+                "attributes": {"$ref": "#/$defs/projectedEdgeAttributes"}
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "metricValues": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "metricCapability": {
+      "type": "object",
+      "required": ["status", "source", "algorithm_version", "scope", "entity"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["available", "approximate", "unavailable", "not_applicable"]
+        },
+        "source": {"type": "string", "minLength": 1},
+        "algorithm_version": {"type": "string", "minLength": 1},
+        "scope": {
+          "type": "string",
+          "enum": ["all_nodes", "all_edges", "subset", "graph"]
+        },
+        "entity": {
+          "type": "string",
+          "enum": ["node", "edge", "graph"]
+        },
+        "reason_code": {"type": "string", "minLength": 1},
+        "graph_revision": {"type": "string", "minLength": 1},
+        "limits": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "integer", "boolean", "null"]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {"enum": ["unavailable", "not_applicable"]}
+            },
+            "required": ["status"]
+          },
+          "then": {"required": ["reason_code"]}
+        }
+      ],
+      "additionalProperties": false
+    },
+    "metricCapabilities": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/metricCapability"}
+    },
+    "projectedNodeAttributes": {
+      "type": "object",
+      "properties": {
+        "raw_node_type": {"type": "string", "minLength": 1},
+        "known_kind": {"type": "string", "minLength": 1},
+        "semantic_status": {
+          "type": "string",
+          "enum": ["known", "semantically_unknown"]
+        },
+        "visual_fallback": {"type": "string", "minLength": 1},
+        "domain_id": {"type": "string"},
+        "domain_path": {"type": "string"},
+        "metrics": {"$ref": "#/$defs/metricValues"}
+      },
+      "additionalProperties": true
+    },
+    "projectedEdgeAttributes": {
+      "type": "object",
+      "properties": {
+        "raw_edge_type": {"type": "string", "minLength": 1},
+        "known_relation": {"type": "string", "minLength": 1},
+        "semantic_status": {
+          "type": "string",
+          "enum": ["known", "semantically_unknown"]
+        },
+        "visual_fallback": {"type": "string", "minLength": 1},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "multiplicity": {"type": "number", "minimum": 0},
+        "parallel_index": {"type": "integer", "minimum": 0},
+        "parallel_count": {"type": "integer", "minimum": 1},
+        "directed": {"type": "boolean"},
+        "self_loop": {"type": "boolean"},
+        "metrics": {"$ref": "#/$defs/metricValues"}
+      },
+      "additionalProperties": true
     }
   },
   "additionalProperties": false

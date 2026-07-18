@@ -3,11 +3,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from worker.retrieval.codecompass_graph_metrics import (
     BETWEENNESS_DEPTH_CAP,
     METRICS_SCHEMA_VERSION,
+    _bounded_shortest_paths_through,
     compute_graph_metrics,
 )
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
@@ -71,6 +70,45 @@ def test_metrics_on_empty_graph_does_not_crash(tmp_path):
 def test_metrics_betweenness_depth_cap_is_bounded():
     """Sanity: BETWEENNESS_DEPTH_CAP must be small to keep the algorithm cheap."""
     assert BETWEENNESS_DEPTH_CAP <= 8
+
+
+def test_betweenness_counts_only_shortest_path_intermediates() -> None:
+    def edge(source: str, target: str) -> dict:
+        return {"source_id": source, "target_id": target}
+
+    outgoing = {
+        "a": {"calls": [edge("a", "b"), edge("a", "c")]},
+        "b": {"calls": [edge("b", "d")]},
+        "c": {"calls": [edge("c", "e")]},
+        "e": {"calls": [edge("e", "d")]},
+    }
+
+    summary = _bounded_shortest_paths_through(
+        "a", "d", outgoing, depth_cap=4, path_cap=1000,
+    )
+
+    assert summary.intermediate_counts == (("b", 1),)
+    assert summary.paths_considered == 1
+    assert summary.truncated is False
+
+
+def test_betweenness_reports_path_cap_truncation() -> None:
+    def edge(source: str, target: str) -> dict:
+        return {"source_id": source, "target_id": target}
+
+    outgoing = {
+        "a": {"calls": [edge("a", "b"), edge("a", "c")]},
+        "b": {"calls": [edge("b", "d")]},
+        "c": {"calls": [edge("c", "d")]},
+    }
+
+    summary = _bounded_shortest_paths_through(
+        "a", "d", outgoing, depth_cap=4, path_cap=1,
+    )
+
+    assert summary.paths_considered == 1
+    assert summary.truncated is True
+    assert sum(count for _, count in summary.intermediate_counts) == 1
 
 
 def test_metrics_result_is_json_serialisable(tmp_path):

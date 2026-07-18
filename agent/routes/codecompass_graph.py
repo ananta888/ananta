@@ -3,19 +3,23 @@
 GET /api/codecompass/graph?knowledge_index_id=<id>
 GET /api/codecompass/graph/node/<node_id>?knowledge_index_id=<id>
 GET /api/codecompass/graph/expand?knowledge_index_id=<id>&seed=<node_id>&profile=<name>
-GET /api/codecompass/query?knowledge_index_id=<id>&type=<query_type>&seed=<symbol-or-node-id>&field=<optional>&depth=<optional>&direction=<optional>
+GET /api/codecompass/query?knowledge_index_id=<id>&type=<query_type>&seed=<symbol-or-node-id>
+    &field=<optional>&depth=<optional>&direction=<optional>
 GET /api/codecompass/self-graph?limit=<n>&kind=<filter>  — Ananta self-graph from rag-helper/out JSONL
 """
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 from flask import Blueprint, request
 
 from agent.auth import check_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
+from agent.services.codecompass_graph_artifact_resolver import (
+    get_codecompass_graph_artifact_resolver,
+)
+from agent.services.codecompass_graph_projection_service import get_codecompass_graph_projection_service
 from agent.services.repository_registry import get_repository_registry
 
 codecompass_graph_bp = Blueprint("codecompass_graph", __name__)
@@ -43,45 +47,15 @@ def _resolve_index_path(knowledge_index_id: str) -> Path:
     index = _knowledge_index_repo().get_by_id(knowledge_index_id)
     if index is None:
         raise NotFoundError("knowledge_index_not_found")
-    output_dir = str(index.output_dir or "").strip()
-    if not output_dir:
-        raise NotFoundError("graph_output_dir_not_set")
-    return Path(output_dir) / _GRAPH_INDEX_FILENAME
+    try:
+        return get_codecompass_graph_artifact_resolver().resolve(index)
+    except ValueError as exc:
+        raise NotFoundError(str(exc)) from exc
 
 
 def _load_store(index_path: Path):
     from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
     return CodeCompassGraphStore(index_path=index_path)
-
-
-def _nodes_to_artifact_format(nodes: list[dict]) -> list[dict]:
-    result = []
-    for node in nodes:
-        result.append({
-            "node_id": str(node.get("id") or ""),
-            "node_type": str(node.get("kind") or "unknown"),
-            "attributes": {
-                "file": str(node.get("file") or ""),
-                "name": str(node.get("name") or ""),
-                "content": str(node.get("content") or ""),
-                "record_id": str(node.get("record_id") or ""),
-            },
-        })
-    return result
-
-
-def _edges_to_artifact_format(edges: list[dict]) -> list[dict]:
-    result = []
-    for edge in edges:
-        result.append({
-            "source_id": str(edge.get("source_id") or ""),
-            "target_id": str(edge.get("target_id") or ""),
-            "relation": str(edge.get("edge_type") or "related"),
-            "attributes": {
-                "confidence": float(edge.get("confidence") or 1.0),
-            },
-        })
-    return result
 
 
 @codecompass_graph_bp.route("/api/codecompass/graph", methods=["GET"])
@@ -94,20 +68,21 @@ def get_graph():
     diagnostics = dict(payload.get("diagnostics") or {})
     nodes = list(payload.get("nodes") or [])
     edges = list(payload.get("edges") or [])
-    return api_response(data={
-        "schema": "domain_graph_artifact.v1",
-        "source_kind": "codecompass_graph",
-        "source_ref": knowledge_index_id,
-        "nodes": _nodes_to_artifact_format(nodes),
-        "edges": _edges_to_artifact_format(edges),
-        "metadata": {
+    state = dict(payload.get("state") or {})
+    projected = get_codecompass_graph_projection_service().project(
+        nodes=nodes,
+        edges=edges,
+        source_kind="codecompass_graph",
+        source_ref=knowledge_index_id,
+        graph_revision=str(state.get("manifest_hash") or "") or None,
+        visual_metrics=store.load_visual_metrics(),
+        metadata={
             "knowledge_index_id": knowledge_index_id,
-            "node_count": len(nodes),
-            "edge_count": len(edges),
         },
-        "diagnostics": diagnostics,
-        "warnings": [diagnostics.get("reason")] if diagnostics.get("status") == "degraded" else [],
-    })
+        diagnostics=diagnostics,
+        warnings=[str(diagnostics.get("reason"))] if diagnostics.get("status") == "degraded" else [],
+    )
+    return api_response(data=projected)
 
 
 @codecompass_graph_bp.route("/api/codecompass/graph/node/<node_id>", methods=["GET"])
@@ -148,7 +123,7 @@ def expand_graph():
     from worker.retrieval.codecompass_graph_expansion import expand_codecompass_graph
     expansion = expand_codecompass_graph(store=store, seed_node_ids=[seed_id], profile=profile)
     nodes = list(expansion.get("nodes") or [])
-    paths = list(expansion.get("paths") or [])
+    payload = store.load()
     # APRL-015: resolve agent profile metadata for this graph profile
     agent_profile_meta: dict = {}
     _agent_profile_id = _PROFILE_TO_AGENT_PROFILE.get(profile)
@@ -159,21 +134,26 @@ def expand_graph():
             agent_profile_meta = _ap.to_metadata()
         except Exception:
             pass
-    return api_response(data={
-        "schema": "domain_graph_artifact.v1",
-        "source_kind": "codecompass_graph_expansion",
-        "source_ref": knowledge_index_id,
-        "nodes": _nodes_to_artifact_format(nodes),
-        "edges": _edges_from_paths(paths),
-        "metadata": {
+    projected = get_codecompass_graph_projection_service().project(
+        nodes=nodes,
+        edges=_edges_for_expansion(
+            payload,
+            nodes=nodes,
+            allowed_edge_types=set(expansion.get("allowed_edge_types") or []),
+        ),
+        source_kind="codecompass_graph_expansion",
+        source_ref=f"{knowledge_index_id}:{profile}:{seed_id}",
+        graph_revision=str((payload.get("state") or {}).get("manifest_hash") or "") or None,
+        visual_metrics=store.load_visual_metrics(),
+        derive_projection_revision=True,
+        metadata={
             "knowledge_index_id": knowledge_index_id,
             "seed_node_id": seed_id,
             "profile": profile,
-            "node_count": len(nodes),
             "active_agent_profile": agent_profile_meta or None,
         },
-        "warnings": [],
-    })
+    )
+    return api_response(data=projected)
 
 
 @codecompass_graph_bp.route("/api/codecompass/query", methods=["GET"])
@@ -377,10 +357,18 @@ def _domain_metadata_for_node(file_path: str, selected_domain: str) -> dict[str,
     if not parts:
         return {"domain_path": "", "domain_level": 0, "domain_parent": "", "domain_leaf": ""}
 
-    source_kind = "typescript" if selected_domain.startswith("ts:") or file_path.startswith("frontend-angular/") else "python"
+    source_kind = (
+        "typescript"
+        if selected_domain.startswith("ts:") or file_path.startswith("frontend-angular/")
+        else "python"
+    )
     selected_prefix = _domain_to_file_prefix(selected_domain)
     selected_parts = _domain_parts_from_file(selected_prefix)
-    rel_parts = parts[len(selected_parts):] if selected_parts and parts[:len(selected_parts)] == selected_parts else parts
+    rel_parts = (
+        parts[len(selected_parts):]
+        if selected_parts and parts[:len(selected_parts)] == selected_parts
+        else parts
+    )
     rel_parts = rel_parts or parts[-1:]
     domain_parts = parts[:len(parts) - len(rel_parts) + min(len(rel_parts), 3)]
     domain_path = _domain_id_from_parts(domain_parts, source_kind)
@@ -495,7 +483,7 @@ def get_self_graph_domains():
 
 @codecompass_graph_bp.route("/api/codecompass/self-graph", methods=["GET"])
 @check_auth
-def get_self_graph():
+def get_self_graph():  # noqa: C901 - legacy route is reduced incrementally
     """Serve Ananta's own rag-helper/out JSONL graph with kind detail levels + optional caps.
 
     ?domain=agent.routes  — module area key (default: agent.routes). 'all' for everything.
@@ -538,14 +526,14 @@ def get_self_graph():
     nodes_path, edges_path = _rag_out_paths(settings)
     name_index = _get_name_index(nodes_path.parent)
     if not nodes_path.exists():
-        return api_response(data={
-            "schema": "domain_graph_artifact.v1",
-            "source_kind": "ananta_self_graph",
-            "source_ref": "ananta",
-            "nodes": [], "edges": [],
-            "metadata": {"node_count": 0, "edge_count": 0},
-            "warnings": ["rag-helper/out/graph_nodes.jsonl not found"],
-        })
+        projected = get_codecompass_graph_projection_service().project(
+            nodes=[],
+            edges=[],
+            source_kind="ananta_self_graph",
+            source_ref="ananta",
+            warnings=["rag-helper/out/graph_nodes.jsonl not found"],
+        )
+        return api_response(data=projected)
 
     # ── 1. Load all nodes ────────────────────────────────────────────────────
     all_nodes_by_id = _load_nodes_jsonl(nodes_path)
@@ -732,13 +720,26 @@ def get_self_graph():
         for n in scoped
     ]
 
-    return api_response(data={
-        "schema": "domain_graph_artifact.v1",
-        "source_kind": "ananta_self_graph",
-        "source_ref": f"ananta:{domain_filter}",
-        "nodes": raw_nodes,
-        "edges": raw_edges,
-        "metadata": {
+    self_graph_revision: str | None = None
+    self_graph_metrics: dict | None = None
+    self_graph_store_path = nodes_path.parent / _GRAPH_INDEX_FILENAME
+    if self_graph_store_path.exists():
+        self_graph_store = _load_store(self_graph_store_path)
+        self_graph_payload = self_graph_store.load()
+        self_graph_revision = str(
+            (self_graph_payload.get("state") or {}).get("manifest_hash") or ""
+        ).strip() or None
+        self_graph_metrics = self_graph_store.load_visual_metrics()
+
+    projected = get_codecompass_graph_projection_service().project(
+        nodes=raw_nodes,
+        edges=raw_edges,
+        source_kind="ananta_self_graph",
+        source_ref=f"ananta:{domain_filter}",
+        graph_revision=self_graph_revision,
+        visual_metrics=self_graph_metrics,
+        derive_projection_revision=self_graph_revision is not None,
+        metadata={
             "node_count": len(raw_nodes),
             "edge_count": len(raw_edges),
             "domain": domain_filter,
@@ -757,26 +758,48 @@ def get_self_graph():
             "pre_cap_edge_count": len(all_internal_edges),
             "pre_edge_cap_edge_count": pre_edge_cap_count,
         },
-        "warnings": warnings,
-    })
+        warnings=warnings,
+    )
+    return api_response(data=projected)
 
 
-def _edges_from_paths(paths: list[dict]) -> list[dict]:
-    seen: set[str] = set()
-    result = []
-    for path_entry in paths:
-        for edge in list(path_entry.get("path") or []):
-            src = str(edge.get("source_id") or "")
-            tgt = str(edge.get("target_id") or "")
-            etype = str(edge.get("edge_type") or "related")
-            key = f"{src}|{tgt}|{etype}"
-            if key in seen or not src or not tgt:
-                continue
-            seen.add(key)
-            result.append({
-                "source_id": src,
-                "target_id": tgt,
-                "relation": etype,
-                "attributes": {"confidence": float(edge.get("confidence") or 1.0)},
-            })
+def _edges_for_expansion(
+    payload: dict,
+    *,
+    nodes: list[dict],
+    allowed_edge_types: set[str],
+) -> list[dict]:
+    """Select stored edges for an expanded node set without collapsing parallels.
+
+    Traversal paths are evidence for discovery, not an edge store: the same edge
+    can occur in several paths and parallel edges can be absent after the BFS
+    visit guard. Selecting from the immutable store keeps edge identity and all
+    style-relevant evidence intact.
+    """
+    selected_ids = {
+        str(node.get("id") or node.get("node_id") or "").strip()
+        for node in nodes
+    }
+    allowed = {
+        str(edge_type).strip().lower()
+        for edge_type in allowed_edge_types
+        if str(edge_type).strip()
+    }
+    result: list[dict] = []
+    for edge in [*(payload.get("edges") or []), *(payload.get("semantic_edges") or [])]:
+        if not isinstance(edge, dict):
+            continue
+        source_id = str(edge.get("source_id") or edge.get("source") or "").strip()
+        target_id = str(edge.get("target_id") or edge.get("target") or "").strip()
+        edge_type = str(
+            edge.get("edge_type")
+            or edge.get("relation")
+            or edge.get("type")
+            or "related"
+        ).strip().lower()
+        if source_id not in selected_ids or target_id not in selected_ids:
+            continue
+        if allowed and edge_type not in allowed:
+            continue
+        result.append(dict(edge))
     return result

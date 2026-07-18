@@ -88,7 +88,8 @@ class CodeCompassSqliteGraphStore(CodeCompassGraphStore):
             self._ensure_schema(conn)
             state_rows = conn.execute("SELECT key, value FROM cc_graph_state").fetchall()
             node_rows = conn.execute(
-                "SELECT node_id, kind, name, file, record_id, content, source_record FROM cc_graph_nodes ORDER BY node_id"
+                "SELECT node_id, kind, name, file, record_id, content, source_record "
+                "FROM cc_graph_nodes ORDER BY node_id"
             ).fetchall()
             edge_rows = conn.execute(
                 "SELECT source_id, target_id, edge_type, confidence, field, operation, heuristic, provenance"
@@ -118,6 +119,12 @@ class CodeCompassSqliteGraphStore(CodeCompassGraphStore):
             nodes.append({
                 "id": str(row[0]),
                 "kind": str(row[1] or "unknown"),
+                "raw_node_type": str(
+                    source_record.get("kind")
+                    or source_record.get("type")
+                    or row[1]
+                    or "unknown"
+                ),
                 "name": str(row[2] or ""),
                 "file": str(row[3] or ""),
                 "record_id": str(row[4] or ""),
@@ -138,9 +145,31 @@ class CodeCompassSqliteGraphStore(CodeCompassGraphStore):
                     edge[key] = row[index]
             if row[7]:
                 try:
-                    edge["provenance"] = json.loads(row[7])
+                    provenance = json.loads(row[7])
                 except (TypeError, ValueError):
-                    edge["provenance"] = {}
+                    provenance = {}
+                if not isinstance(provenance, dict):
+                    provenance = {}
+                raw_edge_type = provenance.pop("_graph_visual_raw_edge_type", None)
+                multiplicity = provenance.pop("_graph_visual_multiplicity", None)
+                edge_id = provenance.pop("_graph_visual_edge_id", None)
+                dependency_weight = provenance.pop("_graph_visual_dependency_weight", None)
+                directed = provenance.pop("_graph_visual_directed", None)
+                metrics = provenance.pop("_graph_visual_metrics", None)
+                edge["provenance"] = provenance
+                edge["raw_edge_type"] = str(raw_edge_type or edge["edge_type"])
+                if multiplicity is not None:
+                    edge["multiplicity"] = multiplicity
+                if edge_id is not None:
+                    edge["edge_id"] = str(edge_id)
+                if dependency_weight is not None:
+                    edge["dependency_weight"] = dependency_weight
+                if directed is not None:
+                    edge["directed"] = bool(directed)
+                if isinstance(metrics, dict):
+                    edge["metrics"] = metrics
+            else:
+                edge["raw_edge_type"] = edge["edge_type"]
             edges.append(edge)
 
         node_index = self._build_node_index(nodes)
@@ -152,7 +181,12 @@ class CodeCompassSqliteGraphStore(CodeCompassGraphStore):
             "node_index": node_index,
             "outgoing_index": outgoing_index,
             "incoming_index": incoming_index,
-            "diagnostics": diagnostics or {"status": "ready", "reason": "graph_loaded", "node_count": len(nodes), "edge_count": len(edges)},
+            "diagnostics": diagnostics or {
+                "status": "ready",
+                "reason": "graph_loaded",
+                "node_count": len(nodes),
+                "edge_count": len(edges),
+            },
         }
         return self._cached_payload
 
@@ -175,7 +209,8 @@ class CodeCompassSqliteGraphStore(CodeCompassGraphStore):
             )
             for node in list(payload.get("nodes") or []):
                 conn.execute(
-                    "INSERT OR REPLACE INTO cc_graph_nodes (node_id, kind, name, file, record_id, content, source_record)"
+                    "INSERT OR REPLACE INTO cc_graph_nodes "
+                    "(node_id, kind, name, file, record_id, content, source_record)"
                     " VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (
                         str(node.get("id") or ""),
@@ -188,18 +223,36 @@ class CodeCompassSqliteGraphStore(CodeCompassGraphStore):
                     ),
                 )
             for edge in list(payload.get("edges") or []):
+                confidence = edge.get("confidence")
+                if confidence is None:
+                    confidence = 1.0
+                storage_provenance = dict(edge.get("provenance") or {})
+                storage_provenance["_graph_visual_raw_edge_type"] = str(
+                    edge.get("raw_edge_type") or edge.get("edge_type") or "related"
+                )
+                if edge.get("multiplicity") is not None:
+                    storage_provenance["_graph_visual_multiplicity"] = edge["multiplicity"]
+                if edge.get("edge_id") is not None:
+                    storage_provenance["_graph_visual_edge_id"] = edge["edge_id"]
+                if edge.get("dependency_weight") is not None:
+                    storage_provenance["_graph_visual_dependency_weight"] = edge["dependency_weight"]
+                if edge.get("directed") is not None:
+                    storage_provenance["_graph_visual_directed"] = bool(edge["directed"])
+                if isinstance(edge.get("metrics"), dict):
+                    storage_provenance["_graph_visual_metrics"] = dict(edge["metrics"])
                 conn.execute(
-                    "INSERT INTO cc_graph_edges (source_id, target_id, edge_type, confidence, field, operation, heuristic, provenance)"
+                    "INSERT INTO cc_graph_edges "
+                    "(source_id, target_id, edge_type, confidence, field, operation, heuristic, provenance)"
                     " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         str(edge.get("source_id") or ""),
                         str(edge.get("target_id") or ""),
                         str(edge.get("edge_type") or "related"),
-                        float(edge.get("confidence") or 1.0),
+                        float(confidence),
                         edge.get("field"),
                         edge.get("operation"),
                         edge.get("heuristic"),
-                        json.dumps(dict(edge.get("provenance") or {}), ensure_ascii=False),
+                        json.dumps(storage_provenance, ensure_ascii=False),
                     ),
                 )
             conn.commit()

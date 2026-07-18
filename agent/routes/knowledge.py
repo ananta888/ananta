@@ -411,6 +411,11 @@ def index_knowledge_collection(collection_id: str):
             created_by=_current_username(),
             profile_name=payload.profile_name,
             profile_overrides=payload.profile_overrides,
+            graph_visual_metrics=(
+                payload.graph_visual_metrics.model_dump(by_alias=True)
+                if payload.graph_visual_metrics is not None
+                else None
+            ),
         )
     except ValueError as exc:
         raise BadRequestError(str(exc)) from exc
@@ -617,6 +622,11 @@ def index_knowledge_source_records():
             created_by=_current_username(),
             profile_name=payload.profile_name,
             source_metadata=dict(payload.source_metadata or {}),
+            graph_visual_metrics=(
+                payload.graph_visual_metrics.model_dump(by_alias=True)
+                if payload.graph_visual_metrics is not None
+                else None
+            ),
         )
     except ValueError as exc:
         raise BadRequestError(str(exc)) from exc

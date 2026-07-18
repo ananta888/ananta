@@ -193,10 +193,22 @@ class ArtifactUploadRequest(SQLModel):
     collection_name: Optional[str] = None
 
 
+class GraphVisualMetricsRequest(SQLModel):
+    """Bounded worker-side graph metric materialization options."""
+
+    contract_schema: str = Field(
+        default="codecompass_graph_visual_options.v1",
+        alias="schema",
+    )
+    include_advanced_metrics: bool = True
+    blast_radius_seeds: List[str] = Field(default_factory=list)
+
+
 class ArtifactRagIndexRequest(SQLModel):
     async_mode: bool = Field(default=False, alias="async")
     profile_name: Optional[str] = None
     profile_overrides: Optional[dict] = None
+    graph_visual_metrics: Optional[GraphVisualMetricsRequest] = None
 
 
 class KnowledgeCollectionCreateRequest(SQLModel):
@@ -208,6 +220,7 @@ class KnowledgeCollectionIndexRequest(SQLModel):
     async_mode: bool = Field(default=False, alias="async")
     profile_name: Optional[str] = None
     profile_overrides: Optional[dict] = None
+    graph_visual_metrics: Optional[GraphVisualMetricsRequest] = None
 
 
 class KnowledgeSourceIndexRequest(SQLModel):
@@ -217,6 +230,7 @@ class KnowledgeSourceIndexRequest(SQLModel):
     async_mode: bool = Field(default=False, alias="async")
     profile_name: Optional[str] = None
     source_metadata: Optional[dict] = None
+    graph_visual_metrics: Optional[GraphVisualMetricsRequest] = None
 
 
 class KnowledgeCollectionSearchRequest(SQLModel):

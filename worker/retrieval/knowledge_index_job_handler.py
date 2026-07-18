@@ -36,6 +36,18 @@ class KnowledgeIndexArtifactPublisherPort(Protocol):
     ) -> list[dict[str, Any]]: ...
 
 
+class KnowledgeIndexGraphArtifactMaterializerPort(Protocol):
+    """Worker execution seam for graph artifacts derived from index outputs."""
+
+    def materialize(
+        self,
+        *,
+        knowledge_index: Mapping[str, Any],
+        run: Mapping[str, Any],
+        options: Mapping[str, Any] | None = None,
+    ) -> Mapping[str, Any]: ...
+
+
 class KnowledgeIndexWorkerTaskHandler:
     """Validate one Hub envelope, execute once, and return an immutable result."""
 
@@ -170,10 +182,12 @@ class RagHelperKnowledgeIndexExecution:
         *,
         payload_loader: KnowledgeIndexPayloadLoaderPort | None = None,
         artifact_publisher: KnowledgeIndexArtifactPublisherPort | None = None,
+        graph_artifact_materializer: KnowledgeIndexGraphArtifactMaterializerPort | None = None,
     ) -> None:
         self._index_service = index_service
         self._payload_loader = payload_loader
         self._artifact_publisher = artifact_publisher
+        self._graph_artifact_materializer = graph_artifact_materializer
 
     def execute(self, job: Mapping[str, Any]) -> Mapping[str, Any]:
         payload = self._resolve_payload(job)
@@ -185,7 +199,7 @@ class RagHelperKnowledgeIndexExecution:
                 profile_name=self._profile_name(job),
                 profile_overrides=dict(payload.get("profile_overrides") or {}),
             )
-            return self._single_result(job, knowledge_index, run)
+            return self._single_result(job, payload, knowledge_index, run)
         if job_type == "collection":
             results: list[dict[str, Any]] = []
             artifact_refs: list[dict[str, Any]] = []
@@ -209,6 +223,7 @@ class RagHelperKnowledgeIndexExecution:
                 artifact_refs.extend(
                     self._publish_outputs(
                         job=job,
+                        payload=payload,
                         knowledge_index=index_payload,
                         run=run_payload,
                     )
@@ -231,7 +246,7 @@ class RagHelperKnowledgeIndexExecution:
                 source_metadata=dict(payload.get("source_metadata") or {}),
                 codecompass_prerender=bool(payload.get("codecompass_prerender", False)),
             )
-            return self._single_result(job, knowledge_index, run)
+            return self._single_result(job, payload, knowledge_index, run)
         raise ValueError("knowledge_index_job_type_invalid")
 
     def _resolve_payload(self, job: Mapping[str, Any]) -> dict[str, Any]:
@@ -299,6 +314,7 @@ class RagHelperKnowledgeIndexExecution:
     def _single_result(
         self,
         job: Mapping[str, Any],
+        payload: Mapping[str, Any],
         knowledge_index: Any,
         run: Any,
     ) -> dict[str, Any]:
@@ -312,6 +328,7 @@ class RagHelperKnowledgeIndexExecution:
             "run": run_payload,
             "artifact_refs": self._publish_outputs(
                 job=job,
+                payload=payload,
                 knowledge_index=index_payload,
                 run=run_payload,
             ),
@@ -322,11 +339,35 @@ class RagHelperKnowledgeIndexExecution:
         self,
         *,
         job: Mapping[str, Any],
+        payload: Mapping[str, Any],
         knowledge_index: Mapping[str, Any],
         run: Mapping[str, Any],
     ) -> list[dict[str, Any]]:
         if self._is_failed(knowledge_index, run):
             return []
+        # A custom publisher without a graph materializer is the intentional
+        # compatibility adapter for pre-graph integrations. Production uses the
+        # defaults and therefore always requires both graph artifacts.
+        graph_artifacts_required = (
+            self._artifact_publisher is None or self._graph_artifact_materializer is not None
+        )
+        if graph_artifacts_required:
+            materializer = self._graph_artifact_materializer
+            if materializer is None:
+                from worker.retrieval.codecompass_graph_artifact_materializer import (
+                    WorkerCodeCompassGraphArtifactMaterializer,
+                )
+
+                materializer = WorkerCodeCompassGraphArtifactMaterializer()
+            raw_options = payload.get("graph_visual_metrics")
+            if raw_options is not None and not isinstance(raw_options, Mapping):
+                raise ValueError("graph_visual_options_invalid")
+            materializer.materialize(
+                knowledge_index=knowledge_index,
+                run=run,
+                options=raw_options,
+            )
+
         publisher = self._artifact_publisher or WorkerKnowledgeIndexArtifactPublisher()
         references = publisher.publish(
             job_id=str(job.get("job_id") or ""),
@@ -334,7 +375,10 @@ class RagHelperKnowledgeIndexExecution:
             run=run,
         )
         roles = {str(item.get("role") or "") for item in references}
-        if not {"manifest", "index"}.issubset(roles):
+        required_roles = {"manifest", "index"}
+        if graph_artifacts_required:
+            required_roles.update({"graph_index", "graph_visual_metrics"})
+        if not required_roles.issubset(roles):
             raise RuntimeError("knowledge_index_output_artifacts_incomplete")
         return references
 
@@ -347,6 +391,14 @@ class WorkerKnowledgeIndexArtifactPublisher:
         "index": ("index.jsonl", "application/x-ndjson"),
         "details": ("details.jsonl", "application/x-ndjson"),
         "relations": ("relations.jsonl", "application/x-ndjson"),
+        "graph_index": (
+            "cc_graph_index.json",
+            "application/vnd.ananta.codecompass-graph-index+json",
+        ),
+        "graph_visual_metrics": (
+            "cc_graph_index.visual_metrics.json",
+            "application/vnd.ananta.codecompass-graph-visual-metrics+json",
+        ),
     }
     _MAX_OUTPUT_BYTES = 128 * 1024 * 1024
 
@@ -372,6 +424,14 @@ class WorkerKnowledgeIndexArtifactPublisher:
             raise RuntimeError("knowledge_index_output_directory_missing") from exc
         if not resolved_output.is_dir() or resolved_output.is_symlink():
             raise RuntimeError("knowledge_index_output_directory_invalid")
+        graph_files = (
+            resolved_output / "cc_graph_index.json",
+            resolved_output / "cc_graph_index.visual_metrics.json",
+        )
+        graph_file_presence = tuple(path.exists() for path in graph_files)
+        if any(graph_file_presence) and not all(graph_file_presence):
+            raise RuntimeError("knowledge_index_graph_artifacts_incomplete")
+        graph_binding = self._load_graph_binding(resolved_output) if all(graph_file_presence) else {}
         references: list[dict[str, Any]] = []
         for role, (filename, media_type) in self._OUTPUTS.items():
             path = resolved_output / filename
@@ -399,20 +459,71 @@ class WorkerKnowledgeIndexArtifactPublisher:
                 "knowledge_index_run_id": str(run.get("id") or ""),
                 "output_role": role,
             }
-            artifact_repo.save(artifact)
-            references.append(
-                {
-                    "artifact_id": artifact.id,
-                    "sha256": version.sha256,
-                    "media_type": version.media_type,
-                    "role": role,
-                    "filename": filename,
-                    "size_bytes": version.size_bytes,
-                    "knowledge_index_id": str(knowledge_index.get("id") or ""),
-                    "run_id": str(run.get("id") or ""),
+            reference = {
+                "artifact_id": artifact.id,
+                "sha256": version.sha256,
+                "media_type": version.media_type,
+                "role": role,
+                "filename": filename,
+                "size_bytes": version.size_bytes,
+                "knowledge_index_id": str(knowledge_index.get("id") or ""),
+                "run_id": str(run.get("id") or ""),
+            }
+            if role in {"graph_index", "graph_visual_metrics"}:
+                if role not in graph_binding:
+                    raise RuntimeError("knowledge_index_graph_artifacts_incomplete")
+                reference.update(graph_binding[role])
+                artifact.artifact_metadata = {
+                    **dict(artifact.artifact_metadata or {}),
+                    **graph_binding[role],
                 }
-            )
+            artifact_repo.save(artifact)
+            references.append(reference)
         return references
+
+    @staticmethod
+    def _load_graph_binding(output_dir: Path) -> dict[str, dict[str, str]]:
+        graph_path = output_dir / "cc_graph_index.json"
+        metrics_path = output_dir / "cc_graph_index.visual_metrics.json"
+        try:
+            graph = json.loads(graph_path.read_text(encoding="utf-8"))
+            metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise RuntimeError("knowledge_index_graph_artifacts_invalid") from exc
+        if not isinstance(graph, dict) or not isinstance(metrics, dict):
+            raise RuntimeError("knowledge_index_graph_artifacts_invalid")
+        state = graph.get("state")
+        if not isinstance(state, Mapping):
+            raise RuntimeError("knowledge_index_graph_artifact_revision_mismatch")
+        graph_revision = str(state.get("manifest_hash") or "").strip()
+        if (
+            str(state.get("schema") or "") != "codecompass_graph_index.v1"
+            or str(metrics.get("schema") or "") != "graph_visual_metrics.v1"
+            or str(metrics.get("graph_revision") or "") != graph_revision
+            or not graph_revision
+            or not graph_revision.startswith("sha256:")
+            or len(graph_revision) != 71
+        ):
+            raise RuntimeError("knowledge_index_graph_artifact_revision_mismatch")
+        from worker.retrieval.codecompass_graph_visual_metrics import (
+            verify_visual_metrics_content_hash,
+        )
+
+        if not verify_visual_metrics_content_hash(metrics):
+            raise RuntimeError("knowledge_index_graph_visual_metrics_hash_invalid")
+        return {
+            "graph_index": {
+                "artifact_schema": "codecompass_graph_index.v1",
+                "graph_revision": graph_revision,
+                "graph_content_hash": "sha256:"
+                + hashlib.sha256(graph_path.read_bytes()).hexdigest(),
+            },
+            "graph_visual_metrics": {
+                "artifact_schema": "graph_visual_metrics.v1",
+                "graph_revision": graph_revision,
+                "graph_content_hash": str(metrics.get("content_hash") or ""),
+            },
+        }
 
 
 class HubArtifactKnowledgeIndexPayloadLoader:
@@ -498,6 +609,7 @@ def build_knowledge_index_task_handler(
     *,
     payload_loader: KnowledgeIndexPayloadLoaderPort | None = None,
     artifact_publisher: KnowledgeIndexArtifactPublisherPort | None = None,
+    graph_artifact_materializer: KnowledgeIndexGraphArtifactMaterializerPort | None = None,
 ) -> KnowledgeIndexWorkerTaskHandler:
     """Composition hook used by the worker-only application bootstrap."""
 
@@ -510,6 +622,7 @@ def build_knowledge_index_task_handler(
             index_service,
             payload_loader=payload_loader,
             artifact_publisher=artifact_publisher,
+            graph_artifact_materializer=graph_artifact_materializer,
         )
     )
 
@@ -518,6 +631,7 @@ __all__ = [
     "KnowledgeIndexExecutionPort",
     "KnowledgeIndexPayloadLoaderPort",
     "KnowledgeIndexArtifactPublisherPort",
+    "KnowledgeIndexGraphArtifactMaterializerPort",
     "KnowledgeIndexWorkerTaskHandler",
     "HubArtifactKnowledgeIndexPayloadLoader",
     "WorkerKnowledgeIndexArtifactPublisher",

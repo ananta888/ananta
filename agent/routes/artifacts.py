@@ -346,6 +346,11 @@ def index_artifact_for_rag(artifact_id: str):
             created_by=_current_username(),
             profile_name=payload.profile_name,
             profile_overrides=payload.profile_overrides,
+            graph_visual_metrics=(
+                payload.graph_visual_metrics.model_dump(by_alias=True)
+                if payload.graph_visual_metrics is not None
+                else None
+            ),
         )
         return api_response(status="accepted", code=202, data={"job": job})
     knowledge_index, run = get_rag_helper_index_service().index_artifact(

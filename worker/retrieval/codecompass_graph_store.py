@@ -1,8 +1,73 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import math
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
+
+
+def _finite_non_negative(
+    value: Any,
+    *,
+    field: str,
+    maximum: float | None = None,
+) -> float | int:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"invalid_graph_edge_value:{field}")
+    numeric = float(value)
+    if not math.isfinite(numeric) or numeric < 0 or (maximum is not None and numeric > maximum):
+        raise ValueError(f"invalid_graph_edge_value:{field}")
+    return value
+
+
+def _stable_edge_id(
+    record: dict[str, Any],
+    *,
+    source_id: str,
+    target_id: str,
+    raw_edge_type: str,
+    occurrences: dict[str, int],
+) -> str:
+    explicit_edge_id = str(record.get("edge_id") or "").strip()
+    identity_payload = {
+        "source_id": source_id,
+        "target_id": target_id,
+        "raw_edge_type": raw_edge_type,
+        "confidence": record.get("confidence"),
+        "multiplicity": record.get("multiplicity"),
+        "dependency_weight": record.get("dependency_weight"),
+        "directed": record.get("directed"),
+        "metrics": record.get("metrics"),
+        "attributes": record.get("attributes"),
+        "field": record.get("field"),
+        "operation": record.get("operation"),
+        "heuristic": record.get("heuristic"),
+        "rule_id": record.get("rule_id"),
+    }
+    identity_seed = explicit_edge_id or (
+        "edge:sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                identity_payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
+    )
+    occurrence = occurrences.get(identity_seed, 0)
+    if explicit_edge_id and occurrence:
+        raise ValueError("duplicate_graph_edge_id")
+    occurrences[identity_seed] = occurrence + 1
+    if occurrence == 0:
+        return identity_seed
+    return "edge:sha256:" + hashlib.sha256(
+        f"{identity_seed}\0{occurrence}".encode("utf-8")
+    ).hexdigest()
 
 
 class CodeCompassGraphStore:
@@ -67,9 +132,15 @@ class CodeCompassGraphStore:
             "edges": [item for item in list(payload.get("edges") or []) if isinstance(item, dict)],
             "semantic_nodes": [item for item in list(payload.get("semantic_nodes") or []) if isinstance(item, dict)],
             "semantic_edges": [item for item in list(payload.get("semantic_edges") or []) if isinstance(item, dict)],
-            "equivalence_rules": [item for item in list(payload.get("equivalence_rules") or []) if isinstance(item, dict)],
-            "translation_contracts": [item for item in list(payload.get("translation_contracts") or []) if isinstance(item, dict)],
-            "transform_artifacts": [item for item in list(payload.get("transform_artifacts") or []) if isinstance(item, dict)],
+            "equivalence_rules": [
+                item for item in list(payload.get("equivalence_rules") or []) if isinstance(item, dict)
+            ],
+            "translation_contracts": [
+                item for item in list(payload.get("translation_contracts") or []) if isinstance(item, dict)
+            ],
+            "transform_artifacts": [
+                item for item in list(payload.get("transform_artifacts") or []) if isinstance(item, dict)
+            ],
             # X86CC-020: x86 fields are optional in the on-disk payload; default to empty.
             "x86_nodes": [item for item in list(payload.get("x86_nodes") or []) if isinstance(item, dict)],
             "x86_edges": [item for item in list(payload.get("x86_edges") or []) if isinstance(item, dict)],
@@ -94,12 +165,54 @@ class CodeCompassGraphStore:
         }
         return self._cached_payload
 
+    @property
+    def visual_metrics_path(self) -> Path:
+        storage_path = getattr(self, "_index_path", None) or getattr(self, "_db_path", None)
+        if storage_path is None:
+            raise RuntimeError("graph_store_path_unavailable")
+        path = Path(storage_path)
+        return path.with_name(f"{path.stem}.visual_metrics.json")
+
+    @staticmethod
+    def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=path.parent,
+                prefix=f".{path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                temp_path = Path(handle.name)
+                json.dump(payload, handle, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_path, path)
+        finally:
+            if temp_path is not None and temp_path.exists():
+                temp_path.unlink()
+
     def save(self, payload: dict[str, Any]) -> None:
-        self._index_path.parent.mkdir(parents=True, exist_ok=True)
-        self._index_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._atomic_write_json(self._index_path, payload)
         self._cached_payload = None
 
-    def rebuild_from_output_records(
+    def load_visual_metrics(self) -> dict[str, Any] | None:
+        """Read a worker-produced sidecar without deriving missing metrics."""
+        try:
+            payload = json.loads(self.visual_metrics_path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            return None
+        return dict(payload) if isinstance(payload, dict) else None
+
+    def publish_visual_metrics(self, artifact: dict[str, Any]) -> None:
+        """Atomically publish an already computed visual-metrics artifact."""
+        self._atomic_write_json(self.visual_metrics_path, artifact)
+
+    def rebuild_from_output_records(  # noqa: C901 - compatibility dispatcher for existing output kinds
         self,
         *,
         records: list[dict[str, Any]],
@@ -122,6 +235,7 @@ class CodeCompassGraphStore:
         rig_edges_list: list[dict[str, Any]] = []
         has_nodes = False
         has_edges = False
+        edge_identity_occurrences: dict[str, int] = {}
         for index, record in enumerate(list(records or []), start=1):
             if not isinstance(record, dict):
                 continue
@@ -130,11 +244,13 @@ class CodeCompassGraphStore:
             if output_kind == "graph_nodes":
                 has_nodes = True
                 node_id = str(record.get("id") or record.get("node_id") or f"node:{index}").strip()
+                raw_node_type = str(record.get("kind") or record.get("type") or "unknown") or "unknown"
                 nodes.append(
                     {
                         "id": node_id,
                         "file": str(record.get("file") or record.get("path") or "").strip(),
-                        "kind": str(record.get("kind") or record.get("type") or "unknown").strip().lower() or "unknown",
+                        "kind": raw_node_type.strip().lower(),
+                        "raw_node_type": raw_node_type,
                         "name": str(record.get("name") or record.get("symbol") or "").strip(),
                         "record_id": str(record.get("record_id") or node_id).strip(),
                         "content": str(record.get("content") or record.get("summary") or "").strip(),
@@ -147,17 +263,51 @@ class CodeCompassGraphStore:
                 target_id = str(record.get("target") or record.get("target_id") or "").strip()
                 if not source_id or not target_id:
                     continue
-                edge_type = str(record.get("type") or record.get("edge_type") or "related").strip().lower() or "related"
+                raw_edge_type = str(record.get("type") or record.get("edge_type") or "related") or "related"
+                edge_type = raw_edge_type.strip().lower()
+                confidence_value = record.get("confidence")
+                if confidence_value is None:
+                    confidence_value = 1.0
+                confidence_value = _finite_non_negative(
+                    confidence_value,
+                    field="confidence",
+                    maximum=1,
+                )
+                for metric_name in ("multiplicity", "dependency_weight"):
+                    if record.get(metric_name) is not None:
+                        _finite_non_negative(record[metric_name], field=metric_name)
+                if record.get("directed") is not None and not isinstance(record["directed"], bool):
+                    raise ValueError("invalid_graph_edge_value:directed")
+                if isinstance(record.get("metrics"), dict):
+                    for metric_name, metric_value in record["metrics"].items():
+                        _finite_non_negative(metric_value, field=f"metrics.{metric_name}")
+                edge_id = _stable_edge_id(
+                    record,
+                    source_id=source_id,
+                    target_id=target_id,
+                    raw_edge_type=raw_edge_type,
+                    occurrences=edge_identity_occurrences,
+                )
                 edge: dict[str, Any] = {
+                    "edge_id": edge_id,
                     "source_id": source_id,
                     "target_id": target_id,
                     "edge_type": edge_type,
-                    "confidence": float(record.get("confidence") or 1.0),
+                    "raw_edge_type": raw_edge_type,
+                    "confidence": float(confidence_value),
                     "provenance": {
                         "manifest_hash": str(manifest_hash or ""),
                         "output_kind": output_kind,
                     },
                 }
+                if record.get("multiplicity") is not None:
+                    edge["multiplicity"] = record["multiplicity"]
+                if record.get("dependency_weight") is not None:
+                    edge["dependency_weight"] = record["dependency_weight"]
+                if record.get("directed") is not None:
+                    edge["directed"] = bool(record["directed"])
+                if isinstance(record.get("metrics"), dict):
+                    edge["metrics"] = dict(record["metrics"])
                 for attribute_key in ("field", "operation", "heuristic"):
                     if record.get(attribute_key) is not None:
                         edge[attribute_key] = record[attribute_key]
@@ -165,7 +315,11 @@ class CodeCompassGraphStore:
             elif output_kind == "semantic_nodes":
                 semantic_nodes.append(self._normalize_semantic_node(record, manifest_hash, index))
             elif output_kind == "semantic_edges":
-                edge = self._normalize_semantic_edge(record, manifest_hash)
+                edge = self._normalize_semantic_edge(
+                    record,
+                    manifest_hash,
+                    edge_identity_occurrences,
+                )
                 if edge:
                     semantic_edges.append(edge)
             elif output_kind == "equivalence_rules":
@@ -211,7 +365,10 @@ class CodeCompassGraphStore:
                 "status": "ready",
             }
         else:
-            diagnostics["semantic_translation"] = {"status": "degraded", "reason": "semantic_translation_index_unavailable"}
+            diagnostics["semantic_translation"] = {
+                "status": "degraded",
+                "reason": "semantic_translation_index_unavailable",
+            }
 
         if x86_nodes_list or x86_edges_list:
             # X86CC-020: expose x86 records as their own structure with a deterministic
@@ -232,7 +389,14 @@ class CodeCompassGraphStore:
                 "status": "ready",
             }
         else:
-            x86_index = {"schema": "codecompass_x86_graph.v1", "nodes": [], "edges": [], "nodes_by_id": {}, "node_count": 0, "edge_count": 0}
+            x86_index = {
+                "schema": "codecompass_x86_graph.v1",
+                "nodes": [],
+                "edges": [],
+                "nodes_by_id": {},
+                "node_count": 0,
+                "edge_count": 0,
+            }
             diagnostics["x86_extension"] = {"status": "degraded", "reason": "no_x86_records"}
 
         # RIG-002: build rig_index analogously to x86_index. The snapshot metadata
@@ -282,16 +446,23 @@ class CodeCompassGraphStore:
             "diagnostics": diagnostics,
         }
         self.save(payload)
+        # Metrics are worker-owned and published as a revision-bound sidecar.
+        # Advanced algorithms remain opt-in so ordinary indexing stays bounded.
+        from worker.retrieval.codecompass_graph_visual_metrics import materialize_graph_visual_metrics
+
+        materialize_graph_visual_metrics(graph_store=self)
         return diagnostics
 
     @staticmethod
     def _normalize_semantic_node(record: dict[str, Any], manifest_hash: str, index: int) -> dict[str, Any]:
         provenance = dict(record.get("provenance") or {})
         node_id = str(record.get("id") or record.get("node_id") or f"semantic-node:{index}").strip()
+        raw_node_type = str(record.get("kind") or "semantic_node") or "semantic_node"
         return {
             "id": node_id,
             "file": str(provenance.get("file") or record.get("file") or record.get("path") or "").strip(),
-            "kind": str(record.get("kind") or "semantic_node").strip().lower() or "semantic_node",
+            "kind": raw_node_type.strip().lower(),
+            "raw_node_type": raw_node_type,
             "semantic_kind": str(record.get("semantic_kind") or "").strip().lower(),
             "language": str(record.get("language") or provenance.get("language") or "").strip().lower(),
             "symbol": str(record.get("symbol") or provenance.get("symbol") or record.get("name") or "").strip(),
@@ -303,22 +474,62 @@ class CodeCompassGraphStore:
         }
 
     @staticmethod
-    def _normalize_semantic_edge(record: dict[str, Any], manifest_hash: str) -> dict[str, Any] | None:
+    def _normalize_semantic_edge(
+        record: dict[str, Any],
+        manifest_hash: str,
+        edge_identity_occurrences: dict[str, int],
+    ) -> dict[str, Any] | None:
         source_id = str(record.get("source") or record.get("source_id") or "").strip()
         target_id = str(record.get("target") or record.get("target_id") or "").strip()
         if not source_id or not target_id:
             return None
-        edge_type = str(record.get("edge_type") or record.get("type") or "related").strip().lower() or "related"
-        return {
+        raw_edge_type = str(record.get("edge_type") or record.get("type") or "related") or "related"
+        edge_type = raw_edge_type.strip().lower()
+        confidence_value = record.get("confidence")
+        if confidence_value is None:
+            confidence_value = (record.get("provenance") or {}).get("confidence")
+        if confidence_value is None:
+            confidence_value = 1.0
+        confidence_value = _finite_non_negative(
+            confidence_value,
+            field="confidence",
+            maximum=1,
+        )
+        for metric_name in ("multiplicity", "dependency_weight"):
+            if record.get(metric_name) is not None:
+                _finite_non_negative(record[metric_name], field=metric_name)
+        if record.get("directed") is not None and not isinstance(record["directed"], bool):
+            raise ValueError("invalid_graph_edge_value:directed")
+        if isinstance(record.get("metrics"), dict):
+            for metric_name, metric_value in record["metrics"].items():
+                _finite_non_negative(metric_value, field=f"metrics.{metric_name}")
+        edge: dict[str, Any] = {
+            "edge_id": _stable_edge_id(
+                record,
+                source_id=source_id,
+                target_id=target_id,
+                raw_edge_type=raw_edge_type,
+                occurrences=edge_identity_occurrences,
+            ),
             "source_id": source_id,
             "target_id": target_id,
             "edge_type": edge_type,
+            "raw_edge_type": raw_edge_type,
             "rule_id": str(record.get("rule_id") or "").strip(),
-            "confidence": float(record.get("confidence") or (record.get("provenance") or {}).get("confidence") or 1.0),
+            "confidence": float(confidence_value),
             "attributes": dict(record.get("attributes") or {}),
-            "provenance": {**dict(record.get("provenance") or {}), "manifest_hash": str(manifest_hash or ""), "output_kind": "semantic_edges"},
+            "provenance": {
+                **dict(record.get("provenance") or {}),
+                "manifest_hash": str(manifest_hash or ""),
+                "output_kind": "semantic_edges",
+            },
             "source_record": dict(record),
         }
+        for field in ("multiplicity", "dependency_weight", "directed", "metrics"):
+            value = record.get(field)
+            if value is not None:
+                edge[field] = dict(value) if field == "metrics" and isinstance(value, dict) else value
+        return edge
 
     @staticmethod
     def _build_node_index(nodes: list[dict[str, Any]]) -> dict[str, Any]:
@@ -595,7 +806,11 @@ class CodeCompassGraphStore:
             direction_name = "outgoing"
         payload = self.load()
         by_id = dict((payload.get("node_index") or {}).get("by_id") or {})
-        seeds = sorted({str(item).strip() for item in list(seed_ids or []) if str(item).strip() and str(item).strip() in by_id})
+        seeds = sorted({
+            str(item).strip()
+            for item in list(seed_ids or [])
+            if str(item).strip() and str(item).strip() in by_id
+        })
         depth_cap = max(0, int(max_depth))
         node_cap = max(1, int(max_nodes))
         path_cap = max(1, int(max_paths_per_node))

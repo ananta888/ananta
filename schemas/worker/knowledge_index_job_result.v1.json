@@ -35,12 +35,73 @@
           "artifact_id": {"type": "string", "minLength": 1},
           "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
           "media_type": {"type": "string", "minLength": 1},
-          "role": {"enum": ["manifest", "index", "details", "relations"]},
-          "filename": {"enum": ["manifest.json", "index.jsonl", "details.jsonl", "relations.jsonl"]},
+          "role": {"enum": ["manifest", "index", "details", "relations", "graph_index", "graph_visual_metrics"]},
+          "filename": {"enum": ["manifest.json", "index.jsonl", "details.jsonl", "relations.jsonl", "cc_graph_index.json", "cc_graph_index.visual_metrics.json"]},
           "size_bytes": {"type": "integer", "minimum": 0, "maximum": 134217728},
           "knowledge_index_id": {"type": "string", "minLength": 1, "maxLength": 256},
-          "run_id": {"type": "string", "minLength": 1, "maxLength": 256}
-        }
+          "run_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "artifact_schema": {"enum": ["codecompass_graph_index.v1", "graph_visual_metrics.v1"]},
+          "graph_revision": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+          "graph_content_hash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+        },
+        "allOf": [
+          {
+            "if": {
+              "anyOf": [
+                {"required": ["role"]},
+                {"required": ["filename"]},
+                {"required": ["size_bytes"]},
+                {"required": ["knowledge_index_id"]},
+                {"required": ["run_id"]}
+              ]
+            },
+            "then": {
+              "required": ["role", "filename", "size_bytes", "knowledge_index_id", "run_id"]
+            }
+          },
+          {
+            "if": {
+              "properties": {"role": {"enum": ["graph_index", "graph_visual_metrics"]}},
+              "required": ["role"]
+            },
+            "then": {
+              "required": ["artifact_schema", "graph_revision", "graph_content_hash"]
+            },
+            "else": {
+              "not": {
+                "anyOf": [
+                  {"required": ["artifact_schema"]},
+                  {"required": ["graph_revision"]},
+                  {"required": ["graph_content_hash"]}
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {"role": {"const": "graph_index"}},
+              "required": ["role"]
+            },
+            "then": {
+              "properties": {
+                "filename": {"const": "cc_graph_index.json"},
+                "artifact_schema": {"const": "codecompass_graph_index.v1"}
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {"role": {"const": "graph_visual_metrics"}},
+              "required": ["role"]
+            },
+            "then": {
+              "properties": {
+                "filename": {"const": "cc_graph_index.visual_metrics.json"},
+                "artifact_schema": {"const": "graph_visual_metrics.v1"}
+              }
+            }
+          }
+        ]
       }
     },
     "error": {"type": ["string", "null"]}

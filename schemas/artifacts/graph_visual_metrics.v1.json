@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/artifacts/graph_visual_metrics.v1.json",
+  "title": "CodeCompass Graph Visual Metrics v1",
+  "description": "Deterministic worker-produced metrics for one immutable graph revision.",
+  "type": "object",
+  "required": [
+    "schema",
+    "graph_revision",
+    "algorithm_version",
+    "capability_status",
+    "metric_capabilities",
+    "nodes",
+    "metadata",
+    "content_hash"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "graph_visual_metrics.v1"
+    },
+    "graph_revision": {"type": "string", "minLength": 1},
+    "algorithm_version": {"type": "string", "minLength": 1},
+    "capability_status": {
+      "type": "string",
+      "enum": ["available", "approximate", "degraded", "unavailable"]
+    },
+    "metric_capabilities": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/metricCapability"}
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["node_id", "values"],
+        "properties": {
+          "node_id": {"type": "string", "minLength": 1},
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["node_count", "edge_count"],
+      "properties": {
+        "node_count": {"type": "integer", "minimum": 0},
+        "edge_count": {"type": "integer", "minimum": 0},
+        "advanced_metrics_requested": {"type": "boolean"},
+        "limits": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "integer", "boolean", "null"]
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  },
+  "$defs": {
+    "metricCapability": {
+      "type": "object",
+      "required": ["status", "source", "algorithm_version", "scope", "entity"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["available", "approximate", "unavailable", "not_applicable"]
+        },
+        "source": {"type": "string", "minLength": 1},
+        "algorithm_version": {"type": "string", "minLength": 1},
+        "scope": {
+          "type": "string",
+          "enum": ["all_nodes", "all_edges", "subset", "graph"]
+        },
+        "entity": {
+          "type": "string",
+          "enum": ["node", "edge", "graph"]
+        },
+        "reason_code": {"type": "string", "minLength": 1},
+        "graph_revision": {"type": "string", "minLength": 1},
+        "limits": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "integer", "boolean", "null"]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {"enum": ["unavailable", "not_applicable"]}
+            },
+            "required": ["status"]
+          },
+          "then": {"required": ["reason_code"]}
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
