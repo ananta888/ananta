@@ -1,0 +1,602 @@
+{
+  "id": "todo.ai-snake-distributed-webrtc-semantic-stream",
+  "title": "Distributed E2EE semantic WebRTC streaming with AI-Snake negotiated compute contracts",
+  "status": "todo",
+  "version": "1.0",
+  "created_at": "2026-07-18",
+  "goal": "Extend Ananta Pair-Dev from encrypted view-state deltas into an optional semantic media mode. Participants negotiate compute contribution, reconstruction delay, validators and short-lived task masters. The Hub/SFU coordinates signalling, routing and opaque contracts without needing plaintext media in strict E2EE mode.",
+  "codebase_alignment": {
+    "pair_view_architecture": "docs/architecture/pair-view-sync.md already defines minimal encrypted deltas, WebRTC DataChannel or Hub Relay selection, snapshot recovery, payload limits and default-deny control.",
+    "pair_view_types": "frontend-angular/src/app/services/pair-view-sync.types.ts is the current typed wire contract and must remain backward compatible.",
+    "ai_snake_learning": "docs/operator-tui/ai-snake-heuristic-evolution.md already implements observation, candidate validation, simulation, shadow run, progressive rollout, quarantine and rollback. Reuse this lifecycle.",
+    "ai_snake_config": "agent/routes/ai_snake_config.py only persists registered schema keys. New settings must be added through chat_setting_definitions rather than arbitrary JSON.",
+    "worker_contracts": "agent/services/worker_contract_service.py already models capabilities, routing decisions and normalized contracts. Reuse terminology where useful, but keep real-time peer leases separate from background worker jobs.",
+    "known_gaps": [
+      "Pair-View is currently documented as n=2 only.",
+      "Current view sync transports UI state, not semantic scene graphs, residual image tiles or media recovery data.",
+      "Current permission keys do not cover compute contribution, semantic processing, validator or temporary master roles.",
+      "The Hub relay forwards opaque payloads and must remain unable to inspect plaintext under strict E2EE."
+    ]
+  },
+  "principles": [
+    "AI-Snake explains and proposes; deterministic policy validates and commits.",
+    "No permanent global master. Mastership is short-lived and task-scoped.",
+    "Audio and urgent interaction events are never delayed by the configurable 2-20 second reconstruction window.",
+    "Every client may refuse compute contribution or force ordinary encrypted WebRTC fallback.",
+    "All messages are versioned, bounded, replay-protected and independently validated.",
+    "No fixed bandwidth reduction is promised; savings must be benchmarked per scene and device profile.",
+    "The SFU forwarding fast path must not execute unbounded inference.",
+    "Feature disabled means existing Pair-Dev and WebRTC behavior remains unchanged."
+  ],
+  "non_goals": [
+    "Do not replace standard WebRTC audio/video as the mandatory transport.",
+    "Do not allow an LLM to sign contracts, distribute keys or grant permissions.",
+    "Do not trust self-reported peer capacity or reconstruction quality without observed validation.",
+    "Do not share raw media with the Hub/SFU in strict E2EE mode.",
+    "Do not make a slow participant force all other participants into the same quality mode."
+  ],
+  "target_topology": {
+    "media_plane": "Standard encrypted WebRTC media plus optional reference frames, semantic deltas and bounded residual chunks.",
+    "control_plane": "WebRTC DataChannel preferred; existing encrypted Hub Relay fallback.",
+    "coordination_plane": "Hub/SFU manages authenticated membership, epochs, opaque routing, lease ordering and expiry.",
+    "compute_plane": "Participant-local CPU/GPU/NPU workers; optional trusted server workers only after explicit non-strict-E2EE consent.",
+    "audit_plane": "Structured raw-media-free events for proposals, contracts, leases, quality, recovery and fallback."
+  },
+  "milestones": [
+    {"id": "M1", "title": "Contracts and threat model", "exit": "Schemas, permissions and deterministic negotiation state machine approved."},
+    {"id": "M2", "title": "Two-peer negotiation", "exit": "Two browsers negotiate signed task leases and safely fall back."},
+    {"id": "M3", "title": "Semantic reconstruction", "exit": "Controlled scenes use references, deltas and residuals with measurable quality."},
+    {"id": "M4", "title": "Multi-peer scheduling", "exit": "3-10 peers support task masters, validators, churn and re-election."},
+    {"id": "M5", "title": "AI-Snake learning", "exit": "Negotiation heuristics pass shadow, canary and rollback lifecycle."},
+    {"id": "M6", "title": "Scale and rollout", "exit": "100-viewer, E2EE, security and chaos gates pass behind feature flags."}
+  ],
+  "protocol_contracts": {
+    "capability_advertisement.v1": ["peer_id", "session_id", "epoch", "protocol_versions", "device_class", "compute_budget", "network_budget", "latency_budget_ms", "supported_tasks", "privacy_policy", "expires_at", "signature"],
+    "compute_quality_contract.v1": ["contract_id", "session_id", "epoch", "participants", "latency_policy", "quality_policy", "task_allocations", "validation_policy", "fallback_policy", "key_policy_ref", "valid_from", "expires_at", "signatures"],
+    "task_lease.v1": ["lease_id", "contract_id", "task_kind", "master_peer_id", "validator_peer_ids", "scope", "sequence_start", "sequence_end", "max_runtime_ms", "quality_thresholds", "issued_at", "expires_at", "signature"],
+    "semantic_frame.v1": ["stream_id", "epoch", "sequence", "base_frame_ref", "scene_graph_delta", "motion_delta", "residual_refs", "quality_hint", "deadline_ms", "signature"],
+    "reconstruction_report.v1": ["peer_id", "stream_id", "sequence", "decode_ms", "reconstruct_ms", "error_metrics", "missing_refs", "requested_recovery", "observed_bandwidth_bps", "signature"]
+  },
+  "implementation_order": [
+    "semrtc-001", "semrtc-002", "semrtc-003", "semrtc-004", "semrtc-005", "semrtc-006", "semrtc-007", "semrtc-008", "semrtc-009", "semrtc-010", "semrtc-011", "semrtc-012", "semrtc-013", "semrtc-014", "semrtc-015", "semrtc-016", "semrtc-017", "semrtc-018", "semrtc-019", "semrtc-020"
+  ],
+  "tasks": [
+    {
+      "id": "semrtc-001",
+      "status": "todo",
+      "title": "Document threat model and E2EE trust boundaries",
+      "type": "architecture/security",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": [],
+      "files": ["docs/security/semantic-webrtc-threat-model.md", "docs/architecture/semantic-webrtc-compute-contracts.md"],
+      "description": "Define strict-E2EE, trusted-server and development profiles. Cover malicious peers, Sybil behavior, replay, forged leases, poisoned heuristics, fake capacity claims, inference leakage, traffic analysis and denial of service.",
+      "acceptance_criteria": [
+        "Browser, AI-Snake, Hub, SFU, TURN and optional compute-worker trust boundaries are explicit.",
+        "Strict-E2EE states that Hub/SFU cannot inspect plaintext media or semantic payloads.",
+        "Each threat has prevention, detection, recovery and audit requirements.",
+        "LLM output is explicitly non-authoritative for permissions, keys and leases.",
+        "Metadata leakage and traffic-analysis limitations are documented.",
+        "Existing Pair-View default-deny control is named as the baseline."
+      ]
+    },
+    {
+      "id": "semrtc-002",
+      "status": "todo",
+      "title": "Create versioned semantic WebRTC schemas",
+      "type": "contract/schema",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semrtc-001"],
+      "files": [
+        "schemas/webrtc/capability_advertisement.v1.json",
+        "schemas/webrtc/compute_quality_contract.v1.json",
+        "schemas/webrtc/task_lease.v1.json",
+        "schemas/webrtc/semantic_frame.v1.json",
+        "schemas/webrtc/reconstruction_report.v1.json",
+        "schemas/webrtc/recovery_request.v1.json"
+      ],
+      "description": "Add strict JSON Schemas for negotiation, leases, semantic frames, quality reports and recovery. Security-sensitive envelopes must reject unbounded additional properties.",
+      "acceptance_criteria": [
+        "Every schema has $id, version discriminator, required fields and explicit bounds.",
+        "Epoch, sequence, expiry, peer and session identifiers are mandatory where authoritative.",
+        "Signatures and hash references never contain private keys.",
+        "Fixtures cover valid, expired, replayed, oversized and malformed messages.",
+        "Schemas validate independently from Angular and Flask implementations.",
+        "Binary residuals are referenced as bounded chunks rather than embedded without limits."
+      ]
+    },
+    {
+      "id": "semrtc-003",
+      "status": "todo",
+      "title": "Extend Pair-Dev permissions with semantic compute roles",
+      "type": "backend/frontend contract",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semrtc-001", "semrtc-002"],
+      "files": [
+        "frontend-angular/src/app/services/pair-view-sync.types.ts",
+        "frontend-angular/src/app/services/permission-labels.ts",
+        "agent/routes/share_sessions.py",
+        "tests/test_share_sessions.py"
+      ],
+      "description": "Add default-deny permissions for semantic media, compute contribution, validation, temporary task mastership and derived-data sharing while preserving all existing keys.",
+      "acceptance_criteria": [
+        "Existing chat, view_tui, cursor, control, artifact_view and annotation behavior remains compatible.",
+        "Every new permission defaults to false.",
+        "No permission implies another permission.",
+        "Master eligibility requires compute contribution plus task-specific master permission.",
+        "Revocation invalidates offers and leases within a bounded timeout.",
+        "Backend and frontend use identical canonical keys.",
+        "Legacy clients cannot accidentally grant new permissions."
+      ]
+    },
+    {
+      "id": "semrtc-004",
+      "status": "todo",
+      "title": "Implement deterministic compute-contract negotiation state machine",
+      "type": "backend contract engine",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semrtc-002", "semrtc-003"],
+      "files": ["ananta_contracts/semantic_webrtc.py", "agent/services/semantic_webrtc_negotiation.py", "tests/test_semantic_webrtc_negotiation.py"],
+      "description": "Implement offer, counteroffer, accept, reject, activate, renew, revoke, expire and fallback as a pure deterministic state machine. AI-Snake proposals must compile into this engine.",
+      "acceptance_criteria": [
+        "Identical ordered inputs yield identical states and reason codes.",
+        "Duplicate, stale, out-of-order and expired messages are rejected idempotently.",
+        "A contract activates only with required permissions and signatures.",
+        "Negotiation rounds and duration are bounded.",
+        "Every transition emits a stable machine-readable reason_code.",
+        "Property tests cover reorder, duplicate, timeout, partial consent and revocation.",
+        "AI-Snake cannot bypass the engine."
+      ]
+    },
+    {
+      "id": "semrtc-005",
+      "status": "todo",
+      "title": "Measure and normalize participant capabilities",
+      "type": "frontend implementation",
+      "priority": "high",
+      "risk": "medium",
+      "depends_on": ["semrtc-002", "semrtc-003"],
+      "files": [
+        "frontend-angular/src/app/services/peer-capability.types.ts",
+        "frontend-angular/src/app/services/peer-capability.service.ts",
+        "frontend-angular/src/app/services/peer-capability.service.spec.ts"
+      ],
+      "description": "Measure coarse browser-visible CPU timing, WebCodecs/WebGPU support, memory hints, network stats and user-configured limits without excessive fingerprinting.",
+      "acceptance_criteria": [
+        "Service works when optional browser APIs are unavailable.",
+        "Capability values are coarse and privacy-preserving.",
+        "User resource caps override detected capacity.",
+        "Battery or thermal limits can disable or reduce contribution.",
+        "Advertisements expire and refresh at bounded intervals.",
+        "No benchmark runs before explicit permission.",
+        "Tests cover weak, strong, missing-API and revoked-consent clients."
+      ]
+    },
+    {
+      "id": "semrtc-006",
+      "status": "todo",
+      "title": "Add session signatures, epochs and replay protection",
+      "type": "security implementation",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semrtc-002", "semrtc-003"],
+      "files": [
+        "frontend-angular/src/app/services/pair-crypto.service.ts",
+        "frontend-angular/src/app/services/semantic-message-signing.service.ts",
+        "agent/services/semantic_webrtc_replay_guard.py",
+        "tests/test_semantic_webrtc_replay_guard.py"
+      ],
+      "description": "Bind authoritative messages to session-scoped participant identities, epochs and non-reusable sequences using vetted platform cryptography.",
+      "acceptance_criteria": [
+        "Hub can route but cannot forge participant acceptance.",
+        "Replay from an old session, epoch or sequence is rejected.",
+        "Key rotation does not expose keys to Hub/SFU.",
+        "Lost local state triggers safe renegotiation instead of accepting stale leases.",
+        "No custom cryptographic primitive is introduced.",
+        "Tests cover key rotation, reconnect, replay and tampered signatures."
+      ]
+    },
+    {
+      "id": "semrtc-007",
+      "status": "todo",
+      "title": "Extend WebRTC DataChannel and opaque Hub Relay transport",
+      "type": "frontend/backend transport",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semrtc-002", "semrtc-006"],
+      "files": [
+        "frontend-angular/src/app/services/webrtc-session.service.ts",
+        "frontend-angular/src/app/services/webrtc-transport.service.ts",
+        "frontend-angular/src/app/services/semantic-webrtc-transport.service.ts",
+        "agent/routes/share_sessions.py",
+        "agent/services/semantic_webrtc_relay.py",
+        "tests/test_semantic_webrtc_relay.py"
+      ],
+      "description": "Add typed bounded messages for capabilities, contracts, leases, semantic envelopes, reports and recovery. Prefer DataChannel and reuse the existing encrypted Hub Relay fallback.",
+      "acceptance_criteria": [
+        "Existing view_payload behavior is unchanged.",
+        "Unknown versions and kinds are ignored with audit events.",
+        "Per-kind size and rate limits apply before expensive parsing.",
+        "Backpressure prevents unbounded DataChannel bufferedAmount growth.",
+        "Control and recovery messages have priority over residual chunks.",
+        "Relay retention is bounded by bytes, count and TTL.",
+        "Reconnect creates a new epoch and never silently reuses stale leases.",
+        "Hub never needs plaintext semantic content."
+      ]
+    },
+    {
+      "id": "semrtc-008",
+      "status": "todo",
+      "title": "Implement task-scoped temporary master leases",
+      "type": "coordination",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semrtc-004", "semrtc-005", "semrtc-006"],
+      "files": [
+        "agent/services/semantic_master_scheduler.py",
+        "frontend-angular/src/app/services/semantic-master-election.service.ts",
+        "tests/test_semantic_master_scheduler.py"
+      ],
+      "description": "Elect separate short-lived masters for motion estimation, geometry tracking, residual generation, validation and recovery. Use consent, observed performance, network, energy limits and reputation.",
+      "acceptance_criteria": [
+        "There is no permanent global master.",
+        "Each lease contains task kind, scope, epoch, sequence range and expiry.",
+        "Scheduler supports primary, validators and hot standby.",
+        "Conflicting overlapping authority is rejected.",
+        "Departure, timeout, quality regression and permission revocation trigger deterministic re-election.",
+        "Equal-score ties resolve deterministically.",
+        "Clients locally reject leases exceeding their advertised limits.",
+        "Self-reported capacity alone cannot win election."
+      ]
+    },
+    {
+      "id": "semrtc-009",
+      "status": "todo",
+      "title": "Add participant compute-contract configuration UI",
+      "type": "frontend UX",
+      "priority": "high",
+      "risk": "medium",
+      "depends_on": ["semrtc-003", "semrtc-004", "semrtc-005", "semrtc-008"],
+      "files": [
+        "frontend-angular/src/app/components/pair-compute-contract-panel.component.ts",
+        "frontend-angular/src/app/components/pair-compute-contract-panel.component.html",
+        "frontend-angular/src/app/components/pair-compute-contract-panel.component.scss",
+        "frontend-angular/src/app/components/pair-compute-contract-panel.component.spec.ts"
+      ],
+      "description": "Expose compute contribution, duty cycle, battery policy, permitted roles, derived-data policy and maximum reconstruction delay from 2 to 20 seconds per participant.",
+      "acceptance_criteria": [
+        "Delay is configurable from 2000 to 20000 ms.",
+        "UI explains that audio and urgent interaction remain low latency.",
+        "Profiles include off, conservative, balanced and custom.",
+        "Consent changes produce a new contract epoch.",
+        "Current master, validators and lease expiry are visible.",
+        "Measured values, peer claims and deterministic decisions are visually distinguished.",
+        "Controls are keyboard accessible and usable on 5-inch and 15-inch displays."
+      ]
+    },
+    {
+      "id": "semrtc-010",
+      "status": "todo",
+      "title": "Integrate AI-Snake explanations and contract proposals",
+      "type": "AI-Snake frontend/backend",
+      "priority": "high",
+      "risk": "high",
+      "depends_on": ["semrtc-004", "semrtc-008", "semrtc-009"],
+      "files": [
+        "frontend-angular/src/app/components/ai-snake-chat-panel.component.ts",
+        "frontend-angular/src/app/components/snake-overlay.component.ts",
+        "agent/routes/snakes_chat_helpers.py",
+        "agent/services/semantic_contract_explainer.py",
+        "tests/test_semantic_contract_explainer.py"
+      ],
+      "description": "AI-Snake explains current offers, bottlenecks and master choices. Free-text requests compile to deterministic proposals but never become authoritative without policy validation and participant consent.",
+      "acceptance_criteria": [
+        "AI-Snake summarizes active contracts without exposing secrets.",
+        "Every proposal shows exact fields before acceptance.",
+        "Free text compiles into schema-valid proposal data.",
+        "AI-Snake cannot sign, grant permissions or distribute keys.",
+        "Rejected proposals return reason codes and safe alternatives.",
+        "Explanations identify uncertainty around unverified capability claims.",
+        "Master changes are explained per task rather than as one global role."
+      ]
+    },
+    {
+      "id": "semrtc-011",
+      "status": "todo",
+      "title": "Register semantic settings in the existing AI-Snake config system",
+      "type": "configuration",
+      "priority": "high",
+      "risk": "medium",
+      "depends_on": ["semrtc-001"],
+      "files": [
+        "agent/services/chat_setting_definitions.py",
+        "agent/routes/ai_snake_config.py",
+        "frontend-angular/src/app/services/ai-snake-config.service.ts",
+        "tests/test_ai_snake_config.py"
+      ],
+      "description": "Add schema-controlled settings for enablement, governance mode, default delay, compute cap, strict E2EE, fallback mode, heuristic learning and audit verbosity.",
+      "acceptance_criteria": [
+        "Unknown settings remain rejected by the existing PATCH behavior.",
+        "Defaults are conservative: feature off and compute contribution off.",
+        "Reconstruction delay is bounded to 2000-20000 ms.",
+        "Global defaults stay separate from live-session overrides.",
+        "Options endpoint exposes allowed values.",
+        "Existing AI-Snake configuration tests continue to pass."
+      ]
+    },
+    {
+      "id": "semrtc-012",
+      "status": "todo",
+      "title": "Create pluggable semantic capture and heuristic pipeline",
+      "type": "frontend media/AI",
+      "priority": "high",
+      "risk": "high",
+      "depends_on": ["semrtc-005", "semrtc-007"],
+      "files": [
+        "frontend-angular/src/app/services/semantic-capture.types.ts",
+        "frontend-angular/src/app/services/semantic-scene-model.ts",
+        "frontend-angular/src/app/services/semantic-capture.service.ts",
+        "frontend-angular/src/app/services/semantic-heuristic-pipeline.service.ts",
+        "frontend-angular/src/app/services/semantic-heuristics/geometry-tracker.ts",
+        "frontend-angular/src/app/services/semantic-heuristics/change-detector.ts",
+        "frontend-angular/src/app/services/semantic-heuristics/residual-planner.ts"
+      ],
+      "description": "Represent reference frames, static background, tracked regions, geometry, UI/text primitives, motion and residuals. Deterministic geometry/change detection is primary; optional local models are secondary.",
+      "acceptance_criteria": [
+        "Scene model is renderer- and model-independent.",
+        "Raw frames have explicit ownership and release lifecycle.",
+        "Sensitive regions can be excluded before processing.",
+        "Pipeline works without an LLM.",
+        "Each stage reports runtime, confidence and estimated byte savings.",
+        "Late stages are cancelled by deadlines.",
+        "Invalid model output is rejected by deterministic bounds.",
+        "Failure degrades to residual tiles or ordinary WebRTC.",
+        "Observe-only mode measures without altering media."
+      ]
+    },
+    {
+      "id": "semrtc-013",
+      "status": "todo",
+      "title": "Implement semantic frame packetization and bounded residual chunks",
+      "type": "frontend media transport",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semrtc-007", "semrtc-012"],
+      "files": [
+        "frontend-angular/src/app/services/semantic-frame-encoder.service.ts",
+        "frontend-angular/src/app/services/semantic-residual-chunker.service.ts",
+        "frontend-angular/src/app/services/semantic-frame-encoder.service.spec.ts"
+      ],
+      "description": "Encode reference frames plus semantic deltas and bounded residual tiles. Reuse WebCodecs or standard image/video codecs for payloads rather than inventing unsafe raw compression.",
+      "acceptance_criteria": [
+        "Every sequence references an available base frame or requests recovery.",
+        "Residual chunks have hashes, ordering, byte limits and expiry.",
+        "Reference frames can be forced by policy or recovery.",
+        "Packetization respects transport backpressure and message priority.",
+        "Missing chunks cannot create unbounded retention.",
+        "Malformed references fail closed and request recovery.",
+        "Synthetic deterministic fixtures cover static UI, motion and scene cut."
+      ]
+    },
+    {
+      "id": "semrtc-014",
+      "status": "todo",
+      "title": "Implement client reconstruction and self-healing for 2-20 seconds",
+      "type": "frontend reconstruction",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semrtc-013"],
+      "files": [
+        "frontend-angular/src/app/services/semantic-reconstruction.service.ts",
+        "frontend-angular/src/app/services/semantic-recovery.service.ts",
+        "frontend-angular/src/app/services/semantic-reconstruction.service.spec.ts"
+      ],
+      "description": "Reconstruct from references, geometry/motion deltas and residuals. Use the participant-specific 2-20 second window for prediction and repair, with immediate quality-triggered fallback.",
+      "acceptance_criteria": [
+        "Window is negotiated per receiver rather than globally assumed.",
+        "Visual drift, stale regions and missing references are measured continuously.",
+        "Region repair is attempted before full reference refresh when safe.",
+        "Audio and urgent controls are never blocked by reconstruction.",
+        "Threshold or deadline breach requests reference frame or ordinary stream.",
+        "Recovery handles duplicate and reordered packets idempotently.",
+        "Memory is bounded by resolution, chunk caps and configured window.",
+        "A 20-second setting does not permit displaying indefinitely incorrect content."
+      ]
+    },
+    {
+      "id": "semrtc-015",
+      "status": "todo",
+      "title": "Add quality metrics, validators and peer reliability",
+      "type": "quality/security",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semrtc-008", "semrtc-014"],
+      "files": [
+        "frontend-angular/src/app/services/semantic-quality.service.ts",
+        "frontend-angular/src/app/services/semantic-validator.service.ts",
+        "agent/services/semantic_quality_aggregator.py",
+        "agent/services/semantic_result_validator.py",
+        "agent/services/semantic_peer_reputation.py",
+        "tests/test_semantic_quality_aggregator.py",
+        "tests/test_semantic_result_validator.py"
+      ],
+      "description": "Measure reconstruction error, correction cost, bitrate, compute time and fallback rate. Validate master output using receiver checks, deterministic constraints and independently leased validators.",
+      "acceptance_criteria": [
+        "Metrics separate sender, master, validator and receiver costs.",
+        "Strict-E2EE reports contain metrics and hashes, not raw frames.",
+        "Validation quorum adapts to session size.",
+        "Conflicts cause safe fallback rather than arbitrary acceptance.",
+        "Repeatedly wrong or late peers lose task eligibility without losing baseline call access.",
+        "Default reputation is session-scoped.",
+        "Long-term reputation requires explicit opt-in, export and deletion.",
+        "No success claim relies only on peer self-report."
+      ]
+    },
+    {
+      "id": "semrtc-016",
+      "status": "todo",
+      "title": "Apply AI-Snake heuristic evolution to negotiation and scheduling",
+      "type": "AI-Snake learning/governance",
+      "priority": "high",
+      "risk": "high",
+      "depends_on": ["semrtc-010", "semrtc-015"],
+      "files": [
+        "agent/services/semantic_negotiation_heuristic.py",
+        "agent/services/semantic_negotiation_candidate_service.py",
+        "heuristics/active/semantic_webrtc/.gitkeep",
+        "tests/test_semantic_negotiation_heuristic.py",
+        "docs/operator-tui/semantic-webrtc-heuristic-evolution.md"
+      ],
+      "description": "Reuse observation, candidate fingerprinting, validation, simulation, shadow run, 10/50/100 rollout, watchdog, quarantine and rollback for contract and scheduler heuristics.",
+      "acceptance_criteria": [
+        "Learned heuristics cannot alter cryptographic or permission invariants.",
+        "Candidates are fingerprinted, rate-limited, TTL-bound and quarantinable.",
+        "Shadow mode compares decisions without changing active contracts.",
+        "Activation score includes quality, bandwidth, compute, fairness and fallback effects.",
+        "Rollback triggers include drift, fallback increase, lease churn, energy-limit breach and negative feedback.",
+        "Observe-only and frozen governance modes match existing AI-Snake semantics.",
+        "Previous active heuristic is recoverable after rollback."
+      ]
+    },
+    {
+      "id": "semrtc-017",
+      "status": "todo",
+      "title": "Separate SFU fast path and add automatic ordinary-video fallback",
+      "type": "backend/frontend architecture",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semrtc-004", "semrtc-014", "semrtc-015"],
+      "files": [
+        "docs/architecture/semantic-webrtc-sfu-separation.md",
+        "agent/services/semantic_coordination_service.py",
+        "agent/services/semantic_compute_worker_gateway.py",
+        "frontend-angular/src/app/services/semantic-fallback-controller.service.ts",
+        "frontend-angular/src/app/services/semantic-fallback-controller.service.spec.ts"
+      ],
+      "description": "Keep RTP forwarding independent from negotiation and compute. Run ordinary encrypted WebRTC as baseline/fallback and switch using quality, congestion, churn and deadline gates.",
+      "acceptance_criteria": [
+        "SFU forwarding loop performs no unbounded inference.",
+        "Coordinator failure does not terminate ordinary media.",
+        "Strict-E2EE disables plaintext server compute.",
+        "Trusted server compute requires explicit visible consent.",
+        "Fallback exists before semantic mode activates.",
+        "Hysteresis prevents rapid mode oscillation.",
+        "Scene cuts, high noise, excessive motion, lease loss or drift can trigger fallback.",
+        "User can force ordinary video at any time.",
+        "Returning to semantic mode requires recovery gates."
+      ]
+    },
+    {
+      "id": "semrtc-018",
+      "status": "todo",
+      "title": "Extend Pair-Dev to authenticated multi-participant semantic groups",
+      "type": "backend/frontend coordination",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semrtc-004", "semrtc-007", "semrtc-008", "semrtc-017"],
+      "files": [
+        "agent/routes/pair_groups.py",
+        "agent/services/semantic_session_membership.py",
+        "frontend-angular/src/app/services/semantic-session-membership.service.ts",
+        "tests/test_semantic_session_membership.py"
+      ],
+      "description": "Add semantic negotiation groups while preserving existing two-user Pair-Dev. Membership changes create a new epoch and invalidate incompatible leases.",
+      "acceptance_criteria": [
+        "Two-peer Pair-Dev is unchanged when feature is off.",
+        "Join, leave, reconnect and permission changes update epoch deterministically.",
+        "Late joiners receive current signed contract and required references.",
+        "Quorum rules adapt to participant count.",
+        "A weak client may receive ordinary fallback without forcing the whole group to fallback.",
+        "Membership authority comes from authenticated share-session state.",
+        "Peer claims cannot add members or roles.",
+        "Task leases are re-evaluated after membership changes."
+      ]
+    },
+    {
+      "id": "semrtc-019",
+      "status": "todo",
+      "title": "Create simulator, browser E2E tests and 100-viewer benchmarks",
+      "type": "testing/performance",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semrtc-015", "semrtc-016", "semrtc-017", "semrtc-018"],
+      "files": [
+        "scripts/semantic_webrtc_simulator.py",
+        "tests/semantic_webrtc/test_protocol_simulation.py",
+        "scripts/e2e/semantic_webrtc_pair_e2e.py",
+        "scripts/e2e/semantic_webrtc_group_e2e.py",
+        "scripts/semantic-webrtc-benchmark.mjs",
+        "docs/benchmarks/semantic-webrtc-methodology.md",
+        "benchmarks/semantic-webrtc/"
+      ],
+      "description": "Test deterministic network/peer simulations, real browsers and reproducible bandwidth-quality-compute comparisons against standard WebRTC.",
+      "acceptance_criteria": [
+        "Seeded simulations are reproducible for 2, 3, 10 and 100 participants.",
+        "Scenarios include master crash, partition, replay, lying capability, colluding validators, scene cut and residual loss.",
+        "Two-browser E2E negotiates, leases, reconstructs, revokes and falls back.",
+        "Group E2E uses at least four mixed-capability peers.",
+        "Tests cover 2, 10 and 20 second receiver windows.",
+        "Benchmarks report average, p95 and worst observed burst.",
+        "100-viewer server egress separates SFU media, audio and Hub control traffic.",
+        "Baseline uses identical source resolution, frame rate and network conditions.",
+        "Savings are reported by scene class and device profile.",
+        "Controlled scenes may target 80-95% reduction, but worst-case acceptance is safe fallback rather than forced savings.",
+        "Quality thresholds must pass before savings count as successful."
+      ]
+    },
+    {
+      "id": "semrtc-020",
+      "status": "todo",
+      "title": "Add security tests, audit UI, feature flags and rollout documentation",
+      "type": "security/release/documentation",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semrtc-016", "semrtc-017", "semrtc-018", "semrtc-019"],
+      "files": [
+        "agent/services/semantic_webrtc_audit.py",
+        "frontend-angular/src/app/services/semantic-webrtc-debug.service.ts",
+        "frontend-angular/src/app/components/pair-compute-debug-panel.component.ts",
+        "tests/security/test_semantic_webrtc_permissions.py",
+        "tests/security/test_semantic_webrtc_messages.py",
+        "tests/security/test_semantic_webrtc_malicious_peer.py",
+        "docs/security/semantic-webrtc-security-review.md",
+        "docs/operations/semantic-webrtc-rollout.md",
+        "docs/development/semantic-webrtc.md",
+        "docs/user/pair-dev-semantic-streaming.md"
+      ],
+      "description": "Emit raw-media-free audit events, prove strict-E2EE opacity, test abuse cases and ship behind observe-only, shadow, canary and active gates disabled by default.",
+      "acceptance_criteria": [
+        "Audit contains no raw frames, residual payloads, keys or prompts.",
+        "Events include correlation ID, epoch, task kind, lease and reason code.",
+        "Debug UI shows active contract, roles, quality, bitrate, recovery and fallback.",
+        "Hub/SFU fixtures cannot decrypt strict-E2EE payloads.",
+        "Unauthorized or revoked peers cannot become master or validator.",
+        "Oversized and decompression-bomb-like inputs are rejected before large allocation.",
+        "Malformed model output cannot escape schema and policy validation.",
+        "Feature is disabled by default.",
+        "Flags independently control negotiation, semantic encoding, peer compute, trusted server compute and heuristic learning.",
+        "Automatic rollback disables semantic mode without ending the call.",
+        "Version incompatibility gracefully falls back.",
+        "Documentation explains that 2-20 seconds is reconstruction tolerance, not conversational latency.",
+        "All documented settings and paths exist after implementation."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Feature disabled preserves all existing Pair-Dev, chat, permission and ordinary WebRTC behavior.",
+    "No LLM or learned heuristic can grant permissions, distribute keys, activate contracts or issue authoritative leases.",
+    "Strict-E2EE keeps plaintext media and semantic payloads inaccessible to Hub/SFU/TURN.",
+    "Every participant can cap or refuse compute and force ordinary encrypted video.",
+    "Per-participant 2-20 second reconstruction windows never delay audio or urgent controls.",
+    "Masters are short-lived, task-scoped, validated and replaced on expiry, failure, revocation or quality regression.",
+    "Mixed-capability groups can use different modes per receiver.",
+    "Bandwidth savings are measured against a standard-codec baseline with quality gates.",
+    "100-viewer tests report average and burst server egress including audio and recovery peaks.",
+    "Security tests cover replay, forged claims, stale epochs, malicious masters, validator conflict, oversized messages and heuristic poisoning.",
+    "AI-Snake heuristics use validation, simulation, shadow run, progressive rollout, quarantine and rollback.",
+    "All schemas, settings, messages, reason codes and audit events are versioned and documented."
+  ]
+}
