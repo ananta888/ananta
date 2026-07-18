@@ -1,0 +1,597 @@
+{
+  "id": "todo.ai-snake-personalized-semantic-speech-stream",
+  "title": "E2EE transcription-assisted low-bandwidth speech with participant-trained personalized reconstruction models",
+  "status": "todo",
+  "version": "1.0",
+  "created_at": "2026-07-18",
+  "parent_todo": "todos/todo.ai-snake-distributed-webrtc-semantic-stream.json",
+  "goal": "Extend Ananta Pair-Dev voice communication with two optional negotiated modes: (1) transcription-assisted speech transport that sends immediate text, timing and bounded acoustic features while delayed encrypted source audio corrects reconstruction; and (2) consent-bound personalized model learning where aligned transcript plus later source audio becomes curated training evidence for a model specialized to the current speaker-listener pair. Participants negotiate compute, latency, privacy, trainer and validator roles through deterministic contracts surfaced by AI-Snake.",
+  "codebase_alignment": {
+    "voice_runtime": "voice_runtime/ is already the separate audio runtime. docs/voice-runtime-hybrid-transcription.md defines simple, oldschool_light, whisper_cpp, realtime_streaming, meeting, confidence_rerun and custom pipelines plus Vosk, whisper.cpp and Voxtral adapters.",
+    "voice_contract": "voice_runtime/schemas.py already exposes versioned transcription results with segments, words, confidence, candidates, disagreement regions, decision_trace and provenance. Extend this contract additively instead of inventing an unrelated transcript format.",
+    "voice_policy_boundary": "The Hub remains the policy and exposure boundary; raw audio storage is fail-closed through VOICE_STORE_AUDIO. Real-time audio processing must stay outside the Hub control plane.",
+    "pair_transport": "docs/architecture/pair-view-sync.md already supports encrypted WebRTC DataChannel with opaque Hub Relay fallback, default-deny permissions, sequence/hash recovery and bounded envelopes.",
+    "semantic_media_parent": "todos/todo.ai-snake-distributed-webrtc-semantic-stream.json already plans participant capabilities, signed compute-quality contracts, task-scoped leases, validators, epochs, replay protection and AI-Snake negotiation. Reuse those contracts and avoid a second master-election system.",
+    "ml_intern": "docs/ml-intern-lora-finetuning.md and agent/services/ml_intern_* already provide curated dataset ingestion, validation, deterministic splitting, isolated LoRA/QLoRA workers, evaluation, approval, registry lifecycle, inference routing and rollback.",
+    "ml_intern_constraint": "Current ML-Intern explicitly forbids automatic ingestion of chat or voice usage data and does not support worker-to-worker orchestration or automatic adapter approval. This feature must preserve those boundaries unless a new explicit consent and curation path is implemented.",
+    "known_gaps": [
+      "No typed low-bandwidth speech envelope currently combines transcript, word timing, prosody hints, acoustic residuals and delayed source-audio references.",
+      "No pair-scoped speaker adaptation dataset contract exists.",
+      "No supported path converts voice-runtime provenance into ML-Intern curated records.",
+      "Current LoRA pipeline targets text-model behavior; speech reconstruction may require speaker embeddings, acoustic adapters or a separate audio-model backend rather than reusing text LoRA blindly.",
+      "Pair-View is currently n=2 and its permission set does not include voice reconstruction, speaker adaptation, training contribution or voice-model export.",
+      "A transcript plus delayed audio is high-quality aligned evidence, but not automatically perfect ground truth: ASR mistakes, timing drift, overlapping speech, noise and emotional/prosodic ambiguity must be measured and filtered."
+    ]
+  },
+  "principles": [
+    "Both modes are optional and disabled by default.",
+    "Ordinary encrypted WebRTC audio remains the compatibility and safety fallback.",
+    "Immediate intelligibility and conversational turn-taking take priority over voice similarity.",
+    "Text, urgent speech events and interruption markers must not wait for the configured delayed-audio window.",
+    "The configurable delay may be negotiated per participant and per direction; one slow listener must not slow every participant.",
+    "AI-Snake explains and proposes. Deterministic policy validates consent, contracts, keys, leases, datasets and model activation.",
+    "No participant voice is trained, cloned, exported or retained without explicit purpose-scoped consent.",
+    "Voice identity data is biometric-sensitive derived data and receives stronger defaults than ordinary transcript data.",
+    "Transcript/audio alignment is training evidence, not presumed perfect truth. Quality gates decide whether a segment is admitted.",
+    "Server/SFU processing is optional and separately consented; strict E2EE keeps plaintext audio, transcript and acoustic features participant-side.",
+    "Training and inference budgets are bounded by CPU/GPU/NPU, battery, thermal, network and latency limits.",
+    "Every personalized model has provenance, owner/pair scope, expiry, revocation, evaluation and rollback."
+  ],
+  "modes": {
+    "transcription_assisted_transport": {
+      "summary": "Transmit live transcript plus timing, punctuation, speaker-turn and bounded prosody/acoustic hints immediately. The receiver renders text and optionally reconstructs intelligible provisional speech locally. Delayed encrypted source audio or residual corrections arrive later and replace or correct uncertain regions.",
+      "default_delay_ms": 2000,
+      "configurable_delay_ms": {"minimum": 0, "maximum": 20000},
+      "fallback": "standard encrypted WebRTC Opus audio"
+    },
+    "personalized_pair_learning": {
+      "summary": "Use consented transcript/source-audio alignment and reconstruction errors as curated pair-scoped training evidence. Train or adapt a receiver-local or trusted participant-local speech model so future provisional reconstruction better matches the speaker while retaining delayed-source correction and ordinary-audio fallback.",
+      "activation": "explicit opt-in plus evaluation and approval",
+      "default_retention": "ephemeral until curated",
+      "fallback": "generic local speech model or standard encrypted WebRTC audio"
+    }
+  },
+  "non_goals": [
+    "Do not claim lossless, perfect or indistinguishable voice reproduction.",
+    "Do not silently create a reusable voice clone from calls.",
+    "Do not upload raw audio to ML-Intern merely because a session used transcription.",
+    "Do not use text-model LoRA as a substitute for an acoustic or speech-synthesis adaptation backend without demonstrated compatibility.",
+    "Do not allow the SFU or Hub to decrypt strict-E2EE speech payloads.",
+    "Do not let an LLM approve datasets, issue cryptographic grants or activate personalized models.",
+    "Do not let personalized reconstruction fabricate words absent from the authoritative transcript or source-audio correction.",
+    "Do not make personalized model availability a prerequisite for joining a call."
+  ],
+  "target_data_flow": [
+    "Microphone capture and local VAD",
+    "Fast local or negotiated ASR candidate generation",
+    "Immediate transcript/timing/turn envelope over prioritized encrypted DataChannel",
+    "Optional local provisional speech synthesis using generic or pair-personalized model",
+    "Delayed encrypted Opus/source segment and/or bounded acoustic residual",
+    "Receiver alignment, correction and reconstruction-error measurement",
+    "Consent and quality filtering into an ephemeral evidence buffer",
+    "Explicit curation into ML-Intern-compatible immutable dataset artifacts",
+    "Isolated training/evaluation worker",
+    "Pair-scoped adapter approval and receiver-local inference routing",
+    "Continuous quality monitoring, rollback and ordinary WebRTC fallback"
+  ],
+  "protocol_contracts": {
+    "speech_capability_advertisement.v1": ["peer_id", "session_id", "epoch", "asr_backends", "tts_backends", "audio_adapter_backends", "supported_codecs", "compute_budget", "max_delay_ms", "privacy_policy", "training_policy", "expires_at", "signature"],
+    "speech_transport_contract.v1": ["contract_id", "session_id", "direction", "mode", "authoritative_content_policy", "latency_policy", "transcript_policy", "acoustic_feature_policy", "delayed_audio_policy", "correction_policy", "fallback_policy", "retention_policy", "valid_from", "expires_at", "signatures"],
+    "speech_semantic_frame.v1": ["stream_id", "epoch", "sequence", "start_ms", "end_ms", "transcript_revision", "words", "speaker_turn", "punctuation", "language", "confidence", "prosody_features", "acoustic_residual_refs", "source_audio_ref", "deadline_ms", "signature"],
+    "speech_correction.v1": ["stream_id", "epoch", "sequence", "authoritative_transcript_revision", "alignment_map", "replacement_regions", "source_digest", "quality_metrics", "signature"],
+    "speaker_training_consent.v1": ["consent_id", "speaker_peer_id", "listener_peer_id", "session_id", "allowed_purposes", "allowed_features", "storage_scope", "trainer_locations", "export_allowed", "retention_until", "revocation_policy", "signatures"],
+    "speech_training_evidence.v1": ["evidence_id", "consent_id", "speaker_scope", "listener_scope", "transcript", "word_alignment", "audio_artifact_ref", "audio_digest", "quality_metrics", "noise_profile", "provenance", "admission_status"],
+    "personalized_speech_adapter.v1": ["adapter_id", "adapter_kind", "base_model_ref", "speaker_scope", "listener_scope", "dataset_manifest_digest", "training_job_id", "evaluation_report_ref", "lifecycle_status", "expires_at", "artifact_digest"]
+  },
+  "quality_gates": {
+    "training_evidence": [
+      "minimum speech duration and usable voiced ratio",
+      "ASR confidence threshold plus disagreement-region review",
+      "word-level alignment error threshold",
+      "speaker-overlap and diarization confidence limits",
+      "noise, clipping and packet-loss bounds",
+      "transcript revision stabilized before admission",
+      "consent valid at capture, curation and training time",
+      "exact and near-duplicate grouping before train/validation split",
+      "held-out sessions or time windows prevent leakage"
+    ],
+    "model_activation": [
+      "intelligibility does not regress against generic baseline",
+      "word-error hallucination rate remains below policy threshold",
+      "speaker similarity improves only on consented evaluation samples",
+      "latency, real-time factor, memory and energy budgets pass",
+      "unseen-noise and unseen-phrase tests pass",
+      "cross-speaker leakage and memorization probes pass",
+      "rollback artifact and generic fallback are available"
+    ]
+  },
+  "milestones": [
+    {"id": "M1", "title": "Contracts, consent and threat model", "exit": "Versioned schemas, biometric-data policy and deterministic state machines approved."},
+    {"id": "M2", "title": "Transcript-first transport", "exit": "Two peers receive prioritized live transcript and delayed encrypted audio correction with safe fallback."},
+    {"id": "M3", "title": "Generic provisional speech", "exit": "Receiver can locally render provisional intelligible speech without altering authoritative words."},
+    {"id": "M4", "title": "Curated pair evidence", "exit": "Consented aligned segments enter an immutable ML-Intern dataset with leakage-safe splits."},
+    {"id": "M5", "title": "Personalized adaptation", "exit": "At least one real speech-adaptation backend trains, evaluates, approves and rolls back a pair-scoped adapter."},
+    {"id": "M6", "title": "Distributed negotiation and scale", "exit": "AI-Snake negotiated compute roles, churn, 100-listener bandwidth tests and security gates pass."}
+  ],
+  "implementation_order": [
+    "semspeech-001", "semspeech-002", "semspeech-003", "semspeech-004", "semspeech-005", "semspeech-006", "semspeech-007", "semspeech-008", "semspeech-009", "semspeech-010", "semspeech-011", "semspeech-012", "semspeech-013", "semspeech-014", "semspeech-015", "semspeech-016", "semspeech-017", "semspeech-018", "semspeech-019", "semspeech-020", "semspeech-021", "semspeech-022", "semspeech-023", "semspeech-024"
+  ],
+  "tasks": [
+    {
+      "id": "semspeech-001",
+      "status": "todo",
+      "title": "Define speech-specific threat model, consent model and legal data classes",
+      "type": "architecture/security/privacy",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": [],
+      "files": ["docs/security/personalized-speech-threat-model.md", "docs/architecture/personalized-semantic-speech.md", "docs/privacy/voice-training-consent.md"],
+      "description": "Document strict-E2EE, trusted-peer and optional trusted-server profiles. Treat voice embeddings, speaker adapters and source audio as sensitive biometric-like data. Cover impersonation, voice cloning, replay, dataset poisoning, malicious transcripts, model inversion, memorization, coercive consent and post-revocation behavior.",
+      "acceptance_criteria": [
+        "Trust boundaries for microphone, browser, peer trainer, validator, Hub, SFU, TURN, voice runtime and ML worker are explicit.",
+        "Capture, transport, ephemeral buffering, curation, training, inference, export and deletion have separate consent decisions.",
+        "All new permissions default to deny and are direction-specific.",
+        "Revocation semantics define whether evidence, datasets, adapters and caches are deleted, disabled or retained for audit.",
+        "Voice impersonation and unauthorized export are explicit abuse cases with prevention, detection and recovery.",
+        "AI-Snake and LLM output are non-authoritative for consent, keys and activation."
+      ]
+    },
+    {
+      "id": "semspeech-002",
+      "status": "todo",
+      "title": "Specify the two negotiated speech modes and fallback state machine",
+      "type": "architecture/contract",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-001"],
+      "files": ["docs/architecture/personalized-semantic-speech.md", "ananta_contracts/semantic_speech.py", "tests/test_semantic_speech_state_machine.py"],
+      "description": "Define disabled, standard_audio, transcript_assisted, transcript_plus_provisional_speech, personalized_learning_shadow, personalized_active, degraded and fallback states with deterministic transitions.",
+      "acceptance_criteria": [
+        "Identical ordered events produce identical states and reason codes.",
+        "Mode can differ independently in each call direction.",
+        "Delay is bounded from 0 to 20000 ms and may be renegotiated without restarting the call.",
+        "Urgent transcript, interruption and end-of-turn events bypass delayed-audio buffering.",
+        "Any timeout, integrity failure, confidence collapse or revoked consent returns to standard encrypted audio.",
+        "Legacy peers remain in standard_audio without errors."
+      ]
+    },
+    {
+      "id": "semspeech-003",
+      "status": "todo",
+      "title": "Create versioned semantic-speech JSON Schemas",
+      "type": "schema/contract",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-001", "semspeech-002"],
+      "files": [
+        "schemas/webrtc/speech_capability_advertisement.v1.json",
+        "schemas/webrtc/speech_transport_contract.v1.json",
+        "schemas/webrtc/speech_semantic_frame.v1.json",
+        "schemas/webrtc/speech_correction.v1.json",
+        "schemas/voice/speaker_training_consent.v1.json",
+        "schemas/voice/speech_training_evidence.v1.json",
+        "schemas/voice/personalized_speech_adapter.v1.json"
+      ],
+      "description": "Add bounded schemas with strict required fields, identifiers, epochs, sequences, expiry, hashes, signatures and privacy scopes.",
+      "acceptance_criteria": [
+        "Security-sensitive schemas reject unknown properties where forward compatibility does not require them.",
+        "Text, words, feature vectors, residual references and metadata have explicit size/count bounds.",
+        "No schema embeds unbounded raw audio or private keys.",
+        "Consent purpose and retention are machine-readable rather than free text only.",
+        "Fixtures cover valid, stale, replayed, malformed, oversized and revoked messages.",
+        "Python and TypeScript validators pass the same conformance corpus."
+      ]
+    },
+    {
+      "id": "semspeech-004",
+      "status": "todo",
+      "title": "Extend Pair-Dev permissions for speech reconstruction and training",
+      "type": "frontend/backend contract",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-001", "semspeech-003"],
+      "files": ["frontend-angular/src/app/services/pair-view-sync.types.ts", "frontend-angular/src/app/services/permission-labels.ts", "agent/routes/share_sessions.py", "tests/test_share_sessions.py"],
+      "description": "Add default-deny permissions for transcript transport, provisional speech reconstruction, delayed audio correction, training evidence capture, local training, trusted-peer training, trusted-server training and adapter export.",
+      "acceptance_criteria": [
+        "Existing permission keys and old clients remain compatible.",
+        "Each new permission defaults to false and implies no other permission.",
+        "Training permission is bound to speaker, listener, purpose, model class, storage location and retention.",
+        "Export and server-side training require separate explicit grants.",
+        "Revocation invalidates active leases and prevents admission of newly arriving evidence.",
+        "Frontend and backend share canonical permission names and tests."
+      ]
+    },
+    {
+      "id": "semspeech-005",
+      "status": "todo",
+      "title": "Add semantic speech fields to Voice Runtime result contracts",
+      "type": "voice runtime contract",
+      "priority": "critical",
+      "risk": "medium",
+      "depends_on": ["semspeech-003"],
+      "files": ["voice_runtime/schemas.py", "voice_runtime/backends/base.py", "tests/test_voice_runtime_schemas.py"],
+      "description": "Extend the existing transcription-result v2 model additively with stable transcript revisions, end-of-turn status, authoritative-content flags, alignment quality, speaker-turn identity, acoustic-feature provenance and delayed-source references.",
+      "acceptance_criteria": [
+        "Existing text, segments, words, candidates, disagreement_regions, decision_trace and provenance remain valid.",
+        "Every provisional transcript has a revision and can be superseded deterministically.",
+        "Word and segment timing remains monotonic and bounded by source duration.",
+        "Authoritative transcript/source status is distinguishable from provisional ASR output.",
+        "Synthetic and reconstructed audio is marked unambiguously in provenance.",
+        "Old result payloads deserialize without migration."
+      ]
+    },
+    {
+      "id": "semspeech-006",
+      "status": "todo",
+      "title": "Implement streaming transcript revision and turn-detection pipeline",
+      "type": "voice runtime implementation",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-005"],
+      "files": ["voice_runtime/streaming.py", "voice_runtime/pipeline.py", "voice_runtime/parallel.py", "tests/test_voice_streaming_transcript.py"],
+      "description": "Complete the prepared realtime_streaming path with partial/final transcript revisions, VAD, turn boundaries, candidate fusion and bounded confidence reruns.",
+      "acceptance_criteria": [
+        "Partial transcript latency and finalization latency are measured separately.",
+        "Out-of-order and duplicate backend updates are deduplicated.",
+        "Confidence reruns affect only bounded uncertain regions.",
+        "Speaker overlap and unclear end-of-turn state are surfaced rather than hidden.",
+        "Pipeline works with optional Vosk, whisper.cpp and Voxtral availability and deterministic mock fixtures.",
+        "Backpressure prevents unlimited queued audio."
+      ]
+    },
+    {
+      "id": "semspeech-007",
+      "status": "todo",
+      "title": "Define bounded prosody and acoustic-residual feature extractors",
+      "type": "voice runtime/audio ML",
+      "priority": "high",
+      "risk": "high",
+      "depends_on": ["semspeech-001", "semspeech-005"],
+      "files": ["voice_runtime/features/base.py", "voice_runtime/features/prosody.py", "voice_runtime/features/residual.py", "tests/test_voice_feature_extractors.py"],
+      "description": "Create replaceable feature extractors for pitch contour, energy, duration, speaking rate, pause structure and optional bounded residuals. Do not transmit raw reusable speaker embeddings by default.",
+      "acceptance_criteria": [
+        "Feature contracts are versioned, quantized and size bounded.",
+        "Features can be disabled independently and are covered by explicit consent.",
+        "No extractor blocks the real-time transcript path.",
+        "Missing pitch, noise and unvoiced regions have explicit representations.",
+        "Privacy review distinguishes expressive prosody from persistent speaker identity features.",
+        "Deterministic fixtures verify encoding and decoding tolerances."
+      ]
+    },
+    {
+      "id": "semspeech-008",
+      "status": "todo",
+      "title": "Implement prioritized E2EE semantic-speech DataChannel transport",
+      "type": "frontend/backend transport",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-003", "semspeech-004", "semspeech-006", "semspeech-007"],
+      "files": ["frontend-angular/src/app/services/semantic-speech-transport.service.ts", "frontend-angular/src/app/services/webrtc-session.service.ts", "frontend-angular/src/app/services/webrtc-transport.service.ts", "agent/services/semantic_speech_relay.py", "agent/routes/share_sessions.py"],
+      "description": "Carry transcript revisions, turns, feature envelopes, delayed-audio references and corrections over encrypted DataChannel with opaque Hub Relay fallback.",
+      "acceptance_criteria": [
+        "Transcript and interruption messages have priority over acoustic residuals and delayed audio metadata.",
+        "Per-kind byte, rate, queue and TTL limits apply before expensive parsing.",
+        "DataChannel bufferedAmount triggers degradation instead of memory growth.",
+        "Epoch, sequence, expiry and signatures prevent replay and stale correction.",
+        "Hub Relay never requires plaintext transcript, voice features or source audio.",
+        "Transport failure automatically selects standard encrypted WebRTC audio."
+      ]
+    },
+    {
+      "id": "semspeech-009",
+      "status": "todo",
+      "title": "Implement delayed encrypted source-audio ring buffer and correction path",
+      "type": "frontend/audio transport",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-002", "semspeech-008"],
+      "files": ["frontend-angular/src/app/services/speech-delay-buffer.service.ts", "frontend-angular/src/app/services/speech-correction.service.ts", "frontend-angular/src/app/services/speech-delay-buffer.service.spec.ts"],
+      "description": "Buffer bounded encrypted Opus/source segments for 0-20 seconds, then deliver them as authoritative correction or discard them according to contract and observed quality.",
+      "acceptance_criteria": [
+        "Buffer duration and byte budget are enforced independently.",
+        "Source segments are encrypted end-to-end and never persisted by default.",
+        "Transcript/source alignment uses monotonic timestamps and stream epochs.",
+        "Late, missing or corrupt segments produce explicit recovery or fallback reason codes.",
+        "Receiver may replace provisional speech without replaying an entire long segment.",
+        "Closing, revoking or leaving a session wipes ephemeral buffers."
+      ]
+    },
+    {
+      "id": "semspeech-010",
+      "status": "todo",
+      "title": "Add transcript-first low-bandwidth receiver UI",
+      "type": "Angular UX",
+      "priority": "high",
+      "risk": "medium",
+      "depends_on": ["semspeech-004", "semspeech-008", "semspeech-009"],
+      "files": ["frontend-angular/src/app/features/voice/semantic-speech-panel.component.ts", "frontend-angular/src/app/features/voice/voice-transcription-result.component.ts", "frontend-angular/src/app/features/voice/semantic-speech-panel.component.spec.ts"],
+      "description": "Show live provisional/final transcript, current delay, reconstruction status, correction state, confidence and fallback without overwhelming the user.",
+      "acceptance_criteria": [
+        "Provisional and authoritative text are visually distinguishable.",
+        "User can set a per-peer maximum delay between 0 and 20 seconds within contract limits.",
+        "User can disable reconstruction or training immediately.",
+        "UI shows whether current audio is original, provisional synthetic, corrected or fallback.",
+        "Accessibility supports captions without requiring synthesized audio.",
+        "No hidden toggle grants training or export consent."
+      ]
+    },
+    {
+      "id": "semspeech-011",
+      "status": "todo",
+      "title": "Create pluggable provisional speech reconstruction interface",
+      "type": "frontend/audio ML contract",
+      "priority": "high",
+      "risk": "high",
+      "depends_on": ["semspeech-003", "semspeech-007", "semspeech-010"],
+      "files": ["frontend-angular/src/app/features/voice/reconstruction/speech-reconstructor.ts", "frontend-angular/src/app/features/voice/reconstruction/generic-speech-reconstructor.service.ts", "frontend-angular/src/app/features/voice/reconstruction/speech-reconstructor.spec.ts"],
+      "description": "Define generic browser-local or participant-local synthesis from authoritative transcript plus timing/prosody hints, with adapters for future personalized models.",
+      "acceptance_criteria": [
+        "The reconstructor cannot add lexical content not present in the selected transcript revision.",
+        "Synthesis cancellation reacts to transcript correction and interruption.",
+        "Generic fallback voice works without a personalized adapter.",
+        "Latency, real-time factor, memory and queue depth are measured.",
+        "Output is always marked synthetic in local state and provenance.",
+        "Unavailable browser APIs degrade to captions or ordinary audio."
+      ]
+    },
+    {
+      "id": "semspeech-012",
+      "status": "todo",
+      "title": "Build transcript/source alignment and reconstruction-error metrics",
+      "type": "voice runtime/evaluation",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-006", "semspeech-009", "semspeech-011"],
+      "files": ["voice_runtime/alignment.py", "voice_runtime/reconstruction_metrics.py", "tests/test_voice_alignment.py", "tests/test_voice_reconstruction_metrics.py"],
+      "description": "Align transcript revisions, provisional synthesis and delayed source audio at word/segment level. Produce quality metrics suitable for correction, evidence admission and model evaluation.",
+      "acceptance_criteria": [
+        "Alignment reports uncertainty and does not force matches across gaps or overlapping speakers.",
+        "Metrics include transcript disagreement, timing error, missing/extra lexical content, voiced coverage and acoustic similarity proxies.",
+        "Metric definitions are model-independent and versioned.",
+        "No single similarity score is treated as proof of speaker identity or quality.",
+        "Synthetic fixtures cover drift, packet loss, noise, corrections and speaker overlap.",
+        "Metrics contain no raw audio and are safe for bounded audit events."
+      ]
+    },
+    {
+      "id": "semspeech-013",
+      "status": "todo",
+      "title": "Implement ephemeral consent-bound speech training evidence buffer",
+      "type": "frontend/voice runtime privacy",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-001", "semspeech-004", "semspeech-012"],
+      "files": ["voice_runtime/training_evidence.py", "frontend-angular/src/app/services/speech-training-evidence.service.ts", "tests/test_speech_training_evidence.py"],
+      "description": "Collect aligned source audio, stabilized transcript and metrics in an encrypted ephemeral buffer only when a valid speaker-training consent exists.",
+      "acceptance_criteria": [
+        "No valid consent means no training evidence object is created.",
+        "Evidence is scoped to exact speaker, listener, session/pair purpose and allowed trainer location.",
+        "Admission rejects low-confidence transcript, alignment drift, clipping, overlap and excessive noise.",
+        "Rejected evidence is counted by reason without retaining raw content.",
+        "Evidence expires automatically unless explicitly curated.",
+        "Revocation wipes uncurated buffers and blocks later asynchronous admission."
+      ]
+    },
+    {
+      "id": "semspeech-014",
+      "status": "todo",
+      "title": "Create immutable speech dataset manifest and ML-Intern bridge",
+      "type": "ML-Intern dataset integration",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-003", "semspeech-013"],
+      "files": ["agent/services/ml_intern_speech_dataset_build_service.py", "agent/services/ml_intern_lora_dataset_build_service.py", "docs/contracts/mlintern-speech-dataset-manifest.v1.schema.json", "tests/test_ml_intern_speech_dataset_build_service.py"],
+      "description": "Convert explicitly curated evidence into immutable content-addressed speech dataset artifacts while preserving the existing ML-Intern rule that voice usage is never automatically training data.",
+      "acceptance_criteria": [
+        "Curation is an explicit authenticated mutation with idempotency and consent checks.",
+        "Manifest binds transcript, timing, source digest, feature versions, consent, provenance and quality report.",
+        "Raw audio paths never appear in public API responses or logs.",
+        "Train/validation splitting groups same session, phrase duplicates and near-duplicate audio to prevent leakage.",
+        "Secret/PII scanning and redacted preview extend existing dataset controls.",
+        "Existing instruction/chat JSONL datasets and LoRA paths remain unchanged."
+      ]
+    },
+    {
+      "id": "semspeech-015",
+      "status": "todo",
+      "title": "Define speech adaptation backend contracts separate from text LoRA",
+      "type": "training architecture",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-014"],
+      "files": ["worker/training/speech_contracts.py", "worker/training/backends/speech_base.py", "agent/services/ml_intern_training_contract.py", "docs/contracts/mlintern-speech-training-request.v1.schema.json"],
+      "description": "Add a typed backend interface for speaker embeddings, acoustic adapters, decoder/TTS adapters or other supported speech adaptation methods. Reuse ML-Intern orchestration but do not pretend PEFT-TRL text LoRA can train arbitrary speech models.",
+      "acceptance_criteria": [
+        "Backend declares model family, task, required artifact format, hardware, licenses and whether training is speaker- or listener-local.",
+        "Unsupported base model/backend combinations fail before queue admission.",
+        "Text LoRA and speech adaptation requests are unambiguous and cannot cross-route.",
+        "Mock backend supports deterministic CI without real voice cloning.",
+        "At least one documented real backend path is selected before live activation work begins.",
+        "Worker remains isolated and Hub imports no audio-training framework."
+      ]
+    },
+    {
+      "id": "semspeech-016",
+      "status": "todo",
+      "title": "Implement isolated personalized speech training worker",
+      "type": "training worker",
+      "priority": "high",
+      "risk": "high",
+      "depends_on": ["semspeech-015"],
+      "files": ["worker/runtime/speech_training_app.py", "worker/training/backends/speech_mock.py", "docker/compose-next/compose.speech-training.yml", "docker/compose-next/Dockerfile.speech-training-worker", "tests/test_speech_training_worker.py"],
+      "description": "Materialize verified pair-scoped dataset manifests in an isolated worker, execute bounded training/adaptation and emit content-free progress plus typed artifacts.",
+      "acceptance_criteria": [
+        "Worker verifies dataset, consent, model and attempt/fencing digests before reading audio.",
+        "Training has bounded steps, wall time, memory, disk and checkpoint counts.",
+        "Cancel and lease expiry stop work and prevent late artifact publication.",
+        "Events contain no transcript or raw audio.",
+        "Artifacts are content-addressed and tied to base model and dataset manifest.",
+        "Mock end-to-end training runs in CI."
+      ]
+    },
+    {
+      "id": "semspeech-017",
+      "status": "todo",
+      "title": "Add personalized speech evaluation and leakage tests",
+      "type": "evaluation/security",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-012", "semspeech-016"],
+      "files": ["agent/services/ml_intern_speech_eval_service.py", "worker/training/speech_evaluation.py", "docs/contracts/mlintern-speech-evaluation-report.v1.schema.json", "tests/test_ml_intern_speech_eval_service.py"],
+      "description": "Compare generic baseline and personalized adapter on held-out sessions, unseen text, noise and latency while probing memorization and cross-speaker leakage.",
+      "acceptance_criteria": [
+        "Evaluation separates intelligibility, lexical fidelity, timing, prosody, speaker similarity, latency and resource cost.",
+        "Personalization cannot pass when lexical hallucination or intelligibility regresses beyond policy.",
+        "Held-out data is separated by session/time and duplicate groups.",
+        "Cross-speaker and non-consented-speaker probes detect leakage.",
+        "Memorization checks test recovery of training phrases or source segments.",
+        "Report contains thresholds, confidence intervals or sample counts and explicit limitations."
+      ]
+    },
+    {
+      "id": "semspeech-018",
+      "status": "todo",
+      "title": "Add pair-scoped adapter registry, approval, expiry and rollback",
+      "type": "ML-Intern lifecycle",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-017"],
+      "files": ["agent/services/ml_intern_speech_adapter_registry.py", "agent/db_models/ml_intern_training.py", "agent/routes/ml_intern_lora_runtime.py", "tests/test_ml_intern_speech_adapter_registry.py"],
+      "description": "Extend existing explicit approval and rollback concepts to speech adapters with speaker/listener scope, consent linkage, expiry and export policy.",
+      "acceptance_criteria": [
+        "No adapter becomes active automatically after training.",
+        "Registry entry binds speaker, listener/pair, base model, dataset manifest, evaluation report and artifact digest.",
+        "Expired or revoked consent prevents new activation and triggers configured unload/deletion behavior.",
+        "Rollback restores the generic or previous approved adapter and clears runtime caches.",
+        "Export is impossible unless separately consented and policy-approved.",
+        "Public metadata never exposes raw voice samples or local paths."
+      ]
+    },
+    {
+      "id": "semspeech-019",
+      "status": "todo",
+      "title": "Implement receiver-local personalized adapter inference",
+      "type": "frontend/local inference",
+      "priority": "high",
+      "risk": "high",
+      "depends_on": ["semspeech-011", "semspeech-018"],
+      "files": ["frontend-angular/src/app/features/voice/reconstruction/personalized-speech-reconstructor.service.ts", "frontend-angular/src/app/features/voice/reconstruction/speech-adapter-loader.service.ts", "frontend-angular/src/app/features/voice/reconstruction/personalized-speech-reconstructor.spec.ts"],
+      "description": "Load an approved pair-scoped adapter only on permitted participant devices and use it for provisional reconstruction under resource and latency budgets.",
+      "acceptance_criteria": [
+        "Artifact digest, pair scope, base-model compatibility, expiry and consent are verified before load.",
+        "Adapter never changes transcript lexical content.",
+        "Inference timeout or resource pressure falls back to generic reconstruction or standard audio.",
+        "Unload wipes model caches according to revocation policy.",
+        "Metrics compare personalized and generic paths in shadow mode before activation.",
+        "No adapter is shared with another participant or session without an explicit compatible grant."
+      ]
+    },
+    {
+      "id": "semspeech-020",
+      "status": "todo",
+      "title": "Extend compute-quality contracts with speech roles",
+      "type": "distributed scheduling contract",
+      "priority": "high",
+      "risk": "high",
+      "depends_on": ["semspeech-002", "semspeech-004", "semspeech-015", "semspeech-019"],
+      "files": ["ananta_contracts/semantic_speech.py", "agent/services/semantic_webrtc_negotiation.py", "frontend-angular/src/app/services/peer-capability.types.ts", "tests/test_semantic_speech_negotiation.py"],
+      "description": "Reuse the parent semantic-WebRTC negotiation system to allocate ASR, feature extraction, provisional synthesis, alignment, validation and optional training tasks among consenting participants or trusted server workers.",
+      "acceptance_criteria": [
+        "Roles are short-lived, direction-specific leases rather than a permanent global master.",
+        "A peer cannot receive plaintext or derived voice data outside its consented task scope.",
+        "Capacity claims are checked against observed latency, errors and resource behavior.",
+        "Training tasks cannot be assigned to a location excluded by speaker consent.",
+        "Lease loss, churn or validator disagreement triggers deterministic reassignment or fallback.",
+        "Server-side execution is never silently selected in strict-E2EE mode."
+      ]
+    },
+    {
+      "id": "semspeech-021",
+      "status": "todo",
+      "title": "Integrate AI-Snake negotiation and explanation UI",
+      "type": "AI-Snake/frontend",
+      "priority": "medium",
+      "risk": "high",
+      "depends_on": ["semspeech-010", "semspeech-020"],
+      "files": ["frontend-angular/src/app/components/ai-snake-chat-panel.component.ts", "frontend-angular/src/app/components/snake-overlay.component.ts", "agent/routes/ai_snake_config.py", "agent/services/chat_setting_definitions.py", "docs/operator-tui/ai-snake-semantic-speech-negotiation.md"],
+      "description": "Let AI-Snake explain bandwidth, delay, compute, privacy and model-quality tradeoffs, propose contracts and show why roles or fallbacks changed. Deterministic services remain authoritative.",
+      "acceptance_criteria": [
+        "Snake suggestions compile to bounded typed proposals and cannot directly grant consent or activate models.",
+        "Users see which peer performs ASR, synthesis, validation or training and for how long.",
+        "The 0-20 second delay and bandwidth/quality tradeoff are understandable before acceptance.",
+        "New settings are registered through chat_setting_definitions rather than arbitrary config keys.",
+        "Negative feedback enters the existing heuristic candidate/shadow/canary/rollback lifecycle.",
+        "Audit events contain reason codes without transcript or audio content."
+      ]
+    },
+    {
+      "id": "semspeech-022",
+      "status": "todo",
+      "title": "Add adaptive bandwidth, delay and correction controller",
+      "type": "runtime heuristic/control",
+      "priority": "high",
+      "risk": "high",
+      "depends_on": ["semspeech-008", "semspeech-009", "semspeech-012", "semspeech-020"],
+      "files": ["frontend-angular/src/app/services/semantic-speech-quality-controller.service.ts", "voice_runtime/speech_quality_policy.py", "tests/test_speech_quality_policy.py"],
+      "description": "Adapt transcript cadence, feature richness, delayed-audio frequency, correction region size and fallback using observed network, ASR, reconstruction and user latency budgets.",
+      "acceptance_criteria": [
+        "Controller optimizes measured quality and bandwidth rather than assuming fixed 90% or 99% savings.",
+        "Critical confidence or lexical mismatch sends immediate source correction or standard audio.",
+        "Stable personalized performance may lengthen correction intervals only within negotiated limits.",
+        "Per-peer policies prevent a weak participant from degrading all listeners.",
+        "Hysteresis and minimum dwell times prevent mode oscillation.",
+        "Shadow-mode decisions are logged content-free before active rollout."
+      ]
+    },
+    {
+      "id": "semspeech-023",
+      "status": "todo",
+      "title": "Create end-to-end, security, chaos and revocation tests",
+      "type": "testing/security",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-018", "semspeech-019", "semspeech-020", "semspeech-022"],
+      "files": ["scripts/e2e/semantic_speech_e2e.py", "tests/security/test_semantic_speech_security.py", "tests/chaos/test_semantic_speech_churn.py"],
+      "description": "Test two-peer and multi-peer negotiation, E2EE relay opacity, ASR errors, packet loss, delayed corrections, malicious peers, poisoned evidence, trainer failure, consent revocation and adapter rollback.",
+      "acceptance_criteria": [
+        "Plaintext transcript, source audio and identity features never appear in Hub/SFU logs under strict E2EE.",
+        "Replay, tampering, oversized envelopes and stale leases are rejected before expensive work.",
+        "Revocation during buffering, curation, training and inference each reaches the specified safe state.",
+        "Malicious transcript or validator disagreement cannot silently change authoritative words.",
+        "Trainer crash, peer disconnect and key rotation recover without using stale artifacts.",
+        "All tests verify fallback to ordinary encrypted WebRTC audio."
+      ]
+    },
+    {
+      "id": "semspeech-024",
+      "status": "todo",
+      "title": "Benchmark bandwidth, intelligibility, similarity, latency and compute at scale",
+      "type": "benchmark/release gate",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["semspeech-017", "semspeech-022", "semspeech-023"],
+      "files": ["scripts/benchmark/semantic-speech-bandwidth.py", "scripts/benchmark/semantic-speech-quality.py", "docs/benchmarks/semantic-speech-report.md"],
+      "description": "Measure standard Opus against transcript-only, transcript plus generic reconstruction and transcript plus personalized reconstruction across network, speaker, device and noise profiles, including one speaker to 100 listeners.",
+      "acceptance_criteria": [
+        "Report includes median, p95 and peak bandwidth rather than only averages.",
+        "Separate text/control, features, delayed audio, corrections and retransmission traffic.",
+        "Quality reports lexical fidelity, intelligibility, timing, speaker similarity, correction frequency and user-visible delay.",
+        "Compute reports sender, receiver, peer-trainer and optional server CPU/GPU/NPU, memory, energy and thermal impact.",
+        "Scenarios include quiet speech, accents, fast speech, overlap, music/noise, packet loss and model cold start.",
+        "No release claim promises a fixed reduction unless supported by reproducible scenario-specific evidence.",
+        "Release gate requires ordinary WebRTC fallback capacity even when optimized average bandwidth is much lower."
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "Both negotiated modes are implemented behind disabled-by-default feature flags.",
+    "A two-peer strict-E2EE call can deliver live transcript, optional provisional speech and delayed source correction without Hub plaintext access.",
+    "Training evidence is created only under explicit valid consent and passes alignment, quality, privacy and leakage gates.",
+    "ML-Intern can ingest an immutable speech dataset, run an isolated supported adaptation backend, evaluate it, require approval, activate it pair-scoped and roll it back.",
+    "AI-Snake can explain and propose contracts but cannot bypass deterministic consent, lease, schema or model-lifecycle enforcement.",
+    "Revocation and session exit clear ephemeral buffers and disable or delete artifacts according to policy.",
+    "Security and chaos suites pass, including malicious peers, replay, poisoning, trainer failure and key rotation.",
+    "Benchmarks publish honest scenario-specific bandwidth, quality, latency and compute results for up to 100 listeners.",
+    "Standard encrypted WebRTC audio remains fully functional and capacity-planned as fallback."
+  ]
+}
