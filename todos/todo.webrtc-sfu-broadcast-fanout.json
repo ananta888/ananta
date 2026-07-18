@@ -1,0 +1,456 @@
+{
+  "id": "todo.webrtc-sfu-broadcast-fanout",
+  "title": "WebRTC SFU broadcast, receiver groups and E2EE semantic fan-out",
+  "status": "todo",
+  "version": "1.0",
+  "created_at": "2026-07-18",
+  "parents": [
+    "todos/todo.ai-snake-distributed-webrtc-semantic-stream.json",
+    "todos/todo.ai-snake-personalized-semantic-speech-stream.json",
+    "todos/todo.ai-snake-peer-speech-training-data-sync.json"
+  ],
+  "goal": "Extend Ananta from its current pair-oriented WebRTC DataChannel and opaque Hub Relay transport into an optional multi-participant SFU topology. A sender uploads each media or semantic source stream once; an SFU or fan-out coordinator forwards the same encrypted payload to many authorized receivers, while receiver groups, per-peer adaptation, E2EE key epochs, congestion control, backpressure and fallback remain deterministic and measurable.",
+  "codebase_alignment": {
+    "current_transport": "frontend-angular/src/app/services/webrtc-transport.service.ts currently exposes one sessionId, one WebrtcSessionService, a single mode state and a DataChannel-or-Hub-Relay decision. It has no participant collection, publication/subscription model or SFU abstraction.",
+    "current_datachannel_path": "WebrtcTransportService.send() and sendView() route one typed payload into WebrtcSessionService or POST it to the session relay. Existing behavior must remain compatible for pair sessions.",
+    "current_relay": "Hub Relay polling is interval-based, session-scoped and forwards bounded opaque envelopes. It is a reliability fallback, not a scalable realtime SFU.",
+    "pair_view": "docs/architecture/pair-view-sync.md explicitly lists multi-participant n>2 as out of scope. This todo supplies the missing group topology without replacing pair-view contracts.",
+    "semantic_stream_parent": "The semantic WebRTC todo already plans signed capabilities, compute-quality contracts, task leases, semantic frames, reconstruction reports and strict-E2EE routing. Reuse these contracts and epochs.",
+    "semantic_speech_parent": "The semantic speech todo already plans prioritized transcripts, delayed encrypted audio, per-listener reconstruction and 100-listener benchmarks. Broadcast must support shared and receiver-specific layers.",
+    "known_gaps": [
+      "No SFU or media publication/subscription abstraction is implemented.",
+      "No distinction exists between a shared payload sent identically to all receivers and receiver-specific correction or adaptation payloads.",
+      "No receiver groups, subscription filters, publication permissions or fan-out leases exist.",
+      "No group E2EE key-epoch contract exists for membership changes.",
+      "No per-receiver congestion state or quality-layer selection exists.",
+      "No server egress, TURN amplification or fan-out backpressure accounting exists.",
+      "No deterministic fallback topology exists between SFU, peer mesh, Hub Relay and one-way streaming/CDN paths."
+    ]
+  },
+  "principles": [
+    "WebRTC does not provide IP multicast; server egress remains approximately proportional to receiver count.",
+    "The sender should upload one shared publication per selected quality or semantic layer, not one copy per receiver.",
+    "Shared data and receiver-specific data must use separate channels and accounting.",
+    "The SFU forwards encrypted media and semantic payloads without requiring plaintext under strict E2EE.",
+    "Membership, publication, subscription and key changes are versioned and epoch-bound.",
+    "A weak receiver must not force every receiver onto its lowest quality.",
+    "Control, transcript, interruption and recovery messages take priority over media residuals and bulk training synchronization.",
+    "The realtime forwarding path must never run unbounded inference or blocking training work.",
+    "Existing two-peer behavior remains the default-compatible path until group mode is explicitly enabled.",
+    "Capacity planning must include peak fallback traffic, not only optimized semantic averages."
+  ],
+  "non_goals": [
+    "Do not claim that SFU fan-out is true network multicast.",
+    "Do not make the Hub polling relay the primary path for large live rooms.",
+    "Do not decrypt strict-E2EE media or semantic payloads in the SFU.",
+    "Do not duplicate an identical encoded stream separately at the sender for each receiver.",
+    "Do not require every participant to publish audio and video in webinar mode.",
+    "Do not mix model training workloads into the SFU packet-forwarding process.",
+    "Do not promise fixed participant counts without measured CPU, network, TURN and file-descriptor limits."
+  ],
+  "target_topologies": {
+    "pair_legacy": "Existing direct WebRTC connection with opaque Hub Relay fallback.",
+    "small_mesh": "Optional direct peer mesh for very small trusted groups where negotiated limits permit it.",
+    "sfu_room": "Publish once to SFU; SFU forwards selected encrypted layers to authorized subscribers.",
+    "webinar": "One or few publishers, many mostly receive-only participants, prioritized control/transcript channels.",
+    "semantic_broadcast": "One shared semantic/transcript/reference publication plus per-receiver reconstruction reports and selective correction streams.",
+    "degraded_relay": "Bounded Hub Relay for control and recovery only when realtime DataChannels fail.",
+    "large_one_way": "Optional WebRTC ingest with non-interactive distribution path evaluated separately when receiver counts exceed SFU economics."
+  },
+  "traffic_classes": {
+    "shared_high_priority": ["membership", "key_epoch", "speaker_turn", "transcript_revision", "interrupt", "contract_revoke", "fallback"],
+    "shared_media": ["audio_layer", "video_layer", "reference_frame", "semantic_frame", "shared_model_manifest"],
+    "receiver_specific": ["quality_selection", "reconstruction_report", "recovery_request", "personalized_residual", "private_annotation"],
+    "bulk_background": ["training_inventory", "dataset_delta", "adapter_artifact", "offline_reconciliation_checkpoint"]
+  },
+  "protocol_contracts": {
+    "room_membership.v1": ["room_id", "participant_id", "role", "permissions", "joined_at", "membership_epoch", "expires_at", "signature"],
+    "media_publication.v1": ["publication_id", "publisher_id", "kind", "codec", "layers", "e2ee_context_ref", "fanout_policy", "created_at", "signature"],
+    "media_subscription.v1": ["subscription_id", "subscriber_id", "publication_id", "selected_layers", "latency_budget_ms", "bandwidth_budget_bps", "privacy_scope", "expires_at", "signature"],
+    "receiver_group.v1": ["group_id", "room_id", "selector", "members_digest", "shared_publications", "policy_version", "epoch", "signature"],
+    "fanout_route.v1": ["route_id", "publication_id", "receiver_group_id", "sfu_node_id", "priority", "rate_limits", "valid_from", "expires_at", "signature"],
+    "group_key_epoch.v1": ["room_id", "publication_id", "epoch", "member_set_digest", "key_package_refs", "valid_from", "expires_at", "signatures"],
+    "receiver_quality_report.v1": ["subscriber_id", "publication_id", "selected_layer", "rtt_ms", "jitter_ms", "loss_rate", "decode_ms", "buffer_ms", "observed_bitrate_bps", "recovery_state", "signature"],
+    "fanout_accounting.v1": ["room_id", "publication_id", "ingress_bytes", "egress_bytes", "relay_bytes", "receiver_count", "layer_counts", "drop_counts", "period_start", "period_end"]
+  },
+  "milestones": [
+    {"id": "M1", "title": "Topology and contracts", "exit": "Publication, subscription, room, receiver-group and key-epoch schemas are approved."},
+    {"id": "M2", "title": "Three-peer SFU MVP", "exit": "One publisher sends once and two receivers consume through an SFU adapter with E2EE payload opacity."},
+    {"id": "M3", "title": "Layered and semantic fan-out", "exit": "Shared layers and receiver-specific corrections are routed independently."},
+    {"id": "M4", "title": "Dynamic rooms", "exit": "Join, leave, revoke, rekey, reconnect and SFU failover work deterministically."},
+    {"id": "M5", "title": "Scale and observability", "exit": "100-receiver benchmarks, backpressure, TURN and egress budgets pass."},
+    {"id": "M6", "title": "Controlled rollout", "exit": "Feature flags, compatibility, security review and fallback capacity are release-ready."}
+  ],
+  "implementation_order": [
+    "broadcast-001", "broadcast-002", "broadcast-003", "broadcast-004", "broadcast-005", "broadcast-006", "broadcast-007", "broadcast-008", "broadcast-009", "broadcast-010", "broadcast-011", "broadcast-012", "broadcast-013", "broadcast-014", "broadcast-015", "broadcast-016", "broadcast-017", "broadcast-018"
+  ],
+  "tasks": [
+    {
+      "id": "broadcast-001",
+      "status": "todo",
+      "title": "Document SFU topology, trust boundaries and terminology",
+      "type": "architecture/security",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": [],
+      "files": ["docs/architecture/webrtc-sfu-broadcast.md", "docs/security/webrtc-sfu-threat-model.md"],
+      "description": "Define publisher, publication, subscriber, receiver group, SFU node, TURN relay, Hub coordinator, strict-E2EE and trusted-server profiles. Explicitly separate server-side fan-out from true multicast.",
+      "acceptance_criteria": [
+        "Architecture shows ingress once per publication layer and separate egress per receiver.",
+        "Trust boundaries for browser, SFU, TURN, Hub, AI-Snake and optional compute worker are explicit.",
+        "Pair, mesh, SFU, webinar, degraded relay and large one-way topologies are compared.",
+        "Server egress and TURN amplification are identified as scaling constraints.",
+        "Strict-E2EE states that SFU routing does not require plaintext content.",
+        "Realtime forwarding and offline model training are separate processes and resource pools."
+      ]
+    },
+    {
+      "id": "broadcast-002",
+      "status": "todo",
+      "title": "Select and isolate an SFU adapter boundary",
+      "type": "architecture/integration",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["broadcast-001"],
+      "files": ["agent/services/webrtc_sfu_port.py", "frontend-angular/src/app/services/sfu-client.types.ts", "docs/architecture/webrtc-sfu-broadcast.md"],
+      "description": "Define a vendor-neutral interface for room creation, token issuance, publication, subscription, layer selection, participant events and node health. Evaluate implementation candidates separately without leaking vendor objects into application contracts.",
+      "acceptance_criteria": [
+        "Application contracts contain no vendor-specific room, track or token classes.",
+        "Adapter declares support for E2EE insertable streams, simulcast/SVC, DataChannel and server metrics.",
+        "Unsupported capabilities fail through stable reason codes.",
+        "A deterministic mock adapter supports CI and local tests.",
+        "Deployment, licensing, operational complexity and required ports are documented.",
+        "Existing pair WebRTC service remains usable without the SFU dependency."
+      ]
+    },
+    {
+      "id": "broadcast-003",
+      "status": "todo",
+      "title": "Create versioned room, publication and subscription schemas",
+      "type": "contract/schema",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["broadcast-001", "broadcast-002"],
+      "files": [
+        "schemas/webrtc/room_membership.v1.json",
+        "schemas/webrtc/media_publication.v1.json",
+        "schemas/webrtc/media_subscription.v1.json",
+        "schemas/webrtc/receiver_group.v1.json",
+        "schemas/webrtc/fanout_route.v1.json",
+        "schemas/webrtc/group_key_epoch.v1.json",
+        "schemas/webrtc/receiver_quality_report.v1.json"
+      ],
+      "description": "Add bounded, signed and replay-resistant schemas for group sessions and fan-out routing.",
+      "acceptance_criteria": [
+        "Every authoritative contract contains version, room/session identity, epoch, expiry and signer identity.",
+        "Arrays, labels, layers, members and metadata have explicit count and byte limits.",
+        "Publication and subscription permissions are independent and default-deny.",
+        "Unknown security-sensitive properties are rejected.",
+        "Python and TypeScript validators share a conformance fixture corpus.",
+        "Fixtures cover stale epochs, replay, oversized groups, unauthorized subscription and malformed layer selection."
+      ]
+    },
+    {
+      "id": "broadcast-004",
+      "status": "todo",
+      "title": "Refactor transport into pair and room session abstractions",
+      "type": "Angular transport refactor",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["broadcast-002", "broadcast-003"],
+      "files": [
+        "frontend-angular/src/app/services/webrtc-transport.service.ts",
+        "frontend-angular/src/app/services/webrtc-session.service.ts",
+        "frontend-angular/src/app/services/realtime-session.types.ts",
+        "frontend-angular/src/app/services/room-transport.service.ts"
+      ],
+      "description": "Preserve the current pair-session facade while introducing explicit pair and room session implementations with participant collections, publications and subscriptions.",
+      "acceptance_criteria": [
+        "Existing open(sessionId, isInitiator), send and sendView call paths remain backward compatible or receive a documented adapter.",
+        "Room mode supports multiple participants and concurrent publications without global singleton peer state.",
+        "Pair and room lifecycles expose deterministic connecting, connected, degraded, reconnecting, failed and closed states.",
+        "Subscriptions are disposed on leave and do not leak RxJS listeners or peer connections.",
+        "Transport mode is represented per room/session rather than as one global value.",
+        "Unit tests cover simultaneous pair and room sessions."
+      ]
+    },
+    {
+      "id": "broadcast-005",
+      "status": "todo",
+      "title": "Implement authenticated room membership and role policy",
+      "type": "backend/control plane",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["broadcast-003"],
+      "files": ["agent/routes/webrtc_rooms.py", "agent/services/webrtc_room_service.py", "agent/db_models/webrtc_rooms.py", "tests/test_webrtc_rooms.py"],
+      "description": "Create room admission, join, leave, role, permission, expiry and revocation handling. Roles include host, publisher, subscriber, moderator, validator and compute contributor without implying one another.",
+      "acceptance_criteria": [
+        "Joining requires authenticated, room-scoped admission.",
+        "Publish and subscribe grants are separate and direction-specific.",
+        "Receive-only webinar participants cannot publish unless explicitly promoted.",
+        "Revocation reaches the SFU adapter within a bounded timeout.",
+        "Membership changes increment an epoch and trigger key-policy evaluation.",
+        "Audit logs contain identities and reason codes but no media plaintext."
+      ]
+    },
+    {
+      "id": "broadcast-006",
+      "status": "todo",
+      "title": "Implement publication and subscription lifecycle",
+      "type": "frontend/backend realtime",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["broadcast-004", "broadcast-005"],
+      "files": ["frontend-angular/src/app/services/media-publication.service.ts", "frontend-angular/src/app/services/media-subscription.service.ts", "agent/services/webrtc_publication_service.py", "tests/test_webrtc_publications.py"],
+      "description": "Allow authorized publishers to create audio, video, data and semantic publications and receivers to subscribe, pause, resume, switch layers and unsubscribe.",
+      "acceptance_criteria": [
+        "A publisher sends one copy per produced layer to the SFU regardless of subscriber count.",
+        "Each subscriber may independently select compatible layers.",
+        "Publication identity survives temporary reconnect without accepting stale instances.",
+        "Duplicate publish or subscribe requests are idempotent.",
+        "Unpublished or revoked streams cannot remain subscribed.",
+        "Metrics expose publisher ingress and aggregate receiver egress separately."
+      ]
+    },
+    {
+      "id": "broadcast-007",
+      "status": "todo",
+      "title": "Add simulcast and scalable-layer selection",
+      "type": "media quality control",
+      "priority": "high",
+      "risk": "high",
+      "depends_on": ["broadcast-006"],
+      "files": ["frontend-angular/src/app/services/media-layer-controller.service.ts", "agent/services/webrtc_layer_policy.py", "tests/test_webrtc_layer_policy.py"],
+      "description": "Publish bounded quality layers and let each subscriber receive an independently selected layer based on viewport, bandwidth, packet loss, CPU and user policy.",
+      "acceptance_criteria": [
+        "Layer selection is per subscriber and does not globally downgrade the room.",
+        "Audio, screen share, camera and semantic references use separate policies.",
+        "Hysteresis and dwell times prevent rapid layer oscillation.",
+        "Hidden or thumbnail video may suspend high layers.",
+        "Layer changes preserve keyframe/recovery correctness.",
+        "Unsupported simulcast/SVC falls back to a documented single-layer profile."
+      ]
+    },
+    {
+      "id": "broadcast-008",
+      "status": "todo",
+      "title": "Create receiver groups and shared fan-out routes",
+      "type": "routing/control plane",
+      "priority": "high",
+      "risk": "high",
+      "depends_on": ["broadcast-003", "broadcast-006"],
+      "files": ["agent/services/webrtc_receiver_group_service.py", "agent/services/webrtc_fanout_router.py", "tests/test_webrtc_fanout_router.py"],
+      "description": "Group receivers with identical authorization and layer requirements so routing decisions and shared semantic payloads can be computed once while transport egress remains per receiver.",
+      "acceptance_criteria": [
+        "Group membership is derived from explicit policy attributes and a stable member digest.",
+        "A receiver is never grouped across incompatible consent, key epoch or privacy scopes.",
+        "Group recomputation is bounded and incremental on join, leave or policy change.",
+        "Shared payload processing occurs once per compatible group, not once per receiver.",
+        "Actual network delivery remains separately metered per receiver.",
+        "Group failure cannot authorize a receiver that was not individually admitted."
+      ]
+    },
+    {
+      "id": "broadcast-009",
+      "status": "todo",
+      "title": "Separate shared semantic layers from receiver-specific corrections",
+      "type": "semantic media integration",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["broadcast-006", "broadcast-008"],
+      "files": ["ananta_contracts/semantic_webrtc.py", "frontend-angular/src/app/services/semantic-webrtc-transport.service.ts", "agent/services/semantic_webrtc_fanout.py", "tests/test_semantic_webrtc_fanout.py"],
+      "description": "Fan out transcript, scene graph, reference frame and shared model metadata once per receiver group, while reconstruction reports, missing references and personalized residuals remain private per receiver.",
+      "acceptance_criteria": [
+        "Shared and receiver-specific message kinds are enumerated and validated.",
+        "A personalized correction can never be broadcast to another receiver.",
+        "Receiver reports are aggregated only into privacy-approved statistics.",
+        "Shared references are content-addressed and deduplicated per publication epoch.",
+        "Missing references trigger selective recovery rather than a room-wide reset.",
+        "Ordinary encrypted media remains available as fallback per receiver."
+      ]
+    },
+    {
+      "id": "broadcast-010",
+      "status": "todo",
+      "title": "Add speech transcript broadcast and private personalization channels",
+      "type": "semantic speech integration",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["broadcast-009"],
+      "files": ["frontend-angular/src/app/services/semantic-speech-transport.service.ts", "agent/services/semantic_speech_fanout.py", "tests/test_semantic_speech_fanout.py"],
+      "description": "Broadcast authoritative transcript revisions, timing and shared delayed-audio references to authorized listener groups, while pair-personalized model data, local reconstruction reports and training evidence remain scoped.",
+      "acceptance_criteria": [
+        "Transcript revisions and interruption markers use the highest-priority reliable channel.",
+        "One speaker transcript can reach many authorized listeners without sender-side duplication.",
+        "Pair-specific speaker adapters and training evidence are never group-broadcast by default.",
+        "Listeners may independently choose captions, generic synthesis, personalized synthesis or original audio.",
+        "A slow listener does not delay transcript delivery to others.",
+        "Consent changes immediately alter group membership and future fan-out."
+      ]
+    },
+    {
+      "id": "broadcast-011",
+      "status": "todo",
+      "title": "Implement group E2EE epochs and membership rekeying",
+      "type": "cryptography/security",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["broadcast-003", "broadcast-005", "broadcast-006"],
+      "files": ["frontend-angular/src/app/services/group-e2ee.service.ts", "agent/services/webrtc_key_epoch_service.py", "tests/security/test_webrtc_group_e2ee.py"],
+      "description": "Bind encrypted publications to membership epochs and rotate access when participants join, leave or lose permission, without exposing media keys to the SFU.",
+      "acceptance_criteria": [
+        "New members cannot decrypt past epochs unless policy explicitly permits history.",
+        "Removed members cannot decrypt future epochs.",
+        "Rekey messages are authenticated, replay-protected and bounded.",
+        "SFU routing identifiers reveal no media key material.",
+        "Temporary key-distribution failure degrades safely without accepting stale membership.",
+        "Tests cover rapid churn, reconnect, malicious replay and simultaneous membership changes."
+      ]
+    },
+    {
+      "id": "broadcast-012",
+      "status": "todo",
+      "title": "Add congestion control, queue priority and fan-out backpressure",
+      "type": "realtime reliability",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["broadcast-006", "broadcast-007", "broadcast-009"],
+      "files": ["frontend-angular/src/app/services/realtime-priority-queue.service.ts", "agent/services/webrtc_fanout_backpressure.py", "tests/test_webrtc_fanout_backpressure.py"],
+      "description": "Prevent slow receivers or overloaded SFU nodes from growing unbounded queues. Degrade low-priority layers before dropping control, transcript or recovery traffic.",
+      "acceptance_criteria": [
+        "Byte, message, age and buffered-duration limits exist per receiver and traffic class.",
+        "Priority order is deterministic and documented.",
+        "Slow receivers are isolated, layer-downgraded or disconnected without blocking others.",
+        "Bulk training sync pauses before realtime media is degraded.",
+        "Dropped messages emit bounded reason-coded metrics.",
+        "Load tests demonstrate bounded memory during sustained receiver congestion."
+      ]
+    },
+    {
+      "id": "broadcast-013",
+      "status": "todo",
+      "title": "Implement SFU node selection, health and failover",
+      "type": "distributed operations",
+      "priority": "high",
+      "risk": "high",
+      "depends_on": ["broadcast-002", "broadcast-005", "broadcast-006"],
+      "files": ["agent/services/webrtc_sfu_directory.py", "agent/services/webrtc_sfu_scheduler.py", "agent/routes/webrtc_sfu_health.py", "tests/test_webrtc_sfu_scheduler.py"],
+      "description": "Select an SFU by region, capacity, supported features, room affinity and health. Define reconnect or migration behavior without silently weakening E2EE or permissions.",
+      "acceptance_criteria": [
+        "Scheduling considers projected ingress, egress, participants, tracks, CPU and TURN usage.",
+        "Capacity claims are checked against observed metrics.",
+        "Unhealthy nodes stop receiving new rooms.",
+        "Failover creates a new routing/key epoch and rejects stale SFU tokens.",
+        "A room can recover through bounded reconnect or documented fallback.",
+        "Node identifiers and operational metrics do not expose plaintext media."
+      ]
+    },
+    {
+      "id": "broadcast-014",
+      "status": "todo",
+      "title": "Add TURN-aware routing and relay cost controls",
+      "type": "network operations",
+      "priority": "high",
+      "risk": "medium",
+      "depends_on": ["broadcast-006", "broadcast-013"],
+      "files": ["agent/services/webrtc_turn_policy.py", "frontend-angular/src/app/services/network-profile.service.ts", "tests/test_webrtc_turn_policy.py"],
+      "description": "Detect relay usage, account for TURN ingress/egress amplification and apply bounded quality, admission or room-size policies when direct connectivity is unavailable.",
+      "acceptance_criteria": [
+        "Metrics distinguish direct, SFU and TURN-relayed bytes.",
+        "Admission can enforce configured relay bandwidth and cost ceilings.",
+        "TURN use never disables encryption or authentication.",
+        "Quality adaptation is per receiver.",
+        "Relay exhaustion triggers explicit degraded or rejected states.",
+        "Benchmarks include all-receivers-via-TURN worst-case scenarios."
+      ]
+    },
+    {
+      "id": "broadcast-015",
+      "status": "todo",
+      "title": "Create room and broadcast observability without plaintext",
+      "type": "observability",
+      "priority": "high",
+      "risk": "medium",
+      "depends_on": ["broadcast-006", "broadcast-008", "broadcast-012", "broadcast-014"],
+      "files": ["agent/services/webrtc_room_metrics.py", "frontend-angular/src/app/features/voice/webrtc-room-debug-panel.component.ts", "docs/operations/webrtc-sfu-observability.md"],
+      "description": "Expose room topology, publications, subscriptions, layers, ingress, egress, TURN usage, congestion, drops, key epochs and fallback states using content-free telemetry.",
+      "acceptance_criteria": [
+        "Metrics provide current and p50/p95/peak bandwidth per room and publication.",
+        "Ingress and egress are not conflated.",
+        "Per-receiver details are access-controlled and retention-bounded.",
+        "No transcript, media payload, speaker embedding or private key appears in telemetry.",
+        "Debug UI identifies why a receiver is degraded or on fallback.",
+        "Cardinality limits prevent participant IDs from overwhelming monitoring backends."
+      ]
+    },
+    {
+      "id": "broadcast-016",
+      "status": "todo",
+      "title": "Add compatibility and deterministic topology fallback",
+      "type": "reliability/compatibility",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["broadcast-004", "broadcast-006", "broadcast-011", "broadcast-013"],
+      "files": ["agent/services/webrtc_topology_policy.py", "frontend-angular/src/app/services/realtime-topology-controller.service.ts", "tests/test_webrtc_topology_policy.py"],
+      "description": "Choose pair, mesh, SFU, control-only relay or standard media fallback using capabilities, room size, permissions, E2EE support and health.",
+      "acceptance_criteria": [
+        "Identical inputs produce identical topology and reason codes.",
+        "Legacy clients remain in supported pair or standard-audio/video paths.",
+        "Fallback never silently grants publish, subscribe or decrypt permission.",
+        "Topology changes have bounded retry and cooldown behavior.",
+        "Control and transcript can survive media-topology degradation when policy permits.",
+        "Fallback capacity is tested at the maximum supported room size."
+      ]
+    },
+    {
+      "id": "broadcast-017",
+      "status": "todo",
+      "title": "Create security, chaos and multi-room end-to-end tests",
+      "type": "testing/security",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["broadcast-010", "broadcast-011", "broadcast-012", "broadcast-013", "broadcast-016"],
+      "files": ["scripts/e2e/webrtc_sfu_broadcast_e2e.py", "tests/security/test_webrtc_sfu_security.py", "tests/chaos/test_webrtc_sfu_failover.py"],
+      "description": "Test authorized and unauthorized publication, subscription, receiver-group changes, E2EE epochs, slow receivers, SFU loss, TURN-only networks, malicious payloads and concurrent rooms.",
+      "acceptance_criteria": [
+        "A publisher uploads one stream/layer while multiple receivers obtain it.",
+        "Unauthorized receivers cannot subscribe or decrypt.",
+        "Removed participants lose future access after bounded rekey time.",
+        "One stalled receiver does not block other receivers.",
+        "SFU crash and reconnect reject stale routes, tokens and epochs.",
+        "Hub/SFU logs remain free of plaintext semantic, audio and video content under strict E2EE."
+      ]
+    },
+    {
+      "id": "broadcast-018",
+      "status": "todo",
+      "title": "Benchmark 10, 25, 50, 100 and 250 receiver fan-out",
+      "type": "benchmark/release gate",
+      "priority": "critical",
+      "risk": "high",
+      "depends_on": ["broadcast-015", "broadcast-017"],
+      "files": ["scripts/benchmark/webrtc-sfu-fanout.py", "scripts/benchmark/webrtc-semantic-broadcast.py", "docs/benchmarks/webrtc-sfu-fanout-report.md"],
+      "description": "Measure sender ingress, SFU egress, TURN traffic, CPU, memory, packets, latency, loss, recovery and semantic/control savings across ordinary media and optimized semantic modes.",
+      "acceptance_criteria": [
+        "Scenarios include one publisher, several publishers, webinar, screen share, transcript broadcast and semantic reference fan-out.",
+        "Report includes median, p95 and peak rather than averages only.",
+        "Server egress is shown to scale with actual delivered receiver traffic.",
+        "Shared processing savings and network egress are reported separately.",
+        "Worst case includes standard encrypted media fallback and all receivers behind TURN.",
+        "Release limits are derived from reproducible measurements and documented infrastructure profiles.",
+        "Admission rejects or shards rooms before measured safe limits are exceeded."
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "Existing two-peer WebRTC and Hub Relay behavior remains compatible.",
+    "One publisher can upload once to an SFU and at least 100 authorized receivers can subscribe under a documented infrastructure profile.",
+    "Each receiver can independently select quality and fallback without globally degrading the room.",
+    "Shared semantic and transcript payloads are fan-out optimized while personalized corrections and training data remain private.",
+    "Strict E2EE prevents SFU and Hub access to plaintext media and semantic content.",
+    "Join, leave, revoke, rekey, reconnect and SFU failover are deterministic and tested.",
+    "Queues, memory and buffered data remain bounded during slow-receiver and overload scenarios.",
+    "Metrics distinguish sender ingress, SFU egress, TURN relay, shared processing and receiver-specific traffic.",
+    "Benchmarks publish honest limits and include full ordinary-WebRTC fallback capacity."
+  ]
+}
