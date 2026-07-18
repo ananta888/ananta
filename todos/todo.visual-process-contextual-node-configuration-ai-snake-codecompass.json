@@ -1,0 +1,533 @@
+{
+  "$schema": "todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "visual-process-contextual-node-configuration-ai-snake-codecompass",
+  "created": "2026-07-18",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Den bestehenden Visual Process Editor zu einer leicht bedienbaren, schema-gesteuerten Konfigurationsoberflaeche fuer Ananta-Workflows ausbauen. Jeder Node soll seine gueltigen Ananta-Konfigurationsmoeglichkeiten erklaert und passend zu seinem Typ editierbar anbieten. AI-Snake begleitet den Nutzer mit einer groesseren kontextsensitiven Sprechblase und einem Chat, dessen deterministischer Initialkontext aus der aktuell fokussierten Canvas-Position sowie dem vollstaendig auf Ananta angewendeten CodeCompass-Index erzeugt wird.",
+  "goal": "Ein Nutzer kann einen Ananta-Workflow visuell konfigurieren, ohne interne JSON-Strukturen oder Implementierungsdetails kennen zu muessen. Beim Hover, Fokus oder Auswaehlen eines Nodes erklaert AI-Snake reproduzierbar, wo sich der Nutzer im Workflow befindet, welche Wirkung der Node besitzt, welche Parameter konfigurierbar sind, welche Abhaengigkeiten bestehen und welche sicheren naechsten Schritte moeglich sind. Rueckfragen im eingebetteten Chat erhalten denselben strukturierten Editor-Kontext plus nachweisbare CodeCompass-Evidenz aus Quellcode, Markdown-Dokumentation, Architekturplaenen, Schemas und Tests.",
+  "core_decisions": [
+    "VisualProcessCanvasComponent, VpGraph und VpRuntimeOverlay bleiben die einzigen kanonischen Canvas-, Graph- und Runtime-Modelle.",
+    "Node-Konfiguration wird schema- und registry-gesteuert; keine hart codierte Sondermaske pro Node im Editor-Shell.",
+    "Der deterministische Initialprompt wird nicht von einem LLM erfunden, sondern durch einen versionierten Context-Assembler aus stabil sortierten strukturierten Daten erzeugt.",
+    "CodeCompass liefert belegten Repository-Kontext. Das LLM formuliert Erklaerungen, darf aber keine unbekannten Konfigurationsfelder oder Beziehungen erfinden.",
+    "Hover erzeugt nur eine Vorschau. Auswahl oder explizites Oeffnen friert den Kontext fuer Chat und Bearbeitung ein, damit Mausbewegungen keine laufende Unterhaltung veraendern.",
+    "Alle Markdown-Dateien, Architekturplaene, Contracts, Schemas, relevante Konfigurationen, Quelltexte und Tests muessen im Ananta-CodeCompass-Index sichtbar und mit Provenienz abfragbar sein.",
+    "AI-Snake darf Konfigurationsaenderungen vorschlagen, aber erst nach expliziter Nutzerbestaetigung in VpGraph uebernehmen.",
+    "Initialkontext, Quellenmenge, Sortierung und Prompt-Version werden protokolliert, damit gleiche Eingaben denselben Initialprompt ergeben."
+  ],
+  "current_state_findings": [
+    "Der Visual Process Editor verwendet bereits VisualProcessCanvasComponent, VpStepInspectorComponent, VpEditorStateFacade und VpWorkflowRunnerService.",
+    "Der Canvas wird bereits in Standalone-, Embedded- und AI-Snake-Read-only-Kontexten wiederverwendet.",
+    "VpGraph und VpRuntimeOverlay sind getrennt; diese Trennung muss fuer die neue Hilfe- und Konfigurationsschicht erhalten bleiben.",
+    "Der Editor besitzt bereits zahlreiche globale Listen und Optionen, unter anderem Task-Kinds, Skills, Modellprofile, Fallback-Gruppen, Trainingsdaten und RAG-Kanaele.",
+    "Die aktuelle Step-Erzeugung startet mit generischen Defaultfeldern und bildet die verfuegbaren Konfigurationsmoeglichkeiten noch nicht als erklaerte typisierte Form-Schemata ab.",
+    "CodeCompass kombiniert Symbolgraph, Repository Intelligence, semantische Dokumentenabfrage sowie Trust- und Evidence-Informationen, ist damit als Grundlage fuer belegte Editorhilfe geeignet.",
+    "Die bestehende CodeCompass-Dokumentation nennt Semantic/RAG fuer Snippets und Dokumente; die Vollstaendigkeit aller Ananta-Markdown- und Architekturdateien muss fuer diesen Use Case explizit nachgewiesen werden."
+  ],
+  "non_goals": [
+    "Kein zweiter Visual Process Editor oder AI-Snake-spezifischer Canvas.",
+    "Kein freies, nicht validiertes JSON-Formular als primaere Node-Konfiguration.",
+    "Kein LLM-generierter Initialprompt ohne deterministischen strukturierten Vorbau.",
+    "Keine automatische Mutation des Workflows durch Hover oder Chatantworten.",
+    "Keine Aufnahme von Secrets, lokalen Credentials, Build-Artefakten oder personenbezogenen Daten in den CodeCompass-Index.",
+    "Keine Vermischung von aktuellem Editorentwurf und historischem Runtime-Snapshot.",
+    "Keine Volltextuebergabe des gesamten Repositories an ein Modell pro Hover-Ereignis."
+  ],
+  "target_user_flow": [
+    "Der Nutzer oeffnet einen Prozess im bestehenden Visual Process Editor.",
+    "Die Node-Palette zeigt verstaendliche Kategorien, Kurzbeschreibungen und Suchbegriffe statt nur interner Kinds.",
+    "Beim Hover ueber Palette, Node, Kante, Port oder Canvas-Leerflaeche erscheint nach kurzer Verzoegerung eine groessere AI-Snake-Sprechblase mit einer kompakten Orientierung.",
+    "Die Sprechblase nennt Position im Workflow, Zweck, Ein- und Ausgaben, relevante Konfiguration, Warnungen und einen sinnvollen naechsten Schritt.",
+    "Ein Klick auf den Node oeffnet den schema-gesteuerten Inspector mit einfachen Feldern, Erklaerungen, Defaults, Beispielen, Validierung und einem optionalen Expertenbereich.",
+    "Der Nutzer kann direkt in der Sprechblase oder im angedockten Chat eine Frage stellen.",
+    "Beim ersten Chatbeitrag wird ein deterministischer Initialprompt aus Graph-, Node-, Runtime-, Inspector-, UI- und CodeCompass-Kontext erstellt und fuer die Unterhaltung eingefroren.",
+    "CodeCompass liefert dazu nur relevante, evidenzbehaftete Quellen aus Ananta; die Antwort zeigt verwendete Dateien beziehungsweise Architekturdokumente nachvollziehbar an.",
+    "AI-Snake kann konkrete Konfigurationsaenderungen als typisierten Patch vorschlagen.",
+    "Der Nutzer sieht eine Diff-Vorschau, Validierungsfolgen und betroffene Nodes und uebernimmt oder verwirft den Vorschlag explizit."
+  ],
+  "deterministic_context_contract": {
+    "context_id": "SHA-256 ueber kanonisch serialisierten ContextEnvelope ohne volatile Zeitstempel",
+    "prompt_version": "vp-assistant-context.v1",
+    "stable_inputs": [
+      "repository_revision",
+      "codecompass_index_revision",
+      "process_definition_id und process_version oder draft_hash",
+      "selected_or_hovered_entity_type und entity_id",
+      "kanonischer VpGraph-Ausschnitt",
+      "NodeDefinitionRegistry-Version",
+      "effektive Node-Konfiguration inklusive vererbter Defaults",
+      "Validation-Issues stabil nach severity, code und path sortiert",
+      "Runtime-Overlay nur wenn explizit im Live-Modus, volatile Dauerwerte ausgeschlossen",
+      "CodeCompass-Treffer stabil nach Evidence-Tier, Score, Pfad und Zeilenbereich sortiert",
+      "locale, editor_mode und user_expertise_mode"
+    ],
+    "excluded_or_normalized_inputs": [
+      "Mauskoordinaten werden auf semantisches Canvas-Ziel normalisiert und nicht roh in den Prompt aufgenommen",
+      "Zeitstempel, zufaellige IDs, Polling-Zaehler und UI-Animationszustand werden ausgeschlossen",
+      "Secrets und Credential-Werte werden vor Hashing und Promptaufbau entfernt",
+      "Freitext-Metadaten werden kanonisch normalisiert und laengenbegrenzt"
+    ],
+    "sections": [
+      "system_constraints",
+      "editor_location",
+      "workflow_summary",
+      "focused_entity",
+      "effective_configuration",
+      "validation_and_runtime",
+      "allowed_mutations",
+      "codecompass_evidence",
+      "response_contract"
+    ],
+    "response_contract": [
+      "Erklaerung",
+      "Konfigurationsoptionen",
+      "Risiken oder Validierungsprobleme",
+      "naechster sinnvoller Schritt",
+      "optionaler typisierter Patch",
+      "Quellennachweise"
+    ]
+  },
+  "codecompass_index_scope": {
+    "required_inclusions": [
+      "**/*.md",
+      "docs/**",
+      "architektur/**",
+      "architecture/**",
+      "**/*.mmd",
+      "**/*.puml",
+      "**/*.plantuml",
+      "**/*.drawio sofern Text extrahierbar oder Begleitmanifest vorhanden",
+      "**/*.json und **/*.schema.json fuer Contracts und Konfiguration",
+      "frontend-angular/src/**",
+      "agent/**",
+      "worker/**",
+      "hub/** beziehungsweise vorhandene Backend-Pfade",
+      "tests/** und dateinahe Testdateien",
+      "AGENTS.md und weitere Repository-Instruktionsdateien"
+    ],
+    "required_exclusions": [
+      "Secrets und Credential-Dateien",
+      ".env und lokale Overrides",
+      "node_modules, dist, build, coverage und Cache-Verzeichnisse",
+      "Binaerdateien ohne expliziten sicheren Extraktor",
+      "generierte Artefakte ohne Provenienz oder mit dupliziertem Inhalt"
+    ],
+    "evidence_requirements": [
+      "Jeder Treffer enthaelt repository_revision, path, line_range oder symbol_id, source_kind, trust_level und verification_status.",
+      "Markdown-Ueberschriften und Architekturdiagramm-Knoten werden als adressierbare semantische Einheiten indexiert.",
+      "Architekturdiagramme behalten Kanten, Labels und Referenzen auf zugehoerige Dokumente.",
+      "Ein Coverage-Report weist Anzahl, Typ und Ausschlussgrund aller Repository-Dateien aus.",
+      "Ein CI-Gate schlaegt fehl, wenn fuer den Editor relevante Registry-, Schema- oder Dokumentpfade ungeplant aus dem Index verschwinden."
+    ]
+  },
+  "milestones": [
+    {"id": "VPA-M1", "title": "Ist-Analyse und Contracts", "task_ids": ["VPA-001", "VPA-002", "VPA-003"], "status": "todo"},
+    {"id": "VPA-M2", "title": "Node Definition Registry und Formulare", "task_ids": ["VPA-004", "VPA-005", "VPA-006", "VPA-007"], "status": "todo"},
+    {"id": "VPA-M3", "title": "Semantischer Canvas-Fokus", "task_ids": ["VPA-008", "VPA-009", "VPA-010"], "status": "todo"},
+    {"id": "VPA-M4", "title": "AI-Snake Hilfe und Chat", "task_ids": ["VPA-011", "VPA-012", "VPA-013", "VPA-014"], "status": "todo"},
+    {"id": "VPA-M5", "title": "CodeCompass Vollindex und Retrieval", "task_ids": ["VPA-015", "VPA-016", "VPA-017", "VPA-018"], "status": "todo"},
+    {"id": "VPA-M6", "title": "Sichere Aenderungsvorschlaege", "task_ids": ["VPA-019", "VPA-020", "VPA-021"], "status": "todo"},
+    {"id": "VPA-M7", "title": "Tests, UX und Rollout", "task_ids": ["VPA-022", "VPA-023", "VPA-024", "VPA-025"], "status": "todo"}
+  ],
+  "tasks": [
+    {
+      "id": "VPA-001",
+      "title": "Aktuelle Node-Typen, Konfigurationsfelder und Datenquellen inventarisieren",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": [],
+      "affected_files": [
+        "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
+        "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.ts",
+        "frontend-angular/src/app/features/visual-process/vp-editor-config.ts",
+        "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+      ],
+      "acceptance_criteria": [
+        "Alle VpStep.kind-Werte und ihre aktuell wirksamen metadata-, policy-, io-, model-, rag-, training- und gate-Felder sind dokumentiert.",
+        "Fuer jedes Feld sind Typ, Pflichtstatus, Default, erlaubte Werte, Backend-Wirkung und bestehende Validierung bekannt.",
+        "Globale Optionen wie SkillProfile, TaskKind, ModelProfile, FallbackGroup und Training-Optionen sind ihrer konsumierenden Node-Art zugeordnet.",
+        "Inkonsistente, ungenutzte oder nur implizit ausgewertete Felder sind als Migrationsrisiko markiert."
+      ]
+    },
+    {
+      "id": "VPA-002",
+      "title": "Kanonischen EditorContextEnvelope definieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPA-001"],
+      "acceptance_criteria": [
+        "Ein versionierter typisierter Contract bildet Canvas-Ziel, Graph-Ausschnitt, effektive Konfiguration, Validation, Runtime, Editor-Modus und CodeCompass-Evidence ab.",
+        "Hover-, Selection- und Chat-Kontext verwenden denselben Contract mit expliziten Detailstufen preview, selected und conversation.",
+        "Der Contract besitzt eine kanonische JSON-Serialisierung und einen reproduzierbaren context_id Hash.",
+        "Volatile und sensible Felder sind explizit ausgeschlossen oder redigiert."
+      ]
+    },
+    {
+      "id": "VPA-003",
+      "title": "Deterministischen Prompt-Assembler spezifizieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "dependencies": ["VPA-002"],
+      "acceptance_criteria": [
+        "Der Initialprompt entsteht aus festen Templates und kanonisch sortierten ContextEnvelope-Sektionen.",
+        "Gleicher Repository-, Index-, Graph- und Fokusstand erzeugt byte-identischen Initialprompt.",
+        "Prompt-Version, Context-ID und Evidence-IDs werden mit der Unterhaltung gespeichert.",
+        "Ein Snapshot-Test prueft mindestens 20 representative Node-, Kanten-, Canvas- und Runtime-Kontexte."
+      ]
+    },
+    {
+      "id": "VPA-004",
+      "title": "Versionierte NodeDefinitionRegistry einfuehren",
+      "type": "frontend-backend-contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPA-001"],
+      "acceptance_criteria": [
+        "Jeder Node-Kind besitzt genau eine Definition mit Label, Kategorie, Zweck, Inputs, Outputs, Feldschema, Defaults, Beispielen, Hilfetexten und Capability-Flags.",
+        "Registry-Definitionen koennen aus einem kanonischen Backend-Contract geladen und offline mit einer kompatiblen gebauten Fallback-Version verwendet werden.",
+        "Unbekannte Node-Kinds bleiben lesbar, werden aber als unsupported markiert und nicht verlustreich gespeichert.",
+        "Registry-Version und VpGraph-Version sind kompatibilitaetsgeprueft."
+      ]
+    },
+    {
+      "id": "VPA-005",
+      "title": "Schema-gesteuerten Node-Inspector implementieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPA-004"],
+      "acceptance_criteria": [
+        "Text, Number, Boolean, Enum, Multi-Select, Resource-Reference, Expression, Secret-Reference, IO-Port und strukturierte Listen werden generisch gerendert.",
+        "Jedes Feld zeigt Kurzbeschreibung, Wirkung, Default, Beispiel und Validierungsfehler direkt am Feld.",
+        "Ein Einfach-Modus zeigt nur wesentliche Felder; ein Expertenmodus zeigt erweiterte Optionen und das kanonische JSON read-only beziehungsweise kontrolliert editierbar.",
+        "Aenderungen mutieren ausschliesslich den Editor-State und respektieren Dirty-State, Undo/Redo und Validierung."
+      ]
+    },
+    {
+      "id": "VPA-006",
+      "title": "Abhaengige Optionen und dynamische Auswahlwerte vereinheitlichen",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["VPA-004", "VPA-005"],
+      "acceptance_criteria": [
+        "Modelle, Skills, RAG-Kanaele, Trainingsprofile, Datensaetze, Fallback-Gruppen und Prozessreferenzen werden ueber typisierte OptionProvider geladen.",
+        "Felder koennen anhand anderer Feldwerte sichtbar, erforderlich, eingeschraenkt oder deaktiviert werden.",
+        "Fehlende Ressourcen zeigen einen erklaerten degraded state statt leere Dropdowns.",
+        "OptionProvider besitzen Lade-, Fehler-, Cache- und Refresh-Zustaende."
+      ]
+    },
+    {
+      "id": "VPA-007",
+      "title": "Node-Palette mit Suche, Kategorien und erklaerten Vorlagen erweitern",
+      "type": "frontend-ux",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "dependencies": ["VPA-004"],
+      "acceptance_criteria": [
+        "Nodes sind nach Nutzerziel kategorisiert und nach Label, Synonym, Capability und Beschreibung suchbar.",
+        "Hover auf einem Paletteneintrag zeigt Zweck, benoetigte Inputs, erzeugte Outputs und ein Mini-Beispiel.",
+        "Neue Nodes werden deterministisch positioniert und erhalten Registry-Defaults statt zufaelliger fachlicher Konfiguration.",
+        "Favoriten und zuletzt verwendet veraendern nicht die kanonische Registry-Reihenfolge."
+      ]
+    },
+    {
+      "id": "VPA-008",
+      "title": "Semantisches CanvasHitTarget-Modell implementieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPA-002"],
+      "acceptance_criteria": [
+        "Pointer-Events werden auf node, node_port, edge, edge_condition, canvas_region, validation_badge oder runtime_badge normalisiert.",
+        "Das Modell enthaelt stabile Entity-IDs und semantische Rollen, aber keine rohen DOM-Referenzen im gespeicherten Kontext.",
+        "Z-Index, ueberlappende Elemente, Zoom und Pan liefern reproduzierbar dasselbe semantische Ziel.",
+        "Keyboard-Fokus und Touch-Auswahl erzeugen aequivalente Targets ohne Hover-Abhaengigkeit."
+      ]
+    },
+    {
+      "id": "VPA-009",
+      "title": "Hover-, Fokus- und Auswahlzustand sauber trennen",
+      "type": "frontend-state",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["VPA-008"],
+      "acceptance_criteria": [
+        "Hover-Vorschau erscheint erst nach konfigurierbarem Delay und wird debounced beziehungsweise cancellable erzeugt.",
+        "Auswahl friert den Kontext fuer Inspector und Chat ein, bis der Nutzer explizit wechselt.",
+        "Dragging, Edge-Zeichnen, Zoom und Pan unterdruecken stoerende Hilfe-Popups.",
+        "Der Zustand bleibt lokal zur Editorinstanz und beeinflusst keine zweite eingebettete Instanz."
+      ]
+    },
+    {
+      "id": "VPA-010",
+      "title": "Workflow-Positionsbeschreibung berechnen",
+      "type": "domain-service",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["VPA-002", "VPA-008"],
+      "acceptance_criteria": [
+        "Ein deterministischer Service beschreibt Startnaehe, Vorgaenger, Nachfolger, Branch, Gate, Schleife, Fehlerpfad und Erreichbarkeit des fokussierten Elements.",
+        "Die Beschreibung basiert auf VpGraph und nicht auf visuellen Pixelkoordinaten.",
+        "Bei Zyklen, parallelen Pfaden und unverbundenen Nodes entstehen korrekte erklaerte Zustaende.",
+        "Der Service liefert sowohl maschinenlesbare Fakten als auch stabile kurze UI-Texte."
+      ]
+    },
+    {
+      "id": "VPA-011",
+      "title": "Groessere adaptive AI-Snake-Sprechblase bauen",
+      "type": "frontend-ux",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["VPA-009", "VPA-010"],
+      "acceptance_criteria": [
+        "Die Sprechblase bietet mindestens compact, expanded und pinned mit responsive Breite und sinnvoller Maximalhoehe.",
+        "Expanded zeigt Orientierung, Zweck, wichtigste Einstellungen, Warnungen, naechsten Schritt und Quellenindikator.",
+        "Die Blase verdeckt den fokussierten Node nach Moeglichkeit nicht und kann verschoben oder angeheftet werden.",
+        "Tastaturbedienung, Screenreader-Labels, reduzierte Animation und mobile Darstellung sind abgedeckt."
+      ]
+    },
+    {
+      "id": "VPA-012",
+      "title": "Kontextsensitiven Editor-Chat integrieren",
+      "type": "frontend-backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPA-003", "VPA-011"],
+      "acceptance_criteria": [
+        "Aus der Sprechblase kann direkt eine Frage eingegeben oder ein angedockter Chat geoeffnet werden.",
+        "Die erste Nutzernachricht bindet den eingefrorenen ContextEnvelope und Prompt-Snapshot an die Unterhaltung.",
+        "Spaetere Fokuswechsel veraendern die laufende Unterhaltung nur nach explizitem Kontextwechsel.",
+        "Der Chat zeigt Context-ID, fokussiertes Element und verwendete CodeCompass-Evidence in einer aufklappbaren Ansicht."
+      ]
+    },
+    {
+      "id": "VPA-013",
+      "title": "Antwortformat fuer erklaerende Editorhilfe erzwingen",
+      "type": "ai-contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPA-003", "VPA-012"],
+      "acceptance_criteria": [
+        "Antworten werden als typisierter HelpResponse-Contract mit summary, location, explanation, options, warnings, next_actions, evidence und optional patch geliefert.",
+        "Nicht belegte Implementierungsbehauptungen werden als unbekannt markiert und nicht als Fakt ausgegeben.",
+        "UI kann Kurzfassung und Details ohne erneute Modellanfrage darstellen.",
+        "Parser- oder Schemafehler fallen auf eine sichere Nur-Text-Erklaerung ohne Mutation zurueck."
+      ]
+    },
+    {
+      "id": "VPA-014",
+      "title": "Kontext- und Antwortcache mit klarer Invalidierung einfuehren",
+      "type": "performance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["VPA-003", "VPA-013"],
+      "acceptance_criteria": [
+        "Identische Context-IDs verwenden denselben deterministischen Initialprompt und koennen identische statische Hilfetexte cachen.",
+        "Graphmutation, Registry-Wechsel, Index-Revision oder Fokuswechsel invalidieren nur betroffene Eintraege.",
+        "Hover erzeugt keine unkontrollierte Modellanfragenserie.",
+        "Cache-Metriken unterscheiden Hit, Miss, Invalidierung und veraltete Evidence."
+      ]
+    },
+    {
+      "id": "VPA-015",
+      "title": "CodeCompass-Ingestion fuer gesamte Ananta-Wissensbasis auditieren",
+      "type": "analysis-security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "dependencies": [],
+      "affected_files": [
+        "scripts/setup_codecompass_index.py",
+        "worker/retrieval/codecompass_retriever.py",
+        "docs/codecompass.md",
+        "docs/codecompass-tools.md"
+      ],
+      "acceptance_criteria": [
+        "Ein reproduzierbarer Coverage-Report listet alle Repository-Dateien nach indexed, excluded, unsupported und failed auf.",
+        "Alle Markdown-Dokumente, Dokumentationspfade und Architekturplaene sind enthalten oder besitzen einen begruendeten expliziten Ausschluss.",
+        "Secrets, lokale Konfigurationen und generierte Artefakte sind sicher ausgeschlossen.",
+        "Der Audit prueft sowohl Volltext-/FTS- als auch Vektor-, Symbol- und Repository-Intelligence-Schichten."
+      ]
+    },
+    {
+      "id": "VPA-016",
+      "title": "Markdown- und Architekturplan-Extraktion erweitern",
+      "type": "retrieval-indexing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPA-015"],
+      "acceptance_criteria": [
+        "Markdown wird nach Dokument, Abschnitt, Tabelle, Codeblock und Referenz mit stabilen IDs indexiert.",
+        "Mermaid- und PlantUML-Dateien liefern Knoten, Kanten, Labels und Dokumentverweise als Graph-Evidence.",
+        "JSON-Schemas, Todo-Architekturentscheidungen und Contracts werden als eigene source_kind-Werte behandelt.",
+        "Zeilenbereiche und Repository-Revision bleiben fuer jede Evidence erhalten."
+      ]
+    },
+    {
+      "id": "VPA-017",
+      "title": "Editor-spezifische CodeCompass Query-Templates implementieren",
+      "type": "retrieval",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPA-002", "VPA-016"],
+      "acceptance_criteria": [
+        "Templates existieren fuer Node-Erklaerung, Feldwirkung, Input/Output, Validierungsfehler, Runtime-Fehler, Abhaengigkeiten und sichere Aenderung.",
+        "Queries nutzen Node-Kind, Feldpfade, Symbole, Contracts und Graphnachbarschaft statt nur freie Nutzersprache.",
+        "Treffer werden stabil nach Evidence-Tier, Verifikation, Relevanz, Pfad und Zeile sortiert.",
+        "Ein hartes Token- und Trefferbudget verhindert Vollrepository-Prompting."
+      ]
+    },
+    {
+      "id": "VPA-018",
+      "title": "CodeCompass-Evidence gegen Halluzination und veraltete Dokumentation absichern",
+      "type": "security-quality",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "dependencies": ["VPA-017"],
+      "acceptance_criteria": [
+        "Antworten unterscheiden verified, inferred, partial und unknown Evidence sichtbar.",
+        "Dokumentation, die dem aktuellen Code widerspricht, wird als Konflikt dargestellt und nicht still priorisiert.",
+        "Repository- und Index-Revision muessen zum Prompt-Snapshot passen oder der Chat zeigt einen stale-context Hinweis.",
+        "Prompt-Injection-Inhalte aus Repository-Dokumenten werden als Daten behandelt und koennen Systemregeln nicht ueberschreiben."
+      ]
+    },
+    {
+      "id": "VPA-019",
+      "title": "Typisierten WorkflowPatch-Contract definieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "dependencies": ["VPA-004", "VPA-013"],
+      "acceptance_criteria": [
+        "Erlaubte Operationen sind add_step, remove_step, update_step_field, add_edge, remove_edge und update_edge_condition mit stabilen Pfaden.",
+        "Jede Operation enthaelt expected_old_value oder Graph-Revision fuer optimistische Konflikterkennung.",
+        "Secretwerte und nicht registry-erlaubte Felder sind unzulaessig.",
+        "Der Contract kann ohne Modell deterministisch validiert und auf einen Graph-Klon angewendet werden."
+      ]
+    },
+    {
+      "id": "VPA-020",
+      "title": "Patch-Vorschau mit Auswirkungen und Quellen anzeigen",
+      "type": "frontend-ux",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPA-019"],
+      "acceptance_criteria": [
+        "Vor Uebernahme zeigt die UI Feld-Diff, betroffene Nodes/Kanten, Validierung vor/nachher und relevante Evidence.",
+        "Teiluebernahme einzelner unabhaengiger Operationen ist moeglich.",
+        "Konflikte mit zwischenzeitlichen manuellen Aenderungen werden erkannt und nicht ueberschrieben.",
+        "Ablehnen hinterlaesst keinerlei Graphmutation."
+      ]
+    },
+    {
+      "id": "VPA-021",
+      "title": "Validierte AI-Patches kontrolliert in den Editor-State uebernehmen",
+      "type": "frontend-domain",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "dependencies": ["VPA-020"],
+      "acceptance_criteria": [
+        "Uebernahme erfolgt als eine Undo/Redo-Transaktion und setzt Dirty-State korrekt.",
+        "Nach Anwendung laufen Registry-, Graph- und Backend-Validierung erneut.",
+        "Persistenz erfolgt niemals automatisch durch die AI-Patch-Anwendung.",
+        "Auditdaten speichern Context-ID, Prompt-Version, Patch, Nutzerentscheidung und Ergebnis ohne sensible Inhalte."
+      ]
+    },
+    {
+      "id": "VPA-022",
+      "title": "Unit- und Contract-Tests fuer Registry, Context und Prompt erstellen",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["VPA-003", "VPA-004", "VPA-019"],
+      "acceptance_criteria": [
+        "Registry-Schemas, Defaults, Abhaengigkeiten und unbekannte Node-Kinds sind getestet.",
+        "ContextEnvelope-Kanonisierung und Hashing sind ueber Plattformen reproduzierbar.",
+        "Prompt-Snapshots erkennen unbeabsichtigte Template- oder Sortierungsveraenderungen.",
+        "Patch-Validierung deckt unzulaessige Pfade, Konflikte und Secret-Injection ab."
+      ]
+    },
+    {
+      "id": "VPA-023",
+      "title": "Component- und E2E-Tests fuer Editorhilfe und Chat erstellen",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["VPA-011", "VPA-012", "VPA-020"],
+      "acceptance_criteria": [
+        "Hover, Auswahl, Pinning, Chatstart, Fokuswechsel, Keyboard und Touch sind getestet.",
+        "Zwei parallele Editorinstanzen behalten getrennte Hilfe- und Chatkontexte.",
+        "Ein kompletter E2E-Fall konfiguriert einen Node, fragt AI-Snake, prueft Evidence, uebernimmt einen Patch und speichert den validen Graph.",
+        "Read-only AI-Snake-Liveansicht bietet Erklaerungen, aber keine Mutationsaktionen."
+      ]
+    },
+    {
+      "id": "VPA-024",
+      "title": "Performance-, Last- und Retrieval-Budgets absichern",
+      "type": "performance-test",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["VPA-014", "VPA-017"],
+      "acceptance_criteria": [
+        "Hover-Vorschau ohne Modell ist lokal innerhalb eines definierten UI-Budgets verfuegbar.",
+        "CodeCompass-Abfrage und Promptaufbau besitzen messbare p50/p95-Ziele und Abbruchverhalten.",
+        "Grosse Graphen und schnelle Pointer-Bewegungen erzeugen keine Request-Flut oder Memory-Leaks.",
+        "Evidence- und Promptbudgets werden in Telemetrie sichtbar."
+      ]
+    },
+    {
+      "id": "VPA-025",
+      "title": "Dokumentation, Migration und schrittweisen Rollout abschliessen",
+      "type": "documentation-rollout",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["VPA-022", "VPA-023", "VPA-024"],
+      "acceptance_criteria": [
+        "Architekturdokumente erklaeren Registry, ContextEnvelope, Prompt-Assembler, CodeCompass-Evidence und Patch-Sicherheit.",
+        "Bestehende Graphen werden ohne Datenverlust geoeffnet und bei Bedarf explizit migriert.",
+        "Feature-Flags trennen schema-gesteuerten Inspector, Hover-Hilfe, Chat und AI-Patches.",
+        "Ein Rollback deaktiviert die neuen Hilfefunktionen, ohne Graphdefinitionen oder Runtime-Anzeige zu beschaedigen."
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "Mindestens die in Produktion verwendeten Node-Kinds besitzen vollstaendige Registry-Definitionen und einfache Konfigurationsmasken.",
+    "AI-Snake erklaert Node, Kante, Port und Canvas-Position kontextsensitiv in einer groesseren bedienbaren Sprechblase.",
+    "Der Editor-Chat startet mit einem reproduzierbaren, versionierten und auditierbaren Initialprompt.",
+    "CodeCompass indexiert nachweislich alle vorgesehenen Ananta-Markdown-Dateien, Dokumentationen und Architekturplaene mit Provenienz.",
+    "Antworten zeigen belegte Quellen und behandeln unbekannte oder widerspruechliche Informationen explizit.",
+    "AI-Aenderungsvorschlaege werden nur als validierter Patch nach sichtbarer Nutzerbestaetigung uebernommen.",
+    "Bestehende Canvas-, Graph-, Runtime- und Persistenzarchitektur bleibt wiederverwendet und frei von Parallelimplementierungen."
+  ]
+}
