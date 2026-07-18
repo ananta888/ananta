@@ -1,0 +1,190 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "spreadsheet-lora-libreoffice-feedback-studio",
+  "status": "todo",
+  "priority": "P0",
+  "created": "2026-07-18",
+  "updated": "2026-07-18",
+  "purpose": "Ananta um einen sicheren lokalen Spreadsheet-Assistenten erweitern, der XLSX, ODS und CSV über einen isolierten LibreOffice-Worker anzeigen und verändern kann, Ergebnisse deterministisch sowie durch den Nutzer validiert und ausdrücklich freigegebene korrekte oder korrigierte Fälle als eigene Trainingsdaten für das vorhandene LoRA/QLoRA-System nutzt.",
+  "goal": "Ein Nutzer kann Arbeitsmappen in einer speziellen Angular-Komponente LibreOffice-nah betrachten, Bereiche auswählen, Aufgaben formulieren, strukturierte Änderungen als Diff prüfen, anwenden und mit eigenen fachlichen Regeln validieren. Freigegebene Ergebnisse fließen nachvollziehbar in versionierte Spreadsheet-Datasets ein, aus denen Ananta über die vorhandene ml_intern-Trainings-Control-Plane eigene LoRA-Adapter trainiert, evaluiert und kontrolliert aktiviert.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "supersedes_or_extends": ["todos/archiv/todo.mlintern-lora-training-control-center.json"],
+  "source_analysis": {
+    "verified_existing": [
+      "Der archivierte Track todo.mlintern-lora-training-control-center.json dokumentiert einen abgeschlossenen LoRA/QLoRA-Produktpfad mit Dataset-Import, Validierung, persistenten Hub-Jobs, isoliertem Training-Worker, Evaluation, Adapterregistry, Approval, Export und Angular-Control-Center.",
+      "Vorhandene ml_intern-Dataset-, Training-, Evaluation- und Adapterdienste sowie die Angular-Modelltraining-Verwaltung sind wiederzuverwenden und nicht parallel neu aufzubauen.",
+      "Die bestehende Architektur verwendet tenantgebundene IDs und Hashes statt freier Serverpfade, trennt Hub und Worker und verbietet automatisches Adapter-Approval.",
+      "Im aktuell auffindbaren Stand existiert kein durchgängiger Spreadsheet-Domänenpfad für XLSX/ODS, kein isolierter LibreOffice-Worker, keine eingeschränkte Zellaktionssprache, keine fachliche Ergebnisvalidierung und keine Spreadsheet-spezifische Angular-Arbeitsoberfläche."
+    ],
+    "reused_patterns": [
+      "ml_intern Dataset-, Job-, Event-, Evaluation-, Adapterregistry- und Approval-Verträge",
+      "TaskDB/WorkerJobDB sowie Lease-, Heartbeat-, Fencing- und Recovery-Muster",
+      "Shared Angular UI-Primitives und bestehende Modelltraining-Navigation",
+      "Artefakt-Containment, Secret-Scanning, Preview-, Consent- und Auditmuster"
+    ],
+    "rejected_patterns": [
+      "Kein direkter LibreOffice-/UNO-Prozess im Hub oder Angular-Client",
+      "Kein Modelloutput als Python, Shell, Makro oder ungeprüfter UNO-Code",
+      "Kein automatisches Lernen aus jeder Nutzerinteraktion oder allein aus bestandener Validierung",
+      "Keine Überschreibung der Originalarbeitsmappe und kein stilles Aktivieren eines Adapters",
+      "Keine Browser-Nachbildung, die vollständige Calc-Kompatibilität behauptet"
+    ]
+  },
+  "architecture_decisions": [
+    "LibreOffice läuft ausschließlich in einem isolierten Worker; der Hub besitzt Jobs, Policy, Dokumentversionen, Approval und Audit.",
+    "Das Modell erzeugt ausschließlich eine versionierte, eingeschränkte Spreadsheet-Aktionssprache; deterministische Dienste führen sie aus.",
+    "Original, normalisierte Arbeitskopie, Vorschau, Ergebnisversion und Trainingsrepräsentation sind getrennte Artefakte mit eigenen Hashes.",
+    "Automatische Validierung, Nutzerfeedback und Trainingsfreigabe sind drei getrennte Signale.",
+    "Spreadsheet-LoRA erweitert das vorhandene ml_intern-Control-Center über task_family=spreadsheet.",
+    "Train-, Eval- und Test-Splits werden nach Workbook-/Template-Gruppen gebildet, um Leakage zu verhindern."
+  ],
+  "non_goals": [
+    "Keine vollständige Neuentwicklung von LibreOffice Calc im Browser",
+    "Keine Makro-, Shell-, Python- oder externe Datenquellenausführung",
+    "Kein Full-Fine-Tuning kompletter Modellgewichte",
+    "Kein Training ohne explizite Nutzerfreigabe",
+    "Keine Garantie für sämtliche exotischen ODS-/XLSX-Funktionen in Version 1"
+  ],
+  "definition_of_done": [
+    "XLSX, ODS und CSV können sicher importiert, versioniert, gerendert, angezeigt und über strukturierte Aktionen verändert werden.",
+    "Die Angular-App besitzt ein Spreadsheet Studio mit Arbeitsmappenansicht, Aufgabeneditor, Diff, Validator-Builder, Feedback und Dataset-Verwaltung.",
+    "LibreOffice läuft isoliert ohne Netzwerk, Makros oder Zugriff auf Hub-Secrets.",
+    "Akzeptierte und korrigierte Ergebnisse gelangen nur nach sichtbarer Vorschau und expliziter Freigabe in versionierte Datasets.",
+    "Spreadsheet-LoRA-Training, Ausführungsevaluation, Adapterapproval und lokale Inferenz sind an ml_intern angebunden.",
+    "Backend-, Angular-, Security-, Container- und CPU-/Mock-E2E-Gates sind grün; Hardwaretests werden separat ausgewiesen."
+  ],
+  "milestones": [
+    {"id":"SSF-M1","title":"Bestandsabgleich und Verträge","task_ids":["SSF-001","SSF-002"],"status":"todo"},
+    {"id":"SSF-M2","title":"Dokumente und LibreOffice-Worker","task_ids":["SSF-003","SSF-004"],"status":"todo"},
+    {"id":"SSF-M3","title":"Aktionen, Validatoren und Datasets","task_ids":["SSF-005","SSF-006","SSF-007"],"status":"todo"},
+    {"id":"SSF-M4","title":"Training, Evaluation und Feedback","task_ids":["SSF-008","SSF-009","SSF-010"],"status":"todo"},
+    {"id":"SSF-M5","title":"Angular Spreadsheet Studio","task_ids":["SSF-011","SSF-012","SSF-013","SSF-014"],"status":"todo"},
+    {"id":"SSF-M6","title":"Security und End-to-End","task_ids":["SSF-015","SSF-016"],"status":"todo"}
+  ],
+  "critical_path_tasks": ["SSF-001","SSF-002","SSF-003","SSF-004","SSF-005","SSF-006","SSF-007","SSF-008","SSF-009","SSF-010","SSF-011","SSF-012","SSF-013","SSF-015","SSF-016"],
+  "tasks": [
+    {
+      "id":"SSF-001","title":"Spreadsheet-, LibreOffice- und Feedback-Bestand gegen main auditieren","type":"analysis","milestone_id":"SSF-M1","status":"todo","priority":"P0","risk":"low","progress_percent":0,"depends_on":[],
+      "target_files":["agent/services/ml_intern_*","agent/routes/ml_intern_training.py","agent/ml_intern_training_runner.py","frontend-angular/src/app","docker-compose*.yml","todos/archiv/todo.mlintern-lora-training-control-center.json"],
+      "acceptance_criteria":["Vorhandene Dataset-, Training-, Evaluation-, Registry- und Angular-Pfade werden mit konkreten Dateien und Symbolen dokumentiert.","Spreadsheet-, XLSX-/ODS-, LibreOffice-, Zellvalidierungs- und Feedbacklücken werden als vorhanden, teilweise vorhanden oder fehlend klassifiziert.","Dateivorschau, echte Berechnung, Bearbeitung, Modellinferenz, Benutzerfreigabe und Trainingsdatenübernahme werden getrennt betrachtet.","Der neue Track erweitert den erledigten LoRA-Control-Center additiv."],
+      "test_expectations":["Bestehende ml_intern- und Angular-Tests werden als Baseline ausgeführt und bleiben grün."]
+    },
+    {
+      "id":"SSF-002","title":"Versionierte Spreadsheet-Verträge und Sicherheitsgrenzen definieren","type":"architecture","milestone_id":"SSF-M1","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-001"],
+      "target_files":["docs/contracts/spreadsheet-document.schema.json","docs/contracts/spreadsheet-action.schema.json","docs/contracts/spreadsheet-feedback.schema.json","docs/spreadsheet-finetuning.md"],
+      "acceptance_criteria":["Dokument, Blatt, Bereich, Zelle, Formel, Format, Tabelle, Diagramm und Validierungszustand besitzen versionierte Verträge.","Dateien werden nur über Dokument-IDs, Hashes und tenantgebundene Handles referenziert.","Modellvorschlag, deterministische Ausführung, Validierung und Freigabe sind getrennte Zustände.","Feedback kennt accepted, corrected, rejected, skipped und unsafe.","Makros, externe Links, Datenquellen und eingebettete Objekte sind default-deny."],
+      "test_expectations":["Schema-Tests lehnen unbekannte kritische Felder, freie Pfade und ausführbaren Code ab."]
+    },
+    {
+      "id":"SSF-003","title":"Sicheren XLSX-, ODS- und CSV-Artefaktimport mit Versionierung implementieren","type":"backend","milestone_id":"SSF-M2","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-002"],
+      "target_files":["agent/services/spreadsheet_artifact_service.py","agent/routes/spreadsheet_documents.py","tests/test_spreadsheet_artifact_service.py"],
+      "acceptance_criteria":["Uploads werden streamend begrenzt, gehasht, tenantgebunden gespeichert und gegen Traversal, Symlinks, Zip-Bomben und MIME-Spoofing geschützt.","Original, Arbeitskopie und Vorschau sind getrennte Artefakte.","Makrohaltige, beschädigte oder passwortgeschützte Dateien liefern stabile Reason-Codes.","Originaldateien werden niemals überschrieben."],
+      "test_expectations":["Security-Golden-Suite für manipulierte ZIP-Container, große Shared Strings, Traversal und MIME-Spoofing ist grün."]
+    },
+    {
+      "id":"SSF-004","title":"Isolierten LibreOffice-Worker für Rendering, Neuberechnung und Änderungen bereitstellen","type":"worker","milestone_id":"SSF-M2","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-003"],
+      "target_files":["workers/libreoffice_worker","agent/services/spreadsheet_worker_client.py","compose.spreadsheet.yml","docs/contracts/spreadsheet-worker.schema.json"],
+      "acceptance_criteria":["LibreOffice läuft headless, non-root, read-only und ohne Netzwerk oder Hub-Secrets.","Der Worker akzeptiert nur signierte materialisierte Jobs und erzeugt Vorschauen, Zell-Snapshots und neue Dokumentversionen.","CPU-, RAM-, Zeit-, Datei- und Blattlimits werden erzwungen.","Makros, Extensions und externe Datenaktualisierung sind deaktiviert.","Crash, Timeout und beschädigte Dateien verlieren keinen Hub-Jobstatus."],
+      "test_expectations":["Container-Härtung, Timeout, Recovery und reproduzierbarer Render-/Recalc-Smoke-Test sind automatisiert."]
+    },
+    {
+      "id":"SSF-005","title":"Kanonisches Spreadsheet-Modell und eingeschränkte Aktionssprache implementieren","type":"backend","milestone_id":"SSF-M3","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-002","SSF-004"],
+      "target_files":["agent/models/spreadsheet.py","agent/services/spreadsheet_parser_service.py","agent/services/spreadsheet_action_service.py","tests/test_spreadsheet_action_service.py"],
+      "acceptance_criteria":["Blätter, Zellen, Formeln, berechnete Werte, Stile, benannte Bereiche, Tabellen und Abhängigkeiten werden kanonisch dargestellt.","Formeltext und angezeigter Wert bleiben getrennt; Locale und Datumssystem sind explizit.","Erlaubte Aktionen umfassen set_value, set_formula, clear_range, copy_range, format_range sowie Zeilen-/Spaltenoperationen.","Freitext-Code, Python, Shell und rohe UNO-Kommandos sind ausgeschlossen.","Dry-run liefert strukturierten Diff; Apply ist idempotent und versionsgebunden."],
+      "test_expectations":["Golden-Files und Property-Tests decken Locale, Datum, Bereichsgrenzen, Konflikte und unbekannte Aktionen ab."]
+    },
+    {
+      "id":"SSF-006","title":"Nutzerdefinierte fachliche Spreadsheet-Validatoren implementieren","type":"validation","milestone_id":"SSF-M3","status":"todo","priority":"P0","risk":"high","progress_percent":0,"depends_on":["SSF-005"],
+      "target_files":["agent/services/spreadsheet_validation_service.py","docs/contracts/spreadsheet-validation.schema.json","tests/test_spreadsheet_validation_service.py"],
+      "acceptance_criteria":["Validatoren unterstützen exakte Werte, Toleranzen, Formelmuster, Invarianten, Bereichsregeln und Referenzdateien.","Formeln werden strukturell und nach LibreOffice-Neuberechnung bewertet, nicht nur als String.","Ergebnisse unterscheiden fachlich korrekt, technisch gültig, teilweise korrekt, unverändert und nicht prüfbar.","Validatoren sind an Dokumenthash, Aufgabe und erwartete Ausgabe gebunden.","Berichte nennen Blatt und Bereich, ohne unnötige sensible Inhalte zu protokollieren."],
+      "test_expectations":["Tests decken Rundung, Locale, Datum, Fehlerwerte, relative Referenzen und gleichwertige Formeln ab."]
+    },
+    {
+      "id":"SSF-007","title":"Nutzerdefinierte Dataset-Rezepte und leakagesichere Spreadsheet-Trainingsdaten bauen","type":"dataset","milestone_id":"SSF-M3","status":"todo","priority":"P0","risk":"high","progress_percent":0,"depends_on":["SSF-003","SSF-005","SSF-006"],
+      "target_files":["agent/services/spreadsheet_dataset_service.py","agent/services/ml_intern_lora_dataset_build_service.py","docs/contracts/spreadsheet-dataset-recipe.schema.json"],
+      "acceptance_criteria":["Nutzer definieren Quellen, Aufgaben, erlaubte Bereiche, Zielaktionen, Validatoren, Maskierung und Datenschutzregeln als versioniertes Recipe.","Beispiele enthalten Instruktion, kanonischen Kontext, Zielaktion, Validatorergebnis, Quellhash und Consentstatus.","Train/Eval/Test werden deterministisch nach Workbook- oder Template-Gruppe gesplittet.","Duplikate und nahe Varianten werden erkannt; sensible Spalten können maskiert oder ausgeschlossen werden.","Dataset-Versionen sind reproduzierbar und vollständig provenance-fähig."],
+      "test_expectations":["Leakage-, Deduplizierungs-, Maskierungs- und Reproduzierbarkeitstests sind grün."]
+    },
+    {
+      "id":"SSF-008","title":"Spreadsheet-LoRA/QLoRA als task_family des bestehenden ml_intern-Systems ergänzen","type":"training","milestone_id":"SSF-M4","status":"todo","priority":"P0","risk":"high","progress_percent":0,"depends_on":["SSF-007"],
+      "target_files":["agent/ml_intern_training_runner.py","agent/services/ml_intern_training_job_service.py","agent/services/ml_intern_lora_eval_service.py"],
+      "acceptance_criteria":["Bestehende Queue-, Worker-, Event-, Cancel-, Registry- und Approval-Verträge werden wiederverwendet.","Trainingsziel ist strikt strukturiertes Action-JSON im Instruction- oder Chat-Format.","Base-Modell, Quantisierung, LoRA-Rang, Zielmodule, Kontext- und Zellbudget sind profilbasiert.","Adapterartefakte und Logs enthalten keine Roharbeitsmappen oder Zellinhalte.","Seed, Split-Hashes, Resume und Provenienz sind reproduzierbar."],
+      "test_expectations":["CPU-/Mock-Gate und optionaler NVIDIA-Smoke-Test decken task_family=spreadsheet ab."]
+    },
+    {
+      "id":"SSF-009","title":"Spreadsheet-Evaluation über echte Ausführung und Validatoren implementieren","type":"evaluation","milestone_id":"SSF-M4","status":"todo","priority":"P0","risk":"high","progress_percent":0,"depends_on":["SSF-006","SSF-008"],
+      "target_files":["agent/services/spreadsheet_model_eval_service.py","agent/services/ml_intern_lora_eval_service.py","tests/test_spreadsheet_model_eval_service.py"],
+      "acceptance_criteria":["Base und Adapter erzeugen Aktionen, die in isolierten Dokumentkopien ausgeführt und deterministisch validiert werden.","Metriken umfassen JSON-valid, action-valid, execution-success, validator-pass, cell-diff-precision, unintended-change-rate, Latenz und Ressourcenverbrauch.","Berichte gruppieren nach Aufgabentyp, Dateiformat, Größenklasse und Fehlerklasse.","Approval-Gates blockieren kritische Regressionen und unbeabsichtigte Änderungen.","Textähnlichkeit ist höchstens eine Diagnosemetrik."],
+      "test_expectations":["Golden-Suite enthält korrekte, teilweise korrekte, falsche und gefährliche Modellaktionen."]
+    },
+    {
+      "id":"SSF-010","title":"Human-in-the-loop-Feedback mit expliziter Trainingsfreigabe und Widerruf implementieren","type":"feedback","milestone_id":"SSF-M4","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-006","SSF-007","SSF-009"],
+      "target_files":["agent/services/spreadsheet_feedback_service.py","agent/routes/spreadsheet_feedback.py","tests/test_spreadsheet_feedback_service.py"],
+      "acceptance_criteria":["Nutzer können accepted, corrected, rejected, skipped oder unsafe vergeben.","Ursprünglicher Vorschlag, ausgeführte Änderung, Nutzerkorrektur und Validatorergebnis bleiben getrennt.","Bestandene automatische Validierung erzeugt keine automatische Trainingseinwilligung.","Vor Trainingsfreigabe wird die konkrete abstrahierte Trainingsrepräsentation angezeigt.","Consent ist versioniert und widerrufbar; widersprüchliche Bewertungen bleiben nachvollziehbar."],
+      "test_expectations":["Audit-, Consent-, Widerrufs-, Cross-Tenant- und Konflikttests sind grün."]
+    },
+    {
+      "id":"SSF-011","title":"Angular Spreadsheet Studio als eigenes navigierbares Feature anlegen","type":"frontend","milestone_id":"SSF-M5","status":"todo","priority":"P0","risk":"medium","progress_percent":0,"depends_on":["SSF-001","SSF-002"],
+      "target_files":["frontend-angular/src/app/features/spreadsheet-studio","frontend-angular/src/app/app.routes.ts","frontend-angular/src/app/core/navigation"],
+      "acceptance_criteria":["Ein capability-gesteuerter Menüpunkt öffnet das Spreadsheet Studio.","Bestehende PageIntro-, SectionCard-, StatusBadge-, MetricCard- und TableShell-Primitives werden wiederverwendet.","Dokumentliste, Upload, Version, Trainingsstatus und Modellstatus sind ohne Visual-Process-Editor erreichbar.","Große Dateien werden gekachelt oder paginiert und blockieren nicht den UI-Thread.","Leere, ladende, fehlerhafte und eingeschränkte Zustände sind zugänglich und verständlich."],
+      "test_expectations":["Angular Unit-Tests, Accessibility-Smoke, Lint und Production-Build sind grün."]
+    },
+    {
+      "id":"SSF-012","title":"LibreOffice-nahe Arbeitsmappenansicht mit Bereichsauswahl und Versionen implementieren","type":"frontend","milestone_id":"SSF-M5","status":"todo","priority":"P0","risk":"high","progress_percent":0,"depends_on":["SSF-004","SSF-005","SSF-011"],
+      "target_files":["frontend-angular/src/app/features/spreadsheet-studio/components/workbook-viewer","frontend-angular/src/app/features/spreadsheet-studio/services"],
+      "acceptance_criteria":["Worker-Vorschau und kanonische Zellinformationen werden synchronisiert angezeigt.","Blattnavigation, Zoom, Zelladresse, Formel, Wert, sichtbare und verborgene Blätter sind bedienbar.","Ausgewählte Bereiche können als Aufgaben-, Validator- oder Dataset-Kontext übernommen werden.","Nicht unterstützte Calc-Objekte werden transparent gekennzeichnet.","Jede Änderung erzeugt eine neue Dokumentversion; das Original bleibt unverändert."],
+      "test_expectations":["Komponenten- und E2E-Tests prüfen Blattwechsel, Auswahl, Zoom, große Bereiche und Versionierung."]
+    },
+    {
+      "id":"SSF-013","title":"Aufgaben-, Action-Diff-, Validator- und Feedback-UX implementieren","type":"frontend","milestone_id":"SSF-M5","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-005","SSF-006","SSF-010","SSF-012"],
+      "target_files":["frontend-angular/src/app/features/spreadsheet-studio/components/task-editor","frontend-angular/src/app/features/spreadsheet-studio/components/action-diff","frontend-angular/src/app/features/spreadsheet-studio/components/validator-builder","frontend-angular/src/app/features/spreadsheet-studio/components/feedback-panel"],
+      "acceptance_criteria":["Vor Apply werden strukturierte Aktionen, betroffene Bereiche, Risiken und visueller Diff angezeigt.","Apply, Edit, Reject und Abbruch sind getrennte Aktionen; kritische Änderungen benötigen Bestätigung.","Validatoren lassen sich ohne JSON als Werte-, Toleranz-, Formel-, Summen-, Bereichs- oder Referenzregel erstellen.","Nach Recalc werden Validatorergebnis und unerwartete Änderungen angezeigt.","Feedback und Trainingsfreigabe sind getrennte UI-Schritte mit Maskierungsvorschau und Widerruf."],
+      "test_expectations":["E2E-Golden-Path: Upload, Auswahl, Aufgabe, Vorschlag, Diff, Apply, Recalc, Validierung, Korrektur und Trainingsfreigabe."]
+    },
+    {
+      "id":"SSF-014","title":"Dataset-Recipe-, Beispiel-, Split- und Trainingsverwaltung in Angular ergänzen","type":"frontend","milestone_id":"SSF-M5","status":"todo","priority":"P1","risk":"medium","progress_percent":0,"depends_on":["SSF-007","SSF-008","SSF-010","SSF-011"],
+      "target_files":["frontend-angular/src/app/features/spreadsheet-studio/components/dataset-recipes","frontend-angular/src/app/features/model-training"],
+      "acceptance_criteria":["Recipes können erstellt, simuliert, versioniert, dupliziert und deaktiviert werden.","Beispielvorschau zeigt Quelle, Instruktion, Kontextbudget, Zielaktion, Validatorstatus, Consent und Split.","Leakage-, Duplikat-, Secret- und Verteilungswarnungen sind filterbar.","Eval-Beispiele können nicht unbemerkt in Train verschoben werden.","Dataset-Promotion zeigt Änderungen gegenüber der Vorgängerversion und erfordert Bestätigung."],
+      "test_expectations":["Angular Tests decken Filter, Pagination, Split-Lock, Consent und Promotion ab."]
+    },
+    {
+      "id":"SSF-015","title":"API-, Rollen-, Audit-, Datenschutz- und Retentionintegration absichern","type":"security","milestone_id":"SSF-M6","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-003","SSF-005","SSF-010","SSF-013"],
+      "target_files":["agent/routes/spreadsheet_documents.py","agent/routes/spreadsheet_feedback.py","agent/security","docs/spreadsheet-finetuning.md"],
+      "acceptance_criteria":["Rollen unterscheiden Dokumentnutzung, Validatorpflege, Dataset-Kuration, Trainingstart und Adapterfreigabe.","Alle Schreiboperationen sind tenantgebunden, idempotent und auditierbar, ohne Rohzellinhalte im Auditlog.","Downloads verwenden kurzlebige zweckgebundene Handles.","Löschung und Consent-Widerruf entfernen Beispiele aus künftigen Datasets und markieren betroffene Adapterprovenienz.","Quoten und Rate-Limits schützen Upload, Rendering, Inferenz, Validierung und Training."],
+      "test_expectations":["Authorization-Matrix, IDOR-, Cross-Tenant-, Audit-Redaction-, Retention- und Quota-Tests sind grün."]
+    },
+    {
+      "id":"SSF-016","title":"End-to-End-Benchmarks, Regression-Gates und Betrieb abschließen","type":"verification","milestone_id":"SSF-M6","status":"todo","priority":"P0","risk":"high","progress_percent":0,"depends_on":["SSF-008","SSF-009","SSF-012","SSF-013","SSF-015"],
+      "target_files":["tests/e2e/spreadsheet","frontend-angular/e2e","docs/spreadsheet-finetuning.md","scripts/verify_spreadsheet_stack.py"],
+      "acceptance_criteria":["Golden-Suite umfasst Formeln, Summen, Bereinigung, Formatierung, Zeilen-/Spaltenänderungen, Locale, Datum und gefährliche Anweisungen.","Base-vs-Adapter-Bericht weist Erfolgsquote, unbeabsichtigte Änderungen, Latenz und Ressourcenverbrauch aus.","Ein E2E-Lauf beweist Upload bis Feedback, Dataset-Version, Training-Dry-Run, Evaluation und Adapterapproval.","LibreOffice-, Hub- und Worker-Versionen sowie reproduzierbare Images sind dokumentiert.","Nicht ausgeführte NVIDIA-Live-Tests werden als not_run und niemals als bestanden ausgewiesen."],
+      "test_expectations":["CI-Gates für Backend, Angular, Container, CPU-/Mock-E2E und optional NVIDIA sind dokumentiert und grün."]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 16,
+    "by_status": {"todo":16,"in_progress":0,"partial":0,"blocked":0,"done":0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0":15,"P1":1,"P2":0,"P3":0},
+    "by_risk": {"low":1,"medium":3,"high":6,"critical":6},
+    "critical_path": {"total":15,"done":0,"remaining":15},
+    "milestones": {"total":6,"todo":6,"in_progress":0,"blocked":0,"done":0}
+  },
+  "tasks_type_summary": {
+    "total":16,
+    "by_type":{"analysis":1,"architecture":1,"backend":2,"worker":1,"validation":1,"dataset":1,"training":1,"evaluation":1,"feedback":1,"frontend":4,"security":1,"verification":1}
+  },
+  "progress_summary": {"state":"todo","todo_remaining":16,"in_progress":0,"partial":0,"blocked":0,"done":0},
+  "summary_notes": [
+    "Der Track setzt auf deterministische Spreadsheet-Aktionen und LibreOffice-Neuberechnung statt unkontrollierter Codeausführung.",
+    "Korrektes Ergebnis, Nutzerfeedback und ausdrückliche Trainingsfreigabe bleiben strikt getrennt.",
+    "Das vorhandene LoRA-Control-Center ist die Basis; neu sind Spreadsheet-Domäne, LibreOffice-Worker, Validatoren und Angular Spreadsheet Studio."
+  ],
+  "end_summaries": [
+    {"summary_id":"SSF-S1","title":"Kernlieferumfang","items":["Angular Spreadsheet Studio","isolierter LibreOffice-Worker","versionierte Spreadsheet-Aktionssprache","nutzerdefinierte Validatoren","Consent-basierter Trainingsdatenkreislauf","Spreadsheet-LoRA über ml_intern"]},
+    {"summary_id":"SSF-S2","title":"Hauptrisiken","items":["Dokument- und Makrosicherheit","unbeabsichtigte Zelländerungen","Train-/Eval-Leakage","sensible Trainingsdaten","Verwechslung von Validierung und Einwilligung"]}
+  ]
+}
