@@ -1,0 +1,325 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "codecompass-graph-visualization-legend-metrics",
+  "created": "2026-07-18",
+  "status": "todo",
+  "purpose": "Die CodeCompass-Visualisierung in der Angular-App, insbesondere die 3D-Ansicht, durch sichtbare Legenden, deterministische Domain-Farben sowie konfigurierbare Knoten- und Verbindungsmetriken verständlicher, erklärbarer und steuerbar machen.",
+  "goal": "Domains, Hauptknoten und Verbindungen sollen nicht nur optisch unterscheidbar sein, sondern ihre Farbe, Größe und Dicke aus nachvollziehbaren und frei gewichtbaren Kriterien erhalten. Die gleiche Visualisierungslogik soll von 2D und 3D gemeinsam genutzt werden.",
+  "source_review": {
+    "summary": "Der aktuelle 3D-Renderer besitzt bereits feste Farben pro Node-Kind, eine zehn Farben umfassende Domain-Palette, eine einfache Knotengröße auf Basis von domain_level und Typ-Boost sowie feste Standard- und Highlight-Linkbreiten. Es fehlen sichtbare Legenden, eine zentrale Visualisierungsconfiguration, gewichtete Metriken und eine gemeinsame Logik für 2D und 3D.",
+    "observed_source_files": [
+      {
+        "path": "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.ts",
+        "observations": [
+          "KIND_COLORS und DOMAIN_COLORS sind direkt im Component definiert.",
+          "Domain-Farben werden per Hash von domain_path auf nur zehn Farben verteilt.",
+          "Die Knotengröße wird aktuell aus domain_level und einem kleinen Datei-/Summary-Boost berechnet.",
+          "Linkbreiten sind fest auf Standard-, Highlight- und Abblendwerte gesetzt.",
+          "Farb-, Größen- und Dickenlogik sind nicht als wiederverwendbarer Service gekapselt."
+        ]
+      }
+    ]
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "design_decisions": [
+    {
+      "id": "CCGV-DD-001",
+      "decision": "Farben, Größen und Verbindungsdicken werden außerhalb der Render-Components berechnet.",
+      "rationale": "2D und 3D müssen dieselbe deterministische Logik verwenden und dürfen keine getrennten Metrikimplementierungen besitzen."
+    },
+    {
+      "id": "CCGV-DD-002",
+      "decision": "Knoten- und Kantengröße werden als gewichteter normalisierter Gesamtscore modelliert.",
+      "rationale": "Ein einzelnes hart codiertes Kriterium bildet Wichtigkeit, Umfang und Vernetzung nicht ausreichend ab."
+    },
+    {
+      "id": "CCGV-DD-003",
+      "decision": "Highlighting verstärkt den berechneten Grundwert, ersetzt ihn aber nicht.",
+      "rationale": "Die relative Bedeutung von Knoten und Verbindungen muss auch während Auswahl und Hover erhalten bleiben."
+    },
+    {
+      "id": "CCGV-DD-004",
+      "decision": "Nicht vorhandene Metriken werden sichtbar als nicht verfügbar markiert und sicher ignoriert.",
+      "rationale": "Die Visualisierung muss mit unterschiedlichen CodeCompass-Graphversionen und unvollständigen Metadaten funktionieren."
+    }
+  ],
+  "target_outputs": {
+    "new_or_changed_files_expected": [
+      "frontend-angular/src/app/features/codecompass-graph/models/graph-visual-profile.model.ts",
+      "frontend-angular/src/app/features/codecompass-graph/services/graph-color.service.ts",
+      "frontend-angular/src/app/features/codecompass-graph/services/graph-metric-score.service.ts",
+      "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile.service.ts",
+      "frontend-angular/src/app/features/codecompass-graph/components/graph-legend/*",
+      "frontend-angular/src/app/features/codecompass-graph/components/graph-visual-settings/*",
+      "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.ts",
+      "frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/*",
+      "frontend-angular/src/app/features/codecompass-graph/**/*.spec.ts",
+      "docs/codecompass-graph-visualization.md"
+    ],
+    "visual_profiles": [
+      "Struktur",
+      "Abhängigkeiten",
+      "Wichtigkeit",
+      "Umfang",
+      "Änderungsrisiko"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "CCGV-M1",
+      "title": "Gemeinsames Visualisierungsmodell und Scoring",
+      "status": "todo",
+      "task_ids": ["CCGV-001", "CCGV-002", "CCGV-003"]
+    },
+    {
+      "id": "CCGV-M2",
+      "title": "Legenden und Konfigurationsoberfläche",
+      "status": "todo",
+      "task_ids": ["CCGV-004", "CCGV-005", "CCGV-006"]
+    },
+    {
+      "id": "CCGV-M3",
+      "title": "Integration, Performance und Qualitätssicherung",
+      "status": "todo",
+      "task_ids": ["CCGV-007", "CCGV-008", "CCGV-009"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CCGV-001",
+      "title": "Typisiertes GraphVisualProfile einführen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "paths": [
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-visual-profile.model.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-profile.service.ts"
+      ],
+      "description": "Eine zentrale typisierte Konfiguration für Farben, Knotengrößen, Verbindungsdicken, Legenden und Presets anlegen.",
+      "implementation_notes": [
+        "GraphVisualProfile mit domainColorMode, manuellen Domain-Farben, nodeSize, edgeWidth, Wertebereichen und Legendenschaltern definieren.",
+        "WeightedMetricConfig unterstützt aktiv/inaktiv, Gewicht, Normalisierung linear/logarithmisch/Wurzel und inverse Richtung.",
+        "Defaultprofil und Presets Struktur, Abhängigkeiten, Wichtigkeit, Umfang und Änderungsrisiko bereitstellen.",
+        "Profil lokal im Browser persistieren sowie Reset, JSON-Import und JSON-Export ermöglichen."
+      ],
+      "acceptance_criteria": [
+        "Ein gültiges Defaultprofil wird ohne gespeicherte Nutzereinstellungen geladen.",
+        "Ungültige importierte Profile werden validiert und nicht ungeprüft übernommen.",
+        "Profiländerungen werden lokal persistiert und nach Reload wiederhergestellt.",
+        "Reset stellt das dokumentierte Defaultprofil wieder her."
+      ]
+    },
+    {
+      "id": "CCGV-002",
+      "title": "Deterministische Domain-Farbzuordnung auslagern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "paths": [
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-color.service.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.ts"
+      ],
+      "description": "Domain- und Node-Kind-Farben zentral, deterministisch und ansichtsübergreifend berechnen.",
+      "implementation_notes": [
+        "Bestehende KIND_COLORS als zentralen Fallback übernehmen.",
+        "Domain-Farben deterministisch aus domain_path oder domain_id generieren.",
+        "Keine zyklische Wiederverwendung einer festen Palette nach nur zehn Domains.",
+        "Manuelle Farbzuordnungen aus dem Visualisierungsprofil müssen automatisch generierte Farben überschreiben."
+      ],
+      "acceptance_criteria": [
+        "Die gleiche Domain erhält in 2D, 3D und nach Reload dieselbe Farbe.",
+        "Mindestens 30 Domains erhalten ohne einfache Zehner-Wiederholung unterscheidbare Farben.",
+        "Nodes ohne Domain verwenden einen dokumentierten Node-Kind-Fallback.",
+        "Manuell gesetzte Domain-Farben werden sofort übernommen."
+      ]
+    },
+    {
+      "id": "CCGV-003",
+      "title": "Gewichtetes Scoring für Knoten und Kanten implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "paths": [
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-metric-score.service.ts",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph.model.ts"
+      ],
+      "description": "Wiederverwendbare normalisierte Gesamtscores für Knotengröße und Verbindungsdicke berechnen.",
+      "implementation_notes": [
+        "Knotenkriterien mindestens: Gesamtgrad, eingehender Grad, ausgehender Grad, direkte Kinder, Descendants, Domain-Level, Codeumfang, Centrality und manuelle Wichtigkeit.",
+        "Kantenkriterien mindestens: aggregierte Einzelverbindungen, Relationstyp, Confidence/Gewicht, domain-intern/domain-übergreifend, Nutzungsfrequenz und Blast Radius.",
+        "Normalisierung linear, logarithmisch und Quadratwurzel unterstützen.",
+        "Gewichtete Summe auf konfigurierbaren Min-/Max-Bereich abbilden und Ausreißer clampen.",
+        "Fehlende oder nicht numerische Metriken sicher ignorieren und im Breakdown kennzeichnen."
+      ],
+      "acceptance_criteria": [
+        "Knotengröße kann aus mindestens vier gleichzeitig gewichteten Kriterien berechnet werden.",
+        "Verbindungsdicke kann aus mindestens drei gleichzeitig gewichteten Kriterien berechnet werden.",
+        "ScoreBreakdown enthält Rohwert, normalisierten Wert, Gewicht und Teilscore je Kriterium.",
+        "Unit-Tests decken Normalisierung, Gewichtung, inverse Richtung, Clamping, Nullwerte und Ausreißer ab."
+      ]
+    },
+    {
+      "id": "CCGV-004",
+      "title": "Interaktive Domain- und Knotengrößen-Legende erstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "paths": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-legend/*"
+      ],
+      "description": "Eine einblendbare Legende für sichtbare Domains und die Bedeutung der Knotengrößen bereitstellen.",
+      "implementation_notes": [
+        "Pro Domain Farbe, Name/Pfad, Knotenanzahl, interne/externe Verbindungen und berechnete Gesamtwichtigkeit anzeigen.",
+        "Klick fokussiert oder filtert die Domain; Hover hebt sie im Graph hervor.",
+        "Größenlegende zeigt mindestens klein, mittel und groß sowie das aktive Größenprofil.",
+        "Legende muss scrollbar, einklappbar und auf kleinen Viewports nutzbar sein."
+      ],
+      "acceptance_criteria": [
+        "Jede sichtbare Domain erscheint genau einmal in der Legende.",
+        "Hover und Klick wirken ohne erneuten Backend-Load direkt auf den Graph.",
+        "Die Größenlegende benennt die aktuell aktiven Kriterien.",
+        "Die Legende verdeckt den Graph auf kleinen Viewports nicht dauerhaft."
+      ]
+    },
+    {
+      "id": "CCGV-005",
+      "title": "Verbindungsarten- und Dicken-Legende erstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "paths": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-legend/*",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-edge-style.ts"
+      ],
+      "description": "Kantenarten, Farben, Linienstile, Häufigkeiten und Dickenwerte sichtbar erklären und filterbar machen.",
+      "implementation_notes": [
+        "Relationstypen wie Import, Aufruf, Vererbung, Enthält, Abhängigkeit und domain-übergreifend darstellen, soweit in den Daten vorhanden.",
+        "Unbekannte Relation erhält einen eindeutigen Fallback.",
+        "Klick/Toggle blendet Relationstypen ein oder aus.",
+        "Dickenlegende zeigt Referenzwerte und das aktive Kantenprofil."
+      ],
+      "acceptance_criteria": [
+        "Jede sichtbare Kantenart erscheint mit Anzahl und visuellem Muster in der Legende.",
+        "Ein Relationstyp kann ohne Graph-Neuladen ein- und ausgeblendet werden.",
+        "Unbekannte Kantenarten verursachen keinen Darstellungsfehler.",
+        "Die Legende erklärt die aktuell verwendete Dickenberechnung."
+      ]
+    },
+    {
+      "id": "CCGV-006",
+      "title": "Visualisierungs-Einstellungen als Seitenpanel umsetzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "paths": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-visual-settings/*"
+      ],
+      "description": "Ein einklappbares Seitenpanel zur Konfiguration aller gewichteten Kriterien und Wertebereiche bereitstellen.",
+      "implementation_notes": [
+        "Pro Kriterium Aktiv-Schalter, Gewicht, Normalisierung und Richtung anbieten.",
+        "Min-/Max-Werte für Knotengröße und Verbindungsdicke konfigurierbar machen.",
+        "Relationstyp-spezifische Multiplikatoren für Kanten anbieten.",
+        "Presetauswahl, Reset, Import und Export integrieren.",
+        "Nicht verfügbare Metriken deaktiviert, aber mit Erklärung anzeigen."
+      ],
+      "acceptance_criteria": [
+        "Änderungen aktualisieren die Darstellung unmittelbar ohne Backend-Reload.",
+        "Gewichte können nicht zu NaN oder ungültigen Renderwerten führen.",
+        "Nicht verfügbare Metriken sind erkennbar und werden nicht eingerechnet.",
+        "Alle Presets erzeugen ein gültiges GraphVisualProfile."
+      ]
+    },
+    {
+      "id": "CCGV-007",
+      "title": "3D-Renderer auf zentrale Visualisierungslogik umstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "paths": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.ts"
+      ],
+      "description": "Fest codierte Farben, Knotengrößen und Linkbreiten durch Services und das aktive Visualisierungsprofil ersetzen.",
+      "implementation_notes": [
+        "KIND_COLORS, DOMAIN_COLORS, _domainColor und _nodeVal aus dem Component herauslösen.",
+        "Berechnete Knotengröße und Linkbreite direkt an 3d-force-graph übergeben.",
+        "Highlighting als Multiplikator oder Add-on auf den Grundwert anwenden.",
+        "Tooltip um vollständigen ScoreBreakdown ergänzen.",
+        "Konfigurationsänderungen möglichst über Attributaktualisierung statt vollständiger Szenen-Neuerstellung anwenden."
+      ],
+      "acceptance_criteria": [
+        "3D nutzt ausschließlich die zentrale Farb- und Scorelogik.",
+        "Highlighting erhält die relative Grundgröße und Grunddicke.",
+        "Tooltip erklärt die Größe eines Knotens und die Dicke einer Kante nachvollziehbar.",
+        "Slider-Änderungen lösen keinen Backend-Request aus."
+      ]
+    },
+    {
+      "id": "CCGV-008",
+      "title": "2D- und einfache Ansicht an Visualisierungsprofil anbinden",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "paths": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/*",
+        "frontend-angular/src/app/features/codecompass-graph/components/*simple*/*"
+      ],
+      "description": "Soweit technisch sinnvoll dieselben Farben, Filter, Scores und Legenden auch in den weiteren Graphansichten verwenden.",
+      "implementation_notes": [
+        "Keine kopierte Scorelogik in einzelnen Components zulassen.",
+        "Ansichtsspezifische Rendergrenzen dürfen existieren, die semantische Bedeutung muss gleich bleiben.",
+        "Nicht unterstützte visuelle Eigenschaften klar als ansichtsspezifisch markieren."
+      ],
+      "acceptance_criteria": [
+        "Domain-Farben sind in 2D und 3D identisch.",
+        "Knotenranking nach Größe ist in 2D und 3D semantisch gleich.",
+        "Legendenfilter wirken konsistent auf alle unterstützten Ansichten.",
+        "Es existiert keine zweite unabhängige Normalisierungs- oder Gewichtungsimplementierung."
+      ]
+    },
+    {
+      "id": "CCGV-009",
+      "title": "Performance, Tests und Dokumentation absichern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "paths": [
+        "frontend-angular/src/app/features/codecompass-graph/**/*.spec.ts",
+        "docs/codecompass-graph-visualization.md"
+      ],
+      "description": "Scoring, Legendeninteraktion und Live-Aktualisierung testen sowie das Visualisierungsmodell dokumentieren.",
+      "implementation_notes": [
+        "Berechnete Metriken je Graphversion und Profil cachen.",
+        "Keine vollständige Metrik-Neuberechnung pro Hover oder Render-Frame.",
+        "Performance-Test oder Benchmark mit mindestens 5.000 Knoten vorsehen.",
+        "Dokumentation erklärt Farben, Größen, Dicken, Presets, Import/Export und Fallbacks."
+      ],
+      "acceptance_criteria": [
+        "Unit-Tests für Farbdeterminismus, Scoreberechnung und Profilvalidierung sind vorhanden.",
+        "Component-Tests decken Domainfilter, Relationstoggle und Live-Aktualisierung ab.",
+        "Bei einem Graphen mit mindestens 5.000 Knoten erfolgt bei Slider-Änderungen keine vollständige Szenen-Neuerstellung, sofern die Renderbibliothek direkte Updates unterstützt.",
+        "Die Dokumentation enthält mindestens ein vollständiges Beispielprofil als JSON."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "In der 3D-Ansicht ist eine Domain-Legende mit Farbe, Umfang und Wichtigkeit sichtbar.",
+    "Die gleiche Domain erhält nach Reload und in allen Ansichten dieselbe Farbe.",
+    "Knotengröße kann aus mindestens vier gewichteten Kriterien berechnet werden.",
+    "Verbindungsdicke kann aus mindestens drei gewichteten Kriterien berechnet werden.",
+    "Gewichte, Normalisierung und Wertebereiche sind im UI konfigurierbar.",
+    "Tooltips erklären Rohwerte, normalisierte Werte, Gewichtungen und Gesamtscore.",
+    "Kantenarten werden in einer separaten Legende angezeigt und können gefiltert werden.",
+    "Einstellungen werden lokal persistiert, können zurückgesetzt sowie als JSON importiert und exportiert werden.",
+    "2D und 3D verwenden dieselbe Farb- und Scorelogik.",
+    "Große Graphen werden nicht bei jeder Interaktion vollständig neu berechnet oder neu aufgebaut."
+  ],
+  "out_of_scope": [
+    "Backend-Neuberechnung komplexer Graphmetriken, die aktuell nicht in den Graphdaten vorhanden sind.",
+    "Vollständige Neugestaltung des CodeCompass-Datenmodells.",
+    "Ersetzung der verwendeten 2D- oder 3D-Renderbibliothek ohne gesonderte Entscheidung."
+  ]
+}
