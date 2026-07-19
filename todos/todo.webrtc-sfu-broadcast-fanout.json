@@ -1,456 +1,3007 @@
 {
+  "$schema": "./todo.track.schema.json",
   "id": "todo.webrtc-sfu-broadcast-fanout",
-  "title": "WebRTC SFU broadcast, receiver groups and E2EE semantic fan-out",
+  "title": "WebRTC-SFU Broadcast, Receiver Groups und skalierbarer E2EE-Fan-out",
+  "version": "2.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "webrtc-sfu-broadcast-fanout",
   "status": "todo",
-  "version": "1.0",
   "created_at": "2026-07-18",
+  "updated_at": "2026-07-19",
   "parents": [
-    "todos/todo.ai-snake-distributed-webrtc-semantic-stream.json",
-    "todos/todo.ai-snake-personalized-semantic-speech-stream.json",
-    "todos/todo.ai-snake-peer-speech-training-data-sync.json"
+    "todos/todo.ai-snake-semantic-media-speech-program.json"
   ],
-  "goal": "Extend Ananta from its current pair-oriented WebRTC DataChannel and opaque Hub Relay transport into an optional multi-participant SFU topology. A sender uploads each media or semantic source stream once; an SFU or fan-out coordinator forwards the same encrypted payload to many authorized receivers, while receiver groups, per-peer adaptation, E2EE key epochs, congestion control, backpressure and fallback remain deterministic and measurable.",
-  "codebase_alignment": {
-    "current_transport": "frontend-angular/src/app/services/webrtc-transport.service.ts currently exposes one sessionId, one WebrtcSessionService, a single mode state and a DataChannel-or-Hub-Relay decision. It has no participant collection, publication/subscription model or SFU abstraction.",
-    "current_datachannel_path": "WebrtcTransportService.send() and sendView() route one typed payload into WebrtcSessionService or POST it to the session relay. Existing behavior must remain compatible for pair sessions.",
-    "current_relay": "Hub Relay polling is interval-based, session-scoped and forwards bounded opaque envelopes. It is a reliability fallback, not a scalable realtime SFU.",
-    "pair_view": "docs/architecture/pair-view-sync.md explicitly lists multi-participant n>2 as out of scope. This todo supplies the missing group topology without replacing pair-view contracts.",
-    "semantic_stream_parent": "The semantic WebRTC todo already plans signed capabilities, compute-quality contracts, task leases, semantic frames, reconstruction reports and strict-E2EE routing. Reuse these contracts and epochs.",
-    "semantic_speech_parent": "The semantic speech todo already plans prioritized transcripts, delayed encrypted audio, per-listener reconstruction and 100-listener benchmarks. Broadcast must support shared and receiver-specific layers.",
-    "known_gaps": [
-      "No SFU or media publication/subscription abstraction is implemented.",
-      "No distinction exists between a shared payload sent identically to all receivers and receiver-specific correction or adaptation payloads.",
-      "No receiver groups, subscription filters, publication permissions or fan-out leases exist.",
-      "No group E2EE key-epoch contract exists for membership changes.",
-      "No per-receiver congestion state or quality-layer selection exists.",
-      "No server egress, TURN amplification or fan-out backpressure accounting exists.",
-      "No deterministic fallback topology exists between SFU, peer mesh, Hub Relay and one-way streaming/CDN paths."
+  "purpose": "Ein ausfuehrbarer, feingranularer Folgetrack fuer fortgeschrittenen Broadcast und grosse Empfaengergruppen auf einer bereits durch das Parent-Programm gelieferten normalen WebRTC-, SFU-, E2EE-, Admission- und Transportbasis. Der Track optimiert Audience-Projektion, Receiver Groups, Layerwahl, Egress-Fairness, SFU-Fleet-Betrieb, TURN-Oekonomie, inhaltsfreie Observability und evidenzbasierte Kapazitaetsfreigaben, ohne gemeinsame Sicherheits- oder Medienvertraege neu zu definieren.",
+  "goal": "Nach Abschluss der referenzierten Parent-Gates kann der Hub autorisierte Broadcast-Audiences deterministisch auf einen optionalen SFU-Fleet-Datenpfad projizieren. Publisher laden gemeinsame verschluesselte Layer einmal hoch, Receiver erhalten unabhaengige Qualitaet und private Korrekturpfade, langsame oder TURN-abhaengige Receiver bleiben isoliert, und freigegebene Kapazitaet wird ausschliesslich aus reproduzierbaren Security-, Chaos-, Soak- und Lastmessungen abgeleitet.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "scope_boundary": {
+    "parent_track_is_source_of_truth_for": [
+      "Kanonische Rollen, Capabilities, Consent, Membership- und Key-Epochen",
+      "Begrenzte DataChannel- und Mehr-Hub-Relay-Vertraege",
+      "Normale Audio-, Video- und Screenshare-Basis samt Health-Metriken",
+      "SFU-Auswahl, optionales Containerdeployment, Hub-Admission und Media-E2EE",
+      "Mixed-Mode-Basis, deterministische Topologie-Fallbacks und Mehrteilnehmer-Gates",
+      "Semantische Bild-, Speech-, Evidence-, Dataset- und Trainingsvertraege",
+      "Programmweite Feature-Flags, Privacy-Telemetrie und Release-Governance"
+    ],
+    "this_track_owns": [
+      "Receiver-Group- und Fanout-Route-Erweiterungsvertraege",
+      "Hub-eigene Audience-Kompilierung, Route-Projektion und persistente Reconciliation",
+      "Fortgeschrittene Simulcast-/SVC-Policy und receiver-spezifische Egress-Fairness",
+      "Generische Projektion bereits kanonischer Parent-Traffic-Classes auf Shared-, Private- und verbotene SFU-Routen",
+      "SFU-Node-Identitaet, Fleet-Directory, Placement, Drain und Failover-Fencing",
+      "TURN-Quoten, Relay-Kosten und Worst-Case-Kapazitaetsprofile",
+      "Broadcast-spezifische inhaltsfreie Observability, Operator-UX und Skalierungsgates"
+    ],
+    "explicitly_excluded": [
+      "Keine Worker-zu-Worker-Orchestrierung und keine Taskqueue ausserhalb des Hubs",
+      "Keine Schluesselverwahrung, Plaintextmedien oder semantische Inferenz im SFU oder TURN",
+      "Keine erneute Definition kanonischer Room-, Publication-, Subscription-, Key-, Speech- oder Evidence-Vertraege",
+      "Kein Training, Dataset-Abgleich oder Adaptertransfer im SFU-Paketloop",
+      "Kein Hub-Polling-Relay als primaerer Datenpfad grosser Raeume",
+      "Kein true IP multicast, CDN-, Recording- oder unbeaufsichtigtes Dauerbroadcast-Subsystem in diesem Track",
+      "Kein Cascaded-SFU- oder Room-Sharding-Pfad; ein Room bleibt auf genau einem SFU-Node und Admission lehnt vor dessen gemessenem Cap ab",
+      "Keine feste Teilnehmerzusage ohne reproduzierbar gemessenen Direct-, SFU- und All-TURN-Nachweis"
     ]
   },
-  "principles": [
-    "WebRTC does not provide IP multicast; server egress remains approximately proportional to receiver count.",
-    "The sender should upload one shared publication per selected quality or semantic layer, not one copy per receiver.",
-    "Shared data and receiver-specific data must use separate channels and accounting.",
-    "The SFU forwards encrypted media and semantic payloads without requiring plaintext under strict E2EE.",
-    "Membership, publication, subscription and key changes are versioned and epoch-bound.",
-    "A weak receiver must not force every receiver onto its lowest quality.",
-    "Control, transcript, interruption and recovery messages take priority over media residuals and bulk training synchronization.",
-    "The realtime forwarding path must never run unbounded inference or blocking training work.",
-    "Existing two-peer behavior remains the default-compatible path until group mode is explicitly enabled.",
-    "Capacity planning must include peak fallback traffic, not only optimized semantic averages."
+  "architecture_invariants": [
+    "Der Hub bleibt alleiniger Control-Plane-Owner fuer Membership, Admission, Audience, Berechtigungen, Placement, Membership-/Route-/Topology-Epochen, Fencing und Failover sowie fuer die Autorisierung einer Parent-Key-Epoch-Referenz; Content-Key-Erzeugung und -Ableitung bleiben im kanonischen Parent-/Client-Kryptopfad.",
+    "Die SFU vollzieht signierte Hub-Entscheidungen, leitet verschluesselte Pakete weiter und erzwingt lokale Ressourcenlimits; sie orchestriert keine Worker und entscheidet keine fachliche Audience.",
+    "Browser erzeugen Intents und vollziehen Hub-Entscheidungen; Content-Keys und Klartext verlassen im Strict-E2EE-Profil niemals autorisierte Endgeraete.",
+    "TURN transportiert verschluesselte Bytes, ist keine Autoritaetsquelle und darf Encryption oder Authentication nie abschwaechen.",
+    "Optionale Berechnung wird ausschliesslich als Hub-eigener Task an isolierte Worker delegiert und blockiert nie den SFU-Echtzeitpfad.",
+    "Autoritativer Zustand ist persistent, CAS-/Fencing-geschuetzt und nicht von implizitem gemeinsamem Prozessspeicher abhaengig.",
+    "Vendor-SDKs bleiben hinter kleinen substituierbaren Ports; Domainvertraege enthalten keine Vendorobjekte.",
+    "Shared und receiver-spezifische Daten besitzen getrennte Autorisierung, Routen, Queues, Egresskonten und Privacy-Gates.",
+    "Alle Queue-, Batch-, Replay-, Epoch-, Cardinality-, Retention- und Kapazitaetsgrenzen besitzen Konfigurationsnamen, Einheiten und automatisierte Negativtests."
   ],
-  "non_goals": [
-    "Do not claim that SFU fan-out is true network multicast.",
-    "Do not make the Hub polling relay the primary path for large live rooms.",
-    "Do not decrypt strict-E2EE media or semantic payloads in the SFU.",
-    "Do not duplicate an identical encoded stream separately at the sender for each receiver.",
-    "Do not require every participant to publish audio and video in webinar mode.",
-    "Do not mix model training workloads into the SFU packet-forwarding process.",
-    "Do not promise fixed participant counts without measured CPU, network, TURN and file-descriptor limits."
-  ],
-  "target_topologies": {
-    "pair_legacy": "Existing direct WebRTC connection with opaque Hub Relay fallback.",
-    "small_mesh": "Optional direct peer mesh for very small trusted groups where negotiated limits permit it.",
-    "sfu_room": "Publish once to SFU; SFU forwards selected encrypted layers to authorized subscribers.",
-    "webinar": "One or few publishers, many mostly receive-only participants, prioritized control/transcript channels.",
-    "semantic_broadcast": "One shared semantic/transcript/reference publication plus per-receiver reconstruction reports and selective correction streams.",
-    "degraded_relay": "Bounded Hub Relay for control and recovery only when realtime DataChannels fail.",
-    "large_one_way": "Optional WebRTC ingest with non-interactive distribution path evaluated separately when receiver counts exceed SFU economics."
+  "codebase_baseline": {
+    "angular_pair_transport": "frontend-angular/src/app/services/webrtc-transport.service.ts und webrtc-session.service.ts verwalten derzeit eine globale Pair-Session, eine RTCPeerConnection und einen DataChannel ohne Media-Publications oder SFU-Client.",
+    "bounded_transport_gap": "frontend-angular/src/app/services/webrtc-datachannel.service.ts besitzt noch globales Chunk-Reassembly ohne harte Gesamt-, TTL- und Sessiongrenzen; die Parent-Tasks ASMP-TRN-002 bis ASMP-TRN-010 muessen dies zuerst schliessen.",
+    "hub_state_gap": "agent/routes/share_sessions.py und agent/routes/webrtc_signaling.py verwenden prozesslokale Relay- beziehungsweise Signalisierungsqueues; der Parent liefert vor diesem Track die Mehr-Hub-faehige Transportbasis.",
+    "security_gap": "Pair View nutzt noch einen Stub-Kryptopfad und frontend-angular/src/app/services/e2e-encryption.service.ts ist nicht als kanonischer Media-E2EE-Transform verdrahtet; Parent-Security- und SFU-E2EE-Gates sind harte Voraussetzungen.",
+    "sfu_gap": "Es gibt im aktiven Produktionscode keine ausgewaehlte oder deployte SFU, keinen SFU-Client und keine Simulcast-/SVC-/SFrame-Integration.",
+    "partial_foundations": "Persistierte Share-Sessions und Teilnehmer, Network Profiles sowie Test-Rendezvous/TURN-Konfiguration sind Teilfundamente, aber keine Broadcast-Admission, Fleet-Steuerung oder Kostenkontrolle."
   },
-  "traffic_classes": {
-    "shared_high_priority": ["membership", "key_epoch", "speaker_turn", "transcript_revision", "interrupt", "contract_revoke", "fallback"],
-    "shared_media": ["audio_layer", "video_layer", "reference_frame", "semantic_frame", "shared_model_manifest"],
-    "receiver_specific": ["quality_selection", "reconstruction_report", "recovery_request", "personalized_residual", "private_annotation"],
-    "bulk_background": ["training_inventory", "dataset_delta", "adapter_artifact", "offline_reconciliation_checkpoint"]
+  "cross_track_prerequisites": {
+    "planning_and_policy": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-001",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-002",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-004",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-005",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-006"
+    ],
+    "security_and_transport": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-002",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-003",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-006",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-008",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-010",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-TRN-001",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-TRN-004",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-TRN-010"
+    ],
+    "ordinary_media_and_sfu": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-003",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-004",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-005",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-006",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-007",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-008",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-009",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-010"
+    ],
+    "semantic_and_speech": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-VIS-012",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SPR-002",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SPR-007",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-DAT-002",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-DAT-010"
+    ],
+    "program_gates": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-001",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-002",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-004",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-006",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-007",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-009",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-010",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-011",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-012"
+    ]
   },
-  "protocol_contracts": {
-    "room_membership.v1": ["room_id", "participant_id", "role", "permissions", "joined_at", "membership_epoch", "expires_at", "signature"],
-    "media_publication.v1": ["publication_id", "publisher_id", "kind", "codec", "layers", "e2ee_context_ref", "fanout_policy", "created_at", "signature"],
-    "media_subscription.v1": ["subscription_id", "subscriber_id", "publication_id", "selected_layers", "latency_budget_ms", "bandwidth_budget_bps", "privacy_scope", "expires_at", "signature"],
-    "receiver_group.v1": ["group_id", "room_id", "selector", "members_digest", "shared_publications", "policy_version", "epoch", "signature"],
-    "fanout_route.v1": ["route_id", "publication_id", "receiver_group_id", "sfu_node_id", "priority", "rate_limits", "valid_from", "expires_at", "signature"],
-    "group_key_epoch.v1": ["room_id", "publication_id", "epoch", "member_set_digest", "key_package_refs", "valid_from", "expires_at", "signatures"],
-    "receiver_quality_report.v1": ["subscriber_id", "publication_id", "selected_layer", "rtt_ms", "jitter_ms", "loss_rate", "decode_ms", "buffer_ms", "observed_bitrate_bps", "recovery_state", "signature"],
-    "fanout_accounting.v1": ["room_id", "publication_id", "ingress_bytes", "egress_bytes", "relay_bytes", "receiver_count", "layer_counts", "drop_counts", "period_start", "period_end"]
+  "cross_track_prerequisite_derivation_policy": "Die sortierte eindeutige Vereinigung dieser Kategorien muss exakt der Menge aller nichtlokalen tasks[].depends_on-Referenzen entsprechen; SFB-BASE-003 und SFB-GATE-011 muessen jede Abweichung fail-closed ablehnen.",
+  "legacy_task_coverage": {
+    "broadcast-001": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-002",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-004",
+      "SFB-BASE-001",
+      "SFB-BASE-002",
+      "SFB-BASE-005"
+    ],
+    "broadcast-002": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-004",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-005",
+      "SFB-GRP-007",
+      "SFB-GRP-010",
+      "SFB-QOS-001"
+    ],
+    "broadcast-003": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-003",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-008",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-006",
+      "SFB-CON-001",
+      "SFB-CON-002",
+      "SFB-CON-003",
+      "SFB-CON-004",
+      "SFB-CON-005",
+      "SFB-CON-006",
+      "SFB-CON-007",
+      "SFB-CON-008",
+      "SFB-CON-009",
+      "SFB-CON-010"
+    ],
+    "broadcast-004": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-001",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-002",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-008",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-009",
+      "SFB-BASE-003"
+    ],
+    "broadcast-005": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-002",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-006",
+      "SFB-GRP-003",
+      "SFB-GRP-005"
+    ],
+    "broadcast-006": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-006",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-008",
+      "SFB-GRP-006",
+      "SFB-GRP-007",
+      "SFB-GRP-010"
+    ],
+    "broadcast-007": [
+      "SFB-QOS-001",
+      "SFB-QOS-002",
+      "SFB-QOS-003",
+      "SFB-QOS-004",
+      "SFB-QOS-005",
+      "SFB-QOS-006",
+      "SFB-QOS-010"
+    ],
+    "broadcast-008": [
+      "SFB-CON-002",
+      "SFB-CON-003",
+      "SFB-CON-009",
+      "SFB-GRP-001",
+      "SFB-GRP-002",
+      "SFB-GRP-003",
+      "SFB-GRP-004",
+      "SFB-GRP-005",
+      "SFB-GRP-006",
+      "SFB-GRP-007",
+      "SFB-GRP-008",
+      "SFB-GRP-010",
+      "SFB-GRP-012",
+      "SFB-OBS-004"
+    ],
+    "broadcast-009": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-VIS-012",
+      "SFB-GRP-011",
+      "SFB-GATE-003",
+      "SFB-GATE-004",
+      "SFB-GATE-008"
+    ],
+    "broadcast-010": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SPR-002",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SPR-004",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SPR-007",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SPR-010",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SPR-012",
+      "SFB-GRP-011",
+      "SFB-GATE-004",
+      "SFB-GATE-008"
+    ],
+    "broadcast-011": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-008",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-007",
+      "SFB-GRP-011",
+      "SFB-GATE-003"
+    ],
+    "broadcast-012": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-TRN-004",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-TRN-010",
+      "SFB-QOS-007",
+      "SFB-QOS-008",
+      "SFB-QOS-009",
+      "SFB-QOS-010"
+    ],
+    "broadcast-013": [
+      "SFB-OPS-001",
+      "SFB-OPS-002",
+      "SFB-OPS-003",
+      "SFB-OPS-004",
+      "SFB-OPS-005",
+      "SFB-OPS-006",
+      "SFB-OPS-007",
+      "SFB-OPS-008",
+      "SFB-OPS-009",
+      "SFB-OPS-010"
+    ],
+    "broadcast-014": [
+      "SFB-TURN-001",
+      "SFB-TURN-002",
+      "SFB-TURN-003",
+      "SFB-TURN-004",
+      "SFB-TURN-005",
+      "SFB-TURN-006",
+      "SFB-TURN-007",
+      "SFB-TURN-008"
+    ],
+    "broadcast-015": [
+      "SFB-OBS-001",
+      "SFB-OBS-002",
+      "SFB-OBS-003",
+      "SFB-OBS-004",
+      "SFB-OBS-005",
+      "SFB-OBS-006"
+    ],
+    "broadcast-016": [
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-009",
+      "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-010",
+      "SFB-OPS-008",
+      "SFB-GATE-010"
+    ],
+    "broadcast-017": [
+      "SFB-GATE-001",
+      "SFB-GATE-002",
+      "SFB-GATE-003",
+      "SFB-GATE-004",
+      "SFB-GATE-005",
+      "SFB-GATE-006",
+      "SFB-GATE-007",
+      "SFB-GATE-013"
+    ],
+    "broadcast-018": [
+      "SFB-GATE-008",
+      "SFB-GATE-009",
+      "SFB-GATE-010",
+      "SFB-GATE-012",
+      "SFB-GATE-011"
+    ]
   },
   "milestones": [
-    {"id": "M1", "title": "Topology and contracts", "exit": "Publication, subscription, room, receiver-group and key-epoch schemas are approved."},
-    {"id": "M2", "title": "Three-peer SFU MVP", "exit": "One publisher sends once and two receivers consume through an SFU adapter with E2EE payload opacity."},
-    {"id": "M3", "title": "Layered and semantic fan-out", "exit": "Shared layers and receiver-specific corrections are routed independently."},
-    {"id": "M4", "title": "Dynamic rooms", "exit": "Join, leave, revoke, rekey, reconnect and SFU failover work deterministically."},
-    {"id": "M5", "title": "Scale and observability", "exit": "100-receiver benchmarks, backpressure, TURN and egress budgets pass."},
-    {"id": "M6", "title": "Controlled rollout", "exit": "Feature flags, compatibility, security review and fallback capacity are release-ready."}
-  ],
-  "implementation_order": [
-    "broadcast-001", "broadcast-002", "broadcast-003", "broadcast-004", "broadcast-005", "broadcast-006", "broadcast-007", "broadcast-008", "broadcast-009", "broadcast-010", "broadcast-011", "broadcast-012", "broadcast-013", "broadcast-014", "broadcast-015", "broadcast-016", "broadcast-017", "broadcast-018"
-  ],
-  "tasks": [
     {
-      "id": "broadcast-001",
+      "id": "SFB-M0",
+      "title": "Abgrenzung, Readiness und messbare Betriebsziele",
       "status": "todo",
-      "title": "Document SFU topology, trust boundaries and terminology",
-      "type": "architecture/security",
-      "priority": "critical",
-      "risk": "high",
-      "depends_on": [],
-      "files": ["docs/architecture/webrtc-sfu-broadcast.md", "docs/security/webrtc-sfu-threat-model.md"],
-      "description": "Define publisher, publication, subscriber, receiver group, SFU node, TURN relay, Hub coordinator, strict-E2EE and trusted-server profiles. Explicitly separate server-side fan-out from true multicast.",
-      "acceptance_criteria": [
-        "Architecture shows ingress once per publication layer and separate egress per receiver.",
-        "Trust boundaries for browser, SFU, TURN, Hub, AI-Snake and optional compute worker are explicit.",
-        "Pair, mesh, SFU, webinar, degraded relay and large one-way topologies are compared.",
-        "Server egress and TURN amplification are identified as scaling constraints.",
-        "Strict-E2EE states that SFU routing does not require plaintext content.",
-        "Realtime forwarding and offline model training are separate processes and resource pools."
-      ]
-    },
-    {
-      "id": "broadcast-002",
-      "status": "todo",
-      "title": "Select and isolate an SFU adapter boundary",
-      "type": "architecture/integration",
-      "priority": "critical",
-      "risk": "high",
-      "depends_on": ["broadcast-001"],
-      "files": ["agent/services/webrtc_sfu_port.py", "frontend-angular/src/app/services/sfu-client.types.ts", "docs/architecture/webrtc-sfu-broadcast.md"],
-      "description": "Define a vendor-neutral interface for room creation, token issuance, publication, subscription, layer selection, participant events and node health. Evaluate implementation candidates separately without leaking vendor objects into application contracts.",
-      "acceptance_criteria": [
-        "Application contracts contain no vendor-specific room, track or token classes.",
-        "Adapter declares support for E2EE insertable streams, simulcast/SVC, DataChannel and server metrics.",
-        "Unsupported capabilities fail through stable reason codes.",
-        "A deterministic mock adapter supports CI and local tests.",
-        "Deployment, licensing, operational complexity and required ports are documented.",
-        "Existing pair WebRTC service remains usable without the SFU dependency."
-      ]
-    },
-    {
-      "id": "broadcast-003",
-      "status": "todo",
-      "title": "Create versioned room, publication and subscription schemas",
-      "type": "contract/schema",
-      "priority": "critical",
-      "risk": "high",
-      "depends_on": ["broadcast-001", "broadcast-002"],
-      "files": [
-        "schemas/webrtc/room_membership.v1.json",
-        "schemas/webrtc/media_publication.v1.json",
-        "schemas/webrtc/media_subscription.v1.json",
-        "schemas/webrtc/receiver_group.v1.json",
-        "schemas/webrtc/fanout_route.v1.json",
-        "schemas/webrtc/group_key_epoch.v1.json",
-        "schemas/webrtc/receiver_quality_report.v1.json"
+      "task_ids": [
+        "SFB-BASE-001",
+        "SFB-BASE-002",
+        "SFB-BASE-003",
+        "SFB-BASE-004",
+        "SFB-BASE-005"
       ],
-      "description": "Add bounded, signed and replay-resistant schemas for group sessions and fan-out routing.",
-      "acceptance_criteria": [
-        "Every authoritative contract contains version, room/session identity, epoch, expiry and signer identity.",
-        "Arrays, labels, layers, members and metadata have explicit count and byte limits.",
-        "Publication and subscription permissions are independent and default-deny.",
-        "Unknown security-sensitive properties are rejected.",
-        "Python and TypeScript validators share a conformance fixture corpus.",
-        "Fixtures cover stale epochs, replay, oversized groups, unauthorized subscription and malformed layer selection."
+      "exit_criteria": [
+        "Der Ist-Stand und alle Parent-Voraussetzungen sind reproduzierbar geprueft.",
+        "Hub-, Browser-, SFU-, TURN- und Worker-Verantwortung sind ohne parallele Source of Truth festgelegt.",
+        "Feature-Flags, Kill-Switch und SLO-/Kapazitaetsprofile besitzen sichere Defaults und maschinenlesbare Grenzen."
       ]
     },
     {
-      "id": "broadcast-004",
+      "id": "SFB-M1",
+      "title": "Spezialisierte Fanout-Vertraege und Conformance",
       "status": "todo",
-      "title": "Refactor transport into pair and room session abstractions",
-      "type": "Angular transport refactor",
-      "priority": "critical",
-      "risk": "high",
-      "depends_on": ["broadcast-002", "broadcast-003"],
-      "files": [
-        "frontend-angular/src/app/services/webrtc-transport.service.ts",
-        "frontend-angular/src/app/services/webrtc-session.service.ts",
-        "frontend-angular/src/app/services/realtime-session.types.ts",
-        "frontend-angular/src/app/services/room-transport.service.ts"
+      "task_ids": [
+        "SFB-CON-001",
+        "SFB-CON-002",
+        "SFB-CON-003",
+        "SFB-CON-004",
+        "SFB-CON-005",
+        "SFB-CON-006",
+        "SFB-CON-007",
+        "SFB-CON-008",
+        "SFB-CON-009",
+        "SFB-CON-010"
       ],
-      "description": "Preserve the current pair-session facade while introducing explicit pair and room session implementations with participant collections, publications and subscriptions.",
-      "acceptance_criteria": [
-        "Existing open(sessionId, isInitiator), send and sendView call paths remain backward compatible or receive a documented adapter.",
-        "Room mode supports multiple participants and concurrent publications without global singleton peer state.",
-        "Pair and room lifecycles expose deterministic connecting, connected, degraded, reconnecting, failed and closed states.",
-        "Subscriptions are disposed on leave and do not leak RxJS listeners or peer connections.",
-        "Transport mode is represented per room/session rather than as one global value.",
-        "Unit tests cover simultaneous pair and room sessions."
+      "exit_criteria": [
+        "Receiver Group, Fanout Route, Quality, Accounting und Node Health sind additive, begrenzte Erweiterungen kanonischer Parent-IDs und Epochen.",
+        "Python, TypeScript und der ausgewaehlte SFU-Adapter bestehen denselben positiven und negativen Fixture-Korpus.",
+        "Keine Erweiterung kann Membership, Consent, Key-Epoch oder Publication-Rechte eigenstaendig erweitern."
       ]
     },
     {
-      "id": "broadcast-005",
+      "id": "SFB-M2",
+      "title": "Hub-eigene Receiver Groups und Route-Projektion",
       "status": "todo",
-      "title": "Implement authenticated room membership and role policy",
-      "type": "backend/control plane",
-      "priority": "critical",
-      "risk": "high",
-      "depends_on": ["broadcast-003"],
-      "files": ["agent/routes/webrtc_rooms.py", "agent/services/webrtc_room_service.py", "agent/db_models/webrtc_rooms.py", "tests/test_webrtc_rooms.py"],
-      "description": "Create room admission, join, leave, role, permission, expiry and revocation handling. Roles include host, publisher, subscriber, moderator, validator and compute contributor without implying one another.",
-      "acceptance_criteria": [
-        "Joining requires authenticated, room-scoped admission.",
-        "Publish and subscribe grants are separate and direction-specific.",
-        "Receive-only webinar participants cannot publish unless explicitly promoted.",
-        "Revocation reaches the SFU adapter within a bounded timeout.",
-        "Membership changes increment an epoch and trigger key-policy evaluation.",
-        "Audit logs contain identities and reason codes but no media plaintext."
+      "task_ids": [
+        "SFB-GRP-001",
+        "SFB-GRP-002",
+        "SFB-GRP-003",
+        "SFB-GRP-004",
+        "SFB-GRP-005",
+        "SFB-GRP-006",
+        "SFB-GRP-007",
+        "SFB-GRP-008",
+        "SFB-GRP-010",
+        "SFB-GRP-011",
+        "SFB-GRP-012"
+      ],
+      "exit_criteria": [
+        "Der Hub kompiliert Audiences default-deny aus kanonischer Admission und Consent und persistiert Gruppen sowie Routen atomar.",
+        "Revoke, Restart, Reorder und Failover erzeugen genau eine gueltige monotone Projektion ohne Rechteausweitung.",
+        "Die SFU erhaelt nur signierte opaque Route-Befehle und kann keine Audience erzeugen."
       ]
     },
     {
-      "id": "broadcast-006",
+      "id": "SFB-M3",
+      "title": "Receiver-spezifische Layerwahl und Egress-Fairness",
       "status": "todo",
-      "title": "Implement publication and subscription lifecycle",
-      "type": "frontend/backend realtime",
-      "priority": "critical",
-      "risk": "high",
-      "depends_on": ["broadcast-004", "broadcast-005"],
-      "files": ["frontend-angular/src/app/services/media-publication.service.ts", "frontend-angular/src/app/services/media-subscription.service.ts", "agent/services/webrtc_publication_service.py", "tests/test_webrtc_publications.py"],
-      "description": "Allow authorized publishers to create audio, video, data and semantic publications and receivers to subscribe, pause, resume, switch layers and unsubscribe.",
-      "acceptance_criteria": [
-        "A publisher sends one copy per produced layer to the SFU regardless of subscriber count.",
-        "Each subscriber may independently select compatible layers.",
-        "Publication identity survives temporary reconnect without accepting stale instances.",
-        "Duplicate publish or subscribe requests are idempotent.",
-        "Unpublished or revoked streams cannot remain subscribed.",
-        "Metrics expose publisher ingress and aggregate receiver egress separately."
+      "task_ids": [
+        "SFB-QOS-001",
+        "SFB-QOS-002",
+        "SFB-QOS-003",
+        "SFB-QOS-004",
+        "SFB-QOS-005",
+        "SFB-QOS-006",
+        "SFB-QOS-007",
+        "SFB-QOS-008",
+        "SFB-QOS-009",
+        "SFB-QOS-010",
+        "SFB-QOS-011",
+        "SFB-QOS-012"
+      ],
+      "exit_criteria": [
+        "Simulcast-/SVC-Faehigkeiten werden vendorneutral ausgehandelt und jede Subscription besitzt eine unabhaengige Layerentscheidung.",
+        "Queue-, Alters-, Byte- und Zeitbudgets verhindern unbeschraenktes Wachstum und isolieren langsame Receiver.",
+        "Egress, Drops und Layerwechsel werden pro Receiverklasse gemessen, ohne andere Receiver global herunterzustufen."
       ]
     },
     {
-      "id": "broadcast-007",
+      "id": "SFB-M5",
+      "title": "Authentifizierte SFU-Fleet, Placement und Failover",
       "status": "todo",
-      "title": "Add simulcast and scalable-layer selection",
-      "type": "media quality control",
-      "priority": "high",
-      "risk": "high",
-      "depends_on": ["broadcast-006"],
-      "files": ["frontend-angular/src/app/services/media-layer-controller.service.ts", "agent/services/webrtc_layer_policy.py", "tests/test_webrtc_layer_policy.py"],
-      "description": "Publish bounded quality layers and let each subscriber receive an independently selected layer based on viewport, bandwidth, packet loss, CPU and user policy.",
-      "acceptance_criteria": [
-        "Layer selection is per subscriber and does not globally downgrade the room.",
-        "Audio, screen share, camera and semantic references use separate policies.",
-        "Hysteresis and dwell times prevent rapid layer oscillation.",
-        "Hidden or thumbnail video may suspend high layers.",
-        "Layer changes preserve keyframe/recovery correctness.",
-        "Unsupported simulcast/SVC falls back to a documented single-layer profile."
+      "task_ids": [
+        "SFB-OPS-001",
+        "SFB-OPS-002",
+        "SFB-OPS-003",
+        "SFB-OPS-004",
+        "SFB-OPS-005",
+        "SFB-OPS-006",
+        "SFB-OPS-007",
+        "SFB-OPS-008",
+        "SFB-OPS-009",
+        "SFB-OPS-010"
+      ],
+      "exit_criteria": [
+        "Jeder SFU-Knoten ist mTLS-authentifiziert, persistent registriert, kapazitaetsbewertet und drain-faehig.",
+        "Placement ist deterministisch, tenant-fair und durch atomare Reservierung gegen Ueberbuchung geschuetzt.",
+        "Failover, Hub-Neustart und Version-Skew akzeptieren keine stale Tokens, Leases, Routen oder Epochen."
       ]
     },
     {
-      "id": "broadcast-008",
+      "id": "SFB-M6",
+      "title": "TURN-Sicherheit, Quoten und Worst-Case-Oekonomie",
       "status": "todo",
-      "title": "Create receiver groups and shared fan-out routes",
-      "type": "routing/control plane",
-      "priority": "high",
-      "risk": "high",
-      "depends_on": ["broadcast-003", "broadcast-006"],
-      "files": ["agent/services/webrtc_receiver_group_service.py", "agent/services/webrtc_fanout_router.py", "tests/test_webrtc_fanout_router.py"],
-      "description": "Group receivers with identical authorization and layer requirements so routing decisions and shared semantic payloads can be computed once while transport egress remains per receiver.",
-      "acceptance_criteria": [
-        "Group membership is derived from explicit policy attributes and a stable member digest.",
-        "A receiver is never grouped across incompatible consent, key epoch or privacy scopes.",
-        "Group recomputation is bounded and incremental on join, leave or policy change.",
-        "Shared payload processing occurs once per compatible group, not once per receiver.",
-        "Actual network delivery remains separately metered per receiver.",
-        "Group failure cannot authorize a receiver that was not individually admitted."
+      "task_ids": [
+        "SFB-TURN-001",
+        "SFB-TURN-002",
+        "SFB-TURN-003",
+        "SFB-TURN-004",
+        "SFB-TURN-005",
+        "SFB-TURN-006",
+        "SFB-TURN-007",
+        "SFB-TURN-008"
+      ],
+      "exit_criteria": [
+        "TURN-Credentials sind kurzlebig und sicher rotierbar; Claimbindung oder begrenzte Bearer-Exposition ist je credential_binding_mode wahrheitsgetreu nachgewiesen und Endpunkte folgen Privacy-/Allowlist-Policy.",
+        "Allocation, Bytes, Ports und Kosten sind getrennt gemessen und durch Tenant-/Room-/Receiver-Quoten begrenzt.",
+        "Erschoepfung erzeugt einen expliziten Zustand ohne Retry-Sturm, Rechteausweitung oder Encryption-Downgrade."
       ]
     },
     {
-      "id": "broadcast-009",
+      "id": "SFB-M7",
+      "title": "Inhaltsfreie Broadcast-Observability und Operator-UX",
       "status": "todo",
-      "title": "Separate shared semantic layers from receiver-specific corrections",
-      "type": "semantic media integration",
-      "priority": "critical",
-      "risk": "high",
-      "depends_on": ["broadcast-006", "broadcast-008"],
-      "files": ["ananta_contracts/semantic_webrtc.py", "frontend-angular/src/app/services/semantic-webrtc-transport.service.ts", "agent/services/semantic_webrtc_fanout.py", "tests/test_semantic_webrtc_fanout.py"],
-      "description": "Fan out transcript, scene graph, reference frame and shared model metadata once per receiver group, while reconstruction reports, missing references and personalized residuals remain private per receiver.",
-      "acceptance_criteria": [
-        "Shared and receiver-specific message kinds are enumerated and validated.",
-        "A personalized correction can never be broadcast to another receiver.",
-        "Receiver reports are aggregated only into privacy-approved statistics.",
-        "Shared references are content-addressed and deduplicated per publication epoch.",
-        "Missing references trigger selective recovery rather than a room-wide reset.",
-        "Ordinary encrypted media remains available as fallback per receiver."
+      "task_ids": [
+        "SFB-OBS-001",
+        "SFB-OBS-002",
+        "SFB-OBS-003",
+        "SFB-OBS-004",
+        "SFB-OBS-005",
+        "SFB-OBS-006"
+      ],
+      "exit_criteria": [
+        "Metriken unterscheiden Ingress, SFU-Egress, TURN, Layer, Drops, Queueing, Rekey und Failover mit begrenzter Cardinality.",
+        "Automatische Sentinel-Pruefungen finden keine Payloads, Transcripte, Keys, Tokens, vollstaendigen SDP/ICE-Daten oder privaten IPs.",
+        "Operatoren und berechtigte Nutzer sehen begruendete Degradation und Kapazitaet ohne Medien- oder Identitaetslecks."
       ]
     },
     {
-      "id": "broadcast-010",
+      "id": "SFB-M8",
+      "title": "Security-, Chaos-, Soak-, Scale- und Rollout-Gate",
       "status": "todo",
-      "title": "Add speech transcript broadcast and private personalization channels",
-      "type": "semantic speech integration",
-      "priority": "critical",
-      "risk": "high",
-      "depends_on": ["broadcast-009"],
-      "files": ["frontend-angular/src/app/services/semantic-speech-transport.service.ts", "agent/services/semantic_speech_fanout.py", "tests/test_semantic_speech_fanout.py"],
-      "description": "Broadcast authoritative transcript revisions, timing and shared delayed-audio references to authorized listener groups, while pair-personalized model data, local reconstruction reports and training evidence remain scoped.",
-      "acceptance_criteria": [
-        "Transcript revisions and interruption markers use the highest-priority reliable channel.",
-        "One speaker transcript can reach many authorized listeners without sender-side duplication.",
-        "Pair-specific speaker adapters and training evidence are never group-broadcast by default.",
-        "Listeners may independently choose captions, generic synthesis, personalized synthesis or original audio.",
-        "A slow listener does not delay transcript delivery to others.",
-        "Consent changes immediately alter group membership and future fan-out."
-      ]
-    },
-    {
-      "id": "broadcast-011",
-      "status": "todo",
-      "title": "Implement group E2EE epochs and membership rekeying",
-      "type": "cryptography/security",
-      "priority": "critical",
-      "risk": "high",
-      "depends_on": ["broadcast-003", "broadcast-005", "broadcast-006"],
-      "files": ["frontend-angular/src/app/services/group-e2ee.service.ts", "agent/services/webrtc_key_epoch_service.py", "tests/security/test_webrtc_group_e2ee.py"],
-      "description": "Bind encrypted publications to membership epochs and rotate access when participants join, leave or lose permission, without exposing media keys to the SFU.",
-      "acceptance_criteria": [
-        "New members cannot decrypt past epochs unless policy explicitly permits history.",
-        "Removed members cannot decrypt future epochs.",
-        "Rekey messages are authenticated, replay-protected and bounded.",
-        "SFU routing identifiers reveal no media key material.",
-        "Temporary key-distribution failure degrades safely without accepting stale membership.",
-        "Tests cover rapid churn, reconnect, malicious replay and simultaneous membership changes."
-      ]
-    },
-    {
-      "id": "broadcast-012",
-      "status": "todo",
-      "title": "Add congestion control, queue priority and fan-out backpressure",
-      "type": "realtime reliability",
-      "priority": "critical",
-      "risk": "high",
-      "depends_on": ["broadcast-006", "broadcast-007", "broadcast-009"],
-      "files": ["frontend-angular/src/app/services/realtime-priority-queue.service.ts", "agent/services/webrtc_fanout_backpressure.py", "tests/test_webrtc_fanout_backpressure.py"],
-      "description": "Prevent slow receivers or overloaded SFU nodes from growing unbounded queues. Degrade low-priority layers before dropping control, transcript or recovery traffic.",
-      "acceptance_criteria": [
-        "Byte, message, age and buffered-duration limits exist per receiver and traffic class.",
-        "Priority order is deterministic and documented.",
-        "Slow receivers are isolated, layer-downgraded or disconnected without blocking others.",
-        "Bulk training sync pauses before realtime media is degraded.",
-        "Dropped messages emit bounded reason-coded metrics.",
-        "Load tests demonstrate bounded memory during sustained receiver congestion."
-      ]
-    },
-    {
-      "id": "broadcast-013",
-      "status": "todo",
-      "title": "Implement SFU node selection, health and failover",
-      "type": "distributed operations",
-      "priority": "high",
-      "risk": "high",
-      "depends_on": ["broadcast-002", "broadcast-005", "broadcast-006"],
-      "files": ["agent/services/webrtc_sfu_directory.py", "agent/services/webrtc_sfu_scheduler.py", "agent/routes/webrtc_sfu_health.py", "tests/test_webrtc_sfu_scheduler.py"],
-      "description": "Select an SFU by region, capacity, supported features, room affinity and health. Define reconnect or migration behavior without silently weakening E2EE or permissions.",
-      "acceptance_criteria": [
-        "Scheduling considers projected ingress, egress, participants, tracks, CPU and TURN usage.",
-        "Capacity claims are checked against observed metrics.",
-        "Unhealthy nodes stop receiving new rooms.",
-        "Failover creates a new routing/key epoch and rejects stale SFU tokens.",
-        "A room can recover through bounded reconnect or documented fallback.",
-        "Node identifiers and operational metrics do not expose plaintext media."
-      ]
-    },
-    {
-      "id": "broadcast-014",
-      "status": "todo",
-      "title": "Add TURN-aware routing and relay cost controls",
-      "type": "network operations",
-      "priority": "high",
-      "risk": "medium",
-      "depends_on": ["broadcast-006", "broadcast-013"],
-      "files": ["agent/services/webrtc_turn_policy.py", "frontend-angular/src/app/services/network-profile.service.ts", "tests/test_webrtc_turn_policy.py"],
-      "description": "Detect relay usage, account for TURN ingress/egress amplification and apply bounded quality, admission or room-size policies when direct connectivity is unavailable.",
-      "acceptance_criteria": [
-        "Metrics distinguish direct, SFU and TURN-relayed bytes.",
-        "Admission can enforce configured relay bandwidth and cost ceilings.",
-        "TURN use never disables encryption or authentication.",
-        "Quality adaptation is per receiver.",
-        "Relay exhaustion triggers explicit degraded or rejected states.",
-        "Benchmarks include all-receivers-via-TURN worst-case scenarios."
-      ]
-    },
-    {
-      "id": "broadcast-015",
-      "status": "todo",
-      "title": "Create room and broadcast observability without plaintext",
-      "type": "observability",
-      "priority": "high",
-      "risk": "medium",
-      "depends_on": ["broadcast-006", "broadcast-008", "broadcast-012", "broadcast-014"],
-      "files": ["agent/services/webrtc_room_metrics.py", "frontend-angular/src/app/features/voice/webrtc-room-debug-panel.component.ts", "docs/operations/webrtc-sfu-observability.md"],
-      "description": "Expose room topology, publications, subscriptions, layers, ingress, egress, TURN usage, congestion, drops, key epochs and fallback states using content-free telemetry.",
-      "acceptance_criteria": [
-        "Metrics provide current and p50/p95/peak bandwidth per room and publication.",
-        "Ingress and egress are not conflated.",
-        "Per-receiver details are access-controlled and retention-bounded.",
-        "No transcript, media payload, speaker embedding or private key appears in telemetry.",
-        "Debug UI identifies why a receiver is degraded or on fallback.",
-        "Cardinality limits prevent participant IDs from overwhelming monitoring backends."
-      ]
-    },
-    {
-      "id": "broadcast-016",
-      "status": "todo",
-      "title": "Add compatibility and deterministic topology fallback",
-      "type": "reliability/compatibility",
-      "priority": "critical",
-      "risk": "high",
-      "depends_on": ["broadcast-004", "broadcast-006", "broadcast-011", "broadcast-013"],
-      "files": ["agent/services/webrtc_topology_policy.py", "frontend-angular/src/app/services/realtime-topology-controller.service.ts", "tests/test_webrtc_topology_policy.py"],
-      "description": "Choose pair, mesh, SFU, control-only relay or standard media fallback using capabilities, room size, permissions, E2EE support and health.",
-      "acceptance_criteria": [
-        "Identical inputs produce identical topology and reason codes.",
-        "Legacy clients remain in supported pair or standard-audio/video paths.",
-        "Fallback never silently grants publish, subscribe or decrypt permission.",
-        "Topology changes have bounded retry and cooldown behavior.",
-        "Control and transcript can survive media-topology degradation when policy permits.",
-        "Fallback capacity is tested at the maximum supported room size."
-      ]
-    },
-    {
-      "id": "broadcast-017",
-      "status": "todo",
-      "title": "Create security, chaos and multi-room end-to-end tests",
-      "type": "testing/security",
-      "priority": "critical",
-      "risk": "high",
-      "depends_on": ["broadcast-010", "broadcast-011", "broadcast-012", "broadcast-013", "broadcast-016"],
-      "files": ["scripts/e2e/webrtc_sfu_broadcast_e2e.py", "tests/security/test_webrtc_sfu_security.py", "tests/chaos/test_webrtc_sfu_failover.py"],
-      "description": "Test authorized and unauthorized publication, subscription, receiver-group changes, E2EE epochs, slow receivers, SFU loss, TURN-only networks, malicious payloads and concurrent rooms.",
-      "acceptance_criteria": [
-        "A publisher uploads one stream/layer while multiple receivers obtain it.",
-        "Unauthorized receivers cannot subscribe or decrypt.",
-        "Removed participants lose future access after bounded rekey time.",
-        "One stalled receiver does not block other receivers.",
-        "SFU crash and reconnect reject stale routes, tokens and epochs.",
-        "Hub/SFU logs remain free of plaintext semantic, audio and video content under strict E2EE."
-      ]
-    },
-    {
-      "id": "broadcast-018",
-      "status": "todo",
-      "title": "Benchmark 10, 25, 50, 100 and 250 receiver fan-out",
-      "type": "benchmark/release gate",
-      "priority": "critical",
-      "risk": "high",
-      "depends_on": ["broadcast-015", "broadcast-017"],
-      "files": ["scripts/benchmark/webrtc-sfu-fanout.py", "scripts/benchmark/webrtc-semantic-broadcast.py", "docs/benchmarks/webrtc-sfu-fanout-report.md"],
-      "description": "Measure sender ingress, SFU egress, TURN traffic, CPU, memory, packets, latency, loss, recovery and semantic/control savings across ordinary media and optimized semantic modes.",
-      "acceptance_criteria": [
-        "Scenarios include one publisher, several publishers, webinar, screen share, transcript broadcast and semantic reference fan-out.",
-        "Report includes median, p95 and peak rather than averages only.",
-        "Server egress is shown to scale with actual delivered receiver traffic.",
-        "Shared processing savings and network egress are reported separately.",
-        "Worst case includes standard encrypted media fallback and all receivers behind TURN.",
-        "Release limits are derived from reproducible measurements and documented infrastructure profiles.",
-        "Admission rejects or shards rooms before measured safe limits are exceeded."
+      "task_ids": [
+        "SFB-GATE-001",
+        "SFB-GATE-002",
+        "SFB-GATE-003",
+        "SFB-GATE-004",
+        "SFB-GATE-005",
+        "SFB-GATE-006",
+        "SFB-GATE-007",
+        "SFB-GATE-008",
+        "SFB-GATE-009",
+        "SFB-GATE-010",
+        "SFB-GATE-011",
+        "SFB-GATE-012",
+        "SFB-GATE-013"
+      ],
+      "exit_criteria": [
+        "Reale Browser-, SFU-, TURN-, Security-, Chaos- und Soak-Laeufe sind reproduzierbar und content-free gruen.",
+        "10, 25, 50, 100 und 250 Receiver sind Messpunkte; die freigegebene Grenze wird ausschliesslich aus dem kleinsten bestandenen Worst-Case-Profil abgeleitet.",
+        "Canary, Kill-Switch, Migration, Rollback und Incident-Runbooks sind getestet und ein signierter Gate-Report bindet Source-, Config- und Image-Digests."
       ]
     }
   ],
+  "retired_milestones": [
+    {
+      "id": "SFB-M4",
+      "reason": "Der fruehere Semantic-/Speech-Spezialblock wurde entfernt, weil ASMP-VIS, ASMP-SPR und ASMP-DAT die kanonischen Domainvertraege besitzen; nur die generische Traffic-Class-Projektion SFB-GRP-011 bleibt. Die ID wird zur nachvollziehbaren Migration nicht wiederverwendet."
+    }
+  ],
+  "critical_path_tasks": [
+    "SFB-BASE-001",
+    "SFB-BASE-002",
+    "SFB-BASE-003",
+    "SFB-BASE-004",
+    "SFB-BASE-005",
+    "SFB-CON-001",
+    "SFB-CON-010",
+    "SFB-CON-002",
+    "SFB-CON-009",
+    "SFB-CON-003",
+    "SFB-CON-008",
+    "SFB-GRP-001",
+    "SFB-GRP-003",
+    "SFB-GRP-005",
+    "SFB-GRP-006",
+    "SFB-GRP-010",
+    "SFB-GRP-008",
+    "SFB-GRP-012",
+    "SFB-QOS-001",
+    "SFB-QOS-003",
+    "SFB-QOS-006",
+    "SFB-GRP-011",
+    "SFB-QOS-007",
+    "SFB-QOS-008",
+    "SFB-QOS-010",
+    "SFB-QOS-011",
+    "SFB-QOS-012",
+    "SFB-OPS-001",
+    "SFB-OPS-003",
+    "SFB-OPS-005",
+    "SFB-OPS-006",
+    "SFB-OPS-008",
+    "SFB-OPS-009",
+    "SFB-OPS-010",
+    "SFB-TURN-001",
+    "SFB-TURN-003",
+    "SFB-TURN-004",
+    "SFB-TURN-007",
+    "SFB-TURN-008",
+    "SFB-OBS-001",
+    "SFB-OBS-002",
+    "SFB-OBS-004",
+    "SFB-GATE-001",
+    "SFB-GATE-013",
+    "SFB-GATE-003",
+    "SFB-GATE-004",
+    "SFB-GATE-005",
+    "SFB-GATE-006",
+    "SFB-GATE-007",
+    "SFB-GATE-008",
+    "SFB-GATE-009",
+    "SFB-GATE-010",
+    "SFB-GATE-012",
+    "SFB-GATE-011"
+  ],
+  "tasks": [
+    {
+      "id": "SFB-BASE-001",
+      "title": "Reproduzierbare Broadcast-Iststandsbasis und Quellcodeinventar erzeugen",
+      "description": "Ein deterministischer Audit erfasst vorhandene Pair-, Relay-, Signaling-, E2EE-, Media-, SFU-, TURN- und Observability-Bausteine und trennt reale Implementierung von geplanten Dateien.",
+      "type": "architecture",
+      "milestone_id": "SFB-M0",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-001"
+      ],
+      "affected_files": [
+        "scripts/audit_webrtc_sfu_broadcast_baseline.py",
+        "docs/status/webrtc-sfu-broadcast-baseline.md",
+        "artifacts/domain/webrtc-sfu-broadcast-baseline.json"
+      ],
+      "acceptance_criteria": [
+        "Der Audit prueft Produktionscode, Angular-Abhaengigkeiten, aktive Compose-Dateien, Schemas, Migrationen, Tests und Betriebsdokumente und kennzeichnet Treffer als vorhanden, teilweise oder fehlend.",
+        "Der Bericht nennt fuer jeden Befund einen realen Repositorypfad und erfindet keine Source- oder Run-ID.",
+        "Das strukturierte Artefakt enthaelt Source-Commit, relevante Config-Digests, Toolversion und stabile sortierte Befunde ohne volatile Zufallswerte.",
+        "Ein Fixture-Test beweist identische Ausgabe bei identischem Tree und einen nonzero Exit bei fehlenden Pflichtpfaden oder widerspruechlicher Statusbehauptung."
+      ]
+    },
+    {
+      "id": "SFB-BASE-002",
+      "title": "Broadcast-Ownership und Trust-Boundaries als Folge-ADR fixieren",
+      "description": "Die bestehende Programmarchitektur wird fuer Audience-Projektion, SFU-Fleet, TURN und Egress erweitert, ohne Parent-Verantwortungen zu duplizieren.",
+      "type": "architecture",
+      "milestone_id": "SFB-M0",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-BASE-001",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-002",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-010"
+      ],
+      "affected_files": [
+        "docs/decisions/ADR-webrtc-sfu-broadcast-followup.md",
+        "docs/architecture/webrtc-sfu-broadcast-boundaries.md"
+      ],
+      "acceptance_criteria": [
+        "Die ADR ordnet Membership, Admission, Audience, Placement, Membership-/Route-/Topology-Epochen, Fencing und Failover dem Hub zu; der Hub autorisiert nur Parent-Key-Epoch-Referenzen, waehrend Content-Key-Erzeugung/-Ableitung beim kanonischen Client-Kryptopfad bleibt.",
+        "Browser, Hub, SFU, TURN, Datenbank, Observability und Hub-delegierte Worker besitzen jeweils explizite Daten-, Trust- und Containergrenzen.",
+        "Die SFU darf nur signierte Route-Intents, opaque Pakete, lokale Egresslimits und Healthdaten verarbeiten; fachliche Policy oder Worker-Orchestrierung ist ausgeschlossen.",
+        "Eine Ownership-Matrix verweist jede gemeinsame Parent-Verantwortung auf genau eine ASMP-Task-ID und weist doppelte Implementierung als Architekturfehler aus."
+      ]
+    },
+    {
+      "id": "SFB-BASE-003",
+      "title": "Maschinelles Parent-Readiness-Gate fuer den Folgetrack bauen",
+      "description": "Der Folgetrack darf erst aktiv werden, wenn die referenzierten Security-, Transport-, SFU- und Contract-Gates tatsaechlich abgeschlossen und nachweisbar sind.",
+      "type": "release_gate",
+      "milestone_id": "SFB-M0",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-BASE-001",
+        "SFB-BASE-002",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-001",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-002",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-004",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-DAT-002",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-DAT-010",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-001",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-002",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-010",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-004",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-007",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-009",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-010",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-011",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-012",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-002",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-003",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-008",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-003",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-004",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-007",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-008",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-009",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-010",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SPR-002",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SPR-007",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-TRN-001",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-TRN-004",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-TRN-010",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-VIS-012"
+      ],
+      "affected_files": [
+        "scripts/run_sfu_broadcast_parent_readiness_gate.py",
+        "tests/test_sfu_broadcast_parent_readiness_gate.py",
+        "artifacts/test-gates/sfu-broadcast-parent-readiness.json"
+      ],
+      "acceptance_criteria": [
+        "Das Gate leitet die sortierte Menge aller externen tasks[].depends_on-Referenzen ab, verlangt exakte Gleichheit mit cross_track_prerequisites und prueft fuer jedes Element Status, Task-ID, Schema, Source-Hash sowie erwartete Gate-Artefakte.",
+        "Jeder Nachweis ist an konfigurierten Trust Root, Signatur-Key-ID, Freshness-Maximum und monotone Parent-/Manifestversion gebunden; fehlende, partial, blocked, stale, rollback- oder source-hashfremde Voraussetzungen liefern stabile Reason-Codes und aktivieren keine Broadcast-Flags.",
+        "Das Gate kann Parent-Status weder veraendern noch umgehen und akzeptiert keine frei formulierte Done-Behauptung als Evidence.",
+        "Positiv-, Missing-Artifact-, Stale-Hash-, falsche-Task-ID- und ungueltige-Signatur-Tests sind deterministisch."
+      ]
+    },
+    {
+      "id": "SFB-BASE-004",
+      "title": "Kanonischen Parent-Feature-Flag-Katalog um Broadcast-Cohorts und Kill-Switch erweitern",
+      "description": "Advanced Broadcast bleibt standardmaessig deaktiviert; der bestehende Parent-Katalog bleibt einzige Flag-Source-of-Truth und wird um auditierte Fleet-/Cohort-Zustaende erweitert.",
+      "type": "configuration",
+      "milestone_id": "SFB-M0",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-BASE-002",
+        "SFB-BASE-003",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-004",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-009",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-012"
+      ],
+      "affected_files": [
+        "agent/services/chat_setting_definitions.py",
+        "agent/services/sfu_broadcast_feature_policy.py",
+        "agent/routes/admin/sfu_broadcast_feature_flags.py",
+        "frontend-angular/src/app/services/network-profile.service.ts",
+        ".env.example",
+        "tests/test_sfu_broadcast_feature_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Alle Broadcast-, Receiver-Group-, Fleet- und TURN-Cost-Erweiterungen sind im kanonischen Parent-Katalog default false und erzwingen bei unbekannter/staler Version den Parent-Fallbackpfad.",
+        "Flagmutation verlangt Admin-RBAC, Idempotency-Key, Actor, Reason, expected_version und content-free Audit; Angular und SFU koennen weder Flag noch Cohort lokal erweitern.",
+        "Versionierte Hubentscheidung propagiert innerhalb flag_propagation_max_seconds zu allen betroffenen Hub-/SFU-Instanzen; fehlendes Ack fenced den stale Node fuer neue Admission.",
+        "Tests decken Legacy-Client, fehlende Capability, unbekannten Tenant, Cohort, Concurrent Admin, Rollback sowie stop_admission, graceful_drain und immediate_security_fence ab."
+      ]
+    },
+    {
+      "id": "SFB-BASE-005",
+      "title": "Broadcast-SLO-, Ressourcen- und Kapazitaetsprofilvertrag festlegen",
+      "description": "Messbudgets fuer Join, Rekey, Layerwechsel, Failover, Queueing, Egress, TURN, Speicher und Dateideskriptoren werden vor Implementierungs- und Lastentscheidungen maschinenlesbar definiert.",
+      "type": "configuration",
+      "milestone_id": "SFB-M0",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-BASE-003",
+        "SFB-BASE-004",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-003",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-009"
+      ],
+      "affected_files": [
+        "config/sfu_broadcast_slo_profiles.json",
+        "schemas/webrtc/sfu_broadcast_slo_profile.v1.json",
+        "docs/operations/sfu-broadcast-capacity-policy.md",
+        "tests/test_sfu_broadcast_slo_profiles.py"
+      ],
+      "acceptance_criteria": [
+        "Jedes Budget besitzt stabilen Config-Key, Einheit, Messfenster, Perzentil, Mindest-/Hoechstwert und Verhalten bei fehlender Messung; jedes Laufprofil benennt warmup_seconds, measurement_seconds, repetitions_min, confidence_level, variance_max, capacity_reserve_percent und retry_rate_max.",
+        "Profile unterscheiden Direct Pair, SFU, All-TURN, Webinar, mehrere Publisher, Screen Share, Transcript und semantischen Fanout.",
+        "Eine Receiverzahl ist nur freigabefaehig, wenn alle Pflichtbudgets inklusive cleanup_deadline_ms, memory_trend_max, fd_trend_max, row_trend_max und capacity_reserve_percent des entsprechenden Infrastrukturprofils bestanden sind; ungepruefte Werte bleiben abgelehnt.",
+        "Schema- und Grenzwerttests lehnen negative, NaN-, unendliche, einheitenlose, statistisch unzureichende, widerspruechliche oder ausserhalb administrativer Hard-Limits liegende Werte ab."
+      ]
+    },
+    {
+      "id": "SFB-CON-001",
+      "title": "Additive Fanout-Referenz-, Limit- und Parent-Envelope-Profile definieren",
+      "description": "Broadcast-Erweiterungen verwenden das kanonische kryptografische Parent-Envelope direkt und definieren nur gemeinsame Referenzen, Limits und Domain-Separation fuer spezialisierte Fanout-Schemas.",
+      "type": "schema",
+      "milestone_id": "SFB-M1",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-BASE-002",
+        "SFB-BASE-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-003",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-007"
+      ],
+      "affected_files": [
+        "schemas/webrtc/sfu_broadcast_extension_defs.v1.json",
+        "docs/contracts/sfu-broadcast-extension-rules.md",
+        "tests/contracts/fixtures/sfu_broadcast_extension_defs/"
+      ],
+      "acceptance_criteria": [
+        "Jedes Fanout-Schema referenziert per $ref das durch ASMP-SEC-003 gelieferte Parent-Envelope und dessen Signatur-, Sequenz-, Ablauf-, Replay- und Domain-Separation-Regeln statt ein zweites Envelope zu schaffen.",
+        "Gemeinsame Definitionen umfassen nur kanonische Tenant-/Room-/Publication-/Subscription-Referenzen, Membership-/Key-/Route-/Topology-Epochen und benannte Byte-/Count-/TTL-Limits.",
+        "Keine Erweiterung darf Rollen, Membership, Consent, Publication-, Subscription-, Key- oder Signaturalgorithmus als autoritative Kopie enthalten oder Parent-Grenzen lockern.",
+        "Boundary-Tests lehnen unbekannte Security-Properties, Oversize, abgelaufene Zeitfenster, Epoch-Regression, falsche $ref-Version und falsche Domain-Separation ab."
+      ]
+    },
+    {
+      "id": "SFB-CON-010",
+      "title": "Kanonischen Non-Media-Digest-Key-Provider und Lifecycle implementieren",
+      "description": "Ein kleiner injizierbarer Port liefert Hub-only Pseudonym-/Member-Digest-Operationen, ohne Content-Keys wiederzuverwenden oder Rohschluessel in Domainmodelle, Datenbank, Logs oder Gateartefakte zu geben.",
+      "type": "security",
+      "milestone_id": "SFB-M1",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-CON-001",
+        "SFB-BASE-003",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-010"
+      ],
+      "affected_files": [
+        "agent/services/ports/sfu_member_digest_key_provider.py",
+        "agent/services/adapters/sfu_member_digest_secret_store.py",
+        "config/sfu_member_digest_key_policy.json",
+        "tests/security/test_sfu_member_digest_key_provider.py"
+      ],
+      "acceptance_criteria": [
+        "Port bietet nur HMAC-/HKDF-basierte domain-separierte Digestoperationen mit Algorithmus-ID, Key-ID, Tenant/Room/Publication/Key-Epoch-Scope und injizierbarem Clock-/Secret-Store-Port; Content-/Media-Keys sind unzulaessig.",
+        "Rohschluessel verlassen Secret Manager/KMS beziehungsweise einen explizit getesteten wrapped-at-rest Adapter nie in DB, API, Log, Trace, Metric oder Artefakt; fehlender oder ungueltiger Key ist fail-closed.",
+        "Rotation besitzt generation, active, bounded dual_read, retired und destroyed mit rotation_overlap_seconds_max, retention_seconds_max und monotone Key-Version; mehrere Hub-Instanzen erzeugen denselben aktiven Scope-Digest ohne prozesslokale Source of Truth.",
+        "Tests decken Restart, Mehr-Hub-Race, Rotation/Dual-Read-Ende, Keyverlust, falsche Key-ID/Domain, Cross-Room-/Cross-Epoch-Linkability, Dictionaryversuch, Secretleak-Sentinel, sichere Vernichtung und Kompromittierungsrotation ab."
+      ]
+    },
+    {
+      "id": "SFB-CON-002",
+      "title": "Receiver-Group-Intent-Vertrag spezifizieren",
+      "description": "Ein Hub-eigener Intent beschreibt eine kompatible Empfaengermenge als Projektion individueller Grants, ohne selbst neue Berechtigung zu erzeugen.",
+      "type": "schema",
+      "milestone_id": "SFB-M1",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-CON-001",
+        "SFB-CON-010",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-002",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-008"
+      ],
+      "affected_files": [
+        "schemas/webrtc/receiver_group_intent.v1.json",
+        "docs/contracts/receiver-group-intent.md",
+        "tests/contracts/fixtures/receiver_group_intent/"
+      ],
+      "acceptance_criteria": [
+        "Der Vertrag enthaelt stabile Group-ID, Audience-Snapshot-Referenz, mit separatem Hub-only Non-Media-Key pro Room/Publication/Key-Epoch domain-separiert berechneten Member-Digest, Privacy-Scope, erlaubte Shared-Publications, Policy-Version, relevante Epochen und Ablauf.",
+        "Selectoren sind eine geschlossene Allowlist kanonischer Capability-, Consent- und Subscription-Attribute; freie Ausdruecke oder ausfuehrbarer Code sind verboten.",
+        "Gruppenbildung ueber unterschiedliche Tenant-, Room-, Consent-, Privacy-, Membership-, Key- oder Publication-Scope-Grenzen wird abgelehnt.",
+        "Tests decken leere Gruppe, Maximalgruppe, doppeltes Mitglied, Digest-Manipulation, stale Consent, Cross-Room-Mitglied sowie Dictionary- und Cross-Room-/Cross-Epoch-Linkability-Versuche ab."
+      ]
+    },
+    {
+      "id": "SFB-CON-004",
+      "title": "Begrenzten Receiver-Quality-Observation-Vertrag definieren",
+      "description": "Nichtautoritative Qualitaetsbeobachtungen liefern die Grundlage fuer receiver-spezifische Layerentscheidungen, ohne Rechte oder Topologie festzulegen.",
+      "type": "schema",
+      "milestone_id": "SFB-M1",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "SFB-CON-001",
+        "SFB-BASE-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-003"
+      ],
+      "affected_files": [
+        "schemas/webrtc/receiver_quality_observation.v1.json",
+        "docs/contracts/receiver-quality-observation.md",
+        "tests/contracts/fixtures/receiver_quality_observation/"
+      ],
+      "acceptance_criteria": [
+        "Der Vertrag verwendet feste Einheiten fuer RTT, Jitter, Loss, Bitrate, Decode, Freeze, Audio-Gap, Buffer, Viewport und CPU-Pressure und trennt requested, allowed und effective Layer.",
+        "Historylaenge, Sampleanzahl, Melderate, Payloadbytes und Zeitfenster sind begrenzt; NaN, Infinity, negative oder physikalisch unplausible Werte werden abgelehnt oder reason-coded normalisiert.",
+        "Observationen sind an Subscriber, Publication, Browserinstanz, Route-Epoch und monotone Sample-Sequenz gebunden, verleihen aber keine Subscription- oder Layerberechtigung.",
+        "Privacy-Tests mit Positiv- und Negativ-Fixtures beweisen, dass keine IP-Adresse, Devicebezeichnung, SDP-, Medien-, Transcript- oder Embeddingdaten zulaessig sind."
+      ]
+    },
+    {
+      "id": "SFB-CON-006",
+      "title": "SFU-Node-Health- und Capacity-Observation-Vertrag definieren",
+      "description": "Ein SFU meldet signierte, zeitlich begrenzte Betriebsbeobachtungen; nur der Hub leitet daraus Placement oder Admission ab.",
+      "type": "schema",
+      "milestone_id": "SFB-M1",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-CON-001",
+        "SFB-BASE-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-005"
+      ],
+      "affected_files": [
+        "schemas/webrtc/sfu_node_observation.v1.json",
+        "docs/contracts/sfu-node-observation.md",
+        "tests/contracts/fixtures/sfu_node_observation/"
+      ],
+      "acceptance_criteria": [
+        "Observationen binden Node-Identity, Adapter-/Protokollversion, Region, Capabilities, Drainstate, CPU, Speicher, FDs, Ingress, Egress, TURN-Anteil, Raeume, Tracks, Receiver und Messzeit.",
+        "Jede Metrik besitzt feste Einheit, Messquelle, Freshness-TTL und Hard-Limit; fehlende oder stale Werte ergeben unknown statt healthy.",
+        "Der Node kann durch gemeldete Kapazitaet weder Placement erzwingen noch administrative Limits, Tenantquoten oder Hub-Reservierungen ueberschreiben.",
+        "Manipulierte Signatur, Clock-Skew ausserhalb Configgrenze, Counterregression, unbekannte Capability und uebergrosse Labelmenge werden negativ getestet."
+      ]
+    },
+    {
+      "id": "SFB-CON-009",
+      "title": "Immutable Audience-Snapshot-Vertrag fuer Hub-Projektionen definieren",
+      "description": "Ein persistierter Hub-Snapshot friert die individuell autorisierte Empfaengermenge und ihre kanonischen Grant-/Consent-/Epoch-Referenzen fuer eine Route unveraenderlich ein.",
+      "type": "schema",
+      "milestone_id": "SFB-M1",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-CON-002",
+        "SFB-CON-010",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-008",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-006"
+      ],
+      "affected_files": [
+        "schemas/webrtc/audience_snapshot.v1.json",
+        "docs/contracts/audience-snapshot.md",
+        "tests/contracts/fixtures/audience_snapshot/"
+      ],
+      "acceptance_criteria": [
+        "Snapshot bindet Tenant, Room, Publication, Policyversion, Membership-/Consent-/Key-Epoch, kanonisch sortierte individuelle Grantreferenzen sowie einen mit separatem Hub-only Non-Media-Scope-Key nicht enumerierbaren, domain-separierten Member-Digest an Erstellung und Ablauf.",
+        "Snapshot ist nach Erstellung immutable; jede Join-, Leave-, Revoke-, Grant-, Consent- oder Epoch-Aenderung erzeugt eine neue Snapshot-ID und groessere Projektionsversion.",
+        "Mitglieder- und Grantreferenzen bleiben Hub-intern; SFU-Route erhaelt nur erforderliche opaque Receiverhandles und den Digest, niemals Consent- oder Rollenlisten.",
+        "members_max, snapshot_bytes_max und ttl_seconds sind schema-/configbegrenzt; Negativtests decken Duplicate, stale Grant, Digestmanipulation, Cross-Tenant-Referenz, Dictionaryangriff und Linkability ueber Room-, Publication- und Key-Epoch-Grenzen ab."
+      ]
+    },
+    {
+      "id": "SFB-CON-003",
+      "title": "Signierten Fanout-Route-Intent-Vertrag spezifizieren",
+      "description": "Der Hub projiziert eine Receiver Group als kurzlebigen, nodegebundenen und gefenceten Route-Intent fuer die SFU.",
+      "type": "schema",
+      "milestone_id": "SFB-M1",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-CON-001",
+        "SFB-CON-002",
+        "SFB-CON-009",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-007"
+      ],
+      "affected_files": [
+        "schemas/webrtc/fanout_route_intent.v1.json",
+        "docs/contracts/fanout-route-intent.md",
+        "tests/contracts/fixtures/fanout_route_intent/"
+      ],
+      "acceptance_criteria": [
+        "Der Intent bindet Route-ID, Group- und Audience-Digest, Node-ID, Publication, erlaubte Layer, Traffic-Class-Budgets, Route-/Topology-/Key-Epoch, Fencing-Token, Gueltigkeitsfenster und Hub-Signatur.",
+        "Die SFU kann aus dem Intent weder weitere Receiver noch hoehere Layer, laengere TTL oder neue Publications ableiten.",
+        "Cross-Node-, Cross-Room-, Cross-Publication-, stale-Fencing-, stale-Key- und Replay-Fixtures werden mit stabilen Reason-Codes abgelehnt.",
+        "Intentgroesse, Receiver-Referenzen, Layerzahl, Traffic-Klassen und TTL sind durch benannte Schema- und Config-Limits begrenzt."
+      ]
+    },
+    {
+      "id": "SFB-CON-005",
+      "title": "Inhaltsfreien Fanout-Accounting-Vertrag definieren",
+      "description": "Ingress, SFU-Egress, TURN-Relay, Drops, Queues und Shared-Processing werden in festen Zeitfenstern getrennt und revisionssicher bilanziert.",
+      "type": "schema",
+      "milestone_id": "SFB-M1",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "SFB-CON-001",
+        "SFB-CON-003",
+        "SFB-CON-004",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-005"
+      ],
+      "affected_files": [
+        "schemas/webrtc/fanout_accounting_window.v1.json",
+        "docs/contracts/fanout-accounting.md",
+        "tests/contracts/fixtures/fanout_accounting_window/"
+      ],
+      "acceptance_criteria": [
+        "Counter trennen Publisher-Ingress, SFU-Egress, TURN-Ingress/-Egress, Direct-Traffic, Receiverklassen, Layer, Drops und Queuezeit in festgelegten SI-Einheiten.",
+        "Fenster besitzen Node-, Room-, Publication-, Route-Epoch-, Start-/End-, Sequenz- und Signaturbindung und koennen bei Retry idempotent zusammengefuehrt werden.",
+        "Counteroverflow, Regression, ueberlappende Fenster, doppelte Sequenz und unplausible Egress-zu-Receiver-Verhaeltnisse liefern stabile Fehler oder markierte Schaetzwerte.",
+        "Privacy- und Grenzwert-Tests beweisen, dass der Vertrag keine Payloads, Original-Participant-IDs, IP-Adressen, Tokens, Keys oder frei wachsende Labels akzeptiert."
+      ]
+    },
+    {
+      "id": "SFB-CON-007",
+      "title": "Gemeinsamen negativen Fixture-Korpus und Python-Validatoren implementieren",
+      "description": "Ein kanonischer Fixture-Korpus prueft alle Broadcast-Erweiterungen in der Hub-Laufzeit und dient weiteren Implementierungen als unveraenderte Conformance-Basis.",
+      "type": "testing",
+      "milestone_id": "SFB-M1",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-CON-002",
+        "SFB-CON-003",
+        "SFB-CON-004",
+        "SFB-CON-005",
+        "SFB-CON-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-004"
+      ],
+      "affected_files": [
+        "agent/services/sfu_broadcast_contract_validator.py",
+        "tests/contracts/sfu_broadcast/",
+        "tests/test_sfu_broadcast_contract_validator.py"
+      ],
+      "acceptance_criteria": [
+        "Jedes Schema besitzt Minimal-, Maximal-, Unknown-Property-, Oversize-, Ablauf-, Replay-, stale-Epoch-, Cross-Scope- und Signatur-Fixtures mit explizitem Erwartungscode.",
+        "Python validiert erst strukturelle Byte-/Count-Limits, danach Semantik und zuletzt Signatur, ohne unbeschraenkte Allocation oder rekursive Tiefe.",
+        "Clock, Truststore und Limitprofil sind injizierbar; Tests benoetigen keine Modulglobals, reale Uhr oder Netzwerkzugriff.",
+        "Ein deterministischer Korpusdigest und Schema-Version werden im Testreport ausgegeben; veraenderte Fixtures ohne Versionsanpassung brechen das Gate."
+      ]
+    },
+    {
+      "id": "SFB-CON-008",
+      "title": "TypeScript-Validatoren gegen denselben Conformance-Korpus implementieren",
+      "description": "Angular akzeptiert und erzeugt nur Erweiterungsvertraege, die exakt dieselben Grenzen und Reason-Codes wie der Hub verwenden.",
+      "type": "frontend",
+      "milestone_id": "SFB-M1",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-CON-007",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-004"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/services/sfu-broadcast-contracts.ts",
+        "frontend-angular/src/app/services/sfu-broadcast-contract-validator.service.ts",
+        "frontend-angular/src/app/services/sfu-broadcast-contract-validator.service.spec.ts"
+      ],
+      "acceptance_criteria": [
+        "TypeScript nutzt geschlossene discriminated unions und keine sicherheitsrelevanten any-Casts oder stillen Defaultwerte.",
+        "Der komplette gemeinsame Fixture-Korpus erzeugt in Python und TypeScript identische accept/reject- und Reason-Code-Ergebnisse.",
+        "Validatoren begrenzen JSON-Tiefe, String-/Arraygroessen und Integerbereiche vor Zustandsspeicherung oder UI-Bindung.",
+        "Mutationstests fuer unbekannte Felder, Prototype-Pollution, Unicode-Normalisierung, grosse Integer und falsche Epochtypen werden abgewiesen."
+      ]
+    },
+    {
+      "id": "SFB-GRP-001",
+      "title": "Persistente Audience-, Receiver-Group- und Fanout-Route-Modelle migrieren",
+      "description": "Additive Datenmodelle speichern nur Broadcast-Projektionen und referenzieren die kanonischen Room-, Participant-, Publication-, Subscription- und Epoch-Datensaetze des Parents.",
+      "type": "backend",
+      "milestone_id": "SFB-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-CON-002",
+        "SFB-CON-003",
+        "SFB-CON-009",
+        "SFB-CON-007",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-006"
+      ],
+      "affected_files": [
+        "agent/db_models/sfu_broadcast.py",
+        "alembic/versions/",
+        "tests/test_sfu_broadcast_migrations.py"
+      ],
+      "acceptance_criteria": [
+        "Modelle speichern Tenant-/Room-/Publication-Referenzen, Digests, Policy-/Membership-/Key-/Route-/Topology-Epochen, Status, TTL, Retention-/Tombstonezustand, Fencing und Auditzeitpunkte ohne duplizierte Berechtigungswahrheit.",
+        "Unique-, Foreign-Key-, Check- und monotone Versionconstraints verhindern doppelte aktive Projektionen, negative Epochen und Cross-Tenant-Referenzen.",
+        "Migration ist additiv, downgrade-faehig solange keine aktiven Broadcast-Projektionen bestehen und veraendert bestehende Pair-/SFU-Basistabellen nicht destruktiv.",
+        "SQLite- und produktionsnaher Datenbanktest decken Upgrade, Rollback, Concurrent Insert, abgelaufene Route und verwaiste Referenz ab."
+      ]
+    },
+    {
+      "id": "SFB-GRP-002",
+      "title": "Kleine Repository-Ports fuer Audience, Group und Route einfuehren",
+      "description": "Persistenzzugriff wird in getrennte Ports mit expliziten CAS-, Paging-, Expiry- und Reconciliation-Operationen zerlegt.",
+      "type": "backend",
+      "milestone_id": "SFB-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-GRP-001"
+      ],
+      "affected_files": [
+        "agent/services/sfu_audience_repository.py",
+        "agent/services/sfu_receiver_group_repository.py",
+        "agent/services/sfu_fanout_route_repository.py",
+        "tests/test_sfu_broadcast_repositories.py"
+      ],
+      "acceptance_criteria": [
+        "Audience-, Group- und Route-Port besitzen getrennte fokussierte Interfaces; kein Consumer muss ungenutzte Node-, Token-, Media- oder Metrics-Methoden implementieren.",
+        "Mutationen verlangen expected_version oder Idempotency-Key und liefern saved, conflict, stale_epoch, expired oder not_found als stabile Ergebnisse.",
+        "Listenoperationen sind tenant-/roomgebunden, sortiert, paginiert und durch konfiguriertes page_size_max begrenzt.",
+        "In-Memory-Testadapter und SQL-Adapter bestehen denselben Contract-Test fuer Retry, Konflikt, Ablauf, Restart-Simulation und Cross-Tenant-Isolation."
+      ]
+    },
+    {
+      "id": "SFB-GRP-003",
+      "title": "Default-deny Audience-Policy-Compiler implementieren",
+      "description": "Der Hub bildet die Schnittmenge individueller kanonischer Grants, Capabilities, Consent- und Privacy-Scopes auf eine unveraenderliche Audience-Projektion ab.",
+      "type": "backend",
+      "milestone_id": "SFB-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-CON-002",
+        "SFB-GRP-002",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-002",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-006"
+      ],
+      "affected_files": [
+        "agent/services/sfu_audience_policy_compiler.py",
+        "tests/test_sfu_audience_policy_compiler.py"
+      ],
+      "acceptance_criteria": [
+        "Eligibility ist immer die Schnittmenge individueller Publish-/Subscribe-Grants, Raum-, Publication-, Consent-, Privacy-, Capability- und Epochbedingungen; Gruppierung vereinigt keine Rechte.",
+        "Unbekannte Rolle, fehlender Grant, stale Consent, abgelaufene Subscription, fehlende E2EE-Faehigkeit oder unvollstaendige Parentdaten fuehren zu deny mit stabilem Reason-Code.",
+        "Der Compiler ist rein, deterministisch und haengt von kleinen Policy-Read-Ports statt Flask, SQL-Sessions oder Vendor-SDKs ab.",
+        "Tabellen- und Property-Tests decken Cross-Tenant, Cross-Room, receive-only, mehrere Publications, Consent-Revoke und widerspruechliche Capabilities ab."
+      ]
+    },
+    {
+      "id": "SFB-GRP-004",
+      "title": "Kanonischen Member-Digest und inkrementelle Gruppenneuberechnung bauen",
+      "description": "Join, Leave, Revoke oder Policyaenderung aktualisiert betroffene Gruppen begrenzt und reproduzierbar, mit kontrolliertem Full-Rebuild-Fallback.",
+      "type": "backend",
+      "milestone_id": "SFB-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-GRP-003",
+        "SFB-CON-010"
+      ],
+      "affected_files": [
+        "agent/services/sfu_receiver_group_projector.py",
+        "tests/test_sfu_receiver_group_projector.py"
+      ],
+      "acceptance_criteria": [
+        "Member-Digest verwendet einen separaten Hub-only Non-Media-Key pro Tenant/Room/Publication/Key-Epoch ueber domain-separierte kanonische Serialisierung sortierter stabiler Referenzen und ist unabhaengig von Datenbank- oder Eventreihenfolge.",
+        "Inkrementelle Updates bearbeiten nur betroffene Publication-/Privacy-/Layer-Buckets und respektieren config keys fuer groups_per_event_max, members_per_group_max und recompute_deadline_ms.",
+        "Bei Gap, Digestfehler oder ueberschrittener Aenderungsmenge wechselt der Projektor reason-coded in einen begrenzten Full-Rebuild statt Teilzustand zu autorisieren.",
+        "Seeded Tests vergleichen inkrementelles Ergebnis mit Full-Rebuild bei Reorder, Duplicate, Join/Leave-Sturm und Hashkollision-Simulation und pruefen Dictionaryresistenz sowie fehlende Cross-Room-/Cross-Epoch-Linkability."
+      ]
+    },
+    {
+      "id": "SFB-GRP-005",
+      "title": "Atomare Group-Projektion mit CAS, Epochen und Fencing sichern",
+      "description": "Mehrere Hub-Instanzen koennen dieselben Events beobachten, aber nur eine monotone Audience-/Group-Version darf autoritativ werden.",
+      "type": "backend",
+      "milestone_id": "SFB-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-GRP-002",
+        "SFB-GRP-004",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SEC-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-006"
+      ],
+      "affected_files": [
+        "agent/services/sfu_group_projection_service.py",
+        "tests/test_sfu_group_projection_concurrency.py"
+      ],
+      "acceptance_criteria": [
+        "Jede Mutation prueft Membership-, Key- und Policy-Epoch sowie expected Group-Version in einer atomaren Transaktion.",
+        "Gewinnende Projektion erhaelt monotones Fencing; stale Writer, verspätete Events und kleinere Epoch/Fencing-Werte koennen keinen aktiven Zustand ueberschreiben.",
+        "Retry mit identischem Idempotency-Key liefert dieselbe Group-Version und erzeugt weder Doppelroute noch zusaetzlichen Auditdatensatz.",
+        "Concurrent-Tests mit mindestens zwei Repository-Instanzen beweisen genau einen Gewinner bei Join/Revoke-Race, Hubwechsel und DB-Retry."
+      ]
+    },
+    {
+      "id": "SFB-GRP-006",
+      "title": "Fanout-Route-Lifecycle als explizite Hub-State-Machine implementieren",
+      "description": "Route-Intent, Dispatch, Ack, Active, Update, Revoke, Expire und Failed werden deterministisch und epochgebunden verwaltet.",
+      "type": "backend",
+      "milestone_id": "SFB-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-CON-003",
+        "SFB-GRP-005"
+      ],
+      "affected_files": [
+        "agent/services/sfu_fanout_route_lifecycle.py",
+        "docs/architecture/sfu-fanout-route-state-machine.md",
+        "tests/test_sfu_fanout_route_lifecycle.py"
+      ],
+      "acceptance_criteria": [
+        "Eine tabellarische State Machine definiert erlaubte Transitionen, Guards, Deadline, Retrybudget, Cooldown, terminale Zustaende und stabile Reason-Codes.",
+        "Kein Active ist ohne persistierten Intent, aktuelle Epochen, gueltiges Fencing, per mTLS-Node-Identity oder Nodesignatur authentifiziertes Ack und noch gueltige Parent-Subscription erreichbar.",
+        "Ack bindet Nonce, monotone Sequenz, TTL, Node, Room, Digest, Fencing und Route-Epoch; Duplicate oder verspaetete Acks sind idempotent und falsche oder wiederholte Bindungen werden verworfen und auditiert.",
+        "Model-/Property-Tests pruefen alle Transitionen sowie Reorder, Duplicate, Gap, Timeout, Revoke-during-dispatch und Expiry-during-update."
+      ]
+    },
+    {
+      "id": "SFB-GRP-007",
+      "title": "Vendorneutralen Broadcast-Route-Port und deterministischen Mock erweitern",
+      "description": "Der ausgewaehlte Parent-SFU-Adapter erhaelt kleine Extension-Ports fuer Route anwenden, aktualisieren, widerrufen und bestaetigen, ohne Vendorobjekte in Domaincode zu leaken.",
+      "type": "infrastructure",
+      "milestone_id": "SFB-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-CON-008",
+        "SFB-GRP-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-008"
+      ],
+      "affected_files": [
+        "agent/services/ports/sfu_broadcast_route_port.py",
+        "agent/services/adapters/sfu_broadcast_mock_adapter.py",
+        "tests/contracts/test_sfu_broadcast_route_port.py"
+      ],
+      "acceptance_criteria": [
+        "Separate apply, update, revoke und observe Ports verwenden nur versionierte Domain-Dataclasses und stabile Result-/Reason-Codes; kein God-Interface oder Vendor-Token-Typ ist sichtbar.",
+        "Der Port gestattet weder Room-/Membership-Erzeugung noch Rechte-, Layerlimit-, TTL-, Audience- oder Epoch-Erweiterung durch den Adapter.",
+        "Der Mock simuliert Ack, Duplicate, Reorder, Timeout, stale Fencing, Partial Apply, Nodeverlust und Recovery deterministisch ueber injizierte Clock und Faultplan.",
+        "Mock und realer ausgewaehlter Adapter muessen denselben Contract-Test bestehen, bevor das Broadcast-Flag fuer diesen Adapter aktivierbar ist."
+      ]
+    },
+    {
+      "id": "SFB-GRP-010",
+      "title": "Ausgewaehlten realen SFU-Adapter fuer signierte Gruppenrouten implementieren",
+      "description": "Der vom Parent ausgewaehlte und deployte SFU-Stack setzt den vendorneutralen Route-Port fuer apply, update, revoke, observe und Ack produktiv um.",
+      "type": "infrastructure",
+      "milestone_id": "SFB-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-GRP-007",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-007"
+      ],
+      "affected_files": [
+        "agent/adapters/sfu/broadcast_route_adapter.py",
+        "tests/integration/test_selected_sfu_broadcast_route_adapter.py",
+        "docs/integrations/sfu-broadcast-route-adapter.md"
+      ],
+      "acceptance_criteria": [
+        "Adapter prueft Hubsignatur, Node-/Room-/Publication-/Audiencebindung, TTL, Epochen und Fencing vor jeder Vendor-SDK-Aktion und erweitert keinen Wert.",
+        "Apply, Update und Revoke sind idempotent; Ack ist ueber mTLS-Node-Identity oder Nodesignatur authentifiziert, bindet Nonce, Sequenz, TTL, Routeversion, Audience-Digest, Node-ID, Adapterinstanz, Epochen und Fencing und mappt Vendorfehler auf stabile Domaincodes.",
+        "SFU-Implementierung inspiziert oder entschluesselt weder Media-, Semantic- noch Transcriptpayload und besitzt keinen Zugriff auf Hub-Taskqueue, Worker, Datasets oder Trainingsdienste.",
+        "Realer Container-Integrationstest besteht denselben Port-Korpus wie der Mock und deckt Restart, Partial Apply, stale Intent, Ack-Replay/-Impersonation, Revoke und Cleanup ohne verwaiste Vendorroute ab."
+      ]
+    },
+    {
+      "id": "SFB-GRP-008",
+      "title": "Restart-, Revoke- und Epoch-Reconciler fuer Gruppenrouten implementieren",
+      "description": "Ein Hub-eigener Reconciler vergleicht persistierte Sollprojektion und beobachteten SFU-Zustand und schliesst Luecken ohne stale Zugriff zu reaktivieren.",
+      "type": "backend",
+      "milestone_id": "SFB-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-GRP-005",
+        "SFB-GRP-006",
+        "SFB-GRP-007",
+        "SFB-GRP-010",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-009"
+      ],
+      "affected_files": [
+        "agent/services/sfu_fanout_reconciliation_service.py",
+        "tests/test_sfu_fanout_reconciliation_service.py"
+      ],
+      "acceptance_criteria": [
+        "Reconciliation ist ausschliesslich Hub-gesteuert, lease-/fencinggeschuetzt, paginiert und durch reconcile_items_max sowie reconcile_deadline_ms begrenzt.",
+        "Stale, unbekannte, tombstoned oder auf widerrufene Receiver zeigende SFU-Routen werden zuerst gefenced und widerrufen; fehlende Routen werden nur aus aktueller nicht abgelaufener Sollprojektion neu erstellt.",
+        "Hub- oder SFU-Neustart, Event-Gap, verlorenes Ack und Split-Brain enden in genau einer aktiven Route je erlaubter Publication/Receiver-Kombination.",
+        "Chaosnahe Tests pruefen Resume-Cursor, Retry, zweifachen Reconciler, Datenbankfehler und Revocation waehrend Recovery ohne unbeschraenkte Schleife."
+      ]
+    },
+    {
+      "id": "SFB-GRP-012",
+      "title": "Audience-Snapshot-Retention, Tombstone und sicheren Purge implementieren",
+      "description": "Individuelle Grantreferenzen und abgelaufene Audience-Snapshots werden nach Routeende automatisch und restart-sicher entfernt, ohne alte Berechtigung durch Replay oder Reconciliation wiederzubeleben.",
+      "type": "backend",
+      "milestone_id": "SFB-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-CON-009",
+        "SFB-CON-010",
+        "SFB-GRP-001",
+        "SFB-GRP-008"
+      ],
+      "affected_files": [
+        "agent/services/sfu_audience_snapshot_retention_service.py",
+        "agent/services/sfu_audience_snapshot_repository.py",
+        "tests/test_sfu_audience_snapshot_retention.py",
+        "tests/chaos/test_sfu_audience_snapshot_purge.py"
+      ],
+      "acceptance_criteria": [
+        "Lifecycle active, expired, tombstoned und purged bindet snapshot_ttl_seconds, purge_grace_seconds_max, retention_reason und monotone Version; nach Ablauf kann keine neue Route den Snapshot referenzieren.",
+        "Nach letzter Route, Consent-/Membership-Revoke oder Tenant-/Room-Loeschung werden individuelle Grantreferenzen und alte Digests bis purge_deadline_seconds geloescht; ein minimales content-free Tombstone verhindert Wiederbelebung ohne Originalidentitaeten zu behalten.",
+        "Purge ist idempotent, paginiert, lease-/fencinggeschuetzt und ueberlebt Hub-/DB-Restart; Key-Rotation/-Vernichtung und Snapshot-Purge koennen keine halb lesbare oder wieder autorisierte Projektion erzeugen.",
+        "Fake-Clock-, Mehr-Hub-, Restart-, Retention-, Legal-Hold-Deny-, Tenant-/Room-Deletion-, stale Backup-/Cursor- und Reconciliation-Tests beweisen fristgerechte Erasure und null reaktivierte Route."
+      ]
+    },
+    {
+      "id": "SFB-QOS-001",
+      "title": "Advanced-Layer- und Egress-Faehigkeiten des ausgewaehlten SFU-Adapters conformance-pruefen",
+      "description": "Simulcast, SVC, Keyframe-Steuerung, per-Subscriber Layerwahl, DataChannel-Fanout, Egressmetriken und Queuehooks werden gegen kleine vendorneutrale Extension-Ports geprueft.",
+      "type": "infrastructure",
+      "milestone_id": "SFB-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-BASE-003",
+        "SFB-CON-003",
+        "SFB-CON-006",
+        "SFB-GRP-007",
+        "SFB-GRP-010",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-004",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-005"
+      ],
+      "affected_files": [
+        "agent/services/ports/sfu_broadcast_capability_port.py",
+        "tests/contracts/test_sfu_broadcast_adapter_capabilities.py",
+        "docs/architecture/sfu-broadcast-adapter-capabilities.md"
+      ],
+      "acceptance_criteria": [
+        "Capability-Matrix unterscheidet Codec, Simulcast, SVC-Modus, Encoded-Transform-Kompatibilitaet, Keyframe-Request, DataChannel, Queuehook, Metrics und Drain mit Versionsgrenzen.",
+        "Unsupported, degraded und available sind stabile Ergebnisse; ein fehlendes Feature wird niemals still als vorhanden oder durch E2EE-Downgrade kompensiert.",
+        "Vendorobjekte, SDK-Exceptions und proprietaere Token verlassen den Adapter nicht; Domaincode haengt nur von kleinen Ports und stabilen Reason-Codes ab.",
+        "Ein realer Drei-Receiver-Test verifiziert Publisher-Ingress, unabhaengige Layerwahl und Egressmessung fuer jede als available markierte Faehigkeit."
+      ]
+    },
+    {
+      "id": "SFB-QOS-002",
+      "title": "Privacy-begrenzte Browser-Capability-Probe fuer Advanced Layers bauen",
+      "description": "Der Browser misst lokal Codec-, Encoding-, Transform- und Decodefaehigkeiten und exportiert nur die fuer Hub-Policy erforderliche grobe Capabilityklasse.",
+      "type": "frontend",
+      "milestone_id": "SFB-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "SFB-QOS-001",
+        "SFB-CON-004",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-003"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/services/sfu-broadcast-capability-probe.service.ts",
+        "frontend-angular/src/app/services/sfu-broadcast-capability-probe.service.spec.ts"
+      ],
+      "acceptance_criteria": [
+        "Probe erkennt nur erforderliche Codec-, Simulcast-/SVC-, Encoded-Transform-, Max-Encoding- und Decodeklassen und fordert keine Kamera-/Mikrofonfreigabe an.",
+        "Export verwendet eine geschlossene Liste expliziter Buckets, hoechstens capability_bucket_combinations_max Kombinationen, capability_ttl_seconds und room-scoped pseudonym_rotation_seconds und enthaelt keine Device-Labels, persistente Hardwarefingerprints, IP-, SDP- oder Medieninhalte.",
+        "Fehlende Browser-API, Permissionfehler, private mode, Mobile-Limit und inkonsistente Probe ergeben unknown oder unsupported mit sichtbarem Parent-Fallback.",
+        "Chromium- und Firefox-Tests verwenden Fake-APIs fuer voll, teilweise, fehlend und wechselnde Capability und beweisen, dass Kombinationen weder roomuebergreifend verknuepfbar noch als Hardware-Dictionary auslesbar sind."
+      ]
+    },
+    {
+      "id": "SFB-QOS-003",
+      "title": "Hub-eigene bounded Layerprofile und Codec-Policy definieren",
+      "description": "Administrative Profile begrenzen erzeugbare Encodings und erlaubte Receiverlayer getrennt fuer Audio, Kamera, Screenshare und semantische Referenzen.",
+      "type": "configuration",
+      "milestone_id": "SFB-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-QOS-001",
+        "SFB-QOS-002",
+        "SFB-BASE-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-008"
+      ],
+      "affected_files": [
+        "config/sfu_broadcast_layer_profiles.json",
+        "agent/services/sfu_broadcast_layer_profile_policy.py",
+        "tests/test_sfu_broadcast_layer_profiles.py"
+      ],
+      "acceptance_criteria": [
+        "Profile begrenzen Encodinganzahl, Codec, Scalability Mode, Aufloesung, Framerate, Bitrate, Keyframeintervall und erlaubte Fallbacks pro Medienart mit festen Einheiten.",
+        "Effektives Profil ist die Schnittmenge aus Hubpolicy, Parent-Publication, Browser-, SFU- und Receiverfaehigkeit und kann keine Quelle ueber deren Limit erweitern.",
+        "Unbekannter Codec/Modus, leeres Schnittmengenergebnis oder E2EE-Inkompatibilitaet fuehrt zu dokumentiertem Single-Layer-/Ordinary-Fallback oder deny.",
+        "Grenzwert-, Profile-Migration-, Legacy-Client- und manipulierte-Capability-Tests sind deterministisch."
+      ]
+    },
+    {
+      "id": "SFB-QOS-012",
+      "title": "Begrenzten Browser-Quality- und Viewport-Reporter implementieren",
+      "description": "Der Angular-Client verdichtet lokale WebRTC-Stats und Sichtbarkeit zu einem kleinen, nichtautoritativen Bericht fuer den niederfrequenten Hub-Constraint-Loop.",
+      "type": "frontend",
+      "milestone_id": "SFB-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-CON-004",
+        "SFB-QOS-002",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-003"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/services/sfu-broadcast-quality-reporter.service.ts",
+        "frontend-angular/src/app/services/sfu-broadcast-quality-reporter.service.spec.ts",
+        "frontend-angular/src/app/services/sfu-broadcast-viewport-observer.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Reporter exportiert ausschliesslich die vertraglich erlaubten RTT-, Jitter-, Loss-, Decode-, Freeze-, Audio-Gap-, Buffer-, Viewport- und Pressure-Buckets mit hoechstens quality_bucket_combinations_max Kombinationen.",
+        "quality_report_interval_ms_min, reports_per_window_max, report_bytes_max, samples_per_report_max, retention_seconds und room-scoped pseudonym_rotation_seconds begrenzen Sampling, Versand und lokale Historie.",
+        "Device-Labels, Raw Stats Dumps, Kandidaten, IPs, SDP, persistente Fingerprints, Media-, Transcript- oder Semantic-Inhalt verlassen den Browser nie; Leave/Revoke/Roomwechsel rotiert Pseudonym und loescht Zustand.",
+        "Fake-Clock- und Browser-Tests pruefen Rate Limit, Background Tab, Offline/Retry, Duplicate, Reorder, boesartige Statswerte, Fingerprinting-/Cross-Room-Linkability und vollstaendiges Timer-/Observer-Cleanup."
+      ]
+    },
+    {
+      "id": "SFB-QOS-004",
+      "title": "Receiver-Quality-Ingestion mit Rate-, Sequenz- und Privacy-Gates implementieren",
+      "description": "Der Hub nimmt begrenzte nichtautoritative Quality-Observationen entgegen und stellt der Layerpolicy ein normalisiertes Zeitfenster bereit.",
+      "type": "backend",
+      "milestone_id": "SFB-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-CON-004",
+        "SFB-CON-008",
+        "SFB-GRP-008",
+        "SFB-QOS-012"
+      ],
+      "affected_files": [
+        "agent/services/sfu_receiver_quality_ingestion_service.py",
+        "agent/routes/webrtc_sfu_broadcast_quality.py",
+        "tests/test_sfu_receiver_quality_ingestion.py"
+      ],
+      "acceptance_criteria": [
+        "Ingestion authentifiziert Subscriber und bindet Observation an aktuelle Subscription, Publication, Route-Epoch und Browserinstanz.",
+        "Pro Receiver gelten quality_reports_per_window_max, quality_report_interval_ms_min, report_bytes_max, samples_per_report_max, sequence_window und retention_seconds mit stabilen Reject-/Drop-Codes.",
+        "Duplicate, Reorder innerhalb Fenster, Gap, stale Route, falsche Publication, NaN/Infinity und Payload-/PII-Feld werden deterministisch behandelt.",
+        "Gespeicherte Fenster sind strikt begrenzt, bei Leave/Revoke geloescht und koennen keine Berechtigung oder Topologie mutieren; der Hub verarbeitet nur niederfrequente Aggregate und fuehrt keine paket- oder framegetriebene Regelschleife aus."
+      ]
+    },
+    {
+      "id": "SFB-QOS-005",
+      "title": "Deterministische receiver-spezifische Layer-Constraint-Policy implementieren",
+      "description": "Der Hub berechnet je Subscription einen signierten erlaubten Layerkorridor aus Quality, Viewport, User-Intent, Kosten- und Ressourcenpolicy; Browser und SFU regeln lokal innerhalb dieses Korridors.",
+      "type": "backend",
+      "milestone_id": "SFB-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-QOS-003",
+        "SFB-QOS-004",
+        "SFB-GRP-006"
+      ],
+      "affected_files": [
+        "agent/services/sfu_receiver_layer_policy.py",
+        "tests/test_sfu_receiver_layer_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Identische normalisierte Inputs erzeugen denselben signierten allowed-Layer-Korridor, harte Caps, Reason-Code, Gueltigkeitsdauer und fruehesten Hub-Neubewertungszeitpunkt.",
+        "Policy ist pro Subscription; schwache Observation eines Receivers veraendert weder andere Receiver noch Publisher-Encoding ausser ueber gesonderte aggregierte Admissionpolicy.",
+        "User-Intent darf nur innerhalb Hub-, Publication-, E2EE-, Codec-, Kosten- und Capacity-Limits waehlen und keine Rechte oder hoehere Layer erzwingen.",
+        "Property-Tests decken unknown Stats, schnelle Fluktuation, Hidden/Thumbnail, Audio-only, Screenshare, mehrere Publications und malicious Quality Report ab und beweisen, dass der Hub keine Echtzeit-Paket- oder Keyframe-Regelung uebernimmt."
+      ]
+    },
+    {
+      "id": "SFB-QOS-006",
+      "title": "Signierte Hysterese-, Dwell-, Cooldown- und Keyframe-Strategieprofile definieren",
+      "description": "Der Hub liefert begrenzte Strategieparameter; Browser und realer SFU-Adapter vollziehen schnelle Layer- und Keyframe-Entscheidungen lokal, stabil und routegebunden.",
+      "type": "configuration",
+      "milestone_id": "SFB-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-QOS-005",
+        "SFB-QOS-001"
+      ],
+      "affected_files": [
+        "config/sfu_broadcast_layer_transition_profiles.json",
+        "schemas/webrtc/sfu_layer_transition_profile.v1.json",
+        "agent/services/sfu_layer_transition_profile_policy.py",
+        "tests/test_sfu_layer_transition_profiles.py"
+      ],
+      "acceptance_criteria": [
+        "Das signierte Profil benennt Up-/Down-Threshold, dwell_ms, cooldown_ms, keyframe_wait_ms, keyframe_retry_max, recovery_deadline_ms, Route-/Key-Epoch und Ablauf.",
+        "Downshift darf schneller als Upshift konfiguriert sein; administrative Hard-Limits verhindern Null-Dwell, unbeschraenkte Retries sowie Frame- oder Paketcallbacks an den Hub.",
+        "Browser- und SFU-Adapter muessen stale Profile, Keyframes und Acks alter Route-/Key-Epochen lokal verwerfen und duerfen den signierten Layerkorridor nicht erweitern.",
+        "Seeded Schema- und Zeitreihen-Contract-Tests beweisen begrenzte Wechsel- und Keyframeraten, korrekten Single-Layer-Fallback und unveraenderten Audio-/Control-/Transcript-Lifecycle."
+      ]
+    },
+    {
+      "id": "SFB-QOS-011",
+      "title": "Realen Browser-Publisher fuer Simulcast-, SVC- und E2EE-Layer implementieren",
+      "description": "Der Angular-Client erzeugt die vom Hub erlaubten Kamera- und Screenshare-Encodings einmal pro Publication und erhaelt sie ueber Add-, Replace-, Reconnect- und Cleanup-Lifecycle.",
+      "type": "frontend",
+      "milestone_id": "SFB-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-QOS-003",
+        "SFB-QOS-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-003",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-007"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/services/sfu-broadcast-publication-controller.service.ts",
+        "frontend-angular/src/app/services/sfu-broadcast-publication-controller.service.spec.ts",
+        "frontend-angular/src/app/services/media-e2ee-transform.service.ts",
+        "tests/e2e/test_sfu_broadcast_browser_publisher.py"
+      ],
+      "acceptance_criteria": [
+        "Controller setzt RTCRtpTransceiverInit.sendEncodings beziehungsweise RTCRtpSender.getParameters()/setParameters() mit parameters.encodings und freigegebener SVC scalabilityMode exakt aus dem effektiven Profil und erzeugt fuer Kamera und Screenshare getrennte Publications.",
+        "Add Track, Replace Track, Pause/Resume, Permissionverlust, Reconnect und Profilwechsel erhalten Publication-/Route-/Key-Epoch-Bindung und installieren den kanonischen Parent-E2EE-Transform vor dem ersten sendbaren Frame.",
+        "Ein Publisher besitzt pro gemeinsamem Layer genau einen SFU-Ingress und erzeugt weder pro Receiver einen Upload noch einen direkten Gruppen-PeerConnection-Fanout.",
+        "Chromium-/Firefox-Integrationstests pruefen unterstuetzte Profile und Fallbacks; stop, revoke, disconnect und component destroy schliessen Tracks, Sender, Transceiver, Transform-Worker, Timer und Subscriptions bis cleanup_deadline_ms vollstaendig."
+      ]
+    },
+    {
+      "id": "SFB-GRP-011",
+      "title": "Kanonische Parent-Traffic-Classes auf Shared-, Private- und verbotene Fanout-Routen projizieren",
+      "description": "Eine geschlossene generische Registry ordnet bereits definierte Parent-Message-Kinds einer Routingklasse zu, ohne Visual-, Speech-, Evidence- oder Trainingsdomainservices zu duplizieren.",
+      "type": "configuration",
+      "milestone_id": "SFB-M2",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-GRP-003",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-TRN-001",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-VIS-012",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SPR-002",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SPR-007",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-DAT-010"
+      ],
+      "affected_files": [
+        "config/sfu_fanout_traffic_projection.json",
+        "agent/services/sfu_fanout_traffic_projection.py",
+        "docs/contracts/sfu-fanout-traffic-projection.md",
+        "tests/test_sfu_fanout_traffic_projection.py"
+      ],
+      "acceptance_criteria": [
+        "Jeder bekannte Parent-Message-Kind ist genau shared, receiver_private, pair_private oder forbidden_for_sfu klassifiziert und an Parent-Schema-Version sowie Privacy-Scope gebunden.",
+        "Evidence, Raw-Audio-Beleg, Speaker-Embedding, Dataset, Adapter, Trainingsinventar, private Annotation und receiver-spezifischer Residual sind standardmaessig nicht gruppenbroadcastfaehig.",
+        "Unbekannter oder neuer Parent-Kind ist fail-closed forbidden_for_sfu, bis eine versionierte Policyaenderung und Privacypruefung vorliegt.",
+        "Matrix-Test iteriert alle Parent-Kinds und beweist vollstaendige, disjunkte Klassifikation ohne Payloadinspektion im Hub oder SFU."
+      ]
+    },
+    {
+      "id": "SFB-QOS-007",
+      "title": "SFU-seitige per-Receiver Traffic-Class-Queues mit Hard-Limits anbinden",
+      "description": "Der Adapter setzt lokale Egressqueues getrennt nach Receiver und kanonischer Parent-Traffic-Class um; der Hub liefert nur Limits und Policy.",
+      "type": "transport",
+      "milestone_id": "SFB-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-QOS-001",
+        "SFB-QOS-006",
+        "SFB-GRP-011",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-TRN-004",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-TRN-010"
+      ],
+      "affected_files": [
+        "agent/services/ports/sfu_egress_queue_port.py",
+        "config/sfu_broadcast_egress_limits.json",
+        "tests/contracts/test_sfu_egress_queue_port.py"
+      ],
+      "acceptance_criteria": [
+        "Pro Receiver und Traffic Class gelten queue_bytes_max, messages_max, age_ms_max und buffered_duration_ms_max; Summe ist zusaetzlich pro Room, Node und Tenant begrenzt.",
+        "Membership, Key, Interrupt, Control und Transcriptrevision werden vor Recovery und Mediaresidual behandelt; Training-, Dataset- und Adaptertraffic ist im Port unzulaessig.",
+        "Ueberschreitung fuehrt deterministisch zu coalesce, drop, layer_downshift oder disconnect mit content-free Reason-Code statt unbeschraenkter Allocation.",
+        "Mock und realer Adapter bestehen Burst-, dauerhaft-blockiert-, Prioritaetsinversion-, Oversize- und Timer-Cleanup-Contract-Tests."
+      ]
+    },
+    {
+      "id": "SFB-QOS-008",
+      "title": "Signiertes Fairness-, Starvation- und Slow-Receiver-Constraint-Profil definieren",
+      "description": "Der Hub begrenzt Receiver-, Room- und Tenantfairness mit einem signierten Profil; die eigentliche Queue-, Downshift-, Jain-Fairness-, Starvation- und Disconnect-Schleife laeuft ausschliesslich im realen SFU-Adapter SFB-QOS-010.",
+      "type": "configuration",
+      "milestone_id": "SFB-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-QOS-005",
+        "SFB-QOS-007",
+        "SFB-BASE-005"
+      ],
+      "affected_files": [
+        "config/sfu_broadcast_fairness_profiles.json",
+        "schemas/webrtc/sfu_broadcast_fairness_profile.v1.json",
+        "agent/services/sfu_egress_fairness_profile_policy.py",
+        "tests/test_sfu_egress_fairness_profiles.py"
+      ],
+      "acceptance_criteria": [
+        "Profil bindet Receiver-, Room- und Tenantgewichte, max_starvation_window_ms, min_jain_fairness_index, Queue-/Egress-Hard-Limits, Downshift-/Disconnectstufen, Route-/Topology-Epoch und Ablauf an eine Hubsignatur.",
+        "Keine Gewichtung oder Stufe kann Security-, Subscription-, Layer-, Capacity- oder Traffic-Class-Limits erweitern; unknown/stale Profil ergibt das strengere Defaultprofil oder deny.",
+        "Publisher-Backpressure darf nur als begrenzter Korridor aus aggregierter Node-/Publicationkapazitaet entstehen und nie direkt aus einem einzelnen Receiverbericht.",
+        "Schema-, Signatur-, Grenzwert- und Zeitreihen-Contract-Tests beweisen monotone Limits und dass Hubcode keine Paket-, Queue-, Scheduler-, Keyframe- oder Disconnect-Ausfuehrung enthaelt."
+      ]
+    },
+    {
+      "id": "SFB-QOS-010",
+      "title": "Reale SFU-Layer- und Egress-Queue-Adapterhooks implementieren",
+      "description": "Der ausgewaehlte SFU-Adapter setzt receiver-spezifische Layertransitionen, Traffic-Class-Queues, Drop-/Disconnectaktionen und content-free Egressbeobachtungen im Datenpfad um.",
+      "type": "infrastructure",
+      "milestone_id": "SFB-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-GRP-010",
+        "SFB-QOS-001",
+        "SFB-QOS-006",
+        "SFB-QOS-007",
+        "SFB-QOS-008"
+      ],
+      "affected_files": [
+        "agent/adapters/sfu/broadcast_egress_adapter.py",
+        "tests/integration/test_selected_sfu_broadcast_egress_adapter.py",
+        "docs/integrations/sfu-broadcast-egress-adapter.md"
+      ],
+      "acceptance_criteria": [
+        "Adapter erzeugt je erlaubtem Receiver und Traffic Class getrennten bounded Zustand und setzt signierte Queue-/Fairnessprofile ohne globale Queue oder Cross-Receiver-Head-of-line-Blocking um.",
+        "Layerwechsel, Hysterese, Dwell und Keyframeanforderung laufen lokal und bleiben innerhalb signiertem Route-/Layerkorridor; stale Route-/Key-Epoch, Ack oder Vendorereignis wird verworfen.",
+        "Drop, Coalesce, Downshift, Disconnect, Queuealter und Egressbytes werden nur mit katalogisierten content-free Codes/Metriken exportiert; Payloadsampling ist verboten.",
+        "Realer Container-Test mit stalled, bursty und normalen Receivern beweist max_starvation_window_ms, min_jain_fairness_index, bounded RAM/FD/Queuealter sowie korrekte Downshift-/Disconnectstufen, Restart und Cleanup."
+      ]
+    },
+    {
+      "id": "SFB-QOS-009",
+      "title": "Egress-Accounting und nichtautoritative Capacity-Rueckmeldung integrieren",
+      "description": "SFU-Beobachtungen werden idempotent bilanziert und beeinflussen Hub-Admission und Layer-Caps, nicht einzelne Paketentscheidungen im Hub.",
+      "type": "observability",
+      "milestone_id": "SFB-M3",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "SFB-CON-005",
+        "SFB-CON-006",
+        "SFB-QOS-007",
+        "SFB-QOS-010",
+        "SFB-QOS-008"
+      ],
+      "affected_files": [
+        "agent/services/sfu_egress_accounting_service.py",
+        "agent/services/sfu_capacity_feedback_service.py",
+        "tests/test_sfu_egress_accounting_service.py"
+      ],
+      "acceptance_criteria": [
+        "Accounting dedupliziert signierte Fenster nach Node, Sequenz und Zeitraum, trennt tatsaechliche Bytes von geschaetzten oder fehlenden Werten und prueft accounting_tolerance_bytes sowie accounting_tolerance_percent.",
+        "Capacity Feedback ist zeitfenstergebunden, geglaettet, hard-limit-gekappt und kann bei Schaetzung, Gap oder fehlendem Fenster nur Admission ablehnen oder Layer-Caps senken, niemals Rechte, Reservierung oder Kapazitaet erhoehen.",
+        "Counter-Gap, Node-Neustart, Regression, verspätetes Fenster und Diskrepanz zwischen Route und Egress erzeugen Alert-/Reconciliation-Reason-Codes.",
+        "Tests belegen innerhalb accounting_tolerance_bytes und accounting_tolerance_percent die Proportionalitaet zu tatsaechlich zugestellten Receiverlayern und trennen Shared-Processing-Ersparnis von Netzwerk-Egress."
+      ]
+    },
+    {
+      "id": "SFB-OPS-001",
+      "title": "SFU-Node-Enrollment, mTLS-Identitaet und Zertifikatsrotation implementieren",
+      "description": "Jeder SFU-Knoten besitzt eine eindeutige, CA-gebundene Identitaet; Hub-Control-Traffic akzeptiert keine clusterweiten statischen Shared Secrets als primaere Authentisierung.",
+      "type": "security",
+      "milestone_id": "SFB-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-BASE-002",
+        "SFB-QOS-001",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-010"
+      ],
+      "affected_files": [
+        "agent/services/sfu_node_identity_service.py",
+        "agent/routes/webrtc_sfu_node_enrollment.py",
+        "config/sfu_node_trust.default.json",
+        "tests/security/test_sfu_node_identity.py",
+        "docs/security/sfu-node-identity.md"
+      ],
+      "acceptance_criteria": [
+        "Enrollment verlangt Admin-RBAC, Rate Limit, Idempotency-Key, Actor, Reason und Audit sowie Proof-of-Possession eines auf dem Node erzeugten Schluessels; node_key_provider unterscheidet TPM, PKCS#11, OS-Keystore und einen explizit als exportierbar markierten verschluesselten Filesystem-Fallback.",
+        "Hub-zu-SFU-Controlpfade verwenden mTLS; fremde CA, falscher SAN, abgelaufenes, noch-nicht-gueltiges oder widerrufenes Zertifikat wird bei jedem Versuch abgelehnt.",
+        "Rotation besitzt konfiguriertes Ueberlappungsfenster und Emergency-Revoke; ein widerrufener Node erhaelt spaetestens nach node_revocation_max_seconds keine neue Admission oder Route.",
+        "Tests pruefen, dass Hub, CSR, API und Logs nie Private-Key-Material erhalten, und decken Provider-Capability, Dateirechte/At-rest-Verschluesselung des Fallbacks, fehlenden/falschen Proof-of-Possession, RBAC-/Rate-Limit-/Idempotenzfehler, Rotation, Clock-Skew, gestohlenes Zertifikat und Restart ab."
+      ]
+    },
+    {
+      "id": "SFB-OPS-002",
+      "title": "Signierte Node-Observation-Ingestion mit Replay- und Freshness-Schutz bauen",
+      "description": "Health- und Capacity-Beobachtungen werden nur von der gebundenen Node-Identity angenommen und bleiben nichtautoritative Eingangsdaten.",
+      "type": "backend",
+      "milestone_id": "SFB-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-CON-006",
+        "SFB-CON-007",
+        "SFB-OPS-001"
+      ],
+      "affected_files": [
+        "agent/services/sfu_node_observation_ingestion_service.py",
+        "agent/routes/webrtc_sfu_node_observations.py",
+        "tests/test_sfu_node_observation_ingestion.py"
+      ],
+      "acceptance_criteria": [
+        "Ingestion bindet mTLS-Identity, Payloadsignatur, Node-ID, monotone Sequenz, Boot-ID, Messzeit und Capabilitydigest.",
+        "Replaycache besitzt entries_max und ttl_seconds; Duplicate ist idempotent, Reorder ausserhalb sequence_window und stale Observation werden reason-coded verworfen.",
+        "Gemeldete Werte werden an administrative Hard-Limits gekappt oder als invalid markiert und koennen keine Admission, Rechte oder Reservierung direkt mutieren.",
+        "Fuzz- und Lasttests decken Oversize, Label-Flut, Boot-ID-Wechsel, Sequenzreset, Signaturfehler, Clock-Skew und 10.000 Replays bei bounded Speicher ab."
+      ]
+    },
+    {
+      "id": "SFB-OPS-003",
+      "title": "Persistentes Mehr-Hub-SFU-Directory und Node-Repository implementieren",
+      "description": "Enrollment, Capability, Observation, Health, Drain, Version und Revocation ueberleben Hub-/SFU-Neustarts und sind nicht prozesslokal.",
+      "type": "backend",
+      "milestone_id": "SFB-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-OPS-001",
+        "SFB-OPS-002",
+        "SFB-GRP-001"
+      ],
+      "affected_files": [
+        "agent/db_models/sfu_nodes.py",
+        "agent/services/sfu_node_repository.py",
+        "alembic/versions/",
+        "tests/test_sfu_node_repository.py"
+      ],
+      "acceptance_criteria": [
+        "Repository speichert Node-Identity, Region, Adapter-/Protokollversion, Capabilitydigest, letzte Observation, Health, Drain, Revocation und monotone Version mit CAS.",
+        "Listen und Watch-Cursor sind sortiert, paginiert, tenant-/clustergeschuetzt und liefern stale/unknown explizit statt Eintraege still zu entfernen.",
+        "Zwei Hub-Instanzen koennen Observation und Drain konkurrierend verarbeiten, ohne Revocation, groessere Version oder groesseres Fencing zu ueberschreiben.",
+        "Migration-, Restart-, DB-Failover-, CAS-Konflikt-, Expiry- und Cross-Cluster-Isolationstests bestehen ohne In-Memory-Fallback fuer autoritativen Zustand."
+      ]
+    },
+    {
+      "id": "SFB-OPS-004",
+      "title": "Liveness-, Readiness-, Admission- und Drain-Health getrennt auswerten",
+      "description": "Der Hub bewertet signierte Observationen und aktive Probes in ein explizites Healthmodell; stale oder unvollstaendig ist nicht healthy.",
+      "type": "backend",
+      "milestone_id": "SFB-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-OPS-002",
+        "SFB-OPS-003",
+        "SFB-BASE-005"
+      ],
+      "affected_files": [
+        "agent/services/sfu_node_health_evaluator.py",
+        "tests/test_sfu_node_health_evaluator.py",
+        "docs/operations/sfu-node-health.md"
+      ],
+      "acceptance_criteria": [
+        "Healthmodell unterscheidet liveness, control readiness, media readiness, admission readiness, drain und unknown mit je eigenen Guards und Reason-Codes.",
+        "Observation-TTL, Probe-Deadline, Failure-/Success-Threshold, Flap-Cooldown und Clock-Skew sind benannte Configwerte mit Einheit.",
+        "Unhealthy, stale, revoked, incompatible oder drainende Nodes erhalten keine neuen Rooms; bestehende Rooms folgen gesonderter Drain-/Failoverpolicy.",
+        "Fake-Clock-Zeitreihentests decken Flapping, Partial Metrics, Netzpartition, Restart, Recovery und widerspruechlichen self-reported healthy-Wert ab."
+      ]
+    },
+    {
+      "id": "SFB-OPS-005",
+      "title": "Atomare Capacity-Reservierungen mit CAS und Fencing implementieren",
+      "description": "Projected Ingress, Egress, Receiver, Tracks, CPU, Speicher, FDs und TURN werden vor Placement reserviert und gegen beobachtete Nutzung reconciled.",
+      "type": "backend",
+      "milestone_id": "SFB-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-OPS-003",
+        "SFB-OPS-004",
+        "SFB-QOS-009"
+      ],
+      "affected_files": [
+        "agent/db_models/sfu_capacity_reservations.py",
+        "agent/services/sfu_capacity_reservation_service.py",
+        "tests/test_sfu_capacity_reservation_service.py"
+      ],
+      "acceptance_criteria": [
+        "Reservierung bindet Tenant, Room, Node, Infrastruktur-/SLO-Profil, projizierte Ressourcen, Lease, Ablauf, Node-Version und monotones Fencing.",
+        "Create, renew, resize und release sind idempotent und atomar; parallele Hub-Instanzen koennen Hard-Limits oder Tenantquote nicht ueberbuchen.",
+        "Stale Observation kann Reservierung nicht vergroessern; Ueberschreitung von CPU-, Memory-, FD-, Ingress-, Egress-, Receiver- oder TURN-Hard-Limit lehnt vor Placement ab.",
+        "Concurrency- und Property-Tests pruefen 100 parallele Reservierungen, Retry, Leaseablauf, Node-Revoke, negative Delta und Reconciliation ohne Ressourcendrift."
+      ]
+    },
+    {
+      "id": "SFB-OPS-006",
+      "title": "Deterministische SFU-Placement- und Tenant-Fairness-Policy bauen",
+      "description": "Nur der Hub waehlt einen kompatiblen Node anhand von Region, Health, Capabilities, Affinity, Reservierung, Egress, TURN und Tenantfairness.",
+      "type": "backend",
+      "milestone_id": "SFB-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-OPS-004",
+        "SFB-OPS-005",
+        "SFB-QOS-001",
+        "SFB-BASE-005"
+      ],
+      "affected_files": [
+        "agent/services/sfu_placement_policy.py",
+        "tests/test_sfu_placement_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Identische sortierte Nodes, Roomanforderung, Tenantquote und Config erzeugen identische Nodewahl, Scorebestandteile und Reason-Code.",
+        "Hard-Filter fuer Identity, Health, Drain, Regionpolicy, Adapter-/Schema-Version, E2EE, Codec, Simulcast/SVC, DataChannel, Kapazitaet und TURN laufen vor Scoring.",
+        "Scoring kann administrative Hard-Limits oder Reservierungsfehler nie ueberschreiben; bei Gleichstand gilt stabile dokumentierte Ordnung statt Zufall.",
+        "Tests decken kein kompatibler Node, Tenantstarvation, Hotspot, Affinity, All-TURN, manipulierte Capacity, Version-Skew und reproduzierbaren Tie-Break ab."
+      ]
+    },
+    {
+      "id": "SFB-OPS-007",
+      "title": "Graceful Drain, Rolling Upgrade und Version-Skew-Policy implementieren",
+      "description": "Knoten koennen aus Admission genommen und kontrolliert geleert werden; inkompatible Versionen erzeugen weder stilles Downgrade noch abrupten Massenreconnect.",
+      "type": "infrastructure",
+      "milestone_id": "SFB-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "SFB-OPS-003",
+        "SFB-OPS-004",
+        "SFB-OPS-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-010"
+      ],
+      "affected_files": [
+        "agent/services/sfu_node_drain_service.py",
+        "config/sfu_broadcast_version_compatibility.json",
+        "tests/test_sfu_node_drain_service.py",
+        "docs/operations/sfu-rolling-upgrade.md"
+      ],
+      "acceptance_criteria": [
+        "Drain-State-Machine definiert requested, admission_stopped, draining, drained, forced und cancelled mit Deadline, Maxparallelitaet, Cooldown und Reason-Codes.",
+        "Admission stoppt vor Migration; bestehende Rooms werden nach Policy gehalten, kontrolliert rejoined oder auf Parent-Fallback gesetzt.",
+        "Versionmatrix ist fail-closed fuer unbekannte Contract-, Adapter-, E2EE- oder Route-Version und verhindert inkompatible Nodeauswahl.",
+        "Rolling-Upgrade-Test mit mindestens zwei Nodes beweist begrenzte gleichzeitige Migration, stabile Control-/Transcriptpfade und keinen stale Route-/Tokenzugriff."
+      ]
+    },
+    {
+      "id": "SFB-OPS-008",
+      "title": "Nodegebundene Failover-, Rejoin- und Token-Fencing-State-Machine implementieren",
+      "description": "Bei Nodeausfall entscheidet der Hub zwischen Rejoin, neuem Placement und Parent-Fallback und invalidiert alte Routen, Tokens und Fencing deterministisch; Key-Epochen bleiben Eigentum des Parent-Sicherheitsflows.",
+      "type": "security",
+      "milestone_id": "SFB-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-GRP-008",
+        "SFB-OPS-005",
+        "SFB-OPS-006",
+        "SFB-OPS-007",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-009"
+      ],
+      "affected_files": [
+        "agent/services/sfu_broadcast_failover_service.py",
+        "docs/architecture/sfu-broadcast-failover-state-machine.md",
+        "tests/test_sfu_broadcast_failover_service.py"
+      ],
+      "acceptance_criteria": [
+        "Failover erzeugt groessere Topology-/Route-Epoch und Fencing, bindet neue kurzlebige Tokens an Zielnode und widerruft alte Admission vor Aktivierung neuer Route; es inkrementiert oder besitzt niemals selbst die Key-Epoch.",
+        "State Machine besitzt Guards, failover_rto_seconds, Retrybudget, Cooldown und terminalen Parent-Fallback oder controlled_failed; kein Endlosreconnect ist moeglich.",
+        "Wenn Rekey erforderlich ist, fordert der Service den kanonischen Parent-Rekey-Port an und wartet fail-closed auf dessen neue signierte Key-Epoch; alter Node, stale Token/Ack oder kleinere Route-/Key-Epoch kann danach nichts reaktivieren.",
+        "Modeltests decken Split Brain, doppelte Failoverentscheidung, Revoke waehrend Failover, Parent-Rekey-Fehler/-Timeout, kein Zielnode und Kill-Switch ab."
+      ]
+    },
+    {
+      "id": "SFB-OPS-009",
+      "title": "Mehr-Hub Fleet-, Reservation- und Failover-Reconciler implementieren",
+      "description": "Ein lease- und fencinggeschuetzter Hub-Reconciler bringt Node Directory, Reservierungen, Placement und Routen nach Restart oder Partition auf eine einzige persistierte Sollsicht.",
+      "type": "backend",
+      "milestone_id": "SFB-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-OPS-003",
+        "SFB-OPS-005",
+        "SFB-OPS-008",
+        "SFB-GRP-008",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-007"
+      ],
+      "affected_files": [
+        "agent/services/sfu_fleet_reconciliation_service.py",
+        "tests/chaos/test_sfu_fleet_reconciliation.py"
+      ],
+      "acceptance_criteria": [
+        "Reconciler besitzt Hub-eigene Lease, monotones Fencing, paginierten Cursor, items_per_run_max, runtime_ms_max und idempotente Resume-Semantik.",
+        "Reihenfolge fenced stale Placements/Routes vor Neuaktivierung, released verwaiste Reservierungen und stuft stale Nodes auf unknown/unhealthy statt healthy.",
+        "Bei Hub-/DB-Partition entstehen keine neuen Routen oder Renewals; bestehende Routen laufen hoechstens bis zum kleineren Wert aus Route-Intent-TTL, Reservation-Lease und stale_access_max_seconds weiter, danach fenced die SFU fail-closed.",
+        "Tests mit zwei konkurrierenden Hub-Instanzen, DB-Failover, Hub-/SFU-Restart und Partition pruefen die Ablaufgrenze; keine Reconciliation startet Worker, verarbeitet Payloads oder kommuniziert Node-zu-Node und alle Controlaktionen laufen ueber Hub-Ports."
+      ]
+    },
+    {
+      "id": "SFB-OPS-010",
+      "title": "Fleet-spezifische SFU-Runtime-Ressourcenlimits technisch erzwingen",
+      "description": "Das reale SFU-Deployment setzt die im Kapazitaetsprofil modellierten Grenzen auf Container-, Prozess-, Netzwerk- und Betriebssystemebene um und meldet Pressure fail-closed an den Hub.",
+      "type": "infrastructure",
+      "milestone_id": "SFB-M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-BASE-005",
+        "SFB-OPS-004",
+        "SFB-OPS-007",
+        "SFB-QOS-010",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-010"
+      ],
+      "affected_files": [
+        "docker-compose.sfu-broadcast.yml",
+        "config/sfu/sfu-broadcast-runtime-limits.json",
+        "scripts/sfu-broadcast-runtime-healthcheck.sh",
+        "tests/integration/test_sfu_broadcast_runtime_limits.py"
+      ],
+      "acceptance_criteria": [
+        "Deployment erzwingt gepinnte CPU-/RAM-/Swap-/PID-/FD-/Thread-/Core-Dump-Limits, read-only Rootfs, minimale Capabilities und non-root Betrieb soweit der gewaehlte SFU-Stack dies technisch erlaubt.",
+        "UDP-Portbereiche, Socketbuffer, Connections, Queuebytes, Packet Rate und Egress besitzen benannte Hard-Limits; Network Policy erlaubt nur dokumentierte Hub-, Media-, TURN-, Health- und Metrics-Pfade.",
+        "CPU-, Memory-, FD-, Port- oder Packet-Pressure stoppt neue Admission und loest begrenzte Degradation/Drain statt OOM, Restart-Sturm, Encryption-Downgrade oder ungeplanten Open-Egress aus.",
+        "Container-Integrationstests erzwingen jede Grenze, Processkill, Restart und Cleanup und vergleichen gemessene cgroup-/ulimit-/socket-Werte mit SFB-BASE-005 ohne verbleibende Prozesse, Ports oder Leases."
+      ]
+    },
+    {
+      "id": "SFB-TURN-001",
+      "title": "Kurzlebige TURN-Credentials mit explizitem Binding-Modus und Rotation implementieren",
+      "description": "Der Hub stellt keine statischen Browsersecrets aus, sondern kurzlebige TURN-Zugangsdaten und unterscheidet explizit serverseitig claimgebundene Authorization Hooks von standardmaessigen REST-HMAC-Bearer-Credentials.",
+      "type": "security",
+      "milestone_id": "SFB-M6",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-BASE-003",
+        "SFB-BASE-004",
+        "SFB-OPS-001",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-006"
+      ],
+      "affected_files": [
+        "agent/services/webrtc_turn_credential_service.py",
+        "agent/routes/network_profiles.py",
+        "config/ananta_network_profiles.default.json",
+        "tests/security/test_webrtc_turn_credentials.py"
+      ],
+      "acceptance_criteria": [
+        "credential_binding_mode ist entweder authorization_hook mit serverseitig validierter Tenant-/Room-/Participant-/Device-/Credential-ID-Bindung oder rest_hmac_bearer; REST-HMAC wird nie faelschlich als technisch device- oder roomgebunden ausgewiesen.",
+        "Ein Bearer-Credential wird nur dem authentifizierten berechtigten Client geliefert, nie geloggt oder langlebig persistiert; bearer_ttl_seconds_max, allocation_lifetime_seconds_max, permission_lifetime_seconds_max, channel_binding_lifetime_seconds_max, credential_refresh_count_max, Quote und Poolscope begrenzen die Exposition.",
+        "Rotation besitzt refresh_before_seconds, overlap_seconds, retry_max, Signing-Key-ID und Emergency-Secret-Rotation; max_bearer_exposure_seconds ist der konservative Maximalwert aus Credential-, Allocation-, Permission- und Channel-Lifetime und abgelaufene/widerrufene Admission erzeugt kein Refresh.",
+        "Tests decken Claim-Enforcement und aktive Allocation-Revocation im Hook-Modus sowie Bearer-Replay, Emergency-Rotation und quantifizierte Restexposition bis max_bearer_exposure_seconds im REST-HMAC-Modus, Clock-Skew, Refresh-Cap, Hub-Restart und Secret-Sentinel ab."
+      ]
+    },
+    {
+      "id": "SFB-TURN-002",
+      "title": "TURN-/ICE-Endpunkt-Allowlist, SSRF-Schutz und IP-Privacy durchsetzen",
+      "description": "Nur administrativ erlaubte STUN/TURN-Schemes, Hosts, Ports und Transportprofile gelangen in Browserkonfiguration; Candidate- und IP-Daten werden minimiert.",
+      "type": "security",
+      "milestone_id": "SFB-M6",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-TURN-001",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-007"
+      ],
+      "affected_files": [
+        "agent/services/webrtc_turn_endpoint_policy.py",
+        "frontend-angular/src/app/services/network-profile.service.ts",
+        "tests/security/test_webrtc_turn_endpoint_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Policy allowlistet stun, stuns, turn und turns getrennt nach Host, Port, UDP/TCP/TLS und Region; andere Schemes, Userinfo, Redirects und dynamische URLs sind deny.",
+        "Explizit gepinnte, administrativ vertrauenswuerdige private TURN-Endpunkte sind erlaubt; alle anderen Loopback-, Link-local-, Metadata-, privaten oder gesperrten Ziele werden auch bei DNS-Rebinding, alternativer IP-Darstellung oder Unicodehost abgelehnt.",
+        "Logs und exportierte Telemetrie enthalten keine vollstaendigen ICE-Candidates oder privaten IPs; Debugzugriff nutzt redigierte, zeitlich begrenzte Klassen.",
+        "Negativtests decken SSRF, DNS-Rebinding, IPv4/IPv6-Varianten, falsches TLS-Zertifikat, Redirect, untrusted private Profile, Open-Relay-/Peer-IP-Missbrauch und Candidate-Sentinel sowie optionalen relay-only Betrieb ohne Host-Candidates ab."
+      ]
+    },
+    {
+      "id": "SFB-TURN-003",
+      "title": "TURN-Allocation-, Byte- und Port-Ledger persistent integrieren",
+      "description": "Relay-Nutzung wird getrennt von Direct- und SFU-Traffic pro Tenant, Room, Receiver, Node und Zeitfenster bilanziert, ohne hochkardinale Originalidentitaeten offenzulegen.",
+      "type": "observability",
+      "milestone_id": "SFB-M6",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-CON-005",
+        "SFB-TURN-001",
+        "SFB-TURN-002",
+        "SFB-QOS-009"
+      ],
+      "affected_files": [
+        "agent/db_models/turn_accounting.py",
+        "agent/services/turn_accounting_service.py",
+        "tests/test_turn_accounting_service.py"
+      ],
+      "acceptance_criteria": [
+        "Ledger trennt Allocationcount, aktive Ports, Ingress-/Egressbytes, Paketcount, Dauer, Authfehler und Exhaustion nach festem Fenster und Unit.",
+        "Events binden Credential-ID-Pseudonym, Tenant, Room, Receiverklasse, SFU-Node, Sequenz und Zeitfenster und werden idempotent dedupliziert.",
+        "Counterregression, Duplicate, Gap, verspätetes Fenster, Node-/TURN-Restart und Differenz zu SFU-Egress erzeugen markierte Schaetzung oder Reconciliation statt stillem Unterzaehlen.",
+        "Retention, Pagination und Labelcardinality sind konfiguriert; IP, Secret, Username, Token und komplette Original-Participant-ID werden nicht gespeichert."
+      ]
+    },
+    {
+      "id": "SFB-TURN-004",
+      "title": "TURN-Quota-, Kosten- und Admission-Policy implementieren",
+      "description": "Der Hub beruecksichtigt SFU-plus-TURN-Amplifikation vor Admission und erzwingt Bandbreiten-, Allocation-, Port- und Kostenlimits pro Scope.",
+      "type": "backend",
+      "milestone_id": "SFB-M6",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-TURN-003",
+        "SFB-OPS-005",
+        "SFB-OPS-006",
+        "SFB-BASE-005"
+      ],
+      "affected_files": [
+        "agent/services/webrtc_turn_admission_policy.py",
+        "config/webrtc_turn_quotas.default.json",
+        "tests/test_webrtc_turn_admission_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Policy besitzt harte Limits fuer Allocations, Ports, concurrent Receivers, bps, bytes_per_window und cost_units pro Receiver, Room, Tenant, Region und TURN-Pool.",
+        "Projected Worst Case zaehlt Publisher-zu-SFU- und SFU-zu-TURN-/Receiver-Egress getrennt und reserviert vor Credentialausgabe oder SFU-Route.",
+        "Hard-Limit kann durch Layerwunsch, Node-Capacity-Claim, User-Intent oder Retry nicht ueberschrieben werden; Ergebnis ist allow, lower_cap oder relay_capacity_exhausted.",
+        "Propertytests decken Grenzwert, parallele Admission, Reservation-Rollback, Tenantfairness, negative Preisconfig, fehlende Accountingdaten und All-TURN-Projektion ab."
+      ]
+    },
+    {
+      "id": "SFB-TURN-005",
+      "title": "Receiver-spezifische Relay-Degradation und Exhaustion-State-Machine bauen",
+      "description": "TURN-Ueberlast betrifft nur die betroffenen Receiver und fuehrt kontrolliert zu Layercap, control-only, Parent-Fallback oder expliziter Ablehnung.",
+      "type": "transport",
+      "milestone_id": "SFB-M6",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-TURN-004",
+        "SFB-QOS-005",
+        "SFB-QOS-008",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-009"
+      ],
+      "affected_files": [
+        "agent/services/webrtc_turn_degradation_policy.py",
+        "frontend-angular/src/app/services/turn-degradation-state.service.ts",
+        "tests/test_webrtc_turn_degradation_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Die autoritative Hub-State-Machine definiert direct, relay_ok, relay_capped, control_only, fallback und rejected mit Guards, Retrybudget, Cooldown, signierter Version und sichtbaren Reason-Codes; Angular stellt diesen Zustand nur dar und vollzieht erlaubte lokale Aktionen.",
+        "Ein TURN-abhaengiger Receiver kann andere Receiver weder herunterstufen noch deren Credential-, Egress- oder Queuebudget verbrauchen.",
+        "Degradation senkt erst erlaubte niedrige Media-/Residualklassen und erhaelt Control, Key und Transcript soweit Parent-Policy und Kapazitaet dies erlauben.",
+        "Tests beweisen, dass Angular keine zweite Policy oder Transition erfindet; Exhaustion, Credentialablauf, TURN-Pool-Ausfall, Netzwerkwechsel und Recovery erzeugen keinen Retry-Sturm, Encryption-Downgrade oder stillen Disconnect."
+      ]
+    },
+    {
+      "id": "SFB-TURN-007",
+      "title": "Optionalen produktionsnahen TURN-Pool reproduzierbar deployen und haerten",
+      "description": "Die bisherige Test-/Legacy-Konfiguration wird durch ein deaktivierbares, gepinntes und ressourcenbegrenztes TURN-Pool-Profil fuer SFU-Broadcast ergaenzt.",
+      "type": "infrastructure",
+      "milestone_id": "SFB-M6",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-TURN-001",
+        "SFB-TURN-002",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-010"
+      ],
+      "affected_files": [
+        "docker-compose.sfu-broadcast-turn.yml",
+        "config/coturn/sfu-broadcast-turn.conf",
+        "scripts/sfu-broadcast-turn-healthcheck.sh",
+        "docs/operations/sfu-broadcast-turn-deployment.md"
+      ],
+      "acceptance_criteria": [
+        "TURN-Image ist versions- oder digestgepinnt, laeuft non-root soweit technisch moeglich, besitzt read-only Rootfs, minimale Capabilities sowie CPU-, RAM-, FD- und Portbereichlimits.",
+        "Netzwerkpolicy, relay-ip/peer-ip Restriktionen sowie Credential-, Allocation-, Permission-, Channel-Binding- und Refresh-Hard-Limits erlauben nur notwendige Listener-/Relaypfade, verhindern Open Relay und halten Admin-/Metrics-Endpunkte nichtoeffentlich.",
+        "Container enthaelt keine statischen Browsercredentials, Hub-Policy, Membership, Keys, Worker-, Inferenz-, Dataset- oder Trainingslogik und loggt keine Secrets oder privaten IPs unredigiert.",
+        "Flag-off startet keinen TURN-Pool; Smoke-Tests pruefen Health, UDP/TCP/TLS, Peer-Restriction, optional relay-only, Credential-/Allocation-/Permission-/Channel-Ablauf, Admission-Revoke, Emergency-Rotation, Quoten, Restart und deterministisches Cleanup."
+      ]
+    },
+    {
+      "id": "SFB-TURN-008",
+      "title": "Persistentes TURN-Pool-Directory mit Health, Auswahl und Failover implementieren",
+      "description": "Der Hub verwaltet vertrauenswuerdige TURN-Instanzen, signierte Healthbeobachtungen, Quoten und deterministische Poolwahl persistent; Browser und SFU erhalten nur die freigegebene kurze Endpunktliste.",
+      "type": "backend",
+      "milestone_id": "SFB-M6",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-TURN-002",
+        "SFB-TURN-003",
+        "SFB-TURN-004",
+        "SFB-TURN-007",
+        "SFB-OPS-003",
+        "SFB-OPS-004"
+      ],
+      "affected_files": [
+        "agent/db_models/turn_pool_nodes.py",
+        "agent/services/turn_pool_directory.py",
+        "agent/services/turn_pool_selection_policy.py",
+        "tests/test_turn_pool_directory.py",
+        "tests/chaos/test_turn_pool_failover.py"
+      ],
+      "acceptance_criteria": [
+        "Directory speichert gepinnte Pool-/Instance-Identity, Region, Zertifikat-/Configdigest, Protokolle, Portbereich, Quoten, Kostenprofil, Health, monotone Version und Revocation mit CAS; prozesslokaler Zustand ist nicht autoritativ.",
+        "Signierte aktive Probes und Accounting bestimmen liveness, relay readiness, capacity readiness, draining, stale und unknown; stale, widerrufen, inkompatibel oder quota-exhausted erhaelt keine neue Credentialausgabe.",
+        "Deterministische Auswahl filtert Trust, Regionpolicy, Transport, Health, Credentialmodus, Quote, Capacity und Kosten vor stabilem Tie-Break; Failover rotiert Credentials begrenzt und erweitert weder Admission noch E2EE-/Peer-Policy.",
+        "Mehr-Hub-, Poolausfall-, DNS-/Zertifikatswechsel-, stale Health-, Secretrotation-, Capacity-Race- und Recoverytests enden bei hoechstens einer gueltigen Poolentscheidung und ohne Retry-Sturm oder Open Relay."
+      ]
+    },
+    {
+      "id": "SFB-TURN-006",
+      "title": "Reproduzierbares All-TURN-Worst-Case- und Exhaustion-Szenarioprofil definieren",
+      "description": "Ein maschinenlesbares Profil beschreibt reale All-TURN-, Kosten-, Port-, FD-, Credential- und Exhaustion-Szenarien, die das integrierte Gate SFB-GATE-007 ausfuehrt.",
+      "type": "configuration",
+      "milestone_id": "SFB-M6",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-TURN-001",
+        "SFB-TURN-002",
+        "SFB-TURN-003",
+        "SFB-TURN-004",
+        "SFB-TURN-005",
+        "SFB-TURN-007",
+        "SFB-TURN-008",
+        "SFB-OPS-009"
+      ],
+      "affected_files": [
+        "config/test-profiles/sfu-broadcast/all-turn-worst-case.json",
+        "schemas/testing/sfu_all_turn_scenario_profile.v1.json",
+        "tests/test_sfu_all_turn_scenario_profile.py",
+        "docs/operations/sfu-all-turn-capacity.md"
+      ],
+      "acceptance_criteria": [
+        "Profil erzwingt Relay fuer Publisher und alle Zielreceiver, parametrisiert UDP, TCP und TLS und definiert content-free Nachweisfelder fuer den tatsaechlichen Pfad.",
+        "Szenariomatrix enthaelt Credentialrotation, Admission-Revoke, Emergency-Secret-Rotation, Ablauf von Credential/Allocation/Permission/Channel-Binding, Refresh-Cap, Allocation-/Packet-Flood, Port-/Bandwidthlimit, TURN-Restart, Poolausfall und Pool-Failover.",
+        "Messvertrag verlangt Direct-, SFU- und TURNbytes, Allocations, Ports, CPU, Speicher, FDs, p95/p99, Drops, Retryrate und Kostenunits gegen alle SFB-BASE-005-Laufparameter.",
+        "Schema-Tests lehnen ein Profil ohne Warmup, Messdauer, Wiederholungen, Confidence, Variance, capacity_reserve_percent, Cleanupfrist, alle TURN-Lifetimes, Seed oder Source-/Config-/Image-/Infrastrukturdigest-Anforderung ab."
+      ]
+    },
+    {
+      "id": "SFB-OBS-001",
+      "title": "Broadcast-Metrikallowlist, Cardinality- und Retentionbudgets definieren",
+      "description": "Ein versionierter Datenkatalog legt fuer jede Broadcastmetrik Zweck, Einheit, Labels, Scope, Retention, Zugriff und Privacyklasse fest.",
+      "type": "observability",
+      "milestone_id": "SFB-M7",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-BASE-005",
+        "SFB-CON-005",
+        "SFB-CON-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-005"
+      ],
+      "affected_files": [
+        "config/sfu_broadcast_observability_catalog.json",
+        "docs/operations/sfu-broadcast-observability.md",
+        "tests/test_sfu_broadcast_observability_catalog.py"
+      ],
+      "acceptance_criteria": [
+        "Katalog umfasst Join, Publish, Subscribe, Group, Route, Layer, Queue, Drop, Ingress, SFU-Egress, TURN, Rekey, Drain, Failover und Capacity mit festen Einheiten und p50/p95/p99/Peak-Regeln.",
+        "Jede Metrik besitzt erlaubte Buckets, min_cohort_size, suppression_rule, cardinality_per_scope_max, aggregation_window, retention_seconds, pseudonym_rotation_seconds, Query-RBAC/-Rate-Limit und Exportziel; unregistrierte Labels sind reject oder drop_reason-coded.",
+        "Verboten sind Medien-/Semantic-/Transcriptpayload, Embedding, Key, Token, Credential, volles SDP/ICE, private IP, Device-Label und unmaskierte hochkardinale Original-ID.",
+        "Schema-, Differencing- und Budgettests simulieren 250 Receiver und beweisen, dass kleine Kohorten unterdrueckt, Pseudonyme pro Room/Fenster rotiert und Serien-/Speicherobergrenzen nicht mit Originalidentitaeten linear explodieren."
+      ]
+    },
+    {
+      "id": "SFB-OBS-002",
+      "title": "Hub-, SFU-, Egress- und TURN-Instrumentierung ueber kleine Ports integrieren",
+      "description": "Domainservices und Adapter emittieren strukturierte content-free Beobachtungen; ein zentraler Metrics-Sink ist austauschbar und policybegrenzt.",
+      "type": "observability",
+      "milestone_id": "SFB-M7",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-OBS-001",
+        "SFB-QOS-009",
+        "SFB-OPS-009",
+        "SFB-TURN-003"
+      ],
+      "affected_files": [
+        "agent/services/ports/sfu_broadcast_metrics_port.py",
+        "agent/services/sfu_broadcast_metrics_service.py",
+        "tests/test_sfu_broadcast_metrics_service.py",
+        "tests/contracts/test_sfu_broadcast_metrics_port.py"
+      ],
+      "acceptance_criteria": [
+        "Getrennte Ports fuer Counter, Histogram, Gauge und Audit-Event akzeptieren nur katalogisierte Namen, Units, Labels und begrenzte Werte.",
+        "Ingress und Egress, observed und reserved, Direct/SFU/TURN, Shared/Private sowie requested/allowed/effective Layer werden nicht vermischt.",
+        "Metrics-Ausfall blockiert keine Echtzeitpakete, erweitert aber auch keine Admission; Buffer und Retry sind byte-, count-, age- und deadlinebegrenzt.",
+        "Mock und produktiver Sink bestehen Contract-Tests fuer Cardinality, Backpressure, Exportfehler, Retry, Redaction und Shutdown-Cleanup."
+      ]
+    },
+    {
+      "id": "SFB-OBS-003",
+      "title": "Automatische Klartext-, Secret-, SDP-/ICE- und PII-Sentinel-Pruefung bauen",
+      "description": "Security-, E2E-, Chaos- und Lastlaeufe pruefen Logs, Traces, Metrikexports, Dumps und Gateartefakte auf unerlaubte Inhalte.",
+      "type": "security",
+      "milestone_id": "SFB-M7",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-OBS-001",
+        "SFB-OBS-002"
+      ],
+      "affected_files": [
+        "scripts/scan_sfu_broadcast_privacy_sentinels.py",
+        "tests/security/test_sfu_broadcast_privacy_sentinels.py",
+        "artifacts/test-gates/sfu-broadcast-privacy-scan.json"
+      ],
+      "acceptance_criteria": [
+        "Scanner verwendet pro Run injizierte eindeutige Sentinelwerte fuer Media, Transcript, Semantic, Evidence, Key, Token, Credential, private IP und SDP/ICE und meldet Pfad plus Kategorie ohne Wertwiederholung.",
+        "Scannerlogik und unit fixtures pruefen Hub-, SFU-, TURN-, Browser-, Metrics-, Trace-, Crashdump- und Testartefaktformate mit bytes_scanned_max, file_size_max und expliziter Unsupported-/Truncated-Behandlung; reale Harnessquellen werden erst durch SFB-GATE-001 verdrahtet.",
+        "Jeder unerlaubte Treffer, nicht gelesene Pflichtquelle oder Scannerfehler blockiert das Gate; nur dokumentierte gehashte/pseudonymisierte Kontrollformen sind allowlisted.",
+        "Positive Leak-Fixtures je Kategorie und clean Fixtures beweisen Recall, Redaction der Fundausgabe und deterministischen content-free Report."
+      ]
+    },
+    {
+      "id": "SFB-OBS-004",
+      "title": "RBAC-geschuetztes Broadcast-Operations-Read-Model bereitstellen",
+      "description": "Ein einziges read-only Hubmodell korreliert Room, Group, Route, Node, Layer, Queue, TURN und Gatezustand fuer Operatoren und begrenzte Nutzerdiagnostik und ersetzt eine separate Group-API.",
+      "type": "backend",
+      "milestone_id": "SFB-M7",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "SFB-GRP-003",
+        "SFB-GRP-006",
+        "SFB-GRP-008",
+        "SFB-OBS-002",
+        "SFB-OBS-003",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-002"
+      ],
+      "affected_files": [
+        "agent/services/sfu_broadcast_operations_read_model.py",
+        "agent/routes/webrtc_sfu_broadcast_operations.py",
+        "tests/test_sfu_broadcast_operations_read_model.py",
+        "tests/test_webrtc_sfu_broadcast_operations_routes.py"
+      ],
+      "acceptance_criteria": [
+        "Read-Model liefert Group-/Route-Status, Epochenklassen, Topology, Health, Layerverteilung, Queue-/Dropgruende, Ingress/Egress/TURN, Rekey/Failover und Capacityprofil als content-free Aggregate; Member-/Audience-Digests und Grantreferenzen werden weder Nutzer noch Operatoren ausgegeben.",
+        "Nutzer sehen nur eigene Room-/Receiverdiagnostik, Operatoren nur erlaubte Tenant-/Regionsscopes; min_cohort_size und suppression laufen vor Count, Bucket, Pagination und Cursor, danach folgen feste Buckets, room-/window-rotierende Diagnosepseudonyme, Retention und Query-Rate-Limit gegen Differencing.",
+        "Endpoints sind authentifiziert, RBAC-geschuetzt, read-only, paginiert und cursor-/snapshotgebunden und koennen Membership, Grant, Audience, Route, Layer, Node, Flag, Admission, Worker oder AI nie mutieren/ausloesen.",
+        "IDOR-, Cross-Tenant/-Room-, stale Cursor-, Pagination-/Cardinality-/Differencing-Abuse-, abgelaufene Session, unberechtigter Debugzugriff und Payloadinjektions-Tests werden abgelehnt und content-free auditiert."
+      ]
+    },
+    {
+      "id": "SFB-OBS-005",
+      "title": "Angular-Broadcast-Diagnostik fuer Topologie, Layer und Degradation implementieren",
+      "description": "Berechtigte Nutzer sehen effektiven Transport, Layer, TURN, Queueing, Reconnect und Reason-Codes ohne Zugang zu Secrets oder fremden Receiverdetails.",
+      "type": "frontend",
+      "milestone_id": "SFB-M7",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "SFB-OBS-004",
+        "SFB-QOS-006",
+        "SFB-TURN-005",
+        "SFB-BASE-004"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/features/voice/sfu-broadcast-diagnostics.component.ts",
+        "frontend-angular/src/app/features/voice/sfu-broadcast-diagnostics.component.spec.ts",
+        "frontend-angular/src/app/services/sfu-broadcast-operations.service.ts"
+      ],
+      "acceptance_criteria": [
+        "UI unterscheidet requested/allowed/effective Topologie und Layer, direct/SFU/TURN, reconnect/drain/failover und zeigt stabile lokalisierbare Reason-Codes.",
+        "Anzeige enthaelt keine Keys, Tokens, Credentials, SDP/ICE, IPs, Payloads, Transcripte oder fremde Originalidentitaeten und kopiert diese nicht in Browserlogs.",
+        "Polling/Streaming ist abortable, backoff-/ratebegrenzt und wird bei Roomwechsel, Logout, Komponentenzerstoerung oder Permission-Revoke deterministisch beendet.",
+        "Komponententests decken Legacy/Flag-off, loading, partial data, RBAC deny, stale snapshot, degradation, failover und Kill-Switch ab."
+      ]
+    },
+    {
+      "id": "SFB-OBS-006",
+      "title": "SLO-Dashboards und content-free Alerts erstellen",
+      "description": "Operatoren erkennen Ueberlastung, Security-, Privacy- und Fleetprobleme frueh; ausfuehrbare Incident-, Game-Day- und Rollback-Runbooks gehoeren ausschliesslich zu SFB-GATE-010.",
+      "type": "documentation",
+      "milestone_id": "SFB-M7",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "SFB-OBS-001",
+        "SFB-OBS-002",
+        "SFB-OBS-003",
+        "SFB-OBS-004",
+        "SFB-BASE-005",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-011"
+      ],
+      "affected_files": [
+        "docs/operations/sfu-broadcast-alerts.md",
+        "config/monitoring/sfu-broadcast-alerts.yml",
+        "tests/test_sfu_broadcast_alert_rules.py"
+      ],
+      "acceptance_criteria": [
+        "Dashboards und Alerts decken Join/Route/Rekey/Layer-p95/p99, Node Health/Flap/Drain, Reservation, Queue/Drop, Egress, TURN, Failover und Privacy-Scan ab.",
+        "Jeder Alert besitzt SLO-/Configbezug, Severity, Dauer, Owner, spaeteren SFB-GATE-010-Runbook-Identifier, content-free Labels und getestete clear-Bedingung.",
+        "Alerttests loesen jeden kritischen Zustand deterministisch aus und pruefen Suppression, min_cohort_size, Query-/Cardinalitybudget und fehlende Payload-/Identitaetslecks.",
+        "Dashboard- und Alertdefinitionen duerfen keine mutierenden Drain-, Kill-Switch-, Revoke- oder Rollbackaktionen enthalten; solche autorisierten Operatorablaeufe bleiben in SFB-GATE-010."
+      ]
+    },
+    {
+      "id": "SFB-GATE-001",
+      "title": "Reproduzierbaren Real-SFU-/Browser-/TURN-Testharness bauen",
+      "description": "Ein deterministischer Harness kombiniert reale Browser und den ausgewaehlten SFU-/TURN-Stack mit synthetischer Empfaengerlast, ohne Testlogik in Produktionsprozesse einzubauen.",
+      "type": "testing",
+      "milestone_id": "SFB-M8",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-BASE-003",
+        "SFB-BASE-005",
+        "SFB-GRP-010",
+        "SFB-GRP-012",
+        "SFB-QOS-010",
+        "SFB-QOS-011",
+        "SFB-QOS-012",
+        "SFB-OPS-009",
+        "SFB-OPS-010",
+        "SFB-TURN-007",
+        "SFB-TURN-008",
+        "SFB-OBS-003"
+      ],
+      "affected_files": [
+        "scripts/e2e/sfu_broadcast_harness.py",
+        "tests/e2e/sfu_broadcast/",
+        "config/test-profiles/sfu-broadcast/",
+        "docs/testing/sfu-broadcast-harness.md"
+      ],
+      "acceptance_criteria": [
+        "Harness startet isolierte Hub-, Datenbank-, SFU-, TURN- und Browserinstanzen mit gepinnten Versionen, expliziten Ressourcenlimits und eindeutigem Testprofil.",
+        "Jeder Lauf bindet Source-, Schema-, Config-, Browser-, SFU-/TURN-Image- und Infrastruktur-Digests, Seed, Start/Ende und Szenarioversion ohne erfundene Source-/Run-ID.",
+        "Faults fuer Loss, Jitter, Reorder, Bandwidth, Partition, Processkill, Clock-Skew, CPU-/Memorypressure und Disk/DB-Fehler sind seedbar und ruecksetzbar.",
+        "Abbruch, Timeout oder Testfehler beendet bis cleanup_deadline_ms Devices, Browser, Container, Ports, Credentials und Testdaten deterministisch und hinterlaesst exakt null aktive Rooms, PeerConnections, Tracks, Routes, Timer, Prozesse, Allocations oder Leases."
+      ]
+    },
+    {
+      "id": "SFB-GATE-002",
+      "title": "Broadcast-Contract-, Control-State- und Queue-Port-Fuzzgate etablieren",
+      "description": "Schemas, Validatoren, Hub-State-Machines, Adapterports und vendorneutrale Queuevertraege werden ohne Real-Container gegen strukturierte Fehlformen und Ressourcenangriffe gefuzzed; der reale Media Plane gehoert zu SFB-GATE-013.",
+      "type": "testing",
+      "milestone_id": "SFB-M8",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-CON-008",
+        "SFB-GRP-006",
+        "SFB-GRP-007",
+        "SFB-QOS-007"
+      ],
+      "affected_files": [
+        "tests/fuzz/test_sfu_broadcast_contract_fuzz.py",
+        "tests/fuzz/test_sfu_broadcast_state_machine_fuzz.py",
+        "scripts/run_sfu_broadcast_fuzz_gate.py",
+        "artifacts/test-gates/sfu-broadcast-fuzz.json"
+      ],
+      "acceptance_criteria": [
+        "Seeded Korpora decken Truncation, Oversize, Tiefe, Unknown Field, Unicode, Integergrenzen, Duplicate, Reorder, Gap, Replay, Epoch-/Fencingregression und Signaturmanipulation ab.",
+        "Queue-/Portfuzzing prueft Chunk-/Messageflut, Priority-Inversion, Timer-/Ack-Sturm, blocked Receiver und malformed Adapterevent bei harten Speicher-/Zeitlimits; RTP/RTCP/SRTP/DTLS/SCTP wird hier nicht durch einen Mock als real getestet ausgegeben.",
+        "Kein Input verursacht Crash, OOM, unbeschraenkte CPU/Allocation, stuck Timer, Cross-Scope-State oder autorisierte Transition ohne gueltige Preconditions.",
+        "Gate speichert nur Seed, minimierten content-free Fall, Reason-Code, Source-/Configdigest und Ressourcenpeak; jeder reproduzierbare Critical/High-Fund blockiert Release."
+      ]
+    },
+    {
+      "id": "SFB-GATE-013",
+      "title": "Reales SFU-Media-Plane-Protokoll- und Ressourcen-Fuzzgate bauen",
+      "description": "Der ausgewaehlte gepinnte SFU-Container und seine echten Ingress-/Egressadapter werden ueber den gemeinsamen Harness mit malformed und hochratigem Media-/Transportverkehr belastet.",
+      "type": "testing",
+      "milestone_id": "SFB-M8",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-GATE-001",
+        "SFB-GRP-010",
+        "SFB-QOS-010",
+        "SFB-OPS-010",
+        "SFB-TURN-007"
+      ],
+      "affected_files": [
+        "tests/fuzz/test_selected_sfu_media_plane_fuzz.py",
+        "scripts/run_sfu_media_plane_fuzz_gate.py",
+        "config/test-profiles/sfu-broadcast/media-plane-fuzz.json",
+        "artifacts/test-gates/sfu-media-plane-fuzz.json"
+      ],
+      "acceptance_criteria": [
+        "Seeded reale Containerkorpora decken malformed RTP/RTCP/SRTP, SSRC-/Header-Extension-Kollision, Sequenzwrap, DTLS/SCTP-Fehlformen sowie PPS-, Keyframe-, Handshake- und Amplification-Floods ab.",
+        "Jeder Fall ist an echten Listener, ausgewaehlte SFU-/Adapter-/Image-Digests und harte Packet-/Byte-/CPU-/RAM-/FD-/Socket-/Zeitlimits gebunden; Mock-only Ausfuehrung kann das Gate nicht bestehen.",
+        "Kein Input verursacht Crashloop, OOM, unbeschraenkte CPU/Allocation, Cross-Room/-Tenant-Route, Auth-/E2EE-Downgrade, Payloadexport oder Zustand ausserhalb signierter Hubgrenzen.",
+        "Gate speichert Seed, minimierten content-free Fall, Protokollklasse, Reason-Code, Source-/Config-/Imagedigest und Ressourcenpeak; jeder reproduzierbare Critical/High-Fund blockiert Release."
+      ]
+    },
+    {
+      "id": "SFB-GATE-003",
+      "title": "Cross-Tenant-/Room-, Token-, Epoch- und kompromittierte-Node-Security-Suite bauen",
+      "description": "Adversarial Tests pruefen Hubautoritaet, individuelle Grants, Route-Intents, Nodeidentitaet, E2EE-Opacity und Revocation unter Racebedingungen.",
+      "type": "security",
+      "milestone_id": "SFB-M8",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-GRP-011",
+        "SFB-OPS-001",
+        "SFB-OPS-008",
+        "SFB-TURN-002",
+        "SFB-GATE-001",
+        "SFB-GATE-002",
+        "SFB-GATE-013",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-DAT-010",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-001"
+      ],
+      "affected_files": [
+        "tests/security/test_sfu_broadcast_authorization_e2e.py",
+        "tests/security/test_sfu_broadcast_compromised_node.py",
+        "artifacts/test-gates/sfu-broadcast-security.json"
+      ],
+      "acceptance_criteria": [
+        "Suite prueft IDOR, Cross-Tenant/Room/Publication/Device/Node, Publish-vs-Subscribe, receive-only, stale Consent, Token/JTI-Replay, Epoch/Fencingregression und TOCTOU.",
+        "Kompromittierter oder widerrufener SFU kann Audience, Layerlimit, TTL, Route, Token, Key-Epoch oder Placement nicht erweitern und erhaelt nach Fencing keine neue gueltige Aktion.",
+        "Paketmitschnitt und Sentinel-Scan finden in Hub, SFU und TURN null entschluesselbaren Media-, Semantic-, Transcript-, Evidence- oder Keyinhalt.",
+        "Jeder Angriff besitzt erwarteten stabilen HTTP-/Domain-/Adapter-Reason-Code, keine Seiteneffektmutation und einen content-free Auditnachweis."
+      ]
+    },
+    {
+      "id": "SFB-GATE-004",
+      "title": "Cross-Browser-Funktions-E2E fuer Receiver Groups und Advanced Layers erstellen",
+      "description": "Die freigegebene Browser-/Plattformmatrix prueft ausschliesslich Advanced-Broadcast-Erweiterungen wie reale Multi-Layer-Publication, Receiver Groups, Layerwechsel und deren sichtbaren Parent-Fallback; Basis-Join, -Rekey und normales SFU bleiben Parent-Gates.",
+      "type": "e2e",
+      "milestone_id": "SFB-M8",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-GRP-008",
+        "SFB-GRP-011",
+        "SFB-QOS-006",
+        "SFB-QOS-008",
+        "SFB-QOS-011",
+        "SFB-QOS-012",
+        "SFB-OBS-004",
+        "SFB-OBS-005",
+        "SFB-GATE-001",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-006"
+      ],
+      "affected_files": [
+        "tests/e2e/test_sfu_broadcast_cross_browser.py",
+        "scripts/e2e/run_sfu_broadcast_cross_browser.py",
+        "artifacts/test-gates/sfu-broadcast-cross-browser.json"
+      ],
+      "acceptance_criteria": [
+        "Versionierte Supportmatrix benennt freigegebene Desktop-/Mobile-Browser, OS, Codec, Simulcast-/SVC- und Encoded-Transform-Kombinationen; jede nicht unterstuetzte Kombination besitzt einen getesteten deny- oder Parent-Fallbackpfad.",
+        "Publisher besitzt pro Shared Layer genau einen SFU-Ingress; Receiver wechseln unabhaengig Layer und private Recovery erreicht keinen anderen Receiver.",
+        "Advanced-Szenarien umfassen einen Publisher und mindestens drei Receiver sowie Late Join, Layer-/Viewportwechsel, Pause/Resume, Reconnect, Revoke, Permissionverlust und Flag-off, ohne Parent-Basisgates zu duplizieren.",
+        "Bis cleanup_deadline_ms verbleiben exakt null aktive Devices, PeerConnections, Tracks, Transceiver, RxJS-Subscriptions, Timer, Routes, Credentials, Allocations oder Caches."
+      ]
+    },
+    {
+      "id": "SFB-GATE-005",
+      "title": "Zweistunden-Churn-, Rekey-, Slow-Receiver- und Amplification-Soakgate bauen",
+      "description": "Ein langer Lauf kombiniert dynamische Membership, Consent, Rekey, Qualitywechsel, Queuepressure und private Recovery und prueft Ressourcen- und Privacygrenzen.",
+      "type": "testing",
+      "milestone_id": "SFB-M8",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-GATE-003",
+        "SFB-GATE-004",
+        "SFB-QOS-009",
+        "SFB-GRP-011",
+        "SFB-BASE-005"
+      ],
+      "affected_files": [
+        "scripts/load/sfu_broadcast_churn_soak.py",
+        "tests/load/test_sfu_broadcast_churn_soak.py",
+        "artifacts/test-gates/sfu-broadcast-churn-soak.json"
+      ],
+      "acceptance_criteria": [
+        "Lauf dauert mindestens zwei Stunden mit rooms_min >= 3, publishers_per_room_min >= 1, receivers_per_room_min >= 10, join_leave_events_per_minute_min >= 2, rekeys_per_room_per_hour_min >= 4 und layer_flaps_per_minute_min >= 5 und erzeugt zusaetzlich Revoke, Rejoin, Devicewechsel, stalled Receiver, Burst und Recovery.",
+        "Nach warmup_seconds und ueber measurement_seconds sowie repetitions_min bleiben RAM, FDs, Threads, Timer, Queuebytes, Replay-/Cacheentries und persistente Rows innerhalb memory_trend_max, fd_trend_max, row_trend_max und weiterer SLO-/Hard-Limits.",
+        "Fanout-Amplification, Recompute-, Rekey-, Recovery- und Retryraten besitzen konfigurierte Maxima; Ueberschreitung fuehrt zu Admission/Degradation statt OOM oder Kontrollpfadverlust.",
+        "Privacy-Sentinel, stale-access-, duplicate-route-, orphan-resource- und Parent-Pair-/Relay-Regressiongate bleiben waehrend und nach dem Soak gruen."
+      ]
+    },
+    {
+      "id": "SFB-GATE-006",
+      "title": "Multi-Room-Fleet-, Split-Brain- und Version-Skew-Chaosgate erstellen",
+      "description": "Hub-, Datenbank- und SFU-Fehler werden unter parallelen Rooms und laufender Egresslast injiziert und gegen Placement-/Route-Fencing verifiziert.",
+      "type": "testing",
+      "milestone_id": "SFB-M8",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-OPS-007",
+        "SFB-OPS-008",
+        "SFB-OPS-009",
+        "SFB-GATE-003",
+        "SFB-GATE-005"
+      ],
+      "affected_files": [
+        "tests/chaos/test_sfu_broadcast_fleet_failover.py",
+        "scripts/chaos/run_sfu_broadcast_fleet_gate.py",
+        "artifacts/test-gates/sfu-broadcast-fleet-chaos.json"
+      ],
+      "acceptance_criteria": [
+        "Faultmatrix umfasst mindestens zwei Hub-Instanzen, zwei SFU-Nodes und zwei gleichzeitige Rooms sowie SFU-Kill/Restart, Hub-Kill/Wechsel, Hub-SFU-Partition, DB-Failover, stale Heartbeat, Clock-Skew, Split Brain, Drain und inkompatibles Rolling Upgrade.",
+        "Nach jedem Fault existiert hoechstens eine autoritative Placement-/Routeversion; waehrend Partition entstehen keine neuen Routen/Renewals und nach stale_access_max_seconds akzeptieren Hub/SFU keine Route oder kein Token mehr, das eine alte Parent-Key-Epoch referenziert, ohne die Key-Epoch selbst zu veraendern.",
+        "failover_rto_seconds, verlorene/doppelte Frames, Rekeyzeit, Control-/Transcriptunterbrechung, Route-Reconciliation und Ressourcenpeak werden gegen Profil gemessen.",
+        "Kein Fault erweitert Rechte, startet Node-zu-Node-/Worker-Orchestrierung oder schreibt autoritativen Zustand in Prozessglobals."
+      ]
+    },
+    {
+      "id": "SFB-GATE-007",
+      "title": "Integriertes TURN-only-, Poolausfall- und Kostenlimit-Chaosgate erstellen",
+      "description": "TURN-Worst-Case wird mit Churn, Fleetfailover, Layerpolicy und Admission kombiniert, damit lokale Einzelgates keine systemische Amplifikation uebersehen.",
+      "type": "testing",
+      "milestone_id": "SFB-M8",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-TURN-006",
+        "SFB-GATE-005",
+        "SFB-GATE-006"
+      ],
+      "affected_files": [
+        "tests/chaos/test_sfu_broadcast_turn_failover.py",
+        "scripts/chaos/run_sfu_broadcast_turn_gate.py",
+        "artifacts/test-gates/sfu-broadcast-turn-chaos.json"
+      ],
+      "acceptance_criteria": [
+        "Szenarien kombinieren mindestens zwei TURN-Instanzen mit All-TURN, Allocation-/Port-/Bandwidthlimit, Credential-/Secretrotation, Admission-Revoke, Ablauf aller TURN-Lifetimes, Poolkill, DNS/TLS-Fehler, SFU-Failover und Receiverchurn.",
+        "Admission und Reservation zaehlen tatsaechliche SFU-/TURN-Amplifikation und lehnen vor gemessenem Hard-Limit mit relay_capacity_exhausted oder lower_cap ab.",
+        "Nicht betroffene Receiver und Control-/Transcriptpfade bleiben innerhalb Profilbudgets; betroffene Receiver degradieren sichtbar ohne Auth-/E2EE-Downgrade oder Retry-Sturm.",
+        "Gate korreliert TURN-, SFU- und Hub-Accounting innerhalb accounting_tolerance_bytes und accounting_tolerance_percent und blockiert bei unerklaerter Counterluecke, Secret-/IP-Leak, Refresh oberhalb Cap oder Allocation/Permission/Channel-Binding nach max_bearer_exposure_seconds beziehungsweise cleanup_deadline_ms."
+      ]
+    },
+    {
+      "id": "SFB-GATE-008",
+      "title": "Fanout bei 10, 25, 50, 100 und 250 Receivern reproduzierbar benchmarken",
+      "description": "Stufenlaeufe messen gewoehnliche und optimierte Pfade; 250 Receiver sind ein Messpunkt und keine vorweggenommene Produktzusage.",
+      "type": "benchmark",
+      "milestone_id": "SFB-M8",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-GATE-004",
+        "SFB-GATE-005",
+        "SFB-GATE-006",
+        "SFB-GATE-007",
+        "SFB-OBS-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-009"
+      ],
+      "affected_files": [
+        "scripts/benchmark/webrtc_sfu_broadcast_fanout.py",
+        "scripts/benchmark/webrtc_sfu_semantic_broadcast.py",
+        "docs/benchmarks/webrtc-sfu-broadcast-report.md",
+        "artifacts/test-gates/sfu-broadcast-scale.json"
+      ],
+      "acceptance_criteria": [
+        "Matrix umfasst 10/25/50/100/250 Receiver, einen und mehrere Publisher, Kamera, Screenshare, Audio, Transcript, Semantic Reference, private Recovery, Direct/SFU/All-TURN und Ordinary-Fallback.",
+        "Pro Stufe werden Ingress, SFU-/TURN-Egress, CPU, RAM, FDs, Queue, Drops, Loss, p50/p95/p99/Peak, Join, Rekey, Layerwechsel, Recovery und Shared-Processing getrennt gemessen.",
+        "Jede Stufe nutzt warmup_seconds, measurement_seconds, repetitions_min, confidence_level, variance_max, retry_rate_max, Seed, Infrastrukturprofil und Source-/Config-/Image-Digests; Durchschnitt allein reicht nicht.",
+        "Eine Stufe gilt nur bestanden, wenn alle SLO-, Privacy-, Security-, Resource- und Ordinary-Fallback-Budgets gruen sind; ab erster gescheiterter Stufe wird keine hoehere Freigabe behauptet."
+      ]
+    },
+    {
+      "id": "SFB-GATE-009",
+      "title": "Gemessene Capacityprofile und Admission-Caps automatisch ableiten",
+      "description": "Benchmarkevidence wird in versionierte konservative Profile uebersetzt; Admission stoppt vor dem kleinsten relevanten sicheren Worst-Case-Limit.",
+      "type": "release_gate",
+      "milestone_id": "SFB-M8",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-BASE-005",
+        "SFB-OPS-005",
+        "SFB-TURN-004",
+        "SFB-GATE-008"
+      ],
+      "affected_files": [
+        "scripts/derive_sfu_broadcast_capacity_profiles.py",
+        "config/generated/sfu_broadcast_capacity_profiles.json",
+        "tests/test_sfu_broadcast_capacity_derivation.py",
+        "artifacts/test-gates/sfu-broadcast-capacity-derivation.json"
+      ],
+      "acceptance_criteria": [
+        "Ableitung akzeptiert nur vollstaendige signierte Gateevidence mit passenden Source-, Config-, Schema-, Image- und Infrastruktur-Digests.",
+        "Freigegebener Cap ist der konservativste bestandene Wert aus Direct-/SFU-/All-TURN-, Ordinary-Fallback-, Security-, Soak- und Ressourcenprofil abzueglich capacity_reserve_percent.",
+        "Fehlende Messung, stale Evidence, einzelne gescheiterte Pflichtmetrik oder unerklaerte Varianz erzeugt kein Profil beziehungsweise senkt den Cap fail-closed.",
+        "Propertytests beweisen monotone Sicherheit: schlechtere Messwerte oder staerkere Reserve koennen Cap nie erhoehen; Admission lehnt vor Cap-Ueberschreitung atomar ab."
+      ]
+    },
+    {
+      "id": "SFB-GATE-010",
+      "title": "Migration, Canary, Kill-Switch und Rollback als Game-Day pruefen",
+      "description": "Advanced Broadcast wird additiv und cohortweise eingefuehrt; Abschaltung und Rueckfall benoetigen keine destruktive Big-Bang-Migration.",
+      "type": "release_gate",
+      "milestone_id": "SFB-M8",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-BASE-004",
+        "SFB-GATE-006",
+        "SFB-GATE-007",
+        "SFB-GATE-009",
+        "SFB-OBS-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-011"
+      ],
+      "affected_files": [
+        "docs/operations/sfu-broadcast-rollout.md",
+        "docs/operations/sfu-broadcast-rollback.md",
+        "scripts/e2e/run_sfu_broadcast_rollout_game_day.py",
+        "artifacts/test-gates/sfu-broadcast-rollout-game-day.json"
+      ],
+      "acceptance_criteria": [
+        "Rolloutstufen sind Flag-off, interne Testtenant, Region/Tenant/Room-Cohort, Prozent-Canary und freigegebener Scope mit SLO-/Error-Budget-Stopbedingungen.",
+        "Versionierte Incident- und Rollback-Runbooks behandeln Zertifikatsablauf/-Revocation, Nodekompromittierung, Capacitydrift, Rekeyfehler, Egressspitze, TURN-Erschoepfung, Split Brain und Privacy-Leak; der Game-Day prueft Admissionstop, Drain, Security-Fencing, Parent-Fallback und Config-/Schema-/Approllback.",
+        "Legacy Pair-/DataChannel-/Hub-Relay- und Parent-SFU-Raeume bleiben kompatibel; Rollback benoetigt keine destruktive Datenloeschung oder manuelle Rechteerweiterung.",
+        "Jeder Schritt besitzt Owner, Command/Endpoint, Preconditions, Expected Evidence, Timeout, Abort und Recovery; unbekannter Zustand haelt Advanced Flags aus."
+      ]
+    },
+    {
+      "id": "SFB-GATE-012",
+      "title": "Child-Delta-SBOM-, Lizenz-, Vulnerability- und Container-Gate ausfuehren",
+      "description": "Alle nach dem Parent-Supply-Chain-Gate hinzugekommenen SFU-/TURN-Images, Adapter, SDKs, Browserpakete, Composeprofile und Runtimekonfigurationen werden am finalen Child-Source-Hash erneut geprueft.",
+      "type": "release_gate",
+      "milestone_id": "SFB-M8",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-GRP-010",
+        "SFB-QOS-010",
+        "SFB-QOS-011",
+        "SFB-OPS-010",
+        "SFB-TURN-007",
+        "SFB-GATE-013",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-010"
+      ],
+      "affected_files": [
+        "scripts/run_sfu_broadcast_supply_chain_gate.py",
+        "config/security/sfu_broadcast_dependency_policy.json",
+        "artifacts/test-gates/sfu-broadcast-supply-chain.json",
+        "docs/security/sfu-broadcast-supply-chain.md"
+      ],
+      "acceptance_criteria": [
+        "CycloneDX/SPDX-SBOM erfasst tatsaechlich gebaute Hub-/Angular-/SFU-/TURN-Child-Dependencies, Adapter-SDKs, Basisimages und Lizenzen und bindet finalen Child-Source-, Lockfile-, Config- und Imagedigest.",
+        "Vulnerability-, Malware-/Secret-, Lizenz- und Provenance-Scans laufen gegen die tatsaechlich deployten gepinnten Artefakte; Ausnahme verlangt Owner, Begruendung, Ablauf, kompensierende Kontrolle und signierte Approval.",
+        "Container-Gate prueft non-root, read-only Rootfs, Capabilities, Seccomp/AppArmor soweit verfuegbar, Network Policy, Secrets, Health, Ressourcenlimits und fehlende Hub-/Task-/Worker-/Content-Key-Logik in SFU/TURN.",
+        "Stale Parent-SBOM, fehlendes Child-Delta, floating Version/Image, unbekannte Lizenz/Herkunft, abgelaufene Ausnahme oder Critical/High-Fund liefert fail und haelt alle Advanced-Broadcast-Flags aus."
+      ]
+    },
+    {
+      "id": "SFB-GATE-011",
+      "title": "Finales signiertes Broadcast-Release-Gate und Abschlussnachweis liefern",
+      "description": "Ein einziges maschinenlesbares Gate aggregiert Parent-Readiness, Contracts, Security, Privacy, E2E, Chaos, Soak, Capacity, Operations und Rollback ohne Ergebnisse zu erfinden.",
+      "type": "release_gate",
+      "milestone_id": "SFB-M8",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "SFB-GATE-002",
+        "SFB-GATE-003",
+        "SFB-GATE-004",
+        "SFB-GATE-005",
+        "SFB-GATE-006",
+        "SFB-GATE-007",
+        "SFB-GATE-008",
+        "SFB-GATE-009",
+        "SFB-GATE-010",
+        "SFB-GATE-012",
+        "SFB-OBS-003",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-BASE-006",
+        "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-012"
+      ],
+      "affected_files": [
+        "scripts/run_sfu_broadcast_release_gate.py",
+        "schemas/gates/sfu_broadcast_release_gate.v1.json",
+        "artifacts/test-gates/sfu-broadcast-release.json",
+        "docs/status/sfu-broadcast-release-evidence.md"
+      ],
+      "acceptance_criteria": [
+        "Gate leitet alle externen Taskabhaengigkeiten erneut ab, verlangt exakte Gleichheit mit cross_track_prerequisites und prueft jedes Pflichtartefakt gegen konfigurierten Trust Root, Key-ID, monotone Manifestversion, Freshness, Schema, Status, Source-/Config-/Image-/Infrastrukturdigest und Signatur ohne unbekannte Source- oder Run-ID.",
+        "Release ist nur pass bei null offenen Critical/High-Security-/Privacy-/Child-Supply-Chain-Funds, gruenen Parent-/Regression-/Fuzz-/Chaos-/Soak-Gates und einem gueltigen abgeleiteten Capacityprofil.",
+        "Report nennt freigegebene Scopes, Receivercap, SLO-/Resourcebudgets, Browser-/SFU-/TURN-Versionen, bekannte Restrisiken, Rollback- und Kill-Switch-Evidence content-free.",
+        "Missing, stale, partial, widerspruechlich oder nicht signiert liefert fail mit stabilen Reason-Codes und laesst alle Advanced-Broadcast-Flags deaktiviert."
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 75,
+    "by_status": {
+      "todo": 75,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 68,
+      "P1": 7,
+      "P2": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 1,
+      "high": 22,
+      "critical": 52
+    },
+    "critical_path": {
+      "total": 54,
+      "done": 0,
+      "remaining": 54
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 8,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
   "definition_of_done": [
-    "Existing two-peer WebRTC and Hub Relay behavior remains compatible.",
-    "One publisher can upload once to an SFU and at least 100 authorized receivers can subscribe under a documented infrastructure profile.",
-    "Each receiver can independently select quality and fallback without globally degrading the room.",
-    "Shared semantic and transcript payloads are fan-out optimized while personalized corrections and training data remain private.",
-    "Strict E2EE prevents SFU and Hub access to plaintext media and semantic content.",
-    "Join, leave, revoke, rekey, reconnect and SFU failover are deterministic and tested.",
-    "Queues, memory and buffered data remain bounded during slow-receiver and overload scenarios.",
-    "Metrics distinguish sender ingress, SFU egress, TURN relay, shared processing and receiver-specific traffic.",
-    "Benchmarks publish honest limits and include full ordinary-WebRTC fallback capacity."
-  ]
+    "Alle referenzierten Parent-Tasks und Parent-Release-Gates sind done und ihre Evidence-Artefakte werden vom Readiness-Gate verifiziert.",
+    "Der Hub ist nachweislich alleiniger Owner aller Membership-, Admission-, Audience-, Placement-, Membership-/Route-/Topology-Epoch-, Fencing- und Failoverentscheidungen sowie der Autorisierung von Parent-Key-Epoch-Referenzen; Content-Keys bleiben ausschliesslich im kanonischen Parent-/Client-Kryptopfad.",
+    "Eine reale ausgewaehlte SFU leitet im Strict-E2EE-Profil ausschliesslich opaque Payloads weiter; Hub, SFU und TURN bestehen automatisierte Klartext-Sentinel-Pruefungen.",
+    "Receiver Groups und Fanout Routes sind persistent, idempotent, CAS-/Fencing-geschuetzt, restart-sicher und erweitern nie kanonische Parent-Rechte.",
+    "Jeder Receiver kann Layer, Recovery und erlaubten semantischen oder normalen Pfad unabhaengig nutzen, ohne andere Receiver global zu degradieren.",
+    "Queues, Replay-Stores, Reassemblies, Metrikserien, Speicher, Dateideskriptoren, TURN-Allocations und Egress bleiben in allen Soak- und Ueberlasttests innerhalb benannter Konfigurationsgrenzen.",
+    "Join, Leave, Revoke, Rekey, Reconnect, Drain, SFU-Ausfall, Hub-Neustart, TURN-Ausfall und Split Brain enden deterministisch ohne stale Zugriff oder Rechteausweitung.",
+    "Shared semantische und Speech-Daten sind gruppenoptimiert; private Korrekturen, Personalisierung, Evidence, Datasets und Training gelangen in keinem Negativtest auf eine Gruppenroute.",
+    "Observability und Operator-UX erklaeren Topologie, Layer, Egress, TURN, Queueing, Drops, Rekey und Failover content-free und unter festgelegter Retention/Cardinality.",
+    "Die freigegebene Receiverzahl entspricht dem kleinsten bestandenen reproduzierbaren Direct-/SFU-/All-TURN-Worst-Case-Profil und wird vor Ueberschreitung durch Admission begrenzt.",
+    "Feature-Flags, Canary, Kill-Switch, Migration, Rollback und Incident-Runbooks sind praktisch getestet; der finale Gate-Report bindet Source-, Config-, Schema-, Browser- und Container-Image-Digests."
+  ],
+  "tasks_type_summary": {
+    "total": 75,
+    "by_type": {
+      "architecture": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "release_gate": {
+        "total": 5,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 5,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 5,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "configuration": {
+        "total": 7,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 7,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 7,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "schema": {
+        "total": 7,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 7,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 7,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "security": {
+        "total": 7,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 7,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 7,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "testing": {
+        "total": 7,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 7,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 7,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "frontend": {
+        "total": 5,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 5,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 5,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "backend": {
+        "total": 19,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 19,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 19,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "infrastructure": {
+        "total": 7,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 7,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 7,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "transport": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "observability": {
+        "total": 4,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "documentation": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "e2e": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "benchmark": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 75,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0,
+    "milestones_done": 0,
+    "milestones_total": 8
+  }
 }
