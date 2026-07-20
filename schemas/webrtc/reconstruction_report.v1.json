@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/reconstruction_report.v1.json",
+  "type": "object", "additionalProperties": false,
+  "required": [
+    "schema", "report_id", "session_id", "receiver_id", "contract_id", "contract_digest",
+    "lease_id", "lease_digest", "lease_expires_at_ms", "epoch", "sequence", "observed_at_ms",
+    "source", "stage_ms", "resources", "bytes", "delay_ms", "quality", "input_digest", "output_digest"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.reconstruction-report.v1"},
+    "report_id": {"$ref": "#/$defs/id"}, "session_id": {"$ref": "#/$defs/id"},
+    "receiver_id": {"$ref": "#/$defs/id"}, "contract_id": {"$ref": "#/$defs/id"},
+    "contract_digest": {"$ref": "#/$defs/digest"}, "lease_id": {"$ref": "#/$defs/id"},
+    "lease_digest": {"$ref": "#/$defs/digest"}, "lease_expires_at_ms": {"type": "integer", "minimum": 1},
+    "epoch": {"type": "integer", "minimum": 1}, "sequence": {"type": "integer", "minimum": 0},
+    "observed_at_ms": {"type": "integer", "minimum": 0}, "source": {"const": "local_measurement"},
+    "stage_ms": {
+      "type": "object", "additionalProperties": false,
+      "required": ["encode", "transport", "reassembly", "render", "recovery"],
+      "properties": {
+        "encode": {"$ref": "#/$defs/milliseconds"}, "transport": {"$ref": "#/$defs/milliseconds"},
+        "reassembly": {"$ref": "#/$defs/milliseconds"}, "render": {"$ref": "#/$defs/milliseconds"},
+        "recovery": {"$ref": "#/$defs/milliseconds"}
+      }
+    },
+    "resources": {
+      "type": "object", "additionalProperties": false, "required": ["cpu_ms", "gpu_ms", "working_bytes"],
+      "properties": {
+        "cpu_ms": {"$ref": "#/$defs/milliseconds"}, "gpu_ms": {"$ref": "#/$defs/milliseconds"},
+        "working_bytes": {"type": "integer", "minimum": 0, "maximum": 134217728}
+      }
+    },
+    "bytes": {
+      "type": "object", "additionalProperties": false, "required": ["encoded", "transported"],
+      "properties": {
+        "encoded": {"type": "integer", "minimum": 0, "maximum": 524288},
+        "transported": {"type": "integer", "minimum": 0, "maximum": 1048576}
+      }
+    },
+    "delay_ms": {"type": "number", "minimum": 0, "maximum": 60000},
+    "quality": {
+      "type": "object", "additionalProperties": false, "required": ["score", "drift", "stale_regions"],
+      "properties": {
+        "score": {"type": "number", "minimum": 0, "maximum": 1},
+        "drift": {"type": "number", "minimum": 0, "maximum": 1},
+        "stale_regions": {"type": "integer", "minimum": 0, "maximum": 256}
+      }
+    },
+    "input_digest": {"$ref": "#/$defs/digest"}, "output_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 192, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]*$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "milliseconds": {"type": "number", "minimum": 0, "maximum": 60000}
+  }
+}

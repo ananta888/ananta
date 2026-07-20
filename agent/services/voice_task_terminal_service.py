@@ -18,6 +18,7 @@ _VOICE_TASK_KINDS = frozenset(
         "voice_generative_judge",
         "voice_generative_corrector",
         "restricted_inference",
+        "speech_adaptation",
     }
 )
 _MUTABLE_FIELDS = frozenset(

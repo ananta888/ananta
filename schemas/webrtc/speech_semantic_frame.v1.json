@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/speech_semantic_frame.v1.json",
+  "title": "Ananta semantic speech frame v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "session_id", "epoch", "turn_id", "revision", "sender_id", "audience_id", "consent_version", "expires_at_ms", "contract_digest", "source_digest", "frame_id", "start_ms", "end_ms", "algorithm_version", "confidence", "prosody", "residual"],
+  "properties": {
+    "version": {"const": "ananta.speech-semantic-frame.v1"},
+    "session_id": {"$ref": "#/$defs/id"}, "epoch": {"$ref": "#/$defs/positive"},
+    "turn_id": {"$ref": "#/$defs/id"}, "revision": {"$ref": "#/$defs/positive"},
+    "sender_id": {"$ref": "#/$defs/id"}, "audience_id": {"$ref": "#/$defs/id"},
+    "consent_version": {"$ref": "#/$defs/positive"}, "expires_at_ms": {"$ref": "#/$defs/positive"},
+    "contract_digest": {"$ref": "#/$defs/digest"}, "source_digest": {"$ref": "#/$defs/digest"},
+    "frame_id": {"$ref": "#/$defs/id"}, "start_ms": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+    "end_ms": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+    "algorithm_version": {"$ref": "#/$defs/id"}, "confidence": {"$ref": "#/$defs/unit"},
+    "prosody": {"type": "array", "maxItems": 32, "items": {"type": "number", "minimum": -1, "maximum": 1}},
+    "residual": {"type": "array", "maxItems": 128, "items": {"type": "number", "minimum": -1, "maximum": 1}}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "positive": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "unit": {"type": "number", "minimum": 0, "maximum": 1}
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/compute_quality_contract.v1.json",
+  "title": "Hub-authoritative semantic compute quality contract v1",
+  "type": "object",
+  "required": [
+    "schema", "contract_id", "session_id", "epoch", "revision", "issuer",
+    "policy_version", "profile", "quality_level", "delay_ms", "security_mode",
+    "trusted_compute_grant", "consent_version", "roles", "task_types",
+    "max_artifact_bytes", "deadline_ms", "expires_at_ms", "contract_digest", "signature"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.semantic-compute-contract.v1"},
+    "contract_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,191}$"},
+    "session_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,191}$"},
+    "room_id": {"type": ["string", "null"], "maxLength": 192},
+    "epoch": {"type": "integer", "minimum": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "issuer": {"const": "hub"},
+    "policy_version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"},
+    "profile": {"enum": ["off", "conservative", "balanced", "custom"]},
+    "quality_level": {"enum": ["best_effort", "standard", "verified"]},
+    "delay_ms": {"type": "integer", "minimum": 2000, "maximum": 20000},
+    "security_mode": {"enum": ["strict_e2ee", "trusted_compute"]},
+    "trusted_compute_grant": {"type": "boolean"},
+    "consent_version": {"type": "integer", "minimum": 0},
+    "roles": {
+      "type": "object", "maxProperties": 4,
+      "propertyNames": {"enum": ["primary", "validator", "standby"]},
+      "additionalProperties": {
+        "type": "array", "maxItems": 2, "uniqueItems": true,
+        "items": {"type": "string", "maxLength": 192}
+      }
+    },
+    "task_types": {
+      "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true,
+      "items": {"enum": ["visual_extract", "visual_validate", "speech_features", "speech_validate"]}
+    },
+    "max_artifact_bytes": {"type": "integer", "minimum": 1024, "maximum": 4194304},
+    "deadline_ms": {"type": "integer", "minimum": 100, "maximum": 20000},
+    "expires_at_ms": {"type": "integer", "minimum": 1},
+    "contract_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "signature": {"$ref": "#/$defs/signature"}
+  },
+  "$defs": {
+    "signature": {
+      "type": "object",
+      "required": ["algorithm", "key_id", "value"],
+      "properties": {
+        "algorithm": {"enum": ["ed25519", "hmac-sha256"]},
+        "key_id": {"type": "string", "maxLength": 128},
+        "value": {"type": "string", "minLength": 16, "maxLength": 512}
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"security_mode": {"const": "strict_e2ee"}}},
+      "then": {"properties": {"trusted_compute_grant": {"const": false}}}
+    }
+  ],
+  "additionalProperties": false
+}

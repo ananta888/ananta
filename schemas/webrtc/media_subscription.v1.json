@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/media_subscription.v1.json",
+  "title": "Hub-authorized SFU media subscription",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "subscription_id", "tenant_id", "room_id", "subscriber_id", "publisher_id", "publication_id", "membership_epoch", "revision", "status"],
+  "properties": {
+    "schema": {"const": "ananta.webrtc.media-subscription.v1"},
+    "subscription_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "tenant_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "room_id": {"type": "string", "pattern": "^sfu-[a-f0-9]{32}$"},
+    "subscriber_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "publisher_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "publication_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "membership_epoch": {"type": "integer", "minimum": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "status": {"enum": ["authorized", "active", "revoked", "ended"]}
+  }
+}

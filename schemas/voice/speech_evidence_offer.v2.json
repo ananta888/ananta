@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.invalid/schemas/voice/speech_evidence_offer.v2.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_version", "message_type", "message_id", "session_id", "pair_id", "sender_id",
+    "audience_id", "epoch", "sequence", "consent_version", "key_id", "issued_at_ms",
+    "expires_at_ms", "payload_digest", "payload", "signature_algorithm", "signature_b64"
+  ],
+  "properties": {
+    "protocol_version": { "const": "ananta.speech-evidence-sync.v2" },
+    "message_type": { "const": "offer" },
+    "message_id": { "$ref": "#/$defs/id" },
+    "session_id": { "$ref": "#/$defs/id" },
+    "pair_id": { "$ref": "#/$defs/id" },
+    "sender_id": { "$ref": "#/$defs/id" },
+    "audience_id": { "$ref": "#/$defs/id" },
+    "epoch": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "sequence": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "consent_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "key_id": { "$ref": "#/$defs/id" },
+    "issued_at_ms": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "expires_at_ms": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "payload_digest": { "$ref": "#/$defs/digest" },
+    "signature_algorithm": { "const": "Ed25519" },
+    "signature_b64": { "type": "string", "minLength": 88, "maxLength": 88 },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "traffic_class", "offer_id", "stage", "inventory_root_digest", "direction", "purpose",
+        "data_classes", "fields", "retention_seconds", "trainer_class", "group_ids",
+        "group_previews", "total_bytes", "sender_consent_digest", "recipient_consent_digest",
+        "scope_digest"
+      ],
+      "properties": {
+        "traffic_class": { "const": "control" },
+        "offer_id": { "$ref": "#/$defs/id" },
+        "stage": { "enum": ["proposal", "acceptance"] },
+        "inventory_root_digest": { "$ref": "#/$defs/digest" },
+        "direction": { "enum": ["sender_to_receiver", "receiver_to_sender"] },
+        "purpose": { "enum": ["peer_reconciliation", "speech_dataset_curation"] },
+        "data_classes": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "fields": { "type": "array", "maxItems": 16, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "retention_seconds": { "type": "integer", "minimum": 1, "maximum": 31536000 },
+        "trainer_class": { "enum": ["none", "speech_adaptation"] },
+        "group_ids": { "$ref": "#/$defs/ids" },
+        "group_previews": {
+          "type": "array", "minItems": 1, "maxItems": 4096,
+          "items": { "$ref": "#/$defs/groupPreview" }
+        },
+        "total_bytes": { "type": "integer", "minimum": 1, "maximum": 1073741824 },
+        "sender_consent_digest": { "$ref": "#/$defs/digest" },
+        "recipient_consent_digest": { "$ref": "#/$defs/digest" },
+        "scope_digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "ids": { "type": "array", "minItems": 1, "maxItems": 4096, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+    "groupPreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preview_version", "group_id", "source_group_digest", "speaker_scope_digest",
+        "quality_basis", "quality_digest", "resolution_digest", "original_candidates",
+        "resolution_state", "selected_candidate_digest", "unresolved_region_digests",
+        "comparison_digest", "revision", "size_bytes"
+      ],
+      "properties": {
+        "preview_version": { "const": "ananta.speech-evidence-group-preview.v1" },
+        "group_id": { "$ref": "#/$defs/id" },
+        "source_group_digest": { "$ref": "#/$defs/digest" },
+        "speaker_scope_digest": { "$ref": "#/$defs/digest" },
+        "quality_basis": { "enum": ["decision", "policy"] },
+        "quality_digest": { "$ref": "#/$defs/digest" },
+        "resolution_digest": { "$ref": "#/$defs/digest" },
+        "original_candidates": {
+          "type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/candidateProjection" }
+        },
+        "resolution_state": { "enum": ["resolved", "unresolved"] },
+        "selected_candidate_digest": {
+          "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }]
+        },
+        "unresolved_region_digests": {
+          "type": "array", "maxItems": 1024, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/digest" }
+        },
+        "comparison_digest": { "$ref": "#/$defs/digest" },
+        "revision": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "size_bytes": { "type": "integer", "minimum": 1, "maximum": 1073741824 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "resolution_state": { "const": "resolved" } } },
+          "then": {
+            "properties": {
+              "selected_candidate_digest": { "$ref": "#/$defs/digest" },
+              "unresolved_region_digests": { "maxItems": 0 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "resolution_state": { "const": "unresolved" } } },
+          "then": {
+            "properties": {
+              "selected_candidate_digest": { "type": "null" },
+              "unresolved_region_digests": { "minItems": 1 }
+            }
+          }
+        }
+      ]
+    },
+    "candidateProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ordinal", "candidate_digest", "authority_digest", "revision"],
+      "properties": {
+        "ordinal": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "candidate_digest": { "$ref": "#/$defs/digest" },
+        "authority_digest": { "$ref": "#/$defs/digest" },
+        "revision": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+      }
+    }
+  }
+}

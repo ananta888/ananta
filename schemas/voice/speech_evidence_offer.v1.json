@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://ananta.invalid/schemas/voice/speech_evidence_offer.v1.json","$comment":"Deprecated and intentionally rejected: v1 offers lack a signed content-free group preview. Use speech_evidence_offer.v2.json.","allOf":[{"$ref":"speech_evidence_common.v1.json#/$defs/offerMessage"},{"not":{}}]}

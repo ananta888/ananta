@@ -1,4 +1,5 @@
 """T25: GET /api/network-profiles/<profile_id> — liefert Netzwerkprofil an Angular."""
+
 from __future__ import annotations
 
 import json
@@ -10,6 +11,10 @@ from flask import Blueprint, jsonify
 
 from agent.auth import check_auth
 from agent.services.oidc_settings import get_oidc_config, oidc_is_configured
+from agent.services.semantic_media_feature_flags import (
+    resolve_semantic_media_feature_flags,
+    semantic_media_feature_catalog_payload,
+)
 
 network_profiles_bp = Blueprint("network_profiles", __name__)
 
@@ -72,9 +77,9 @@ def get_network_profile(profile_id: str):
     link_enabled = False
     if oidc_is_configured():
         oidc_cfg = get_oidc_config()
-        link_enabled = pair_enabled and oidc_cfg.issuer_url.rstrip("/") == str(
-            oidc_block.get("issuer") or ""
-        ).rstrip("/")
+        link_enabled = pair_enabled and oidc_cfg.issuer_url.rstrip("/") == str(oidc_block.get("issuer") or "").rstrip(
+            "/"
+        )
     oidc_block = {
         **oidc_block,
         "enabled": pair_enabled,
@@ -87,32 +92,35 @@ def get_network_profile(profile_id: str):
         "registration_allowed": bool(oidc_is_configured() and get_oidc_config().registration_allowed),
     }
 
-    return jsonify({
-        "ok": True,
-        "profile": {
-            "profile_id": profile["profile_id"],
-            "label": profile.get("label", ""),
-            "oidc": oidc_block,
-            "rendezvous": profile.get("rendezvous", {}),
-            "ice_servers": ice_servers,
-            "require_e2e_payload_encryption": profile.get("rendezvous", {}).get(
-                "require_e2e_payload_encryption", False
-            ),
-            "signaling_url": profile.get("rendezvous", {}).get("signaling_url", ""),
-            "transport_order": profile.get("rendezvous", {}).get("transport_order", ["hub_relay"]),
-            "warning": profile.get("warning", ""),
-        },
-    })
+    return jsonify(
+        {
+            "ok": True,
+            "profile": {
+                "profile_id": profile["profile_id"],
+                "label": profile.get("label", ""),
+                "oidc": oidc_block,
+                "rendezvous": profile.get("rendezvous", {}),
+                "ice_servers": ice_servers,
+                "require_e2e_payload_encryption": profile.get("rendezvous", {}).get(
+                    "require_e2e_payload_encryption", False
+                ),
+                "signaling_url": profile.get("rendezvous", {}).get("signaling_url", ""),
+                "transport_order": profile.get("rendezvous", {}).get("transport_order", ["hub_relay"]),
+                "semantic_media_feature_flags": resolve_semantic_media_feature_flags(os.environ),
+                "semantic_media_feature_catalog": semantic_media_feature_catalog_payload(),
+                "warning": profile.get("warning", ""),
+            },
+        }
+    )
 
 
 @network_profiles_bp.route("/api/network-profiles", methods=["GET"])
 @check_auth
 def list_network_profiles():
     profiles = _load_profiles()
-    return jsonify({
-        "ok": True,
-        "profiles": [
-            {"profile_id": p["profile_id"], "label": p.get("label", "")}
-            for p in profiles.values()
-        ],
-    })
+    return jsonify(
+        {
+            "ok": True,
+            "profiles": [{"profile_id": p["profile_id"], "label": p.get("label", "")} for p in profiles.values()],
+        }
+    )

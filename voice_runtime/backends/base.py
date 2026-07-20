@@ -99,11 +99,7 @@ class TranscriptionCandidate:
         lineage_id: str | None = None,
     ) -> "TranscriptionCandidate":
         duration_seconds = (result.duration_ms or 0) / 1000.0
-        words = tuple(
-            replace(word, candidate_id=candidate_id)
-            for segment in result.segments
-            for word in segment.words
-        )
+        words = tuple(replace(word, candidate_id=candidate_id) for segment in result.segments for word in segment.words)
         segments = tuple(
             replace(
                 segment,
@@ -230,13 +226,21 @@ class TranscriptionResult:
     decision_trace: Mapping[str, Any] = field(default_factory=dict)
     provenance: Mapping[str, Any] = field(default_factory=dict)
     provenance_valid: bool = True
+    turn_id: str | None = None
+    revision: int | None = None
+    authority: str | None = None
+    source_digest: str | None = None
+    semantic_frame_refs: tuple[str, ...] = ()
+    correction_state: str | None = None
+    supersedes_revision: int | None = None
+    extensions: Mapping[str, Any] = field(default_factory=dict)
     schema_version: str = "2.0"
 
     def with_additional_warnings(self, warnings: list[str]) -> "TranscriptionResult":
         return replace(self, warnings=tuple([*self.warnings, *warnings]))
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        value: dict[str, Any] = {
             "schema_version": self.schema_version,
             "text": self.text,
             "language": self.language,
@@ -257,6 +261,26 @@ class TranscriptionResult:
             "provenance": dict(self.provenance),
             "provenance_valid": self.provenance_valid,
         }
+        # Keep the v2 legacy projection bit-stable. Additive fields become
+        # canonical only when they carry semantic content; their default
+        # values must not rewrite existing result hashes or persisted goldens.
+        optional_scalars = {
+            "turn_id": self.turn_id,
+            "revision": self.revision,
+            "authority": self.authority,
+            "source_digest": self.source_digest,
+            "correction_state": self.correction_state,
+            "supersedes_revision": self.supersedes_revision,
+        }
+        value.update(
+            (name, field_value)
+            for name, field_value in optional_scalars.items()
+            if field_value is not None
+        )
+        if self.semantic_frame_refs:
+            value["semantic_frame_refs"] = list(self.semantic_frame_refs)
+        value.update(dict(self.extensions))
+        return value
 
 
 @dataclass(frozen=True)

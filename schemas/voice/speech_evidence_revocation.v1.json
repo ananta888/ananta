@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://ananta.invalid/schemas/voice/speech_evidence_revocation.v1.json","oneOf":[{"$ref":"speech_evidence_common.v1.json#/$defs/revocationMessage"},{"$ref":"speech_evidence_common.v1.json#/$defs/revocationAckMessage"}]}

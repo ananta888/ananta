@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/datachannel_message.v1.json",
+  "title": "Ananta closed encrypted DataChannel message",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "traffic_class", "message_id", "session_id", "epoch", "sender_id", "audience_id", "sequence", "expires_at_ms", "compression", "security", "payload_bytes", "payload_digest", "ciphertext"],
+  "properties": {
+    "version": {"const": "ananta.webrtc-datachannel.v1"},
+    "traffic_class": {"enum": ["control", "transcript", "audio_recovery", "visual_semantic", "evidence_bulk", "diagnostic"]},
+    "message_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "session_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "epoch": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "sender_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "audience_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "sequence": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "expires_at_ms": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "compression": {"const": "none"},
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "key_id"],
+      "properties": {
+        "algorithm": {"const": "AES-GCM-256"},
+        "key_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"}
+      }
+    },
+    "payload_bytes": {"type": "integer", "minimum": 0, "maximum": 1048576},
+    "payload_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "ciphertext": {"type": "string", "maxLength": 1398104}
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/voice/speech_adaptation_evaluation.v1.json",
+  "title": "Ananta speech adaptation evaluation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bindings",
+    "hardware_profile",
+    "sample_counts",
+    "metrics",
+    "probes",
+    "limitations",
+    "passed",
+    "policy_version"
+  ],
+  "properties": {
+    "schema_version": {"const": "ananta.speech-adaptation-evaluation.v1"},
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dataset_digest", "split_digest", "model_digest", "config_digest", "scope_digest", "consent_digest"],
+      "properties": {
+        "dataset_digest": {"$ref": "#/$defs/digest"},
+        "split_digest": {"$ref": "#/$defs/digest"},
+        "model_digest": {"$ref": "#/$defs/digest"},
+        "config_digest": {"$ref": "#/$defs/digest"},
+        "scope_digest": {"$ref": "#/$defs/digest"},
+        "consent_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "hardware_profile": {"type": "string", "minLength": 1, "maxLength": 128},
+    "sample_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generic", "local_only", "reconciled", "adapted", "safety_probes"],
+      "properties": {
+        "generic": {"type": "integer", "minimum": 1},
+        "local_only": {"type": "integer", "minimum": 1},
+        "reconciled": {"type": "integer", "minimum": 1},
+        "adapted": {"type": "integer", "minimum": 1},
+        "safety_probes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intelligibility", "lexical_fidelity", "timing", "prosody", "speaker_similarity", "hallucination_rate", "latency_ms", "cpu_seconds", "gpu_seconds", "peak_memory_bytes"],
+      "properties": {
+        "intelligibility": {"$ref": "#/$defs/metric"},
+        "lexical_fidelity": {"$ref": "#/$defs/metric"},
+        "timing": {"$ref": "#/$defs/metric"},
+        "prosody": {"$ref": "#/$defs/metric"},
+        "speaker_similarity": {"$ref": "#/$defs/metric"},
+        "hallucination_rate": {"$ref": "#/$defs/metric"},
+        "latency_ms": {"$ref": "#/$defs/metric"},
+        "cpu_seconds": {"$ref": "#/$defs/metric"},
+        "gpu_seconds": {"$ref": "#/$defs/metric"},
+        "peak_memory_bytes": {"$ref": "#/$defs/metric"}
+      }
+    },
+    "probes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cross_speaker", "non_consented_speaker", "train_validation_leakage", "memorization_canary", "prompt_content_extraction"],
+      "properties": {
+        "cross_speaker": {"$ref": "#/$defs/probe"},
+        "non_consented_speaker": {"$ref": "#/$defs/probe"},
+        "train_validation_leakage": {"$ref": "#/$defs/probe"},
+        "memorization_canary": {"$ref": "#/$defs/probe"},
+        "prompt_content_extraction": {"$ref": "#/$defs/probe"}
+      }
+    },
+    "limitations": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"type": "string", "minLength": 1, "maxLength": 512}},
+    "passed": {"type": "boolean"},
+    "policy_version": {"type": "string", "minLength": 1, "maxLength": 128}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["values", "threshold", "higher_is_better", "uncertainty", "sample_count", "passed"],
+      "properties": {
+        "values": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["generic", "local_only", "reconciled", "adapted"],
+          "properties": {
+            "generic": {"type": "number"},
+            "local_only": {"type": "number"},
+            "reconciled": {"type": "number"},
+            "adapted": {"type": "number"}
+          }
+        },
+        "threshold": {"type": "number"},
+        "higher_is_better": {"type": "boolean"},
+        "uncertainty": {"type": "number", "minimum": 0},
+        "sample_count": {"type": "integer", "minimum": 1},
+        "passed": {"type": "boolean"}
+      }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "threshold", "sample_count", "passed"],
+      "properties": {
+        "value": {"type": "number"},
+        "threshold": {"type": "number"},
+        "sample_count": {"type": "integer", "minimum": 1},
+        "passed": {"type": "boolean"}
+      }
+    }
+  }
+}

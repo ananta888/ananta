@@ -78,6 +78,9 @@ class VoiceModelManifest:
 class VoiceModelCatalog:
     def __init__(self, entries: Mapping[str, VoiceModelManifest], *, digest: str) -> None:
         self._entries = dict(entries)
+        self._models = {entry.model_id: entry for entry in entries.values()}
+        if len(self._models) != len(self._entries):
+            raise ValueError("duplicate voice model id")
         self.digest = digest
 
     @classmethod
@@ -116,6 +119,17 @@ class VoiceModelCatalog:
 
     def get(self, engine: str) -> VoiceModelManifest | None:
         return self._entries.get(engine)
+
+    def require_model(self, model_id: str) -> VoiceModelManifest:
+        """Resolve an immutable model identity without conflating it with an engine."""
+
+        entry = self._models.get(model_id)
+        if entry is None:
+            raise ValueError(f"voice model manifest missing for model id: {model_id}")
+        return entry
+
+    def get_model(self, model_id: str) -> VoiceModelManifest | None:
+        return self._models.get(model_id)
 
 
 def load_catalog_for_config(config) -> VoiceModelCatalog | None:

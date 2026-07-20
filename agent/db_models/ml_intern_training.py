@@ -110,6 +110,7 @@ class MlInternTrainingCapacityLeaseDB(SQLModel, table=True):
 
     slot: int = Field(primary_key=True)
     job_id: str = Field(foreign_key="ml_intern_training_jobs.id", unique=True, index=True)
+    version: int = 1
     created_at: float = Field(default_factory=time.time)
 
 
@@ -121,6 +122,7 @@ class MlInternTrainingExecutionLeaseDB(SQLModel, table=True):
     slot: int = Field(primary_key=True)
     job_id: str = Field(foreign_key="ml_intern_training_jobs.id", unique=True, index=True)
     lease_expires_at: float = Field(index=True)
+    version: int = 1
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
 
@@ -171,3 +173,71 @@ class MlInternTrainingEventDB(SQLModel, table=True):
     dedupe_key: str
     payload: dict = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: float = Field(default_factory=time.time, index=True)
+
+
+class MlInternSpeechAdapterDB(SQLModel, table=True):
+    """Hub-owned SQL authority for one pair-scoped speech adapter."""
+
+    __tablename__ = "ml_intern_speech_adapters"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "owner_subject", "id", name="uq_speech_adapter_scope_id"),
+        sa.Index(
+            "ix_speech_adapter_pair_direction_status",
+            "tenant_id",
+            "owner_subject",
+            "pair_id",
+            "direction",
+            "status",
+        ),
+    )
+
+    id: str = Field(default_factory=lambda: f"speech-adapter-{uuid.uuid4()}", primary_key=True)
+    version: str
+    tenant_id: str = Field(index=True)
+    owner_subject: str = Field(index=True)
+    pair_id: str = Field(index=True)
+    direction: str = Field(index=True)
+    speaker_digest: str = Field(index=True)
+    scope_digest: str = Field(index=True)
+    base_model_id: str = Field(index=True)
+    base_model_digest: str = Field(index=True)
+    backend: str = Field(index=True)
+    backend_digest: str = Field(index=True)
+    dataset_digest: str = Field(index=True)
+    split_digest: str = Field(index=True)
+    evaluation_report_digest: str = Field(index=True)
+    # Compatibility default for rows materialized by the pre-registry SQL
+    # projection.  The authoritative registry always supplies the evaluated
+    # policy version explicitly; legacy callers remain readable/fenceable.
+    evaluation_policy_version: str = "legacy-v1"
+    evaluation_passed: bool = True
+    evaluation_approval_eligible: bool = False
+    consent_digest: str = Field(index=True)
+    consent_expires_at_ms: int = Field(index=True)
+    artifact_ref: str = Field(repr=False)
+    artifact_sha256: str = Field(index=True)
+    artifact_size_bytes: int
+    expires_at_ms: int = Field(index=True)
+    status: str = Field(default="evaluated", index=True)
+    registry_version: int = 1
+    approved_by_digest: str | None = Field(default=None, index=True)
+    approval_reason_code: str | None = None
+    approved_at_ms: int | None = Field(default=None, index=True)
+    revoked_at_ms: int | None = Field(default=None, index=True)
+    deprecated_at_ms: int | None = Field(default=None, index=True)
+    expired_at_ms: int | None = Field(default=None, index=True)
+    rollback_of_adapter_id: str | None = Field(default=None, index=True)
+    lineage: list[dict] = Field(default_factory=list, sa_column=Column(JSON), repr=False)
+    adapter_metadata: dict = Field(default_factory=dict, sa_column=Column(JSON), repr=False)
+    created_at_ms: int = Field(default_factory=lambda: time.time_ns() // 1_000_000, index=True)
+    updated_at_ms: int = Field(default_factory=lambda: time.time_ns() // 1_000_000)
+
+
+class MlInternSpeechAdapterLegacyImportDB(SQLModel, table=True):
+    """Durable one-time fence for a legacy JSON registry import."""
+
+    __tablename__ = "ml_intern_speech_adapter_legacy_imports"
+
+    source_digest: str = Field(primary_key=True)
+    record_count: int = 0
+    imported_at_ms: int = Field(default_factory=lambda: time.time_ns() // 1_000_000, index=True)

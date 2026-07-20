@@ -27,6 +27,8 @@ WORKFLOW_WORKER_COMMAND_SCOPE = "workflow.worker.commands"
 WORKFLOW_LANGGRAPH_CHECKPOINT_SCOPE = "workflow.langgraph.checkpoints"
 WORKFLOW_TEMPORAL_TASK_SCOPE = "workflow.temporal.tasks"
 KNOWLEDGE_INDEX_PAYLOAD_SCOPE = "knowledge.index.payloads"
+SEMANTIC_COMPUTE_WORKER_SCOPE = "semantic.compute.execute"
+SPEECH_EVIDENCE_CURATION_WORKER_SCOPE = "speech.evidence.curate"
 
 _STRICT_ENV = "ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH"
 _KEYRING_FILE_ENV = "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE"
@@ -39,10 +41,18 @@ _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _SCOPE_CAPABILITIES = {
     WORKFLOW_WORKER_COMMAND_SCOPE: frozenset({"workflow.adapter.native", "workflow.adapter.langgraph"}),
     WORKFLOW_LANGGRAPH_CHECKPOINT_SCOPE: frozenset({"workflow.adapter.langgraph"}),
-    WORKFLOW_TEMPORAL_TASK_SCOPE: frozenset(
-        {"workflow.adapter.temporal", "workflow.runtime.temporal"}
-    ),
+    WORKFLOW_TEMPORAL_TASK_SCOPE: frozenset({"workflow.adapter.temporal", "workflow.runtime.temporal"}),
     KNOWLEDGE_INDEX_PAYLOAD_SCOPE: frozenset({"retrieval", "index_write"}),
+    SEMANTIC_COMPUTE_WORKER_SCOPE: frozenset(
+        {
+            "semantic_compute",
+            "semantic_compute.visual_extract",
+            "semantic_compute.visual_validate",
+            "semantic_compute.speech_features",
+            "semantic_compute.speech_validate",
+        }
+    ),
+    SPEECH_EVIDENCE_CURATION_WORKER_SCOPE: frozenset({"speech_evidence_curation"}),
 }
 _RUNTIME_SERVICE_SCOPES = frozenset({WORKFLOW_TEMPORAL_TASK_SCOPE})
 
@@ -118,15 +128,9 @@ def load_worker_registration_keyring(
     config: Mapping[str, Any] | None = None,
 ) -> dict[str, WorkerRegistrationCredential]:
     source = config or {}
-    path = str(
-        source.get(_KEYRING_FILE_ENV)
-        or os.environ.get(_KEYRING_FILE_ENV)
-        or ""
-    ).strip()
+    path = str(source.get(_KEYRING_FILE_ENV) or os.environ.get(_KEYRING_FILE_ENV) or "").strip()
     if not path:
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_worker_registration_keyring_required"
-        )
+        raise WorkflowWorkerAuthConfigurationError("workflow_worker_registration_keyring_required")
     try:
         raw = read_file_managed_bytes(
             path,
@@ -135,18 +139,12 @@ def load_worker_registration_keyring(
         )
         decoded = json.loads(raw.decode("utf-8"))
     except (FileCredentialConfigurationError, UnicodeError, json.JSONDecodeError) as exc:
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_worker_registration_keyring_invalid"
-        ) from exc
+        raise WorkflowWorkerAuthConfigurationError("workflow_worker_registration_keyring_invalid") from exc
     if not isinstance(decoded, Mapping) or decoded.get("schema") != WORKER_REGISTRATION_KEYRING_SCHEMA:
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_worker_registration_keyring_invalid"
-        )
+        raise WorkflowWorkerAuthConfigurationError("workflow_worker_registration_keyring_invalid")
     raw_workers = decoded.get("workers")
     if not isinstance(raw_workers, Mapping) or not raw_workers:
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_worker_registration_keyring_invalid"
-        )
+        raise WorkflowWorkerAuthConfigurationError("workflow_worker_registration_keyring_invalid")
 
     credentials: dict[str, WorkerRegistrationCredential] = {}
     seen_urls: set[str] = set()
@@ -155,9 +153,7 @@ def load_worker_registration_keyring(
     for raw_worker_id, raw_entry in raw_workers.items():
         worker_id = _bounded_identifier(raw_worker_id)
         if not worker_id or not isinstance(raw_entry, Mapping):
-            raise WorkflowWorkerAuthConfigurationError(
-                "workflow_worker_registration_keyring_invalid"
-            )
+            raise WorkflowWorkerAuthConfigurationError("workflow_worker_registration_keyring_invalid")
         worker_url = _normalize_worker_url(raw_entry.get("worker_url"))
         registration_token = _validated_token(raw_entry.get("registration_token"))
         service_token_sha256 = _validated_sha256(raw_entry.get("service_token_sha256"))
@@ -168,17 +164,9 @@ def load_worker_registration_keyring(
             or isinstance(raw_capabilities, (str, bytes))
             or len(raw_capabilities) > 128
         ):
-            raise WorkflowWorkerAuthConfigurationError(
-                "workflow_worker_registration_keyring_invalid"
-            )
+            raise WorkflowWorkerAuthConfigurationError("workflow_worker_registration_keyring_invalid")
         allowed_capabilities = tuple(
-            sorted(
-                {
-                    capability
-                    for value in raw_capabilities
-                    if (capability := _bounded_capability(value))
-                }
-            )
+            sorted({capability for value in raw_capabilities if (capability := _bounded_capability(value))})
         )
         if (
             not worker_url
@@ -192,21 +180,12 @@ def load_worker_registration_keyring(
             or session_signing_key_sha256 in seen_worker_secret_fingerprints
             or service_token_sha256 == session_signing_key_sha256
         ):
-            raise WorkflowWorkerAuthConfigurationError(
-                "workflow_worker_registration_keyring_invalid"
-            )
-        if any(
-            secrets.compare_digest(registration_token, existing)
-            for existing in seen_tokens
-        ):
-            raise WorkflowWorkerAuthConfigurationError(
-                "workflow_worker_registration_keyring_invalid"
-            )
+            raise WorkflowWorkerAuthConfigurationError("workflow_worker_registration_keyring_invalid")
+        if any(secrets.compare_digest(registration_token, existing) for existing in seen_tokens):
+            raise WorkflowWorkerAuthConfigurationError("workflow_worker_registration_keyring_invalid")
         seen_urls.add(worker_url)
         seen_tokens.append(registration_token)
-        seen_worker_secret_fingerprints.update(
-            {service_token_sha256, session_signing_key_sha256}
-        )
+        seen_worker_secret_fingerprints.update({service_token_sha256, session_signing_key_sha256})
         credentials[worker_id] = WorkerRegistrationCredential(
             worker_id=worker_id,
             worker_url=worker_url,
@@ -222,13 +201,7 @@ def worker_registration_keyring_configured(
     config: Mapping[str, Any] | None = None,
 ) -> bool:
     source = config or {}
-    return bool(
-        str(
-            source.get(_KEYRING_FILE_ENV)
-            or os.environ.get(_KEYRING_FILE_ENV)
-            or ""
-        ).strip()
-    )
+    return bool(str(source.get(_KEYRING_FILE_ENV) or os.environ.get(_KEYRING_FILE_ENV) or "").strip())
 
 
 def runtime_service_keyring_configured(
@@ -237,9 +210,7 @@ def runtime_service_keyring_configured(
     source = config or {}
     return bool(
         str(
-            source.get(_RUNTIME_SERVICE_KEYRING_FILE_ENV)
-            or os.environ.get(_RUNTIME_SERVICE_KEYRING_FILE_ENV)
-            or ""
+            source.get(_RUNTIME_SERVICE_KEYRING_FILE_ENV) or os.environ.get(_RUNTIME_SERVICE_KEYRING_FILE_ENV) or ""
         ).strip()
     )
 
@@ -249,14 +220,10 @@ def load_runtime_service_keyring(
 ) -> dict[str, RuntimeServiceCredential]:
     source = config or {}
     path = str(
-        source.get(_RUNTIME_SERVICE_KEYRING_FILE_ENV)
-        or os.environ.get(_RUNTIME_SERVICE_KEYRING_FILE_ENV)
-        or ""
+        source.get(_RUNTIME_SERVICE_KEYRING_FILE_ENV) or os.environ.get(_RUNTIME_SERVICE_KEYRING_FILE_ENV) or ""
     ).strip()
     if not path:
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_runtime_service_keyring_required"
-        )
+        raise WorkflowWorkerAuthConfigurationError("workflow_runtime_service_keyring_required")
     try:
         raw = read_file_managed_bytes(
             path,
@@ -265,48 +232,28 @@ def load_runtime_service_keyring(
         )
         decoded = json.loads(raw.decode("utf-8"))
     except (FileCredentialConfigurationError, UnicodeError, json.JSONDecodeError) as exc:
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_runtime_service_keyring_invalid"
-        ) from exc
+        raise WorkflowWorkerAuthConfigurationError("workflow_runtime_service_keyring_invalid") from exc
     if not isinstance(decoded, Mapping) or decoded.get("schema") != RUNTIME_SERVICE_KEYRING_SCHEMA:
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_runtime_service_keyring_invalid"
-        )
+        raise WorkflowWorkerAuthConfigurationError("workflow_runtime_service_keyring_invalid")
     raw_services = decoded.get("services")
     if not isinstance(raw_services, Mapping) or not raw_services:
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_runtime_service_keyring_invalid"
-        )
+        raise WorkflowWorkerAuthConfigurationError("workflow_runtime_service_keyring_invalid")
 
     credentials: dict[str, RuntimeServiceCredential] = {}
     seen_tokens: list[str] = []
     for raw_service_id, raw_entry in raw_services.items():
         service_id = _bounded_identifier(raw_service_id)
         if not service_id or not isinstance(raw_entry, Mapping):
-            raise WorkflowWorkerAuthConfigurationError(
-                "workflow_runtime_service_keyring_invalid"
-            )
+            raise WorkflowWorkerAuthConfigurationError("workflow_runtime_service_keyring_invalid")
         token = _validated_token(raw_entry.get("token"))
         raw_scopes = raw_entry.get("scopes")
-        if (
-            not token
-            or not isinstance(raw_scopes, list)
-            or isinstance(raw_scopes, (str, bytes))
-        ):
-            raise WorkflowWorkerAuthConfigurationError(
-                "workflow_runtime_service_keyring_invalid"
-            )
-        scopes = tuple(
-            sorted({str(value).strip() for value in raw_scopes if str(value).strip()})
-        )
+        if not token or not isinstance(raw_scopes, list) or isinstance(raw_scopes, (str, bytes)):
+            raise WorkflowWorkerAuthConfigurationError("workflow_runtime_service_keyring_invalid")
+        scopes = tuple(sorted({str(value).strip() for value in raw_scopes if str(value).strip()}))
         if not scopes or any(scope not in _RUNTIME_SERVICE_SCOPES for scope in scopes):
-            raise WorkflowWorkerAuthConfigurationError(
-                "workflow_runtime_service_keyring_invalid"
-            )
+            raise WorkflowWorkerAuthConfigurationError("workflow_runtime_service_keyring_invalid")
         if any(secrets.compare_digest(token, existing) for existing in seen_tokens):
-            raise WorkflowWorkerAuthConfigurationError(
-                "workflow_runtime_service_keyring_invalid"
-            )
+            raise WorkflowWorkerAuthConfigurationError("workflow_runtime_service_keyring_invalid")
         seen_tokens.append(token)
         credentials[service_id] = RuntimeServiceCredential(
             service_id=service_id,
@@ -335,11 +282,7 @@ def validate_workflow_credential_disjointness(
         if strict or worker_registration_keyring_configured(config)
         else ()
     )
-    runtime_credentials = (
-        tuple(load_runtime_service_keyring(config).values())
-        if runtime_configured
-        else ()
-    )
+    runtime_credentials = tuple(load_runtime_service_keyring(config).values()) if runtime_configured else ()
     entries: list[tuple[str, str]] = []
     session_secret = str(user_session_secret or "")
     if session_secret:
@@ -347,23 +290,13 @@ def validate_workflow_credential_disjointness(
     if hub_token := _validated_token(hub_service_token):
         entries.append(("hub_service", _credential_sha256(hub_token)))
     actual_worker_digests = [
-        _credential_sha256(token)
-        for value in worker_service_tokens
-        if (token := _validated_token(value))
+        _credential_sha256(token) for value in worker_service_tokens if (token := _validated_token(value))
     ]
     if len(actual_worker_digests) != len(set(actual_worker_digests)):
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_worker_service_token_ambiguous"
-        )
+        raise WorkflowWorkerAuthConfigurationError("workflow_worker_service_token_ambiguous")
     entries.extend(("worker_service", digest) for digest in actual_worker_digests)
-    entries.extend(
-        ("worker_service", credential.service_token_sha256)
-        for credential in registration_credentials
-    )
-    entries.extend(
-        ("worker_session", credential.session_signing_key_sha256)
-        for credential in registration_credentials
-    )
+    entries.extend(("worker_service", credential.service_token_sha256) for credential in registration_credentials)
+    entries.extend(("worker_session", credential.session_signing_key_sha256) for credential in registration_credentials)
     entries.extend(
         (
             "worker_registration",
@@ -371,19 +304,14 @@ def validate_workflow_credential_disjointness(
         )
         for credential in registration_credentials
     )
-    entries.extend(
-        ("runtime_service", _credential_sha256(credential.token))
-        for credential in runtime_credentials
-    )
+    entries.extend(("runtime_service", _credential_sha256(credential.token)) for credential in runtime_credentials)
 
     entries = list(dict.fromkeys(entries))
 
     for index, (left_domain, left_token) in enumerate(entries):
         for right_domain, right_token in entries[index + 1 :]:
             if secrets.compare_digest(left_token, right_token):
-                raise WorkflowWorkerAuthConfigurationError(
-                    _credential_reuse_reason(left_domain, right_domain)
-                )
+                raise WorkflowWorkerAuthConfigurationError(_credential_reuse_reason(left_domain, right_domain))
 
 
 def _credential_reuse_reason(left_domain: str, right_domain: str) -> str:
@@ -391,15 +319,9 @@ def _credential_reuse_reason(left_domain: str, right_domain: str) -> str:
     session_reasons = {
         "hub_service": "workflow_hub_session_hub_service_credential_reuse_denied",
         "worker_service": "workflow_hub_session_worker_service_credential_reuse_denied",
-        "worker_registration": (
-            "workflow_hub_session_worker_registration_credential_reuse_denied"
-        ),
-        "worker_session": (
-            "workflow_hub_session_worker_session_credential_reuse_denied"
-        ),
-        "runtime_service": (
-            "workflow_hub_session_runtime_service_credential_reuse_denied"
-        ),
+        "worker_registration": ("workflow_hub_session_worker_registration_credential_reuse_denied"),
+        "worker_session": ("workflow_hub_session_worker_session_credential_reuse_denied"),
+        "runtime_service": ("workflow_hub_session_runtime_service_credential_reuse_denied"),
     }
     if "user_session" in domains:
         other = next(domain for domain in domains if domain != "user_session")
@@ -410,21 +332,15 @@ def _credential_reuse_reason(left_domain: str, right_domain: str) -> str:
     if left_domain == right_domain == "worker_service":
         return "workflow_worker_service_token_ambiguous"
     cross_domain_reasons = {
-        frozenset({"hub_service", "worker_service"}): (
-            "workflow_worker_service_admin_credential_reuse_denied"
-        ),
+        frozenset({"hub_service", "worker_service"}): ("workflow_worker_service_admin_credential_reuse_denied"),
         frozenset({"hub_service", "worker_registration"}): (
             "workflow_worker_registration_hub_admin_credential_reuse_denied"
         ),
-        frozenset({"hub_service", "runtime_service"}): (
-            "workflow_runtime_service_admin_credential_reuse_denied"
-        ),
+        frozenset({"hub_service", "runtime_service"}): ("workflow_runtime_service_admin_credential_reuse_denied"),
         frozenset({"worker_service", "worker_registration"}): (
             "workflow_worker_service_registration_credential_reuse_denied"
         ),
-        frozenset({"worker_service", "runtime_service"}): (
-            "workflow_runtime_service_worker_credential_reuse_denied"
-        ),
+        frozenset({"worker_service", "runtime_service"}): ("workflow_runtime_service_worker_credential_reuse_denied"),
         frozenset({"worker_registration", "runtime_service"}): (
             "workflow_runtime_service_registration_credential_reuse_denied"
         ),
@@ -445,9 +361,7 @@ def authenticate_preconfigured_runtime_service(
     config: Mapping[str, Any] | None = None,
 ) -> RuntimeServiceCredential:
     if required_scope not in _RUNTIME_SERVICE_SCOPES:
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_runtime_service_scope_invalid"
-        )
+        raise WorkflowWorkerAuthConfigurationError("workflow_runtime_service_scope_invalid")
     token = _validated_token(provided_token)
     service_id = _bounded_identifier(claimed_service_id)
     if not token:
@@ -463,10 +377,7 @@ def authenticate_preconfigured_runtime_service(
         config=config,
     )
     registration_tokens = (
-        tuple(
-            item.registration_token
-            for item in load_worker_registration_keyring(config).values()
-        )
+        tuple(item.registration_token for item in load_worker_registration_keyring(config).values())
         if worker_registration_keyring_configured(config)
         else ()
     )
@@ -499,41 +410,19 @@ def _assert_runtime_credentials_disjoint(
     """Validate the complete runtime keyring against every other trust domain."""
 
     runtime_tokens = tuple(item.token for item in runtime_credentials)
-    service_tokens = tuple(
-        token
-        for value in worker_service_tokens
-        if (token := _validated_token(value))
-    )
-    registration_tokens = tuple(
-        token
-        for value in worker_registration_tokens
-        if (token := _validated_token(value))
-    )
+    service_tokens = tuple(token for value in worker_service_tokens if (token := _validated_token(value)))
+    registration_tokens = tuple(token for value in worker_registration_tokens if (token := _validated_token(value)))
     hub_token = _validated_token(hub_service_token)
     session_secret = str(user_session_secret or "")
     for runtime_token in runtime_tokens:
         if session_secret and secrets.compare_digest(runtime_token, session_secret):
-            raise WorkflowWorkerAuthConfigurationError(
-                "workflow_runtime_service_user_session_credential_reuse_denied"
-            )
+            raise WorkflowWorkerAuthConfigurationError("workflow_runtime_service_user_session_credential_reuse_denied")
         if hub_token and secrets.compare_digest(runtime_token, hub_token):
-            raise WorkflowWorkerAuthConfigurationError(
-                "workflow_runtime_service_admin_credential_reuse_denied"
-            )
-        if any(
-            secrets.compare_digest(runtime_token, worker_token)
-            for worker_token in service_tokens
-        ):
-            raise WorkflowWorkerAuthConfigurationError(
-                "workflow_runtime_service_worker_credential_reuse_denied"
-            )
-        if any(
-            secrets.compare_digest(runtime_token, registration_token)
-            for registration_token in registration_tokens
-        ):
-            raise WorkflowWorkerAuthConfigurationError(
-                "workflow_runtime_service_registration_credential_reuse_denied"
-            )
+            raise WorkflowWorkerAuthConfigurationError("workflow_runtime_service_admin_credential_reuse_denied")
+        if any(secrets.compare_digest(runtime_token, worker_token) for worker_token in service_tokens):
+            raise WorkflowWorkerAuthConfigurationError("workflow_runtime_service_worker_credential_reuse_denied")
+        if any(secrets.compare_digest(runtime_token, registration_token) for registration_token in registration_tokens):
+            raise WorkflowWorkerAuthConfigurationError("workflow_runtime_service_registration_credential_reuse_denied")
 
 
 def validate_strict_worker_registration(
@@ -558,9 +447,7 @@ def validate_strict_worker_registration(
     service_token = _validated_token(data.get("token"))
     bootstrap_token = _validated_token(data.get("registration_token"))
     if not worker_id or not worker_url or not service_token or not bootstrap_token:
-        raise WorkflowWorkerAuthDenied(
-            "workflow_worker_registration_credential_invalid"
-        )
+        raise WorkflowWorkerAuthDenied("workflow_worker_registration_credential_invalid")
 
     keyring = load_worker_registration_keyring(config)
     credential = keyring.get(worker_id)
@@ -572,9 +459,7 @@ def validate_strict_worker_registration(
             bootstrap_token,
         )
     ):
-        raise WorkflowWorkerAuthDenied(
-            "workflow_worker_registration_identity_denied"
-        )
+        raise WorkflowWorkerAuthDenied("workflow_worker_registration_identity_denied")
     raw_capabilities = data.get("capabilities")
     if (
         not isinstance(raw_capabilities, list)
@@ -586,13 +471,7 @@ def validate_strict_worker_registration(
             status_code=400,
         )
     requested_capabilities = tuple(
-        sorted(
-            {
-                capability
-                for value in raw_capabilities
-                if (capability := _bounded_capability(value))
-            }
-        )
+        sorted({capability for value in raw_capabilities if (capability := _bounded_capability(value))})
     )
     if len(requested_capabilities) != len(set(map(str, raw_capabilities))):
         raise WorkflowWorkerAuthDenied(
@@ -631,10 +510,7 @@ def validate_strict_worker_registration(
             status_code=409,
         )
     registration_tokens = (item.registration_token for item in keyring.values())
-    if any(
-        secrets.compare_digest(service_token, registration_token)
-        for registration_token in registration_tokens
-    ):
+    if any(secrets.compare_digest(service_token, registration_token) for registration_token in registration_tokens):
         raise WorkflowWorkerAuthDenied(
             "workflow_worker_service_registration_credential_reuse_denied",
             status_code=409,
@@ -642,18 +518,12 @@ def validate_strict_worker_registration(
     if runtime_service_keyring_configured(config):
         runtime_credentials = tuple(load_runtime_service_keyring(config).values())
         runtime_tokens = tuple(item.token for item in runtime_credentials)
-        if any(
-            secrets.compare_digest(service_token, runtime_token)
-            for runtime_token in runtime_tokens
-        ):
+        if any(secrets.compare_digest(service_token, runtime_token) for runtime_token in runtime_tokens):
             raise WorkflowWorkerAuthDenied(
                 "workflow_worker_runtime_credential_reuse_denied",
                 status_code=409,
             )
-        if any(
-            secrets.compare_digest(bootstrap_token, runtime_token)
-            for runtime_token in runtime_tokens
-        ):
+        if any(secrets.compare_digest(bootstrap_token, runtime_token) for runtime_token in runtime_tokens):
             raise WorkflowWorkerAuthDenied(
                 "workflow_worker_registration_runtime_credential_reuse_denied",
                 status_code=409,
@@ -661,13 +531,8 @@ def validate_strict_worker_registration(
         _assert_runtime_credentials_disjoint(
             runtime_credentials,
             hub_service_token=hub_service_token,
-            worker_service_tokens=(
-                str(getattr(agent, "token", "") or "")
-                for agent in agents
-            ),
-            worker_registration_tokens=(
-                item.registration_token for item in keyring.values()
-            ),
+            worker_service_tokens=(str(getattr(agent, "token", "") or "") for agent in agents),
+            worker_registration_tokens=(item.registration_token for item in keyring.values()),
             user_session_secret=session_secret,
         )
 
@@ -681,19 +546,12 @@ def validate_strict_worker_registration(
                 "workflow_worker_registration_identity_conflict",
                 status_code=409,
             )
-        if (
-            existing_token
-            and secrets.compare_digest(existing_token, bootstrap_token)
-        ):
+        if existing_token and secrets.compare_digest(existing_token, bootstrap_token):
             raise WorkflowWorkerAuthDenied(
                 "workflow_worker_registration_service_credential_reuse_denied",
                 status_code=409,
             )
-        if (
-            existing_token
-            and not same_identity
-            and secrets.compare_digest(existing_token, service_token)
-        ):
+        if existing_token and not same_identity and secrets.compare_digest(existing_token, service_token):
             raise WorkflowWorkerAuthDenied(
                 "workflow_worker_service_token_conflict",
                 status_code=409,
@@ -732,26 +590,20 @@ def authenticate_registered_workflow_worker(
     """Resolve one raw bearer to exactly one registered Worker and scope."""
 
     if required_scope not in _SCOPE_CAPABILITIES:
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_worker_service_scope_invalid"
-        )
+        raise WorkflowWorkerAuthConfigurationError("workflow_worker_service_scope_invalid")
     token = _validated_token(provided_token)
     worker_id = _bounded_identifier(claimed_worker_id)
     worker_url = _normalize_worker_url(claimed_worker_url)
     if not token:
         raise WorkflowWorkerAuthDenied("workflow_worker_service_token_invalid")
     if not worker_id or not worker_url:
-        raise WorkflowWorkerAuthDenied(
-            "workflow_worker_service_identity_required"
-        )
+        raise WorkflowWorkerAuthDenied("workflow_worker_service_identity_required")
 
     agents = tuple(registered_agents)
     validate_workflow_credential_disjointness(
         user_session_secret=user_session_secret,
         hub_service_token=hub_service_token,
-        worker_service_tokens=(
-            str(getattr(agent, "token", "") or "") for agent in agents
-        ),
+        worker_service_tokens=(str(getattr(agent, "token", "") or "") for agent in agents),
         config=config,
     )
     matches: list[Any] = []
@@ -761,9 +613,7 @@ def authenticate_registered_workflow_worker(
             matches.append(agent)
     if len(matches) != 1:
         reason = (
-            "workflow_worker_service_token_ambiguous"
-            if len(matches) > 1
-            else "workflow_worker_service_token_invalid"
+            "workflow_worker_service_token_ambiguous" if len(matches) > 1 else "workflow_worker_service_token_invalid"
         )
         raise WorkflowWorkerAuthDenied(reason)
 
@@ -773,8 +623,7 @@ def authenticate_registered_workflow_worker(
     if (
         str(getattr(agent, "role", "") or "").strip().lower() != "worker"
         or not bool(getattr(agent, "registration_validated", False))
-        or str(getattr(agent, "registration_provenance", "") or "")
-        != STRICT_WORKER_REGISTRATION_PROVENANCE
+        or str(getattr(agent, "registration_provenance", "") or "") != STRICT_WORKER_REGISTRATION_PROVENANCE
         or not actual_id
         or not actual_url
     ):
@@ -792,9 +641,7 @@ def authenticate_registered_workflow_worker(
         sorted(
             {
                 str(value).strip()
-                for value in (
-                    getattr(agent, "authorized_capabilities", None) or []
-                )
+                for value in (getattr(agent, "authorized_capabilities", None) or [])
                 if str(value).strip()
             }
         )
@@ -815,30 +662,17 @@ def authenticate_registered_workflow_worker(
             status_code=403,
         )
     if hub_service_token and secrets.compare_digest(token, hub_service_token):
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_worker_service_admin_credential_reuse_denied"
-        )
+        raise WorkflowWorkerAuthConfigurationError("workflow_worker_service_admin_credential_reuse_denied")
     if user_session_secret and secrets.compare_digest(token, user_session_secret):
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_worker_service_user_session_credential_reuse_denied"
-        )
-    if any(
-        secrets.compare_digest(token, item.registration_token)
-        for item in keyring.values()
-    ):
-        raise WorkflowWorkerAuthConfigurationError(
-            "workflow_worker_service_registration_credential_reuse_denied"
-        )
+        raise WorkflowWorkerAuthConfigurationError("workflow_worker_service_user_session_credential_reuse_denied")
+    if any(secrets.compare_digest(token, item.registration_token) for item in keyring.values()):
+        raise WorkflowWorkerAuthConfigurationError("workflow_worker_service_registration_credential_reuse_denied")
     if runtime_service_keyring_configured(config):
         _assert_runtime_credentials_disjoint(
             load_runtime_service_keyring(config).values(),
             hub_service_token=hub_service_token,
-            worker_service_tokens=(
-                str(getattr(item, "token", "") or "") for item in agents
-            ),
-            worker_registration_tokens=(
-                item.registration_token for item in keyring.values()
-            ),
+            worker_service_tokens=(str(getattr(item, "token", "") or "") for item in agents),
+            worker_registration_tokens=(item.registration_token for item in keyring.values()),
             user_session_secret=user_session_secret,
         )
     if not set(capabilities).intersection(_SCOPE_CAPABILITIES[required_scope]):
@@ -928,6 +762,8 @@ __all__ = [
     "WORKER_URL_HEADER",
     "WORKFLOW_LANGGRAPH_CHECKPOINT_SCOPE",
     "KNOWLEDGE_INDEX_PAYLOAD_SCOPE",
+    "SEMANTIC_COMPUTE_WORKER_SCOPE",
+    "SPEECH_EVIDENCE_CURATION_WORKER_SCOPE",
     "WORKFLOW_TEMPORAL_TASK_SCOPE",
     "WORKFLOW_WORKER_COMMAND_SCOPE",
     "WorkflowWorkerAuthConfigurationError",

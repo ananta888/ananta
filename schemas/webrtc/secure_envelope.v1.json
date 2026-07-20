@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/secure_envelope.v1.json",
+  "title": "Ananta WebRTC Secure Envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version", "scope", "sender_id", "recipient", "epoch", "sequence",
+    "key_id", "payload_type", "expires_at_ms", "nonce_b64", "aad",
+    "ciphertext_b64"
+  ],
+  "properties": {
+    "version": { "const": 1 },
+    "scope": { "$ref": "#/$defs/scope" },
+    "sender_id": { "$ref": "#/$defs/id" },
+    "recipient": { "$ref": "#/$defs/recipient" },
+    "epoch": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "sequence": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "key_id": { "$ref": "#/$defs/id" },
+    "payload_type": {
+      "type": "string", "minLength": 1, "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "expires_at_ms": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "nonce_b64": {
+      "type": "string", "minLength": 16, "maxLength": 16,
+      "pattern": "^[A-Za-z0-9+/]{16}$"
+    },
+    "aad": { "$ref": "#/$defs/aad" },
+    "ciphertext_b64": {
+      "type": "string", "minLength": 24, "maxLength": 349548,
+      "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string", "minLength": 1, "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "scope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["session", "room"] },
+        "id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "recipient": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["peer", "group"] },
+        "id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "aad": {
+      "type": "object", "additionalProperties": false,
+      "required": ["traffic_class", "content_encoding", "contract_digest"],
+      "properties": {
+        "traffic_class": { "enum": ["control", "media", "semantic", "bulk"] },
+        "content_encoding": { "enum": ["json", "binary"] },
+        "contract_digest": {
+          "type": "string", "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

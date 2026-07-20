@@ -1,8 +1,10 @@
 import logging
+import os
 
 from flask import Flask
 
 from agent.bootstrap.route_aliases import register_route_aliases
+from agent.config import settings
 from agent.routes.admin.planning_dataset import planning_dataset_bp
 from agent.routes.admin.planning_metrics import planning_metrics_bp
 from agent.routes.admin.planning_review import planning_review_bp
@@ -44,6 +46,7 @@ from agent.routes.knowledge import knowledge_bp
 from agent.routes.langgraph_checkpoint_internal import langgraph_checkpoint_internal_bp
 from agent.routes.mcp import mcp_bp
 from agent.routes.ml_intern_lora_runtime import ml_intern_lora_runtime_bp
+from agent.routes.ml_intern_speech_adapters import ml_intern_speech_adapters_bp
 from agent.routes.ml_intern_training import ml_intern_training_bp
 from agent.routes.network_profiles import network_profiles_bp
 from agent.routes.ollama_benchmark import ollama_benchmark_bp
@@ -54,11 +57,19 @@ from agent.routes.rendezvous import rendezvous_bp
 from agent.routes.repair import repair_bp
 from agent.routes.restricted_inference_management import restricted_inference_management_bp
 from agent.routes.run_control import run_control_bp
+from agent.routes.semantic_media_contracts import semantic_media_contracts_bp
+from agent.routes.semantic_media_debug import semantic_media_debug_bp
+from agent.routes.semantic_media_privacy import semantic_media_privacy_bp
+from agent.routes.semantic_sfu_admission import semantic_sfu_admission_bp
 from agent.routes.sgpt import sgpt_bp
 from agent.routes.share_sessions import share_sessions_bp
 from agent.routes.snakes import snakes_bp
 from agent.routes.snapshot_diff_api import snapshot_diff_bp
 from agent.routes.sources import sources_bp
+from agent.routes.speech_adaptation_control import speech_adaptation_control_bp
+from agent.routes.speech_evidence_consents import speech_evidence_consents_bp
+from agent.routes.speech_evidence_sync import speech_evidence_sync_bp
+from agent.routes.speech_reconciliation import speech_reconciliation_bp
 from agent.routes.system import system_bp
 from agent.routes.tasks import register_tasks_blueprints, tasks_bp
 from agent.routes.teams import teams_bp
@@ -107,6 +118,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(knowledge_bp)
     app.register_blueprint(ml_intern_training_bp)
     app.register_blueprint(ml_intern_lora_runtime_bp)
+    app.register_blueprint(ml_intern_speech_adapters_bp)
     app.register_blueprint(openai_compat_bp)
     app.register_blueprint(voice_bp)
     app.register_blueprint(voice_configuration_bp)
@@ -118,6 +130,15 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(teams_bp)
     app.register_blueprint(blueprint_bp)
     app.register_blueprint(auth_bp)
+    if (
+        settings.auth_test_endpoints_enabled
+        and os.environ.get("RUN_SEMANTIC_MEDIA_LIVE_E2E", "").strip() == "1"
+    ):
+        # Imported only in the explicit live-test runtime so this route does
+        # not exist in a normal Hub process, even as a hidden 404 endpoint.
+        from agent.routes.semantic_media_e2e_support import semantic_media_e2e_support_bp
+
+        app.register_blueprint(semantic_media_e2e_support_bp)
     app.register_blueprint(context_policy_bp)
     app.register_blueprint(control_center_api_bp)
     app.register_blueprint(instruction_layers_bp)
@@ -130,6 +151,14 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(sources_bp)
     app.register_blueprint(goal_artifacts_bp)
     app.register_blueprint(sgpt_bp, url_prefix="/api/sgpt")
+    app.register_blueprint(semantic_media_contracts_bp)
+    app.register_blueprint(semantic_media_debug_bp)
+    app.register_blueprint(semantic_media_privacy_bp)
+    app.register_blueprint(semantic_sfu_admission_bp)
+    app.register_blueprint(speech_reconciliation_bp)
+    app.register_blueprint(speech_adaptation_control_bp)
+    app.register_blueprint(speech_evidence_consents_bp)
+    app.register_blueprint(speech_evidence_sync_bp)
     app.register_blueprint(prompt_traces_bp)
     app.register_blueprint(prompt_render_bp)
     app.register_blueprint(backend_observability_bp)

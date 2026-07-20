@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from agent.services.semantic_media_feature_flags import SEMANTIC_MEDIA_FLAG_DEFAULTS
+
 _SCHEMA_KEYS: frozenset[str] = frozenset(
     {
         "tutorial_mode",
@@ -82,6 +84,7 @@ _SCHEMA_KEYS: frozenset[str] = frozenset(
         "ai_snake_trace_redact_secrets",
         "ai_snake_trace_max_preview_chars",
     }
+    | set(SEMANTIC_MEDIA_FLAG_DEFAULTS)
 )
 
 _DEFAULTS: dict[str, Any] = {
@@ -160,6 +163,9 @@ _DEFAULTS: dict[str, Any] = {
     "ai_snake_trace_stream_mode": "polling",
     "ai_snake_trace_redact_secrets": True,
     "ai_snake_trace_max_preview_chars": 200000,
+    # Semantic media/speech programme.  These are local preferences only;
+    # the Hub's effective network-profile projection remains authoritative.
+    **SEMANTIC_MEDIA_FLAG_DEFAULTS,
 }
 
 _OPTIONS: dict[str, list[str]] = {

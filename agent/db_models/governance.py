@@ -103,6 +103,52 @@ class ShareParticipantDB(SQLModel, table=True):
     participant_metadata: dict = Field(default={}, sa_column=Column(JSON))
 
 
+class WebrtcEpochDB(SQLModel, table=True):
+    """Hub-authoritative monotonic security epoch per session or room."""
+
+    __tablename__ = "webrtc_security_epochs"
+    scope_key: str = Field(primary_key=True, max_length=260)
+    scope_kind: str = Field(index=True, max_length=16)
+    scope_id: str = Field(index=True, max_length=128)
+    epoch: int = Field(default=1)
+    generation: int = Field(default=1)
+    owner_hub_id: str = Field(index=True, max_length=128)
+    lease_expires_at: float = Field(index=True)
+    updated_at: float = Field(default_factory=time.time, index=True)
+    closed_at: Optional[float] = Field(default=None, index=True)
+
+
+class WebrtcReplayStateDB(SQLModel, table=True):
+    """Bounded replay state, persisted so reconnect cannot reset acceptance."""
+
+    __tablename__ = "webrtc_replay_states"
+    id: str = Field(primary_key=True, max_length=64)
+    scope_key: str = Field(index=True, max_length=260)
+    epoch: int = Field(index=True)
+    sender_id: str = Field(index=True, max_length=128)
+    traffic_class: str = Field(index=True, max_length=16)
+    highest_sequence: int = Field(default=0)
+    accepted_sequences: list = Field(default=[], sa_column=Column(JSON))
+    accepted_nonce_digests: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    expires_at: float = Field(index=True)
+    updated_at: float = Field(default_factory=time.time, index=True)
+
+
+class WebrtcKeyConfirmationDB(SQLModel, table=True):
+    """Opaque peer confirmation tags; the Hub never has the derived key."""
+
+    __tablename__ = "webrtc_key_confirmations"
+    id: str = Field(primary_key=True, max_length=64)
+    scope_id: str = Field(index=True, max_length=128)
+    epoch: int = Field(index=True)
+    sender_peer_id: str = Field(index=True, max_length=128)
+    recipient_peer_id: str = Field(index=True, max_length=128)
+    package_id: str = Field(index=True, max_length=128)
+    confirmation_tag: str = Field(max_length=128)
+    created_at: float = Field(default_factory=time.time, index=True)
+    expires_at: float = Field(index=True)
+
+
 class AgentSessionDB(SQLModel, table=True):
     __tablename__ = "agent_sessions"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)

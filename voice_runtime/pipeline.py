@@ -56,6 +56,12 @@ from .routing import (
     RoutingPolicyEnvelope,
     merge_regional_segments,
 )
+from .source_correction import (
+    SourceCorrectionPort,
+    SourceCorrectionRequest,
+    SourceCorrectionResult,
+    SourceCorrectionService,
+)
 
 LegacyBackendResolver = Callable[[str], VoiceBackend]
 
@@ -76,6 +82,7 @@ class TranscriptionPipeline:
         diarization_adapter: LocalDiarizationAdapter | None = None,
         adaptive_router: AdaptiveLocalRouter | None = None,
         lineage_validator: CandidateLineageValidator | None = None,
+        source_correction: SourceCorrectionPort | None = None,
     ) -> None:
         config.validate()
         self._config = config
@@ -105,6 +112,26 @@ class TranscriptionPipeline:
         self._diarization_adapter_initialized = diarization_adapter is not None
         self._adaptive_router = adaptive_router or AdaptiveLocalRouter()
         self._lineage_validator = lineage_validator or CandidateLineageValidator()
+        self._source_correction = source_correction or SourceCorrectionService()
+
+    def correct_source_segment(
+        self,
+        *,
+        request: SourceCorrectionRequest,
+        provisional: TranscriptionCandidate,
+        source: TranscriptionCandidate | None,
+    ) -> SourceCorrectionResult:
+        """Execute one Hub-delegated segment correction through fusion alignment.
+
+        This is intentionally a direct execution seam: the runtime never
+        creates tasks, retries, or contacts another worker.
+        """
+
+        return self._source_correction.correct(
+            request=request,
+            provisional=provisional,
+            source=source,
+        )
 
     def runtime_capabilities(self) -> dict[str, object]:
         diarization: dict[str, object] = {

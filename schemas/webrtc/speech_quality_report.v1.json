@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/speech_quality_report.v1.json",
+  "title": "Ananta semantic speech quality report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "session_id", "epoch", "turn_id", "revision", "sender_id", "audience_id", "consent_version", "expires_at_ms", "contract_digest", "source_digest", "loss_ratio", "queue_bytes", "partial_age_ms", "correction_lag_ms", "source_loss_ratio", "feature_loss_ratio", "reconstruction_error_ratio", "recommended_mode", "reason_code"],
+  "properties": {
+    "version": {"const": "ananta.speech-quality-report.v1"},
+    "session_id": {"$ref": "#/$defs/id"}, "epoch": {"$ref": "#/$defs/positive"},
+    "turn_id": {"$ref": "#/$defs/id"}, "revision": {"$ref": "#/$defs/positive"},
+    "sender_id": {"$ref": "#/$defs/id"}, "audience_id": {"$ref": "#/$defs/id"},
+    "consent_version": {"$ref": "#/$defs/positive"}, "expires_at_ms": {"$ref": "#/$defs/positive"},
+    "contract_digest": {"$ref": "#/$defs/digest"}, "source_digest": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "loss_ratio": {"$ref": "#/$defs/unit"}, "queue_bytes": {"type": "integer", "minimum": 0, "maximum": 4194304},
+    "partial_age_ms": {"type": "integer", "minimum": 0, "maximum": 600000},
+    "correction_lag_ms": {"type": "integer", "minimum": 0, "maximum": 600000},
+    "source_loss_ratio": {"$ref": "#/$defs/unit"}, "feature_loss_ratio": {"$ref": "#/$defs/unit"},
+    "reconstruction_error_ratio": {"$ref": "#/$defs/unit"},
+    "recommended_mode": {"enum": ["ordinary_audio", "transcript_live", "semantic_reconstruction", "delayed_correction", "segment_only", "fallback"]},
+    "reason_code": {"$ref": "#/$defs/id"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "positive": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "unit": {"type": "number", "minimum": 0, "maximum": 1}
+  }
+}

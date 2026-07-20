@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/voice/speech_reconciliation_result.v1.json",
+  "title": "Speech reconciliation result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "job_id", "attempt_id", "fencing_token_digest", "fencing_epoch", "consent_id", "consent_version", "revocation_epoch", "input_manifest_digest", "policy_digest", "ledger_sequence", "key_epoch", "status", "dataset_manifest_digest", "dataset_artifact_ref", "checkpoint_digest", "evaluation_digest", "adapter_digest", "resolved_count", "unresolved_count", "rejected_count", "quarantined_count", "reason_code"],
+  "properties": {
+    "contract_version": {"const": "ananta.speech-reconciliation.v1"},
+    "job_id": {"$ref": "#/$defs/id"}, "attempt_id": {"$ref": "#/$defs/id"},
+    "fencing_token_digest": {"$ref": "#/$defs/digest"}, "fencing_epoch": {"$ref": "#/$defs/positive"},
+    "consent_id": {"$ref": "#/$defs/id"}, "consent_version": {"$ref": "#/$defs/positive"},
+    "revocation_epoch": {"$ref": "#/$defs/count"}, "input_manifest_digest": {"$ref": "#/$defs/digest"},
+    "policy_digest": {"$ref": "#/$defs/digest"}, "ledger_sequence": {"$ref": "#/$defs/count"},
+    "key_epoch": {"$ref": "#/$defs/positive"},
+    "status": {"enum": ["completed", "dataset_only_completed", "failed", "cancelled"]},
+    "dataset_manifest_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+    "dataset_artifact_ref": {"type": ["string", "null"], "pattern": "^artifact://speech-datasets/[A-Za-z0-9_./:-]+$", "maxLength": 512},
+    "checkpoint_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+    "evaluation_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+    "adapter_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+    "resolved_count": {"$ref": "#/$defs/count"}, "unresolved_count": {"$ref": "#/$defs/count"},
+    "rejected_count": {"$ref": "#/$defs/count"}, "quarantined_count": {"$ref": "#/$defs/count"},
+    "reason_code": {"$ref": "#/$defs/id"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "count": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+    "positive": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807}
+  }
+}

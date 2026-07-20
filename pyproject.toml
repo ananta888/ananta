@@ -191,6 +191,8 @@ packages = [
     "worker.shell",
     "worker.skills",
     "worker.skills.builtin",
+    "worker.speech_training",
+    "worker.speech_training.backends",
     "worker.temporal",
 ]
 

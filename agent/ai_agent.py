@@ -95,8 +95,7 @@ def _initialize_workflow_adapter_worker_runtime(app: Flask):
         )
     try:
         native_authorization_verifier = (
-            load_ed25519_native_authorization_verifier()
-            or HubBackedNativeAuthorizationVerifier()
+            load_ed25519_native_authorization_verifier() or HubBackedNativeAuthorizationVerifier()
         )
     except ValueError:
         native_authorization_verifier = None
@@ -161,6 +160,10 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     from worker.retrieval.knowledge_index_job_handler import (
         build_knowledge_index_task_handler,
     )
+    from worker.semantic_media.compute_task_handler import (
+        SemanticComputeWorkerConfigurationError,
+        build_semantic_compute_task_handler,
+    )
     from worker.visual_process_assistant import (
         VisualProcessAssistantInferenceHandler,
         VisualProcessAssistantRetrievalHandler,
@@ -201,13 +204,66 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         safety_flags={"requires_review": False, "worker_only": True, "mutation_forbidden": True},
         verification_hooks=["help_response_v1", "workflow_patch_v1", "source_ref_v2"],
     )
-    app.extensions["worker_domain_handler_registration"] = {
-        "registered": [
-            "codecompass_index_build",
-            "visual_process_assistant_retrieval",
-            "visual_process_assistant_inference",
+    registered = [
+        "codecompass_index_build",
+        "visual_process_assistant_retrieval",
+        "visual_process_assistant_inference",
+    ]
+    try:
+        if os.environ.get("ANANTA_SEMANTIC_COMPUTE_WORKER_ENABLED", "").strip().lower() not in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
+            raise SemanticComputeWorkerConfigurationError("semantic_compute_worker_disabled")
+        semantic_compute_handler = build_semantic_compute_task_handler()
+    except SemanticComputeWorkerConfigurationError as exc:
+        app.extensions["semantic_compute_worker_registration"] = {
+            "ready": False,
+            "reason_code": exc.reason_code,
+        }
+    else:
+        semantic_capabilities = [
+            "semantic_compute",
+            "semantic_compute.visual_extract",
+            "semantic_compute.visual_validate",
+            "semantic_compute.speech_features",
+            "semantic_compute.speech_validate",
         ]
-    }
+        register_task_handler(
+            "semantic_compute",
+            semantic_compute_handler,
+            app=app,
+            capabilities=semantic_capabilities,
+            safety_flags={
+                "worker_only": True,
+                "hub_delegation_required": True,
+                "peer_network_forbidden": True,
+                "child_task_creation_forbidden": True,
+            },
+            verification_hooks=[
+                "semantic_compute_task_v1",
+                "semantic_compute_result_v1",
+                "lease_fencing",
+            ],
+        )
+        registered.append("semantic_compute")
+        app.extensions["semantic_compute_worker_registration"] = {
+            "ready": True,
+            "reason_code": None,
+        }
+        workflow_registration = dict(
+            app.extensions.get("workflow_adapter_worker_registration") or {}
+        )
+        workflow_registration["capabilities"] = sorted(
+            {
+                *(workflow_registration.get("capabilities") or []),
+                *semantic_capabilities,
+            }
+        )
+        app.extensions["workflow_adapter_worker_registration"] = workflow_registration
+    app.extensions["worker_domain_handler_registration"] = {"registered": registered}
 
 
 def _check_token_rotation(app: Flask) -> None:
@@ -242,18 +298,14 @@ def _validate_workflow_credential_boundary(app: Flask) -> None:
         validate_workflow_credential_disjointness,
     )
 
-    if not registered_worker_auth_required(
-        app.config
-    ) and not runtime_service_keyring_configured(app.config):
+    if not registered_worker_auth_required(app.config) and not runtime_service_keyring_configured(app.config):
         return
     with app.app_context():
         agents = get_repository_registry(app).agent_repo.get_all() or ()
         validate_workflow_credential_disjointness(
             user_session_secret=app.secret_key,
             hub_service_token=resolve_configured_agent_token(app.config),
-            worker_service_tokens=(
-                str(getattr(agent, "token", "") or "") for agent in agents
-            ),
+            worker_service_tokens=(str(getattr(agent, "token", "") or "") for agent in agents),
             config=app.config,
         )
 
@@ -270,7 +322,7 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
         run_startup_phase("voice_runtime_cleanup_recovery", recover_voice_runtime_cleanup)
 
     app = run_startup_phase("flask_app", Flask, __name__)
-    app.config["TESTING"] = testing # Set Flask's testing flag
+    app.config["TESTING"] = testing  # Set Flask's testing flag
     # Required for Flask session-backed auth flows (e.g., OIDC state/nonce storage).
     app.secret_key = settings.secret_key
     run_startup_phase("request_hooks", register_request_hooks, app)
@@ -289,13 +341,22 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
         app,
     )
     run_startup_phase("core_services", initialize_core_services, app)
+    from agent.bootstrap.semantic_media_services import (
+        initialize_semantic_media_services,
+    )
+
+    run_startup_phase(
+        "semantic_media_services",
+        initialize_semantic_media_services,
+        app,
+    )
     run_startup_phase(
         "workflow_adapter_worker_runtime",
         _initialize_workflow_adapter_worker_runtime,
         app,
     )
     run_startup_phase("worker_domain_handlers", _register_worker_domain_handlers, app)
-    if not testing: # Skip background services in testing mode
+    if not testing:  # Skip background services in testing mode
         run_startup_phase("background_services", start_background_services, app)
 
     run_startup_phase("deterministic_repair_handler", _register_deterministic_repair_handler, app)
@@ -308,7 +369,6 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
         logging.info(f"Ananta Agent '{agent}' (role={settings.role}) started in {elapsed:.4f}s")
 
     return app
-
 
 
 def _env_flag(name: str, default: str = "0") -> bool:

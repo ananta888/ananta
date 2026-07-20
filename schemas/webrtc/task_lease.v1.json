@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/task_lease.v1.json",
+  "title": "Hub-authoritative semantic task lease v1",
+  "type": "object",
+  "required": [
+    "schema", "lease_id", "contract_id", "contract_digest", "session_id", "epoch",
+    "task_type", "role", "executor_id", "audience", "sequence_start", "sequence_end",
+    "fencing_token", "resource_budget", "issued_at_ms", "expires_at_ms", "deadline_ms",
+    "issuer", "signature"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.semantic-task-lease.v1"},
+    "lease_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,191}$"},
+    "contract_id": {"type": "string", "maxLength": 192},
+    "contract_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "session_id": {"type": "string", "maxLength": 192},
+    "room_id": {"type": ["string", "null"], "maxLength": 192},
+    "epoch": {"type": "integer", "minimum": 1},
+    "task_type": {"enum": ["visual_extract", "visual_validate", "speech_features", "speech_validate"]},
+    "role": {"enum": ["primary", "validator", "standby"]},
+    "executor_id": {
+      "anyOf": [
+        {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,191}$"},
+        {"type": "string", "maxLength": 512, "pattern": "^https?://[^\\s/?#@]+(?:/[^\\s?#]*)?$"}
+      ]
+    },
+    "audience": {"type": "string", "maxLength": 192},
+    "sequence_start": {"type": "integer", "minimum": 0},
+    "sequence_end": {"type": "integer", "minimum": 0},
+    "fencing_token": {"type": "integer", "minimum": 1},
+    "resource_budget": {
+      "type": "object",
+      "required": ["cpu_ms", "memory_bytes", "artifact_bytes"],
+      "properties": {
+        "cpu_ms": {"type": "integer", "minimum": 1, "maximum": 20000},
+        "memory_bytes": {"type": "integer", "minimum": 1048576, "maximum": 1073741824},
+        "artifact_bytes": {"type": "integer", "minimum": 1, "maximum": 4194304}
+      },
+      "additionalProperties": false
+    },
+    "issued_at_ms": {"type": "integer", "minimum": 1},
+    "expires_at_ms": {"type": "integer", "minimum": 1},
+    "deadline_ms": {"type": "integer", "minimum": 1, "maximum": 20000},
+    "issuer": {"const": "hub"},
+    "signature": {"$ref": "#/$defs/signature"}
+  },
+  "$defs": {
+    "signature": {
+      "type": "object",
+      "required": ["algorithm", "key_id", "value"],
+      "properties": {
+        "algorithm": {"enum": ["ed25519", "hmac-sha256"]},
+        "key_id": {"type": "string", "maxLength": 128},
+        "value": {"type": "string", "minLength": 16, "maxLength": 512}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

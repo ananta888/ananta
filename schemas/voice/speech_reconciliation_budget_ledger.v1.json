@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/voice/speech_reconciliation_budget_ledger.v1.json",
+  "title": "Speech reconciliation budget ledger v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "job_id", "attempt_id", "fencing_epoch", "sequence", "stage", "source_duration_ms", "compute_factor", "allocated", "reserved", "consumed", "remaining"],
+  "properties": {
+    "contract_version": {"const": "ananta.speech-reconciliation.v1"},
+    "job_id": {"$ref": "#/$defs/id"},
+    "attempt_id": {"$ref": "#/$defs/id"},
+    "fencing_epoch": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+    "sequence": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+    "stage": {"$ref": "#/$defs/id"},
+    "source_duration_ms": {"type": "integer", "minimum": 1, "maximum": 28800000},
+    "compute_factor": {"type": "integer", "minimum": 1, "maximum": 100},
+    "allocated": {"$ref": "#/$defs/resources"},
+    "reserved": {"$ref": "#/$defs/resources"},
+    "consumed": {"$ref": "#/$defs/resources"},
+    "remaining": {"$ref": "#/$defs/resources"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"},
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wall_time_ms", "cpu_time_ms", "gpu_time_ms", "memory_byte_ms", "disk_bytes", "checkpoint_bytes", "energy_millijoules"],
+      "properties": {
+        "wall_time_ms": {"$ref": "#/$defs/count"},
+        "cpu_time_ms": {"$ref": "#/$defs/count"},
+        "gpu_time_ms": {"$ref": "#/$defs/count"},
+        "memory_byte_ms": {"$ref": "#/$defs/count"},
+        "disk_bytes": {"$ref": "#/$defs/count"},
+        "checkpoint_bytes": {"$ref": "#/$defs/count"},
+        "energy_millijoules": {"$ref": "#/$defs/count"}
+      }
+    },
+    "count": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+  }
+}

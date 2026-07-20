@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/bounded_chunk.v1.json",
+  "title": "Ananta bounded encrypted DataChannel chunk",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "chunk_id", "message_id", "session_id", "epoch", "sender_id", "traffic_class", "index", "total", "chunk_bytes", "total_bytes", "expires_at_ms", "payload_digest", "data"],
+  "properties": {
+    "version": {"const": "ananta.webrtc-bounded-chunk.v1"},
+    "chunk_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "message_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "session_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "epoch": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "sender_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "traffic_class": {"enum": ["control", "transcript", "audio_recovery", "visual_semantic", "evidence_bulk", "diagnostic"]},
+    "index": {"type": "integer", "minimum": 0, "maximum": 255},
+    "total": {"type": "integer", "minimum": 1, "maximum": 256},
+    "chunk_bytes": {"type": "integer", "minimum": 0, "maximum": 262144},
+    "total_bytes": {"type": "integer", "minimum": 0, "maximum": 1402200},
+    "expires_at_ms": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "payload_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "data": {"type": "string", "maxLength": 349528}
+  },
+  "allOf": [
+    {"if": {"properties": {"traffic_class": {"const": "control"}}, "required": ["traffic_class"]}, "then": {"properties": {"total_bytes": {"maximum": 25944}}}},
+    {"if": {"properties": {"traffic_class": {"const": "transcript"}}, "required": ["traffic_class"]}, "then": {"properties": {"total_bytes": {"maximum": 91480}}}},
+    {"if": {"properties": {"traffic_class": {"const": "audio_recovery"}}, "required": ["traffic_class"]}, "then": {"properties": {"total_bytes": {"maximum": 353624}}}},
+    {"if": {"properties": {"traffic_class": {"const": "visual_semantic"}}, "required": ["traffic_class"]}, "then": {"properties": {"total_bytes": {"maximum": 703148}}}},
+    {"if": {"properties": {"traffic_class": {"const": "evidence_bulk"}}, "required": ["traffic_class"]}, "then": {"properties": {"total_bytes": {"maximum": 1402200}}}},
+    {"if": {"properties": {"traffic_class": {"const": "diagnostic"}}, "required": ["traffic_class"]}, "then": {"properties": {"total_bytes": {"maximum": 15020}}}}
+  ]
+}

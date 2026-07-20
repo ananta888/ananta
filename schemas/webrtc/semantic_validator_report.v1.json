@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/semantic_validator_report.v1.json",
+  "type": "object", "additionalProperties": false,
+  "required": [
+    "schema", "report_id", "session_id", "contract_id", "validator_lease_id",
+    "validator_id", "validator_role", "audience", "epoch", "sequence",
+    "input_digest", "output_digest", "criteria", "verdict", "observed_at_ms",
+    "expires_at_ms", "signature"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.semantic-validator-report.v1"},
+    "report_id": {"$ref": "#/$defs/id"}, "session_id": {"$ref": "#/$defs/id"},
+    "contract_id": {"$ref": "#/$defs/id"}, "validator_lease_id": {"$ref": "#/$defs/id"},
+    "validator_id": {"$ref": "#/$defs/id"}, "validator_role": {"const": "validator"},
+    "audience": {"const": "hub"}, "epoch": {"type": "integer", "minimum": 1},
+    "sequence": {"type": "integer", "minimum": 0},
+    "input_digest": {"$ref": "#/$defs/digest"}, "output_digest": {"$ref": "#/$defs/digest"},
+    "criteria": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_valid", "binding_valid", "quality_score", "drift_score", "deadline_met"],
+      "properties": {
+        "schema_valid": {"type": "boolean"}, "binding_valid": {"type": "boolean"},
+        "quality_score": {"type": "number", "minimum": 0, "maximum": 1},
+        "drift_score": {"type": "number", "minimum": 0, "maximum": 1},
+        "deadline_met": {"type": "boolean"}
+      }
+    },
+    "verdict": {"enum": ["pass", "fail", "conflict"]},
+    "observed_at_ms": {"type": "integer", "minimum": 0}, "expires_at_ms": {"type": "integer", "minimum": 1},
+    "signature": {"type": "string", "minLength": 16, "maxLength": 1024, "pattern": "^[A-Za-z0-9._~+/-]+={0,2}$"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 192, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]*$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

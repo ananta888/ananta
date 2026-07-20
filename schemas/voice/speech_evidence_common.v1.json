@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.invalid/schemas/voice/speech_evidence_common.v1.json",
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "ids": { "type": "array", "maxItems": 4096, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+    "base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol_version", "message_type", "message_id", "session_id", "pair_id", "sender_id", "audience_id", "epoch", "sequence", "consent_version", "key_id", "issued_at_ms", "expires_at_ms", "payload_digest", "payload", "signature_algorithm", "signature_b64"],
+      "properties": {
+        "protocol_version": { "const": "ananta.speech-evidence-sync.v1" },
+        "message_type": { "enum": ["inventory", "diff", "offer", "chunk", "chunk_ack", "resolution", "receipt", "revocation", "revocation_ack"] },
+        "message_id": { "$ref": "#/$defs/id" },
+        "session_id": { "$ref": "#/$defs/id" },
+        "pair_id": { "$ref": "#/$defs/id" },
+        "sender_id": { "$ref": "#/$defs/id" },
+        "audience_id": { "$ref": "#/$defs/id" },
+        "epoch": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "sequence": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "consent_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "key_id": { "$ref": "#/$defs/id" },
+        "issued_at_ms": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "expires_at_ms": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "payload_digest": { "$ref": "#/$defs/digest" },
+        "payload": { "type": "object" },
+        "signature_algorithm": { "const": "Ed25519" },
+        "signature_b64": { "type": "string", "minLength": 88, "maxLength": 88 }
+      }
+    },
+    "inventoryPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["traffic_class", "inventory_id", "root_digest", "leaf_count", "total_bytes", "scope_digest", "retention_until_ms", "cursor_digest"],
+      "properties": {
+        "traffic_class": { "const": "control" }, "inventory_id": { "$ref": "#/$defs/id" },
+        "root_digest": { "$ref": "#/$defs/digest" }, "leaf_count": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "total_bytes": { "type": "integer", "minimum": 0, "maximum": 1073741824 }, "scope_digest": { "$ref": "#/$defs/digest" },
+        "retention_until_ms": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }, "cursor_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "diffPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["traffic_class", "base_root_digest", "target_root_digest", "missing_group_ids", "changed_group_ids", "cursor_digest", "complete", "total_groups"],
+      "properties": {
+        "traffic_class": { "const": "control" }, "base_root_digest": { "$ref": "#/$defs/digest" }, "target_root_digest": { "$ref": "#/$defs/digest" },
+        "missing_group_ids": { "$ref": "#/$defs/ids" }, "changed_group_ids": { "$ref": "#/$defs/ids" }, "cursor_digest": { "$ref": "#/$defs/digest" },
+        "complete": { "type": "boolean" }, "total_groups": { "type": "integer", "minimum": 0, "maximum": 100000 }
+      }
+    },
+    "offerPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["traffic_class", "offer_id", "stage", "inventory_root_digest", "direction", "purpose", "data_classes", "fields", "retention_seconds", "trainer_class", "group_ids", "total_bytes", "sender_consent_digest", "recipient_consent_digest", "scope_digest"],
+      "properties": {
+        "traffic_class": { "const": "control" }, "offer_id": { "$ref": "#/$defs/id" }, "stage": { "enum": ["proposal", "acceptance"] },
+        "inventory_root_digest": { "$ref": "#/$defs/digest" }, "direction": { "enum": ["sender_to_receiver", "receiver_to_sender"] },
+        "purpose": { "enum": ["peer_reconciliation", "speech_dataset_curation"] },
+        "data_classes": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "fields": { "type": "array", "maxItems": 16, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "retention_seconds": { "type": "integer", "minimum": 1, "maximum": 31536000 }, "trainer_class": { "enum": ["none", "speech_adaptation"] },
+        "group_ids": { "$ref": "#/$defs/ids" }, "total_bytes": { "type": "integer", "minimum": 1, "maximum": 1073741824 },
+        "sender_consent_digest": { "$ref": "#/$defs/digest" }, "recipient_consent_digest": { "$ref": "#/$defs/digest" }, "scope_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "chunkPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["traffic_class", "offer_id", "group_id", "chunk_index", "chunk_count", "plaintext_bytes", "plaintext_digest", "ciphertext_digest", "nonce_b64", "ciphertext_b64"],
+      "properties": {
+        "traffic_class": { "const": "evidence_bulk" }, "offer_id": { "$ref": "#/$defs/id" }, "group_id": { "$ref": "#/$defs/id" },
+        "chunk_index": { "type": "integer", "minimum": 0, "maximum": 4095 }, "chunk_count": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "plaintext_bytes": { "type": "integer", "minimum": 1, "maximum": 65536 }, "plaintext_digest": { "$ref": "#/$defs/digest" },
+        "ciphertext_digest": { "$ref": "#/$defs/digest" }, "nonce_b64": { "type": "string", "minLength": 16, "maxLength": 16 },
+        "ciphertext_b64": { "type": "string", "minLength": 24, "maxLength": 87404 }
+      }
+    },
+    "ackPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["traffic_class", "offer_id", "group_id", "acknowledged_indices", "first_missing_index", "received_bytes", "complete"],
+      "properties": {
+        "traffic_class": { "const": "control" }, "offer_id": { "$ref": "#/$defs/id" }, "group_id": { "$ref": "#/$defs/id" },
+        "acknowledged_indices": { "type": "array", "maxItems": 4096, "uniqueItems": true, "items": { "type": "integer", "minimum": 0, "maximum": 4095 } },
+        "first_missing_index": { "type": "integer", "minimum": 0, "maximum": 4096 }, "received_bytes": { "type": "integer", "minimum": 0, "maximum": 1073741824 }, "complete": { "type": "boolean" }
+      }
+    },
+    "resolutionPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["traffic_class", "resolution_id", "policy_version", "graph_digest", "candidate_ids", "accepted_candidate_ids", "unresolved_region_ids", "result_digest", "candidates"],
+      "properties": {
+        "traffic_class": { "const": "control" }, "resolution_id": { "$ref": "#/$defs/id" }, "policy_version": { "$ref": "#/$defs/id" },
+        "graph_digest": { "$ref": "#/$defs/digest" }, "candidate_ids": { "type": "array", "maxItems": 32, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "accepted_candidate_ids": { "type": "array", "maxItems": 32, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "unresolved_region_ids": { "type": "array", "maxItems": 1024, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "result_digest": { "$ref": "#/$defs/digest" },
+        "candidates": { "type": "array", "maxItems": 32, "items": { "type": "object", "additionalProperties": false,
+          "required": ["candidate_id", "source_id", "contributor_digest", "revision", "lineage_digest", "text", "confidence", "start_ms", "end_ms"],
+          "properties": { "candidate_id": { "$ref": "#/$defs/id" }, "source_id": { "$ref": "#/$defs/id" }, "contributor_digest": { "$ref": "#/$defs/digest" },
+            "revision": { "type": "integer", "minimum": 1, "maximum": 2147483647 }, "lineage_digest": { "$ref": "#/$defs/digest" }, "text": { "type": "string", "minLength": 1, "maxLength": 32768 },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 }, "start_ms": { "type": "integer", "minimum": 0 }, "end_ms": { "type": "integer", "minimum": 0 } } } }
+      }
+    },
+    "receiptPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["traffic_class", "receipt_id", "offer_id", "inventory_root_digest", "resolution_digest", "accepted_group_ids", "rejected_group_ids", "quarantined_group_ids", "consent_digest", "policy_digest", "result_digest"],
+      "properties": { "traffic_class": { "const": "control" }, "receipt_id": { "$ref": "#/$defs/id" }, "offer_id": { "$ref": "#/$defs/id" },
+        "inventory_root_digest": { "$ref": "#/$defs/digest" }, "resolution_digest": { "$ref": "#/$defs/digest" }, "accepted_group_ids": { "$ref": "#/$defs/ids" },
+        "rejected_group_ids": { "$ref": "#/$defs/ids" }, "quarantined_group_ids": { "$ref": "#/$defs/ids" }, "consent_digest": { "$ref": "#/$defs/digest" },
+        "policy_digest": { "$ref": "#/$defs/digest" }, "result_digest": { "$ref": "#/$defs/digest" } }
+    },
+    "revocationPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["traffic_class", "revocation_id", "group_ids", "scope_digest", "reason_code", "revocation_epoch", "deadline_at_ms", "requested_action"],
+      "properties": { "traffic_class": { "const": "control" }, "revocation_id": { "$ref": "#/$defs/id" }, "group_ids": { "$ref": "#/$defs/ids" },
+        "scope_digest": { "$ref": "#/$defs/digest" }, "reason_code": { "$ref": "#/$defs/id" }, "revocation_epoch": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "deadline_at_ms": { "type": "integer", "minimum": 1 }, "requested_action": { "enum": ["delete", "stop_use"] } }
+    },
+    "revocationAckPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["traffic_class", "revocation_id", "scope_digest", "revocation_epoch", "impact_digest", "group_results", "decision"],
+      "properties": { "traffic_class": { "const": "control" }, "revocation_id": { "$ref": "#/$defs/id" }, "scope_digest": { "$ref": "#/$defs/digest" },
+        "revocation_epoch": { "type": "integer", "minimum": 1, "maximum": 2147483647 }, "impact_digest": { "$ref": "#/$defs/digest" },
+        "group_results": { "type": "array", "minItems": 1, "maxItems": 4096, "items": { "type": "object", "additionalProperties": false,
+          "required": ["group_id", "state", "reason_code"], "properties": { "group_id": { "$ref": "#/$defs/id" }, "state": { "enum": ["deleted", "use_stopped", "not_found", "unresolved"] }, "reason_code": { "$ref": "#/$defs/id" } } } },
+        "decision": { "enum": ["complete", "partial", "unresolved"] } }
+    },
+    "inventoryMessage": { "allOf": [{ "$ref": "#/$defs/base" }, { "properties": { "message_type": { "const": "inventory" }, "payload": { "$ref": "#/$defs/inventoryPayload" } } }] },
+    "diffMessage": { "allOf": [{ "$ref": "#/$defs/base" }, { "properties": { "message_type": { "const": "diff" }, "payload": { "$ref": "#/$defs/diffPayload" } } }] },
+    "offerMessage": { "allOf": [{ "$ref": "#/$defs/base" }, { "properties": { "message_type": { "const": "offer" }, "payload": { "$ref": "#/$defs/offerPayload" } } }] },
+    "chunkMessage": { "allOf": [{ "$ref": "#/$defs/base" }, { "properties": { "message_type": { "const": "chunk" }, "payload": { "$ref": "#/$defs/chunkPayload" } } }] },
+    "ackMessage": { "allOf": [{ "$ref": "#/$defs/base" }, { "properties": { "message_type": { "const": "chunk_ack" }, "payload": { "$ref": "#/$defs/ackPayload" } } }] },
+    "resolutionMessage": { "allOf": [{ "$ref": "#/$defs/base" }, { "properties": { "message_type": { "const": "resolution" }, "payload": { "$ref": "#/$defs/resolutionPayload" } } }] },
+    "receiptMessage": { "allOf": [{ "$ref": "#/$defs/base" }, { "properties": { "message_type": { "const": "receipt" }, "payload": { "$ref": "#/$defs/receiptPayload" } } }] },
+    "revocationMessage": { "allOf": [{ "$ref": "#/$defs/base" }, { "properties": { "message_type": { "const": "revocation" }, "payload": { "$ref": "#/$defs/revocationPayload" } } }] },
+    "revocationAckMessage": { "allOf": [{ "$ref": "#/$defs/base" }, { "properties": { "message_type": { "const": "revocation_ack" }, "payload": { "$ref": "#/$defs/revocationAckPayload" } } }] }
+  }
+}

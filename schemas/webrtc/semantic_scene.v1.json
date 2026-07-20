@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/semantic_scene.v1.json",
+  "title": "Ananta model-independent semantic scene",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "scene_id", "session_id", "contract_id", "contract_digest",
+    "epoch", "sequence", "source_frame_digest", "coordinate_space",
+    "timebase", "provenance", "nodes", "security"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.semantic-scene.v1"},
+    "scene_id": {"$ref": "#/$defs/id"},
+    "session_id": {"$ref": "#/$defs/id"},
+    "contract_id": {"$ref": "#/$defs/id"},
+    "contract_digest": {"$ref": "#/$defs/digest"},
+    "epoch": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "sequence": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "source_frame_digest": {"$ref": "#/$defs/digest"},
+    "coordinate_space": {
+      "type": "object", "additionalProperties": false,
+      "required": ["unit", "origin", "width", "height"],
+      "properties": {
+        "unit": {"const": "normalized"}, "origin": {"const": "top_left"},
+        "width": {"const": 1}, "height": {"const": 1}
+      }
+    },
+    "timebase": {
+      "type": "object", "additionalProperties": false,
+      "required": ["unit", "captured_at_ms", "duration_ms"],
+      "properties": {
+        "unit": {"const": "milliseconds"},
+        "captured_at_ms": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "duration_ms": {"type": "integer", "minimum": 0, "maximum": 60000}
+      }
+    },
+    "provenance": {"$ref": "#/$defs/provenance"},
+    "nodes": {
+      "type": "array", "maxItems": 256,
+      "items": {"$ref": "#/$defs/node"}
+    },
+    "security": {
+      "type": "object", "additionalProperties": false,
+      "required": ["classification", "raw_media_included"],
+      "properties": {
+        "classification": {"const": "derived_semantic_metadata"},
+        "raw_media_included": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 192, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]*$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "boundedString": {"type": "string", "maxLength": 256},
+    "point": {
+      "type": "object", "additionalProperties": false, "required": ["x", "y"],
+      "properties": {
+        "x": {"type": "number", "minimum": 0, "maximum": 1},
+        "y": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source", "algorithm", "version", "authoritative"],
+      "properties": {
+        "source": {"enum": ["heuristic", "user", "model_proposal"]},
+        "algorithm": {"$ref": "#/$defs/boundedString"},
+        "version": {"$ref": "#/$defs/boundedString"},
+        "authoritative": {"type": "boolean"}
+      },
+      "allOf": [{
+        "if": {"properties": {"source": {"const": "model_proposal"}}, "required": ["source"]},
+        "then": {"properties": {"authoritative": {"const": false}}}
+      }]
+    },
+    "kindObservation": {
+      "type": "object", "additionalProperties": false, "required": ["value", "provenance"],
+      "properties": {
+        "value": {"enum": ["region", "text_hint", "object_hint", "cursor", "unknown"]},
+        "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "geometryObservation": {
+      "type": "object", "additionalProperties": false, "required": ["value", "provenance"],
+      "properties": {
+        "value": {
+          "type": "object", "additionalProperties": false,
+          "required": ["x", "y", "width", "height", "outline"],
+          "properties": {
+            "x": {"type": "number", "minimum": 0, "maximum": 1},
+            "y": {"type": "number", "minimum": 0, "maximum": 1},
+            "width": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+            "height": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+            "outline": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/point"}}
+          }
+        },
+        "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "motionObservation": {
+      "type": "object", "additionalProperties": false, "required": ["value", "provenance"],
+      "properties": {
+        "value": {
+          "type": "object", "additionalProperties": false, "required": ["dx_per_second", "dy_per_second"],
+          "properties": {
+            "dx_per_second": {"type": "number", "minimum": -4, "maximum": 4},
+            "dy_per_second": {"type": "number", "minimum": -4, "maximum": 4}
+          }
+        },
+        "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "stringObservation": {
+      "type": "object", "additionalProperties": false, "required": ["value", "provenance"],
+      "properties": {"value": {"$ref": "#/$defs/boundedString"}, "provenance": {"$ref": "#/$defs/provenance"}}
+    },
+    "confidenceObservation": {
+      "type": "object", "additionalProperties": false, "required": ["value", "provenance"],
+      "properties": {"value": {"type": "number", "minimum": 0, "maximum": 1}, "provenance": {"$ref": "#/$defs/provenance"}}
+    },
+    "node": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "parent_id", "kind", "geometry", "motion", "confidence"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "parent_id": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/id"}]},
+        "kind": {"$ref": "#/$defs/kindObservation"},
+        "geometry": {"$ref": "#/$defs/geometryObservation"},
+        "motion": {"$ref": "#/$defs/motionObservation"},
+        "label": {"$ref": "#/$defs/stringObservation"},
+        "confidence": {"$ref": "#/$defs/confidenceObservation"}
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/speech_transport_contract.v1.json",
+  "title": "Ananta semantic speech transport contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "session_id", "epoch", "sender_id", "audience_id", "consent_version", "expires_at_ms", "contract_digest", "mode", "live_partials", "correct_each_segment", "traffic_classes", "source_ttl_ms"],
+  "properties": {
+    "version": {"const": "ananta.speech-transport.v1"},
+    "session_id": {"$ref": "#/$defs/id"},
+    "epoch": {"$ref": "#/$defs/positive"},
+    "sender_id": {"$ref": "#/$defs/id"},
+    "audience_id": {"$ref": "#/$defs/id"},
+    "consent_version": {"$ref": "#/$defs/positive"},
+    "expires_at_ms": {"$ref": "#/$defs/positive"},
+    "contract_digest": {"$ref": "#/$defs/digest"},
+    "mode": {"enum": ["ordinary_audio", "transcript_live", "semantic_reconstruction", "delayed_correction", "segment_only"]},
+    "live_partials": {"type": "boolean"},
+    "correct_each_segment": {"type": "boolean"},
+    "traffic_classes": {"type": "array", "minItems": 1, "maxItems": 4, "uniqueItems": true, "items": {"enum": ["control", "transcript", "audio_recovery", "evidence_bulk"]}},
+    "source_ttl_ms": {"type": "integer", "minimum": 0, "maximum": 600000}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "positive": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  }
+}

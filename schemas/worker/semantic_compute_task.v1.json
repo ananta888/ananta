@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/semantic_compute_task.v1.json",
+  "title": "Hub-delegated semantic compute task v1",
+  "type": "object",
+  "required": [
+    "schema", "task_id", "parent_task_id", "contract_id", "contract_digest",
+    "lease_id", "fencing_token", "session_id", "epoch", "task_type", "audience",
+    "input_refs", "deadline_epoch_ms", "resource_budget", "artifact_publish_ref",
+    "execution_owner", "orchestration"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.semantic-compute-task.v1"},
+    "task_id": {"type": "string", "maxLength": 192},
+    "parent_task_id": {"type": "string", "maxLength": 192},
+    "contract_id": {"type": "string", "maxLength": 192},
+    "contract_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "lease_id": {"type": "string", "maxLength": 192},
+    "fencing_token": {"type": "integer", "minimum": 1},
+    "session_id": {"type": "string", "maxLength": 192},
+    "epoch": {"type": "integer", "minimum": 1},
+    "task_type": {"enum": ["visual_extract", "visual_validate", "speech_features", "speech_validate"]},
+    "audience": {"type": "string", "maxLength": 192},
+    "input_refs": {
+      "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^artifact:[A-Za-z0-9_.:@-]{1,180}$"}
+    },
+    "deadline_epoch_ms": {"type": "integer", "minimum": 1},
+    "resource_budget": {
+      "type": "object",
+      "required": ["cpu_ms", "memory_bytes", "artifact_bytes"],
+      "properties": {
+        "cpu_ms": {"type": "integer", "minimum": 1, "maximum": 20000},
+        "memory_bytes": {"type": "integer", "minimum": 1048576, "maximum": 1073741824},
+        "artifact_bytes": {"type": "integer", "minimum": 1, "maximum": 4194304}
+      },
+      "additionalProperties": false
+    },
+    "artifact_publish_ref": {"type": "string", "pattern": "^artifact-publish:[A-Za-z0-9_.:@-]{1,170}$"},
+    "task_lease": {
+      "type": "object",
+      "required": [
+        "schema", "lease_id", "contract_id", "contract_digest", "session_id", "epoch",
+        "task_type", "role", "executor_id", "audience", "sequence_start", "sequence_end",
+        "fencing_token", "resource_budget", "issued_at_ms", "expires_at_ms", "deadline_ms",
+        "issuer", "signature"
+      ],
+      "properties": {
+        "schema": {"const": "ananta.semantic-task-lease.v1"},
+        "lease_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,191}$"},
+        "contract_id": {"type": "string", "maxLength": 192},
+        "contract_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "session_id": {"type": "string", "maxLength": 192},
+        "room_id": {"type": ["string", "null"], "maxLength": 192},
+        "epoch": {"type": "integer", "minimum": 1},
+        "task_type": {"enum": ["visual_extract", "visual_validate", "speech_features", "speech_validate"]},
+        "role": {"const": "primary"},
+        "executor_id": {
+          "anyOf": [
+            {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,191}$"},
+            {"type": "string", "maxLength": 512, "pattern": "^https?://[^\\s/?#@]+(?:/[^\\s?#]*)?$"}
+          ]
+        },
+        "audience": {"type": "string", "maxLength": 192},
+        "sequence_start": {"type": "integer", "minimum": 0},
+        "sequence_end": {"type": "integer", "minimum": 0},
+        "fencing_token": {"type": "integer", "minimum": 1},
+        "resource_budget": {
+          "type": "object",
+          "required": ["cpu_ms", "memory_bytes", "artifact_bytes"],
+          "properties": {
+            "cpu_ms": {"type": "integer", "minimum": 1, "maximum": 20000},
+            "memory_bytes": {"type": "integer", "minimum": 1048576, "maximum": 1073741824},
+            "artifact_bytes": {"type": "integer", "minimum": 1, "maximum": 4194304}
+          },
+          "additionalProperties": false
+        },
+        "issued_at_ms": {"type": "integer", "minimum": 1},
+        "expires_at_ms": {"type": "integer", "minimum": 1},
+        "deadline_ms": {"type": "integer", "minimum": 1, "maximum": 20000},
+        "issuer": {"const": "hub"},
+        "signature": {
+          "type": "object",
+          "required": ["algorithm", "key_id", "value"],
+          "properties": {
+            "algorithm": {"const": "hmac-sha256"},
+            "key_id": {"type": "string", "maxLength": 128},
+            "value": {"type": "string", "minLength": 64, "maxLength": 64}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "execution_owner": {"const": "worker"},
+    "orchestration": {
+      "type": "object",
+      "required": ["owner", "may_create_tasks", "may_contact_peers", "may_contact_workers"],
+      "properties": {
+        "owner": {"const": "hub"},
+        "may_create_tasks": {"const": false},
+        "may_contact_peers": {"const": false},
+        "may_contact_workers": {"const": false}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

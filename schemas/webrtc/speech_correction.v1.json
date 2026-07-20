@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/speech_correction.v1.json",
+  "title": "Ananta semantic speech correction v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "session_id", "epoch", "turn_id", "revision", "supersedes_revision", "sender_id", "audience_id", "consent_version", "expires_at_ms", "contract_digest", "source_digest", "authority", "text", "operations", "reason_code"],
+  "properties": {
+    "version": {"const": "ananta.speech-correction.v1"},
+    "session_id": {"$ref": "#/$defs/id"}, "epoch": {"$ref": "#/$defs/positive"},
+    "turn_id": {"$ref": "#/$defs/id"}, "revision": {"$ref": "#/$defs/positive"},
+    "supersedes_revision": {"$ref": "#/$defs/positive"}, "sender_id": {"$ref": "#/$defs/id"},
+    "audience_id": {"$ref": "#/$defs/id"}, "consent_version": {"$ref": "#/$defs/positive"},
+    "expires_at_ms": {"$ref": "#/$defs/positive"}, "contract_digest": {"$ref": "#/$defs/digest"},
+    "source_digest": {"$ref": "#/$defs/digest"},
+    "authority": {"enum": ["corrected", "correction_failed", "missing_source"]},
+    "text": {"type": "string", "maxLength": 16384},
+    "operations": {"type": "array", "maxItems": 2048, "items": {"$ref": "#/$defs/operation"}},
+    "reason_code": {"$ref": "#/$defs/id"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "positive": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "operation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "reference_text", "candidate_text", "candidate_id", "start_ms", "end_ms", "confidence"],
+      "properties": {
+        "kind": {"enum": ["equal", "insert", "delete", "replace"]},
+        "reference_text": {"type": "string", "maxLength": 2048},
+        "candidate_text": {"type": "string", "maxLength": 2048},
+        "candidate_id": {"$ref": "#/$defs/id"},
+        "start_ms": {"type": ["integer", "null"], "minimum": 0},
+        "end_ms": {"type": ["integer", "null"], "minimum": 0},
+        "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}

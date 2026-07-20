@@ -6,6 +6,10 @@ from flask import Blueprint, g, request
 
 from agent.auth import check_user_auth
 from agent.common.errors import api_response
+from agent.services.speech_evidence_curation_task_service import (
+    SpeechCurationTaskError,
+    get_speech_evidence_curation_task_service,
+)
 from agent.services.voice_consent_service import get_voice_consent_service
 from agent.services.voice_governance_domain import (
     VoiceGovernanceError,
@@ -84,6 +88,33 @@ def _error(exc: VoiceGovernanceError):
         code=exc.status_code,
         data={"error": {"code": exc.code, "message": exc.message, "retriable": False}},
     )
+
+
+def _curation_error(exc: SpeechCurationTaskError):
+    return api_response(
+        status="error",
+        code=exc.status_code,
+        data={"error": {"code": exc.reason_code, "message": str(exc), "retriable": False}},
+    )
+
+
+@voice_governance_bp.route("/v1/voice/evidence-curation-tasks", methods=["POST"])
+@check_user_auth
+def create_speech_evidence_curation_task():
+    """Create exactly the Hub-defined curation task for one admission."""
+
+    try:
+        body = _json_body()
+        if set(body) != {"admission_digest", "confirmed"}:
+            raise SpeechCurationTaskError("speech_curation_request_fields_invalid", status_code=422)
+        if body.get("confirmed") is not True:
+            raise SpeechCurationTaskError("speech_curation_confirmation_required", status_code=403)
+        task, created = get_speech_evidence_curation_task_service().create(
+            _principal(), admission_digest=str(body.get("admission_digest") or "")
+        )
+        return api_response(data={"curation_task": task.to_dict()}, code=201 if created else 200)
+    except SpeechCurationTaskError as exc:
+        return _curation_error(exc)
 
 
 @voice_governance_bp.route("/v1/voice/consents/<profile_id>", methods=["GET"])
@@ -172,12 +203,10 @@ def set_consent(profile_id: str):
             result.update(
                 {
                     "runtime_cleanup_pending": (
-                        cleanup_run.status.pending_count > 0
-                        or recovered_cleanup.status.pending_count > 0
+                        cleanup_run.status.pending_count > 0 or recovered_cleanup.status.pending_count > 0
                     ),
                     "runtime_cleanup_failed_count": (
-                        cleanup_run.status.failed_count
-                        + recovered_cleanup.status.failed_count
+                        cleanup_run.status.failed_count + recovered_cleanup.status.failed_count
                     ),
                 }
             )

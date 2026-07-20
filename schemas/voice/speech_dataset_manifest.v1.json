@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/voice/speech_dataset_manifest.v1.json",
+  "title": "Immutable multi-contributor speech dataset manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "dataset_id",
+    "version",
+    "manifest_digest",
+    "parent_digest",
+    "algorithm_version",
+    "contributors",
+    "records",
+    "split_groups",
+    "curation_report_digest"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.speech-dataset-manifest.v1"},
+    "dataset_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,159}$"},
+    "version": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "manifest_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "parent_digest": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "algorithm_version": {"const": "speech-dataset-builder-v1"},
+    "contributors": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "record_digest",
+          "lineage_kind",
+          "source_digest",
+          "utterance_family_id",
+          "session_group_id",
+          "near_duplicate_group_id",
+          "contributors",
+          "data_classes",
+          "field_provenance",
+          "consent_refs",
+          "duration_ms",
+          "curation_report_digest"
+        ],
+        "properties": {
+          "record_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "lineage_kind": {"enum": ["evidence", "reconciliation"]},
+          "source_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "utterance_family_id": {"type": "string", "pattern": "^utterance-v1:[0-9a-f]{64}$"},
+          "session_group_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "near_duplicate_group_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "contributors": {
+            "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          },
+          "data_classes": {
+            "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true,
+            "items": {"enum": ["audio", "transcript", "acoustic_features", "speaker_embedding", "correction", "quality_metrics"]}
+          },
+          "field_provenance": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 32,
+            "propertyNames": {"pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"},
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["contributor_digest", "source_digest"],
+              "properties": {
+                "contributor_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "source_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+              }
+            }
+          },
+          "consent_refs": {
+            "type": "array", "minItems": 1, "maxItems": 16,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["consent_id", "consent_version", "revocation_epoch", "consent_digest"],
+              "properties": {
+                "consent_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@-]{0,159}$"},
+                "consent_version": {"type": "integer", "minimum": 1},
+                "revocation_epoch": {"type": "integer", "minimum": 0},
+                "consent_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+              }
+            }
+          },
+          "duration_ms": {"type": "integer", "minimum": 1, "maximum": 3600000},
+          "curation_report_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "curation_status": {"enum": ["resolved", "unresolved", "rejected", "quarantined"]},
+          "reconciliation_outcome": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_record_digest",
+              "reconciliation_digest",
+              "status",
+              "resolution_id",
+              "unresolved_region_ids",
+              "disposition_reason"
+            ],
+            "properties": {
+              "source_record_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "reconciliation_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "status": {"enum": ["resolved", "unresolved", "rejected", "quarantined"]},
+              "resolution_id": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+              "unresolved_region_ids": {
+                "type": "array",
+                "maxItems": 100000,
+                "uniqueItems": true,
+                "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+              },
+              "disposition_reason": {
+                "type": "string",
+                "pattern": "^speech_reconciliation_[a-z0-9_]{1,104}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "split_groups": {
+      "type": "array", "minItems": 1, "maxItems": 10000, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    },
+    "curation_report_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "curation_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "reconciliation_digest",
+        "input_count",
+        "resolved_count",
+        "unresolved_count",
+        "rejected_count",
+        "quarantined_count",
+        "resolved_record_digests",
+        "unresolved_record_digests",
+        "rejected_record_digests",
+        "quarantined_record_digests",
+        "resolution_outcomes_sha256",
+        "outcomes",
+        "terminal",
+        "trainable"
+      ],
+      "properties": {
+        "schema": {"const": "ananta.speech-reconciliation-curation.v1"},
+        "reconciliation_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "input_count": {"type": "integer", "minimum": 1, "maximum": 10000},
+        "resolved_count": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "unresolved_count": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "rejected_count": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "quarantined_count": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "resolved_record_digests": {"$ref": "#/$defs/digestList"},
+        "unresolved_record_digests": {"$ref": "#/$defs/digestList"},
+        "rejected_record_digests": {"$ref": "#/$defs/digestList"},
+        "quarantined_record_digests": {"$ref": "#/$defs/digestList"},
+        "resolution_outcomes_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_record_digest",
+              "output_record_digest",
+              "reconciliation_digest",
+              "status",
+              "resolution_id",
+              "unresolved_region_ids",
+              "disposition_reason"
+            ],
+            "properties": {
+              "source_record_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "output_record_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "reconciliation_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "status": {"enum": ["resolved", "unresolved", "rejected", "quarantined"]},
+              "resolution_id": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+              "unresolved_region_ids": {
+                "type": "array",
+                "maxItems": 100000,
+                "uniqueItems": true,
+                "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+              },
+              "disposition_reason": {
+                "type": "string",
+                "pattern": "^speech_reconciliation_[a-z0-9_]{1,104}$"
+              }
+            }
+          }
+        },
+        "terminal": {"type": "boolean"},
+        "trainable": {"type": "boolean"}
+      }
+    }
+  },
+  "$defs": {
+    "digestList": {
+      "type": "array",
+      "maxItems": 10000,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    }
+  }
+}

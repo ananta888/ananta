@@ -13,6 +13,12 @@ BACKGROUND_SERVICE_NAMES = (
     "housekeeping",
     "workflow_runtime_reconciler",
     "ml_intern_training_reconciler",
+    "speech_adaptation_dispatcher",
+    "speech_evidence_retention_reconciler",
+    "semantic_media_audit_reconciler",
+    "speech_reconciliation_reconciler",
+    "speech_reconciliation_queue_pump",
+    "speech_reconciliation_result_collector",
     "scheduler",
 )
 
@@ -54,6 +60,30 @@ class BackgroundServiceManager:
             "ml_intern_training_reconciler",
             self._start_ml_intern_training_reconciler,
         )
+        self._start_service(
+            "speech_adaptation_dispatcher",
+            self._start_speech_adaptation_dispatcher,
+        )
+        self._start_service(
+            "speech_evidence_retention_reconciler",
+            self._start_speech_evidence_retention_reconciler,
+        )
+        self._start_service(
+            "semantic_media_audit_reconciler",
+            self._start_semantic_media_audit_reconciler,
+        )
+        self._start_service(
+            "speech_reconciliation_reconciler",
+            self._start_speech_reconciliation_reconciler,
+        )
+        self._start_service(
+            "speech_reconciliation_queue_pump",
+            self._start_speech_reconciliation_queue_pump,
+        )
+        self._start_service(
+            "speech_reconciliation_result_collector",
+            self._start_speech_reconciliation_result_collector,
+        )
         self._start_service("scheduler", self._start_scheduler)
         self._capture_active_threads()
         extensions = getattr(self.app, "extensions", None)
@@ -70,9 +100,28 @@ class BackgroundServiceManager:
         self.shutdown_requested = True
         agent.common.context.shutdown_requested = True
         try:
+            # Stop new training dispatch and fence every active lease before
+            # other speech services are drained.
+            self._stop_speech_adaptation_dispatcher()
+        except Exception as exc:
+            self.failed_services["speech_adaptation_dispatcher_stop"] = str(exc)
+        try:
             self._stop_ml_intern_training_reconciler()
         except Exception as exc:
             self.failed_services["ml_intern_training_reconciler_stop"] = str(exc)
+        for name, stopper in (
+            # Stop new dispatch first so no attempt can be claimed between
+            # the collector's final DB fence and queue-pump shutdown.
+            ("speech_reconciliation_queue_pump", self._stop_speech_reconciliation_queue_pump),
+            ("speech_reconciliation_result_collector", self._stop_speech_reconciliation_result_collector),
+            ("speech_reconciliation_reconciler", self._stop_speech_reconciliation_reconciler),
+            ("semantic_media_audit_reconciler", self._stop_semantic_media_audit_reconciler),
+            ("speech_evidence_retention_reconciler", self._stop_speech_evidence_retention_reconciler),
+        ):
+            try:
+                stopper()
+            except Exception as exc:
+                self.failed_services[f"{name}_stop"] = str(exc)
         try:
             self._stop_scheduler()
         except Exception as exc:
@@ -157,12 +206,96 @@ class BackgroundServiceManager:
 
         start_ml_intern_training_reconciler_thread(self.app)
 
+    def _start_speech_adaptation_dispatcher(self):
+        from agent.services.background.speech_adaptation_dispatcher import (
+            start_speech_adaptation_dispatcher_thread,
+        )
+
+        start_speech_adaptation_dispatcher_thread(self.app)
+
+    def _start_speech_reconciliation_reconciler(self):
+        from agent.services.background.speech_reconciliation_reconciler import (
+            start_speech_reconciliation_reconciler_thread,
+        )
+
+        start_speech_reconciliation_reconciler_thread(self.app)
+
+    def _start_speech_reconciliation_queue_pump(self):
+        from agent.services.background.speech_reconciliation_queue_pump import (
+            start_speech_reconciliation_queue_pump_thread,
+        )
+
+        start_speech_reconciliation_queue_pump_thread(self.app)
+
+    def _start_speech_reconciliation_result_collector(self):
+        from agent.services.background.speech_reconciliation_result_collector import (
+            start_speech_reconciliation_result_collector_thread,
+        )
+
+        start_speech_reconciliation_result_collector_thread(self.app)
+
+    def _start_speech_evidence_retention_reconciler(self):
+        from agent.services.background.speech_evidence_retention_reconciler import (
+            start_speech_evidence_retention_reconciler_thread,
+        )
+
+        start_speech_evidence_retention_reconciler_thread(self.app)
+
+    def _start_semantic_media_audit_reconciler(self):
+        from agent.services.background.semantic_media_audit_reconciler import (
+            start_semantic_media_audit_reconciler_thread,
+        )
+
+        start_semantic_media_audit_reconciler_thread(self.app)
+
+    def _stop_speech_reconciliation_result_collector(self):
+        from agent.services.background.speech_reconciliation_result_collector import (
+            stop_speech_reconciliation_result_collector,
+        )
+
+        stop_speech_reconciliation_result_collector(self.app)
+
+    def _stop_speech_reconciliation_queue_pump(self):
+        from agent.services.background.speech_reconciliation_queue_pump import (
+            stop_speech_reconciliation_queue_pump,
+        )
+
+        stop_speech_reconciliation_queue_pump(self.app)
+
+    def _stop_speech_reconciliation_reconciler(self):
+        from agent.services.background.speech_reconciliation_reconciler import (
+            stop_speech_reconciliation_reconciler,
+        )
+
+        stop_speech_reconciliation_reconciler(self.app)
+
+    def _stop_speech_evidence_retention_reconciler(self):
+        from agent.services.background.speech_evidence_retention_reconciler import (
+            stop_speech_evidence_retention_reconciler,
+        )
+
+        stop_speech_evidence_retention_reconciler(self.app)
+
+    def _stop_semantic_media_audit_reconciler(self):
+        from agent.services.background.semantic_media_audit_reconciler import (
+            stop_semantic_media_audit_reconciler,
+        )
+
+        stop_semantic_media_audit_reconciler(self.app)
+
     def _stop_ml_intern_training_reconciler(self):
         from agent.services.background.ml_intern_training_reconciler import (
             stop_ml_intern_training_reconciler,
         )
 
         stop_ml_intern_training_reconciler(self.app)
+
+    def _stop_speech_adaptation_dispatcher(self):
+        from agent.services.background.speech_adaptation_dispatcher import (
+            stop_speech_adaptation_dispatcher,
+        )
+
+        stop_speech_adaptation_dispatcher(self.app)
 
     def _start_scheduler(self):
         from agent.services.scheduler_service import get_scheduler_service

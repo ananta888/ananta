@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/voice/speech_reconciliation_job.v1.json",
+  "title": "Speech reconciliation job v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "job_id", "attempt_id", "fencing_token_digest", "fencing_epoch", "consent_id", "consent_version", "revocation_epoch", "input_manifest_digest", "input_lineage_digest", "input_artifact_ref", "policy_digest", "research_policy_ref", "source_duration_ms", "max_compute_factor", "ledger_sequence", "key_epoch", "deadline_at_ms", "stage"],
+  "properties": {
+    "contract_version": {"const": "ananta.speech-reconciliation.v1"},
+    "job_id": {"$ref": "#/$defs/id"},
+    "attempt_id": {"$ref": "#/$defs/id"},
+    "fencing_token_digest": {"$ref": "#/$defs/digest"},
+    "fencing_epoch": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+    "consent_id": {"$ref": "#/$defs/id"},
+    "consent_version": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+    "revocation_epoch": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+    "input_manifest_digest": {"$ref": "#/$defs/digest"},
+    "input_lineage_digest": {"$ref": "#/$defs/digest"},
+    "input_artifact_ref": {"type": "string", "pattern": "^artifact://speech-evidence/[A-Za-z0-9_./:-]+$", "maxLength": 512},
+    "policy_digest": {"$ref": "#/$defs/digest"},
+    "research_policy_ref": {"type": ["string", "null"], "pattern": "^artifact://speech-policies/[A-Za-z0-9_./:-]+$", "maxLength": 512},
+    "source_duration_ms": {"type": "integer", "minimum": 1, "maximum": 28800000},
+    "max_compute_factor": {"type": "integer", "minimum": 1, "maximum": 100},
+    "ledger_sequence": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+    "key_epoch": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+    "deadline_at_ms": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+    "stage": {"$ref": "#/$defs/id"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
