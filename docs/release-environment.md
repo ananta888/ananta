@@ -6,16 +6,16 @@ This document defines the supported runtime and build environment for the v1.0.0
 
 - Backend runtime and CI: Python `3.11.15`, containerized with `python:3.11.15-slim-bookworm`.
 - Backend dependency source: `requirements.lock` for runtime, `requirements-dev.lock` for CI-only test and lint tooling.
-- Frontend runtime, engine and CI: Node `20.19.5`.
+- Frontend runtime, engine and CI: Node `24.18.0` LTS.
 - Frontend dependency source: `frontend-angular/package-lock.json` through `npm ci`.
 
 ## Container Images
 
 Release-relevant Ananta containers use explicit tags plus registry digests:
 
-- Backend: `python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f320acec894e26fccdaccfbe3b47`
-- Frontend: `node:20.19.5-slim@sha256:9e70124bd00f47dd023e349cd587132ae61892acc0e47ed641416c3e18f401c3`
-- Evolver bridge: `node:20.19.5-bookworm-slim@sha256:9e70124bd00f47dd023e349cd587132ae61892acc0e47ed641416c3e18f401c3`
+- Backend: `python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba`
+- Frontend: `node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d`
+- Evolver bridge: `node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d`
 - Ollama: `ollama/ollama:0.20.7@sha256:487324a9312240e3e122446f351b1f1e3f68d884ef854c246db2e08792440d94`
 - Alpine helper: `alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11`
 - PostgreSQL: `postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51`
@@ -42,6 +42,6 @@ The Taiga example stack under `docs/taiga/` is not part of the Ananta v1.0.0 rel
 
 ## Apt Snapshots
 
-Docker image tags are digest-pinned. Backend apt packages are resolved through Debian snapshot `20260406T000000Z`; the WSL/Vulkan Ollama build path uses Ubuntu snapshot `20260406T000000Z`.
+Docker image tags are digest-pinned. Backend apt packages are resolved through Debian snapshot `20260715T000000Z`; the WSL/Vulkan Ollama build path uses Ubuntu snapshot `20260715T000000Z`.
 
 For a stricter production release after v1.0.0, these snapshot-based system packages may be moved into maintained internal base images.

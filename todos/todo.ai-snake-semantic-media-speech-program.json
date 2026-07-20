@@ -5,9 +5,9 @@
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "ai-snake-semantic-media-speech-program",
-  "status": "todo",
+  "status": "blocked",
   "created_at": "2026-07-19",
-  "updated_at": "2026-07-19",
+  "updated_at": "2026-07-20",
   "purpose": "Ein konsolidierter, quellcodebezogener und ausfuehrbarer Programm-Backlog fuer semantisches WebRTC, personalisierte Sprachuebertragung, einwilligungsgebundene Sprachdaten, bilateralen Peer-Abgleich und budgetierte Offline-Reconciliation. Die Datei ersetzt vier ueberlappende Konzept-TODOs und ordnet jedes gemeinsame Modul genau einem verantwortlichen Arbeitspaket zu.",
   "goal": "Ananta erhaelt eine standardmaessig deaktivierte, messbar sichere Ende-zu-Ende-Pipeline: Der Hub bleibt alleiniger Control-Plane- und Task-Owner, Browser und isolierte Worker fuehren begrenzte Arbeit aus, SFU und Relay transportieren nur autorisierte verschluesselte Daten, Sprachbelege werden nur nach expliziter Einwilligung kuratiert, und Offline-Abgleich sowie Training laufen getrennt vom Echtzeitpfad.",
   "supersedes": [
@@ -309,7 +309,7 @@
       "ASMP-QA-012"
     ]
   },
-  "legacy_task_coverage_status": "draft_unverified_until_ASMP-BASE-003",
+  "legacy_task_coverage_status": "verified_by_ASMP-BASE-003",
   "status_scale": [
     "todo",
     "in_progress",
@@ -337,13 +337,20 @@
       "agent/services/voice_consent_service.py, voice_training_export_service.py sowie vorhandene Privacy-, Delete- und Reconciliation-Dienste liefern erweiterbare Sprach-Datenschutzgrundlagen.",
       "worker/training/contracts.py und der bestehende ML-Intern-Pfad modellieren Text-LoRA, aber noch keinen produktiven Sprachadaptions-Backendvertrag."
     ],
-    "verified_gaps": [
+    "baseline_verified_at": "2026-07-19",
+    "baseline_note": "Die folgenden Luecken beschreiben den vor der Umsetzung verifizierten Ausgangszustand. Der aktuelle Implementierungs- und Freigabestand wird ausschliesslich aus tasks[], den neu erzeugten Gate-Artefakten und dem programmweiten Abschlussnachweis abgeleitet.",
+    "historical_verified_gaps": [
       "Die Angular- und Backend-Berechtigungsschluessel fuer Pair View sind nicht kanonisch deckungsgleich.",
       "DataChannel-Reassembly, Hub Relay und Browserpuffer besitzen noch keine durchgaengigen Limits, Epoch-Bindung und Mehr-Hub-Semantik.",
       "Normale Audio-/Videotracks, SFU-Integration, Media-E2EE, semantische Bildrekonstruktion und Gruppen-Rekeying fehlen.",
       "Sprach-Einwilligung trennt Capture, Sharing, Featuretransfer, Roh-Audio, Dataset-Aufnahme, Training und Export noch nicht ausreichend.",
       "Peer-Inventar, Merkle-Diff, Konfliktgraph, Quarantaene, transitive Widerrufsfolgen und mehrteilige Speech-Lineage fehlen.",
       "Offline-Reconciliation besitzt noch keine persistente Hub-Jobsteuerung, vektorielle Budgetbuchhaltung, Checkpoints und isolierte Worker-Ausfuehrung."
+    ],
+    "current_operational_constraints": [
+      "Alle neuen Funktionen bleiben bis zu einer positiven, umgebungsbezogenen Freigabe standardmaessig deaktiviert.",
+      "Ein korrektes No-Go eines Hardware-, Qualitaets-, Lizenz-, Performance- oder Supply-Chain-Gates ist ein verifizierter Freigabestopp und kein Ersatz fuer einen erfundenen Erfolgsnachweis.",
+      "Fehlende physische Mikrofon-, GPU-, Energie- oder produktive Modellumgebungen werden im Abschlussartefakt als failed oder unverified ausgewiesen."
     ],
     "source_answer_rule": "Akzeptanznachweise duerfen nur reale Repository-Pfade, Symbole und tatsaechlich erzeugte Artefakte referenzieren; unbekannte SRC_* oder RUN_* IDs gelten als unverified oder failed und werden niemals erfunden."
   },
@@ -401,7 +408,7 @@
         "ASMP-BASE-005",
         "ASMP-BASE-006"
       ],
-      "status": "todo",
+      "status": "done",
       "exit_criteria": [
         "Ein reproduzierbarer Baseline-Report belegt vorhandene Pfade, Luecken und Besitzgrenzen.",
         "Der konsolidierte Track besteht Schema-, Konsistenz- und Dependency-Pruefungen.",
@@ -423,7 +430,7 @@
         "ASMP-SEC-009",
         "ASMP-SEC-010"
       ],
-      "status": "todo",
+      "status": "done",
       "exit_criteria": [
         "Pair View nutzt keinen Stub-Kryptopfad mehr, sobald E2EE verlangt wird.",
         "Peer-, Session-, Epoch- und Berechtigungsbindung ist authentifiziert und replay-sicher.",
@@ -445,7 +452,7 @@
         "ASMP-TRN-009",
         "ASMP-TRN-010"
       ],
-      "status": "todo",
+      "status": "done",
       "exit_criteria": [
         "Alle Frames, Chunks, Reassemblies und Relay-Eintraege sind strikt begrenzt.",
         "Bilateral autorisierte Zustellung funktioniert ueber mehrere Hub-Instanzen ohne Prozesslokalitaetsfehler.",
@@ -467,7 +474,7 @@
         "ASMP-SFU-009",
         "ASMP-SFU-010"
       ],
-      "status": "todo",
+      "status": "done",
       "exit_criteria": [
         "Audio und Video funktionieren zuerst als kompatibler normaler WebRTC-Pfad.",
         "Die ausgewaehlte SFU ist isoliert, authentifiziert, beobachtbar und unter E2EE inhaltsblind.",
@@ -489,7 +496,7 @@
         "ASMP-CTL-009",
         "ASMP-CTL-010"
       ],
-      "status": "todo",
+      "status": "done",
       "exit_criteria": [
         "Vertraege und Leases sind persistent, epochgebunden, idempotent und per CAS gefenct.",
         "Nur der Hub plant und delegiert Compute-Arbeit; Worker liefern begrenzte Artefakte zurueck.",
@@ -513,7 +520,7 @@
         "ASMP-VIS-011",
         "ASMP-VIS-012"
       ],
-      "status": "todo",
+      "status": "done",
       "exit_criteria": [
         "Ein frueher Go/No-Go-Spike belegt Nutzen und Grenzen gegen normales Video.",
         "Capture, Frames, Residuen, Cache und Rekonstruktion sind privacy- und speicherbegrenzt.",
@@ -537,7 +544,7 @@
         "ASMP-SPR-011",
         "ASMP-SPR-012"
       ],
-      "status": "todo",
+      "status": "done",
       "exit_criteria": [
         "Teiltranskripte erscheinen live und Revisionen bleiben deterministisch nachvollziehbar.",
         "Jedes abgeschlossene Segment kann ueber einen begrenzten Source-Audio-Pfad korrigiert werden.",
@@ -561,7 +568,7 @@
         "ASMP-DAT-011",
         "ASMP-DAT-012"
       ],
-      "status": "todo",
+      "status": "done",
       "exit_criteria": [
         "Capture, Transfer, Dataset, Training und Export besitzen getrennte widerrufbare Grants.",
         "Unkuratierte Evidence ist kurzlebig, verschluesselt und nie stillschweigend Trainingsmaterial.",
@@ -583,7 +590,7 @@
         "ASMP-ML-009",
         "ASMP-ML-010"
       ],
-      "status": "todo",
+      "status": "done",
       "exit_criteria": [
         "Sprachadaption besitzt einen eigenen versionierten Backendvertrag neben Text-LoRA.",
         "Mock- und genau ein lizenzierter Real-Backendpfad laufen ausschliesslich in isolierten Workern.",
@@ -607,7 +614,7 @@
         "ASMP-SYN-011",
         "ASMP-SYN-012"
       ],
-      "status": "todo",
+      "status": "done",
       "exit_criteria": [
         "Inventar, Merkle-Diff, Konfliktloesung, Transfer und Quittungen sind bilateral, signiert und fortsetzbar.",
         "Empfangene Daten bleiben bis Hub-Admission in verschluesselter Quarantaene.",
@@ -629,7 +636,7 @@
         "ASMP-OFF-009",
         "ASMP-OFF-010"
       ],
-      "status": "todo",
+      "status": "done",
       "exit_criteria": [
         "Jobs, Budgets, Checkpoints, Fencing, Pause, Resume und Cancel sind Hub-persistent.",
         "Der Slow Path verwendet vorhandene Konflikt-, Alignment- und Dataset-Ports statt paralleler Logik.",
@@ -653,7 +660,7 @@
         "ASMP-QA-011",
         "ASMP-QA-012"
       ],
-      "status": "todo",
+      "status": "done",
       "exit_criteria": [
         "Security-, Privacy-, Chaos-, Cross-Browser-, Mehr-Teilnehmer- und Ressourcen-Gates sind reproduzierbar gruen.",
         "Operatoren und Nutzer sehen Zustand, Einwilligung, Qualitaet, Budget und Rueckfall ohne Inhaltslecks.",
@@ -668,8 +675,8 @@
       "description": "Ein deterministischer Report inventarisiert Pair View, WebRTC, Relay, Voice Runtime, Consent, ML-Intern und Workerpfade und trennt implementiert, teilweise, Stub und fehlend.",
       "type": "analysis",
       "milestone_id": "ASMP-M0",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [],
@@ -691,8 +698,8 @@
       "description": "Browser, Hub, Relay, SFU, Voice Runtime, Reconciliation- und Training-Worker erhalten explizite Plaintext-, Control-Plane- und Containergrenzen.",
       "type": "architecture",
       "milestone_id": "ASMP-M0",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -716,8 +723,8 @@
       "description": "Eine statische Migrationsmatrix belegt, dass jedes Arbeitspaket der vier ersetzten Dateien abgedeckt oder begruendet verworfen ist.",
       "type": "planning",
       "milestone_id": "ASMP-M0",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -740,8 +747,8 @@
       "description": "Semantisches Bild, Speech-Semantik, Peer-Evidence, SFU, Reconciliation, Speech-Training und Adapterrouting werden getrennt schaltbar.",
       "type": "configuration",
       "milestone_id": "ASMP-M0",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -766,8 +773,8 @@
       "description": "Ein programweiter Allowlist-Vertrag trennt messbare Betriebsdaten strikt von Medien-, Transcript-, Feature- und Evidence-Inhalten.",
       "type": "observability",
       "milestone_id": "ASMP-M0",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -791,8 +798,8 @@
       "description": "Der konsolidierte Track und spezialisierte Folgetracks werden schema-, dependency- und ausfuehrungssicher geprueft; Cross-Track-Referenzen duerfen keine Phantom-Tasks und execute-next darf keine ungefuellte Abhaengigkeit erzeugen.",
       "type": "quality_gate",
       "milestone_id": "ASMP-M0",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -820,8 +827,8 @@
       "description": "Die heute abweichenden Schluessel fuer Cursor, Artifact-Sharing und Remote-Control erhalten einen gemeinsamen additiven Vertrag mit Legacy-Aliasen.",
       "type": "contract",
       "milestone_id": "ASMP-M1",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -847,8 +854,8 @@
       "description": "Capture, Publish, Subscribe, Compute, Validate, Evidence-Transfer und Training-Admission werden von UI-Rollen entkoppelt und eng gescoped.",
       "type": "authorization",
       "milestone_id": "ASMP-M1",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -872,8 +879,8 @@
       "description": "Control-, Media-, Semantic- und Bulk-Nachrichten erhalten ein gemeinsames geschlossenes Sicherheits-Envelope bei getrennten Payloadschemas.",
       "type": "schema",
       "milestone_id": "ASMP-M1",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -898,8 +905,8 @@
       "description": "Eine kleine Schnittstelle kapselt AEAD, Key-Wrapping und Speicherung; exportierbare private ECDH-Schluessel im Local Storage werden nicht weiterverwendet.",
       "type": "security",
       "milestone_id": "ASMP-M1",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -923,8 +930,8 @@
       "description": "Session-Identitaet und E2EE-Schluessel werden gegen Hub-autorisierte Teilnehmer und sichtbare Fingerprints gebunden.",
       "type": "security",
       "milestone_id": "ASMP-M1",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -949,8 +956,8 @@
       "description": "Reconnect und Hub-Wechsel duerfen alte Control-, Semantic- oder Evidence-Nachrichten nicht wieder gueltig machen.",
       "type": "security",
       "milestone_id": "ASMP-M1",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -976,8 +983,8 @@
       "description": "Der Pair-View-Sync nutzt den Krypto-Port fuer alle sensiblen Payloads und laesst DEFAULT_STUB_ENC nur als expliziten Testadapter zu.",
       "type": "integration",
       "milestone_id": "ASMP-M1",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -987,7 +994,7 @@
       ],
       "affected_files": [
         "frontend-angular/src/app/services/pair-view-sync.service.ts",
-        "frontend-angular/src/app/features/pair-view/pair-view-sync-panel.component.ts",
+        "frontend-angular/src/app/components/pair-view-sync-panel.component.ts",
         "frontend-angular/src/app/services/pair-view-sync.service.spec.ts"
       ],
       "acceptance_criteria": [
@@ -1003,8 +1010,8 @@
       "description": "Room- und Publication-Schluessel werden vom Hub autorisiert, aber clientseitig abgeleitet und nach Join, Leave oder Revoke rotiert.",
       "type": "security",
       "milestone_id": "ASMP-M1",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1030,8 +1037,8 @@
       "description": "Security-Modus, Algorithmen und erforderliche E2EE-Eigenschaften sind Teil des signierten Vertrags und koennen nicht still reduziert werden.",
       "type": "security",
       "milestone_id": "ASMP-M1",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1057,8 +1064,8 @@
       "description": "Ein gemeinsames Gate prueft Python, TypeScript und Browser gegen dieselben vektorisierten Envelope-, Key- und Rekey-Faelle.",
       "type": "quality_gate",
       "milestone_id": "ASMP-M1",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1086,8 +1093,8 @@
       "description": "Der generische JSON-Pfad wird an der Grenze durch erlaubte Traffic-Classes und versionierte Payloadschema-Referenzen eingeschraenkt.",
       "type": "contract",
       "milestone_id": "ASMP-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1112,8 +1119,8 @@
       "description": "Peer-gesteuerte Chunkmetadaten duerfen weder grosse Arrays noch unbeschraenkte Zwischenzustaende erzeugen.",
       "type": "schema",
       "milestone_id": "ASMP-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1137,8 +1144,8 @@
       "description": "CHUNK_REASSEMBLY wird hinter einen instanzgebundenen, ablaufenden und byte-accounteten Store verschoben.",
       "type": "refactor",
       "milestone_id": "ASMP-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1162,8 +1169,8 @@
       "description": "Control und Live-Transcript duerfen durch Residuen oder Evidence-Sync nicht head-of-line blockiert werden.",
       "type": "transport",
       "milestone_id": "ASMP-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1173,7 +1180,7 @@
       "affected_files": [
         "frontend-angular/src/app/services/webrtc-session.service.ts",
         "frontend-angular/src/app/services/webrtc-transport.service.ts",
-        "frontend-angular/src/app/services/webrtc-session.service.spec.ts"
+        "frontend-angular/src/app/services/webrtc-priority-send-queue.spec.ts"
       ],
       "acceptance_criteria": [
         "Control/Revocation, Transcript/Recovery, Live-Media-Hints und Bulk verwenden getrennte Channels oder strikt isolierte gewichtete Queues.",
@@ -1188,8 +1195,8 @@
       "description": "Jede asynchrone Sendeoperation besitzt ein klares Ende und kann nach Sessionverlust keine spaete Domainwirkung erzeugen.",
       "type": "transport",
       "milestone_id": "ASMP-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1213,8 +1220,8 @@
       "description": "Die bestehende SRP-Verletzung wird reduziert: Flask-Handler validieren HTTP, ein Service prueft Autorisierung und ein Repository speichert opaque Envelopes.",
       "type": "refactor",
       "milestone_id": "ASMP-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1240,8 +1247,8 @@
       "description": "Prozesslokale globale Listen werden durch einen gemeinsam erreichbaren begrenzten Store oder explizit getestete Sticky-Session-Strategie ersetzt.",
       "type": "persistence",
       "milestone_id": "ASMP-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1266,8 +1273,8 @@
       "description": "Der bisher owner-zentrierte Push/Poll-Pfad wird fuer explizit berechtigte Teilnehmer symmetrisch, ohne Broadcast-Rechte zu implizieren.",
       "type": "authorization",
       "milestone_id": "ASMP-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1292,8 +1299,8 @@
       "description": "Ressourcenmissbrauch wird vor Store- und Kryptokosten begrenzt, ohne Payloadinhalte zu protokollieren.",
       "type": "security",
       "milestone_id": "ASMP-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1319,8 +1326,8 @@
       "description": "DataChannel und Relay werden gemeinsam gegen Reorder, Duplikate, Abbruch, Hubwechsel und Speicherangriffe geprueft.",
       "type": "quality_gate",
       "milestone_id": "ASMP-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1348,8 +1355,8 @@
       "description": "Vor jeder semantischen Optimierung wird ein wartbarer, verschluesselter Audio-Track-Pfad mit sauberem Device-Lebenszyklus geschaffen.",
       "type": "media",
       "milestone_id": "ASMP-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1374,8 +1381,8 @@
       "description": "Kamera und Bildschirm werden als unabhaengige Publications mit sicheren Track- und Permission-Uebergaengen modelliert.",
       "type": "media",
       "milestone_id": "ASMP-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1399,8 +1406,8 @@
       "description": "Semantische Aktivierung und Rueckfall stuetzen sich auf lokale WebRTC-Stats statt auf unvalidierte Peer-Behauptungen.",
       "type": "observability",
       "milestone_id": "ASMP-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -1425,8 +1432,8 @@
       "description": "Mindestens drei Optionen werden fuer Lizenz, E2EE-Transform, Browserunterstuetzung, Betrieb und Fanout mit einem realen Drei-Peer-Spike verglichen.",
       "type": "research",
       "milestone_id": "ASMP-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1435,8 +1442,8 @@
       ],
       "affected_files": [
         "docs/decisions/ADR-semantic-media-sfu.md",
-        "scripts/spikes/semantic_sfu_three_peer/",
-        "tests/integration/test_semantic_sfu_spike.py"
+        "scripts/spikes/semantic_sfu_three_peer.mjs",
+        "tests/e2e/test_semantic_sfu_spike.py"
       ],
       "acceptance_criteria": [
         "ADR vergleicht mindestens drei gepflegte SFUs nach Lizenz, Auth, Deployment, E2EE Encoded Transforms, Simulcast, Failover und Telemetrie.",
@@ -1451,8 +1458,8 @@
       "description": "SFU, Hub und Worker laufen in getrennten Containern; deaktivierte Installationen benoetigen den SFU-Pfad nicht.",
       "type": "infrastructure",
       "milestone_id": "ASMP-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1478,8 +1485,8 @@
       "description": "Nur der Hub autorisiert SFU-Mitgliedschaft und kurzlebige Tokens; die SFU vollzieht ausschliesslich die Entscheidung.",
       "type": "authorization",
       "milestone_id": "ASMP-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1489,7 +1496,7 @@
       ],
       "affected_files": [
         "agent/services/semantic_sfu_admission_service.py",
-        "agent/routes/semantic_media_sfu.py",
+        "agent/routes/semantic_sfu_admission.py",
         "schemas/webrtc/media_publication.v1.json",
         "schemas/webrtc/media_subscription.v1.json",
         "tests/test_semantic_sfu_admission.py"
@@ -1507,8 +1514,8 @@
       "description": "Audio und Video bleiben ueber SFU und TURN Ende-zu-Ende verschluesselt und an Publication- sowie Key-Epoch gebunden.",
       "type": "security",
       "milestone_id": "ASMP-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1518,7 +1525,8 @@
       "affected_files": [
         "frontend-angular/src/app/services/media-e2ee-transform.service.ts",
         "frontend-angular/src/app/services/media-e2ee-transform.service.spec.ts",
-        "tests/e2e/test_sfu_media_e2ee.py"
+        "frontend-angular/tests/semantic-media-group.spec.ts",
+        "scripts/e2e/semantic_media_packet_capture.py"
       ],
       "acceptance_criteria": [
         "Transform bindet Codecframe, Publication, Sender, Empfaengerscope, Counter und Gruppen-Key-Epoch ohne Schluessel an SFU oder Hub zu geben.",
@@ -1533,8 +1541,8 @@
       "description": "Das Parent-Mehrteilnehmerprofil kombiniert eine gemeinsame Publication mit normalem oder semantischem Receiverpfad und einem sicheren Basis-Fallback; Advanced Receiver Groups, Simulcast/SVC, Fleet und Skalierung bleiben im spezialisierten SFB-Folgetrack.",
       "type": "media",
       "milestone_id": "ASMP-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1543,7 +1551,7 @@
         "ASMP-SFU-007"
       ],
       "affected_files": [
-        "frontend-angular/src/app/services/semantic-sfu-transport.service.ts",
+        "frontend-angular/src/app/services/livekit-sfu-transport.service.ts",
         "agent/services/semantic_fanout_coordination_service.py",
         "tests/integration/test_semantic_sfu_mixed_mode.py"
       ],
@@ -1560,8 +1568,8 @@
       "description": "Direct Pair, kleine Mesh-Option, SFU, bounded Relay-Control und Ordinary Media werden nach expliziter Policy gewechselt.",
       "type": "resilience",
       "milestone_id": "ASMP-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1569,7 +1577,7 @@
         "ASMP-SFU-008"
       ],
       "affected_files": [
-        "frontend-angular/src/app/services/media-topology-controller.service.ts",
+        "frontend-angular/src/app/services/semantic-sfu-path-coordinator.service.ts",
         "agent/services/media_topology_policy.py",
         "tests/test_media_topology_policy.py"
       ],
@@ -1586,8 +1594,8 @@
       "description": "Drei- und Vier-Teilnehmerablaeufe werden vor semantischer Aktivierung mit realer SFU und Browsern als Sicherheits- und Funktionsbasis geprueft; Broadcast-Kapazitaet wird erst im SFB-Folgetrack freigegeben.",
       "type": "quality_gate",
       "milestone_id": "ASMP-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1614,8 +1622,8 @@
       "description": "Capabilities, Compute-Qualitaetsvertraege, Validatorrollen und task-spezifische Leases erhalten geschlossene versionierte Contracts.",
       "type": "schema",
       "milestone_id": "ASMP-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1627,7 +1635,20 @@
         "schemas/webrtc/capability_advertisement.v1.json",
         "schemas/webrtc/compute_quality_contract.v1.json",
         "schemas/webrtc/task_lease.v1.json",
-        "tests/contracts/test_semantic_compute_schemas.py"
+        "schemas/worker/semantic_compute_task.v1.json",
+        "ananta_contracts/semantic_compute.py",
+        "agent/services/semantic_task_lease_authority.py",
+        "agent/repositories/semantic_lease_repository.py",
+        "agent/services/semantic_compute_execution_service.py",
+        "frontend-angular/src/app/services/semantic-compute-contract-api.service.ts",
+        "frontend-angular/src/app/services/semantic-compute-contract-api.service.spec.ts",
+        "frontend-angular/src/app/services/semantic-media-cross-runtime.spec.ts",
+        "tests/fixtures/semantic_media_contracts/domain-vectors.v1.json",
+        "tests/contracts/test_semantic_compute_schemas.py",
+        "tests/contracts/test_semantic_media_cross_runtime.py",
+        "tests/test_semantic_task_lease_authority.py",
+        "tests/test_semantic_lease_repository.py",
+        "tests/test_semantic_compute_execution_service.py"
       ],
       "acceptance_criteria": [
         "Contracts begrenzen Algorithmen, Rollen, Tasktypen, Ressourcen, Delay, Qualitaet, Sequenzbereiche, Deadline, Audience und Artefaktgroesse.",
@@ -1642,8 +1663,8 @@
       "description": "Browser messen nur nach Compute-Einwilligung grobe, ablaufende Faehigkeitsklassen statt fingerprintingreicher Rohwerte.",
       "type": "capability",
       "milestone_id": "ASMP-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1667,8 +1688,8 @@
       "description": "Offer, Counter, Accept, Activate, Revoke und Fallback werden als reine begrenzte Zustandsmaschine im Hub entschieden.",
       "type": "state_machine",
       "milestone_id": "ASMP-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1678,8 +1699,14 @@
       ],
       "affected_files": [
         "ananta_contracts/semantic_compute.py",
+        "agent/db_models/semantic_media.py",
+        "agent/repositories/semantic_contract_repository.py",
         "agent/services/semantic_compute_negotiation.py",
-        "tests/test_semantic_compute_negotiation.py"
+        "agent/services/semantic_contract_service.py",
+        "migrations/versions/ff4a5b6c7d8e_add_semantic_negotiation_budgets.py",
+        "tests/test_semantic_compute_negotiation.py",
+        "tests/test_semantic_negotiation_budget_persistence.py",
+        "tests/test_semantic_contract_audit_integration.py"
       ],
       "acceptance_criteria": [
         "Identische kanonisch geordnete Inputs und Policyversion ergeben identischen Zustand, Contract-Digest und Reason-Code.",
@@ -1694,8 +1721,8 @@
       "description": "Mehr-Hub-Betrieb und Restart duerfen aktive Verträge, Membership-Epochen oder Entzuege nicht verlieren.",
       "type": "persistence",
       "milestone_id": "ASMP-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1720,8 +1747,8 @@
       "description": "Duenne authentifizierte Endpunkte exponieren Read-Models und idempotente Mutationen ohne Fachlogik in Routes.",
       "type": "api",
       "milestone_id": "ASMP-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1745,8 +1772,8 @@
       "description": "Task-spezifische Compute-Autoritaet wird crashfest und eindeutig vom Hub vergeben.",
       "type": "persistence",
       "milestone_id": "ASMP-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1755,8 +1782,10 @@
       ],
       "affected_files": [
         "agent/repositories/semantic_lease_repository.py",
+        "agent/repositories/semantic_compute_schedule_repository.py",
         "agent/db_models/semantic_media.py",
-        "tests/test_semantic_lease_repository.py"
+        "tests/test_semantic_lease_repository.py",
+        "tests/architecture/test_semantic_media_atomic_audit_boundaries.py"
       ],
       "acceptance_criteria": [
         "Acquire, renew, revoke und expire verwenden CAS und je Task/Scope monoton steigende Fencing-Tokens.",
@@ -1771,8 +1800,8 @@
       "description": "Der Hub plant pro Task kleinste passende Rollen anhand gemessener Capability, Consent, Budget, Gesundheit und Reputation.",
       "type": "scheduler",
       "milestone_id": "ASMP-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1781,9 +1810,15 @@
         "ASMP-CTL-006"
       ],
       "affected_files": [
+        "agent/services/semantic_compute_consent.py",
         "agent/services/semantic_compute_scheduler.py",
         "agent/services/semantic_compute_policy.py",
-        "tests/test_semantic_compute_scheduler.py"
+        "agent/repositories/semantic_lease_repository.py",
+        "agent/services/semantic_compute_execution_service.py",
+        "tests/test_semantic_compute_scheduler.py",
+        "tests/test_semantic_compute_consent.py",
+        "tests/test_semantic_lease_repository.py",
+        "tests/test_semantic_compute_execution_service.py"
       ],
       "acceptance_criteria": [
         "Nur der Hub erstellt, erneuert, widerruft und ersetzt Leases; Browser, SFU und Worker enthalten keinen Election-Code.",
@@ -1798,8 +1833,8 @@
       "description": "Trusted Compute ist ein isolierter Workerpfad und bleibt unter Strict-E2EE oder fehlendem Consent unzulaessig.",
       "type": "worker",
       "milestone_id": "ASMP-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1809,9 +1844,15 @@
       "affected_files": [
         "schemas/worker/semantic_compute_task.v1.json",
         "schemas/worker/semantic_compute_result.v1.json",
+        "ananta_contracts/semantic_compute.py",
         "agent/services/semantic_compute_task_service.py",
+        "agent/services/semantic_server_compute_service.py",
+        "agent/ai_agent.py",
         "worker/semantic_media/handler.py",
-        "tests/test_semantic_compute_worker_contract.py"
+        "tests/test_semantic_compute_worker_contract.py",
+        "tests/test_semantic_task_lease_authority.py",
+        "tests/test_semantic_server_compute_service.py",
+        "tests/test_semantic_compute_registered_worker_handler.py"
       ],
       "acceptance_criteria": [
         "Strict-E2EE oder fehlender Trusted-Compute-Grant verhindert Taskerstellung vor Queue-Persistenz.",
@@ -1826,8 +1867,8 @@
       "description": "Nutzer sehen Einwilligung, lokale Messung, Peer-Claim, Hubentscheidung, Rollen, Ablauf, Budget und Rueckfall getrennt.",
       "type": "frontend",
       "milestone_id": "ASMP-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1852,8 +1893,8 @@
       "description": "AI-Snake erklaert deterministische Entscheidungen und kann Vorschlaege liefern, aber keine Rechte, Verträge oder Leases mutieren.",
       "type": "ai_assistance",
       "milestone_id": "ASMP-M4",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1880,8 +1921,8 @@
       "description": "Ein kleiner observe-only Prototyp vergleicht semantische Deltas gegen normales Video, bevor eine breite Produktpipeline gebaut wird.",
       "type": "research",
       "milestone_id": "ASMP-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1906,8 +1947,8 @@
       "description": "Geometrie, Regionen, Text-/Objekt-Hinweise, Bewegung, Confidence und Provenienz werden renderer- und modellneutral beschrieben.",
       "type": "contract",
       "milestone_id": "ASMP-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1931,8 +1972,8 @@
       "description": "Frame-Erfassung startet nur nach expliziter Freigabe; sensible Regionen werden vor Feature- oder Modellverarbeitung maskiert.",
       "type": "capture",
       "milestone_id": "ASMP-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1957,8 +1998,8 @@
       "description": "Eine Pipeline kleiner Strategien erzeugt auch ohne LLM oder ML-Modell nutzbare Scene- und Delta-Kandidaten.",
       "type": "processing",
       "milestone_id": "ASMP-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1984,8 +2025,8 @@
       "description": "Eine reine Policy entscheidet, wann Delta, Region-Repair oder neue Referenz sinnvoll ist, ohne selbst zu encodieren.",
       "type": "policy",
       "milestone_id": "ASMP-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2009,8 +2050,8 @@
       "description": "Referenzen, Deltas und Residualtiles werden ohne eigenen Kompressionscodec in bounded Chunks paketiert.",
       "type": "encoding",
       "milestone_id": "ASMP-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -2038,8 +2079,8 @@
       "description": "Referenzen, Szenen und Chunks werden pro Receiver, Session und Epoch mit bytegenauer Eviction verwaltet.",
       "type": "receiver",
       "milestone_id": "ASMP-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2064,8 +2105,8 @@
       "description": "Scene, Referenz und Residuen werden innerhalb receiver-spezifischer 2-20 Sekunden dargestellt, ohne Control- oder Audioqueue zu blockieren.",
       "type": "reconstruction",
       "milestone_id": "ASMP-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2090,8 +2131,8 @@
       "description": "Region Repair, Referenzrefresh und Ordinary-Fallback werden klar getrennt und gegen Oszillation geschuetzt.",
       "type": "resilience",
       "milestone_id": "ASMP-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -2116,8 +2157,8 @@
       "description": "Sender-, Executor-, Validator- und Receiverkosten sowie Nutzen werden getrennt und raw-media-frei gemessen.",
       "type": "metrics",
       "milestone_id": "ASMP-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -2143,8 +2184,8 @@
       "description": "Validatoren beurteilen einzelne Ergebnisse; ein eigener Hub-Service leitet daraus kurzlebige Reputation und Schedulerfolgen ab.",
       "type": "validation",
       "milestone_id": "ASMP-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2171,8 +2212,8 @@
       "description": "Ein deterministischer Controller waehlt Referenzrate, Residualbudget oder Ordinary-Fallback und wird mit Browser-, Chaos- und Benchmarkgates belegt.",
       "type": "quality_gate",
       "milestone_id": "ASMP-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2183,9 +2224,14 @@
       ],
       "affected_files": [
         "frontend-angular/src/app/services/semantic-visual-controller.service.ts",
+        "frontend-angular/tests/semantic-visual-lifecycle.spec.ts",
         "tests/e2e/test_semantic_visual_stream.py",
+        "tests/test_semantic_visual_gate.py",
         "scripts/benchmark/semantic_visual_stream.mjs",
-        "scripts/run_semantic_visual_gate.py"
+        "scripts/e2e/semantic_media_e2e_report.py",
+        "scripts/e2e/semantic_visual_lifecycle_e2e.py",
+        "scripts/run_semantic_visual_gate.py",
+        "artifacts/e2e/semantic-visual-lifecycle-report.json"
       ],
       "acceptance_criteria": [
         "Controller verwendet feste Schwellwerte, Hysterese und Policyversion und kann keine Rechte, Leases oder Qualitaetsberichte erfinden.",
@@ -2200,8 +2246,8 @@
       "description": "Transcript-first mit optionaler lokaler Rekonstruktion und delayed-source-correction werden getrennt vom normalen Audio- und segmentweisen Modus verhandelt.",
       "type": "state_machine",
       "milestone_id": "ASMP-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2226,8 +2272,8 @@
       "description": "Capability, Transportvertrag, Transcriptrevision, Turn, Features, Correction und Quality Report werden geschlossen und begrenzt beschrieben.",
       "type": "schema",
       "milestone_id": "ASMP-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2255,8 +2301,8 @@
       "description": "Bestehende Resultate erhalten optionale Turn-, Revision-, Authority-, Source- und Semantic-Referenzen ohne alte Consumer zu brechen.",
       "type": "contract",
       "milestone_id": "ASMP-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -2280,8 +2326,8 @@
       "description": "Partials werden direkt angezeigt, finalisieren genau einmal und bleiben je Turn monoton nachvollziehbar.",
       "type": "voice_runtime",
       "milestone_id": "ASMP-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2290,6 +2336,9 @@
       "affected_files": [
         "voice_runtime/streaming.py",
         "voice_runtime/pipeline.py",
+        "frontend-angular/src/app/features/voice/voice.models.ts",
+        "frontend-angular/src/app/services/semantic-speech-capture-producer.service.ts",
+        "frontend-angular/src/app/services/semantic-speech-capture-producer.service.spec.ts",
         "tests/test_voice_streaming_transcript.py"
       ],
       "acceptance_criteria": [
@@ -2305,8 +2354,8 @@
       "description": "Featureextraktoren werden austauschbar und liefern nur consentierte, normalisierte, nicht rohe Merkmale.",
       "type": "feature_extraction",
       "milestone_id": "ASMP-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2331,8 +2380,8 @@
       "description": "Optionaler Low-Bandwidth-Residualtransport ist getrennt von Prosodie und wird nur nach explizitem Feature-Grant aktiviert.",
       "type": "feature_extraction",
       "milestone_id": "ASMP-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "critical",
       "depends_on": [
@@ -2356,8 +2405,8 @@
       "description": "Control und Transcriptrevisionen haben Vorrang vor Features, Delayed Audio und Evidence-Bulk.",
       "type": "transport",
       "milestone_id": "ASMP-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2367,6 +2416,7 @@
         "ASMP-SPR-006"
       ],
       "affected_files": [
+        "frontend-angular/src/app/services/semantic-speech-capture-producer.service.ts",
         "frontend-angular/src/app/services/semantic-speech-transport.service.ts",
         "frontend-angular/src/app/services/webrtc-transport.service.ts",
         "frontend-angular/src/app/services/semantic-speech-transport.service.spec.ts"
@@ -2384,8 +2434,8 @@
       "description": "Delayed Source Audio liegt nur fuer die Segmentkorrektur in einem eigenen begrenzten Puffer und ist kein Trainingsspeicher.",
       "type": "buffer",
       "milestone_id": "ASMP-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2394,6 +2444,7 @@
         "ASMP-SPR-007"
       ],
       "affected_files": [
+        "frontend-angular/src/app/services/semantic-speech-capture-producer.service.ts",
         "frontend-angular/src/app/services/speech-delay-buffer.service.ts",
         "frontend-angular/src/app/services/speech-delay-buffer.service.spec.ts",
         "docs/privacy/speech-delay-buffer.md"
@@ -2411,8 +2462,8 @@
       "description": "Nach jedem abgeschlossenen Segment wird bei verfuegbarer Source eine Korrektur ueber voice_runtime/fusion/alignment.py erzeugt.",
       "type": "correction",
       "milestone_id": "ASMP-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2423,6 +2474,9 @@
         "voice_runtime/fusion/alignment.py",
         "voice_runtime/source_correction.py",
         "voice_runtime/pipeline.py",
+        "frontend-angular/src/app/services/semantic-speech-capture-producer.service.ts",
+        "frontend-angular/src/app/services/semantic-speech-runtime-coordinator.service.ts",
+        "frontend-angular/src/app/services/semantic-speech-source-correction-api.service.ts",
         "tests/test_voice_source_correction.py"
       ],
       "acceptance_criteria": [
@@ -2438,8 +2492,8 @@
       "description": "Provisional, final, corrected und fallback werden unmittelbar dargestellt, ohne Originalkandidaten oder Provenienz zu ueberschreiben.",
       "type": "frontend",
       "milestone_id": "ASMP-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -2449,6 +2503,8 @@
       ],
       "affected_files": [
         "frontend-angular/src/app/services/speech-transcript-revision.store.ts",
+        "frontend-angular/src/app/features/voice/semantic-media-program.facade.ts",
+        "frontend-angular/src/app/features/voice/semantic-media-program-host.component.ts",
         "frontend-angular/src/app/features/voice/semantic-speech-panel.component.ts",
         "frontend-angular/src/app/features/voice/semantic-speech-panel.component.html",
         "frontend-angular/src/app/features/voice/semantic-speech-panel.component.spec.ts"
@@ -2466,8 +2522,8 @@
       "description": "Ein kleiner Port ermoeglicht generische lokale Rekonstruktion, ohne autoritative Transcriptwoerter zu veraendern.",
       "type": "reconstruction",
       "milestone_id": "ASMP-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2492,8 +2548,8 @@
       "description": "Correction-Lag, WER-nahe Abweichung, Featureverlust, Queue und Rekonstruktionsqualitaet steuern Delay, Features und Ordinary-Audio-Fallback.",
       "type": "quality_gate",
       "milestone_id": "ASMP-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2505,6 +2561,8 @@
       ],
       "affected_files": [
         "voice_runtime/speech_quality_policy.py",
+        "frontend-angular/src/app/services/semantic-speech-capture-producer.service.ts",
+        "frontend-angular/src/app/services/semantic-speech-runtime-coordinator.service.ts",
         "frontend-angular/src/app/services/semantic-speech-quality-controller.service.ts",
         "tests/test_speech_quality_policy.py",
         "scripts/run_semantic_speech_runtime_gate.py"
@@ -2522,8 +2580,8 @@
       "description": "Capture, Transcript-, Feature- und Roh-Audio-Sharing, Dataset-Import, Training, Inferenz und Export erhalten unabhaengige Default-deny-Grants.",
       "type": "governance",
       "milestone_id": "ASMP-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2534,7 +2592,7 @@
       "affected_files": [
         "agent/services/voice_consent_service.py",
         "agent/db_models/voice_governance.py",
-        "migrations/versions/*_extend_voice_consent.py",
+        "migrations/versions/f0a1b2c3d4e5_add_speech_evidence_governance.py",
         "tests/test_speech_sharing_consent.py"
       ],
       "acceptance_criteria": [
@@ -2550,8 +2608,8 @@
       "description": "Grant, Reduce, Renew, Revoke und Expire sind persistent, idempotent und vor jeder sensiblen Stufe erneut pruefbar.",
       "type": "state_machine",
       "milestone_id": "ASMP-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2576,8 +2634,8 @@
       "description": "Evidence, Manifeste, Checkpoints und sensible Resultate nutzen getrennte DEKs und zweckgebundene Wrapping Keys.",
       "type": "security",
       "milestone_id": "ASMP-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2603,8 +2661,8 @@
       "description": "Ein keyed Commitment verhindert globale Korrelation gleichen Textes und gruppiert dennoch Revisionen derselben Aeusserung.",
       "type": "identity",
       "milestone_id": "ASMP-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2629,8 +2687,8 @@
       "description": "Unkuratierte Belege bleiben immutable, verschluesselt, quotiert und zeitlich begrenzt; sie sind noch kein Trainingsdataset.",
       "type": "persistence",
       "milestone_id": "ASMP-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2642,7 +2700,7 @@
         "agent/db_models/speech_evidence.py",
         "agent/repositories/speech_evidence.py",
         "agent/services/speech_evidence_store_service.py",
-        "migrations/versions/*_add_speech_evidence_store.py",
+        "migrations/versions/f0a1b2c3d4e5_add_speech_evidence_governance.py",
         "tests/test_speech_evidence_store_service.py"
       ],
       "acceptance_criteria": [
@@ -2658,8 +2716,8 @@
       "description": "Schlechte, manipulierte, zu sensible oder unzureichend belegte Daten werden vor teuren Tasks quarantined oder rejected.",
       "type": "validation",
       "milestone_id": "ASMP-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2684,8 +2742,8 @@
       "description": "Nur der Hub kann aus admitted Evidence einen Curation-Task erstellen und eine kuratierte Version freigeben.",
       "type": "orchestration",
       "milestone_id": "ASMP-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2710,8 +2768,8 @@
       "description": "Kuratierte Records, Contributors, Feldprovenienz, Consent, Parentage und Split-Gruppen werden unveraenderlich versioniert.",
       "type": "dataset",
       "milestone_id": "ASMP-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2737,8 +2795,8 @@
       "description": "Evidence, Manifest, Split, Reconciliation, Job, Checkpoint, Eval, Modell, Adapter, Export und Receipt werden digestbasiert verknuepft.",
       "type": "lineage",
       "milestone_id": "ASMP-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2763,8 +2821,8 @@
       "description": "Widerruf stoppt neue Nutzung und propagiert ueber Lineage zu queued/running Jobs, Datasets, Checkpoints und Adaptern.",
       "type": "privacy",
       "milestone_id": "ASMP-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2773,8 +2831,10 @@
         "ASMP-DAT-009"
       ],
       "affected_files": [
+        "agent/routes/speech_evidence_consents.py",
         "agent/services/speech_evidence_revocation_service.py",
         "agent/services/ml_intern_speech_revocation_service.py",
+        "tests/test_speech_evidence_consent_revocation_cascade.py",
         "tests/test_speech_evidence_revocation.py"
       ],
       "acceptance_criteria": [
@@ -2790,8 +2850,8 @@
       "description": "Vor Training werden Datentypen, Contributor, Konflikte, PII und gruppierte Train-/Validation-Trennung sichtbar und reproduzierbar.",
       "type": "dataset",
       "milestone_id": "ASMP-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2799,9 +2859,15 @@
         "ASMP-DAT-008"
       ],
       "affected_files": [
+        "agent/routes/semantic_media_privacy.py",
         "agent/services/ml_intern_speech_dataset_split_service.py",
         "agent/services/speech_dataset_privacy_preview_service.py",
-        "tests/test_ml_intern_speech_dataset_split.py"
+        "frontend-angular/src/app/features/ml-intern/speech-dataset-privacy-preview.component.ts",
+        "frontend-angular/src/app/features/ml-intern/speech-dataset-privacy-preview.component.spec.ts",
+        "frontend-angular/src/app/services/speech-dataset-privacy-preview-api.service.ts",
+        "frontend-angular/src/app/services/speech-dataset-privacy-preview-api.service.spec.ts",
+        "tests/test_ml_intern_speech_dataset_split.py",
+        "tests/test_speech_dataset_privacy_preview_api.py"
       ],
       "acceptance_criteria": [
         "Gleiche Session, Utterance-Familie, Quelldigest und Near-Duplicate-Audio-Gruppe bleiben contributoruebergreifend in genau einer Partition.",
@@ -2816,8 +2882,8 @@
       "description": "Abgelaufene unkuratierte Evidence, Checkpoints und unreferenzierte Artefakte werden bounded und crashfest bereinigt.",
       "type": "privacy",
       "milestone_id": "ASMP-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2844,8 +2910,8 @@
       "description": "Ein eigener versionierter Job- und Resultvertrag erweitert ML-Intern, ohne ananta.lora-training.v1 oder dessen Textsemantik aufzubrechen.",
       "type": "contract",
       "milestone_id": "ASMP-M8",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2871,8 +2937,8 @@
       "description": "Backendwahl wird per Port/Adapter gekapselt; Worker-Runtime, Dataset und Hub kennen keine konkreten Frameworkdetails.",
       "type": "architecture",
       "milestone_id": "ASMP-M8",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -2896,8 +2962,8 @@
       "description": "Ein ressourcenarmes Backend erzeugt reproduzierbare Checkpoints, Reports und Adapterartefakte ohne echtes Modelltraining.",
       "type": "testing",
       "milestone_id": "ASMP-M8",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "medium",
       "depends_on": [
@@ -2921,8 +2987,8 @@
       "description": "Ein ADR bewertet relevante lokale Verfahren, Modelllizenzen, Hardwarebedarf, Exportformat und Inferenzkompatibilitaet vor Implementierung.",
       "type": "research",
       "milestone_id": "ASMP-M8",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2947,8 +3013,8 @@
       "description": "Speech-Training laeuft getrennt von Hub, Voice Runtime, SFU, Relay, Reconciliation und Text-LoRA-Workerpfad.",
       "type": "infrastructure",
       "milestone_id": "ASMP-M8",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2974,8 +3040,8 @@
       "description": "Nur admitted immutable Speech-Datasets koennen nach erneuter Consent-, Split-, Budget- und Capacity-Pruefung einen Worker-Task erzeugen.",
       "type": "orchestration",
       "milestone_id": "ASMP-M8",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3003,8 +3069,8 @@
       "description": "Worker verarbeitet genau einen gefencten Job, prueft Bindungen vor Audiozugriff und publiziert Artefakte nur ueber den Hub.",
       "type": "worker",
       "milestone_id": "ASMP-M8",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3030,8 +3096,8 @@
       "description": "Generic, local-only, reconciled und adapted werden auf getrennten Validationgruppen und Sicherheitsprobes verglichen.",
       "type": "evaluation",
       "milestone_id": "ASMP-M8",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3057,8 +3123,8 @@
       "description": "Adapter werden eng an Pair/Richtung, Sprecher, Base Model, Dataset und Consent gebunden und niemals automatisch aktiviert.",
       "type": "registry",
       "milestone_id": "ASMP-M8",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3084,8 +3150,8 @@
       "description": "Nur approved, aktuelle Adapter werden lokal geladen; Fehler oder Widerruf fallen ohne Callblockade auf Generic/Basismodell zurueck.",
       "type": "inference",
       "milestone_id": "ASMP-M8",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3110,8 +3176,8 @@
       "description": "Inventory, Diff, Offer, Chunk, Resolution, Receipt, Revocation und Acknowledgement erhalten geschlossene bilaterale Schemas.",
       "type": "schema",
       "milestone_id": "ASMP-M9",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3142,8 +3208,8 @@
       "description": "Alle Peer-Evidence-Nachrichten werden vor Inventar-, Konflikt- oder Storageverarbeitung kanonisch authentifiziert.",
       "type": "security",
       "milestone_id": "ASMP-M9",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3167,8 +3233,8 @@
       "description": "Peers vergleichen zuerst minimale content-free Manifestwurzeln und uebertragen nur fehlende autorisierte Evidence-Gruppen.",
       "type": "sync",
       "milestone_id": "ASMP-M9",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -3194,8 +3260,8 @@
       "description": "Unabhaengige Kandidaten werden alignmentbasiert verglichen, ohne einen zweiten Konsensus- oder Alignment-Stack zu erfinden.",
       "type": "reconciliation",
       "milestone_id": "ASMP-M9",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3222,8 +3288,8 @@
       "description": "Fachliche Evidence-Aufloesung bleibt immutable und reproduzierbar; persoenliche UI-Auswahl veraendert sie nicht.",
       "type": "policy",
       "milestone_id": "ASMP-M9",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3247,8 +3313,8 @@
       "description": "Evidence-Bulk ist fortsetzbar, bytebegrenzt und strikt nachrangig zu Live-Transcript und Control.",
       "type": "transport",
       "milestone_id": "ASMP-M9",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3274,8 +3340,8 @@
       "description": "Sender bietet exakt Datenklassen, Richtung, Zweck und Retention an; Recipient darf nur reduzieren und separat bestaetigen.",
       "type": "governance",
       "milestone_id": "ASMP-M9",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3300,8 +3366,8 @@
       "description": "Der Recipient besitzt Storage und Admission; kein Peer kann Daten direkt in Dataset oder Training schreiben.",
       "type": "admission",
       "milestone_id": "ASMP-M9",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3329,8 +3395,8 @@
       "description": "Anomalien und korrelierte Kandidaten werden erkannt, bevor Hub-Curation oder Training teure bzw. gefaehrliche Daten akzeptiert.",
       "type": "security",
       "milestone_id": "ASMP-M9",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3356,8 +3422,8 @@
       "description": "Nach lokaler Entscheidung erzeugt der Hub einen unveraenderlichen Beleg und baut ueber den kanonischen Speech-Dataset-Port eine neue Version.",
       "type": "dataset",
       "milestone_id": "ASMP-M9",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3384,8 +3450,8 @@
       "description": "Ananta fordert Loeschung oder Nutzungsstopp nachvollziehbar an, behauptet aber keine technische Garantie auf untrusted Peers.",
       "type": "privacy",
       "milestone_id": "ASMP-M9",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3411,8 +3477,8 @@
       "description": "Nutzer koennen Kandidaten, Konflikte, Richtung, Datenklassen, Quarantaene, Receipts und Auswirkungen nachvollziehen und steuern.",
       "type": "quality_gate",
       "milestone_id": "ASMP-M9",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3426,8 +3492,11 @@
         "frontend-angular/src/app/features/voice/peer-transcript-conflict-panel.component.ts",
         "frontend-angular/src/app/features/voice/peer-evidence-sync-panel.component.ts",
         "frontend-angular/src/app/features/ml-intern/speech-dataset-lineage.component.ts",
-        "frontend-angular/tests/peer-speech-sync.spec.ts",
-        "scripts/benchmark/peer_speech_evidence_sync.py"
+        "frontend-angular/tests/semantic-media-pair.spec.ts",
+        "scripts/benchmark/peer_speech_evidence_sync.py",
+        "config/peer-speech-evidence-sync-benchmark.v1.json",
+        "tests/test_peer_speech_sync_benchmark.py",
+        "artifacts/test-gates/peer-speech-evidence-sync.json"
       ],
       "acceptance_criteria": [
         "UI zeigt beide Originalkandidaten, Resolution, unresolved Regionen, Richtung, Fields, Purpose, Retention und Trainerklasse vor Zustimmung.",
@@ -3442,8 +3511,8 @@
       "description": "Slow Reconciliation bleibt eine Hub-gesteuerte Hintergrundlast mit getrennten Queues und kann keinen Livepfad blockieren.",
       "type": "architecture",
       "milestone_id": "ASMP-M10",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3469,8 +3538,8 @@
       "description": "Alle Offlineartefakte binden Attempt, Fencing, Consent, Inputmanifeste, Policy und eindeutige Einheiten.",
       "type": "schema",
       "milestone_id": "ASMP-M10",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3497,8 +3566,8 @@
       "description": "Budget wird nicht als einzelne compute_ms-Zahl, sondern als allokierte, reservierte, verbrauchte und verbleibende Ressourcen je Stage gefuehrt.",
       "type": "budgeting",
       "milestone_id": "ASMP-M10",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3523,8 +3592,8 @@
       "description": "Jobs, Attempts, Budgets, Checkpoints und Artifactrefs ueberleben Hub-Neustarts und besitzen atomare Claim-/Fencingoperationen.",
       "type": "persistence",
       "milestone_id": "ASMP-M10",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3551,8 +3620,8 @@
       "description": "Create, List, Detail, Pause, Resume und Cancel bleiben duenne APIadapter um den autoritativen Domainservice.",
       "type": "api",
       "milestone_id": "ASMP-M10",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3560,11 +3629,18 @@
         "ASMP-OFF-004"
       ],
       "affected_files": [
+        "agent/db_models/__init__.py",
+        "agent/db_models/speech_reconciliation.py",
+        "agent/repositories/speech_reconciliation.py",
         "agent/services/speech_reconciliation_job_service.py",
         "agent/services/speech_reconciliation_read_model_service.py",
         "agent/routes/speech_reconciliation.py",
         "frontend-angular/src/app/services/speech-reconciliation-api.service.ts",
-        "tests/test_speech_reconciliation_api.py"
+        "frontend-angular/src/app/services/speech-reconciliation-api.service.spec.ts",
+        "migrations/versions/4f9c2a7e1b6d_add_speech_reconciliation_mutations.py",
+        "tests/test_speech_reconciliation_api.py",
+        "tests/test_speech_reconciliation_migration.py",
+        "tests/test_speech_reconciliation_repository.py"
       ],
       "acceptance_criteria": [
         "Additive /v1/voice/speech-reconciliation-Endpunkte verlangen Auth, Idempotency-Key und passende Consent-/Manifest-/Revision-Preconditions.",
@@ -3579,8 +3655,8 @@
       "description": "Jeder Attempt ist ein Hub-delegierter Child-Task mit getrennten Offline-Ressourcen, Fairness und restartstabiler Recovery.",
       "type": "orchestration",
       "milestone_id": "ASMP-M10",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3609,8 +3685,8 @@
       "description": "Slow ASR und Alignment laufen in einem eigenen Container, nutzen authentifizierten Artifacttransfer und harte Decoder-/Ressourcenlimits.",
       "type": "worker",
       "milestone_id": "ASMP-M10",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3639,8 +3715,8 @@
       "description": "Bounded Modell-/Audio-Varianten erzeugen Kandidaten; der Resolver konsumiert kanonische Peer- und Fusionports statt Logik zu duplizieren.",
       "type": "reconciliation",
       "milestone_id": "ASMP-M10",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3668,8 +3744,8 @@
       "description": "Der Slow Path verlaengert nur bei messbarem Trend und erzeugt immer zuerst eine immutable Datasetversion; Training bleibt separate Delegation.",
       "type": "policy",
       "milestone_id": "ASMP-M10",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3697,8 +3773,8 @@
       "description": "Nutzer koennen Slow Jobs begrenzen und verstehen; ein reproduzierbarer Benchmark belegt Qualitaetsgewinn ohne Live-SLO-Verletzung.",
       "type": "quality_gate",
       "milestone_id": "ASMP-M10",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3726,8 +3802,8 @@
       "description": "Alle Trust Boundaries, Datenklassen, Protokolle, Lifecyclephasen und Angreiferrollen werden auf konkrete automatisierte Gates abgebildet.",
       "type": "security",
       "milestone_id": "ASMP-M11",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3739,7 +3815,7 @@
       "affected_files": [
         "docs/security/semantic-media-speech-test-matrix.md",
         "scripts/run_semantic_media_security_gate.py",
-        "tests/security/test_semantic_media_program_security.py"
+        "tests/test_semantic_media_security_gate.py"
       ],
       "acceptance_criteria": [
         "Matrix deckt MITM, Key-Substitution, Downgrade, Replay, Sybil, IDOR, Oversize, DoS, Poisoning, Collusion, stale Lease/Consent und Datenleak ab.",
@@ -3754,8 +3830,8 @@
       "description": "Contract-, Lease-, Rekey-, Recovery-, Consent-, Budget- und Fallbackentscheidungen sind sichtbar, ohne Debugpfad zur Control Plane zu machen.",
       "type": "observability",
       "milestone_id": "ASMP-M11",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -3765,9 +3841,13 @@
       ],
       "affected_files": [
         "agent/services/semantic_media_audit_service.py",
+        "agent/repositories/semantic_media_audit_outbox.py",
+        "agent/services/background/semantic_media_audit_reconciler.py",
         "agent/services/semantic_media_debug_read_model.py",
         "frontend-angular/src/app/features/pair-view/semantic-debug-panel.component.ts",
-        "tests/test_semantic_media_audit.py"
+        "tests/test_semantic_media_audit.py",
+        "tests/architecture/test_semantic_media_atomic_audit_boundaries.py",
+        "tests/test_speech_lifecycle_atomic_audit.py"
       ],
       "acceptance_criteria": [
         "Jeder autoritative Zustandswechsel erzeugt genau ein idempotentes Event mit Scope-Digest, Epoch, Contract/Lease/Jobref und Reason-Code.",
@@ -3782,8 +3862,8 @@
       "description": "Pair, Media, Speech, Evidence, Training und Offlinezustand erhalten konsistente Begriffe, Warnungen und autoritative Hubbestaetigung.",
       "type": "frontend",
       "milestone_id": "ASMP-M11",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3795,7 +3875,10 @@
       "affected_files": [
         "frontend-angular/src/app/features/voice/semantic-media-program-shell.component.ts",
         "frontend-angular/src/app/features/voice/semantic-media-program-shell.component.html",
-        "frontend-angular/src/app/features/voice/semantic-media-program-shell.component.spec.ts"
+        "frontend-angular/src/app/features/voice/semantic-media-program-shell.component.spec.ts",
+        "frontend-angular/tests/semantic-media-accessibility.spec.ts",
+        "scripts/e2e/semantic_media_accessibility_e2e.py",
+        "artifacts/e2e/semantic-media-accessibility-report.json"
       ],
       "acceptance_criteria": [
         "UI unterscheidet lokal gewuenscht, an Hub gesendet, autoritativ aktiv, pausing, revoked, expired, degraded und failed.",
@@ -3810,8 +3893,8 @@
       "description": "Alle Sicherheits- und Artifactvertraege verwenden dieselben kanonischen Fixtures und Reason-Codes ueber Prozessgrenzen.",
       "type": "quality_gate",
       "milestone_id": "ASMP-M11",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3839,8 +3922,8 @@
       "description": "Mindestens zwei Browserengines pruefen Ordinary Media, E2EE, Live-Partials, Segmentkorrektur und sicheren Rueckfall.",
       "type": "e2e",
       "milestone_id": "ASMP-M11",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3850,7 +3933,11 @@
       ],
       "affected_files": [
         "frontend-angular/tests/semantic-media-pair.spec.ts",
+        "frontend-angular/src/app/e2e/semantic-media-pair-live-driver.ts",
+        "frontend-angular/playwright.config.ts",
         "scripts/e2e/semantic_media_pair_e2e.py",
+        "scripts/e2e/semantic_media_e2e_report.py",
+        "tests/test_semantic_media_e2e_report.py",
         "artifacts/e2e/semantic-media-pair-report.json"
       ],
       "acceptance_criteria": [
@@ -3866,8 +3953,8 @@
       "description": "Gruppenbetrieb prueft Hub-Mitgliedschaft, SFU-E2EE, unabhaengige Receiverqualitaet, Semantic und Ordinary gleichzeitig.",
       "type": "e2e",
       "milestone_id": "ASMP-M11",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3893,8 +3980,8 @@
       "description": "Netzpartition, Prozessabbruch, Storagefehler, Cancellation und spaete Events werden fuer Echtzeit, Sync, Reconciliation und Training kombiniert.",
       "type": "chaos",
       "milestone_id": "ASMP-M11",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3921,8 +4008,8 @@
       "description": "Ein Widerruf wird waehrend jeder Datenphase ausgeloest und bis zum sicheren lokalen Endzustand verfolgt.",
       "type": "privacy",
       "milestone_id": "ASMP-M11",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3949,8 +4036,8 @@
       "description": "Ordinary und Semantic werden auf identischen Quellen und Netzprofilen fuer Pair, Gruppe, Evidence und Offline-Last verglichen.",
       "type": "performance",
       "milestone_id": "ASMP-M11",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -3977,8 +4064,8 @@
       "description": "Neue SFU-, Codec-, Krypto-, Speech- und ML-Abhaengigkeiten werden versioniert, rechtlich bewertet und operativ gehaertet.",
       "type": "supply_chain",
       "milestone_id": "ASMP-M11",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -4005,8 +4092,8 @@
       "description": "Operatoren koennen neue Pfade sicher aktivieren, drainen, pausieren, widerrufen, rotieren, bereinigen und deaktivieren.",
       "type": "documentation",
       "milestone_id": "ASMP-M11",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -4034,8 +4121,8 @@
       "description": "Ein dokumentierter Command prueft Contracts, Architektur, Security, Privacy, E2E, Chaos, Performance, Build und Summarykonsistenz vor jeder Aktivierungsstufe.",
       "type": "release_gate",
       "milestone_id": "ASMP-M11",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -4053,7 +4140,96 @@
       ],
       "affected_files": [
         "scripts/run_semantic_media_program_release_gate.py",
+        "scripts/run_semantic*.py",
+        "scripts/run_speech_privacy_gate.py",
+        "scripts/run_webrtc_crypto_gate.py",
+        "scripts/build_semantic_media_containers.py",
+        "scripts/generate_semantic_media_supply_chain_reports.py",
+        "scripts/benchmark",
+        "scripts/e2e",
+        "scripts/spikes",
         "docs/operations/semantic-media-rollout.md",
+        "docs/architecture",
+        "docs/benchmarks",
+        "docs/decisions",
+        "docs/legal",
+        "docs/operations",
+        "docs/operator-tui",
+        "docs/privacy",
+        "docs/security",
+        "docs/user",
+        ".github/workflows",
+        ".env.example",
+        "pyproject.toml",
+        "docker-compose.semantic-media.yml",
+        "docker",
+        "config",
+        "agent/bootstrap/semantic_media_services.py",
+        "agent/db_models/semantic_media.py",
+        "agent/db_models/semantic_relay.py",
+        "agent/db_models/speech_adaptation.py",
+        "agent/db_models/speech_evidence.py",
+        "agent/db_models/speech_evidence_sync.py",
+        "agent/db_models/speech_reconciliation.py",
+        "agent/repositories/semantic_*.py",
+        "agent/repositories/speech_*.py",
+        "agent/repositories/webrtc_*.py",
+        "agent/repositories/ml_intern_speech_*.py",
+        "agent/routes/semantic_*.py",
+        "agent/routes/speech_*.py",
+        "agent/services/semantic_*.py",
+        "agent/services/speech_*.py",
+        "agent/services/background/semantic_*.py",
+        "agent/services/background/speech_*.py",
+        "ananta_contracts/semantic_*.py",
+        "ananta_contracts/speech_*.py",
+        "ananta_contracts/webrtc_*.py",
+        "voice_runtime/evidence_*.py",
+        "voice_runtime/features",
+        "voice_runtime/peer_*.py",
+        "voice_runtime/source_correction.py",
+        "voice_runtime/speech_*.py",
+        "worker/semantic_media",
+        "worker/speech_reconciliation",
+        "worker/speech_training",
+        "frontend-angular/Dockerfile",
+        "frontend-angular/docker",
+        "frontend-angular/package.json",
+        "frontend-angular/package-lock.json",
+        "frontend-angular/playwright.config.ts",
+        "frontend-angular/src/app/features/ml-intern",
+        "frontend-angular/src/app/features/pair-view",
+        "frontend-angular/src/app/features/voice",
+        "frontend-angular/src/app/e2e",
+        "frontend-angular/src/app/services",
+        "frontend-angular/src/bootstrap-ananta-application.ts",
+        "frontend-angular/src/main.semantic-media-e2e.ts",
+        "frontend-angular/tests",
+        "frontend-angular/tsconfig.semantic-media-e2e.json",
+        "migrations/versions",
+        "schemas/release",
+        "schemas/voice",
+        "schemas/webrtc",
+        "schemas/worker/semantic_compute_result.v1.json",
+        "schemas/worker/semantic_compute_task.v1.json",
+        "tests/architecture",
+        "tests/chaos",
+        "tests/contracts",
+        "tests/e2e",
+        "tests/integration",
+        "tests/performance",
+        "tests/planning",
+        "tests/security",
+        "tests/worker",
+        "tests/test_media*.py",
+        "tests/test_peer*.py",
+        "tests/test_semantic*.py",
+        "tests/test_share*.py",
+        "tests/test_speech*.py",
+        "tests/test_voice*.py",
+        "tests/*_support.py",
+        "scripts/check_semantic_media_python_build.py",
+        "tests/test_semantic_media_program_release_gate.py",
         "artifacts/test-gates/semantic-media-program-evidence.json"
       ],
       "acceptance_criteria": [
@@ -4116,17 +4292,18 @@
   "tasks_status_summary": {
     "total": 126,
     "by_status": {
-      "todo": 126,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 126
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 112,
       "P1": 14,
-      "P2": 0
+      "P2": 0,
+      "P3": 0
     },
     "by_risk": {
       "low": 0,
@@ -4136,16 +4313,16 @@
     },
     "critical_path": {
       "total": 47,
-      "done": 0,
-      "remaining": 47
+      "done": 47,
+      "remaining": 0
     },
     "milestones": {
       "total": 12,
-      "todo": 12,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 12
     }
   },
   "definition_of_done": [
@@ -4160,926 +4337,926 @@
     "by_type": {
       "analysis": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "architecture": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "planning": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "configuration": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "observability": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "quality_gate": {
         "total": 9,
-        "done": 0,
+        "done": 9,
         "partial": 0,
         "blocked": 0,
-        "todo": 9,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 9,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 9
         }
       },
       "contract": {
         "total": 5,
-        "done": 0,
+        "done": 5,
         "partial": 0,
         "blocked": 0,
-        "todo": 5,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 5,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 5
         }
       },
       "authorization": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "schema": {
         "total": 6,
-        "done": 0,
+        "done": 6,
         "partial": 0,
         "blocked": 0,
-        "todo": 6,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 6,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 6
         }
       },
       "security": {
         "total": 11,
-        "done": 0,
+        "done": 11,
         "partial": 0,
         "blocked": 0,
-        "todo": 11,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 11,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 11
         }
       },
       "integration": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "refactor": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "transport": {
         "total": 4,
-        "done": 0,
+        "done": 4,
         "partial": 0,
         "blocked": 0,
-        "todo": 4,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 4,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 4
         }
       },
       "persistence": {
         "total": 5,
-        "done": 0,
+        "done": 5,
         "partial": 0,
         "blocked": 0,
-        "todo": 5,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 5,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 5
         }
       },
       "media": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "research": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "infrastructure": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "resilience": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "capability": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "state_machine": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "api": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "scheduler": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "worker": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "frontend": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "ai_assistance": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "capture": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "processing": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "policy": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "encoding": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "receiver": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "reconstruction": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "metrics": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "validation": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "voice_runtime": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "feature_extraction": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "buffer": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "correction": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "governance": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "identity": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "orchestration": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "dataset": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "lineage": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "privacy": {
         "total": 4,
-        "done": 0,
+        "done": 4,
         "partial": 0,
         "blocked": 0,
-        "todo": 4,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 4,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 4
         }
       },
       "testing": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "evaluation": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "registry": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "inference": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "sync": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "reconciliation": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "admission": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "budgeting": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "e2e": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "chaos": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "performance": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "supply_chain": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "documentation": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "release_gate": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 126,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0,
-    "milestones_done": 0,
+    "done": 126,
+    "milestones_done": 12,
     "milestones_total": 12
   }
 }

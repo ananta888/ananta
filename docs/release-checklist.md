@@ -69,7 +69,7 @@ On this WSL/Rancher Desktop setup, Docker pulls can fail when the Windows/Ranche
 
 ```bash
 ANANTA_DOCKER_CLEAN_PATH=1 \
-ANANTA_NPM_COMMAND="npx -p node@20.19.5 node /usr/bin/npm" \
+ANANTA_NPM_COMMAND="npx -p node@24.18.0 node /usr/bin/npm" \
 python scripts/release_gate.py \
   --strict \
   --compose-config \
@@ -121,4 +121,4 @@ Block the release if any of these are true:
 
 ## Fixed Release Inputs
 
-Exact image tags plus digests are required for public release images. Debian and Ubuntu apt installs use snapshot `20260406T000000Z`. Local build-output image names such as `ananta-...:local` remain local-only placeholders and are not registry release inputs.
+Exact image tags plus digests are required for public release images. Debian and Ubuntu apt installs use snapshot `20260715T000000Z`. Local build-output image names such as `ananta-...:local` remain local-only placeholders and are not registry release inputs.

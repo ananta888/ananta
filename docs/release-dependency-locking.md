@@ -42,6 +42,6 @@ Release images must use explicit tags plus registry digests where the registry i
 
 Backend images are pinned to `python:3.11.15-slim-bookworm`, which fixes both the Python patch line and Debian suite for the application runtime.
 
-Backend apt packages resolve through Debian snapshot `20260406T000000Z`. The WSL/Vulkan Ollama build path resolves Ubuntu packages through Ubuntu snapshot `20260406T000000Z` and does not add moving PPAs.
+Backend apt packages resolve through Debian snapshot `20260715T000000Z`. The WSL/Vulkan Ollama build path resolves Ubuntu packages through Ubuntu snapshot `20260715T000000Z` and does not add moving PPAs.
 
 This removes the previously documented apt rest drift from the v1.0.0 release path.

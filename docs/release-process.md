@@ -10,7 +10,7 @@ Every release candidate must pass the release gate from a clean checkout:
 
 ```bash
 ANANTA_DOCKER_CLEAN_PATH=1 \
-ANANTA_NPM_COMMAND="npx -p node@20.19.5 node /usr/bin/npm" \
+ANANTA_NPM_COMMAND="npx -p node@24.18.0 node /usr/bin/npm" \
 python scripts/release_gate.py \
   --strict \
   --compose-config \
@@ -51,7 +51,7 @@ The release gate already executes equivalent backend and frontend image builds w
 
 ## Smoke Test
 
-Use the release gate as the smoke test for the build path. It verifies that the backend and frontend images build from the pinned inputs and that the frontend production build completes with Node `20.19.5`.
+Use the release gate as the smoke test for the build path. It verifies that the backend and frontend images build from the pinned inputs and that the frontend production build completes with Node `24.18.0` LTS.
 
 For runtime smoke testing, start the active Compose-next quickstart:
 
@@ -93,7 +93,7 @@ python scripts/release_gate.py --strict --compose-config --report release-verifi
 
 ## CI
 
-Release-relevant GitHub Actions are pinned to commit SHAs, not floating major tags. CI uses Python `3.11.15`, Node `20.19.5`, Python lockfiles and `npm ci`.
+Release-relevant GitHub Actions are pinned to commit SHAs, not floating major tags. CI uses Python `3.11.15`, Node `24.18.0` LTS, Python lockfiles and `npm ci`.
 
 The `release-gate` CI job uploads `release-verification-report.json`. A failed release gate blocks the release.
 In GitHub Actions, the report is published as `ananta-release-verification-report` according to `docs/ci-artifacts.md`.

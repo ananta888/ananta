@@ -98,7 +98,7 @@ WSL/Rancher Desktop release verification variant:
 
 ```bash
 ANANTA_DOCKER_CLEAN_PATH=1 \
-ANANTA_NPM_COMMAND="npx -p node@20.19.5 node /usr/bin/npm" \
+ANANTA_NPM_COMMAND="npx -p node@24.18.0 node /usr/bin/npm" \
 python scripts/release_gate.py \
   --strict \
   --compose-config \
