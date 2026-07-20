@@ -1,7 +1,7 @@
 {
   "schema": "ananta.visual-process-assistant-frontend-performance-evidence.v1",
   "source_hashes": {
-    "frontend-angular/package.json": "926a183b7b8fbbaba3d31ce2dffb639d7fd81f113c3edee2322e8958c0547d6e",
+    "frontend-angular/package.json": "4734282a76a787f901f5579d098b0daae75952e5e5ad25f807db3f1b2e3735c1",
     "frontend-angular/playwright.vpa-performance.config.ts": "613a2e4ca4f2d5243a8de6e721af9265c3372e89beae041de8a396d59796eb27",
     "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts": "bdd7acbecb4d85f8e12c5f9822ced248f423c49b2af964596b8058de8e50d914",
     "frontend-angular/src/app/features/visual-process/visual-process-canvas.component.ts": "b3d87f019593b8dd20459c544fbe81bf41c3111cfb9e1dd7811414a02ba667aa",
@@ -18,7 +18,7 @@
     "frontend-angular/tests/visual-process-assistant-performance.spec.ts": "0f9eef4569dd53bd412b855950716a8be5282b5d29e72f7e8c4430ca68ab63a9"
   },
   "environment": {
-    "browser": "Chromium 143.0.7499.4",
+    "browser": "Chromium 148.0.7778.96",
     "build": "ananta-angular-0.7.0-angular-21.2.17",
     "hardware_class": "local-cpu-16-logical-memory-43-gib",
     "warmup_iterations": 100,
@@ -28,10 +28,10 @@
     "focus_transitions": 1000,
     "warmup_iterations": 100,
     "p50_ms": 0.1,
-    "p95_ms": 0.2,
-    "heap_before_mib": 8.799145,
-    "heap_after_mib": 8.876316,
-    "heap_growth_mib": 0.077171,
+    "p95_ms": 0.3,
+    "heap_before_mib": 9.109604,
+    "heap_after_mib": 9.196571,
+    "heap_growth_mib": 0.086967,
     "hover_subscriptions_per_editor": 0,
     "active_hover_timers_after_stabilization": 0,
     "conversation_subscriptions_per_editor": 1,
