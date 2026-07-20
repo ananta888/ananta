@@ -1,0 +1,83 @@
+{
+  "classifications": [
+    "absent",
+    "implemented",
+    "partial",
+    "stub",
+    "unverified"
+  ],
+  "findings": [
+    {
+      "classification": "implemented",
+      "evidence": "The Hub owns the canonical v1 permission keys and the bounded legacy-alias migration.",
+      "finding": "permission_key_drift",
+      "path": "agent/services/share_session_permissions.py",
+      "symbol": "DEFAULT_PERMISSIONS"
+    },
+    {
+      "classification": "implemented",
+      "evidence": "Angular uses the same canonical v1 keys and maps legacy aliases only through one explicit boundary.",
+      "finding": "permission_key_drift_ui",
+      "path": "frontend-angular/src/app/services/permission-labels.ts",
+      "symbol": "PERMISSION_LABELS"
+    },
+    {
+      "classification": "implemented",
+      "evidence": "Pair payloads pass through the bound AEAD crypto port before transport.",
+      "finding": "pair_payload_e2ee",
+      "path": "frontend-angular/src/app/services/pair-view-sync.service.ts",
+      "symbol": "cryptoPort.seal"
+    },
+    {
+      "classification": "partial",
+      "evidence": "Chunk sessions are bounded but owned by one process-local runtime registry.",
+      "finding": "voice_chunk_reassembly_scope",
+      "path": "voice_runtime/streaming.py",
+      "symbol": "StreamSessionManager"
+    },
+    {
+      "classification": "implemented",
+      "evidence": "The bounded encrypted relay uses a relational multi-Hub store with atomic cursors.",
+      "finding": "hub_relay_durability",
+      "path": "agent/repositories/semantic_relay_shared_store.py",
+      "symbol": "SharedSemanticRelayRepository"
+    },
+    {
+      "classification": "implemented",
+      "evidence": "A production Pair service owns explicit capture, addTrack/ontrack, replacement, reconnect and cleanup.",
+      "finding": "browser_media_tracks",
+      "path": "frontend-angular/src/app/services/webrtc-media-session.service.ts",
+      "symbol": "WebrtcMediaSessionService"
+    },
+    {
+      "classification": "implemented",
+      "evidence": "The Hub owns bounded SFU admission, membership epochs, revisions and publication/subscription grants.",
+      "finding": "sfu_control_plane",
+      "path": "agent/services/semantic_sfu_admission_service.py",
+      "symbol": "SemanticSfuAdmissionService"
+    },
+    {
+      "classification": "implemented",
+      "evidence": "Deterministic transcript candidate alignment exists in the Voice Runtime.",
+      "finding": "voice_alignment",
+      "path": "voice_runtime/fusion/alignment.py",
+      "symbol": "align_candidates"
+    },
+    {
+      "classification": "implemented",
+      "evidence": "Speech evidence consent independently binds raw-audio sharing, peer use, dataset and training grants.",
+      "finding": "voice_consent_categories",
+      "path": "ananta_contracts/speech_evidence_governance.py",
+      "symbol": "SpeechEvidenceConsent"
+    },
+    {
+      "classification": "implemented",
+      "evidence": "The isolated speech Worker imports the shared, versioned speech-adaptation job/result contract.",
+      "finding": "speech_training_boundary",
+      "path": "worker/speech_training/contracts.py",
+      "symbol": "CONTRACT_VERSION"
+    }
+  ],
+  "schema": "ananta.semantic-media-speech-baseline.v1",
+  "source_id_policy": "repository_path_and_symbol_only"
+}

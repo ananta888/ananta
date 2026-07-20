@@ -1,0 +1,23 @@
+{
+  "config_sha256": "c3c82c05728064b1c4c68a13ec5a4c27cfdca281338e2c812b4b7ffd8b2f1346",
+  "evidence_kind": "automated",
+  "expires_on": null,
+  "gate_id": "ASMP-QA-001",
+  "measurements": {
+    "automated_blocking_cases": 13,
+    "case_count": 13,
+    "covered_phase_count": 12,
+    "covered_threat_count": 13,
+    "executed_test_file_count": 11,
+    "referenced_test_file_count": 11,
+    "test_duration_ms": 156243,
+    "test_exit_code": 0
+  },
+  "owner": "semantic-media-maintainers",
+  "rationale": null,
+  "reason_codes": [],
+  "release_blocking": false,
+  "schema": "ananta.semantic-media-gate-evidence.v1",
+  "source_sha256": "e144e6892be4254b9a14e770b6fe463400da4d83d4a0ea7ffafa857f87244903",
+  "status": "passed"
+}

@@ -1,0 +1,36 @@
+{
+  "scenarios": [
+    {
+      "name": "full-feature-rollback",
+      "ordinary_call_healthy": true,
+      "passed": true,
+      "reason_codes": []
+    },
+    {
+      "name": "hub-failover",
+      "ordinary_call_healthy": true,
+      "passed": true,
+      "reason_codes": []
+    },
+    {
+      "name": "revocation",
+      "ordinary_call_healthy": true,
+      "passed": true,
+      "reason_codes": []
+    },
+    {
+      "name": "sfu-failover",
+      "ordinary_call_healthy": true,
+      "passed": true,
+      "reason_codes": []
+    },
+    {
+      "name": "worker-drain",
+      "ordinary_call_healthy": true,
+      "passed": true,
+      "reason_codes": []
+    }
+  ],
+  "schema": "ananta.semantic-media-game-day.v1",
+  "source_sha256": "48fa1afe0b4f25c1098cbaf47c5eef0dd9087d5d3797ffad251f0fa5264dbeba"
+}

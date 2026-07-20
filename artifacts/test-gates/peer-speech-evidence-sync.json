@@ -1,0 +1,29 @@
+{
+  "config_sha256": "277d5472d16e69d3053239606373865ee1f1252baff28cbfdb28514a8f899af1",
+  "evidence_kind": "automated",
+  "expires_on": null,
+  "gate_id": "m9_peer_sync_performance",
+  "measurements": {
+    "blind_sample_count": 30,
+    "local_lexical_error_micros": 166666,
+    "local_p95_ms": 1,
+    "local_sample_count": 30,
+    "measurement_run_id_sha256": "5008dfb8303680e04672759fd5ed9eba3558f6afa77443638add944bdd13e439",
+    "mode_count": 3,
+    "p95_regression_micros": 1000000,
+    "peer_leakage_events": 0,
+    "peer_lexical_error_micros": 0,
+    "peer_p95_ms": 2,
+    "peer_sample_count": 30,
+    "quality_claim": false
+  },
+  "owner": "semantic-media-maintainers",
+  "rationale": null,
+  "reason_codes": [
+    "speech_sync_transcript_p95_regression"
+  ],
+  "release_blocking": true,
+  "schema": "ananta.semantic-media-gate-evidence.v1",
+  "source_sha256": "fa28e7ab5b040edac41c677615bae2dc85d683075b9ff522f2933c2bec81b3c8",
+  "status": "failed"
+}

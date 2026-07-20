@@ -1,0 +1,27 @@
+{
+  "config_sha256": "c558fadd91f07a34b70f55725c1555ceb7d291bf7f068c8a92fb6309ed81e26d",
+  "evidence_kind": "automated",
+  "expires_on": null,
+  "gate_id": "ASMP-QA-010",
+  "measurements": {
+    "component_count": 6,
+    "composite_license_count": 86,
+    "critical_count": 210,
+    "hardening_check_count": 15,
+    "package_count": 4042,
+    "unaccepted_high_count": 1055,
+    "unknown_license_count": 351
+  },
+  "owner": "semantic-media-maintainers",
+  "rationale": null,
+  "reason_codes": [
+    "semantic_media_composite_license_review_required",
+    "semantic_media_critical_vulnerability",
+    "semantic_media_high_vulnerability_unaccepted",
+    "semantic_media_license_unresolved"
+  ],
+  "release_blocking": true,
+  "schema": "ananta.semantic-media-gate-evidence.v1",
+  "source_sha256": "e43589082bc4fea191e19e8f09dce804146a98ca254ebfe3b38cd58718580dcc",
+  "status": "failed"
+}

@@ -1,0 +1,56 @@
+{
+  "calibration_version": "ananta.acoustic-residual-privacy.synthetic-attacks.v1",
+  "checks": {
+    "bounded_corpus_complete": true,
+    "failed_threshold_disables_activation": true,
+    "measurements_finite": true,
+    "production_policy_matches_measurement": true
+  },
+  "content_policy": {
+    "content_free": true,
+    "forbidden_fields": [
+      "audio",
+      "ciphertext",
+      "features",
+      "pcm",
+      "samples",
+      "transcript",
+      "waveform"
+    ]
+  },
+  "corpus": {
+    "duration_ms_per_utterance": 1000,
+    "generator": "deterministic-speech-like-v1",
+    "production_population_claim": false,
+    "profile_count": 8,
+    "sample_rate_hz": 16000,
+    "test_utterances_per_profile": 6,
+    "train_utterances_per_profile": 6,
+    "utterance_count": 96
+  },
+  "decision": {
+    "activation_allowed": false,
+    "measured_verdict": "no_go",
+    "ordinary_and_transcript_fallback_required": true,
+    "production_policy_verdict": "no_go"
+  },
+  "gate": "ASMP-SPR-006",
+  "measurements": {
+    "membership_inference_score": 0.208333,
+    "reconstructability_score": 3.7e-05,
+    "speaker_linkability_score": 0.047619
+  },
+  "passed": true,
+  "schema_version": "ananta.acoustic-residual-privacy-gate.v1",
+  "source_files": [
+    "docs/security/acoustic-residual-privacy.md",
+    "scripts/benchmark/acoustic_residual_privacy.py",
+    "voice_runtime/features/residual.py"
+  ],
+  "source_sha256": "9d23549acf71c8ed875a53d301ce14059ddbf47b07b0aead6e34d7a6406f08a3",
+  "thresholds": {
+    "maximum_membership_inference_score": 0.15,
+    "maximum_reconstructability_score": 0.3,
+    "maximum_speaker_linkability_score": 0.25
+  }
+}

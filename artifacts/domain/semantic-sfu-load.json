@@ -1,0 +1,70 @@
+{
+  "schema": "ananta.semantic-sfu-load.v1",
+  "scope": "local-loopback; not a broadcast/production capacity claim",
+  "pinned_server_digest": "sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3",
+  "thresholds": {
+    "max_cpu_percent": 80.0,
+    "max_memory_bytes": 536870912,
+    "max_completion_p99_ms": 30000,
+    "max_dropped_video_frames": 8
+  },
+  "levels": [
+    {
+      "participants": 2,
+      "samples": 3,
+      "publisher_ingress_bytes": {
+        "min": 6998,
+        "max": 7005
+      },
+      "receiver_egress_bytes": {
+        "min": 3679,
+        "max": 3686
+      },
+      "cpu_percent": {
+        "max": 0.53,
+        "mean": 0.433
+      },
+      "memory_bytes": {
+        "max": 71869399
+      },
+      "turn_relay_selected_pairs": 0,
+      "dropped_video_frames": {
+        "max": 0
+      },
+      "scenario_completion_latency_ms": {
+        "p95": 3143,
+        "p99": 3143
+      },
+      "verdict": "pass"
+    },
+    {
+      "participants": 4,
+      "samples": 3,
+      "publisher_ingress_bytes": {
+        "min": 7393,
+        "max": 7599
+      },
+      "receiver_egress_bytes": {
+        "min": 13393,
+        "max": 14014
+      },
+      "cpu_percent": {
+        "max": 0.44,
+        "mean": 0.393
+      },
+      "memory_bytes": {
+        "max": 81956700
+      },
+      "turn_relay_selected_pairs": 0,
+      "dropped_video_frames": {
+        "max": 16
+      },
+      "scenario_completion_latency_ms": {
+        "p95": 4062,
+        "p99": 4062
+      },
+      "verdict": "fail"
+    }
+  ],
+  "verdict": "fail"
+}

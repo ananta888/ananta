@@ -1,0 +1,96 @@
+{
+  "checks": {
+    "ack_cleanup": true,
+    "bounded_preparse": true,
+    "browser_timer_gate": true,
+    "bulk_saturation_measured": true,
+    "contiguous_cursor": true,
+    "control_latency_gate": true,
+    "cursor_scope_bounded": true,
+    "duplicate_idempotent": true,
+    "priority_reserve": true,
+    "required_suites_executed": true,
+    "traffic_cursor_isolation": true,
+    "transcript_latency_gate": true
+  },
+  "content_policy": {
+    "content_free": true,
+    "forbidden_fields": [
+      "audio",
+      "ciphertext",
+      "frame",
+      "payload",
+      "plaintext",
+      "transcript"
+    ]
+  },
+  "gate": "ASMP-TRN-010",
+  "measurement_method": "monotonic_product_queue_and_executed_recovery_suites",
+  "measurements": {
+    "bulk_evictions": 128,
+    "bulk_saturated_samples": 128,
+    "control_p95_ms": 3,
+    "control_sent": 128,
+    "cursor_scopes": 3,
+    "remaining_messages": 0,
+    "saturation_samples": 128,
+    "timer_leaks": 0,
+    "transcript_p95_ms": 3,
+    "transcript_sent": 128
+  },
+  "passed": true,
+  "required_test_files": [
+    "tests/security/test_semantic_transport_fuzz.py",
+    "tests/chaos/test_semantic_transport_recovery.py",
+    "tests/integration/test_semantic_relay_multi_hub.py",
+    "frontend-angular/src/app/services/webrtc-priority-send-queue.spec.ts",
+    "frontend-angular/src/app/services/webrtc-chunk-reassembly.store.spec.ts",
+    "frontend-angular/src/app/services/webrtc-transport.service.spec.ts"
+  ],
+  "schema_version": "ananta.semantic-transport-gate.v2",
+  "seed": 87431,
+  "source_files": [
+    "ananta_contracts/webrtc_datachannel.py",
+    "agent/db_models/semantic_relay.py",
+    "agent/repositories/semantic_relay_repository.py",
+    "agent/repositories/semantic_relay_shared_store.py",
+    "agent/services/semantic_relay_authorization.py",
+    "agent/services/semantic_relay_composition.py",
+    "agent/services/semantic_relay_limits.py",
+    "agent/services/semantic_relay_observability.py",
+    "agent/services/semantic_relay_rate_limiter.py",
+    "agent/services/semantic_relay_service.py",
+    "agent/services/share_session_relay_membership.py",
+    "agent/services/share_view_security_service.py",
+    "frontend-angular/src/app/services/webrtc-datachannel.service.ts",
+    "frontend-angular/src/app/services/webrtc-chunk-reassembly.store.ts",
+    "frontend-angular/src/app/services/webrtc-priority-send-queue.ts",
+    "frontend-angular/src/app/services/webrtc-send-operation.ts",
+    "frontend-angular/src/app/services/webrtc-session.service.ts",
+    "frontend-angular/src/app/services/webrtc-transport.service.ts",
+    "scripts/benchmark/semantic_transport_saturation.ts",
+    "scripts/run_semantic_transport_gate.py",
+    "migrations/versions/d8e9f0a1b2c3_add_semantic_relay_store.py",
+    "migrations/versions/e9f0a1b2c3d4_add_semantic_relay_wire_metadata.py",
+    "schemas/webrtc/bounded_chunk.v1.json",
+    "schemas/webrtc/datachannel_message.v1.json",
+    "tests/security/test_semantic_transport_fuzz.py",
+    "tests/chaos/test_semantic_transport_recovery.py",
+    "tests/integration/test_semantic_relay_multi_hub.py",
+    "frontend-angular/src/app/services/webrtc-priority-send-queue.spec.ts",
+    "frontend-angular/src/app/services/webrtc-chunk-reassembly.store.spec.ts",
+    "frontend-angular/src/app/services/webrtc-transport.service.spec.ts"
+  ],
+  "source_sha256": "172874ad2a728d1d6e4b052b27cfe0bcb202b1e5b1cbbfeb246bc2463cb83202",
+  "test_suites": {
+    "angular_exit_code": 0,
+    "python_exit_code": 0
+  },
+  "thresholds": {
+    "control_p95_ms": 50,
+    "max_cursor_scopes": 3,
+    "max_remaining_messages": 0,
+    "max_timer_leaks": 0,
+    "transcript_p95_ms": 50
+  }
+}

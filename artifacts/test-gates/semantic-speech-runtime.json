@@ -1,0 +1,87 @@
+{
+  "checks": {
+    "backpressure_falls_back_to_ordinary_audio": true,
+    "chunk_413_drops_and_reduces": true,
+    "correction_after_every_segment": true,
+    "eight_hour_segment_rotation": true,
+    "five_second_hysteresis": true,
+    "live_partial_under_250ms": true,
+    "no_runtime_timers": true,
+    "ordinary_audio_remains_available": true,
+    "reconnect_duplicate_safe": true,
+    "revoke_immediate": true,
+    "source_deleted_after_correction": true,
+    "stop_409_purges": true,
+    "stream_404_purges": true
+  },
+  "contains_media_or_transcript_data": false,
+  "failure_actions": {
+    "404": {
+      "drop_current_segment": false,
+      "purge_session": true,
+      "reason_code": "speech_session_gone",
+      "reduce_segment_size": false,
+      "retry_allowed": false,
+      "status": 404
+    },
+    "409": {
+      "drop_current_segment": false,
+      "purge_session": true,
+      "reason_code": "speech_session_gone",
+      "reduce_segment_size": false,
+      "retry_allowed": false,
+      "status": 409
+    },
+    "413": {
+      "drop_current_segment": true,
+      "purge_session": false,
+      "reason_code": "speech_segment_too_large",
+      "reduce_segment_size": true,
+      "retry_allowed": true,
+      "status": 413
+    }
+  },
+  "gate": "semantic_speech_runtime",
+  "metrics": {
+    "backpressure_mode": "ordinary_audio",
+    "correction_attempts": 480,
+    "correction_failures": 0,
+    "correction_timers": 0,
+    "duplicate_finals_rejected": 480,
+    "emitted_finals": 480,
+    "emitted_partials": 480,
+    "hysteresis_reason": "quality_hysteresis_hold",
+    "max_partial_delivery_ms": 0,
+    "recovered_mode": "semantic_reconstruction",
+    "revoke_mode": "ordinary_audio",
+    "simulated_duration_hours": 8,
+    "simulated_segments": 480,
+    "source_releases": 480,
+    "tracker_timers": 0
+  },
+  "passed": true,
+  "schema_version": "ananta.semantic-speech-runtime-gate.v1",
+  "source_sha256": {
+    "agent/routes/voice.py": "b03023e6053163af1712e5ff472f74086978d3a4846e58635d011cdd255a7411",
+    "agent/services/semantic_speech_source_correction_service.py": "ad9b4da0f752f9052ceb7d72bac3d9ce049c54559b43aeb44f4492c5a22ed7b9",
+    "ananta_contracts/semantic_speech.py": "d7b545a2d22490c0ea2f0369076dfe3c93aabf594b44d8341d5ccd1d3e2c067e",
+    "frontend-angular/src/app/features/voice/reconstruction/generic-speech-reconstructor.service.ts": "a4e3f18a424368069059188a84693eb8c303027d2dfb9228073edcf8965e8002",
+    "frontend-angular/src/app/features/voice/semantic-media-program-shell.component.ts": "68de1b8ccb72bb843d4b775ce69c6285f6a7a9b172494034b0a4f0c098c81389",
+    "frontend-angular/src/app/features/voice/semantic-media-program.facade.ts": "7a8e19666b9dce70592d9b471a7f6928ebda6624d763d36c14bb0b780768b60d",
+    "frontend-angular/src/app/features/voice/semantic-speech-panel.component.ts": "0f726998770f9c10f760b1f302d3c2864011280cdf429d7be63af967af7b88dc",
+    "frontend-angular/src/app/services/semantic-speech-crypto.service.ts": "f6259b15d1986a713a093c3977e00fa8ccad28f8bde48a93792781c2d4f035c5",
+    "frontend-angular/src/app/services/semantic-speech-quality-controller.service.ts": "9ac2132ba18180a79f21e7a9e4ad2d777513db96f166e5cd2bd50637a7a84dcb",
+    "frontend-angular/src/app/services/semantic-speech-runtime-coordinator.service.ts": "5f3df3f9f3f5f2d5595f3ba51b21d48a3b62a209911fd93fe6243ca7bbed12cd",
+    "frontend-angular/src/app/services/semantic-speech-source-correction-api.service.ts": "68e113ae58d6a80940b5daadc5af88b1a20344299b5ba55ee5a50952d5c55794",
+    "frontend-angular/src/app/services/semantic-speech-transport.service.ts": "967865d768d2caaad2da8e5068e29043fb3c48beb6fa2743b892afee45dd1f6b",
+    "frontend-angular/src/app/services/speech-delay-buffer.service.ts": "b3372e37bae8df9c82cf3d513281e13f104e9e44e671b9e6a90cad7bc3ad2565",
+    "frontend-angular/src/app/services/speech-transcript-revision.store.ts": "7a72a22e38f11a023123d41f5a14775d9b06fe36be1de6be912db33c54326655",
+    "frontend-angular/src/app/services/webrtc-media-health.service.ts": "b154f383aab2bc888fd5e428ea54123709c06c74cfde5b0ef50852a1dac30f99",
+    "schemas/webrtc/speech_correction.v1.json": "0bf813e39e3110595c263723019e17c392e5950fcb0b4d7e9b968504cf88f81e",
+    "schemas/webrtc/speech_semantic_frame.v1.json": "da582c7e525ff024b14a62a37fea19c727a434d3f33a024c9af3d7c99972929d",
+    "schemas/webrtc/speech_transport_contract.v1.json": "65e5effd9a4b5e70fe13a559e30711815d6a78282b43beda9858dae970665a8d",
+    "voice_runtime/source_correction.py": "e956643c3ab428d2964747e68bb2acfc80c2897f45529435231dcf92e096dd7b",
+    "voice_runtime/speech_quality_policy.py": "3439340feed99bf8a228ada9a8b1c58e9f72dbb0c236a10aad28333cdcc027b2",
+    "voice_runtime/streaming.py": "ea5e4839f783dabf2378c3c26d50f5d1a6a60ccfa405227060cbe8fde7fefe07"
+  }
+}

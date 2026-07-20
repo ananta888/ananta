@@ -1,0 +1,57 @@
+{
+  "checks": {
+    "ack_idempotent_restart_stable": true,
+    "bounded_cleanup_complete": true,
+    "duplicate_append_idempotent": true,
+    "exact_postgres_digest": true,
+    "global_bytes_atomic": true,
+    "global_count_atomic": true,
+    "migration_head_applied": true,
+    "peer_limit_atomic": true,
+    "restart_cursor_monotone": true,
+    "restart_no_lost_entries": true,
+    "revoke_and_session_end_restart_stable": true,
+    "session_limit_atomic": true,
+    "survivor_continued_after_peer_abort": true,
+    "ttl_expire_restart_stable": true,
+    "two_independent_hub_processes": true
+  },
+  "content_policy": {
+    "content_free": true,
+    "forbidden_fields": [
+      "audio",
+      "ciphertext",
+      "database_url",
+      "password",
+      "payload",
+      "plaintext",
+      "transcript"
+    ]
+  },
+  "gate": "ASMP-TRN-007",
+  "measurements": {
+    "minimum_commits_before_abort": 5,
+    "quota_race_processes": 2,
+    "remaining_after_cleanup": 0,
+    "restart_flow_messages": 40
+  },
+  "passed": true,
+  "runtime": {
+    "abort_signal": "SIGKILL",
+    "database": "PostgreSQL 16.13",
+    "hub_processes": 2,
+    "image": "postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51",
+    "image_id": "sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51"
+  },
+  "schema_version": "ananta.semantic-relay-multi-hub-gate.v1",
+  "source_files": [
+    "agent/db_models/semantic_relay.py",
+    "agent/repositories/semantic_relay_repository.py",
+    "agent/repositories/semantic_relay_shared_store.py",
+    "agent/services/semantic_relay_limits.py",
+    "migrations/versions/d8e9f0a1b2c3_add_semantic_relay_store.py",
+    "migrations/versions/e9f0a1b2c3d4_add_semantic_relay_wire_metadata.py",
+    "scripts/e2e/semantic_relay_multi_hub_e2e.py"
+  ],
+  "source_sha256": "9fdabb749daaf87676706324c51d06c55f3e52b7446ee818424c128a3e18ca51"
+}

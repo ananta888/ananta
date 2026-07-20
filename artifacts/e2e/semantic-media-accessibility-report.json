@@ -1,0 +1,31 @@
+{
+  "config_sha256": "09d6cf5070fdb9f982f98d69f9634de9f303cae32f82d5139750268b10df3c9f",
+  "evidence_kind": "automated",
+  "expires_on": null,
+  "gate_id": "ASMP-QA-003-accessibility",
+  "measurements": {
+    "browser_count": 2,
+    "canary_leak_count": 0,
+    "chromium_executed_tests": 2,
+    "chromium_failed_tests": 0,
+    "chromium_passed_tests": 2,
+    "chromium_skipped_tests": 0,
+    "crypto_canary_match_count": 0,
+    "executed_tests": 4,
+    "failed_project_count": 0,
+    "failed_tests": 0,
+    "firefox_executed_tests": 2,
+    "firefox_failed_tests": 0,
+    "firefox_passed_tests": 2,
+    "firefox_skipped_tests": 0,
+    "passed_tests": 4,
+    "skipped_tests": 0
+  },
+  "owner": "semantic-media-maintainers",
+  "rationale": null,
+  "reason_codes": [],
+  "release_blocking": false,
+  "schema": "ananta.semantic-media-gate-evidence.v1",
+  "source_sha256": "72a6679aa0afd5e158924189fa6ce45c178be6c6ae8cec5681aaa24d14a76711",
+  "status": "passed"
+}

@@ -1,0 +1,194 @@
+{
+  "authority": {
+    "admission_api": "semantic_sfu_admission_bp",
+    "browser_mints_admission": false,
+    "compute_api": "semantic_media_contracts_bp",
+    "epoch_transition": [
+      1,
+      2
+    ],
+    "kind": "productive-hub-api",
+    "recovery_reason": "hub_failover",
+    "signature_algorithm": "Ed25519",
+    "state_repository": "sql_cas"
+  },
+  "engines": [
+    {
+      "cleanup": {
+        "browser_closed": true,
+        "livekit_rooms_remaining": 0,
+        "livekit_tracks_ended": 2,
+        "livekit_workers_terminated": 8,
+        "ordinary_peer_connections_closed": 4,
+        "ordinary_tracks_ended": 1
+      },
+      "compute": {
+        "conflict_scope_active_primary_count": 1,
+        "conflict_scope_active_validator_count": 1,
+        "duplicate_active_lease_count": 0,
+        "hub_remained_sole_lease_authority": true,
+        "initial_primary_lease_count": 1,
+        "initial_validator_lease_count": 1,
+        "persisted_active_lease_count_after_restart": 2,
+        "replacement_fencing_token_advanced": true,
+        "replacement_primary_lease_count": 1,
+        "revoked_primary_lease_count": 1,
+        "validator_conflict_reason": "lease_overlap",
+        "validator_conflict_rejection_count": 1,
+        "validator_conflict_request_count": 2,
+        "validator_conflict_success_count": 1
+      },
+      "engine": "chromium",
+      "outage": {
+        "controlled_mode": "ordinary_audio_fallback",
+        "disconnected_client_count": 4,
+        "hub_api_unavailable_verified": true,
+        "hub_sigkill_acknowledged": true,
+        "ordinary_min_inbound_bytes": 3339,
+        "ordinary_min_outbound_bytes": 3339,
+        "ordinary_peer_connection_count": 4,
+        "ordinary_receiver_count": 2,
+        "reconnecting_client_count": 4,
+        "semantic_room_count_during_fallback": 0,
+        "sfu_sigkill_acknowledged": true
+      },
+      "pre_failure": {
+        "publisher_outbound_bytes": 6544,
+        "receiver_count": 2,
+        "receiver_min_decoded_samples": 18,
+        "receiver_min_inbound_bytes": 3943,
+        "stale_probe_initial_decoded_samples": 13,
+        "stale_probe_initial_inbound_bytes": 2935
+      },
+      "recovery": {
+        "admission_revision_after_restart": 8,
+        "admission_revision_before_restart": 8,
+        "fresh_admission_count": 8,
+        "fresh_key_distinct": true,
+        "group_key_epoch": 2,
+        "hub_restart_acknowledged": true,
+        "old_authorization_rejected_count": 4,
+        "persistent_admission_state_resumed": true,
+        "previous_group_key_epoch": 1,
+        "reason": "hub_failover",
+        "receiver_count": 2,
+        "receiver_min_decoded_samples": 18,
+        "receiver_min_inbound_bytes": 3906,
+        "sfu_restart_acknowledged": true,
+        "signature_verification_count": 12,
+        "stale_key_probe_decoded_samples": 0,
+        "stale_key_probe_inbound_bytes": 2770
+      },
+      "verdict": "pass"
+    },
+    {
+      "cleanup": {
+        "browser_closed": true,
+        "livekit_rooms_remaining": 0,
+        "livekit_tracks_ended": 2,
+        "livekit_workers_terminated": 8,
+        "ordinary_peer_connections_closed": 4,
+        "ordinary_tracks_ended": 1
+      },
+      "compute": {
+        "conflict_scope_active_primary_count": 1,
+        "conflict_scope_active_validator_count": 1,
+        "duplicate_active_lease_count": 0,
+        "hub_remained_sole_lease_authority": true,
+        "initial_primary_lease_count": 1,
+        "initial_validator_lease_count": 1,
+        "persisted_active_lease_count_after_restart": 2,
+        "replacement_fencing_token_advanced": true,
+        "replacement_primary_lease_count": 1,
+        "revoked_primary_lease_count": 1,
+        "validator_conflict_reason": "lease_overlap",
+        "validator_conflict_rejection_count": 1,
+        "validator_conflict_request_count": 2,
+        "validator_conflict_success_count": 1
+      },
+      "engine": "firefox",
+      "outage": {
+        "controlled_mode": "ordinary_audio_fallback",
+        "disconnected_client_count": 4,
+        "hub_api_unavailable_verified": true,
+        "hub_sigkill_acknowledged": true,
+        "ordinary_min_inbound_bytes": 11923,
+        "ordinary_min_outbound_bytes": 11601,
+        "ordinary_peer_connection_count": 4,
+        "ordinary_receiver_count": 2,
+        "reconnecting_client_count": 4,
+        "semantic_room_count_during_fallback": 0,
+        "sfu_sigkill_acknowledged": true
+      },
+      "pre_failure": {
+        "publisher_outbound_bytes": 1887,
+        "receiver_count": 2,
+        "receiver_min_decoded_samples": 13,
+        "receiver_min_inbound_bytes": 1717,
+        "stale_probe_initial_decoded_samples": 12,
+        "stale_probe_initial_inbound_bytes": 1717
+      },
+      "recovery": {
+        "admission_revision_after_restart": 8,
+        "admission_revision_before_restart": 8,
+        "fresh_admission_count": 8,
+        "fresh_key_distinct": true,
+        "group_key_epoch": 2,
+        "hub_restart_acknowledged": true,
+        "old_authorization_rejected_count": 4,
+        "persistent_admission_state_resumed": true,
+        "previous_group_key_epoch": 1,
+        "reason": "hub_failover",
+        "receiver_count": 2,
+        "receiver_min_decoded_samples": 18,
+        "receiver_min_inbound_bytes": 2518,
+        "sfu_restart_acknowledged": true,
+        "signature_verification_count": 12,
+        "stale_key_probe_decoded_samples": 0,
+        "stale_key_probe_inbound_bytes": 2518
+      },
+      "verdict": "pass"
+    }
+  ],
+  "external_live_failover_verified": true,
+  "persisted_source_data": false,
+  "pinned": {
+    "client_version": "2.20.1",
+    "server_digest": "sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3",
+    "server_version": "1.13.1"
+  },
+  "reason_codes": [],
+  "runner": {
+    "browser_process_exit_verified": true,
+    "capture_image": "nicolaka/netshoot@sha256:a20c2531bf35436ed3766cd6cfe89d352b050ccc4d7005ce6400adf97503da1b",
+    "compose_project_removed": true,
+    "ephemeral_hub_state_removed": true,
+    "hub_boundary_capture_bytes": 425616,
+    "hub_boundary_capture_persisted": false,
+    "hub_boundary_capture_verified": true,
+    "hub_boundary_credential_scan_performed": false,
+    "hub_boundary_filter_protocol": "tcp_control_only",
+    "hub_boundary_known_marker_matches": 0,
+    "hub_boundary_packet_count": 1534,
+    "hub_boundary_rtp_rtcp_packet_count": 0,
+    "hub_process_identity_changed": true,
+    "hub_restart_count": 2,
+    "hub_sigkill_count": 2,
+    "known_credential_match_count": 0,
+    "matching_dynamic_rtc_ports": true,
+    "restart_count": 2,
+    "sigkill_count": 2,
+    "unique_compose_project": true
+  },
+  "schema": "ananta.semantic-sfu-live-failover.v1",
+  "topology": {
+    "browser_engines": [
+      "chromium",
+      "firefox"
+    ],
+    "publishers": 1,
+    "required_receivers": 2,
+    "stale_key_probes": 1
+  },
+  "verdict": "pass"
+}

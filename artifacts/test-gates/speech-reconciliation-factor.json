@@ -1,0 +1,28 @@
+{
+  "config_sha256": "94fd9d133f3f1492ad12d3c318c1bacfc550078c8e835c15369b71e7ef561d70",
+  "evidence_kind": "automated",
+  "expires_on": null,
+  "gate_id": "m10_offline",
+  "measurements": {
+    "factor_count": 5,
+    "maximum_live_sound_p95_ms": 11,
+    "maximum_live_sound_p99_ms": 26,
+    "maximum_live_text_p95_ms": 9,
+    "maximum_live_text_p99_ms": 10,
+    "maximum_rss_growth_bytes": 0,
+    "maximum_ui_p95_ms": 12,
+    "maximum_ui_p99_ms": 47,
+    "production_capacity_claim": false,
+    "quality_factor_1_micros": 600000,
+    "quality_factor_20_micros": 1000000,
+    "quality_observed_factor_count": 5,
+    "stage_count": 4
+  },
+  "owner": "semantic-media-maintainers",
+  "rationale": null,
+  "reason_codes": [],
+  "release_blocking": false,
+  "schema": "ananta.semantic-media-gate-evidence.v1",
+  "source_sha256": "c5fc76c476edd0a9fafe277dd4b050eff2b4d02b6d51e4396ace0869324524de",
+  "status": "passed"
+}

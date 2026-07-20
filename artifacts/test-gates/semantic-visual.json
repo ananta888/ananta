@@ -1,0 +1,27 @@
+{
+  "benchmark_thresholds": {
+    "maximum_mean_byte_ratio": 0.7,
+    "maximum_p95_byte_ratio": 1.25,
+    "maximum_p95_latency_ms": 20000,
+    "maximum_working_bytes": 67108864,
+    "maximum_worst_burst_bytes": 524288
+  },
+  "inputs": {
+    "benchmark_sha256": "f40948d1c1d1d538660b24995e8fe01e658d536138523755dc94b61ea6ff1cd6",
+    "lifecycle_e2e_sha256": "e304fd6a7a32792d1b8c70ad096c6957e53aa593cbe5f56205caeef45da18e96",
+    "spike_sha256": "c9dc01bea5428b7a713931d6c1fb791b4d1c7dafc44ad98bcb62e9260dd95ba3"
+  },
+  "lifecycle_e2e_passed": true,
+  "ordinary_fallback_required": true,
+  "passed": false,
+  "policy_version": "semantic-visual-release-gate/1.0.0",
+  "reasons": [
+    "benchmark_burst_exceeded",
+    "benchmark_byte_benefit_missing",
+    "benchmark_p95_byte_burst_exceeded",
+    "spike_no_go"
+  ],
+  "schema": "ananta.semantic-visual-release-gate.v1",
+  "semantic_visual_activation": false,
+  "threshold_source": "semantic-visual-feasibility.v1"
+}

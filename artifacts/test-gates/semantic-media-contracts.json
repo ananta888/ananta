@@ -1,0 +1,27 @@
+{
+  "config_sha256": "a083ad907939fd2d9d689d816595281b4cec5c65ade6cf3b6641046e3667caa1",
+  "evidence_kind": "automated",
+  "expires_on": null,
+  "gate_id": "ASMP-QA-004",
+  "measurements": {
+    "case_count": 40,
+    "domain_count": 9,
+    "domain_vector_count": 51,
+    "non_finite_vector_count": 4,
+    "python_duration_ms": 36035,
+    "python_exit_code": 0,
+    "shared_vector_count": 2,
+    "source_file_count": 35,
+    "typescript_duration_ms": 5358,
+    "typescript_exit_code": 0,
+    "worker_duration_ms": 37799,
+    "worker_exit_code": 0
+  },
+  "owner": "semantic-media-maintainers",
+  "rationale": null,
+  "reason_codes": [],
+  "release_blocking": false,
+  "schema": "ananta.semantic-media-gate-evidence.v1",
+  "source_sha256": "793a6351546d3cfd44bb739b36a7728865ed2a878062c0468ae25bc3222da867",
+  "status": "passed"
+}

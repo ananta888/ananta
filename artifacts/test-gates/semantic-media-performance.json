@@ -1,0 +1,38 @@
+{
+  "config_sha256": "ed77384619825a8ef18366f9a2d9a700ebf4ac2a75b87ec9327f91bfdd91862a",
+  "evidence_kind": "automated",
+  "expires_on": null,
+  "gate_id": "ASMP-QA-009",
+  "measurements": {
+    "input_report_sha256": "7ce7713ef8692cc84e38e762e27bd7e6d98114fa7e3767174d426d15625b3a8c",
+    "maximum_growth_per_receiver_bytes": 882688,
+    "maximum_offline_sound_p95_ms": 3,
+    "maximum_offline_sound_p99_ms": 6,
+    "maximum_offline_text_p95_ms": 1,
+    "maximum_offline_text_p99_ms": 1,
+    "maximum_offline_ui_p95_ms": 1,
+    "maximum_offline_ui_p99_ms": 1,
+    "maximum_p95_ratio_micros": 23000000,
+    "maximum_p99_ratio_micros": 6000000,
+    "offline_saturated_factor_count": 5,
+    "quality_failure_count": 18,
+    "row_count": 32,
+    "unavailable_metric_count": 4,
+    "verified_runs": 1
+  },
+  "owner": "semantic-media-maintainers",
+  "rationale": null,
+  "reason_codes": [
+    "program_benchmark_energy_microwh_telemetry_unavailable",
+    "program_benchmark_gpu_micros_telemetry_unavailable",
+    "program_benchmark_live_p95_regression",
+    "program_benchmark_live_p99_regression",
+    "program_benchmark_quality_gate_failed",
+    "program_benchmark_turn_bytes_telemetry_unavailable",
+    "program_benchmark_vram_bytes_telemetry_unavailable"
+  ],
+  "release_blocking": true,
+  "schema": "ananta.semantic-media-gate-evidence.v1",
+  "source_sha256": "6b1d58398b953b21e6ff4cde52fb2bcf22cd7ea12c3966ad7a93d17b35137bb7",
+  "status": "failed"
+}

@@ -1,0 +1,18 @@
+{
+  "config_sha256": "5a1c0427069cab80168c2354ae42ad37df2829ca8a36f6221190b3d72002e8e0",
+  "evidence_kind": "automated",
+  "expires_on": null,
+  "gate_id": "ASMP-QA-011",
+  "measurements": {
+    "passed_scenario_count": 5,
+    "runbook_count": 4,
+    "scenario_count": 5
+  },
+  "owner": "semantic-media-maintainers",
+  "rationale": null,
+  "reason_codes": [],
+  "release_blocking": false,
+  "schema": "ananta.semantic-media-gate-evidence.v1",
+  "source_sha256": "48fa1afe0b4f25c1098cbaf47c5eef0dd9087d5d3797ffad251f0fa5264dbeba",
+  "status": "passed"
+}

@@ -1,0 +1,513 @@
+{
+  "schema": "ananta.semantic-visual-feasibility.v1",
+  "generated_by": "scripts/spikes/semantic_visual_feasibility.mjs",
+  "deterministic_input_version": "synthetic-scenes-v1",
+  "observe_only": true,
+  "model_used": false,
+  "thresholds": {
+    "safety": {
+      "minimum_psnr_db": 30,
+      "maximum_drift_mae": 6
+    },
+    "go": {
+      "suitable_scenario_byte_ratio": 0.7,
+      "maximum_camera_byte_ratio": 1.1,
+      "maximum_noise_byte_ratio": 1.25,
+      "maximum_cpu_ratio": 2,
+      "maximum_memory_bytes": 67108864,
+      "maximum_latency_ratio": 1.25,
+      "minimum_beneficial_scenarios": 3
+    },
+    "no_go": {
+      "aggregate_byte_ratio": 1.25,
+      "maximum_cpu_ratio": 3,
+      "maximum_memory_bytes": 134217728,
+      "maximum_latency_ratio": 1.75,
+      "minimum_beneficial_scenarios": 2
+    }
+  },
+  "network_profiles": [
+    {
+      "id": "lan",
+      "bandwidth_bps": 50000000,
+      "base_rtt_ms": 20
+    },
+    {
+      "id": "wan",
+      "bandwidth_bps": 5000000,
+      "base_rtt_ms": 80
+    },
+    {
+      "id": "constrained",
+      "bandwidth_bps": 1000000,
+      "base_rtt_ms": 150
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario": "static_ui",
+      "source": {
+        "width_px": 320,
+        "height_px": 180,
+        "fps": 12,
+        "frames": 24,
+        "seed": 1592594996
+      },
+      "ordinary": {
+        "codec": "VP9/WebM",
+        "bytes": 1874,
+        "cpu_ms": 785.205,
+        "gpu_ms": null
+      },
+      "semantic": {
+        "codec": "DEFLATE",
+        "bytes": 2786,
+        "cpu_ms": 22.511,
+        "gpu_ms": null,
+        "memory_bytes": 115200,
+        "psnr_db": 99,
+        "drift_mae": 0,
+        "references": 1,
+        "deltas": 23
+      },
+      "ratios": {
+        "bytes": 1.487,
+        "cpu": 0.029
+      },
+      "networks": [
+        {
+          "profile": "lan",
+          "ordinary": {
+            "mean_latency_ms": 10.012,
+            "p95_latency_ms": 10.013,
+            "worst_burst_bytes": 79
+          },
+          "semantic": {
+            "mean_latency_ms": 10.019,
+            "p95_latency_ms": 10.015,
+            "worst_burst_bytes": 578
+          },
+          "latency_ratio": 1
+        },
+        {
+          "profile": "wan",
+          "ordinary": {
+            "mean_latency_ms": 40.125,
+            "p95_latency_ms": 40.126,
+            "worst_burst_bytes": 79
+          },
+          "semantic": {
+            "mean_latency_ms": 40.186,
+            "p95_latency_ms": 40.154,
+            "worst_burst_bytes": 578
+          },
+          "latency_ratio": 1.001
+        },
+        {
+          "profile": "constrained",
+          "ordinary": {
+            "mean_latency_ms": 75.625,
+            "p95_latency_ms": 75.632,
+            "worst_burst_bytes": 79
+          },
+          "semantic": {
+            "mean_latency_ms": 75.929,
+            "p95_latency_ms": 75.768,
+            "worst_burst_bytes": 578
+          },
+          "latency_ratio": 1.002
+        }
+      ]
+    },
+    {
+      "scenario": "text_scroll",
+      "source": {
+        "width_px": 320,
+        "height_px": 180,
+        "fps": 12,
+        "frames": 24,
+        "seed": 1592594996
+      },
+      "ordinary": {
+        "codec": "VP9/WebM",
+        "bytes": 25552,
+        "cpu_ms": 698.778,
+        "gpu_ms": null
+      },
+      "semantic": {
+        "codec": "DEFLATE",
+        "bytes": 72092,
+        "cpu_ms": 91.322,
+        "gpu_ms": null,
+        "memory_bytes": 162146,
+        "psnr_db": 47.057,
+        "drift_mae": 0.027,
+        "references": 1,
+        "deltas": 23
+      },
+      "ratios": {
+        "bytes": 2.821,
+        "cpu": 0.131
+      },
+      "networks": [
+        {
+          "profile": "lan",
+          "ordinary": {
+            "mean_latency_ms": 10.17,
+            "p95_latency_ms": 10.17,
+            "worst_burst_bytes": 1065
+          },
+          "semantic": {
+            "mean_latency_ms": 10.481,
+            "p95_latency_ms": 10.539,
+            "worst_burst_bytes": 3366
+          },
+          "latency_ratio": 1.036
+        },
+        {
+          "profile": "wan",
+          "ordinary": {
+            "mean_latency_ms": 41.703,
+            "p95_latency_ms": 41.704,
+            "worst_burst_bytes": 1065
+          },
+          "semantic": {
+            "mean_latency_ms": 44.806,
+            "p95_latency_ms": 45.386,
+            "worst_burst_bytes": 3366
+          },
+          "latency_ratio": 1.088
+        },
+        {
+          "profile": "constrained",
+          "ordinary": {
+            "mean_latency_ms": 83.517,
+            "p95_latency_ms": 83.52,
+            "worst_burst_bytes": 1065
+          },
+          "semantic": {
+            "mean_latency_ms": 99.031,
+            "p95_latency_ms": 101.928,
+            "worst_burst_bytes": 3366
+          },
+          "latency_ratio": 1.22
+        }
+      ]
+    },
+    {
+      "scenario": "cursor_animation",
+      "source": {
+        "width_px": 320,
+        "height_px": 180,
+        "fps": 12,
+        "frames": 24,
+        "seed": 1592594996
+      },
+      "ordinary": {
+        "codec": "VP9/WebM",
+        "bytes": 3308,
+        "cpu_ms": 471.117,
+        "gpu_ms": null
+      },
+      "semantic": {
+        "codec": "DEFLATE",
+        "bytes": 22862,
+        "cpu_ms": 47.654,
+        "gpu_ms": null,
+        "memory_bytes": 135059,
+        "psnr_db": 99,
+        "drift_mae": 0,
+        "references": 1,
+        "deltas": 23
+      },
+      "ratios": {
+        "bytes": 6.911,
+        "cpu": 0.101
+      },
+      "networks": [
+        {
+          "profile": "lan",
+          "ordinary": {
+            "mean_latency_ms": 10.022,
+            "p95_latency_ms": 10.022,
+            "worst_burst_bytes": 138
+          },
+          "semantic": {
+            "mean_latency_ms": 10.152,
+            "p95_latency_ms": 10.173,
+            "worst_burst_bytes": 1307
+          },
+          "latency_ratio": 1.015
+        },
+        {
+          "profile": "wan",
+          "ordinary": {
+            "mean_latency_ms": 40.221,
+            "p95_latency_ms": 40.221,
+            "worst_burst_bytes": 138
+          },
+          "semantic": {
+            "mean_latency_ms": 41.524,
+            "p95_latency_ms": 41.73,
+            "worst_burst_bytes": 1307
+          },
+          "latency_ratio": 1.038
+        },
+        {
+          "profile": "constrained",
+          "ordinary": {
+            "mean_latency_ms": 76.103,
+            "p95_latency_ms": 76.104,
+            "worst_burst_bytes": 138
+          },
+          "semantic": {
+            "mean_latency_ms": 82.621,
+            "p95_latency_ms": 83.648,
+            "worst_burst_bytes": 1307
+          },
+          "latency_ratio": 1.099
+        }
+      ]
+    },
+    {
+      "scenario": "camera",
+      "source": {
+        "width_px": 320,
+        "height_px": 180,
+        "fps": 12,
+        "frames": 24,
+        "seed": 1592594996
+      },
+      "ordinary": {
+        "codec": "VP9/WebM",
+        "bytes": 38540,
+        "cpu_ms": 871.622,
+        "gpu_ms": null
+      },
+      "semantic": {
+        "codec": "DEFLATE",
+        "bytes": 935475,
+        "cpu_ms": 145.72,
+        "gpu_ms": null,
+        "memory_bytes": 197281,
+        "psnr_db": 39.223,
+        "drift_mae": 1.664,
+        "references": 1,
+        "deltas": 23
+      },
+      "ratios": {
+        "bytes": 24.273,
+        "cpu": 0.167
+      },
+      "networks": [
+        {
+          "profile": "lan",
+          "ordinary": {
+            "mean_latency_ms": 10.257,
+            "p95_latency_ms": 10.257,
+            "worst_burst_bytes": 1606
+          },
+          "semantic": {
+            "mean_latency_ms": 16.237,
+            "p95_latency_ms": 16.682,
+            "worst_burst_bytes": 53382
+          },
+          "latency_ratio": 1.626
+        },
+        {
+          "profile": "wan",
+          "ordinary": {
+            "mean_latency_ms": 42.569,
+            "p95_latency_ms": 42.57,
+            "worst_burst_bytes": 1606
+          },
+          "semantic": {
+            "mean_latency_ms": 102.452,
+            "p95_latency_ms": 106.824,
+            "worst_burst_bytes": 53382
+          },
+          "latency_ratio": 2.509
+        },
+        {
+          "profile": "constrained",
+          "ordinary": {
+            "mean_latency_ms": 87.847,
+            "p95_latency_ms": 87.848,
+            "worst_burst_bytes": 1606
+          },
+          "semantic": {
+            "mean_latency_ms": 3027.121,
+            "p95_latency_ms": 5412.451,
+            "worst_burst_bytes": 53382
+          },
+          "latency_ratio": 61.612
+        }
+      ]
+    },
+    {
+      "scenario": "scene_cut",
+      "source": {
+        "width_px": 320,
+        "height_px": 180,
+        "fps": 12,
+        "frames": 24,
+        "seed": 1592594996
+      },
+      "ordinary": {
+        "codec": "VP9/WebM",
+        "bytes": 1334,
+        "cpu_ms": 281.947,
+        "gpu_ms": null
+      },
+      "semantic": {
+        "codec": "DEFLATE",
+        "bytes": 3336,
+        "cpu_ms": 11.21,
+        "gpu_ms": null,
+        "memory_bytes": 115200,
+        "psnr_db": 99,
+        "drift_mae": 0,
+        "references": 2,
+        "deltas": 22
+      },
+      "ratios": {
+        "bytes": 2.501,
+        "cpu": 0.04
+      },
+      "networks": [
+        {
+          "profile": "lan",
+          "ordinary": {
+            "mean_latency_ms": 10.009,
+            "p95_latency_ms": 10.009,
+            "worst_burst_bytes": 56
+          },
+          "semantic": {
+            "mean_latency_ms": 10.022,
+            "p95_latency_ms": 10.038,
+            "worst_burst_bytes": 988
+          },
+          "latency_ratio": 1.003
+        },
+        {
+          "profile": "wan",
+          "ordinary": {
+            "mean_latency_ms": 40.089,
+            "p95_latency_ms": 40.09,
+            "worst_burst_bytes": 56
+          },
+          "semantic": {
+            "mean_latency_ms": 40.222,
+            "p95_latency_ms": 40.378,
+            "worst_burst_bytes": 988
+          },
+          "latency_ratio": 1.007
+        },
+        {
+          "profile": "constrained",
+          "ordinary": {
+            "mean_latency_ms": 75.445,
+            "p95_latency_ms": 75.448,
+            "worst_burst_bytes": 56
+          },
+          "semantic": {
+            "mean_latency_ms": 76.112,
+            "p95_latency_ms": 76.888,
+            "worst_burst_bytes": 988
+          },
+          "latency_ratio": 1.019
+        }
+      ]
+    },
+    {
+      "scenario": "strong_noise",
+      "source": {
+        "width_px": 320,
+        "height_px": 180,
+        "fps": 12,
+        "frames": 24,
+        "seed": 1592594996
+      },
+      "ordinary": {
+        "codec": "VP9/WebM",
+        "bytes": 2119061,
+        "cpu_ms": 2386.335,
+        "gpu_ms": null
+      },
+      "semantic": {
+        "codec": "DEFLATE",
+        "bytes": 1386720,
+        "cpu_ms": 72.498,
+        "gpu_ms": null,
+        "memory_bytes": 115200,
+        "psnr_db": 99,
+        "drift_mae": 0,
+        "references": 24,
+        "deltas": 0
+      },
+      "ratios": {
+        "bytes": 0.654,
+        "cpu": 0.03
+      },
+      "networks": [
+        {
+          "profile": "lan",
+          "ordinary": {
+            "mean_latency_ms": 24.127,
+            "p95_latency_ms": 24.127,
+            "worst_burst_bytes": 88295
+          },
+          "semantic": {
+            "mean_latency_ms": 19.245,
+            "p95_latency_ms": 19.245,
+            "worst_burst_bytes": 57780
+          },
+          "latency_ratio": 0.798
+        },
+        {
+          "profile": "wan",
+          "ordinary": {
+            "mean_latency_ms": 847.554,
+            "p95_latency_ms": 1455.894,
+            "worst_burst_bytes": 88295
+          },
+          "semantic": {
+            "mean_latency_ms": 237.267,
+            "p95_latency_ms": 332.971,
+            "worst_burst_bytes": 57780
+          },
+          "latency_ratio": 0.229
+        },
+        {
+          "profile": "constrained",
+          "ordinary": {
+            "mean_latency_ms": 7946.103,
+            "p95_latency_ms": 14487.803,
+            "worst_burst_bytes": 88295
+          },
+          "semantic": {
+            "mean_latency_ms": 4894.667,
+            "p95_latency_ms": 8873.187,
+            "worst_burst_bytes": 57780
+          },
+          "latency_ratio": 0.612
+        }
+      ]
+    }
+  ],
+  "decision": {
+    "verdict": "no_go",
+    "activation_allowed": false,
+    "ordinary_webrtc_unchanged": true,
+    "followup_visual_flags_enabled": false,
+    "summary": {
+      "aggregate_byte_ratio": 6.441,
+      "maximum_cpu_ratio": 0.167,
+      "maximum_latency_ratio": 61.612,
+      "maximum_memory_bytes": 197281,
+      "minimum_psnr_db": 39.223,
+      "maximum_drift_mae": 1.664,
+      "beneficial_scenarios": 1
+    }
+  }
+}

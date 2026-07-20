@@ -1,0 +1,185 @@
+{
+  "schema": "ananta.semantic-sfu-three-peer-spike.v1",
+  "pinned": {
+    "server_version": "1.13.1",
+    "server_digest": "sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3",
+    "client_version": "2.20.1"
+  },
+  "topology": {
+    "publishers": 1,
+    "receivers": 2,
+    "expected_publisher_uploads": 1
+  },
+  "transport_profile": "ordinary_candidate_selection",
+  "e2ee": {
+    "enabled": true,
+    "server_plaintext_access": false,
+    "evidence": "2 correct-key receivers decode; one wrong-key receiver receives no decoded video frames",
+    "packet_capture_scope": "KPA negative probe; raw media payload is never persisted"
+  },
+  "engines": [
+    {
+      "engine": "chromium",
+      "peers": [
+        {
+          "identity": "publisher",
+          "peer_connections": 1,
+          "outbound_video_streams": 1,
+          "inbound_video_streams": 0,
+          "outbound_video_bytes": 6517,
+          "inbound_video_bytes": 0,
+          "dropped_video_frames": 0,
+          "selected_candidate_types": [
+            "prflx:host",
+            "srflx:host"
+          ],
+          "decoded_samples": 0,
+          "subscribed_publications": []
+        },
+        {
+          "identity": "receiver-1",
+          "peer_connections": 1,
+          "outbound_video_streams": 0,
+          "inbound_video_streams": 1,
+          "outbound_video_bytes": 0,
+          "inbound_video_bytes": 3808,
+          "dropped_video_frames": 0,
+          "selected_candidate_types": [
+            "prflx:host",
+            "srflx:host"
+          ],
+          "decoded_samples": 18,
+          "subscribed_publications": [
+            {
+              "name": "fanout-camera",
+              "publisher": "publisher"
+            }
+          ]
+        },
+        {
+          "identity": "receiver-2",
+          "peer_connections": 1,
+          "outbound_video_streams": 0,
+          "inbound_video_streams": 1,
+          "outbound_video_bytes": 0,
+          "inbound_video_bytes": 3808,
+          "dropped_video_frames": 0,
+          "selected_candidate_types": [
+            "prflx:host",
+            "srflx:host"
+          ],
+          "decoded_samples": 18,
+          "subscribed_publications": [
+            {
+              "name": "fanout-camera",
+              "publisher": "publisher"
+            }
+          ]
+        },
+        {
+          "identity": "wrong-key-probe",
+          "peer_connections": 1,
+          "outbound_video_streams": 0,
+          "inbound_video_streams": 1,
+          "outbound_video_bytes": 0,
+          "inbound_video_bytes": 2929,
+          "dropped_video_frames": 0,
+          "selected_candidate_types": [
+            "prflx:host",
+            "srflx:host"
+          ],
+          "decoded_samples": 0,
+          "subscribed_publications": [
+            {
+              "name": "fanout-camera",
+              "publisher": "publisher"
+            }
+          ]
+        }
+      ],
+      "relay_required": false,
+      "relay_selected": false,
+      "verdict": "pass"
+    },
+    {
+      "engine": "firefox",
+      "peers": [
+        {
+          "identity": "publisher",
+          "peer_connections": 1,
+          "outbound_video_streams": 1,
+          "inbound_video_streams": 0,
+          "outbound_video_bytes": 2694,
+          "inbound_video_bytes": 0,
+          "dropped_video_frames": 0,
+          "selected_candidate_types": [
+            "host:prflx"
+          ],
+          "decoded_samples": 0,
+          "subscribed_publications": []
+        },
+        {
+          "identity": "receiver-1",
+          "peer_connections": 1,
+          "outbound_video_streams": 0,
+          "inbound_video_streams": 1,
+          "outbound_video_bytes": 0,
+          "inbound_video_bytes": 2715,
+          "dropped_video_frames": 0,
+          "selected_candidate_types": [
+            "host:prflx"
+          ],
+          "decoded_samples": 18,
+          "subscribed_publications": [
+            {
+              "name": "fanout-camera",
+              "publisher": "publisher"
+            }
+          ]
+        },
+        {
+          "identity": "receiver-2",
+          "peer_connections": 1,
+          "outbound_video_streams": 0,
+          "inbound_video_streams": 1,
+          "outbound_video_bytes": 0,
+          "inbound_video_bytes": 2715,
+          "dropped_video_frames": 0,
+          "selected_candidate_types": [
+            "host:prflx"
+          ],
+          "decoded_samples": 18,
+          "subscribed_publications": [
+            {
+              "name": "fanout-camera",
+              "publisher": "publisher"
+            }
+          ]
+        },
+        {
+          "identity": "wrong-key-probe",
+          "peer_connections": 1,
+          "outbound_video_streams": 0,
+          "inbound_video_streams": 1,
+          "outbound_video_bytes": 0,
+          "inbound_video_bytes": 2715,
+          "dropped_video_frames": 0,
+          "selected_candidate_types": [
+            "host:prflx"
+          ],
+          "decoded_samples": 0,
+          "subscribed_publications": [
+            {
+              "name": "fanout-camera",
+              "publisher": "publisher"
+            }
+          ]
+        }
+      ],
+      "relay_required": false,
+      "relay_selected": false,
+      "verdict": "pass"
+    }
+  ],
+  "verdict": "pass"
+}

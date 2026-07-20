@@ -1,0 +1,122 @@
+{
+  "schema": "ananta.semantic-visual-benchmark.v1",
+  "benchmark_version": "deterministic-capacity-model/1.0.0",
+  "source_spike_sha256": "c9dc01bea5428b7a713931d6c1fb791b4d1c7dafc44ad98bcb62e9260dd95ba3",
+  "scenarios": [
+    "static_ui",
+    "text_scroll",
+    "cursor_animation",
+    "camera",
+    "scene_cut",
+    "strong_noise"
+  ],
+  "windows_seconds": [
+    2,
+    10,
+    20
+  ],
+  "participant_counts": [
+    2,
+    10
+  ],
+  "units": {
+    "byte_ratio": "semantic_bytes/ordinary_bytes",
+    "latency": "milliseconds",
+    "burst": "bytes",
+    "memory": "bytes"
+  },
+  "rows": [
+    {
+      "participants": 2,
+      "window_seconds": 2,
+      "samples": 12,
+      "byte_ratio": {
+        "mean": 6.83,
+        "p95": 26.457
+      },
+      "latency_ms": {
+        "mean": 2706.362,
+        "p95": 10150.926
+      },
+      "worst_burst_bytes": 1525392,
+      "maximum_working_bytes": 394562
+    },
+    {
+      "participants": 2,
+      "window_seconds": 10,
+      "samples": 60,
+      "byte_ratio": {
+        "mean": 6.772,
+        "p95": 25.972
+      },
+      "latency_ms": {
+        "mean": 2657.233,
+        "p95": 9781.801
+      },
+      "worst_burst_bytes": 1525392,
+      "maximum_working_bytes": 394562
+    },
+    {
+      "participants": 2,
+      "window_seconds": 20,
+      "samples": 120,
+      "byte_ratio": {
+        "mean": 6.763,
+        "p95": 25.972
+      },
+      "latency_ms": {
+        "mean": 2659.597,
+        "p95": 9874.082
+      },
+      "worst_burst_bytes": 1525392,
+      "maximum_working_bytes": 394562
+    },
+    {
+      "participants": 10,
+      "window_seconds": 2,
+      "samples": 12,
+      "byte_ratio": {
+        "mean": 6.888,
+        "p95": 26.7
+      },
+      "latency_ms": {
+        "mean": 3054.368,
+        "p95": 11180.216
+      },
+      "worst_burst_bytes": 7280280,
+      "maximum_working_bytes": 1972810
+    },
+    {
+      "participants": 10,
+      "window_seconds": 10,
+      "samples": 60,
+      "byte_ratio": {
+        "mean": 6.766,
+        "p95": 25.972
+      },
+      "latency_ms": {
+        "mean": 3063.113,
+        "p95": 11286.694
+      },
+      "worst_burst_bytes": 7557624,
+      "maximum_working_bytes": 1972810
+    },
+    {
+      "participants": 10,
+      "window_seconds": 20,
+      "samples": 120,
+      "byte_ratio": {
+        "mean": 6.757,
+        "p95": 25.972
+      },
+      "latency_ms": {
+        "mean": 3065.841,
+        "p95": 11393.172
+      },
+      "worst_burst_bytes": 7626960,
+      "maximum_working_bytes": 1972810
+    }
+  ],
+  "release_candidate": false,
+  "release_candidate_reason": "spike_no_go"
+}

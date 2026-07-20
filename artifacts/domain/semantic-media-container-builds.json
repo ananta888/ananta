@@ -1,0 +1,37 @@
+{
+  "images": [
+    {
+      "component": "frontend",
+      "image_digest": "8d1315b8358a77f52be371ec90275665dfe077975e6abfb7ee0b6c5aa0eeb7eb",
+      "reference": "ananta-frontend-tests:local"
+    },
+    {
+      "component": "hub",
+      "image_digest": "d1f0c9a8af1c5062bcf1399f3eec1f57213cea694b750ed21ac3e260d7228bdd",
+      "reference": "ananta-quickstart-no-ollama:local"
+    },
+    {
+      "component": "reconciliation",
+      "image_digest": "004e5128799bfc52abf9d8194d7363a35d25e5bdfac81016406e8212186db39d",
+      "reference": "ananta-speech-reconciliation-worker:local-cpu"
+    },
+    {
+      "component": "sfu",
+      "image_digest": "2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3",
+      "reference": "livekit/livekit-server:v1.13.1@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3"
+    },
+    {
+      "component": "training",
+      "image_digest": "27d4dd5078b12d9f5550c9808ed489086e2c3588320d13a134bafcb9e7f2a3fc",
+      "reference": "ananta-speech-training-worker:local"
+    },
+    {
+      "component": "turn",
+      "image_digest": "71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888",
+      "reference": "coturn/coturn:4.6.3-r3@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"
+    }
+  ],
+  "schema": "ananta.semantic-media-container-builds.v2",
+  "source_sha256": "921d1ea4b52df984861d83e910131125e947ed9388cbbf35681e10d0b9e7e9e4",
+  "status": "passed"
+}

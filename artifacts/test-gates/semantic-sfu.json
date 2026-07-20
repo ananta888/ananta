@@ -1,0 +1,40 @@
+{
+  "schema": "ananta.semantic-sfu-release-gate.v1",
+  "gate": "semantic-sfu",
+  "source_sha256": "66ebdb1c15f2a34f686eb88644dcd8976657186090329908d0749fa31b1ea76b",
+  "config_sha256": "22b091d475cd080f9275cba461dbc7999ca4b2250838e305cb1513755ae4dd41",
+  "evidence_recomputed": true,
+  "tests": [
+    {
+      "command": "ruff check agent/services/semantic_sfu_admission_service.py agent/routes/semantic_sfu_admission.py agent/services/media_topology_policy.py agent/services/semantic_fanout_coordination_service.py scripts/e2e/semantic_sfu_group_e2e.py scripts/e2e/semantic_media_group_e2e.py scripts/e2e/semantic_media_packet_capture.py scripts/e2e/semantic_sfu_failover_e2e.py scripts/e2e/semantic_sfu_hub_e2e.py tests/test_semantic_sfu_admission.py tests/test_semantic_sfu_admission_repository.py tests/test_semantic_sfu_admission_migration.py tests/test_semantic_sfu_group_keys.py tests/test_media_topology_policy.py tests/test_semantic_sfu_live_runner.py tests/chaos/test_semantic_sfu_failover.py tests/integration/test_semantic_sfu_mixed_mode.py",
+      "exit_code": 0
+    },
+    {
+      "command": "node --check scripts/spikes/semantic_sfu_failover.mjs",
+      "exit_code": 0
+    },
+    {
+      "command": "node --check scripts/spikes/semantic_sfu_three_peer.mjs",
+      "exit_code": 0
+    },
+    {
+      "command": "pytest -q tests/test_semantic_sfu_admission.py tests/test_media_topology_policy.py tests/test_semantic_sfu_live_runner.py tests/e2e/test_semantic_sfu_spike.py tests/chaos/test_semantic_sfu_failover.py tests/integration/test_semantic_sfu_mixed_mode.py",
+      "exit_code": 0
+    },
+    {
+      "command": "npx vitest run src/app/services/webrtc-media-session.service.spec.ts src/app/services/webrtc-media-publication.service.spec.ts src/app/services/webrtc-media-health.service.spec.ts src/app/services/webrtc-ordinary-health-monitor.service.spec.ts src/app/services/semantic-media-transport-state-machine.spec.ts src/app/services/sfu-media-frame-crypto.service.spec.ts src/app/services/livekit-sfu-transport.service.spec.ts src/app/services/media-e2ee-transform.service.spec.ts src/app/services/semantic-receiver-path.service.spec.ts",
+      "exit_code": 0
+    }
+  ],
+  "measurements": {
+    "external_live_failover_verified": true,
+    "live_failover_browser_engine_count": 2,
+    "sfu_boundary_packet_count": 8102,
+    "turn_boundary_packet_count": 1586,
+    "turn_relay_engine_count": 2
+  },
+  "reasons": [
+    "load_drops_exceeded"
+  ],
+  "verdict": "fail"
+}
