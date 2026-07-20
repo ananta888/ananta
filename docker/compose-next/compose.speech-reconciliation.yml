@@ -1,0 +1,184 @@
+# Choose exactly one profile: speech-reconciliation-cpu or
+# speech-reconciliation-nvidia. Both expose the same internal DNS alias to the
+# Hub and have no default-network or Internet egress.
+
+x-speech-reconciliation-hardening: &speech-reconciliation-hardening
+  init: true
+  restart: unless-stopped
+  read_only: true
+  user: "10008:10008"
+  working_dir: /app
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 128
+  stop_grace_period: 30s
+  expose:
+    - "8098"
+  tmpfs:
+    - /work:size=1073741824,mode=0700,uid=10008,gid=10008,noexec,nosuid,nodev
+    - /tmp:size=536870912,mode=0700,uid=10008,gid=10008,noexec,nosuid,nodev
+    - /run:size=16777216,mode=0750,uid=10008,gid=10008,noexec,nosuid,nodev
+  ulimits:
+    core: 0
+    nofile:
+      soft: 1024
+      hard: 2048
+    nproc: 128
+  environment: &speech-reconciliation-environment
+    ANANTA_SPEECH_RECONCILIATION_ALLOWED_MODELS: ${ANANTA_SPEECH_RECONCILIATION_ALLOWED_MODELS:-whisper-cpp-v1.8.6-ggml-small}
+    ANANTA_SPEECH_RECONCILIATION_CHECKPOINT_ROOT: /work/checkpoints
+    ANANTA_SPEECH_RECONCILIATION_KEYRING_PATH: /run/secrets/speech_reconciliation_keyring
+    ANANTA_SPEECH_RECONCILIATION_MAX_WORKERS: ${ANANTA_SPEECH_RECONCILIATION_MAX_WORKERS:-1}
+    ANANTA_SPEECH_RECONCILIATION_PORT: "8098"
+    ANANTA_SPEECH_RECONCILIATION_TOKEN: "${ANANTA_SPEECH_RECONCILIATION_INTERNAL_TOKEN:?must contain at least 24 characters}"
+    ANANTA_SPEECH_RECONCILIATION_WORKSPACE_ROOT: /work/audio
+    HF_DATASETS_OFFLINE: "1"
+    HF_HOME: /tmp/model-cache
+    HF_HUB_OFFLINE: "1"
+    TRANSFORMERS_OFFLINE: "1"
+    VOICE_ALLOW_MODEL_DOWNLOAD: "false"
+    VOICE_ASR_BACKEND: whisper_cpp
+    VOICE_BACKEND_FALLBACK_ORDER: whisper_cpp
+    VOICE_FALLBACK_MODEL: whisper-small
+    VOICE_FUSION_ENABLED: "false"
+    VOICE_INTERNAL_SERVICE_TOKEN: "${ANANTA_SPEECH_RECONCILIATION_INTERNAL_TOKEN:?must contain at least 24 characters}"
+    VOICE_MAX_AUDIO_DURATION_SEC: ${ANANTA_SPEECH_RECONCILIATION_MAX_AUDIO_SECONDS:-28800}
+    VOICE_MAX_AUDIO_MB: ${ANANTA_SPEECH_RECONCILIATION_MAX_AUDIO_MB:-96}
+    VOICE_MAX_CANDIDATE_COUNT: ${ANANTA_SPEECH_RECONCILIATION_MAX_CANDIDATES:-32}
+    VOICE_MAX_DECODED_PCM_MB: ${ANANTA_SPEECH_RECONCILIATION_MAX_PCM_MB:-256}
+    VOICE_MAX_PARALLEL_BACKENDS: ${ANANTA_SPEECH_RECONCILIATION_MAX_PARALLEL:-4}
+    VOICE_MAX_QUEUE_DEPTH: ${ANANTA_SPEECH_RECONCILIATION_MAX_CANDIDATES:-32}
+    VOICE_MODEL: whisper-small
+    VOICE_MODEL_MANIFEST_PATH: /models/voice/manifests/voice-models.json
+    VOICE_MODEL_ROOT: /models/voice
+    VOICE_POLICY_ALLOWED_BACKENDS: whisper_cpp
+    VOICE_POLICY_ALLOWED_RECOGNITION_STRATEGIES: single
+    VOICE_PRIMARY_BACKEND: whisper_cpp
+    VOICE_PRODUCTION_PROFILE: "true"
+    VOICE_RERUN_BACKEND: whisper_cpp
+    VOICE_RUNTIME_DEVICE: ${ANANTA_SPEECH_RECONCILIATION_DEVICE:-cpu}
+    VOICE_SECONDARY_BACKENDS: whisper_cpp
+    VOICE_STORE_AUDIO: "false"
+    VOICE_TIMEOUT_SEC: ${ANANTA_SPEECH_RECONCILIATION_PASS_TIMEOUT_SECONDS:-600}
+    VOICE_WHISPER_CPP_BIN: /models/voice/bin/whisper-cli
+    VOICE_WHISPER_CPP_GPU_ENABLED: "false"
+    VOICE_WHISPER_CPP_GPU_LAYERS: "0"
+    VOICE_WHISPER_CPP_MODEL_PATH: /models/voice/whisper/ggml-small.bin
+  secrets:
+    - source: speech-reconciliation-keyring
+      target: speech_reconciliation_keyring
+      uid: "10008"
+      gid: "10008"
+      mode: 0400
+  volumes:
+    - type: bind
+      source: ${ANANTA_SPEECH_RECONCILIATION_MODEL_DIR:-../../models/voice}
+      target: /models/voice
+      read_only: true
+      bind:
+        create_host_path: false
+  networks:
+    speech-reconciliation-control:
+      aliases:
+        - speech-reconciliation-worker
+  healthcheck:
+    test:
+      - CMD
+      - python
+      - -c
+      - "import json,os,urllib.request; h={'Authorization':'Bearer '+os.environ['ANANTA_SPEECH_RECONCILIATION_TOKEN']}; p=json.load(urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8098/ready',headers=h),timeout=3)); raise SystemExit(0 if p.get('ready') else 1)"
+    interval: 15s
+    timeout: 4s
+    retries: 5
+    start_period: 20s
+
+services:
+  ai-agent-hub:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-hub-base
+    environment:
+      ANANTA_SPEECH_RECONCILIATION_ALLOWED_ENDPOINTS: http://speech-reconciliation-worker:8098/internal/v1/speech-reconciliation
+      ANANTA_SPEECH_RECONCILIATION_ALLOWED_MODELS: ${ANANTA_SPEECH_RECONCILIATION_ALLOWED_MODELS:-whisper-cpp-v1.8.6-ggml-small}
+      ANANTA_SPEECH_RECONCILIATION_ALLOWED_VARIANTS: ${ANANTA_SPEECH_RECONCILIATION_ALLOWED_VARIANTS:-original}
+      ANANTA_SPEECH_RECONCILIATION_KEYRING_PATH: /run/secrets/speech_reconciliation_keyring
+      ANANTA_SPEECH_RECONCILIATION_MODEL_MANIFEST_PATH: /models/voice/manifests/voice-models.json
+      ANANTA_SPEECH_RECONCILIATION_MODEL_ROOT: /models/voice
+      ANANTA_SPEECH_RECONCILIATION_TOKEN: "${ANANTA_SPEECH_RECONCILIATION_INTERNAL_TOKEN:?must contain at least 24 characters}"
+      ANANTA_SPEECH_RECONCILIATION_WORKER_URL: http://speech-reconciliation-worker:8098/internal/v1/speech-reconciliation
+    secrets:
+      - source: speech-reconciliation-keyring
+        target: speech_reconciliation_keyring
+        mode: 0400
+    volumes:
+      - type: bind
+        source: ${ANANTA_SPEECH_RECONCILIATION_MODEL_DIR:-../../models/voice}
+        target: /models/voice
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      default: {}
+      speech-reconciliation-control: {}
+
+  speech-reconciliation-worker-cpu:
+    <<: *speech-reconciliation-hardening
+    image: ${ANANTA_SPEECH_RECONCILIATION_IMAGE:-ananta-speech-reconciliation-worker}:${ANANTA_SPEECH_RECONCILIATION_TAG:-local-cpu}
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.speech-reconciliation-worker
+      target: cpu
+    profiles:
+      - speech-reconciliation-cpu
+    cpus: ${ANANTA_SPEECH_RECONCILIATION_CPUS:-4.0}
+    mem_limit: ${ANANTA_SPEECH_RECONCILIATION_MEMORY:-8g}
+    deploy:
+      resources:
+        limits:
+          cpus: ${ANANTA_SPEECH_RECONCILIATION_CPUS:-4.0}
+          memory: ${ANANTA_SPEECH_RECONCILIATION_MEMORY:-8g}
+          pids: 128
+
+  speech-reconciliation-worker-nvidia:
+    <<: *speech-reconciliation-hardening
+    image: ${ANANTA_SPEECH_RECONCILIATION_NVIDIA_IMAGE:-ananta-speech-reconciliation-worker}:${ANANTA_SPEECH_RECONCILIATION_NVIDIA_TAG:-local-nvidia}
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.speech-reconciliation-worker
+      target: nvidia
+    profiles:
+      - speech-reconciliation-nvidia
+    cpus: ${ANANTA_SPEECH_RECONCILIATION_NVIDIA_CPUS:-8.0}
+    mem_limit: ${ANANTA_SPEECH_RECONCILIATION_NVIDIA_MEMORY:-16g}
+    environment:
+      <<: *speech-reconciliation-environment
+      NVIDIA_VISIBLE_DEVICES: ${ANANTA_SPEECH_RECONCILIATION_GPU_DEVICE:-0}
+      VOICE_RUNTIME_DEVICE: cuda
+      VOICE_WHISPER_CPP_GPU_ENABLED: "true"
+      VOICE_WHISPER_CPP_GPU_LAYERS: ${ANANTA_SPEECH_RECONCILIATION_GPU_LAYERS:-99}
+    deploy:
+      resources:
+        limits:
+          cpus: ${ANANTA_SPEECH_RECONCILIATION_NVIDIA_CPUS:-8.0}
+          memory: ${ANANTA_SPEECH_RECONCILIATION_NVIDIA_MEMORY:-16g}
+          pids: 128
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities:
+                - gpu
+
+networks:
+  default: {}
+  speech-reconciliation-control:
+    internal: true
+
+secrets:
+  speech-reconciliation-keyring:
+    file: ${ANANTA_SPEECH_RECONCILIATION_KEYRING_FILE:?path to the epoch keyring is required}
+
+volumes:
+  hub-data: {}

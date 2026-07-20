@@ -98,6 +98,7 @@ services:
       ANANTA_WORKFLOW_HUB_URL: http://ai-agent-hub:5000
       ANANTA_WORKFLOW_HUB_TOKEN_FILE: /run/secrets/workflow_worker_alpha_service_token
       ANANTA_WORKFLOW_ADAPTER_WORKER_PROFILE_FILE: /app/config/workflow_runtime/native_worker_profile.v1.json
+      ANANTA_SEMANTIC_COMPUTE_WORKER_ENABLED: ${ANANTA_SEMANTIC_COMPUTE_WORKER_ENABLED:-false}
     depends_on:
       postgres: !reset null
     ports: !reset []
@@ -162,6 +163,7 @@ services:
       ANANTA_WORKFLOW_HUB_URL: http://ai-agent-hub:5000
       ANANTA_WORKFLOW_HUB_TOKEN_FILE: /run/secrets/workflow_worker_beta_service_token
       ANANTA_WORKFLOW_ADAPTER_WORKER_PROFILE_FILE: /app/config/workflow_runtime/native_worker_profile.v1.json
+      ANANTA_SEMANTIC_COMPUTE_WORKER_ENABLED: ${ANANTA_SEMANTIC_COMPUTE_WORKER_ENABLED:-false}
     depends_on:
       postgres: !reset null
     ports: !reset []

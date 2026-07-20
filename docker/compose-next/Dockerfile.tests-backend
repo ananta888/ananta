@@ -1,12 +1,12 @@
 FROM docker:29.4.3-cli@sha256:51e23845f5caff1e688a2fae003b0c69d635c9200ad544731db1593731df1d3a AS docker_cli
-FROM node:20.19.5-slim@sha256:9e70124bd00f47dd023e349cd587132ae61892acc0e47ed641416c3e18f401c3 AS node_runtime
-FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f320acec894e26fccdaccfbe3b47
+FROM node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS node_runtime
+FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba
 
 # Backend-Test-Gate-Image für compose-next.
 # Build-Kontext ist das Repository-Root:
 #   docker build -f docker/compose-next/Dockerfile.tests-backend -t ananta-backend-tests:local .
 
-ARG DEBIAN_SNAPSHOT=20260406T000000Z
+ARG DEBIAN_SNAPSHOT=20260715T000000Z
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -35,10 +35,10 @@ RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99snaps
     ripgrep \
     && rm -rf /var/lib/apt/lists/*
 
-# Node 20 aus dem offiziellen Runtime-Image übernehmen (für opencode-ai-Tests).
+# Node 24 LTS aus dem offiziellen Runtime-Image übernehmen (für opencode-ai-Tests).
 COPY --from=node_runtime /usr/local/bin/ /usr/local/bin/
 COPY --from=node_runtime /usr/local/lib/node_modules/ /usr/local/lib/node_modules/
-RUN node --version | grep -F "v20.19.5" \
+RUN node --version | grep -F "v24.18.0" \
     && npm --version >/dev/null
 
 # Compose contract tests render the production profiles without contacting a

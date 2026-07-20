@@ -40,7 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /usr/local/node \
-    && curl -fsSL "https://nodejs.org/dist/v20.19.5/node-v20.19.5-linux-x64.tar.xz" -o /tmp/node.tar.xz \
+    && curl -fsSL "https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-x64.tar.xz" -o /tmp/node.tar.xz \
     && tar -xJf /tmp/node.tar.xz -C /usr/local/node --strip-components=1 \
     && rm -f /tmp/node.tar.xz \
     && node --version \

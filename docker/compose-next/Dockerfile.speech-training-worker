@@ -1,0 +1,36 @@
+FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HF_HUB_DISABLE_TELEMETRY=1 \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    ANANTA_SPEECH_TRAINING_PORT=8097
+
+RUN groupadd --gid 10007 ananta-speech \
+    && useradd --uid 10007 --gid 10007 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin ananta-speech \
+    && install -d -o 10007 -g 10007 -m 0750 /work
+
+WORKDIR /app
+
+COPY docker/compose-next/requirements.runtime-http.txt /tmp/requirements.runtime-http.txt
+RUN pip install --no-cache-dir --requirement /tmp/requirements.runtime-http.txt \
+    && rm /tmp/requirements.runtime-http.txt
+
+# Intentionally excludes agent/, Hub repositories, task queues, Voice runtime,
+# peer/SFU code, provider credentials and the text-LoRA worker.
+COPY --chown=10007:10007 ananta_contracts /app/ananta_contracts
+COPY --chown=10007:10007 worker/__init__.py /app/worker/__init__.py
+COPY --chown=10007:10007 worker/runtime/__init__.py /app/worker/runtime/__init__.py
+COPY --chown=10007:10007 worker/runtime/speech_training_app.py /app/worker/runtime/speech_training_app.py
+COPY --chown=10007:10007 worker/speech_training /app/worker/speech_training
+
+USER 10007:10007
+EXPOSE 8097
+
+HEALTHCHECK --interval=15s --timeout=4s --start-period=10s --retries=5 \
+    CMD ["python", "-c", "import json,os,urllib.request; h={'Authorization':'Bearer '+os.environ['ANANTA_SPEECH_TRAINING_TOKEN']}; p=json.load(urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8097/ready',headers=h),timeout=3)); raise SystemExit(0 if p.get('ready') else 1)"]
+
+CMD ["gunicorn", "--bind=0.0.0.0:8097", "--workers=1", "--worker-class=gthread", "--threads=4", "--timeout=660", "--graceful-timeout=30", "--worker-tmp-dir=/tmp", "--no-control-socket", "--access-logfile=-", "--error-logfile=-", "worker.runtime.speech_training_app:app"]

@@ -1,0 +1,18 @@
+# Optional semantic-media SFU. Secrets are supplied through LIVEKIT_KEYS.
+port: 7880
+bind_addresses:
+  - 0.0.0.0
+rtc:
+  tcp_port: 7881
+  udp_port: 7882
+  use_external_ip: false
+  enable_loopback_candidate: true
+turn:
+  enabled: true
+  udp_port: 3478
+logging:
+  level: info
+room:
+  empty_timeout: 60
+  departure_timeout: 20
+  max_participants: 8

@@ -1,0 +1,89 @@
+# Isolated, audio-free lifecycle worker. A production real-model profile stays
+# disabled until the ADR's model/checkpoint supply-chain gate is closed.
+
+x-speech-training-hardening: &speech-training-hardening
+  init: true
+  restart: unless-stopped
+  read_only: true
+  user: "10007:10007"
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 128
+  stop_grace_period: 20s
+  cpus: ${ANANTA_SPEECH_TRAINING_CPUS:-1.0}
+  mem_limit: ${ANANTA_SPEECH_TRAINING_MEMORY:-1g}
+  expose:
+    - "8097"
+  tmpfs:
+    - /work:size=536870912,mode=0750,uid=10007,gid=10007,noexec,nosuid,nodev
+    - /tmp:size=134217728,mode=1770,uid=10007,gid=10007,noexec,nosuid,nodev
+    - /run:size=16777216,mode=0750,uid=10007,gid=10007,noexec,nosuid,nodev
+  environment:
+    ANANTA_SPEECH_TRAINING_CI_MOCK: "true"
+    ANANTA_SPEECH_TRAINING_PORT: "8097"
+    ANANTA_SPEECH_TRAINING_TOKEN: "${ANANTA_SPEECH_TRAINING_INTERNAL_TOKEN:?must contain at least 24 characters}"
+    ANANTA_SPEECH_TRAINING_CALLBACK_TOKEN: "${ANANTA_SPEECH_TRAINING_CALLBACK_TOKEN:?must contain at least 32 characters}"
+    ANANTA_SPEECH_TRAINING_HUB_CALLBACK_URL: http://ai-agent-hub:5000/internal/v1/speech-adaptation-control
+    ANANTA_SPEECH_TRAINING_HUB_ALLOWED_ENDPOINTS: http://ai-agent-hub:5000/internal/v1/speech-adaptation-control
+    ANANTA_SPEECH_TRAINING_WORKSPACE_ROOT: /work
+    HF_HUB_OFFLINE: "1"
+    TRANSFORMERS_OFFLINE: "1"
+  healthcheck:
+    test:
+      - CMD
+      - python
+      - -c
+      - "import json,os,urllib.request; h={'Authorization':'Bearer '+os.environ['ANANTA_SPEECH_TRAINING_TOKEN']}; p=json.load(urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8097/ready',headers=h),timeout=3)); raise SystemExit(0 if p.get('ready') else 1)"
+    interval: 15s
+    timeout: 4s
+    retries: 5
+    start_period: 10s
+
+services:
+  ai-agent-hub:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-hub-base
+    environment:
+      ANANTA_SPEECH_TRAINING_WORKER_URL: http://speech-training-worker:8097/internal/v1/speech-training
+      ANANTA_SPEECH_TRAINING_ALLOWED_ENDPOINTS: http://speech-training-worker:8097/internal/v1/speech-training
+      ANANTA_SPEECH_TRAINING_TOKEN: "${ANANTA_SPEECH_TRAINING_INTERNAL_TOKEN:?must contain at least 24 characters}"
+      ANANTA_SPEECH_TRAINING_CALLBACK_TOKEN: "${ANANTA_SPEECH_TRAINING_CALLBACK_TOKEN:?must contain at least 32 characters}"
+      ANANTA_SPEECH_TRAINING_MOCK_ENABLED: "true"
+      ANANTA_SPEECH_TRAINER_LOCATION: "${ANANTA_SPEECH_TRAINER_LOCATION:-ananta-local-speech-training-worker}"
+      ANANTA_SPEECH_TRAINING_ARTIFACT_ROOT: /app/data/speech-adaptation/artifacts
+      ANANTA_SPEECH_ADAPTATION_TRAINING_ENABLED: "${ANANTA_SPEECH_ADAPTATION_TRAINING_ENABLED:-false}"
+      ANANTA_SPEECH_RECONCILIATION_ENABLED: "${ANANTA_SPEECH_RECONCILIATION_ENABLED:-false}"
+      ANANTA_PEER_EVIDENCE_SYNC_ENABLED: "${ANANTA_PEER_EVIDENCE_SYNC_ENABLED:-false}"
+      ANANTA_SEMANTIC_SPEECH_RUNTIME_ENABLED: "${ANANTA_SEMANTIC_SPEECH_RUNTIME_ENABLED:-false}"
+      ANANTA_SEMANTIC_MEDIA_BACKGROUND_OPERATIONS_ENABLED: "${ANANTA_SEMANTIC_MEDIA_BACKGROUND_OPERATIONS_ENABLED:-false}"
+    depends_on:
+      speech-training-worker:
+        condition: service_healthy
+        required: false
+    networks:
+      default: {}
+      speech-training-control: {}
+
+  speech-training-worker:
+    <<: *speech-training-hardening
+    image: ${ANANTA_SPEECH_TRAINING_IMAGE:-ananta-speech-training-worker}:${ANANTA_SPEECH_TRAINING_TAG:-local}
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.speech-training-worker
+    profiles:
+      - speech-training-mock
+    networks:
+      speech-training-control:
+        aliases:
+          - speech-training-worker
+
+networks:
+  default: {}
+  speech-training-control:
+    internal: true
+
+volumes:
+  hub-data: {}

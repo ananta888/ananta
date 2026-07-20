@@ -47,7 +47,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         if: env.RUN_LIVE_OPENCODE_TESTS == '1'
         with:
-          node-version: "20.19.5"
+          node-version: "24.18.0"
       - name: Skip when OpenAI secret is unavailable
         if: env.OPENAI_API_KEY == ''
         run: |

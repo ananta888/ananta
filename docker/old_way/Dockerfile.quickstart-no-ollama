@@ -1,5 +1,5 @@
-FROM node:20.19.5-slim@sha256:9e70124bd00f47dd023e349cd587132ae61892acc0e47ed641416c3e18f401c3 AS node_runtime
-FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f320acec894e26fccdaccfbe3b47
+FROM node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS node_runtime
+FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba
 
 # Quickstart (ein auslieferbares Image ohne Ollama):
 # 1) Hub + Worker + Frontend aus genau diesem einen Image starten:
@@ -11,7 +11,7 @@ FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f32
 # 4) Fullstack aus demselben Image (inkl. Evolver/DeerFlow/ml-intern Rollen):
 #    docker compose --env-file .env -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.quickstart-no-ollama.yml -f docker/old_way/docker-compose.single-image-fullstack.yml up -d --build
 
-ARG DEBIAN_SNAPSHOT=20260406T000000Z
+ARG DEBIAN_SNAPSHOT=20260715T000000Z
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -43,10 +43,10 @@ RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99snaps
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Node 20.19.5 aus dem offiziellen Frontend-Runtime-Image uebernehmen.
+# Node 24.18.0 LTS aus dem offiziellen Frontend-Runtime-Image uebernehmen.
 COPY --from=node_runtime /usr/local/bin/ /usr/local/bin/
 COPY --from=node_runtime /usr/local/lib/node_modules/ /usr/local/lib/node_modules/
-RUN node --version | grep -F "v20.19.5" \
+RUN node --version | grep -F "v24.18.0" \
     && npm --version >/dev/null
 
 # Install OpenCode CLI once in the image so opencode backend is available after restarts.

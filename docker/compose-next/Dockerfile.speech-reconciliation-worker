@@ -1,0 +1,81 @@
+FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba AS base
+
+ARG DEBIAN_SNAPSHOT=20260715T000000Z
+
+ENV ANANTA_SPEECH_RECONCILIATION_PORT=8098 \
+    HF_DATASETS_OFFLINE=1 \
+    HF_HUB_DISABLE_TELEMETRY=1 \
+    HF_HUB_OFFLINE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    VOICE_ALLOW_MODEL_DOWNLOAD=false
+
+RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99snapshot \
+    && printf '%s\n' \
+        'Types: deb' \
+        "URIs: http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}" \
+        'Suites: bookworm bookworm-updates' \
+        'Components: main' \
+        'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' \
+        '' \
+        'Types: deb' \
+        "URIs: http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}" \
+        'Suites: bookworm-security' \
+        'Components: main' \
+        'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' \
+        > /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10008 ananta-reconciliation \
+    && useradd --uid 10008 --gid 10008 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin ananta-reconciliation \
+    && install -d -o 10008 -g 10008 -m 0700 /work /work/audio /work/checkpoints
+
+WORKDIR /app
+
+COPY docker/compose-next/requirements.runtime-http.txt /tmp/requirements.runtime-http.txt
+COPY docker/compose-next/requirements.speech-reconciliation.txt /tmp/requirements.speech-reconciliation.txt
+RUN pip install --no-cache-dir \
+        --requirement /tmp/requirements.runtime-http.txt \
+        --requirement /tmp/requirements.speech-reconciliation.txt \
+    && rm /tmp/requirements.runtime-http.txt /tmp/requirements.speech-reconciliation.txt
+
+# The worker image contains no Hub package, task queue, peer transport,
+# provider credential, training runtime or text-LoRA contract import.
+COPY --chown=10008:10008 ananta_contracts /app/ananta_contracts
+COPY --chown=10008:10008 voice_runtime /app/voice_runtime
+COPY --chown=10008:10008 worker/__init__.py /app/worker/__init__.py
+COPY --chown=10008:10008 worker/runtime/__init__.py /app/worker/runtime/__init__.py
+COPY --chown=10008:10008 worker/runtime/speech_reconciliation_app.py /app/worker/runtime/speech_reconciliation_app.py
+COPY --chown=10008:10008 worker/speech_reconciliation /app/worker/speech_reconciliation
+
+USER 10008:10008
+EXPOSE 8098
+
+HEALTHCHECK --interval=15s --timeout=4s --start-period=20s --retries=5 \
+    CMD ["python", "-c", "import json,os,urllib.request; h={'Authorization':'Bearer '+os.environ['ANANTA_SPEECH_RECONCILIATION_TOKEN']}; p=json.load(urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8098/ready',headers=h),timeout=3)); raise SystemExit(0 if p.get('ready') else 1)"]
+
+CMD ["gunicorn", "--bind=0.0.0.0:8098", "--workers=1", "--worker-class=gthread", "--threads=4", "--timeout=660", "--graceful-timeout=30", "--worker-tmp-dir=/tmp", "--no-control-socket", "--access-logfile=-", "--error-logfile=-", "worker.runtime.speech_reconciliation_app:create_app()"]
+
+
+FROM base AS cpu
+
+USER root
+COPY docker/compose-next/requirements.voice-cpu.txt /tmp/requirements.voice-cpu.txt
+RUN pip install --no-cache-dir --requirement /tmp/requirements.voice-cpu.txt \
+    && rm /tmp/requirements.voice-cpu.txt
+USER 10008:10008
+
+
+FROM cpu AS nvidia
+
+USER root
+COPY docker/compose-next/requirements.voice-nvidia.txt /tmp/requirements.voice-nvidia.txt
+RUN pip install --no-cache-dir --requirement /tmp/requirements.voice-nvidia.txt \
+    && rm /tmp/requirements.voice-nvidia.txt
+ENV LD_LIBRARY_PATH=/usr/local/lib/python3.11/site-packages/nvidia/cublas/lib:/usr/local/lib/python3.11/site-packages/nvidia/cudnn/lib \
+    NVIDIA_REQUIRE_CUDA="cuda>=12.4"
+USER 10008:10008

@@ -1,0 +1,5 @@
+# Crypto boundary used by the isolated speech-reconciliation artifact spool.
+cryptography==46.0.7
+# Imported by the shared ananta_contracts package initializer before the
+# reconciliation submodule is selected.
+jsonschema==4.26.0
