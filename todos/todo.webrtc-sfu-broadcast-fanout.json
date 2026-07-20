@@ -73,12 +73,12 @@
     "Alle Queue-, Batch-, Replay-, Epoch-, Cardinality-, Retention- und Kapazitaetsgrenzen besitzen Konfigurationsnamen, Einheiten und automatisierte Negativtests."
   ],
   "codebase_baseline": {
-    "angular_pair_transport": "frontend-angular/src/app/services/webrtc-transport.service.ts und webrtc-session.service.ts verwalten derzeit eine globale Pair-Session, eine RTCPeerConnection und einen DataChannel ohne Media-Publications oder SFU-Client.",
-    "bounded_transport_gap": "frontend-angular/src/app/services/webrtc-datachannel.service.ts besitzt noch globales Chunk-Reassembly ohne harte Gesamt-, TTL- und Sessiongrenzen; die Parent-Tasks ASMP-TRN-002 bis ASMP-TRN-010 muessen dies zuerst schliessen.",
-    "hub_state_gap": "agent/routes/share_sessions.py und agent/routes/webrtc_signaling.py verwenden prozesslokale Relay- beziehungsweise Signalisierungsqueues; der Parent liefert vor diesem Track die Mehr-Hub-faehige Transportbasis.",
-    "security_gap": "Pair View nutzt noch einen Stub-Kryptopfad und frontend-angular/src/app/services/e2e-encryption.service.ts ist nicht als kanonischer Media-E2EE-Transform verdrahtet; Parent-Security- und SFU-E2EE-Gates sind harte Voraussetzungen.",
-    "sfu_gap": "Es gibt im aktiven Produktionscode keine ausgewaehlte oder deployte SFU, keinen SFU-Client und keine Simulcast-/SVC-/SFrame-Integration.",
-    "partial_foundations": "Persistierte Share-Sessions und Teilnehmer, Network Profiles sowie Test-Rendezvous/TURN-Konfiguration sind Teilfundamente, aber keine Broadcast-Admission, Fleet-Steuerung oder Kostenkontrolle."
+    "angular_pair_transport": "frontend-angular/src/app/services/webrtc-transport.service.ts und webrtc-session.service.ts bilden weiterhin die Pair-/Relay-Basis; der bestehende semantic-sfu transport stack (frontend-angular/src/app/services/livekit-sfu-transport.service.ts, frontend-angular/src/app/services/sfu-media-frame-crypto.service.ts, frontend-angular/src/app/services/semantic-sfu-admission-api.service.ts) deckt bereits eingeschraenkte direkte SFU-Publication im Parent ab.",
+    "bounded_transport_gap": "frontend-angular/src/app/services/webrtc-datachannel.service.ts und frontend-angular/src/app/services/webrtc-chunk-reassembly.store.ts implementieren bereits gebundene Reassembly-Budgets (maxBytes, maxStates, TTL, per-session/per-peer/-global), jedoch ist die Broadcast-Fanout-Route noch nicht konsequent auf diese Budgets und einen eindeutigen Reassembly-Gesamt-Reasoning-Pfad gebunden.",
+    "hub_state_gap": "agent/routes/share_sessions.py und agent/routes/webrtc_signaling.py sind weiterhin lokal; agent/routes/semantic_sfu_admission.py, agent/routes/webrtc_signaling.py und die bestehende semantic-SFU-Delivery liefern den operativen Multi-Peering- und Group-Key-Path, aber keine vollstaendige Broadcast-Route-Authority mit Gruppenfokussierung.",
+    "security_gap": "Der semantische SFU-Stack nutzt bereits E2EE-Transform- und Admission-Pfade sowie Replay/ACK-Mechaniken fuer Group-Keys, aber der Broadcast-Track muss diese konsequent auf Receiver-Grenzen, Non-Media-Digest-Pflicht, Fanout-spezifische Privacy-Sentinels und signierten Qualitätskontrakten erweitern; Parent-Security- und SFU-E2EE-Gates bleiben harte Pruefstellen.",
+    "sfu_gap": "Die Parent-Basis enthaelt einen eingeschraenkten SFU-Adapter und Live-Kit-basierte Medienpfade, plus einen einfachen Fanout-Koordinator fuer bis zu 8 berechtigte Receiver, jedoch keine Broadcast-spezifische Route-Authority mit persistenter Receiver-Group-Projektion, kein generisches Placement/Fleet-Steering, keine TURN-Only-Aktivierung fuer Fanout und keine Vollabdeckung von Quality-Fairness-Mechanismen.",
+    "partial_foundations": "Persistierte Share-Sessions/Teilnehmer, Network Profiles, semantic SFU Admission/group-key APIs sowie Test-Rendezvous/TURN-Konfiguration sind vorhanden; fehlend sind Broadcast-Admission, Placement/Fleet-Steuerung, Reconciliation, Kostenkorridore, Observability-Integrationsgrenzen und End-to-End-Releasegates."
   },
   "cross_track_prerequisites": {
     "planning_and_policy": [
@@ -366,8 +366,7 @@
         "SFB-QOS-008",
         "SFB-QOS-009",
         "SFB-QOS-010",
-        "SFB-QOS-011",
-        "SFB-QOS-012"
+        "SFB-QOS-011"
       ],
       "exit_criteria": [
         "Simulcast-/SVC-Faehigkeiten werden vendorneutral ausgehandelt und jede Subscription besitzt eine unabhaengige Layerentscheidung.",
@@ -494,7 +493,6 @@
     "SFB-QOS-008",
     "SFB-QOS-010",
     "SFB-QOS-011",
-    "SFB-QOS-012",
     "SFB-OPS-001",
     "SFB-OPS-003",
     "SFB-OPS-005",
@@ -1336,33 +1334,6 @@
       ]
     },
     {
-      "id": "SFB-QOS-012",
-      "title": "Begrenzten Browser-Quality- und Viewport-Reporter implementieren",
-      "description": "Der Angular-Client verdichtet lokale WebRTC-Stats und Sichtbarkeit zu einem kleinen, nichtautoritativen Bericht fuer den niederfrequenten Hub-Constraint-Loop.",
-      "type": "frontend",
-      "milestone_id": "SFB-M3",
-      "status": "todo",
-      "progress_percent": 0,
-      "priority": "P0",
-      "risk": "high",
-      "depends_on": [
-        "SFB-CON-004",
-        "SFB-QOS-002",
-        "todo.ai-snake-semantic-media-speech-program.json:ASMP-SFU-003"
-      ],
-      "affected_files": [
-        "frontend-angular/src/app/services/sfu-broadcast-quality-reporter.service.ts",
-        "frontend-angular/src/app/services/sfu-broadcast-quality-reporter.service.spec.ts",
-        "frontend-angular/src/app/services/sfu-broadcast-viewport-observer.service.ts"
-      ],
-      "acceptance_criteria": [
-        "Reporter exportiert ausschliesslich die vertraglich erlaubten RTT-, Jitter-, Loss-, Decode-, Freeze-, Audio-Gap-, Buffer-, Viewport- und Pressure-Buckets mit hoechstens quality_bucket_combinations_max Kombinationen.",
-        "quality_report_interval_ms_min, reports_per_window_max, report_bytes_max, samples_per_report_max, retention_seconds und room-scoped pseudonym_rotation_seconds begrenzen Sampling, Versand und lokale Historie.",
-        "Device-Labels, Raw Stats Dumps, Kandidaten, IPs, SDP, persistente Fingerprints, Media-, Transcript- oder Semantic-Inhalt verlassen den Browser nie; Leave/Revoke/Roomwechsel rotiert Pseudonym und loescht Zustand.",
-        "Fake-Clock- und Browser-Tests pruefen Rate Limit, Background Tab, Offline/Retry, Duplicate, Reorder, boesartige Statswerte, Fingerprinting-/Cross-Room-Linkability und vollstaendiges Timer-/Observer-Cleanup."
-      ]
-    },
-    {
       "id": "SFB-QOS-004",
       "title": "Receiver-Quality-Ingestion mit Rate-, Sequenz- und Privacy-Gates implementieren",
       "description": "Der Hub nimmt begrenzte nichtautoritative Quality-Observationen entgegen und stellt der Layerpolicy ein normalisiertes Zeitfenster bereit.",
@@ -1375,8 +1346,7 @@
       "depends_on": [
         "SFB-CON-004",
         "SFB-CON-008",
-        "SFB-GRP-008",
-        "SFB-QOS-012"
+        "SFB-GRP-008"
       ],
       "affected_files": [
         "agent/services/sfu_receiver_quality_ingestion_service.py",
@@ -1386,6 +1356,7 @@
       "acceptance_criteria": [
         "Ingestion authentifiziert Subscriber und bindet Observation an aktuelle Subscription, Publication, Route-Epoch und Browserinstanz.",
         "Pro Receiver gelten quality_reports_per_window_max, quality_report_interval_ms_min, report_bytes_max, samples_per_report_max, sequence_window und retention_seconds mit stabilen Reject-/Drop-Codes.",
+        "Reporter-Inhalte sind auf erlaubte Metrik-Buckets (RTT, Jitter, Loss, Decode, Freeze, Audio-Gap, Buffer, Viewport, Pressure) begrenzt; Viewport-/Pressure-/Freeze-Repräsentationen sind pseudonymisiert, rate-begrenzt und enthalten keine Gerätefingerprints, IPs, SDP, Rohstatistiken, Medien- oder Transcripte.",
         "Duplicate, Reorder innerhalb Fenster, Gap, stale Route, falsche Publication, NaN/Infinity und Payload-/PII-Feld werden deterministisch behandelt.",
         "Gespeicherte Fenster sind strikt begrenzt, bei Leave/Revoke geloescht und koennen keine Berechtigung oder Topologie mutieren; der Hub verarbeitet nur niederfrequente Aggregate und fuehrt keine paket- oder framegetriebene Regelschleife aus."
       ]
@@ -2324,7 +2295,6 @@
         "SFB-GRP-012",
         "SFB-QOS-010",
         "SFB-QOS-011",
-        "SFB-QOS-012",
         "SFB-OPS-009",
         "SFB-OPS-010",
         "SFB-TURN-007",
@@ -2452,7 +2422,6 @@
         "SFB-QOS-006",
         "SFB-QOS-008",
         "SFB-QOS-011",
-        "SFB-QOS-012",
         "SFB-OBS-004",
         "SFB-OBS-005",
         "SFB-GATE-001",
@@ -2718,9 +2687,9 @@
     }
   ],
   "tasks_status_summary": {
-    "total": 75,
+    "total": 74,
     "by_status": {
-      "todo": 75,
+      "todo": 74,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
@@ -2728,20 +2697,20 @@
     },
     "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 68,
+      "P0": 67,
       "P1": 7,
       "P2": 0
     },
     "by_risk": {
       "low": 0,
       "medium": 1,
-      "high": 22,
+      "high": 21,
       "critical": 52
     },
     "critical_path": {
-      "total": 54,
+      "total": 53,
       "done": 0,
-      "remaining": 54
+      "remaining": 53
     },
     "milestones": {
       "total": 8,
@@ -2766,7 +2735,7 @@
     "Feature-Flags, Canary, Kill-Switch, Migration, Rollback und Incident-Runbooks sind praktisch getestet; der finale Gate-Report bindet Source-, Config-, Schema-, Browser- und Container-Image-Digests."
   ],
   "tasks_type_summary": {
-    "total": 75,
+    "total": 74,
     "by_type": {
       "architecture": {
         "total": 2,
@@ -2865,15 +2834,15 @@
         }
       },
       "frontend": {
-        "total": 5,
+        "total": 4,
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "todo": 5,
+        "todo": 4,
         "in_progress": 0,
         "progress_percent": 0.0,
         "by_status": {
-          "todo": 5,
+          "todo": 4,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
@@ -2996,7 +2965,7 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 75,
+    "todo_remaining": 74,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
