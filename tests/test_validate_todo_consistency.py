@@ -15,12 +15,19 @@ def _build_payload() -> dict:
         "milestones": [{"id": "M1", "status": "in_progress"}],
         "tasks_status_summary": {
             "total": 2,
-            "by_status": {"todo": 1, "in_progress": 0, "blocked": 0, "done": 1},
+            "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1},
             "progress_percent_done": 50.0,
             "by_priority": {"P0": 1, "P1": 1, "P2": 0, "P3": 0},
             "by_risk": {"low": 0, "medium": 0, "high": 1, "critical": 1},
             "critical_path": {"total": 1, "done": 1, "remaining": 0},
-            "milestones": {"total": 1, "todo": 0, "in_progress": 1, "blocked": 0, "done": 0},
+            "milestones": {
+                "total": 1,
+                "todo": 0,
+                "in_progress": 1,
+                "partial": 0,
+                "blocked": 0,
+                "done": 0,
+            },
         },
         "execution_stage_summary": {
             "stages": {
@@ -30,6 +37,7 @@ def _build_payload() -> dict:
                     "done": 1,
                     "todo": 1,
                     "in_progress": 0,
+                    "partial": 0,
                     "blocked": 0,
                 }
             }
@@ -50,3 +58,26 @@ def test_validate_todo_payload_reports_summary_and_stage_drift() -> None:
 
     assert any(problem.startswith("by_status.done:") for problem in problems)
     assert any(problem.startswith("M1.done:") for problem in problems)
+
+
+def test_validate_todo_payload_rejects_partial_counter_drift_everywhere() -> None:
+    payload = _build_payload()
+    payload["tasks"][1]["status"] = "partial"
+    payload["milestones"][0]["status"] = "partial"
+    payload["progress_summary"] = {
+        "todo_remaining": 0,
+        "in_progress": 0,
+        "partial": 0,
+        "blocked": 0,
+        "done": 1,
+        "milestones_done": 0,
+        "milestones_total": 1,
+    }
+    payload["execution_stage_summary"]["stages"]["M1"]["todo"] = 0
+
+    problems = validate_todo_payload(payload)
+
+    assert any(problem.startswith("by_status.partial:") for problem in problems)
+    assert any(problem.startswith("milestones.partial:") for problem in problems)
+    assert any(problem.startswith("progress_summary.partial:") for problem in problems)
+    assert any(problem.startswith("M1.partial:") for problem in problems)

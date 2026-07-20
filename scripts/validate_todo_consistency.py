@@ -30,6 +30,10 @@ def validate_todo_payload(todo_payload: dict[str, Any]) -> list[str]:
     milestones = list(todo_payload.get("milestones") or [])
     priority_scale = list(todo_payload.get("priority_scale") or [])
     risk_scale = list(todo_payload.get("risk_scale") or [])
+    status_scale = list(
+        todo_payload.get("status_scale") or ("todo", "in_progress", "partial", "blocked", "done")
+    )
+    progress_summary = dict(todo_payload.get("progress_summary") or {})
     execution_stages = dict((todo_payload.get("execution_stage_summary") or {}).get("stages") or {})
 
     problems: list[str] = []
@@ -37,10 +41,12 @@ def validate_todo_payload(todo_payload: dict[str, Any]) -> list[str]:
     _expect_equal(problems, "tasks_status_summary.total", summary.get("total"), len(tasks))
 
     status_counts = Counter(str(task.get("status")) for task in tasks if task.get("status"))
-    for status_key in ("todo", "in_progress", "blocked", "done"):
+    for status_key in status_scale:
         _expect_equal(
             problems, f"by_status.{status_key}", by_status.get(status_key, 0), status_counts.get(status_key, 0)
         )
+    unknown_status_count = sum(count for key, count in status_counts.items() if key not in status_scale)
+    _expect_equal(problems, "by_status.unknown", unknown_status_count, 0)
 
     priority_counts = Counter(str(task.get("priority")) for task in tasks if task.get("priority"))
     for priority_key in priority_scale:
@@ -78,13 +84,28 @@ def validate_todo_payload(todo_payload: dict[str, Any]) -> list[str]:
         str(milestone.get("status")) for milestone in milestones if milestone.get("status")
     )
     _expect_equal(problems, "milestones.total", milestone_summary.get("total"), len(milestones))
-    for status_key in ("todo", "in_progress", "blocked", "done"):
+    for status_key in status_scale:
         _expect_equal(
             problems,
             f"milestones.{status_key}",
             milestone_summary.get(status_key, 0),
             milestone_status_counts.get(status_key, 0),
         )
+
+    if progress_summary:
+        todo_status = "todo" if "todo" in status_scale else "open"
+        progress_fields = {
+            "todo_remaining": status_counts.get(todo_status, 0),
+            "in_progress": status_counts.get("in_progress", 0),
+            "partial": status_counts.get("partial", 0),
+            "blocked": status_counts.get("blocked", 0),
+            "done": status_counts.get("done", 0),
+            "milestones_done": milestone_status_counts.get("done", 0),
+            "milestones_total": len(milestones),
+        }
+        for field, expected in progress_fields.items():
+            if field in progress_summary:
+                _expect_equal(problems, f"progress_summary.{field}", progress_summary.get(field), expected)
 
     status_by_task_id = {str(task.get("id")): str(task.get("status")) for task in tasks if task.get("id")}
     for stage_name, stage in execution_stages.items():
@@ -94,6 +115,7 @@ def validate_todo_payload(todo_payload: dict[str, Any]) -> list[str]:
         _expect_equal(problems, f"{stage_name}.done", stage.get("done"), counts.get("done", 0))
         _expect_equal(problems, f"{stage_name}.todo", stage.get("todo"), counts.get("todo", 0))
         _expect_equal(problems, f"{stage_name}.in_progress", stage.get("in_progress"), counts.get("in_progress", 0))
+        _expect_equal(problems, f"{stage_name}.partial", stage.get("partial", 0), counts.get("partial", 0))
         _expect_equal(problems, f"{stage_name}.blocked", stage.get("blocked"), counts.get("blocked", 0))
 
     return problems

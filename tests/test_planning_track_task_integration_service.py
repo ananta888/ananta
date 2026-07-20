@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from agent.artifacts.goal_artifact_repository import GoalArtifactRepository
 from agent.artifacts.goal_artifact_service import GoalArtifactService
-from agent.repository import task_repo
+from agent.db_models import GoalDB
+from agent.repository import goal_repo, task_repo
 from agent.services.planning_track_pipeline_service import persist_planning_track_result
 from agent.services.planning_track_task_integration_service import (
     PlanningTrackTaskIntegrationService,
@@ -64,6 +66,40 @@ def _persist_track(service: GoalArtifactService, goal_id: str) -> str:
     return str(result["output_artifact"]["output_artifact_id"])
 
 
+def _persist_custom_track(
+    service: GoalArtifactService,
+    goal_id: str,
+    *,
+    track: str,
+    mutate=None,
+) -> str:
+    artifact_ref = f"artifact:{track}"
+    _create_grant(service, goal_id, f"grant-{track}", artifact_ref)
+    payload = _fixture_payload()
+    payload["track"] = track
+    if mutate is not None:
+        mutate(payload)
+    result = persist_planning_track_result(
+        goal_id=goal_id,
+        task_id=f"task-{track}",
+        worker_id="worker-planner",
+        raw_output=json.dumps(payload),
+        prompt_template_ref="prompt:planning/track_planning",
+        final_prompt="rendered planning prompt",
+        model_ref={"provider_id": "local", "model_id": "planner-test"},
+        config_refs={
+            "worker_config_ref": "cfg:worker",
+            "runtime_config_ref": "cfg:runtime",
+            "model_config_ref": "cfg:model",
+            "policy_config_ref": "cfg:policy",
+        },
+        available_artifacts=[{"source_ref": artifact_ref}],
+        goal_artifact_service=service,
+    )
+    assert result["valid"] is True, result["issues"]
+    return str(result["output_artifact"]["output_artifact_id"])
+
+
 def test_planning_track_materialization_and_execution_sync(monkeypatch, tmp_path: Path) -> None:
     from agent.config import settings
 
@@ -107,11 +143,19 @@ def test_planning_track_materialization_and_execution_sync(monkeypatch, tmp_path
         {},
     )
     payload = dict(dict(row.get("extensions") or {}).get("payload") or {})
-    task_row = next((dict(item) for item in list(payload.get("tasks") or []) if str(item.get("id") or "") == str(execution["plan_task_id"])), {})
+    task_row = next(
+        (
+            dict(item)
+            for item in list(payload.get("tasks") or [])
+            if str(item.get("id") or "") == str(execution["plan_task_id"])
+        ),
+        {},
+    )
     assert task_row.get("status") == "done"
 
 
 # --- WFG-007: workflow step materialization -------------------------------
+
 
 def _enrich_fixture_with_workflow() -> dict:
     """Return a copy of the base fixture with workflow step annotations
@@ -227,9 +271,7 @@ def test_extract_workflow_step_normalizes_adapter_fields() -> None:
     assert step["required_capabilities"] == ["gate.review"]
 
 
-def test_materialize_tasks_persists_workflow_step_provenance(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_materialize_tasks_persists_workflow_step_provenance(monkeypatch, tmp_path: Path) -> None:
     """WFG-007: when a plan task carries blueprint workflow annotations
     the materializer must persist them as a stable workflow_step block
     on the internal task's worker_execution_context."""
@@ -241,9 +283,7 @@ def test_materialize_tasks_persists_workflow_step_provenance(
     output_id = _persist_track_with_workflow(service, goal_id)
     integration = PlanningTrackTaskIntegrationService(goal_artifact_service=service)
 
-    materialized = integration.materialize_tasks(
-        goal_id=goal_id, output_artifact_id=output_id
-    )
+    materialized = integration.materialize_tasks(goal_id=goal_id, output_artifact_id=output_id)
     mapping = dict(materialized.get("plan_task_to_internal_task") or {})
 
     # Every plan task is materialized exactly once (idempotency baseline).
@@ -280,9 +320,7 @@ def test_materialize_tasks_persists_workflow_step_provenance(
     assert dict(gate_task.verification_spec or {}).get("schema") == "workflow_gate_checks.v1"
 
 
-def test_materialize_tasks_gate_remains_blocked_initially(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_materialize_tasks_gate_remains_blocked_initially(monkeypatch, tmp_path: Path) -> None:
     """Gate tasks must be materialized as 'blocked' so the queue
     does not pick them up before their depends_on are satisfied."""
     from agent.config import settings
@@ -293,9 +331,7 @@ def test_materialize_tasks_gate_remains_blocked_initially(
     output_id = _persist_track_with_workflow(service, goal_id)
     integration = PlanningTrackTaskIntegrationService(goal_artifact_service=service)
 
-    materialized = integration.materialize_tasks(
-        goal_id=goal_id, output_artifact_id=output_id
-    )
+    materialized = integration.materialize_tasks(goal_id=goal_id, output_artifact_id=output_id)
     mapping = dict(materialized.get("plan_task_to_internal_task") or {})
 
     gate_task = task_repo.get_by_id(mapping["T03"])
@@ -308,15 +344,11 @@ def test_materialize_tasks_gate_remains_blocked_initially(
 
     # depends_on must reference internal task ids, not plan ids, so the
     # existing queue-mechanic (WFG-005/006) is reused unchanged.
-    planner_internal = _task_id_for_plan_task(
-        goal_id=goal_id, output_artifact_id=output_id, plan_task_id="T02"
-    )
+    planner_internal = _task_id_for_plan_task(goal_id=goal_id, output_artifact_id=output_id, plan_task_id="T02")
     assert planner_internal in list(gate_task.depends_on or [])
 
 
-def test_materialize_tasks_idempotent_for_workflow_steps(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_materialize_tasks_idempotent_for_workflow_steps(monkeypatch, tmp_path: Path) -> None:
     """Re-running materialize_tasks on the same output must not
     duplicate internal tasks and must not change the workflow_step
     provenance already persisted on them."""
@@ -349,9 +381,7 @@ def test_materialize_tasks_idempotent_for_workflow_steps(
         assert step["role"] in {"product_owner", "planner", "scrum_master"}
 
 
-def test_materialize_tasks_backward_compatible_for_legacy_track(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_materialize_tasks_backward_compatible_for_legacy_track(monkeypatch, tmp_path: Path) -> None:
     """Tracks produced without blueprint workflow annotations
     (legacy/manual) must continue to materialize without a
     workflow_step block."""
@@ -363,9 +393,7 @@ def test_materialize_tasks_backward_compatible_for_legacy_track(
     output_id = _persist_track(service, goal_id)
     integration = PlanningTrackTaskIntegrationService(goal_artifact_service=service)
 
-    materialized = integration.materialize_tasks(
-        goal_id=goal_id, output_artifact_id=output_id
-    )
+    materialized = integration.materialize_tasks(goal_id=goal_id, output_artifact_id=output_id)
     for internal_id in materialized["materialized_task_ids"]:
         task = task_repo.get_by_id(internal_id)
         assert task is not None
@@ -375,9 +403,7 @@ def test_materialize_tasks_backward_compatible_for_legacy_track(
         assert "planning_track" in wf_ctx
 
 
-def test_workflow_steps_take_precedence_over_pipeline_order(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_workflow_steps_take_precedence_over_pipeline_order(monkeypatch, tmp_path: Path) -> None:
     """WFG-010: when a plan task carries a workflow step with
     depends_on edges, the materializer must propagate those edges
     to the internal TaskDB row's depends_on. Any pipeline_order
@@ -395,9 +421,7 @@ def test_workflow_steps_take_precedence_over_pipeline_order(
     output_id = _persist_track_with_workflow(service, goal_id)
     integration = PlanningTrackTaskIntegrationService(goal_artifact_service=service)
 
-    materialized = integration.materialize_tasks(
-        goal_id=goal_id, output_artifact_id=output_id
-    )
+    materialized = integration.materialize_tasks(goal_id=goal_id, output_artifact_id=output_id)
     mapping = dict(materialized.get("plan_task_to_internal_task") or {})
 
     # The gate task (T03) must depend on the planner task (T02)
@@ -409,7 +433,6 @@ def test_workflow_steps_take_precedence_over_pipeline_order(
 
     gate_task = task_repo.get_by_id(gate_internal)
     planner_task = task_repo.get_by_id(planner_internal)
-    intake_task = task_repo.get_by_id(intake_internal)
 
     # depends_on is the internal id of the planner task, not of
     # the intake task (which would be the natural pipeline_order
@@ -428,3 +451,152 @@ def test_workflow_steps_take_precedence_over_pipeline_order(
     assert step is not None
     assert step["step_id"] == "step-3"
     assert step["role"] == "scrum_master"
+
+
+def test_execute_next_skips_unfulfilled_local_dependency_and_refreshes_status(monkeypatch, tmp_path: Path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    goal_id = "goal-track-local-dag"
+    service = _artifact_service(tmp_path)
+
+    def dependency_order(payload: dict) -> None:
+        payload["tasks"][0]["depends_on"] = ["T02"]
+        payload["tasks"][1]["depends_on"] = []
+
+    output_id = _persist_custom_track(service, goal_id, track="local-dag", mutate=dependency_order)
+    integration = PlanningTrackTaskIntegrationService(goal_artifact_service=service)
+    mapping = integration.materialize_tasks(goal_id=goal_id, output_artifact_id=output_id)["plan_task_to_internal_task"]
+
+    selected = integration.execute_next_plan_task(goal_id=goal_id, output_artifact_id=output_id)
+    assert selected["plan_task_id"] == "T02"
+    task = task_repo.get_by_id(mapping["T02"])
+    task.status = "completed"
+    task_repo.save(task)
+
+    selected = integration.execute_next_plan_task(goal_id=goal_id, output_artifact_id=output_id)
+    assert selected["plan_task_id"] == "T01"
+    graph = service.get_goal_graph(goal_id)
+    output = next(row for row in graph["output_artifacts"] if row["output_artifact_id"] == output_id)
+    refreshed = {row["id"]: row["status"] for row in output["extensions"]["payload"]["tasks"]}
+    assert refreshed["T02"] == "done"
+
+
+def test_execute_next_releases_blocked_gate_without_force(monkeypatch, tmp_path: Path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    goal_id = "goal-track-gate-release"
+    service = _artifact_service(tmp_path)
+    output_id = _persist_track_with_workflow(service, goal_id)
+    integration = PlanningTrackTaskIntegrationService(goal_artifact_service=service)
+    mapping = integration.materialize_tasks(goal_id=goal_id, output_artifact_id=output_id)["plan_task_to_internal_task"]
+    for plan_task_id in ("T01", "T02"):
+        task = task_repo.get_by_id(mapping[plan_task_id])
+        task.status = "completed"
+        task_repo.save(task)
+
+    selected = integration.execute_next_plan_task(goal_id=goal_id, output_artifact_id=output_id)
+    assert selected["plan_task_id"] == "T03"
+    gate = task_repo.get_by_id(mapping["T03"])
+    assert gate.status == "in_progress"
+    events = [row for row in list(gate.history or []) if row.get("event_type")]
+    assert [row["event_type"] for row in events[-2:]] == [
+        "planning_track_dependencies_resolved",
+        "planning_track_execution_started",
+    ]
+
+
+def test_cross_track_dependency_resolves_active_verified_parent(monkeypatch, tmp_path: Path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    goal_id = "goal-track-cross-success"
+    goal_repo.save(GoalDB(id=goal_id, goal="cross track test"))
+    service = _artifact_service(tmp_path)
+    parent_output = _persist_custom_track(service, goal_id, track="parent")
+    integration = PlanningTrackTaskIntegrationService(goal_artifact_service=service)
+    parent_mapping = integration.adopt_track(goal_id=goal_id, output_artifact_id=parent_output)[
+        "plan_task_to_internal_task"
+    ]
+
+    def cross_dependency(payload: dict) -> None:
+        payload["tasks"][0]["depends_on"] = ["todo.parent.json:T01"]
+
+    child_output = _persist_custom_track(service, goal_id, track="child", mutate=cross_dependency)
+    child = integration.materialize_tasks(goal_id=goal_id, output_artifact_id=child_output)
+    child_task = task_repo.get_by_id(child["plan_task_to_internal_task"]["T01"])
+    assert child_task.depends_on == [parent_mapping["T01"]]
+    assert all(not str(value).startswith("ptask-") or task_repo.get_by_id(value) for value in child_task.depends_on)
+
+
+def test_cross_track_parent_missing_stale_and_failed_are_rejected(monkeypatch, tmp_path: Path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+
+    def cross_dependency(payload: dict) -> None:
+        payload["tasks"][0]["depends_on"] = ["todo.parent.json:T01"]
+
+    for suffix, mutation, expected in (
+        ("missing", None, "cross_track_parent_not_active"),
+        ("stale", "schema", "cross_track_parent_stale_schema"),
+        ("failed", "failed", "cross_track_parent_failed"),
+    ):
+        goal_id = f"goal-track-cross-{suffix}"
+        goal_repo.save(GoalDB(id=goal_id, goal="cross track rejection"))
+        service = _artifact_service(tmp_path / suffix)
+        integration = PlanningTrackTaskIntegrationService(goal_artifact_service=service)
+        if mutation:
+            parent_output = _persist_custom_track(service, goal_id, track="parent")
+            integration.adopt_track(goal_id=goal_id, output_artifact_id=parent_output)
+            graph = service.get_goal_graph(goal_id)
+            parent = next(row for row in graph["output_artifacts"] if row["output_artifact_id"] == parent_output)
+            if mutation == "schema":
+                parent["extensions"]["schema_hash"] = "0" * 64
+            else:
+                parent["status"] = "failed"
+            GoalArtifactRepository(root=tmp_path / suffix).save_graph(graph)
+        child_output = _persist_custom_track(service, goal_id, track="child", mutate=cross_dependency)
+        try:
+            integration.materialize_tasks(goal_id=goal_id, output_artifact_id=child_output)
+        except ValueError as exc:
+            assert expected in str(exc)
+        else:
+            raise AssertionError(f"{suffix} parent was accepted")
+
+
+def test_parallel_materialization_is_idempotent(monkeypatch, tmp_path: Path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    goal_id = "goal-track-parallel-materialize"
+    service = _artifact_service(tmp_path)
+    output_id = _persist_custom_track(service, goal_id, track="parallel")
+    integration = PlanningTrackTaskIntegrationService(goal_artifact_service=service)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        results = list(
+            executor.map(
+                lambda _: integration.materialize_tasks(goal_id=goal_id, output_artifact_id=output_id),
+                range(8),
+            )
+        )
+    mappings = [result["plan_task_to_internal_task"] for result in results]
+    assert all(mapping == mappings[0] for mapping in mappings)
+    assert all(task_repo.get_by_id(task_id) is not None for task_id in mappings[0].values())
+
+
+def test_materialization_preserves_runtime_status_on_refresh(monkeypatch, tmp_path: Path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    goal_id = "goal-track-runtime-refresh"
+    service = _artifact_service(tmp_path)
+    output_id = _persist_custom_track(service, goal_id, track="refresh")
+    integration = PlanningTrackTaskIntegrationService(goal_artifact_service=service)
+    first = integration.materialize_tasks(goal_id=goal_id, output_artifact_id=output_id)
+    task = task_repo.get_by_id(first["plan_task_to_internal_task"]["T01"])
+    task.status = "completed"
+    task_repo.save(task)
+    integration.materialize_tasks(goal_id=goal_id, output_artifact_id=output_id)
+    assert task_repo.get_by_id(task.id).status == "completed"

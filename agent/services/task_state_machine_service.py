@@ -36,7 +36,10 @@ _ACTION_TRANSITIONS = {
     "pause": {"from": ACTIVE_TASK_STATUSES - {TaskStatus.PAUSED.value}, "to": TaskStatus.PAUSED.value},
     "resume": {"from": {TaskStatus.PAUSED.value}, "to": TaskStatus.TODO.value},
     "cancel": {"from": ACTIVE_TASK_STATUSES, "to": TaskStatus.CANCELLED.value},
-    "unassign": {"from": {TaskStatus.ASSIGNED.value, TaskStatus.CREATED.value, TaskStatus.PROPOSING.value}, "to": TaskStatus.TODO.value},
+    "unassign": {
+        "from": {TaskStatus.ASSIGNED.value, TaskStatus.CREATED.value, TaskStatus.PROPOSING.value},
+        "to": TaskStatus.TODO.value,
+    },
     "retry": {
         "from": {
             TaskStatus.FAILED.value,
@@ -46,9 +49,18 @@ _ACTION_TRANSITIONS = {
         "to": TaskStatus.TODO.value,
     },
     "approve": {"from": {TaskStatus.WAITING_FOR_REVIEW.value}, "to": TaskStatus.TODO.value},
-    "request_review": {"from": {TaskStatus.IN_PROGRESS.value, TaskStatus.DELEGATED.value}, "to": TaskStatus.WAITING_FOR_REVIEW.value},
-    "fail_verification": {"from": {TaskStatus.IN_PROGRESS.value, TaskStatus.DELEGATED.value}, "to": TaskStatus.VERIFICATION_FAILED.value},
-    "block_on_dependency": {"from": ACTIVE_TASK_STATUSES - {TaskStatus.BLOCKED_BY_DEPENDENCY.value}, "to": TaskStatus.BLOCKED_BY_DEPENDENCY.value},
+    "request_review": {
+        "from": {TaskStatus.IN_PROGRESS.value, TaskStatus.DELEGATED.value},
+        "to": TaskStatus.WAITING_FOR_REVIEW.value,
+    },
+    "fail_verification": {
+        "from": {TaskStatus.IN_PROGRESS.value, TaskStatus.DELEGATED.value},
+        "to": TaskStatus.VERIFICATION_FAILED.value,
+    },
+    "block_on_dependency": {
+        "from": ACTIVE_TASK_STATUSES - {TaskStatus.BLOCKED_BY_DEPENDENCY.value},
+        "to": TaskStatus.BLOCKED_BY_DEPENDENCY.value,
+    },
     "resolve_dependency": {"from": {TaskStatus.BLOCKED_BY_DEPENDENCY.value}, "to": TaskStatus.TODO.value},
 }
 
@@ -70,6 +82,12 @@ def can_transition_to(current_status: str | None, next_status: str | None) -> tu
     if current == target:
         return True, ""
 
+    # Planning-track gates used the legacy ``blocked`` value before the
+    # canonical blocked_by_dependency state was introduced.  Treat resolving
+    # either representation identically without a force bypass.
+    if current in {"blocked", TaskStatus.BLOCKED_BY_DEPENDENCY.value} and target == TaskStatus.TODO.value:
+        return True, ""
+
     # Immer erlaubt: Übergang von beliebig nach CANCELLED oder PAUSED (wenn in ACTIVE)
     if target == TaskStatus.CANCELLED.value:
         if current in ACTIVE_TASK_STATUSES:
@@ -80,7 +98,13 @@ def can_transition_to(current_status: str | None, next_status: str | None) -> tu
 
     # Spezialfall: Von beliebigem aktivem Zustand nach ASSIGNED, IN_PROGRESS oder DELEGATED
     if target in {TaskStatus.ASSIGNED.value, TaskStatus.IN_PROGRESS.value, TaskStatus.DELEGATED.value}:
-        if current in {TaskStatus.TODO.value, TaskStatus.CREATED.value, TaskStatus.ASSIGNED.value, TaskStatus.PROPOSING.value, TaskStatus.UPDATED.value}:
+        if current in {
+            TaskStatus.TODO.value,
+            TaskStatus.CREATED.value,
+            TaskStatus.ASSIGNED.value,
+            TaskStatus.PROPOSING.value,
+            TaskStatus.UPDATED.value,
+        }:
             return True, ""
 
     # Spezialfall: Abschluss/Fehler (Großzügiger für Legacy/Tests)
@@ -114,7 +138,10 @@ def can_transition_to(current_status: str | None, next_status: str | None) -> tu
             return True, ""
 
     # Autopilot/execute can resolve directly to review-required from assigned/proposing.
-    if current in {TaskStatus.ASSIGNED.value, TaskStatus.PROPOSING.value} and target == TaskStatus.WAITING_FOR_REVIEW.value:
+    if (
+        current in {TaskStatus.ASSIGNED.value, TaskStatus.PROPOSING.value}
+        and target == TaskStatus.WAITING_FOR_REVIEW.value
+    ):
         return True, ""
 
     # Erlaubte Standard-Kette: todo -> created -> assigned -> proposing -> in_progress
