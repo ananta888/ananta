@@ -5,12 +5,20 @@
  * transport_order from network profile: ["webrtc", "hub_relay"]
  */
 import { Injectable, inject } from '@angular/core';
-import { Subject, BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subject, Subscription } from 'rxjs';
 import { WebrtcSessionService } from './webrtc-session.service';
 import { NetworkProfileService } from './network-profile.service';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
 import { RelayEnvelope } from './pair-view-sync.types';
+import {
+  SemanticDataChannelMessage,
+  SemanticTrafficClass,
+  semanticDcEncode,
+  semanticDcEncodePackets,
+  validateSemanticDcMessage,
+} from './webrtc-datachannel.service';
+import { WebrtcSendOperation } from './webrtc-send-operation';
 
 export type TransportMode = 'webrtc' | 'hub_relay' | 'idle';
 
@@ -25,6 +33,27 @@ export interface TransportMessage {
   payload: unknown;
 }
 
+export interface SemanticTransportOpenOptions {
+  semanticEpoch?: number;
+  semanticTrafficClasses?: readonly SemanticTrafficClass[];
+  remotePeerId?: string;
+}
+
+interface SemanticRelayStoredMessage extends SemanticDataChannelMessage {
+  cursor: number;
+}
+
+interface SemanticRelayPage {
+  ok: boolean;
+  messages: SemanticRelayStoredMessage[];
+  cursor: number;
+}
+
+const SEMANTIC_RELAY_POLL_MS = 1000;
+const SEMANTIC_RELAY_CLASSES: readonly SemanticTrafficClass[] = Object.freeze([
+  'control', 'transcript', 'audio_recovery', 'visual_semantic', 'evidence_bulk', 'diagnostic',
+]);
+
 @Injectable({ providedIn: 'root' })
 export class WebrtcTransportService {
   private webrtc = inject(WebrtcSessionService);
@@ -34,42 +63,91 @@ export class WebrtcTransportService {
 
   readonly mode$ = new BehaviorSubject<TransportMode>('idle');
   readonly message$ = new Subject<TransportMessage>();
+  readonly semanticMessage$ = new Subject<SemanticDataChannelMessage>();
 
   private sessionId = '';
   private relayPollHandle: ReturnType<typeof setInterval> | null = null;
   private relayCursor = '';
+  private semanticEpoch = 1;
+  private readonly semanticRelayClasses = new Set<SemanticTrafficClass>();
+  private readonly semanticRelayCursors = new Map<SemanticTrafficClass, number>();
+  private readonly semanticRelayPolls = new Set<SemanticTrafficClass>();
+  private readonly semanticRelaySeen = new Map<SemanticTrafficClass, Set<string>>();
+  private subscriptions = new Subscription();
 
   private get hubUrl(): string {
     return this.dir.list().find(a => a.role === 'hub')?.url ?? '';
   }
 
-  async open(sessionId: string, isInitiator: boolean): Promise<void> {
+  async open(
+    sessionId: string,
+    isInitiator: boolean,
+    options: SemanticTransportOpenOptions = {},
+  ): Promise<void> {
+    this.close();
+    this.subscriptions = new Subscription();
     this.sessionId = sessionId;
+    this.semanticEpoch = this.validEpoch(options.semanticEpoch ?? 1);
+    for (const trafficClass of options.semanticTrafficClasses ?? []) {
+      this.enableSemanticTraffic(trafficClass);
+    }
     const order = this.profiles.current.transport_order;
     const useWebrtc = order[0] === 'webrtc';
 
     if (useWebrtc) {
       this.mode$.next('webrtc');
       // Monitor for WebRTC failure and fall back
-      this.webrtc.state$.subscribe(state => {
+      this.subscriptions.add(this.webrtc.state$.subscribe(state => {
         if (state === 'failed' && this.mode$.value === 'webrtc') {
           this.switchToHubRelay();
         }
-      });
+      }));
       // Relay DataChannel messages
-      this.webrtc.dcMessage$.subscribe(msg => {
+      this.subscriptions.add(this.webrtc.dcMessage$.subscribe(msg => {
         this.message$.next({ type: msg.type, session_id: sessionId, payload: msg.payload });
-      });
-      await this.webrtc.startSession(sessionId, isInitiator);
+      }));
+      this.subscriptions.add(this.webrtc.semanticMessage$.subscribe(message => {
+        if (message.session_id === this.sessionId && message.epoch === this.semanticEpoch) {
+          this.semanticMessage$.next(message);
+        }
+      }));
+      await this.webrtc.startSession(sessionId, isInitiator, options.remotePeerId);
     } else {
       this.switchToHubRelay();
     }
   }
 
   close(): void {
+    const wasOpen = this.mode$.value !== 'idle';
     this.stopRelayPoll();
-    this.webrtc.closeSession();
+    this.subscriptions.unsubscribe();
+    if (wasOpen) this.webrtc.closeSession();
+    this.semanticRelayClasses.clear();
+    this.semanticRelayCursors.clear();
+    this.semanticRelayPolls.clear();
+    this.semanticRelaySeen.clear();
+    this.sessionId = '';
     this.mode$.next('idle');
+  }
+
+  setSemanticEpoch(epoch: number): void {
+    const next = this.validEpoch(epoch);
+    if (next === this.semanticEpoch) return;
+    this.semanticEpoch = next;
+    this.semanticRelayCursors.clear();
+    this.semanticRelaySeen.clear();
+  }
+
+  enableSemanticTraffic(trafficClass: SemanticTrafficClass): void {
+    if (!SEMANTIC_RELAY_CLASSES.includes(trafficClass)) throw new Error('semantic_traffic_class_invalid');
+    this.semanticRelayClasses.add(trafficClass);
+    if (!this.semanticRelayCursors.has(trafficClass)) this.semanticRelayCursors.set(trafficClass, 0);
+  }
+
+  disableSemanticTraffic(trafficClass: SemanticTrafficClass): void {
+    if (!SEMANTIC_RELAY_CLASSES.includes(trafficClass)) throw new Error('semantic_traffic_class_invalid');
+    this.semanticRelayClasses.delete(trafficClass);
+    this.semanticRelayPolls.delete(trafficClass);
   }
 
   send(type: string, payload: unknown): void {
@@ -89,11 +167,59 @@ export class WebrtcTransportService {
    * path is unchanged; this is a separate code path.
    */
   sendView(envelope: RelayEnvelope): void {
+    const strictWireEnvelope: RelayEnvelope = {
+      message_id: envelope.message_id,
+      encrypted_payload: envelope.encrypted_payload,
+    };
     if (this.mode$.value === 'webrtc') {
-      this.webrtc.sendDc('view_payload', envelope as unknown as Record<string, unknown>);
+      this.webrtc.sendDc('view_payload', strictWireEnvelope as unknown as Record<string, unknown>);
     } else {
-      this.hubRelayViewPush(envelope);
+      this.hubRelayViewPush(strictWireEnvelope);
     }
+  }
+
+  async sendSemantic(
+    message: SemanticDataChannelMessage,
+    options: { signal?: AbortSignal; deadlineMs?: number } = {},
+  ): Promise<WebrtcSendOperation> {
+    if (!this.sessionId || message.session_id !== this.sessionId) throw new Error('semantic_session_mismatch');
+    if (message.epoch !== this.semanticEpoch) throw new Error('semantic_epoch_mismatch');
+    this.enableSemanticTraffic(message.traffic_class);
+    if (this.mode$.value === 'webrtc') return this.webrtc.sendSemantic(message, options);
+    if (this.mode$.value !== 'hub_relay') throw new Error('semantic_transport_not_open');
+
+    const url = this.hubUrl;
+    if (!url) throw new Error('semantic_hub_unavailable');
+    const frame = await semanticDcEncode(message);
+    const encoded = await semanticDcEncodePackets(message);
+    const deadline = Math.min(options.deadlineMs ?? Date.now() + 30_000, message.expires_at_ms);
+    const operation = new WebrtcSendOperation(
+      message.session_id,
+      message.epoch,
+      encoded.digest,
+      deadline,
+      options.signal,
+    );
+    const request = this.core.request<{ ok: boolean; cursor: number }>(
+      'POST',
+      `${url}/share-sessions/${this.sessionId}/semantic-relay`,
+      url,
+      {
+        body: frame,
+        headers: { 'Content-Type': 'application/vnd.ananta.webrtc.v1' },
+        timeoutMs: Math.max(1, deadline - Date.now()),
+      },
+    ).subscribe({
+      next: response => operation.acknowledge(response.cursor),
+      error: () => operation.cancel(),
+    });
+    const cancelRequest = () => request.unsubscribe();
+    options.signal?.addEventListener('abort', cancelRequest, { once: true });
+    void operation.result.then(() => {
+      request.unsubscribe();
+      options.signal?.removeEventListener('abort', cancelRequest);
+    });
+    return operation;
   }
 
   private switchToHubRelay(): void {
@@ -103,7 +229,10 @@ export class WebrtcTransportService {
 
   private startRelayPoll(): void {
     this.stopRelayPoll();
-    this.relayPollHandle = setInterval(() => this.relayPoll(), 1000);
+    this.relayPollHandle = setInterval(() => {
+      this.relayPoll();
+      for (const trafficClass of this.semanticRelayClasses) this.semanticRelayPoll(trafficClass);
+    }, SEMANTIC_RELAY_POLL_MS);
   }
 
   private stopRelayPoll(): void {
@@ -114,11 +243,13 @@ export class WebrtcTransportService {
     const url = this.hubUrl;
     if (!url) return;
     this.core.get<{ ok: boolean; messages: TransportMessage[]; cursor: string; view_messages?: RelayEnvelope[]; view_cursor?: string }>(
-      `${url}/share-sessions/${this.sessionId}/view/poll?cursor=${encodeURIComponent(this.relayCursor)}`, url
+      `${url}/share-sessions/${this.sessionId}/view/poll?since=${encodeURIComponent(this.relayCursor)}`, url
     ).subscribe({
       next: r => {
-        this.relayCursor = r?.cursor ?? this.relayCursor;
-        for (const msg of r?.messages ?? []) this.message$.next(msg);
+        this.relayCursor = r?.view_cursor ?? r?.cursor ?? this.relayCursor;
+        for (const msg of r?.messages ?? []) {
+          if (msg && typeof msg.type === 'string') this.message$.next(msg);
+        }
         // T06: forward view-sync envelopes through the same message$ bus
         // with type='view_payload' so the PairViewSyncService can subscribe
         // uniformly regardless of transport.
@@ -127,6 +258,89 @@ export class WebrtcTransportService {
         }
       },
       error: () => {},
+    });
+  }
+
+  private semanticRelayPoll(trafficClass: SemanticTrafficClass): void {
+    const url = this.hubUrl;
+    if (
+      !url
+      || !this.sessionId
+      || !this.semanticRelayClasses.has(trafficClass)
+      || this.semanticRelayPolls.has(trafficClass)
+    ) return;
+    this.semanticRelayPolls.add(trafficClass);
+    const cursor = this.semanticRelayCursors.get(trafficClass) ?? 0;
+    const query = new URLSearchParams({
+      traffic_class: trafficClass,
+      epoch: String(this.semanticEpoch),
+      cursor: String(cursor),
+      limit: '50',
+    });
+    this.core.get<SemanticRelayPage>(
+      `${url}/share-sessions/${this.sessionId}/semantic-relay?${query.toString()}`,
+      url,
+      undefined,
+      false,
+    ).subscribe({
+      next: page => { void this.dispatchSemanticRelayPage(trafficClass, page).catch(() => {}); },
+      error: () => this.semanticRelayPolls.delete(trafficClass),
+    });
+  }
+
+  private async dispatchSemanticRelayPage(
+    trafficClass: SemanticTrafficClass,
+    page: SemanticRelayPage,
+  ): Promise<void> {
+    try {
+      if (!this.semanticRelayClasses.has(trafficClass)) return;
+      if (!page?.ok || !Number.isSafeInteger(page.cursor) || page.cursor < 0 || !Array.isArray(page.messages)) return;
+      const seen = this.semanticRelaySeen.get(trafficClass) ?? new Set<string>();
+      this.semanticRelaySeen.set(trafficClass, seen);
+      for (const stored of page.messages) {
+        const { cursor: _cursor, ...candidate } = stored;
+        const message = await validateSemanticDcMessage(candidate);
+        if (
+          message.session_id !== this.sessionId
+          || message.epoch !== this.semanticEpoch
+          || message.traffic_class !== trafficClass
+        ) throw new Error('semantic_relay_context_mismatch');
+        const identity = `${message.epoch}:${message.sender_id}:${message.message_id}`;
+        if (!seen.has(identity)) {
+          seen.add(identity);
+          this.semanticMessage$.next(message);
+        }
+      }
+      while (seen.size > 4096) seen.delete(seen.values().next().value as string);
+      await this.acknowledgeSemanticRelay(trafficClass, page.cursor);
+    } finally {
+      this.semanticRelayPolls.delete(trafficClass);
+    }
+  }
+
+  private acknowledgeSemanticRelay(trafficClass: SemanticTrafficClass, cursor: number): Promise<void> {
+    const url = this.hubUrl;
+    if (!url) return Promise.reject(new Error('semantic_hub_unavailable'));
+    return new Promise((resolve, reject) => {
+      this.core.post<{ ok: boolean; acknowledged_cursor: number }>(
+        `${url}/share-sessions/${this.sessionId}/semantic-relay/ack`,
+        { traffic_class: trafficClass, epoch: this.semanticEpoch, cursor },
+        url,
+      ).subscribe({
+        next: response => {
+          const acknowledged = response?.acknowledged_cursor;
+          if (!Number.isSafeInteger(acknowledged) || acknowledged < cursor) {
+            reject(new Error('semantic_relay_ack_invalid'));
+            return;
+          }
+          this.semanticRelayCursors.set(
+            trafficClass,
+            Math.max(this.semanticRelayCursors.get(trafficClass) ?? 0, acknowledged),
+          );
+          resolve();
+        },
+        error: reject,
+      });
     });
   }
 
@@ -153,5 +367,10 @@ export class WebrtcTransportService {
     }
     this.core.post(`${url}/share-sessions/${this.sessionId}/view/push`, envelope, url)
       .subscribe({ error: () => {} });
+  }
+
+  private validEpoch(epoch: number): number {
+    if (!Number.isSafeInteger(epoch) || epoch < 1) throw new Error('semantic_epoch_invalid');
+    return epoch;
   }
 }

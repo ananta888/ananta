@@ -34,6 +34,7 @@ const baseUrl = process.env.E2E_FRONTEND_URL ? configuredBaseUrl : resolveFronte
 const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
 const compactReporter = process.env.E2E_REPORTER_MODE === 'compact';
 const isLiveLlmRun = process.env.RUN_LIVE_LLM_TESTS === '1';
+const isSemanticMediaLiveRun = process.env.RUN_SEMANTIC_MEDIA_LIVE_E2E === '1';
 const retainEvidenceArtifacts = process.env.E2E_RETAIN_EVIDENCE_ARTIFACTS === '1';
 function resolveResultsDir(): string {
   const configured = process.env.E2E_RESULTS_DIR?.trim();
@@ -79,7 +80,7 @@ export default defineConfig({
   timeout: testTimeoutMs,
   expect: { timeout: expectTimeoutMs },
   fullyParallel: false,
-  retries: isLiveLlmRun ? 0 : (process.env.CI ? 2 : 1),
+  retries: (isLiveLlmRun || isSemanticMediaLiveRun) ? 0 : (process.env.CI ? 2 : 1),
   workers: workerCount,
   reporter: reporters,
   use: {

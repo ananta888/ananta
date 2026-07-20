@@ -1,0 +1,154 @@
+<section aria-labelledby="semantic-program-title">
+  <h2 id="semantic-program-title">Semantic Media und Speech</h2>
+  <p role="status" aria-live="polite">{{ online ? 'Hub erreichbar' : 'Offline – neue Freigaben gesperrt' }}</p>
+
+  <dl aria-label="Freigabeumfang">
+    <dt>Richtung</dt><dd>{{ scope.direction }}</dd>
+    <dt>Datenklasse</dt><dd>{{ scope.dataClass }}</dd>
+    <dt>Zweck</dt><dd>{{ scope.purpose }}</dd>
+    <dt>Aufbewahrung</dt><dd>{{ scope.retentionLabel }}</dd>
+    <dt>Trainerstandort</dt><dd>{{ scope.trainerLocation }}</dd>
+    <dt>E2EE-Modus</dt><dd>{{ scope.e2eeMode }}</dd>
+    <dt>Ordinary-Fallback</dt><dd>{{ scope.ordinaryFallback }}</dd>
+  </dl>
+
+  <div class="program-grid">
+    @for (row of capabilities; track row.capability) {
+      <article [class.sensitive]="isSensitive(row.capability)" [attr.data-capability]="row.capability">
+        <h3>{{ row.label }}</h3>
+        <p>Status: <strong>{{ row.state }}</strong></p>
+        @if (row.reasonCode) {
+          <p role="status">Grund: <code>{{ row.reasonCode }}</code></p>
+        }
+        @if (isSensitive(row.capability)) {
+          <p role="note">Separate ausdrückliche Freigabe erforderlich; keine Sammelfreigabe.</p>
+        }
+        @if (row.scope; as capabilityScope) {
+          <dl class="capability-scope" [attr.aria-label]="'Freigabeumfang ' + row.label">
+            <dt>Richtung</dt><dd>{{ capabilityScope.direction }}</dd>
+            <dt>Datenklasse</dt><dd>{{ capabilityScope.dataClass }}</dd>
+            <dt>Zweck</dt><dd>{{ capabilityScope.purpose }}</dd>
+            <dt>Aufbewahrung</dt><dd>{{ capabilityScope.retentionLabel }}</dd>
+            <dt>Trainerstandort</dt><dd>{{ capabilityScope.trainerLocation }}</dd>
+            <dt>E2EE-Modus</dt><dd>{{ capabilityScope.e2eeMode }}</dd>
+            <dt>Ordinary-Fallback</dt><dd>{{ capabilityScope.ordinaryFallback }}</dd>
+            @if (capabilityScope.grantLabel) {
+              <dt>Einzelfreigaben</dt><dd>{{ capabilityScope.grantLabel }}</dd>
+            }
+          </dl>
+        }
+        @if (row.capability === 'adapter_activation') {
+          <label>
+            Receiver-lokalen, freigegebenen Adapter auswählen
+            <select [value]="selectedAdapterKey" (change)="selectAdapter($event)">
+              <option value="">Keine Aktivierung</option>
+              @for (adapter of speechAdapters; track adapterKey(adapter)) {
+                <option [value]="adapterKey(adapter)">
+                  {{ adapter.label }} · {{ adapter.direction }}
+                </option>
+              }
+            </select>
+          </label>
+          @if (speechAdapters.length === 0) {
+            <p role="note">Kein aktueller, freigegebener Pair-Adapter verfügbar.</p>
+          }
+        }
+        <button
+          type="button"
+          [disabled]="pending(row) || !online || adapterActivationUnavailable(row.capability)"
+          (click)="request(row.capability, 'activate')"
+          [attr.aria-describedby]="'scope-' + row.capability">
+          {{ isSensitive(row.capability) ? 'Einzeln freigeben' : 'Aktivieren' }}
+        </button>
+        <button type="button" [disabled]="pending(row)" (click)="request(row.capability, 'pause')">Pausieren</button>
+        <button type="button" [disabled]="pending(row)" (click)="request(row.capability, 'revoke')">Widerrufen</button>
+        <span class="visually-hidden" [id]="'scope-' + row.capability">
+          {{ scopeForRow(row).direction }}, {{ scopeForRow(row).dataClass }},
+          {{ scopeForRow(row).purpose }}, {{ scopeForRow(row).retentionLabel }}
+        </span>
+      </article>
+    }
+  </div>
+
+  @if (ordinaryMediaVisible()) {
+    <app-webrtc-media-panel
+      [captureEnabled]="ordinaryMediaCaptureEnabled"
+      [videoCaptureEnabled]="ordinaryMediaVideoCaptureEnabled"
+      [captureReason]="ordinaryMediaReason"
+      [audioState]="ordinaryAudioState"
+      [publications]="ordinaryMediaPublications"
+      (startMicrophone)="ordinaryMicrophoneStart.emit()"
+      (stopMicrophone)="ordinaryMicrophoneStop.emit()"
+      (muteMicrophone)="ordinaryMicrophoneMute.emit($event)"
+      (startCamera)="ordinaryCameraStart.emit()"
+      (startScreen)="ordinaryScreenStart.emit()"
+      (stop)="ordinaryVideoStop.emit($event)"
+      (replace)="ordinaryVideoReplace.emit($event)"
+      (mute)="ordinaryVideoMute.emit($event)" />
+  }
+
+  @if (computeVisible) {
+    <app-pair-compute-contract-panel
+      [contract]="computeContract"
+      [localMeasurement]="computeLocalMeasurement"
+      [peerClaim]="computePeerClaim"
+      [leases]="computeLeases"
+      [explanation]="computeExplanation"
+      [suggestion]="computeSuggestion"
+      [pending]="computePending"
+      [errorCode]="computeErrorCode"
+      (intent)="computeIntent.emit($event)"
+      (suggestionRequest)="computeSuggestionRequest.emit()" />
+  }
+
+  <app-semantic-receiver-path-panel
+    [receivers]="receiverPaths"
+    (intent)="receiverPathIntent.emit($event)" />
+
+  <app-semantic-remote-audio />
+
+  <app-speech-evidence-consent-panel
+    [state]="evidenceConsentState"
+    (intent)="evidenceConsentIntent.emit($event)" />
+
+  @if (speechRuntimeVisible()) {
+    <app-semantic-speech-panel
+      [transportState]="speechTransportState"
+      [transportReason]="speechTransportReason"
+      [canStartTransport]="speechTransportCanStart"
+      [displayMode]="speechSettings.displayMode"
+      [segmentDurationSeconds]="speechSettings.segmentDurationSeconds"
+      [correctEachSegment]="speechSettings.correctEachSegment"
+      [paused]="speechSettings.paused"
+      [ordinaryAudioOverride]="speechSettings.ordinaryAudioOverride"
+      [qualityMode]="speechQualityMode"
+      [qualityReason]="speechQualityReason"
+      (startRequested)="speechStart.emit()"
+      (stopRequested)="speechStop.emit()"
+      (settingsChange)="speechSettingsChange.emit($event)" />
+  }
+
+  @if (peerEvidenceVisible()) {
+    <app-peer-evidence-sync-panel
+      [hubUrl]="hubUrl"
+      [offer]="evidenceOffer"
+      [sync]="evidenceSync"
+      [availableReason]="evidenceAvailableReason"
+      (propose)="evidencePropose.emit($event)"
+      (accept)="evidenceAccept.emit($event)"
+      (pauseRequested)="evidencePause.emit()"
+      (resumeRequested)="evidenceResume.emit()"
+      (reject)="evidenceReject.emit()"
+      (revoke)="evidenceRevoke.emit()"
+      (curationRequested)="evidenceCuration.emit()"
+      (localOverride)="evidenceLocalOverride.emit($event)" />
+  }
+
+  @if (speechReconciliationVisible()) {
+    <app-speech-reconciliation-panel
+      [hubAuthorized]="speechReconciliationHubAuthorized"
+      [hubUrl]="hubUrl" />
+  }
+
+  <app-semantic-debug-host />
+</section>

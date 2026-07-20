@@ -20,7 +20,7 @@ const basePerms = DEFAULT_PERMISSIONS;
 
 describe('pair-view-sync.validators', () => {
   it('isPermissionKey accepts known keys', () => {
-    for (const k of ['chat', 'view_tui', 'cursor', 'control', 'artifact_view', 'annotation']) {
+    for (const k of ['chat', 'view_tui', 'remote_cursor', 'artifact_share', 'remote_control']) {
       expect(isPermissionKey(k)).toBe(true);
     }
     expect(isPermissionKey('rogue_key')).toBe(false);

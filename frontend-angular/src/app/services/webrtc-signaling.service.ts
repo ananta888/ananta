@@ -21,6 +21,16 @@ export interface SignalMessage {
 
 export type SignalingStatus = 'disconnected' | 'connecting' | 'connected' | 'failed';
 
+interface HubSignalPollPayload {
+  readonly signals?: readonly SignalMessage[];
+  readonly cursor?: string;
+}
+
+interface HubSignalPollResponse extends HubSignalPollPayload {
+  readonly ok?: boolean;
+  readonly data?: HubSignalPollPayload;
+}
+
 @Injectable({ providedIn: 'root' })
 export class WebrtcSignalingService {
   private core = inject(HubApiCoreService);
@@ -38,14 +48,16 @@ export class WebrtcSignalingService {
   private pollHandle: ReturnType<typeof setInterval> | null = null;
   private pollCursor = '';
   private useHubRelay = false;
+  private recipientId = '';
 
   private get hubUrl(): string {
     return this.dir.list().find(a => a.role === 'hub')?.url ?? '';
   }
 
-  connect(signalingUrl: string, sessionId: string): void {
+  connect(signalingUrl: string, sessionId: string, recipientId?: string): void {
     this.sessionId = sessionId;
     this.signalingUrl = signalingUrl;
+    this.recipientId = normalizePeerId(recipientId);
     this.reconnectAttempts = 0;
     this.openWebSocket();
   }
@@ -74,17 +86,21 @@ export class WebrtcSignalingService {
     this.pollCursor = '';
     this.sessionId = '';
     this.signalingUrl = '';
+    this.recipientId = '';
     this.reconnectAttempts = 0;
     this.status$.next('disconnected');
   }
 
   send(msg: SignalMessage): void {
+    const outbound = this.recipientId && !msg.recipient_id
+      ? { ...msg, recipient_id: this.recipientId }
+      : msg;
     if (this.useHubRelay) {
-      this.hubRelaySend(msg);
+      this.hubRelaySend(outbound);
       return;
     }
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(msg));
+      this.ws.send(JSON.stringify(outbound));
     }
   }
 
@@ -154,11 +170,18 @@ export class WebrtcSignalingService {
     const url = this.hubUrl;
     if (!url || !this.sessionId) return;
     const endpoint = `${url}/api/webrtc/sessions/${this.sessionId}/signal?since=${encodeURIComponent(this.pollCursor)}`;
-    this.core.get<{ ok: boolean; signals: SignalMessage[]; cursor: string }>(endpoint, url)
+    this.core.get<HubSignalPollResponse>(endpoint, url)
       .subscribe({
         next: r => {
-          this.pollCursor = r?.cursor ?? this.pollCursor;
-          for (const sig of r?.signals ?? []) this.message$.next(sig);
+          // The Hub endpoint uses the legacy {ok, data:{signals}} envelope,
+          // while HubApiCoreService only unwraps {status, data}. Accept both
+          // documented response shapes here and keep malformed rows out of
+          // the peer-connection state machine.
+          const payload = r?.data ?? r;
+          this.pollCursor = payload?.cursor ?? this.pollCursor;
+          for (const sig of payload?.signals ?? []) {
+            if (isSignalMessage(sig, this.sessionId)) this.message$.next(sig);
+          }
         },
         error: () => {},
       });
@@ -170,4 +193,22 @@ export class WebrtcSignalingService {
     this.core.post(`${url}/api/webrtc/sessions/${this.sessionId}/signal`, msg, url)
       .subscribe({ error: () => {} });
   }
+}
+
+function normalizePeerId(value: string | undefined): string {
+  if (value === undefined || value === '') return '';
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$/.test(value)) {
+    throw new Error('webrtc_signaling_recipient_invalid');
+  }
+  return value;
+}
+
+function isSignalMessage(value: unknown, sessionId: string): value is SignalMessage {
+  if (!value || typeof value !== 'object') return false;
+  const signal = value as Partial<SignalMessage>;
+  return (
+    signal.session_id === sessionId
+    && ['offer', 'answer', 'ice_candidate', 'hangup', 'hello'].includes(String(signal.type || ''))
+    && 'payload' in signal
+  );
 }

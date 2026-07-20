@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/semantic-media-e2e"
+  },
+  "files": [
+    "src/main.semantic-media-e2e.ts"
+  ],
+  "include": [
+    "src/**/*.d.ts"
+  ]
+}

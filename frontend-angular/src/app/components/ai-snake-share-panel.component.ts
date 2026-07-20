@@ -5,6 +5,8 @@ import { ShareSessionService, ShareParticipant } from '../services/share-session
 import { HubApiCoreService } from '../services/hub-api-core.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { ChatMessageComponent } from './chat-message.component';
+import { PairViewSessionBindingService } from '../services/pair-view-session-binding.service';
+import { PairSecurityBootstrapState } from '../services/pair-view-security-bootstrap.service';
 
 type PanelView = 'home' | 'create' | 'join' | 'active';
 type MainTab = 'share' | 'groups';
@@ -164,6 +166,10 @@ interface PairGroupMember {
             <label class="share-label">Invite-Code
               <input class="share-input mono" [(ngModel)]="joinCode" placeholder="z.B. abc123xyz" maxlength="16">
             </label>
+            <label class="legacy-consent">
+              <input type="checkbox" [(ngModel)]="allowLegacyJoin">
+              Legacy-Session ohne verbindliches E2EE ausdrücklich zulassen
+            </label>
             <div class="share-form-actions">
               <button class="share-btn primary" (click)="doJoin()" [disabled]="joining || !joinCode.trim()">
                 {{ joining ? 'Verbinde...' : 'Beitreten' }}
@@ -186,6 +192,22 @@ interface PairGroupMember {
               <span class="share-meta-code">Code: <strong>{{ state.session?.invite_code }}</strong></span>
               <button class="share-copy-btn" (click)="copyCode(state.session?.invite_code ?? '')">⎘</button>
             </div>
+            @if (svc.securityState$ | async; as security) {
+              <div class="security-line" data-testid="share-security-status"
+                [class.ready]="security.status === 'ready'"
+                [class.warning]="security.status === 'legacy' || security.status === 'fingerprint_changed'"
+                [class.failed]="security.status === 'failed'">
+                <span>{{ securityLabel(security) }}</span>
+                @if (securityFingerprint(security)) {
+                  <code>{{ securityFingerprint(security) }}</code>
+                }
+                @if (security.status === 'fingerprint_changed') {
+                  <button type="button" class="share-btn sm" (click)="svc.approveFingerprintChange()">
+                    Fingerprint neu freigeben
+                  </button>
+                }
+              </div>
+            }
           </div>
 
           <!-- Tabs -->
@@ -214,6 +236,7 @@ interface PairGroupMember {
                 (keydown.enter)="sendMsg()" [disabled]="!canChat(state)">
               <button class="share-send-btn" (click)="sendMsg()" [disabled]="!chatInput.trim() || !canChat(state)">→</button>
             </div>
+            @if (chatError) { <div class="share-error chat-error" role="alert">{{ chatError }}</div> }
           }
 
           <!-- Participants tab -->
@@ -300,12 +323,18 @@ interface PairGroupMember {
       padding: 4px 7px; font-size: 11px; font-family: inherit; border-radius: 2px;
     }
     .share-input.mono { letter-spacing: 0.1em; }
+    .legacy-consent { display: flex; align-items: flex-start; gap: 5px; color: #fbbf24; font-size: 10px; line-height: 1.35; }
     .share-checks { display: flex; gap: 12px; font-size: 11px; }
     .share-checks label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
     .share-form-actions { display: flex; gap: 8px; }
     .share-error { color: #fb7185; font-size: 11px; }
     .share-session-info { padding: 8px 10px; border-bottom: 1px solid #1a2d4a; }
     .share-session-title { font-weight: 600; color: #a8c7ff; margin-bottom: 4px; }
+    .security-line { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; padding: 5px 6px; border: 1px solid #2a4070; color: #a8c7ff; }
+    .security-line.ready { color: #7fffd4; border-color: #1a4a2a; }
+    .security-line.warning { color: #fbbf24; border-color: #7a5a10; }
+    .security-line.failed { color: #fb7185; border-color: #4a1a1a; }
+    .security-line code { overflow-wrap: anywhere; font-size: 9px; }
     .share-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .share-meta-code { font-size: 11px; color: #6b8ab8; }
     .share-meta-code strong { color: #7fffd4; letter-spacing: 0.08em; }
@@ -322,6 +351,7 @@ interface PairGroupMember {
     .share-msg-sender { font-size: 10px; color: #4a6a9a; margin-bottom: 2px; }
     .share-msg-text { background: #0f1c30; border: 1px solid #1a3058; padding: 4px 8px; border-radius: 2px; color: #c8d8f8; display: inline-block; max-width: 90%; word-break: break-word; }
     .share-chat-input-row { display: flex; gap: 6px; padding: 6px 8px; border-top: 1px solid #1a2d4a; flex-shrink: 0; }
+    .chat-error { padding: 0 8px 6px; }
     .share-chat-input { flex: 1; background: #0f1c30; border: 1px solid #1a2d4a; color: #c8d8f8; padding: 4px 7px; font-size: 11px; font-family: inherit; border-radius: 2px; }
     .share-send-btn { background: #162444; border: 1px solid #2a4070; color: #a8c7ff; padding: 4px 10px; cursor: pointer; border-radius: 2px; font-size: 13px; }
     .share-send-btn:hover:not([disabled]) { border-color: #7fffd4; color: #7fffd4; }
@@ -340,10 +370,11 @@ interface PairGroupMember {
     .share-footer { padding: 8px 10px; border-top: 1px solid #1a2d4a; flex-shrink: 0; }
   `],
 })
-export class AiSnakeSharePanelComponent {
+export class AiSnakeSharePanelComponent implements OnInit {
   svc = inject(ShareSessionService);
   private core = inject(HubApiCoreService);
   private dir = inject(AgentDirectoryService);
+  private pairBinding = inject(PairViewSessionBindingService);
 
   mainTab: MainTab = 'share';
   view: PanelView = 'home';
@@ -362,8 +393,10 @@ export class AiSnakeSharePanelComponent {
   joinCode = '';
   joining = false;
   joinError = '';
+  allowLegacyJoin = false;
 
   chatInput = '';
+  chatError = '';
 
   // Groups
   groupView: 'list' | 'create' | 'detail' = 'list';
@@ -384,6 +417,10 @@ export class AiSnakeSharePanelComponent {
 
   private get hubUrl(): string {
     return this.dir.list().find((a) => a.role === 'hub')?.url ?? '';
+  }
+
+  ngOnInit(): void {
+    this.pairBinding.start();
   }
 
   switchToGroups(): void {
@@ -418,7 +455,7 @@ export class AiSnakeSharePanelComponent {
     this.core.post<{ ok: boolean; group: PairGroup }>(`${url}/pair-groups`, {
       name: this.newGroupName.trim(),
       description: this.newGroupDesc.trim(),
-      default_permissions: { chat: this.gperm_chat, view_tui: this.gperm_view, cursor: this.gperm_cursor },
+      default_permissions: { chat: this.gperm_chat, view_tui: this.gperm_view, remote_cursor: this.gperm_cursor },
     }, url).subscribe({
       next: (r) => {
         if (r?.group) this.groups = [...this.groups, r.group];
@@ -500,7 +537,7 @@ export class AiSnakeSharePanelComponent {
     this.createError = '';
     try {
       await this.svc.createSession(this.createTitle.trim(), {
-        chat: this.perm_chat, view_tui: this.perm_view, cursor: this.perm_cursor,
+        chat: this.perm_chat, view_tui: this.perm_view, remote_cursor: this.perm_cursor,
       }, Number(this.expiresIn) || null);
       this.activeTab = 'chat';
     } catch (e: any) {
@@ -515,7 +552,7 @@ export class AiSnakeSharePanelComponent {
     this.joining = true;
     this.joinError = '';
     try {
-      await this.svc.joinSession(this.joinCode.trim());
+      await this.svc.joinSession(this.joinCode.trim(), { allowLegacy: this.allowLegacyJoin });
       this.activeTab = 'chat';
     } catch (e: any) {
       this.joinError = String(e?.message ?? 'Beitreten fehlgeschlagen');
@@ -524,10 +561,16 @@ export class AiSnakeSharePanelComponent {
     }
   }
 
-  sendMsg(): void {
+  async sendMsg(): Promise<void> {
     if (!this.chatInput.trim()) return;
-    this.svc.sendMessage(this.chatInput.trim());
-    this.chatInput = '';
+    this.chatError = '';
+    const value = this.chatInput.trim();
+    try {
+      await this.svc.sendMessage(value);
+      this.chatInput = '';
+    } catch (error) {
+      this.chatError = error instanceof Error ? error.message : 'Nachricht konnte nicht sicher gesendet werden';
+    }
   }
 
   doEnd(): void {
@@ -542,7 +585,25 @@ export class AiSnakeSharePanelComponent {
   }
 
   canChat(state: any): boolean {
-    return state?.role === 'owner' || !!state?.session?.permissions?.chat;
+    const permitted = state?.role === 'owner' || !!state?.session?.permissions?.chat;
+    return permitted && this.svc.canSendChat();
+  }
+
+  securityLabel(state: PairSecurityBootstrapState): string {
+    const labels: Record<PairSecurityBootstrapState['status'], string> = {
+      idle: 'E2EE: inaktiv',
+      legacy: 'Legacy-Modus: nicht Ende-zu-Ende verschlüsselt',
+      waiting_for_peer: 'E2EE: wartet auf authentifizierten Peer',
+      confirming: 'E2EE: Schlüsselbestätigung läuft',
+      ready: 'E2EE: Peer und Schlüssel bestätigt',
+      fingerprint_changed: 'E2EE blockiert: Peer-Fingerprint hat sich geändert',
+      failed: `E2EE blockiert: ${'reasonCode' in state ? state.reasonCode : 'unbekannter Fehler'}`,
+    };
+    return labels[state.status];
+  }
+
+  securityFingerprint(state: PairSecurityBootstrapState): string {
+    return 'fingerprint' in state ? state.fingerprint ?? '' : '';
   }
 
   isOwnMessage(senderId: string): boolean {

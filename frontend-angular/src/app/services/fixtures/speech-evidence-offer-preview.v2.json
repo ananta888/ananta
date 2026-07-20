@@ -1,0 +1,41 @@
+{
+  "version": "ananta.speech-evidence-offer-preview-fixtures.v2",
+  "preview_set_digest": "59d5f5bfa0a0ba1809786ae9d374f7d244757359133d1c0eb910171a278265d4",
+  "valid": {
+    "preview_version": "ananta.speech-evidence-group-preview.v1",
+    "group_id": "speech-group-2030124ede2712749d41078230ccb4b0bf6f1313",
+    "source_group_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "speaker_scope_digest": "0ea05d1657c14315aa84c90c8557bd439962f6f9cee1bc2fb4a038c968f693c7",
+    "quality_basis": "policy",
+    "quality_digest": "71237c261108f80e221a286a005c96edcc114c4839ed99728ca690c026c65bd7",
+    "resolution_digest": "c9c6476d498d72783072446af93cfafdff8d7235187900f4efbf1342e262013a",
+    "original_candidates": [
+      {
+        "ordinal": 1,
+        "candidate_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+        "authority_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+        "revision": 1
+      },
+      {
+        "ordinal": 2,
+        "candidate_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+        "authority_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+        "revision": 2
+      }
+    ],
+    "resolution_state": "resolved",
+    "selected_candidate_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+    "unresolved_region_digests": [],
+    "comparison_digest": "d41bf292f1eb5fb082320a4a769bbc6e897b3d2db815a55b4219a53c2f0c0546",
+    "revision": 2,
+    "size_bytes": 3
+  },
+  "negative_cases": [
+    { "name": "missing", "reason_code": "speech_evidence_offer_preview_required" },
+    { "name": "forged", "reason_code": "speech_evidence_payload_digest_mismatch" },
+    { "name": "stale", "reason_code": "speech_evidence_offer_preview_stale" },
+    { "name": "wrong-source-group", "reason_code": "speech_evidence_source_group_mismatch" },
+    { "name": "resolution-digest-mismatch", "reason_code": "speech_evidence_resolution_digest_mismatch" },
+    { "name": "scope-expansion", "reason_code": "speech_evidence_offer_scope_expansion" }
+  ]
+}

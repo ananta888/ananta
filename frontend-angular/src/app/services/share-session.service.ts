@@ -1,12 +1,19 @@
 import { Injectable, inject, OnDestroy } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subscription, firstValueFrom } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
 import { WebrtcTransportService } from './webrtc-transport.service';
 import { NetworkProfileService } from './network-profile.service';
 import { PermissionKey, PermissionSet } from './pair-view-sync.types';
-import { hasPermission, permissionsFromUiSelection } from './permission-labels';
+import { hasPermission, normalizePermissions, permissionsFromUiSelection } from './permission-labels';
+import { E2eEncryptionService } from './e2e-encryption.service';
+import { PAIR_VIEW_CRYPTO, PairViewCryptoPort } from './pair-view-crypto.service';
+import { PairSecureSequenceService } from './pair-secure-sequence.service';
+import {
+  PairSecurityBootstrapState,
+  PairViewSecurityBootstrapService,
+} from './pair-view-security-bootstrap.service';
 
 export interface ShareSession {
   id: string;
@@ -19,6 +26,11 @@ export interface ShareSession {
   expires_at: number | null;
   revoked_at: number | null;
   owner_user_id: string;
+  tenant_id?: string;
+  permissions_version?: number;
+  security_epoch?: number | null;
+  security_contract_version?: number;
+  security_mode?: string;
 }
 
 export interface ShareParticipant {
@@ -40,6 +52,32 @@ export interface ShareChatMessage {
   visibility: string;
 }
 
+interface StrictShareChatWireMessage {
+  id: string;
+  encrypted_payload: string;
+}
+
+interface LegacyShareChatWireMessage {
+  id?: unknown;
+  session_id?: unknown;
+  share_session_id?: unknown;
+  sender_id?: unknown;
+  from_id?: unknown;
+  text?: unknown;
+  created_at?: unknown;
+  visibility?: unknown;
+}
+
+interface StrictChatPlaintext {
+  version: 1;
+  id: string;
+  sessionId: string;
+  senderUserId: string;
+  text: string;
+  createdAt: number;
+  visibility: 'room';
+}
+
 export interface ActiveShareState {
   session: ShareSession | null;
   participants: ShareParticipant[];
@@ -55,31 +93,33 @@ export class ShareSessionService implements OnDestroy {
   private userAuth = inject(UserAuthService);
   private transport = inject(WebrtcTransportService);
   private profiles = inject(NetworkProfileService);
+  private e2ee = inject(E2eEncryptionService);
+  private cryptoPort: PairViewCryptoPort = inject(PAIR_VIEW_CRYPTO);
+  private secureSequences = inject(PairSecureSequenceService);
+  private securityBootstrap = inject(PairViewSecurityBootstrapService);
 
   readonly state$ = new BehaviorSubject<ActiveShareState>({
     session: null, participants: [], messages: [], cursor: '0', role: null,
   });
+  readonly securityState$ = this.securityBootstrap.state$;
 
   private pollHandle: ReturnType<typeof setInterval> | null = null;
+  private readonly subscriptions = new Subscription();
+  private messagePollInFlight = false;
+  private securityGeneration = 0;
 
   constructor() {
-    this.transport.message$.subscribe((msg) => {
+    this.subscriptions.add(this.transport.message$.subscribe((msg) => {
       if (msg.type !== 'chat') return;
-      const payload = (msg.payload || {}) as any;
-      const item: ShareChatMessage = {
-        id: String(payload.id || `webrtc-${Date.now()}-${Math.random()}`),
-        session_id: String(payload.session_id || this.state$.value.session?.id || ''),
-        sender_id: String(payload.sender_id || 'peer'),
-        text: String(payload.text || ''),
-        created_at: Number(payload.created_at || Date.now() / 1000),
-        visibility: 'room',
-      };
-      if (!item.text) return;
-      const existing = this.state$.value.messages;
-      const known = new Set(existing.map((m) => m.id));
-      if (known.has(item.id)) return;
-      this.state$.next({ ...this.state$.value, messages: [...existing, item].slice(-200) });
-    });
+      const session = this.state$.value.session;
+      if (!session || msg.session_id !== session.id) return;
+      if (session && this.isStrictSession(session)) {
+        void this.acceptStrictChatWire(msg.payload).catch(() => undefined);
+        return;
+      }
+      const item = this.parseLegacyChat(msg.payload);
+      if (item) this.appendMessage(item);
+    }));
   }
 
   get isActive(): boolean { return !!this.state$.value.session; }
@@ -94,19 +134,33 @@ export class ShareSessionService implements OnDestroy {
     const session = this.state$.value.session;
     if (!session) return null;
     const raw = session.permissions || {};
-    const filtered: Record<PermissionKey, boolean> = {
-      chat: false, view_tui: false, cursor: false, control: false, artifact_view: false, annotation: false,
-    };
-    for (const [k, v] of Object.entries(raw)) {
-      if (k in filtered && typeof v === 'boolean') {
-        (filtered as Record<string, boolean>)[k] = v;
-      }
+    try {
+      return normalizePermissions(raw);
+    } catch {
+      return null;
     }
-    return Object.freeze(filtered);
   }
 
   hasPermission(key: PermissionKey): boolean {
     return hasPermission(this.currentPermissions(), key);
+  }
+
+  isStrictSession(session: ShareSession | null = this.state$.value.session): boolean {
+    return session?.security_contract_version === 1 && session.security_mode === 'strict_e2ee';
+  }
+
+  canSendChat(): boolean {
+    const session = this.state$.value.session;
+    if (!session || !this.hasPermission('chat')) return false;
+    if (!this.isStrictSession(session)) return true;
+    return this.securityState$.value.status === 'ready'
+      && !!session.security_epoch
+      && this.cryptoPort.ready(session.id, session.security_epoch);
+  }
+
+  approveFingerprintChange(): void {
+    this.securityBootstrap.approveFingerprintChange();
+    void this.refreshSecurity();
   }
 
   get currentUserId(): string {
@@ -123,11 +177,12 @@ export class ShareSessionService implements OnDestroy {
     return first === 'webrtc' ? 'webrtc' : 'hub_relay';
   }
 
-  createSession(
+  async createSession(
     title: string,
     permissions: Partial<Record<PermissionKey, boolean>>,
     expiresInSeconds: number | null,
   ): Promise<ShareSession> {
+    const deviceKey = await this.e2ee.ensureLocalKeyPair();
     return new Promise((resolve, reject) => {
       const url = this.hubUrl;
       if (!url) { reject(new Error('no hub')); return; }
@@ -135,6 +190,11 @@ export class ShareSessionService implements OnDestroy {
       const body = {
         title,
         permissions: permissionsFromUiSelection(permissions),
+        permissions_version: 1,
+        security_contract_version: 1,
+        security_mode: 'strict_e2ee',
+        public_key_spki_b64: deviceKey.publicKeySpkiB64,
+        public_key_fingerprint: deviceKey.fingerprint,
         mode: transport === 'webrtc' ? 'p2p' : 'relay',
         transport,
         expires_at: expiresInSeconds ? Date.now() / 1000 + expiresInSeconds : null,
@@ -143,11 +203,7 @@ export class ShareSessionService implements OnDestroy {
         next: (r) => {
           const sess = r?.session ?? r?.data;
           if (sess) {
-            this.state$.next({ ...this.state$.value, session: sess, role: 'owner' });
-            this.startPolling();
-            if (sess.transport === 'webrtc') {
-              void this.transport.open(sess.id, true);
-            }
+            this.activateSession(sess, 'owner');
             resolve(sess);
           } else reject(new Error('no session in response'));
         },
@@ -156,21 +212,30 @@ export class ShareSessionService implements OnDestroy {
     });
   }
 
-  joinSession(inviteCode: string): Promise<ShareSession> {
+  async joinSession(
+    inviteCode: string,
+    options: { allowLegacy?: boolean } = {},
+  ): Promise<ShareSession> {
+    const deviceKey = await this.e2ee.ensureLocalKeyPair();
     return new Promise((resolve, reject) => {
       const url = this.hubUrl;
       if (!url) { reject(new Error('no hub')); return; }
       this.core.post<{ ok: boolean; session: ShareSession; data: ShareSession }>(
-        `${url}/share-sessions/join-by-code`, { invite_code: inviteCode }, url,
+        `${url}/share-sessions/join-by-code`, {
+          invite_code: inviteCode,
+          minimum_security_mode: options.allowLegacy === true ? 'legacy' : 'strict_e2ee',
+          public_key_spki_b64: deviceKey.publicKeySpkiB64,
+          public_key_fingerprint: deviceKey.fingerprint,
+        }, url,
       ).subscribe({
         next: (r) => {
           const sess = r?.session ?? r?.data;
           if (sess) {
-            this.state$.next({ ...this.state$.value, session: sess, role: 'participant' });
-            this.startPolling();
-            if (sess.transport === 'webrtc') {
-              void this.transport.open(sess.id, false);
+            if (!this.isStrictSession(sess) && options.allowLegacy !== true) {
+              reject(new Error('legacy_session_requires_explicit_approval'));
+              return;
             }
+            this.activateSession(sess, 'participant');
             resolve(sess);
           } else reject(new Error(String((r as any)?.error ?? 'join failed')));
         },
@@ -179,26 +244,72 @@ export class ShareSessionService implements OnDestroy {
     });
   }
 
-  sendMessage(text: string): void {
+  async sendMessage(text: string): Promise<void> {
     const { session } = this.state$.value;
-    if (!session || !text.trim()) return;
+    const normalized = text.trim();
+    if (!session || !normalized) return;
+    if (!this.hasPermission('chat')) throw new Error('chat_permission_required');
 
-    if (session.transport === 'webrtc' && this.transport.mode$.value !== 'idle') {
+    if (this.isStrictSession(session)) {
+      if (!this.canSendChat() || !session.security_epoch) {
+        throw new Error('confirmed_pair_binding_required');
+      }
+      const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+      const createdAt = Date.now() / 1000;
+      const plaintext: StrictChatPlaintext = {
+        version: 1,
+        id,
+        sessionId: session.id,
+        senderUserId: this.currentUserId,
+        text: normalized,
+        createdAt,
+        visibility: 'room',
+      };
+      const encryptedPayload = await this.cryptoPort.seal(JSON.stringify(plaintext), {
+        scopeId: session.id,
+        epoch: session.security_epoch,
+        sequence: this.secureSequences.next(session.id, session.security_epoch, 'semantic'),
+        payloadType: 'pair.chat_message',
+        trafficClass: 'semantic',
+      });
+      const wire: StrictShareChatWireMessage = { id, encrypted_payload: encryptedPayload };
+      if (this.transport.mode$.value === 'webrtc') {
+        this.transport.send('chat', wire);
+      } else {
+        const url = this.hubUrl;
+        if (!url) throw new Error('hub_unavailable');
+        await firstValueFrom(this.core.post(
+          `${url}/share-sessions/${session.id}/chat/messages`, wire, url,
+        ));
+      }
+      this.appendMessage({
+        id,
+        session_id: session.id,
+        sender_id: this.currentUserId,
+        text: normalized,
+        created_at: createdAt,
+        visibility: 'room',
+      });
+      return;
+    }
+
+    if (this.transport.mode$.value === 'webrtc') {
       this.transport.send('chat', {
         id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
         session_id: session.id,
-        text: text.trim(),
-        sender_id: 'self',
+        text: normalized,
+        sender_id: this.currentUserId,
         created_at: Date.now() / 1000,
       });
       return;
     }
 
     const url = this.hubUrl;
-    this.core.post(`${url}/share-sessions/${session.id}/chat/messages`, {
-      text: text.trim(), visibility: 'room', channel_type: 'room',
+    if (!url) throw new Error('hub_unavailable');
+    await firstValueFrom(this.core.post(`${url}/share-sessions/${session.id}/chat/messages`, {
+      text: normalized, visibility: 'room', channel_type: 'room',
       id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-    }, url).subscribe({ error: () => {} });
+    }, url));
   }
 
   revokeParticipant(participantId: string): void {
@@ -216,15 +327,11 @@ export class ShareSessionService implements OnDestroy {
     if (!session) return;
     const url = this.hubUrl;
     this.core.delete(`${url}/share-sessions/${session.id}`, url).subscribe({ error: () => {} });
-    this.stopPolling();
-    this.transport.close();
-    this.state$.next({ session: null, participants: [], messages: [], cursor: '0', role: null });
+    this.clearActiveSession();
   }
 
   leaveSession(): void {
-    this.stopPolling();
-    this.transport.close();
-    this.state$.next({ session: null, participants: [], messages: [], cursor: '0', role: null });
+    this.clearActiveSession();
   }
 
   private startPolling(): void {
@@ -241,6 +348,7 @@ export class ShareSessionService implements OnDestroy {
     this.fetchParticipants();
     this.fetchMessages();
     this.sendHeartbeat();
+    void this.refreshSecurity();
   }
 
   private sendHeartbeat(): void {
@@ -267,25 +375,18 @@ export class ShareSessionService implements OnDestroy {
 
   private fetchMessages(): void {
     const { session, cursor } = this.state$.value;
-    if (!session || session.transport === 'webrtc') return;
+    if (!session || this.transport.mode$.value === 'webrtc' || this.messagePollInFlight) return;
     const url = this.hubUrl;
-    this.core.get<{ ok: boolean; messages: ShareChatMessage[]; cursor: string }>(
+    if (!url) return;
+    this.messagePollInFlight = true;
+    this.core.get<{ ok: boolean; messages: unknown[]; cursor: string }>(
       `${url}/share-sessions/${session.id}/chat/messages?since=${cursor}`, url,
     ).subscribe({
       next: (r) => {
-        if (!r?.messages?.length) return;
-        const existing = this.state$.value.messages;
-        const known = new Set(existing.map((m) => m.id));
-        const fresh = r.messages.filter((m) => !known.has(m.id));
-        if (fresh.length) {
-          this.state$.next({
-            ...this.state$.value,
-            messages: [...existing, ...fresh].slice(-200),
-            cursor: r.cursor ?? cursor,
-          });
-        }
+        void this.acceptChatPage(session, r?.messages ?? [], r?.cursor ?? cursor)
+          .finally(() => { this.messagePollInFlight = false; });
       },
-      error: () => {},
+      error: () => { this.messagePollInFlight = false; },
     });
   }
 
@@ -296,5 +397,148 @@ export class ShareSessionService implements OnDestroy {
     return secs < 12 ? 'online' : `offline ${secs}s`;
   }
 
-  ngOnDestroy(): void { this.stopPolling(); this.transport.close(); }
+  ngOnDestroy(): void {
+    this.stopPolling();
+    this.subscriptions.unsubscribe();
+    this.transport.close();
+    this.securityBootstrap.clear();
+  }
+
+  private activateSession(session: ShareSession, role: 'owner' | 'participant'): void {
+    this.securityGeneration += 1;
+    this.securityBootstrap.clear();
+    this.state$.next({ session, participants: [], messages: [], cursor: '0', role });
+    this.startPolling();
+    void this.transport.open(session.id, role === 'owner', {
+      semanticEpoch: session.security_epoch ?? 1,
+    }).catch(() => undefined);
+    if (this.isStrictSession(session)) {
+      void this.refreshSecurity();
+    } else {
+      this.securityBootstrap.markLegacy();
+    }
+  }
+
+  private clearActiveSession(): void {
+    const sessionId = this.state$.value.session?.id ?? '';
+    this.securityGeneration += 1;
+    this.stopPolling();
+    this.transport.close();
+    if (sessionId) this.secureSequences.clearScope(sessionId);
+    this.securityBootstrap.clear();
+    this.messagePollInFlight = false;
+    this.state$.next({ session: null, participants: [], messages: [], cursor: '0', role: null });
+  }
+
+  private async refreshSecurity(): Promise<void> {
+    const session = this.state$.value.session;
+    if (!session) return;
+    if (!this.isStrictSession(session)) {
+      if (this.securityState$.value.status !== 'legacy') this.securityBootstrap.markLegacy();
+      return;
+    }
+    const generation = this.securityGeneration;
+    const ready = await this.securityBootstrap.ensure(session, this.currentUserId);
+    if (generation !== this.securityGeneration || this.state$.value.session?.id !== session.id) return;
+    const epoch = this.securityBootstrap.currentEpoch;
+    if (epoch > 0 && epoch !== this.state$.value.session?.security_epoch) {
+      const current = this.state$.value;
+      if (!current.session) return;
+      this.transport.setSemanticEpoch(epoch);
+      this.state$.next({ ...current, session: { ...current.session, security_epoch: epoch } });
+    }
+    if (!ready) return;
+  }
+
+  private async acceptChatPage(session: ShareSession, rawMessages: unknown[], cursor: string): Promise<void> {
+    if (this.state$.value.session?.id !== session.id) return;
+    if (this.isStrictSession(session)) {
+      for (const raw of rawMessages) {
+        try { await this.acceptStrictChatWire(raw); } catch { /* reject and advance the opaque relay cursor */ }
+      }
+    } else {
+      for (const raw of rawMessages) {
+        const item = this.parseLegacyChat(raw);
+        if (item) this.appendMessage(item);
+      }
+    }
+    if (this.state$.value.session?.id === session.id) {
+      this.state$.next({ ...this.state$.value, cursor });
+    }
+  }
+
+  private async acceptStrictChatWire(raw: unknown): Promise<void> {
+    const wire = this.parseStrictChatWire(raw);
+    const session = this.state$.value.session;
+    if (!wire || !session || !this.isStrictSession(session) || !session.security_epoch) return;
+    if (!this.hasPermission('chat') || !this.cryptoPort.ready(session.id, session.security_epoch)) return;
+    const opened = await this.cryptoPort.open(wire.encrypted_payload, {
+      scopeId: session.id,
+      epoch: session.security_epoch,
+    });
+    if (opened.payloadType !== 'pair.chat_message') return;
+    let rawPlaintext: unknown;
+    try { rawPlaintext = JSON.parse(opened.plaintext); } catch { return; }
+    const plaintext = this.parseStrictChatPlaintext(rawPlaintext);
+    if (
+      !plaintext
+      || plaintext.id !== wire.id
+      || plaintext.sessionId !== session.id
+      || plaintext.senderUserId !== opened.senderId
+    ) return;
+    this.appendMessage({
+      id: plaintext.id,
+      session_id: plaintext.sessionId,
+      sender_id: plaintext.senderUserId,
+      text: plaintext.text,
+      created_at: plaintext.createdAt,
+      visibility: plaintext.visibility,
+    });
+  }
+
+  private parseStrictChatWire(raw: unknown): StrictShareChatWireMessage | null {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const value = raw as Record<string, unknown>;
+    if (Object.keys(value).length !== 2 || !('id' in value) || !('encrypted_payload' in value)) return null;
+    if (typeof value['id'] !== 'string' || !value['id'] || value['id'].length > 96) return null;
+    if (typeof value['encrypted_payload'] !== 'string' || !value['encrypted_payload']) return null;
+    return { id: value['id'], encrypted_payload: value['encrypted_payload'] };
+  }
+
+  private parseStrictChatPlaintext(raw: unknown): StrictChatPlaintext | null {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const value = raw as Record<string, unknown>;
+    const expected = ['version', 'id', 'sessionId', 'senderUserId', 'text', 'createdAt', 'visibility'];
+    if (Object.keys(value).length !== expected.length || expected.some((key) => !(key in value))) return null;
+    if (value['version'] !== 1 || value['visibility'] !== 'room') return null;
+    if (typeof value['id'] !== 'string' || !value['id'] || value['id'].length > 96) return null;
+    if (typeof value['sessionId'] !== 'string' || typeof value['senderUserId'] !== 'string') return null;
+    if (typeof value['text'] !== 'string' || !value['text'].trim() || value['text'].length > 16_384) return null;
+    if (typeof value['createdAt'] !== 'number' || !Number.isFinite(value['createdAt'])) return null;
+    return value as unknown as StrictChatPlaintext;
+  }
+
+  private parseLegacyChat(raw: unknown): ShareChatMessage | null {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const value = raw as LegacyShareChatWireMessage;
+    const text = typeof value.text === 'string' ? value.text : '';
+    if (!text) return null;
+    const sessionId = String(value.session_id ?? value.share_session_id ?? this.state$.value.session?.id ?? '');
+    if (!sessionId || sessionId !== this.state$.value.session?.id) return null;
+    return {
+      id: String(value.id || `legacy-${Date.now()}`),
+      session_id: sessionId,
+      sender_id: String(value.sender_id ?? value.from_id ?? 'peer'),
+      text,
+      created_at: Number(value.created_at || Date.now() / 1000),
+      visibility: String(value.visibility || 'room'),
+    };
+  }
+
+  private appendMessage(item: ShareChatMessage): void {
+    const current = this.state$.value;
+    if (!current.session || item.session_id !== current.session.id) return;
+    if (current.messages.some((message) => message.id === item.id)) return;
+    this.state$.next({ ...current, messages: [...current.messages, item].slice(-200) });
+  }
 }

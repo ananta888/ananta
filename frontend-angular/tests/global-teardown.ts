@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -7,7 +7,7 @@ function sleep(ms: number) {
 
 async function terminatePid(pid: number) {
   try {
-    process.kill(pid, 'SIGTERM');
+    process.kill(pid, "SIGTERM");
   } catch {
     return;
   }
@@ -23,18 +23,22 @@ async function terminatePid(pid: number) {
   }
 
   try {
-    process.kill(pid, 'SIGKILL');
+    process.kill(pid, "SIGKILL");
   } catch {}
 }
 
-async function removeDirWithRetries(dirPath: string, attempts = 8, waitMs = 300) {
+async function removeDirWithRetries(
+  dirPath: string,
+  attempts = 8,
+  waitMs = 300,
+) {
   for (let i = 0; i < attempts; i += 1) {
     try {
       fs.rmSync(dirPath, { recursive: true, force: true });
       return;
     } catch (err: any) {
       const code = err?.code;
-      if ((code === 'EBUSY' || code === 'EPERM') && i < attempts - 1) {
+      if ((code === "EBUSY" || code === "EPERM") && i < attempts - 1) {
         await sleep(waitMs * (i + 1));
         continue;
       }
@@ -44,24 +48,28 @@ async function removeDirWithRetries(dirPath: string, attempts = 8, waitMs = 300)
 }
 
 function shouldRetainEvidenceArtifacts(): boolean {
-  return process.env.E2E_RETAIN_EVIDENCE_ARTIFACTS === '1';
+  return process.env.E2E_RETAIN_EVIDENCE_ARTIFACTS === "1";
 }
 
 function resolveResultsRoot(): string {
   const configured = process.env.E2E_RESULTS_DIR?.trim();
-  return path.resolve(process.cwd(), configured || 'test-results');
+  return path.resolve(process.cwd(), configured || "test-results");
 }
 
 export default async function globalTeardown() {
-  const pidFile = path.join(__dirname, '.pids.json');
+  const pidFile = path.resolve(
+    process.env.E2E_PID_FILE?.trim() || path.join(__dirname, ".pids.json"),
+  );
   let startedLocalServices = false;
 
   if (fs.existsSync(pidFile)) {
     try {
-      const data = JSON.parse(fs.readFileSync(pidFile, 'utf-8')) as { pid: number }[];
+      const data = JSON.parse(fs.readFileSync(pidFile, "utf-8")) as {
+        pid: number;
+      }[];
       startedLocalServices = data.length > 0;
       for (const p of data) {
-        if (typeof p?.pid === 'number' && p.pid > 0) {
+        if (typeof p?.pid === "number" && p.pid > 0) {
           await terminatePid(p.pid);
         }
       }
@@ -71,14 +79,20 @@ export default async function globalTeardown() {
     } catch {}
   }
 
-  const root = path.join(__dirname, '..', '..');
-  const dataRoot = path.join(root, 'data_test_e2e');
+  const root = path.join(__dirname, "..", "..");
+  const dataRoot = path.resolve(
+    process.env.E2E_DATA_ROOT?.trim() || path.join(root, "data_test_e2e"),
+  );
   const artifactsRoot = resolveResultsRoot();
 
   // Keep screenshots, videos, and traces for evidence workflows that upload them after teardown.
   if (!shouldRetainEvidenceArtifacts() && fs.existsSync(artifactsRoot)) {
     for (const name of fs.readdirSync(artifactsRoot)) {
-      if (name.startsWith('.playwright-artifacts-') || name.includes('chromium') || name.includes('retry')) {
+      if (
+        name.startsWith(".playwright-artifacts-") ||
+        name.includes("chromium") ||
+        name.includes("retry")
+      ) {
         try {
           await removeDirWithRetries(path.join(artifactsRoot, name));
         } catch {}

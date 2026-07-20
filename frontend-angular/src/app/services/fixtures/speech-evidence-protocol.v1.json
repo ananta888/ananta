@@ -1,0 +1,17 @@
+{
+  "version": "ananta.speech-evidence-sync-fixtures.v1",
+  "canonical_utf8": {
+    "value": { "text": "Grüße", "nested": { "z": true, "a": 1 } },
+    "json": "{\"nested\":{\"a\":1,\"z\":true},\"text\":\"Grüße\"}",
+    "sha256": "6fbaa8db565d48c599941380a673ec53294276ebaff74b45f1af075b4417da92"
+  },
+  "cases": [
+    { "name": "valid", "mutation": "none", "reason_code": "ok" },
+    { "name": "stale", "mutation": "expired", "reason_code": "speech_evidence_expired" },
+    { "name": "tampered", "mutation": "payload_after_signature", "reason_code": "speech_evidence_payload_digest_mismatch" },
+    { "name": "replayed", "mutation": "repeat_sequence", "reason_code": "speech_evidence_replayed" },
+    { "name": "wrong-peer", "mutation": "wrong_audience", "reason_code": "speech_evidence_wrong_audience" },
+    { "name": "oversized", "mutation": "oversized_chunk", "reason_code": "speech_evidence_chunk_oversized" },
+    { "name": "revoked", "mutation": "missing_key", "reason_code": "speech_evidence_key_unknown" }
+  ]
+}

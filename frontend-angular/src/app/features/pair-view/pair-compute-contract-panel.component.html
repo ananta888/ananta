@@ -1,0 +1,99 @@
+<section class="compute-panel" aria-labelledby="semantic-compute-heading">
+  <header>
+    <h4 id="semantic-compute-heading">Semantischer Compute-Vertrag</h4>
+    <span class="status" [class.active]="authoritativeActive">
+      Hub: {{ authoritativeActive ? 'aktiv' : contract.status }}
+    </span>
+    @if (contractStale) { <span class="stale" role="status">veraltete Ansicht – nicht aktiv</span> }
+    @if (pending) { <span class="pending" role="status">Hub-Bestätigung ausstehend</span> }
+    @if (errorCode) { <span class="stale" role="alert">{{ errorCode }}</span> }
+  </header>
+
+  <div class="sources">
+    <article class="source local" aria-label="Lokale Messung">
+      <strong>Lokale Messung</strong>
+      @if (localMeasurement) {
+        <dl><dt>CPU / Speicher</dt><dd>{{ localMeasurement.cpu }} / {{ localMeasurement.memory }}</dd>
+          <dt>GPU / Codec</dt><dd>{{ localMeasurement.gpu }} / {{ localMeasurement.codec }}</dd>
+          <dt>Akku / Netz</dt><dd>{{ localMeasurement.battery }} / {{ localMeasurement.network }}</dd></dl>
+      } @else { <p>Keine freigegebene Messung.</p> }
+    </article>
+    <article class="source peer" aria-label="Peer-Selbstauskunft">
+      <strong>Peer-Angebot (nicht autoritativ)</strong>
+      @if (peerClaim) { <p>CPU {{ peerClaim.cpu }}, Speicher {{ peerClaim.memory }}, Netz {{ peerClaim.network }}</p> }
+      @else { <p>Kein aktuelles Angebot.</p> }
+    </article>
+    <article class="source hub" aria-label="Hub-Entscheidung">
+      <strong>Hub-Entscheidung</strong>
+      <dl><dt>Profil</dt><dd>{{ contract.profile }}</dd><dt>Verzögerung</dt><dd>{{ contract.delayMs / 1000 }} s</dd>
+        <dt>Qualität</dt><dd>{{ contract.qualityLevel || 'standard' }}</dd>
+        <dt>Revision</dt><dd>{{ contract.revision }}</dd><dt>Grund</dt><dd>{{ contract.reasonCode || '–' }}</dd>
+        <dt>Ablauf</dt><dd>{{ remainingSeconds(contract.expiresAtMs) ?? '–' }} s</dd>
+        <dt>Primary</dt><dd>{{ contract.roles.primary?.join(', ') || '–' }}</dd>
+        <dt>Validator</dt><dd>{{ contract.roles.validator?.join(', ') || '–' }}</dd>
+        <dt>Standby</dt><dd>{{ contract.roles.standby?.join(', ') || '–' }}</dd></dl>
+      @if (explanation) {
+        <p role="status"><strong>Hub-Erklärung:</strong> {{ explanation.message }}</p>
+      }
+    </article>
+    <article class="source lease" aria-label="Hub-Leases">
+      <strong>Task-Leases</strong>
+      @for (lease of leases; track lease.leaseId) {
+        <p><span>{{ lease.role }}</span>: {{ lease.executorId }} · {{ leaseStatus(lease) }}</p>
+        <small>
+          Ablauf {{ remainingSeconds(lease.expiresAtMs) }} s
+          @if (lease.resourceBudget) {
+            · Budget CPU {{ lease.resourceBudget.cpuMs }} ms,
+            Speicher {{ lease.resourceBudget.memoryBytes }} B,
+            Artefakt {{ lease.resourceBudget.artifactBytes }} B
+          }
+        </small>
+      } @empty { <p>Keine aktive Ausführungsautorität.</p> }
+    </article>
+  </div>
+
+  <section class="source peer" aria-label="AI-Snake-Compute-Vorschlag">
+    <strong>AI-Snake-Vorschlag (nicht autoritativ)</strong>
+    @if (suggestion) {
+      <p>{{ suggestion.rationale || 'Konfigurationsvorschlag ohne Ausführungsautorität.' }}</p>
+      <div class="actions">
+        @if (suggestion.profile) {
+          <button type="button" (click)="applySuggestedProfile()" [disabled]="pending">
+            Profil {{ suggestion.profile }} separat beim Hub anfragen
+          </button>
+        }
+        @if (suggestion.delayMs !== undefined) {
+          <button type="button" (click)="applySuggestedDelay()" [disabled]="pending">
+            {{ suggestion.delayMs / 1000 }} s separat beim Hub anfragen
+          </button>
+        }
+      </div>
+    } @else {
+      <button type="button" (click)="requestSuggestion()" [disabled]="pending || contract.revision < 1">
+        Lastreduzierenden Vorschlag anfordern
+      </button>
+    }
+    <p>Erst eine getrennte Hub-Mutation mit aktueller Revision kann den Vertrag ändern.</p>
+  </section>
+
+  <div class="actions" aria-label="Compute-Vertrag anpassen">
+    <label>Profil
+      <select [(ngModel)]="selectedProfile" [disabled]="pending">
+        <option value="off">off</option><option value="conservative">conservative</option>
+        <option value="balanced">balanced</option><option value="custom">custom</option>
+      </select>
+    </label>
+    <button type="button" (click)="emitProfile()" [disabled]="pending">
+      {{ contract.revision ? 'Profil vorschlagen' : 'Compute-Angebot erstellen' }}
+    </button>
+    <label>Verzögerung (2–20 s)
+      <input type="number" min="2000" max="20000" step="1000" [(ngModel)]="selectedDelayMs" [disabled]="pending" />
+    </label>
+    <button type="button" (click)="emitDelay()" [disabled]="pending">Verzögerung vorschlagen</button>
+    <button type="button" (click)="emit('accept')" [disabled]="!canAccept()">Angebot annehmen</button>
+    <button type="button" (click)="emit('activate')" [disabled]="!canActivate()">Hub-Aktivierung anfordern</button>
+    <button type="button" (click)="emit('reduce')" [disabled]="!canReduceProfile()">Reduzieren</button>
+    <button type="button" (click)="emit('fallback')" [disabled]="!canMutateExisting()">Ordinary-Fallback</button>
+    <button type="button" (click)="emit('revoke')" [disabled]="!canMutateExisting()">Einwilligung widerrufen</button>
+  </div>
+</section>

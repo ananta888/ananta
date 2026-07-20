@@ -20,7 +20,11 @@ import { ShareSessionService, ShareParticipant, ShareSession } from '../services
 import { SharedViewStateService } from '../services/shared-view-state.service';
 import { PairViewSyncService } from '../services/pair-view-sync.service';
 import { PERMISSION_LABELS, permissionsFromUiSelection } from '../services/permission-labels';
-import { PermissionKey, SharedViewState } from '../services/pair-view-sync.types';
+import { DEFAULT_PERMISSIONS, PermissionKey, SharedViewState } from '../services/pair-view-sync.types';
+import {
+  PairSecurityBootstrapState,
+  PairViewSecurityBootstrapService,
+} from '../services/pair-view-security-bootstrap.service';
 
 interface CreateFormState {
   title: string;
@@ -84,6 +88,14 @@ interface CreateFormState {
         </span>
       </div>
 
+      <div class="security-state" aria-live="polite">
+        E2EE: {{ securityState().status }}
+        @if (securityState().status === 'fingerprint_changed') {
+          <code>{{ securityFingerprint() }}</code>
+          <button type="button" (click)="approveFingerprintChange()">Fingerprint neu freigeben</button>
+        }
+      </div>
+
       <div class="peer-state" [class.empty]="!peerState()">
         @if (peerState()) {
           <small>Peer-Ansicht:</small>
@@ -98,7 +110,7 @@ interface CreateFormState {
         <button type="button" (click)="toggleFollow()">
           {{ sync.getFollowMode() === 'active' ? 'Follow pausieren' : 'Follow fortsetzen' }}
         </button>
-        @if (role() !== 'owner' && share.hasPermission('control')) {
+        @if (role() !== 'owner' && share.hasPermission('remote_control')) {
           <button type="button" (click)="onRequestControl()" [disabled]="sync.hasControlGrant()">
             {{ sync.hasControlGrant() ? 'Steuerung erhalten' : 'Steuerung anfragen' }}
           </button>
@@ -198,6 +210,7 @@ export class PairViewSyncPanelComponent implements OnInit, OnDestroy {
   share = inject(ShareSessionService);
   sync = inject(PairViewSyncService);
   private view = inject(SharedViewStateService);
+  private securityBootstrap = inject(PairViewSecurityBootstrapService);
 
   readonly permissionEntries = Object.values(PERMISSION_LABELS);
   readonly activeSession = signal<ShareSession | null>(null);
@@ -206,14 +219,12 @@ export class PairViewSyncPanelComponent implements OnInit, OnDestroy {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly peerState = signal<SharedViewState | null>(null);
+  readonly securityState = signal<PairSecurityBootstrapState>({ status: 'idle' });
 
   form: CreateFormState = {
     title: '',
     expiresInMinutes: 60,
-    selected: {
-      chat: true, view_tui: true, cursor: false,
-      control: false, artifact_view: true, annotation: false,
-    },
+    selected: { ...DEFAULT_PERMISSIONS },
   };
 
   private subs: Subscription[] = [];
@@ -223,7 +234,16 @@ export class PairViewSyncPanelComponent implements OnInit, OnDestroy {
       this.activeSession.set(s.session);
       this.participants.set(s.participants);
       this.role.set(s.role);
+      if (s.session) {
+        void this.securityBootstrap.ensure(s.session, this.share.currentUserId).then((ready) => {
+          if (ready) {
+            this.sync.updateSecurityEpoch(this.securityBootstrap.currentEpoch);
+            this.sync.onCryptoReady();
+          }
+        });
+      }
     }));
+    this.subs.push(this.securityBootstrap.state$.subscribe((state) => this.securityState.set(state)));
     this.subs.push(this.view.state$.subscribe((s) => {
       // Peer state = whichever side is NOT us. For a true bidirectional
       // sync we'd also subscribe to inbound states; for v1 we just show
@@ -245,6 +265,7 @@ export class PairViewSyncPanelComponent implements OnInit, OnDestroy {
       this.sync.bindSession(
         session.id,
         this.share.currentUserId || 'owner',
+        session.security_epoch ?? 0,
       );
     } catch (e: unknown) {
       this.error.set(e instanceof Error ? e.message : 'unbekannter Fehler');
@@ -264,6 +285,17 @@ export class PairViewSyncPanelComponent implements OnInit, OnDestroy {
     this.sync.requestControl();
   }
 
+  securityFingerprint(): string {
+    const state = this.securityState();
+    return 'fingerprint' in state ? state.fingerprint ?? '' : '';
+  }
+
+  approveFingerprintChange(): void {
+    this.securityBootstrap.approveFingerprintChange();
+    const session = this.activeSession();
+    if (session) void this.securityBootstrap.ensure(session, this.share.currentUserId);
+  }
+
   onEnd(): void {
     if (this.role() === 'owner') {
       this.share.endSession();
@@ -271,6 +303,7 @@ export class PairViewSyncPanelComponent implements OnInit, OnDestroy {
       this.share.leaveSession();
     }
     this.sync.unbindSession();
+    this.securityBootstrap.clear();
   }
 
   ngOnDestroy(): void {

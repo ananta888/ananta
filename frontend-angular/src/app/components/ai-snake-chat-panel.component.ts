@@ -23,11 +23,12 @@ import { VisualSnakeLogComponent } from './visual-snake-log.component';
 import { SnakeOverlayService } from '../services/snake-overlay.service';
 import { AiSnakeProcessPanelComponent } from './ai-snake-process-panel.component';
 import { VpNavigationService } from '../features/visual-process/vp-navigation.service';
+import { PairComputeContractHostComponent } from '../features/pair-view/pair-compute-contract-host.component';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent, ChatMessageComponent, VisualSnakeLogComponent, AiSnakeProcessPanelComponent ],
+  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent, ChatMessageComponent, VisualSnakeLogComponent, AiSnakeProcessPanelComponent, PairComputeContractHostComponent ],
   template: `
     <div class="snake-chat-panel">
       <div class="head">
@@ -53,6 +54,7 @@ import { VpNavigationService } from '../features/visual-process/vp-navigation.se
           </div>
           <div class="settings-shell">
             <app-ai-snake-share-panel />
+            <app-pair-compute-contract-host />
           </div>
         } @else {
           <div class="connect">

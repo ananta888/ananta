@@ -350,11 +350,14 @@ export interface VoiceStreamState {
 }
 
 export interface VoiceStreamEvent {
+  /** Zero-based, monotone event revision assigned by the Voice Runtime. */
+  sequence?: number;
   event_type: string;
   payload?: {
     text?: string;
     stable_text?: string;
     finalized_text?: string;
+    text_revision?: number;
     chunk_sequence?: number;
     next_chunk_sequence?: number;
     result?: VoiceTranscriptionResult;

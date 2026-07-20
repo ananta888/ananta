@@ -8,6 +8,7 @@ import { SharedViewStateService } from './shared-view-state.service';
 import { ViewDeltaService } from './view-delta.service';
 import { WebrtcTransportService } from './webrtc-transport.service';
 import { ShareSessionService } from './share-session.service';
+import { PAIR_VIEW_CRYPTO, PairViewCryptoPort } from './pair-view-crypto.service';
 import {
   ControlMessage,
   DEFAULT_PERMISSIONS,
@@ -36,15 +37,34 @@ class FakeTransport {
     this.message$.next({ type: 'view_payload', session_id: sessionId, payload: viewEnvelope });
   }
   emitControl(msg: ControlMessage, sessionId: string): void {
-    this.message$.next({ type: 'control', session_id: sessionId, payload: msg });
+    this.message$.next({
+      type: 'view_payload', session_id: sessionId,
+      payload: { encrypted_payload: `TEST1::${JSON.stringify(msg)}` },
+    });
   }
   emitSnapshotRequest(sessionId: string): void {
     this.message$.next({ type: 'snapshot_request', session_id: sessionId, payload: null });
   }
 }
 
+class FakeCrypto implements PairViewCryptoPort {
+  ready(_scopeId: string, epoch: number): boolean { return epoch === 1; }
+  async seal(plaintext: string): Promise<string> { return `TEST1::${plaintext}`; }
+  async open(serialized: string): Promise<any> {
+    const prefix = serialized.startsWith('TEST1::') ? 'TEST1::' : 'STUB1::';
+    if (!serialized.startsWith(prefix)) throw new Error('test_ciphertext_invalid');
+    const plaintext = serialized.slice(prefix.length);
+    const value = JSON.parse(plaintext);
+    let payloadType = 'pair.view_delta';
+    if (value?.kind && ['request', 'grant', 'revoke', 'request_follow', 'request_unfollow'].includes(value.kind)) payloadType = 'pair.control';
+    else if (value?.userLabel) payloadType = 'pair.cursor';
+    return { plaintext, payloadType, senderId: value?.senderUserId ?? 'peer', sequence: value?.seq ?? 1 };
+  }
+  clear(): void {}
+}
+
 class FakeShare {
-  private perms: PermissionSet | null = { ...DEFAULT_PERMISSIONS, control: false, cursor: false };
+  private perms: PermissionSet | null = { ...DEFAULT_PERMISSIONS, remote_control: false, remote_cursor: false };
   currentPermissions(): PermissionSet | null { return this.perms; }
   setPerms(p: PermissionSet | null): void { this.perms = p; }
 }
@@ -60,25 +80,27 @@ function setup(extra?: { perms?: PermissionSet | null }) {
   // Provide fakes for the services that PairViewSync injects.
   TestBed.overrideProvider(WebrtcTransportService, { useValue: transport });
   TestBed.overrideProvider(ShareSessionService, { useValue: share });
+  TestBed.overrideProvider(PAIR_VIEW_CRYPTO, { useValue: new FakeCrypto() });
 
   const sync = TestBed.runInInjectionContext(() => new PairViewSyncService());
   const view = TestBed.inject(SharedViewStateService);
   const delta = TestBed.inject(ViewDeltaService);
 
   // Manually bind, since we don't have a real session response.
-  sync.bindSession('sess-test', 'owner-test');
+  sync.bindSession('sess-test', 'owner-test', 1);
   return { transport, share, sync, view, delta };
 }
 
 function decodeEncrypted(enc: string): unknown {
-  // DEFAULT_STUB_ENC prefixes with "STUB1::"
+  if (enc.startsWith('TEST1::')) return JSON.parse(enc.slice('TEST1::'.length));
   if (enc.startsWith('STUB1::')) return JSON.parse(enc.slice('STUB1::'.length));
   return null;
 }
 
 describe('PairViewSyncService (T05 sendepfad)', () => {
-  it('sends a snapshot on bind', () => {
+  it('sends a snapshot on bind', async () => {
     const { transport, sync } = setup();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(transport.sentView.length).toBeGreaterThanOrEqual(1);
     const first = transport.sentView[0];
     expect(first.kind).toBe('snapshot');
@@ -87,6 +109,7 @@ describe('PairViewSyncService (T05 sendepfad)', () => {
 
   it('debounces non-scroll deltas', async () => {
     const { transport, view, sync } = setup();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     const before = transport.sentView.length;
     view.updatePartial({ activeTab: 'details' });
     view.updatePartial({ activeTab: 'logs' });
@@ -125,7 +148,7 @@ describe('PairViewSyncService (T05 sendepfad)', () => {
 });
 
 describe('PairViewSyncService (T07 apply path)', () => {
-  it('applies a valid snapshot to local state', () => {
+  it('applies a valid snapshot to local state', async () => {
     const { transport, view, sync } = setup();
     const initialViewHash = view.current.viewHash;
     const snapshot: ViewStateDelta = {
@@ -146,6 +169,7 @@ describe('PairViewSyncService (T07 apply path)', () => {
       message_id: 'm1', kind: 'snapshot', base_hash: 'xxx', new_hash: 'yyy',
       width: 0, height: 0, encrypted_payload: enc,
     }, 'sess-test');
+    await new Promise((resolve) => setTimeout(resolve, 0));
     // viewHash should change because we apply the snapshot
     expect(view.current.viewHash).not.toBe(initialViewHash);
     sync.unbindSession();
@@ -181,49 +205,55 @@ describe('PairViewSyncService (T07 apply path)', () => {
 });
 
 describe('PairViewSyncService (T12 control default-deny)', () => {
-  it('denies a control request when permission is not granted', () => {
-    const { transport, sync } = setup({ perms: { ...DEFAULT_PERMISSIONS, control: false } });
+  it('denies a control request when permission is not granted', async () => {
+    const { transport, sync } = setup({ perms: { ...DEFAULT_PERMISSIONS, remote_control: false } });
     const before = transport.sent.filter((s) => s.type === 'control').length;
     transport.emitControl({
       sessionId: 'sess-test', senderUserId: 'peer', kind: 'request', grantToken: null, createdAt: Date.now(),
     }, 'sess-test');
+    await new Promise((resolve) => setTimeout(resolve, 0));
     const after = transport.sent.filter((s) => s.type === 'control').length;
     expect(after).toBe(before); // no grant issued
     sync.unbindSession();
   });
 
-  it('issues a grant on request when permission is granted', () => {
-    const { transport, sync } = setup({ perms: { ...DEFAULT_PERMISSIONS, control: true } });
-    const before = transport.sent.filter((s) => s.type === 'control').length;
+  it('issues a grant on request when permission is granted', async () => {
+    const { transport, sync } = setup({ perms: { ...DEFAULT_PERMISSIONS, remote_control: true } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const before = transport.sentView.length;
     transport.emitControl({
       sessionId: 'sess-test', senderUserId: 'peer', kind: 'request', grantToken: null, createdAt: Date.now(),
     }, 'sess-test');
-    const after = transport.sent.filter((s) => s.type === 'control').length;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const after = transport.sentView.length;
     expect(after).toBe(before + 1);
-    const grant = transport.sent[transport.sent.length - 1].payload as ControlMessage;
+    const grant = decodeEncrypted(transport.sentView[transport.sentView.length - 1].encrypted_payload) as ControlMessage;
     expect(grant.kind).toBe('grant');
     expect(grant.grantToken).toBeTruthy();
     sync.unbindSession();
   });
 
-  it('revoke clears an existing grant', () => {
-    const { transport, sync } = setup({ perms: { ...DEFAULT_PERMISSIONS, control: true } });
+  it('revoke clears an existing grant', async () => {
+    const { transport, sync } = setup({ perms: { ...DEFAULT_PERMISSIONS, remote_control: true } });
     transport.emitControl({
       sessionId: 'sess-test', senderUserId: 'peer', kind: 'request', grantToken: null, createdAt: Date.now(),
     }, 'sess-test');
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(sync.hasControlGrant()).toBe(true);
     transport.emitControl({
       sessionId: 'sess-test', senderUserId: 'peer', kind: 'revoke', grantToken: null, createdAt: Date.now(),
     }, 'sess-test');
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(sync.hasControlGrant()).toBe(false);
     sync.unbindSession();
   });
 
-  it('denies control from a different session', () => {
-    const { transport, sync } = setup({ perms: { ...DEFAULT_PERMISSIONS, control: true } });
+  it('denies control from a different session', async () => {
+    const { transport, sync } = setup({ perms: { ...DEFAULT_PERMISSIONS, remote_control: true } });
     transport.emitControl({
       sessionId: 'sess-other', senderUserId: 'peer', kind: 'request', grantToken: null, createdAt: Date.now(),
     }, 'sess-other');
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(sync.hasControlGrant()).toBe(false);
     sync.unbindSession();
   });

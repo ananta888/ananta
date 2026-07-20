@@ -2,6 +2,7 @@ import { ɵresolveComponentResources } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { Subject, of, throwError } from 'rxjs';
 
 import { AgentDirectoryService } from '../../services/agent-directory.service';
@@ -13,12 +14,21 @@ import {
 } from './voice-audio-capture';
 import { VoiceApiService } from './voice-api.service';
 import { VoiceConsoleComponent } from './voice-console.component';
+import {
+  SemanticMediaProgramFacade,
+  SemanticMediaProgramHostView,
+} from './semantic-media-program.facade';
+import { SemanticMediaProgramHostComponent } from './semantic-media-program-host.component';
 import { VOICE_LONG_RUN_RECOVERY, VoiceLongRunRecoveryMetadata } from './voice-long-run-recovery';
 import { VOICE_LONG_RUN_SPOOL } from './voice-long-run-spool';
 import { VoiceLongRunTimelineSegment } from './voice-long-run-timeline';
 
 beforeAll(async () => {
-  await ɵresolveComponentResources((resource) => readFile(new URL(resource, import.meta.url), 'utf8'));
+  await ɵresolveComponentResources((resource) => {
+    const file = path.basename(String(resource));
+    const directory = file.startsWith('pair-compute-') ? 'pair-view' : 'voice';
+    return readFile(path.resolve(process.cwd(), 'src/app/features', directory, file), 'utf8');
+  });
 });
 
 describe('VoiceConsoleComponent', () => {
@@ -149,6 +159,58 @@ describe('VoiceConsoleComponent', () => {
       resume: { next_sequence: 0, acknowledged_through_sequence: -1 },
     }));
 
+    const programView: SemanticMediaProgramHostView = {
+        scope: {
+          direction: 'bidirectional', dataClass: 'Transcript', purpose: 'Test', retentionLabel: 'keine',
+          trainerLocation: 'lokal', e2eeMode: 'strict_e2ee', ordinaryFallback: 'aktiv',
+        },
+        capabilities: [], online: true, hubUrl: 'http://hub.test', computeVisible: false,
+        compute: {
+          contract: { contractId: '', revision: 0, status: 'absent', profile: 'off', delayMs: 5_000, roles: {} },
+          leases: [], pending: false, errorCode: null,
+        },
+        receiverPaths: [],
+        ordinaryMediaCaptureEnabled: false,
+        ordinaryMediaVideoCaptureEnabled: false,
+        ordinaryMediaReason: 'ordinary_media_not_active',
+        ordinaryAudioState: {
+          status: 'idle', trackId: null, deviceLabelVisible: false, reasonCode: null,
+        },
+        ordinaryMediaPublications: [],
+        speechTransportState: 'stopped', speechTransportReason: 'not_started',
+        speechTransportCanStart: false,
+        speechSettings: {
+          displayMode: 'live', segmentDurationSeconds: 60, correctEachSegment: true,
+          paused: false, ordinaryAudioOverride: false,
+        },
+        speechQuality: {
+          mode: 'ordinary_audio', reasonCode: 'quality_initial', transitioned: false,
+          ordinaryAudioAvailable: true, liveTranscriptEnabled: true,
+          delayedSourceEnabled: false, semanticFeaturesEnabled: false,
+        },
+        speechReconciliationHubAuthorized: false,
+        evidenceOffer: null, evidenceSync: null, evidenceAvailableReason: 'none',
+        evidenceConsent: {
+          bound: false, signerIds: [], consent: null, pending: false,
+          errorCode: 'speech_consent_context_missing',
+        },
+      };
+    const programFacade = {
+      view$: of(programView),
+      start: vi.fn(async () => undefined), handleProgramIntent: vi.fn(), handleComputeIntent: vi.fn(),
+      requestComputeSuggestion: vi.fn(), handleReceiverPathIntent: vi.fn(),
+      startSpeech: vi.fn(), stopSpeech: vi.fn(), handleSpeechSettings: vi.fn(),
+      handleEvidencePropose: vi.fn(), handleEvidenceAccept: vi.fn(), pauseEvidence: vi.fn(),
+      resumeEvidence: vi.fn(), rejectEvidence: vi.fn(), revokeEvidence: vi.fn(),
+      requestEvidenceCuration: vi.fn(), handleEvidenceLocalOverride: vi.fn(),
+      handleEvidenceConsentIntent: vi.fn(),
+      startOrdinaryMicrophone: vi.fn(), stopOrdinaryMicrophone: vi.fn(),
+      setOrdinaryMicrophoneMuted: vi.fn(), startOrdinaryVideo: vi.fn(), stopOrdinaryVideo: vi.fn(),
+      replaceOrdinaryVideo: vi.fn(), setOrdinaryVideoMuted: vi.fn(),
+    };
+    TestBed.overrideComponent(SemanticMediaProgramHostComponent, {
+      set: { providers: [{ provide: SemanticMediaProgramFacade, useValue: programFacade }] },
+    });
     TestBed.configureTestingModule({
       imports: [VoiceConsoleComponent],
       providers: [
@@ -178,6 +240,7 @@ describe('VoiceConsoleComponent', () => {
     expect(fixture.componentInstance.selectedCorrectorProvider).toBe('embedded');
     expect(fixture.componentInstance.selectedCorrectorModel).toBe('gemma-3-4b-it');
     expect((fixture.nativeElement as HTMLElement).querySelector('a[href="/settings?section=voice"]')).toBeTruthy();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="semantic-media-program"]')).toBeTruthy();
   });
 
   it('warns about the lower-accuracy Vosk-only long-run path without blocking capture', async () => {

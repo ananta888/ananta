@@ -1,0 +1,105 @@
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { OrdinaryAudioState } from '../../services/webrtc-media-session.service';
+import { MediaPublicationView } from '../../services/webrtc-media-publication.service';
+
+@Component({
+  selector: 'app-webrtc-media-panel', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <section aria-labelledby="ordinary-media-heading">
+      <h4 id="ordinary-media-heading">Ordinary Audio/Video</h4>
+      <p class="notice">Capture startet ausschließlich nach Ihrer sichtbaren Auswahl.</p>
+      @if (!captureEnabled) {
+        <p role="note">{{ captureReason }}</p>
+      }
+      <article data-source="microphone" [attr.data-status]="audioState.status">
+        <strong>Mikrofon</strong>
+        <span>{{ statusLabel(audioState.status) }}</span>
+        @if (audioState.reasonCode) { <span>{{ audioState.reasonCode }}</span> }
+        <div class="actions">
+          <button type="button" [disabled]="!captureEnabled || microphoneBusy()" (click)="startMicrophone.emit()">
+            Mikrofon freigeben
+          </button>
+          @if (microphoneStarted()) {
+            <button type="button" (click)="stopMicrophone.emit()">Mikrofon stoppen</button>
+          }
+          @if (audioState.status === 'active') {
+            <button type="button" (click)="muteMicrophone.emit(true)">Mikrofon stummschalten</button>
+          } @else if (audioState.status === 'muted') {
+            <button type="button" (click)="muteMicrophone.emit(false)">Mikrofon einschalten</button>
+          }
+        </div>
+      </article>
+      <div class="actions video-actions">
+        <button type="button" [disabled]="!videoCaptureEnabled || sourceBusy('camera')" (click)="startCamera.emit()">
+          Kamera freigeben
+        </button>
+        <button type="button" [disabled]="!videoCaptureEnabled || sourceBusy('screen')" (click)="startScreen.emit()">
+          Bildschirm freigeben
+        </button>
+      </div>
+      @for (publication of publications; track publication.publicationId) {
+        <article [attr.data-source]="publication.source" [attr.data-status]="publication.status">
+          <strong>{{ publication.captureLabel }}</strong>
+          <span>{{ statusLabel(publication.status) }}</span>
+          @if (publication.reasonCode) { <span>{{ publication.reasonCode }}</span> }
+          @if (publication.local && publication.status !== 'ended') {
+            <button type="button" (click)="stop.emit(publication.publicationId)">
+              {{ publication.captureLabel }} stoppen
+            </button>
+            @if (publication.status === 'active' || publication.status === 'muted') {
+              <button type="button" (click)="replace.emit(publication.publicationId)">
+                {{ publication.captureLabel }} wechseln
+              </button>
+              <button type="button" (click)="mute.emit({ publicationId: publication.publicationId, muted: publication.status === 'active' })">
+                {{ publication.status === 'active' ? 'Stummschalten' : 'Einschalten' }}
+              </button>
+            }
+          }
+        </article>
+      }
+    </section>
+  `,
+  styles: [`
+    :host { display: block; } section { border: 1px solid #3b3d46; border-radius: .6rem; padding: .8rem; }
+    .notice { color: #c8cbd2; } .actions, article { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+    .video-actions { margin-top: .75rem; }
+    article { margin-top: .5rem; padding: .5rem; background: #25272d; } article strong { flex: 1; }
+  `],
+})
+export class WebrtcMediaPanelComponent {
+  @Input() captureEnabled = false;
+  @Input() videoCaptureEnabled = false;
+  @Input() captureReason = 'ordinary_media_capture_not_authorized';
+  @Input() audioState: OrdinaryAudioState = {
+    status: 'idle', trackId: null, deviceLabelVisible: false, reasonCode: null,
+  };
+  @Input() publications: readonly MediaPublicationView[] = [];
+  @Output() readonly startMicrophone = new EventEmitter<void>();
+  @Output() readonly stopMicrophone = new EventEmitter<void>();
+  @Output() readonly muteMicrophone = new EventEmitter<boolean>();
+  @Output() readonly startCamera = new EventEmitter<void>();
+  @Output() readonly startScreen = new EventEmitter<void>();
+  @Output() readonly stop = new EventEmitter<string>();
+  @Output() readonly replace = new EventEmitter<string>();
+  @Output() readonly mute = new EventEmitter<Readonly<{ publicationId: string; muted: boolean }>>();
+
+  microphoneStarted(): boolean {
+    return ['requesting_permission', 'active', 'muted'].includes(this.audioState.status);
+  }
+
+  microphoneBusy(): boolean {
+    return this.microphoneStarted();
+  }
+
+  sourceBusy(source: 'camera' | 'screen'): boolean {
+    return this.publications.some(publication => publication.local && publication.source === source
+      && ['requesting_permission', 'active', 'muted'].includes(publication.status));
+  }
+
+  statusLabel(status: string): string {
+    return ({
+      idle: 'bereit', requesting_permission: 'Browserfreigabe wird angefragt', active: 'aktiv',
+      muted: 'stumm', ended: 'beendet', failed: 'fehlgeschlagen',
+    } as Record<string, string>)[status] ?? 'unbekannt';
+  }
+}

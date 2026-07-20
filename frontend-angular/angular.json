@@ -42,6 +42,13 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "semantic-media-e2e": {
+              "browser": "src/main.semantic-media-e2e.ts",
+              "tsConfig": "tsconfig.semantic-media-e2e.json",
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
             }
           }
         },
@@ -61,6 +68,9 @@
           "configurations": {
             "development": {
               "buildTarget": "ananta-angular:build:development"
+            },
+            "semantic-media-e2e": {
+              "buildTarget": "ananta-angular:build:semantic-media-e2e"
             }
           }
         },

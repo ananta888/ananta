@@ -25,18 +25,17 @@ describe('PairViewSyncPanelComponent', () => {
     const fixture = TestBed.createComponent(PairViewSyncPanelComponent);
     fixture.detectChanges();
     const checkboxes = (fixture.nativeElement as HTMLElement).querySelectorAll('input[type=checkbox]');
-    expect(checkboxes.length).toBe(6);
+    expect(checkboxes.length).toBe(5);
   });
 
-  it('default selection has chat+view_tui+artifact_view checked; control+cursor+annotation not', () => {
+  it('uses the canonical Hub permission names and safe defaults', () => {
     const fixture = TestBed.createComponent(PairViewSyncPanelComponent);
     const cmp = fixture.componentInstance;
     expect(cmp.form.selected.chat).toBe(true);
     expect(cmp.form.selected.view_tui).toBe(true);
-    expect(cmp.form.selected.artifact_view).toBe(true);
-    expect(cmp.form.selected.control).toBe(false);
-    expect(cmp.form.selected.cursor).toBe(false);
-    expect(cmp.form.selected.annotation).toBe(false);
+    expect(cmp.form.selected.artifact_share).toBe(true);
+    expect(cmp.form.selected.remote_control).toBe(false);
+    expect(cmp.form.selected.remote_cursor).toBe(false);
   });
 
   it('preserves the same default as the shared service default', () => {
@@ -45,9 +44,8 @@ describe('PairViewSyncPanelComponent', () => {
     const d = DEFAULT_PERMISSIONS;
     expect(cmp.form.selected.chat).toBe(d.chat);
     expect(cmp.form.selected.view_tui).toBe(d.view_tui);
-    expect(cmp.form.selected.control).toBe(d.control);
-    expect(cmp.form.selected.cursor).toBe(d.cursor);
-    expect(cmp.form.selected.artifact_view).toBe(d.artifact_view);
-    expect(cmp.form.selected.annotation).toBe(d.annotation);
+    expect(cmp.form.selected.remote_control).toBe(d.remote_control);
+    expect(cmp.form.selected.remote_cursor).toBe(d.remote_cursor);
+    expect(cmp.form.selected.artifact_share).toBe(d.artifact_share);
   });
 });

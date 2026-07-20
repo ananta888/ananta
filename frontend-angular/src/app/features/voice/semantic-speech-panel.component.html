@@ -1,0 +1,96 @@
+<section aria-labelledby="semantic-speech-title">
+  <h3 id="semantic-speech-title">Semantische Live-Sprache</h3>
+  <div class="controls" aria-label="Semantischen Speech-Transport steuern">
+    <button type="button" (click)="requestStart()"
+      [disabled]="!canStartTransport || !['stopped', 'failed'].includes(transportState)">
+      Semantischen Transport starten
+    </button>
+    <button type="button" (click)="requestStop()"
+      [disabled]="!['starting', 'active', 'failed'].includes(transportState)">
+      Transport stoppen
+    </button>
+  </div>
+  <p role="status" aria-live="polite" data-testid="semantic-speech-transport-status">
+    Transport: {{ transportState }} · {{ transportReason }}
+  </p>
+  <p role="status" aria-live="polite" data-testid="semantic-speech-quality-status">
+    Qualitätsmodus: {{ qualityMode }} · {{ qualityReason }} · verschlüsseltes Ordinary Audio verfügbar
+  </p>
+  <fieldset>
+    <legend>Anzeige und sichere Rückfallebene</legend>
+    <div class="controls">
+      <label>Transkriptanzeige
+        <select [value]="displayMode" (change)="setDisplayMode($any($event.target).value)"
+          data-testid="semantic-speech-display-mode">
+          <option value="live">Direkt live</option>
+          <option value="segment">Nach Segmentabschluss</option>
+        </select>
+      </label>
+      <label>Segmentdauer
+        <select [value]="segmentDurationSeconds" (change)="setSegmentDuration($any($event.target).value)"
+          data-testid="semantic-speech-segment-duration">
+          <option [value]="10">10 Sekunden</option>
+          <option [value]="30">30 Sekunden</option>
+          <option [value]="60">60 Sekunden</option>
+          <option [value]="90">90 Sekunden</option>
+          <option [value]="120">120 Sekunden</option>
+        </select>
+      </label>
+      <label>
+        <input type="checkbox" [checked]="correctEachSegment"
+          (change)="toggleCorrection($any($event.target).checked)"
+          data-testid="semantic-speech-correct-each-segment">
+        Jedes Segment korrigieren
+      </label>
+      <label>
+        <input type="checkbox" [checked]="ordinaryAudioOverride"
+          (change)="toggleOrdinaryAudio($any($event.target).checked)"
+          data-testid="semantic-speech-ordinary-override">
+        Normales verschlüsseltes Audio erzwingen
+      </label>
+      <button type="button" (click)="togglePaused()" [attr.aria-pressed]="paused"
+        data-testid="semantic-speech-pause">
+        {{ paused ? 'Fortsetzen' : 'Pausieren' }}
+      </button>
+    </div>
+  </fieldset>
+
+  <p role="status" aria-live="polite">
+    {{ paused ? 'Pausiert' : ordinaryAudioOverride ? 'Normales Audio erzwungen' :
+      displayMode === 'live' ? 'Live-Partials aktiv; Segmentkorrektur bleibt unabhängig aktiv.' :
+      'Partials ausgeblendet; Segmentkorrektur bleibt unabhängig aktiv.' }}
+  </p>
+
+  <div class="transcript" aria-live="polite" aria-atomic="false" aria-relevant="additions text">
+    <strong>Fortlaufendes Transkript</strong>
+    @if (turns$ | async; as turns) {
+      @if (turns.length) {
+        <ol>
+          @for (turn of turns; track turn.turnId) {
+            <li [attr.data-turn-id]="turn.turnId" [attr.data-state]="turn.state">
+              <span class="state" [class]="'state ' + turn.state">{{ label(turn.state) }}</span>
+              <span>{{ turn.text }}</span>
+              <p class="correction-status" [attr.data-correction-status]="turn.correctionStatus">
+                Segmentkorrektur: {{ correctionLabel(turn.correctionStatus) }}
+                @if (turn.correctionReason) { · {{ turn.correctionReason }} }
+              </p>
+              @if (turn.state === 'correction_failed') {
+                <span role="alert"> Das finale Transkript bleibt sichtbar.</span>
+              }
+              <details>
+                <summary>Originale und Provenienz</summary>
+                <ol>
+                  @for (candidate of turn.originalCandidates; track candidate.revision) {
+                    <li>Revision {{ candidate.revision }} · {{ candidate.authority }} · {{ candidate.text }}</li>
+                  }
+                </ol>
+              </details>
+            </li>
+          }
+        </ol>
+      } @else {
+        <p>Noch keine validierte Transcriptrevision empfangen.</p>
+      }
+    }
+  </div>
+</section>

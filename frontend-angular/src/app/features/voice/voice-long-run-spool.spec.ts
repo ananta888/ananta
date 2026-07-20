@@ -26,6 +26,37 @@ describe('IndexedDbVoiceLongRunSpool', () => {
     expect(new Uint8Array(stored.ciphertext)).not.toEqual(new Uint8Array(audio));
   });
 
+  it('keeps injected privacy canaries out of the real IndexedDB and localStorage surfaces', async () => {
+    const dbName = `voice-spool-${crypto.randomUUID()}`;
+    const spool = new IndexedDbVoiceLongRunSpool(3, 4_096, dbName);
+    const canaries = [
+      new TextEncoder().encode('KNOWN-AUDIO-CANARY-9F3A'),
+      new TextEncoder().encode('KNOWN-TRANSCRIPT-CANARY-7B2D'),
+      new TextEncoder().encode('KNOWN-KEY-CANARY-4C1E'),
+    ];
+    const joined = new Uint8Array(canaries.reduce((total, value) => total + value.length + 1, 0));
+    let offset = 0;
+    for (const value of canaries) {
+      joined.set(value, offset);
+      offset += value.length + 1;
+    }
+    const generation = await spool.allowProfile('privacy-canary-profile');
+    await spool.put(segment('privacy-canary-run', 0, joined.buffer, 'privacy-canary-profile', generation));
+
+    const stored = await readRaw<any>(dbName, 'segments', 'privacy-canary-run:0');
+    const metadata = new TextEncoder().encode(JSON.stringify({ ...stored, iv: null, ciphertext: null }));
+    const browserChunks = [metadata, new Uint8Array(stored.iv), new Uint8Array(stored.ciphertext)];
+    for (let index = 0; index < localStorage.length; index += 1) {
+      browserChunks.push(new TextEncoder().encode(`${localStorage.key(index)}=${localStorage.getItem(localStorage.key(index)!)}`));
+    }
+    for (const canary of canaries) {
+      expect(browserChunks.some((chunk) => containsBytes(chunk, canary))).toBe(false);
+    }
+
+    await spool.clearProfile('privacy-canary-profile');
+    expect(await readRaw<any>(dbName, 'segments', 'privacy-canary-run:0')).toBeUndefined();
+  });
+
   it('evicts the oldest ciphertext records at hard segment and byte limits', async () => {
     const spool = new IndexedDbVoiceLongRunSpool(2, 240, `voice-spool-${crypto.randomUUID()}`);
     await spool.initialize();
@@ -261,6 +292,14 @@ function wavBytes(length: number, fill: number): ArrayBuffer {
   bytes.set([0x52, 0x49, 0x46, 0x46], 0);
   bytes.fill(fill, 44);
   return bytes.buffer;
+}
+
+function containsBytes(haystack: Uint8Array, needle: Uint8Array): boolean {
+  if (needle.length === 0 || needle.length > haystack.length) return false;
+  for (let start = 0; start <= haystack.length - needle.length; start += 1) {
+    if (needle.every((value, index) => haystack[start + index] === value)) return true;
+  }
+  return false;
 }
 
 async function readRaw<T>(dbName: string, storeName: string, key: string): Promise<T> {

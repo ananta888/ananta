@@ -54,6 +54,7 @@ import {
   VoiceChoice,
 } from './voice-corrector-catalog';
 import { VoiceRuntimeStatusComponent } from './voice-runtime-status.component';
+import { SemanticMediaProgramHostComponent } from './semantic-media-program-host.component';
 import { VoiceTranscriptionResultComponent } from './voice-transcription-result.component';
 import { configurationFields, valueAtPath, voiceError, voiceMutationKey } from './voice-ui.helpers';
 
@@ -77,6 +78,7 @@ interface VoiceLongRunTimelineRow {
     VoiceRuntimeStatusComponent,
     VoiceCandidateReviewComponent,
     VoiceTranscriptionResultComponent,
+    SemanticMediaProgramHostComponent,
   ],
   providers: [VoiceLiveSessionController, VoiceLongRunController],
   changeDetection: ChangeDetectionStrategy.OnPush,

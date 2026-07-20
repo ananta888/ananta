@@ -4,6 +4,7 @@ import { WebrtcSignalingService, SignalingStatus } from './webrtc-signaling.serv
 import { AgentDirectoryService } from './agent-directory.service';
 import { HubApiCoreService } from './hub-api-core.service';
 import { OidcAuthService } from './oidc-auth.service';
+import { of } from 'rxjs';
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
@@ -31,10 +32,14 @@ class FakeWebSocket {
 
 describe('WebRtcSignalingService.hardDisconnect', () => {
   let service: WebrtcSignalingService;
+  let posted: Array<{ url: string; body: Record<string, unknown> }>;
+  let polledResponse: unknown;
   const OriginalWS = globalThis.WebSocket;
 
   beforeEach(() => {
     FakeWebSocket.instances = [];
+    posted = [];
+    polledResponse = { ok: true, data: { signals: [] } };
     (globalThis as any).WebSocket = FakeWebSocket as any;
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -42,11 +47,17 @@ describe('WebRtcSignalingService.hardDisconnect', () => {
         WebrtcSignalingService,
         {
           provide: AgentDirectoryService,
-          useValue: { list: () => [] },
+          useValue: { list: () => [{ role: 'hub', url: 'https://hub.test' }] },
         },
         {
           provide: HubApiCoreService,
-          useValue: { get: () => ({ subscribe: () => {} }), post: () => ({ subscribe: () => {} }) },
+          useValue: {
+            get: () => of(polledResponse),
+            post: (url: string, body: Record<string, unknown>) => {
+              posted.push({ url, body });
+              return of({ ok: true });
+            },
+          },
         },
         {
           provide: OidcAuthService,
@@ -111,5 +122,41 @@ describe('WebRtcSignalingService.hardDisconnect', () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(FakeWebSocket.instances).toHaveLength(1);
     expect(service.status$.value).toBe('disconnected');
+  });
+
+  it('binds the remote peer to every Hub-relay signal', () => {
+    service.connect('', 'session-1', 'peer-b');
+    service.send({ type: 'offer', session_id: 'session-1', payload: { sdp: 'v=0' } });
+
+    expect(posted).toEqual([{
+      url: 'https://hub.test/api/webrtc/sessions/session-1/signal',
+      body: {
+        type: 'offer',
+        session_id: 'session-1',
+        recipient_id: 'peer-b',
+        payload: { sdp: 'v=0' },
+      },
+    }]);
+    service.hardDisconnect();
+  });
+
+  it('dispatches the Hub legacy data envelope and rejects foreign sessions', () => {
+    const observed: string[] = [];
+    service.connect('', 'session-1', 'peer-b');
+    service.message$.subscribe(message => observed.push(String(message.payload)));
+    polledResponse = {
+      ok: true,
+      data: {
+        signals: [
+          { type: 'offer', session_id: 'session-1', payload: 'accepted' },
+          { type: 'answer', session_id: 'foreign-session', payload: 'rejected' },
+        ],
+      },
+    };
+
+    (service as unknown as { hubRelayPoll(): void }).hubRelayPoll();
+
+    expect(observed).toEqual(['accepted']);
+    service.hardDisconnect();
   });
 });

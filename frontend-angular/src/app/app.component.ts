@@ -282,6 +282,14 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
       .mobile-nav-backdrop.open { display: block; position: fixed; inset: 0; z-index: 20010; background: rgba(2,6,23,0.35); }
       main { padding-bottom: 84px; }
     }
+    @media (max-width: 480px) {
+      .app-hrow-top { flex-wrap: wrap; padding-inline: 6px; }
+      .app-hleft { flex: 1 1 100%; }
+      .app-hright {
+        flex: 1 1 100%; min-width: 0; flex-shrink: 1;
+        flex-wrap: wrap; justify-content: flex-end;
+      }
+    }
     @media (min-width: 901px) { .android-edge-toggle { display: none; } }
   `]
 })

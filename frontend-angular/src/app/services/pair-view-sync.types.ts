@@ -6,10 +6,8 @@
  * carries these envelopes; the application code never deals in
  * untyped JSON.
  *
- * Naming follows the existing backend keys exactly:
- *   chat, view_tui, cursor, control, artifact_view, annotation
- * (see share_sessions.py). UI labels may differ; the mapping
- * lives in permission-labels.ts.
+ * v1 names are identical to the Hub contract. Legacy UI aliases are handled
+ * only at the parse boundary in permission-labels.ts.
  */
 
 export const PAIR_VIEW_SYNC_VERSION = 1 as const;
@@ -17,29 +15,26 @@ export const PAIR_VIEW_SYNC_VERSION = 1 as const;
 export type PermissionKey =
   | 'chat'
   | 'view_tui'
-  | 'cursor'
-  | 'control'
-  | 'artifact_view'
-  | 'annotation';
+  | 'remote_cursor'
+  | 'artifact_share'
+  | 'remote_control';
 
 export type PermissionSet = Readonly<Record<PermissionKey, boolean>>;
 
 export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'chat',
   'view_tui',
-  'cursor',
-  'control',
-  'artifact_view',
-  'annotation',
+  'remote_cursor',
+  'artifact_share',
+  'remote_control',
 ] as const;
 
 export const DEFAULT_PERMISSIONS: PermissionSet = Object.freeze({
   chat: true,
   view_tui: true,
-  cursor: false,
-  control: false,
-  artifact_view: true,
-  annotation: false,
+  remote_cursor: false,
+  artifact_share: true,
+  remote_control: false,
 });
 
 /**
@@ -199,11 +194,16 @@ export interface ControlMessage {
  */
 export interface RelayEnvelope {
   message_id: string;
-  kind: DeltaKind;
-  base_hash: string;
-  new_hash: string;
-  width: number;
-  height: number;
+  /**
+   * Legacy compatibility metadata. Production strict-E2EE transports strip
+   * these fields before crossing the browser boundary; all authoritative
+   * routing metadata lives inside the authenticated envelope.
+   */
+  kind?: DeltaKind;
+  base_hash?: string;
+  new_hash?: string;
+  width?: number;
+  height?: number;
   encrypted_payload: string;
 }
 

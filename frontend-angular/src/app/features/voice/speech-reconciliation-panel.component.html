@@ -1,0 +1,80 @@
+<section aria-labelledby="speech-reconciliation-title">
+  <header>
+    <h3 id="speech-reconciliation-title">Offline-Sprachabstimmung</h3>
+    <button type="button" [disabled]="loading || !!pendingAction || !hubAuthorized" (click)="refresh()">
+      Aktualisieren
+    </button>
+  </header>
+
+  <p role="status" aria-live="polite" [class.error]="!!errorCode">{{ statusMessage() }}</p>
+  <p class="notice">Die Ansicht enthält nur Hub-Metadaten; Audio- und Transkriptinhalte werden hier nicht geladen.</p>
+
+  @if (jobs.length > 1 && !jobId) {
+    <label>
+      Job
+      <select [ngModel]="selected?.job_id" (ngModelChange)="selectJob($event)" [disabled]="!!pendingAction">
+        @for (job of jobs; track job.job_id) {
+          <option [value]="job.job_id">{{ job.job_id }} · {{ job.state }}</option>
+        }
+      </select>
+    </label>
+  }
+
+  @if (selected; as job) {
+    <dl class="summary">
+      <div><dt>Job</dt><dd>{{ job.job_id }}</dd></div>
+      <div><dt>Status</dt><dd>{{ job.state }}</dd></div>
+      <div><dt>Stage</dt><dd>{{ job.stage }}</dd></div>
+      <div><dt>Source-Dauer</dt><dd>{{ formatDuration(job.source_duration_ms) }}</dd></div>
+      <div><dt>Faktor</dt><dd>{{ job.max_compute_factor }}×</dd></div>
+      <div><dt>Checkpoints</dt><dd>{{ job.checkpoint_count }}</dd></div>
+      <div><dt>Ledger-Sequenz</dt><dd>{{ job.ledger_sequence }}</dd></div>
+      <div><dt>Reason-Code</dt><dd>{{ job.reason_code }}</dd></div>
+    </dl>
+
+    <h4>Konflikte</h4>
+    <ul class="conflicts" aria-label="Konfliktzählungen">
+      <li>Gelöst <strong>{{ job.conflict_counts.resolved }}</strong></li>
+      <li>Ungelöst <strong>{{ job.conflict_counts.unresolved }}</strong></li>
+      <li>Abgelehnt <strong>{{ job.conflict_counts.rejected }}</strong></li>
+      <li>Quarantäne <strong>{{ job.conflict_counts.quarantined }}</strong></li>
+    </ul>
+
+    <h4>Ressourcenbudget</h4>
+    @if (job.budget; as budget) {
+      <div class="budget">
+        <table>
+          <caption class="visually-hidden">Allokierte, reservierte, verbrauchte und verbleibende Ressourcen</caption>
+          <thead>
+            <tr><th scope="col">Ressource</th><th scope="col">Allocated</th><th scope="col">Reserved</th><th scope="col">Consumed</th><th scope="col">Remaining</th></tr>
+          </thead>
+          <tbody>
+            @for (row of resourceRows; track row.field) {
+              <tr>
+                <th scope="row">{{ row.label }} ({{ row.unit }})</th>
+                <td>{{ budgetValue(budget.allocated, row.field) }}</td>
+                <td>{{ budgetValue(budget.reserved, row.field) }}</td>
+                <td>{{ budgetValue(budget.consumed, row.field) }}</td>
+                <td>{{ budgetValue(budget.remaining, row.field) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p>Noch kein Ressourcenledger verfügbar.</p>
+    }
+
+    <div class="actions" aria-label="Hub-gesteuerte Jobaktionen">
+      <button type="button" [disabled]="!canPause()" (click)="run('pause')">Pausieren</button>
+      <button type="button" [disabled]="!canResume()" (click)="run('resume')">Fortsetzen</button>
+      <button type="button" [disabled]="!canCancel()" (click)="run('cancel')">Abbrechen</button>
+      <div class="factor-control">
+        <label for="speech-reconciliation-factor">Faktor reduzieren auf</label>
+        <input id="speech-reconciliation-factor" type="number" min="1" [max]="job.max_compute_factor - 1"
+          step="1" [(ngModel)]="reduceFactor" [disabled]="!factorInputEnabled()" />
+        <button type="button" [disabled]="!canReduce()" (click)="reduce()">Reduzieren</button>
+      </div>
+    </div>
+  }
+</section>

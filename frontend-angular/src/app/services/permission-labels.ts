@@ -8,6 +8,22 @@
  */
 import { ALL_PERMISSIONS, PermissionKey, PermissionSet } from './pair-view-sync.types';
 
+export const PERMISSION_CONTRACT_VERSION = 1 as const;
+export const LEGACY_PERMISSION_ALIAS_EXPIRES_AT_MS = Date.UTC(2027, 0, 1);
+
+const LEGACY_ALIASES = Object.freeze({
+  cursor: 'remote_cursor',
+  control: 'remote_control',
+  artifact_view: 'artifact_share',
+  annotation: 'artifact_share',
+} as const);
+
+export class PermissionContractError extends Error {
+  constructor(readonly reasonCode: string, readonly field?: string) {
+    super(field ? `${reasonCode}:${field}` : reasonCode);
+  }
+}
+
 export interface PermissionLabel {
   key: PermissionKey;
   label: string;
@@ -33,33 +49,26 @@ export const PERMISSION_LABELS: Readonly<Record<PermissionKey, PermissionLabel>>
     defaultChecked: true,
     requiresExplicitGrant: false,
   },
-  cursor: {
-    key: 'cursor',
+  remote_cursor: {
+    key: 'remote_cursor',
     label: 'Remote-Cursor',
     description: 'Partner-Cursor wird im Overlay angezeigt.',
     defaultChecked: false,
     requiresExplicitGrant: false,
   },
-  control: {
-    key: 'control',
+  remote_control: {
+    key: 'remote_control',
     label: 'Steuerung',
     description: 'Partner kann aktiv in der Session navigieren und auslösen.',
     defaultChecked: false,
     requiresExplicitGrant: true,
   },
-  artifact_view: {
-    key: 'artifact_view',
+  artifact_share: {
+    key: 'artifact_share',
     label: 'Artefakte sehen',
     description: 'Partner kann referenzierte Artefakte öffnen.',
     defaultChecked: true,
     requiresExplicitGrant: false,
-  },
-  annotation: {
-    key: 'annotation',
-    label: 'Annotationen',
-    description: 'Partner darf Anmerkungen hinterlassen.',
-    defaultChecked: false,
-    requiresExplicitGrant: true,
   },
 });
 
@@ -70,13 +79,47 @@ export function permissionsFromUiSelection(
   const out: Record<PermissionKey, boolean> = {
     chat: false,
     view_tui: false,
-    cursor: false,
-    control: false,
-    artifact_view: false,
-    annotation: false,
+    remote_cursor: false,
+    artifact_share: false,
+    remote_control: false,
   };
   for (const key of ALL_PERMISSIONS) {
     out[key] = selection[key] === true;
+  }
+  return Object.freeze(out);
+}
+
+/** Strictly parse Hub or time-bounded v0 permission documents. */
+export function normalizePermissions(
+  raw: Readonly<Record<string, unknown>>,
+  nowMs = Date.now(),
+): PermissionSet {
+  const out: Record<PermissionKey, boolean> = {
+    chat: true, view_tui: false, remote_cursor: false,
+    artifact_share: false, remote_control: false,
+  };
+  const assigned = new Map<PermissionKey, boolean>();
+  for (const [sourceKey, value] of Object.entries(raw)) {
+    if (typeof value !== 'boolean') {
+      throw new PermissionContractError('permission_value_not_boolean', sourceKey);
+    }
+    let key: PermissionKey;
+    if ((ALL_PERMISSIONS as readonly string[]).includes(sourceKey)) {
+      key = sourceKey as PermissionKey;
+    } else if (sourceKey in LEGACY_ALIASES) {
+      if (nowMs >= LEGACY_PERMISSION_ALIAS_EXPIRES_AT_MS) {
+        throw new PermissionContractError('permission_alias_expired', sourceKey);
+      }
+      key = LEGACY_ALIASES[sourceKey as keyof typeof LEGACY_ALIASES];
+    } else {
+      throw new PermissionContractError('permission_unknown', sourceKey);
+    }
+    const previous = assigned.get(key);
+    if (previous !== undefined && previous !== value) {
+      throw new PermissionContractError('permission_conflict', key);
+    }
+    assigned.set(key, value);
+    out[key] = value;
   }
   return Object.freeze(out);
 }

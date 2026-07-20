@@ -23,6 +23,8 @@ import { SharedViewStateService } from './shared-view-state.service';
 import { ViewDeltaService } from './view-delta.service';
 import { ShareSessionService } from './share-session.service';
 import { hasPermission } from './permission-labels';
+import { PAIR_VIEW_CRYPTO, PairViewCryptoPort } from './pair-view-crypto.service';
+import { PairSecureSequenceService } from './pair-secure-sequence.service';
 import {
   ControlMessage,
   CursorPos,
@@ -60,16 +62,6 @@ export interface PeerCursor {
 
 const PEER_CURSOR_TIMEOUT_MS = 5000;
 
-/** Optional test override: how to "encrypt" payloads. */
-export type PayloadEncrypter = (plaintext: string) => string;
-export type PayloadDecrypter = (ciphertext: string) => string | null;
-
-const DEFAULT_STUB_ENC: PayloadEncrypter = (s) => `STUB1::${s}`;
-const DEFAULT_STUB_DEC: PayloadDecrypter = (s) => {
-  if (s.startsWith('STUB1::')) return s.slice('STUB1::'.length);
-  return null;
-};
-
 const VIEW_DELTA_DEBOUNCE_MS = 80;
 const CURSOR_THROTTLE_MS = 50;
 const SCROLL_THROTTLE_MS = 100;
@@ -103,6 +95,8 @@ export class PairViewSyncService implements OnDestroy {
   private view = inject(SharedViewStateService);
   private delta = inject(ViewDeltaService);
   private share = inject(ShareSessionService);
+  private cryptoPort: PairViewCryptoPort = inject(PAIR_VIEW_CRYPTO);
+  private secureSequences = inject(PairSecureSequenceService);
 
   private readonly _followMode$ = new Subject<'active' | 'paused'>();
   readonly followMode$ = this._followMode$.asObservable();
@@ -141,8 +135,7 @@ export class PairViewSyncService implements OnDestroy {
   private active: boolean = false;
   private followMode: 'active' | 'paused' = 'active';
   private controlGrantToken: string | null = null;
-  private encrypter: PayloadEncrypter = DEFAULT_STUB_ENC;
-  private decrypter: PayloadDecrypter = DEFAULT_STUB_DEC;
+  private securityEpoch = 0;
 
   // ── Throttle state ────────────────────────────────────────────────
   private lastDeltaTs = 0;
@@ -161,7 +154,7 @@ export class PairViewSyncService implements OnDestroy {
   private pendingScroll: SharedViewState['scroll'] | null = null;
   private pendingCursor: SharedViewState['cursor'] | null = null;
 
-  bindSession(sessionId: string, ownerUserId: string, encrypter?: PayloadEncrypter): void {
+  bindSession(sessionId: string, ownerUserId: string, securityEpoch = 0): void {
     this.unbindSession();
     this.sessionId = sessionId;
     this.ownerUserId = ownerUserId;
@@ -172,9 +165,9 @@ export class PairViewSyncService implements OnDestroy {
     this.deltaTimestamps = [];
     this.cursorTimestamps = [];
     this.lastSeqSent = 0;
+    this.securityEpoch = Number.isSafeInteger(securityEpoch) && securityEpoch > 0 ? securityEpoch : 0;
     this._peerCursors.clear();
     this.startCursorReap();
-    if (encrypter) this.encrypter = encrypter;
     this.view.bindToSession(sessionId, ownerUserId);
     this.subscribeToView();
     this.subscribeToTransport();
@@ -182,9 +175,15 @@ export class PairViewSyncService implements OnDestroy {
   }
 
   unbindSession(): void {
+    const previousSessionId = this.sessionId;
     this.active = false;
     this.sessionId = '';
     this.ownerUserId = '';
+    this.securityEpoch = 0;
+    if (previousSessionId) {
+      this.secureSequences.clearScope(previousSessionId);
+      this.cryptoPort.clear(previousSessionId);
+    }
     this.view.unbindFromSession();
     if (this.debounceHandle !== null) { clearTimeout(this.debounceHandle); this.debounceHandle = null; }
     if (this.cursorThrottleHandle !== null) { clearTimeout(this.cursorThrottleHandle); this.cursorThrottleHandle = null; }
@@ -212,6 +211,19 @@ export class PairViewSyncService implements OnDestroy {
     return this.controlGrantToken !== null;
   }
 
+  /** Resume the initial snapshot only after signed peer-key confirmation. */
+  onCryptoReady(): void {
+    if (this.active && this.cryptoPort.ready(this.sessionId, this.securityEpoch)) {
+      this.sendSnapshot(this.view.current);
+    }
+  }
+
+  updateSecurityEpoch(epoch: number): void {
+    if (!Number.isSafeInteger(epoch) || epoch < 1 || epoch === this.securityEpoch) return;
+    this.securityEpoch = epoch;
+    this.controlGrantToken = null;
+  }
+
   /**
    * Public: ask the peer owner for a control grant. The
    * actual handshake is routed over the transport; the
@@ -228,7 +240,7 @@ export class PairViewSyncService implements OnDestroy {
       grantToken: null,
       createdAt: Date.now(),
     };
-    this.transport.send('control', request);
+    void this.sendSecurePayload('control', request, 'pair.control', 'control');
   }
 
   // ── Outgoing: state -> transport ──────────────────────────────────
@@ -340,25 +352,32 @@ export class PairViewSyncService implements OnDestroy {
 
   private sendDeltaEnvelope(delta: ViewStateDelta): void {
     if (!this.active || !this.sessionId) return;
-    const envelope = this.toRelayEnvelope(delta);
-    if (!envelope) return;
-    this.transport.sendView(envelope);
-    if (delta.kind === 'snapshot') return;
-    if (delta.kind === 'cursor') {
-      this.stats.cursorsSent += 1;
-    } else {
-      this.stats.deltasSent += 1;
-    }
-    this._stats$.next({ ...this.stats });
+    void this.toRelayEnvelope(delta).then((envelope) => {
+      if (!envelope || !this.active) return;
+      this.transport.sendView(envelope);
+      if (delta.kind === 'snapshot') return;
+      if (delta.kind === 'cursor') {
+        this.stats.cursorsSent += 1;
+      } else {
+        this.stats.deltasSent += 1;
+      }
+      this._stats$.next({ ...this.stats });
+    }).catch(() => this.rejectApply());
   }
 
-  private toRelayEnvelope(delta: ViewStateDelta): RelayEnvelope | null {
-    if (!this.share.currentPermissions()) {
+  private async toRelayEnvelope(delta: ViewStateDelta): Promise<RelayEnvelope | null> {
+    if (!hasPermission(this.share.currentPermissions(), 'view_tui')) {
       // T06/T11: backend rejects payloads without view_tui. Skip silently.
       return null;
     }
-    const plaintext = JSON.stringify(delta);
-    const encrypted = this.encrypter(plaintext);
+    if (!this.cryptoPort.ready(this.sessionId, this.securityEpoch)) return null;
+    const encrypted = await this.cryptoPort.seal(JSON.stringify(delta), {
+      scopeId: this.sessionId,
+      epoch: this.securityEpoch,
+      sequence: this.nextSecureSequence('semantic'),
+      payloadType: 'pair.view_delta',
+      trafficClass: 'semantic',
+    });
     if (encrypted.length > MAX_ENCRYPTED_PAYLOAD_BYTES) return null;
     if (delta.kind === 'snapshot' && encrypted.length > SNAPSHOT_WARN_BYTES) {
       // Soft warning: snapshots over 32 KB are flagged but still sent.
@@ -380,47 +399,68 @@ export class PairViewSyncService implements OnDestroy {
     this.msgSub = this.transport.message$.subscribe((msg) => {
       if (!this.active) return;
       if (msg.type === 'view_payload') {
-        this.handleIncomingView(msg.payload);
-        return;
-      }
-      if (msg.type === 'cursor') {
-        this.handleIncomingCursor(msg.payload);
-        return;
-      }
-      if (msg.type === 'control') {
-        this.handleIncomingControl(msg.payload);
-        return;
-      }
-      if (msg.type === 'snapshot_request') {
-        this.stats.snapshotRequestsReceived += 1;
-        this._stats$.next({ ...this.stats });
-        this.sendSnapshot(this.view.current);
+        void this.handleIncomingEncrypted(msg.payload);
         return;
       }
     });
   }
 
-  private handleIncomingView(raw: unknown): void {
-    // The transport delivers RelayEnvelopes; we have to decrypt
-    // and validate the inner delta. A failed decrypt is treated
-    // like any other invalid payload: dropped silently.
+  private async handleIncomingEncrypted(raw: unknown): Promise<void> {
     if (!raw || typeof raw !== 'object') {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
+      this.rejectApply();
       return;
     }
     const envelope = raw as { encrypted_payload?: string };
     if (typeof envelope.encrypted_payload !== 'string') {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
+      this.rejectApply();
       return;
     }
-    const plain = this.decrypter(envelope.encrypted_payload);
-    if (plain === null) {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
+    if (!this.cryptoPort.ready(this.sessionId, this.securityEpoch)) {
+      this.rejectApply();
       return;
     }
+    const expectedSessionId = this.sessionId;
+    const expectedEpoch = this.securityEpoch;
+    let opened;
+    try {
+      opened = await this.cryptoPort.open(envelope.encrypted_payload, {
+        scopeId: this.sessionId, epoch: this.securityEpoch,
+      });
+    } catch {
+      this.rejectApply();
+      return;
+    }
+    if (!this.active || this.sessionId !== expectedSessionId || this.securityEpoch !== expectedEpoch) {
+      this.rejectApply();
+      return;
+    }
+    if (opened.payloadType === 'pair.view_delta') {
+      this.applyIncomingView(opened.plaintext, opened.senderId);
+      return;
+    }
+    if (opened.payloadType === 'pair.cursor') {
+      this.applyIncomingCursor(opened.plaintext, opened.senderId);
+      return;
+    }
+    if (opened.payloadType === 'pair.control') {
+      this.applyIncomingControl(opened.plaintext, opened.senderId);
+      return;
+    }
+    if (opened.payloadType === 'pair.snapshot_request') {
+      if (!hasPermission(this.share.currentPermissions(), 'view_tui')) { this.rejectApply(); return; }
+      this.stats.snapshotRequestsReceived += 1;
+      this._stats$.next({ ...this.stats });
+      this.sendSnapshot(this.view.current);
+      return;
+    }
+    if (opened.payloadType === 'pair.artifact_ref') {
+      if (!hasPermission(this.share.currentPermissions(), 'artifact_share')) this.rejectApply();
+      return;
+    }
+    this.rejectApply();
+  }
+
+  private applyIncomingView(plain: string, authenticatedSenderId: string): void {
     let parsed: unknown;
     try { parsed = JSON.parse(plain); } catch {
       this.stats.appliesRejected += 1;
@@ -433,7 +473,7 @@ export class PairViewSyncService implements OnDestroy {
       return;
     }
     const delta = parsed;
-    if (delta.sessionId !== this.sessionId) {
+    if (delta.sessionId !== this.sessionId || delta.senderUserId !== authenticatedSenderId) {
       this.stats.appliesRejected += 1;
       this._stats$.next({ ...this.stats });
       return;
@@ -460,28 +500,11 @@ export class PairViewSyncService implements OnDestroy {
     this._stats$.next({ ...this.stats });
   }
 
-  private handleIncomingCursor(raw: unknown): void {
+  private applyIncomingCursor(plain: string, authenticatedSenderId: string): void {
     // T10: peer-cursor delivery is OUT-OF-BAND. The cursor is
     // rendered as a presence overlay, never written back to
     // local SharedViewState — that would cause a feedback loop
     // (own cursor → view.cursor → send delta → own cursor).
-    if (!raw || typeof raw !== 'object') {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
-      return;
-    }
-    const envelope = raw as { encrypted_payload?: string };
-    if (typeof envelope.encrypted_payload !== 'string') {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
-      return;
-    }
-    const plain = this.decrypter(envelope.encrypted_payload);
-    if (plain === null) {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
-      return;
-    }
     let parsed: unknown;
     try { parsed = JSON.parse(plain); } catch {
       this.stats.appliesRejected += 1;
@@ -505,12 +528,12 @@ export class PairViewSyncService implements OnDestroy {
       this._stats$.next({ ...this.stats });
       return;
     }
-    if (obj.sessionId !== this.sessionId) {
+    if (obj.sessionId !== this.sessionId || obj.senderUserId !== authenticatedSenderId) {
       this.stats.appliesRejected += 1;
       this._stats$.next({ ...this.stats });
       return;
     }
-    if (!this.share.currentPermissions() || !hasPermission(this.share.currentPermissions(), 'cursor')) {
+    if (!this.share.currentPermissions() || !hasPermission(this.share.currentPermissions(), 'remote_cursor')) {
       this.stats.appliesRejected += 1;
       this._stats$.next({ ...this.stats });
       return;
@@ -559,7 +582,7 @@ export class PairViewSyncService implements OnDestroy {
    */
   sendCursor(userLabel: string, cursor: CursorPos): void {
     if (!this.active || !this.sessionId) return;
-    if (!this.share.currentPermissions() || !hasPermission(this.share.currentPermissions(), 'cursor')) return;
+    if (!this.share.currentPermissions() || !hasPermission(this.share.currentPermissions(), 'remote_cursor')) return;
     const msg: CursorMessage = {
       sessionId: this.sessionId,
       senderUserId: this.ownerUserId,
@@ -567,19 +590,22 @@ export class PairViewSyncService implements OnDestroy {
       cursor,
       sentAt: Date.now(),
     };
-    this.transport.sendView(this.cursorToEnvelope(msg));
+    void this.sendSecurePayload('cursor', msg, 'pair.cursor', 'control');
   }
 
-  private cursorToEnvelope(msg: CursorMessage): RelayEnvelope {
-    return {
-      message_id: newId(),
-      kind: 'cursor',
-      base_hash: '',
-      new_hash: '',
-      width: 0,
-      height: 0,
-      encrypted_payload: this.encrypter(JSON.stringify(msg)),
-    };
+  sendArtifactReference(reference: { artifactId: string; artifactHash: string }): void {
+    if (!hasPermission(this.share.currentPermissions(), 'artifact_share')) return;
+    void this.sendSecurePayload('selection', reference, 'pair.artifact_ref', 'semantic');
+  }
+
+  private applyIncomingControl(plain: string, authenticatedSenderId: string): void {
+    let raw: unknown;
+    try { raw = JSON.parse(plain); } catch { this.rejectApply(); return; }
+    if (!isControlMessage(raw) || raw.senderUserId !== authenticatedSenderId) {
+      this.rejectApply();
+      return;
+    }
+    this.handleIncomingControl(raw);
   }
 
   private handleIncomingControl(raw: unknown): void {
@@ -598,7 +624,7 @@ export class PairViewSyncService implements OnDestroy {
     // the grant token must match a token previously issued. The
     // grant is session-scoped, never persisted.
     const perms = this.share.currentPermissions();
-    if (!hasPermission(perms, 'control')) {
+    if (!hasPermission(perms, 'remote_control')) {
       this.stats.controlDenied += 1;
       this._stats$.next({ ...this.stats });
       return;
@@ -613,7 +639,7 @@ export class PairViewSyncService implements OnDestroy {
         grantToken: this.controlGrantToken,
         createdAt: Date.now(),
       };
-      this.transport.send('control', grant);
+      void this.sendSecurePayload('control', grant, 'pair.control', 'control');
       this.stats.controlGranted += 1;
       this._stats$.next({ ...this.stats });
       return;
@@ -642,8 +668,44 @@ export class PairViewSyncService implements OnDestroy {
 
   private requestSnapshot(): void {
     if (!this.active) return;
-    this.transport.send('snapshot_request', { sessionId: this.sessionId });
+    void this.sendSecurePayload(
+      'control', { sessionId: this.sessionId }, 'pair.snapshot_request', 'control',
+    );
     this.stats.snapshotRequestsSent += 1;
+    this._stats$.next({ ...this.stats });
+  }
+
+  private async sendSecurePayload(
+    kind: RelayEnvelope['kind'],
+    payload: unknown,
+    payloadType: string,
+    trafficClass: 'control' | 'semantic',
+  ): Promise<void> {
+    if (!this.active || !this.sessionId || !this.cryptoPort.ready(this.sessionId, this.securityEpoch)) return;
+    try {
+      const encrypted = await this.cryptoPort.seal(JSON.stringify(payload), {
+        scopeId: this.sessionId,
+        epoch: this.securityEpoch,
+        sequence: this.nextSecureSequence(trafficClass),
+        payloadType,
+        trafficClass,
+      });
+      if (!this.active || encrypted.length > MAX_ENCRYPTED_PAYLOAD_BYTES) return;
+      this.transport.sendView({
+        message_id: newId(), kind, base_hash: '', new_hash: '', width: 0, height: 0,
+        encrypted_payload: encrypted,
+      });
+    } catch {
+      this.rejectApply();
+    }
+  }
+
+  private nextSecureSequence(trafficClass: 'control' | 'semantic'): number {
+    return this.secureSequences.next(this.sessionId, this.securityEpoch, trafficClass);
+  }
+
+  private rejectApply(): void {
+    this.stats.appliesRejected += 1;
     this._stats$.next({ ...this.stats });
   }
 

@@ -23,6 +23,7 @@ import { SharedViewStateService } from './shared-view-state.service';
 import { ViewDeltaService } from './view-delta.service';
 import { WebrtcTransportService } from './webrtc-transport.service';
 import { ShareSessionService } from './share-session.service';
+import { PAIR_VIEW_CRYPTO, PairViewCryptoPort } from './pair-view-crypto.service';
 import {
   DEFAULT_PERMISSIONS,
   PermissionSet,
@@ -43,7 +44,7 @@ class FakeTransport {
   }
   emitCursorMessage(msg: PeerCursor, sessionId: string): void {
     this.message$.next({
-      type: 'cursor',
+      type: 'view_payload',
       session_id: sessionId,
       payload: { encrypted_payload: `STUB1::${JSON.stringify({
         sessionId, senderUserId: msg.userId, userLabel: msg.userLabel,
@@ -56,8 +57,25 @@ class FakeTransport {
   }
 }
 
+class FakeCrypto implements PairViewCryptoPort {
+  ready(_scope: string, epoch: number): boolean { return epoch === 1; }
+  async seal(plaintext: string): Promise<string> { return `TEST1::${plaintext}`; }
+  async open(serialized: string): Promise<any> {
+    const prefix = serialized.startsWith('TEST1::') ? 'TEST1::' : 'STUB1::';
+    const plaintext = serialized.slice(prefix.length);
+    const value = JSON.parse(plaintext);
+    return {
+      plaintext,
+      payloadType: value?.userLabel ? 'pair.cursor' : 'pair.view_delta',
+      senderId: value?.senderUserId ?? 'partner-x',
+      sequence: value?.seq ?? 1,
+    };
+  }
+  clear(): void {}
+}
+
 class FakeShare {
-  perms: PermissionSet | null = { ...DEFAULT_PERMISSIONS, control: false, cursor: true };
+  perms: PermissionSet | null = { ...DEFAULT_PERMISSIONS, remote_control: false, remote_cursor: true };
   currentPermissions(): PermissionSet | null { return this.perms; }
   setPerms(p: PermissionSet | null): void { this.perms = p; }
 }
@@ -68,6 +86,7 @@ function setup() {
   const share = new FakeShare();
   TestBed.overrideProvider(WebrtcTransportService, { useValue: transport });
   TestBed.overrideProvider(ShareSessionService, { useValue: share });
+  TestBed.overrideProvider(PAIR_VIEW_CRYPTO, { useValue: new FakeCrypto() });
   const sync = TestBed.runInInjectionContext(() => new PairViewSyncService());
   const view = TestBed.inject(SharedViewStateService);
   const delta = TestBed.inject(ViewDeltaService);
@@ -91,9 +110,10 @@ function makeDelta(sessionId: string, senderUserId: string, seq: number, baseHas
 }
 
 describe('PairViewSyncService (T14 reconnect)', () => {
-  it('rejects view-payloads with a stale session id', () => {
+  it('rejects view-payloads with a stale session id', async () => {
     const { transport, sync, view } = setup();
-    sync.bindSession('sess-A', 'owner-1');
+    sync.bindSession('sess-A', 'owner-1', 1);
+    await new Promise((resolve) => setTimeout(resolve, 0));
     const initial = transport.sentView[0];
     const state = view.current;
     const d = makeDelta('sess-B', 'partner-x', 99, initial.new_hash, state.viewHash);
@@ -103,23 +123,25 @@ describe('PairViewSyncService (T14 reconnect)', () => {
     sync.unbindSession();
   });
 
-  it('rejects view-payloads whose baseHash mismatches the local hash', () => {
+  it('rejects view-payloads whose baseHash mismatches the local hash', async () => {
     const { transport, sync, view } = setup();
-    sync.bindSession('sess-A', 'owner-1');
+    sync.bindSession('sess-A', 'owner-1', 1);
+    await new Promise((resolve) => setTimeout(resolve, 0));
     const state = view.current;
     // baseHash is intentionally wrong (a hash the local state never produced)
     const d = makeDelta('sess-A', 'partner-x', 100, 'wrong-hash-1234', state.viewHash);
-    const snapshotReqsBefore = transport.sent.filter((s) => s.type === 'snapshot_request').length;
+    const snapshotReqsBefore = transport.sentView.filter((entry) => entry.kind === 'control').length;
     transport.emitView(envFor(d), 'sess-A');
+    await new Promise((resolve) => setTimeout(resolve, 0));
     // The engine must request a snapshot
-    const snapshotReqsAfter = transport.sent.filter((s) => s.type === 'snapshot_request').length;
+    const snapshotReqsAfter = transport.sentView.filter((entry) => entry.kind === 'control').length;
     expect(snapshotReqsAfter).toBe(snapshotReqsBefore + 1);
     sync.unbindSession();
   });
 
-  it('rejects cursor messages with a stale session id', () => {
+  it('rejects cursor messages with a stale session id', async () => {
     const { transport, sync } = setup();
-    sync.bindSession('sess-A', 'owner-1');
+    sync.bindSession('sess-A', 'owner-1', 1);
     const emitted: PeerCursor[] = [];
     const sub = sync.peerCursors$.subscribe((m) => { for (const v of m.values()) emitted.push(v); });
     // First, emit a valid cursor so peer-cursor map is populated
@@ -134,6 +156,7 @@ describe('PairViewSyncService (T14 reconnect)', () => {
       cursor: { line: null, column: null, x: 99, y: 99 },
       lastSeenAt: Date.now(),
     }, 'sess-Z');
+    await new Promise((resolve) => setTimeout(resolve, 0));
     const found = emitted.find((c) => c.cursor.x === 99 && c.cursor.y === 99);
     expect(found).toBeUndefined();
     sub.unsubscribe();
@@ -142,7 +165,7 @@ describe('PairViewSyncService (T14 reconnect)', () => {
 
   it('clears peer-cursor map on unbindSession so a new session does not inherit stale cursors', () => {
     const { transport, sync } = setup();
-    sync.bindSession('sess-A', 'owner-1');
+    sync.bindSession('sess-A', 'owner-1', 1);
     const emits: Array<ReadonlyMap<string, PeerCursor>> = [];
     const sub = sync.peerCursors$.subscribe((m) => { emits.push(m); });
     transport.emitCursorMessage({
@@ -160,34 +183,39 @@ describe('PairViewSyncService (T14 reconnect)', () => {
     sync.unbindSession();
   });
 
-  it('keeps accepting view-payloads across an unbind+bind cycle (fresh session id)', () => {
+  it('keeps accepting view-payloads across an unbind+bind cycle (fresh session id)', async () => {
     const { transport, sync, view } = setup();
-    sync.bindSession('sess-A', 'owner-1');
+    sync.bindSession('sess-A', 'owner-1', 1);
+    await new Promise((resolve) => setTimeout(resolve, 0));
     // Change something
     view.updatePartial({ activeTab: 'first' });
     sync.unbindSession();
-    sync.bindSession('sess-B', 'owner-2');
+    sync.bindSession('sess-B', 'owner-2', 1);
+    await new Promise((resolve) => setTimeout(resolve, 0));
     const initial = transport.sentView[transport.sentView.length - 1];
     const state = view.current;
     const d = makeDelta('sess-B', 'partner-y', 1, initial.new_hash, state.viewHash);
     // Should accept
     const before = (sync as any).stats.appliesAccepted;
     transport.emitView(envFor(d), 'sess-B');
+    await new Promise((resolve) => setTimeout(resolve, 0));
     const after = (sync as any).stats.appliesAccepted;
     expect(after).toBeGreaterThanOrEqual(before + 1);
     sync.unbindSession();
   });
 
-  it('throttles snapshot-requests: only one snapshot_request is emitted per baseHash mismatch', () => {
+  it('throttles snapshot-requests: only one snapshot_request is emitted per baseHash mismatch', async () => {
     const { transport, sync, view } = setup();
-    sync.bindSession('sess-A', 'owner-1');
+    sync.bindSession('sess-A', 'owner-1', 1);
+    await new Promise((resolve) => setTimeout(resolve, 0));
     const state = view.current;
     const d = makeDelta('sess-A', 'partner-x', 200, 'wrong-hash-zzzz', state.viewHash);
-    const before = transport.sent.filter((s) => s.type === 'snapshot_request').length;
+    const before = transport.sentView.filter((entry) => entry.kind === 'control').length;
     transport.emitView(envFor(d), 'sess-A');
     transport.emitView(envFor(d), 'sess-A');
     transport.emitView(envFor(d), 'sess-A');
-    const after = transport.sent.filter((s) => s.type === 'snapshot_request').length;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const after = transport.sentView.filter((entry) => entry.kind === 'control').length;
     // 3 mismatch, 3 requests (we don't dedupe these, but they must not loop)
     expect(after - before).toBe(3);
     sync.unbindSession();
