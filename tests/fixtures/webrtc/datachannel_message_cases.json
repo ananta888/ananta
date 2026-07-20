@@ -1,0 +1,26 @@
+[
+  {
+    "name": "empty-control",
+    "traffic_class": "control",
+    "payload_hex": "",
+    "expected": "accept"
+  },
+  {
+    "name": "short-transcript",
+    "traffic_class": "transcript",
+    "payload_hex": "48616c6c6f20576562727463",
+    "expected": "accept"
+  },
+  {
+    "name": "binary-audio-recovery",
+    "traffic_class": "audio_recovery",
+    "payload_hex": "00ff10207f80",
+    "expected": "accept"
+  },
+  {
+    "name": "unknown-class",
+    "traffic_class": "generic",
+    "payload_hex": "01",
+    "expected": "unknown_traffic_class"
+  }
+]

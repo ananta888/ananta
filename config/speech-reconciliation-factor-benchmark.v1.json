@@ -1,0 +1,26 @@
+{
+  "schema": "ananta.speech-reconciliation-factor-benchmark-policy.v1",
+  "seed": 87431,
+  "factors": [1, 2, 5, 10, 20],
+  "stages": [
+    "reconciliation",
+    "dataset",
+    "training_delegation",
+    "evaluation"
+  ],
+  "fixture": {
+    "case_count": 40,
+    "source_duration_ms": 10000,
+    "manifest_label": "ananta-content-free-speech-reconciliation-fixture-v1"
+  },
+  "thresholds": {
+    "audio_p95_ms": 35,
+    "audio_p99_ms": 60,
+    "transcript_p95_ms": 45,
+    "transcript_p99_ms": 75,
+    "ui_p95_ms": 55,
+    "ui_p99_ms": 90,
+    "minimum_quality_gain_micros": 100000,
+    "maximum_rss_growth_bytes": 268435456
+  }
+}

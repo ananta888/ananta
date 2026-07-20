@@ -1,0 +1,114 @@
+{
+  "schema": "ananta.semantic-media-contract-catalog.v1",
+  "canonical_utf8": {
+    "value": { "label": "Grüße", "bounds": { "maximum": 9007199254740991, "minimum": 0 } },
+    "json": "{\"bounds\":{\"maximum\":9007199254740991,\"minimum\":0},\"label\":\"Grüße\"}",
+    "sha256": "5d958898f01c8376532721d2a92f61a289a4e7f9e8397f1f1b2d7a03d59f46ab"
+  },
+  "vectors": [
+    {
+      "id": "control-valid-v1",
+      "input": {
+        "schema": "ananta.semantic-media-control-fixture.v1",
+        "scope_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "epoch": 7,
+        "reason_code": "accepted",
+        "label": "Grüße",
+        "bounds": { "minimum": 0, "maximum": 9007199254740991 }
+      },
+      "canonical_json": "{\"bounds\":{\"maximum\":9007199254740991,\"minimum\":0},\"epoch\":7,\"label\":\"Grüße\",\"reason_code\":\"accepted\",\"schema\":\"ananta.semantic-media-control-fixture.v1\",\"scope_digest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}",
+      "sha256": "2679871de8bce493e0cd6a5b7ba6644c39e4db84dd99e42db2d1afbcad646d73",
+      "purpose": "canonical-json-and-hash"
+    },
+    {
+      "id": "control-unknown-field-v1",
+      "input": {
+        "schema": "ananta.semantic-media-control-fixture.v1",
+        "scope_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "epoch": 7,
+        "reason_code": "accepted",
+        "label": "Grüße",
+        "bounds": { "minimum": 0, "maximum": 9007199254740991 },
+        "unexpected": true
+      },
+      "canonical_json": "{\"bounds\":{\"maximum\":9007199254740991,\"minimum\":0},\"epoch\":7,\"label\":\"Grüße\",\"reason_code\":\"accepted\",\"schema\":\"ananta.semantic-media-control-fixture.v1\",\"scope_digest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"unexpected\":true}",
+      "sha256": "3a3b5186c590cbb5df3f526b74c3af34236b052ac9d346818c12b97cdc3978cf",
+      "purpose": "canonical-json-and-hash"
+    }
+  ],
+  "domain_vectors_reference": "tests/fixtures/semantic_media_contracts/domain-vectors.v1.json",
+  "domains": [
+    {
+      "name": "envelope",
+      "schema_reference": "schemas/webrtc/secure_envelope.v1.json",
+      "python_test": "tests/contracts/test_semantic_media_cross_runtime.py",
+      "typescript_test": "frontend-angular/src/app/services/semantic-media-cross-runtime.spec.ts",
+      "worker_test": null,
+      "cases": ["valid", "unknown-field", "oversize", "non-finite", "stale-time"]
+    },
+    {
+      "name": "permission",
+      "schema_reference": "schemas/webrtc/capability_advertisement.v1.json",
+      "python_test": "tests/contracts/test_semantic_media_cross_runtime.py",
+      "typescript_test": "frontend-angular/src/app/services/semantic-media-cross-runtime.spec.ts",
+      "worker_test": null,
+      "cases": ["valid", "unknown-field", "scope-escalation", "stale-consent"]
+    },
+    {
+      "name": "contract",
+      "schema_reference": "schemas/webrtc/compute_quality_contract.v1.json",
+      "python_test": "tests/contracts/test_semantic_media_cross_runtime.py",
+      "typescript_test": "frontend-angular/src/app/services/semantic-media-cross-runtime.spec.ts",
+      "worker_test": "tests/worker/test_semantic_media_contract_catalog.py",
+      "cases": ["valid", "unknown-field", "wrong-audience", "maximum-bound"]
+    },
+    {
+      "name": "lease",
+      "schema_reference": "schemas/webrtc/task_lease.v1.json",
+      "python_test": "tests/contracts/test_semantic_media_cross_runtime.py",
+      "typescript_test": "frontend-angular/src/app/services/semantic-media-cross-runtime.spec.ts",
+      "worker_test": "tests/worker/test_semantic_media_contract_catalog.py",
+      "cases": ["valid", "unknown-field", "expired", "stale-attempt"]
+    },
+    {
+      "name": "scene",
+      "schema_reference": "schemas/webrtc/semantic_scene.v1.json",
+      "python_test": "tests/contracts/test_semantic_media_cross_runtime.py",
+      "typescript_test": "frontend-angular/src/app/services/semantic-media-cross-runtime.spec.ts",
+      "worker_test": null,
+      "cases": ["valid", "unknown-field", "oversize", "non-finite"]
+    },
+    {
+      "name": "speech",
+      "schema_reference": "schemas/webrtc/speech_correction.v1.json",
+      "python_test": "tests/contracts/test_semantic_media_cross_runtime.py",
+      "typescript_test": "frontend-angular/src/app/services/semantic-media-cross-runtime.spec.ts",
+      "worker_test": null,
+      "cases": ["valid", "unknown-field", "stale-segment", "maximum-bound"]
+    },
+    {
+      "name": "evidence",
+      "schema_reference": "schemas/voice/speech_evidence_common.v1.json",
+      "python_test": "tests/contracts/test_semantic_media_cross_runtime.py",
+      "typescript_test": "frontend-angular/src/app/services/semantic-media-cross-runtime.spec.ts",
+      "worker_test": null,
+      "cases": ["valid", "unknown-field", "wrong-peer", "replay", "oversize", "stale-time"]
+    },
+    {
+      "name": "reconciliation",
+      "schema_reference": "schemas/voice/speech_reconciliation_job.v1.json",
+      "python_test": "tests/contracts/test_semantic_media_cross_runtime.py",
+      "typescript_test": "frontend-angular/src/app/services/semantic-media-cross-runtime.spec.ts",
+      "worker_test": null,
+      "cases": ["valid", "unknown-field", "unverified-candidate", "correlated-lineage"]
+    },
+    {
+      "name": "training",
+      "schema_reference": "schemas/voice/speech_dataset_manifest.v1.json",
+      "python_test": "tests/contracts/test_semantic_media_cross_runtime.py",
+      "typescript_test": "frontend-angular/src/app/services/semantic-media-cross-runtime.spec.ts",
+      "worker_test": "tests/worker/test_semantic_media_contract_catalog.py",
+      "cases": ["valid", "unknown-field", "stale-consent", "maximum-bound", "non-finite"]
+    }
+  ]
+}

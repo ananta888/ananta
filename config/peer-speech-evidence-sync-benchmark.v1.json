@@ -1,0 +1,12 @@
+{
+  "forbid_peer_quality_regression": true,
+  "maximum_p95_regression_micros": 50000,
+  "maximum_peer_leakage_events": 0,
+  "minimum_samples_per_mode": 30,
+  "required_modes": [
+    "local_only",
+    "peer_enriched",
+    "blind_merge"
+  ],
+  "schema": "ananta.peer-speech-sync-benchmark-policy.v1"
+}

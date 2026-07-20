@@ -54,6 +54,36 @@ def test_voice_model_catalog_verifies_files_and_provenance(tmp_path):
     assert entry.manifest_digest.startswith("sha256:")
     assert entry.ram_bytes == len(b"model")
     entry.bind_runtime_paths((str(tmp_path / "model.bin"),))
+    assert catalog.require_model("vosk-de-v1") is entry
+    assert catalog.get_model("missing") is None
+
+
+def test_voice_model_catalog_rejects_duplicate_model_ids(tmp_path):
+    first = tmp_path / "first.bin"
+    second = tmp_path / "second.bin"
+    first.write_bytes(b"first")
+    second.write_bytes(b"second")
+    payload = {
+        "schema_version": "ananta.voice-model-catalog.v1",
+        "models": [
+            {
+                "id": "shared-model-id",
+                "engine": engine,
+                "revision": "revision-1",
+                "license": "Apache-2.0",
+                "files": [{"path": path.name, "sha256": hashlib.sha256(content).hexdigest()}],
+            }
+            for engine, path, content in (
+                ("vosk", first, b"first"),
+                ("whisper_cpp", second, b"second"),
+            )
+        ],
+    }
+    catalog_path = tmp_path / "catalog.json"
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="duplicate voice model id"):
+        VoiceModelCatalog.load(catalog_path)
 
 
 def test_voice_model_catalog_validates_explicit_resource_requirements(tmp_path):

@@ -28,6 +28,12 @@ def test_background_manager_contains_start_failures_and_records_state(monkeypatc
     monkeypatch.setattr(manager, "_start_housekeeping", lambda: None)
     monkeypatch.setattr(manager, "_start_workflow_runtime_reconciler", lambda: None)
     monkeypatch.setattr(manager, "_start_ml_intern_training_reconciler", lambda: None)
+    monkeypatch.setattr(manager, "_start_speech_adaptation_dispatcher", lambda: None)
+    monkeypatch.setattr(manager, "_start_speech_evidence_retention_reconciler", lambda: None)
+    monkeypatch.setattr(manager, "_start_semantic_media_audit_reconciler", lambda: None)
+    monkeypatch.setattr(manager, "_start_speech_reconciliation_reconciler", lambda: None)
+    monkeypatch.setattr(manager, "_start_speech_reconciliation_queue_pump", lambda: None)
+    monkeypatch.setattr(manager, "_start_speech_reconciliation_result_collector", lambda: None)
     monkeypatch.setattr(manager, "_start_scheduler", lambda: None)
     monkeypatch.setattr(lifecycle.settings, "disable_llm_check", False)
 
@@ -39,6 +45,12 @@ def test_background_manager_contains_start_failures_and_records_state(monkeypatc
         "housekeeping",
         "workflow_runtime_reconciler",
         "ml_intern_training_reconciler",
+        "speech_adaptation_dispatcher",
+        "speech_evidence_retention_reconciler",
+        "semantic_media_audit_reconciler",
+        "speech_reconciliation_reconciler",
+        "speech_reconciliation_queue_pump",
+        "speech_reconciliation_result_collector",
         "scheduler",
     ]
     assert manager.failed_services == {"llm_monitoring": "llm down"}
@@ -101,3 +113,24 @@ def test_background_manager_shutdown_records_scheduler_stop_failure_and_skips_cu
     assert live_thread.join_calls == 1
     assert live_thread.timeout == 0.1
     assert app.extensions["background_services"]["shutdown_requested"] is True
+
+
+def test_background_manager_stops_reconciliation_queue_before_attempt_fencing(monkeypatch):
+    app = SimpleNamespace(testing=False, extensions={})
+    manager = lifecycle.BackgroundServiceManager(app)
+    calls = []
+
+    monkeypatch.setattr(agent.common.context, "shutdown_requested", False)
+    monkeypatch.setattr(agent.common.context, "active_threads", [])
+    monkeypatch.setattr(manager, "_stop_ml_intern_training_reconciler", lambda: None)
+    monkeypatch.setattr(manager, "_stop_speech_adaptation_dispatcher", lambda: calls.append("adaptation"))
+    monkeypatch.setattr(manager, "_stop_speech_reconciliation_queue_pump", lambda: calls.append("queue"))
+    monkeypatch.setattr(manager, "_stop_speech_reconciliation_result_collector", lambda: calls.append("collector"))
+    monkeypatch.setattr(manager, "_stop_speech_reconciliation_reconciler", lambda: None)
+    monkeypatch.setattr(manager, "_stop_semantic_media_audit_reconciler", lambda: None)
+    monkeypatch.setattr(manager, "_stop_speech_evidence_retention_reconciler", lambda: None)
+    monkeypatch.setattr(manager, "_stop_scheduler", lambda: None)
+
+    manager.shutdown()
+
+    assert calls == ["adaptation", "queue", "collector"]

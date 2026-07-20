@@ -1,0 +1,25 @@
+{
+  "schema": "ananta.semantic-scene.v1",
+  "scene_id": "scene-1",
+  "session_id": "session-1",
+  "contract_id": "contract-1",
+  "contract_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "epoch": 2,
+  "sequence": 7,
+  "source_frame_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "coordinate_space": {"unit": "normalized", "origin": "top_left", "width": 1, "height": 1},
+  "timebase": {"unit": "milliseconds", "captured_at_ms": 1000, "duration_ms": 83},
+  "provenance": {"source": "heuristic", "algorithm": "bounded-grid", "version": "1.0.0", "authoritative": false},
+  "nodes": [
+    {
+      "id": "region-1",
+      "parent_id": null,
+      "kind": {"value": "region", "provenance": {"source": "heuristic", "algorithm": "bounded-grid", "version": "1.0.0", "authoritative": false}},
+      "geometry": {"value": {"x": 0.1, "y": 0.2, "width": 0.3, "height": 0.2, "outline": []}, "provenance": {"source": "heuristic", "algorithm": "bounded-grid", "version": "1.0.0", "authoritative": false}},
+      "motion": {"value": {"dx_per_second": 0, "dy_per_second": 0}, "provenance": {"source": "heuristic", "algorithm": "motion-v1", "version": "1.0.0", "authoritative": false}},
+      "label": {"value": "redacted-text-region", "provenance": {"source": "model_proposal", "algorithm": "optional-label", "version": "1.0.0", "authoritative": false}},
+      "confidence": {"value": 0.9, "provenance": {"source": "heuristic", "algorithm": "bounded-grid", "version": "1.0.0", "authoritative": false}}
+    }
+  ],
+  "security": {"classification": "derived_semantic_metadata", "raw_media_included": false}
+}

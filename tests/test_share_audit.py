@@ -76,3 +76,31 @@ def test_share_audit_payload_has_no_chat_or_view_cleartext(monkeypatch):
     assert "hello" not in payload_text.lower()
     assert "ciphertext" not in payload_text.lower()
     assert "screen" not in payload_text.lower()
+
+
+def test_share_audit_pseudonymizes_scope_identity_fingerprint_and_permission_details(monkeypatch):
+    captured: list[tuple[str, dict]] = []
+    monkeypatch.setattr(audit, "log_audit", lambda name, payload: captured.append((name, payload)))
+    audit.audit_participant_joined(
+        session_id="session-private",
+        participant_id="participant-private",
+        user_id="user-private",
+        device_id="device-private",
+        public_key_fingerprint="fingerprint-private",
+        permissions={"chat": True, "artifact_share": False},
+    )
+
+    details = captured[0][1]
+    serialized = str(details)
+    for canary in (
+        "session-private",
+        "participant-private",
+        "user-private",
+        "device-private",
+        "fingerprint-private",
+        "artifact_share",
+    ):
+        assert canary not in serialized
+    assert details["granted_permission_count"] == 1
+    assert details["permission_count"] == 2
+    assert len(details["permission_policy_digest"]) == 64

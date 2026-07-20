@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "now_ms": 1899999999000,
+  "key_b64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "plaintext_b64": "eyJtZXNzYWdlIjoic2VjcmV0In0=",
+  "envelope": {
+    "version": 1,
+    "scope": { "kind": "session", "id": "sess-fixture" },
+    "sender_id": "alice",
+    "recipient": { "kind": "peer", "id": "bob" },
+    "epoch": 7,
+    "sequence": 1,
+    "key_id": "key-fixture",
+    "payload_type": "pair.view_delta",
+    "expires_at_ms": 1900000000000,
+    "nonce_b64": "AAECAwQFBgcICQoL",
+    "aad": {
+      "traffic_class": "semantic",
+      "content_encoding": "json",
+      "contract_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "ciphertext_b64": "PCC7fraWo3zoY62pwowbH+aipUlqsi50Kw2BkWSjyvtU6PuP"
+  },
+  "vectors": [
+    { "name": "valid", "mutation": "none", "expected_code": "ok" },
+    { "name": "tamper", "mutation": "tamper_ciphertext", "expected_code": "authentication_failed" },
+    { "name": "payload_swap", "mutation": "swap_payload_type", "expected_code": "authentication_failed" },
+    { "name": "unknown_field", "mutation": "unknown_field", "expected_code": "unknown_field" },
+    { "name": "oversize", "mutation": "oversize_ciphertext", "expected_code": "ciphertext_oversize" },
+    { "name": "expired", "mutation": "expired", "expected_code": "expired" },
+    { "name": "wrong_peer", "mutation": "wrong_peer", "expected_code": "recipient_mismatch" },
+    { "name": "wrong_epoch", "mutation": "wrong_epoch", "expected_code": "epoch_stale" },
+    { "name": "replay", "mutation": "replay", "expected_code": "sequence_duplicate" },
+    { "name": "nonce_reuse", "mutation": "nonce_reuse", "expected_code": "nonce_reuse" },
+    { "name": "join_has_no_past_key", "mutation": "join", "expected_code": "group_key_missing" },
+    { "name": "revoke_purges_key", "mutation": "revoke", "expected_code": "group_key_missing" }
+  ]
+}

@@ -111,3 +111,31 @@ def test_share_sessions_join_requires_oidc_context(client, admin_auth_header):
     )
     assert response.status_code == 403
     assert response.get_json()["error"] == "oidc_context_required"
+
+
+def test_share_session_security_mode_cannot_silently_downgrade(client, admin_auth_header):
+    mismatched = client.post(
+        "/share-sessions",
+        headers=admin_auth_header,
+        json={"security_contract_version": 1, "security_mode": "legacy"},
+    )
+    assert mismatched.status_code == 400
+    assert mismatched.get_json()["error"] == "security_downgrade_rejected"
+
+    legacy = client.post(
+        "/share-sessions",
+        headers=admin_auth_header,
+        json={"title": "explicit legacy", "security_contract_version": 0, "security_mode": "legacy"},
+    )
+    assert legacy.status_code == 201
+    legacy_session = legacy.get_json()["session"]
+    rejected_join = client.post(
+        "/share-sessions/join-by-code",
+        headers={"Authorization": f"Bearer {_user_jwt('strict-client')}"},
+        json={
+            "invite_code": legacy_session["invite_code"],
+            "minimum_security_mode": "strict_e2ee",
+        },
+    )
+    assert rejected_join.status_code == 409
+    assert rejected_join.get_json()["error"] == "security_downgrade_rejected"

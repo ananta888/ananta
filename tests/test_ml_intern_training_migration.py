@@ -66,6 +66,39 @@ EXECUTION_INDEXES = {
     "ix_ml_intern_training_execution_leases_job_id",
     "ix_ml_intern_training_execution_leases_lease_expires_at",
 }
+ADAPTER_INDEXES = {
+    "ix_speech_adapter_pair_direction_status",
+    *{
+        f"ix_ml_intern_speech_adapters_{column}"
+        for column in (
+            "tenant_id",
+            "owner_subject",
+            "pair_id",
+            "direction",
+            "speaker_digest",
+            "scope_digest",
+            "base_model_id",
+            "base_model_digest",
+            "backend",
+            "backend_digest",
+            "dataset_digest",
+            "split_digest",
+            "evaluation_report_digest",
+            "consent_digest",
+            "consent_expires_at_ms",
+            "artifact_sha256",
+            "expires_at_ms",
+            "status",
+            "approved_by_digest",
+            "approved_at_ms",
+            "revoked_at_ms",
+            "deprecated_at_ms",
+            "expired_at_ms",
+            "rollback_of_adapter_id",
+            "created_at_ms",
+        )
+    },
+}
 
 
 def _alembic(database: Path, *arguments: str) -> None:
@@ -93,6 +126,8 @@ def _names(items: list[dict[str, object]]) -> set[str | None]:
 def _assert_schema(database: Path) -> None:
     from agent.db_models.ml_intern_training import (
         MlInternDatasetDB,
+        MlInternSpeechAdapterDB,
+        MlInternSpeechAdapterLegacyImportDB,
         MlInternTrainingAttemptDB,
         MlInternTrainingCapacityLeaseDB,
         MlInternTrainingEventDB,
@@ -110,6 +145,8 @@ def _assert_schema(database: Path) -> None:
         "ml_intern_training_execution_leases": MlInternTrainingExecutionLeaseDB,
         "ml_intern_training_attempts": MlInternTrainingAttemptDB,
         "ml_intern_training_events": MlInternTrainingEventDB,
+        "ml_intern_speech_adapters": MlInternSpeechAdapterDB,
+        "ml_intern_speech_adapter_legacy_imports": MlInternSpeechAdapterLegacyImportDB,
     }
     assert set(models) <= tables
     for table_name, model in models.items():
@@ -139,6 +176,10 @@ def _assert_schema(database: Path) -> None:
     assert EVENT_INDEXES == _names(inspector.get_indexes("ml_intern_training_events"))
     assert CAPACITY_INDEXES == _names(inspector.get_indexes("ml_intern_training_capacity_leases"))
     assert EXECUTION_INDEXES == _names(inspector.get_indexes("ml_intern_training_execution_leases"))
+    assert ADAPTER_INDEXES == _names(inspector.get_indexes("ml_intern_speech_adapters"))
+    assert {"ix_ml_intern_speech_adapter_legacy_imports_imported_at_ms"} == _names(
+        inspector.get_indexes("ml_intern_speech_adapter_legacy_imports")
+    )
 
     job_foreign_keys = inspector.get_foreign_keys("ml_intern_training_jobs")
     assert any(item["referred_table"] == "ml_intern_datasets" for item in job_foreign_keys)
@@ -167,6 +208,8 @@ def test_ml_intern_training_migration_up_down_and_reupgrade(tmp_path: Path) -> N
         "ml_intern_training_execution_leases",
         "ml_intern_training_attempts",
         "ml_intern_training_events",
+        "ml_intern_speech_adapters",
+        "ml_intern_speech_adapter_legacy_imports",
     }.intersection(inspector.get_table_names())
 
     _alembic(database, "upgrade", "head")

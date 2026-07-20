@@ -1,0 +1,129 @@
+{
+  "schema": "ananta.semantic-media-domain-vectors.v1",
+  "reference_clock_ms": 1000000,
+  "domains": [
+    {
+      "name": "envelope",
+      "allowed_fields": ["sequence", "expires_at_ms"],
+      "integer_rule": {"field": "sequence", "minimum": 1, "maximum": 9007199254740991},
+      "time_rule": {"field": "expires_at_ms", "mode": "expires_after_clock", "max_delta_ms": 600000},
+      "vectors": [
+        {"id": "envelope-valid", "case": "valid", "input": {"sequence": 1, "expires_at_ms": 1000001}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "envelope-maximum", "case": "maximum-bound", "input": {"sequence": 9007199254740991, "expires_at_ms": 1600000}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "envelope-unknown", "case": "unknown-field", "input": {"sequence": 1, "expires_at_ms": 1000001, "unexpected": true}, "expected": {"accepted": false, "reason_code": "unknown_field"}},
+        {"id": "envelope-overflow", "case": "integer-overflow", "input": {"sequence": 9007199254740992, "expires_at_ms": 1000001}, "expected": {"accepted": false, "reason_code": "integer_out_of_bounds"}},
+        {"id": "envelope-stale", "case": "stale-time", "input": {"sequence": 1, "expires_at_ms": 969999}, "expected": {"accepted": false, "reason_code": "stale_time"}},
+        {"id": "envelope-non-finite", "case": "non-finite", "input": {"sequence": "__NON_FINITE__", "expires_at_ms": 1000001}, "expected": {"accepted": false, "reason_code": "non_finite"}}
+      ]
+    },
+    {
+      "name": "permission",
+      "allowed_fields": ["max_delay_ms", "measurements_expires_at_ms"],
+      "integer_rule": {"field": "max_delay_ms", "minimum": 2000, "maximum": 20000},
+      "time_rule": {"field": "measurements_expires_at_ms", "mode": "expires_after_clock", "max_delta_ms": 300000},
+      "vectors": [
+        {"id": "permission-valid", "case": "valid", "input": {"max_delay_ms": 2000, "measurements_expires_at_ms": 1000001}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "permission-maximum", "case": "maximum-bound", "input": {"max_delay_ms": 20000, "measurements_expires_at_ms": 1300000}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "permission-unknown", "case": "unknown-field", "input": {"max_delay_ms": 2000, "measurements_expires_at_ms": 1000001, "grant_all": true}, "expected": {"accepted": false, "reason_code": "unknown_field"}},
+        {"id": "permission-overflow", "case": "integer-overflow", "input": {"max_delay_ms": 20001, "measurements_expires_at_ms": 1000001}, "expected": {"accepted": false, "reason_code": "integer_out_of_bounds"}},
+        {"id": "permission-stale", "case": "stale-time", "input": {"max_delay_ms": 2000, "measurements_expires_at_ms": 1000000}, "expected": {"accepted": false, "reason_code": "stale_time"}}
+      ]
+    },
+    {
+      "name": "contract",
+      "allowed_fields": ["deadline_ms", "expires_at_ms"],
+      "integer_rule": {"field": "deadline_ms", "minimum": 100, "maximum": 20000},
+      "time_rule": {"field": "expires_at_ms", "mode": "expires_after_clock", "max_delta_ms": 600000},
+      "vectors": [
+        {"id": "contract-valid", "case": "valid", "input": {"deadline_ms": 100, "expires_at_ms": 1000001}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "contract-maximum", "case": "maximum-bound", "input": {"deadline_ms": 20000, "expires_at_ms": 1600000}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "contract-unknown", "case": "unknown-field", "input": {"deadline_ms": 100, "expires_at_ms": 1000001, "override_policy": true}, "expected": {"accepted": false, "reason_code": "unknown_field"}},
+        {"id": "contract-overflow", "case": "integer-overflow", "input": {"deadline_ms": 20001, "expires_at_ms": 1000001}, "expected": {"accepted": false, "reason_code": "integer_out_of_bounds"}},
+        {"id": "contract-stale", "case": "stale-time", "input": {"deadline_ms": 100, "expires_at_ms": 1000000}, "expected": {"accepted": false, "reason_code": "stale_time"}}
+      ]
+    },
+    {
+      "name": "lease",
+      "allowed_fields": ["fencing_token", "expires_at_ms", "executor_id"],
+      "integer_rule": {"field": "fencing_token", "minimum": 1, "maximum": 9007199254740991},
+      "time_rule": {"field": "expires_at_ms", "mode": "expires_after_clock", "max_delta_ms": 300000},
+      "vectors": [
+        {"id": "lease-valid", "case": "valid", "input": {"fencing_token": 1, "expires_at_ms": 1000001}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "lease-worker-url", "case": "valid-executor-url", "input": {"fencing_token": 1, "expires_at_ms": 1000001, "executor_id": "http://semantic-worker:5000"}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "lease-unsafe-worker-url", "case": "unsafe-executor-url", "input": {"fencing_token": 1, "expires_at_ms": 1000001, "executor_id": "http://user:secret@semantic-worker:5000/#fragment"}, "expected": {"accepted": false, "reason_code": "unsafe_executor"}},
+        {"id": "lease-maximum", "case": "maximum-bound", "input": {"fencing_token": 9007199254740991, "expires_at_ms": 1300000}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "lease-unknown", "case": "unknown-field", "input": {"fencing_token": 1, "expires_at_ms": 1000001, "may_create_tasks": true}, "expected": {"accepted": false, "reason_code": "unknown_field"}},
+        {"id": "lease-overflow", "case": "integer-overflow", "input": {"fencing_token": 9007199254740992, "expires_at_ms": 1000001}, "expected": {"accepted": false, "reason_code": "integer_out_of_bounds"}},
+        {"id": "lease-stale", "case": "stale-time", "input": {"fencing_token": 1, "expires_at_ms": 1000000}, "expected": {"accepted": false, "reason_code": "stale_time"}},
+        {"id": "lease-non-finite", "case": "non-finite", "input": {"fencing_token": "__NON_FINITE__", "expires_at_ms": 1000001}, "expected": {"accepted": false, "reason_code": "non_finite"}}
+      ]
+    },
+    {
+      "name": "scene",
+      "allowed_fields": ["sequence", "captured_at_ms"],
+      "integer_rule": {"field": "sequence", "minimum": 0, "maximum": 9007199254740991},
+      "time_rule": {"field": "captured_at_ms", "mode": "issued_not_future", "max_delta_ms": 60000},
+      "vectors": [
+        {"id": "scene-valid", "case": "valid", "input": {"sequence": 0, "captured_at_ms": 1000000}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "scene-maximum", "case": "maximum-bound", "input": {"sequence": 9007199254740991, "captured_at_ms": 940000}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "scene-unknown", "case": "unknown-field", "input": {"sequence": 0, "captured_at_ms": 1000000, "raw_frame": "forbidden"}, "expected": {"accepted": false, "reason_code": "unknown_field"}},
+        {"id": "scene-overflow", "case": "integer-overflow", "input": {"sequence": 9007199254740992, "captured_at_ms": 1000000}, "expected": {"accepted": false, "reason_code": "integer_out_of_bounds"}},
+        {"id": "scene-stale", "case": "stale-time", "input": {"sequence": 0, "captured_at_ms": 939999}, "expected": {"accepted": false, "reason_code": "stale_time"}},
+        {"id": "scene-non-finite", "case": "non-finite", "input": {"sequence": "__NON_FINITE__", "captured_at_ms": 1000000}, "expected": {"accepted": false, "reason_code": "non_finite"}}
+      ]
+    },
+    {
+      "name": "speech",
+      "allowed_fields": ["revision", "expires_at_ms"],
+      "integer_rule": {"field": "revision", "minimum": 1, "maximum": 2147483647},
+      "time_rule": {"field": "expires_at_ms", "mode": "expires_after_clock", "max_delta_ms": 600000},
+      "vectors": [
+        {"id": "speech-valid", "case": "valid", "input": {"revision": 1, "expires_at_ms": 1000001}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "speech-maximum", "case": "maximum-bound", "input": {"revision": 2147483647, "expires_at_ms": 1600000}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "speech-unknown", "case": "unknown-field", "input": {"revision": 1, "expires_at_ms": 1000001, "prompt": "forbidden"}, "expected": {"accepted": false, "reason_code": "unknown_field"}},
+        {"id": "speech-overflow", "case": "integer-overflow", "input": {"revision": 2147483648, "expires_at_ms": 1000001}, "expected": {"accepted": false, "reason_code": "context_mismatch"}},
+        {"id": "speech-stale", "case": "stale-time", "input": {"revision": 1, "expires_at_ms": 1000000}, "expected": {"accepted": false, "reason_code": "context_mismatch"}}
+      ]
+    },
+    {
+      "name": "evidence",
+      "allowed_fields": ["sequence", "expires_at_ms"],
+      "integer_rule": {"field": "sequence", "minimum": 1, "maximum": 9007199254740991},
+      "time_rule": {"field": "expires_at_ms", "mode": "expires_after_clock", "max_delta_ms": 600000},
+      "vectors": [
+        {"id": "evidence-valid", "case": "valid", "input": {"sequence": 1, "expires_at_ms": 1000001}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "evidence-maximum", "case": "maximum-bound", "input": {"sequence": 9007199254740991, "expires_at_ms": 1600000}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "evidence-unknown", "case": "unknown-field", "input": {"sequence": 1, "expires_at_ms": 1000001, "raw_audio": "forbidden"}, "expected": {"accepted": false, "reason_code": "unknown_field"}},
+        {"id": "evidence-overflow", "case": "integer-overflow", "input": {"sequence": 9007199254740992, "expires_at_ms": 1000001}, "expected": {"accepted": false, "reason_code": "integer_out_of_bounds"}},
+        {"id": "evidence-stale", "case": "stale-time", "input": {"sequence": 1, "expires_at_ms": 1000000}, "expected": {"accepted": false, "reason_code": "stale_time"}}
+      ]
+    },
+    {
+      "name": "reconciliation",
+      "allowed_fields": ["consent_version", "deadline_at_ms"],
+      "integer_rule": {"field": "consent_version", "minimum": 1, "maximum": 2147483647},
+      "time_rule": {"field": "deadline_at_ms", "mode": "expires_after_clock", "max_delta_ms": 2592000000},
+      "vectors": [
+        {"id": "reconciliation-valid", "case": "valid", "input": {"consent_version": 1, "deadline_at_ms": 1060000}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "reconciliation-maximum", "case": "maximum-bound", "input": {"consent_version": 2147483647, "deadline_at_ms": 2593000000}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "reconciliation-unknown", "case": "unknown-field", "input": {"consent_version": 1, "deadline_at_ms": 1060000, "publish_directly": true}, "expected": {"accepted": false, "reason_code": "unknown_field"}},
+        {"id": "reconciliation-overflow", "case": "integer-overflow", "input": {"consent_version": 2147483648, "deadline_at_ms": 1060000}, "expected": {"accepted": false, "reason_code": "integer_out_of_bounds"}},
+        {"id": "reconciliation-stale", "case": "stale-time", "input": {"consent_version": 1, "deadline_at_ms": 1000000}, "expected": {"accepted": false, "reason_code": "stale_time"}}
+      ]
+    },
+    {
+      "name": "training",
+      "allowed_fields": ["artifact_size_bytes", "consent_expires_at_ms"],
+      "integer_rule": {"field": "artifact_size_bytes", "minimum": 1, "maximum": 8589934592},
+      "time_rule": {"field": "consent_expires_at_ms", "mode": "expires_after_clock", "max_delta_ms": 2592000000},
+      "vectors": [
+        {"id": "training-valid", "case": "valid", "input": {"artifact_size_bytes": 1, "consent_expires_at_ms": 1120000}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "training-maximum", "case": "maximum-bound", "input": {"artifact_size_bytes": 8589934592, "consent_expires_at_ms": 2593000000}, "expected": {"accepted": true, "reason_code": "accepted"}},
+        {"id": "training-unknown", "case": "unknown-field", "input": {"artifact_size_bytes": 1, "consent_expires_at_ms": 1120000, "activate_adapter": true}, "expected": {"accepted": false, "reason_code": "unknown_field"}},
+        {"id": "training-overflow", "case": "integer-overflow", "input": {"artifact_size_bytes": 8589934593, "consent_expires_at_ms": 1120000}, "expected": {"accepted": false, "reason_code": "integer_out_of_bounds"}},
+        {"id": "training-stale", "case": "stale-time", "input": {"artifact_size_bytes": 1, "consent_expires_at_ms": 1000000}, "expected": {"accepted": false, "reason_code": "stale_time"}},
+        {"id": "training-non-finite", "case": "non-finite", "input": {"artifact_size_bytes": "__NON_FINITE__", "consent_expires_at_ms": 1120000}, "expected": {"accepted": false, "reason_code": "non_finite"}}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "now_ms": 10000,
+  "context": {
+    "session_id": "session-a",
+    "epoch": 2,
+    "local_peer_id": "alice",
+    "remote_peer_id": "bob",
+    "consent_version": 3,
+    "contract_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "base": {
+    "version": "ananta.semantic-speech.v1",
+    "kind": "transcript_revision",
+    "session_id": "session-a",
+    "epoch": 2,
+    "turn_id": "turn-a",
+    "revision": 1,
+    "sender_id": "alice",
+    "audience_id": "bob",
+    "consent_version": 3,
+    "expires_at_ms": 20000,
+    "contract_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "source_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "authority": "provisional",
+    "text": "Hallo"
+  },
+  "cases": [
+    { "name": "valid", "patch": {}, "expected": "accept" },
+    { "name": "legacy", "patch": { "version": "ananta.semantic-speech.v0" }, "expected": "semantic_speech_context_mismatch" },
+    { "name": "oversize", "text_repeat": { "value": "x", "count": 16385 }, "expected": "semantic_speech_text_invalid" },
+    { "name": "stale", "patch": { "expires_at_ms": 9999 }, "expected": "semantic_speech_context_mismatch" },
+    { "name": "tamper", "patch": { "contract_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" }, "expected": "semantic_speech_context_mismatch" },
+    { "name": "unknown_field", "patch": { "local_path": "/secret/audio.wav" }, "expected": "semantic_speech_unknown_field" }
+  ]
+}

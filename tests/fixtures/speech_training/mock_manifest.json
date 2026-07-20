@@ -1,0 +1,12 @@
+{
+  "schema_version": "ananta.speech-training-mock-fixture.v1",
+  "dataset": {
+    "kind": "synthetic-no-audio",
+    "train_sample_count": 4,
+    "validation_sample_count": 2
+  },
+  "backend": "mock",
+  "seed": 7,
+  "max_steps": 3,
+  "quality_claim": false
+}

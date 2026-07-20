@@ -50,8 +50,8 @@ RELEASE_IMAGE_FILES = [
 RELEASE_CI_FILE = ".github/workflows/quality-and-docs.yml"
 WORKFLOW_GLOB = ".github/workflows/*.yml"
 EXACT_PYTHON_VERSION = "3.11.15"
-EXACT_NODE_VERSION = "20.19.5"
-APT_SNAPSHOT = "20260406T000000Z"
+EXACT_NODE_VERSION = "24.18.0"
+APT_SNAPSHOT = "20260715T000000Z"
 CLIENT_SURFACE_GATE_REPORT = "ci-artifacts/client-surface-release-gate.json"
 CLIENT_SURFACE_ALLOWED_STATUSES = {
     "foundation_only",

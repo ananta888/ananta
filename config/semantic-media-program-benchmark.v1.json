@@ -1,0 +1,58 @@
+{
+  "schema": "ananta.semantic-media-program-benchmark-policy.v1",
+  "seed": 87431,
+  "source_fixture": {
+    "duration_seconds": 20,
+    "width": 1280,
+    "height": 720,
+    "framerate": 30,
+    "audio_format": "pcm-s16le-48khz-mono",
+    "units_per_second": 4,
+    "ordinary_unit_bytes": 4096
+  },
+  "matrix": {
+    "windows_seconds": [2, 10, 20],
+    "receiver_counts": [2, 10, 100],
+    "live_topologies": ["pair", "group", "evidence"],
+    "offline_factors": [1, 2, 5, 10, 20],
+    "network_profiles": ["udp-loopback-direct"]
+  },
+  "execution_limits": {
+    "maximum_run_seconds": 180,
+    "maximum_row_seconds": 12,
+    "receive_grace_milliseconds": 3000,
+    "maximum_datagram_bytes": 16384,
+    "minimum_latency_samples": 8,
+    "offline_iterations": 12
+  },
+  "thresholds": {
+    "maximum_live_p95_ratio_micros": 1050000,
+    "maximum_live_p99_ratio_micros": 1050000,
+    "maximum_resource_growth_per_receiver_bytes": 16777216,
+    "minimum_quality_score_micros": 950000,
+    "maximum_packet_loss_micros": 0,
+    "offline_sound_p95_ms": 35,
+    "offline_sound_p99_ms": 60,
+    "offline_text_p95_ms": 45,
+    "offline_text_p99_ms": 75,
+    "offline_ui_p95_ms": 55,
+    "offline_ui_p99_ms": 90
+  },
+  "required_live_telemetry": [
+    "ingress_bytes",
+    "egress_bytes",
+    "turn_bytes",
+    "cpu_micros",
+    "gpu_micros",
+    "ram_bytes",
+    "vram_bytes",
+    "disk_bytes",
+    "energy_microwh",
+    "latency_p50_ms",
+    "latency_p95_ms",
+    "latency_p99_ms",
+    "worst_burst_bytes",
+    "recovery_ms",
+    "open_resources"
+  ]
+}
