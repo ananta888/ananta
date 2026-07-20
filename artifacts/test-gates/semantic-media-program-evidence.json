@@ -75,7 +75,7 @@
       "status": "passed"
     },
     {
-      "evidence_sha256": "0db8c50d85170fd0a59b5462ba9eb344dba959b9201b521156cfbe24c9128bc5",
+      "evidence_sha256": "d487afe1f3baa5dc84ffb1ed2291b24e8bfae516c40ff79c2e797e706d12236f",
       "id": "m3_sfu_live",
       "reason_codes": [
         "load_drops_exceeded"
@@ -89,7 +89,7 @@
       "status": "passed"
     },
     {
-      "evidence_sha256": "f8aa6782301723268802da90f31067fbc56e9bda08fceedfde2197304f2fdfec",
+      "evidence_sha256": "030e456d006766df0b3dfe8d106940bfc89fbd1b4d6cb1433f6b226eed002164",
       "id": "m5_visual_activation",
       "reason_codes": [
         "benchmark_burst_exceeded",
@@ -182,16 +182,10 @@
       "status": "passed"
     },
     {
-      "evidence_sha256": "d568b0fab25f221e982575443c53ec38c9cd5f089a04d63a8a38005e3296ab18",
+      "evidence_sha256": "693ef47ddddb9b587af9f9103d02e55e037794beb633f2c153d0098091429f9d",
       "id": "qa_group_e2e",
-      "reason_codes": [
-        "group_hub_authority_evidence_missing",
-        "live_browser_gate_failed",
-        "live_browser_project_chromium_failed",
-        "live_browser_project_firefox_failed",
-        "live_browser_result_not_passed"
-      ],
-      "status": "failed"
+      "reason_codes": [],
+      "status": "passed"
     },
     {
       "evidence_sha256": "8e9acb2a688a52e85559155f7266b1fe1ab4285063df76197013755afc4cff36",
@@ -256,14 +250,12 @@
       "status": "passed"
     },
     {
-      "evidence_sha256": "1237553664dd6b82f74a5ef1414daab6221dc044b1986d1f364842ffc9cf83f4",
+      "evidence_sha256": "265a56e730ef7611c0b60b2e05dff63a65a3eb8d13a913c334931eba30b1f13e",
       "id": "ASMP-M1",
       "reason_codes": [
         "cross_engine_peer_sync_evidence_missing",
-        "group_hub_authority_evidence_missing",
         "live_browser_gate_failed",
         "live_browser_project_chromium_failed",
-        "live_browser_project_firefox_failed",
         "live_browser_result_not_passed"
       ],
       "status": "failed"
@@ -283,15 +275,13 @@
       "status": "failed"
     },
     {
-      "evidence_sha256": "6a0e42caee22992cbe7a7b3637ed09517f45175a5c9856ba5743962380e567fc",
+      "evidence_sha256": "41f33421184633c922ce478467eb640f9828effe88901de043e2ae0b5680c627",
       "id": "ASMP-M11",
       "reason_codes": [
         "cross_engine_peer_sync_evidence_missing",
         "gate_timeout",
-        "group_hub_authority_evidence_missing",
         "live_browser_gate_failed",
         "live_browser_project_chromium_failed",
-        "live_browser_project_firefox_failed",
         "live_browser_result_not_passed",
         "load_drops_exceeded",
         "program_benchmark_energy_microwh_telemetry_unavailable",
@@ -316,14 +306,12 @@
       "status": "passed"
     },
     {
-      "evidence_sha256": "6f8e7d3587dc1c9e5cfcf2c850afa30da230de22d6d04c1d8d874014876119e0",
+      "evidence_sha256": "57cfded51e5fa358e082c61008dfcbfe30489108259b710d9c8f75ace3967c8e",
       "id": "ASMP-M3",
       "reason_codes": [
         "cross_engine_peer_sync_evidence_missing",
-        "group_hub_authority_evidence_missing",
         "live_browser_gate_failed",
         "live_browser_project_chromium_failed",
-        "live_browser_project_firefox_failed",
         "live_browser_result_not_passed",
         "load_drops_exceeded",
         "program_benchmark_energy_microwh_telemetry_unavailable",
@@ -343,7 +331,7 @@
       "status": "passed"
     },
     {
-      "evidence_sha256": "e7dec3bce0a1e28d4efda0e630c9151018fdd92615227d2d4c6b9cad715fbff4",
+      "evidence_sha256": "240050c6975972f69e2b7bcd4f40b976b44f368e5dce8250350f4e7a2483d7b0",
       "id": "ASMP-M5",
       "reason_codes": [
         "benchmark_burst_exceeded",
@@ -401,10 +389,8 @@
     "benchmark_p95_byte_burst_exceeded",
     "cross_engine_peer_sync_evidence_missing",
     "gate_timeout",
-    "group_hub_authority_evidence_missing",
     "live_browser_gate_failed",
     "live_browser_project_chromium_failed",
-    "live_browser_project_firefox_failed",
     "live_browser_result_not_passed",
     "load_drops_exceeded",
     "program_benchmark_energy_microwh_telemetry_unavailable",
@@ -769,14 +755,9 @@
       "status": "failed"
     },
     {
-      "evidence_sha256": "982c185d132a866fa246d6308d644c4b141f81f1ec356027bcee32fef2f93e47",
+      "evidence_sha256": "ff0ad503d465c52b722a31c34c8c0ca71d46b3bdcf5ef6c276013398dd831a1a",
       "id": "ASMP-QA-006",
       "reason_codes": [
-        "group_hub_authority_evidence_missing",
-        "live_browser_gate_failed",
-        "live_browser_project_chromium_failed",
-        "live_browser_project_firefox_failed",
-        "live_browser_result_not_passed",
         "load_drops_exceeded"
       ],
       "status": "failed"
@@ -879,16 +860,10 @@
       "status": "failed"
     },
     {
-      "evidence_sha256": "71e3a605e130297cd56002b545a93e49cb82182c025847b7f101cb2fbb84bacc",
+      "evidence_sha256": "fae69253d16598b62386f8b0128ad962039d7f42cd1f344710b045a51be073a4",
       "id": "ASMP-SEC-008",
-      "reason_codes": [
-        "group_hub_authority_evidence_missing",
-        "live_browser_gate_failed",
-        "live_browser_project_chromium_failed",
-        "live_browser_project_firefox_failed",
-        "live_browser_result_not_passed"
-      ],
-      "status": "failed"
+      "reason_codes": [],
+      "status": "passed"
     },
     {
       "evidence_sha256": "7764fbe53720468e0ecc2ed19f80bcd9aea812c62f0b7efd14db77e9a5da230a",
@@ -948,7 +923,7 @@
       "status": "failed"
     },
     {
-      "evidence_sha256": "7767d0446e896e048b7cd87703e5f2cd123c9c60adcaa4827fe731b7bf132891",
+      "evidence_sha256": "7e90a584598b6eb62a45bcc64aaf97af96f8e03f2d98503c558192f52f366edb",
       "id": "ASMP-SFU-004",
       "reason_codes": [
         "load_drops_exceeded"
@@ -956,7 +931,7 @@
       "status": "failed"
     },
     {
-      "evidence_sha256": "b8905bf4d484ff8e885afc0633e5d0753b5011ef8beaa12d365bb8c12193c204",
+      "evidence_sha256": "a88adfcaef0fd605dc28010343146161bfbfefb818c24808c3378f7c74b73002",
       "id": "ASMP-SFU-005",
       "reason_codes": [
         "load_drops_exceeded"
@@ -964,7 +939,7 @@
       "status": "failed"
     },
     {
-      "evidence_sha256": "7767d0446e896e048b7cd87703e5f2cd123c9c60adcaa4827fe731b7bf132891",
+      "evidence_sha256": "7e90a584598b6eb62a45bcc64aaf97af96f8e03f2d98503c558192f52f366edb",
       "id": "ASMP-SFU-006",
       "reason_codes": [
         "load_drops_exceeded"
@@ -972,7 +947,7 @@
       "status": "failed"
     },
     {
-      "evidence_sha256": "17010a3a3e93f4d648a24482582b205bff0f20d8e201c3c68c462e8f55a1accb",
+      "evidence_sha256": "8539388275595d0755f7b6685d4972f992ba8dbd4f19d776cb0a109e74c33cd9",
       "id": "ASMP-SFU-007",
       "reason_codes": [
         "load_drops_exceeded"
@@ -980,40 +955,25 @@
       "status": "failed"
     },
     {
-      "evidence_sha256": "1ad6d3723cd5c482afc50ff33e6008d8f9ae5dbce12b4fc8c8d6dbc1ca1e1fa1",
+      "evidence_sha256": "ce24972be4e5fe396d924143fa9877087d1e90032758404e51ef8dbfde98fce8",
       "id": "ASMP-SFU-008",
       "reason_codes": [
-        "group_hub_authority_evidence_missing",
-        "live_browser_gate_failed",
-        "live_browser_project_chromium_failed",
-        "live_browser_project_firefox_failed",
-        "live_browser_result_not_passed",
         "load_drops_exceeded"
       ],
       "status": "failed"
     },
     {
-      "evidence_sha256": "1ad6d3723cd5c482afc50ff33e6008d8f9ae5dbce12b4fc8c8d6dbc1ca1e1fa1",
+      "evidence_sha256": "ce24972be4e5fe396d924143fa9877087d1e90032758404e51ef8dbfde98fce8",
       "id": "ASMP-SFU-009",
       "reason_codes": [
-        "group_hub_authority_evidence_missing",
-        "live_browser_gate_failed",
-        "live_browser_project_chromium_failed",
-        "live_browser_project_firefox_failed",
-        "live_browser_result_not_passed",
         "load_drops_exceeded"
       ],
       "status": "failed"
     },
     {
-      "evidence_sha256": "81bae2f10b9b71f4d9e34435048a8bc6b010d569756f60e77c9b86bbe00145c3",
+      "evidence_sha256": "85ea1b6ee77ebb9c151b924c8568123dda4de66af05a0ef5696b1af46c2ed22d",
       "id": "ASMP-SFU-010",
       "reason_codes": [
-        "group_hub_authority_evidence_missing",
-        "live_browser_gate_failed",
-        "live_browser_project_chromium_failed",
-        "live_browser_project_firefox_failed",
-        "live_browser_result_not_passed",
         "load_drops_exceeded",
         "program_benchmark_energy_microwh_telemetry_unavailable",
         "program_benchmark_gpu_micros_telemetry_unavailable",
@@ -1312,7 +1272,7 @@
       "status": "passed"
     },
     {
-      "evidence_sha256": "6a2aa55b87b196e74bbed1ec17c8410c7c193607fbe70fb1b7502a7dd652c225",
+      "evidence_sha256": "f48348d8898ea8267c18140b9de90d8ac1143c7526da4a6f549859c9f36ccda3",
       "id": "ASMP-VIS-012",
       "reason_codes": [
         "benchmark_burst_exceeded",

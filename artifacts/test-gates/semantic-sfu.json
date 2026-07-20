@@ -1,8 +1,8 @@
 {
   "schema": "ananta.semantic-sfu-release-gate.v1",
   "gate": "semantic-sfu",
-  "source_sha256": "66ebdb1c15f2a34f686eb88644dcd8976657186090329908d0749fa31b1ea76b",
-  "config_sha256": "22b091d475cd080f9275cba461dbc7999ca4b2250838e305cb1513755ae4dd41",
+  "source_sha256": "2c3e7e2dcf2727258c53e2c690c4f483ada5ce5f76bedb9677e6e0277e181e5f",
+  "config_sha256": "51e7ffe26cca1109ce9af45e22f2bdeae5f0a9dfe9bef0b32ba83a21d11487bc",
   "evidence_recomputed": true,
   "tests": [
     {
@@ -29,8 +29,8 @@
   "measurements": {
     "external_live_failover_verified": true,
     "live_failover_browser_engine_count": 2,
-    "sfu_boundary_packet_count": 8102,
-    "turn_boundary_packet_count": 1586,
+    "sfu_boundary_packet_count": 8336,
+    "turn_boundary_packet_count": 1570,
     "turn_relay_engine_count": 2
   },
   "reasons": [

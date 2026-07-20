@@ -8,7 +8,7 @@
   },
   "inputs": {
     "benchmark_sha256": "f40948d1c1d1d538660b24995e8fe01e658d536138523755dc94b61ea6ff1cd6",
-    "lifecycle_e2e_sha256": "e304fd6a7a32792d1b8c70ad096c6957e53aa593cbe5f56205caeef45da18e96",
+    "lifecycle_e2e_sha256": "4372a30d50b1ec119b18f91a8138ba3adc93dba5ea82d2bfa5a4e905c7ae1e93",
     "spike_sha256": "c9dc01bea5428b7a713931d6c1fb791b4d1c7dafc44ad98bcb62e9260dd95ba3"
   },
   "lifecycle_e2e_passed": true,
