@@ -38,6 +38,10 @@ export interface SemanticMediaFeatureFlags {
   semantic_visual_capture: boolean;
   semantic_speech_runtime: boolean;
   semantic_media_sfu: boolean;
+  semantic_media_broadcast: boolean;
+  semantic_media_receiver_groups: boolean;
+  semantic_media_fleet_admission: boolean;
+  semantic_media_turn_cost_controls: boolean;
   semantic_media_background_operations: boolean;
   peer_evidence_sync: boolean;
   speech_reconciliation: boolean;
@@ -50,6 +54,10 @@ export const SEMANTIC_MEDIA_FEATURE_DEFAULTS: Readonly<SemanticMediaFeatureFlags
   semantic_visual_capture: false,
   semantic_speech_runtime: false,
   semantic_media_sfu: false,
+  semantic_media_broadcast: false,
+  semantic_media_receiver_groups: false,
+  semantic_media_fleet_admission: false,
+  semantic_media_turn_cost_controls: false,
   semantic_media_background_operations: false,
   peer_evidence_sync: false,
   speech_reconciliation: false,
@@ -62,6 +70,7 @@ export function normalizeSemanticMediaFeatureFlags(value: unknown): SemanticMedi
   const requested = (key: keyof SemanticMediaFeatureFlags): boolean => candidate[key] === true;
   const background = requested('semantic_media_background_operations');
   const speech = requested('semantic_speech_runtime');
+  const broadcast = requested('semantic_media_broadcast');
   const evidence = requested('peer_evidence_sync') && speech && background;
   const reconciliation = requested('speech_reconciliation') && evidence && background;
   const training = requested('speech_adaptation_training') && reconciliation && background;
@@ -70,6 +79,10 @@ export function normalizeSemanticMediaFeatureFlags(value: unknown): SemanticMedi
     semantic_visual_capture: requested('semantic_visual_capture'),
     semantic_speech_runtime: speech,
     semantic_media_sfu: requested('semantic_media_sfu'),
+    semantic_media_broadcast: broadcast,
+    semantic_media_receiver_groups: requested('semantic_media_receiver_groups') && broadcast,
+    semantic_media_fleet_admission: requested('semantic_media_fleet_admission') && broadcast,
+    semantic_media_turn_cost_controls: requested('semantic_media_turn_cost_controls') && broadcast,
     semantic_media_background_operations: background,
     peer_evidence_sync: evidence,
     speech_reconciliation: reconciliation,

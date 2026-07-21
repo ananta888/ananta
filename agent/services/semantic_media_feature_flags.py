@@ -9,6 +9,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any, Mapping
 
+from agent.services.sfu_broadcast_feature_policy import (
+    SFB_BROADCAST_FEATURE_DEFINITIONS,
+)
 
 @dataclass(frozen=True, slots=True)
 class SemanticMediaFeatureDefinition:
@@ -85,6 +88,18 @@ SEMANTIC_MEDIA_FEATURE_CATALOG: tuple[SemanticMediaFeatureDefinition, ...] = (
         scope="inference_profile",
         depends_on=("speech_adaptation_training", SEMANTIC_MEDIA_BACKGROUND_OPERATIONS),
         background_operation=True,
+    ),
+    *(
+        SemanticMediaFeatureDefinition(
+            key=definition.key,
+            env_key=definition.env_key,
+            owner=definition.owner,
+            scope=definition.scope,
+            default=definition.default,
+            depends_on=definition.depends_on,
+            background_operation=definition.background_operation,
+        )
+        for definition in SFB_BROADCAST_FEATURE_DEFINITIONS
     ),
 )
 

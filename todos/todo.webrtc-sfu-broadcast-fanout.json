@@ -621,11 +621,11 @@
           "SFB-BASE-007"
         ],
         "total": 5,
-        "todo": 5,
+        "todo": 4,
         "in_progress": 0,
         "partial": 0,
         "blocked": 0,
-        "done": 0
+        "done": 1
       },
       "S1_contracts_config_flags": {
         "order": 1,
@@ -649,11 +649,11 @@
           "SFB-CON-008"
         ],
         "total": 16,
-        "todo": 16,
+        "todo": 15,
         "in_progress": 0,
         "partial": 0,
         "blocked": 0,
-        "done": 0
+        "done": 1
       },
       "S2_control_plane_harness": {
         "order": 2,
@@ -930,8 +930,8 @@
       "description": "Der Folgetrack darf erst aktiv werden, wenn die referenzierten Security-, Transport-, SFU- und Contract-Gates tatsaechlich abgeschlossen und nachweisbar sind.",
       "type": "release_gate",
       "milestone_id": "SFB-M0",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -992,8 +992,8 @@
       "description": "Advanced Broadcast bleibt standardmaessig deaktiviert; der bestehende Parent-Katalog bleibt einzige statische Flag-Source-of-Truth. Persistenz, Adminmutation und Nodeprojektion liegen getrennt in SFB-BASE-008, SFB-BASE-009 und SFB-OPS-013.",
       "type": "configuration",
       "milestone_id": "SFB-M0",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -4208,13 +4208,13 @@
   "tasks_status_summary": {
     "total": 103,
     "by_status": {
-      "todo": 103,
+      "todo": 101,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 2
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 1.94,
     "by_priority": {
       "P0": 47,
       "P1": 56,
@@ -4229,8 +4229,8 @@
     },
     "critical_path": {
       "total": 32,
-      "done": 0,
-      "remaining": 32
+      "done": 1,
+      "remaining": 31
     },
     "milestones": {
       "total": 8,
@@ -4277,34 +4277,34 @@
       },
       "release_gate": {
         "total": 7,
-        "done": 0,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 6,
+        "in_progress": 0,
+        "progress_percent": 14.3,
+        "by_status": {
+          "todo": 6,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "configuration": {
+        "total": 8,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
         "todo": 7,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 12.5,
         "by_status": {
           "todo": 7,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
-      },
-      "configuration": {
-        "total": 8,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 8,
-        "in_progress": 0,
-        "progress_percent": 0.0,
-        "by_status": {
-          "todo": 8,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "backend": {
@@ -4502,12 +4502,12 @@
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 103,
+    "state": "in_progress",
+    "todo_remaining": 101,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0,
+    "done": 2,
     "milestones_done": 0,
     "milestones_total": 8
   }

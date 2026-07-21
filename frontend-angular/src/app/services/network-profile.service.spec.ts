@@ -53,6 +53,10 @@ describe('NetworkProfileService semantic media flags', () => {
       transport_order: ['hub_relay'], warning: '',
       semantic_media_feature_flags: {
         ...SEMANTIC_MEDIA_FEATURE_DEFAULTS,
+        semantic_media_broadcast: true,
+        semantic_media_receiver_groups: true,
+        semantic_media_fleet_admission: true,
+        semantic_media_turn_cost_controls: true,
         semantic_speech_runtime: true,
         semantic_media_background_operations: true,
         peer_evidence_sync: true,
@@ -69,5 +73,9 @@ describe('NetworkProfileService semantic media flags', () => {
     await service.load();
     expect(service.current.semantic_media_feature_flags.peer_evidence_sync).toBe(true);
     expect(service.current.semantic_media_feature_flags.speech_reconciliation).toBe(false);
+    expect(service.current.semantic_media_feature_flags.semantic_media_broadcast).toBe(true);
+    expect(service.current.semantic_media_feature_flags.semantic_media_receiver_groups).toBe(true);
+    expect(service.current.semantic_media_feature_flags.semantic_media_fleet_admission).toBe(true);
+    expect(service.current.semantic_media_feature_flags.semantic_media_turn_cost_controls).toBe(true);
   });
 });

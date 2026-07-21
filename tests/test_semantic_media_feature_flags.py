@@ -28,6 +28,10 @@ def test_catalog_has_separate_owned_default_deny_capabilities() -> None:
     assert len(definitions) == len(SEMANTIC_MEDIA_FEATURE_CATALOG)
     assert all(item.owner == "hub" for item in definitions.values())
     assert all(item.scope and item.default is False for item in definitions.values())
+    assert "semantic_media_broadcast" in definitions
+    assert "semantic_media_receiver_groups" in definitions
+    assert "semantic_media_fleet_admission" in definitions
+    assert "semantic_media_turn_cost_controls" in definitions
     assert all(key in _SCHEMA_KEYS and _DEFAULTS[key] is False for key in definitions)
 
 
@@ -56,6 +60,26 @@ def test_dependencies_and_background_kill_switch_are_fail_closed() -> None:
     assert resolved["speech_reconciliation"] is False
     assert resolved["speech_adaptation_training"] is False
     assert resolved["speech_adapter_routing"] is False
+
+
+def test_broadcast_defaults_and_dependencies_are_fail_closed() -> None:
+    requested = {"semantic_media_broadcast": True}
+    assert resolve_semantic_media_feature_flags(requested)["semantic_media_broadcast"]
+    assert resolve_semantic_media_feature_flags(requested)["semantic_media_receiver_groups"] is False
+    assert resolve_semantic_media_feature_flags(requested)["semantic_media_fleet_admission"] is False
+    assert resolve_semantic_media_feature_flags(requested)["semantic_media_turn_cost_controls"] is False
+
+    requested = {
+        "semantic_media_broadcast": True,
+        "semantic_media_receiver_groups": True,
+        "semantic_media_fleet_admission": True,
+        "semantic_media_turn_cost_controls": True,
+    }
+    resolved = resolve_semantic_media_feature_flags(requested)
+    assert resolved["semantic_media_broadcast"]
+    assert resolved["semantic_media_receiver_groups"]
+    assert resolved["semantic_media_fleet_admission"]
+    assert resolved["semantic_media_turn_cost_controls"]
 
 
 def test_network_profile_projects_only_effective_hub_flags(app, monkeypatch) -> None:
