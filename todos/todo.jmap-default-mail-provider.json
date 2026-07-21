@@ -1,0 +1,373 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "jmap-default-mail-provider",
+  "status": "todo",
+  "priority": "P1",
+  "purpose": "JMAP wird als bevorzugter Standard fuer Mailzugriff, Synchronisation und Mailaktionen in Ananta integriert. Die bestehende IMAP-Implementierung bleibt als kompatibler Fallback erhalten und wird hinter einen protokollneutralen Mail-Provider-Vertrag verschoben.",
+  "goal": "Ananta verwendet fuer neue und automatisch erkannte kompatible Mailkonten standardmaessig JMAP. Bestehende IMAP-Konten funktionieren ohne Datenverlust weiter. TUI, Suche, Artefakte, Redaction, Goals und Worker sehen einen einheitlichen Mail-Domainvertrag und muessen das Transportprotokoll nicht kennen.",
+  "non_goals": [
+    "Kein Entfernen der bestehenden IMAP-Unterstuetzung.",
+    "Keine automatische Weitergabe von Mailinhalten an Worker oder LLMs.",
+    "Keine Klartextspeicherung von Passwoertern, OAuth-Tokens oder JMAP-Session-Tokens.",
+    "Kein vollstaendiger Kalender- oder Kontakte-Client im ersten Schritt, auch wenn ein JMAP-Server entsprechende Capabilities meldet."
+  ],
+  "source_alignment": {
+    "repository": "ananta888/ananta",
+    "branch": "main",
+    "verified_files": [
+      "agent/services/imap_contract_service.py",
+      "agent/services/imap_account_service.py",
+      "agent/services/imap_connector_service.py",
+      "agent/services/imap_sync_policy_service.py",
+      "agent/services/imap_metadata_store_service.py",
+      "agent/services/imap_search_service.py",
+      "agent/services/imap_secret_store_service.py",
+      "agent/services/imap_mail_artifact_service.py",
+      "agent/services/imap_redaction_pipeline_service.py",
+      "client_surfaces/operator_tui/commands_mail.py",
+      "docs/operator-tui-imap-mail-client.md",
+      "todos/archiv/todo.operator-tui-imap-email-client.json"
+    ],
+    "observations": [
+      "Der aktuelle Accountvertrag ist mit host, port, username_ref, credential_ref und IMAP-spezifischen auth/tls-Feldern protokollgebunden.",
+      "MailMessageRef verwendet mailbox und numerische uid; fuer JMAP werden stabile accountId/mailboxId/emailId/threadId benoetigt.",
+      "ImapConnectorService definiert bereits einen testbaren Client-Protocol- und Factory-Schnitt, ist aber nur auf list_mailboxes, fetch_headers und fetch_body zugeschnitten.",
+      "Accountdaten liegen aktuell unter data/imap/accounts.json und verwenden schema imap_accounts.v1.",
+      "Die vorhandenen Security-, Redaction-, Artifact- und No-Body-by-default-Regeln muessen protokollneutral erhalten bleiben."
+    ]
+  },
+  "architecture_decisions": [
+    {
+      "id": "AD-01",
+      "decision": "JMAP ist preferred/default, IMAP ist fallback.",
+      "rule": "protocol_preference = [jmap, imap]; ein explizit gesetztes Benutzerprotokoll hat Vorrang vor Autodiscovery."
+    },
+    {
+      "id": "AD-02",
+      "decision": "Mail-Domain und Transport werden getrennt.",
+      "rule": "TUI, Suche, Artefakte und Policies greifen nur auf MailProviderService und protokollneutrale IDs zu."
+    },
+    {
+      "id": "AD-03",
+      "decision": "JMAP Core und JMAP Mail werden capability-basiert aktiviert.",
+      "rule": "Ein Server gilt nur dann als Mailprovider, wenn die Session mindestens urn:ietf:params:jmap:core und urn:ietf:params:jmap:mail anbietet."
+    },
+    {
+      "id": "AD-04",
+      "decision": "Inkrementelle Synchronisation nutzt JMAP State Tokens.",
+      "rule": "Email/queryChanges und Email/changes werden bevorzugt; bei cannotCalculateChanges erfolgt ein begrenzter, policy-konformer Rebuild."
+    },
+    {
+      "id": "AD-05",
+      "decision": "Bestehende IMAP-Daten werden migriert, nicht ersetzt.",
+      "rule": "Legacy uid/mailbox bleiben als protocol_locator erhalten; globale mail_ref_id und RFC Message-ID dienen zur kontrollierten Deduplizierung."
+    }
+  ],
+  "milestones": [
+    {"id": "M01", "title": "Protokollneutrale Mail-Domain", "task_ids": ["T01", "T02", "T03"]},
+    {"id": "M02", "title": "JMAP Discovery, Auth und Connector", "task_ids": ["T04", "T05", "T06", "T07"]},
+    {"id": "M03", "title": "JMAP Sync, Mutationen und Push", "task_ids": ["T08", "T09", "T10"]},
+    {"id": "M04", "title": "Migration, TUI und Betrieb", "task_ids": ["T11", "T12", "T13"]},
+    {"id": "M05", "title": "Tests, Dokumentation und Rollout", "task_ids": ["T14", "T15", "T16"]}
+  ],
+  "tasks": [
+    {
+      "id": "T01",
+      "title": "MailAccount-v2 als protokollneutralen Vertrag einfuehren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "schema",
+      "depends_on": [],
+      "affected_files": ["agent/services/imap_contract_service.py", "agent/services/imap_account_service.py"],
+      "acceptance_criteria": [
+        "Neues Schema MailAccount-v2 enthaelt account_id, display_name, protocol, protocol_preference, username_ref, credential_ref, sync_policy, enabled und protocol_config.",
+        "protocol erlaubt jmap und imap; Default fuer neue Konten ist auto mit bevorzugtem Ergebnis jmap.",
+        "JMAP protocol_config kann session_url oder discovery_domain enthalten, speichert aber keine Session-Antwort und keine Tokens im Klartext.",
+        "IMAP protocol_config uebernimmt host, port, tls_mode und auth_mode ohne Bedeutungsverlust.",
+        "Validierung blockiert password, token, access_token, refresh_token, secret und session_token in allen verschachtelten Accountfeldern.",
+        "Bestehende imap-account-v1 Payloads koennen deterministisch nach MailAccount-v2 konvertiert werden."
+      ]
+    },
+    {
+      "id": "T02",
+      "title": "MailMessageRef-v2 mit stabilen protokollneutralen IDs definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "schema",
+      "depends_on": ["T01"],
+      "affected_files": ["agent/services/imap_contract_service.py", "agent/services/imap_metadata_store_service.py", "agent/services/imap_mail_artifact_service.py"],
+      "acceptance_criteria": [
+        "MailMessageRef-v2 enthaelt mail_ref_id, account_id, protocol, message_id_header, date, from, to, subject_hash und protocol_locator.",
+        "JMAP locator enthaelt account_id, email_id, thread_id und optional mailbox_ids; IMAP locator enthaelt mailbox und uid/uidvalidity.",
+        "Artefakte und SourceArtifactGrant referenzieren mail_ref_id statt direkt mailbox/uid.",
+        "Legacy MailMessageRef-v1 bleibt lesbar und wird beim Schreiben nach v2 normalisiert.",
+        "Tests belegen stabile Referenzen bei JMAP-Mailboxverschiebungen und bei IMAP-UID-Wechsel mit geaenderter UIDVALIDITY."
+      ]
+    },
+    {
+      "id": "T03",
+      "title": "MailProvider Protocol und zentralen Router implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "architecture",
+      "depends_on": ["T01", "T02"],
+      "affected_files": ["agent/services/imap_connector_service.py", "agent/services/imap_search_service.py", "client_surfaces/operator_tui/commands_mail.py"],
+      "acceptance_criteria": [
+        "MailProvider Protocol bietet connect, capabilities, list_mailboxes, query_messages, get_messages, get_body, get_attachments, set_keywords, move_messages, delete_messages und disconnect.",
+        "MailProviderRouter waehlt anhand des Accounts JmapMailProvider oder ImapMailProvider.",
+        "Bestehender ImapConnectorService wird adapterkompatibel eingebunden und nicht dupliziert.",
+        "Alle Provider liefern einheitliche Result-Objekte mit ok, reason_code, retryable und optional retry_after_ms.",
+        "TUI und Suchservice importieren keine IMAP-spezifischen Services mehr direkt."
+      ]
+    },
+    {
+      "id": "T04",
+      "title": "JMAP Session Discovery implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "backend",
+      "depends_on": ["T01"],
+      "affected_files": ["agent/services/jmap_discovery_service.py", "agent/services/jmap_contract_service.py"],
+      "acceptance_criteria": [
+        "Discovery unterstuetzt eine explizite session_url sowie https://<domain>/.well-known/jmap.",
+        "Redirects sind begrenzt; Downgrade von HTTPS auf HTTP wird abgelehnt.",
+        "Session wird gegen required Core- und Mail-Capabilities validiert.",
+        "apiUrl, downloadUrl, uploadUrl, eventSourceUrl, primaryAccounts, capabilities und accountCapabilities werden normalisiert, aber sensible Header nicht persistiert.",
+        "SSRF-Schutz blockiert Loopback, Link-Local, private Netze und nicht erlaubte Schemes, sofern keine explizite lokale Operator-Policy vorliegt.",
+        "Fehler liefern reason_codes wie jmap_discovery_not_found, jmap_capability_missing und jmap_session_invalid."
+      ]
+    },
+    {
+      "id": "T05",
+      "title": "JMAP Authentifizierung und SecretStore-Anbindung",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "security",
+      "depends_on": ["T04"],
+      "affected_files": ["agent/services/imap_secret_store_service.py", "agent/services/jmap_auth_service.py"],
+      "acceptance_criteria": [
+        "Bearer-Token und Basic/App-Password werden ausschliesslich ueber credential_ref geladen.",
+        "Authorization-Header, Tokens und Credentials werden in Logs, Traces und Exceptions redigiert.",
+        "401/403 werden getrennt als jmap_authentication_failed und jmap_authorization_failed abgebildet.",
+        "Tokenrotation kann ohne Aenderung des Accountdatensatzes erfolgen.",
+        "OAuth-Unterstuetzung wird als Adapterpunkt vorgesehen; kein Refresh-Token wird im Account-JSON gespeichert."
+      ]
+    },
+    {
+      "id": "T06",
+      "title": "JMAP Core Client mit Batching und Backpressure implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "backend",
+      "depends_on": ["T04", "T05"],
+      "affected_files": ["agent/services/jmap_client_service.py"],
+      "acceptance_criteria": [
+        "Client sendet methodCalls mit eindeutigen callIds und wertet methodResponses positionsunabhaengig aus.",
+        "using enthaelt nur benoetigte und vom Server angebotene Capabilities.",
+        "maxCallsInRequest, maxObjectsInGet und maxObjectsInSet aus den Capabilities werden eingehalten.",
+        "Result references (#ids) koennen fuer Query/Get-Batches genutzt werden.",
+        "HTTP 429/503 und serverseitige rateLimit-Fehler erzeugen begrenztes Retry mit Jitter und respektieren Retry-After.",
+        "Timeouts, ungueltiges JSON und unbekannte Methodenantworten fuehren nicht zum Prozessabsturz."
+      ]
+    },
+    {
+      "id": "T07",
+      "title": "JmapMailProvider fuer Mailbox, Query, Get und Body implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "backend",
+      "depends_on": ["T03", "T06"],
+      "affected_files": ["agent/services/jmap_mail_provider_service.py", "agent/services/imap_search_service.py"],
+      "acceptance_criteria": [
+        "Mailbox/get liefert normalisierte Mailboxen inklusive role, name, parentId, sortOrder, totalEmails und unreadEmails.",
+        "Email/query unterstuetzt Filter fuer Absender, Empfaenger, Betreff, Zeitraum, Mailbox, ungelesen und markiert.",
+        "Email/get fordert standardmaessig nur Metadaten und Body-Struktur an; Bodywerte werden erst nach expliziter Aktion geladen.",
+        "HTML- und Text-Bodies werden getrennt behandelt; HTML wird vor Anzeige/Speicherung sanitisiert.",
+        "Blob-Downloads nutzen downloadUrl, Limits, Content-Type-Pruefung und bestehende Attachment-/Redaction-Policy.",
+        "JMAP threadId wird in die bestehende Conversation-Gruppierung uebernommen."
+      ]
+    },
+    {
+      "id": "T08",
+      "title": "Inkrementelle JMAP-Synchronisation mit State Tokens",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "backend",
+      "depends_on": ["T07"],
+      "affected_files": ["agent/services/imap_sync_policy_service.py", "agent/services/imap_metadata_store_service.py", "agent/services/jmap_sync_service.py"],
+      "acceptance_criteria": [
+        "Store verwaltet mailbox_state, email_state und query_state je Account und Scope.",
+        "Synchronisation verwendet Email/changes und Email/queryChanges, sofern verfuegbar.",
+        "created, updated und destroyed werden idempotent verarbeitet.",
+        "cannotCalculateChanges loest einen begrenzten Rebuild gemaess sync_policy aus und laedt weiterhin keine Bodies automatisch.",
+        "headers_only, manual und limited_recent behalten ihre bestehende Semantik.",
+        "Ein abgebrochener Lauf kann ohne Duplikate fortgesetzt werden."
+      ]
+    },
+    {
+      "id": "T09",
+      "title": "Mailaktionen ueber Email/set und Mailbox/set integrieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "type": "backend",
+      "depends_on": ["T07", "T08"],
+      "affected_files": ["agent/services/jmap_mail_provider_service.py", "client_surfaces/operator_tui/commands_mail.py"],
+      "acceptance_criteria": [
+        "Gelesen/Ungelesen und Markiert werden ueber JMAP keywords aktualisiert.",
+        "Verschieben aktualisiert mailboxIds atomar und unterstuetzt mehrere Mailboxzuordnungen korrekt.",
+        "Loeschen unterscheidet Trash-Verschiebung und endgueltiges destroy; endgueltiges Loeschen braucht explizite Bestaetigung.",
+        "ifInState verhindert stilles Ueberschreiben paralleler Aenderungen.",
+        "notUpdated/notDestroyed werden pro Objekt mit reason_code an die TUI gemeldet.",
+        "IMAP-Fallback bietet nur die Aktionen, die der vorhandene Adapter sicher unterstuetzt, und meldet unsupported_operation ansonsten explizit."
+      ]
+    },
+    {
+      "id": "T10",
+      "title": "JMAP Push und Polling-Fallback integrieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "backend",
+      "depends_on": ["T08"],
+      "affected_files": ["agent/services/jmap_push_service.py", "agent/services/imap_feature_flag_service.py"],
+      "acceptance_criteria": [
+        "eventSourceUrl wird nur verwendet, wenn vorhanden und per Policy aktiviert.",
+        "PushStateChange Events triggern koaleszierte inkrementelle Syncs statt Vollsyncs.",
+        "Reconnect verwendet exponentielles Backoff und verhindert Endlosschleifen.",
+        "Ohne Push faellt der Provider auf konfigurierbares, ressourcenschonendes Polling zurueck.",
+        "Disabled- und Offline-Modus erzeugen keine Hintergrundverbindungen."
+      ]
+    },
+    {
+      "id": "T11",
+      "title": "IMAP-Accounts und Metadaten verlustfrei migrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "migration",
+      "depends_on": ["T01", "T02", "T03", "T08"],
+      "affected_files": ["agent/services/imap_account_service.py", "agent/services/imap_metadata_store_service.py", "agent/services/mail_migration_service.py"],
+      "acceptance_criteria": [
+        "data/imap/accounts.json wird beim ersten Zugriff gesichert und nach data/mail/accounts.json mit schema mail_accounts.v2 migriert.",
+        "Migration ist idempotent und veraendert keine credential_ref-Werte.",
+        "Bestehende IMAP-Konten behalten protocol=imap, bis JMAP erfolgreich entdeckt, authentifiziert und vom Benutzer oder einer sicheren Auto-Migrationspolicy aktiviert wurde.",
+        "Optionaler Protokollwechsel dedupliziert ueber RFC Message-ID, Datum, Groesse und Content-Hash; unsichere Treffer werden nicht automatisch zusammengefuehrt.",
+        "Rollback auf IMAP ist ohne Verlust der lokalen Referenzen und Grants moeglich.",
+        "Migrationsbericht nennt migrated, skipped, conflicted und failed ohne Mailinhalte oder Secrets."
+      ]
+    },
+    {
+      "id": "T12",
+      "title": "Operator TUI auf JMAP-Standard und Providerstatus umstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "frontend",
+      "depends_on": ["T03", "T04", "T07", "T11"],
+      "affected_files": ["client_surfaces/operator_tui/commands_mail.py", "docs/operator-tui-imap-mail-client.md"],
+      "acceptance_criteria": [
+        "mail account add versucht standardmaessig JMAP Discovery und zeigt vor dem Speichern das erkannte Protokoll.",
+        "Optionen --protocol auto|jmap|imap und --session-url stehen zur Verfuegung.",
+        "Accountliste zeigt Provider, Discovery-/Connection-State, Sync-State und letzten erfolgreichen Sync.",
+        "Fehlerausgaben verwenden verstaendliche reason_codes und verraten keine Credentials oder sensiblen URLs.",
+        "Mail-Liste, Detailansicht, Suche und Artefaktfreigabe funktionieren unveraendert ueber beide Provider.",
+        "Die UI kennzeichnet IMAP als Fallback, nicht als Fehlerzustand."
+      ]
+    },
+    {
+      "id": "T13",
+      "title": "Konfiguration, Feature Flags und Telemetrie erweitern",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "operations",
+      "depends_on": ["T03", "T10"],
+      "affected_files": ["agent/services/imap_feature_flag_service.py"],
+      "acceptance_criteria": [
+        "Feature Flags enthalten mail_enabled, jmap_enabled, imap_fallback_enabled, jmap_push_enabled und protocol_autodiscovery_enabled.",
+        "Default ist JMAP bevorzugt, aber keine Verbindung ohne konfigurierten und aktivierten Account.",
+        "Metriken erfassen Provider, Latenz, Callanzahl, Retry, Syncaenderungen und Fehlerklassen, jedoch keine Absender, Betreffzeilen, Mailtexte, Tokens oder Blob-URLs.",
+        "Circuit Breaker isoliert wiederholt fehlerhafte Providerkonten.",
+        "Healthcheck unterscheidet discovery, auth, api und sync."
+      ]
+    },
+    {
+      "id": "T14",
+      "title": "Umfassende Unit-, Contract- und Security-Tests erstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "test",
+      "depends_on": ["T04", "T05", "T06", "T07", "T08", "T09", "T11"],
+      "affected_files": ["tests/test_jmap_contract_service.py", "tests/test_jmap_discovery_service.py", "tests/test_jmap_client_service.py", "tests/test_jmap_mail_provider_service.py", "tests/test_jmap_sync_service.py", "tests/test_mail_migration_service.py"],
+      "acceptance_criteria": [
+        "Tests verwenden einen deterministischen Fake-JMAP-Server oder HTTP-Mock und benoetigen kein reales Mailkonto.",
+        "Abgedeckt sind Discovery, Capabilities, Authfehler, Batching, Query/Get, Changes, queryChanges, cannotCalculateChanges, Rate Limits und partielle Set-Fehler.",
+        "Security-Tests pruefen SSRF, Redirect-Downgrade, Log-Redaction, HTML-Sanitizing, Blob-Groessenlimit und verbotene Klartext-Credentials.",
+        "Contract-Tests werden gegen JMAP- und IMAP-Provider ausgefuehrt.",
+        "Bestehende IMAP-, Artefakt-, Redaction-, Export- und TUI-Tests bleiben gruen."
+      ]
+    },
+    {
+      "id": "T15",
+      "title": "E2E-Test mit referenzierter JMAP-Testumgebung",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "test",
+      "depends_on": ["T12", "T14"],
+      "affected_files": ["tests/e2e/test_jmap_mail_flow.py", "docker-compose.jmap-test.yml"],
+      "acceptance_criteria": [
+        "Reproduzierbare lokale Testumgebung startet ohne externe Cloudabhaengigkeit.",
+        "E2E deckt Accountanlage, Discovery, Mailboxliste, Metadatensync, explizites Bodyladen, Suche, Keywordaenderung, Verschieben und Loeschen ab.",
+        "Ein zweiter Lauf beweist idempotente Synchronisation ohne Duplikate.",
+        "Ein Ausfall des JMAP-Servers zeigt einen kontrollierten Offlinezustand und beschaedigt den lokalen Store nicht.",
+        "IMAP-Fallback wird in einem separaten E2E-Pfad weiterhin validiert."
+      ]
+    },
+    {
+      "id": "T16",
+      "title": "Dokumentation, Migration Guide und gestuften Rollout liefern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "documentation",
+      "depends_on": ["T12", "T13", "T14", "T15"],
+      "affected_files": ["docs/operator-tui-mail-client.md", "docs/jmap-provider.md", "docs/migrations/imap-to-mail-account-v2.md"],
+      "acceptance_criteria": [
+        "Dokumentation erklaert JMAP als Standard, IMAP als Fallback und die Sicherheitsgrenzen fuer Worker/LLM-Freigaben.",
+        "Setup beschreibt Auto-Discovery, explizite Session-URL, Credential-Refs und Troubleshooting anhand der reason_codes.",
+        "Migration Guide dokumentiert Backup, Dry Run, Konflikte, Rollback und erneuten Protokollwechsel.",
+        "Rollout erfolgt zuerst hinter Flags, danach fuer neue Accounts standardmaessig und erst zuletzt optional fuer bestehende Accounts.",
+        "Archivierte IMAP-Dokumentation verweist auf die neue protokollneutrale Dokumentation und bleibt als Historie erhalten."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Bei einem JMAP-faehigen Konto waehlt protocol=auto erfolgreich JMAP; andernfalls wird nur bei aktivem imap_fallback_enabled auf IMAP zurueckgefallen.",
+    "Ein JMAP-Ausfall fuehrt nicht automatisch zu einem Protokollwechsel innerhalb desselben Sync-Laufs, der Duplikate oder widerspruechliche Aenderungen erzeugen koennte.",
+    "Keine Mailinhalte werden durch die JMAP-Integration automatisch an Worker, LLMs oder Cloud-Dienste weitergegeben.",
+    "Bodydaten werden weiterhin erst durch explizites Oeffnen oder Freigeben geladen und durch bestehende Redaction-/Policy-Pipelines geleitet.",
+    "Alle Secrets bleiben ausserhalb der Account- und Metadatenstores.",
+    "IMAP-Bestandskonten, lokale Mailreferenzen, Exporte und SourceArtifactGrants bleiben nach Upgrade nutzbar.",
+    "JMAP-spezifische IDs werden nicht in TUI- oder Worker-Vertraege geleakt, sofern dies nicht fuer Diagnose oder Provenance explizit erforderlich ist.",
+    "Tests und Dokumentation belegen den Default JMAP, den IMAP-Fallback und den sicheren Rollback."
+  ],
+  "definition_of_done": [
+    "Alle P1-Aufgaben sind done und P2-Aufgaben mindestens umgesetzt oder explizit begruendet verschoben.",
+    "Unit-, Contract-, Security- und E2E-Tests sind gruen.",
+    "Eine reale kompatible JMAP-Session wurde manuell als Smoke-Test verbunden, ohne Zugangsdaten im Repository zu speichern.",
+    "Migration wurde an einer Kopie eines bestehenden data/imap Stores getestet.",
+    "Dokumentation und TUI nennen JMAP als Standard und IMAP als Fallback."
+  ]
+}
