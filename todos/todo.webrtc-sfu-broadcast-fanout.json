@@ -7,7 +7,7 @@
   "track": "webrtc-sfu-broadcast-fanout",
   "status": "todo",
   "created_at": "2026-07-18",
-  "updated_at": "2026-07-20",
+  "updated_at": "2026-07-21",
   "parents": [
     "todos/todo.ai-snake-semantic-media-speech-program.json"
   ],
@@ -84,7 +84,8 @@
     "Harte 7-/8-Limits, persistenter Group-Key-Zustand, ephemere Vendoridentitaeten, Browser-Quality-Reporting, verschluesselter Data-Fanout und produktiver E2EE-Lifecycle besitzen nun eigene Tasks.",
     "TURN umfasst nun reale LiveKit-Anbindung sowie Health-/Accounting-Produzenten statt nur Hub-Ledger und Coturn-Compose.",
     "SFB-OPS-006 wurde entfernt und in SFB-OPS-005 integriert, weil LiveKit-native Nodewahl und eine zweite Hub-Node-Placement-Policy keine parallelen Sources of Truth bilden duerfen.",
-    "Prioritaeten, Risiken, Ausfuehrungsstufen und Critical Path wurden neu kalibriert; lange Gates koennen nach ihren direkten Voraussetzungen parallel laufen."
+    "Prioritaeten, Risiken, Ausfuehrungsstufen und Critical Path wurden neu kalibriert; lange Gates koennen nach ihren direkten Voraussetzungen parallel laufen.",
+    "Auditstand 2026-07-21: Von 103 Tasks sind nach Quellcode-/Testabgleich aktuell nur SFB-BASE-003 und SFB-BASE-004 vollständig umgesetzt (2/103, 1.94 %). 101 Tasks bleiben todo, 0 blocked, 0 in_progress."
   ],
   "scope_boundary": {
     "parent_track_is_source_of_truth_for": [
