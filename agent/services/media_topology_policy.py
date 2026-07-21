@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from agent.services.sfu_broadcast_participant_limits import SFU_BROADCAST_MAX_ROOM_PARTICIPANTS
+
 MediaTopology = Literal[
     "ordinary_direct",
     "ordinary_mesh",
@@ -147,7 +149,7 @@ class MediaTopologyPolicy:
     def _validate(value: MediaTopologyContext) -> None:
         if value.current not in _BULK_TOPOLOGIES | {"relay_control_only"}:
             raise ValueError("media_topology_current_invalid")
-        if not 1 <= value.participant_count <= 8:
+        if not 1 <= value.participant_count <= SFU_BROADCAST_MAX_ROOM_PARTICIPANTS:
             raise ValueError("media_topology_participant_count_invalid")
         if value.now_ms < 0 or value.last_transition_ms < 0 or value.last_transition_ms > value.now_ms:
             raise ValueError("media_topology_clock_invalid")

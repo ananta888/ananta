@@ -14,6 +14,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from agent.repositories.webrtc_epoch_repository import WebrtcEpochRepository
+from agent.services.sfu_broadcast_participant_limits import SFU_BROADCAST_MAX_GROUP_MEMBERS
 
 
 @dataclass(frozen=True)
@@ -91,7 +92,7 @@ class WebrtcGroupKeyAuthorizationService:
         if current is None or current.closed_at is not None or current.epoch != epoch:
             raise GroupKeyAuthorizationError("epoch_not_authoritative")
         members = tuple(sorted(set(active_member_ids)))
-        if not 1 <= len(members) <= 8 or any(not _id(value) for value in members):
+        if not 1 <= len(members) <= SFU_BROADCAST_MAX_GROUP_MEMBERS or any(not _id(value) for value in members):
             raise GroupKeyAuthorizationError("member_set_invalid")
         if set(key_package_refs) != set(members):
             raise GroupKeyAuthorizationError("key_package_set_mismatch")

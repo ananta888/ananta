@@ -10,6 +10,7 @@ import {
   type RemoteTrack,
   type RemoteTrackPublication,
 } from 'livekit-client';
+import { SFU_BROADCAST_MAX_DATA_DESTINATIONS } from './sfu-broadcast-limits';
 
 export interface SfuRemotePublication {
   readonly publicationId: string;
@@ -129,7 +130,7 @@ class LivekitSfuRoomAdapter implements SfuRoomPort {
     const destinations = [...new Set(destinationIds)].sort();
     if (
       destinations.length < 1 ||
-      destinations.length > 7 ||
+      destinations.length > SFU_BROADCAST_MAX_DATA_DESTINATIONS ||
       destinations.some(value => !identifier(value))
     ) {
       throw new Error('sfu_data_audience_invalid');

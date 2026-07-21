@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { GroupKeyEpochAuthorization } from './webrtc-group-key.service';
 import { SignedPeerKeyPackage } from './webrtc-peer-key.service';
+import { SFU_BROADCAST_MAX_GROUP_MEMBERS } from './sfu-broadcast-limits';
 
 export interface SfuGroupKeyPrepareResult {
   readonly authorization: GroupKeyEpochAuthorization & { readonly membership_epoch: number };
@@ -217,7 +218,7 @@ function parseAuthorization(raw: unknown): GroupKeyEpochAuthorization & { readon
     fail('sfu_group_authorization_invalid');
   }
   const members = identifierArray(row['member_ids']);
-  if (members.length < 2 || members.length > 8 || new Set(members).size !== members.length) {
+  if (members.length < 2 || members.length > SFU_BROADCAST_MAX_GROUP_MEMBERS || new Set(members).size !== members.length) {
     fail('sfu_group_authorization_invalid');
   }
   const refs = identifiersRecord(row['key_package_refs']);
@@ -295,7 +296,9 @@ function normalizeBase(value: string): string {
 function identifiersRecord(value: unknown): Record<string, string> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) fail('sfu_group_identifier_map_invalid');
   const entries = Object.entries(value as Record<string, unknown>);
-  if (entries.length < 1 || entries.length > 8) fail('sfu_group_identifier_map_invalid');
+  if (entries.length < 1 || entries.length > SFU_BROADCAST_MAX_GROUP_MEMBERS) {
+    fail('sfu_group_identifier_map_invalid');
+  }
   return Object.fromEntries(entries.map(([key, item]) => [identifier(key), identifier(item)]).sort());
 }
 

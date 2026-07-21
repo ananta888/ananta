@@ -28,6 +28,9 @@ import {
   SemanticMediaTransportSignals,
   SemanticMediaTransportReason,
 } from './semantic-media-transport-state-machine';
+import {
+  SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS,
+} from './sfu-broadcast-limits';
 
 export const SEMANTIC_MEDIA_TRANSPORT_POLICY = new InjectionToken<SemanticMediaTransportPolicyPort>(
   'SEMANTIC_MEDIA_TRANSPORT_POLICY',
@@ -314,7 +317,9 @@ export class SemanticSfuPathCoordinatorService implements OnDestroy {
     receiverId: string,
     desired: 'auto' | 'ordinary' | 'sfu',
   ): Promise<SemanticSfuPathResult> {
-    if (!context.tenantId || context.remotePeerIds.length > 7) throw new Error('sfu_group_size_invalid');
+    if (!context.tenantId || context.remotePeerIds.length > SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS) {
+      throw new Error('sfu_group_size_invalid');
+    }
     const generation = ++this.generation;
     if (desired === 'sfu') {
       if (this.effectivePaths.get(receiverId) === 'sfu'
@@ -369,7 +374,9 @@ export class SemanticSfuPathCoordinatorService implements OnDestroy {
   ): Promise<ReadonlySet<string>> {
     if (this.outgoingOperation) throw new Error('sfu_group_operation_in_progress');
     const receiverIds = [...this.desiredGroupReceivers].filter(value => context.remotePeerIds.includes(value)).sort();
-    if (!receiverIds.length || receiverIds.length > 7) throw new Error('sfu_group_size_invalid');
+    if (!receiverIds.length || receiverIds.length > SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS) {
+      throw new Error('sfu_group_size_invalid');
+    }
     const topologyTransition = this.transportState$.value.mode !== 'sfu_active';
     const allRemoteDesired = context.remotePeerIds.every(value => receiverIds.includes(value));
     let clone: MediaStreamTrack | null = null;
@@ -594,8 +601,8 @@ export class SemanticSfuPathCoordinatorService implements OnDestroy {
     this.stopGroupPolling();
     const context = this.context;
     if (!context || !context.featureEnabled || context.remotePeerIds.length < 2
-        || context.remotePeerIds.length > 7 || !context.tenantId
-        || strictSfuE2eeCapability() !== 'supported') return;
+      || context.remotePeerIds.length > SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS || !context.tenantId
+      || strictSfuE2eeCapability() !== 'supported') return;
     void this.pollGroupPackages();
     this.groupPollHandle = setInterval(() => { void this.pollGroupPackages(); }, 1_000);
   }

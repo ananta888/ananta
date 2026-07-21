@@ -27,6 +27,7 @@ from agent.services.semantic_sfu_admission_service import (
     ShareSessionSfuMembership,
     get_semantic_sfu_admission_service,
 )
+from agent.services.sfu_broadcast_participant_limits import SFU_BROADCAST_MAX_GROUP_MEMBERS
 from agent.services.share_relay_compatibility_service import (
     ShareRelayCompatibilityError,
     ShareRelayCompatibilityService,
@@ -40,7 +41,6 @@ from agent.services.webrtc_group_key_authorization_service import (
 )
 from agent.services.webrtc_peer_identity_service import derive_hub_identity_key
 
-_MAX_GROUP_MEMBERS = 8
 _MAX_OPAQUE_PACKAGE_BYTES = 8 * 1024
 _MIN_OPAQUE_PACKAGE_BYTES = 48
 _ISSUED_LIMIT = 512
@@ -136,7 +136,7 @@ class SemanticSfuGroupKeyService:
         )
         subscribers = tuple(sorted(str(value) for value in publication["authorized_subscriber_ids"]))
         members = tuple(sorted({actor_id, *subscribers}))
-        if not 2 <= len(members) <= _MAX_GROUP_MEMBERS:
+        if not 2 <= len(members) <= SFU_BROADCAST_MAX_GROUP_MEMBERS:
             raise SfuGroupKeyError("sfu_group_size_invalid", 409)
         for member_id in members:
             self._require_member(tenant_id, session_id, member_id, membership_epoch)
@@ -323,7 +323,7 @@ class SemanticSfuGroupKeyService:
             since_item_id=cursor,
             item_id_field="package_ref",
             queue_limit=_RELAY_QUEUE_LIMIT,
-            page_limit=8,
+            page_limit=SFU_BROADCAST_MAX_GROUP_MEMBERS,
         )
         packages = [
             row

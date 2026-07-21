@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 
 import { HubApiCoreService } from './hub-api-core.service';
+import { SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS } from './sfu-broadcast-limits';
 
 export interface SemanticSfuConstraints {
   readonly max_bitrate_bps: number;
@@ -289,7 +290,9 @@ function identifier(value: unknown): string {
 
 function uniqueIds(values: readonly unknown[]): string[] {
   const ids = values.map(identifier);
-  if (ids.length > 8 || new Set(ids).size !== ids.length) fail('sfu_identifier_list_invalid');
+  if (ids.length > SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS || new Set(ids).size !== ids.length) {
+    fail('sfu_identifier_list_invalid');
+  }
   return [...ids].sort();
 }
 

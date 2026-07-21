@@ -35,6 +35,9 @@ from agent.services.semantic_media_audit_service import (
     SemanticMediaAuditEvent,
     SemanticMediaAuditPort,
 )
+from agent.services.sfu_broadcast_participant_limits import (
+    SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS,
+)
 from agent.services.share_session_service import get_share_session_service
 from agent.services.webrtc_epoch_service import get_webrtc_epoch_service
 
@@ -298,7 +301,7 @@ class SemanticSfuAdmissionService:
         if privacy == "private_recovery" and ("artifact_share" not in member.permissions or not audience_id):
             raise SfuAdmissionError("sfu_private_recovery_forbidden", 403)
         raw_subscribers = request.get("authorized_subscriber_ids")
-        if not isinstance(raw_subscribers, list) or len(raw_subscribers) > 7:
+        if not isinstance(raw_subscribers, list) or len(raw_subscribers) > SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS:
             raise SfuAdmissionError("sfu_publication_subscribers_invalid")
         subscriber_ids = sorted({_id(value, "authorized_subscriber_id") for value in raw_subscribers})
         if len(subscriber_ids) != len(raw_subscribers) or actor_id in subscriber_ids:
@@ -529,7 +532,7 @@ class SemanticSfuAdmissionService:
             if publication.get("membership_epoch") != epoch:
                 raise SfuAdmissionError("sfu_membership_epoch_stale", 409)
             subscribers = list(publication.get("authorized_subscriber_ids") or [])
-        if not subscribers or len(subscribers) > 7:
+        if not subscribers or len(subscribers) > SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS:
             raise SfuAdmissionError("sfu_group_size_invalid", 409)
         for subscriber_id in subscribers:
             self._member(tenant_id, normalized_session, str(subscriber_id), epoch)

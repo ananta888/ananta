@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 
 import { canonicalSecurityJson, decodeB64 } from './webrtc-secure-envelope';
+import { SFU_BROADCAST_MAX_GROUP_MEMBERS } from './sfu-broadcast-limits';
 
 export interface GroupKeyEpochAuthorization {
   version: 1;
@@ -87,7 +88,10 @@ export class WebrtcGroupKeyService {
       throw new GroupKeyError('rekey_deadline_invalid');
     }
     const members = [...new Set(authorization.member_ids)].sort();
-    if (members.length !== authorization.member_ids.length || members.length < 1 || members.length > 8) {
+    if (
+      members.length !== authorization.member_ids.length || members.length < 1
+      || members.length > SFU_BROADCAST_MAX_GROUP_MEMBERS
+    ) {
       throw new GroupKeyError('member_set_invalid');
     }
     if (Object.keys(authorization.key_package_refs).sort().join('\0') !== members.join('\0')) {

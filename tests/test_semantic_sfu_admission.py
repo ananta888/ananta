@@ -215,6 +215,55 @@ def test_publication_composes_hub_topology_and_one_upload_fanout(membership: Mem
     assert [row.receiver_id for row in fanout.calls[0]["receivers"]] == ["bob"]
 
 
+def test_publication_allows_maximum_broadcast_recipients(
+    service: SemanticSfuAdmissionService,
+    membership: Memberships,
+):
+    for recipient in ("carol", "dave", "erin", "frank", "gwen", "hank"):
+        membership.rows[("tenant-a", "session-a", recipient)] = SfuMembership(
+            "tenant-a", "session-a", recipient, "participant", 7, frozenset({"chat", "view_tui"}),
+        )
+    joined = join(service, "alice")
+    result = service.authorize_publication(
+        {
+            "session_id": "session-a", "membership_epoch": 7, "expected_revision": joined["revision"],
+                "idempotency_key": "publish-max", "publication_id": "camera-alice-max", "source": "camera",
+                "kind": "video", "privacy": "ordinary", "authorized_subscriber_ids": [
+                    "bob", "carol", "dave", "erin", "frank", "gwen", "hank",
+                ], "constraints": {
+                    "max_bitrate_bps": 1_000_000, "max_width": 1280, "max_height": 720, "max_fps": 30,
+                },
+            }, actor_id="alice", tenant_id="tenant-a",
+        )
+    assert result["publication"]["authorized_subscriber_ids"] == [
+        "bob", "carol", "dave", "erin", "frank", "gwen", "hank",
+    ]
+
+
+def test_publication_rejects_broadcast_recipients_beyond_cap(
+    service: SemanticSfuAdmissionService,
+    membership: Memberships,
+):
+    for recipient in ("carol", "dave", "erin", "frank", "gwen", "hank", "ivan", "jane"):
+        membership.rows[("tenant-a", "session-a", recipient)] = SfuMembership(
+            "tenant-a", "session-a", recipient, "participant", 7, frozenset({"chat"}),
+        )
+    joined = join(service, "alice")
+    with pytest.raises(SfuAdmissionError, match="sfu_publication_subscribers_invalid"):
+        service.authorize_publication(
+            {
+                "session_id": "session-a", "membership_epoch": 7, "expected_revision": joined["revision"],
+                "idempotency_key": "publish-too-many", "publication_id": "camera-alice-over", "source": "camera",
+                "kind": "video", "privacy": "ordinary", "authorized_subscriber_ids": [
+                    "bob", "carol", "dave", "erin", "frank", "gwen", "hank", "ivan", "jane",
+                ], "constraints": {
+                    "max_bitrate_bps": 1_000_000, "max_width": 1280, "max_height": 720, "max_fps": 30,
+                },
+            },
+            actor_id="alice", tenant_id="tenant-a",
+        )
+
+
 def test_topology_denial_precedes_publication_state_mutation(membership: Memberships):
     topology = RecordingTopologyPolicy(deny=True)
     composed = SemanticSfuAdmissionService(

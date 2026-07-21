@@ -52,3 +52,13 @@ def test_duplicate_reordered_churn_decisions_are_idempotent_and_cooldown_bound()
 def test_rejects_unbounded_parent_profile() -> None:
     with pytest.raises(ValueError, match="media_topology_participant_count_invalid"):
         MediaTopologyPolicy().decide(context(participant_count=250))
+
+
+def test_rejects_zero_and_supports_bounded_parent_profile() -> None:
+    with pytest.raises(ValueError, match="media_topology_participant_count_invalid"):
+        MediaTopologyPolicy().decide(context(participant_count=0))
+    assert MediaTopologyPolicy().decide(context(participant_count=8)).target in {
+        "ordinary_sfu", "ordinary_direct", "semantic_sfu",
+    }
+    with pytest.raises(ValueError, match="media_topology_participant_count_invalid"):
+        MediaTopologyPolicy().decide(context(participant_count=9))

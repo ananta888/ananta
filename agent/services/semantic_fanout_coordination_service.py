@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Mapping
 
+from agent.services.sfu_broadcast_participant_limits import SFU_BROADCAST_MAX_GROUP_MEMBERS
+
 ReceiverPath = Literal["ordinary_sfu", "semantic_sfu", "ordinary_direct"]
 
 
@@ -54,7 +56,7 @@ class SemanticFanoutCoordinationService:
     ) -> SemanticFanoutPlan:
         if not _identifier(publication_id):
             raise ValueError("semantic_fanout_publication_invalid")
-        if not receivers or len(receivers) > 8:
+        if not receivers or len(receivers) > SFU_BROADCAST_MAX_GROUP_MEMBERS:
             raise ValueError("semantic_fanout_receiver_count_invalid")
         if len({row.receiver_id for row in receivers}) != len(receivers):
             raise ValueError("semantic_fanout_receiver_duplicate")
