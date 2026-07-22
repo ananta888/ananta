@@ -35,8 +35,10 @@ from agent.services.semantic_media_audit_service import (
     SemanticMediaAuditEvent,
     SemanticMediaAuditPort,
 )
-from agent.services.sfu_broadcast_participant_limits import (
-    SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS,
+from agent.services.sfu_broadcast_capacity_profile_resolver import (
+    SfuBroadcastCapacityProfileError,
+    SfuBroadcastCapacityProfilePort,
+    get_sfu_broadcast_capacity_profile_resolver,
 )
 from agent.services.share_session_service import get_share_session_service
 from agent.services.webrtc_epoch_service import get_webrtc_epoch_service
@@ -142,6 +144,8 @@ class SemanticSfuAdmissionService:
         audit: SemanticMediaAuditPort | None = None,
         topology_policy: MediaTopologyPolicyPort | None = None,
         fanout: SemanticFanoutCoordinationPort | None = None,
+        capacity_profile: SfuBroadcastCapacityProfilePort | None = None,
+        expose_capacity_profile: bool = False,
     ) -> None:
         self._membership = membership
         self._enabled = enabled
@@ -153,8 +157,11 @@ class SemanticSfuAdmissionService:
         self._lock = threading.RLock()
         self._state = state_repository or InMemorySfuAdmissionStateRepository(clock=clock)
         self._audit = audit
+        self._capacity_profile = capacity_profile or get_sfu_broadcast_capacity_profile_resolver()
+        self._capacity_profile.resolve()
+        self._expose_capacity_profile = expose_capacity_profile
         self._topology_policy = topology_policy or MediaTopologyPolicy()
-        self._fanout = fanout or SemanticFanoutCoordinationService()
+        self._fanout = fanout or SemanticFanoutCoordinationService(self._capacity_profile)
 
     def configure_audit(self, audit: SemanticMediaAuditPort) -> None:
         """Attach the Hub audit factory even if the singleton was resolved early."""
@@ -191,6 +198,7 @@ class SemanticSfuAdmissionService:
             "strict_e2ee": strict_e2ee,
             "e2ee_supported": supported,
         }
+        capacity = self._capacity_profile.resolve()
         with self._lock:
             cached = self._receipt(tenant_id, session_id, actor_id, "join", idempotency_key, canonical)
             if cached is not None:
@@ -202,7 +210,11 @@ class SemanticSfuAdmissionService:
             known_epochs = set(state.participants.values())
             if any(value > expected_epoch for value in known_epochs):
                 raise SfuAdmissionError("sfu_membership_epoch_stale", 409)
-            if any(value < expected_epoch for value in known_epochs):
+            rolls_epoch = any(value < expected_epoch for value in known_epochs)
+            prospective_count = 1 if rolls_epoch else len(state.participants) + (previous_epoch is None)
+            if not capacity.allows_participant_count(prospective_count):
+                raise SfuAdmissionError("capacity_cap_exceeded", 409)
+            if rolls_epoch:
                 # Membership changes invalidate the complete room projection.
                 # The first still-active member joining the new authoritative
                 # epoch performs the fail-closed rollover; stale LiveKit grants
@@ -245,20 +257,21 @@ class SemanticSfuAdmissionService:
 
         normalized_session = _id(session_id, "session_id")
         epoch = _positive_int(membership_epoch, "membership_epoch")
+        room_id = _room_id(tenant_id, normalized_session)
         self._require_configuration()
         self._member(tenant_id, normalized_session, actor_id, epoch)
         with self._lock:
             state = self._state.load(tenant_id, normalized_session)
             if state is None:
-                return {
+                return self._with_capacity_profile({
                     "ok": True,
-                    "room_id": _room_id(tenant_id, normalized_session),
+                    "room_id": room_id,
                     "membership_epoch": epoch,
                     "revision": 0,
                     "joined": False,
                     "publications": [],
                     "subscriptions": [],
-                }
+                }, room_id)
             publications = [
                 json.loads(json.dumps(row))
                 for row in state.publications.values()
@@ -269,15 +282,15 @@ class SemanticSfuAdmissionService:
                 for row in state.subscriptions.values()
                 if row["subscriber_id"] == actor_id and row["status"] != "revoked"
             ]
-            return {
+            return self._with_capacity_profile({
                 "ok": True,
-                "room_id": _room_id(tenant_id, normalized_session),
+                "room_id": room_id,
                 "membership_epoch": epoch,
                 "revision": state.revision,
                 "joined": state.participants.get(actor_id) == epoch,
                 "publications": sorted(publications, key=lambda row: row["publication_id"]),
                 "subscriptions": sorted(subscriptions, key=lambda row: row["subscription_id"]),
-            }
+            }, room_id)
 
     def authorize_publication(self, request: Mapping[str, Any], *, actor_id: str, tenant_id: str) -> dict[str, Any]:
         self._require_configuration()
@@ -301,8 +314,10 @@ class SemanticSfuAdmissionService:
         if privacy == "private_recovery" and ("artifact_share" not in member.permissions or not audience_id):
             raise SfuAdmissionError("sfu_private_recovery_forbidden", 403)
         raw_subscribers = request.get("authorized_subscriber_ids")
-        if not isinstance(raw_subscribers, list) or len(raw_subscribers) > SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS:
+        if not isinstance(raw_subscribers, list):
             raise SfuAdmissionError("sfu_publication_subscribers_invalid")
+        if not self._capacity_profile.resolve().allows_receiver_count(len(raw_subscribers)):
+            raise SfuAdmissionError("capacity_cap_exceeded", 409)
         subscriber_ids = sorted({_id(value, "authorized_subscriber_id") for value in raw_subscribers})
         if len(subscriber_ids) != len(raw_subscribers) or actor_id in subscriber_ids:
             raise SfuAdmissionError("sfu_publication_subscribers_invalid")
@@ -532,8 +547,10 @@ class SemanticSfuAdmissionService:
             if publication.get("membership_epoch") != epoch:
                 raise SfuAdmissionError("sfu_membership_epoch_stale", 409)
             subscribers = list(publication.get("authorized_subscriber_ids") or [])
-        if not subscribers or len(subscribers) > SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS:
+        if not subscribers:
             raise SfuAdmissionError("sfu_group_size_invalid", 409)
+        if not self._capacity_profile.resolve().allows_receiver_count(len(subscribers)):
+            raise SfuAdmissionError("capacity_cap_exceeded", 409)
         for subscriber_id in subscribers:
             self._member(tenant_id, normalized_session, str(subscriber_id), epoch)
         return json.loads(json.dumps(publication))
@@ -645,7 +662,7 @@ class SemanticSfuAdmissionService:
                 "lease_authority": False,
             },
         }
-        return {
+        return self._with_capacity_profile({
             "ok": True,
             "server_url": self._public_ws_url,
             "access_token": jwt.encode(claims, self._api_secret, algorithm="HS256"),
@@ -653,9 +670,13 @@ class SemanticSfuAdmissionService:
             "room_id": room,
             "membership_epoch": member.epoch,
             "revision": state.revision,
-        }
+        }, room)
 
     def _require_configuration(self) -> None:
+        try:
+            self._capacity_profile.resolve()
+        except SfuBroadcastCapacityProfileError as exc:
+            raise SfuAdmissionError("sfu_capacity_configuration_invalid", 503) from exc
         if not self._enabled:
             raise SfuAdmissionError("sfu_disabled", 503)
         if not self._public_ws_url.startswith(("ws://", "wss://")):
@@ -664,6 +685,11 @@ class SemanticSfuAdmissionService:
             raise SfuAdmissionError("sfu_configuration_invalid", 503)
         if not 5 <= self._ttl <= _TOKEN_TTL_MAX_SECONDS:
             raise SfuAdmissionError("sfu_configuration_invalid", 503)
+
+    def _with_capacity_profile(self, result: dict[str, Any], room_id: str) -> dict[str, Any]:
+        if self._expose_capacity_profile:
+            result["capacity_profile"] = self._capacity_profile.resolve().public_contract(room_id=room_id)
+        return result
 
     def _room(self, tenant: str, session: str) -> SfuRoomState:
         return self._state.load(tenant, session) or SfuRoomState()
@@ -859,6 +885,7 @@ def get_semantic_sfu_admission_service() -> SemanticSfuAdmissionService:
             audit=_AUDIT,
             topology_policy=_TOPOLOGY_POLICY,
             fanout=_FANOUT,
+            expose_capacity_profile=True,
         )
     return _SERVICE
 

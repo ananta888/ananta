@@ -28,9 +28,7 @@ import {
   SemanticMediaTransportSignals,
   SemanticMediaTransportReason,
 } from './semantic-media-transport-state-machine';
-import {
-  SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS,
-} from './sfu-broadcast-limits';
+import { SfuBroadcastParticipantCapService } from './sfu-broadcast-participant-cap.service';
 
 export const SEMANTIC_MEDIA_TRANSPORT_POLICY = new InjectionToken<SemanticMediaTransportPolicyPort>(
   'SEMANTIC_MEDIA_TRANSPORT_POLICY',
@@ -75,6 +73,7 @@ export class SemanticSfuPathCoordinatorService implements OnDestroy {
   private readonly groupKeys = inject(SemanticSfuGroupKeyService);
   private readonly transportPolicy = inject(SEMANTIC_MEDIA_TRANSPORT_POLICY);
   private readonly clock = inject(SEMANTIC_MEDIA_PATH_CLOCK);
+  private readonly participantCaps = inject(SfuBroadcastParticipantCapService);
   private readonly subscriptions = new Subscription();
   readonly transportState$ = new BehaviorSubject<SemanticMediaTransportDecision>(
     this.transportPolicy.initial(this.safeClock()),
@@ -156,6 +155,10 @@ export class SemanticSfuPathCoordinatorService implements OnDestroy {
         this.sfu.disconnect('sfu_context_changed'),
       ]);
       if (this.context !== next || this.generation !== generation) return;
+      if (next?.featureEnabled && next.remotePeerIds.length > 1) {
+        await firstValueFrom(this.api.state(next.hubUrl, next.sessionId, next.membershipEpoch));
+        if (this.context !== next || this.generation !== generation) return;
+      }
       this.startGroupPolling();
       if (!next || next.remotePeerIds.length <= 1 || !this.desiredGroupReceivers.size) return;
       await this.reconcileGroupPublication(next, generation);
@@ -317,9 +320,10 @@ export class SemanticSfuPathCoordinatorService implements OnDestroy {
     receiverId: string,
     desired: 'auto' | 'ordinary' | 'sfu',
   ): Promise<SemanticSfuPathResult> {
-    if (!context.tenantId || context.remotePeerIds.length > SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS) {
+    if (!context.tenantId) {
       throw new Error('sfu_group_size_invalid');
     }
+    this.participantCaps.enforceCurrentReceiverCountIfResolved(context.remotePeerIds.length);
     const generation = ++this.generation;
     if (desired === 'sfu') {
       if (this.effectivePaths.get(receiverId) === 'sfu'
@@ -374,7 +378,7 @@ export class SemanticSfuPathCoordinatorService implements OnDestroy {
   ): Promise<ReadonlySet<string>> {
     if (this.outgoingOperation) throw new Error('sfu_group_operation_in_progress');
     const receiverIds = [...this.desiredGroupReceivers].filter(value => context.remotePeerIds.includes(value)).sort();
-    if (!receiverIds.length || receiverIds.length > SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS) {
+    if (!receiverIds.length) {
       throw new Error('sfu_group_size_invalid');
     }
     const topologyTransition = this.transportState$.value.mode !== 'sfu_active';
@@ -387,6 +391,7 @@ export class SemanticSfuPathCoordinatorService implements OnDestroy {
       if (!['active', 'muted'].includes(this.media.audioState$.value.status)) await this.media.requestMicrophone();
       clone = this.media.cloneActiveMicrophoneTrack();
       const state = await firstValueFrom(this.api.state(context.hubUrl, context.sessionId, context.membershipEpoch));
+      this.participantCaps.enforceReceiverCount(state.roomId, receiverIds.length);
       this.assertCurrent(context, generation);
       const joined = await firstValueFrom(this.api.join(
         context.hubUrl, this.mutation(context, state.revision, 'group-join'), true,
@@ -601,7 +606,7 @@ export class SemanticSfuPathCoordinatorService implements OnDestroy {
     this.stopGroupPolling();
     const context = this.context;
     if (!context || !context.featureEnabled || context.remotePeerIds.length < 2
-      || context.remotePeerIds.length > SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS || !context.tenantId
+      || !this.participantCaps.permitsCurrentReceiverCount(context.remotePeerIds.length) || !context.tenantId
       || strictSfuE2eeCapability() !== 'supported') return;
     void this.pollGroupPackages();
     this.groupPollHandle = setInterval(() => { void this.pollGroupPackages(); }, 1_000);

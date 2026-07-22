@@ -30,6 +30,9 @@ export interface NetworkProfile {
   signaling_url: string;
   transport_order: string[];
   semantic_media_feature_flags: SemanticMediaFeatureFlags;
+  sfu_broadcast_feature_version?: number;
+  sfu_broadcast_feature_available?: boolean;
+  sfu_broadcast_reason_codes?: readonly string[];
   warning: string;
 }
 
@@ -91,6 +94,15 @@ export function normalizeSemanticMediaFeatureFlags(value: unknown): SemanticMedi
   };
 }
 
+function normalizeBroadcastFeatureVersion(value: unknown): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
+
+function normalizeBroadcastReasonCodes(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter(item => typeof item === 'string' && item.length <= 128))];
+}
+
 /** Drop malformed ICE entries before they reach the browser constructor. */
 export function normalizeIceServers(value: unknown): RTCIceServer[] {
   if (!Array.isArray(value)) return [];
@@ -137,6 +149,9 @@ const FALLBACK: NetworkProfile = {
   signaling_url: PUBLIC_WEBRTC_SIGNALING_URL,
   transport_order: ['webrtc', 'hub_relay'],
   semantic_media_feature_flags: { ...SEMANTIC_MEDIA_FEATURE_DEFAULTS },
+  sfu_broadcast_feature_version: 0,
+  sfu_broadcast_feature_available: false,
+  sfu_broadcast_reason_codes: [],
   warning: '',
 };
 
@@ -164,6 +179,13 @@ export class NetworkProfileService {
         ice_servers: normalizeIceServers(r.profile.ice_servers),
         semantic_media_feature_flags: normalizeSemanticMediaFeatureFlags(
           r.profile.semantic_media_feature_flags
+        ),
+        sfu_broadcast_feature_version: normalizeBroadcastFeatureVersion(
+          r.profile.sfu_broadcast_feature_version
+        ),
+        sfu_broadcast_feature_available: r.profile.sfu_broadcast_feature_available === true,
+        sfu_broadcast_reason_codes: normalizeBroadcastReasonCodes(
+          r.profile.sfu_broadcast_reason_codes
         ),
       });
     } catch {

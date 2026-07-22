@@ -10,6 +10,7 @@ import {
 import { GroupKeyEpochAuthorization, WebrtcGroupKeyService } from './webrtc-group-key.service';
 import { VerifiedPeerPackage, WebrtcPeerKeyService } from './webrtc-peer-key.service';
 import { canonicalSecurityJson, decodeB64, encodeB64 } from './webrtc-secure-envelope';
+import { SfuBroadcastParticipantCapService } from './sfu-broadcast-participant-cap.service';
 
 export interface SemanticSfuGroupContext {
   readonly hubUrl: string;
@@ -50,13 +51,14 @@ export class SemanticSfuGroupKeyService {
   private readonly e2ee = inject(E2eEncryptionService);
   private readonly peers = inject(WebrtcPeerKeyService);
   private readonly groupKeys = inject(WebrtcGroupKeyService);
+  private readonly participantCaps = inject(SfuBroadcastParticipantCapService);
 
   async createPublisherEpoch(
     context: SemanticSfuGroupContext,
     publicationId: string,
     memberIds: readonly string[],
   ): Promise<PreparedSfuGroupEpoch> {
-    const members = normalizedMembers(memberIds, context.localPeerId);
+    const members = normalizedMembers(memberIds, context.localPeerId, this.participantCaps);
     const peerPage = await firstValueFrom(this.api.peerPackages(context.hubUrl, context.sessionId));
     this.assertPeerPage(context, peerPage);
     const remotePackages = new Map(peerPage.packages.map(value => [value.peer_id, value]));
@@ -306,6 +308,7 @@ export class SemanticSfuGroupKeyService {
       || authorization.expires_at_ms <= Date.now()
       || [...authorization.member_ids].sort().join('\0') !== [...members].sort().join('\0')
     ) throw new Error('sfu_group_authorization_context_mismatch');
+    this.participantCaps.enforceParticipantCountIfResolved(authorization.room_id, members.length);
   }
 }
 
@@ -360,9 +363,14 @@ function parseOpaquePackage(raw: unknown): OpaqueGroupPackageV1 {
   return Object.freeze(row as unknown as OpaqueGroupPackageV1);
 }
 
-function normalizedMembers(values: readonly string[], localPeerId: string): readonly string[] {
+function normalizedMembers(
+  values: readonly string[],
+  localPeerId: string,
+  participantCaps: SfuBroadcastParticipantCapService,
+): readonly string[] {
+  participantCaps.enforceCurrentParticipantCountIfResolved(values.length);
   const members = [...new Set(values)].sort();
-  if (members.length < 2 || members.length > 8 || !members.includes(localPeerId)
+  if (members.length < 2 || !members.includes(localPeerId)
       || members.some(value => !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value))) {
     throw new Error('sfu_group_member_set_invalid');
   }

@@ -15,4 +15,5 @@ logging:
 room:
   empty_timeout: 60
   departure_timeout: 20
-  max_participants: 8
+  # Administrative ceiling only. The Hub profile remains the admission authority.
+  max_participants: 250

@@ -1,7 +1,7 @@
 """Hub-owned receiver routing for the bounded semantic-media parent profile.
 
 This module does not implement the specialised broadcast/fleet optimiser.  It
-creates a small, deterministic plan for at most eight already-authorized room
+creates a profile-bounded deterministic plan for already-authorized room
 members and keeps private recovery separate from the common SFU publication.
 """
 
@@ -10,7 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Mapping
 
-from agent.services.sfu_broadcast_participant_limits import SFU_BROADCAST_MAX_GROUP_MEMBERS
+from agent.services.sfu_broadcast_capacity_profile_resolver import (
+    SfuBroadcastCapacityProfilePort,
+    get_sfu_broadcast_capacity_profile_resolver,
+)
 
 ReceiverPath = Literal["ordinary_sfu", "semantic_sfu", "ordinary_direct"]
 
@@ -47,6 +50,9 @@ class SemanticFanoutPlan:
 class SemanticFanoutCoordinationService:
     """Intersect user preferences with Hub grants; never expand rights."""
 
+    def __init__(self, capacity_profile: SfuBroadcastCapacityProfilePort | None = None) -> None:
+        self._capacity_profile = capacity_profile or get_sfu_broadcast_capacity_profile_resolver()
+
     def plan(
         self,
         *,
@@ -56,8 +62,10 @@ class SemanticFanoutCoordinationService:
     ) -> SemanticFanoutPlan:
         if not _identifier(publication_id):
             raise ValueError("semantic_fanout_publication_invalid")
-        if not receivers or len(receivers) > SFU_BROADCAST_MAX_GROUP_MEMBERS:
+        if not receivers:
             raise ValueError("semantic_fanout_receiver_count_invalid")
+        if not self._capacity_profile.resolve().allows_receiver_count(len(receivers)):
+            raise ValueError("capacity_cap_exceeded")
         if len({row.receiver_id for row in receivers}) != len(receivers):
             raise ValueError("semantic_fanout_receiver_duplicate")
         recovery = dict(private_recovery_audience or {})

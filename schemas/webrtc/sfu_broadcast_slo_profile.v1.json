@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/sfu_broadcast_slo_profile.v1.json",
+  "title": "SFU broadcast SLO profiles",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "version", "default_profile_id", "profiles"],
+  "properties": {
+    "$schema": {"type": "string", "const": "../schemas/webrtc/sfu_broadcast_slo_profile.v1.json"},
+    "version": {"type": "string", "const": "1.0"},
+    "default_profile_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$"},
+    "profiles": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/profile"}
+    }
+  },
+  "$defs": {
+    "ratio": {"type": "number", "minimum": 0, "maximum": 1},
+    "headroomRatio": {"type": "number", "minimum": 0.2, "maximum": 0.5},
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "topology",
+        "description",
+        "activation_eligible",
+        "evidence_run_ids",
+        "capacity",
+        "slo",
+        "statistics",
+        "cleanup",
+        "trend",
+        "reserve"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$"},
+        "topology": {
+          "type": "string",
+          "enum": [
+            "single_node_direct",
+            "single_region_distributed",
+            "multi_region_distributed",
+            "turn_relay_constrained"
+          ]
+        },
+        "description": {"type": "string", "minLength": 20, "maxLength": 240},
+        "activation_eligible": {"type": "boolean"},
+        "evidence_run_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^RUN_[A-Za-z0-9][A-Za-z0-9._-]*$"}
+        },
+        "capacity": {"$ref": "#/$defs/capacity"},
+        "slo": {"$ref": "#/$defs/slo"},
+        "statistics": {"$ref": "#/$defs/statistics"},
+        "cleanup": {"$ref": "#/$defs/cleanup"},
+        "trend": {"$ref": "#/$defs/trend"},
+        "reserve": {"$ref": "#/$defs/reserve"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"activation_eligible": {"const": true}}},
+          "then": {"properties": {"evidence_run_ids": {"minItems": 1}}}
+        }
+      ]
+    },
+    "capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_publishers_per_room",
+        "max_receivers_per_room",
+        "max_rooms_per_node",
+        "max_subscriptions_per_node",
+        "max_egress_mbps_per_node",
+        "max_data_messages_per_second_per_room",
+        "room_spans_nodes"
+      ],
+      "properties": {
+        "max_publishers_per_room": {"type": "integer", "const": 1},
+        "max_receivers_per_room": {"type": "integer", "minimum": 1, "maximum": 100},
+        "max_rooms_per_node": {"type": "integer", "minimum": 1, "maximum": 20},
+        "max_subscriptions_per_node": {"type": "integer", "minimum": 1, "maximum": 200},
+        "max_egress_mbps_per_node": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "max_data_messages_per_second_per_room": {"type": "integer", "minimum": 1, "maximum": 200},
+        "room_spans_nodes": {"type": "boolean", "const": false}
+      }
+    },
+    "slo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "join_latency_p95_ms",
+        "media_start_latency_p95_ms",
+        "route_convergence_p95_ms",
+        "revoke_convergence_p99_ms",
+        "command_success_ratio_min",
+        "media_delivery_ratio_min"
+      ],
+      "properties": {
+        "join_latency_p95_ms": {"type": "integer", "minimum": 1, "maximum": 5000},
+        "media_start_latency_p95_ms": {"type": "integer", "minimum": 1, "maximum": 3000},
+        "route_convergence_p95_ms": {"type": "integer", "minimum": 1, "maximum": 2000},
+        "revoke_convergence_p99_ms": {"type": "integer", "minimum": 1, "maximum": 2000},
+        "command_success_ratio_min": {"type": "number", "minimum": 0.98, "maximum": 1},
+        "media_delivery_ratio_min": {"type": "number", "minimum": 0.95, "maximum": 1}
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measurement_window_seconds",
+        "minimum_sample_count",
+        "latency_percentile",
+        "confidence_level",
+        "allowed_error_ratio",
+        "consecutive_breach_windows",
+        "zero_sample_decision",
+        "partial_window_decision"
+      ],
+      "properties": {
+        "measurement_window_seconds": {"type": "integer", "minimum": 60, "maximum": 900},
+        "minimum_sample_count": {"type": "integer", "minimum": 100, "maximum": 10000},
+        "latency_percentile": {"type": "number", "enum": [0.95, 0.99]},
+        "confidence_level": {"type": "number", "minimum": 0.95, "maximum": 0.999},
+        "allowed_error_ratio": {"type": "number", "minimum": 0, "maximum": 0.05},
+        "consecutive_breach_windows": {"type": "integer", "minimum": 2, "maximum": 10},
+        "zero_sample_decision": {"type": "string", "const": "block"},
+        "partial_window_decision": {"type": "string", "const": "block"}
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reconciliation_interval_seconds",
+        "disconnected_participant_ttl_seconds",
+        "stale_route_ttl_seconds",
+        "orphan_room_ttl_seconds",
+        "cleanup_timeout_seconds",
+        "cleanup_batch_size",
+        "max_cleanup_attempts",
+        "on_cleanup_exhaustion"
+      ],
+      "properties": {
+        "reconciliation_interval_seconds": {"type": "integer", "minimum": 5, "maximum": 300},
+        "disconnected_participant_ttl_seconds": {"type": "integer", "minimum": 5, "maximum": 600},
+        "stale_route_ttl_seconds": {"type": "integer", "minimum": 5, "maximum": 600},
+        "orphan_room_ttl_seconds": {"type": "integer", "minimum": 30, "maximum": 3600},
+        "cleanup_timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 60},
+        "cleanup_batch_size": {"type": "integer", "minimum": 1, "maximum": 500},
+        "max_cleanup_attempts": {"type": "integer", "minimum": 1, "maximum": 10},
+        "on_cleanup_exhaustion": {"type": "string", "const": "block_and_alert"}
+      }
+    },
+    "trend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lookback_windows",
+        "minimum_complete_windows",
+        "warning_utilization_ratio",
+        "stop_utilization_ratio",
+        "max_growth_ratio_per_window",
+        "consecutive_warning_windows",
+        "missing_window_decision"
+      ],
+      "properties": {
+        "lookback_windows": {"type": "integer", "minimum": 3, "maximum": 24},
+        "minimum_complete_windows": {"type": "integer", "minimum": 3, "maximum": 24},
+        "warning_utilization_ratio": {"type": "number", "minimum": 0.5, "maximum": 0.8},
+        "stop_utilization_ratio": {"type": "number", "minimum": 0.85, "maximum": 0.95},
+        "max_growth_ratio_per_window": {"type": "number", "minimum": 0.01, "maximum": 0.25},
+        "consecutive_warning_windows": {"type": "integer", "minimum": 2, "maximum": 6},
+        "missing_window_decision": {"type": "string", "const": "block"}
+      }
+    },
+    "reserve": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cpu_headroom_ratio",
+        "memory_headroom_ratio",
+        "egress_headroom_ratio",
+        "subscription_headroom_ratio",
+        "minimum_spare_nodes",
+        "apply_before_admission",
+        "reserve_breach_decision"
+      ],
+      "properties": {
+        "cpu_headroom_ratio": {"$ref": "#/$defs/headroomRatio"},
+        "memory_headroom_ratio": {"$ref": "#/$defs/headroomRatio"},
+        "egress_headroom_ratio": {"$ref": "#/$defs/headroomRatio"},
+        "subscription_headroom_ratio": {"$ref": "#/$defs/headroomRatio"},
+        "minimum_spare_nodes": {"type": "integer", "minimum": 0, "maximum": 3},
+        "apply_before_admission": {"type": "boolean", "const": true},
+        "reserve_breach_decision": {"type": "string", "const": "reject_new_sessions"}
+      }
+    }
+  }
+}

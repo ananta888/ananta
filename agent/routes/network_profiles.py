@@ -7,13 +7,19 @@ import os
 import time
 from pathlib import Path
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, current_app, g, jsonify
 
 from agent.auth import check_auth
 from agent.services.oidc_settings import get_oidc_config, oidc_is_configured
 from agent.services.semantic_media_feature_flags import (
     resolve_semantic_media_feature_flags,
     semantic_media_feature_catalog_payload,
+)
+from agent.services.sfu_broadcast_feature_policy import (
+    SFB_BROADCAST_FEATURE_KEYS,
+    SfuBroadcastFeaturePolicy,
+    SfuBroadcastFeaturePolicyError,
+    SfuBroadcastFeatureProjection,
 )
 
 network_profiles_bp = Blueprint("network_profiles", __name__)
@@ -47,6 +53,31 @@ def _resolve_turn_credentials(profile: dict) -> dict:
         test_pass = os.environ.get("ANANTA_TURN_TEST_PASS", "")
         return {"username": test_user, "credential": test_pass, "ttl": 3600}
     return {}
+
+
+def _effective_semantic_media_flags() -> tuple[dict[str, bool], SfuBroadcastFeatureProjection]:
+    flags = resolve_semantic_media_feature_flags(os.environ)
+    policy = current_app.extensions.get("sfu_broadcast_feature_policy")
+    identity = getattr(g, "user", None) or getattr(g, "auth_payload", None) or {}
+    tenant_id = str(identity.get("tenant_id") or identity.get("tenant") or "").strip()
+    if not isinstance(policy, SfuBroadcastFeaturePolicy) or not tenant_id:
+        projection = SfuBroadcastFeatureProjection.unavailable(
+            "sfu_broadcast.authenticated_scope_missing"
+        )
+    else:
+        try:
+            projection = policy.effective(
+                tenant_id=tenant_id,
+                region=str(identity.get("region") or "*").strip(),
+                room_cohort=str(identity.get("room_cohort") or "*").strip(),
+            )
+        except (SfuBroadcastFeaturePolicyError, RuntimeError):
+            projection = SfuBroadcastFeatureProjection.unavailable(
+                "sfu_broadcast.authenticated_scope_invalid"
+            )
+    for key in SFB_BROADCAST_FEATURE_KEYS:
+        flags[key] = projection.flags.get(key) is True
+    return flags, projection
 
 
 @network_profiles_bp.route("/api/network-profiles/<profile_id>", methods=["GET"])
@@ -92,6 +123,7 @@ def get_network_profile(profile_id: str):
         "registration_allowed": bool(oidc_is_configured() and get_oidc_config().registration_allowed),
     }
 
+    semantic_flags, broadcast_projection = _effective_semantic_media_flags()
     return jsonify(
         {
             "ok": True,
@@ -106,7 +138,10 @@ def get_network_profile(profile_id: str):
                 ),
                 "signaling_url": profile.get("rendezvous", {}).get("signaling_url", ""),
                 "transport_order": profile.get("rendezvous", {}).get("transport_order", ["hub_relay"]),
-                "semantic_media_feature_flags": resolve_semantic_media_feature_flags(os.environ),
+                "semantic_media_feature_flags": semantic_flags,
+                "sfu_broadcast_feature_version": broadcast_projection.version,
+                "sfu_broadcast_feature_available": broadcast_projection.available is True,
+                "sfu_broadcast_reason_codes": list(broadcast_projection.reason_codes),
                 "semantic_media_feature_catalog": semantic_media_feature_catalog_payload(),
                 "warning": profile.get("warning", ""),
             },

@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.invalid/schemas/webrtc/sfu_broadcast_capacity_profile.v1.json",
+  "title": "Ananta SFU broadcast capacity profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema",
+    "schema_version",
+    "profile_id",
+    "profile_revision",
+    "legacy_participant_cap",
+    "livekit_hard_cap",
+    "active_hub_room_cap",
+    "room_admission_cap",
+    "angular_display_cap",
+    "test_tiers",
+    "activation"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../schemas/webrtc/sfu_broadcast_capacity_profile.v1.json"
+    },
+    "schema": {
+      "const": "ananta.webrtc.sfu-broadcast-capacity-profile.v1"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "profile_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "profile_revision": {
+      "$ref": "#/$defs/positiveInteger"
+    },
+    "legacy_participant_cap": {
+      "const": 8
+    },
+    "livekit_hard_cap": {
+      "const": 250
+    },
+    "active_hub_room_cap": {
+      "$ref": "#/$defs/positiveInteger"
+    },
+    "room_admission_cap": {
+      "$ref": "#/$defs/positiveInteger"
+    },
+    "angular_display_cap": {
+      "$ref": "#/$defs/positiveInteger"
+    },
+    "test_tiers": {
+      "type": "array",
+      "prefixItems": [
+        { "const": 10 },
+        { "const": 25 },
+        { "const": 50 },
+        { "const": 100 },
+        { "const": 250 }
+      ],
+      "items": false,
+      "minItems": 5,
+      "maxItems": 5
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "gate_id",
+        "gate_passed",
+        "candidate_cap",
+        "approval_id",
+        "expected_previous_revision",
+        "approved_revision"
+      ],
+      "properties": {
+        "state": {
+          "enum": ["legacy", "candidate", "rollback"]
+        },
+        "gate_id": {
+          "const": "SFB-GATE-009"
+        },
+        "gate_passed": {
+          "type": "boolean"
+        },
+        "candidate_cap": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/positiveInteger" }
+          ]
+        },
+        "approval_id": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+            }
+          ]
+        },
+        "expected_previous_revision": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "integer", "minimum": 0 }
+          ]
+        },
+        "approved_revision": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/positiveInteger" }
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 250
+    }
+  }
+}

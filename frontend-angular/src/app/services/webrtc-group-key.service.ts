@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 
 import { canonicalSecurityJson, decodeB64 } from './webrtc-secure-envelope';
-import { SFU_BROADCAST_MAX_GROUP_MEMBERS } from './sfu-broadcast-limits';
+import { SfuBroadcastParticipantCapService } from './sfu-broadcast-participant-cap.service';
 
 export interface GroupKeyEpochAuthorization {
   version: 1;
@@ -36,6 +36,8 @@ export class GroupKeyError extends Error {
 @Injectable({ providedIn: 'root' })
 export class WebrtcGroupKeyService {
   private readonly keys = new Map<string, ActiveGroupKey>();
+
+  constructor(private readonly participantCaps: SfuBroadcastParticipantCapService | null = null) {}
 
   async install(
     authorization: GroupKeyEpochAuthorization,
@@ -87,10 +89,12 @@ export class WebrtcGroupKeyService {
     if (authorization.rekey_deadline_ms < authorization.valid_from_ms) {
       throw new GroupKeyError('rekey_deadline_invalid');
     }
+    this.participantCaps?.enforceParticipantCountIfResolved(
+      authorization.room_id, authorization.member_ids.length,
+    );
     const members = [...new Set(authorization.member_ids)].sort();
     if (
       members.length !== authorization.member_ids.length || members.length < 1
-      || members.length > SFU_BROADCAST_MAX_GROUP_MEMBERS
     ) {
       throw new GroupKeyError('member_set_invalid');
     }

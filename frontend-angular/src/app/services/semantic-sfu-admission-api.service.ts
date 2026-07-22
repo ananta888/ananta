@@ -2,7 +2,11 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 
 import { HubApiCoreService } from './hub-api-core.service';
-import { SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS } from './sfu-broadcast-limits';
+import {
+  ResolvedSfuBroadcastCapacityProfile,
+  SfuBroadcastParticipantCapService,
+  parseResolvedSfuBroadcastCapacityProfile,
+} from './sfu-broadcast-participant-cap.service';
 
 export interface SemanticSfuConstraints {
   readonly max_bitrate_bps: number;
@@ -48,6 +52,7 @@ export interface SemanticSfuState {
   readonly joined: boolean;
   readonly publications: readonly SemanticSfuPublication[];
   readonly subscriptions: readonly SemanticSfuSubscription[];
+  readonly capacityProfile?: ResolvedSfuBroadcastCapacityProfile;
 }
 
 export interface SemanticSfuToken {
@@ -59,6 +64,7 @@ export interface SemanticSfuToken {
   readonly revision: number;
   readonly publication: SemanticSfuPublication | null;
   readonly subscription: SemanticSfuSubscription | null;
+  readonly capacityProfile?: ResolvedSfuBroadcastCapacityProfile;
 }
 
 export interface SemanticSfuMutationContext {
@@ -71,6 +77,7 @@ export interface SemanticSfuMutationContext {
 @Injectable({ providedIn: 'root' })
 export class SemanticSfuAdmissionApiService {
   private readonly core = inject(HubApiCoreService);
+  private readonly participantCaps = inject(SfuBroadcastParticipantCapService);
 
   state(hubUrl: string, sessionId: string, membershipEpoch: number): Observable<SemanticSfuState> {
     const base = normalizeBase(hubUrl);
@@ -80,7 +87,7 @@ export class SemanticSfuAdmissionApiService {
     });
     return this.core.request<unknown>(
       'GET', `${base}/v1/semantic-media/sfu/admissions/state?${query.toString()}`, base,
-    ).pipe(map(parseSemanticSfuState));
+    ).pipe(map(raw => parseSemanticSfuState(raw, this.participantCaps)));
   }
 
   join(
@@ -90,7 +97,7 @@ export class SemanticSfuAdmissionApiService {
   ): Observable<SemanticSfuToken> {
     return this.mutation(hubUrl, 'join', {
       ...mutationContext(context), strict_e2ee: true, e2ee_supported: e2eeSupported === true,
-    }, parseSemanticSfuToken);
+    }, raw => parseSemanticSfuToken(raw, this.participantCaps));
   }
 
   authorizePublication(
@@ -106,6 +113,7 @@ export class SemanticSfuAdmissionApiService {
       constraints: SemanticSfuConstraints;
     }>,
   ): Observable<SemanticSfuToken> {
+    this.participantCaps.enforceCurrentReceiverCountIfResolved(request.authorizedSubscriberIds.length);
     const subscribers = uniqueIds(request.authorizedSubscriberIds);
     return this.mutation(hubUrl, 'publications', {
       ...mutationContext(context),
@@ -117,7 +125,7 @@ export class SemanticSfuAdmissionApiService {
         ? null : identifier(request.audienceParticipantId),
       authorized_subscriber_ids: subscribers,
       constraints: parseConstraints(request.constraints),
-    }, parseSemanticSfuToken);
+    }, raw => parseSemanticSfuToken(raw, this.participantCaps));
   }
 
   authorizeSubscription(
@@ -130,7 +138,7 @@ export class SemanticSfuAdmissionApiService {
       ...mutationContext(context),
       subscription_id: identifier(subscriptionId),
       publication_id: identifier(publicationId),
-    }, parseSemanticSfuToken);
+    }, raw => parseSemanticSfuToken(raw, this.participantCaps));
   }
 
   leave(hubUrl: string, context: SemanticSfuMutationContext): Observable<Readonly<{
@@ -160,27 +168,36 @@ export class SemanticSfuAdmissionApiService {
   }
 }
 
-export function parseSemanticSfuState(raw: unknown): SemanticSfuState {
-  const row = closed(raw, [
+export function parseSemanticSfuState(
+  raw: unknown,
+  participantCaps?: SfuBroadcastParticipantCapService,
+): SemanticSfuState {
+  const row = response(raw, [
     'ok', 'room_id', 'membership_epoch', 'revision', 'joined', 'publications', 'subscriptions',
-  ], 'sfu_state_response_invalid');
+  ], ['capacity_profile'], 'sfu_state_response_invalid');
   if (row['ok'] !== true || typeof row['joined'] !== 'boolean') fail('sfu_state_response_invalid');
+  const resolvedRoomId = roomId(row['room_id']);
+  const capacity = capacityProfile(row, resolvedRoomId, participantCaps);
   return Object.freeze({
-    roomId: roomId(row['room_id']),
+    roomId: resolvedRoomId,
     membershipEpoch: positiveInteger(row['membership_epoch']),
     revision: nonnegativeInteger(row['revision']),
     joined: row['joined'],
     publications: frozenArray(row['publications'], parsePublication),
     subscriptions: frozenArray(row['subscriptions'], parseSubscription),
+    ...(capacity ? { capacityProfile: capacity } : {}),
   });
 }
 
-export function parseSemanticSfuToken(raw: unknown): SemanticSfuToken {
+export function parseSemanticSfuToken(
+  raw: unknown,
+  participantCaps?: SfuBroadcastParticipantCapService,
+): SemanticSfuToken {
   const row = record(raw, 'sfu_token_response_invalid');
   const required = [
     'ok', 'server_url', 'access_token', 'expires_at', 'room_id', 'membership_epoch', 'revision',
   ];
-  const allowed = new Set([...required, 'publication', 'subscription']);
+  const allowed = new Set([...required, 'publication', 'subscription', 'capacity_profile']);
   if (Object.keys(row).some(key => !allowed.has(key)) || required.some(key => !(key in row))) {
     fail('sfu_token_response_invalid');
   }
@@ -189,15 +206,18 @@ export function parseSemanticSfuToken(raw: unknown): SemanticSfuToken {
   }
   const serverUrl = String(row['server_url'] ?? '');
   if (!/^wss?:\/\/[^\s]+$/.test(serverUrl)) fail('sfu_token_response_invalid');
+  const resolvedRoomId = roomId(row['room_id']);
+  const capacity = capacityProfile(row, resolvedRoomId, participantCaps);
   return Object.freeze({
     serverUrl,
     accessToken: row['access_token'],
     expiresAt: positiveInteger(row['expires_at']),
-    roomId: roomId(row['room_id']),
+    roomId: resolvedRoomId,
     membershipEpoch: positiveInteger(row['membership_epoch']),
     revision: nonnegativeInteger(row['revision']),
     publication: row['publication'] === undefined ? null : parsePublication(row['publication']),
     subscription: row['subscription'] === undefined ? null : parseSubscription(row['subscription']),
+    ...(capacity ? { capacityProfile: capacity } : {}),
   });
 }
 
@@ -290,10 +310,23 @@ function identifier(value: unknown): string {
 
 function uniqueIds(values: readonly unknown[]): string[] {
   const ids = values.map(identifier);
-  if (ids.length > SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS || new Set(ids).size !== ids.length) {
+  if (new Set(ids).size !== ids.length) {
     fail('sfu_identifier_list_invalid');
   }
   return [...ids].sort();
+}
+
+function capacityProfile(
+  row: Record<string, unknown>,
+  expectedRoomId: string,
+  participantCaps?: SfuBroadcastParticipantCapService,
+): ResolvedSfuBroadcastCapacityProfile | undefined {
+  if (row['capacity_profile'] === undefined) return undefined;
+  const profile = participantCaps
+    ? participantCaps.install(row['capacity_profile'])
+    : parseResolvedSfuBroadcastCapacityProfile(row['capacity_profile']);
+  if (profile.roomId !== expectedRoomId) fail('capacity_profile_room_mismatch');
+  return profile;
 }
 
 function positiveInteger(value: unknown): number {
@@ -318,6 +351,18 @@ function frozenArray<T>(raw: unknown, parser: (row: unknown) => T): readonly T[]
 function closed(raw: unknown, keys: readonly string[], reason: string): Record<string, unknown> {
   const value = record(raw, reason);
   if (Object.keys(value).some(key => !keys.includes(key)) || keys.some(key => !(key in value))) fail(reason);
+  return value;
+}
+
+function response(
+  raw: unknown,
+  required: readonly string[],
+  optional: readonly string[],
+  reason: string,
+): Record<string, unknown> {
+  const value = record(raw, reason);
+  const allowed = new Set([...required, ...optional]);
+  if (Object.keys(value).some(key => !allowed.has(key)) || required.some(key => !(key in value))) fail(reason);
   return value;
 }
 

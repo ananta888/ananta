@@ -4,7 +4,7 @@ import { Observable, map } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { GroupKeyEpochAuthorization } from './webrtc-group-key.service';
 import { SignedPeerKeyPackage } from './webrtc-peer-key.service';
-import { SFU_BROADCAST_MAX_GROUP_MEMBERS } from './sfu-broadcast-limits';
+import { SfuBroadcastParticipantCapService } from './sfu-broadcast-participant-cap.service';
 
 export interface SfuGroupKeyPrepareResult {
   readonly authorization: GroupKeyEpochAuthorization & { readonly membership_epoch: number };
@@ -42,6 +42,7 @@ export interface SfuGroupPeerPackagePage {
 @Injectable({ providedIn: 'root' })
 export class SemanticSfuGroupKeyApiService {
   private readonly core = inject(HubApiCoreService);
+  private readonly participantCaps = inject(SfuBroadcastParticipantCapService);
 
   prepareEpoch(
     hubUrl: string,
@@ -54,6 +55,7 @@ export class SemanticSfuGroupKeyApiService {
     }>,
   ): Observable<SfuGroupKeyPrepareResult> {
     const base = normalizeBase(hubUrl);
+    this.participantCaps.enforceCurrentParticipantCountIfResolved(Object.keys(request.keyPackageRefs).length);
     return this.core.request<unknown>(
       'POST', `${base}/v1/semantic-media/sfu/group-keys/epochs`, base,
       { body: {
@@ -63,7 +65,7 @@ export class SemanticSfuGroupKeyApiService {
         key_package_refs: identifiersRecord(request.keyPackageRefs),
         idempotency_key: identifier(request.idempotencyKey),
       } },
-    ).pipe(map(parsePrepare));
+    ).pipe(map(raw => parsePrepare(raw, this.participantCaps)));
   }
 
   deliverPackages(
@@ -73,6 +75,7 @@ export class SemanticSfuGroupKeyApiService {
     packages: readonly SfuGroupOpaquePackageUpload[],
   ): Observable<Readonly<{ deliveredMemberIds: readonly string[]; pendingMemberIds: readonly string[] }>> {
     const base = normalizeBase(hubUrl);
+    this.participantCaps.enforceCurrentReceiverCountIfResolved(packages.length);
     const body = {
       idempotency_key: identifier(idempotencyKey),
       packages: packages.map(value => ({
@@ -117,7 +120,7 @@ export class SemanticSfuGroupKeyApiService {
     ).pipe(map(raw => {
       const row = closed(raw, ['ok', 'packages', 'cursor'], 'sfu_group_packages_response_invalid');
       if (row['ok'] !== true || typeof row['cursor'] !== 'string') fail('sfu_group_packages_response_invalid');
-      const values = array(row['packages']).map(parseDelivery);
+      const values = array(row['packages']).map(value => parseDelivery(value, this.participantCaps));
       return Object.freeze({ packages: Object.freeze(values), cursor: row['cursor'] });
     }));
   }
@@ -175,12 +178,13 @@ export class SemanticSfuGroupKeyApiService {
   }
 }
 
-function parsePrepare(raw: unknown): SfuGroupKeyPrepareResult {
-  const row = closed(raw, [
+function parsePrepare(raw: unknown, participantCaps: SfuBroadcastParticipantCapService): SfuGroupKeyPrepareResult {
+  const row = optionalClosed(raw, [
     'ok', 'authorization', 'hub_key_id', 'hub_public_key_b64',
-  ], 'sfu_group_prepare_response_invalid');
+  ], ['capacity_profile'], 'sfu_group_prepare_response_invalid');
   if (row['ok'] !== true) fail('sfu_group_prepare_response_invalid');
-  const authorization = parseAuthorization(row['authorization']);
+  if (row['capacity_profile'] !== undefined) participantCaps.install(row['capacity_profile']);
+  const authorization = parseAuthorization(row['authorization'], participantCaps);
   const hubKeyId = identifier(row['hub_key_id']);
   if (authorization.hub_key_id !== hubKeyId) fail('sfu_group_prepare_response_invalid');
   return Object.freeze({
@@ -188,13 +192,13 @@ function parsePrepare(raw: unknown): SfuGroupKeyPrepareResult {
   });
 }
 
-function parseDelivery(raw: unknown): SfuGroupKeyDelivery {
+function parseDelivery(raw: unknown, participantCaps: SfuBroadcastParticipantCapService): SfuGroupKeyDelivery {
   const row = closed(raw, [
     'kind', 'authorization', 'package_ref', 'publisher_id', 'recipient_id',
     'membership_epoch', 'opaque_package_b64', 'package_digest', 'expires_at_ms',
   ], 'sfu_group_package_response_invalid');
   if (row['kind'] !== 'sfu_group_key_package') fail('sfu_group_package_response_invalid');
-  const authorization = parseAuthorization(row['authorization']);
+  const authorization = parseAuthorization(row['authorization'], participantCaps);
   const membershipEpoch = positiveInteger(row['membership_epoch']);
   if (authorization.membership_epoch !== membershipEpoch) fail('sfu_group_package_response_invalid');
   return Object.freeze({
@@ -208,7 +212,10 @@ function parseDelivery(raw: unknown): SfuGroupKeyDelivery {
   });
 }
 
-function parseAuthorization(raw: unknown): GroupKeyEpochAuthorization & { readonly membership_epoch: number } {
+function parseAuthorization(
+  raw: unknown,
+  participantCaps: SfuBroadcastParticipantCapService,
+): GroupKeyEpochAuthorization & { readonly membership_epoch: number } {
   const row = closed(raw, [
     'version', 'authorization_id', 'tenant_id', 'room_id', 'publication_id', 'epoch', 'previous_epoch',
     'member_set_digest', 'member_ids', 'key_package_refs', 'valid_from_ms', 'expires_at_ms',
@@ -217,8 +224,11 @@ function parseAuthorization(raw: unknown): GroupKeyEpochAuthorization & { readon
   if (row['version'] !== 1 || !['create', 'join', 'leave', 'revoke', 'hub_failover', 'refresh'].includes(String(row['reason']))) {
     fail('sfu_group_authorization_invalid');
   }
-  const members = identifierArray(row['member_ids']);
-  if (members.length < 2 || members.length > SFU_BROADCAST_MAX_GROUP_MEMBERS || new Set(members).size !== members.length) {
+  const room = identifier(row['room_id']);
+  const rawMembers = array(row['member_ids']);
+  participantCaps.enforceParticipantCountIfResolved(room, rawMembers.length);
+  const members = rawMembers.map(identifier);
+  if (members.length < 2 || new Set(members).size !== members.length) {
     fail('sfu_group_authorization_invalid');
   }
   const refs = identifiersRecord(row['key_package_refs']);
@@ -227,7 +237,7 @@ function parseAuthorization(raw: unknown): GroupKeyEpochAuthorization & { readon
     version: 1,
     authorization_id: identifier(row['authorization_id']),
     tenant_id: identifier(row['tenant_id']),
-    room_id: identifier(row['room_id']),
+    room_id: room,
     publication_id: identifier(row['publication_id']),
     epoch: positiveInteger(row['epoch']),
     previous_epoch: nonnegativeInteger(row['previous_epoch']),
@@ -296,10 +306,23 @@ function normalizeBase(value: string): string {
 function identifiersRecord(value: unknown): Record<string, string> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) fail('sfu_group_identifier_map_invalid');
   const entries = Object.entries(value as Record<string, unknown>);
-  if (entries.length < 1 || entries.length > SFU_BROADCAST_MAX_GROUP_MEMBERS) {
+  if (entries.length < 1) {
     fail('sfu_group_identifier_map_invalid');
   }
   return Object.fromEntries(entries.map(([key, item]) => [identifier(key), identifier(item)]).sort());
+}
+
+function optionalClosed(
+  raw: unknown,
+  required: readonly string[],
+  optional: readonly string[],
+  reason: string,
+): Record<string, unknown> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail(reason);
+  const row = raw as Record<string, unknown>;
+  const allowed = new Set([...required, ...optional]);
+  if (Object.keys(row).some(key => !allowed.has(key)) || required.some(key => !(key in row))) fail(reason);
+  return row;
 }
 
 function identifierArray(value: unknown): string[] { return array(value).map(identifier); }

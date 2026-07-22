@@ -1,0 +1,22 @@
+{
+  "$schema": "../schemas/webrtc/sfu_broadcast_capacity_profile.v1.json",
+  "schema": "ananta.webrtc.sfu-broadcast-capacity-profile.v1",
+  "schema_version": 1,
+  "profile_id": "legacy-safe-default",
+  "profile_revision": 1,
+  "legacy_participant_cap": 8,
+  "livekit_hard_cap": 250,
+  "active_hub_room_cap": 8,
+  "room_admission_cap": 8,
+  "angular_display_cap": 8,
+  "test_tiers": [10, 25, 50, 100, 250],
+  "activation": {
+    "state": "legacy",
+    "gate_id": "SFB-GATE-009",
+    "gate_passed": false,
+    "candidate_cap": null,
+    "approval_id": null,
+    "expected_previous_revision": null,
+    "approved_revision": null
+  }
+}

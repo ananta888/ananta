@@ -27,7 +27,10 @@ from agent.services.semantic_sfu_admission_service import (
     ShareSessionSfuMembership,
     get_semantic_sfu_admission_service,
 )
-from agent.services.sfu_broadcast_participant_limits import SFU_BROADCAST_MAX_GROUP_MEMBERS
+from agent.services.sfu_broadcast_capacity_profile_resolver import (
+    SfuBroadcastCapacityProfilePort,
+    get_sfu_broadcast_capacity_profile_resolver,
+)
 from agent.services.share_relay_compatibility_service import (
     ShareRelayCompatibilityError,
     ShareRelayCompatibilityService,
@@ -91,6 +94,8 @@ class SemanticSfuGroupKeyService:
         hub_id: str,
         clock: Callable[[], float] = time.time,
         audit: SemanticMediaAuditPort | None = None,
+        capacity_profile: SfuBroadcastCapacityProfilePort | None = None,
+        expose_capacity_profile: bool = False,
     ) -> None:
         self._membership = membership
         self._publications = publications
@@ -100,6 +105,9 @@ class SemanticSfuGroupKeyService:
         self._hub_id = _identifier(hub_id, "hub_id")
         self._clock = clock
         self._audit = audit
+        self._capacity_profile = capacity_profile or get_sfu_broadcast_capacity_profile_resolver()
+        self._capacity_profile.resolve()
+        self._expose_capacity_profile = expose_capacity_profile
         self._lock = threading.RLock()
         self._issued: dict[str, _IssuedEpoch] = {}
         self._latest: dict[tuple[str, str, str], tuple[int, tuple[str, ...], int]] = {}
@@ -134,9 +142,14 @@ class SemanticSfuGroupKeyService:
             actor_id=actor_id,
             tenant_id=tenant_id,
         )
-        subscribers = tuple(sorted(str(value) for value in publication["authorized_subscriber_ids"]))
+        raw_subscribers = publication.get("authorized_subscriber_ids")
+        if not isinstance(raw_subscribers, list):
+            raise SfuGroupKeyError("sfu_group_size_invalid", 409)
+        if not self._capacity_profile.resolve().allows_receiver_count(len(raw_subscribers)):
+            raise SfuGroupKeyError("capacity_cap_exceeded", 409)
+        subscribers = tuple(sorted(str(value) for value in raw_subscribers))
         members = tuple(sorted({actor_id, *subscribers}))
-        if not 2 <= len(members) <= SFU_BROADCAST_MAX_GROUP_MEMBERS:
+        if len(members) < 2 or not self._capacity_profile.resolve().allows_participant_count(len(members)):
             raise SfuGroupKeyError("sfu_group_size_invalid", 409)
         for member_id in members:
             self._require_member(tenant_id, session_id, member_id, membership_epoch)
@@ -212,6 +225,8 @@ class SemanticSfuGroupKeyService:
                 signed.epoch,
             )
             result = self._epoch_result(signed)
+            if self._expose_capacity_profile:
+                result["capacity_profile"] = self._capacity_profile.resolve().public_contract(room_id=room_id)
             self._store_receipt(actor_id, "prepare", idempotency_key, request_digest, result)
             return json.loads(json.dumps(result))
 
@@ -323,7 +338,7 @@ class SemanticSfuGroupKeyService:
             since_item_id=cursor,
             item_id_field="package_ref",
             queue_limit=_RELAY_QUEUE_LIMIT,
-            page_limit=SFU_BROADCAST_MAX_GROUP_MEMBERS,
+            page_limit=self._capacity_profile.resolve().room_admission_cap,
         )
         packages = [
             row
@@ -582,6 +597,7 @@ def get_semantic_sfu_group_key_service() -> SemanticSfuGroupKeyService:
                     relay=get_share_relay_compatibility_service(),
                     hub_id=str(settings.agent_name or "hub")[:128],
                     audit=_AUDIT,
+                    expose_capacity_profile=True,
                 )
     return _SERVICE
 

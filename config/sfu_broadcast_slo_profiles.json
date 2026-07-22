@@ -1,0 +1,255 @@
+{
+  "$schema": "../schemas/webrtc/sfu_broadcast_slo_profile.v1.json",
+  "version": "1.0",
+  "default_profile_id": "single-node-direct",
+  "profiles": [
+    {
+      "id": "single-node-direct",
+      "topology": "single_node_direct",
+      "description": "Conservative baseline for one SFU node with predominantly direct ICE connectivity.",
+      "activation_eligible": false,
+      "evidence_run_ids": [],
+      "capacity": {
+        "max_publishers_per_room": 1,
+        "max_receivers_per_room": 25,
+        "max_rooms_per_node": 10,
+        "max_subscriptions_per_node": 40,
+        "max_egress_mbps_per_node": 250,
+        "max_data_messages_per_second_per_room": 50,
+        "room_spans_nodes": false
+      },
+      "slo": {
+        "join_latency_p95_ms": 2000,
+        "media_start_latency_p95_ms": 1500,
+        "route_convergence_p95_ms": 1000,
+        "revoke_convergence_p99_ms": 1500,
+        "command_success_ratio_min": 0.995,
+        "media_delivery_ratio_min": 0.99
+      },
+      "statistics": {
+        "measurement_window_seconds": 300,
+        "minimum_sample_count": 200,
+        "latency_percentile": 0.95,
+        "confidence_level": 0.95,
+        "allowed_error_ratio": 0.01,
+        "consecutive_breach_windows": 3,
+        "zero_sample_decision": "block",
+        "partial_window_decision": "block"
+      },
+      "cleanup": {
+        "reconciliation_interval_seconds": 30,
+        "disconnected_participant_ttl_seconds": 60,
+        "stale_route_ttl_seconds": 90,
+        "orphan_room_ttl_seconds": 300,
+        "cleanup_timeout_seconds": 15,
+        "cleanup_batch_size": 50,
+        "max_cleanup_attempts": 3,
+        "on_cleanup_exhaustion": "block_and_alert"
+      },
+      "trend": {
+        "lookback_windows": 6,
+        "minimum_complete_windows": 4,
+        "warning_utilization_ratio": 0.7,
+        "stop_utilization_ratio": 0.85,
+        "max_growth_ratio_per_window": 0.1,
+        "consecutive_warning_windows": 3,
+        "missing_window_decision": "block"
+      },
+      "reserve": {
+        "cpu_headroom_ratio": 0.3,
+        "memory_headroom_ratio": 0.3,
+        "egress_headroom_ratio": 0.35,
+        "subscription_headroom_ratio": 0.3,
+        "minimum_spare_nodes": 0,
+        "apply_before_admission": true,
+        "reserve_breach_decision": "reject_new_sessions"
+      }
+    },
+    {
+      "id": "single-region-distributed",
+      "topology": "single_region_distributed",
+      "description": "Conservative baseline for a Redis-coordinated, single-region SFU fleet; each room remains on one node.",
+      "activation_eligible": false,
+      "evidence_run_ids": [],
+      "capacity": {
+        "max_publishers_per_room": 1,
+        "max_receivers_per_room": 40,
+        "max_rooms_per_node": 8,
+        "max_subscriptions_per_node": 50,
+        "max_egress_mbps_per_node": 300,
+        "max_data_messages_per_second_per_room": 50,
+        "room_spans_nodes": false
+      },
+      "slo": {
+        "join_latency_p95_ms": 2500,
+        "media_start_latency_p95_ms": 1800,
+        "route_convergence_p95_ms": 1200,
+        "revoke_convergence_p99_ms": 1800,
+        "command_success_ratio_min": 0.995,
+        "media_delivery_ratio_min": 0.99
+      },
+      "statistics": {
+        "measurement_window_seconds": 300,
+        "minimum_sample_count": 300,
+        "latency_percentile": 0.95,
+        "confidence_level": 0.95,
+        "allowed_error_ratio": 0.01,
+        "consecutive_breach_windows": 3,
+        "zero_sample_decision": "block",
+        "partial_window_decision": "block"
+      },
+      "cleanup": {
+        "reconciliation_interval_seconds": 30,
+        "disconnected_participant_ttl_seconds": 60,
+        "stale_route_ttl_seconds": 90,
+        "orphan_room_ttl_seconds": 300,
+        "cleanup_timeout_seconds": 15,
+        "cleanup_batch_size": 50,
+        "max_cleanup_attempts": 3,
+        "on_cleanup_exhaustion": "block_and_alert"
+      },
+      "trend": {
+        "lookback_windows": 8,
+        "minimum_complete_windows": 5,
+        "warning_utilization_ratio": 0.65,
+        "stop_utilization_ratio": 0.85,
+        "max_growth_ratio_per_window": 0.08,
+        "consecutive_warning_windows": 3,
+        "missing_window_decision": "block"
+      },
+      "reserve": {
+        "cpu_headroom_ratio": 0.35,
+        "memory_headroom_ratio": 0.35,
+        "egress_headroom_ratio": 0.4,
+        "subscription_headroom_ratio": 0.35,
+        "minimum_spare_nodes": 1,
+        "apply_before_admission": true,
+        "reserve_breach_decision": "reject_new_sessions"
+      }
+    },
+    {
+      "id": "multi-region-distributed",
+      "topology": "multi_region_distributed",
+      "description": "Conservative multi-region placement baseline without cross-node room sharding.",
+      "activation_eligible": false,
+      "evidence_run_ids": [],
+      "capacity": {
+        "max_publishers_per_room": 1,
+        "max_receivers_per_room": 35,
+        "max_rooms_per_node": 6,
+        "max_subscriptions_per_node": 45,
+        "max_egress_mbps_per_node": 275,
+        "max_data_messages_per_second_per_room": 40,
+        "room_spans_nodes": false
+      },
+      "slo": {
+        "join_latency_p95_ms": 3000,
+        "media_start_latency_p95_ms": 2000,
+        "route_convergence_p95_ms": 1500,
+        "revoke_convergence_p99_ms": 2000,
+        "command_success_ratio_min": 0.995,
+        "media_delivery_ratio_min": 0.99
+      },
+      "statistics": {
+        "measurement_window_seconds": 600,
+        "minimum_sample_count": 500,
+        "latency_percentile": 0.95,
+        "confidence_level": 0.99,
+        "allowed_error_ratio": 0.01,
+        "consecutive_breach_windows": 3,
+        "zero_sample_decision": "block",
+        "partial_window_decision": "block"
+      },
+      "cleanup": {
+        "reconciliation_interval_seconds": 20,
+        "disconnected_participant_ttl_seconds": 45,
+        "stale_route_ttl_seconds": 60,
+        "orphan_room_ttl_seconds": 240,
+        "cleanup_timeout_seconds": 15,
+        "cleanup_batch_size": 40,
+        "max_cleanup_attempts": 3,
+        "on_cleanup_exhaustion": "block_and_alert"
+      },
+      "trend": {
+        "lookback_windows": 10,
+        "minimum_complete_windows": 6,
+        "warning_utilization_ratio": 0.65,
+        "stop_utilization_ratio": 0.85,
+        "max_growth_ratio_per_window": 0.06,
+        "consecutive_warning_windows": 3,
+        "missing_window_decision": "block"
+      },
+      "reserve": {
+        "cpu_headroom_ratio": 0.4,
+        "memory_headroom_ratio": 0.4,
+        "egress_headroom_ratio": 0.45,
+        "subscription_headroom_ratio": 0.4,
+        "minimum_spare_nodes": 2,
+        "apply_before_admission": true,
+        "reserve_breach_decision": "reject_new_sessions"
+      }
+    },
+    {
+      "id": "turn-relay-constrained",
+      "topology": "turn_relay_constrained",
+      "description": "Fail-closed profile for a material TURN-relayed receiver share or degraded ICE reachability.",
+      "activation_eligible": false,
+      "evidence_run_ids": [],
+      "capacity": {
+        "max_publishers_per_room": 1,
+        "max_receivers_per_room": 20,
+        "max_rooms_per_node": 5,
+        "max_subscriptions_per_node": 25,
+        "max_egress_mbps_per_node": 150,
+        "max_data_messages_per_second_per_room": 25,
+        "room_spans_nodes": false
+      },
+      "slo": {
+        "join_latency_p95_ms": 3500,
+        "media_start_latency_p95_ms": 2500,
+        "route_convergence_p95_ms": 1500,
+        "revoke_convergence_p99_ms": 2000,
+        "command_success_ratio_min": 0.99,
+        "media_delivery_ratio_min": 0.98
+      },
+      "statistics": {
+        "measurement_window_seconds": 600,
+        "minimum_sample_count": 500,
+        "latency_percentile": 0.99,
+        "confidence_level": 0.99,
+        "allowed_error_ratio": 0.02,
+        "consecutive_breach_windows": 2,
+        "zero_sample_decision": "block",
+        "partial_window_decision": "block"
+      },
+      "cleanup": {
+        "reconciliation_interval_seconds": 15,
+        "disconnected_participant_ttl_seconds": 30,
+        "stale_route_ttl_seconds": 45,
+        "orphan_room_ttl_seconds": 180,
+        "cleanup_timeout_seconds": 10,
+        "cleanup_batch_size": 25,
+        "max_cleanup_attempts": 3,
+        "on_cleanup_exhaustion": "block_and_alert"
+      },
+      "trend": {
+        "lookback_windows": 10,
+        "minimum_complete_windows": 8,
+        "warning_utilization_ratio": 0.6,
+        "stop_utilization_ratio": 0.85,
+        "max_growth_ratio_per_window": 0.05,
+        "consecutive_warning_windows": 2,
+        "missing_window_decision": "block"
+      },
+      "reserve": {
+        "cpu_headroom_ratio": 0.45,
+        "memory_headroom_ratio": 0.45,
+        "egress_headroom_ratio": 0.5,
+        "subscription_headroom_ratio": 0.45,
+        "minimum_spare_nodes": 2,
+        "apply_before_admission": true,
+        "reserve_breach_decision": "reject_new_sessions"
+      }
+    }
+  ]
+}
