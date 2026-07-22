@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import time
 
 from flask import Flask
 
@@ -14,6 +15,14 @@ from agent.repositories.semantic_media_audit_repository import (
 from agent.repositories.semantic_media_capability_grant_repository import (
     SqlSemanticMediaCapabilityGrantRepository,
 )
+from agent.repositories.sfu_broadcast_feature_flag_repository import (
+    SqlSfuBroadcastFeatureFlagRepository,
+)
+from agent.repositories.sfu_node_repository import SqlSfuNodeRepository
+from agent.repositories.sfu_node_observation_cursor_repository import (
+    SqlSfuNodeObservationCursorRepository,
+)
+from agent.repositories.sfu_runtime_identity_repository import SqlSfuRuntimeIdentityRepository
 from agent.services.media_topology_policy import MediaTopologyPolicy
 from agent.services.semantic_fanout_coordination_service import SemanticFanoutCoordinationService
 from agent.services.semantic_media_audit_lifecycle_service import SemanticMediaAuditLifecycleService
@@ -26,6 +35,19 @@ from agent.services.semantic_media_feature_flags import (
     resolve_semantic_media_feature_flags,
 )
 from agent.services.semantic_media_permission_service import SemanticMediaPermissionService
+from agent.services.sfu_broadcast_feature_policy import SfuBroadcastFeaturePolicy
+from agent.services.sfu_receiver_quality_ingestion_service import (
+    AdmissionBackedSfuReceiverQualityAuthority,
+    SfuReceiverQualityIngestionService,
+    build_sfu_receiver_quality_validator,
+)
+from agent.services.sfu_node_identity_service import SfuNodeIdentityService, SfuNodeTrustPolicy
+from agent.services.sfu_node_observation_ingestion_service import (
+    SfuNodeObservationIngestionService,
+    SfuNodeObservationPolicy,
+    build_sfu_node_observation_validator,
+    collector_token_digest,
+)
 
 
 def initialize_semantic_media_services(app: Flask) -> None:
@@ -90,6 +112,7 @@ def initialize_semantic_media_services(app: Flask) -> None:
     from agent.services.semantic_sfu_admission_service import (
         configure_semantic_sfu_admission_audit,
         configure_semantic_sfu_topology,
+        get_semantic_sfu_admission_service,
     )
     from agent.services.semantic_sfu_group_key_service import configure_semantic_sfu_group_key_audit
 
@@ -97,6 +120,17 @@ def initialize_semantic_media_services(app: Flask) -> None:
     topology_policy = MediaTopologyPolicy()
     fanout = SemanticFanoutCoordinationService()
     configure_semantic_sfu_topology(topology_policy, fanout)
+    quality_authority = AdmissionBackedSfuReceiverQualityAuthority(
+        get_semantic_sfu_admission_service
+    )
+    app.extensions["sfu_receiver_quality_authority"] = quality_authority
+    app.extensions["sfu_receiver_quality_ingestion_service"] = (
+        SfuReceiverQualityIngestionService(
+            authority=quality_authority,
+            validator=build_sfu_receiver_quality_validator(clock=time.time),
+            clock=time.time,
+        )
+    )
     app.extensions["semantic_media_topology_policy"] = topology_policy
     app.extensions["semantic_media_fanout_coordination"] = fanout
     configure_semantic_sfu_group_key_audit(recorder)
@@ -104,6 +138,48 @@ def initialize_semantic_media_services(app: Flask) -> None:
     app.extensions["semantic_media_audit_lifecycle_service"] = SemanticMediaAuditLifecycleService(repository)
     flags = resolve_semantic_media_feature_flags(os.environ)
     app.extensions["semantic_media_feature_flags"] = flags
+    broadcast_flag_repository = SqlSfuBroadcastFeatureFlagRepository()
+    app.extensions["sfu_broadcast_feature_flag_repository"] = broadcast_flag_repository
+    app.extensions["sfu_broadcast_feature_policy"] = SfuBroadcastFeaturePolicy(
+        broadcast_flag_repository,
+        static_source=flags,
+    )
+    sfu_identity_repository = SqlSfuRuntimeIdentityRepository()
+    sfu_trust_policy = SfuNodeTrustPolicy.from_file(os.environ.get("ANANTA_SFU_NODE_TRUST_CONFIG"))
+    app.extensions["sfu_runtime_identity_repository"] = sfu_identity_repository
+    app.extensions["sfu_node_trust_policy"] = sfu_trust_policy
+    app.extensions["sfu_node_identity_service"] = SfuNodeIdentityService(
+        sfu_identity_repository,
+        sfu_trust_policy,
+    )
+    sfu_node_cursor_key = hashlib.sha256(
+        b"ananta:sfu-node-directory:cursor:v1\x00"
+        + str(app.secret_key or "").encode("utf-8")
+    ).digest()
+    app.extensions["sfu_node_repository"] = SqlSfuNodeRepository(
+        cursor_signing_key=sfu_node_cursor_key,
+    )
+    observation_policy = SfuNodeObservationPolicy.from_environment(
+        os.environ,
+        runtime_control_mode=sfu_trust_policy.runtime_control_mode,
+    )
+    observation_cursor_repository = SqlSfuNodeObservationCursorRepository()
+    app.extensions["sfu_node_observation_cursor_repository"] = observation_cursor_repository
+    app.extensions["sfu_node_observation_policy"] = observation_policy
+    app.extensions["sfu_node_observation_ingestion_service"] = (
+        SfuNodeObservationIngestionService(
+            cursor_repository=observation_cursor_repository,
+            node_repository=app.extensions["sfu_node_repository"],
+            identity_service=app.extensions["sfu_node_identity_service"],
+            policy=observation_policy,
+            validator=build_sfu_node_observation_validator(clock=time.time),
+            clock=time.time,
+        )
+    )
+    collector_token = str(os.environ.get("ANANTA_SFU_OBSERVATION_COLLECTOR_TOKEN") or "")
+    app.extensions["sfu_node_observation_collector_token_digest"] = (
+        collector_token_digest(collector_token) if collector_token else None
+    )
     if flags.get("peer_evidence_sync", False):
         from agent.services.speech_evidence_sync_composition import (
             build_speech_evidence_sync_composition,

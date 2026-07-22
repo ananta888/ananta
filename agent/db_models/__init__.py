@@ -110,6 +110,26 @@ from .semantic_media import (
     SemanticSfuRoomStateDB,
 )
 from .semantic_relay import SemanticRelayCursorDB, SemanticRelayEnvelopeDB
+from .sfu_broadcast_feature_flags import (
+    SfuBroadcastFeatureFlagDB,
+    SfuBroadcastFeatureFlagMutationDB,
+)
+from .sfu_broadcast import (
+    SfuBroadcastAudienceDB,
+    SfuFanoutRouteDB,
+    SfuReceiverGroupDB,
+)
+from .sfu_nodes import SfuNodeDB, SfuNodeMutationDB
+from .sfu_node_observation_cursors import (
+    SfuNodeObservationCursorDB,
+    SfuNodeObservationReplayDB,
+)
+from .sfu_runtime_identities import (
+    SfuRuntimeCredentialDB,
+    SfuRuntimeEnrollmentRateLimitDB,
+    SfuRuntimeIdentityDB,
+    SfuRuntimeIdentityMutationDB,
+)
 from .speech_adaptation import (
     SpeechAdaptationArtifactDB,
     SpeechAdaptationCapacityLeaseDB,
@@ -281,6 +301,19 @@ __all__ = [
     "SemanticSfuAdmissionReceiptDB",
     "SemanticSfuRoomStateDB",
     "SemanticSessionMembershipDB",
+    "SfuBroadcastFeatureFlagDB",
+    "SfuBroadcastFeatureFlagMutationDB",
+    "SfuBroadcastAudienceDB",
+    "SfuFanoutRouteDB",
+    "SfuReceiverGroupDB",
+    "SfuNodeDB",
+    "SfuNodeMutationDB",
+    "SfuNodeObservationCursorDB",
+    "SfuNodeObservationReplayDB",
+    "SfuRuntimeCredentialDB",
+    "SfuRuntimeEnrollmentRateLimitDB",
+    "SfuRuntimeIdentityDB",
+    "SfuRuntimeIdentityMutationDB",
     "SpeechAdaptationArtifactDB",
     "SpeechAdaptationCapacityLeaseDB",
     "SpeechAdaptationJobDB",

@@ -8,6 +8,9 @@ from agent.config import settings
 from agent.routes.admin.planning_dataset import planning_dataset_bp
 from agent.routes.admin.planning_metrics import planning_metrics_bp
 from agent.routes.admin.planning_review import planning_review_bp
+from agent.routes.admin.sfu_broadcast_feature_flags import (
+    sfu_broadcast_feature_flags_bp,
+)
 from agent.routes.ai_snake_config import ai_snake_config_bp
 from agent.routes.approvals import approvals_bp
 from agent.routes.artifacts import artifacts_bp
@@ -83,6 +86,9 @@ from agent.routes.voice_governance import voice_governance_bp
 from agent.routes.voice_live_runs import voice_live_runs_bp
 from agent.routes.webhooks import webhooks_bp
 from agent.routes.webrtc_signaling import webrtc_signaling_bp
+from agent.routes.webrtc_sfu_broadcast_quality import webrtc_sfu_broadcast_quality_bp
+from agent.routes.webrtc_sfu_node_enrollment import webrtc_sfu_node_enrollment_bp
+from agent.routes.webrtc_sfu_node_observations import webrtc_sfu_node_observations_bp
 from agent.routes.wiki_graph import wiki_graph_bp
 from agent.routes.worker_pool import worker_pool_bp
 from agent.routes.worker_tool_loop_diagnostics import worker_tool_loop_diagnostics_bp
@@ -106,6 +112,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(planning_metrics_bp)
     app.register_blueprint(planning_dataset_bp)
     app.register_blueprint(planning_review_bp)
+    app.register_blueprint(sfu_broadcast_feature_flags_bp)
     app.register_blueprint(tasks_bp)
     register_tasks_blueprints(app)
     app.register_blueprint(artifacts_bp)
@@ -173,6 +180,9 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(rendezvous_bp, url_prefix="/api")
     app.register_blueprint(repair_bp)
     app.register_blueprint(webrtc_signaling_bp, url_prefix="/api")
+    app.register_blueprint(webrtc_sfu_broadcast_quality_bp)
+    app.register_blueprint(webrtc_sfu_node_enrollment_bp)
+    app.register_blueprint(webrtc_sfu_node_observations_bp)
     app.register_blueprint(chat_bp) # New: Chat Sessions API
     app.register_blueprint(config_graph_bp)
     app.register_blueprint(effective_workflow_bp)
