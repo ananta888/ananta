@@ -1,0 +1,84 @@
+name: ananta-sfu-broadcast
+
+services:
+  sfu-broadcast-livekit:
+    profiles: ["livekit_control_api"]
+    image: livekit/livekit-server@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3
+    command: ["--config", "/etc/livekit/livekit.yaml"]
+    user: "65532:65532"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,uid=65532,gid=65532
+    volumes:
+      - ./config/livekit.semantic-media.yaml:/etc/livekit/livekit.yaml:ro
+    environment:
+      LIVEKIT_KEYS: "${ANANTA_SFU_LIVEKIT_API_KEY:?required}: ${ANANTA_SFU_LIVEKIT_API_SECRET:?required}"
+    expose:
+      - "7880"
+      - "7881"
+      - "7882/udp"
+    networks:
+      - sfu-media
+      - sfu-control-ingress
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:7880/"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+  sfu-runtime-agent:
+    profiles: ["authenticated_runtime_extension"]
+    build:
+      context: .
+      dockerfile: docker/sfu-runtime-agent.Dockerfile
+    image: ananta/sfu-runtime-agent:0.1.0
+    user: "65532:65532"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=8m,uid=65532,gid=65532
+      - /run/ananta-tpm:rw,noexec,nosuid,nodev,size=1m,uid=65532,gid=65532
+    devices:
+      - "${ANANTA_SFU_TPM_DEVICE:-/dev/tpmrm0}:/dev/tpmrm0"
+    environment:
+      ANANTA_SFU_RUNTIME_CONTROL_MODE: authenticated_runtime_extension
+      ANANTA_SFU_RUNTIME_PORT: "8443"
+      ANANTA_SFU_RUNTIME_SERVER_CERT: /run/secrets/runtime-server.crt
+      ANANTA_SFU_RUNTIME_SERVER_KEY: /run/secrets/runtime-server.key
+      ANANTA_SFU_RUNTIME_CLIENT_CA: /run/secrets/runtime-client-ca.crt
+      ANANTA_SFU_RUNTIME_REVOCATIONS: /run/secrets/runtime-revocations.txt
+      ANANTA_SFU_KEY_PROVIDER: tpm2
+      ANANTA_SFU_TPM2_KEY_HANDLE: "${ANANTA_SFU_TPM2_KEY_HANDLE:-0x81000001}"
+      ANANTA_SFU_TPM2_ALGORITHM: "${ANANTA_SFU_TPM2_ALGORITHM:-ECDSA-SHA256}"
+    volumes:
+      - "${ANANTA_SFU_RUNTIME_SERVER_CERT_FILE:-./config/sfu-runtime-agent/server.crt}:/run/secrets/runtime-server.crt:ro"
+      - "${ANANTA_SFU_RUNTIME_SERVER_KEY_FILE:-./config/sfu-runtime-agent/server.key}:/run/secrets/runtime-server.key:ro"
+      - "${ANANTA_SFU_RUNTIME_CLIENT_CA_FILE:-./config/sfu-runtime-agent/client-ca.crt}:/run/secrets/runtime-client-ca.crt:ro"
+      - "${ANANTA_SFU_RUNTIME_REVOCATIONS_FILE:-./config/sfu-runtime-agent/revocations.txt}:/run/secrets/runtime-revocations.txt:ro"
+    ports:
+      - "127.0.0.1:${ANANTA_SFU_RUNTIME_AGENT_PORT:-8443}:8443/tcp"
+    networks:
+      - sfu-runtime-control
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+          pids: 96
+    restart: unless-stopped
+
+networks:
+  sfu-media:
+    internal: true
+  sfu-control-ingress:
+    internal: true
+  sfu-runtime-control:
+    internal: true

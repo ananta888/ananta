@@ -1,0 +1,238 @@
+{
+  "capabilities": [
+    {
+      "capability": "room_service_update_subscriptions",
+      "evidence": [
+        {
+          "kind": "public_documentation_url",
+          "locator": "https://docs.livekit.io/reference/other/roomservice-api/"
+        }
+      ],
+      "required_for_feasibility": true,
+      "status": "degraded"
+    },
+    {
+      "capability": "room_service_send_data",
+      "evidence": [
+        {
+          "kind": "public_documentation_url",
+          "locator": "https://docs.livekit.io/reference/other/roomservice-api/"
+        }
+      ],
+      "required_for_feasibility": true,
+      "status": "degraded"
+    },
+    {
+      "capability": "participant_permissions",
+      "evidence": [
+        {
+          "kind": "public_documentation_url",
+          "locator": "https://docs.livekit.io/reference/other/roomservice-api/"
+        }
+      ],
+      "required_for_feasibility": true,
+      "status": "degraded"
+    },
+    {
+      "capability": "publisher_subscription_permissions_defense_in_depth",
+      "evidence": [
+        {
+          "kind": "repository_file",
+          "locator": "frontend-angular/src/app/services/livekit-sfu-room.adapter.ts",
+          "sha256": "51a2ce5803558502f99b02e7b7b1acd9c79a369d910225111a4812d96ee45ffe"
+        }
+      ],
+      "required_for_feasibility": false,
+      "status": "documented"
+    },
+    {
+      "capability": "simulcast_svc_track_publish_options",
+      "evidence": [
+        {
+          "kind": "pinned_client_package",
+          "locator": "frontend-angular/package.json",
+          "sha256": "4734282a76a787f901f5579d098b0daae75952e5e5ad25f807db3f1b2e3735c1"
+        }
+      ],
+      "required_for_feasibility": false,
+      "status": "documented"
+    },
+    {
+      "capability": "adaptive_stream_dynacast",
+      "evidence": [
+        {
+          "kind": "repository_file",
+          "locator": "frontend-angular/src/app/services/livekit-sfu-room.adapter.ts",
+          "sha256": "51a2ce5803558502f99b02e7b7b1acd9c79a369d910225111a4812d96ee45ffe"
+        }
+      ],
+      "required_for_feasibility": false,
+      "status": "documented"
+    },
+    {
+      "capability": "browser_e2ee",
+      "evidence": [
+        {
+          "kind": "repository_file",
+          "locator": "scripts/spikes/semantic_sfu_three_peer.mjs",
+          "sha256": "dc69d5d15a7eb347390fa968c38d1a21ce2eec8e8f844ef0f21ee2f50450973f"
+        }
+      ],
+      "required_for_feasibility": true,
+      "status": "degraded"
+    },
+    {
+      "capability": "one_publisher_three_receiver_fanout",
+      "evidence": [
+        {
+          "kind": "repository_file",
+          "locator": "scripts/spikes/semantic_sfu_three_peer.mjs",
+          "sha256": "dc69d5d15a7eb347390fa968c38d1a21ce2eec8e8f844ef0f21ee2f50450973f"
+        }
+      ],
+      "required_for_feasibility": true,
+      "status": "degraded"
+    },
+    {
+      "capability": "data_packet_limits",
+      "evidence": [
+        {
+          "kind": "public_documentation_url",
+          "locator": "https://docs.livekit.io/transport/data/packets/"
+        },
+        {
+          "kind": "repository_file",
+          "locator": "frontend-angular/src/app/services/livekit-sfu-room.adapter.ts",
+          "sha256": "51a2ce5803558502f99b02e7b7b1acd9c79a369d910225111a4812d96ee45ffe"
+        }
+      ],
+      "limits": {
+        "lossy_payload_bytes": 1300,
+        "reliable_payload_bytes": 15360
+      },
+      "reason": "client guard permits 16384 bytes and is wider than the documented reliable payload boundary",
+      "required_for_feasibility": false,
+      "status": "degraded"
+    },
+    {
+      "capability": "prometheus_metrics",
+      "evidence": [
+        {
+          "kind": "repository_file",
+          "locator": "config/livekit.semantic-media.yaml",
+          "sha256": "666239e38bb11cac71cbb211bfdb8301525b5335d917cc1c36b062aad29a682b"
+        }
+      ],
+      "required_for_feasibility": false,
+      "status": "unsupported"
+    },
+    {
+      "capability": "native_drain",
+      "evidence": [
+        {
+          "kind": "public_documentation_url",
+          "locator": "https://docs.livekit.io/transport/self-hosting/distributed/"
+        }
+      ],
+      "required_for_feasibility": false,
+      "status": "documented"
+    },
+    {
+      "capability": "embedded_turn",
+      "evidence": [
+        {
+          "kind": "repository_file",
+          "locator": "config/livekit.semantic-media.yaml",
+          "sha256": "666239e38bb11cac71cbb211bfdb8301525b5335d917cc1c36b062aad29a682b"
+        }
+      ],
+      "required_for_feasibility": false,
+      "status": "documented"
+    },
+    {
+      "capability": "distributed_placement",
+      "evidence": [
+        {
+          "kind": "public_documentation_url",
+          "locator": "https://docs.livekit.io/transport/self-hosting/distributed/"
+        },
+        {
+          "kind": "repository_file",
+          "locator": "config/livekit.semantic-media.yaml",
+          "sha256": "666239e38bb11cac71cbb211bfdb8301525b5335d917cc1c36b062aad29a682b"
+        }
+      ],
+      "owner": "livekit_native",
+      "required_for_feasibility": false,
+      "status": "unsupported"
+    },
+    {
+      "capability": "custom_jwt_claim_audience_enforcement",
+      "evidence": [],
+      "reason": "custom claims are not treated as LiveKit server authorization",
+      "required_for_feasibility": false,
+      "status": "unsupported"
+    },
+    {
+      "capability": "runtime_route_epoch_queue_fencing",
+      "evidence": [],
+      "reason": "Hub-owned semantics are not native LiveKit runtime guarantees",
+      "required_for_feasibility": false,
+      "status": "unsupported"
+    },
+    {
+      "capability": "authenticated_runtime_extension",
+      "evidence": [],
+      "reason": "not selected; no private hooks are permitted",
+      "required_for_feasibility": false,
+      "status": "unsupported"
+    }
+  ],
+  "decision": "blocked",
+  "feature_defaults": {
+    "authenticated_runtime_extension_enabled": false,
+    "hub_livekit_node_selection_enabled": false,
+    "sfu_broadcast_enabled": false
+  },
+  "gate_id": "SFB-BASE-006",
+  "placement_owner": "livekit_native",
+  "reason_codes": [
+    "required_runtime_capability_unavailable",
+    "runtime_evidence_missing"
+  ],
+  "required_capabilities_unavailable": [
+    "browser_e2ee",
+    "one_publisher_three_receiver_fanout",
+    "participant_permissions",
+    "room_service_send_data",
+    "room_service_update_subscriptions"
+  ],
+  "runtime_control_mode": "livekit_control_api",
+  "runtime_evidence": null,
+  "schema": "ananta.livekit-broadcast-runtime-capabilities.v1",
+  "version_binding": {
+    "browser_sdk": {
+      "expected_version": "2.20.1",
+      "lock_integrity": "sha512-JxooxLFMkdwqTo4XLer+DCij6S3//Z/GuHSjqdhlj94Vtbh1Eayd7Lyq47qkIE86+xVJhqxIdYnq53lg4oPH9w==",
+      "lock_version": "2.20.1",
+      "package": "livekit-client",
+      "package_version": "2.20.1"
+    },
+    "config_sha256": "666239e38bb11cac71cbb211bfdb8301525b5335d917cc1c36b062aad29a682b",
+    "runtime_config_sha256": null,
+    "server": {
+      "expected_image_digest": "sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3",
+      "expected_version": "1.13.1",
+      "image_reference": "livekit/livekit-server@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3",
+      "runtime_image_id_sha256": null,
+      "runtime_image_reference": null,
+      "runtime_version": null
+    },
+    "server_sdk": {
+      "binding": "not_used_documented_public_twirp_json",
+      "package": null,
+      "version": null
+    },
+    "source_sha256": "fec894d2eda93aae1ff9933d084eeb5e65a866a992a3c60d0477624db069a83d"
+  }
+}
