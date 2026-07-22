@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/release/sfu_broadcast_evidence_manifest.v1.json",
+  "title": "Ananta SFU Broadcast Evidence Manifest v1",
+  "description": "Source-bound, fail-closed evidence inventory for SFU broadcast release gates.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "entries"],
+  "properties": {
+    "schema": {
+      "const": "ananta.sfu-broadcast-evidence-manifest.v1"
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "items": {
+        "$ref": "#/$defs/evidenceEntry"
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "gitDigest": {
+      "description": "Lowercase Git object ID (SHA-1 or SHA-256, according to the repository object format).",
+      "type": "string",
+      "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$"
+    },
+    "repositoryPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    },
+    "digestBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sha256"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "digestBindings": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digestBinding"
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["produced_at", "expires_at"],
+      "properties": {
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "attestation": {
+      "description": "Present only when the selected gate policy names a configured attestation profile.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "key_id", "signature"],
+      "properties": {
+        "profile_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "key_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "signature": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "evidenceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate_id",
+        "artifact_schema",
+        "artifact_path",
+        "artifact_sha256",
+        "git_source_digest",
+        "config_digests",
+        "lockfile_digests",
+        "image_digests",
+        "infrastructure_digests",
+        "producer_command",
+        "freshness",
+        "status"
+      ],
+      "properties": {
+        "gate_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "artifact_schema": {
+          "$ref": "#/$defs/identifier"
+        },
+        "artifact_path": {
+          "$ref": "#/$defs/repositoryPath"
+        },
+        "artifact_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "git_source_digest": {
+          "$ref": "#/$defs/gitDigest"
+        },
+        "config_digests": {
+          "$ref": "#/$defs/digestBindings"
+        },
+        "lockfile_digests": {
+          "$ref": "#/$defs/digestBindings"
+        },
+        "image_digests": {
+          "$ref": "#/$defs/digestBindings"
+        },
+        "infrastructure_digests": {
+          "$ref": "#/$defs/digestBindings"
+        },
+        "producer_command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "freshness": {
+          "$ref": "#/$defs/freshness"
+        },
+        "status": {
+          "enum": ["passed", "failed", "partial", "unverified"]
+        },
+        "attestation": {
+          "$ref": "#/$defs/attestation"
+        }
+      }
+    }
+  }
+}

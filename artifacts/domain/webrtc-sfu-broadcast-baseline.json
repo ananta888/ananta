@@ -1,0 +1,284 @@
+{
+  "classifications": [
+    "missing",
+    "partial",
+    "present"
+  ],
+  "config_digests": [
+    {
+      "path": "config/livekit.semantic-media.yaml",
+      "sha256": "666239e38bb11cac71cbb211bfdb8301525b5335d917cc1c36b062aad29a682b"
+    },
+    {
+      "path": "docker-compose.semantic-media.yml",
+      "sha256": "5189915ad7529b857c645169d1b9ef7ee3aee316e1e3c8f7b1c7586c6c308a1e"
+    },
+    {
+      "path": "frontend-angular/package.json",
+      "sha256": "4734282a76a787f901f5579d098b0daae75952e5e5ad25f807db3f1b2e3735c1"
+    }
+  ],
+  "findings": [
+    {
+      "area": "sfu",
+      "evidence": "Angular pins the browser LiveKit client exactly at 2.20.1.",
+      "finding": "angular_livekit_client_dependency",
+      "layer": "angular_dependency",
+      "path": "frontend-angular/package.json",
+      "status": "present",
+      "symbol": "\"livekit-client\": \"2.20.1\""
+    },
+    {
+      "area": "sfu",
+      "evidence": "Hub-owned broadcast flags exist and remain default-false; activation evidence is still blocked.",
+      "finding": "broadcast_feature_flags",
+      "layer": "production",
+      "path": "agent/services/sfu_broadcast_feature_policy.py",
+      "status": "partial",
+      "symbol": "key=\"semantic_media_broadcast\""
+    },
+    {
+      "area": "sfu",
+      "evidence": "The current hard room/group participant limit is eight.",
+      "finding": "broadcast_group_limit_8",
+      "layer": "production",
+      "path": "agent/services/sfu_broadcast_participant_limits.py",
+      "status": "present",
+      "symbol": "SFU_BROADCAST_MAX_GROUP_MEMBERS = 8"
+    },
+    {
+      "area": "sfu",
+      "evidence": "The current publisher fan-out limit is seven receivers.",
+      "finding": "broadcast_publication_receiver_limit_7",
+      "layer": "production",
+      "path": "frontend-angular/src/app/services/sfu-broadcast-limits.ts",
+      "status": "present",
+      "symbol": "SFU_BROADCAST_MAX_PUBLICATION_RECIPIENTS = 7"
+    },
+    {
+      "area": "sfu",
+      "evidence": "The active semantic-media Compose file contains a pinned, isolated LiveKit service.",
+      "finding": "compose_livekit_sfu",
+      "layer": "active_compose",
+      "path": "docker-compose.semantic-media.yml",
+      "status": "present",
+      "symbol": "semantic-media-sfu:"
+    },
+    {
+      "area": "turn",
+      "evidence": "A bounded coturn gate exists, but it is not an external multi-region TURN fleet.",
+      "finding": "compose_turn_gate",
+      "layer": "active_compose",
+      "path": "docker-compose.semantic-media.yml",
+      "status": "partial",
+      "symbol": "semantic-media-turn-gate:"
+    },
+    {
+      "area": "e2ee",
+      "evidence": "The schema carries signed member and key-package references without content-key material.",
+      "finding": "group_key_authorization_schema",
+      "layer": "schema",
+      "path": "schemas/webrtc/group_key_epoch.v1.json",
+      "status": "present",
+      "symbol": "Ananta WebRTC Group Key Epoch Authorization v1"
+    },
+    {
+      "area": "sfu",
+      "evidence": "The Hub owns membership/revision checks and narrowed SFU grants.",
+      "finding": "hub_sfu_admission",
+      "layer": "production",
+      "path": "agent/services/semantic_sfu_admission_service.py",
+      "status": "present",
+      "symbol": "SemanticSfuAdmissionService"
+    },
+    {
+      "area": "e2ee",
+      "evidence": "The productive LiveKit room adapter uses the client SDK BaseKeyProvider path.",
+      "finding": "livekit_base_key_provider",
+      "layer": "production",
+      "path": "frontend-angular/src/app/services/livekit-sfu-room.adapter.ts",
+      "status": "present",
+      "symbol": "BaseKeyProvider"
+    },
+    {
+      "area": "sfu",
+      "evidence": "The single-node runtime is capped at eight participants; this is not broadcast capacity evidence.",
+      "finding": "livekit_runtime_config",
+      "layer": "configuration",
+      "path": "config/livekit.semantic-media.yaml",
+      "status": "partial",
+      "symbol": "max_participants: 8"
+    },
+    {
+      "area": "sfu",
+      "evidence": "The Hub Python dependency manifest has no LiveKit server SDK.",
+      "finding": "livekit_server_sdk",
+      "layer": "python_dependency",
+      "path": "requirements.txt",
+      "status": "missing",
+      "symbol": "livekit"
+    },
+    {
+      "area": "media",
+      "evidence": "Publication audience, epoch, revision and privacy are explicitly schema-bound.",
+      "finding": "media_publication_schema",
+      "layer": "schema",
+      "path": "schemas/webrtc/media_publication.v1.json",
+      "status": "present",
+      "symbol": "Hub-authorized SFU media publication"
+    },
+    {
+      "area": "media",
+      "evidence": "Subscriber, publisher, publication, membership epoch and revision are schema-bound.",
+      "finding": "media_subscription_schema",
+      "layer": "schema",
+      "path": "schemas/webrtc/media_subscription.v1.json",
+      "status": "present",
+      "symbol": "Hub-authorized SFU media subscription"
+    },
+    {
+      "area": "sfu",
+      "evidence": "No authenticated LiveKit node-agent/server-control dependency is declared.",
+      "finding": "node_agent_or_fleet_control",
+      "layer": "python_dependency",
+      "path": "pyproject.toml",
+      "status": "missing",
+      "symbol": "livekit-api"
+    },
+    {
+      "area": "observability",
+      "evidence": "Content-safe semantic-media observability rules exist; broadcast fleet telemetry does not.",
+      "finding": "observability_boundary",
+      "layer": "operations",
+      "path": "docs/privacy/semantic-media-observability.md",
+      "status": "partial",
+      "symbol": null
+    },
+    {
+      "area": "sfu",
+      "evidence": "The opt-in SFU lifecycle, fallback and operational boundary are documented.",
+      "finding": "operations_sfu_runbook",
+      "layer": "operations",
+      "path": "docs/operations/semantic-media-sfu.md",
+      "status": "present",
+      "symbol": null
+    },
+    {
+      "area": "pair",
+      "evidence": "The productive Pair path owns browser media capture and peer media sessions.",
+      "finding": "pair_media_tracks",
+      "layer": "production",
+      "path": "frontend-angular/src/app/services/webrtc-media-session.service.ts",
+      "status": "present",
+      "symbol": "WebrtcMediaSessionService"
+    },
+    {
+      "area": "governance",
+      "evidence": "The tracked parent decision is no_go with observe_only rollout; implementation may remain flag-off only.",
+      "finding": "parent_no_go_observe_only",
+      "layer": "decision",
+      "path": "todos/todo.webrtc-sfu-broadcast-fanout.json",
+      "status": "partial",
+      "symbol": "\"parent_decision\": \"no_go\""
+    },
+    {
+      "area": "governance",
+      "evidence": "A real parent gate artifact is referenced by path; no Source or Run ID is synthesized.",
+      "finding": "parent_release_evidence",
+      "layer": "test_gate",
+      "path": "artifacts/test-gates/semantic-media-program-evidence.json",
+      "status": "partial",
+      "symbol": null
+    },
+    {
+      "area": "sfu",
+      "evidence": "Persistent SFU admission state has a repository migration.",
+      "finding": "persistent_sfu_admission_migration",
+      "layer": "migration",
+      "path": "migrations/versions/e6f7a8b9c0d1_add_semantic_sfu_admission_state.py",
+      "status": "present",
+      "symbol": null
+    },
+    {
+      "area": "sfu",
+      "evidence": "The publisher projects Hub-authorized receiver IDs through LiveKit track subscription permissions.",
+      "finding": "publisher_subscription_permissions",
+      "layer": "production",
+      "path": "frontend-angular/src/app/services/livekit-sfu-room.adapter.ts",
+      "status": "present",
+      "symbol": "setTrackSubscriptionPermissions"
+    },
+    {
+      "area": "relay",
+      "evidence": "The encrypted relay has a shared relational repository rather than an implicit process-local loop.",
+      "finding": "relay_shared_store",
+      "layer": "production",
+      "path": "agent/repositories/semantic_relay_shared_store.py",
+      "status": "present",
+      "symbol": "SharedSemanticRelayRepository"
+    },
+    {
+      "area": "media",
+      "evidence": "Publication/subscription contract persistence has a repository migration.",
+      "finding": "semantic_media_contract_migration",
+      "layer": "migration",
+      "path": "migrations/versions/c7d8e9f0a1b2_add_semantic_media_contracts.py",
+      "status": "present",
+      "symbol": null
+    },
+    {
+      "area": "sfu",
+      "evidence": "Parent failover coverage exists, but does not select or prove a broadcast fleet runtime boundary.",
+      "finding": "sfu_failover_test",
+      "layer": "test",
+      "path": "tests/chaos/test_semantic_sfu_failover.py",
+      "status": "partial",
+      "symbol": null
+    },
+    {
+      "area": "e2ee",
+      "evidence": "The custom frame-crypto helper is exercised by its spec only; productive E2EE uses BaseKeyProvider.",
+      "finding": "sfu_frame_crypto_helper_test_only",
+      "layer": "test_helper",
+      "path": "frontend-angular/src/app/services/sfu-media-frame-crypto.service.ts",
+      "status": "partial",
+      "symbol": "SfuMediaFrameCryptoService"
+    },
+    {
+      "area": "sfu",
+      "evidence": "Committed live evidence covers one publisher and two receivers, not broadcast capacity.",
+      "finding": "sfu_three_peer_test",
+      "layer": "test",
+      "path": "tests/e2e/test_semantic_sfu_spike.py",
+      "status": "partial",
+      "symbol": "\"receivers\": 2"
+    },
+    {
+      "area": "signaling",
+      "evidence": "Hub-side WebRTC signaling remains an explicit route boundary.",
+      "finding": "signaling_blueprint",
+      "layer": "production",
+      "path": "agent/routes/webrtc_signaling.py",
+      "status": "present",
+      "symbol": "Blueprint"
+    },
+    {
+      "area": "pair",
+      "evidence": "Pair WebRTC/DataChannel and Hub Relay fallback flows are documented separately.",
+      "finding": "webrtc_pair_architecture",
+      "layer": "operations",
+      "path": "docs/architecture/pair-view-sync.md",
+      "status": "present",
+      "symbol": null
+    }
+  ],
+  "parent_readiness": {
+    "decision": "no_go",
+    "rollout_stage": "observe_only",
+    "source_artifact": "artifacts/test-gates/semantic-media-program-evidence.json"
+  },
+  "schema": "ananta.webrtc-sfu-broadcast-baseline.v1",
+  "source_commit": "3116c45a3b46e98c45b7e6f9127bbbc6199f5fa0",
+  "source_id_policy": "repository_path_and_symbol_only; no_source_or_run_ids_synthesized",
+  "tool_version": "1.0.0"
+}

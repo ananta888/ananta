@@ -1,0 +1,38 @@
+{
+  "schema": "ananta.sfu-broadcast-gate-manifest.v1",
+  "evidence_manifest_schema": "ananta.sfu-broadcast-evidence-manifest.v1",
+  "artifact_root": "artifacts/test-gates",
+  "default_policy": {
+    "max_age_seconds": 1209600,
+    "max_future_skew_seconds": 300
+  },
+  "attestation_profiles": {},
+  "gates": [
+    {
+      "gate_id": "SFB-BASE-003",
+      "artifact_schemas": [
+        "ananta.semantic-media-gate-evidence.v1"
+      ],
+      "required_digest_ids": {
+        "config": ["sfu-broadcast-gate-manifest"],
+        "lockfile": ["python-dependency-lock"],
+        "image": ["ananta-hub-image"],
+        "infrastructure": ["sfu-broadcast-infrastructure"]
+      },
+      "attestation_profile": null
+    },
+    {
+      "gate_id": "SFB-BASE-007",
+      "artifact_schemas": [
+        "ananta.sfu-broadcast-evidence-verification-report.v1"
+      ],
+      "required_digest_ids": {
+        "config": ["sfu-broadcast-gate-manifest"],
+        "lockfile": ["python-dependency-lock"],
+        "image": ["ananta-hub-image"],
+        "infrastructure": ["sfu-broadcast-infrastructure"]
+      },
+      "attestation_profile": null
+    }
+  ]
+}
