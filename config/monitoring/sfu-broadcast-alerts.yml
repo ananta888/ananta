@@ -1,0 +1,59 @@
+groups:
+  - name: ananta.sfu-broadcast.slo.v1
+    interval: 1m
+    rules:
+      - alert: SfuBroadcastJoinLatencyP95High
+        expr: histogram_quantile(0.95, sum by (le) (rate(ananta_sfu_broadcast_join_latency_bucket[5m]))) > 2000
+        for: 15m
+        labels: { severity: critical, owner: media-platform, slo_ref: single-node-direct.join_latency_p95_ms, runbook_id: SFB-GATE-010/RB-SFB-JOIN }
+        annotations: { summary: "Aggregate join p95 exceeds the default profile", clear_condition: "p95 <= 2000 ms for 15 minutes", catalog_ref: "ananta_sfu_broadcast_join_latency" }
+      - alert: SfuBroadcastRouteConvergenceP95High
+        expr: histogram_quantile(0.95, sum by (le) (rate(ananta_sfu_broadcast_route_convergence_bucket[5m]))) > 1000
+        for: 15m
+        labels: { severity: critical, owner: media-platform, slo_ref: single-node-direct.route_convergence_p95_ms, runbook_id: SFB-GATE-010/RB-SFB-ROUTE }
+        annotations: { summary: "Aggregate route convergence exceeds the default profile", clear_condition: "p95 <= 1000 ms for 15 minutes", catalog_ref: "ananta_sfu_broadcast_route_convergence" }
+      - alert: SfuBroadcastRekeyP99High
+        expr: histogram_quantile(0.99, sum by (le) (rate(ananta_sfu_broadcast_rekey_latency_bucket[5m]))) > 2000
+        for: 10m
+        labels: { severity: critical, owner: media-security, slo_ref: observability-catalog.rekey.allowed_buckets, runbook_id: SFB-GATE-010/RB-SFB-REKEY }
+        annotations: { summary: "Aggregate rekey p99 is above the reviewed catalog bucket", clear_condition: "p99 <= 2000 ms for 10 minutes", catalog_ref: "ananta_sfu_broadcast_rekey_latency" }
+      - alert: SfuBroadcastLayerTransitionP99High
+        expr: histogram_quantile(0.99, sum by (le) (rate(ananta_sfu_broadcast_layer_transition_bucket[5m]))) > 5000
+        for: 15m
+        labels: { severity: warning, owner: media-platform, slo_ref: observability-catalog.layer.allowed_buckets, runbook_id: SFB-GATE-010/RB-SFB-LAYER }
+        annotations: { summary: "Aggregate layer-transition p99 is degraded", clear_condition: "p99 <= 5000 ms for 15 minutes", catalog_ref: "ananta_sfu_broadcast_layer_transition" }
+      - alert: SfuBroadcastDrainP99High
+        expr: histogram_quantile(0.99, sum by (le) (rate(ananta_sfu_broadcast_drain_latency_bucket[5m]))) > 15000
+        for: 15m
+        labels: { severity: warning, owner: runtime-platform, slo_ref: single-node-direct.cleanup_timeout_seconds, runbook_id: SFB-GATE-010/RB-SFB-DRAIN }
+        annotations: { summary: "Aggregate node-drain p99 exceeds cleanup timeout", clear_condition: "p99 <= 15000 ms for 15 minutes", catalog_ref: "ananta_sfu_broadcast_drain_latency" }
+      - alert: SfuBroadcastQueuePressureHigh
+        expr: max_over_time(ananta_sfu_broadcast_queue_depth[5m]) >= 128
+        for: 10m
+        labels: { severity: warning, owner: media-platform, slo_ref: observability-catalog.queue.allowed_buckets, runbook_id: SFB-GATE-010/RB-SFB-QUEUE }
+        annotations: { summary: "Aggregate hub queue is in the highest reviewed bucket", clear_condition: "queue depth < 128 for 10 minutes", catalog_ref: "ananta_sfu_broadcast_queue_depth" }
+      - alert: SfuBroadcastDropsHigh
+        expr: sum(increase(ananta_sfu_broadcast_drop_count[5m])) > 32
+        for: 10m
+        labels: { severity: warning, owner: media-platform, slo_ref: observability-catalog.drop.allowed_buckets, runbook_id: SFB-GATE-010/RB-SFB-DROP }
+        annotations: { summary: "Content-free policy or backpressure drops are elevated", clear_condition: "five-minute increase <= 32 for 10 minutes", catalog_ref: "ananta_sfu_broadcast_drop_count" }
+      - alert: SfuBroadcastEgressP95High
+        expr: histogram_quantile(0.95, sum by (le) (rate(ananta_sfu_broadcast_egress_rate_bucket[5m]))) > 10000000
+        for: 15m
+        labels: { severity: warning, owner: media-platform, slo_ref: observability-catalog.sfu_egress.allowed_buckets, runbook_id: SFB-GATE-010/RB-SFB-EGRESS }
+        annotations: { summary: "Aggregate SFU egress p95 is elevated", clear_condition: "p95 <= 10000000 bytes/s for 15 minutes", catalog_ref: "ananta_sfu_broadcast_egress_rate" }
+      - alert: SfuBroadcastTurnP95High
+        expr: histogram_quantile(0.95, sum by (le) (rate(ananta_sfu_broadcast_turn_rate_bucket[5m]))) > 10000000
+        for: 15m
+        labels: { severity: warning, owner: network-platform, slo_ref: observability-catalog.turn.allowed_buckets, runbook_id: SFB-GATE-010/RB-SFB-TURN }
+        annotations: { summary: "Aggregate TURN rate p95 is elevated", clear_condition: "p95 <= 10000000 bytes/s for 15 minutes", catalog_ref: "ananta_sfu_broadcast_turn_rate" }
+      - alert: SfuBroadcastFailoverP99High
+        expr: histogram_quantile(0.99, sum by (le) (rate(ananta_sfu_broadcast_failover_recovery_bucket[5m]))) > 30000
+        for: 10m
+        labels: { severity: critical, owner: runtime-platform, slo_ref: observability-catalog.failover.allowed_buckets, runbook_id: SFB-GATE-010/RB-SFB-FAILOVER }
+        annotations: { summary: "Aggregate fenced failover recovery p99 is degraded", clear_condition: "p99 <= 30000 ms for 10 minutes", catalog_ref: "ananta_sfu_broadcast_failover_recovery" }
+      - alert: SfuBroadcastCapacityStop
+        expr: max(ananta_sfu_broadcast_capacity_utilization) > 0.85
+        for: 5m
+        labels: { severity: critical, owner: runtime-platform, slo_ref: single-node-direct.trend.stop_utilization_ratio, runbook_id: SFB-GATE-010/RB-SFB-CAPACITY }
+        annotations: { summary: "Aggregate capacity exceeds the stop ratio", clear_condition: "utilization <= 0.85 for 5 minutes", catalog_ref: "ananta_sfu_broadcast_capacity_utilization" }

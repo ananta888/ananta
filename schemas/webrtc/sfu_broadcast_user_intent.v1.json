@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.invalid/schemas/webrtc/sfu_broadcast_user_intent.v1.json",
+  "title": "Ananta SFU Broadcast User Intent v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "room_ref",
+    "command",
+    "expected_version",
+    "confirmed",
+    "reason",
+    "options"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ananta.webrtc.sfu-broadcast-user-intent.v1"
+    },
+    "room_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "command": {
+      "enum": [
+        "start",
+        "stop",
+        "set_preferences",
+        "data_saver",
+        "audio_only",
+        "quality_preference"
+      ]
+    },
+    "expected_version": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "confirmed": {
+      "const": true
+    },
+    "reason": {
+      "enum": [
+        "user_requested",
+        "accessibility",
+        "network_preference",
+        "cost_preference",
+        "session_end"
+      ]
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "data_saver": {"type": "boolean"},
+        "audio_only": {"type": "boolean"},
+        "quality_preference": {
+          "enum": ["auto", "low", "medium", "high"]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"command": {"const": "stop"}}},
+      "then": {"properties": {"options": {"maxProperties": 0}}}
+    },
+    {
+      "if": {"properties": {"command": {"const": "data_saver"}}},
+      "then": {
+        "properties": {
+          "options": {
+            "required": ["data_saver"],
+            "minProperties": 1,
+            "maxProperties": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"command": {"const": "audio_only"}}},
+      "then": {
+        "properties": {
+          "options": {
+            "required": ["audio_only"],
+            "minProperties": 1,
+            "maxProperties": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"command": {"const": "quality_preference"}}},
+      "then": {
+        "properties": {
+          "options": {
+            "required": ["quality_preference"],
+            "minProperties": 1,
+            "maxProperties": 1
+          }
+        }
+      }
+    }
+  ]
+}

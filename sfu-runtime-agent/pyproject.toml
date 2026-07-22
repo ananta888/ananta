@@ -15,6 +15,7 @@ dependencies = [
 [project.scripts]
 ananta-sfu-control-server = "ananta_sfu_runtime.control_server:main"
 ananta-sfu-enroll = "ananta_sfu_runtime.enrollment_client:main"
+ananta-sfu-observation-exporter = "ananta_sfu_runtime.observation_exporter:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

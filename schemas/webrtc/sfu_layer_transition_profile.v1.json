@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/sfu_layer_transition_profile.v1.json",
+  "title": "Signed SFU receiver layer transition profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "schema_version", "domain", "profile_id", "profile_version", "profile_revision",
+    "tenant_ref", "room_ref", "subscriber_ref", "subscription_ref", "publication_ref",
+    "allowed_layer_corridor", "strategy", "route_epoch", "key_epoch", "issued_at_ms",
+    "expires_at_ms", "ttl_seconds", "authorization_effect", "signature"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.sfu-layer-transition-profile.v1"},
+    "schema_version": {"const": 1},
+    "domain": {"const": "sfu_broadcast.layer_transition_profile.v1"},
+    "profile_id": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "profile_version": {"const": "receiver-transition-v1"},
+    "profile_revision": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "tenant_ref": {"type": "string", "minLength": 1, "maxLength": 128},
+    "room_ref": {"type": "string", "minLength": 1, "maxLength": 128},
+    "subscriber_ref": {"type": "string", "minLength": 1, "maxLength": 128},
+    "subscription_ref": {"type": "string", "minLength": 1, "maxLength": 128},
+    "publication_ref": {"type": "string", "minLength": 1, "maxLength": 128},
+    "allowed_layer_corridor": {"$ref": "#/$defs/corridor"},
+    "strategy": {"$ref": "#/$defs/strategy"},
+    "route_epoch": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "key_epoch": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "issued_at_ms": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "expires_at_ms": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "ttl_seconds": {"type": "integer", "minimum": 1, "maximum": 30},
+    "authorization_effect": {"const": "narrow_only"},
+    "signature": {"$ref": "#/$defs/signature"}
+  },
+  "$defs": {
+    "point": {
+      "type": "object", "additionalProperties": false, "required": ["spatial_id", "temporal_id"],
+      "properties": {
+        "spatial_id": {"type": "integer", "minimum": 0, "maximum": 3},
+        "temporal_id": {"type": "integer", "minimum": 0, "maximum": 3}
+      }
+    },
+    "corridor": {
+      "type": "object", "additionalProperties": false, "required": ["minimum", "maximum"],
+      "properties": {"minimum": {"$ref": "#/$defs/point"}, "maximum": {"$ref": "#/$defs/point"}}
+    },
+    "strategy": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "layer_changes_enabled", "upgrade_score_threshold", "downgrade_score_threshold",
+        "upgrade_dwell_ms", "downgrade_dwell_ms", "upgrade_cooldown_ms", "downgrade_cooldown_ms",
+        "keyframe_wait_ms", "keyframe_retry_max", "recovery_deadline_ms",
+        "transitions_per_minute_max", "keyframes_per_minute_max"
+      ],
+      "properties": {
+        "layer_changes_enabled": {"type": "boolean"},
+        "upgrade_score_threshold": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "downgrade_score_threshold": {"type": "integer", "minimum": 0, "maximum": 999},
+        "upgrade_dwell_ms": {"type": "integer", "minimum": 250, "maximum": 30000},
+        "downgrade_dwell_ms": {"type": "integer", "minimum": 250, "maximum": 30000},
+        "upgrade_cooldown_ms": {"type": "integer", "minimum": 500, "maximum": 60000},
+        "downgrade_cooldown_ms": {"type": "integer", "minimum": 500, "maximum": 60000},
+        "keyframe_wait_ms": {"type": "integer", "minimum": 250, "maximum": 10000},
+        "keyframe_retry_max": {"type": "integer", "minimum": 0, "maximum": 3},
+        "recovery_deadline_ms": {"type": "integer", "minimum": 250, "maximum": 30000},
+        "transitions_per_minute_max": {"type": "integer", "minimum": 0, "maximum": 12},
+        "keyframes_per_minute_max": {"type": "integer", "minimum": 0, "maximum": 6}
+      }
+    },
+    "signature": {
+      "type": "object", "additionalProperties": false, "required": ["algorithm", "key_id", "value"],
+      "properties": {
+        "algorithm": {"const": "HS256"},
+        "key_id": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+        "value": {"type": "string", "minLength": 43, "maxLength": 43, "pattern": "^[A-Za-z0-9_-]{43}$"}
+      }
+    }
+  }
+}

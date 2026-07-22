@@ -16,6 +16,7 @@ BACKGROUND_SERVICE_NAMES = (
     "speech_adaptation_dispatcher",
     "speech_evidence_retention_reconciler",
     "semantic_media_audit_reconciler",
+    "sfu_broadcast_reconciler_scheduler",
     "speech_reconciliation_reconciler",
     "speech_reconciliation_queue_pump",
     "speech_reconciliation_result_collector",
@@ -73,6 +74,10 @@ class BackgroundServiceManager:
             self._start_semantic_media_audit_reconciler,
         )
         self._start_service(
+            "sfu_broadcast_reconciler_scheduler",
+            self._start_sfu_broadcast_reconciler_scheduler,
+        )
+        self._start_service(
             "speech_reconciliation_reconciler",
             self._start_speech_reconciliation_reconciler,
         )
@@ -116,6 +121,7 @@ class BackgroundServiceManager:
             ("speech_reconciliation_result_collector", self._stop_speech_reconciliation_result_collector),
             ("speech_reconciliation_reconciler", self._stop_speech_reconciliation_reconciler),
             ("semantic_media_audit_reconciler", self._stop_semantic_media_audit_reconciler),
+            ("sfu_broadcast_reconciler_scheduler", self._stop_sfu_broadcast_reconciler_scheduler),
             ("speech_evidence_retention_reconciler", self._stop_speech_evidence_retention_reconciler),
         ):
             try:
@@ -248,6 +254,13 @@ class BackgroundServiceManager:
 
         start_semantic_media_audit_reconciler_thread(self.app)
 
+    def _start_sfu_broadcast_reconciler_scheduler(self):
+        from agent.services.background.sfu_broadcast_reconciler_scheduler import (
+            start_sfu_broadcast_reconciler_scheduler,
+        )
+
+        start_sfu_broadcast_reconciler_scheduler(self.app)
+
     def _stop_speech_reconciliation_result_collector(self):
         from agent.services.background.speech_reconciliation_result_collector import (
             stop_speech_reconciliation_result_collector,
@@ -282,6 +295,13 @@ class BackgroundServiceManager:
         )
 
         stop_semantic_media_audit_reconciler(self.app)
+
+    def _stop_sfu_broadcast_reconciler_scheduler(self):
+        from agent.services.background.sfu_broadcast_reconciler_scheduler import (
+            stop_sfu_broadcast_reconciler_scheduler,
+        )
+
+        stop_sfu_broadcast_reconciler_scheduler(self.app)
 
     def _stop_ml_intern_training_reconciler(self):
         from agent.services.background.ml_intern_training_reconciler import (

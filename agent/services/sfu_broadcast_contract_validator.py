@@ -8,9 +8,11 @@ JSON Schema, Hub semantics and finally authentication.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -19,6 +21,22 @@ from typing import Any, Mapping, Protocol, Sequence
 from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
+from agent.services.sfu_broadcast_contract_materialization import (
+    ContractMaterializationError,
+    ContractMaterializationLimits,
+    ContractReaderCompatibility,
+    ContractVersionDescriptor,
+    MaterializedSfuBroadcastContract,
+    SfuBroadcastContractMaterializer,
+)
+from agent.services.sfu_member_digest_key_contract import (
+    DigestKeyMetadataReader,
+    SfuMemberDigestContractError,
+    SfuMemberDigestKeyContractService,
+    SfuMemberDigestReason,
+    SfuMemberDigestScope,
+    SfuMemberDigestValue,
+)
 
 JsonMapping = Mapping[str, Any]
 
@@ -81,6 +99,7 @@ class ContractDefinition:
     scope_pointers: Mapping[str, str] = field(default_factory=dict)
     semantic_rules: tuple[SemanticRule, ...] = ()
     signature_required: bool = True
+    materialization_version: int = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +131,7 @@ class ValidationResult:
     contract_id: str
     schema_version: str
     detail: str | None = None
+    materialized_contract: MaterializedSfuBroadcastContract | None = None
 
 
 class SfuBroadcastContractValidator:
@@ -125,13 +145,34 @@ class SfuBroadcastContractValidator:
         trust_store: TrustStore,
         limits: StructuralLimits,
         registry_resources: Mapping[str, JsonMapping] | None = None,
+        materializer: SfuBroadcastContractMaterializer | None = None,
+        reader_compatibility: ContractReaderCompatibility | None = None,
     ) -> None:
         self._clock = clock
         self._trust_store = trust_store
         self._limits = limits
+        self._materializer = materializer or SfuBroadcastContractMaterializer(
+            ContractMaterializationLimits(
+                maximum_payload_bytes=limits.max_document_bytes,
+                maximum_depth=limits.max_depth,
+                maximum_nodes=limits.max_nodes,
+                maximum_collection_entries=limits.max_collection_items,
+                maximum_string_bytes=limits.max_string_bytes,
+                maximum_total_string_bytes=limits.max_total_string_bytes,
+            )
+        )
         self._definitions = {definition.contract_id: definition for definition in definitions}
         if len(self._definitions) != len(definitions):
             raise ValueError("contract_definition_duplicate")
+        self._reader_compatibility = reader_compatibility or ContractReaderCompatibility(
+            schema_versions={
+                definition.contract_id: frozenset({definition.schema_version})
+                for definition in definitions
+            },
+            materialization_versions=frozenset(
+                definition.materialization_version for definition in definitions
+            ),
+        )
 
         resources: dict[str, JsonMapping] = dict(registry_resources or {})
         for definition in definitions:
@@ -171,6 +212,22 @@ class SfuBroadcastContractValidator:
         if structural_failure is not None:
             return self._rejection(definition, ValidationPhase.STRUCTURAL, structural_failure)
         assert document is not None
+        try:
+            materialized = self._materializer.materialize(
+                document,
+                ContractVersionDescriptor(
+                    contract_id=definition.contract_id,
+                    schema_version=definition.schema_version,
+                    materialization_version=definition.materialization_version,
+                ),
+                self._reader_compatibility,
+            )
+        except ContractMaterializationError as exc:
+            return self._rejection(
+                definition,
+                ValidationPhase.STRUCTURAL,
+                exc.reason_code.value,
+            )
 
         try:
             errors = sorted(
@@ -215,6 +272,7 @@ class SfuBroadcastContractValidator:
             "ok",
             definition.contract_id,
             definition.schema_version,
+            materialized_contract=materialized,
         )
 
     def _decode_bounded(self, raw_document: bytes | str) -> tuple[JsonMapping | None, str | None]:
@@ -232,7 +290,13 @@ class SfuBroadcastContractValidator:
             return None, scan_failure
         try:
             text = raw.decode("utf-8", errors="strict")
-            value = json.loads(text, parse_constant=_reject_non_finite)
+            value = json.loads(
+                text,
+                parse_constant=_reject_non_finite,
+                object_pairs_hook=_reject_duplicate_object_pairs,
+            )
+        except _DuplicateJsonKey:
+            return None, "contract_duplicate_json_key"
         except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError):
             return None, "contract_json_invalid"
         if not isinstance(value, Mapping):
@@ -383,77 +447,72 @@ class SfuBroadcastContractValidator:
         )
 
 
-class ReceiverGroupMemberDigestRule:
-    """Rebuild the RFC-8785-compatible integer/string-only member HMAC input."""
+class ReceiverGroupMemberDigestPayloadBuilder:
+    """Build the bounded canonical payload shared by digest producers/verifiers."""
 
-    _DOMAIN = b"ananta.webrtc.receiver-group.member-digest.v1"
-
-    def evaluate(self, document: JsonMapping, context: ValidationContext) -> str | None:
-        state = context.metadata
-        audience = state.get("resolved_audience")
-        keys = state.get("test_only_hmac_keys_hex")
-        if not isinstance(audience, Mapping) or not isinstance(keys, Mapping):
-            return "receiver_group_digest_context_unavailable"
+    def build(
+        self,
+        document: JsonMapping,
+        audience: JsonMapping,
+        publication_ref: str,
+    ) -> bytes:
         members = audience.get("members")
-        if not isinstance(members, list):
-            return "receiver_group_digest_context_unavailable"
-
         publications = document.get("publications")
         scope = document.get("scope")
         epochs = document.get("epochs")
         policy = document.get("policy")
-        if not all(isinstance(value, Mapping) for value in (publications, scope, epochs, policy)):
-            return "receiver_group_digest_context_unavailable"
+        if not isinstance(members, list) or not all(
+            isinstance(value, Mapping)
+            for value in (publications, scope, epochs, policy)
+        ):
+            raise ValueError("receiver_group_digest_context_unavailable")
         assert isinstance(publications, Mapping)
         assert isinstance(scope, Mapping)
         assert isinstance(epochs, Mapping)
         assert isinstance(policy, Mapping)
-
         primary = publications.get("primary_publication_ref")
         shared = publications.get("shared_publication_refs")
-        digests = publications.get("member_digests")
-        if not isinstance(primary, str) or not isinstance(shared, list) or not isinstance(digests, list):
-            return "receiver_group_digest_context_unavailable"
-        allowed_publications = sorted([primary, *shared], key=lambda value: str(value).encode("utf-8"))
-
-        for digest in digests:
-            if not isinstance(digest, Mapping):
-                return "receiver_group_digest_context_unavailable"
-            publication_ref = digest.get("publication_ref")
-            key_ref = digest.get("key_ref")
-            supplied = digest.get("value")
-            key_hex = keys.get(key_ref) if isinstance(key_ref, str) else None
-            if not all(isinstance(value, str) for value in (publication_ref, key_ref, supplied, key_hex)):
-                return "receiver_group_digest_context_unavailable"
-
-            bindings: list[dict[str, str]] = []
-            for member in members:
-                if not isinstance(member, Mapping):
-                    return "receiver_group_digest_context_unavailable"
-                grants = member.get("publication_grants")
-                if not isinstance(grants, list):
-                    return "receiver_group_digest_context_unavailable"
-                matching = [grant for grant in grants if grant.get("publication_ref") == publication_ref]
-                if len(matching) != 1:
-                    return "receiver_group_digest_context_unavailable"
-                grant = matching[0]
-                binding = {
-                    "grant_ref": grant.get("grant_ref"),
-                    "member_ref": member.get("member_ref"),
-                    "subscription_ref": grant.get("subscription_ref"),
-                }
-                if not all(isinstance(value, str) for value in binding.values()):
-                    return "receiver_group_digest_context_unavailable"
-                bindings.append(binding)  # type: ignore[arg-type]
-            bindings.sort(
-                key=lambda binding: (
-                    binding["member_ref"].encode("utf-8"),
-                    binding["grant_ref"].encode("utf-8"),
-                    binding["subscription_ref"].encode("utf-8"),
-                )
+        if not isinstance(primary, str) or not isinstance(shared, list) or not all(
+            isinstance(value, str) for value in shared
+        ):
+            raise ValueError("receiver_group_digest_context_unavailable")
+        bindings: list[dict[str, str]] = []
+        for member in members:
+            if not isinstance(member, Mapping):
+                raise ValueError("receiver_group_digest_context_unavailable")
+            grants = member.get("publication_grants")
+            if not isinstance(grants, list):
+                raise ValueError("receiver_group_digest_context_unavailable")
+            matching = [
+                grant
+                for grant in grants
+                if isinstance(grant, Mapping)
+                and grant.get("publication_ref") == publication_ref
+            ]
+            if len(matching) != 1:
+                raise ValueError("receiver_group_digest_context_unavailable")
+            grant = matching[0]
+            binding = {
+                "grant_ref": grant.get("grant_ref"),
+                "member_ref": member.get("member_ref"),
+                "subscription_ref": grant.get("subscription_ref"),
+            }
+            if not all(isinstance(value, str) for value in binding.values()):
+                raise ValueError("receiver_group_digest_context_unavailable")
+            bindings.append(binding)  # type: ignore[arg-type]
+        bindings.sort(
+            key=lambda binding: (
+                binding["member_ref"].encode("utf-8"),
+                binding["grant_ref"].encode("utf-8"),
+                binding["subscription_ref"].encode("utf-8"),
             )
-            digest_input = {
-                "allowed_publication_refs": allowed_publications,
+        )
+        return _canonical_json(
+            {
+                "allowed_publication_refs": sorted(
+                    [primary, *shared],
+                    key=lambda value: value.encode("utf-8"),
+                ),
                 "audience_epoch": epochs.get("audience_epoch"),
                 "audience_snapshot_ref": document.get("audience_snapshot_ref"),
                 "consent_epoch": epochs.get("consent_epoch"),
@@ -470,17 +529,144 @@ class ReceiverGroupMemberDigestRule:
                 "room_ref": scope.get("room_ref"),
                 "tenant_ref": scope.get("tenant_ref"),
             }
+        )
+
+
+class LegacyReceiverGroupMemberDigestTestAdapter:
+    """Explicit legacy v1 key adapter, forbidden outside test/development."""
+
+    _DOMAIN = b"ananta.webrtc.receiver-group.member-digest.v1"
+
+    def __init__(self, *, environment: str) -> None:
+        if environment not in {"test", "development"}:
+            raise ValueError("legacy_receiver_group_digest_adapter_forbidden")
+
+    def verify(
+        self,
+        *,
+        payload: bytes,
+        key_ref: str,
+        supplied: str,
+        metadata: JsonMapping,
+    ) -> bool:
+        keys = metadata.get("test_only_hmac_keys_hex")
+        key_hex = keys.get(key_ref) if isinstance(keys, Mapping) else None
+        if not isinstance(key_hex, str):
+            return False
+        try:
+            expected = hmac.new(
+                bytes.fromhex(key_hex),
+                self._DOMAIN + b"\x00" + payload,
+                hashlib.sha256,
+            ).hexdigest()
+        except ValueError:
+            return False
+        return hmac.compare_digest(expected, supplied)
+
+
+class ReceiverGroupMemberDigestRule:
+    """Verify member digests through repository/KMS ports in production."""
+
+    def __init__(
+        self,
+        *,
+        digest_service: SfuMemberDigestKeyContractService | None = None,
+        metadata_reader: DigestKeyMetadataReader | None = None,
+        legacy_adapter: LegacyReceiverGroupMemberDigestTestAdapter | None = None,
+        payload_builder: ReceiverGroupMemberDigestPayloadBuilder | None = None,
+    ) -> None:
+        if (digest_service is None) != (metadata_reader is None):
+            raise ValueError("receiver_group_digest_ports_incomplete")
+        if digest_service is not None and legacy_adapter is not None:
+            raise ValueError("receiver_group_digest_verifier_ambiguous")
+        self._digest_service = digest_service
+        self._metadata_reader = metadata_reader
+        self._legacy_adapter = legacy_adapter
+        self._payload_builder = payload_builder or ReceiverGroupMemberDigestPayloadBuilder()
+
+    def evaluate(self, document: JsonMapping, context: ValidationContext) -> str | None:
+        audience = context.metadata.get("resolved_audience")
+        publications = document.get("publications")
+        scope_value = document.get("scope")
+        epochs = document.get("epochs")
+        if not all(
+            isinstance(value, Mapping)
+            for value in (audience, publications, scope_value, epochs)
+        ):
+            return "receiver_group_digest_context_unavailable"
+        assert isinstance(audience, Mapping)
+        assert isinstance(publications, Mapping)
+        assert isinstance(scope_value, Mapping)
+        assert isinstance(epochs, Mapping)
+        digests = publications.get("member_digests")
+        if not isinstance(digests, list):
+            return "receiver_group_digest_context_unavailable"
+        if self._digest_service is None and self._legacy_adapter is None:
+            return "receiver_group_digest_verifier_unavailable"
+        for digest in digests:
+            if not isinstance(digest, Mapping):
+                return "receiver_group_digest_context_unavailable"
+            publication_ref = digest.get("publication_ref")
+            key_ref = digest.get("key_ref")
+            supplied = digest.get("value")
+            if not all(
+                isinstance(value, str)
+                for value in (publication_ref, key_ref, supplied)
+            ):
+                return "receiver_group_digest_context_unavailable"
             try:
-                canonical = _canonical_json(digest_input)
-                expected = hmac.new(
-                    bytes.fromhex(key_hex),
-                    self._DOMAIN + b"\x00" + canonical,
-                    hashlib.sha256,
-                ).hexdigest()
+                payload = self._payload_builder.build(
+                    document,
+                    audience,
+                    publication_ref,
+                )
             except (TypeError, ValueError):
                 return "receiver_group_digest_context_unavailable"
-            if not hmac.compare_digest(expected, supplied):
-                return "receiver_group_member_digest_mismatch"
+            if self._legacy_adapter is not None:
+                if not self._legacy_adapter.verify(
+                    payload=payload,
+                    key_ref=key_ref,
+                    supplied=supplied,
+                    metadata=context.metadata,
+                ):
+                    return "receiver_group_member_digest_mismatch"
+                continue
+            try:
+                digest_scope = SfuMemberDigestScope(
+                    tenant_id=str(scope_value.get("tenant_ref")),
+                    room_id=str(scope_value.get("room_ref")),
+                    publication_id=publication_ref,
+                    key_epoch=epochs.get("key_epoch"),  # type: ignore[arg-type]
+                )
+                assert self._metadata_reader is not None
+                assert self._digest_service is not None
+                key = self._metadata_reader.get(key_ref)
+                if key is None:
+                    return "receiver_group_digest_key_unavailable"
+                candidate_value = supplied
+                if re.fullmatch(r"[a-f0-9]{64}", supplied):
+                    candidate_value = base64.urlsafe_b64encode(
+                        bytes.fromhex(supplied)
+                    ).rstrip(b"=").decode("ascii")
+                verification = self._digest_service.verify_digest(
+                    payload,
+                    digest_scope,
+                    SfuMemberDigestValue(
+                        contract_version=1,
+                        algorithm=key.algorithm,
+                        key_id=key.key_id,
+                        generation=key.generation,
+                        key_version=key.version,
+                        scope_fingerprint=key.scope_fingerprint,
+                        value=candidate_value,
+                    ),
+                )
+            except (SfuMemberDigestContractError, TypeError, ValueError):
+                return "receiver_group_digest_key_unavailable"
+            if not verification.valid:
+                if verification.reason_code is SfuMemberDigestReason.DIGEST_INVALID:
+                    return "receiver_group_member_digest_mismatch"
+                return "receiver_group_digest_key_unavailable"
         return None
 
 
@@ -545,10 +731,12 @@ class SfuBroadcastCorpusVerifier:
             "advance_clock_past_expiry",
             "reuse_sequence",
             "raise_authoritative_epoch",
+            "not_applicable_no_authoritative_epoch",
             "replace_expected_scope",
             "reject_trust",
         }
     )
+    REQUIRED_STRUCTURAL_PARITY_CASES = frozenset({"duplicate_json_key"})
 
     def inspect(
         self,
@@ -569,11 +757,37 @@ class SfuBroadcastCorpusVerifier:
         if not isinstance(declared_categories, list) or set(declared_categories) != self.REQUIRED_CATEGORIES:
             issues.append(CorpusIssue("corpus_categories_invalid"))
 
+        structural_cases = manifest.get("structural_parity_cases")
+        structural_ids: set[str] = set()
+        if not isinstance(structural_cases, list):
+            issues.append(CorpusIssue("corpus_structural_parity_cases_invalid"))
+            structural_cases = []
+        for case in structural_cases:
+            if not isinstance(case, Mapping) or set(case) != {
+                "id",
+                "raw_document",
+                "expected_code",
+            }:
+                issues.append(CorpusIssue("corpus_structural_parity_case_invalid"))
+                continue
+            case_id = case.get("id")
+            if (
+                not isinstance(case_id, str)
+                or case_id in structural_ids
+                or not isinstance(case.get("raw_document"), str)
+                or not isinstance(case.get("expected_code"), str)
+            ):
+                issues.append(CorpusIssue("corpus_structural_parity_case_invalid"))
+                continue
+            structural_ids.add(case_id)
+        if structural_ids != self.REQUIRED_STRUCTURAL_PARITY_CASES:
+            issues.append(CorpusIssue("corpus_structural_parity_coverage_incomplete"))
+
         contracts = manifest.get("contracts")
         if not isinstance(contracts, list):
             contracts = []
             issues.append(CorpusIssue("corpus_contracts_invalid"))
-        fixture_count = 0
+        fixture_count = len(structural_cases)
         artifact_paths: set[str] = set()
         contract_ids: set[str] = set()
         for contract in contracts:
@@ -661,6 +875,21 @@ class SfuBroadcastCorpusVerifier:
 
 def _reject_non_finite(value: str) -> None:
     raise ValueError(value)
+
+
+class _DuplicateJsonKey(ValueError):
+    pass
+
+
+def _reject_duplicate_object_pairs(
+    pairs: list[tuple[str, Any]],
+) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _DuplicateJsonKey(key)
+        result[key] = value
+    return result
 
 
 def _canonical_json(value: Any) -> bytes:

@@ -1,0 +1,309 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/sfu_broadcast_observability_catalog.v1.json",
+  "title": "SFU broadcast observability catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "catalog_id",
+    "version",
+    "decision_policy",
+    "forbidden_data",
+    "statistics_policy",
+    "pseudonymization",
+    "metrics",
+    "audit_events"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "../schemas/webrtc/sfu_broadcast_observability_catalog.v1.json"
+    },
+    "catalog_id": {
+      "type": "string",
+      "const": "ananta.sfu-broadcast-observability-catalog.v1"
+    },
+    "version": {"type": "string", "const": "1.0"},
+    "decision_policy": {"$ref": "#/$defs/decisionPolicy"},
+    "forbidden_data": {
+      "type": "array",
+      "minItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "media_payload",
+          "semantic_payload",
+          "transcript",
+          "embedding",
+          "encryption_key",
+          "access_token",
+          "credential",
+          "full_sdp",
+          "ice_candidate",
+          "private_ip_address",
+          "device_label",
+          "original_identifier"
+        ]
+      }
+    },
+    "statistics_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_statistics",
+        "percentile_method",
+        "peak_definition",
+        "empty_window_decision"
+      ],
+      "properties": {
+        "required_statistics": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "p50"},
+            {"const": "p95"},
+            {"const": "p99"},
+            {"const": "peak"}
+          ],
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "percentile_method": {"type": "string", "const": "nearest_rank"},
+        "peak_definition": {"type": "string", "const": "maximum_observation_in_complete_window"},
+        "empty_window_decision": {"type": "string", "const": "suppress"}
+      }
+    },
+    "pseudonymization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "scope", "output_prefix", "truncation_bits", "minimum_secret_bytes"],
+      "properties": {
+        "algorithm": {"type": "string", "const": "hmac-sha256"},
+        "scope": {"type": "string", "const": "metric_scope_and_rotation_window"},
+        "output_prefix": {"type": "string", "const": "sfb1"},
+        "truncation_bits": {"type": "integer", "const": 96},
+        "minimum_secret_bytes": {"type": "integer", "minimum": 32, "maximum": 64}
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 15,
+      "maxItems": 32,
+      "items": {"$ref": "#/$defs/metric"}
+    },
+    "audit_events": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {"$ref": "#/$defs/auditEvent"}
+    }
+  },
+  "$defs": {
+    "decisionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unknown_metric_decision",
+        "unknown_metric_reason_code",
+        "unknown_label_decision",
+        "unknown_label_reason_code",
+        "forbidden_label_reason_code",
+        "invalid_label_value_reason_code",
+        "missing_label_reason_code",
+        "small_cohort_decision",
+        "small_cohort_reason_code"
+      ],
+      "properties": {
+        "unknown_metric_decision": {"type": "string", "const": "reject"},
+        "unknown_metric_reason_code": {
+          "type": "string",
+          "const": "sfu_observability_metric_not_registered"
+        },
+        "unknown_label_decision": {"type": "string", "const": "reject"},
+        "unknown_label_reason_code": {
+          "type": "string",
+          "const": "sfu_observability_label_not_allowed"
+        },
+        "forbidden_label_reason_code": {
+          "type": "string",
+          "const": "sfu_observability_forbidden_label"
+        },
+        "invalid_label_value_reason_code": {
+          "type": "string",
+          "const": "sfu_observability_label_value_not_allowed"
+        },
+        "missing_label_reason_code": {
+          "type": "string",
+          "const": "sfu_observability_required_label_missing"
+        },
+        "small_cohort_decision": {"type": "string", "const": "suppress"},
+        "small_cohort_reason_code": {
+          "type": "string",
+          "const": "sfu_observability_small_cohort_suppressed"
+        }
+      }
+    },
+    "label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "allowed_values"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$"},
+        "allowed_values": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$"}
+        }
+      }
+    },
+    "queryRbac": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roles", "max_queries_per_minute", "max_rows_per_query"],
+      "properties": {
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {"type": "string", "enum": ["admin", "operator"]}
+        },
+        "max_queries_per_minute": {"type": "integer", "minimum": 1, "maximum": 60},
+        "max_rows_per_query": {"type": "integer", "minimum": 1, "maximum": 5000}
+      }
+    },
+    "auditEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "outcomes", "reason_codes", "labels", "cardinality_max"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^ananta_sfu_broadcast_[a-z0-9_]{3,80}$"},
+        "outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$"}
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$"}
+        },
+        "labels": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {"$ref": "#/$defs/label"}
+        },
+        "cardinality_max": {"type": "integer", "minimum": 1, "maximum": 128}
+      }
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "domain",
+        "purpose",
+        "metric_type",
+        "unit",
+        "labels",
+        "scope",
+        "statistics",
+        "allowed_buckets",
+        "min_cohort_size",
+        "suppression_rule",
+        "cardinality_per_scope_max",
+        "storage_points_per_scope_max",
+        "aggregation_window_seconds",
+        "retention_seconds",
+        "pseudonym_rotation_seconds",
+        "query_rbac",
+        "export_destination",
+        "privacy_class"
+      ],
+      "properties": {
+        "name": {"type": "string", "pattern": "^ananta_sfu_broadcast_[a-z0-9_]{3,80}$"},
+        "domain": {
+          "type": "string",
+          "enum": [
+            "join",
+            "publish",
+            "subscribe",
+            "group",
+            "route",
+            "layer",
+            "queue",
+            "drop",
+            "ingress",
+            "sfu_egress",
+            "turn",
+            "rekey",
+            "drain",
+            "failover",
+            "capacity"
+          ]
+        },
+        "purpose": {"type": "string", "minLength": 20, "maxLength": 240},
+        "metric_type": {"type": "string", "enum": ["counter", "gauge", "histogram"]},
+        "unit": {
+          "type": "string",
+          "enum": [
+            "milliseconds",
+            "participants",
+            "routes",
+            "transitions",
+            "items",
+            "events",
+            "bytes_per_second",
+            "ratio"
+          ]
+        },
+        "labels": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {"$ref": "#/$defs/label"}
+        },
+        "scope": {"type": "string", "enum": ["room_window", "node_window", "cluster_window"]},
+        "statistics": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "p50"},
+            {"const": "p95"},
+            {"const": "p99"},
+            {"const": "peak"}
+          ],
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "allowed_buckets": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {"type": "number", "minimum": 0}
+        },
+        "min_cohort_size": {"type": "integer", "minimum": 10, "maximum": 250},
+        "suppression_rule": {"type": "string", "const": "drop_window_below_min_cohort"},
+        "cardinality_per_scope_max": {"type": "integer", "minimum": 1, "maximum": 128},
+        "storage_points_per_scope_max": {"type": "integer", "minimum": 1, "maximum": 1000000},
+        "aggregation_window_seconds": {"type": "integer", "minimum": 60, "maximum": 900},
+        "retention_seconds": {"type": "integer", "minimum": 3600, "maximum": 2592000},
+        "pseudonym_rotation_seconds": {"type": "integer", "minimum": 900, "maximum": 86400},
+        "query_rbac": {"$ref": "#/$defs/queryRbac"},
+        "export_destination": {
+          "type": "string",
+          "enum": ["prometheus_aggregated", "otel_metrics_aggregated"]
+        },
+        "privacy_class": {"type": "string", "const": "operational_aggregate"}
+      }
+    }
+  }
+}

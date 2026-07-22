@@ -119,6 +119,12 @@ class LiveKitRouteBindingResolver(Protocol):
     def existing(self, key: RouteKeyV1, version: RouteVersionV1) -> LiveKitRouteBinding: ...
 
 
+class LiveKitRouteObservationBindingResolver(Protocol):
+    """Resolves current vendor bindings without inventing a mutation version."""
+
+    def observed(self, key: RouteKeyV1) -> LiveKitRouteBinding: ...
+
+
 @dataclass(frozen=True, slots=True)
 class TwirpResponse:
     status_code: int
@@ -203,11 +209,13 @@ class LiveKitControlApiClient:
         config: LiveKitControlApiConfig,
         bindings: LiveKitRouteBindingResolver,
         *,
+        observation_bindings: LiveKitRouteObservationBindingResolver | None = None,
         transport: TwirpTransport | None = None,
         clock=time.time,
     ) -> None:
         self._config = config
         self._bindings = bindings
+        self._observation_bindings = observation_bindings
         self._transport = transport or RequestsTwirpTransport()
         self._clock = clock
 
@@ -264,7 +272,9 @@ class LiveKitControlApiClient:
         return self._set_subscriptions("revoke", binding, subscribe=False)
 
     def observe(self, query: ObserveRouteQueryV1) -> LiveKitRouteObservation:
-        binding = self._bindings.existing(query.key, _unknown_version_for_resolver())
+        if self._observation_bindings is None:
+            raise LiveKitControlApiError("livekit_observation_binding_resolver_missing")
+        binding = self._observation_bindings.observed(query.key)
         response = self._call("ListParticipants", {"room": binding.room_name}, room=binding.room_name)
         participants = response.get("participants")
         identities = tuple(
@@ -423,7 +433,7 @@ class UnsupportedSfuRuntimeControlBoundary:
             "reason_code": self.reason_code,
         }
 
-    def _raise(self):
+    def _raise(self, *_args, **_kwargs):
         raise LiveKitControlApiError(self.reason_code)
 
     apply = update = revoke = observe = health = drain = _raise
@@ -434,19 +444,19 @@ def build_sfu_runtime_control_boundary(
     *,
     config: LiveKitControlApiConfig | None = None,
     bindings: LiveKitRouteBindingResolver | None = None,
+    observation_bindings: LiveKitRouteObservationBindingResolver | None = None,
     transport: TwirpTransport | None = None,
 ):
     if mode == RuntimeControlModeV1.LIVEKIT_CONTROL_API.value:
         if config is None or bindings is None:
             return UnsupportedSfuRuntimeControlBoundary("livekit_control_configuration_missing")
-        return LiveKitControlApiClient(config, bindings, transport=transport)
+        return LiveKitControlApiClient(
+            config,
+            bindings,
+            observation_bindings=observation_bindings,
+            transport=transport,
+        )
     return UnsupportedSfuRuntimeControlBoundary("sfu_runtime_mode_not_selected")
-
-
-def _unknown_version_for_resolver() -> RouteVersionV1:
-    """Observation has no version; resolvers must treat this sentinel as lookup-only."""
-
-    return RouteVersionV1(1, 1, 1, 1, "observe-only")
 
 
 __all__ = [
@@ -456,6 +466,7 @@ __all__ = [
     "LiveKitControlResult",
     "LiveKitRouteBinding",
     "LiveKitRouteBindingResolver",
+    "LiveKitRouteObservationBindingResolver",
     "LiveKitRouteObservation",
     "PINNED_LIVEKIT_IMAGE",
     "PINNED_LIVEKIT_SERVER_VERSION",

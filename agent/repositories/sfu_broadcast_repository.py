@@ -16,7 +16,14 @@ from sqlmodel import Session, select
 
 from agent.database import engine as default_engine
 from agent.db_models import SfuBroadcastAudienceDB, SfuFanoutRouteDB, SfuReceiverGroupDB
+from agent.db_models.sfu_broadcast_retention import (
+    SfuAudienceRetentionFenceDB,
+    SfuAudienceSnapshotTombstoneDB,
+)
 from agent.services.sfu_broadcast_repository_ports import (
+    SfuAudienceRetentionFence,
+    SfuAudienceRetentionPurgePage,
+    SfuAtomicGroupProjectionMutation,
     SfuBroadcastAudience,
     SfuBroadcastRoomScope,
     SfuFanoutRoute,
@@ -50,6 +57,68 @@ class InMemorySfuBroadcastRepositoryStore:
         self.audiences: dict[tuple[str, str, str], SfuBroadcastAudience] = {}
         self.groups: dict[tuple[str, str, str], SfuReceiverGroup] = {}
         self.routes: dict[tuple[str, str, str], SfuFanoutRoute] = {}
+        self.audience_tombstones: dict[str, tuple[int, str, int, float, float]] = {}
+        self.retention_owner_id: str | None = None
+        self.retention_fencing_token: int = 0
+        self.retention_lease_expires_at: float = 0.0
+
+
+class InMemorySfuAtomicGroupProjectionRepository:
+    """Atomic Hub-side Audience epoch check plus receiver-group CAS."""
+
+    def __init__(
+        self,
+        *,
+        store: InMemorySfuBroadcastRepositoryStore,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
+        self._store = store
+        self._clock = clock
+
+    def save_authorized(
+        self,
+        mutation: SfuAtomicGroupProjectionMutation,
+        *,
+        now: float | None = None,
+    ) -> SfuProjectionMutationResult[SfuReceiverGroup]:
+        effective_now = _effective_now(now, self._clock)
+        _validate_atomic_group_mutation(mutation)
+        desired = mutation.mutation.value
+        key = _key(desired.scope, desired.id)
+        with self._store.lock:
+            current = self._store.groups.get(key)
+            outcome, saved = _prepare_mutation(
+                mutation.mutation,
+                current=current,
+                now=effective_now,
+                epoch_attributes=("membership_epoch", "key_epoch", "topology_epoch"),
+            )
+            if outcome is not None:
+                return outcome
+            assert saved is not None
+            parent = self._store.audiences.get(
+                _key(saved.scope, mutation.audience_projection_id)
+            )
+            parent_error = _validate_atomic_group_parent(
+                mutation,
+                parent=parent,
+                current=current,
+                saved=saved,
+                now=effective_now,
+            )
+            if parent_error is not None:
+                return parent_error
+            if any(
+                existing.id != saved.id
+                and existing.scope == saved.scope
+                and existing.status == "active"
+                and existing.tombstoned_at is None
+                and existing.subscription_ref == saved.subscription_ref
+                for existing in self._store.groups.values()
+            ):
+                return _result("conflict", reason="active_projection_conflict")
+            self._store.groups[key] = saved
+            return _result("saved", value=saved)
 
 
 class _InMemoryProjectionRepository(Generic[ProjectionT]):
@@ -95,6 +164,12 @@ class _InMemoryProjectionRepository(Generic[ProjectionT]):
         with self._store.lock:
             items = self._items()
             current = items.get(key)
+            if (
+                isinstance(mutation.value, SfuBroadcastAudience)
+                and _audience_tombstone_id(scope, mutation.value.id)
+                in self._store.audience_tombstones
+            ):
+                return _result("conflict", reason="audience_snapshot_tombstoned")
             outcome, saved = _prepare_mutation(
                 mutation,
                 current=current,
@@ -443,6 +518,13 @@ class _SqlProjectionRepository(Generic[ProjectionT, RowT]):
             with Session(self._engine) as db:
                 current_row = self._select_scoped(db, scope, mutation.value.id)
                 current = self._from_row(current_row) if current_row is not None else None
+                if self._model is SfuBroadcastAudienceDB and current is None:
+                    tombstone = db.get(
+                        SfuAudienceSnapshotTombstoneDB,
+                        _audience_tombstone_id(scope, mutation.value.id),
+                    )
+                    if tombstone is not None:
+                        return _result("conflict", reason="audience_snapshot_tombstoned")
                 outcome, saved = _prepare_mutation(
                     mutation,
                     current=current,
@@ -733,6 +815,306 @@ class SqlSfuBroadcastAudienceRepository(
         )
 
 
+class InMemorySfuAudienceSnapshotRetentionRepository:
+    """Atomic content erasure over a shared projection store."""
+
+    def __init__(
+        self,
+        *,
+        store: InMemorySfuBroadcastRepositoryStore,
+        tombstone_retention_seconds: int = 30 * 86_400,
+    ) -> None:
+        self._store = store
+        self._tombstone_retention_seconds = tombstone_retention_seconds
+
+    def tombstone(
+        self,
+        scope: SfuBroadcastRoomScope,
+        projection_id: str,
+        *,
+        expected_version: int,
+        retention_reason: str,
+        purge_deadline: float,
+        fence: SfuAudienceRetentionFence,
+        now: float,
+    ) -> SfuProjectionMutationResult[SfuBroadcastAudience]:
+        _validate_retention_fence(fence, now)
+        with self._store.lock:
+            self._claim_fence(fence, now)
+            key = _key(scope, projection_id)
+            current = self._store.audiences.get(key)
+            if current is None:
+                tombstone = self._store.audience_tombstones.get(_audience_tombstone_id(scope, projection_id))
+                return _result(
+                    "saved" if tombstone else "not_found",
+                    replayed=tombstone is not None,
+                    reason=None if tombstone else "projection_not_found",
+                )
+            if current.status == "tombstoned":
+                return _result("saved", value=current, replayed=True)
+            if current.version != expected_version:
+                return _result("conflict", value=current, reason="projection_version_conflict")
+            if purge_deadline < now or purge_deadline < current.expires_at:
+                return _result("conflict", value=current, reason="retention_deadline_invalid")
+            if self._live_route_exists(current.id, now):
+                return _result("conflict", value=current, reason="audience_snapshot_route_active")
+            saved = replace(
+                current,
+                status="tombstoned",
+                retention_status="purge_pending",
+                retain_until=purge_deadline,
+                tombstoned_at=now,
+                tombstone_reason=retention_reason,
+                fencing_token=fence.fencing_token,
+                version=current.version + 1,
+                request_digest=hashlib.sha256(
+                    f"retention\0{current.request_digest}\0{retention_reason}\0{expected_version}".encode()
+                ).hexdigest(),
+                idempotency_key_digest=hashlib.sha256(
+                    f"retention\0{projection_id}\0{retention_reason}".encode()
+                ).hexdigest(),
+                updated_at=now,
+                audited_at=now,
+            )
+            self._store.audiences[key] = saved
+            return _result("saved", value=saved)
+
+    def purge_due(
+        self,
+        *,
+        fence: SfuAudienceRetentionFence,
+        now: float,
+        page_size: int,
+        cursor: str | None = None,
+    ) -> SfuAudienceRetentionPurgePage:
+        _validate_retention_fence(fence, now)
+        _validate_page_size(page_size, 1000)
+        after = _decode_retention_cursor(cursor) if cursor else None
+        purged = 0
+        with self._store.lock:
+            self._claim_fence(fence, now)
+            rows = sorted(
+                (
+                    value for value in self._store.audiences.values()
+                    if value.status == "tombstoned" and value.retention_status == "purge_pending"
+                    and value.retain_until <= now
+                    and (after is None or (value.retain_until, value.id) > after)
+                ),
+                key=lambda value: (value.retain_until, value.id),
+            )[: page_size + 1]
+            selected = rows[:page_size]
+            for audience in selected:
+                if self._live_route_exists(audience.id, now):
+                    continue
+                group_ids: set[str] = set()
+                for route_key, route in tuple(self._store.routes.items()):
+                    if route.audience_projection_id != audience.id:
+                        continue
+                    if route.status not in _TERMINAL_STATUSES:
+                        continue
+                    group_ids.add(route.receiver_group_projection_id)
+                    self._store.routes.pop(route_key, None)
+                for group_id in group_ids:
+                    still_referenced = any(
+                        route.receiver_group_projection_id == group_id
+                        for route in self._store.routes.values()
+                    )
+                    if not still_referenced:
+                        self._store.groups.pop(_key(audience.scope, group_id), None)
+                self._store.audiences.pop(_key(audience.scope, audience.id), None)
+                self._store.audience_tombstones[_audience_tombstone_id(audience.scope, audience.id)] = (
+                    audience.version,
+                    audience.tombstone_reason or "retention_expired",
+                    fence.fencing_token,
+                    now,
+                    now + self._tombstone_retention_seconds,
+                )
+                purged += 1
+            next_cursor = (
+                _encode_retention_cursor((selected[-1].retain_until, selected[-1].id))
+                if len(rows) > page_size and selected else None
+            )
+            return SfuAudienceRetentionPurgePage(purged, next_cursor)
+
+    def _live_route_exists(self, audience_id: str, now: float) -> bool:
+        return any(
+            route.audience_projection_id == audience_id
+            and route.status in _LIVE_STATUSES
+            and route.expires_at > now
+            for route in self._store.routes.values()
+        )
+
+    def _claim_fence(self, fence: SfuAudienceRetentionFence, now: float) -> None:
+        if fence.fencing_token < self._store.retention_fencing_token:
+            raise SfuBroadcastRepositoryError("audience_retention_fence_stale")
+        if (
+            fence.fencing_token == self._store.retention_fencing_token
+            and self._store.retention_owner_id not in {None, fence.owner_id}
+            and self._store.retention_lease_expires_at > now
+        ):
+            raise SfuBroadcastRepositoryError("audience_retention_lease_conflict")
+        self._store.retention_owner_id = fence.owner_id
+        self._store.retention_fencing_token = fence.fencing_token
+        self._store.retention_lease_expires_at = fence.lease_expires_at
+
+
+class SqlSfuAudienceSnapshotRetentionRepository:
+    def __init__(
+        self,
+        *,
+        db_engine=default_engine,
+        tombstone_retention_seconds: int = 30 * 86_400,
+    ) -> None:
+        self._engine = db_engine
+        self._tombstone_retention_seconds = tombstone_retention_seconds
+
+    def tombstone(
+        self,
+        scope: SfuBroadcastRoomScope,
+        projection_id: str,
+        *,
+        expected_version: int,
+        retention_reason: str,
+        purge_deadline: float,
+        fence: SfuAudienceRetentionFence,
+        now: float,
+    ) -> SfuProjectionMutationResult[SfuBroadcastAudience]:
+        _validate_retention_fence(fence, now)
+        try:
+            with Session(self._engine) as db:
+                _claim_sql_retention_fence(db, fence, now)
+                row = db.exec(select(SfuBroadcastAudienceDB).where(
+                    SfuBroadcastAudienceDB.id == projection_id,
+                    SfuBroadcastAudienceDB.tenant_id == scope.tenant_id,
+                    SfuBroadcastAudienceDB.session_id == scope.session_id,
+                )).first()
+                if row is None:
+                    tombstone = db.get(
+                        SfuAudienceSnapshotTombstoneDB,
+                        _audience_tombstone_id(scope, projection_id),
+                    )
+                    return _result(
+                        "saved" if tombstone else "not_found",
+                        replayed=tombstone is not None,
+                        reason=None if tombstone else "projection_not_found",
+                    )
+                current = SfuBroadcastAudience(**{
+                    field.name: getattr(row, field.name) for field in fields(SfuBroadcastAudience)
+                })
+                if row.status == "tombstoned":
+                    return _result("saved", value=current, replayed=True)
+                if row.version != expected_version:
+                    return _result("conflict", value=current, reason="projection_version_conflict")
+                if purge_deadline < now or purge_deadline < row.expires_at:
+                    return _result("conflict", value=current, reason="retention_deadline_invalid")
+                if _sql_live_route_exists(db, row.id, now):
+                    return _result("conflict", value=current, reason="audience_snapshot_route_active")
+                result = db.exec(sa.update(SfuBroadcastAudienceDB).where(
+                    SfuBroadcastAudienceDB.id == projection_id,
+                    SfuBroadcastAudienceDB.version == expected_version,
+                ).values(
+                    status="tombstoned", retention_status="purge_pending",
+                    retain_until=purge_deadline, tombstoned_at=now,
+                    tombstone_reason=retention_reason, fencing_token=fence.fencing_token,
+                    version=SfuBroadcastAudienceDB.version + 1,
+                    request_digest=hashlib.sha256(
+                        f"retention\0{row.request_digest}\0{retention_reason}\0{expected_version}".encode()
+                    ).hexdigest(),
+                    idempotency_key_digest=hashlib.sha256(
+                        f"retention\0{projection_id}\0{retention_reason}".encode()
+                    ).hexdigest(),
+                    updated_at=now, audited_at=now,
+                ))
+                if int(result.rowcount or 0) != 1:
+                    db.rollback()
+                    return _result("conflict", value=current, reason="projection_version_conflict")
+                db.commit()
+                saved = SqlSfuBroadcastAudienceRepository(db_engine=self._engine).get(scope, projection_id)
+                return _result("saved", value=saved)
+        except SfuBroadcastRepositoryError:
+            raise
+        except SQLAlchemyError as exc:
+            raise SfuBroadcastRepositoryError("audience_retention_store_unavailable") from exc
+
+    def purge_due(
+        self,
+        *,
+        fence: SfuAudienceRetentionFence,
+        now: float,
+        page_size: int,
+        cursor: str | None = None,
+    ) -> SfuAudienceRetentionPurgePage:
+        _validate_retention_fence(fence, now)
+        _validate_page_size(page_size, 1000)
+        after = _decode_retention_cursor(cursor) if cursor else None
+        try:
+            with Session(self._engine) as db:
+                _claim_sql_retention_fence(db, fence, now)
+                query = select(SfuBroadcastAudienceDB).where(
+                    SfuBroadcastAudienceDB.status == "tombstoned",
+                    SfuBroadcastAudienceDB.retention_status == "purge_pending",
+                    SfuBroadcastAudienceDB.retain_until <= now,
+                )
+                if after is not None:
+                    query = query.where(sa.or_(
+                        SfuBroadcastAudienceDB.retain_until > after[0],
+                        sa.and_(
+                            SfuBroadcastAudienceDB.retain_until == after[0],
+                            SfuBroadcastAudienceDB.id > after[1],
+                        ),
+                    ))
+                rows = db.exec(query.order_by(
+                    SfuBroadcastAudienceDB.retain_until,
+                    SfuBroadcastAudienceDB.id,
+                ).limit(page_size + 1)).all()
+                selected = rows[:page_size]
+                purged = 0
+                for audience in selected:
+                    if _sql_live_route_exists(db, audience.id, now):
+                        continue
+                    routes = db.exec(select(SfuFanoutRouteDB).where(
+                        SfuFanoutRouteDB.audience_projection_id == audience.id
+                    )).all()
+                    if any(route.status not in _TERMINAL_STATUSES for route in routes):
+                        continue
+                    group_ids = {route.receiver_group_projection_id for route in routes}
+                    for route in routes:
+                        db.delete(route)
+                    db.flush()
+                    for group_id in group_ids:
+                        reference = db.exec(select(SfuFanoutRouteDB.id).where(
+                            SfuFanoutRouteDB.receiver_group_projection_id == group_id
+                        ).limit(1)).first()
+                        group = db.get(SfuReceiverGroupDB, group_id)
+                        if reference is None and group is not None and group.status in _TERMINAL_STATUSES:
+                            db.delete(group)
+                    tombstone_id = _audience_tombstone_id(
+                        SfuBroadcastRoomScope(audience.tenant_id, audience.session_id), audience.id
+                    )
+                    if db.get(SfuAudienceSnapshotTombstoneDB, tombstone_id) is None:
+                        db.add(SfuAudienceSnapshotTombstoneDB(
+                            id=tombstone_id,
+                            scope_digest=_scope_digest(audience.tenant_id, audience.session_id),
+                            final_version=audience.version,
+                            reason_code=audience.tombstone_reason or "retention_expired",
+                            fencing_token=fence.fencing_token,
+                            purged_at=now,
+                            deny_until=now + self._tombstone_retention_seconds,
+                        ))
+                    db.delete(audience)
+                    purged += 1
+                db.commit()
+                next_cursor = (
+                    _encode_retention_cursor((selected[-1].retain_until, selected[-1].id))
+                    if len(rows) > page_size and selected else None
+                )
+                return SfuAudienceRetentionPurgePage(purged, next_cursor)
+        except SfuBroadcastRepositoryError:
+            raise
+        except SQLAlchemyError as exc:
+            raise SfuBroadcastRepositoryError("audience_retention_store_unavailable") from exc
+
+
 class SqlSfuReceiverGroupRepository(
     _SqlProjectionRepository[SfuReceiverGroup, SfuReceiverGroupDB]
 ):
@@ -753,6 +1135,123 @@ class SqlSfuReceiverGroupRepository(
             page_size_max=page_size_max,
             clock=clock,
         )
+
+
+class SqlSfuAtomicGroupProjectionRepository:
+    """SQL transaction joining authoritative Audience epochs and Group CAS."""
+
+    def __init__(
+        self,
+        *,
+        db_engine=default_engine,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
+        self._engine = db_engine
+        self._clock = clock
+
+    def save_authorized(
+        self,
+        mutation: SfuAtomicGroupProjectionMutation,
+        *,
+        now: float | None = None,
+    ) -> SfuProjectionMutationResult[SfuReceiverGroup]:
+        effective_now = _effective_now(now, self._clock)
+        _validate_atomic_group_mutation(mutation)
+        desired = mutation.mutation.value
+        try:
+            with Session(self._engine) as db:
+                group_row = db.exec(
+                    select(SfuReceiverGroupDB)
+                    .where(
+                        SfuReceiverGroupDB.id == desired.id,
+                        SfuReceiverGroupDB.tenant_id == desired.tenant_id,
+                        SfuReceiverGroupDB.session_id == desired.session_id,
+                    )
+                    .with_for_update()
+                ).first()
+                current = (
+                    _receiver_group_from_row(group_row)
+                    if group_row is not None
+                    else None
+                )
+                outcome, saved = _prepare_mutation(
+                    mutation.mutation,
+                    current=current,
+                    now=effective_now,
+                    epoch_attributes=(
+                        "membership_epoch",
+                        "key_epoch",
+                        "topology_epoch",
+                    ),
+                )
+                if outcome is not None:
+                    return outcome
+                assert saved is not None
+                parent_row = db.exec(
+                    select(SfuBroadcastAudienceDB)
+                    .where(
+                        SfuBroadcastAudienceDB.id
+                        == mutation.audience_projection_id,
+                        SfuBroadcastAudienceDB.tenant_id == saved.tenant_id,
+                        SfuBroadcastAudienceDB.session_id == saved.session_id,
+                    )
+                    .with_for_update()
+                ).first()
+                parent = (
+                    _audience_from_row(parent_row)
+                    if parent_row is not None
+                    else None
+                )
+                parent_error = _validate_atomic_group_parent(
+                    mutation,
+                    parent=parent,
+                    current=current,
+                    saved=saved,
+                    now=effective_now,
+                )
+                if parent_error is not None:
+                    return parent_error
+                natural_conflict = db.exec(
+                    select(SfuReceiverGroupDB.id).where(
+                        SfuReceiverGroupDB.tenant_id == saved.tenant_id,
+                        SfuReceiverGroupDB.session_id == saved.session_id,
+                        SfuReceiverGroupDB.id != saved.id,
+                        SfuReceiverGroupDB.status == "active",
+                        SfuReceiverGroupDB.tombstoned_at.is_(None),
+                        SfuReceiverGroupDB.subscription_ref
+                        == saved.subscription_ref,
+                    )
+                ).first()
+                if natural_conflict is not None:
+                    return _result("conflict", reason="active_projection_conflict")
+                if current is None:
+                    db.add(SfuReceiverGroupDB(**asdict(saved)))
+                else:
+                    values = asdict(saved)
+                    values.pop("id")
+                    updated = db.exec(
+                        sa.update(SfuReceiverGroupDB)
+                        .where(
+                            SfuReceiverGroupDB.id == saved.id,
+                            SfuReceiverGroupDB.tenant_id == saved.tenant_id,
+                            SfuReceiverGroupDB.session_id == saved.session_id,
+                            SfuReceiverGroupDB.version == current.version,
+                        )
+                        .values(**values)
+                    )
+                    if int(getattr(updated, "rowcount", 0) or 0) != 1:
+                        db.rollback()
+                        return _result(
+                            "conflict", reason="projection_version_conflict"
+                        )
+                try:
+                    db.commit()
+                    return _result("saved", value=saved)
+                except IntegrityError as error:
+                    db.rollback()
+                    return _sql_error_result(error)
+        except SQLAlchemyError as error:
+            return _sql_error_result(error)
 
 
 class SqlSfuFanoutRouteRepository(
@@ -885,6 +1384,68 @@ def _prepare_mutation(
         audited_at=now,
     )
     return None, saved
+
+
+def _validate_atomic_group_mutation(
+    mutation: SfuAtomicGroupProjectionMutation,
+) -> None:
+    if not isinstance(mutation, SfuAtomicGroupProjectionMutation):
+        raise SfuBroadcastRepositoryError("group_projection_mutation_invalid")
+    _validate_identifier(
+        mutation.audience_projection_id, "audience_projection_id"
+    )
+    _validate_mutation(mutation.mutation)
+    epochs = (
+        mutation.expected_policy_epoch,
+        mutation.expected_membership_epoch,
+        mutation.expected_key_epoch,
+    )
+    if any(type(epoch) is not int or epoch < 0 for epoch in epochs):
+        raise SfuBroadcastRepositoryError("group_projection_epoch_invalid")
+
+
+def _validate_atomic_group_parent(
+    mutation: SfuAtomicGroupProjectionMutation,
+    *,
+    parent: SfuBroadcastAudience | None,
+    current: SfuReceiverGroup | None,
+    saved: SfuReceiverGroup,
+    now: float,
+) -> SfuProjectionMutationResult[SfuReceiverGroup] | None:
+    if parent is None:
+        return _result("not_found", reason="group_projection_parent_not_found")
+    if (
+        parent.status != "active"
+        or parent.expires_at <= now
+        or parent.room_state_revision != saved.room_state_revision
+        or saved.expires_at > parent.expires_at
+    ):
+        return _result("stale_epoch", reason="group_projection_parent_stale")
+    if (
+        parent.policy_epoch != mutation.expected_policy_epoch
+        or parent.membership_epoch != mutation.expected_membership_epoch
+        or parent.key_epoch != mutation.expected_key_epoch
+        or saved.membership_epoch != mutation.expected_membership_epoch
+        or saved.key_epoch != mutation.expected_key_epoch
+    ):
+        return _result("stale_epoch", reason="group_projection_epoch_stale")
+    if saved.fencing_token <= 0 or (
+        current is not None and saved.fencing_token <= current.fencing_token
+    ):
+        return _result("stale_epoch", reason="group_projection_fencing_stale")
+    return None
+
+
+def _audience_from_row(row: SfuBroadcastAudienceDB) -> SfuBroadcastAudience:
+    return SfuBroadcastAudience(
+        **{field.name: getattr(row, field.name) for field in fields(SfuBroadcastAudience)}
+    )
+
+
+def _receiver_group_from_row(row: SfuReceiverGroupDB) -> SfuReceiverGroup:
+    return SfuReceiverGroup(
+        **{field.name: getattr(row, field.name) for field in fields(SfuReceiverGroup)}
+    )
 
 
 def _validate_mutation(mutation: SfuProjectionMutation[ProjectionT]) -> None:
@@ -1055,13 +1616,86 @@ def _validate_page_size_max(page_size_max: int) -> None:
         raise SfuBroadcastRepositoryError("projection_page_size_max_invalid")
 
 
+def _validate_retention_fence(fence: SfuAudienceRetentionFence, now: float) -> None:
+    if (
+        not fence.owner_id or type(fence.fencing_token) is not int
+        or fence.fencing_token < 1 or fence.lease_expires_at <= now
+    ):
+        raise SfuBroadcastRepositoryError("audience_retention_fence_invalid")
+
+
+def _claim_sql_retention_fence(
+    db: Session, fence: SfuAudienceRetentionFence, now: float,
+) -> None:
+    row = db.get(SfuAudienceRetentionFenceDB, "global")
+    if row is None:
+        db.add(SfuAudienceRetentionFenceDB(
+            id="global", owner_id=fence.owner_id, fencing_token=fence.fencing_token,
+            lease_expires_at=fence.lease_expires_at, version=1, updated_at=now,
+        ))
+        db.flush()
+        return
+    if row.fencing_token > fence.fencing_token:
+        raise SfuBroadcastRepositoryError("audience_retention_fence_stale")
+    if (
+        row.fencing_token == fence.fencing_token and row.owner_id != fence.owner_id
+        and row.lease_expires_at > now
+    ):
+        raise SfuBroadcastRepositoryError("audience_retention_lease_conflict")
+    result = db.exec(sa.update(SfuAudienceRetentionFenceDB).where(
+        SfuAudienceRetentionFenceDB.id == "global",
+        SfuAudienceRetentionFenceDB.version == row.version,
+    ).values(
+        owner_id=fence.owner_id, fencing_token=fence.fencing_token,
+        lease_expires_at=fence.lease_expires_at,
+        version=SfuAudienceRetentionFenceDB.version + 1, updated_at=now,
+    ))
+    if int(result.rowcount or 0) != 1:
+        raise SfuBroadcastRepositoryError("audience_retention_lease_conflict")
+
+
+def _sql_live_route_exists(db: Session, audience_id: str, now: float) -> bool:
+    return db.exec(select(SfuFanoutRouteDB.id).where(
+        SfuFanoutRouteDB.audience_projection_id == audience_id,
+        SfuFanoutRouteDB.status.in_(tuple(_LIVE_STATUSES)),
+        SfuFanoutRouteDB.expires_at > now,
+    ).limit(1)).first() is not None
+
+
+def _audience_tombstone_id(scope: SfuBroadcastRoomScope, projection_id: str) -> str:
+    raw = f"ananta:sfu-audience-tombstone:v1\0{scope.tenant_id}\0{scope.session_id}\0{projection_id}"
+    return "sfu-audience-tombstone-" + hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _scope_digest(tenant_id: str, session_id: str) -> str:
+    return hashlib.sha256(f"ananta:sfu-audience-scope:v1\0{tenant_id}\0{session_id}".encode()).hexdigest()
+
+
+def _encode_retention_cursor(key: tuple[float, str]) -> str:
+    return base64.urlsafe_b64encode(json.dumps(key, separators=(",", ":")).encode()).decode().rstrip("=")
+
+
+def _decode_retention_cursor(cursor: str) -> tuple[float, str]:
+    try:
+        raw = json.loads(base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)))
+        if not isinstance(raw, list) or len(raw) != 2 or not isinstance(raw[0], (int, float)) or not isinstance(raw[1], str):
+            raise ValueError
+        return float(raw[0]), raw[1]
+    except (ValueError, UnicodeError, json.JSONDecodeError) as exc:
+        raise SfuBroadcastRepositoryError("audience_retention_cursor_invalid") from exc
+
+
 __all__ = [
+    "InMemorySfuAudienceSnapshotRetentionRepository",
+    "InMemorySfuAtomicGroupProjectionRepository",
     "InMemorySfuBroadcastAudienceRepository",
     "InMemorySfuBroadcastRepositoryStore",
     "InMemorySfuFanoutRouteRepository",
     "InMemorySfuReceiverGroupRepository",
     "SfuBroadcastRepositoryError",
     "SqlSfuBroadcastAudienceRepository",
+    "SqlSfuAudienceSnapshotRetentionRepository",
+    "SqlSfuAtomicGroupProjectionRepository",
     "SqlSfuFanoutRouteRepository",
     "SqlSfuReceiverGroupRepository",
 ]

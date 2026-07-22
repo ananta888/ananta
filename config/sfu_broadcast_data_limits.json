@@ -1,0 +1,37 @@
+{
+  "schema_version": "sfu_broadcast_data_limits.v1",
+  "publish": {
+    "reliable_packet_bytes_max": 14336,
+    "lossy_packet_bytes_max": 1300,
+    "reliable_chunk_payload_bytes_max": 9000,
+    "lossy_chunk_payload_bytes_max": 240,
+    "envelope_bytes_max": 131072,
+    "chunk_count_max": 24,
+    "destination_identities_per_publish_max": 7,
+    "batch_count_max": 36,
+    "send_attempts_max": 1,
+    "concurrent_messages_max": 1
+  },
+  "message": {
+    "ttl_ms_max": 30000,
+    "plaintext_bytes_max": {
+      "interrupt": 8192,
+      "private_recovery": 65536,
+      "transcript_revision": 60000,
+      "control_hint": 2048,
+      "shared_reference": 65536
+    }
+  },
+  "receive": {
+    "states_max": 32,
+    "states_per_sender_max": 4,
+    "bytes_max": 524288,
+    "bytes_per_sender_max": 131072,
+    "replay_windows_max": 256,
+    "replay_sequences_per_window_max": 128
+  },
+  "lifecycle": {
+    "cleanup_deadline_ms": 1000,
+    "livekit_key_indices_max": 16
+  }
+}

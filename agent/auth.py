@@ -815,12 +815,27 @@ def admin_required(f):
             provided_token = _extract_token_from_request()
             authenticated, auth_mode = _authenticate_request(provided_token, require_admin=True)
             if not authenticated:
-                if auth_mode in {"missing_token", "expired_token", "invalid_token"}:
-                    _warn_auth_failure(auth_mode)
-                elif auth_mode == "admin_privileges_required":
+                if auth_mode in {
+                    "admin_privileges_required",
+                    "user_token_scope_forbidden",
+                }:
                     return api_response(
                         status="error", message="forbidden", data={"details": "Admin privileges required"}, code=403
                     )
+                if auth_mode == "agent_token_file_invalid":
+                    return api_response(
+                        status="error",
+                        message="service unavailable",
+                        data={"reason_code": "auth_configuration_invalid"},
+                        code=503,
+                    )
+                _warn_auth_failure(auth_mode or "invalid_token")
+                return api_response(
+                    status="error",
+                    message="unauthorized",
+                    data={"details": "Authentication required"},
+                    code=401,
+                )
 
         if not getattr(g, "is_admin", False):
             return api_response(

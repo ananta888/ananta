@@ -1,0 +1,39 @@
+{
+  "$schema": "../schemas/sfu-broadcast-baseline-activation.schema.json",
+  "schema_version": "1.0.0",
+  "parent_asmp": {
+    "decision": "no_go",
+    "rollout_stage": "observe_only",
+    "manifest_version": 0,
+    "fresh_until": null,
+    "source_commit": null,
+    "config_digest": null
+  },
+  "runtime": {
+    "selected_mode": "livekit_control_api",
+    "effective_mode": "unsupported",
+    "placement_owner": "livekit_native",
+    "evidence_status": "missing",
+    "image_digest": null,
+    "config_digest": null
+  },
+  "feature_flags": {
+    "semantic_media_broadcast": false,
+    "semantic_media_receiver_groups": false,
+    "semantic_media_fleet_admission": false,
+    "semantic_media_turn_cost_controls": false
+  },
+  "limits": {"status": "blocked", "policy_version": 1, "participant_cap": 0},
+  "evidence": {"status": "missing", "source_ids": [], "run_ids": []},
+  "rollback": {
+    "owner": "hub",
+    "ordered_steps": [
+      "enable_security_fence",
+      "stop_new_admission",
+      "disable_optional_features",
+      "project_parent_fallback",
+      "request_graceful_drain",
+      "verify_quiesced"
+    ]
+  }
+}

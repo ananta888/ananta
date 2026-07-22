@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/sfu-broadcast-baseline-limits.schema.json",
+  "title": "SFU broadcast baseline limits",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy_version", "activation_default", "hard_limits", "budget_definitions", "budget_sets", "run_profiles"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"type": "string", "minLength": 1},
+    "policy_version": {"type": "integer", "minimum": 1},
+    "activation_default": {"enum": ["go", "no_go"]},
+    "hard_limits": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/hardLimit"}},
+    "budget_definitions": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/budget"}},
+    "budget_sets": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}},
+    "run_profiles": {"type": "array", "minItems": 8, "items": {"$ref": "#/$defs/runProfile"}}
+  },
+  "$defs": {
+    "nonNegativeNumber": {"type": "number", "minimum": 0},
+    "hardLimit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "minimum", "maximum", "missing_metric_behavior"],
+      "properties": {
+        "unit": {"type": "string", "minLength": 1, "not": {"enum": ["unitless", "none", "n/a"]}},
+        "minimum": {"$ref": "#/$defs/nonNegativeNumber"},
+        "maximum": {"$ref": "#/$defs/nonNegativeNumber"},
+        "missing_metric_behavior": {"const": "block"}
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "window", "percentile", "minimum", "maximum", "missing_metric_behavior"],
+      "properties": {
+        "unit": {"type": "string", "minLength": 1, "not": {"enum": ["unitless", "none", "n/a"]}},
+        "window": {"type": "string", "minLength": 1},
+        "percentile": {"type": "string", "pattern": "^p(?:0[1-9]|[1-9][0-9])$"},
+        "minimum": {"$ref": "#/$defs/nonNegativeNumber"},
+        "maximum": {"$ref": "#/$defs/nonNegativeNumber"},
+        "missing_metric_behavior": {"const": "block"}
+      }
+    },
+    "runProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "warmup_seconds", "measurement_seconds", "repetitions_min", "confidence_level", "variance_max_percent", "capacity_reserve_percent", "retry_rate_max_percent", "budget_set_id"],
+      "properties": {
+        "id": {"enum": ["direct_pair_regression", "sfu_direct_network", "sfu_all_turn", "webinar", "multi_publisher", "screen_share", "transcript_fanout", "semantic_fanout"]},
+        "warmup_seconds": {"type": "integer", "minimum": 1},
+        "measurement_seconds": {"type": "integer", "minimum": 1},
+        "repetitions_min": {"type": "integer", "minimum": 1},
+        "confidence_level": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "variance_max_percent": {"type": "number", "minimum": 0, "maximum": 100},
+        "capacity_reserve_percent": {"type": "number", "minimum": 0, "maximum": 100},
+        "retry_rate_max_percent": {"type": "number", "minimum": 0, "maximum": 100},
+        "budget_set_id": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

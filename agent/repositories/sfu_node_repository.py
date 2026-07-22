@@ -179,6 +179,17 @@ class SfuNodeRepositoryPort(Protocol):
         fencing_token: int,
     ) -> SfuNodeRecord: ...
 
+    def mark_unknown(
+        self,
+        *,
+        tenant_id: str,
+        cluster_id: str,
+        node_id: str,
+        reason: str,
+        expected_version: int,
+        fencing_token: int,
+    ) -> SfuNodeRecord: ...
+
     def list_nodes(
         self,
         *,
@@ -406,6 +417,33 @@ class SqlSfuNodeRepository:
                 "revocation_reason": reason,
                 "drain_state": "drained",
                 "drained_at": now,
+            },
+            now=now,
+        )
+
+    def mark_unknown(
+        self,
+        *,
+        tenant_id: str,
+        cluster_id: str,
+        node_id: str,
+        reason: str,
+        expected_version: int,
+        fencing_token: int,
+    ) -> SfuNodeRecord:
+        _validate_scope(tenant_id, cluster_id, node_id)
+        _require_text(reason, "sfu_node_unknown_reason_required")
+        now = float(self._clock())
+        return self._cas_update(
+            tenant_id=tenant_id,
+            cluster_id=cluster_id,
+            node_id=node_id,
+            expected_version=expected_version,
+            fencing_token=fencing_token,
+            event_type="health_unknown",
+            values={
+                "health_status": "unknown",
+                "observation_expires_at": now,
             },
             now=now,
         )

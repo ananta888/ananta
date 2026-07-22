@@ -1,0 +1,109 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Join latency p95 / p99",
+      "description": "OBS-001 aggregate; windows below min_cohort_size=10 are absent.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(ananta_sfu_broadcast_join_latency_bucket[5m])))", "legendFormat": "p95" },
+        { "refId": "B", "expr": "histogram_quantile(0.99, sum by (le) (rate(ananta_sfu_broadcast_join_latency_bucket[5m])))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Route / Rekey convergence p95 / p99",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(ananta_sfu_broadcast_route_convergence_bucket[5m])))", "legendFormat": "route p95" },
+        { "refId": "B", "expr": "histogram_quantile(0.99, sum by (le) (rate(ananta_sfu_broadcast_rekey_latency_bucket[5m])))", "legendFormat": "rekey p99" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Layer transition p95 / p99",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(ananta_sfu_broadcast_layer_transition_bucket[5m])))", "legendFormat": "p95" },
+        { "refId": "B", "expr": "histogram_quantile(0.99, sum by (le) (rate(ananta_sfu_broadcast_layer_transition_bucket[5m])))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Queue pressure / bounded drop reasons",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        { "refId": "A", "expr": "max_over_time(ananta_sfu_broadcast_queue_depth[5m])", "legendFormat": "queue" },
+        { "refId": "B", "expr": "sum by (drop_reason) (increase(ananta_sfu_broadcast_drop_count[5m]))", "legendFormat": "drop {{drop_reason}}" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "SFU egress / TURN p95",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(ananta_sfu_broadcast_egress_rate_bucket[5m])))", "legendFormat": "egress p95" },
+        { "refId": "B", "expr": "histogram_quantile(0.95, sum by (le) (rate(ananta_sfu_broadcast_turn_rate_bucket[5m])))", "legendFormat": "turn p95" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Drain / Failover p99",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.99, sum by (le) (rate(ananta_sfu_broadcast_drain_latency_bucket[5m])))", "legendFormat": "drain p99" },
+        { "refId": "B", "expr": "histogram_quantile(0.99, sum by (le) (rate(ananta_sfu_broadcast_failover_recovery_bucket[5m])))", "legendFormat": "failover p99" }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Capacity / reservation proxy",
+      "description": "Capacity utilization is registered. A dedicated reservation metric is not registered and is not approximated.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        { "refId": "A", "expr": "max by (resource, capacity_state) (ananta_sfu_broadcast_capacity_utilization)", "legendFormat": "{{resource}} {{capacity_state}}" }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "text",
+      "title": "Node health / flap coverage",
+      "description": "No query is emitted for an unregistered metric.",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 24 },
+      "options": { "mode": "markdown", "content": "**Blocked:** `sfu_observability_metric_not_registered`\n\nOBS-001 currently has drain aggregates, but no node-health or node-flap metric." },
+      "targets": []
+    },
+    {
+      "id": 9,
+      "type": "text",
+      "title": "Privacy scan coverage",
+      "description": "No query is emitted for an unregistered metric.",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 24 },
+      "options": { "mode": "markdown", "content": "**Blocked:** `sfu_observability_metric_not_registered`\n\nPrivacy-scan evidence remains outside Prometheus until OBS-001 registers a bounded aggregate." },
+      "targets": []
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": ["ananta", "sfu-broadcast", "content-free", "v1"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "browser",
+  "title": "Ananta SFU Broadcast SLO v1",
+  "uid": "ananta-sfu-broadcast-v1",
+  "version": 1
+}

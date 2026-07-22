@@ -1,0 +1,34 @@
+{
+  "$schema": "../schemas/webrtc/sfu_broadcast_fairness_profile.v1.json",
+  "schema": "ananta.sfu-broadcast-fairness-profile-catalog.v1",
+  "schema_version": 1,
+  "catalog_version": "strict-v1",
+  "ttl_seconds_max": 30,
+  "weight_ceilings": {
+    "receiver": 4,
+    "room": 16,
+    "tenant": 64
+  },
+  "hard_limits": {
+    "receiver_egress_bps_max": 8000000,
+    "room_egress_bps_max": 100000000,
+    "tenant_egress_bps_max": 1000000000,
+    "queue_bytes_max": 524288,
+    "active_receivers_max": 250
+  },
+  "stages": {
+    "downshift_utilization_basis_points": 8000,
+    "disconnect_utilization_basis_points": 9800,
+    "disconnect_grace_ms": 10000,
+    "lowest_safe_spatial_layer": 0
+  },
+  "rules": {
+    "max_starvation_window_ms": 5000,
+    "min_jain_fairness_index_basis_points": 8500,
+    "runtime_capabilities": [
+      "runtime_egress_scheduler",
+      "runtime_starvation_window",
+      "runtime_fairness_index"
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/turn_pool_observation.v1.json",
+  "title": "Ananta TURN pool observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "observation_id", "pool_id", "instance_id", "observer_identity_id", "identity_version", "boot_id", "credential_binding_mode", "region", "config_digest", "sequence", "measured_at_seconds", "window_started_at_seconds", "window_seconds", "health_status", "counters", "signature"],
+  "properties": {
+    "schema": {"const": "ananta.webrtc.turn-pool-observation.v1"},
+    "observation_id": {"$ref": "#/$defs/id"},
+    "pool_id": {"$ref": "#/$defs/id"},
+    "instance_id": {"$ref": "#/$defs/id"},
+    "observer_identity_id": {"$ref": "#/$defs/id"},
+    "identity_version": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "boot_id": {"$ref": "#/$defs/id"},
+    "credential_binding_mode": {"enum": ["authorization_hook", "rest_hmac_bearer"]},
+    "region": {"$ref": "#/$defs/id"},
+    "config_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "sequence": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+    "measured_at_seconds": {"type": "number", "minimum": 0},
+    "window_started_at_seconds": {"type": "integer", "minimum": 0},
+    "window_seconds": {"type": "integer", "minimum": 1, "maximum": 300},
+    "health_status": {"enum": ["healthy", "degraded", "unavailable", "draining", "unknown"]},
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allocation_count", "active_ports", "ingress_bytes", "egress_bytes", "packet_count", "duration_seconds", "auth_failures", "exhaustion_events", "cpu_millicores", "memory_bytes", "fd_count"],
+      "properties": {
+        "allocation_count": {"$ref": "#/$defs/counter"},
+        "active_ports": {"$ref": "#/$defs/counter"},
+        "ingress_bytes": {"$ref": "#/$defs/counter"},
+        "egress_bytes": {"$ref": "#/$defs/counter"},
+        "packet_count": {"$ref": "#/$defs/counter"},
+        "duration_seconds": {"$ref": "#/$defs/counter"},
+        "auth_failures": {"$ref": "#/$defs/counter"},
+        "exhaustion_events": {"$ref": "#/$defs/counter"},
+        "cpu_millicores": {"$ref": "#/$defs/counter"},
+        "memory_bytes": {"$ref": "#/$defs/counter"},
+        "fd_count": {"$ref": "#/$defs/counter"}
+      }
+    },
+    "signature": {"type": "string", "minLength": 80, "maxLength": 128, "pattern": "^[A-Za-z0-9+/]+={0,2}$"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "counter": {"type": ["integer", "null"], "minimum": 0, "maximum": 9223372036854775807}
+  }
+}

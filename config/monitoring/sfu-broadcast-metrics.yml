@@ -1,0 +1,29 @@
+schema: ananta.sfu-broadcast-monitoring-bindings.v1
+catalog: config/sfu_broadcast_observability_catalog.json
+unregistered_observation: reject
+metric_export: prometheus_aggregated
+audit_events:
+  - ananta_sfu_broadcast_control_decision
+control_paths:
+  - admission
+  - group_projection
+  - layer_projection
+  - route_reconcile
+  - fleet_health
+  - fleet_failover
+  - turn_ingestion
+  - turn_failover
+  - key_delivery
+  - qos_feedback
+  - capacity_feedback
+  - gate_decision
+forbidden_labels:
+  - tenant_id
+  - room_id
+  - participant_id
+  - receiver_id
+  - publisher_id
+  - node_id
+  - credential
+  - token
+  - private_ip

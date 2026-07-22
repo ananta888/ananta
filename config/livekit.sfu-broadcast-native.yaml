@@ -1,0 +1,20 @@
+# Distributed profile. Secrets must be injected in an operator-owned rendered copy.
+# The committed placeholder cannot authenticate and therefore keeps admission closed.
+port: 7880
+bind_addresses: [0.0.0.0]
+rtc:
+  tcp_port: 7881
+  udp_port: 7882
+  use_external_ip: false
+redis:
+  address: sfu-broadcast-redis:6379
+  username: livekit
+  password: UNCONFIGURED_FAIL_CLOSED
+  db: 7
+  use_tls: true
+logging:
+  level: info
+room:
+  empty_timeout: 60
+  departure_timeout: 20
+  max_participants: 250

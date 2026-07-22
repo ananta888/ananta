@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.invalid/schemas/webrtc/sfu_broadcast_fairness_profile.v1.json",
+  "title": "SFU broadcast fairness profile catalog and signed projection v1",
+  "oneOf": [
+    { "$ref": "#/$defs/catalog" },
+    { "$ref": "#/$defs/runtime_profile" }
+  ],
+  "$defs": {
+    "positive": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "basis_points": { "type": "integer", "minimum": 0, "maximum": 10000 },
+    "hard_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receiver_egress_bps_max", "room_egress_bps_max", "tenant_egress_bps_max",
+        "queue_bytes_max", "active_receivers_max"
+      ],
+      "properties": {
+        "receiver_egress_bps_max": { "$ref": "#/$defs/positive" },
+        "room_egress_bps_max": { "$ref": "#/$defs/positive" },
+        "tenant_egress_bps_max": { "$ref": "#/$defs/positive" },
+        "queue_bytes_max": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+        "active_receivers_max": { "type": "integer", "minimum": 1, "maximum": 250 }
+      }
+    },
+    "weights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["receiver", "room", "tenant"],
+      "properties": {
+        "receiver": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "room": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "tenant": { "type": "integer", "minimum": 1, "maximum": 64 }
+      }
+    },
+    "stages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "downshift_utilization_basis_points", "disconnect_utilization_basis_points",
+        "disconnect_grace_ms", "lowest_safe_spatial_layer"
+      ],
+      "properties": {
+        "downshift_utilization_basis_points": { "$ref": "#/$defs/basis_points" },
+        "disconnect_utilization_basis_points": { "$ref": "#/$defs/basis_points" },
+        "disconnect_grace_ms": { "type": "integer", "minimum": 1000, "maximum": 60000 },
+        "lowest_safe_spatial_layer": { "type": "integer", "minimum": 0, "maximum": 3 }
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$schema", "schema", "schema_version", "catalog_version", "ttl_seconds_max",
+        "weight_ceilings", "hard_limits", "stages", "rules"
+      ],
+      "properties": {
+        "$schema": { "const": "../schemas/webrtc/sfu_broadcast_fairness_profile.v1.json" },
+        "schema": { "const": "ananta.sfu-broadcast-fairness-profile-catalog.v1" },
+        "schema_version": { "const": 1 },
+        "catalog_version": { "const": "strict-v1" },
+        "ttl_seconds_max": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "weight_ceilings": { "$ref": "#/$defs/weights" },
+        "hard_limits": { "$ref": "#/$defs/hard_limits" },
+        "stages": { "$ref": "#/$defs/stages" },
+        "rules": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max_starvation_window_ms", "min_jain_fairness_index_basis_points", "runtime_capabilities"],
+          "properties": {
+            "max_starvation_window_ms": { "type": "integer", "minimum": 250, "maximum": 30000 },
+            "min_jain_fairness_index_basis_points": { "$ref": "#/$defs/basis_points" },
+            "runtime_capabilities": {
+              "type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true,
+              "items": { "enum": ["runtime_egress_scheduler", "runtime_starvation_window", "runtime_fairness_index"] }
+            }
+          }
+        }
+      }
+    },
+    "runtime_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "enforcement"],
+      "properties": {
+        "value": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "enforcement": { "enum": ["browser_enforced", "runtime_enforced", "observation_only"] }
+      }
+    },
+    "runtime_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "schema_version", "profile_id", "profile_version", "tenant_ref", "room_ref",
+        "route_epoch", "topology_epoch", "issued_at_ms", "expires_at_ms", "weights",
+        "hard_limits", "stages", "rules", "signature"
+      ],
+      "properties": {
+        "schema": { "const": "ananta.sfu-broadcast-fairness-profile.v1" },
+        "schema_version": { "const": 1 },
+        "profile_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "profile_version": { "$ref": "#/$defs/positive" },
+        "tenant_ref": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "room_ref": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "route_epoch": { "$ref": "#/$defs/positive" },
+        "topology_epoch": { "$ref": "#/$defs/positive" },
+        "issued_at_ms": { "$ref": "#/$defs/positive" },
+        "expires_at_ms": { "$ref": "#/$defs/positive" },
+        "weights": { "$ref": "#/$defs/weights" },
+        "hard_limits": { "$ref": "#/$defs/hard_limits" },
+        "stages": { "$ref": "#/$defs/stages" },
+        "rules": {
+          "type": "object", "additionalProperties": false,
+          "required": ["queue_limits", "egress_limits", "max_starvation_window_ms", "min_jain_fairness_index_basis_points"],
+          "properties": {
+            "queue_limits": { "$ref": "#/$defs/runtime_rule" },
+            "egress_limits": { "$ref": "#/$defs/runtime_rule" },
+            "max_starvation_window_ms": { "$ref": "#/$defs/runtime_rule" },
+            "min_jain_fairness_index_basis_points": { "$ref": "#/$defs/runtime_rule" }
+          }
+        },
+        "signature": {
+          "type": "object", "additionalProperties": false,
+          "required": ["algorithm", "key_id", "value"],
+          "properties": {
+            "algorithm": { "enum": ["Ed25519", "ECDSA-SHA256", "HMAC-SHA256"] },
+            "key_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "value": { "type": "string", "minLength": 16, "maxLength": 2048 }
+          }
+        }
+      }
+    }
+  }
+}

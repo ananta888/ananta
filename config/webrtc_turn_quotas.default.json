@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "reservation_ttl_seconds": 30,
+  "lower_cap_order": ["medium", "low", "none"],
+  "unit_costs": {
+    "ingress_per_gib": 0.02,
+    "egress_per_gib": 0.08
+  },
+  "limits": {
+    "receiver": {"allocations": 1, "ports": 2, "receivers": 1, "bps": 5000000, "bytes_per_window": 37500000, "cost_units": 1.0},
+    "room": {"allocations": 250, "ports": 500, "receivers": 250, "bps": 250000000, "bytes_per_window": 1875000000, "cost_units": 50.0},
+    "tenant": {"allocations": 500, "ports": 1000, "receivers": 500, "bps": 500000000, "bytes_per_window": 3750000000, "cost_units": 100.0},
+    "region": {"allocations": 2000, "ports": 4000, "receivers": 2000, "bps": 2000000000, "bytes_per_window": 15000000000, "cost_units": 400.0},
+    "pool": {"allocations": 1000, "ports": 2000, "receivers": 1000, "bps": 1000000000, "bytes_per_window": 7500000000, "cost_units": 200.0}
+  }
+}

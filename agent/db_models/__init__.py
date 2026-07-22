@@ -114,10 +114,38 @@ from .sfu_broadcast_feature_flags import (
     SfuBroadcastFeatureFlagDB,
     SfuBroadcastFeatureFlagMutationDB,
 )
+from .sfu_broadcast_flag_projections import (
+    SfuBroadcastFlagProjectionDB,
+    SfuBroadcastRuntimeProjectionStateDB,
+)
+from .sfu_broadcast_admission_operations import SfuBroadcastAdmissionOperationDB
+from .sfu_broadcast_background_jobs import SfuBroadcastBackgroundJobDB
 from .sfu_broadcast import (
     SfuBroadcastAudienceDB,
     SfuFanoutRouteDB,
     SfuReceiverGroupDB,
+)
+from .sfu_broadcast_group_keys import (
+    SfuBroadcastGroupKeyAuthorizationDB,
+    SfuBroadcastGroupKeyPackageDB,
+    SfuBroadcastGroupKeyReceiptDB,
+)
+from .sfu_broadcast_user_intents import (
+    SfuBroadcastCommandAuditDB,
+    SfuBroadcastUserIntentDB,
+)
+from .sfu_broadcast_retention import (
+    SfuAudienceRetentionFenceDB,
+    SfuAudienceSnapshotTombstoneDB,
+)
+from .sfu_broadcast_vendor_identities import (
+    SfuBroadcastDestinationHandleDB,
+    SfuBroadcastVendorIdentityDB,
+)
+from .sfu_capacity_reservations import (
+    SfuCapacityLedgerDB,
+    SfuCapacityReservationDB,
+    SfuCapacityReservationMutationDB,
 )
 from .sfu_nodes import SfuNodeDB, SfuNodeMutationDB
 from .sfu_node_observation_cursors import (
@@ -130,6 +158,15 @@ from .sfu_runtime_identities import (
     SfuRuntimeIdentityDB,
     SfuRuntimeIdentityMutationDB,
 )
+from .turn_observer_identities import (
+    TurnObserverCredentialDB,
+    TurnObserverEnrollmentRateLimitDB,
+    TurnObserverIdentityDB,
+    TurnObserverIdentityMutationDB,
+)
+from .turn_observations import TurnObservationCursorDB, TurnObservationReplayDB
+from .turn_pool_nodes import TurnPoolNodeDB, TurnPoolNodeMutationDB
+from .turn_accounting import TurnAccountingLedgerDB, TurnAccountingSourceCursorDB
 from .speech_adaptation import (
     SpeechAdaptationArtifactDB,
     SpeechAdaptationCapacityLeaseDB,
@@ -304,8 +341,20 @@ __all__ = [
     "SfuBroadcastFeatureFlagDB",
     "SfuBroadcastFeatureFlagMutationDB",
     "SfuBroadcastAudienceDB",
+    "SfuAudienceRetentionFenceDB",
+    "SfuAudienceSnapshotTombstoneDB",
+    "SfuBroadcastDestinationHandleDB",
+    "SfuBroadcastGroupKeyAuthorizationDB",
+    "SfuBroadcastGroupKeyPackageDB",
+    "SfuBroadcastGroupKeyReceiptDB",
+    "SfuBroadcastCommandAuditDB",
+    "SfuBroadcastUserIntentDB",
+    "SfuBroadcastVendorIdentityDB",
     "SfuFanoutRouteDB",
     "SfuReceiverGroupDB",
+    "SfuCapacityLedgerDB",
+    "SfuCapacityReservationDB",
+    "SfuCapacityReservationMutationDB",
     "SfuNodeDB",
     "SfuNodeMutationDB",
     "SfuNodeObservationCursorDB",
@@ -314,6 +363,14 @@ __all__ = [
     "SfuRuntimeEnrollmentRateLimitDB",
     "SfuRuntimeIdentityDB",
     "SfuRuntimeIdentityMutationDB",
+    "TurnObserverCredentialDB",
+    "TurnObserverEnrollmentRateLimitDB",
+    "TurnObserverIdentityDB",
+    "TurnObserverIdentityMutationDB",
+    "TurnObservationCursorDB",
+    "TurnObservationReplayDB",
+    "TurnPoolNodeDB",
+    "TurnPoolNodeMutationDB",
     "SpeechAdaptationArtifactDB",
     "SpeechAdaptationCapacityLeaseDB",
     "SpeechAdaptationJobDB",

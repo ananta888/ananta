@@ -1,0 +1,9 @@
+{
+  "version": "1.0",
+  "default_decision": "deny",
+  "dns_pin_required": true,
+  "redirects_allowed": 0,
+  "unicode_hosts_allowed": false,
+  "candidate_logging": "redacted_class_only",
+  "endpoints": []
+}

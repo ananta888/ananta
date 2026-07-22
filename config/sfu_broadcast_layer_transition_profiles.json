@@ -1,0 +1,35 @@
+{
+  "schema": "ananta.webrtc.sfu-layer-transition-profiles.v1",
+  "schema_version": 1,
+  "profile_revision": 1,
+  "hard_limits": {
+    "dwell_ms_min": 250,
+    "dwell_ms_max": 30000,
+    "cooldown_ms_min": 500,
+    "cooldown_ms_max": 60000,
+    "keyframe_wait_ms_min": 250,
+    "keyframe_wait_ms_max": 10000,
+    "keyframe_retry_max": 3,
+    "recovery_deadline_ms_max": 30000,
+    "transitions_per_minute_max": 12,
+    "keyframes_per_minute_max": 6,
+    "ttl_seconds_max": 30
+  },
+  "profiles": {
+    "receiver-default-v1": {
+      "profile_version": "receiver-transition-v1",
+      "upgrade_score_threshold": 700,
+      "downgrade_score_threshold": 450,
+      "upgrade_dwell_ms": 5000,
+      "downgrade_dwell_ms": 1000,
+      "upgrade_cooldown_ms": 5000,
+      "downgrade_cooldown_ms": 1500,
+      "keyframe_wait_ms": 1000,
+      "keyframe_retry_max": 2,
+      "recovery_deadline_ms": 8000,
+      "transitions_per_minute_max": 8,
+      "keyframes_per_minute_max": 4,
+      "ttl_seconds": 15
+    }
+  }
+}

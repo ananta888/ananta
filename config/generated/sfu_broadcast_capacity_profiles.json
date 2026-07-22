@@ -1,0 +1,28 @@
+{
+  "activation": {
+    "automatic": false,
+    "performed": false,
+    "state": "requires_admin_approval"
+  },
+  "blocked_environments": [],
+  "blocking_reasons": [
+    "verified_real_evidence_bundle_missing"
+  ],
+  "candidates": [],
+  "derivation_policy": {
+    "direct_pair_is_regression_only": true,
+    "first_failed_or_missing_tier_stops": true,
+    "maximum_variance_percent": 15.0,
+    "minimum_repetitions": 3,
+    "required_gate_evidence": [
+      "SFB-BASE-007",
+      "SFB-GATE-005",
+      "SFB-GATE-006",
+      "SFB-GATE-007",
+      "SFB-GATE-008"
+    ],
+    "reserve_percent": 20.0
+  },
+  "schema": "ananta.sfu-broadcast-capacity-profiles.v1",
+  "status": "blocked"
+}

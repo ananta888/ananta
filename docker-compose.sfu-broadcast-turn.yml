@@ -1,0 +1,209 @@
+name: ananta-sfu-broadcast-turn
+
+x-turn-security: &turn-security
+  image: ${COTURN_IMAGE:?Set COTURN_IMAGE to coturn/coturn:4.12.0@sha256:<verified-digest>}
+  profiles: ["sfu_broadcast_turn"]
+  user: "65532:65532"
+  read_only: true
+  cap_drop: ["ALL"]
+  security_opt: ["no-new-privileges:true"]
+  init: true
+  restart: unless-stopped
+  pids_limit: 256
+  mem_limit: 768m
+  cpus: 2.0
+  ulimits:
+    nofile:
+      soft: 32768
+      hard: 32768
+  tmpfs:
+    - /run:size=16m,mode=0700,uid=65532,gid=65532,noexec,nosuid,nodev
+    - /tmp:size=16m,mode=0700,uid=65532,gid=65532,noexec,nosuid,nodev
+  entrypoint: ["/opt/ananta/bin/sfu-broadcast-turn-entrypoint.sh"]
+  healthcheck:
+    test: ["CMD", "/opt/ananta/bin/sfu-broadcast-turn-healthcheck.sh"]
+    interval: 15s
+    timeout: 4s
+    retries: 3
+    start_period: 10s
+  volumes:
+    - ./config/coturn/sfu-broadcast-turn.conf:/etc/coturn/turnserver.conf.template:ro
+    - ./scripts/sfu-broadcast-turn-entrypoint.sh:/opt/ananta/bin/sfu-broadcast-turn-entrypoint.sh:ro
+    - ./scripts/sfu-broadcast-turn-healthcheck.sh:/opt/ananta/bin/sfu-broadcast-turn-healthcheck.sh:ro
+  secrets:
+    - source: turn_rest_auth_secret
+      target: turn_rest_auth_secret
+      uid: "65532"
+      gid: "65532"
+      mode: 0400
+    - source: turn_tls_certificate
+      target: turn_tls_certificate
+      uid: "65532"
+      gid: "65532"
+      mode: 0400
+    - source: turn_tls_private_key
+      target: turn_tls_private_key
+      uid: "65532"
+      gid: "65532"
+      mode: 0400
+  networks: [turn-observer-egress]
+
+x-observer-security: &observer-security
+  profiles: ["sfu_broadcast_turn"]
+  image: ${TURN_OBSERVER_IMAGE:?Set signed observer image with immutable sha256 digest}
+  user: "65532:65532"
+  read_only: true
+  cap_drop: ["ALL"]
+  security_opt: ["no-new-privileges:true"]
+  init: true
+  restart: unless-stopped
+  pids_limit: 64
+  mem_limit: 128m
+  cpus: 0.5
+  ulimits:
+    nofile:
+      soft: 1024
+      hard: 1024
+  tmpfs:
+    - /tmp:size=8m,mode=0700,uid=65532,gid=65532,noexec,nosuid,nodev
+  environment: &observer-environment
+    TURN_CONFIG_VERSION: ${TURN_CONFIG_VERSION:?Set registered TURN_CONFIG_VERSION}
+    TURN_CONFIG_PATH: /etc/coturn/turnserver.conf.template
+    TURN_OBSERVATION_URL: ${TURN_OBSERVATION_URL:?Set HTTPS hub observation endpoint}
+    TURN_OBSERVER_POLL_INTERVAL_SECONDS: "15"
+    TURN_OBSERVER_STATE_PATH: /var/lib/ananta-turn-observer/state.json
+    TURN_OBSERVER_SIGNING_KEY_PATH: /run/secrets/turn_observer_signing_key
+    TURN_OBSERVER_MTLS_CERT_PATH: /run/secrets/turn_observer_mtls_certificate
+    TURN_OBSERVER_MTLS_KEY_PATH: /run/secrets/turn_observer_mtls_private_key
+    TURN_OBSERVER_CA_PATH: /run/secrets/turn_observer_ca_certificate
+  volumes:
+    - ./config/coturn/sfu-broadcast-turn.conf:/etc/coturn/turnserver.conf.template:ro
+
+services:
+  turn-a:
+    <<: *turn-security
+    environment:
+      TURN_REALM: ${TURN_REALM:?Set public TURN realm}
+      TURN_SERVER_NAME: ${TURN_SERVER_NAME_A:?Set TURN A server name}
+      TURN_EXTERNAL_IP: ${TURN_EXTERNAL_IP_A:?Set TURN A public IP}
+      TURN_MIN_PORT: "49160"
+      TURN_MAX_PORT: "49259"
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/tcp"
+      - "49160-49259:49160-49259/udp"
+
+  turn-b:
+    <<: *turn-security
+    environment:
+      TURN_REALM: ${TURN_REALM:?Set public TURN realm}
+      TURN_SERVER_NAME: ${TURN_SERVER_NAME_B:?Set TURN B server name}
+      TURN_EXTERNAL_IP: ${TURN_EXTERNAL_IP_B:?Set TURN B public IP}
+      TURN_MIN_PORT: "49260"
+      TURN_MAX_PORT: "49359"
+    ports:
+      - "3479:3478/udp"
+      - "3479:3478/tcp"
+      - "5350:5349/tcp"
+      - "49260-49359:49260-49359/udp"
+
+  turn-observer-a:
+    <<: *observer-security
+    network_mode: "service:turn-a"
+    depends_on:
+      turn-a:
+        condition: service_healthy
+    environment:
+      <<: *observer-environment
+      TURN_POOL_ID: ${TURN_POOL_ID:?Set registered pool id}
+      TURN_INSTANCE_ID: ${TURN_INSTANCE_ID_A:?Set registered TURN A instance id}
+      TURN_OBSERVER_IDENTITY_ID: ${TURN_OBSERVER_IDENTITY_ID_A:?Set enrolled observer A identity}
+      TURN_OBSERVER_IDENTITY_VERSION: ${TURN_OBSERVER_IDENTITY_VERSION_A:?Set observer A identity version}
+    volumes:
+      - ${TURN_OBSERVER_A_STATE_DIR:?Set pre-provisioned uid 65532 state directory}:/var/lib/ananta-turn-observer
+      - ./config/coturn/sfu-broadcast-turn.conf:/etc/coturn/turnserver.conf.template:ro
+    secrets:
+      - source: turn_observer_a_signing_key
+        target: turn_observer_signing_key
+        uid: "65532"
+        gid: "65532"
+        mode: 0400
+      - source: turn_observer_a_mtls_certificate
+        target: turn_observer_mtls_certificate
+        uid: "65532"
+        gid: "65532"
+        mode: 0400
+      - source: turn_observer_a_mtls_private_key
+        target: turn_observer_mtls_private_key
+        uid: "65532"
+        gid: "65532"
+        mode: 0400
+      - source: turn_observer_ca_certificate
+        target: turn_observer_ca_certificate
+        uid: "65532"
+        gid: "65532"
+        mode: 0400
+
+  turn-observer-b:
+    <<: *observer-security
+    network_mode: "service:turn-b"
+    depends_on:
+      turn-b:
+        condition: service_healthy
+    environment:
+      <<: *observer-environment
+      TURN_POOL_ID: ${TURN_POOL_ID:?Set registered pool id}
+      TURN_INSTANCE_ID: ${TURN_INSTANCE_ID_B:?Set registered TURN B instance id}
+      TURN_OBSERVER_IDENTITY_ID: ${TURN_OBSERVER_IDENTITY_ID_B:?Set enrolled observer B identity}
+      TURN_OBSERVER_IDENTITY_VERSION: ${TURN_OBSERVER_IDENTITY_VERSION_B:?Set observer B identity version}
+    volumes:
+      - ${TURN_OBSERVER_B_STATE_DIR:?Set pre-provisioned uid 65532 state directory}:/var/lib/ananta-turn-observer
+      - ./config/coturn/sfu-broadcast-turn.conf:/etc/coturn/turnserver.conf.template:ro
+    secrets:
+      - source: turn_observer_b_signing_key
+        target: turn_observer_signing_key
+        uid: "65532"
+        gid: "65532"
+        mode: 0400
+      - source: turn_observer_b_mtls_certificate
+        target: turn_observer_mtls_certificate
+        uid: "65532"
+        gid: "65532"
+        mode: 0400
+      - source: turn_observer_b_mtls_private_key
+        target: turn_observer_mtls_private_key
+        uid: "65532"
+        gid: "65532"
+        mode: 0400
+      - source: turn_observer_ca_certificate
+        target: turn_observer_ca_certificate
+        uid: "65532"
+        gid: "65532"
+        mode: 0400
+
+networks:
+  turn-observer-egress:
+    driver: bridge
+
+secrets:
+  turn_rest_auth_secret:
+    external: true
+  turn_tls_certificate:
+    external: true
+  turn_tls_private_key:
+    external: true
+  turn_observer_a_signing_key:
+    external: true
+  turn_observer_a_mtls_certificate:
+    external: true
+  turn_observer_a_mtls_private_key:
+    external: true
+  turn_observer_b_signing_key:
+    external: true
+  turn_observer_b_mtls_certificate:
+    external: true
+  turn_observer_b_mtls_private_key:
+    external: true
+  turn_observer_ca_certificate:
+    external: true

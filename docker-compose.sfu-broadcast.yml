@@ -1,7 +1,146 @@
 name: ananta-sfu-broadcast
 
+x-livekit-runtime-limits: &livekit-runtime-limits
+  cpus: 2.0
+  mem_limit: 1g
+  memswap_limit: 1g
+  mem_swappiness: 0
+  pids_limit: 256
+  ulimits:
+    nofile: {soft: 32768, hard: 32768}
+    nproc: {soft: 512, hard: 512}
+    core: {soft: 0, hard: 0}
+
+x-runtime-agent-limits: &runtime-agent-limits
+  cpus: 0.5
+  mem_limit: 256m
+  memswap_limit: 256m
+  mem_swappiness: 0
+  pids_limit: 96
+  ulimits:
+    nofile: {soft: 4096, hard: 4096}
+    nproc: {soft: 128, hard: 128}
+    core: {soft: 0, hard: 0}
+
+x-redis-runtime-limits: &redis-runtime-limits
+  cpus: 1.0
+  mem_limit: 512m
+  memswap_limit: 512m
+  mem_swappiness: 0
+  pids_limit: 128
+  ulimits:
+    nofile: {soft: 8192, hard: 8192}
+    nproc: {soft: 256, hard: 256}
+    core: {soft: 0, hard: 0}
+
 services:
+  sfu-broadcast-redis:
+    <<: *redis-runtime-limits
+    profiles: ["livekit_native_distributed"]
+    # This tag must be replaced with an approved digest before release evidence
+    # can be recorded. The release verifier therefore keeps capability false.
+    image: redis:7.4.2-alpine
+    command: ["redis-server", "/etc/redis/sfu-broadcast.conf"]
+    user: "999:999"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=8m,uid=999,gid=999
+    volumes:
+      - ./config/redis/sfu-broadcast.conf:/etc/redis/sfu-broadcast.conf:ro
+      - "${ANANTA_SFU_REDIS_TLS_DIR:-./config/redis/sfu-broadcast-tls}:/run/sfu-redis-tls:ro"
+      - sfu-broadcast-redis-data:/data
+    expose:
+      - "6379"
+    networks:
+      - sfu-livekit-state
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+          pids: 128
+    restart: unless-stopped
+
+  sfu-broadcast-livekit-native-a:
+    <<: *livekit-runtime-limits
+    profiles: ["livekit_native_distributed"]
+    image: livekit/livekit-server@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3
+    command: ["--config", "/etc/livekit/livekit.yaml"]
+    user: "65532:65532"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,uid=65532,gid=65532
+    volumes:
+      - "${ANANTA_SFU_LIVEKIT_NATIVE_CONFIG_FILE:-./config/livekit.sfu-broadcast-native.yaml}:/etc/livekit/livekit.yaml:ro"
+      - "${ANANTA_SFU_REDIS_TLS_DIR:-./config/redis/sfu-broadcast-tls}:/run/sfu-redis-tls:ro"
+      - ./scripts/sfu-broadcast-runtime-healthcheck.sh:/opt/ananta/bin/runtime-healthcheck:ro
+    environment:
+      LIVEKIT_KEYS: "${ANANTA_SFU_LIVEKIT_API_KEY:-}: ${ANANTA_SFU_LIVEKIT_API_SECRET:-}"
+      ANANTA_SFU_HEALTH_URL: http://127.0.0.1:7880/
+    expose: ["7880", "7881", "7882/udp"]
+    networks: ["sfu-media", "sfu-control-ingress", "sfu-livekit-state"]
+    depends_on:
+      - sfu-broadcast-redis
+    healthcheck:
+      test: ["CMD", "/opt/ananta/bin/runtime-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+          pids: 256
+    restart: unless-stopped
+
+  sfu-broadcast-livekit-native-b:
+    <<: *livekit-runtime-limits
+    profiles: ["livekit_native_distributed"]
+    image: livekit/livekit-server@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3
+    command: ["--config", "/etc/livekit/livekit.yaml"]
+    user: "65532:65532"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,uid=65532,gid=65532
+    volumes:
+      - "${ANANTA_SFU_LIVEKIT_NATIVE_CONFIG_FILE:-./config/livekit.sfu-broadcast-native.yaml}:/etc/livekit/livekit.yaml:ro"
+      - "${ANANTA_SFU_REDIS_TLS_DIR:-./config/redis/sfu-broadcast-tls}:/run/sfu-redis-tls:ro"
+      - ./scripts/sfu-broadcast-runtime-healthcheck.sh:/opt/ananta/bin/runtime-healthcheck:ro
+    environment:
+      LIVEKIT_KEYS: "${ANANTA_SFU_LIVEKIT_API_KEY:-}: ${ANANTA_SFU_LIVEKIT_API_SECRET:-}"
+      ANANTA_SFU_HEALTH_URL: http://127.0.0.1:7880/
+    expose: ["7880", "7881", "7882/udp"]
+    networks: ["sfu-media", "sfu-control-ingress", "sfu-livekit-state"]
+    depends_on:
+      - sfu-broadcast-redis
+    healthcheck:
+      test: ["CMD", "/opt/ananta/bin/runtime-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+          pids: 256
+    restart: unless-stopped
+
   sfu-broadcast-livekit:
+    <<: *livekit-runtime-limits
     profiles: ["livekit_control_api"]
     image: livekit/livekit-server@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3
     command: ["--config", "/etc/livekit/livekit.yaml"]
@@ -14,8 +153,10 @@ services:
       - /tmp:rw,noexec,nosuid,nodev,size=16m,uid=65532,gid=65532
     volumes:
       - ./config/livekit.semantic-media.yaml:/etc/livekit/livekit.yaml:ro
+      - ./scripts/sfu-broadcast-runtime-healthcheck.sh:/opt/ananta/bin/runtime-healthcheck:ro
     environment:
-      LIVEKIT_KEYS: "${ANANTA_SFU_LIVEKIT_API_KEY:?required}: ${ANANTA_SFU_LIVEKIT_API_SECRET:?required}"
+      LIVEKIT_KEYS: "${ANANTA_SFU_LIVEKIT_API_KEY:-}: ${ANANTA_SFU_LIVEKIT_API_SECRET:-}"
+      ANANTA_SFU_HEALTH_URL: http://127.0.0.1:7880/
     expose:
       - "7880"
       - "7881"
@@ -24,7 +165,7 @@ services:
       - sfu-media
       - sfu-control-ingress
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:7880/"]
+      test: ["CMD", "/opt/ananta/bin/runtime-healthcheck"]
       interval: 10s
       timeout: 3s
       retries: 6
@@ -33,6 +174,7 @@ services:
     restart: unless-stopped
 
   sfu-runtime-agent:
+    <<: *runtime-agent-limits
     profiles: ["authenticated_runtime_extension"]
     build:
       context: .
@@ -55,6 +197,10 @@ services:
       ANANTA_SFU_RUNTIME_SERVER_KEY: /run/secrets/runtime-server.key
       ANANTA_SFU_RUNTIME_CLIENT_CA: /run/secrets/runtime-client-ca.crt
       ANANTA_SFU_RUNTIME_REVOCATIONS: /run/secrets/runtime-revocations.txt
+      ANANTA_SFU_RUNTIME_ID: "${ANANTA_SFU_RUNTIME_ID:-runtime-extension-default}"
+      ANANTA_SFU_RUNTIME_COMMAND_STATE: /var/lib/ananta-sfu-runtime/control-state.json
+      ANANTA_SFU_RUNTIME_CONFIG_DIGEST: "${ANANTA_SFU_RUNTIME_CONFIG_DIGEST:?Set registered runtime config sha256 digest}"
+      ANANTA_SFU_RUNTIME_CAPABILITY_DIGEST: "${ANANTA_SFU_RUNTIME_CAPABILITY_DIGEST:?Set registered capability sha256 digest}"
       ANANTA_SFU_KEY_PROVIDER: tpm2
       ANANTA_SFU_TPM2_KEY_HANDLE: "${ANANTA_SFU_TPM2_KEY_HANDLE:-0x81000001}"
       ANANTA_SFU_TPM2_ALGORITHM: "${ANANTA_SFU_TPM2_ALGORITHM:-ECDSA-SHA256}"
@@ -63,6 +209,8 @@ services:
       - "${ANANTA_SFU_RUNTIME_SERVER_KEY_FILE:-./config/sfu-runtime-agent/server.key}:/run/secrets/runtime-server.key:ro"
       - "${ANANTA_SFU_RUNTIME_CLIENT_CA_FILE:-./config/sfu-runtime-agent/client-ca.crt}:/run/secrets/runtime-client-ca.crt:ro"
       - "${ANANTA_SFU_RUNTIME_REVOCATIONS_FILE:-./config/sfu-runtime-agent/revocations.txt}:/run/secrets/runtime-revocations.txt:ro"
+      - "${ANANTA_SFU_RUNTIME_STATE_DIR:-./data/sfu-runtime-agent}:/var/lib/ananta-sfu-runtime"
+      - ./scripts/sfu-broadcast-runtime-healthcheck.sh:/opt/ananta/bin/runtime-healthcheck:ro
     ports:
       - "127.0.0.1:${ANANTA_SFU_RUNTIME_AGENT_PORT:-8443}:8443/tcp"
     networks:
@@ -73,6 +221,118 @@ services:
           cpus: "0.50"
           memory: 256M
           pids: 96
+    healthcheck:
+      test: ["CMD", "/opt/ananta/bin/runtime-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  sfu-runtime-agent-a:
+    <<: *runtime-agent-limits
+    profiles: ["hub_cluster_only_distributed"]
+    build:
+      context: .
+      dockerfile: docker/sfu-runtime-agent.Dockerfile
+    image: ananta/sfu-runtime-agent:0.1.0
+    user: "65532:65532"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=8m,uid=65532,gid=65532
+      - /run/ananta-tpm:rw,noexec,nosuid,nodev,size=1m,uid=65532,gid=65532
+    devices:
+      - "${ANANTA_SFU_TPM_DEVICE_A:-/dev/tpmrm0}:/dev/tpmrm0"
+    environment:
+      ANANTA_SFU_RUNTIME_CONTROL_MODE: authenticated_runtime_extension
+      ANANTA_SFU_RUNTIME_ID: runtime-extension-a
+      ANANTA_SFU_CLUSTER_ID: sfu-cluster-a
+      ANANTA_SFU_RUNTIME_PORT: "8443"
+      ANANTA_SFU_RUNTIME_SERVER_CERT: /run/secrets/runtime-server.crt
+      ANANTA_SFU_RUNTIME_SERVER_KEY: /run/secrets/runtime-server.key
+      ANANTA_SFU_RUNTIME_CLIENT_CA: /run/secrets/runtime-client-ca.crt
+      ANANTA_SFU_RUNTIME_REVOCATIONS: /run/secrets/runtime-revocations.txt
+      ANANTA_SFU_RUNTIME_COMMAND_STATE: /var/lib/ananta-sfu-runtime/control-state.json
+      ANANTA_SFU_RUNTIME_CONFIG_DIGEST: "${ANANTA_SFU_RUNTIME_CONFIG_DIGEST_A:?Set runtime A config sha256 digest}"
+      ANANTA_SFU_RUNTIME_CAPABILITY_DIGEST: "${ANANTA_SFU_RUNTIME_CAPABILITY_DIGEST_A:?Set runtime A capability sha256 digest}"
+      ANANTA_SFU_KEY_PROVIDER: tpm2
+      ANANTA_SFU_TPM2_KEY_HANDLE: "${ANANTA_SFU_TPM2_KEY_HANDLE_A:-0x81000001}"
+    volumes:
+      - "${ANANTA_SFU_RUNTIME_A_SERVER_CERT_FILE:-./config/sfu-runtime-agent/a/server.crt}:/run/secrets/runtime-server.crt:ro"
+      - "${ANANTA_SFU_RUNTIME_A_SERVER_KEY_FILE:-./config/sfu-runtime-agent/a/server.key}:/run/secrets/runtime-server.key:ro"
+      - "${ANANTA_SFU_RUNTIME_CLIENT_CA_FILE:-./config/sfu-runtime-agent/client-ca.crt}:/run/secrets/runtime-client-ca.crt:ro"
+      - "${ANANTA_SFU_RUNTIME_REVOCATIONS_FILE:-./config/sfu-runtime-agent/revocations.txt}:/run/secrets/runtime-revocations.txt:ro"
+      - "${ANANTA_SFU_RUNTIME_STATE_DIR_A:-./data/sfu-runtime-agent-a}:/var/lib/ananta-sfu-runtime"
+      - ./scripts/sfu-broadcast-runtime-healthcheck.sh:/opt/ananta/bin/runtime-healthcheck:ro
+    expose: ["8443"]
+    networks: ["sfu-runtime-control"]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+          pids: 96
+    healthcheck:
+      test: ["CMD", "/opt/ananta/bin/runtime-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  sfu-runtime-agent-b:
+    <<: *runtime-agent-limits
+    profiles: ["hub_cluster_only_distributed"]
+    build:
+      context: .
+      dockerfile: docker/sfu-runtime-agent.Dockerfile
+    image: ananta/sfu-runtime-agent:0.1.0
+    user: "65532:65532"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=8m,uid=65532,gid=65532
+      - /run/ananta-tpm:rw,noexec,nosuid,nodev,size=1m,uid=65532,gid=65532
+    devices:
+      - "${ANANTA_SFU_TPM_DEVICE_B:-/dev/tpmrm0}:/dev/tpmrm0"
+    environment:
+      ANANTA_SFU_RUNTIME_CONTROL_MODE: authenticated_runtime_extension
+      ANANTA_SFU_RUNTIME_ID: runtime-extension-b
+      ANANTA_SFU_CLUSTER_ID: sfu-cluster-b
+      ANANTA_SFU_RUNTIME_PORT: "8443"
+      ANANTA_SFU_RUNTIME_SERVER_CERT: /run/secrets/runtime-server.crt
+      ANANTA_SFU_RUNTIME_SERVER_KEY: /run/secrets/runtime-server.key
+      ANANTA_SFU_RUNTIME_CLIENT_CA: /run/secrets/runtime-client-ca.crt
+      ANANTA_SFU_RUNTIME_REVOCATIONS: /run/secrets/runtime-revocations.txt
+      ANANTA_SFU_RUNTIME_COMMAND_STATE: /var/lib/ananta-sfu-runtime/control-state.json
+      ANANTA_SFU_RUNTIME_CONFIG_DIGEST: "${ANANTA_SFU_RUNTIME_CONFIG_DIGEST_B:?Set runtime B config sha256 digest}"
+      ANANTA_SFU_RUNTIME_CAPABILITY_DIGEST: "${ANANTA_SFU_RUNTIME_CAPABILITY_DIGEST_B:?Set runtime B capability sha256 digest}"
+      ANANTA_SFU_KEY_PROVIDER: tpm2
+      ANANTA_SFU_TPM2_KEY_HANDLE: "${ANANTA_SFU_TPM2_KEY_HANDLE_B:-0x81000002}"
+    volumes:
+      - "${ANANTA_SFU_RUNTIME_B_SERVER_CERT_FILE:-./config/sfu-runtime-agent/b/server.crt}:/run/secrets/runtime-server.crt:ro"
+      - "${ANANTA_SFU_RUNTIME_B_SERVER_KEY_FILE:-./config/sfu-runtime-agent/b/server.key}:/run/secrets/runtime-server.key:ro"
+      - "${ANANTA_SFU_RUNTIME_CLIENT_CA_FILE:-./config/sfu-runtime-agent/client-ca.crt}:/run/secrets/runtime-client-ca.crt:ro"
+      - "${ANANTA_SFU_RUNTIME_REVOCATIONS_FILE:-./config/sfu-runtime-agent/revocations.txt}:/run/secrets/runtime-revocations.txt:ro"
+      - "${ANANTA_SFU_RUNTIME_STATE_DIR_B:-./data/sfu-runtime-agent-b}:/var/lib/ananta-sfu-runtime"
+      - ./scripts/sfu-broadcast-runtime-healthcheck.sh:/opt/ananta/bin/runtime-healthcheck:ro
+    expose: ["8443"]
+    networks: ["sfu-runtime-control"]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+          pids: 96
+    healthcheck:
+      test: ["CMD", "/opt/ananta/bin/runtime-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
 networks:
@@ -82,3 +342,8 @@ networks:
     internal: true
   sfu-runtime-control:
     internal: true
+  sfu-livekit-state:
+    internal: true
+
+volumes:
+  sfu-broadcast-redis-data:

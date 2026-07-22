@@ -40,6 +40,12 @@ from agent.services.sfu_broadcast_capacity_profile_resolver import (
     SfuBroadcastCapacityProfilePort,
     get_sfu_broadcast_capacity_profile_resolver,
 )
+from agent.services.sfu_broadcast_control_observability import (
+    SfuBroadcastControlObservationPort,
+    control_observer_or_null,
+    observed_control_path,
+)
+from agent.services.sfu_vendor_identity_service import SfuVendorIdentityService
 from agent.services.share_session_service import get_share_session_service
 from agent.services.webrtc_epoch_service import get_webrtc_epoch_service
 
@@ -146,6 +152,8 @@ class SemanticSfuAdmissionService:
         fanout: SemanticFanoutCoordinationPort | None = None,
         capacity_profile: SfuBroadcastCapacityProfilePort | None = None,
         expose_capacity_profile: bool = False,
+        vendor_identity_service: SfuVendorIdentityService | None = None,
+        control_observer: SfuBroadcastControlObservationPort | None = None,
     ) -> None:
         self._membership = membership
         self._enabled = enabled
@@ -154,6 +162,7 @@ class SemanticSfuAdmissionService:
         self._api_secret = api_secret
         self._ttl = token_ttl_seconds
         self._clock = clock
+        self._control_observer = control_observer_or_null(control_observer)
         self._lock = threading.RLock()
         self._state = state_repository or InMemorySfuAdmissionStateRepository(clock=clock)
         self._audit = audit
@@ -162,6 +171,20 @@ class SemanticSfuAdmissionService:
         self._expose_capacity_profile = expose_capacity_profile
         self._topology_policy = topology_policy or MediaTopologyPolicy()
         self._fanout = fanout or SemanticFanoutCoordinationService(self._capacity_profile)
+        if vendor_identity_service is None:
+            from agent.repositories.sfu_vendor_identity_repository import (
+                InMemorySfuVendorIdentityRepository,
+            )
+            from agent.services.sfu_hub_secret_envelope import derive_sfu_hub_envelope
+
+            envelope = derive_sfu_hub_envelope(
+                hashlib.sha256(f"admission:{api_secret}".encode()).hexdigest(),
+                key_id="sfu-vendor-test-v1",
+            )
+            vendor_identity_service = SfuVendorIdentityService(
+                InMemorySfuVendorIdentityRepository(), envelope, clock=clock
+            )
+        self._vendor_identities = vendor_identity_service
 
     def configure_audit(self, audit: SemanticMediaAuditPort) -> None:
         """Attach the Hub audit factory even if the singleton was resolved early."""
@@ -180,6 +203,13 @@ class SemanticSfuAdmissionService:
             self._topology_policy = topology_policy
             self._fanout = fanout
 
+    def configure_vendor_identities(self, service: SfuVendorIdentityService) -> None:
+        """Replace only the Hub-side opaque identity authority."""
+
+        with self._lock:
+            self._vendor_identities = service
+
+    @observed_control_path("admission")
     def join(self, request: Mapping[str, Any], *, actor_id: str, tenant_id: str) -> dict[str, Any]:
         self._require_configuration()
         session_id = _id(request.get("session_id"), "session_id")
@@ -219,6 +249,12 @@ class SemanticSfuAdmissionService:
                 # The first still-active member joining the new authoritative
                 # epoch performs the fail-closed rollover; stale LiveKit grants
                 # remain cryptographically fenced by the mandatory group rekey.
+                self._vendor_identities.revoke_room_before_epoch(
+                    tenant_id=tenant_id,
+                    room_id=_room_id(tenant_id, session_id),
+                    membership_epoch=expected_epoch,
+                    fencing_token=max(1, state.revision + 1),
+                )
                 state.participants.clear()
                 state.publications.clear()
                 state.subscriptions.clear()
@@ -292,6 +328,7 @@ class SemanticSfuAdmissionService:
                 "subscriptions": sorted(subscriptions, key=lambda row: row["subscription_id"]),
             }, room_id)
 
+    @observed_control_path("admission")
     def authorize_publication(self, request: Mapping[str, Any], *, actor_id: str, tenant_id: str) -> dict[str, Any]:
         self._require_configuration()
         session_id, idempotency_key, epoch, expected_revision = _mutation_context(request)
@@ -457,6 +494,7 @@ class SemanticSfuAdmissionService:
         ):
             raise SfuAdmissionError("sfu_private_recovery_forbidden", 403)
 
+    @observed_control_path("admission")
     def authorize_subscription(self, request: Mapping[str, Any], *, actor_id: str, tenant_id: str) -> dict[str, Any]:
         self._require_configuration()
         session_id, idempotency_key, epoch, expected_revision = _mutation_context(request)
@@ -555,6 +593,7 @@ class SemanticSfuAdmissionService:
             self._member(tenant_id, normalized_session, str(subscriber_id), epoch)
         return json.loads(json.dumps(publication))
 
+    @observed_control_path("admission")
     def leave(self, request: Mapping[str, Any], *, actor_id: str, tenant_id: str) -> dict[str, Any]:
         session_id, idempotency_key, epoch, expected_revision = _mutation_context(request)
         self._member(tenant_id, session_id, actor_id, epoch)
@@ -572,6 +611,12 @@ class SemanticSfuAdmissionService:
                 if subscription["subscriber_id"] == actor_id or subscription["publisher_id"] == actor_id:
                     subscription["status"] = "revoked"
             state.revision += 1
+            self._vendor_identities.revoke_membership(
+                tenant_id=tenant_id,
+                room_id=_room_id(tenant_id, session_id),
+                membership_ref=actor_id,
+                fencing_token=max(1, state.revision),
+            )
             result = {
                 "ok": True,
                 "room_id": _room_id(tenant_id, session_id),
@@ -632,9 +677,18 @@ class SemanticSfuAdmissionService:
                 ),
             }
         )
+        vendor_identity = self._vendor_identities.issue_identity(
+            tenant_id=member.tenant_id,
+            room_id=room,
+            membership_ref=member.participant_id,
+            membership_epoch=member.epoch,
+            identity_epoch=member.epoch,
+            ttl_seconds=max(60, min(600, self._ttl * 4)),
+            fencing_token=max(1, state.revision),
+        )
         claims = {
             "iss": self._api_key,
-            "sub": member.participant_id,
+            "sub": vendor_identity.identity_handle,
             "nbf": now - 1,
             "exp": expires,
             "jti": uuid.uuid4().hex,
@@ -649,16 +703,13 @@ class SemanticSfuAdmissionService:
                 "roomRecord": False,
             },
             "ananta_sfu": {
-                "tenant_id": member.tenant_id,
-                "session_id": member.session_id,
                 "room_id": room,
-                "participant_id": member.participant_id,
-                "role": member.role,
+                "vendor_identity": vendor_identity.identity_handle,
                 "membership_epoch": member.epoch,
+                "identity_epoch": vendor_identity.identity_epoch,
                 "revision": state.revision,
                 "publication_ids": publications,
                 "subscription_ids": subscriptions,
-                "permissions": sorted(member.permissions),
                 "lease_authority": False,
             },
         }
@@ -668,6 +719,7 @@ class SemanticSfuAdmissionService:
             "access_token": jwt.encode(claims, self._api_secret, algorithm="HS256"),
             "expires_at": expires,
             "room_id": room,
+            "livekit_identity": vendor_identity.identity_handle,
             "membership_epoch": member.epoch,
             "revision": state.revision,
         }, room)
@@ -863,6 +915,7 @@ _SERVICE: SemanticSfuAdmissionService | None = None
 _AUDIT: SemanticMediaAuditPort | None = None
 _TOPOLOGY_POLICY: MediaTopologyPolicyPort | None = None
 _FANOUT: SemanticFanoutCoordinationPort | None = None
+_VENDOR_IDENTITIES: SfuVendorIdentityService | None = None
 
 
 def get_semantic_sfu_admission_service() -> SemanticSfuAdmissionService:
@@ -885,6 +938,7 @@ def get_semantic_sfu_admission_service() -> SemanticSfuAdmissionService:
             audit=_AUDIT,
             topology_policy=_TOPOLOGY_POLICY,
             fanout=_FANOUT,
+            vendor_identity_service=_VENDOR_IDENTITIES,
             expose_capacity_profile=True,
         )
     return _SERVICE
@@ -912,6 +966,15 @@ def configure_semantic_sfu_topology(
         _SERVICE.configure_topology(topology_policy, fanout)
 
 
+def configure_semantic_sfu_vendor_identities(service: SfuVendorIdentityService) -> None:
+    """Install the persistent Hub identity authority for current and future instances."""
+
+    global _VENDOR_IDENTITIES
+    _VENDOR_IDENTITIES = service
+    if _SERVICE is not None:
+        _SERVICE.configure_vendor_identities(service)
+
+
 __all__ = [
     "SemanticSfuAdmissionService",
     "SfuAdmissionError",
@@ -920,5 +983,6 @@ __all__ = [
     "ShareSessionSfuMembership",
     "configure_semantic_sfu_admission_audit",
     "configure_semantic_sfu_topology",
+    "configure_semantic_sfu_vendor_identities",
     "get_semantic_sfu_admission_service",
 ]

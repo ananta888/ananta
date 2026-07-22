@@ -103,6 +103,10 @@ class RouteReasonCodeV1(str, Enum):
     PARTIAL_APPLY_ROLLED_BACK = "route_partial_apply_rolled_back"
     RUNTIME_UNAVAILABLE = "route_runtime_unavailable"
     RUNTIME_RECOVERED = "route_runtime_recovered"
+    AUTHORIZATION_FAILED = "route_authorization_failed"
+    ENDPOINT_IDENTITY_INVALID = "route_endpoint_identity_invalid"
+    CONTROL_API_ACCEPTED_UNVERIFIED = "route_control_api_accepted_unverified"
+    OBSERVATION_UNSUPPORTED = "route_observation_unsupported"
 
 
 @dataclass(frozen=True, slots=True)

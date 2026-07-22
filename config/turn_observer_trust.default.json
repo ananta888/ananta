@@ -1,0 +1,14 @@
+{
+  "schema_version": "turn_observer_trust.v1",
+  "policy_version": "turn-observer-trust-default-v1",
+  "activation_status": "no_go",
+  "activation_reason": "operator_must_supply_real_ca_fingerprints",
+  "allowed_ca_sha256": [],
+  "required_role": "turn_observer",
+  "required_audience": "ananta-turn-observations",
+  "san_template": "spiffe://ananta.local/turn-observer/{pool_id}/{instance_id}",
+  "required_eku": "clientAuth",
+  "max_certificate_lifetime_seconds": 86400,
+  "clock_skew_seconds": 30
+}
+

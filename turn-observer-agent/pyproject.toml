@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ananta-turn-observer"
+version = "0.1.0"
+description = "Least-privilege coturn aggregate observation collector"
+requires-python = ">=3.11"
+dependencies = ["cryptography==44.0.3"]
+
+[project.scripts]
+ananta-turn-observer = "ananta_turn_observer.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ananta_turn_observer"]
+

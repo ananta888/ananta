@@ -56,7 +56,7 @@ def _handle(operation: str, callback: Callable[[SemanticSfuAdmissionService, Map
     try:
         actor, tenant = _identity()
         body = _body()
-        result = callback(get_semantic_sfu_admission_service(), body, actor, tenant)
+        result = callback(_admission_service(), body, actor, tenant)
     except SfuAdmissionError as exc:
         log_audit(
             "semantic_sfu_admission_denied",
@@ -76,6 +76,13 @@ def _handle(operation: str, callback: Callable[[SemanticSfuAdmissionService, Map
     return jsonify(result), 200
 
 
+def _admission_service():
+    """Resolve the app-scoped production composition; retain one narrow legacy locator."""
+
+    service = current_app.extensions.get("semantic_sfu_admission_service")
+    return service if service is not None else get_semantic_sfu_admission_service()
+
+
 def _handle_group_key(
     operation: str,
     callback: Callable[[SemanticSfuGroupKeyService, Mapping[str, Any], str, str], dict],
@@ -83,7 +90,7 @@ def _handle_group_key(
     try:
         actor, tenant = _identity()
         body = _body()
-        result = callback(get_semantic_sfu_group_key_service(), body, actor, tenant)
+        result = callback(_group_key_service(), body, actor, tenant)
     except (SfuAdmissionError, SfuGroupKeyError) as exc:
         log_audit(
             "semantic_sfu_group_key_denied",
@@ -102,6 +109,13 @@ def _handle_group_key(
         },
     )
     return jsonify(result), 200
+
+
+def _group_key_service():
+    """Resolve app-scoped persistence; retain only a compatibility locator."""
+
+    service = current_app.extensions.get("semantic_sfu_group_key_service")
+    return service if service is not None else get_semantic_sfu_group_key_service()
 
 
 def _safe_scope_field(tenant_id: str, room_id: object) -> dict[str, str]:
@@ -128,7 +142,7 @@ def read_sfu_state():
     try:
         actor, tenant = _identity()
         session_id, epoch = _query_session_epoch()
-        result = get_semantic_sfu_admission_service().read_state(
+        result = _admission_service().read_state(
             session_id=session_id,
             membership_epoch=epoch,
             actor_id=actor,
@@ -191,7 +205,7 @@ def read_sfu_group_key_packages():
     try:
         actor, tenant = _identity()
         session_id, epoch = _query_session_epoch()
-        result = get_semantic_sfu_group_key_service().read_packages(
+        result = _group_key_service().read_packages(
             session_id=session_id,
             membership_epoch=epoch,
             cursor=str(request.args.get("cursor") or ""),
@@ -223,7 +237,7 @@ def acknowledge_sfu_group_key_package(authorization_id: str):
 def read_sfu_group_key_epoch_status(authorization_id: str):
     try:
         actor, tenant = _identity()
-        result = get_semantic_sfu_group_key_service().epoch_status(
+        result = _group_key_service().epoch_status(
             authorization_id, actor_id=actor, tenant_id=tenant
         )
     except (SfuAdmissionError, SfuGroupKeyError) as exc:

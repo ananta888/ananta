@@ -1,0 +1,86 @@
+{
+  "schema_version": "sfu_broadcast_runtime_limits.v1",
+  "profile_id": "sfu-broadcast-runtime-default-v1",
+  "activation_status": "unsupported",
+  "activation_reason": "host_kernel_firewall_and_packet_enforcement_evidence_missing",
+  "container": {
+    "livekit": {
+      "cpu_cores_max": 2.0,
+      "memory_bytes_max": 1073741824,
+      "swap_bytes_max": 0,
+      "pids_max": 256,
+      "nofile_soft": 32768,
+      "nofile_hard": 32768,
+      "nproc_max": 512,
+      "core_dump_bytes_max": 0,
+      "rootfs_read_only": true,
+      "run_as_uid": 65532,
+      "capabilities": []
+    },
+    "runtime_agent": {
+      "cpu_cores_max": 0.5,
+      "memory_bytes_max": 268435456,
+      "swap_bytes_max": 0,
+      "pids_max": 96,
+      "nofile_soft": 4096,
+      "nofile_hard": 4096,
+      "nproc_max": 128,
+      "core_dump_bytes_max": 0,
+      "rootfs_read_only": true,
+      "run_as_uid": 65532,
+      "capabilities": []
+    }
+  },
+  "pressure": {
+    "cpu_ratio_stop_admission": 0.9,
+    "memory_ratio_stop_admission": 0.85,
+    "fd_ratio_stop_admission": 0.85,
+    "pid_ratio_stop_admission": 0.85,
+    "udp_port_ratio_stop_admission": 0.8,
+    "packet_drop_ratio_stop_admission": 0.02,
+    "consecutive_samples": 3,
+    "sample_interval_seconds": 5,
+    "drain_retry_max": 2,
+    "restart_window_seconds": 300,
+    "restart_count_max": 3
+  },
+  "host": {
+    "udp_port_ranges": [
+      {"purpose": "livekit_rtc", "minimum": 50000, "maximum": 60000}
+    ],
+    "socket_receive_buffer_bytes_min": 16777216,
+    "socket_send_buffer_bytes_min": 16777216,
+    "conntrack_entries_min": 262144,
+    "host_nofile_min": 1048576,
+    "packet_rate_limit_required": true,
+    "egress_rate_limit_required": true,
+    "firewall_policy_marker": "ananta_sfu",
+    "required_network_paths": [
+      "hub_to_runtime_control_mtls",
+      "client_to_livekit_signal_tls",
+      "client_to_livekit_media_udp",
+      "runtime_to_turn_tls",
+      "local_health",
+      "local_metrics"
+    ],
+    "open_egress_allowed": false
+  },
+  "preflight": {
+    "required_checks": [
+      "cgroup_v2_cpu",
+      "cgroup_v2_memory",
+      "cgroup_v2_pids",
+      "swap_disabled",
+      "socket_buffers",
+      "conntrack",
+      "host_fd_limit",
+      "udp_port_range",
+      "firewall_marker",
+      "packet_rate_enforcer",
+      "egress_rate_enforcer"
+    ],
+    "evidence_refs": [],
+    "artifact_sha256": null
+  }
+}
+

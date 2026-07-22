@@ -114,25 +114,39 @@
       ],
       "properties": {
         "history_reports_max": {
-          "const": 12
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12
         },
         "samples_per_report_max": {
-          "const": 16
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
         },
         "reports_per_minute_max": {
-          "const": 12
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12
         },
         "report_bytes_max": {
-          "const": 8192
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
         },
         "sample_window_ms_max": {
-          "const": 2000
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
         },
         "history_window_ms_max": {
-          "const": 30000
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30000
         },
         "observation_age_ms_max": {
-          "const": 5000
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000
         }
       }
     },

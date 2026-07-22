@@ -113,6 +113,17 @@ class SfuProjectionMutation(Generic[ProjectionT]):
 
 
 @dataclass(frozen=True, slots=True)
+class SfuAtomicGroupProjectionMutation:
+    """Group write whose Audience epochs must be checked atomically."""
+
+    audience_projection_id: str
+    mutation: SfuProjectionMutation[SfuReceiverGroup]
+    expected_policy_epoch: int
+    expected_membership_epoch: int
+    expected_key_epoch: int
+
+
+@dataclass(frozen=True, slots=True)
 class SfuProjectionMutationResult(Generic[ProjectionT]):
     status: SfuMutationStatus
     value: ProjectionT | None = None
@@ -127,6 +138,19 @@ class SfuProjectionMutationResult(Generic[ProjectionT]):
 @dataclass(frozen=True, slots=True)
 class SfuProjectionPage(Generic[ProjectionT]):
     items: tuple[ProjectionT, ...]
+    next_cursor: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class SfuAudienceRetentionFence:
+    owner_id: str
+    fencing_token: int
+    lease_expires_at: float
+
+
+@dataclass(frozen=True, slots=True)
+class SfuAudienceRetentionPurgePage:
+    purged: int
     next_cursor: str | None
 
 
@@ -162,6 +186,30 @@ class SfuBroadcastAudienceRepositoryPort(Protocol):
         page_size: int,
         cursor: str | None = None,
     ) -> SfuProjectionPage[SfuBroadcastAudience]: ...
+
+
+@runtime_checkable
+class SfuAudienceSnapshotRetentionRepositoryPort(Protocol):
+    def tombstone(
+        self,
+        scope: SfuBroadcastRoomScope,
+        projection_id: str,
+        *,
+        expected_version: int,
+        retention_reason: str,
+        purge_deadline: float,
+        fence: SfuAudienceRetentionFence,
+        now: float,
+    ) -> SfuProjectionMutationResult[SfuBroadcastAudience]: ...
+
+    def purge_due(
+        self,
+        *,
+        fence: SfuAudienceRetentionFence,
+        now: float,
+        page_size: int,
+        cursor: str | None = None,
+    ) -> SfuAudienceRetentionPurgePage: ...
 
     def page_expired(
         self,
@@ -244,6 +292,16 @@ class SfuReceiverGroupRepositoryPort(Protocol):
 
 
 @runtime_checkable
+class SfuAtomicGroupProjectionRepositoryPort(Protocol):
+    def save_authorized(
+        self,
+        mutation: SfuAtomicGroupProjectionMutation,
+        *,
+        now: float | None = None,
+    ) -> SfuProjectionMutationResult[SfuReceiverGroup]: ...
+
+
+@runtime_checkable
 class SfuFanoutRouteRepositoryPort(Protocol):
     def get(
         self,
@@ -296,6 +354,11 @@ class SfuFanoutRouteRepositoryPort(Protocol):
 
 
 __all__ = [
+    "SfuAudienceRetentionFence",
+    "SfuAudienceRetentionPurgePage",
+    "SfuAudienceSnapshotRetentionRepositoryPort",
+    "SfuAtomicGroupProjectionMutation",
+    "SfuAtomicGroupProjectionRepositoryPort",
     "SfuBroadcastAudience",
     "SfuBroadcastAudienceRepositoryPort",
     "SfuBroadcastRoomScope",

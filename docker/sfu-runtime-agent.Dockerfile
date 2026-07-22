@@ -5,6 +5,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends tpm2-tools \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system --gid 65532 runtime-agent \
     && useradd --system --uid 65532 --gid 65532 --home-dir /nonexistent --shell /usr/sbin/nologin runtime-agent
 

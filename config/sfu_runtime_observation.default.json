@@ -1,0 +1,26 @@
+{
+  "schema_version": "sfu_runtime_observation_policy.v2",
+  "activation_status": "unsupported",
+  "activation_reason": "composition_mode_and_real_runtime_evidence_required",
+  "producer_mode": null,
+  "poll_interval_ms": 10000,
+  "poll_timeout_ms": 2000,
+  "payload_bytes_max": 65536,
+  "response_bytes_max": 262144,
+  "batch_size_max": 1,
+  "buffer_count_max": 64,
+  "buffer_bytes_max": 1048576,
+  "buffer_age_ms_max": 120000,
+  "retry_max": 2,
+  "retry_backoff_ms_max": 2000,
+  "shutdown_deadline_ms": 5000,
+  "observation_ttl_ms_max": 30000,
+  "clock_skew_ms": 5000,
+  "label_count_max": 16,
+  "required_config_digest": null,
+  "required_image_digest": null,
+  "required_capability_digest": null,
+  "source_refs": [],
+  "run_refs": []
+}
+

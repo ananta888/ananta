@@ -1,0 +1,54 @@
+{
+  "$schema": "../schemas/sfu-broadcast-baseline-limits.schema.json",
+  "schema_version": "1.0.0",
+  "policy_version": 1,
+  "activation_default": "no_go",
+  "hard_limits": {
+    "max_publishers_per_room": {"unit": "count", "minimum": 0, "maximum": 1, "missing_metric_behavior": "block"},
+    "max_receivers_per_room": {"unit": "count", "minimum": 0, "maximum": 7, "missing_metric_behavior": "block"},
+    "max_receiver_groups_per_room": {"unit": "count", "minimum": 0, "maximum": 8, "missing_metric_behavior": "block"},
+    "max_total_participants_per_room": {"unit": "count", "minimum": 0, "maximum": 8, "missing_metric_behavior": "block"},
+    "admitted_sfu_nodes": {"unit": "count", "minimum": 0, "maximum": 0, "missing_metric_behavior": "block"},
+    "turn_egress_per_room": {"unit": "megabits_per_second", "minimum": 0, "maximum": 64, "missing_metric_behavior": "block"}
+  },
+  "budget_definitions": {
+    "join_latency_ms": {"unit": "milliseconds", "window": "measurement", "percentile": "p95", "minimum": 0, "maximum": 2000, "missing_metric_behavior": "block"},
+    "rekey_latency_ms": {"unit": "milliseconds", "window": "measurement", "percentile": "p99", "minimum": 0, "maximum": 1500, "missing_metric_behavior": "block"},
+    "layer_switch_latency_ms": {"unit": "milliseconds", "window": "measurement", "percentile": "p95", "minimum": 0, "maximum": 1200, "missing_metric_behavior": "block"},
+    "node_failover_recovery_ms": {"unit": "milliseconds", "window": "failover_scenario", "percentile": "p99", "minimum": 0, "maximum": 10000, "missing_metric_behavior": "block"},
+    "queue_lag_ms": {"unit": "milliseconds", "window": "measurement", "percentile": "p99", "minimum": 0, "maximum": 500, "missing_metric_behavior": "block"},
+    "turn_egress_bytes_per_minute": {"unit": "bytes_per_minute", "window": "measurement", "percentile": "p99", "minimum": 0, "maximum": 480000000, "missing_metric_behavior": "block"},
+    "cleanup_latency_ms": {"unit": "milliseconds", "window": "post_run_cleanup", "percentile": "p99", "minimum": 0, "maximum": 30000, "missing_metric_behavior": "block"},
+    "memory_growth_bytes_per_minute": {"unit": "bytes_per_minute", "window": "steady_state", "percentile": "p95", "minimum": 0, "maximum": 1048576, "missing_metric_behavior": "block"},
+    "fd_growth_count_per_hour": {"unit": "count_per_hour", "window": "steady_state", "percentile": "p95", "minimum": 0, "maximum": 2, "missing_metric_behavior": "block"},
+    "database_row_growth_count_per_room": {"unit": "count_per_room", "window": "post_run_cleanup", "percentile": "p99", "minimum": 0, "maximum": 12, "missing_metric_behavior": "block"},
+    "capacity_reserve_percent": {"unit": "percent", "window": "measurement", "percentile": "p05", "minimum": 30, "maximum": 100, "missing_metric_behavior": "block"},
+    "retry_rate_percent": {"unit": "percent", "window": "measurement", "percentile": "p99", "minimum": 0, "maximum": 1, "missing_metric_behavior": "block"}
+  },
+  "budget_sets": {
+    "activation_v1": [
+      "join_latency_ms",
+      "rekey_latency_ms",
+      "layer_switch_latency_ms",
+      "node_failover_recovery_ms",
+      "queue_lag_ms",
+      "turn_egress_bytes_per_minute",
+      "cleanup_latency_ms",
+      "memory_growth_bytes_per_minute",
+      "fd_growth_count_per_hour",
+      "database_row_growth_count_per_room",
+      "capacity_reserve_percent",
+      "retry_rate_percent"
+    ]
+  },
+  "run_profiles": [
+    {"id": "direct_pair_regression", "warmup_seconds": 60, "measurement_seconds": 600, "repetitions_min": 3, "confidence_level": 0.95, "variance_max_percent": 10, "capacity_reserve_percent": 30, "retry_rate_max_percent": 1, "budget_set_id": "activation_v1"},
+    {"id": "sfu_direct_network", "warmup_seconds": 120, "measurement_seconds": 900, "repetitions_min": 5, "confidence_level": 0.95, "variance_max_percent": 8, "capacity_reserve_percent": 30, "retry_rate_max_percent": 1, "budget_set_id": "activation_v1"},
+    {"id": "sfu_all_turn", "warmup_seconds": 120, "measurement_seconds": 900, "repetitions_min": 5, "confidence_level": 0.95, "variance_max_percent": 8, "capacity_reserve_percent": 35, "retry_rate_max_percent": 0.5, "budget_set_id": "activation_v1"},
+    {"id": "webinar", "warmup_seconds": 180, "measurement_seconds": 1200, "repetitions_min": 5, "confidence_level": 0.99, "variance_max_percent": 8, "capacity_reserve_percent": 35, "retry_rate_max_percent": 0.5, "budget_set_id": "activation_v1"},
+    {"id": "multi_publisher", "warmup_seconds": 180, "measurement_seconds": 1200, "repetitions_min": 5, "confidence_level": 0.99, "variance_max_percent": 8, "capacity_reserve_percent": 40, "retry_rate_max_percent": 0.5, "budget_set_id": "activation_v1"},
+    {"id": "screen_share", "warmup_seconds": 120, "measurement_seconds": 900, "repetitions_min": 5, "confidence_level": 0.95, "variance_max_percent": 8, "capacity_reserve_percent": 35, "retry_rate_max_percent": 0.5, "budget_set_id": "activation_v1"},
+    {"id": "transcript_fanout", "warmup_seconds": 180, "measurement_seconds": 1200, "repetitions_min": 5, "confidence_level": 0.99, "variance_max_percent": 8, "capacity_reserve_percent": 40, "retry_rate_max_percent": 0.5, "budget_set_id": "activation_v1"},
+    {"id": "semantic_fanout", "warmup_seconds": 180, "measurement_seconds": 1200, "repetitions_min": 5, "confidence_level": 0.99, "variance_max_percent": 8, "capacity_reserve_percent": 40, "retry_rate_max_percent": 0.5, "budget_set_id": "activation_v1"}
+  ]
+}

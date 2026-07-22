@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from agent.services.sfu_broadcast_control_observability import (
+    SfuBroadcastControlObservationPort,
+    control_observer_or_null,
+    observed_control_path,
+)
+
 import copy
 import json
 import math
@@ -119,6 +125,19 @@ class SfuReceiverQualityPolicy:
                 raise ValueError("quality_policy_invalid")
         if self.history_reports_max > self.quality_reports_per_window_max:
             raise ValueError("quality_policy_history_invalid")
+
+    def declared_limits(self) -> dict[str, int]:
+        """Return the exact limits a conforming observation must declare."""
+
+        return {
+            "history_reports_max": self.history_reports_max,
+            "samples_per_report_max": self.samples_per_report_max,
+            "reports_per_minute_max": self.quality_reports_per_window_max,
+            "report_bytes_max": self.report_bytes_max,
+            "sample_window_ms_max": self.sample_window_ms_max,
+            "history_window_ms_max": self.history_window_ms_max,
+            "observation_age_ms_max": self.observation_age_ms_max,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -270,14 +289,17 @@ class SfuReceiverQualityIngestionService:
         validator: SfuBroadcastContractValidator,
         policy: SfuReceiverQualityPolicy | None = None,
         clock: Callable[[], float] = time.time,
+        control_observer: SfuBroadcastControlObservationPort | None = None,
     ) -> None:
         self._authority = authority
         self._validator = validator
         self._policy = policy or SfuReceiverQualityPolicy()
         self._clock = clock
+        self._control_observer = control_observer_or_null(control_observer)
         self._windows: dict[tuple[str, str, str, str], _ReceiverWindow] = {}
         self._lock = threading.RLock()
 
+    @observed_control_path("qos_feedback")
     def ingest(self, command: SfuReceiverQualityCommand) -> SfuReceiverQualityIngestionResult:
         self._validate_command(command)
         raw = command.raw_document
@@ -310,7 +332,6 @@ class SfuReceiverQualityIngestionService:
         now = self._clock()
         if not math.isfinite(now):
             raise SfuReceiverQualityError("quality_clock_invalid", 503)
-        self._validate_times(document, now)
 
         sequence = _required_int(document.get("sequence"), "observation_sequence_invalid")
         key = (
@@ -336,6 +357,7 @@ class SfuReceiverQualityIngestionService:
                 return SfuReceiverQualityIngestionResult(
                     "dropped", "observation_duplicate", len(window.reports), sequence
                 )
+            self._validate_times(document, now)
             if (
                 window.last_accepted_at is not None
                 and (now - window.last_accepted_at) * 1_000
@@ -443,15 +465,7 @@ class SfuReceiverQualityIngestionService:
 
     def _validate_declared_limits(self, document: Mapping[str, Any]) -> None:
         limits = document.get("limits")
-        expected = {
-            "history_reports_max": self._policy.history_reports_max,
-            "samples_per_report_max": self._policy.samples_per_report_max,
-            "reports_per_minute_max": self._policy.quality_reports_per_window_max,
-            "report_bytes_max": self._policy.report_bytes_max,
-            "sample_window_ms_max": self._policy.sample_window_ms_max,
-            "history_window_ms_max": self._policy.history_window_ms_max,
-            "observation_age_ms_max": self._policy.observation_age_ms_max,
-        }
+        expected = self._policy.declared_limits()
         if not isinstance(limits, Mapping) or dict(limits) != expected:
             raise SfuReceiverQualityError("limit_contract_mismatch")
         samples = document.get("samples")

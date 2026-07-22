@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/sfu-broadcast-baseline-activation.schema.json",
+  "title": "SFU broadcast baseline activation boundary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "parent_asmp", "runtime", "feature_flags", "limits", "evidence", "rollback"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"type": "string", "minLength": 1},
+    "parent_asmp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "rollout_stage", "manifest_version", "fresh_until", "source_commit", "config_digest"],
+      "properties": {
+        "decision": {"enum": ["go", "no_go"]},
+        "rollout_stage": {"enum": ["observe_only", "canary", "active"]},
+        "manifest_version": {"type": "integer", "minimum": 0},
+        "fresh_until": {"type": ["string", "null"], "format": "date-time"},
+        "source_commit": {"type": ["string", "null"]},
+        "config_digest": {"type": ["string", "null"]}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selected_mode", "effective_mode", "placement_owner", "evidence_status", "image_digest", "config_digest"],
+      "properties": {
+        "selected_mode": {"enum": ["livekit_control_api", "authenticated_runtime_extension", "unsupported"]},
+        "effective_mode": {"enum": ["livekit_control_api", "authenticated_runtime_extension", "unsupported"]},
+        "placement_owner": {"const": "livekit_native"},
+        "evidence_status": {"enum": ["verified", "missing", "rejected", "stale"]},
+        "image_digest": {"type": ["string", "null"]},
+        "config_digest": {"type": ["string", "null"]}
+      }
+    },
+    "feature_flags": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "boolean"}},
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "policy_version", "participant_cap"],
+      "properties": {
+        "status": {"enum": ["qualified", "blocked"]},
+        "policy_version": {"type": "integer", "minimum": 1},
+        "participant_cap": {"type": "integer", "minimum": 0}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "source_ids", "run_ids"],
+      "properties": {
+        "status": {"enum": ["verified", "missing", "rejected", "stale"]},
+        "source_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^SRC_"}},
+        "run_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^RUN_"}}
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "ordered_steps"],
+      "properties": {
+        "owner": {"const": "hub"},
+        "ordered_steps": {"type": "array", "minItems": 6, "uniqueItems": true, "items": {"type": "string"}}
+      }
+    }
+  }
+}

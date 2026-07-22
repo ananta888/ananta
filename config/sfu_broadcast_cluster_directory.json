@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "directory_version": 1,
+  "selected_mode": "hub_cluster_only",
+  "evidence_status": "unverified",
+  "modes": {
+    "livekit_native": {
+      "placement_owner": "livekit_native",
+      "hub_selects_node": false,
+      "redis_scope": "sfu-broadcast-livekit-only",
+      "admission_default": false,
+      "targets": [
+        {"cluster_id": "sfu-native", "runtime_id": "livekit-native-a", "region": "local-a", "selectable_by_hub": false},
+        {"cluster_id": "sfu-native", "runtime_id": "livekit-native-b", "region": "local-b", "selectable_by_hub": false}
+      ]
+    },
+    "hub_cluster_only": {
+      "placement_owner": "hub_cluster_only",
+      "hub_selects_node": false,
+      "admission_default": false,
+      "targets": [
+        {"cluster_id": "sfu-cluster-a", "runtime_id": "runtime-extension-a", "region": "local-a", "control_url": "https://sfu-runtime-agent-a:8443"},
+        {"cluster_id": "sfu-cluster-b", "runtime_id": "runtime-extension-b", "region": "local-b", "control_url": "https://sfu-runtime-agent-b:8443"}
+      ]
+    }
+  }
+}

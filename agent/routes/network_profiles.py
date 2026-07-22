@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import json
 import os
 import time
@@ -55,11 +56,19 @@ def _resolve_turn_credentials(profile: dict) -> dict:
     return {}
 
 
+def _identity_value(identity: object, key: str) -> object | None:
+    if isinstance(identity, Mapping):
+        return identity.get(key)
+    return getattr(identity, key, None)
+
+
 def _effective_semantic_media_flags() -> tuple[dict[str, bool], SfuBroadcastFeatureProjection]:
     flags = resolve_semantic_media_feature_flags(os.environ)
     policy = current_app.extensions.get("sfu_broadcast_feature_policy")
     identity = getattr(g, "user", None) or getattr(g, "auth_payload", None) or {}
-    tenant_id = str(identity.get("tenant_id") or identity.get("tenant") or "").strip()
+    tenant_id = str(
+        _identity_value(identity, "tenant_id") or _identity_value(identity, "tenant") or ""
+    ).strip()
     if not isinstance(policy, SfuBroadcastFeaturePolicy) or not tenant_id:
         projection = SfuBroadcastFeatureProjection.unavailable(
             "sfu_broadcast.authenticated_scope_missing"
@@ -68,8 +77,8 @@ def _effective_semantic_media_flags() -> tuple[dict[str, bool], SfuBroadcastFeat
         try:
             projection = policy.effective(
                 tenant_id=tenant_id,
-                region=str(identity.get("region") or "*").strip(),
-                room_cohort=str(identity.get("room_cohort") or "*").strip(),
+                region=str(_identity_value(identity, "region") or "*").strip(),
+                room_cohort=str(_identity_value(identity, "room_cohort") or "*").strip(),
             )
         except (SfuBroadcastFeaturePolicyError, RuntimeError):
             projection = SfuBroadcastFeatureProjection.unavailable(

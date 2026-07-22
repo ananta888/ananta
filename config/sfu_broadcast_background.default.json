@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "jobs": [
+    {"name": "flag_projection", "partition_key": "global", "enabled": false, "interval_ms_min": 1000, "batch_size_max": 50, "runtime_deadline_ms": 5000, "retry_max": 5, "backoff_ms": 500, "jitter_ms": 250, "retention_seconds": 86400, "lease_seconds": 15.0},
+    {"name": "route_reconciliation", "partition_key": "global", "enabled": false, "interval_ms_min": 5000, "batch_size_max": 100, "runtime_deadline_ms": 5000, "retry_max": 3, "backoff_ms": 1000, "jitter_ms": 250, "retention_seconds": 86400, "lease_seconds": 15.0},
+    {"name": "audience_retention", "partition_key": "global", "enabled": false, "interval_ms_min": 10000, "batch_size_max": 100, "runtime_deadline_ms": 5000, "retry_max": 3, "backoff_ms": 1000, "jitter_ms": 250, "retention_seconds": 604800, "lease_seconds": 15.0},
+    {"name": "fleet_reconciliation", "partition_key": "global", "enabled": false, "interval_ms_min": 5000, "batch_size_max": 100, "runtime_deadline_ms": 5000, "retry_max": 3, "backoff_ms": 1000, "jitter_ms": 250, "retention_seconds": 86400, "lease_seconds": 15.0},
+    {"name": "admission_recovery", "partition_key": "global", "enabled": false, "interval_ms_min": 2000, "batch_size_max": 100, "runtime_deadline_ms": 5000, "retry_max": 5, "backoff_ms": 1000, "jitter_ms": 250, "retention_seconds": 86400, "lease_seconds": 15.0},
+    {"name": "observation_collection", "partition_key": "livekit_control_api", "enabled": false, "interval_ms_min": 2000, "batch_size_max": 100, "runtime_deadline_ms": 5000, "retry_max": 3, "backoff_ms": 1000, "jitter_ms": 250, "retention_seconds": 86400, "lease_seconds": 15.0},
+    {"name": "command_outbox_delivery", "partition_key": "global", "enabled": false, "interval_ms_min": 1000, "batch_size_max": 100, "runtime_deadline_ms": 5000, "retry_max": 5, "backoff_ms": 500, "jitter_ms": 250, "retention_seconds": 86400, "lease_seconds": 15.0},
+    {"name": "destruction_pending", "partition_key": "global", "enabled": false, "interval_ms_min": 5000, "batch_size_max": 50, "runtime_deadline_ms": 10000, "retry_max": 5, "backoff_ms": 1000, "jitter_ms": 250, "retention_seconds": 604800, "lease_seconds": 30.0},
+    {"name": "blind_index_reindex", "partition_key": "global", "enabled": false, "interval_ms_min": 10000, "batch_size_max": 100, "runtime_deadline_ms": 10000, "retry_max": 5, "backoff_ms": 1000, "jitter_ms": 250, "retention_seconds": 604800, "lease_seconds": 30.0},
+    {"name": "ttl_purge", "partition_key": "global", "enabled": false, "interval_ms_min": 10000, "batch_size_max": 100, "runtime_deadline_ms": 5000, "retry_max": 3, "backoff_ms": 1000, "jitter_ms": 250, "retention_seconds": 604800, "lease_seconds": 15.0}
+  ]
+}

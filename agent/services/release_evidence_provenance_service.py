@@ -290,15 +290,18 @@ def _verify_entry(
     artifact_path = str(raw_entry.get("artifact_path") or "") if isinstance(raw_entry, Mapping) else ""
     reasons = _entry_shape_reasons(raw_entry)
     attestation_status = "not_required"
-    if artifact_path in duplicate_paths:
-        reasons.append(ReasonCode.DUPLICATE_ARTIFACT_PATH.value)
     if reasons:
+        if artifact_path in duplicate_paths:
+            reasons.append(ReasonCode.DUPLICATE_ARTIFACT_PATH.value)
         return _entry_result(gate_id, artifact_path, reasons, attestation_status)
 
     entry = raw_entry
     policy = configuration.policies.get(gate_id)
+    if artifact_path in duplicate_paths:
+        reasons.append(ReasonCode.DUPLICATE_ARTIFACT_PATH.value)
     if policy is None:
         reasons.append(ReasonCode.GATE_UNKNOWN.value)
+    if reasons:
         return _entry_result(gate_id, artifact_path, reasons, attestation_status)
 
     if entry["artifact_schema"] not in policy.artifact_schemas:

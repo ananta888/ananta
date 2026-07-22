@@ -16,7 +16,9 @@ from typing import Mapping, Protocol
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
-from cryptography.x509.oid import ExtensionOID
+from cryptography.x509.oid import ExtendedKeyUsageOID, ExtensionOID
+
+from .command_guard import RuntimeCommandGuard, RuntimeCommandGuardConfig, RuntimeCommandGuardError
 
 MAX_REQUEST_BYTES = 65_536
 MAX_RESPONSE_BYTES = 65_536
@@ -102,6 +104,14 @@ class PeerCertificateAuthorizer:
             ).value.get_values_for_type(x509.UniformResourceIdentifier)
         except x509.ExtensionNotFound as exc:
             raise RuntimeBoundaryError("runtime_mtls_peer_san_missing", status_code=403) from exc
+        try:
+            usages = certificate.extensions.get_extension_for_oid(
+                ExtensionOID.EXTENDED_KEY_USAGE
+            ).value
+        except x509.ExtensionNotFound as exc:
+            raise RuntimeBoundaryError("runtime_mtls_peer_eku_missing", status_code=403) from exc
+        if ExtendedKeyUsageOID.CLIENT_AUTH not in usages:
+            raise RuntimeBoundaryError("runtime_mtls_client_auth_required", status_code=403)
         role = None
         for candidate in ("sfu_control", "sfu_observer"):
             prefix = f"{self._san_prefix}/{candidate}/"
@@ -115,19 +125,31 @@ class PeerCertificateAuthorizer:
 
     def _revoked_fingerprints(self) -> frozenset[str]:
         try:
+            if self._revocation_file.stat().st_size > 65_536:
+                raise RuntimeBoundaryError("runtime_revocation_store_oversize", status_code=503)
             lines = self._revocation_file.read_text(encoding="ascii").splitlines()
         except OSError as exc:
             raise RuntimeBoundaryError("runtime_revocation_store_unavailable", status_code=503) from exc
+        if len(lines) > 1_024:
+            raise RuntimeBoundaryError("runtime_revocation_store_oversize", status_code=503)
         return frozenset(line.strip().lower() for line in lines if line.strip())
 
 
 class FixedWindowRateLimiter:
     """Protective edge limiter only; it is not an identity or policy authority."""
 
-    def __init__(self, *, limit: int = 60, window_seconds: int = 60, clock=time.time) -> None:
+    def __init__(
+        self,
+        *,
+        limit: int = 60,
+        window_seconds: int = 60,
+        bucket_count_max: int = 1_024,
+        clock=time.time,
+    ) -> None:
         self._limit = limit
         self._window = window_seconds
         self._clock = clock
+        self._bucket_count_max = bucket_count_max
         self._lock = threading.Lock()
         self._buckets: dict[tuple[str, int], int] = {}
 
@@ -135,6 +157,13 @@ class FixedWindowRateLimiter:
         window = int(self._clock() // self._window)
         key = (fingerprint, window)
         with self._lock:
+            self._buckets = {
+                existing: count
+                for existing, count in self._buckets.items()
+                if existing[1] >= window - 1
+            }
+            if key not in self._buckets and len(self._buckets) >= self._bucket_count_max:
+                return False
             count = self._buckets.get(key, 0) + 1
             self._buckets[key] = count
             return count <= self._limit
@@ -147,10 +176,12 @@ class RuntimeControlApplication:
         authorizer: PeerCertificateAuthorizer,
         *,
         rate_limiter: FixedWindowRateLimiter | None = None,
+        command_guard: RuntimeCommandGuard | None = None,
     ) -> None:
         self._backend = backend
         self._authorizer = authorizer
         self._rate_limiter = rate_limiter or FixedWindowRateLimiter()
+        self._command_guard = command_guard
 
     def handle(
         self,
@@ -172,14 +203,25 @@ class RuntimeControlApplication:
             )
             if not self._rate_limiter.consume(fingerprint):
                 raise RuntimeBoundaryError("runtime_control_rate_limited", status_code=429)
-            payload = self._dispatch(path, body)
+            if path in _CONTROL_PATHS:
+                if self._command_guard is None:
+                    raise RuntimeBoundaryError(
+                        "runtime_command_guard_unavailable", status_code=503
+                    )
+                payload = self._command_guard.execute(
+                    path=path,
+                    envelope=body,
+                    action=lambda command_body: self._dispatch(path, command_body),
+                )
+            else:
+                payload = self._dispatch(path, body)
             encoded = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
             if len(encoded) > MAX_RESPONSE_BYTES:
                 raise RuntimeBoundaryError("runtime_response_oversize", status_code=502)
             if path == "/v1/health" and not bool(payload.get("ready")):
                 return 503, payload
             return 200, payload
-        except RuntimeBoundaryError as exc:
+        except (RuntimeBoundaryError, RuntimeCommandGuardError) as exc:
             return exc.status_code, {"status": "error", "reason_code": exc.reason_code}
 
     def _dispatch(self, path: str, body: Mapping[str, object]) -> Mapping[str, object]:
@@ -307,6 +349,7 @@ def build_server(
     client_ca: Path,
     revocation_file: Path,
     backend: RuntimeControlBackend,
+    command_guard: RuntimeCommandGuard | None = None,
 ) -> ThreadingHTTPServer:
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.minimum_version = ssl.TLSVersion.TLSv1_3
@@ -320,6 +363,7 @@ def build_server(
             san_prefix="spiffe://ananta.local/sfu",
             revocation_file=revocation_file,
         ),
+        command_guard=command_guard,
     )
     server.socket = context.wrap_socket(server.socket, server_side=True)
     return server
@@ -336,6 +380,9 @@ def main() -> None:
         client_ca=Path(os.environ["ANANTA_SFU_RUNTIME_CLIENT_CA"]),
         revocation_file=Path(os.environ["ANANTA_SFU_RUNTIME_REVOCATIONS"]),
         backend=UnsupportedRuntimeControlBackend(),
+        command_guard=RuntimeCommandGuard(
+            RuntimeCommandGuardConfig.from_environment(os.environ)
+        ),
     )
     server.serve_forever(poll_interval=0.5)
 

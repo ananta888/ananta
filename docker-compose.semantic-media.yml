@@ -37,6 +37,9 @@ services:
           memory: "${ANANTA_SEMANTIC_MEDIA_SFU_MEMORY_LIMIT:-1G}"
           pids: 256
     restart: unless-stopped
+    labels:
+      ananta.sfu.placement-mode: "single_node_compatibility"
+      ananta.sfu.distributed-gate-eligible: "false"
 
   semantic-media-turn-gate:
     profiles: ["semantic-media-turn-gate"]

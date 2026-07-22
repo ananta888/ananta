@@ -86,7 +86,11 @@ from agent.routes.voice_governance import voice_governance_bp
 from agent.routes.voice_live_runs import voice_live_runs_bp
 from agent.routes.webhooks import webhooks_bp
 from agent.routes.webrtc_signaling import webrtc_signaling_bp
+from agent.routes.webrtc_sfu_broadcast_commands import webrtc_sfu_broadcast_commands_bp
+from agent.routes.webrtc_sfu_broadcast_operations import webrtc_sfu_broadcast_operations_bp
 from agent.routes.webrtc_sfu_broadcast_quality import webrtc_sfu_broadcast_quality_bp
+from agent.routes.webrtc_sfu_browser_capabilities import webrtc_sfu_browser_capabilities_bp
+from agent.routes.webrtc_sfu_layer_projections import webrtc_sfu_layer_projections_bp
 from agent.routes.webrtc_sfu_node_enrollment import webrtc_sfu_node_enrollment_bp
 from agent.routes.webrtc_sfu_node_observations import webrtc_sfu_node_observations_bp
 from agent.routes.wiki_graph import wiki_graph_bp
@@ -180,9 +184,18 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(rendezvous_bp, url_prefix="/api")
     app.register_blueprint(repair_bp)
     app.register_blueprint(webrtc_signaling_bp, url_prefix="/api")
+    app.register_blueprint(webrtc_sfu_broadcast_commands_bp)
+    app.register_blueprint(webrtc_sfu_broadcast_operations_bp)
     app.register_blueprint(webrtc_sfu_broadcast_quality_bp)
+    app.register_blueprint(webrtc_sfu_browser_capabilities_bp)
+    app.register_blueprint(webrtc_sfu_layer_projections_bp)
     app.register_blueprint(webrtc_sfu_node_enrollment_bp)
     app.register_blueprint(webrtc_sfu_node_observations_bp)
+    from agent.bootstrap.sfu_broadcast_final_composition import (
+        register_sfu_broadcast_extension_blueprints,
+    )
+
+    register_sfu_broadcast_extension_blueprints(app)
     app.register_blueprint(chat_bp) # New: Chat Sessions API
     app.register_blueprint(config_graph_bp)
     app.register_blueprint(effective_workflow_bp)

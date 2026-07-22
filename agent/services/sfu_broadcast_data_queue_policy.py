@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import OrderedDict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
@@ -197,6 +198,31 @@ class QueueCleanupResult:
     disconnect_required: bool
 
 
+class QueueDeliveryOutcome(str, Enum):
+    DELIVERED = "delivered"
+    DROPPED = "dropped"
+    UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True, slots=True)
+class QueueDeliveryFeedback:
+    receipt_id: str
+    message_id: str
+    destination_handle: str
+    outcome: QueueDeliveryOutcome
+    observed_at_ms: int
+    published_wire_bytes: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class QueueDeliveryFeedbackResult:
+    accepted: bool
+    reason_code: str
+    message_removed: bool
+    duplicate: bool = False
+    retryable: bool = False
+
+
 @dataclass(frozen=True, slots=True)
 class QueueSnapshot:
     adapter_kind: QueueAdapterKind
@@ -244,6 +270,7 @@ class BoundedSfuBroadcastDataQueue:
         "_disconnected",
         "_entries",
         "_profile",
+        "_receipts",
     )
 
     def __init__(
@@ -259,6 +286,7 @@ class BoundedSfuBroadcastDataQueue:
         self._adapter_kind = adapter_kind
         self._adapter_handle = adapter_handle
         self._entries: list[QueuedMessageMetadata] = []
+        self._receipts: OrderedDict[str, tuple[tuple[object, ...], QueueDeliveryFeedbackResult]] = OrderedDict()
         self._blocked_since_ms: int | None = None
         self._disconnected = False
 
@@ -383,6 +411,69 @@ class BoundedSfuBroadcastDataQueue:
             limit_scope=None,
         )
 
+    def acknowledge_delivery(
+        self, feedback: QueueDeliveryFeedback, *, now_ms: int,
+    ) -> QueueDeliveryFeedbackResult:
+        """Release queue metadata from content-free, idempotent delivery feedback."""
+
+        digest = (
+            feedback.message_id, feedback.destination_handle, feedback.outcome.value,
+            feedback.observed_at_ms, feedback.published_wire_bytes,
+        )
+        previous = self._receipts.get(feedback.receipt_id)
+        if previous is not None:
+            if previous[0] != digest:
+                return QueueDeliveryFeedbackResult(
+                    False, "SFB_DATA_DELIVERY_RECEIPT_CONFLICT", False,
+                )
+            result = previous[1]
+            return QueueDeliveryFeedbackResult(
+                result.accepted, "SFB_DATA_DELIVERY_RECEIPT_DUPLICATE",
+                result.message_removed, duplicate=True, retryable=result.retryable,
+            )
+        if (
+            not _is_handle(feedback.receipt_id)
+            or not _is_handle(feedback.message_id)
+            or not _is_handle(feedback.destination_handle)
+            or not _is_non_negative_int(now_ms)
+            or not _is_non_negative_int(feedback.observed_at_ms)
+            or feedback.observed_at_ms > now_ms
+            or (
+                feedback.published_wire_bytes is not None
+                and not _is_non_negative_int(feedback.published_wire_bytes)
+            )
+        ):
+            return QueueDeliveryFeedbackResult(
+                False, "SFB_DATA_DELIVERY_RECEIPT_INVALID", False,
+            )
+        index = next((
+            position for position, entry in enumerate(self._entries)
+            if entry.message_id == feedback.message_id
+            and entry.destination_handle == feedback.destination_handle
+        ), None)
+        if feedback.outcome is QueueDeliveryOutcome.UNKNOWN:
+            result = QueueDeliveryFeedbackResult(
+                False, "SFB_DATA_DELIVERY_UNKNOWN", False, retryable=True,
+            )
+        elif index is None:
+            result = QueueDeliveryFeedbackResult(
+                False, "SFB_DATA_DELIVERY_MESSAGE_UNKNOWN", False,
+            )
+        else:
+            self._entries.pop(index)
+            result = QueueDeliveryFeedbackResult(
+                True,
+                "SFB_DATA_DELIVERY_ACKNOWLEDGED"
+                if feedback.outcome is QueueDeliveryOutcome.DELIVERED
+                else "SFB_DATA_DELIVERY_DROPPED",
+                True,
+            )
+        self._receipts[feedback.receipt_id] = (digest, result)
+        self._receipts.move_to_end(feedback.receipt_id)
+        while len(self._receipts) > 256:
+            self._receipts.popitem(last=False)
+        return result
+
     def mark_blocked(self, *, now_ms: int) -> None:
         if not _is_non_negative_int(now_ms):
             raise DataQueuePolicyError("now_ms must be a non-negative integer")
@@ -395,6 +486,7 @@ class BoundedSfuBroadcastDataQueue:
 
     def reset_after_reconnect(self) -> None:
         self._entries.clear()
+        self._receipts.clear()
         self._blocked_since_ms = None
         self._disconnected = False
 
@@ -548,6 +640,8 @@ class BoundedSfuBroadcastDataQueue:
 
     def _disconnect(self) -> None:
         self._entries.clear()
+        self._receipts.clear()
+        self._blocked_since_ms = None
         self._disconnected = True
 
 

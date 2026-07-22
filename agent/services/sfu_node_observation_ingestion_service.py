@@ -252,7 +252,6 @@ class SfuNodeObservationIngestionService:
         node_id = str(node_id_raw) if node_id_raw is not None else None
         fencing_token = int(document["fencing_token"])
 
-        node = self._load_and_fence_node(document, node_id, fencing_token)
         try:
             acceptance = self._cursors.accept_observation(
                 tenant_id=str(document["tenant_id"]),
@@ -277,19 +276,8 @@ class SfuNodeObservationIngestionService:
         except SfuNodeObservationCursorError as exc:
             raise _cursor_error(exc) from exc
 
-        if node is None or acceptance.status == "accepted_reordered":
-            return SfuNodeObservationResult(
-                status=acceptance.status,
-                observation_id=acceptance.observation_id,
-                normalized_observation=acceptance.normalized_observation,
-                node=node,
-            )
         if acceptance.status == "duplicate" and acceptance.applied_node_version is not None:
-            current = self._nodes.get_node(
-                tenant_id=node.tenant_id,
-                cluster_id=node.cluster_id,
-                node_id=node.node_id,
-            )
+            current = self._load_node(document, node_id)
             return SfuNodeObservationResult(
                 status="duplicate",
                 observation_id=acceptance.observation_id,
@@ -297,6 +285,14 @@ class SfuNodeObservationIngestionService:
                 node=current,
             )
 
+        node = self._load_and_fence_node(document, node_id, fencing_token)
+        if node is None or acceptance.status == "accepted_reordered":
+            return SfuNodeObservationResult(
+                status=acceptance.status,
+                observation_id=acceptance.observation_id,
+                normalized_observation=acceptance.normalized_observation,
+                node=node,
+            )
         observation_id = f"sfu-observation:{acceptance.observation_id}"
         current = self._nodes.get_node(
             tenant_id=node.tenant_id,
@@ -405,14 +401,7 @@ class SfuNodeObservationIngestionService:
             if fencing_token != 0 or int(document["node_version"]) != 0:
                 raise SfuNodeObservationError("sfu_observation_cluster_fence_invalid")
             return None
-        try:
-            node = self._nodes.get_node(
-                tenant_id=str(document["tenant_id"]),
-                cluster_id=str(document["cluster_id"]),
-                node_id=node_id,
-            )
-        except SfuNodeRepositoryError as exc:
-            raise _node_error(exc) from exc
+        node = self._load_node(document, node_id)
         if node is None:
             raise SfuNodeObservationError("sfu_observation_node_not_found", status_code=404)
         if node.revoked:
@@ -424,6 +413,22 @@ class SfuNodeObservationIngestionService:
         if int(document["node_version"]) != node.version:
             raise SfuNodeObservationError("sfu_observation_node_version_conflict", status_code=409)
         return node
+
+    def _load_node(
+        self,
+        document: Mapping[str, object],
+        node_id: str | None,
+    ) -> SfuNodeRecord | None:
+        if node_id is None:
+            return None
+        try:
+            return self._nodes.get_node(
+                tenant_id=str(document["tenant_id"]),
+                cluster_id=str(document["cluster_id"]),
+                node_id=node_id,
+            )
+        except SfuNodeRepositoryError as exc:
+            raise _node_error(exc) from exc
 
 
 def build_sfu_node_observation_validator(*, clock=time.time) -> SfuBroadcastContractValidator:
