@@ -49,6 +49,11 @@ interface CorpusContract {
 interface CorpusManifest {
   readonly contracts: readonly CorpusContract[];
   readonly known_blockers: readonly Readonly<{ disposition: string; code: string }>[];
+  readonly structural_parity_cases: readonly Readonly<{
+    id: string;
+    raw_document: string;
+    expected_code: string;
+  }>[];
 }
 
 const corpus = corpusSource as unknown as CorpusManifest;
@@ -80,9 +85,8 @@ const MAXIMUM_FIXTURES: Readonly<Record<SfuBroadcastContractId, unknown>> = {
 describe('SfuBroadcastContractValidatorService', () => {
   const validator = new SfuBroadcastContractValidatorService();
 
-  it('matches every accept/reject reason in the shared corpus, including CON002 fail-closed vectors', () => {
-    expect(corpus.known_blockers).toHaveLength(6);
-    expect(corpus.known_blockers.every(item => item.disposition === 'expected_fail_closed' && item.code === 'receiver_group_member_digest_mismatch')).toBe(true);
+  it('matches every accept/reject reason in the shared corpus after resolving CON002 fixtures', () => {
+    expect(corpus.known_blockers).toEqual([]);
 
     for (const contract of corpus.contracts) {
       for (const [category, corpusCase] of Object.entries(contract.cases)) {
@@ -122,6 +126,24 @@ describe('SfuBroadcastContractValidatorService', () => {
     }
   });
 
+  it('rejects every raw structural parity case before schema and trust', () => {
+    const wrapper = fixture('ananta.receiver-quality-observation.v1', false);
+    for (const corpusCase of corpus.structural_parity_cases) {
+      const result = validator.validate(
+        'ananta.receiver-quality-observation.v1',
+        corpusCase.raw_document,
+        contextFor(
+          'ananta.receiver-quality-observation.v1',
+          wrapper.document,
+          wrapper.validationContext,
+          true,
+        ),
+      );
+      expect(result.valid, corpusCase.id).toBe(false);
+      expect(result.reasonCode, corpusCase.id).toBe(corpusCase.expected_code);
+    }
+  });
+
   it.each([
     ['prototype pollution', '{"__proto__":{"polluted":true}}', 'contract_dangerous_property'],
     ['non-NFC value', JSON.stringify({ value: 'e\u0301' }), 'contract_unicode_normalization_invalid'],
@@ -153,11 +175,61 @@ describe('SfuBroadcastContractValidatorService', () => {
 });
 
 function fixture(contractId: SfuBroadcastContractId, maximum: boolean): FixtureWrapper {
-  const raw = (maximum ? MAXIMUM_FIXTURES : BASE_FIXTURES)[contractId];
+  const source = (maximum ? MAXIMUM_FIXTURES : BASE_FIXTURES)[contractId];
+  const raw = maximum ? materializeFixture(contractId, source) : source;
   const wrapper = record(raw);
   const document = contractId === 'sfu_node_observation.v1' ? record(wrapper['document']) : record(wrapper['instance']);
   const validationContext = contractId === 'sfu_node_observation.v1' ? record(wrapper['context']) : record(wrapper['validation_context']);
   return { document, validationContext };
+}
+
+function materializeFixture(contractId: SfuBroadcastContractId, source: unknown): unknown {
+  const descriptor = record(source);
+  if (!('base_fixture' in descriptor)) return source;
+  const wrapper = clone(record(BASE_FIXTURES[contractId]));
+  applyFixtureMutations(wrapper, descriptor['mutations'], 'instance');
+  applyFixtureMutations(wrapper, descriptor['context_mutations'], 'validation_context');
+  return wrapper;
+}
+
+function applyFixtureMutations(
+  wrapper: SfuBroadcastJsonObject,
+  source: unknown,
+  defaultTarget: 'instance' | 'validation_context',
+): void {
+  if (source === undefined) return;
+  for (const rawMutation of array(source)) {
+    const mutation = record(rawMutation);
+    if (mutation['operation'] !== 'replace') throw new Error('fixture_mutation_operation_unsupported');
+    const pointerValue = string(mutation['json_pointer']);
+    const explicitTarget = mutation['target'];
+    const target = typeof explicitTarget === 'string'
+      ? record(wrapper[explicitTarget])
+      : pointerValue.startsWith('/instance/') || pointerValue.startsWith('/validation_context/')
+        ? wrapper
+        : record(wrapper[defaultTarget]);
+    replaceFixturePointer(target, pointerValue, mutation['value']);
+  }
+}
+
+function replaceFixturePointer(root: SfuBroadcastJsonObject, path: string, value: unknown): void {
+  const segments = path.slice(1).split('/').map(segment => segment.replace(/~1/g, '/').replace(/~0/g, '~'));
+  let cursor: unknown = root;
+  for (const segment of segments.slice(0, -1)) {
+    if (!cursor || typeof cursor !== 'object') {
+      throw new Error(`fixture_mutation_pointer_missing:${path}:${segment}`);
+    }
+    cursor = Array.isArray(cursor)
+      ? cursor[Number(segment)]
+      : record(cursor)[segment];
+  }
+  const key = segments.at(-1);
+  if (key === undefined) throw new Error('fixture_mutation_pointer_invalid');
+  if (!cursor || typeof cursor !== 'object') {
+    throw new Error(`fixture_mutation_pointer_missing:${path}:${key}`);
+  }
+  if (Array.isArray(cursor)) cursor[Number(key)] = value;
+  else (record(cursor) as Record<string, unknown>)[key] = value;
 }
 
 function contextFor(
@@ -179,6 +251,20 @@ function contextFor(
     acceptedSequences: new Set<number>(),
     lastSequence: null,
     metadata: fixtureContext,
+    verifyReceiverGroupMemberDigest: request => {
+      const keys = fixtureContext['test_only_hmac_keys_hex'];
+      if (!keys || typeof keys !== 'object' || Array.isArray(keys)) return false;
+      const keyHex = (keys as Readonly<Record<string, unknown>>)[request.keyRef];
+      if (typeof keyHex !== 'string') return false;
+      const expected = createHmac('sha256', Buffer.from(keyHex, 'hex'))
+        .update(Buffer.concat([
+          Buffer.from('ananta.webrtc.receiver-group.member-digest.v1'),
+          Buffer.from([0]),
+          Buffer.from(canonical(request.digestInput)),
+        ]))
+        .digest('hex');
+      return expected === request.supplied;
+    },
     verifySignature: () => trusted,
   };
 }

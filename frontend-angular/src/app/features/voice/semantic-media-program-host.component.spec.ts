@@ -103,6 +103,7 @@ function hostView(): SemanticMediaProgramHostView {
     ordinaryMediaReason: 'ordinary_media_ready',
     ordinaryAudioState: { status: 'idle', trackId: null, deviceLabelVisible: false, reasonCode: null },
     ordinaryMediaPublications: [],
+    sfuRemoteVideos: [],
     speechTransportState: 'stopped', speechTransportReason: 'not_started', speechTransportCanStart: false,
     speechSettings: {
       displayMode: 'segment', segmentDurationSeconds: 30, correctEachSegment: true,

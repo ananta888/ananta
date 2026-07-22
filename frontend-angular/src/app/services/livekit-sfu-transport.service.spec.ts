@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SFU_ROOM_SESSION_FACTORY } from './sfu-room-session.factory';
+import { SfuBroadcastPublicationControllerService } from './sfu-broadcast-publication-controller.service';
 import type {
   SfuOpaqueDataPacket,
   SfuPublishedTrack,
@@ -14,6 +15,7 @@ import { LivekitSfuTransportService, type SfuClientAdmission } from './livekit-s
 
 class FakeSession implements SfuRoomSession {
   readonly cleanupOrder: string[] = [];
+  readonly releaseFailures = new Set<string>();
   readonly connect = vi.fn(async () => undefined);
   readonly destroy = vi.fn(async () => { this.cleanupOrder.push('destroy'); });
   readonly rotateKey = vi.fn(async () => undefined);
@@ -95,6 +97,7 @@ class FakeSession implements SfuRoomSession {
       active = false;
       clear();
       this.cleanupOrder.push(`release:${label}`);
+      if (this.releaseFailures.has(label)) throw new Error(`release-${label}-failed`);
     };
   }
 }
@@ -130,14 +133,25 @@ describe('LivekitSfuTransportService', () => {
   let session: FakeSession;
   let service: LivekitSfuTransportService;
   let factory: SfuRoomSessionFactory;
+  let projectionPublications: {
+    apply: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn>; stopAll: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     session = new FakeSession();
     factory = { create: vi.fn(async () => session) };
+    projectionPublications = {
+      apply: vi.fn(async (_port: unknown, contract: any, mediaTrack: MediaStreamTrack) => ({
+        publicationId: contract.document.publication_ref, trackSid: 'TR_PROJECTED', track: mediaTrack,
+      })),
+      stop: vi.fn(async () => false),
+      stopAll: vi.fn(async () => undefined),
+    };
     TestBed.configureTestingModule({
       providers: [
         LivekitSfuTransportService,
         { provide: SFU_ROOM_SESSION_FACTORY, useValue: factory },
+        { provide: SfuBroadcastPublicationControllerService, useValue: projectionPublications },
       ],
     });
     service = TestBed.inject(LivekitSfuTransportService);
@@ -181,6 +195,15 @@ describe('LivekitSfuTransportService', () => {
     expect(service.authorizedSubscriberIds()).toEqual(new Set());
     session.localSubscribedCallback?.('camera-alice');
     expect(service.authorizedSubscriberIds()).toEqual(new Set());
+  });
+
+  it('indexes projected publications in the common audience and lifecycle state', async () => {
+    await service.connect(admission(), new Uint8Array(32), 'supported', 1_000);
+    await service.publishProjected({ document: { publication_ref: 'camera-alice' } } as never, track('video'));
+
+    const audience = session.setTrackAudience.mock.calls.at(-1)?.[0] as Map<string, readonly string[]>;
+    expect(audience.get('TR_PROJECTED')).toEqual(['bob', 'carol']);
+    expect(service.state$.value.publicationCount).toBe(1);
   });
 
   it('confirms a singleton receiver only after a real subscription event', async () => {
@@ -258,4 +281,64 @@ describe('LivekitSfuTransportService', () => {
     expect(session.cleanupOrder.at(-1)).toBe('destroy');
     expect(session.destroy).toHaveBeenCalledOnce();
   });
+
+  it('expires an admission with generation-bound session cleanup', async () => {
+    vi.useFakeTimers();
+    try {
+      await service.connect(admission(1_001), new Uint8Array(32), 'supported', 1_000);
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(session.destroy).toHaveBeenCalledOnce();
+      expect(service.state$.value).toMatchObject({ status: 'idle', reasonCode: 'sfu_admission_expired' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not let a slower connect replace a newer session', async () => {
+    const older = new FakeSession();
+    const newer = new FakeSession();
+    const gate = deferred<void>();
+    older.connect.mockImplementation(() => gate.promise);
+    vi.mocked(factory.create)
+      .mockReset()
+      .mockResolvedValueOnce(older)
+      .mockResolvedValueOnce(newer);
+
+    const first = service.connect(admission(), new Uint8Array(32), 'supported', 1_000);
+    await Promise.resolve();
+    await Promise.resolve();
+    const second = service.connect(admission(), new Uint8Array(32), 'supported', 1_000);
+    await expect(second).resolves.toBe('sfu');
+    gate.resolve();
+    await expect(first).resolves.toBe('ordinary');
+
+    expect(older.destroy).toHaveBeenCalledOnce();
+    expect(newer.destroy).not.toHaveBeenCalled();
+    expect(service.state$.value.status).toBe('connected');
+  });
+
+  it('disconnects fail-closed when key rotation fails', async () => {
+    await service.connect(admission(), new Uint8Array(32), 'supported', 1_000);
+    session.rotateKey.mockRejectedValueOnce(new Error('rotation failed'));
+
+    await expect(service.rotateKey(8, new Uint8Array(32))).rejects.toThrow('sfu_rekey_failed');
+    expect(session.destroy).toHaveBeenCalledOnce();
+    expect(service.state$.value).toMatchObject({ status: 'idle', reasonCode: 'sfu_rekey_failed' });
+  });
+
+  it('continues session destruction when one listener release throws', async () => {
+    await service.connect(admission(), new Uint8Array(32), 'supported', 1_000);
+    session.releaseFailures.add('data');
+
+    await expect(service.disconnect()).resolves.toBeUndefined();
+    expect(session.destroy).toHaveBeenCalledOnce();
+    expect(session.cleanupOrder).toContain('release:remote-publication');
+  });
 });
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>(next => { resolve = next; });
+  return { promise, resolve };
+}

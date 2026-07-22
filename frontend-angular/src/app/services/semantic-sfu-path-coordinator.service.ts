@@ -391,7 +391,7 @@ export class SemanticSfuPathCoordinatorService implements OnDestroy {
       if (!['active', 'muted'].includes(this.media.audioState$.value.status)) await this.media.requestMicrophone();
       clone = this.media.cloneActiveMicrophoneTrack();
       const state = await firstValueFrom(this.api.state(context.hubUrl, context.sessionId, context.membershipEpoch));
-      this.participantCaps.enforceReceiverCount(state.roomId, receiverIds.length);
+      this.participantCaps.enforceReceiverCountIfResolved(state.roomId, receiverIds.length);
       this.assertCurrent(context, generation);
       const joined = await firstValueFrom(this.api.join(
         context.hubUrl, this.mutation(context, state.revision, 'group-join'), true,

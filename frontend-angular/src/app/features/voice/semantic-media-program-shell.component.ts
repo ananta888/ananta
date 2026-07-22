@@ -27,6 +27,8 @@ import {
 import { SpeechReconciliationPanelComponent } from './speech-reconciliation-panel.component';
 import { SpeechEvidenceConsentPanelComponent } from './speech-evidence-consent-panel.component';
 import { SemanticRemoteAudioComponent } from './semantic-remote-audio.component';
+import { SemanticRemoteVideoComponent } from './semantic-remote-video.component';
+import type { SfuRemoteVideoView } from '../../services/sfu-broadcast-video-render.facade';
 import {
   SpeechEvidenceConsentIntent,
   SpeechEvidenceConsentPanelState,
@@ -118,6 +120,7 @@ const SENSITIVE = new Set<SemanticProgramCapability>([
     SemanticSpeechPanelComponent,
     SpeechEvidenceConsentPanelComponent,
     SemanticRemoteAudioComponent,
+    SemanticRemoteVideoComponent,
     SpeechReconciliationPanelComponent,
     SemanticDebugHostComponent,
     WebrtcMediaPanelComponent,
@@ -159,6 +162,12 @@ export class SemanticMediaProgramShellComponent {
     status: 'idle', trackId: null, deviceLabelVisible: false, reasonCode: null,
   };
   @Input() ordinaryMediaPublications: readonly MediaPublicationView[] = [];
+  private sfuVideoRows: readonly SfuRemoteVideoView[] = Object.freeze([]);
+  @Input()
+  set sfuRemoteVideos(value: readonly SfuRemoteVideoView[] | null | undefined) {
+    this.sfuVideoRows = Object.freeze([...(value ?? [])]);
+  }
+  get sfuRemoteVideos(): readonly SfuRemoteVideoView[] { return this.sfuVideoRows; }
   @Input() speechTransportState: SemanticSpeechTransportState = 'stopped';
   @Input() speechTransportReason = 'semantic_speech_not_started';
   @Input() speechTransportCanStart = false;

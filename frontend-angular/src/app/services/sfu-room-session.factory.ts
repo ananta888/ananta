@@ -25,8 +25,11 @@ export const SFU_ROOM_SESSION_FACTORY = new InjectionToken<SfuRoomSessionFactory
 );
 
 export class LivekitSfuRoomSessionFactory implements SfuRoomSessionFactory {
-  create(keyMaterial: Uint8Array): Promise<SfuRoomSession> {
-    return createLivekitSfuRoomSession(keyMaterial);
+  create(
+    keyMaterial: Uint8Array,
+    options?: Readonly<{ layerControlMode: 'adaptive_stream' | 'manual_quality' }>,
+  ): Promise<SfuRoomSession> {
+    return createLivekitSfuRoomSession(keyMaterial, options);
   }
 }
 
@@ -97,8 +100,13 @@ export class LegacySfuRoomFacade implements SfuRoomPort {
     return this.session.publications.unpublish(publication);
   }
 
-  publishOpaqueData(payload: Uint8Array, topic: string, destinationIds: readonly string[]): Promise<void> {
-    return this.session.data.publishOpaqueData(payload, topic, destinationIds);
+  publishOpaqueData(
+    payload: Uint8Array,
+    topic: string,
+    destinationIds: readonly string[],
+    options?: Readonly<{ reliable: boolean }>,
+  ): Promise<void> {
+    return this.session.data.publishOpaqueData(payload, topic, destinationIds, options);
   }
 
   denySubscriptionsByDefault(): void { this.session.publications.denySubscriptionsByDefault(); }
@@ -116,39 +124,49 @@ export class LegacySfuRoomFacade implements SfuRoomPort {
   }
 
   attachRemoteTrack(track: SfuRemoteTrack, target: HTMLMediaElement): SfuRelease {
-    return this.session.videoRender.attachRemoteTrack(track, target);
+    return onceRelease(this.session.videoRender.attachRemoteTrack(track, target));
   }
 
   clear(): void { this.session.videoRender.clear(); }
 
   onRemotePublication(callback: (publication: LegacySfuRemotePublication) => void): SfuRelease {
-    return this.session.events.onRemotePublication(publication => callback(Object.freeze({
+    return onceRelease(this.session.events.onRemotePublication(publication => callback(Object.freeze({
       ...publication,
       setSubscribed: (value: boolean) => {
         this.session.subscriptions.setRemotePublicationSubscribed(publication.publicationId, value);
       },
-    })));
+    }))));
   }
 
   onRemoteTrackSubscribed(callback: (track: SfuRemoteTrack) => void): SfuRelease {
-    return this.session.events.onRemoteTrackSubscribed(callback);
+    return onceRelease(this.session.events.onRemoteTrackSubscribed(callback));
   }
 
   onLocalTrackSubscribed(callback: (publicationId: string) => void): SfuRelease {
-    return this.session.events.onLocalTrackSubscribed(callback);
+    return onceRelease(this.session.events.onLocalTrackSubscribed(callback));
   }
 
   onRemoteParticipantDisconnected(callback: (participantId: string) => void): SfuRelease {
-    return this.session.events.onRemoteParticipantDisconnected(callback);
+    return onceRelease(this.session.events.onRemoteParticipantDisconnected(callback));
   }
 
   onOpaqueDataReceived(callback: (packet: SfuOpaqueDataPacket) => void): SfuRelease {
-    return this.session.events.onOpaqueDataReceived(callback);
+    return onceRelease(this.session.data.onOpaqueDataReceived?.(callback)
+      ?? this.session.events.onOpaqueDataReceived(callback));
   }
 
   onDisconnected(callback: () => void): SfuRelease {
-    return this.session.events.onDisconnected(callback);
+    return onceRelease(this.session.events.onDisconnected(callback));
   }
+}
+
+function onceRelease(release: SfuRelease): SfuRelease {
+  let active = true;
+  return () => {
+    if (!active) return;
+    active = false;
+    release();
+  };
 }
 
 /** @deprecated Existing integrations should migrate to SFU_ROOM_SESSION_FACTORY. */

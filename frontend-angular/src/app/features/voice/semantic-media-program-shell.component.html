@@ -107,6 +107,14 @@
 
   <app-semantic-remote-audio />
 
+  @if (sfuRemoteVideos.length) {
+    <section class="sfu-video-grid" aria-label="Autorisierte SFU-Videos">
+      @for (video of sfuRemoteVideos; track video.handle.handleId) {
+        <app-semantic-remote-video [view]="video" />
+      }
+    </section>
+  }
+
   <app-speech-evidence-consent-panel
     [state]="evidenceConsentState"
     (intent)="evidenceConsentIntent.emit($event)" />

@@ -107,6 +107,15 @@ describe('SemanticSpeechTransportService', () => {
       .rejects.toThrow('semantic_speech_send_direction_invalid');
   });
 
+  it('blocks TURN-disallowed speech classes before encryption or queue allocation', async () => {
+    service.applyTurnAllowedClasses(new Set(['control', 'key']));
+
+    await expect(service.send(payload('transcript_revision')))
+      .rejects.toThrow('turn_degradation_traffic_class_blocked');
+    expect(cryptoPort.seal).not.toHaveBeenCalled();
+    expect(service.snapshot()).toEqual({ pendingMessages: 0, pendingBytes: 0, timers: 0 });
+  });
+
   it('invalidates an in-flight seal when the session is stopped', async () => {
     let releaseSeal: ((message: SemanticDataChannelMessage) => void) | null = null;
     vi.mocked(cryptoPort.seal).mockImplementationOnce(() => new Promise(resolve => { releaseSeal = resolve; }));

@@ -6,6 +6,10 @@ import {
   SFU_TRANSPORT_PROJECTION,
   type SfuTransportProjectionPort,
 } from '../../services/livekit-sfu-transport.service';
+import {
+  SfuBroadcastVideoRenderFacade,
+  type SfuRemoteVideoView,
+} from '../../services/sfu-broadcast-video-render.facade';
 import { MobileRuntimeService } from '../../services/mobile-runtime.service';
 import { NetworkProfile, NetworkProfileService } from '../../services/network-profile.service';
 import {
@@ -82,6 +86,7 @@ export interface SemanticMediaProgramHostView {
   readonly ordinaryMediaReason: string;
   readonly ordinaryAudioState: OrdinaryAudioState;
   readonly ordinaryMediaPublications: readonly MediaPublicationView[];
+  readonly sfuRemoteVideos: readonly SfuRemoteVideoView[];
   readonly speechTransportState: SemanticSpeechTransportState;
   readonly speechTransportReason: string;
   readonly speechTransportCanStart: boolean;
@@ -136,6 +141,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private readonly receiverPaths = inject(SemanticReceiverPathService);
   private readonly sfu: SfuTransportProjectionPort = inject(SFU_TRANSPORT_PROJECTION);
   private readonly sfuCoordinator = inject(SemanticSfuPathCoordinatorService);
+  private readonly sfuVideo = inject(SfuBroadcastVideoRenderFacade);
   private readonly media = inject(WebrtcMediaSessionService);
   private readonly mediaPublications = inject(WebrtcMediaPublicationService);
   private readonly mobileRuntime = inject(MobileRuntimeService);
@@ -150,6 +156,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private receiverRows: readonly SemanticReceiverPathView[] = Object.freeze([]);
   private ordinaryAudioState: OrdinaryAudioState = this.media.audioState$.value;
   private ordinaryPublications: readonly MediaPublicationView[] = this.mediaPublications.publications$.value;
+  private sfuRemoteVideos: readonly SfuRemoteVideoView[] = Object.freeze([]);
   private ordinaryMediaOperationReason = 'ordinary_media_not_started';
   private speechState: SemanticSpeechTransportState = 'stopped';
   private speechReason = 'semantic_speech_not_started';
@@ -224,6 +231,10 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     }));
     this.subscriptions.add(this.sfu.state$.subscribe(() => {
       this.syncReceiverPaths();
+      this.emit();
+    }));
+    this.subscriptions.add(this.sfuVideo.videos$.subscribe(rows => {
+      this.sfuRemoteVideos = rows;
       this.emit();
     }));
     this.subscriptions.add(this.compute.state$.subscribe(state => {
@@ -638,6 +649,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     this.evidenceFlow.clear();
     this.consent.bind(null);
     this.sfuCoordinator.bind(null);
+    this.sfuVideo.clear();
     this.media.stopAudio('ordinary_media_session_ended');
     this.mediaPublications.stopAll('ordinary_media_session_ended', true);
     this.compute.bind(null);
@@ -724,6 +736,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       ordinaryMediaReason: this.ordinaryCaptureReason(),
       ordinaryAudioState: this.ordinaryAudioState,
       ordinaryMediaPublications: this.ordinaryPublications,
+      sfuRemoteVideos: this.sfuRemoteVideos,
       speechTransportState: this.speechState,
       speechTransportReason: this.speechReason,
       speechTransportCanStart: this.canStartSpeech(),
@@ -957,9 +970,12 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   }
 
   private ordinaryMediaActive(): boolean {
+    const sfuState = typeof this.sfu.currentState === 'function'
+      ? this.sfu.currentState()
+      : (this.sfu.state$ as unknown as { readonly value?: { readonly status?: string } }).value;
     return this.transport.mode$.value === 'webrtc'
       && (['active', 'muted'].includes(this.media.audioState$.value.status)
-        || this.sfu.state$.value.status === 'connected');
+        || sfuState?.status === 'connected');
   }
 
   private ordinaryCaptureAllowed(video: boolean): boolean {

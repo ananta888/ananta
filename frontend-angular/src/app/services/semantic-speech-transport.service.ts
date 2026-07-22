@@ -45,6 +45,8 @@ export interface SemanticSpeechTransportContext {
   contractDigest: string;
 }
 
+export type SemanticSpeechTurnAllowedClass = 'control' | 'key' | 'transcript' | 'media';
+
 const MAX_PENDING_MESSAGES = 256;
 const MAX_PENDING_BYTES = 4 * 1024 * 1024;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
@@ -59,6 +61,7 @@ export class SemanticSpeechTransportService {
   private generation = 0;
   private pendingMessages = 0;
   private pendingBytes = 0;
+  private turnAllowedClasses: ReadonlySet<SemanticSpeechTurnAllowedClass> | null = null;
   readonly payload$ = new Subject<SemanticSpeechPayload>();
   readonly pressure$ = new BehaviorSubject<Readonly<{
     pendingMessages: number; pendingBytes: number; timers: number;
@@ -84,7 +87,16 @@ export class SemanticSpeechTransportService {
     this.context = null;
     this.pendingMessages = 0;
     this.pendingBytes = 0;
+    this.turnAllowedClasses = null;
     this.publishPressure();
+  }
+
+  applyTurnAllowedClasses(classes: ReadonlySet<SemanticSpeechTurnAllowedClass>): void {
+    const allowed = new Set<SemanticSpeechTurnAllowedClass>(['control', 'key', 'transcript', 'media']);
+    if ([...classes].some(value => !allowed.has(value))) {
+      throw new Error('turn_degradation_allowed_classes_invalid');
+    }
+    this.turnAllowedClasses = new Set(classes);
   }
 
   async send(
@@ -97,12 +109,15 @@ export class SemanticSpeechTransportService {
     if (payload.sender_id !== context.localPeerId || payload.audience_id !== context.remotePeerId) {
       throw new Error('semantic_speech_send_direction_invalid');
     }
+    const trafficClass = trafficClassForSpeech(payload.kind);
+    if (!this.isTurnTrafficAllowed(trafficClass)) {
+      throw new Error('turn_degradation_traffic_class_blocked');
+    }
     const encoded = new TextEncoder().encode(JSON.stringify(payload));
     if (
       this.pendingMessages + 1 > MAX_PENDING_MESSAGES
       || this.pendingBytes + encoded.byteLength > MAX_PENDING_BYTES
     ) throw new Error('semantic_speech_queue_full');
-    const trafficClass = trafficClassForSpeech(payload.kind);
     this.pendingMessages += 1;
     this.pendingBytes += encoded.byteLength;
     this.publishPressure();
@@ -127,7 +142,11 @@ export class SemanticSpeechTransportService {
   private async receive(message: SemanticDataChannelMessage): Promise<void> {
     const context = this.context;
     const generation = this.generation;
-    if (!context || !['control', 'transcript', 'audio_recovery'].includes(message.traffic_class)) return;
+    if (
+      !context
+      || !['control', 'transcript', 'audio_recovery'].includes(message.traffic_class)
+      || !this.isTurnTrafficAllowed(message.traffic_class)
+    ) return;
     try {
       const opened = await this.cryptoPort.open(message);
       if (generation !== this.generation || this.context !== context) return;
@@ -162,6 +181,14 @@ export class SemanticSpeechTransportService {
     this.pendingMessages = Math.max(0, this.pendingMessages - 1);
     this.pendingBytes = Math.max(0, this.pendingBytes - bytes);
     this.publishPressure();
+  }
+
+  private isTurnTrafficAllowed(trafficClass: SemanticTrafficClass): boolean {
+    if (this.turnAllowedClasses === null) return true;
+    if (trafficClass === 'control') return this.turnAllowedClasses.has('control');
+    if (trafficClass === 'transcript') return this.turnAllowedClasses.has('transcript');
+    if (trafficClass === 'audio_recovery') return this.turnAllowedClasses.has('media');
+    return false;
   }
 
   private publishPressure(): void { this.pressure$.next(this.snapshot()); }

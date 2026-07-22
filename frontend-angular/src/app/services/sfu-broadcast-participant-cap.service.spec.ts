@@ -46,6 +46,15 @@ describe('SfuBroadcastParticipantCapService', () => {
       .toThrowError('capacity_profile_config_drift');
   });
 
+  it('allows legacy responses without a profile and strictly enforces resolved profiles', () => {
+    const service = new SfuBroadcastParticipantCapService();
+    expect(() => service.enforceReceiverCountIfResolved(ROOM, 250)).not.toThrow();
+    service.install(contract());
+    expect(() => service.enforceReceiverCountIfResolved(ROOM, 7)).not.toThrow();
+    expect(() => service.enforceReceiverCountIfResolved(ROOM, 8))
+      .toThrowError('capacity_cap_exceeded');
+  });
+
   it('accepts an approved candidate and only a newer explicit rollback', () => {
     const service = new SfuBroadcastParticipantCapService();
     service.install(contract({

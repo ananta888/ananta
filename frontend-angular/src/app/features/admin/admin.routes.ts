@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { adminGuard } from '../../guards/admin.guard';
+import { sfuBroadcastOperatorGuard } from '../../guards/sfu-broadcast-operator.guard';
 import { routeDataFor } from '../../models/route-metadata';
 
 export const adminRoutes: Routes = [
@@ -26,5 +27,11 @@ export const adminRoutes: Routes = [
     canActivate: [adminGuard],
     data: routeDataFor('role-audit'),
     loadComponent: () => import('./role-audit.component').then(m => m.RoleAuditComponent),
+  },
+  {
+    path: 'sfu-broadcast-operations',
+    canActivate: [sfuBroadcastOperatorGuard],
+    data: routeDataFor('sfu-broadcast-operations'),
+    loadComponent: () => import('./sfu-broadcast-operator.component').then(m => m.SfuBroadcastOperatorComponent),
   },
 ];

@@ -1,0 +1,22 @@
+<figure [attr.data-source]="view.handle.source" [attr.data-status]="status">
+  <div class="media-frame">
+    <video
+      #video
+      autoplay
+      playsinline
+      [muted]="false"
+      [attr.aria-label]="view.accessibleName">
+    </video>
+    @if (status !== 'playing' || view.state === 'muted') {
+      <div class="fallback" role="status">
+        <strong>{{ view.accessibleName }}</strong>
+        <span>{{ statusLabel }}</span>
+      </div>
+    }
+  </div>
+  <figcaption>
+    <span>{{ view.accessibleName }}</span>
+    <span class="status-mark" aria-hidden="true"></span>
+    <span>{{ statusLabel }}</span>
+  </figcaption>
+</figure>

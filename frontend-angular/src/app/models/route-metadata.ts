@@ -8,6 +8,7 @@ export interface AppRouteMeta {
   adminOnly?: boolean;
   simpleNav?: boolean;
   expertOnly?: boolean;
+  roles?: readonly string[];
 }
 
 export interface AppNavItem extends AppRouteMeta {
@@ -54,6 +55,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   'user-management': { label: 'Benutzerverwaltung', area: 'System', navGroup: 'Konfiguration', navOrder: 31, adminOnly: true, expertOnly: true },
   'admin-diagnostics': { label: 'Admin-Diagnose', area: 'System', navGroup: 'Konfiguration', navOrder: 32, adminOnly: true, expertOnly: true },
   'role-audit': { label: 'Rollenänderungen', area: 'System', navGroup: 'Konfiguration', navOrder: 33, adminOnly: true, expertOnly: true },
+  'sfu-broadcast-operations': { label: 'SFU Broadcast', area: 'System', navGroup: 'Konfiguration', navOrder: 34, roles: ['admin', 'operator'], expertOnly: true },
   settings: { label: 'Einstellungen', area: 'System', navGroup: 'Konfiguration', navOrder: 40, expertOnly: true },
   panel: { label: 'Agent Panel', area: 'System' },
   task: { label: 'Task Details', area: 'Operate' },
@@ -81,6 +83,7 @@ export function buildNavGroups(role?: string | null, mode: AppShellMode = 'simpl
   for (const [path, meta] of Object.entries(APP_ROUTE_META)) {
     if (!meta.navGroup) continue;
     if (meta.adminOnly && role !== 'admin') continue;
+    if (meta.roles && !meta.roles.includes(String(role || ''))) continue;
     if (mode === 'simple' && !meta.simpleNav) continue;
     const items = grouped.get(meta.navGroup) || [];
     items.push({ path: `/${path}`, ...meta });

@@ -11,6 +11,7 @@ import { identityRestoreInitializer } from './app/init/identity-restore.initiali
 import { AuthInterceptor } from './app/services/auth.interceptor';
 import { ErrorInterceptor } from './app/services/error.interceptor';
 import { GlobalErrorHandler } from './app/services/global-error-handler';
+import { provideSfuProjectionSignatureVerifier } from './app/services/sfu-projection-signature-verifier.service';
 
 /**
  * Shared application bootstrap. Production and the explicit live-E2E entry use
@@ -27,6 +28,7 @@ export function bootstrapAnantaApplication() {
       { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
       identityRestoreInitializer,
       authRequiredRouterInitializer,
+      provideSfuProjectionSignatureVerifier(),
     ],
   });
 }

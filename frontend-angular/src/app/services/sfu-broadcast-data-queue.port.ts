@@ -96,6 +96,23 @@ export interface SfuBroadcastDataQueueCleanupResult {
   readonly disconnectRequired: boolean;
 }
 
+export interface SfuBroadcastDataDeliveryFeedback {
+  readonly receiptId: string;
+  readonly messageId: string;
+  readonly destinationHandle: string;
+  readonly outcome: 'delivered' | 'dropped' | 'unknown';
+  readonly observedAtMs: number;
+  readonly publishedWireBytes?: number;
+}
+
+export interface SfuBroadcastDataDeliveryFeedbackResult {
+  readonly accepted: boolean;
+  readonly reasonCode: string;
+  readonly messageRemoved: boolean;
+  readonly duplicate: boolean;
+  readonly retryable: boolean;
+}
+
 export interface SfuBroadcastDataQueueSnapshot {
   readonly queueBytes: number;
   readonly messages: number;
@@ -115,6 +132,10 @@ export interface SfuBroadcastDataQueuePort {
     nowMs: number,
   ): SfuBroadcastDataQueueDecision;
   cleanup(nowMs: number): SfuBroadcastDataQueueCleanupResult;
+  acknowledgeDelivery?(
+    feedback: SfuBroadcastDataDeliveryFeedback,
+    nowMs: number,
+  ): SfuBroadcastDataDeliveryFeedbackResult;
   markBlocked(nowMs: number): void;
   markWritable(): void;
   resetAfterReconnect(): void;

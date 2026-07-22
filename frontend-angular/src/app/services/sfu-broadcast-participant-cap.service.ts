@@ -57,6 +57,10 @@ export class SfuBroadcastParticipantCapService {
     if (this.hasProfile(roomId)) this.enforceParticipantCount(roomId, count);
   }
 
+  enforceReceiverCountIfResolved(roomId: string, count: number): void {
+    if (this.hasProfile(roomId)) this.enforceReceiverCount(roomId, count);
+  }
+
   enforceCurrentParticipantCountIfResolved(count: number): void {
     if (this.hasCurrentProfile()) this.enforceParticipantCount(this.currentRoomId!, count);
   }

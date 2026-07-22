@@ -25,6 +25,7 @@ export type SfuBroadcastReasonCode =
   | 'contract_string_bytes_exceeded'
   | 'contract_total_string_bytes_exceeded'
   | 'contract_json_invalid'
+  | 'contract_duplicate_json_key'
   | 'contract_root_object_required'
   | 'contract_dangerous_property'
   | 'contract_unicode_normalization_invalid'
@@ -42,6 +43,7 @@ export type SfuBroadcastReasonCode =
   | 'contract_scope_context_unavailable'
   | 'contract_cross_scope'
   | 'receiver_group_digest_context_unavailable'
+  | 'receiver_group_digest_verifier_unavailable'
   | 'receiver_group_member_digest_mismatch'
   | 'contract_signature_invalid';
 
@@ -52,7 +54,16 @@ export interface SfuBroadcastValidationContext {
   readonly acceptedSequences: ReadonlySet<number>;
   readonly lastSequence: number | null;
   readonly metadata: Readonly<Record<string, unknown>>;
+  readonly verifyReceiverGroupMemberDigest?: (
+    request: SfuBroadcastReceiverGroupDigestVerificationRequest,
+  ) => boolean;
   readonly verifySignature: (contractId: SfuBroadcastContractId, document: SfuBroadcastJsonObject) => boolean;
+}
+
+export interface SfuBroadcastReceiverGroupDigestVerificationRequest {
+  readonly digestInput: SfuBroadcastJsonObject;
+  readonly keyRef: string;
+  readonly supplied: string;
 }
 
 export type SfuBroadcastValidationResult =
@@ -174,6 +185,7 @@ function decodeBounded(rawDocument: string | Uint8Array): SfuBroadcastJsonObject
     text = typeof rawDocument === 'string'
       ? rawDocument
       : new TextDecoder('utf-8', { fatal: true }).decode(rawDocument);
+    if (containsDuplicateJsonKey(text)) return 'contract_duplicate_json_key';
     value = JSON.parse(text) as unknown;
   } catch {
     return 'contract_json_invalid';
@@ -213,6 +225,98 @@ function scanRaw(raw: Uint8Array): Exclude<SfuBroadcastReasonCode, 'ok'> | null 
     }
   }
   return null;
+}
+
+class DuplicateJsonKey extends Error {}
+
+function containsDuplicateJsonKey(text: string): boolean {
+  let index = 0;
+  const whitespace = () => {
+    while (index < text.length && /\s/.test(text[index])) index += 1;
+  };
+  const parseString = (): string => {
+    const start = index;
+    index += 1;
+    while (index < text.length) {
+      if (text[index] === '\\') {
+        index += 2;
+      } else if (text[index] === '"') {
+        index += 1;
+        return JSON.parse(text.slice(start, index)) as string;
+      } else {
+        index += 1;
+      }
+    }
+    throw new SyntaxError('unterminated JSON string');
+  };
+  const parseValue = (): void => {
+    whitespace();
+    if (text[index] === '{') {
+      parseObject();
+      return;
+    }
+    if (text[index] === '[') {
+      index += 1;
+      whitespace();
+      if (text[index] === ']') {
+        index += 1;
+        return;
+      }
+      while (index < text.length) {
+        parseValue();
+        whitespace();
+        if (text[index] === ']') {
+          index += 1;
+          return;
+        }
+        if (text[index] !== ',') throw new SyntaxError('invalid JSON array');
+        index += 1;
+      }
+      throw new SyntaxError('unterminated JSON array');
+    }
+    if (text[index] === '"') {
+      parseString();
+      return;
+    }
+    const start = index;
+    while (index < text.length && !/[\s,\]}]/.test(text[index])) index += 1;
+    if (start === index) throw new SyntaxError('invalid JSON value');
+  };
+  const parseObject = (): void => {
+    index += 1;
+    const keys = new Set<string>();
+    whitespace();
+    if (text[index] === '}') {
+      index += 1;
+      return;
+    }
+    while (index < text.length) {
+      whitespace();
+      if (text[index] !== '"') throw new SyntaxError('invalid JSON object key');
+      const key = parseString();
+      if (keys.has(key)) throw new DuplicateJsonKey();
+      keys.add(key);
+      whitespace();
+      if (text[index] !== ':') throw new SyntaxError('invalid JSON object');
+      index += 1;
+      parseValue();
+      whitespace();
+      if (text[index] === '}') {
+        index += 1;
+        return;
+      }
+      if (text[index] !== ',') throw new SyntaxError('invalid JSON object');
+      index += 1;
+    }
+    throw new SyntaxError('unterminated JSON object');
+  };
+  try {
+    whitespace();
+    parseValue();
+    return false;
+  } catch (error) {
+    return error instanceof DuplicateJsonKey;
+  }
 }
 
 function inspectDecoded(root: SfuBroadcastJsonObject): Exclude<SfuBroadcastReasonCode, 'ok'> | null {
@@ -469,15 +573,23 @@ function validateSemantics(
   if (expiry === null || !Number.isSafeInteger(context.nowEpochMs)) return 'contract_expiry_unavailable';
   if (context.nowEpochMs >= expiry) return 'contract_expired';
 
-  const sequence = resolvePointer(document, definition.sequencePointer);
-  if (!Number.isSafeInteger(sequence)) return 'contract_sequence_unavailable';
+  const sequenceValue = resolvePointer(document, definition.sequencePointer);
+  if (typeof sequenceValue !== 'number' || !Number.isSafeInteger(sequenceValue)) {
+    return 'contract_sequence_unavailable';
+  }
+  const sequence = sequenceValue;
   if (context.acceptedSequences.has(sequence) || (context.lastSequence !== null && sequence <= context.lastSequence)) return 'contract_replay';
 
   for (const [epochName, pointer] of Object.entries(definition.epochPointers)) {
     if (!own(context.latestEpochs, epochName)) return 'contract_epoch_context_unavailable';
-    const candidate = resolvePointer(document, pointer);
-    const current = context.latestEpochs[epochName];
-    if (!Number.isSafeInteger(candidate) || !Number.isSafeInteger(current)) return 'contract_epoch_context_unavailable';
+    const candidateValue = resolvePointer(document, pointer);
+    const currentValue = context.latestEpochs[epochName];
+    if (typeof candidateValue !== 'number' || !Number.isSafeInteger(candidateValue)
+        || typeof currentValue !== 'number' || !Number.isSafeInteger(currentValue)) {
+      return 'contract_epoch_context_unavailable';
+    }
+    const candidate = candidateValue;
+    const current = currentValue;
     if (candidate < current) return 'contract_stale_epoch';
     if (candidate > current) return 'contract_epoch_mismatch';
   }
@@ -485,36 +597,42 @@ function validateSemantics(
     if (!own(context.expectedScope, scopeName)) return 'contract_scope_context_unavailable';
     if (!jsonEqual(resolvePointer(document, pointer), context.expectedScope[scopeName])) return 'contract_cross_scope';
   }
-  if (definition.receiverGroupDigestRequired) return validateReceiverGroupDigests(document, context.metadata);
+  if (definition.receiverGroupDigestRequired) return validateReceiverGroupDigests(document, context);
   return null;
 }
 
 function resolveExpiry(document: SfuBroadcastJsonObject, definition: SfuBroadcastContractDefinition): number | null {
   const rule = definition.expiry;
   const value = resolvePointer(document, rule.valuePointer);
-  if (rule.kind === 'epoch_ms') return Number.isSafeInteger(value) ? value : null;
+  if (rule.kind === 'epoch_ms') {
+    return typeof value === 'number' && Number.isSafeInteger(value) ? value : null;
+  }
   if (rule.kind === 'utc') return typeof value === 'string' ? parseUtc(value) : null;
-  const issuedAt = typeof value === 'string' ? parseUtc(value) : Number.isSafeInteger(value) ? value : null;
+  const issuedAt = typeof value === 'string'
+    ? parseUtc(value)
+    : typeof value === 'number' && Number.isSafeInteger(value) ? value : null;
   if (issuedAt === null) return null;
   if (rule.kind === 'issued_at_fixed_ttl_ms') return safeSum(issuedAt, rule.fixedTtlMs);
-  const ttl = resolvePointer(document, rule.ttlPointer);
-  if (!Number.isSafeInteger(ttl)) return null;
+  const ttlValue = resolvePointer(document, rule.ttlPointer);
+  if (typeof ttlValue !== 'number' || !Number.isSafeInteger(ttlValue)) return null;
+  const ttl = ttlValue;
   return safeSum(issuedAt, rule.kind === 'issued_at_ttl_seconds' ? ttl * 1_000 : ttl);
 }
 
 function validateReceiverGroupDigests(
   document: SfuBroadcastJsonObject,
-  metadata: Readonly<Record<string, unknown>>,
+  context: SfuBroadcastValidationContext,
 ): Exclude<SfuBroadcastReasonCode, 'ok'> | null {
+  const metadata = context.metadata;
   const audience = metadata['resolved_audience'];
-  const keys = metadata['test_only_hmac_keys_hex'];
   const publications = document['publications'];
   const scope = document['scope'];
   const epochs = document['epochs'];
   const policy = document['policy'];
-  if (!isPlainRecord(audience) || !isPlainRecord(keys) || !isPlainRecord(publications) || !isPlainRecord(scope) || !isPlainRecord(epochs) || !isPlainRecord(policy)) {
+  if (!isPlainRecord(audience) || !isPlainRecord(publications) || !isPlainRecord(scope) || !isPlainRecord(epochs) || !isPlainRecord(policy)) {
     return 'receiver_group_digest_context_unavailable';
   }
+  if (!context.verifyReceiverGroupMemberDigest) return 'receiver_group_digest_verifier_unavailable';
   const members = audience['members'];
   const primary = publications['primary_publication_ref'];
   const shared = publications['shared_publication_refs'];
@@ -528,8 +646,7 @@ function validateReceiverGroupDigests(
     const publicationRef = digest['publication_ref'];
     const keyRef = digest['key_ref'];
     const supplied = digest['value'];
-    const keyHex = typeof keyRef === 'string' ? keys[keyRef] : undefined;
-    if (typeof publicationRef !== 'string' || typeof keyRef !== 'string' || typeof supplied !== 'string' || typeof keyHex !== 'string') {
+    if (typeof publicationRef !== 'string' || typeof keyRef !== 'string' || typeof supplied !== 'string') {
       return 'receiver_group_digest_context_unavailable';
     }
     const bindings: Array<Readonly<{ grant_ref: string; member_ref: string; subscription_ref: string }>> = [];
@@ -551,10 +668,17 @@ function validateReceiverGroupDigests(
       privacy_scope: jsonValue(scope['privacy_scope']), publication_ref: publicationRef,
       publication_scope_ref: jsonValue(scope['publication_scope_ref']), room_ref: jsonValue(scope['room_ref']), tenant_ref: jsonValue(scope['tenant_ref']),
     };
-    const key = decodeHex(keyHex);
-    if (!key) return 'receiver_group_digest_context_unavailable';
-    const expected = hex(hmacSha256(key, concatBytes(UTF8.encode('ananta.webrtc.receiver-group.member-digest.v1'), new Uint8Array([0]), UTF8.encode(canonicalJson(digestInput)))));
-    if (!constantTimeEqual(expected, supplied)) return 'receiver_group_member_digest_mismatch';
+    let verified = false;
+    try {
+      verified = context.verifyReceiverGroupMemberDigest({
+        digestInput,
+        keyRef,
+        supplied,
+      }) === true;
+    } catch {
+      verified = false;
+    }
+    if (!verified) return 'receiver_group_member_digest_mismatch';
   }
   return null;
 }
@@ -565,6 +689,31 @@ function hmacSha256(key: Uint8Array, message: Uint8Array): Uint8Array {
   const outerPad = new Uint8Array(64).fill(0x5c);
   normalized.forEach((byte, index) => { innerPad[index] ^= byte; outerPad[index] ^= byte; });
   return sha256Fallback(concatBytes(outerPad, sha256Fallback(concatBytes(innerPad, message))));
+}
+
+export function legacyReceiverGroupDigestTestVerifier(
+  environment: 'test' | 'development',
+  metadata: Readonly<Record<string, unknown>>,
+): (request: SfuBroadcastReceiverGroupDigestVerificationRequest) => boolean {
+  if (environment !== 'test' && environment !== 'development') {
+    throw new Error('legacy_receiver_group_digest_adapter_forbidden');
+  }
+  return request => {
+    const keys = metadata['test_only_hmac_keys_hex'];
+    const keyHex = isPlainRecord(keys) ? keys[request.keyRef] : undefined;
+    if (typeof keyHex !== 'string') return false;
+    const key = decodeHex(keyHex);
+    if (!key) return false;
+    const expected = hex(hmacSha256(
+      key,
+      concatBytes(
+        UTF8.encode('ananta.webrtc.receiver-group.member-digest.v1'),
+        new Uint8Array([0]),
+        UTF8.encode(canonicalJson(request.digestInput)),
+      ),
+    ));
+    return constantTimeEqual(expected, request.supplied);
+  };
 }
 
 function validatedContract(contractId: SfuBroadcastContractId, document: SfuBroadcastJsonObject): ValidatedSfuBroadcastContract {

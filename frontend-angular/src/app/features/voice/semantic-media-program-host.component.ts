@@ -58,6 +58,7 @@ import { WebrtcMediaPublicationService } from '../../services/webrtc-media-publi
         [ordinaryMediaReason]="view.ordinaryMediaReason"
         [ordinaryAudioState]="view.ordinaryAudioState"
         [ordinaryMediaPublications]="view.ordinaryMediaPublications"
+        [sfuRemoteVideos]="view.sfuRemoteVideos"
         [speechTransportState]="view.speechTransportState"
         [speechTransportReason]="view.speechTransportReason"
         [speechTransportCanStart]="view.speechTransportCanStart"
