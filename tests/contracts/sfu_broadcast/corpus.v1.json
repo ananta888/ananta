@@ -1,7 +1,7 @@
 {
   "schema": "ananta.sfu-broadcast-contract-corpus.v1",
   "schema_version": 1,
-  "corpus_version": 1,
+  "corpus_version": 3,
   "required_categories": [
     "minimal",
     "maximum",
@@ -19,16 +19,16 @@
   "notes": [
     "Fixture paths and validation contexts are deterministic test inputs, not SRC_* or RUN_* evidence.",
     "No case is activation evidence; Parent no_go and observe_only remain fail-closed.",
-    "CON-002 contains six known RFC-8785 HMAC digest-vector mismatches and remains a release blocker."
+    "CON-002 positive vectors use the documented RFC-8785/JCS member-digest payload and test-only HMAC keys."
   ],
-  "known_blockers": [
-    {"id": "CON002_VALID_GROUP_CAMERA_DIGEST", "code": "receiver_group_member_digest_mismatch", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_group.v1.json", "json_pointer": "/instance/publications/member_digests/0/value", "disposition": "expected_fail_closed"},
-    {"id": "CON002_VALID_GROUP_SCREEN_DIGEST", "code": "receiver_group_member_digest_mismatch", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_group.v1.json", "json_pointer": "/instance/publications/member_digests/1/value", "disposition": "expected_fail_closed"},
-    {"id": "CON002_EMPTY_GROUP_CAMERA_DIGEST", "code": "receiver_group_member_digest_mismatch", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_empty_group.v1.json", "json_pointer": "/mutations/4/value", "disposition": "expected_fail_closed"},
-    {"id": "CON002_EMPTY_GROUP_SCREEN_DIGEST", "code": "receiver_group_member_digest_mismatch", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_empty_group.v1.json", "json_pointer": "/mutations/5/value", "disposition": "expected_fail_closed"},
-    {"id": "CON002_MAX_GROUP_CAMERA_DIGEST", "code": "receiver_group_member_digest_mismatch", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_maximal_group.v1.json", "json_pointer": "/mutations/4/value", "disposition": "expected_fail_closed"},
-    {"id": "CON002_MAX_GROUP_SCREEN_DIGEST", "code": "receiver_group_member_digest_mismatch", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_maximal_group.v1.json", "json_pointer": "/mutations/5/value", "disposition": "expected_fail_closed"}
+  "structural_parity_cases": [
+    {
+      "id": "duplicate_json_key",
+      "raw_document": "{\"scope\":\"first\",\"scope\":\"second\"}",
+      "expected_code": "contract_duplicate_json_key"
+    }
   ],
+  "known_blockers": [],
   "contracts": [
     {
       "contract_id": "ananta.webrtc.receiver-group-intent.v1",
@@ -36,8 +36,8 @@
       "schema_version": 1,
       "base_fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_group.v1.json",
       "cases": {
-        "minimal": {"probe": "source_with_member_digest_check", "expected_code": "receiver_group_member_digest_mismatch", "disposition": "expected_fail_closed"},
-        "maximum": {"probe": "source_with_member_digest_check", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_maximal_group.v1.json", "expected_code": "receiver_group_member_digest_mismatch", "disposition": "expected_fail_closed"},
+        "minimal": {"probe": "source_with_member_digest_check", "expected_code": "ok"},
+        "maximum": {"probe": "source_with_member_digest_check", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_maximal_group.v1.json", "expected_code": "ok"},
         "unknown_property": {"probe": "add_unknown_property", "expected_code": "contract_unknown_property"},
         "oversize": {"probe": "exceed_document_bytes", "expected_code": "contract_document_bytes_exceeded"},
         "expiry": {"probe": "advance_clock_past_expiry", "expected_code": "contract_expired"},
@@ -110,7 +110,7 @@
         "oversize": {"probe": "exceed_document_bytes", "expected_code": "contract_document_bytes_exceeded"},
         "expiry": {"probe": "advance_clock_past_expiry", "expected_code": "contract_expired"},
         "replay": {"probe": "reuse_sequence", "expected_code": "contract_replay"},
-        "stale_epoch": {"probe": "raise_authoritative_epoch", "expected_code": "contract_stale_epoch"},
+        "stale_epoch": {"probe": "not_applicable_no_authoritative_epoch", "expected_code": "ok"},
         "cross_scope": {"probe": "replace_expected_scope", "expected_code": "contract_cross_scope"},
         "signature": {"probe": "reject_trust", "expected_code": "contract_signature_invalid"}
       }

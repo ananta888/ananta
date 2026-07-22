@@ -167,14 +167,14 @@
           "algorithm": "hmac-sha-256",
           "domain": "ananta.webrtc.receiver-group.member-digest.v1",
           "key_ref": "digest-key-camera-e7",
-          "value": "679633d1ad036beb1fbb02c837fed991de9e34efda5bce2182f6dfe70b5617a7"
+          "value": "836c0d4118bfeca1e294f1f277dc38401e1134f7062626630486d49a86edbaac"
         },
         {
           "publication_ref": "publication-screen-main",
           "algorithm": "hmac-sha-256",
           "domain": "ananta.webrtc.receiver-group.member-digest.v1",
           "key_ref": "digest-key-screen-e7",
-          "value": "57187e403d4d2b45bc054bf89b26da90df0bd4803a0721da3401aba2410fdbb4"
+          "value": "6be43f84e0e3b7d7370e3774ab78abe5ecc5615624346234c8eee3b86719b742"
         }
       ]
     },

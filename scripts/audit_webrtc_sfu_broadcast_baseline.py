@@ -87,8 +87,8 @@ PROBES = (
     ),
     Probe(
         "livekit_runtime_config", "sfu", "configuration", "partial",
-        "config/livekit.semantic-media.yaml", "max_participants: 8",
-        "The single-node runtime is capped at eight participants; this is not broadcast capacity evidence.",
+        "config/livekit.semantic-media.yaml", "max_participants: 250",
+        "The LiveKit ceiling is 250; the resolved Hub profile remains the admission authority and this is not capacity evidence.",
     ),
     Probe(
         "livekit_server_sdk", "sfu", "python_dependency", "missing",

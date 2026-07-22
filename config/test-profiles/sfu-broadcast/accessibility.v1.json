@@ -1,0 +1,42 @@
+{
+  "schema": "ananta.sfu-broadcast-accessibility-profile.v1",
+  "profile_version": 1,
+  "required_image_ids": ["hub", "sfu", "turn", "browser"],
+  "required_browsers": ["chromium", "firefox"],
+  "required_checks": [
+    "keyboard_only", "focus_order", "focus_restore",
+    "accessible_name_role_value", "aria_live", "contrast",
+    "non_color_state", "reduced_motion", "mouse_free_start",
+    "mouse_free_stop", "mouse_free_revoke", "mouse_free_degradation",
+    "mouse_free_reconnect", "mouse_free_permission_error",
+    "mouse_free_kill_switch"
+  ],
+  "responsive_checks": [
+    "viewport_360", "touch_targets", "zoom_200_percent",
+    "long_localized_reason", "no_horizontal_clipping",
+    "all_controls_reachable"
+  ],
+  "required_started_components": [
+    "owned_track", "livekit_room", "quality_reporter", "data_listener",
+    "remote_video_render", "layer_controller"
+  ],
+  "required_cleanup_components": [
+    "owned_tracks", "remote_video_attachments", "rooms", "requests",
+    "quality_reporters", "data_listeners", "room_listeners",
+    "layer_controllers", "subscriptions", "timers"
+  ],
+  "cleanup_scenarios": ["stop", "navigation", "logout", "room_change", "revoke"],
+  "axe": {
+    "package": "@axe-core/playwright",
+    "wcag_tags": ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]
+  },
+  "screen_reader": {
+    "claim_requires_real_automation": true,
+    "accepted_automation": ["nvda", "voiceover"]
+  },
+  "limits": {
+    "timeout_seconds": 900,
+    "browser_processes_min": 2,
+    "memory_bytes_max": 2147483648
+  }
+}

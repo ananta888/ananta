@@ -1,0 +1,18 @@
+{
+  "activation_allowed": false,
+  "activation_blockers": [
+    "parent_evidence_missing"
+  ],
+  "bindings": {
+    "config_sha256": "fa2987188a1a3507cda17e7ee2f71aa223b60679d67cbaa3aed2e79e36e23f26"
+  },
+  "gate_id": "SFB-GATE-012",
+  "reason_codes": [
+    "supply_chain_external_evidence_missing"
+  ],
+  "schema": "ananta.sfu-broadcast-supply-chain-gate.v1",
+  "status": "failed",
+  "summary": {
+    "external_evidence": "unavailable"
+  }
+}

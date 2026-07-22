@@ -1,0 +1,10 @@
+{
+  "schema": "ananta.webrtc.sfu-broadcast-user-intent.v1",
+  "room_ref": "room-42",
+  "command": "start",
+  "expected_version": 0,
+  "confirmed": true,
+  "reason": "user_requested",
+  "options": {},
+  "route": {"node": "attacker-selected-worker"}
+}

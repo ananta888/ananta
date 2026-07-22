@@ -1,0 +1,11 @@
+{
+  "schema": "ananta.sfu-broadcast-churn-soak-gate.v1",
+  "gate_id": "SFB-GATE-005",
+  "profile_id": "sfu-broadcast-churn-soak-v1",
+  "status": "blocked",
+  "release_blocking": true,
+  "reason_codes": ["external_result_missing"],
+  "claims": {"real_processes_verified": false, "browser_evidence_verified": false, "load_evidence_verified": false, "chaos_evidence_verified": false},
+  "measurements": {},
+  "required_next_action": "Run the pinned multi-room browser soak with real SFU and TURN processes, then validate its result through the gate runner."
+}

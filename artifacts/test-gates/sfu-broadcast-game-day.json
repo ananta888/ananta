@@ -1,0 +1,18 @@
+{
+  "activation_allowed": false,
+  "activation_blockers": [
+    "parent_evidence_missing"
+  ],
+  "bindings": {
+    "config_sha256": "cf14b906561c93240c74f393f682fefa2e989e11b2b34890980b00687064bb1d"
+  },
+  "gate_id": "SFB-GATE-GAME-DAY",
+  "reason_codes": [
+    "game_day_external_evidence_missing"
+  ],
+  "schema": "ananta.sfu-broadcast-game-day-gate.v1",
+  "status": "failed",
+  "summary": {
+    "external_evidence": "unavailable"
+  }
+}

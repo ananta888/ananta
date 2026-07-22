@@ -29,7 +29,7 @@ FIXTURE_FILES = {
         "SFU_BROADCAST_MAX_GROUP_MEMBERS = 8\n"
     ),
     "artifacts/test-gates/semantic-media-program-evidence.json": "{}\n",
-    "config/livekit.semantic-media.yaml": "room:\n  max_participants: 8\n",
+    "config/livekit.semantic-media.yaml": "room:\n  max_participants: 250\n",
     "docker-compose.semantic-media.yml": (
         "services:\n  semantic-media-sfu:\n    image: fixture\n"
         "  semantic-media-turn-gate:\n    image: fixture\n"

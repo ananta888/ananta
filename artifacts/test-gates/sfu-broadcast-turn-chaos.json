@@ -1,0 +1,11 @@
+{
+  "schema": "ananta.sfu-broadcast-turn-chaos-gate.v1",
+  "gate_id": "SFB-GATE-007",
+  "profile_id": "sfu-broadcast-turn-chaos-v1",
+  "status": "blocked",
+  "release_blocking": true,
+  "reason_codes": ["external_result_missing"],
+  "claims": {"real_processes_verified": false, "browser_evidence_verified": false, "load_evidence_verified": false, "chaos_evidence_verified": false},
+  "measurements": {},
+  "required_next_action": "Run the pinned TURN-only pool and lifecycle fault matrix and validate its external result through the gate runner."
+}

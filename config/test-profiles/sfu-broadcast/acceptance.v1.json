@@ -1,0 +1,83 @@
+{
+  "schema": "ananta.sfu-broadcast-acceptance-profile.v1",
+  "profile_id": "sfu-broadcast-gate-foundation",
+  "scenario_version": "1.0",
+  "seeds": [104729, 130363, 155921],
+  "limits": {
+    "overall_timeout_seconds": 900,
+    "scenario_timeout_seconds": 180,
+    "cleanup_deadline_ms": 30000,
+    "cpu_seconds_max": 120,
+    "memory_bytes_max": 2147483648,
+    "child_processes_max": 16,
+    "artifact_bytes_max": 16777216,
+    "cases_per_seed_min": 64,
+    "seeds_min": 3
+  },
+  "pinned": {
+    "livekit_image": "livekit/livekit-server:1.13.1@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3",
+    "turn_image": "coturn/coturn:4.6.3-r3@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888",
+    "browser_lock": "frontend-angular/package-lock.json",
+    "compose": "docker-compose.semantic-media.yml",
+    "livekit_config": "config/livekit.semantic-media.yaml"
+  },
+  "parent_harnesses": [
+    "scripts/run_semantic_sfu_gate.py",
+    "scripts/e2e/semantic_sfu_group_e2e.py",
+    "scripts/e2e/semantic_sfu_failover_e2e.py"
+  ],
+  "required_external_capabilities": [
+    "isolated_hub",
+    "isolated_database",
+    "real_sfu",
+    "real_turn",
+    "real_browser_processes",
+    "packet_capture",
+    "resource_observer",
+    "owned_resource_cleanup"
+  ],
+  "faults": [
+    "loss",
+    "jitter",
+    "reorder",
+    "bandwidth",
+    "partition",
+    "process_kill",
+    "clock_skew",
+    "cpu_pressure",
+    "memory_pressure",
+    "disk_failure",
+    "database_failure"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "contract-state-queue-fuzz-v1",
+      "evidence_class": "local_model",
+      "runner": "scripts/run_sfu_broadcast_fuzz_gate.py"
+    },
+    {
+      "scenario_id": "cross-scope-security-v1",
+      "evidence_class": "local_model",
+      "runner": "scripts/run_sfu_broadcast_security_gate.py"
+    },
+    {
+      "scenario_id": "advanced-broadcast-real-media-v1",
+      "evidence_class": "external_real_media",
+      "runner": "scripts/e2e/sfu_broadcast_browser_e2e.py"
+    }
+  ],
+  "cleanup_assertions": [
+    "owned_tracks_remaining",
+    "peer_connections_remaining",
+    "rooms_remaining",
+    "listeners_remaining",
+    "timers_remaining",
+    "child_processes_remaining",
+    "ports_remaining",
+    "containers_remaining",
+    "routes_remaining",
+    "allocations_remaining",
+    "leases_remaining",
+    "credentials_invalidated"
+  ]
+}

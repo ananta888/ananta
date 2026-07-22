@@ -1,0 +1,33 @@
+{
+  "schema": "ananta.sfu-broadcast-nightly-runtime-profile.v1",
+  "profile_version": 1,
+  "required_image_ids": ["hub", "sfu", "turn", "browser"],
+  "kinds": {
+    "scale": {
+      "receiver_processes_min": 3,
+      "receivers_min": 100,
+      "duration_seconds_min": 900
+    },
+    "soak": {
+      "receiver_processes_min": 3,
+      "duration_seconds_min": 7200
+    },
+    "chaos": {
+      "receiver_processes_min": 3,
+      "duration_seconds_min": 900,
+      "required_faults": [
+        "packet_loss", "jitter", "reorder", "bandwidth",
+        "partition", "process_kill", "cpu", "memory", "disk", "database"
+      ]
+    }
+  },
+  "required_safety": [
+    "no_cross_scope_route", "no_auth_e2ee_downgrade",
+    "no_payload_export", "hub_queue_ownership_preserved",
+    "bounded_resources", "cleanup_complete"
+  ],
+  "limits": {
+    "timeout_seconds_max": 10800,
+    "memory_bytes_max": 4294967296
+  }
+}

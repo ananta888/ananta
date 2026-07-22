@@ -1,0 +1,124 @@
+{
+  "activation_allowed": false,
+  "gate_id": "SFB-GATE-015",
+  "gates": [
+    {
+      "artifact": "artifacts/test-gates/sfu-ci-todo.json",
+      "cleanup": [],
+      "cleanup_complete": true,
+      "command": {
+        "cpu_seconds": 0.039455,
+        "elapsed_ms": 64,
+        "peak_rss_bytes": 8822784,
+        "timed_out": false
+      },
+      "gate_id": "SFB-CI-TODO",
+      "reason_codes": [],
+      "status": "passed"
+    },
+    {
+      "artifact": "artifacts/test-gates/sfu-broadcast-contract-parity.json",
+      "cleanup": [],
+      "cleanup_complete": true,
+      "command": {
+        "cpu_seconds": 35.254671,
+        "elapsed_ms": 28018,
+        "peak_rss_bytes": 26763264,
+        "timed_out": false
+      },
+      "gate_id": "SFB-CI-CONTRACT-PARITY",
+      "reason_codes": [],
+      "status": "passed"
+    },
+    {
+      "artifact": "artifacts/test-gates/sfu-ci-python.json",
+      "cleanup": [],
+      "cleanup_complete": true,
+      "command": {
+        "cpu_seconds": 22.638129,
+        "elapsed_ms": 21273,
+        "peak_rss_bytes": 1466646528,
+        "timed_out": false
+      },
+      "gate_id": "SFB-CI-PYTHON",
+      "reason_codes": [],
+      "status": "passed"
+    },
+    {
+      "artifact": "artifacts/test-gates/sfu-ci-python-lint.json",
+      "cleanup": [],
+      "cleanup_complete": true,
+      "command": {
+        "cpu_seconds": 0.038297,
+        "elapsed_ms": 63,
+        "peak_rss_bytes": 8675328,
+        "timed_out": false
+      },
+      "gate_id": "SFB-CI-PYTHON-LINT",
+      "reason_codes": [],
+      "status": "passed"
+    },
+    {
+      "artifact": "artifacts/test-gates/sfu-ci-angular-unit.json",
+      "cleanup": [],
+      "cleanup_complete": true,
+      "command": {
+        "cpu_seconds": 587.8656,
+        "elapsed_ms": 42951,
+        "peak_rss_bytes": 2846068736,
+        "timed_out": false
+      },
+      "gate_id": "SFB-CI-ANGULAR-UNIT",
+      "reason_codes": [],
+      "status": "passed"
+    },
+    {
+      "artifact": "artifacts/test-gates/sfu-ci-angular-lint.json",
+      "cleanup": [],
+      "cleanup_complete": true,
+      "command": {
+        "cpu_seconds": 29.583603,
+        "elapsed_ms": 17536,
+        "peak_rss_bytes": 2225319936,
+        "timed_out": false
+      },
+      "gate_id": "SFB-CI-ANGULAR-LINT",
+      "reason_codes": [],
+      "status": "passed"
+    },
+    {
+      "artifact": "artifacts/test-gates/sfu-ci-angular-build.json",
+      "cleanup": [],
+      "cleanup_complete": true,
+      "command": {
+        "cpu_seconds": 65.305352,
+        "elapsed_ms": 24929,
+        "peak_rss_bytes": 3566133248,
+        "timed_out": false
+      },
+      "gate_id": "SFB-CI-ANGULAR-BUILD",
+      "reason_codes": [],
+      "status": "passed"
+    },
+    {
+      "artifact": "artifacts/test-gates/sfu-ci-migration-head.json",
+      "cleanup": [],
+      "cleanup_complete": true,
+      "command": {
+        "cpu_seconds": 14.132633,
+        "elapsed_ms": 12895,
+        "peak_rss_bytes": 1472569344,
+        "timed_out": false
+      },
+      "gate_id": "SFB-CI-MIGRATION-HEAD",
+      "reason_codes": [],
+      "status": "passed"
+    }
+  ],
+  "manifest_sha256": "84af8817c47701f0b6017e82827402efaec08bf3f9bde33a026425aa263306e7",
+  "reason_codes": [],
+  "schema": "ananta.sfu-broadcast-gate-matrix-result.v1",
+  "source_sha256": "29dbe64018dc6d12be9023b29acacc4b0ca0e763355937eb974e868b67c3744d",
+  "stage": "pr",
+  "status": "passed"
+}

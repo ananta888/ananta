@@ -1,20 +1,35 @@
 import copy
 import json
-from datetime import datetime, timezone
+import base64
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
+from agent.adapters.sfu_member_digest_key_contract_memory import (
+    InMemoryDigestCryptoState,
+    InMemoryDigestKeyCryptoAdapter,
+    InMemoryDigestKeyMetadataRepository,
+    InMemoryDigestMetadataState,
+)
 from agent.services.sfu_broadcast_contract_validator import (
     ContractDefinition,
     CorpusVersion,
     ExpiryRule,
+    LegacyReceiverGroupMemberDigestTestAdapter,
     ReceiverGroupMemberDigestRule,
+    ReceiverGroupMemberDigestPayloadBuilder,
     SfuBroadcastContractValidator,
     SfuBroadcastCorpusVerifier,
     StructuralLimits,
     ValidationContext,
     ValidationPhase,
+)
+from agent.services.sfu_member_digest_key_contract import (
+    DigestKeyLifecycleState,
+    DigestKeyMetadata,
+    SfuMemberDigestKeyContractService,
+    SfuMemberDigestScope,
 )
 
 
@@ -238,11 +253,29 @@ def test_missing_schema_reference_fails_closed_without_resolution_or_network():
     assert trust.calls == []
 
 
-def test_con002_bad_jcs_hmac_is_recorded_as_a_real_fail_closed_mismatch():
+@pytest.mark.parametrize(
+    "fixture_name",
+    ["valid_group.v1.json", "valid_empty_group.v1.json", "valid_maximal_group.v1.json"],
+)
+def test_con002_rfc8785_jcs_hmac_positive_vectors_are_accepted(fixture_name: str):
     root = Path(__file__).resolve().parents[1]
+    fixture_root = root / "tests/fixtures/webrtc/receiver_group_intent"
     fixture = json.loads(
-        (root / "tests/fixtures/webrtc/receiver_group_intent/valid_group.v1.json").read_text(encoding="utf-8")
+        (fixture_root / "valid_group.v1.json").read_text(encoding="utf-8")
     )
+    if fixture_name != "valid_group.v1.json":
+        derived = json.loads((fixture_root / fixture_name).read_text(encoding="utf-8"))
+        for mutation in derived["mutations"]:
+            assert mutation["operation"] == "replace"
+            target = fixture[mutation["target"]]
+            parts = [
+                part.replace("~1", "/").replace("~0", "~")
+                for part in mutation["json_pointer"].removeprefix("/").split("/")
+            ]
+            for part in parts[:-1]:
+                target = target[int(part)] if isinstance(target, list) else target[part]
+            final = parts[-1]
+            target[int(final) if isinstance(target, list) else final] = copy.deepcopy(mutation["value"])
     schema = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://ananta.local/tests/receiver-group-digest-only.v1.json",
@@ -252,7 +285,13 @@ def test_con002_bad_jcs_hmac_is_recorded_as_a_real_fail_closed_mismatch():
         "ananta.webrtc.receiver-group-intent.v1",
         "1",
         schema,
-        semantic_rules=(ReceiverGroupMemberDigestRule(),),
+        semantic_rules=(
+            ReceiverGroupMemberDigestRule(
+                legacy_adapter=LegacyReceiverGroupMemberDigestTestAdapter(
+                    environment="test"
+                )
+            ),
+        ),
         signature_required=False,
     )
     validator = SfuBroadcastContractValidator(
@@ -268,9 +307,98 @@ def test_con002_bad_jcs_hmac_is_recorded_as_a_real_fail_closed_mismatch():
         ValidationContext(metadata=fixture["validation_context"]),
     )
 
-    assert result.valid is False
-    assert result.phase is ValidationPhase.SEMANTICS
-    assert result.reason_code == "receiver_group_member_digest_mismatch"
+    assert result.valid is True
+    assert result.phase is ValidationPhase.ACCEPTED
+    assert result.reason_code == "ok"
+
+
+def test_receiver_group_digest_uses_repository_and_kms_ports_in_production():
+    root = Path(__file__).resolve().parents[1]
+    fixture = json.loads(
+        (
+            root
+            / "tests/fixtures/webrtc/receiver_group_intent/valid_group.v1.json"
+        ).read_text(encoding="utf-8")
+    )
+    document = copy.deepcopy(fixture["instance"])
+    audience = fixture["validation_context"]["resolved_audience"]
+    now = datetime.fromtimestamp(1_900_000_001, tz=timezone.utc)
+    metadata_state = InMemoryDigestMetadataState()
+    crypto_state = InMemoryDigestCryptoState()
+    repository = InMemoryDigestKeyMetadataRepository(metadata_state)
+    crypto = InMemoryDigestKeyCryptoAdapter(crypto_state)
+    service = SfuMemberDigestKeyContractService(
+        reader=repository,
+        writer=repository,
+        crypto=crypto,
+        clock=FixedClock(now),
+    )
+    builder = ReceiverGroupMemberDigestPayloadBuilder()
+    scope_value = document["scope"]
+    key_epoch = document["epochs"]["key_epoch"]
+    for index, digest in enumerate(document["publications"]["member_digests"]):
+        publication_ref = digest["publication_ref"]
+        key_id = f"kms-member-digest-{index + 1}"
+        digest_scope = SfuMemberDigestScope(
+            tenant_id=scope_value["tenant_ref"],
+            room_id=scope_value["room_ref"],
+            publication_id=publication_ref,
+            key_epoch=key_epoch,
+        )
+        metadata_state.records[key_id] = DigestKeyMetadata(
+            key_id=key_id,
+            algorithm="HMAC-SHA256",
+            generation=1,
+            version=1,
+            scope_fingerprint=digest_scope.fingerprint(),
+            state=DigestKeyLifecycleState.ACTIVE,
+            valid_from=now - timedelta(minutes=1),
+            valid_until=now + timedelta(hours=1),
+            state_changed_at=now - timedelta(minutes=1),
+        )
+        crypto.provision(key_id, bytes([index + 1]) * 32)
+        candidate = service.create_digest(
+            builder.build(document, audience, publication_ref),
+            digest_scope,
+        )
+        padded = candidate.value + "=" * (-len(candidate.value) % 4)
+        digest["key_ref"] = key_id
+        digest["value"] = base64.urlsafe_b64decode(padded).hex()
+
+    definition = ContractDefinition(
+        "ananta.webrtc.receiver-group-intent.v1",
+        "1",
+        {"type": "object"},
+        semantic_rules=(
+            ReceiverGroupMemberDigestRule(
+                digest_service=service,
+                metadata_reader=repository,
+                payload_builder=builder,
+            ),
+        ),
+        signature_required=False,
+    )
+    validator = SfuBroadcastContractValidator(
+        definitions=[definition],
+        clock=FixedClock(now),
+        trust_store=RecordingTrustStore(True),
+        limits=StructuralLimits(),
+    )
+    result = validator.validate(
+        definition.contract_id,
+        _raw(document),
+        ValidationContext(metadata={"resolved_audience": audience}),
+    )
+    assert result.valid is True
+    assert result.materialized_contract is not None
+
+
+def test_legacy_receiver_digest_adapter_is_forbidden_in_production():
+    with pytest.raises(
+        ValueError,
+        match="legacy_receiver_group_digest_adapter_forbidden",
+    ):
+        LegacyReceiverGroupMemberDigestTestAdapter(environment="production")
 
 
 @pytest.fixture(scope="module")
@@ -285,13 +413,13 @@ def test_shared_corpus_covers_every_required_case_and_reports_version_digest(cor
 
     assert report.integrity_valid is True
     assert report.contract_count == 10
-    assert report.fixture_count == 90
+    assert report.fixture_count == 91
     assert report.version.schema_version == 1
-    assert report.version.corpus_version == 1
+    assert report.version.corpus_version == 3
     assert report.version.corpus_digest.startswith("sha256:")
     assert len(report.version.corpus_digest) == 71
-    assert len(report.fail_closed_blockers) == 6
-    assert report.release_eligible is False
+    assert report.fail_closed_blockers == ()
+    assert report.release_eligible is True
 
 
 def test_manifest_or_fixture_drift_without_version_pin_change_breaks_gate(corpus_manifest):

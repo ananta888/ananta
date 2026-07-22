@@ -1,0 +1,37 @@
+{
+  "activation_allowed": false,
+  "bindings": {
+    "capacity_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "evidence_manifest_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "gate_manifest_sha256": "1a3ae85d0fa939d747310f744a952dceae9e4f91ae02756963c78e25a5412955",
+    "rollback_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "source_sha256": null
+  },
+  "decision": "no_go",
+  "evidence_summary": {
+    "manifest_version": 0,
+    "required_gate_count": 0,
+    "verified_gate_count": 0
+  },
+  "gate_id": "SFB-GATE-011",
+  "known_residual_risks": [],
+  "reason_codes": [
+    "release_required_input_missing"
+  ],
+  "receiver_cap": 0,
+  "released_scopes": [],
+  "resource_budgets": {},
+  "rollback_summary": {
+    "all_advanced_flags_disabled": false,
+    "atomic": false,
+    "kill_switch_verified": false
+  },
+  "schema": "ananta.sfu-broadcast-release-gate.v1",
+  "slo_budgets": {},
+  "status": "failed",
+  "versions": {
+    "browsers": {},
+    "sfu": null,
+    "turn": null
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/release/sfu_broadcast_release_gate.v1.json",
+  "title": "Ananta SFU Broadcast Release Gate v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "gate_id", "status", "decision", "activation_allowed",
+    "reason_codes", "bindings", "released_scopes", "receiver_cap",
+    "slo_budgets", "resource_budgets", "versions",
+    "known_residual_risks", "evidence_summary", "rollback_summary"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.sfu-broadcast-release-gate.v1"},
+    "gate_id": {"const": "SFB-GATE-011"},
+    "status": {"enum": ["passed", "failed"]},
+    "decision": {"enum": ["go", "no_go"]},
+    "activation_allowed": {"type": "boolean"},
+    "reason_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z0-9_:-]+$"}
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_sha256", "gate_manifest_sha256",
+        "evidence_manifest_sha256", "capacity_sha256", "rollback_sha256"
+      ],
+      "properties": {
+        "source_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "gate_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "evidence_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "capacity_sha256": {"$ref": "#/$defs/sha256"},
+        "rollback_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "released_scopes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 128}
+    },
+    "receiver_cap": {"type": "integer", "minimum": 0},
+    "slo_budgets": {"type": "object"},
+    "resource_budgets": {"type": "object"},
+    "versions": {"type": "object"},
+    "known_residual_risks": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {"type": "string", "minLength": 1, "maxLength": 512}
+    },
+    "evidence_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_gate_count", "verified_gate_count", "manifest_version"],
+      "properties": {
+        "required_gate_count": {"type": "integer", "minimum": 0},
+        "verified_gate_count": {"type": "integer", "minimum": 0},
+        "manifest_version": {"type": "integer", "minimum": 0}
+      }
+    },
+    "rollback_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["atomic", "kill_switch_verified", "all_advanced_flags_disabled"],
+      "properties": {
+        "atomic": {"type": "boolean"},
+        "kill_switch_verified": {"type": "boolean"},
+        "all_advanced_flags_disabled": {"type": "boolean"}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "sha256OrNull": {
+      "oneOf": [
+        {"$ref": "#/$defs/sha256"},
+        {"type": "null"}
+      ]
+    }
+  }
+}

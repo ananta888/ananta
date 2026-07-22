@@ -1,0 +1,11 @@
+{
+  "schema": "ananta.sfu-broadcast-scale-gate.v1",
+  "gate_id": "SFB-GATE-008",
+  "profile_id": "sfu-broadcast-scale-v1",
+  "status": "blocked",
+  "release_blocking": true,
+  "reason_codes": ["external_result_missing"],
+  "claims": {"real_processes_verified": false, "browser_evidence_verified": false, "load_evidence_verified": false, "chaos_evidence_verified": false},
+  "measurements": {},
+  "required_next_action": "Run all receiver tiers with protocol-faithful clients and at least three calibrated real-browser sentinels."
+}

@@ -1,0 +1,39 @@
+{
+  "schema": "ananta.sfu-broadcast-advanced-gate-profile.v1",
+  "gate_id": "SFB-GATE-005",
+  "profile_id": "sfu-broadcast-churn-soak-v1",
+  "artifact_schema": "ananta.sfu-broadcast-churn-soak-gate.v1",
+  "external_result_schema": "ananta.sfu-broadcast-churn-soak-result.v1",
+  "seed": 32452843,
+  "execution": {"warmup_seconds": 300, "measurement_seconds": 7200, "repetitions": 3, "timeout_seconds": 22500, "cleanup_timeout_seconds": 300, "artifact_bytes_max": 16777216},
+  "topology": {"rooms_min": 3, "publishers_per_room_min": 1, "receivers_per_room_min": 10, "join_leave_events_per_minute_min": 2, "rekeys_per_room_per_hour_min": 4, "layer_flaps_per_minute_min": 5},
+  "required_capabilities": ["isolated_hub", "real_sfu", "real_turn", "real_browser_processes", "resource_observer", "network_fault_injection", "owned_resource_cleanup"],
+  "required_scenarios": ["steady_warmup", "join_leave_churn", "rekey_churn", "layer_flap", "revoked_receiver_rejoin", "device_change", "stalled_receiver", "burst_and_recovery"],
+  "required_metrics": ["join_leave_events_per_minute", "rekeys_per_room_per_hour", "layer_flaps_per_minute", "max_egress_amplification_ratio", "max_recompute_rate_per_second", "max_rekey_latency_ms", "max_recovery_ms", "max_retry_rate_per_second", "max_cpu_percent", "max_memory_percent", "stale_delivery_count", "duplicate_delivery_count", "orphan_resource_count", "parent_regression_failures", "privacy_findings"],
+  "required_assertions": ["degradation_precedes_resource_exhaustion", "revoked_receiver_cannot_recover_stale_key", "slow_receiver_isolated", "publisher_upstream_constant", "ordinary_media_regression_green"],
+  "cleanup_requirements": {"rooms_remaining": 0, "routes_remaining": 0, "allocations_remaining": 0, "peer_connections_remaining": 0, "child_processes_remaining": 0, "credentials_invalidated": true},
+  "thresholds": [
+    {"metric": "join_leave_events_per_minute", "operator": "gte", "value": 2},
+    {"metric": "rekeys_per_room_per_hour", "operator": "gte", "value": 4},
+    {"metric": "layer_flaps_per_minute", "operator": "gte", "value": 5},
+    {"metric": "max_egress_amplification_ratio", "operator": "lte", "value": 1.1},
+    {"metric": "max_recompute_rate_per_second", "operator": "lte", "value": 50},
+    {"metric": "max_rekey_latency_ms", "operator": "lte", "value": 5000},
+    {"metric": "max_recovery_ms", "operator": "lte", "value": 10000},
+    {"metric": "max_retry_rate_per_second", "operator": "lte", "value": 25},
+    {"metric": "max_cpu_percent", "operator": "lte", "value": 80},
+    {"metric": "max_memory_percent", "operator": "lte", "value": 80},
+    {"metric": "stale_delivery_count", "operator": "eq", "value": 0},
+    {"metric": "duplicate_delivery_count", "operator": "eq", "value": 0},
+    {"metric": "orphan_resource_count", "operator": "eq", "value": 0},
+    {"metric": "parent_regression_failures", "operator": "eq", "value": 0},
+    {"metric": "privacy_findings", "operator": "eq", "value": 0}
+  ],
+  "environment": {
+    "source_paths": ["scripts/sfu_broadcast_advanced_gate.py", "scripts/load/sfu_broadcast_churn_soak.py", "agent/services/sfu_fanout_route_lifecycle.py", "agent/services/sfu_broadcast_data_queue_policy.py"],
+    "infrastructure_paths": ["docker-compose.semantic-media.yml", "config/livekit.semantic-media.yaml"],
+    "browser_lock_path": "frontend-angular/package-lock.json",
+    "images": {"sfu": "livekit/livekit-server:1.13.1@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3", "turn": "coturn/coturn:4.6.3-r3@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"},
+    "required_digest_names": ["source_sha256", "config_sha256", "image_sha256", "infrastructure_sha256", "browser_lock_sha256"]
+  }
+}

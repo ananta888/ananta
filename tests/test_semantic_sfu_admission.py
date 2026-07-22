@@ -86,6 +86,10 @@ def test_join_token_is_short_lived_narrow_and_contains_no_lease(service: Semanti
     }
     assert claims["ananta_sfu"]["membership_epoch"] == 7
     assert claims["ananta_sfu"]["lease_authority"] is False
+    assert claims["sub"] == result["livekit_identity"]
+    assert claims["sub"] != "alice"
+    assert "participant_id" not in claims["ananta_sfu"]
+    assert "tenant_id" not in claims["ananta_sfu"]
 
 
 def test_read_state_supports_restart_without_enumerating_other_participants(service: SemanticSfuAdmissionService):
@@ -249,7 +253,7 @@ def test_publication_rejects_broadcast_recipients_beyond_cap(
             "tenant-a", "session-a", recipient, "participant", 7, frozenset({"chat"}),
         )
     joined = join(service, "alice")
-    with pytest.raises(SfuAdmissionError, match="sfu_publication_subscribers_invalid"):
+    with pytest.raises(SfuAdmissionError, match="capacity_cap_exceeded"):
         service.authorize_publication(
             {
                 "session_id": "session-a", "membership_epoch": 7, "expected_revision": joined["revision"],

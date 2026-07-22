@@ -1,0 +1,32 @@
+{
+  "schema": "ananta.sfu-broadcast-advanced-gate-profile.v1",
+  "gate_id": "SFB-GATE-010",
+  "profile_id": "sfu-broadcast-rollout-game-day-v1",
+  "artifact_schema": "ananta.sfu-broadcast-rollout-game-day-gate.v1",
+  "external_result_schema": "ananta.sfu-broadcast-rollout-game-day-result.v1",
+  "seed": 104395303,
+  "execution": {"warmup_seconds": 60, "measurement_seconds": 600, "repetitions": 1, "timeout_seconds": 960, "cleanup_timeout_seconds": 300, "artifact_bytes_max": 16777216},
+  "topology": {"rollout_stages": ["flag_off", "internal", "cohort", "percent", "released"], "unknown_evidence_policy": "hold", "legacy_path_required": true},
+  "required_capabilities": ["isolated_hub", "real_sfu", "feature_flag_control", "slo_observer", "rollback_control", "audit_observer", "owned_resource_cleanup"],
+  "required_scenarios": ["flag_off_baseline", "internal_enable", "cohort_enable", "percent_enable", "slo_stop", "hub_failure", "sfu_failure", "turn_failure", "database_failure", "redis_failure", "version_skew", "credential_revoke", "rollback", "legacy_compatibility"],
+  "required_metrics": ["stage_policy_violations", "slo_stop_violations", "rollback_time_ms", "stale_access_after_rollback_ms", "legacy_regression_failures", "right_widening_events", "destructive_deletions", "unresolved_incidents"],
+  "required_assertions": ["unknown_evidence_holds_stage", "rollback_restores_legacy_path", "rollback_invalidates_advanced_credentials", "no_destructive_deletion", "no_right_widening", "every_step_has_owner_and_recovery"],
+  "cleanup_requirements": {"advanced_flags_enabled": false, "advanced_routes_remaining": 0, "advanced_credentials_remaining": 0, "incident_faults_remaining": 0, "child_processes_remaining": 0},
+  "thresholds": [
+    {"metric": "stage_policy_violations", "operator": "eq", "value": 0},
+    {"metric": "slo_stop_violations", "operator": "eq", "value": 0},
+    {"metric": "rollback_time_ms", "operator": "lte", "value": 300000},
+    {"metric": "stale_access_after_rollback_ms", "operator": "lte", "value": 5000},
+    {"metric": "legacy_regression_failures", "operator": "eq", "value": 0},
+    {"metric": "right_widening_events", "operator": "eq", "value": 0},
+    {"metric": "destructive_deletions", "operator": "eq", "value": 0},
+    {"metric": "unresolved_incidents", "operator": "eq", "value": 0}
+  ],
+  "environment": {
+    "source_paths": ["scripts/sfu_broadcast_advanced_gate.py", "scripts/e2e/run_sfu_broadcast_rollout_game_day.py", "agent/services/sfu_fanout_route_lifecycle.py", "agent/services/sfu_broadcast_route_port.py"],
+    "infrastructure_paths": ["docker-compose.semantic-media.yml", "config/livekit.semantic-media.yaml"],
+    "browser_lock_path": "frontend-angular/package-lock.json",
+    "images": {"sfu": "livekit/livekit-server:1.13.1@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3", "turn": "coturn/coturn:4.6.3-r3@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"},
+    "required_digest_names": ["source_sha256", "config_sha256", "image_sha256", "infrastructure_sha256", "browser_lock_sha256"]
+  }
+}

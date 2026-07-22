@@ -1,0 +1,27 @@
+{
+  "schema": "ananta.sfu-broadcast-dependency-policy.v1",
+  "policy_version": 1,
+  "required_components": [
+    "hub", "frontend", "sfu", "turn", "browser-adapter", "livekit-sdk"
+  ],
+  "required_image_ids": ["hub", "frontend", "sfu", "turn", "browser"],
+  "allowed_sbom_formats": ["cyclonedx-1.6", "spdx-2.3"],
+  "maximum_parent_age_days": 30,
+  "blocked_severities": ["critical", "high"],
+  "unknown_license_allowed": false,
+  "floating_references_allowed": false,
+  "required_container_controls": [
+    "non_root", "read_only_rootfs", "capabilities_drop_all", "network_policy",
+    "secret_refs_only", "healthcheck", "resource_limits",
+    "forbidden_control_logic_absent"
+  ],
+  "forbidden_sfu_turn_responsibilities": [
+    "hub_orchestration", "task_queue_ownership", "worker_orchestration",
+    "content_key_policy"
+  ],
+  "exception_required_fields": [
+    "rule_id", "scope", "owner", "rationale", "expires_on",
+    "compensating_control", "approval_key_id", "approval_digest",
+    "approval_signature_verified"
+  ]
+}

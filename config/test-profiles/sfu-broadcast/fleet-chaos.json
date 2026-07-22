@@ -1,0 +1,36 @@
+{
+  "schema": "ananta.sfu-broadcast-advanced-gate-profile.v1",
+  "gate_id": "SFB-GATE-006",
+  "profile_id": "sfu-broadcast-fleet-chaos-v1",
+  "artifact_schema": "ananta.sfu-broadcast-fleet-chaos-gate.v1",
+  "external_result_schema": "ananta.sfu-broadcast-fleet-chaos-result.v1",
+  "seed": 49979687,
+  "execution": {"warmup_seconds": 120, "measurement_seconds": 900, "repetitions": 3, "timeout_seconds": 3120, "cleanup_timeout_seconds": 300, "artifact_bytes_max": 16777216},
+  "topology": {"hub_count": 2, "sfu_runtime_count": 2, "room_count": 2, "authoritative_version_max": 1},
+  "required_capabilities": ["multiple_hubs", "multiple_sfu_runtimes", "database_failover", "redis_fault_injection", "network_partition", "clock_skew", "rolling_version_skew", "resource_observer", "owned_resource_cleanup"],
+  "required_scenarios": ["sfu_kill_restart", "hub_kill_restart", "hub_sfu_partition", "redis_cluster_failure", "database_failover", "stale_heartbeat", "clock_skew", "split_brain", "node_drain", "rolling_version_skew"],
+  "required_metrics": ["authoritative_versions_max", "partition_route_grants", "partition_renewals", "stale_access_max_ms", "recovery_time_ms", "lost_delivery_count", "duplicate_delivery_count", "rekey_latency_ms", "control_interruption_ms", "reconciliation_errors", "max_cpu_percent", "max_memory_percent"],
+  "required_assertions": ["hub_remains_orchestration_owner", "no_worker_to_worker_orchestration", "no_process_global_authority", "no_right_widening", "single_authoritative_version", "partition_fails_closed"],
+  "cleanup_requirements": {"partitions_remaining": 0, "draining_nodes_remaining": 0, "orphan_routes_remaining": 0, "stale_leases_remaining": 0, "child_processes_remaining": 0},
+  "thresholds": [
+    {"metric": "authoritative_versions_max", "operator": "lte", "value": 1},
+    {"metric": "partition_route_grants", "operator": "eq", "value": 0},
+    {"metric": "partition_renewals", "operator": "eq", "value": 0},
+    {"metric": "stale_access_max_ms", "operator": "lte", "value": 5000},
+    {"metric": "recovery_time_ms", "operator": "lte", "value": 30000},
+    {"metric": "lost_delivery_count", "operator": "eq", "value": 0},
+    {"metric": "duplicate_delivery_count", "operator": "eq", "value": 0},
+    {"metric": "rekey_latency_ms", "operator": "lte", "value": 10000},
+    {"metric": "control_interruption_ms", "operator": "lte", "value": 15000},
+    {"metric": "reconciliation_errors", "operator": "eq", "value": 0},
+    {"metric": "max_cpu_percent", "operator": "lte", "value": 85},
+    {"metric": "max_memory_percent", "operator": "lte", "value": 85}
+  ],
+  "environment": {
+    "source_paths": ["scripts/sfu_broadcast_advanced_gate.py", "scripts/chaos/run_sfu_broadcast_fleet_gate.py", "agent/services/sfu_fanout_route_lifecycle.py", "agent/services/sfu_broadcast_route_port.py"],
+    "infrastructure_paths": ["docker-compose.semantic-media.yml", "config/livekit.semantic-media.yaml"],
+    "browser_lock_path": "frontend-angular/package-lock.json",
+    "images": {"sfu": "livekit/livekit-server:1.13.1@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3", "turn": "coturn/coturn:4.6.3-r3@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"},
+    "required_digest_names": ["source_sha256", "config_sha256", "image_sha256", "infrastructure_sha256", "browser_lock_sha256"]
+  }
+}

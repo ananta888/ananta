@@ -1,0 +1,14 @@
+{
+  "command_sha256": "a2a1628dd8e15c745c77e1be0a2278f0c5b25a05ad19275b93273cb44aa41305",
+  "gate_id": "SFB-CI-ANGULAR-LINT",
+  "manifest_sha256": "84af8817c47701f0b6017e82827402efaec08bf3f9bde33a026425aa263306e7",
+  "reason_codes": [],
+  "resource_usage": {
+    "cpu_seconds": 29.583603,
+    "elapsed_ms": 17536,
+    "peak_rss_bytes": 2225319936
+  },
+  "schema": "ananta.sfu-broadcast-command-observation.v1",
+  "source_sha256": "29dbe64018dc6d12be9023b29acacc4b0ca0e763355937eb974e868b67c3744d",
+  "status": "passed"
+}

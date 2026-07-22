@@ -230,13 +230,16 @@ def test_sustained_blocked_adapter_disconnects_and_releases_all_metadata(profile
         now_ms=10 + profile.cleanup.disconnect_after_blocked_ms - 1
     )
     assert not before_timeout.disconnect_required
+    assert before_timeout.removed_message_ids == ("message-00001",)
     at_timeout = queue.cleanup(
         now_ms=10 + profile.cleanup.disconnect_after_blocked_ms
     )
     assert at_timeout.disconnect_required
-    assert at_timeout.removed_message_ids == ("message-00001",)
-    assert queue.snapshot().disconnected
-    assert queue.snapshot().usage.messages == 0
+    assert at_timeout.removed_message_ids == ()
+    snapshot = queue.snapshot()
+    assert snapshot.disconnected
+    assert snapshot.blocked_since_ms is None
+    assert snapshot.usage.messages == 0
 
     rejected = queue.enqueue(
         _offer(2),

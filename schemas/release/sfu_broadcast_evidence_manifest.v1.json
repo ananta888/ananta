@@ -5,10 +5,14 @@
   "description": "Source-bound, fail-closed evidence inventory for SFU broadcast release gates.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "entries"],
+  "required": ["schema", "manifest_version", "entries"],
   "properties": {
     "schema": {
       "const": "ananta.sfu-broadcast-evidence-manifest.v1"
+    },
+    "manifest_version": {
+      "type": "integer",
+      "minimum": 1
     },
     "entries": {
       "type": "array",

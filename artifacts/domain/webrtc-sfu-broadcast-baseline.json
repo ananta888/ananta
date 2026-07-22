@@ -102,12 +102,12 @@
     },
     {
       "area": "sfu",
-      "evidence": "The single-node runtime is capped at eight participants; this is not broadcast capacity evidence.",
+      "evidence": "The LiveKit ceiling is 250; the resolved Hub profile remains the admission authority and this is not capacity evidence.",
       "finding": "livekit_runtime_config",
       "layer": "configuration",
       "path": "config/livekit.semantic-media.yaml",
       "status": "partial",
-      "symbol": "max_participants: 8"
+      "symbol": "max_participants: 250"
     },
     {
       "area": "sfu",

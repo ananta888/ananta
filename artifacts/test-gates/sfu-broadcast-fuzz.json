@@ -1,0 +1,51 @@
+{
+  "cases_per_seed": 64,
+  "config_sha256": "0dadd4c4d9eaed08b6cfaaf16518c3974cc20b8ab8634ff18ddfdf90ab948975",
+  "corpus_sha256": "9377a6a484c33f7dbc16d4b0e4a3b3b45e51f9450731330bf818d5962aaf5824",
+  "coverage": [
+    "truncation",
+    "oversize",
+    "depth",
+    "unknown_field",
+    "unicode",
+    "integer_boundary",
+    "duplicate",
+    "reorder",
+    "gap",
+    "replay",
+    "epoch_regression",
+    "fencing_regression",
+    "signature_manipulation",
+    "message_flood",
+    "priority_inversion",
+    "blocked_receiver",
+    "malformed_adapter_event"
+  ],
+  "ended_at": "2026-07-22T20:04:24Z",
+  "evidence_scope": "local_contract_state_queue_only",
+  "gate_id": "SFB-GATE-002",
+  "known_blockers": [],
+  "measurements": {
+    "configured_cpu_seconds_max": 120,
+    "configured_memory_bytes_max": 2147483648,
+    "configured_timeout_seconds": 180,
+    "cpu_seconds": 43.566746,
+    "elapsed_ms": 41557,
+    "exit_code": 0,
+    "peak_rss_bytes": 1467670528,
+    "timed_out": false
+  },
+  "minimized_failure": null,
+  "real_media_plane_claimed": false,
+  "reason_codes": [],
+  "release_blocking": false,
+  "schema": "ananta.sfu-broadcast-fuzz-gate.v1",
+  "seeds": [
+    104729,
+    130363,
+    155921
+  ],
+  "source_sha256": "e9afc423a54e53eaa24a21d9ea6eba137443cd2bbf0350eee7d8373f316f94ca",
+  "started_at": "2026-07-22T20:03:41Z",
+  "status": "passed"
+}

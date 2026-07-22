@@ -1,0 +1,30 @@
+{
+  "schema": "ananta.sfu-broadcast-media-plane-fuzz-profile.v1",
+  "profile_version": 1,
+  "seeds": [104729, 130363, 155921],
+  "seeds_min": 3,
+  "cases_per_seed_min": 128,
+  "required_image_ids": ["sfu", "turn"],
+  "required_protocol_classes": [
+    "rtp_header", "rtcp_feedback", "ssrc_collision", "header_extension",
+    "sequence_wrap", "dtls_record", "sctp_data", "packet_flood"
+  ],
+  "unsupported_internal_protocol_classes": [
+    "post_decryption_srtp_internal_state", "livekit_private_router_memory"
+  ],
+  "cross_layer_mutation": {
+    "requires_public_injection_path": true,
+    "required_path_components": [
+      "public_listener", "productive_adapter", "base_key_provider", "livekit"
+    ]
+  },
+  "limits": {
+    "timeout_seconds": 900,
+    "packet_count_max": 50000,
+    "bytes_max": 67108864,
+    "cpu_seconds_max": 600,
+    "memory_bytes_max": 1073741824,
+    "file_descriptors_max": 1024,
+    "sockets_max": 512
+  }
+}

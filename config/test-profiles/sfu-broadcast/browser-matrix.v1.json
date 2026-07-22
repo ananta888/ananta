@@ -1,0 +1,57 @@
+{
+  "schema": "ananta.sfu-broadcast-browser-matrix.v1",
+  "matrix_version": "1.0",
+  "combinations": [
+    {
+      "browser": "chromium",
+      "platform": "linux-desktop",
+      "codec": "vp8",
+      "layering": "simulcast",
+      "encoded_transform": "required",
+      "status": "candidate",
+      "evidence_source": "real_browser_process",
+      "fallback": "parent_ordinary_media"
+    },
+    {
+      "browser": "firefox",
+      "platform": "linux-desktop",
+      "codec": "vp8",
+      "layering": "simulcast",
+      "encoded_transform": "required",
+      "status": "candidate",
+      "evidence_source": "real_browser_process",
+      "fallback": "parent_ordinary_media"
+    },
+    {
+      "browser": "safari",
+      "platform": "macos-desktop",
+      "codec": "h264",
+      "layering": "simulcast",
+      "encoded_transform": "required",
+      "status": "unsupported",
+      "evidence_source": "external_device_required",
+      "fallback": "parent_ordinary_media"
+    },
+    {
+      "browser": "ios_safari",
+      "platform": "ios-device",
+      "codec": "h264",
+      "layering": "simulcast",
+      "encoded_transform": "required",
+      "status": "unsupported",
+      "evidence_source": "external_device_required",
+      "fallback": "parent_ordinary_media"
+    },
+    {
+      "browser": "chrome_android",
+      "platform": "android-device",
+      "codec": "vp8",
+      "layering": "simulcast",
+      "encoded_transform": "required",
+      "status": "unsupported",
+      "evidence_source": "external_device_required",
+      "fallback": "parent_ordinary_media"
+    }
+  ]
+}
+

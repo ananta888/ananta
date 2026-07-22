@@ -1,0 +1,35 @@
+{
+  "schema": "ananta.sfu-broadcast-advanced-gate-profile.v1",
+  "gate_id": "SFB-GATE-007",
+  "profile_id": "sfu-broadcast-turn-chaos-v1",
+  "artifact_schema": "ananta.sfu-broadcast-turn-chaos-gate.v1",
+  "external_result_schema": "ananta.sfu-broadcast-turn-chaos-result.v1",
+  "seed": 67867979,
+  "execution": {"warmup_seconds": 120, "measurement_seconds": 900, "repetitions": 3, "timeout_seconds": 3120, "cleanup_timeout_seconds": 300, "artifact_bytes_max": 16777216},
+  "topology": {"turn_instance_count": 2, "relay_policy": "turn_only", "allocation_limit_enforced": true, "port_limit_enforced": true, "bandwidth_limit_enforced": true},
+  "required_capabilities": ["real_sfu", "real_turn_pool", "turn_only_candidates", "credential_rotation", "dns_fault_injection", "tls_fault_injection", "resource_observer", "owned_resource_cleanup"],
+  "required_scenarios": ["allocation_limit", "port_limit", "bandwidth_limit", "credential_rotation", "credential_revoke", "credential_lifetime_expiry", "turn_pool_instance_kill", "dns_failure", "tls_failure", "sfu_failover", "receiver_churn"],
+  "required_metrics": ["actual_relay_amplification_ratio", "capacity_rejections_before_hard_limit", "unaffected_control_interruption_ms", "unaffected_receiver_loss_percent", "retry_rate_per_second", "accounting_gap_bytes", "credential_refreshes_per_minute", "stale_allocations", "stale_permissions", "stale_channel_bindings", "privacy_findings"],
+  "required_assertions": ["capacity_failure_reason_is_bounded", "no_authentication_downgrade", "no_e2ee_downgrade", "no_retry_storm", "turn_sfu_hub_accounting_reconciled", "no_secret_or_ip_leak"],
+  "cleanup_requirements": {"allocations_remaining": 0, "permissions_remaining": 0, "channel_bindings_remaining": 0, "credentials_invalidated": true, "child_processes_remaining": 0},
+  "thresholds": [
+    {"metric": "actual_relay_amplification_ratio", "operator": "lte", "value": 2.2},
+    {"metric": "capacity_rejections_before_hard_limit", "operator": "gte", "value": 1},
+    {"metric": "unaffected_control_interruption_ms", "operator": "lte", "value": 10000},
+    {"metric": "unaffected_receiver_loss_percent", "operator": "lte", "value": 2},
+    {"metric": "retry_rate_per_second", "operator": "lte", "value": 25},
+    {"metric": "accounting_gap_bytes", "operator": "eq", "value": 0},
+    {"metric": "credential_refreshes_per_minute", "operator": "lte", "value": 12},
+    {"metric": "stale_allocations", "operator": "eq", "value": 0},
+    {"metric": "stale_permissions", "operator": "eq", "value": 0},
+    {"metric": "stale_channel_bindings", "operator": "eq", "value": 0},
+    {"metric": "privacy_findings", "operator": "eq", "value": 0}
+  ],
+  "environment": {
+    "source_paths": ["scripts/sfu_broadcast_advanced_gate.py", "scripts/chaos/run_sfu_broadcast_turn_gate.py", "agent/services/sfu_fanout_route_lifecycle.py", "agent/services/sfu_broadcast_contract_validator.py"],
+    "infrastructure_paths": ["docker-compose.semantic-media.yml", "config/livekit.semantic-media.yaml"],
+    "browser_lock_path": "frontend-angular/package-lock.json",
+    "images": {"sfu": "livekit/livekit-server:1.13.1@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3", "turn": "coturn/coturn:4.6.3-r3@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"},
+    "required_digest_names": ["source_sha256", "config_sha256", "image_sha256", "infrastructure_sha256", "browser_lock_sha256"]
+  }
+}

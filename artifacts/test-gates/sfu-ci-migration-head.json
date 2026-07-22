@@ -1,0 +1,14 @@
+{
+  "command_sha256": "cdeb5e648598379ae864bf5f7223ac1796e3b4deb63cfd4b1e3cb2e41a4d3da8",
+  "gate_id": "SFB-CI-MIGRATION-HEAD",
+  "manifest_sha256": "84af8817c47701f0b6017e82827402efaec08bf3f9bde33a026425aa263306e7",
+  "reason_codes": [],
+  "resource_usage": {
+    "cpu_seconds": 14.132633,
+    "elapsed_ms": 12895,
+    "peak_rss_bytes": 1472569344
+  },
+  "schema": "ananta.sfu-broadcast-command-observation.v1",
+  "source_sha256": "29dbe64018dc6d12be9023b29acacc4b0ca0e763355937eb974e868b67c3744d",
+  "status": "passed"
+}

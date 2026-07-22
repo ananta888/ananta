@@ -1,10 +1,12 @@
 {
   "schema": "ananta.sfu-broadcast-gate-manifest.v1",
+  "manifest_version": 1,
   "evidence_manifest_schema": "ananta.sfu-broadcast-evidence-manifest.v1",
   "artifact_root": "artifacts/test-gates",
   "default_policy": {
     "max_age_seconds": 1209600,
-    "max_future_skew_seconds": 300
+    "max_future_skew_seconds": 300,
+    "minimum_manifest_version": 1
   },
   "attestation_profiles": {},
   "gates": [
@@ -14,10 +16,18 @@
         "ananta.semantic-media-gate-evidence.v1"
       ],
       "required_digest_ids": {
-        "config": ["sfu-broadcast-gate-manifest"],
-        "lockfile": ["python-dependency-lock"],
-        "image": ["ananta-hub-image"],
-        "infrastructure": ["sfu-broadcast-infrastructure"]
+        "config": [
+          "sfu-broadcast-gate-manifest"
+        ],
+        "lockfile": [
+          "python-dependency-lock"
+        ],
+        "image": [
+          "ananta-hub-image"
+        ],
+        "infrastructure": [
+          "sfu-broadcast-infrastructure"
+        ]
       },
       "attestation_profile": null
     },
@@ -27,12 +37,620 @@
         "ananta.sfu-broadcast-evidence-verification-report.v1"
       ],
       "required_digest_ids": {
+        "config": [
+          "sfu-broadcast-gate-manifest"
+        ],
+        "lockfile": [
+          "python-dependency-lock"
+        ],
+        "image": [
+          "ananta-hub-image"
+        ],
+        "infrastructure": [
+          "sfu-broadcast-infrastructure"
+        ]
+      },
+      "attestation_profile": null
+    },
+    {
+      "gate_id": "SFB-GATE-005",
+      "artifact_schemas": [
+        "ananta.sfu-broadcast-churn-soak-gate.v1"
+      ],
+      "required_digest_ids": {
+        "config": [
+          "sfu-broadcast-gate-manifest"
+        ],
+        "lockfile": [
+          "python-dependency-lock"
+        ],
+        "image": [
+          "ananta-hub-image"
+        ],
+        "infrastructure": [
+          "sfu-broadcast-infrastructure"
+        ]
+      },
+      "attestation_profile": null
+    },
+    {
+      "gate_id": "SFB-GATE-006",
+      "artifact_schemas": [
+        "ananta.sfu-broadcast-fleet-chaos-gate.v1"
+      ],
+      "required_digest_ids": {
+        "config": [
+          "sfu-broadcast-gate-manifest"
+        ],
+        "lockfile": [
+          "python-dependency-lock"
+        ],
+        "image": [
+          "ananta-hub-image"
+        ],
+        "infrastructure": [
+          "sfu-broadcast-infrastructure"
+        ]
+      },
+      "attestation_profile": null
+    },
+    {
+      "gate_id": "SFB-GATE-007",
+      "artifact_schemas": [
+        "ananta.sfu-broadcast-turn-chaos-gate.v1"
+      ],
+      "required_digest_ids": {
+        "config": [
+          "sfu-broadcast-gate-manifest"
+        ],
+        "lockfile": [
+          "python-dependency-lock"
+        ],
+        "image": [
+          "ananta-hub-image"
+        ],
+        "infrastructure": [
+          "sfu-broadcast-infrastructure"
+        ]
+      },
+      "attestation_profile": null
+    },
+    {
+      "gate_id": "SFB-GATE-008",
+      "artifact_schemas": [
+        "ananta.sfu-broadcast-scale-gate.v1"
+      ],
+      "required_digest_ids": {
+        "config": [
+          "sfu-broadcast-gate-manifest"
+        ],
+        "lockfile": [
+          "python-dependency-lock"
+        ],
+        "image": [
+          "ananta-hub-image"
+        ],
+        "infrastructure": [
+          "sfu-broadcast-infrastructure"
+        ]
+      },
+      "attestation_profile": null
+    },
+    {
+      "gate_id": "SFB-GATE-009",
+      "artifact_schemas": [
+        "ananta.sfu-broadcast-capacity-derivation-gate.v1"
+      ],
+      "required_digest_ids": {
+        "config": [
+          "sfu-broadcast-gate-manifest"
+        ],
+        "lockfile": [
+          "python-dependency-lock"
+        ],
+        "image": [
+          "ananta-hub-image"
+        ],
+        "infrastructure": [
+          "sfu-broadcast-infrastructure"
+        ]
+      },
+      "attestation_profile": null
+    },
+    {
+      "gate_id": "SFB-GATE-010",
+      "artifact_schemas": [
+        "ananta.sfu-broadcast-rollout-game-day-gate.v1"
+      ],
+      "required_digest_ids": {
+        "config": [
+          "sfu-broadcast-gate-manifest"
+        ],
+        "lockfile": [
+          "python-dependency-lock"
+        ],
+        "image": [
+          "ananta-hub-image"
+        ],
+        "infrastructure": [
+          "sfu-broadcast-infrastructure"
+        ]
+      },
+      "attestation_profile": null
+    },
+    {
+      "gate_id": "SFB-GATE-011",
+      "artifact_schemas": ["ananta.sfu-broadcast-release-gate.v1"],
+      "required_digest_ids": {
         "config": ["sfu-broadcast-gate-manifest"],
-        "lockfile": ["python-dependency-lock"],
-        "image": ["ananta-hub-image"],
+        "lockfile": ["python-dependency-lock", "angular-dependency-lock"],
+        "image": ["ananta-hub-image", "sfu-image", "turn-image", "browser-image"],
         "infrastructure": ["sfu-broadcast-infrastructure"]
       },
       "attestation_profile": null
+    },
+    {
+      "gate_id": "SFB-GATE-012",
+      "artifact_schemas": ["ananta.sfu-broadcast-supply-chain-gate.v1"],
+      "required_digest_ids": {
+        "config": ["sfu-broadcast-dependency-policy"],
+        "lockfile": ["python-dependency-lock", "angular-dependency-lock"],
+        "image": ["ananta-hub-image", "sfu-image", "turn-image", "browser-image"],
+        "infrastructure": ["sfu-broadcast-infrastructure"]
+      },
+      "attestation_profile": null
+    },
+    {
+      "gate_id": "SFB-GATE-013",
+      "artifact_schemas": ["ananta.sfu-broadcast-media-plane-fuzz-gate.v1"],
+      "required_digest_ids": {
+        "config": ["sfu-broadcast-media-fuzz-profile"],
+        "lockfile": ["python-dependency-lock"],
+        "image": ["sfu-image", "turn-image"],
+        "infrastructure": ["sfu-broadcast-infrastructure"]
+      },
+      "attestation_profile": null
+    },
+    {
+      "gate_id": "SFB-GATE-014",
+      "artifact_schemas": ["ananta.sfu-broadcast-accessibility-gate.v1"],
+      "required_digest_ids": {
+        "config": ["sfu-broadcast-accessibility-profile"],
+        "lockfile": ["angular-dependency-lock"],
+        "image": ["ananta-hub-image", "sfu-image", "turn-image", "browser-image"],
+        "infrastructure": ["sfu-broadcast-infrastructure"]
+      },
+      "attestation_profile": null
+    },
+    {
+      "gate_id": "SFB-GATE-015",
+      "artifact_schemas": ["ananta.sfu-broadcast-gate-matrix-result.v1"],
+      "required_digest_ids": {
+        "config": ["sfu-broadcast-gate-manifest"],
+        "lockfile": ["python-dependency-lock", "angular-dependency-lock"],
+        "image": [],
+        "infrastructure": ["ci-runner-infrastructure"]
+      },
+      "attestation_profile": null
     }
-  ]
+  ],
+  "release_policy": {
+    "release_gate_id": "SFB-GATE-011",
+    "extra_required_gate_ids": [
+      "SFB-GATE-013", "SFB-GATE-SCALE", "SFB-GATE-SOAK",
+      "SFB-GATE-CHAOS", "SFB-GATE-GAME-DAY"
+    ],
+    "required_zero_counters": [
+      "critical_security", "high_security", "critical_privacy",
+      "high_privacy", "critical_supply_chain", "high_supply_chain"
+    ],
+    "required_capacity_fields": [
+      "receiver_cap", "slo_budgets", "resource_budgets",
+      "browser_versions", "sfu_version", "turn_version"
+    ]
+  },
+  "execution": {
+    "source_files": [
+      "agent/services/sfu_broadcast_contract_materialization.py",
+      "agent/services/sfu_broadcast_contract_validator.py",
+      "agent/services/sfu_member_digest_key_contract.py",
+      "config/release/sfu_broadcast_gate_manifest.json",
+      "config/security/sfu_broadcast_dependency_policy.json",
+      "config/test-profiles/sfu-broadcast/accessibility.v1.json",
+      "config/test-profiles/sfu-broadcast/game-day.v1.json",
+      "config/test-profiles/sfu-broadcast/media-plane-fuzz.json",
+      "config/test-profiles/sfu-broadcast/nightly-runtime.v1.json",
+      "frontend-angular/package-lock.json",
+      "frontend-angular/src/app/services/sfu-broadcast-contract-validator.service.ts",
+      "requirements.lock",
+      "scripts/e2e/sfu_broadcast_accessibility_e2e.py",
+      "scripts/run_sfu_broadcast_contract_parity.py",
+      "scripts/run_sfu_broadcast_game_day_gate.py",
+      "scripts/run_sfu_broadcast_gate_matrix.py",
+      "scripts/run_sfu_broadcast_release_gate.py",
+      "scripts/run_sfu_broadcast_supply_chain_gate.py",
+      "scripts/run_sfu_media_plane_fuzz_gate.py",
+      "scripts/sfu_broadcast_gate_common.py",
+      "scripts/sfu_broadcast_release_common.py",
+      "tests/test_sfu_broadcast_gate_common.py",
+      "scripts/validate_sfu_broadcast_nightly_evidence.py",
+      "tests/contracts/sfu_broadcast/corpus.v1.json",
+      "todos/todo.webrtc-sfu-broadcast-fanout.json"
+    ],
+    "stages": {
+      "pr": {"retention_days": 14, "operator_approval_required": false},
+      "container_browser": {"retention_days": 30, "operator_approval_required": false},
+      "nightly": {"retention_days": 30, "operator_approval_required": false},
+      "game_day": {"retention_days": 90, "operator_approval_required": true},
+      "release": {"retention_days": 365, "operator_approval_required": true}
+    },
+    "gates": [
+      {
+        "gate_id": "SFB-CI-TODO",
+        "task_ids": ["SFB-GATE-015"],
+        "stage": "pr",
+        "command": [
+          "python3", "scripts/validate_todo_consistency.py",
+          "--todo", "todos/todo.webrtc-sfu-broadcast-fanout.json"
+        ],
+        "artifact": "artifacts/test-gates/sfu-ci-todo.json",
+        "artifact_schema": "ananta.sfu-broadcast-command-observation.v1",
+        "artifact_mode": "observed",
+        "timeout_seconds": 120,
+        "cpu_seconds_max": 120,
+        "memory_bytes_max": 536870912,
+        "cleanup": {"strategy": "none", "commands": [], "deadline_seconds": 1},
+        "retention_days": 14,
+        "requires_real_backend": false,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-CI-CONTRACT-PARITY",
+        "task_ids": ["SFB-GATE-002", "SFB-GATE-015"],
+        "stage": "pr",
+        "command": [
+          "python3", "scripts/run_sfu_broadcast_contract_parity.py"
+        ],
+        "artifact": "artifacts/test-gates/sfu-broadcast-contract-parity.json",
+        "artifact_schema": "ananta.sfu-broadcast-contract-parity.v1",
+        "artifact_mode": "external",
+        "timeout_seconds": 900,
+        "cpu_seconds_max": 900,
+        "memory_bytes_max": 3221225472,
+        "cleanup": {
+          "strategy": "none",
+          "commands": [],
+          "deadline_seconds": 1
+        },
+        "retention_days": 14,
+        "requires_real_backend": false,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-CI-PYTHON",
+        "task_ids": ["SFB-GATE-002", "SFB-GATE-015"],
+        "stage": "pr",
+        "command": [
+          "python3", "-m", "pytest", "-q",
+          "tests/test_sfu_broadcast_gate_manifest.py",
+          "tests/test_sfu_broadcast_gate_common.py",
+          "tests/test_sfu_broadcast_release_gate.py",
+          "tests/test_sfu_broadcast_release_auxiliary_gates.py",
+          "tests/test_sfu_broadcast_accessibility_gate.py",
+          "tests/fuzz/test_selected_sfu_media_plane_fuzz.py",
+          "tests/test_sfu_broadcast_contract_parity_runner.py"
+        ],
+        "artifact": "artifacts/test-gates/sfu-ci-python.json",
+        "artifact_schema": "ananta.sfu-broadcast-command-observation.v1",
+        "artifact_mode": "observed",
+        "timeout_seconds": 600,
+        "cpu_seconds_max": 600,
+        "memory_bytes_max": 2147483648,
+        "cleanup": {"strategy": "none", "commands": [], "deadline_seconds": 1},
+        "retention_days": 14,
+        "requires_real_backend": false,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-CI-PYTHON-LINT",
+        "task_ids": ["SFB-GATE-015"],
+        "stage": "pr",
+        "command": [
+          "python3", "-m", "ruff", "check",
+          "scripts/sfu_broadcast_release_common.py",
+          "scripts/sfu_broadcast_gate_common.py",
+          "scripts/run_sfu_broadcast_gate_matrix.py",
+          "scripts/run_sfu_broadcast_release_gate.py"
+        ],
+        "artifact": "artifacts/test-gates/sfu-ci-python-lint.json",
+        "artifact_schema": "ananta.sfu-broadcast-command-observation.v1",
+        "artifact_mode": "observed",
+        "timeout_seconds": 120,
+        "cpu_seconds_max": 120,
+        "memory_bytes_max": 536870912,
+        "cleanup": {"strategy": "none", "commands": [], "deadline_seconds": 1},
+        "retention_days": 14,
+        "requires_real_backend": false,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-CI-ANGULAR-UNIT",
+        "task_ids": ["SFB-GATE-014", "SFB-GATE-015"],
+        "stage": "pr",
+        "command": ["npm", "--prefix", "frontend-angular", "run", "test:unit"],
+        "artifact": "artifacts/test-gates/sfu-ci-angular-unit.json",
+        "artifact_schema": "ananta.sfu-broadcast-command-observation.v1",
+        "artifact_mode": "observed",
+        "timeout_seconds": 900,
+        "cpu_seconds_max": 900,
+        "memory_bytes_max": 3221225472,
+        "cleanup": {"strategy": "none", "commands": [], "deadline_seconds": 1},
+        "retention_days": 14,
+        "requires_real_backend": false,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-CI-ANGULAR-LINT",
+        "task_ids": ["SFB-GATE-015"],
+        "stage": "pr",
+        "command": ["npm", "--prefix", "frontend-angular", "run", "lint"],
+        "artifact": "artifacts/test-gates/sfu-ci-angular-lint.json",
+        "artifact_schema": "ananta.sfu-broadcast-command-observation.v1",
+        "artifact_mode": "observed",
+        "timeout_seconds": 600,
+        "cpu_seconds_max": 600,
+        "memory_bytes_max": 3221225472,
+        "cleanup": {"strategy": "none", "commands": [], "deadline_seconds": 1},
+        "retention_days": 14,
+        "requires_real_backend": false,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-CI-ANGULAR-BUILD",
+        "task_ids": ["SFB-GATE-015"],
+        "stage": "pr",
+        "command": ["npm", "--prefix", "frontend-angular", "run", "build"],
+        "artifact": "artifacts/test-gates/sfu-ci-angular-build.json",
+        "artifact_schema": "ananta.sfu-broadcast-command-observation.v1",
+        "artifact_mode": "observed",
+        "timeout_seconds": 1200,
+        "cpu_seconds_max": 1200,
+        "memory_bytes_max": 4294967296,
+        "cleanup": {"strategy": "none", "commands": [], "deadline_seconds": 1},
+        "retention_days": 14,
+        "requires_real_backend": false,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-CI-MIGRATION-HEAD",
+        "task_ids": ["SFB-GATE-015"],
+        "stage": "pr",
+        "command": ["python3", "-m", "pytest", "-q", "tests/test_sfu_broadcast_migrations.py"],
+        "artifact": "artifacts/test-gates/sfu-ci-migration-head.json",
+        "artifact_schema": "ananta.sfu-broadcast-command-observation.v1",
+        "artifact_mode": "observed",
+        "timeout_seconds": 300,
+        "cpu_seconds_max": 300,
+        "memory_bytes_max": 2147483648,
+        "cleanup": {"strategy": "none", "commands": [], "deadline_seconds": 1},
+        "retention_days": 14,
+        "requires_real_backend": false,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-GATE-012",
+        "task_ids": ["SFB-GATE-012"],
+        "stage": "container_browser",
+        "command": [
+          "python3", "scripts/run_sfu_broadcast_supply_chain_gate.py",
+          "--sbom", "artifacts/raw/sfu-broadcast-child-sbom.json",
+          "--scans", "artifacts/raw/sfu-broadcast-child-scans.json",
+          "--container-evidence", "artifacts/raw/sfu-broadcast-container-controls.json",
+          "--parent-sbom", "artifacts/test-gates/semantic-media-sbom.json",
+          "--parent-evidence", "artifacts/test-gates/semantic-media-program-evidence.json"
+        ],
+        "artifact": "artifacts/test-gates/sfu-broadcast-supply-chain.json",
+        "artifact_schema": "ananta.sfu-broadcast-supply-chain-gate.v1",
+        "artifact_mode": "external",
+        "timeout_seconds": 900,
+        "cpu_seconds_max": 900,
+        "memory_bytes_max": 2147483648,
+        "cleanup": {
+          "strategy": "owned_compose_project",
+          "commands": [["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
+          "deadline_seconds": 120
+        },
+        "retention_days": 30,
+        "requires_real_backend": true,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-GATE-013",
+        "task_ids": ["SFB-GATE-013"],
+        "stage": "nightly",
+        "command": [
+          "python3", "scripts/run_sfu_media_plane_fuzz_gate.py",
+          "--external-result", "artifacts/raw/sfu-media-plane-fuzz-result.json",
+          "--parent-evidence", "artifacts/test-gates/semantic-media-program-evidence.json"
+        ],
+        "artifact": "artifacts/test-gates/sfu-media-plane-fuzz.json",
+        "artifact_schema": "ananta.sfu-broadcast-media-plane-fuzz-gate.v1",
+        "artifact_mode": "external",
+        "timeout_seconds": 1200,
+        "cpu_seconds_max": 1200,
+        "memory_bytes_max": 2147483648,
+        "cleanup": {
+          "strategy": "owned_compose_project",
+          "commands": [["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
+          "deadline_seconds": 120
+        },
+        "retention_days": 30,
+        "requires_real_backend": true,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-GATE-014",
+        "task_ids": ["SFB-GATE-014"],
+        "stage": "container_browser",
+        "command": [
+          "python3", "scripts/e2e/sfu_broadcast_accessibility_e2e.py",
+          "--external-result", "artifacts/raw/sfu-broadcast-accessibility-result.json",
+          "--parent-evidence", "artifacts/test-gates/semantic-media-program-evidence.json"
+        ],
+        "artifact": "artifacts/test-gates/sfu-broadcast-accessibility.json",
+        "artifact_schema": "ananta.sfu-broadcast-accessibility-gate.v1",
+        "artifact_mode": "external",
+        "timeout_seconds": 1200,
+        "cpu_seconds_max": 1200,
+        "memory_bytes_max": 3221225472,
+        "cleanup": {
+          "strategy": "owned_compose_project",
+          "commands": [
+            ["npm", "--prefix", "frontend-angular", "run", "e2e:stack:down"],
+            ["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]
+          ],
+          "deadline_seconds": 120
+        },
+        "retention_days": 30,
+        "requires_real_backend": true,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-GATE-SCALE",
+        "task_ids": ["SFB-GATE-015"],
+        "stage": "nightly",
+        "command": [
+          "python3", "scripts/validate_sfu_broadcast_nightly_evidence.py",
+          "--kind", "scale",
+          "--external-result", "artifacts/raw/sfu-broadcast-scale-result.json",
+          "--parent-evidence", "artifacts/test-gates/semantic-media-program-evidence.json",
+          "--output", "artifacts/test-gates/sfu-broadcast-scale.json"
+        ],
+        "artifact": "artifacts/test-gates/sfu-broadcast-scale.json",
+        "artifact_schema": "ananta.sfu-broadcast-scale-gate.v1",
+        "artifact_mode": "external",
+        "timeout_seconds": 1800,
+        "cpu_seconds_max": 1800,
+        "memory_bytes_max": 4294967296,
+        "cleanup": {
+          "strategy": "owned_compose_project",
+          "commands": [["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
+          "deadline_seconds": 120
+        },
+        "retention_days": 30,
+        "requires_real_backend": true,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-GATE-SOAK",
+        "task_ids": ["SFB-GATE-015"],
+        "stage": "nightly",
+        "command": [
+          "python3", "scripts/validate_sfu_broadcast_nightly_evidence.py",
+          "--kind", "soak",
+          "--external-result", "artifacts/raw/sfu-broadcast-soak-result.json",
+          "--parent-evidence", "artifacts/test-gates/semantic-media-program-evidence.json",
+          "--output", "artifacts/test-gates/sfu-broadcast-soak.json"
+        ],
+        "artifact": "artifacts/test-gates/sfu-broadcast-soak.json",
+        "artifact_schema": "ananta.sfu-broadcast-soak-gate.v1",
+        "artifact_mode": "external",
+        "timeout_seconds": 9000,
+        "cpu_seconds_max": 9000,
+        "memory_bytes_max": 4294967296,
+        "cleanup": {
+          "strategy": "owned_compose_project",
+          "commands": [["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
+          "deadline_seconds": 180
+        },
+        "retention_days": 30,
+        "requires_real_backend": true,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-GATE-CHAOS",
+        "task_ids": ["SFB-GATE-015"],
+        "stage": "nightly",
+        "command": [
+          "python3", "scripts/validate_sfu_broadcast_nightly_evidence.py",
+          "--kind", "chaos",
+          "--external-result", "artifacts/raw/sfu-broadcast-chaos-result.json",
+          "--parent-evidence", "artifacts/test-gates/semantic-media-program-evidence.json",
+          "--output", "artifacts/test-gates/sfu-broadcast-chaos.json"
+        ],
+        "artifact": "artifacts/test-gates/sfu-broadcast-chaos.json",
+        "artifact_schema": "ananta.sfu-broadcast-chaos-gate.v1",
+        "artifact_mode": "external",
+        "timeout_seconds": 1800,
+        "cpu_seconds_max": 1800,
+        "memory_bytes_max": 4294967296,
+        "cleanup": {
+          "strategy": "owned_compose_project",
+          "commands": [["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
+          "deadline_seconds": 120
+        },
+        "retention_days": 30,
+        "requires_real_backend": true,
+        "operator_approval_required": false
+      },
+      {
+        "gate_id": "SFB-GATE-GAME-DAY",
+        "task_ids": ["SFB-GATE-011", "SFB-GATE-015"],
+        "stage": "game_day",
+        "command": [
+          "python3", "scripts/run_sfu_broadcast_game_day_gate.py",
+          "--external-result", "artifacts/raw/sfu-broadcast-game-day-result.json",
+          "--parent-evidence", "artifacts/test-gates/semantic-media-program-evidence.json",
+          "--operator-approved"
+        ],
+        "artifact": "artifacts/test-gates/sfu-broadcast-game-day.json",
+        "artifact_schema": "ananta.sfu-broadcast-game-day-gate.v1",
+        "artifact_mode": "external",
+        "timeout_seconds": 5400,
+        "cpu_seconds_max": 3600,
+        "memory_bytes_max": 4294967296,
+        "cleanup": {
+          "strategy": "owned_compose_project",
+          "commands": [
+            ["npm", "--prefix", "frontend-angular", "run", "e2e:stack:down"],
+            ["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]
+          ],
+          "deadline_seconds": 180
+        },
+        "retention_days": 90,
+        "requires_real_backend": true,
+        "operator_approval_required": true
+      },
+      {
+        "gate_id": "SFB-GATE-011",
+        "task_ids": ["SFB-GATE-011"],
+        "stage": "release",
+        "command": [
+          "python3", "scripts/run_sfu_broadcast_release_gate.py",
+          "--evidence-manifest", "artifacts/test-gates/sfu-broadcast-evidence-manifest.json",
+          "--parent-evidence", "artifacts/test-gates/semantic-media-program-evidence.json",
+          "--capacity-profile", "artifacts/test-gates/sfu-broadcast-capacity.json",
+          "--rollback-evidence", "artifacts/test-gates/sfu-broadcast-game-day.json",
+          "--risk-summary", "artifacts/test-gates/sfu-broadcast-risk-summary.json"
+        ],
+        "artifact": "artifacts/test-gates/sfu-broadcast-release.json",
+        "artifact_schema": "ananta.sfu-broadcast-release-gate.v1",
+        "artifact_mode": "external",
+        "timeout_seconds": 600,
+        "cpu_seconds_max": 600,
+        "memory_bytes_max": 1073741824,
+        "cleanup": {
+          "strategy": "owned_compose_project",
+          "commands": [
+            ["npm", "--prefix", "frontend-angular", "run", "e2e:stack:down"],
+            ["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]
+          ],
+          "deadline_seconds": 180
+        },
+        "retention_days": 365,
+        "requires_real_backend": true,
+        "operator_approval_required": true
+      }
+    ]
+  }
 }

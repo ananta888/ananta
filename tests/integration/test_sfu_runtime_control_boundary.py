@@ -65,6 +65,9 @@ class _Bindings:
     def existing(self, _key, _version):
         return self.binding
 
+    def observed(self, _key):
+        return self.binding
+
 
 def _config(**changes):
     values = {
@@ -126,7 +129,20 @@ def test_remote_rate_limit_partial_apply_and_drain_fail_closed():
 
 def test_observe_is_explicitly_non_authoritative():
     transport = _Transport()
-    client = LiveKitControlApiClient(_config(), _Bindings(), transport=transport, clock=lambda: NOW)
+    bindings = _Bindings()
+    missing = LiveKitControlApiClient(_config(), bindings, transport=transport, clock=lambda: NOW)
+    with pytest.raises(
+        LiveKitControlApiError,
+        match="livekit_observation_binding_resolver_missing",
+    ):
+        missing.observe(SimpleNamespace(key=SimpleNamespace()))
+    client = LiveKitControlApiClient(
+        _config(),
+        bindings,
+        observation_bindings=bindings,
+        transport=transport,
+        clock=lambda: NOW,
+    )
     observation = client.observe(SimpleNamespace(key=SimpleNamespace()))
     assert observation.presence == "unknown"
     assert observation.authoritative is False
@@ -137,8 +153,15 @@ def test_unsupported_mode_keeps_control_disabled():
     boundary = build_sfu_runtime_control_boundary("unsupported")
     assert isinstance(boundary, UnsupportedSfuRuntimeControlBoundary)
     assert boundary.capabilities()["available"] is False
-    with pytest.raises(LiveKitControlApiError):
+    with pytest.raises(LiveKitControlApiError) as health_error:
         boundary.health()
+    assert health_error.value.reason_code == "sfu_runtime_mode_not_selected"
+    with pytest.raises(LiveKitControlApiError) as command_error:
+        boundary.apply(object())
+    assert command_error.value.reason_code == "sfu_runtime_mode_not_selected"
+    with pytest.raises(LiveKitControlApiError) as query_error:
+        boundary.observe(object())
+    assert query_error.value.reason_code == "sfu_runtime_mode_not_selected"
 
 
 def test_mode_profiles_are_exclusive_and_stock_profile_has_no_agent_build():
@@ -151,6 +174,9 @@ def test_mode_profiles_are_exclusive_and_stock_profile_has_no_agent_build():
     assert 'profiles: ["authenticated_runtime_extension"]' in extension
     assert "build:" in extension
     assert "ANANTA_SFU_KEY_PROVIDER: tpm2" in extension
+    assert ":?required" not in stock
+    runtime_image = (ROOT / "docker/sfu-runtime-agent.Dockerfile").read_text(encoding="utf-8")
+    assert "tpm2-tools" in runtime_image
 
 
 def test_tpm_provider_has_no_private_export_or_fallback():

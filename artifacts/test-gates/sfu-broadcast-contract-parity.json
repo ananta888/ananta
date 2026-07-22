@@ -1,0 +1,21 @@
+{
+  "activation_allowed": false,
+  "commands": {
+    "python_sha256": "b3697e8e8acf0b366d5158977a5f97bf7b8d24769a83a2cc8526ae8ab6d98554",
+    "typescript_sha256": "8e74b1b12c08105031d4de29cbf86c992b60452e1e4c287f41d6b33d23bb89e8"
+  },
+  "corpus": {
+    "corpus_digest": "sha256:a4ded29b2a0dfc09b34addcb0250f55d4c71663d7f53b1c64717553f679a42fb",
+    "corpus_version": 3,
+    "fixture_count": 91,
+    "schema_version": 1
+  },
+  "gate_id": "SFB-GATE-002",
+  "reason_codes": [],
+  "runtime_counts": {
+    "python_tests": 31,
+    "typescript_tests": 7
+  },
+  "schema": "ananta.sfu-broadcast-contract-parity.v1",
+  "status": "passed"
+}

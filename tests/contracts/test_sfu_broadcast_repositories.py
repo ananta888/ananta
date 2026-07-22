@@ -6,6 +6,7 @@ import pytest
 from sqlmodel import SQLModel, create_engine
 
 from agent.db_models import SfuBroadcastAudienceDB, SfuFanoutRouteDB, SfuReceiverGroupDB
+from agent.db_models.sfu_broadcast_retention import SfuAudienceSnapshotTombstoneDB
 from agent.repositories.sfu_broadcast_repository import (
     InMemorySfuBroadcastAudienceRepository,
     InMemorySfuBroadcastRepositoryStore,
@@ -72,6 +73,7 @@ def repositories(request, tmp_path) -> RepositoryHarness:
                 SfuBroadcastAudienceDB.__table__,
                 SfuReceiverGroupDB.__table__,
                 SfuFanoutRouteDB.__table__,
+                SfuAudienceSnapshotTombstoneDB.__table__,
             ],
         )
 

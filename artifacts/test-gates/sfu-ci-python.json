@@ -1,0 +1,14 @@
+{
+  "command_sha256": "3b07a2c40a632cc3806c5ee90ffc48d1dc1059e0b0d83a202db2dbb779eebd31",
+  "gate_id": "SFB-CI-PYTHON",
+  "manifest_sha256": "84af8817c47701f0b6017e82827402efaec08bf3f9bde33a026425aa263306e7",
+  "reason_codes": [],
+  "resource_usage": {
+    "cpu_seconds": 22.638129,
+    "elapsed_ms": 21273,
+    "peak_rss_bytes": 1466646528
+  },
+  "schema": "ananta.sfu-broadcast-command-observation.v1",
+  "source_sha256": "29dbe64018dc6d12be9023b29acacc4b0ca0e763355937eb974e868b67c3744d",
+  "status": "passed"
+}

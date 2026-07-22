@@ -1,0 +1,25 @@
+{
+  "schema": "ananta.sfu-broadcast-game-day-profile.v1",
+  "profile_version": 1,
+  "required_image_ids": ["hub", "sfu", "turn", "browser"],
+  "operator_approval_required": true,
+  "scenarios": [
+    "hub_failover", "sfu_process_kill", "turn_partition",
+    "consent_revocation", "kill_switch", "full_feature_rollback"
+  ],
+  "rollback_invariants": [
+    "atomic_transition", "all_advanced_flags_disabled",
+    "no_partial_activation", "hub_retains_queue_ownership",
+    "workers_do_not_orchestrate", "content_keys_not_exported"
+  ],
+  "cleanup_invariants": [
+    "owned_tracks_ended", "rooms_disconnected", "listeners_removed",
+    "timers_cancelled", "owned_containers_removed",
+    "owned_networks_removed", "owned_volumes_removed"
+  ],
+  "limits": {
+    "scenario_timeout_seconds": 900,
+    "cleanup_timeout_seconds": 120,
+    "rollback_commit_milliseconds_max": 5000
+  }
+}

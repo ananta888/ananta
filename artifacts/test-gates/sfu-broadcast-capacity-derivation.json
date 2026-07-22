@@ -1,0 +1,16 @@
+{
+  "activation_performed": false,
+  "blocking_reasons": [
+    "verified_real_evidence_bundle_missing"
+  ],
+  "candidate_count": 0,
+  "claims": {
+    "all_required_evidence_verified": false,
+    "capacity_profiles_activated": false,
+    "only_real_attested_executions_used": false
+  },
+  "gate_id": "SFB-GATE-009",
+  "release_blocking": true,
+  "schema": "ananta.sfu-broadcast-capacity-derivation-gate.v1",
+  "status": "blocked"
+}

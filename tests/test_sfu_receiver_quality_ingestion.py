@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -47,8 +47,11 @@ class _Authority:
         return self.value
 
 
-def _document():
-    return copy.deepcopy(FIXTURE["instance"])
+def _document(policy: SfuReceiverQualityPolicy | None = None):
+    document = copy.deepcopy(FIXTURE["instance"])
+    if policy is not None:
+        document["limits"] = policy.declared_limits()
+    return document
 
 
 def _raw(document):
@@ -162,7 +165,9 @@ def test_duplicate_reorder_gap_and_stale_sequence_have_stable_outcomes():
     now[0] += 5
     gap = _document()
     gap["sequence"] = 44
-    gap["issued_at"] = datetime.fromtimestamp(now[0]).isoformat().replace("+00:00", "Z")
+    gap["issued_at"] = datetime.fromtimestamp(
+        now[0], tz=timezone.utc
+    ).isoformat().replace("+00:00", "Z")
     for sample in gap["samples"]:
         sample["observed_at"] = gap["issued_at"]
     accepted = service.ingest(_command(gap))
@@ -186,21 +191,23 @@ def test_interval_rate_history_retention_and_cleanup_are_bounded():
         retention_seconds=2,
     )
     service = _service(clock=lambda: now[0], policy=policy)
-    service.ingest(_command())
-    second = _document()
+    service.ingest(_command(_document(policy)))
+    second = _document(policy)
     second["sequence"] = 42
     with pytest.raises(SfuReceiverQualityError, match="report_interval_too_short"):
         service.ingest(_command(second))
     for sequence in (42, 43):
         now[0] += 1
-        document = _document()
+        document = _document(policy)
         document["sequence"] = sequence
-        document["issued_at"] = datetime.fromtimestamp(now[0]).isoformat().replace("+00:00", "Z")
+        document["issued_at"] = datetime.fromtimestamp(
+            now[0], tz=timezone.utc
+        ).isoformat().replace("+00:00", "Z")
         for sample in document["samples"]:
             sample["observed_at"] = document["issued_at"]
         service.ingest(_command(document))
     now[0] += 1
-    fourth = _document()
+    fourth = _document(policy)
     fourth["sequence"] = 44
     with pytest.raises(SfuReceiverQualityError, match="report_rate_exceeded"):
         service.ingest(_command(fourth))

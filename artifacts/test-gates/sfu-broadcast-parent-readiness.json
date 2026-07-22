@@ -1,0 +1,37 @@
+{
+  "config_sha256": "f1eb845aeb8434f57c1d37c09dcdce1d32a6c78be8d9ad2424feafb188226a56",
+  "evidence_kind": "automated",
+  "expires_on": null,
+  "gate_id": "SFB-BASE-003",
+  "measurements": {
+    "parent_decision": "no_go",
+    "parent_rollout_stage": "observe_only",
+    "parent_task_count": 126,
+    "parent_task_prerequisite_count": 34
+  },
+  "owner": "semantic-media-maintainers",
+  "rationale": null,
+  "reason_codes": [
+    "parent_evidence_time_skew",
+    "parent_no_go",
+    "parent_prerequisite_task_not_passed:ASMP-QA-004",
+    "parent_prerequisite_task_not_passed:ASMP-QA-006",
+    "parent_prerequisite_task_not_passed:ASMP-QA-009",
+    "parent_prerequisite_task_not_passed:ASMP-QA-010",
+    "parent_prerequisite_task_not_passed:ASMP-SEC-010",
+    "parent_prerequisite_task_not_passed:ASMP-SFU-003",
+    "parent_prerequisite_task_not_passed:ASMP-SFU-004",
+    "parent_prerequisite_task_not_passed:ASMP-SFU-005",
+    "parent_prerequisite_task_not_passed:ASMP-SFU-006",
+    "parent_prerequisite_task_not_passed:ASMP-SFU-007",
+    "parent_prerequisite_task_not_passed:ASMP-SFU-008",
+    "parent_prerequisite_task_not_passed:ASMP-SFU-009",
+    "parent_prerequisite_task_not_passed:ASMP-SFU-010",
+    "parent_prerequisite_task_not_passed:ASMP-VIS-012",
+    "parent_rollout_observe_only"
+  ],
+  "release_blocking": true,
+  "schema": "ananta.semantic-media-gate-evidence.v1",
+  "source_sha256": "fb4944ae55580029f7f0b87e664331dae16b19aafbdfbaa1811dc6ab4757d37a",
+  "status": "failed"
+}

@@ -1,0 +1,14 @@
+{
+  "command_sha256": "59d5b65397be6f217ce312c628e0801eb6fca65b16826094a763aa0205dbb483",
+  "gate_id": "SFB-CI-TODO",
+  "manifest_sha256": "84af8817c47701f0b6017e82827402efaec08bf3f9bde33a026425aa263306e7",
+  "reason_codes": [],
+  "resource_usage": {
+    "cpu_seconds": 0.039455,
+    "elapsed_ms": 64,
+    "peak_rss_bytes": 8822784
+  },
+  "schema": "ananta.sfu-broadcast-command-observation.v1",
+  "source_sha256": "29dbe64018dc6d12be9023b29acacc4b0ca0e763355937eb974e868b67c3744d",
+  "status": "passed"
+}

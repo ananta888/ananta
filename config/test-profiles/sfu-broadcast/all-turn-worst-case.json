@@ -1,0 +1,51 @@
+{
+  "schema_version": "sfu_all_turn_scenario_profile.v1",
+  "profile_id": "sfu-broadcast-all-turn-worst-case-v1",
+  "activation_status": "no_go",
+  "topology": {
+    "publishers": 1,
+    "receiver_sweep": [10, 25, 50, 100, 200, 400, 800],
+    "media": {"audio": true, "video_layers": 3, "simulcast": true}
+  },
+  "relay_enforcement": {
+    "publisher": "turn_only",
+    "receivers": "turn_only",
+    "allowed_candidate_types": ["relay"],
+    "transports": ["udp", "tcp", "tls"]
+  },
+  "scenario_matrix": [
+    {"scenario_id": "symmetric-udp-steady", "nat": "symmetric", "transport": "udp", "loss_percent": 0, "jitter_ms": 0, "bandwidth_kbps": 12000, "lifecycle_event": "steady"},
+    {"scenario_id": "cgnat-udp-loss-jitter", "nat": "cgnat", "transport": "udp", "loss_percent": 5, "jitter_ms": 80, "bandwidth_kbps": 8000, "lifecycle_event": "steady"},
+    {"scenario_id": "udp-blocked-tcp", "nat": "port_restricted", "transport": "tcp", "loss_percent": 1, "jitter_ms": 100, "bandwidth_kbps": 6000, "lifecycle_event": "steady"},
+    {"scenario_id": "udp-blocked-tls", "nat": "symmetric", "transport": "tls", "loss_percent": 1, "jitter_ms": 120, "bandwidth_kbps": 6000, "lifecycle_event": "steady"},
+    {"scenario_id": "allocation-expiry", "nat": "symmetric", "transport": "udp", "loss_percent": 2, "jitter_ms": 50, "bandwidth_kbps": 8000, "lifecycle_event": "allocation_expiry"},
+    {"scenario_id": "permission-expiry", "nat": "cgnat", "transport": "udp", "loss_percent": 2, "jitter_ms": 50, "bandwidth_kbps": 8000, "lifecycle_event": "permission_expiry"},
+    {"scenario_id": "channel-expiry", "nat": "restricted", "transport": "tcp", "loss_percent": 2, "jitter_ms": 80, "bandwidth_kbps": 6000, "lifecycle_event": "channel_expiry"},
+    {"scenario_id": "turn-process-restart", "nat": "symmetric", "transport": "tls", "loss_percent": 3, "jitter_ms": 100, "bandwidth_kbps": 6000, "lifecycle_event": "turn_restart"},
+    {"scenario_id": "pool-instance-failover", "nat": "cgnat", "transport": "udp", "loss_percent": 3, "jitter_ms": 100, "bandwidth_kbps": 8000, "lifecycle_event": "pool_failover"}
+  ],
+  "run_policy": {
+    "warmup_seconds": 180,
+    "duration_seconds": 900,
+    "repeats": 5,
+    "confidence": 0.95,
+    "max_coefficient_of_variation": 0.1,
+    "random_seed": 184733,
+    "cleanup_timeout_seconds": 300
+  },
+  "required_metrics": ["relay_bytes", "relay_packets", "allocations", "permissions", "channels", "turn_cpu", "turn_memory", "turn_bandwidth_utilization", "sfu_cpu", "sfu_memory", "packet_loss", "jitter", "rtt", "join_success", "disconnects"],
+  "gate_policy": {
+    "reserve_fraction": 0.35,
+    "minimum_success_ratio": 0.99,
+    "maximum_packet_loss_percent": 2,
+    "maximum_p95_jitter_ms": 100,
+    "maximum_turn_cpu_percent": 70,
+    "maximum_turn_memory_percent": 75,
+    "maximum_turn_bandwidth_utilization_percent": 70,
+    "maximum_sfu_cpu_percent": 70,
+    "maximum_sfu_memory_percent": 75,
+    "require_zero_nonrelay_candidates": true,
+    "require_relay_bytes_each_leg": true
+  },
+  "evidence": {"source_refs": [], "run_refs": [], "artifact_sha256": null}
+}

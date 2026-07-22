@@ -1,0 +1,43 @@
+{
+  "attack_classes": [
+    "idor",
+    "cross_tenant",
+    "cross_room",
+    "cross_publication",
+    "cross_device",
+    "cross_node",
+    "publish_subscribe_confusion",
+    "receive_only_escalation",
+    "stale_consent",
+    "token_replay",
+    "epoch_regression",
+    "fencing_regression",
+    "toctou",
+    "compromised_node"
+  ],
+  "config_sha256": "0dadd4c4d9eaed08b6cfaaf16518c3974cc20b8ab8634ff18ddfdf90ab948975",
+  "content_free_audit_required": true,
+  "ended_at": "2026-07-22T20:04:08Z",
+  "external_real_media_verified": false,
+  "gate_id": "SFB-GATE-003",
+  "measurements": {
+    "cpu_seconds": 27.364396,
+    "elapsed_ms": 25764,
+    "exit_code": 0,
+    "peak_rss_bytes": 1466605568,
+    "timed_out": false
+  },
+  "privacy_scan": {
+    "decision": "blocked",
+    "finding_count": 0
+  },
+  "reason_codes": [
+    "external_browser_container_media_evidence_unavailable",
+    "real_privacy_surfaces_unavailable"
+  ],
+  "release_blocking": true,
+  "schema": "ananta.sfu-broadcast-security-gate.v1",
+  "source_sha256": "ded427ee543144a8edc096ad8020b7de0cd6e6ed3c706ea344c4c82630b95a42",
+  "started_at": "2026-07-22T20:03:41Z",
+  "status": "blocked"
+}

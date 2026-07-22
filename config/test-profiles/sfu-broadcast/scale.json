@@ -1,0 +1,41 @@
+{
+  "schema": "ananta.sfu-broadcast-advanced-gate-profile.v1",
+  "gate_id": "SFB-GATE-008",
+  "profile_id": "sfu-broadcast-scale-v1",
+  "artifact_schema": "ananta.sfu-broadcast-scale-gate.v1",
+  "external_result_schema": "ananta.sfu-broadcast-scale-result.v1",
+  "seed": 86028121,
+  "execution": {"warmup_seconds": 180, "measurement_seconds": 900, "repetitions": 5, "timeout_seconds": 5280, "cleanup_timeout_seconds": 300, "artifact_bytes_max": 33554432},
+  "topology": {
+    "receiver_tiers": [10, 25, 50, 100, 250],
+    "publisher_counts": [1, 2],
+    "real_browser_sentinels_min": 3,
+    "calibration_max_relative_error": 0.15,
+    "approval_stops_after_first_failure": true,
+    "required_modes": ["camera_direct", "camera_all_turn", "screen_share", "audio", "transcript", "semantic_broadcast", "private_recovery", "ordinary_fallback"],
+    "tier_required_metrics": ["ingress_bytes", "egress_bytes", "cpu_percent", "memory_percent", "file_descriptors", "queue_depth", "drop_count", "packet_loss_p50", "packet_loss_p95", "join_latency_p95_ms", "rekey_latency_p95_ms", "layer_switch_p95_ms", "recovery_p95_ms"]
+  },
+  "required_capabilities": ["real_sfu", "real_turn", "protocol_faithful_load_clients", "real_browser_processes", "browser_calibration", "packet_observer", "resource_observer", "owned_resource_cleanup"],
+  "required_scenarios": ["single_publisher_camera", "multiple_publishers_camera", "screen_share", "audio", "transcript", "semantic_broadcast", "private_recovery", "direct_network", "all_turn", "ordinary_media_fallback", "direct_pair_regression"],
+  "required_metrics": ["max_ingress_bytes_per_second", "max_egress_bytes_per_second", "max_cpu_percent", "max_memory_percent", "max_file_descriptors", "max_queue_depth", "total_drop_count", "packet_loss_p95", "join_latency_p95_ms", "rekey_latency_p95_ms", "layer_switch_p95_ms", "recovery_p95_ms", "shared_resource_errors"],
+  "required_assertions": ["publisher_upstream_constant", "single_publication_per_source", "first_failed_tier_stops_approval", "direct_pair_is_separate_regression", "ordinary_media_fallback_preserved", "private_recovery_isolated"],
+  "cleanup_requirements": {"rooms_remaining": 0, "routes_remaining": 0, "allocations_remaining": 0, "peer_connections_remaining": 0, "child_processes_remaining": 0},
+  "thresholds": [
+    {"metric": "max_cpu_percent", "operator": "lte", "value": 80},
+    {"metric": "max_memory_percent", "operator": "lte", "value": 80},
+    {"metric": "total_drop_count", "operator": "eq", "value": 0},
+    {"metric": "packet_loss_p95", "operator": "lte", "value": 2},
+    {"metric": "join_latency_p95_ms", "operator": "lte", "value": 10000},
+    {"metric": "rekey_latency_p95_ms", "operator": "lte", "value": 5000},
+    {"metric": "layer_switch_p95_ms", "operator": "lte", "value": 3000},
+    {"metric": "recovery_p95_ms", "operator": "lte", "value": 10000},
+    {"metric": "shared_resource_errors", "operator": "eq", "value": 0}
+  ],
+  "environment": {
+    "source_paths": ["scripts/sfu_broadcast_advanced_gate.py", "scripts/benchmark/webrtc_sfu_broadcast_fanout.py", "scripts/benchmark/webrtc_sfu_semantic_broadcast.py", "scripts/load/sfu_broadcast_load_clients.py", "agent/services/sfu_egress_accounting_service.py"],
+    "infrastructure_paths": ["docker-compose.semantic-media.yml", "config/livekit.semantic-media.yaml"],
+    "browser_lock_path": "frontend-angular/package-lock.json",
+    "images": {"sfu": "livekit/livekit-server:1.13.1@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3", "turn": "coturn/coturn:4.6.3-r3@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"},
+    "required_digest_names": ["source_sha256", "config_sha256", "image_sha256", "infrastructure_sha256", "browser_lock_sha256"]
+  }
+}
