@@ -1,7 +1,7 @@
 {
   "schema": "ananta.semantic-sfu-release-gate.v1",
   "gate": "semantic-sfu",
-  "source_sha256": "2c3e7e2dcf2727258c53e2c690c4f483ada5ce5f76bedb9677e6e0277e181e5f",
+  "source_sha256": "e4e8e701c21d730a18c6c66451273501a573a043fb0e927330ed821890ca6a98",
   "config_sha256": "51e7ffe26cca1109ce9af45e22f2bdeae5f0a9dfe9bef0b32ba83a21d11487bc",
   "evidence_recomputed": true,
   "tests": [
@@ -34,6 +34,7 @@
     "turn_relay_engine_count": 2
   },
   "reasons": [
+    "group_capture_evidence_source_stale",
     "load_drops_exceeded"
   ],
   "verdict": "fail"
