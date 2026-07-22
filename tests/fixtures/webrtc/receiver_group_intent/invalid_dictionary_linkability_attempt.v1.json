@@ -1,0 +1,17 @@
+{
+  "fixture_version": 1,
+  "name": "unkeyed_dictionary_digest_attempt",
+  "base_fixture": "valid_group.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/publications/member_digests/0/algorithm",
+    "value": "sha-256"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "schema",
+    "keyword": "const",
+    "code": "unkeyed_member_digest_forbidden"
+  }
+}

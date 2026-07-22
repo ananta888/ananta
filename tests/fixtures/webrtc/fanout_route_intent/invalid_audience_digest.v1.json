@@ -1,0 +1,11 @@
+{
+  "fixture_version": 1,
+  "name": "audience_digest_manipulation",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/route/audience/audience_digest",
+    "value": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  },
+  "expected": {"valid": false, "phase": "authority_digest", "code": "route_audience_digest_mismatch"}
+}

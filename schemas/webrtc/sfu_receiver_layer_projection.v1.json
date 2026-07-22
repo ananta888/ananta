@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/sfu_receiver_layer_projection.v1.json",
+  "title": "SFU receiver layer projection v1",
+  "description": "A hub-issued subscriber-specific layer corridor that can only narrow existing subscription authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "domain",
+    "tenant_ref",
+    "room_ref",
+    "subscriber_ref",
+    "subscription_ref",
+    "publication_ref",
+    "browser_instance_pseudonym",
+    "session_projection_version",
+    "publisher_projection_version",
+    "projection_version",
+    "profile_version",
+    "capability_basis",
+    "quality_basis",
+    "allowed_layer_corridor",
+    "effective_layer",
+    "resolution",
+    "safe_outcome",
+    "hysteresis_profile",
+    "admission_epoch",
+    "membership_epoch",
+    "route_epoch",
+    "topology_epoch",
+    "key_epoch",
+    "issued_at",
+    "ttl_seconds",
+    "fencing",
+    "authorization_effect",
+    "limits",
+    "envelope"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.sfu-receiver-layer-projection.v1"},
+    "schema_version": {"const": 1},
+    "domain": {"const": "sfu_broadcast.receiver_layer_projection.v1"},
+    "tenant_ref": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/tenant_ref"},
+    "room_ref": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/room_ref"},
+    "subscriber_ref": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/canonical_id"},
+    "subscription_ref": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/subscription_ref"},
+    "publication_ref": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/publication_ref"},
+    "browser_instance_pseudonym": {"type": "string", "minLength": 31, "maxLength": 31, "pattern": "^room-bip_[A-Za-z0-9_-]{22}$"},
+    "session_projection_version": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "publisher_projection_version": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "projection_version": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "profile_version": {"const": "receiver-layer-profile-v1"},
+    "capability_basis": {"$ref": "#/$defs/capability_basis"},
+    "quality_basis": {"$ref": "#/$defs/quality_basis"},
+    "allowed_layer_corridor": {"$ref": "#/$defs/layer_corridor"},
+    "effective_layer": {"$ref": "#/$defs/layer_or_none"},
+    "resolution": {"enum": ["applied", "unknown", "unsupported"]},
+    "safe_outcome": {"enum": ["applied_within_corridor", "lowest_safe_layer", "ordinary_fallback", "deny"]},
+    "hysteresis_profile": {"$ref": "#/$defs/hysteresis_profile"},
+    "admission_epoch": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/monotone_epoch"},
+    "membership_epoch": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/membership_epoch"},
+    "route_epoch": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/route_epoch"},
+    "topology_epoch": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/topology_epoch"},
+    "key_epoch": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/key_epoch"},
+    "issued_at": {"$ref": "#/$defs/utc_second"},
+    "ttl_seconds": {"const": 10},
+    "fencing": {"$ref": "#/$defs/fencing"},
+    "authorization_effect": {"const": "narrow_only"},
+    "limits": {"$ref": "#/$defs/limits"},
+    "envelope": {"$ref": "#/$defs/envelope"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"resolution": {"const": "applied"}}, "required": ["resolution"]},
+      "then": {
+        "properties": {
+          "effective_layer": {"$ref": "https://ananta.local/schemas/webrtc/receiver_quality_observation.v1.json#/$defs/layer_selection"},
+          "safe_outcome": {"enum": ["applied_within_corridor", "lowest_safe_layer"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"resolution": {"enum": ["unknown", "unsupported"]}}, "required": ["resolution"]},
+      "then": {"properties": {"safe_outcome": {"enum": ["lowest_safe_layer", "ordinary_fallback", "deny"]}}}
+    },
+    {
+      "if": {"properties": {"safe_outcome": {"enum": ["ordinary_fallback", "deny"]}}, "required": ["safe_outcome"]},
+      "then": {"properties": {"effective_layer": {"type": "null"}}}
+    }
+  ],
+  "$defs": {
+    "utc_second": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 20,
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$",
+      "format": "date-time"
+    },
+    "capability_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability_version", "matched_bucket"],
+      "properties": {
+        "capability_version": {"const": "coarse-v1"},
+        "matched_bucket": {"$ref": "https://ananta.local/schemas/webrtc/browser_media_capability_observation.v1.json#/$defs/capability_bucket"}
+      }
+    },
+    "quality_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quality_version", "last_observation_sequence"],
+      "properties": {
+        "quality_version": {"const": "bounded-v1"},
+        "last_observation_sequence": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "integer", "minimum": 1, "maximum": 2147483647}
+          ]
+        }
+      }
+    },
+    "layer_or_none": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "https://ananta.local/schemas/webrtc/receiver_quality_observation.v1.json#/$defs/layer_selection"}
+      ]
+    },
+    "layer_corridor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "maximum"],
+      "properties": {
+        "minimum": {"$ref": "https://ananta.local/schemas/webrtc/receiver_quality_observation.v1.json#/$defs/layer_selection"},
+        "maximum": {"$ref": "https://ananta.local/schemas/webrtc/receiver_quality_observation.v1.json#/$defs/layer_selection"}
+      }
+    },
+    "hysteresis_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_version",
+        "upgrade_consecutive_observations_min",
+        "downgrade_consecutive_observations_min",
+        "dwell_ms",
+        "cooldown_ms"
+      ],
+      "properties": {
+        "profile_version": {"const": "receiver-hysteresis-v1"},
+        "upgrade_consecutive_observations_min": {"const": 3},
+        "downgrade_consecutive_observations_min": {"const": 2},
+        "dwell_ms": {"const": 3000},
+        "cooldown_ms": {"const": 5000}
+      }
+    },
+    "fencing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fencing_token", "expected_previous_projection_version"],
+      "properties": {
+        "fencing_token": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/monotone_epoch"},
+        "expected_previous_projection_version": {"type": "integer", "minimum": 0, "maximum": 2147483646}
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["named", "projection_bytes_max", "layer_axis_max", "projection_ttl_seconds_max", "projection_updates_per_minute_max"],
+      "properties": {
+        "named": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/named_limit_refs"},
+        "projection_bytes_max": {"const": 8192},
+        "layer_axis_max": {"const": 4},
+        "projection_ttl_seconds_max": {"const": 10},
+        "projection_updates_per_minute_max": {"const": 12}
+      }
+    },
+    "envelope": {
+      "allOf": [
+        {"$ref": "https://ananta.local/schemas/webrtc/secure_envelope.v1.json"},
+        {
+          "type": "object",
+          "properties": {
+            "scope": {"properties": {"kind": {"const": "room"}}},
+            "recipient": {"properties": {"kind": {"const": "peer"}}},
+            "payload_type": {"const": "sfu_broadcast.receiver_layer_projection.v1"},
+            "aad": {"properties": {"traffic_class": {"const": "control"}, "content_encoding": {"const": "json"}}}
+          }
+        }
+      ]
+    }
+  }
+}

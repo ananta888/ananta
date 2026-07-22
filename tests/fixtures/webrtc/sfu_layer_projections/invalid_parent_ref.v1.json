@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "publisher_wrong_parent_envelope_ref",
+  "target": "schema",
+  "target_document": "schemas/webrtc/sfu_publisher_layer_projection.v1.json",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/$defs/envelope/allOf/0/$ref",
+    "value": "https://ananta.local/schemas/webrtc/secure_envelope.v2.json"
+  },
+  "expected": {"valid": false, "phase": "contract_inspection", "code": "parent_envelope_ref_mismatch"}
+}

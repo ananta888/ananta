@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_group_intent_ttl_exceeded",
+  "base_fixture": "valid_group.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/resolved_limits/ananta.sfu-broadcast.extension-ttl-ms.max.v1",
+    "value": 4000
+  },
+  "expected": {"valid": false, "phase": "hub_time", "code": "intent_ttl_exceeded"}
+}

@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "layers_hard_limit",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/route/publication/allowed_layers",
+    "value": [
+      {"layer_ref": "camera-low-t0", "rid": "q", "spatial_id": 0, "temporal_id": 0},
+      {"layer_ref": "camera-low-t1", "rid": "q", "spatial_id": 0, "temporal_id": 1},
+      {"layer_ref": "camera-medium-t0", "rid": "h", "spatial_id": 1, "temporal_id": 0},
+      {"layer_ref": "camera-medium-t1", "rid": "h", "spatial_id": 1, "temporal_id": 1}
+    ]
+  },
+  "expected": {"valid": false, "phase": "schema", "code": "route_schema_invalid"}
+}

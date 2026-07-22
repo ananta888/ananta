@@ -1,0 +1,112 @@
+{
+  "fixture_version": 1,
+  "name": "valid_receiver_projection",
+  "validation_phase": "sfu_layer_projection_boundary",
+  "validation_context": {
+    "now_ms": 1899979205000,
+    "received_payload_bytes": 2900,
+    "active_scope": {
+      "tenant_ref": "tenant-fixture",
+      "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+      "subscriber_ref": "subscriber-fixture-01",
+      "subscription_ref": "subscription-fixture-01",
+      "publication_ref": "publication-fixture-01",
+      "browser_instance_pseudonym": "room-bip_AAAAAAAAAAAAAAAAAAAAAA",
+      "admission_epoch": 11,
+      "membership_epoch": 9,
+      "route_epoch": 5,
+      "topology_epoch": 4,
+      "key_epoch": 7,
+      "session_projection_version": 7,
+      "publisher_projection_version": 4,
+      "profile_version": "receiver-layer-profile-v1",
+      "capability_version": "coarse-v1",
+      "quality_version": "bounded-v1"
+    },
+    "current_projection_version": 8,
+    "current_fencing_token": 52,
+    "last_accepted_envelope_sequence": 120,
+    "updates_rolling_minute": 4,
+    "parent_authentication_verified": true,
+    "resolved_named_limits": true
+  },
+  "instance": {
+    "schema": "ananta.sfu-receiver-layer-projection.v1",
+    "schema_version": 1,
+    "domain": "sfu_broadcast.receiver_layer_projection.v1",
+    "tenant_ref": "tenant-fixture",
+    "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+    "subscriber_ref": "subscriber-fixture-01",
+    "subscription_ref": "subscription-fixture-01",
+    "publication_ref": "publication-fixture-01",
+    "browser_instance_pseudonym": "room-bip_AAAAAAAAAAAAAAAAAAAAAA",
+    "session_projection_version": 7,
+    "publisher_projection_version": 4,
+    "projection_version": 9,
+    "profile_version": "receiver-layer-profile-v1",
+    "capability_basis": {
+      "capability_version": "coarse-v1",
+      "matched_bucket": {
+        "codec_bucket": "video_vp8",
+        "layering_bucket": "simulcast",
+        "encoded_transform_bucket": "available",
+        "decode_bucket": "video_baseline",
+        "evidence_bucket": "static_capability_query"
+      }
+    },
+    "quality_basis": {"quality_version": "bounded-v1", "last_observation_sequence": 41},
+    "allowed_layer_corridor": {
+      "minimum": {"spatial_id": 0, "temporal_id": 0},
+      "maximum": {"spatial_id": 2, "temporal_id": 2}
+    },
+    "effective_layer": {"spatial_id": 1, "temporal_id": 1},
+    "resolution": "applied",
+    "safe_outcome": "applied_within_corridor",
+    "hysteresis_profile": {
+      "profile_version": "receiver-hysteresis-v1",
+      "upgrade_consecutive_observations_min": 3,
+      "downgrade_consecutive_observations_min": 2,
+      "dwell_ms": 3000,
+      "cooldown_ms": 5000
+    },
+    "admission_epoch": 11,
+    "membership_epoch": 9,
+    "route_epoch": 5,
+    "topology_epoch": 4,
+    "key_epoch": 7,
+    "issued_at": "2030-03-17T12:00:00Z",
+    "ttl_seconds": 10,
+    "fencing": {"fencing_token": 52, "expected_previous_projection_version": 8},
+    "authorization_effect": "narrow_only",
+    "limits": {
+      "named": {
+        "extension_payload_bytes_max": "ananta.sfu-broadcast.extension-payload-bytes.max.v1",
+        "fanout_count_max": "ananta.sfu-broadcast.fanout-count.max.v1",
+        "extension_ttl_ms_max": "ananta.sfu-broadcast.extension-ttl-ms.max.v1"
+      },
+      "projection_bytes_max": 8192,
+      "layer_axis_max": 4,
+      "projection_ttl_seconds_max": 10,
+      "projection_updates_per_minute_max": 12
+    },
+    "envelope": {
+      "version": 1,
+      "scope": {"kind": "room", "id": "sfu-0123456789abcdef0123456789abcdef"},
+      "sender_id": "hub-owner-a",
+      "recipient": {"kind": "peer", "id": "room-bip_AAAAAAAAAAAAAAAAAAAAAA"},
+      "epoch": 7,
+      "sequence": 121,
+      "key_id": "key-fixture-7",
+      "payload_type": "sfu_broadcast.receiver_layer_projection.v1",
+      "expires_at_ms": 1899979210000,
+      "nonce_b64": "AgMEBQYHCAkKCwwN",
+      "aad": {
+        "traffic_class": "control",
+        "content_encoding": "json",
+        "contract_digest": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "ciphertext_b64": "PCC7fraWo3zoY62pwowbH+aipUlqsi50Kw2BkWSjyvtU6PuP"
+    }
+  },
+  "expected": {"valid": true, "code": "ok", "subscription_mutation_allowed": true}
+}

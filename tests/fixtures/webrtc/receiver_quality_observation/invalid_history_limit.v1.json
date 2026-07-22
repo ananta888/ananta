@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_cannot_raise_history_limit",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/limits/history_reports_max",
+    "value": 13
+  },
+  "expected": {
+    "valid": false,
+    "phase": "limits",
+    "code": "limit_contract_mismatch"
+  }
+}

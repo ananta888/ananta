@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "max_encodings_without_publication_evidence",
+  "base_fixture": "valid_partial.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/max_encodings",
+    "value": 3
+  },
+  "expected": {
+    "valid": false,
+    "phase": "privacy_semantics",
+    "code": "runtime_limit_without_publication_evidence"
+  }
+}

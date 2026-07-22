@@ -1,0 +1,23 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_exceeds_sample_count",
+  "base_fixture": "valid_max_samples.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/samples/-",
+    "value": {
+      "sample_sequence": 116,
+      "observed_at": "2030-03-17T12:00:00Z",
+      "window_ms": 1000,
+      "metrics": {
+        "rtt_ms": 56
+      }
+    }
+  },
+  "expected": {
+    "valid": false,
+    "phase": "limits",
+    "code": "sample_count_exceeded"
+  }
+}

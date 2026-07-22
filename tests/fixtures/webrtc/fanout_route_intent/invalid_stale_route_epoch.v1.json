@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "stale_route_epoch",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/latest_epochs/route_epoch",
+    "value": 15
+  },
+  "expected": {"valid": false, "phase": "epochs_fencing", "code": "route_stale_route_epoch"}
+}

@@ -1,0 +1,29 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_exceeds_rolling_report_rate",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/accepted_report_times_rolling_minute",
+    "value": [
+      "2030-03-17T11:59:01Z",
+      "2030-03-17T11:59:06Z",
+      "2030-03-17T11:59:11Z",
+      "2030-03-17T11:59:16Z",
+      "2030-03-17T11:59:21Z",
+      "2030-03-17T11:59:26Z",
+      "2030-03-17T11:59:31Z",
+      "2030-03-17T11:59:36Z",
+      "2030-03-17T11:59:41Z",
+      "2030-03-17T11:59:46Z",
+      "2030-03-17T11:59:51Z",
+      "2030-03-17T11:59:56Z"
+    ]
+  },
+  "expected": {
+    "valid": false,
+    "phase": "rate_limit",
+    "code": "report_rate_exceeded"
+  }
+}

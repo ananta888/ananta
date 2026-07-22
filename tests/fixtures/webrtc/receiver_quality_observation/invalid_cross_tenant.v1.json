@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_cross_tenant",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/tenant_ref",
+    "value": "tenant-other"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "scope_binding",
+    "code": "cross_tenant_observation"
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "fixture_version": 1,
+  "name": "valid_extension_profile",
+  "validation_phase": "extension_boundary",
+  "validation_context": {
+    "now_ms": 1900000000000,
+    "prior_epochs": {
+      "membership_epoch": 10,
+      "key_epoch": 8,
+      "route_epoch": 5,
+      "topology_epoch": 2
+    },
+    "last_accepted_sequence": 40,
+    "resolved_limits": {
+      "ananta.sfu-broadcast.extension-payload-bytes.max.v1": 1024,
+      "ananta.sfu-broadcast.fanout-count.max.v1": 4,
+      "ananta.sfu-broadcast.extension-ttl-ms.max.v1": 10000
+    }
+  },
+  "instance": {
+    "profile_version": 1,
+    "domain": "sfu_broadcast.fixture.v1",
+    "references": {
+      "tenant_ref": "tenant-fixture",
+      "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+      "publication_ref": "publication-fixture",
+      "subscription_ref": "subscription-fixture"
+    },
+    "epochs": {
+      "membership_epoch": 11,
+      "key_epoch": 9,
+      "route_epoch": 5,
+      "topology_epoch": 3
+    },
+    "limits": {
+      "extension_payload_bytes_max": "ananta.sfu-broadcast.extension-payload-bytes.max.v1",
+      "fanout_count_max": "ananta.sfu-broadcast.fanout-count.max.v1",
+      "extension_ttl_ms_max": "ananta.sfu-broadcast.extension-ttl-ms.max.v1"
+    },
+    "envelope": {
+      "version": 1,
+      "scope": {
+        "kind": "room",
+        "id": "sfu-0123456789abcdef0123456789abcdef"
+      },
+      "sender_id": "hub-fixture",
+      "recipient": {
+        "kind": "group",
+        "id": "fanout-fixture"
+      },
+      "epoch": 9,
+      "sequence": 41,
+      "key_id": "key-fixture",
+      "payload_type": "sfu_broadcast.fixture.v1",
+      "expires_at_ms": 1900000005000,
+      "nonce_b64": "AAECAwQFBgcICQoL",
+      "aad": {
+        "traffic_class": "control",
+        "content_encoding": "json",
+        "contract_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "ciphertext_b64": "PCC7fraWo3zoY62pwowbH+aipUlqsi50Kw2BkWSjyvtU6PuP"
+    }
+  },
+  "expected": {
+    "valid": true,
+    "code": "ok"
+  }
+}

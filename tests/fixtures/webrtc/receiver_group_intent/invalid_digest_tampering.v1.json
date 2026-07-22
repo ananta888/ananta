@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "tampered_member_digest",
+  "base_fixture": "valid_group.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/publications/member_digests/0/value",
+    "value": "679633d1ad036beb1fbb02c837fed991de9e34efda5bce2182f6dfe70b5617a6"
+  },
+  "expected": {"valid": false, "phase": "hub_digest", "code": "member_digest_mismatch"}
+}

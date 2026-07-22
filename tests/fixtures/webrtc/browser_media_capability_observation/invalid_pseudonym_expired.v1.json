@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "room_pseudonym_exceeds_rotation_age",
+  "base_fixture": "valid_partial.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/active_pseudonym/issued_at",
+    "value": "2030-03-17T11:44:59Z"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "pseudonym_binding",
+    "code": "pseudonym_expired"
+  }
+}

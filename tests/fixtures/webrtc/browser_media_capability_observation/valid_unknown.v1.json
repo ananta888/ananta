@@ -1,0 +1,51 @@
+{
+  "fixture_version": 1,
+  "name": "valid_unknown_browser_media_capabilities",
+  "validation_phase": "browser_media_capability_boundary",
+  "validation_context": {
+    "now": "2030-03-17T12:00:30Z",
+    "received_report_bytes": 768,
+    "active_admission": {
+      "tenant_ref": "tenant-fixture",
+      "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+      "admission_epoch": 11,
+      "membership_epoch": 7,
+      "active": true
+    },
+    "active_pseudonym": {
+      "value": "room-bip_AAAAAAAAAAAAAAAAAAAAAA",
+      "issued_at": "2030-03-17T11:59:00Z"
+    },
+    "last_accepted_sequence": 40
+  },
+  "instance": {
+    "schema": "ananta.browser-media-capability-observation.v1",
+    "schema_version": 1,
+    "capability_version": "coarse-v1",
+    "tenant_ref": "tenant-fixture",
+    "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+    "admission_epoch": 11,
+    "membership_epoch": 7,
+    "browser_instance_pseudonym": "room-bip_AAAAAAAAAAAAAAAAAAAAAA",
+    "sequence": 41,
+    "issued_at": "2030-03-17T12:00:00Z",
+    "ttl_seconds": 300,
+    "pseudonym_rotation_seconds": 900,
+    "capability_bucket_combinations_max": 8,
+    "report_bytes_max": 2048,
+    "authorization_effect": "none",
+    "capability_buckets": [
+      {
+        "codec_bucket": "unknown",
+        "layering_bucket": "unknown",
+        "encoded_transform_bucket": "unknown",
+        "decode_bucket": "unknown",
+        "evidence_bucket": "not_observed"
+      }
+    ]
+  },
+  "expected": {
+    "valid": true,
+    "code": "ok"
+  }
+}

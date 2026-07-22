@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "intent_bytes_hard_limit",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/measured_intent_bytes",
+    "value": 32769
+  },
+  "expected": {"valid": false, "phase": "preparse_size", "code": "route_intent_bytes_hard_limit_exceeded"}
+}

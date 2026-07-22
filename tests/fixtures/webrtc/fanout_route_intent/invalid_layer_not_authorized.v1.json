@@ -1,0 +1,11 @@
+{
+  "fixture_version": 1,
+  "name": "higher_layer_not_authorized",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/route/publication/allowed_layers/1",
+    "value": {"layer_ref": "camera-high", "rid": "f", "spatial_id": 2, "temporal_id": 2}
+  },
+  "expected": {"valid": false, "phase": "authority_layers", "code": "route_layer_not_authorized"}
+}

@@ -1,0 +1,216 @@
+{
+  "fixture_version": 1,
+  "name": "valid_receiver_group",
+  "validation_phase": "receiver_group_intent_boundary",
+  "validation_context": {
+    "now_ms": 1900000001000,
+    "resolved_limits": {
+      "ananta.sfu-broadcast.fanout-count.max.v1": 8,
+      "ananta.sfu-broadcast.extension-ttl-ms.max.v1": 10000
+    },
+    "latest_epochs": {
+      "membership_epoch": 12,
+      "consent_epoch": 17,
+      "key_epoch": 7,
+      "audience_epoch": 5
+    },
+    "resolved_policy": {
+      "policy_ref": "receiver-policy-fixture",
+      "version": 4
+    },
+    "resolved_publications": [
+      {
+        "publication_ref": "publication-camera-main",
+        "tenant_ref": "tenant-fixture",
+        "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+        "privacy_scope": "ordinary",
+        "publication_scope_ref": "publication-scope-fixture",
+        "key_epoch": 7
+      },
+      {
+        "publication_ref": "publication-screen-main",
+        "tenant_ref": "tenant-fixture",
+        "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+        "privacy_scope": "ordinary",
+        "publication_scope_ref": "publication-scope-fixture",
+        "key_epoch": 7
+      }
+    ],
+    "resolved_audience": {
+      "audience_snapshot_ref": "audience-snapshot-fixture",
+      "audience_epoch": 5,
+      "members": [
+        {
+          "member_ref": "member-alpha",
+          "tenant_ref": "tenant-fixture",
+          "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+          "consent_scope_ref": "consent-scope-fixture",
+          "privacy_scope": "ordinary",
+          "membership_epoch": 12,
+          "consent_epoch": 17,
+          "key_epoch": 7,
+          "consent_status": "granted",
+          "capability_attributes": {"/algorithms": ["sfu-receive-v1"]},
+          "publication_grants": [
+            {
+              "publication_ref": "publication-camera-main",
+              "grant_ref": "grant-alpha-camera",
+              "subscription_ref": "subscription-alpha-camera",
+              "subscription_status": "active"
+            },
+            {
+              "publication_ref": "publication-screen-main",
+              "grant_ref": "grant-alpha-screen",
+              "subscription_ref": "subscription-alpha-screen",
+              "subscription_status": "authorized"
+            }
+          ]
+        },
+        {
+          "member_ref": "member-beta",
+          "tenant_ref": "tenant-fixture",
+          "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+          "consent_scope_ref": "consent-scope-fixture",
+          "privacy_scope": "ordinary",
+          "membership_epoch": 12,
+          "consent_epoch": 17,
+          "key_epoch": 7,
+          "consent_status": "granted",
+          "capability_attributes": {"/algorithms": ["sfu-receive-v1"]},
+          "publication_grants": [
+            {
+              "publication_ref": "publication-camera-main",
+              "grant_ref": "grant-beta-camera",
+              "subscription_ref": "subscription-beta-camera",
+              "subscription_status": "authorized"
+            },
+            {
+              "publication_ref": "publication-screen-main",
+              "grant_ref": "grant-beta-screen",
+              "subscription_ref": "subscription-beta-screen",
+              "subscription_status": "active"
+            }
+          ]
+        }
+      ]
+    },
+    "resolved_digest_keys": [
+      {
+        "publication_ref": "publication-camera-main",
+        "key_ref": "digest-key-camera-e7",
+        "purpose": "receiver_group_member_digest",
+        "custody": "hub_only",
+        "material_class": "non_media",
+        "tenant_ref": "tenant-fixture",
+        "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+        "key_epoch": 7
+      },
+      {
+        "publication_ref": "publication-screen-main",
+        "key_ref": "digest-key-screen-e7",
+        "purpose": "receiver_group_member_digest",
+        "custody": "hub_only",
+        "material_class": "non_media",
+        "tenant_ref": "tenant-fixture",
+        "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+        "key_epoch": 7
+      }
+    ],
+    "digest_key_registry": [
+      {
+        "key_ref": "digest-key-camera-e7",
+        "tenant_ref": "tenant-fixture",
+        "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+        "publication_ref": "publication-camera-main",
+        "key_epoch": 7,
+        "purpose": "receiver_group_member_digest"
+      },
+      {
+        "key_ref": "digest-key-screen-e7",
+        "tenant_ref": "tenant-fixture",
+        "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+        "publication_ref": "publication-screen-main",
+        "key_epoch": 7,
+        "purpose": "receiver_group_member_digest"
+      }
+    ],
+    "test_only_hmac_keys_hex": {
+      "digest-key-camera-e7": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "digest-key-screen-e7": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+    }
+  },
+  "instance": {
+    "schema": "ananta.webrtc.receiver-group-intent.v1",
+    "group_id": "receiver-group-fixture",
+    "revision": 1,
+    "audience_snapshot_ref": "audience-snapshot-fixture",
+    "scope": {
+      "tenant_ref": "tenant-fixture",
+      "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+      "consent_scope_ref": "consent-scope-fixture",
+      "privacy_scope": "ordinary",
+      "publication_scope_ref": "publication-scope-fixture"
+    },
+    "epochs": {
+      "membership_epoch": 12,
+      "consent_epoch": 17,
+      "key_epoch": 7,
+      "audience_epoch": 5
+    },
+    "member_count": 2,
+    "publications": {
+      "primary_publication_ref": "publication-camera-main",
+      "shared_publication_refs": ["publication-screen-main"],
+      "member_digests": [
+        {
+          "publication_ref": "publication-camera-main",
+          "algorithm": "hmac-sha-256",
+          "domain": "ananta.webrtc.receiver-group.member-digest.v1",
+          "key_ref": "digest-key-camera-e7",
+          "value": "679633d1ad036beb1fbb02c837fed991de9e34efda5bce2182f6dfe70b5617a7"
+        },
+        {
+          "publication_ref": "publication-screen-main",
+          "algorithm": "hmac-sha-256",
+          "domain": "ananta.webrtc.receiver-group.member-digest.v1",
+          "key_ref": "digest-key-screen-e7",
+          "value": "57187e403d4d2b45bc054bf89b26da90df0bd4803a0721da3401aba2410fdbb4"
+        }
+      ]
+    },
+    "selectors": [
+      {
+        "kind": "capability",
+        "attribute": "/algorithms",
+        "operator": "contains",
+        "value": "sfu-receive-v1"
+      },
+      {
+        "kind": "consent",
+        "attribute": "/status",
+        "operator": "eq",
+        "value": "granted"
+      },
+      {
+        "kind": "subscription",
+        "attribute": "/status",
+        "operator": "in",
+        "value": ["authorized", "active"]
+      }
+    ],
+    "policy": {
+      "policy_ref": "receiver-policy-fixture",
+      "version": 4
+    },
+    "valid_from_ms": 1900000000000,
+    "expires_at_ms": 1900000005000,
+    "limits": {
+      "fanout_count_max": "ananta.sfu-broadcast.fanout-count.max.v1",
+      "intent_ttl_ms_max": "ananta.sfu-broadcast.extension-ttl-ms.max.v1"
+    }
+  },
+  "expected": {
+    "valid": true,
+    "code": "ok"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "cross_privacy_scope_member",
+  "base_fixture": "valid_group.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/resolved_audience/members/1/privacy_scope",
+    "value": "private_recovery"
+  },
+  "expected": {"valid": false, "phase": "hub_scope", "code": "cross_privacy_scope"}
+}

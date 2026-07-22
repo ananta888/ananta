@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "cross_runtime",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/selected_runtime/runtime_control_mode",
+    "value": "authenticated_runtime_extension"
+  },
+  "expected": {"valid": false, "phase": "runtime_scope", "code": "route_cross_runtime"}
+}

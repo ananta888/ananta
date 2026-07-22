@@ -1,0 +1,17 @@
+{
+  "fixture_version": 1,
+  "name": "forbidden_raw_media_value",
+  "base_fixture": "valid_partial.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/capability_buckets/1/measured_frame_rate",
+    "value": 59.94
+  },
+  "expected": {
+    "valid": false,
+    "phase": "privacy_semantics",
+    "code": "fingerprint_field_forbidden",
+    "field_class": "media_value"
+  }
+}

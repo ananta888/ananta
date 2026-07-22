@@ -1,0 +1,13 @@
+{
+  "fixture_version": 1,
+  "name": "valid_receiver_unknown_safe_layer",
+  "base_fixture": "valid_receiver_projection.v1.json",
+  "mutations": [
+    {"operation": "replace", "json_pointer": "/instance/capability_basis/matched_bucket", "value": {"codec_bucket": "unknown", "layering_bucket": "unknown", "encoded_transform_bucket": "unknown", "decode_bucket": "unknown", "evidence_bucket": "not_observed"}},
+    {"operation": "replace", "json_pointer": "/instance/allowed_layer_corridor/maximum", "value": {"spatial_id": 0, "temporal_id": 0}},
+    {"operation": "replace", "json_pointer": "/instance/effective_layer", "value": {"spatial_id": 0, "temporal_id": 0}},
+    {"operation": "replace", "json_pointer": "/instance/resolution", "value": "unknown"},
+    {"operation": "replace", "json_pointer": "/instance/safe_outcome", "value": "lowest_safe_layer"}
+  ],
+  "expected": {"valid": true, "code": "ok", "effective_layer": {"spatial_id": 0, "temporal_id": 0}}
+}

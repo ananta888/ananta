@@ -1,0 +1,10 @@
+{
+  "fixture_version": 1,
+  "name": "layer_control_mode_change_in_live_session",
+  "base_fixture": "valid_room_adaptive_receive_only.v1.json",
+  "mutations": [
+    {"operation": "replace", "json_pointer": "/instance/layer_control_mode", "value": "manual_quality"},
+    {"operation": "replace", "json_pointer": "/validation_context/room_constructed", "value": true}
+  ],
+  "expected": {"valid": false, "phase": "session_transition", "code": "layer_control_mode_locked"}
+}

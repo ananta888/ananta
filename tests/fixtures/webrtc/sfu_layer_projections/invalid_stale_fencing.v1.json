@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "stale_fencing_token",
+  "base_fixture": "valid_receiver_projection.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/instance/fencing/fencing_token", "value": 51},
+  "expected": {"valid": false, "phase": "fencing_validation", "code": "stale_fencing_token"}
+}

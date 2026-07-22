@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "parent_authentication_manipulation",
+  "base_fixture": "valid_receiver_projection.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/instance/envelope/ciphertext_b64", "value": "QCC7fraWo3zoY62pwowbH+aipUlqsi50Kw2BkWSjyvtU6PuP"},
+  "expected": {"valid": false, "phase": "parent_authentication", "code": "parent_authentication_failed"}
+}

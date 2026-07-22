@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "unknown_selector_attribute",
+  "base_fixture": "valid_group.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/selectors/0/attribute",
+    "value": "/arbitrary_claim"
+  },
+  "expected": {"valid": false, "phase": "schema", "keyword": "oneOf", "code": "selector_not_allowed"}
+}

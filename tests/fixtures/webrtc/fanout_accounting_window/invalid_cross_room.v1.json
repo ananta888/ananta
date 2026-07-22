@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "cross_room_accounting",
+  "base_fixture": "valid_measured.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/accounting/binding/room_ref", "value": "sfu-fedcba9876543210fedcba9876543210"},
+  "expected": {"valid": false, "phase": "binding", "code": "accounting_cross_room"}
+}

@@ -1,0 +1,17 @@
+{
+  "fixture_version": 1,
+  "name": "executable_selector_forbidden",
+  "base_fixture": "valid_group.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/selectors/-",
+    "value": {
+      "kind": "expression",
+      "attribute": "/member",
+      "operator": "eval",
+      "code": "return member.isAllowed()"
+    }
+  },
+  "expected": {"valid": false, "phase": "schema", "keyword": "oneOf", "code": "selector_not_allowed"}
+}

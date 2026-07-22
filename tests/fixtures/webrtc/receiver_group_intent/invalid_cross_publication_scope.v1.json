@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "shared_publication_crosses_scope",
+  "base_fixture": "valid_group.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/resolved_publications/1/publication_scope_ref",
+    "value": "publication-scope-other"
+  },
+  "expected": {"valid": false, "phase": "hub_scope", "code": "cross_publication_scope"}
+}

@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "observation_exceeds_ttl",
+  "base_fixture": "valid_partial.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/now",
+    "value": "2030-03-17T12:05:01Z"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "lifetime",
+    "code": "observation_expired"
+  }
+}

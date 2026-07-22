@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "replayed_parent_sequence",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/accepted_envelope_sequences",
+    "value": [41]
+  },
+  "expected": {"valid": false, "phase": "parent_replay", "code": "route_replay"}
+}

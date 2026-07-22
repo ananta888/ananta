@@ -1,0 +1,11 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_not_in_snapshot",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/route/audience/receiver_refs/1",
+    "value": "cXJzdHV2d3h5ent8fX5_gA"
+  },
+  "expected": {"valid": false, "phase": "authority_scope", "code": "route_receiver_not_in_snapshot"}
+}

@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "stale_consent_epoch",
+  "base_fixture": "valid_group.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/latest_epochs/consent_epoch",
+    "value": 18
+  },
+  "expected": {"valid": false, "phase": "hub_epoch", "code": "stale_consent_epoch"}
+}

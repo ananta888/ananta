@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "publisher_encoding_count_exceeded",
+  "base_fixture": "valid_publisher_projection.v1.json",
+  "mutation": {
+    "operation": "append_repeated_item",
+    "json_pointer": "/instance/encoding_plan",
+    "source_json_pointer": "/instance/encoding_plan/0",
+    "count": 2
+  },
+  "expected": {"valid": false, "phase": "pre_allocation_limit", "code": "encoding_count_exceeded"}
+}

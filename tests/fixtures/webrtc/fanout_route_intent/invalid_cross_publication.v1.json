@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "cross_publication_group",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/authoritative_group/publication_ref",
+    "value": "publication-screen-main"
+  },
+  "expected": {"valid": false, "phase": "authority_scope", "code": "route_cross_publication"}
+}

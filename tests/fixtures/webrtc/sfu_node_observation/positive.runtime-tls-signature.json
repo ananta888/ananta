@@ -1,0 +1,49 @@
+{
+  "fixture_version": "1",
+  "case": "runtime-node-bound-by-authorized-signed-claim-over-tls",
+  "context": {
+    "received_at": "2026-01-15T12:00:10Z",
+    "transport": {
+      "mode": "tls",
+      "protocol": "TLSv1.3",
+      "server_peer_verified": true
+    },
+    "signature_valid": true,
+    "signing_key_authorized_node_id": "node-b"
+  },
+  "expected": {
+    "schema_valid": true,
+    "accepted": true,
+    "projection": "usable",
+    "reason": "accepted"
+  },
+  "document": {
+    "schema_version": "sfu_node_observation.v1",
+    "observation": {
+      "reporter_id": "probe-runtime-b",
+      "boot_id": "boot-runtime-b",
+      "sequence": 11,
+      "observed_at": "2026-01-15T12:00:08Z",
+      "expires_at": "2026-01-15T12:00:23Z",
+      "scope": {"mode": "runtime", "runtime_id": "runtime-eu-b"},
+      "observed_node": {
+        "node_id": "node-b",
+        "binding": {"kind": "signed_claim", "claim": "node_id"}
+      },
+      "capabilities": [
+        {"name": "selective_data_packets", "state": "supported", "source": "signed_runtime_manifest"}
+      ],
+      "signals": {
+        "active_participants": {"value": 31, "unit": "participants", "source": "runtime_participant_registry"},
+        "egress_bitrate": {"value": 12500000, "unit": "bits_per_second", "source": "runtime_transport_metrics"}
+      },
+      "labels": {"environment": "fixture"}
+    },
+    "proof": {
+      "algorithm": "Ed25519",
+      "key_id": "fixture-key-runtime-b",
+      "canonicalization": "RFC8785",
+      "signature": "fixtureSignatureRuntimeTls0002"
+    }
+  }
+}

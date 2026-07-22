@@ -1,0 +1,15 @@
+{
+  "fixture_version": 1,
+  "name": "valid_receipt_unsupported_fallback",
+  "base_fixture": "valid_receipt_applied.v1.json",
+  "mutations": [
+    {"operation": "replace", "json_pointer": "/instance/outcome", "value": "fallback"},
+    {"operation": "replace", "json_pointer": "/instance/applied_codec_class", "value": null},
+    {"operation": "replace", "json_pointer": "/instance/applied_encoding_class", "value": null},
+    {"operation": "replace", "json_pointer": "/instance/applied_rid_class", "value": null},
+    {"operation": "replace", "json_pointer": "/instance/applied_scalability_class", "value": null},
+    {"operation": "replace", "json_pointer": "/instance/applied_layer", "value": null},
+    {"operation": "replace", "json_pointer": "/instance/reason_code", "value": "ordinary_fallback_selected"}
+  ],
+  "expected": {"valid": true, "code": "ok", "authorization_effect": "none"}
+}

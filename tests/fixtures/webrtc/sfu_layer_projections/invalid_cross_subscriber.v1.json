@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "cross_subscriber_projection",
+  "base_fixture": "valid_receiver_projection.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/instance/subscriber_ref", "value": "subscriber-other"},
+  "expected": {"valid": false, "phase": "context_validation", "code": "cross_subscriber_projection"}
+}

@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_forbidden_transcript",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/transcript",
+    "value": "fixture speech content"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "privacy_semantics",
+    "code": "privacy_transcript_forbidden"
+  }
+}

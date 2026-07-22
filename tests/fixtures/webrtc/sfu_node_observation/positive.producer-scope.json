@@ -1,0 +1,39 @@
+{
+  "fixture_version": "1",
+  "case": "producer-scope-with-producer-signals",
+  "context": {
+    "received_at": "2026-01-15T12:00:10Z",
+    "transport": {"mode": "tls", "protocol": "TLSv1.2", "server_peer_verified": true},
+    "signature_valid": true
+  },
+  "expected": {
+    "schema_valid": true,
+    "accepted": true,
+    "projection": "usable",
+    "reason": "accepted"
+  },
+  "document": {
+    "schema_version": "sfu_node_observation.v1",
+    "observation": {
+      "reporter_id": "probe-producer-a",
+      "boot_id": "boot-producer-a",
+      "sequence": 2,
+      "observed_at": "2026-01-15T12:00:09Z",
+      "expires_at": "2026-01-15T12:00:24Z",
+      "scope": {"mode": "producer", "producer_id": "producer-a", "runtime_id": "runtime-eu-a"},
+      "capabilities": [],
+      "signals": {
+        "published_tracks": {"value": 2, "unit": "tracks", "source": "producer_session_registry"},
+        "outbound_bitrate": {"value": 2200000, "unit": "bits_per_second", "source": "webrtc_sender_stats"},
+        "packet_loss": {"value": 0.01, "unit": "ratio", "source": "webrtc_sender_stats"}
+      },
+      "labels": {}
+    },
+    "proof": {
+      "algorithm": "Ed25519",
+      "key_id": "fixture-key-producer-a",
+      "canonicalization": "RFC8785",
+      "signature": "fixtureSignatureProducer0003"
+    }
+  }
+}

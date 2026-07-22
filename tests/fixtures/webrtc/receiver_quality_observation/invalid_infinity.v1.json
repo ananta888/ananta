@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_rejects_infinity_token",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "serialized_instance",
+  "mutation": {
+    "operation": "replace_with_non_json_numeric_token",
+    "json_pointer": "/samples/0/metrics/jitter_ms",
+    "raw_token": "Infinity"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "json_parse",
+    "code": "invalid_json_non_finite"
+  }
+}

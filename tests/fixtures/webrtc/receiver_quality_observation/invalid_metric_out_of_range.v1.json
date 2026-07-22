@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_rejects_implausible_rtt",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/samples/0/metrics/rtt_ms",
+    "value": 60001
+  },
+  "expected": {
+    "valid": false,
+    "phase": "numeric_semantics",
+    "code": "metric_out_of_range"
+  }
+}

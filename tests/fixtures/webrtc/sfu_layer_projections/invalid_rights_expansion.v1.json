@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "projection_attempts_rights_expansion",
+  "base_fixture": "valid_receiver_projection.v1.json",
+  "mutation": {"operation": "add", "json_pointer": "/instance/membership_grant", "value": {"role": "publisher"}},
+  "expected": {"valid": false, "phase": "authority_prescan", "code": "rights_expansion_forbidden"}
+}

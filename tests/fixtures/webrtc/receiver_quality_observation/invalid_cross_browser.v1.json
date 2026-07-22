@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_cross_browser_pseudonym",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/browser_instance_pseudonym",
+    "value": "room-bip_BBBBBBBBBBBBBBBBBBBBBB"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "scope_binding",
+    "code": "browser_pseudonym_scope_mismatch"
+  }
+}

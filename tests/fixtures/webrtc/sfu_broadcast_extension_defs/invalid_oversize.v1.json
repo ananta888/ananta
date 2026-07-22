@@ -1,0 +1,18 @@
+{
+  "fixture_version": 1,
+  "name": "inherited_parent_envelope_oversize",
+  "base_fixture": "valid_profile.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace_with_repeated_string",
+    "json_pointer": "/envelope/ciphertext_b64",
+    "character": "A",
+    "count": 349549
+  },
+  "expected": {
+    "valid": false,
+    "phase": "schema",
+    "keyword": "maxLength",
+    "code": "parent_envelope_oversize"
+  }
+}

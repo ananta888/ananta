@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "projection_replay",
+  "base_fixture": "valid_receiver_projection.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/instance/projection_version", "value": 8},
+  "expected": {"valid": false, "phase": "replay_validation", "code": "projection_replay"}
+}

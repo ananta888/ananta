@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_forbidden_media_payload",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/samples/0/media_payload_base64",
+    "value": "AAECAw=="
+  },
+  "expected": {
+    "valid": false,
+    "phase": "privacy_semantics",
+    "code": "privacy_media_forbidden"
+  }
+}

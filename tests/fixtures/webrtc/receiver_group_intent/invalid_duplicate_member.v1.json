@@ -1,0 +1,24 @@
+{
+  "fixture_version": 1,
+  "name": "duplicate_resolved_member",
+  "base_fixture": "valid_group.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/resolved_audience/members/-",
+    "value": {
+      "member_ref": "member-alpha",
+      "tenant_ref": "tenant-fixture",
+      "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+      "consent_scope_ref": "consent-scope-fixture",
+      "privacy_scope": "ordinary",
+      "membership_epoch": 12,
+      "consent_epoch": 17,
+      "key_epoch": 7,
+      "consent_status": "granted",
+      "capability_attributes": {"/algorithms": ["sfu-receive-v1"]},
+      "publication_grants": []
+    }
+  },
+  "expected": {"valid": false, "phase": "hub_scope", "code": "duplicate_member"}
+}

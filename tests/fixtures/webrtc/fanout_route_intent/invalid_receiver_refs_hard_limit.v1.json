@@ -1,0 +1,20 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_refs_hard_limit",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/route/audience/receiver_refs",
+    "value": [
+      "AQIDBAUGBwgJCgsMDQ4PEA",
+      "ERITFBUWFxgZGhscHR4fIA",
+      "ISIjJCUmJygpKissLS4vMA",
+      "MTIzNDU2Nzg5Ojs8PT4_QA",
+      "QUJDREVGR0hJSktMTU5PUA",
+      "UVJTVFVWV1hZWltcXV5fYA",
+      "YWJjZGVmZ2hpamtsbW5vcA",
+      "cXJzdHV2d3h5ent8fX5_gA"
+    ]
+  },
+  "expected": {"valid": false, "phase": "schema", "code": "route_schema_invalid"}
+}

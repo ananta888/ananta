@@ -1,0 +1,567 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.invalid/schemas/webrtc/sfu_node_observation.v1.json",
+  "title": "SFU node observation v1",
+  "description": "A signed, non-authoritative SFU observation. It is input to health and capability projection only and never grants placement, admission, limit, or quota authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observation",
+    "proof"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sfu_node_observation.v1"
+    },
+    "observation": {
+      "$ref": "#/$defs/observation"
+    },
+    "proof": {
+      "$ref": "#/$defs/proof"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._:-]{0,127})$"
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reporter_id",
+        "boot_id",
+        "sequence",
+        "observed_at",
+        "expires_at",
+        "scope",
+        "capabilities",
+        "signals",
+        "labels"
+      ],
+      "properties": {
+        "reporter_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "boot_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 35
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 35
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "observed_node": {
+          "$ref": "#/$defs/observed_node"
+        },
+        "capabilities": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/capability"
+          }
+        },
+        "signals": {
+          "type": "object"
+        },
+        "labels": {
+          "$ref": "#/$defs/labels"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "scope": {
+                "properties": {
+                  "mode": {
+                    "const": "producer"
+                  }
+                },
+                "required": ["mode"]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": ["observed_node"]
+            },
+            "properties": {
+              "signals": {
+                "$ref": "#/$defs/producer_signals"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "scope": {
+                "properties": {
+                  "mode": {
+                    "const": "runtime"
+                  }
+                },
+                "required": ["mode"]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "signals": {
+                "$ref": "#/$defs/runtime_signals"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "scope": {
+                "properties": {
+                  "mode": {
+                    "const": "cluster"
+                  }
+                },
+                "required": ["mode"]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": ["observed_node"]
+            },
+            "properties": {
+              "signals": {
+                "$ref": "#/$defs/cluster_signals"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "scope": {
+                "properties": {
+                  "mode": {
+                    "const": "region"
+                  }
+                },
+                "required": ["mode"]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": ["observed_node"]
+            },
+            "properties": {
+              "signals": {
+                "$ref": "#/$defs/region_signals"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "producer_id", "runtime_id"],
+          "properties": {
+            "mode": {
+              "const": "producer"
+            },
+            "producer_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "runtime_id": {
+              "$ref": "#/$defs/identifier"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "runtime_id"],
+          "properties": {
+            "mode": {
+              "const": "runtime"
+            },
+            "runtime_id": {
+              "$ref": "#/$defs/identifier"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "cluster_id"],
+          "properties": {
+            "mode": {
+              "const": "cluster"
+            },
+            "cluster_id": {
+              "$ref": "#/$defs/identifier"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "region_id"],
+          "properties": {
+            "mode": {
+              "const": "region"
+            },
+            "region_id": {
+              "$ref": "#/$defs/identifier"
+            }
+          }
+        }
+      ]
+    },
+    "observed_node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "binding"],
+      "properties": {
+        "node_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "binding": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "san"],
+              "properties": {
+                "kind": {
+                  "const": "mtls_san"
+                },
+                "san": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 253
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "claim"],
+              "properties": {
+                "kind": {
+                  "const": "signed_claim"
+                },
+                "claim": {
+                  "const": "node_id"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "state", "source"],
+      "properties": {
+        "name": {
+          "enum": [
+            "absolute_subscription_snapshot",
+            "command_acknowledgement",
+            "native_node_drain",
+            "room_service_update_subscriptions",
+            "route_epoch_fencing",
+            "selective_data_packets"
+          ]
+        },
+        "state": {
+          "enum": ["supported", "unsupported", "unknown"]
+        },
+        "source": {
+          "enum": [
+            "authenticated_runtime_probe",
+            "signed_runtime_manifest"
+          ]
+        }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9_.-]*$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 64
+      }
+    },
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "key_id", "canonicalization", "signature"],
+      "properties": {
+        "algorithm": {
+          "const": "Ed25519"
+        },
+        "key_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "canonicalization": {
+          "const": "RFC8785"
+        },
+        "signature": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      }
+    },
+    "count_metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit", "source"],
+      "properties": {
+        "value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "unit": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    },
+    "ratio_metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit", "source"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "unit": {
+          "const": "ratio"
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    },
+    "bitrate_metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit", "source"],
+      "properties": {
+        "value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000
+        },
+        "unit": {
+          "const": "bits_per_second"
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    },
+    "producer_signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 3,
+      "properties": {
+        "published_tracks": {
+          "allOf": [
+            {"$ref": "#/$defs/count_metric"},
+            {
+              "properties": {
+                "value": {"maximum": 64},
+                "unit": {"const": "tracks"},
+                "source": {"const": "producer_session_registry"}
+              }
+            }
+          ]
+        },
+        "outbound_bitrate": {
+          "allOf": [
+            {"$ref": "#/$defs/bitrate_metric"},
+            {
+              "properties": {
+                "source": {"const": "webrtc_sender_stats"}
+              }
+            }
+          ]
+        },
+        "packet_loss": {
+          "allOf": [
+            {"$ref": "#/$defs/ratio_metric"},
+            {
+              "properties": {
+                "source": {"const": "webrtc_sender_stats"}
+              }
+            }
+          ]
+        }
+      }
+    },
+    "runtime_signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 5,
+      "properties": {
+        "active_rooms": {
+          "allOf": [
+            {"$ref": "#/$defs/count_metric"},
+            {
+              "properties": {
+                "value": {"maximum": 100000},
+                "unit": {"const": "rooms"},
+                "source": {"const": "runtime_room_registry"}
+              }
+            }
+          ]
+        },
+        "active_participants": {
+          "allOf": [
+            {"$ref": "#/$defs/count_metric"},
+            {
+              "properties": {
+                "unit": {"const": "participants"},
+                "source": {"const": "runtime_participant_registry"}
+              }
+            }
+          ]
+        },
+        "cpu_utilization": {
+          "allOf": [
+            {"$ref": "#/$defs/ratio_metric"},
+            {
+              "properties": {
+                "source": {"const": "runtime_process_metrics"}
+              }
+            }
+          ]
+        },
+        "memory_bytes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "unit", "source"],
+          "properties": {
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1125899906842624
+            },
+            "unit": {"const": "bytes"},
+            "source": {"const": "runtime_process_metrics"}
+          }
+        },
+        "egress_bitrate": {
+          "allOf": [
+            {"$ref": "#/$defs/bitrate_metric"},
+            {
+              "properties": {
+                "source": {"const": "runtime_transport_metrics"}
+              }
+            }
+          ]
+        }
+      }
+    },
+    "cluster_signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 2,
+      "properties": {
+        "observed_runtimes": {
+          "allOf": [
+            {"$ref": "#/$defs/count_metric"},
+            {
+              "properties": {
+                "value": {"maximum": 100000},
+                "unit": {"const": "runtimes"},
+                "source": {"const": "cluster_membership_snapshot"}
+              }
+            }
+          ]
+        },
+        "healthy_runtimes": {
+          "allOf": [
+            {"$ref": "#/$defs/count_metric"},
+            {
+              "properties": {
+                "value": {"maximum": 100000},
+                "unit": {"const": "runtimes"},
+                "source": {"const": "cluster_health_snapshot"}
+              }
+            }
+          ]
+        }
+      }
+    },
+    "region_signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 2,
+      "properties": {
+        "observed_clusters": {
+          "allOf": [
+            {"$ref": "#/$defs/count_metric"},
+            {
+              "properties": {
+                "value": {"maximum": 10000},
+                "unit": {"const": "clusters"},
+                "source": {"const": "region_directory_snapshot"}
+              }
+            }
+          ]
+        },
+        "healthy_clusters": {
+          "allOf": [
+            {"$ref": "#/$defs/count_metric"},
+            {
+              "properties": {
+                "value": {"maximum": 10000},
+                "unit": {"const": "clusters"},
+                "source": {"const": "region_health_snapshot"}
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "valid_exact_idempotent_retry",
+  "base_fixture": "valid_measured.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/accepted_exact_retry",
+    "value": {
+      "merge_identity_matches": true,
+      "canonical_accounting_matches": true,
+      "previous_delivery_envelope_sequence": 40
+    }
+  },
+  "expected": {"valid": true, "phase": "merge", "code": "accounting_idempotent_noop", "aggregate_delta": 0}
+}

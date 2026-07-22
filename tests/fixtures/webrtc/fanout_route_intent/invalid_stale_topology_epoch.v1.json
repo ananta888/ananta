@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "stale_topology_epoch",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/latest_epochs/topology_epoch",
+    "value": 5
+  },
+  "expected": {"valid": false, "phase": "epochs_fencing", "code": "route_stale_topology_epoch"}
+}

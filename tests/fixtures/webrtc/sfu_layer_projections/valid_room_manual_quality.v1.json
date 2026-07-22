@@ -1,0 +1,14 @@
+{
+  "fixture_version": 1,
+  "name": "valid_room_manual_quality",
+  "base_fixture": "valid_room_adaptive_receive_only.v1.json",
+  "mutations": [
+    {"operation": "replace", "json_pointer": "/instance/layer_control_mode", "value": "manual_quality"},
+    {"operation": "replace", "json_pointer": "/instance/projection_version", "value": 8},
+    {"operation": "replace", "json_pointer": "/instance/fencing/expected_previous_projection_version", "value": 7},
+    {"operation": "replace", "json_pointer": "/instance/envelope/sequence", "value": 102},
+    {"operation": "replace", "json_pointer": "/validation_context/current_projection_version", "value": 7},
+    {"operation": "replace", "json_pointer": "/validation_context/last_accepted_envelope_sequence", "value": 101}
+  ],
+  "expected": {"valid": true, "code": "ok", "room_construction_allowed": true}
+}

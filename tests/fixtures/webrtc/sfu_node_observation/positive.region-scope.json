@@ -1,0 +1,38 @@
+{
+  "fixture_version": "1",
+  "case": "region-scope-without-node-claim",
+  "context": {
+    "received_at": "2026-01-15T12:00:10Z",
+    "transport": {"mode": "mtls", "protocol": "TLSv1.3", "server_peer_verified": true, "client_peer_verified": true, "client_san": "spiffe://ananta.test/sfu/region-eu"},
+    "signature_valid": true
+  },
+  "expected": {
+    "schema_valid": true,
+    "accepted": true,
+    "projection": "usable",
+    "reason": "accepted"
+  },
+  "document": {
+    "schema_version": "sfu_node_observation.v1",
+    "observation": {
+      "reporter_id": "probe-region-eu",
+      "boot_id": "boot-region-eu",
+      "sequence": 3,
+      "observed_at": "2026-01-15T12:00:09Z",
+      "expires_at": "2026-01-15T12:00:24Z",
+      "scope": {"mode": "region", "region_id": "region-eu"},
+      "capabilities": [],
+      "signals": {
+        "observed_clusters": {"value": 2, "unit": "clusters", "source": "region_directory_snapshot"},
+        "healthy_clusters": {"value": 2, "unit": "clusters", "source": "region_health_snapshot"}
+      },
+      "labels": {}
+    },
+    "proof": {
+      "algorithm": "Ed25519",
+      "key_id": "fixture-key-region-eu",
+      "canonicalization": "RFC8785",
+      "signature": "fixtureSignatureRegion0005"
+    }
+  }
+}

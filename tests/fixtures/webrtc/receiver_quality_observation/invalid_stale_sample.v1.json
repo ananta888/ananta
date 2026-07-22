@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_sample_outside_history_window",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/samples/0/observed_at",
+    "value": "2030-03-17T11:59:29Z"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "time_binding",
+    "code": "stale_sample"
+  }
+}

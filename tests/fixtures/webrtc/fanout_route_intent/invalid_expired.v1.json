@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "expired_route",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/now_ms",
+    "value": 1900000005000
+  },
+  "expected": {"valid": false, "phase": "parent_expiry", "code": "route_expired"}
+}

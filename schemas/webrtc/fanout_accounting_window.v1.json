@@ -1,0 +1,397 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/fanout_accounting_window.v1.json",
+  "title": "Content-free SFU fanout accounting window v1",
+  "description": "A bounded, authenticated interval report for publication ingress, SFU egress, relay paths, receiver classes, media layers, drops, queueing and shared processing. It is observational only and grants no routing, membership or media authority.",
+  "$comment": "The canonical JSON document is limited to 65536 bytes. Arithmetic, temporal, binding, idempotency and plausibility invariants are enforced by the boundary defined in docs/contracts/fanout-accounting.md before merge.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "domain",
+    "accounting",
+    "limits",
+    "envelope"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.webrtc.fanout-accounting-window.v1"},
+    "schema_version": {"const": 1},
+    "domain": {"const": "sfu_broadcast.fanout_accounting_window.v1"},
+    "accounting": {"$ref": "#/$defs/accounting"},
+    "limits": {"$ref": "#/$defs/limits"},
+    "envelope": {"$ref": "#/$defs/accounting_envelope"}
+  },
+  "$defs": {
+    "timestamp_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "counter": {
+      "description": "Non-negative integer counter. Its unit is fixed by the containing property name.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "packet_byte_counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bytes", "packets"],
+      "properties": {
+        "bytes": {"$ref": "#/$defs/counter"},
+        "packets": {"$ref": "#/$defs/counter"}
+      }
+    },
+    "bidirectional_path_counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ingress_bytes",
+        "ingress_packets",
+        "egress_bytes",
+        "egress_packets"
+      ],
+      "properties": {
+        "ingress_bytes": {"$ref": "#/$defs/counter"},
+        "ingress_packets": {"$ref": "#/$defs/counter"},
+        "egress_bytes": {"$ref": "#/$defs/counter"},
+        "egress_packets": {"$ref": "#/$defs/counter"}
+      }
+    },
+    "receiver_class_counter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["receiver_count", "egress_bytes", "egress_packets"],
+      "properties": {
+        "receiver_count": {"$ref": "#/$defs/counter"},
+        "egress_bytes": {"$ref": "#/$defs/counter"},
+        "egress_packets": {"$ref": "#/$defs/counter"}
+      }
+    },
+    "receiver_class_counters": {
+      "description": "Closed receiver taxonomy; no caller-defined class or label is accepted.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "realtime_interactive",
+        "broadcast_receive_only",
+        "server_side_consumer"
+      ],
+      "properties": {
+        "realtime_interactive": {"$ref": "#/$defs/receiver_class_counter"},
+        "broadcast_receive_only": {"$ref": "#/$defs/receiver_class_counter"},
+        "server_side_consumer": {"$ref": "#/$defs/receiver_class_counter"}
+      }
+    },
+    "layer_counter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["egress_bytes", "egress_packets"],
+      "properties": {
+        "egress_bytes": {"$ref": "#/$defs/counter"},
+        "egress_packets": {"$ref": "#/$defs/counter"}
+      }
+    },
+    "layer_counters": {
+      "description": "Closed audio and SVC/simulcast spatial-temporal buckets. Zero is reported for an unused bucket.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audio_s0_t0",
+        "video_s0_t0",
+        "video_s0_t1",
+        "video_s0_t2",
+        "video_s1_t0",
+        "video_s1_t1",
+        "video_s1_t2",
+        "video_s2_t0",
+        "video_s2_t1",
+        "video_s2_t2"
+      ],
+      "properties": {
+        "audio_s0_t0": {"$ref": "#/$defs/layer_counter"},
+        "video_s0_t0": {"$ref": "#/$defs/layer_counter"},
+        "video_s0_t1": {"$ref": "#/$defs/layer_counter"},
+        "video_s0_t2": {"$ref": "#/$defs/layer_counter"},
+        "video_s1_t0": {"$ref": "#/$defs/layer_counter"},
+        "video_s1_t1": {"$ref": "#/$defs/layer_counter"},
+        "video_s1_t2": {"$ref": "#/$defs/layer_counter"},
+        "video_s2_t0": {"$ref": "#/$defs/layer_counter"},
+        "video_s2_t1": {"$ref": "#/$defs/layer_counter"},
+        "video_s2_t2": {"$ref": "#/$defs/layer_counter"}
+      }
+    },
+    "drop_counters": {
+      "description": "Closed packet-drop reason taxonomy.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_denied_packets",
+        "congestion_packets",
+        "queue_overflow_packets",
+        "late_packets",
+        "invalid_packets",
+        "transport_failed_packets"
+      ],
+      "properties": {
+        "policy_denied_packets": {"$ref": "#/$defs/counter"},
+        "congestion_packets": {"$ref": "#/$defs/counter"},
+        "queue_overflow_packets": {"$ref": "#/$defs/counter"},
+        "late_packets": {"$ref": "#/$defs/counter"},
+        "invalid_packets": {"$ref": "#/$defs/counter"},
+        "transport_failed_packets": {"$ref": "#/$defs/counter"}
+      }
+    },
+    "queue_counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wait_time_sum_ms",
+        "wait_time_max_ms",
+        "wait_samples",
+        "depth_peak_packets"
+      ],
+      "properties": {
+        "wait_time_sum_ms": {"$ref": "#/$defs/counter"},
+        "wait_time_max_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "wait_samples": {"$ref": "#/$defs/counter"},
+        "depth_peak_packets": {"$ref": "#/$defs/counter"}
+      }
+    },
+    "shared_processing_counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu_time_ns", "work_items"],
+      "properties": {
+        "cpu_time_ns": {"$ref": "#/$defs/counter"},
+        "work_items": {"$ref": "#/$defs/counter"}
+      }
+    },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publisher_ingress",
+        "sfu_egress",
+        "turn_relay",
+        "direct_traffic",
+        "receiver_classes",
+        "layers",
+        "drops",
+        "queue",
+        "shared_processing"
+      ],
+      "properties": {
+        "publisher_ingress": {"$ref": "#/$defs/packet_byte_counters"},
+        "sfu_egress": {"$ref": "#/$defs/packet_byte_counters"},
+        "turn_relay": {"$ref": "#/$defs/bidirectional_path_counters"},
+        "direct_traffic": {"$ref": "#/$defs/bidirectional_path_counters"},
+        "receiver_classes": {"$ref": "#/$defs/receiver_class_counters"},
+        "layers": {"$ref": "#/$defs/layer_counters"},
+        "drops": {"$ref": "#/$defs/drop_counters"},
+        "queue": {"$ref": "#/$defs/queue_counters"},
+        "shared_processing": {"$ref": "#/$defs/shared_processing_counters"}
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_ref",
+        "node_ref",
+        "room_ref",
+        "publication_ref",
+        "route_ref",
+        "route_epoch"
+      ],
+      "properties": {
+        "tenant_ref": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/tenant_ref"
+        },
+        "node_ref": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/canonical_id"
+        },
+        "room_ref": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/room_ref"
+        },
+        "publication_ref": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/publication_ref"
+        },
+        "route_ref": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/canonical_id"
+        },
+        "route_epoch": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/route_epoch"
+        }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "started_at_ms",
+        "ended_at_ms",
+        "duration_ms",
+        "sequence"
+      ],
+      "properties": {
+        "started_at_ms": {"$ref": "#/$defs/timestamp_ms"},
+        "ended_at_ms": {"$ref": "#/$defs/timestamp_ms"},
+        "duration_ms": {"const": 10000},
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "estimate_reason": {
+      "enum": [
+        "counter_source_gap",
+        "egress_receiver_ratio_unplausible",
+        "turn_path_reconciliation_mismatch",
+        "receiver_class_reconciliation_mismatch",
+        "layer_reconciliation_mismatch",
+        "queue_sampling_partial"
+      ]
+    },
+    "measured_quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason_codes"],
+      "properties": {
+        "status": {"const": "measured"},
+        "reason_codes": {
+          "type": "array",
+          "maxItems": 0,
+          "items": {"$ref": "#/$defs/estimate_reason"}
+        }
+      }
+    },
+    "estimated_quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason_codes"],
+      "properties": {
+        "status": {"const": "estimated"},
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/estimate_reason"}
+        }
+      }
+    },
+    "quality": {
+      "oneOf": [
+        {"$ref": "#/$defs/measured_quality"},
+        {"$ref": "#/$defs/estimated_quality"}
+      ]
+    },
+    "accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding", "window", "counters", "quality"],
+      "properties": {
+        "binding": {"$ref": "#/$defs/binding"},
+        "window": {"$ref": "#/$defs/window"},
+        "counters": {"$ref": "#/$defs/counters"},
+        "quality": {"$ref": "#/$defs/quality"}
+      }
+    },
+    "config_limit_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_bytes_max",
+        "counter_value_max",
+        "egress_receiver_ratio_basis_points_max"
+      ],
+      "properties": {
+        "report_bytes_max": {
+          "const": "ananta.sfu-broadcast.accounting-report-bytes.max.v1"
+        },
+        "counter_value_max": {
+          "const": "ananta.sfu-broadcast.accounting-counter-value.max.v1"
+        },
+        "egress_receiver_ratio_basis_points_max": {
+          "const": "ananta.sfu-broadcast.accounting-egress-receiver-ratio-basis-points.max.v1"
+        }
+      }
+    },
+    "hard_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_bytes_max",
+        "counter_value_max",
+        "window_duration_ms",
+        "receiver_class_count",
+        "layer_class_count",
+        "estimate_reason_count_max",
+        "egress_receiver_ratio_basis_points_max"
+      ],
+      "properties": {
+        "report_bytes_max": {"const": 65536},
+        "counter_value_max": {"const": 9007199254740991},
+        "window_duration_ms": {"const": 10000},
+        "receiver_class_count": {"const": 3},
+        "layer_class_count": {"const": 10},
+        "estimate_reason_count_max": {"const": 6},
+        "egress_receiver_ratio_basis_points_max": {"const": 40000}
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parent", "config_refs", "hard"],
+      "properties": {
+        "parent": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/named_limit_refs"
+        },
+        "config_refs": {"$ref": "#/$defs/config_limit_refs"},
+        "hard": {"$ref": "#/$defs/hard_limits"}
+      }
+    },
+    "accounting_envelope": {
+      "allOf": [
+        {
+          "$ref": "https://ananta.local/schemas/webrtc/secure_envelope.v1.json"
+        },
+        {
+          "type": "object",
+          "required": ["scope", "recipient", "payload_type", "aad"],
+          "properties": {
+            "scope": {
+              "type": "object",
+              "required": ["kind"],
+              "properties": {"kind": {"const": "room"}}
+            },
+            "recipient": {
+              "type": "object",
+              "required": ["kind"],
+              "properties": {"kind": {"const": "peer"}}
+            },
+            "payload_type": {
+              "const": "sfu_broadcast.fanout_accounting_window.v1"
+            },
+            "aad": {
+              "type": "object",
+              "required": ["traffic_class", "content_encoding"],
+              "properties": {
+                "traffic_class": {"const": "control"},
+                "content_encoding": {"const": "json"}
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

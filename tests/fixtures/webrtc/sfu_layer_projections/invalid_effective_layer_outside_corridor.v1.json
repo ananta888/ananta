@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "effective_layer_outside_corridor",
+  "base_fixture": "valid_receiver_projection.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/instance/effective_layer/spatial_id", "value": 3},
+  "expected": {"valid": false, "phase": "pre_allocation_limit", "code": "effective_layer_outside_corridor"}
+}

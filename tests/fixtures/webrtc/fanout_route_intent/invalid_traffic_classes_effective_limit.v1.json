@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "traffic_classes_effective_limit",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/resolved_limits/ananta.sfu-broadcast.route-traffic-classes.max.v1",
+    "value": 1
+  },
+  "expected": {"valid": false, "phase": "effective_limits", "code": "route_effective_limit_exceeded"}
+}

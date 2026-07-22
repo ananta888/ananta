@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "publisher_duplicate_rid_class",
+  "base_fixture": "valid_publisher_projection.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/instance/encoding_plan/1/rid_class", "value": "low"},
+  "expected": {"valid": false, "phase": "pre_allocation_limit", "code": "duplicate_rid_class"}
+}

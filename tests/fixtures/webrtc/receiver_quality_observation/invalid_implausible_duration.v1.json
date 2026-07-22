@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_rejects_duration_beyond_window",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/samples/0/metrics/freeze_duration_ms",
+    "value": 1500
+  },
+  "expected": {
+    "valid": false,
+    "phase": "numeric_semantics",
+    "code": "metric_exceeds_sample_window"
+  }
+}

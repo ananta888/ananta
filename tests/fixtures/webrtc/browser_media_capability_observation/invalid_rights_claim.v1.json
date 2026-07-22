@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "attempted_subscription_right_expansion",
+  "base_fixture": "valid_partial.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/subscription_allowed",
+    "value": true
+  },
+  "expected": {
+    "valid": false,
+    "phase": "authority_boundary",
+    "code": "authority_claim_forbidden"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "fixture_version": 1,
+  "name": "sender_attempts_to_raise_ttl",
+  "base_fixture": "valid_partial.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/ttl_seconds",
+    "value": 301
+  },
+  "expected": {
+    "valid": false,
+    "phase": "schema",
+    "keyword": "const",
+    "code": "ttl_limit_exceeded"
+  }
+}

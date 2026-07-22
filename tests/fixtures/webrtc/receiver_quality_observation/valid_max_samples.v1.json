@@ -1,0 +1,72 @@
+{
+  "fixture_version": 1,
+  "name": "valid_receiver_quality_at_sample_limit",
+  "validation_phase": "receiver_quality_boundary",
+  "validation_context": {
+    "now": "2030-03-17T12:00:01Z",
+    "received_report_bytes": 6100,
+    "active_scope": {
+      "tenant_ref": "tenant-fixture",
+      "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+      "subscriber_ref": "subscriber-fixture-01",
+      "publication_ref": "publication-fixture-01",
+      "browser_instance_pseudonym": "room-bip_AAAAAAAAAAAAAAAAAAAAAA",
+      "route_epoch": 9,
+      "allowed_layer": null
+    },
+    "last_accepted_sequence": 40,
+    "accepted_report_times_rolling_minute": [],
+    "retained_report_count": 12
+  },
+  "instance": {
+    "schema": "ananta.receiver-quality-observation.v1",
+    "schema_version": 1,
+    "observation_version": "bounded-v1",
+    "tenant_ref": "tenant-fixture",
+    "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+    "subscriber_ref": "subscriber-fixture-01",
+    "publication_ref": "publication-fixture-01",
+    "browser_instance_pseudonym": "room-bip_AAAAAAAAAAAAAAAAAAAAAA",
+    "route_epoch": 9,
+    "sequence": 41,
+    "issued_at": "2030-03-17T12:00:00Z",
+    "authorization_effect": "none",
+    "advisory_only": true,
+    "limits": {
+      "history_reports_max": 12,
+      "samples_per_report_max": 16,
+      "reports_per_minute_max": 12,
+      "report_bytes_max": 8192,
+      "sample_window_ms_max": 2000,
+      "history_window_ms_max": 30000,
+      "observation_age_ms_max": 5000
+    },
+    "requested_layer": null,
+    "allowed_layer": null,
+    "effective_layer": null,
+    "samples": [
+      {"sample_sequence": 100, "observed_at": "2030-03-17T11:59:45Z", "window_ms": 1000, "metrics": {"rtt_ms": 40}},
+      {"sample_sequence": 101, "observed_at": "2030-03-17T11:59:46Z", "window_ms": 1000, "metrics": {"rtt_ms": 41}},
+      {"sample_sequence": 102, "observed_at": "2030-03-17T11:59:47Z", "window_ms": 1000, "metrics": {"rtt_ms": 42}},
+      {"sample_sequence": 103, "observed_at": "2030-03-17T11:59:48Z", "window_ms": 1000, "metrics": {"rtt_ms": 43}},
+      {"sample_sequence": 104, "observed_at": "2030-03-17T11:59:49Z", "window_ms": 1000, "metrics": {"rtt_ms": 44}},
+      {"sample_sequence": 105, "observed_at": "2030-03-17T11:59:50Z", "window_ms": 1000, "metrics": {"rtt_ms": 45}},
+      {"sample_sequence": 106, "observed_at": "2030-03-17T11:59:51Z", "window_ms": 1000, "metrics": {"rtt_ms": 46}},
+      {"sample_sequence": 107, "observed_at": "2030-03-17T11:59:52Z", "window_ms": 1000, "metrics": {"rtt_ms": 47}},
+      {"sample_sequence": 108, "observed_at": "2030-03-17T11:59:53Z", "window_ms": 1000, "metrics": {"rtt_ms": 48}},
+      {"sample_sequence": 109, "observed_at": "2030-03-17T11:59:54Z", "window_ms": 1000, "metrics": {"rtt_ms": 49}},
+      {"sample_sequence": 110, "observed_at": "2030-03-17T11:59:55Z", "window_ms": 1000, "metrics": {"rtt_ms": 50}},
+      {"sample_sequence": 111, "observed_at": "2030-03-17T11:59:56Z", "window_ms": 1000, "metrics": {"rtt_ms": 51}},
+      {"sample_sequence": 112, "observed_at": "2030-03-17T11:59:57Z", "window_ms": 1000, "metrics": {"rtt_ms": 52}},
+      {"sample_sequence": 113, "observed_at": "2030-03-17T11:59:58Z", "window_ms": 1000, "metrics": {"rtt_ms": 53}},
+      {"sample_sequence": 114, "observed_at": "2030-03-17T11:59:59Z", "window_ms": 1000, "metrics": {"rtt_ms": 54}},
+      {"sample_sequence": 115, "observed_at": "2030-03-17T12:00:00Z", "window_ms": 1000, "metrics": {"rtt_ms": 55}}
+    ]
+  },
+  "expected": {
+    "valid": true,
+    "code": "ok",
+    "retention_action": "prune_oldest",
+    "retained_report_count_after": 12
+  }
+}

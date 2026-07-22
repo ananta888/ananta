@@ -1,0 +1,184 @@
+{
+  "fixture_version": 1,
+  "name": "valid_livekit_native_route",
+  "validation_phase": "fanout_route_intent_boundary",
+  "validation_context": {
+    "now_ms": 1900000001000,
+    "measured_intent_bytes": 4096,
+    "measured_authenticated_payload_bytes": 3072,
+    "resolved_limits": {
+      "ananta.sfu-broadcast.route-intent-bytes.max.v1": 16384,
+      "ananta.sfu-broadcast.route-authenticated-payload-bytes.max.v1": 8192,
+      "ananta.sfu-broadcast.route-receiver-refs.max.v1": 7,
+      "ananta.sfu-broadcast.route-allowed-layers.max.v1": 3,
+      "ananta.sfu-broadcast.route-traffic-classes.max.v1": 4,
+      "ananta.sfu-broadcast.route-ttl-ms.max.v1": 10000
+    },
+    "selected_runtime": {
+      "runtime_control_mode": "livekit_control_api",
+      "placement_owner": "livekit_native",
+      "cluster_ref": "sfu-cluster-fixture",
+      "region_ref": "region-fixture"
+    },
+    "authoritative_scope": {
+      "tenant_ref": "tenant-fixture",
+      "room_ref": "sfu-0123456789abcdef0123456789abcdef"
+    },
+    "authoritative_group": {
+      "group_ref": "receiver-group-fixture",
+      "revision": 3,
+      "publication_ref": "publication-camera-main",
+      "publication_member_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "authoritative_audience": {
+      "snapshot_ref": "audience-snapshot-fixture",
+      "projection_version": 5,
+      "publication_ref": "publication-camera-main",
+      "audience_digest": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "receiver_refs": [
+        "AQIDBAUGBwgJCgsMDQ4PEA",
+        "ERITFBUWFxgZGhscHR4fIA"
+      ]
+    },
+    "authoritative_publication": {
+      "publication_ref": "publication-camera-main",
+      "media_kind": "video",
+      "allowed_layers": [
+        {"layer_ref": "camera-low", "rid": "q", "spatial_id": 0, "temporal_id": 0},
+        {"layer_ref": "camera-medium", "rid": "h", "spatial_id": 1, "temporal_id": 1}
+      ],
+      "aggregate_bitrate_bps_max": 3000000,
+      "traffic_budgets": [
+        {"traffic_class": "video", "max_bitrate_bps": 2500000, "max_packets_per_second": 3000, "max_burst_bytes": 65536},
+        {"traffic_class": "retransmission", "max_bitrate_bps": 500000, "max_packets_per_second": 1000, "max_burst_bytes": 32768}
+      ]
+    },
+    "latest_epochs": {
+      "route_epoch": 14,
+      "topology_epoch": 4,
+      "key_epoch": 7
+    },
+    "last_accepted_fencing_token": 99,
+    "accepted_envelope_sequences": [],
+    "parent_envelope_verification": {
+      "trusted_sender_id": "hub-control-fixture",
+      "trusted_key_id": "hub-route-key-fixture",
+      "authenticated": true,
+      "decrypted_document_matches": true
+    }
+  },
+  "instance": {
+    "schema": "ananta.webrtc.fanout-route-intent.v1",
+    "schema_version": 1,
+    "domain": "sfu_broadcast.fanout_route_intent.v1",
+    "route": {
+      "route_id": "fanout-route-fixture",
+      "projection": "absolute_replace",
+      "scope": {
+        "tenant_ref": "tenant-fixture",
+        "room_ref": "sfu-0123456789abcdef0123456789abcdef"
+      },
+      "group": {
+        "group_ref": "receiver-group-fixture",
+        "revision": 3,
+        "publication_member_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "audience": {
+        "snapshot_ref": "audience-snapshot-fixture",
+        "projection_version": 5,
+        "audience_digest": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "receiver_refs": [
+          "AQIDBAUGBwgJCgsMDQ4PEA",
+          "ERITFBUWFxgZGhscHR4fIA"
+        ]
+      },
+      "runtime": {
+        "runtime_control_mode": "livekit_control_api",
+        "placement_owner": "livekit_native",
+        "cluster_ref": "sfu-cluster-fixture",
+        "region_ref": "region-fixture",
+        "command_semantics": "absolute_desired_state",
+        "acknowledgement": "bounded_reconciliation_observation"
+      },
+      "publication": {
+        "publication_ref": "publication-camera-main",
+        "media_kind": "video",
+        "allowed_layers": [
+          {"layer_ref": "camera-low", "rid": "q", "spatial_id": 0, "temporal_id": 0},
+          {"layer_ref": "camera-medium", "rid": "h", "spatial_id": 1, "temporal_id": 1}
+        ]
+      },
+      "traffic": {
+        "aggregate_bitrate_bps_max": 3000000,
+        "budgets": [
+          {"traffic_class": "video", "max_bitrate_bps": 2500000, "max_packets_per_second": 3000, "max_burst_bytes": 65536},
+          {"traffic_class": "retransmission", "max_bitrate_bps": 500000, "max_packets_per_second": 1000, "max_burst_bytes": 32768}
+        ]
+      },
+      "epochs": {
+        "route_epoch": 14,
+        "topology_epoch": 4,
+        "key_epoch": 7
+      },
+      "fencing": {
+        "token": 100,
+        "expected_previous_route_epoch": 13,
+        "enforcement": "hub_serialized_reconciliation"
+      },
+      "issued_at_ms": 1900000000000,
+      "ttl_ms": 5000
+    },
+    "limits": {
+      "parent": {
+        "extension_payload_bytes_max": "ananta.sfu-broadcast.extension-payload-bytes.max.v1",
+        "fanout_count_max": "ananta.sfu-broadcast.fanout-count.max.v1",
+        "extension_ttl_ms_max": "ananta.sfu-broadcast.extension-ttl-ms.max.v1"
+      },
+      "config_refs": {
+        "intent_bytes_max": "ananta.sfu-broadcast.route-intent-bytes.max.v1",
+        "authenticated_payload_bytes_max": "ananta.sfu-broadcast.route-authenticated-payload-bytes.max.v1",
+        "receiver_refs_max": "ananta.sfu-broadcast.route-receiver-refs.max.v1",
+        "allowed_layers_max": "ananta.sfu-broadcast.route-allowed-layers.max.v1",
+        "traffic_classes_max": "ananta.sfu-broadcast.route-traffic-classes.max.v1",
+        "ttl_ms_max": "ananta.sfu-broadcast.route-ttl-ms.max.v1"
+      },
+      "hard": {
+        "intent_bytes_max": 32768,
+        "authenticated_payload_bytes_max": 16384,
+        "receiver_refs_max": 7,
+        "allowed_layers_max": 3,
+        "traffic_classes_max": 4,
+        "ttl_ms_max": 10000
+      }
+    },
+    "envelope": {
+      "version": 1,
+      "scope": {
+        "kind": "room",
+        "id": "sfu-0123456789abcdef0123456789abcdef"
+      },
+      "sender_id": "hub-control-fixture",
+      "recipient": {
+        "kind": "group",
+        "id": "receiver-group-fixture"
+      },
+      "epoch": 7,
+      "sequence": 41,
+      "key_id": "hub-route-key-fixture",
+      "payload_type": "sfu_broadcast.fanout_route_intent.v1",
+      "expires_at_ms": 1900000005000,
+      "nonce_b64": "AAECAwQFBgcICQoL",
+      "aad": {
+        "traffic_class": "control",
+        "content_encoding": "json",
+        "contract_digest": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "ciphertext_b64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYX"
+    }
+  },
+  "expected": {
+    "valid": true,
+    "phase": "accepted",
+    "code": "ok"
+  }
+}

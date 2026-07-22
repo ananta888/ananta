@@ -1,0 +1,50 @@
+{
+  "fixture_version": "1",
+  "case": "runtime-node-bound-by-verified-mtls-san",
+  "context": {
+    "received_at": "2026-01-15T12:00:10Z",
+    "transport": {
+      "mode": "mtls",
+      "protocol": "TLSv1.3",
+      "server_peer_verified": true,
+      "client_peer_verified": true,
+      "client_san": "spiffe://ananta.test/sfu/node-a"
+    },
+    "signature_valid": true
+  },
+  "expected": {
+    "schema_valid": true,
+    "accepted": true,
+    "projection": "usable",
+    "reason": "accepted"
+  },
+  "document": {
+    "schema_version": "sfu_node_observation.v1",
+    "observation": {
+      "reporter_id": "probe-runtime-a",
+      "boot_id": "boot-runtime-a",
+      "sequence": 7,
+      "observed_at": "2026-01-15T12:00:09Z",
+      "expires_at": "2026-01-15T12:00:24Z",
+      "scope": {"mode": "runtime", "runtime_id": "runtime-eu-a"},
+      "observed_node": {
+        "node_id": "node-a",
+        "binding": {"kind": "mtls_san", "san": "spiffe://ananta.test/sfu/node-a"}
+      },
+      "capabilities": [
+        {"name": "room_service_update_subscriptions", "state": "supported", "source": "authenticated_runtime_probe"}
+      ],
+      "signals": {
+        "active_rooms": {"value": 4, "unit": "rooms", "source": "runtime_room_registry"},
+        "cpu_utilization": {"value": 0.42, "unit": "ratio", "source": "runtime_process_metrics"}
+      },
+      "labels": {"environment": "fixture", "zone": "eu-a"}
+    },
+    "proof": {
+      "algorithm": "Ed25519",
+      "key_id": "fixture-key-runtime-a",
+      "canonicalization": "RFC8785",
+      "signature": "fixtureSignatureRuntimeMtls0001"
+    }
+  }
+}

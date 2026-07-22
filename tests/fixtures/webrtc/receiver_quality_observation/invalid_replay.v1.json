@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_sequence_replay",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/sequence",
+    "value": 40
+  },
+  "expected": {
+    "valid": false,
+    "phase": "replay",
+    "code": "observation_replay"
+  }
+}

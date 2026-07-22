@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "unplausible_egress_ratio_not_marked_estimated",
+  "base_fixture": "valid_measured.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/accounting/counters/publisher_ingress/bytes", "value": 100000},
+  "expected": {"valid": false, "phase": "plausibility", "code": "accounting_unplausible_egress_receiver_ratio_unmarked"}
+}

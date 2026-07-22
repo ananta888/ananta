@@ -1,0 +1,20 @@
+{
+  "fixture_version": "1",
+  "case": "unverified-tls-server-peer-is-rejected",
+  "context": {
+    "received_at": "2026-01-15T12:00:10Z",
+    "transport": {"mode": "tls", "protocol": "TLSv1.3", "server_peer_verified": false},
+    "signature_valid": true
+  },
+  "expected": {"schema_valid": true, "accepted": false, "projection": "rejected", "reason": "tls_peer_unverified"},
+  "document": {
+    "schema_version": "sfu_node_observation.v1",
+    "observation": {
+      "reporter_id": "probe-runtime-a", "boot_id": "boot-runtime-a", "sequence": 8,
+      "observed_at": "2026-01-15T12:00:09Z", "expires_at": "2026-01-15T12:00:24Z",
+      "scope": {"mode": "runtime", "runtime_id": "runtime-eu-a"},
+      "capabilities": [], "signals": {}, "labels": {}
+    },
+    "proof": {"algorithm": "Ed25519", "key_id": "fixture-key-runtime-a", "canonicalization": "RFC8785", "signature": "fixtureSignatureTlsNegative0007"}
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "quality_profile_version_conflict",
+  "base_fixture": "valid_receiver_projection.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/validation_context/active_scope/quality_version", "value": "bounded-v2"},
+  "expected": {"valid": false, "phase": "context_validation", "code": "profile_version_conflict"}
+}

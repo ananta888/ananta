@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "receipt_media_content_forbidden",
+  "base_fixture": "valid_receipt_applied.v1.json",
+  "mutation": {"operation": "add", "json_pointer": "/instance/media_payload_b64", "value": "AAECAwQ="},
+  "expected": {"valid": false, "phase": "privacy_prescan", "code": "privacy_media_forbidden"}
+}

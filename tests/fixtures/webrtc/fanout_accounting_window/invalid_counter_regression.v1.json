@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "negative_interval_counter",
+  "base_fixture": "valid_measured.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/accounting/counters/drops/late_packets", "value": -1},
+  "expected": {"valid": false, "phase": "counter_boundary", "code": "accounting_counter_regression"}
+}

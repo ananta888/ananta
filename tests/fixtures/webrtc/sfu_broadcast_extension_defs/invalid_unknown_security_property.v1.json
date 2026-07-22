@@ -1,0 +1,17 @@
+{
+  "fixture_version": 1,
+  "name": "unknown_security_property",
+  "base_fixture": "valid_profile.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/envelope/signature_algorithm",
+    "value": "forbidden-copy"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "schema",
+    "keyword": "additionalProperties",
+    "code": "unknown_security_property"
+  }
+}

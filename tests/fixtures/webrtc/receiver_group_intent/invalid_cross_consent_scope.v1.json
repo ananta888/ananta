@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "cross_consent_scope_member",
+  "base_fixture": "valid_group.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/resolved_audience/members/1/consent_scope_ref",
+    "value": "consent-scope-other"
+  },
+  "expected": {"valid": false, "phase": "hub_scope", "code": "cross_consent_scope"}
+}

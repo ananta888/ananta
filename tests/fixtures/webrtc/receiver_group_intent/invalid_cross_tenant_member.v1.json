@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "cross_tenant_member",
+  "base_fixture": "valid_group.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/resolved_audience/members/1/tenant_ref",
+    "value": "tenant-other"
+  },
+  "expected": {"valid": false, "phase": "hub_scope", "code": "cross_tenant_member"}
+}

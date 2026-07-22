@@ -1,0 +1,305 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/receiver_quality_observation.v1.json",
+  "title": "Receiver quality observation v1",
+  "description": "A privacy-bounded, publication-scoped and non-authoritative receiver quality observation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "observation_version",
+    "tenant_ref",
+    "room_ref",
+    "subscriber_ref",
+    "publication_ref",
+    "browser_instance_pseudonym",
+    "route_epoch",
+    "sequence",
+    "issued_at",
+    "authorization_effect",
+    "advisory_only",
+    "limits",
+    "requested_layer",
+    "allowed_layer",
+    "effective_layer",
+    "samples"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ananta.receiver-quality-observation.v1"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "observation_version": {
+      "const": "bounded-v1"
+    },
+    "tenant_ref": {
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/tenant_ref"
+    },
+    "room_ref": {
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/room_ref"
+    },
+    "subscriber_ref": {
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/canonical_id"
+    },
+    "publication_ref": {
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/publication_ref"
+    },
+    "browser_instance_pseudonym": {
+      "type": "string",
+      "minLength": 31,
+      "maxLength": 31,
+      "pattern": "^room-bip_[A-Za-z0-9_-]{22}$"
+    },
+    "route_epoch": {
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/route_epoch"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "issued_at": {
+      "$ref": "#/$defs/utc_second"
+    },
+    "authorization_effect": {
+      "const": "none"
+    },
+    "advisory_only": {
+      "const": true
+    },
+    "limits": {
+      "$ref": "#/$defs/limits"
+    },
+    "requested_layer": {
+      "$ref": "#/$defs/layer_selection_or_none"
+    },
+    "allowed_layer": {
+      "$ref": "#/$defs/allowed_layer_echo_or_none"
+    },
+    "effective_layer": {
+      "$ref": "#/$defs/layer_selection_or_none"
+    },
+    "samples": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/quality_sample"
+      }
+    }
+  },
+  "$defs": {
+    "utc_second": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 20,
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$",
+      "format": "date-time"
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "history_reports_max",
+        "samples_per_report_max",
+        "reports_per_minute_max",
+        "report_bytes_max",
+        "sample_window_ms_max",
+        "history_window_ms_max",
+        "observation_age_ms_max"
+      ],
+      "properties": {
+        "history_reports_max": {
+          "const": 12
+        },
+        "samples_per_report_max": {
+          "const": 16
+        },
+        "reports_per_minute_max": {
+          "const": 12
+        },
+        "report_bytes_max": {
+          "const": 8192
+        },
+        "sample_window_ms_max": {
+          "const": 2000
+        },
+        "history_window_ms_max": {
+          "const": 30000
+        },
+        "observation_age_ms_max": {
+          "const": 5000
+        }
+      }
+    },
+    "layer_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spatial_id",
+        "temporal_id"
+      ],
+      "properties": {
+        "spatial_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "temporal_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        }
+      }
+    },
+    "layer_selection_or_none": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/layer_selection"
+        }
+      ]
+    },
+    "allowed_layer_echo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "spatial_id",
+        "temporal_id"
+      ],
+      "properties": {
+        "source": {
+          "const": "hub_state_echo"
+        },
+        "spatial_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "temporal_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        }
+      }
+    },
+    "allowed_layer_echo_or_none": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/allowed_layer_echo"
+        }
+      ]
+    },
+    "quality_sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sample_sequence",
+        "observed_at",
+        "window_ms",
+        "metrics"
+      ],
+      "properties": {
+        "sample_sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "observed_at": {
+          "$ref": "#/$defs/utc_second"
+        },
+        "window_ms": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 2000
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "maxProperties": 11,
+      "dependentRequired": {
+        "viewport_width_css_px": [
+          "viewport_height_css_px"
+        ],
+        "viewport_height_css_px": [
+          "viewport_width_css_px"
+        ]
+      },
+      "properties": {
+        "rtt_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "jitter_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "packet_loss_basis_points": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "receive_bitrate_bps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "decode_time_ms_per_frame": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "freeze_duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000
+        },
+        "audio_gap_duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000
+        },
+        "buffer_level_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "viewport_width_css_px": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 8192,
+          "multipleOf": 16
+        },
+        "viewport_height_css_px": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 8192,
+          "multipleOf": 16
+        },
+        "cpu_pressure_basis_points": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        }
+      }
+    }
+  }
+}

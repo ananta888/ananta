@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "cross_key_epoch_member",
+  "base_fixture": "valid_group.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/resolved_audience/members/1/key_epoch",
+    "value": 6
+  },
+  "expected": {"valid": false, "phase": "hub_scope", "code": "cross_key_epoch"}
+}

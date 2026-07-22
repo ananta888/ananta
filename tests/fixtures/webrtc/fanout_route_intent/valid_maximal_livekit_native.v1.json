@@ -1,0 +1,92 @@
+{
+  "fixture_version": 1,
+  "name": "valid_maximal_livekit_native_route",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "mutations": [
+    {
+      "operation": "replace",
+      "json_pointer": "/route/audience/receiver_refs",
+      "value": [
+        "AQIDBAUGBwgJCgsMDQ4PEA",
+        "ERITFBUWFxgZGhscHR4fIA",
+        "ISIjJCUmJygpKissLS4vMA",
+        "MTIzNDU2Nzg5Ojs8PT4_QA",
+        "QUJDREVGR0hJSktMTU5PUA",
+        "UVJTVFVWV1hZWltcXV5fYA",
+        "YWJjZGVmZ2hpamtsbW5vcA"
+      ]
+    },
+    {
+      "operation": "replace",
+      "json_pointer": "/route/publication/allowed_layers",
+      "value": [
+        {"layer_ref": "camera-low", "rid": "q", "spatial_id": 0, "temporal_id": 0},
+        {"layer_ref": "camera-medium", "rid": "h", "spatial_id": 1, "temporal_id": 1},
+        {"layer_ref": "camera-high", "rid": "f", "spatial_id": 2, "temporal_id": 2}
+      ]
+    },
+    {
+      "operation": "replace",
+      "json_pointer": "/route/traffic",
+      "value": {
+        "aggregate_bitrate_bps_max": 100000000,
+        "budgets": [
+          {"traffic_class": "audio", "max_bitrate_bps": 10000000, "max_packets_per_second": 10000, "max_burst_bytes": 1048576},
+          {"traffic_class": "video", "max_bitrate_bps": 70000000, "max_packets_per_second": 70000, "max_burst_bytes": 1048576},
+          {"traffic_class": "retransmission", "max_bitrate_bps": 10000000, "max_packets_per_second": 10000, "max_burst_bytes": 1048576},
+          {"traffic_class": "data", "max_bitrate_bps": 10000000, "max_packets_per_second": 10000, "max_burst_bytes": 1048576}
+        ]
+      }
+    },
+    {
+      "operation": "replace",
+      "json_pointer": "/route/ttl_ms",
+      "value": 10000
+    },
+    {
+      "operation": "replace",
+      "json_pointer": "/envelope/expires_at_ms",
+      "value": 1900000010000
+    }
+  ],
+  "context_mutations": [
+    {
+      "operation": "replace",
+      "json_pointer": "/authoritative_audience/receiver_refs",
+      "value": [
+        "AQIDBAUGBwgJCgsMDQ4PEA",
+        "ERITFBUWFxgZGhscHR4fIA",
+        "ISIjJCUmJygpKissLS4vMA",
+        "MTIzNDU2Nzg5Ojs8PT4_QA",
+        "QUJDREVGR0hJSktMTU5PUA",
+        "UVJTVFVWV1hZWltcXV5fYA",
+        "YWJjZGVmZ2hpamtsbW5vcA"
+      ]
+    },
+    {
+      "operation": "replace",
+      "json_pointer": "/authoritative_publication/allowed_layers",
+      "value": [
+        {"layer_ref": "camera-low", "rid": "q", "spatial_id": 0, "temporal_id": 0},
+        {"layer_ref": "camera-medium", "rid": "h", "spatial_id": 1, "temporal_id": 1},
+        {"layer_ref": "camera-high", "rid": "f", "spatial_id": 2, "temporal_id": 2}
+      ]
+    },
+    {
+      "operation": "replace",
+      "json_pointer": "/authoritative_publication/aggregate_bitrate_bps_max",
+      "value": 100000000
+    },
+    {
+      "operation": "replace",
+      "json_pointer": "/authoritative_publication/traffic_budgets",
+      "value": [
+        {"traffic_class": "audio", "max_bitrate_bps": 10000000, "max_packets_per_second": 10000, "max_burst_bytes": 1048576},
+        {"traffic_class": "video", "max_bitrate_bps": 70000000, "max_packets_per_second": 70000, "max_burst_bytes": 1048576},
+        {"traffic_class": "retransmission", "max_bitrate_bps": 10000000, "max_packets_per_second": 10000, "max_burst_bytes": 1048576},
+        {"traffic_class": "data", "max_bitrate_bps": 10000000, "max_packets_per_second": 10000, "max_burst_bytes": 1048576}
+      ]
+    }
+  ],
+  "expected": {"valid": true, "phase": "accepted", "code": "ok"}
+}

@@ -1,0 +1,36 @@
+{
+  "fixture_version": "1",
+  "case": "missing-runtime-signals-project-to-unknown-not-zero",
+  "context": {
+    "received_at": "2026-01-15T12:00:10Z",
+    "transport": {"mode": "tls", "protocol": "TLSv1.3", "server_peer_verified": true},
+    "signature_valid": true
+  },
+  "expected": {
+    "schema_valid": true,
+    "accepted": true,
+    "projection": "usable",
+    "reason": "accepted",
+    "unknown_fields": ["active_rooms", "active_participants", "cpu_utilization", "memory_bytes", "egress_bitrate"]
+  },
+  "document": {
+    "schema_version": "sfu_node_observation.v1",
+    "observation": {
+      "reporter_id": "probe-runtime-empty",
+      "boot_id": "boot-runtime-empty",
+      "sequence": 1,
+      "observed_at": "2026-01-15T12:00:09Z",
+      "expires_at": "2026-01-15T12:00:24Z",
+      "scope": {"mode": "runtime", "runtime_id": "runtime-empty"},
+      "capabilities": [],
+      "signals": {},
+      "labels": {}
+    },
+    "proof": {
+      "algorithm": "Ed25519",
+      "key_id": "fixture-key-runtime-empty",
+      "canonicalization": "RFC8785",
+      "signature": "fixtureSignatureMissing0006"
+    }
+  }
+}

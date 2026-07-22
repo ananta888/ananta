@@ -1,0 +1,17 @@
+{
+  "fixture_version": 1,
+  "name": "forbidden_sdp_fingerprint",
+  "base_fixture": "valid_partial.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/sdp",
+    "value": "v=0"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "privacy_semantics",
+    "code": "fingerprint_field_forbidden",
+    "field_class": "sdp"
+  }
+}

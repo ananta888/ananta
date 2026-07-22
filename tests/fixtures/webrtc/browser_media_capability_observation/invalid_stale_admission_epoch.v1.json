@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "stale_admission_epoch",
+  "base_fixture": "valid_partial.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/admission_epoch",
+    "value": 10
+  },
+  "expected": {
+    "valid": false,
+    "phase": "admission_binding",
+    "code": "stale_admission_epoch"
+  }
+}

@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json",
+  "title": "Ananta WebRTC SFU broadcast extension definitions v1",
+  "$comment": "Definitions and a conformance profile only. Concrete fanout schemas remain authoritative for their payload and must reference the canonical secure envelope directly.",
+  "$ref": "#/$defs/conformance_profile",
+  "$defs": {
+    "canonical_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "tenant_ref": {
+      "title": "Tenant reference",
+      "$ref": "#/$defs/canonical_id"
+    },
+    "room_ref": {
+      "title": "Room reference",
+      "type": "string",
+      "pattern": "^sfu-[a-f0-9]{32}$"
+    },
+    "publication_ref": {
+      "title": "Publication reference",
+      "$ref": "#/$defs/canonical_id"
+    },
+    "subscription_ref": {
+      "title": "Subscription reference",
+      "$ref": "#/$defs/canonical_id"
+    },
+    "reference_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_ref", "room_ref"],
+      "properties": {
+        "tenant_ref": {"$ref": "#/$defs/tenant_ref"},
+        "room_ref": {"$ref": "#/$defs/room_ref"},
+        "publication_ref": {"$ref": "#/$defs/publication_ref"},
+        "subscription_ref": {"$ref": "#/$defs/subscription_ref"}
+      }
+    },
+    "monotone_epoch": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "membership_epoch": {
+      "title": "Membership epoch",
+      "$ref": "#/$defs/monotone_epoch"
+    },
+    "key_epoch": {
+      "title": "Key epoch",
+      "$ref": "#/$defs/monotone_epoch"
+    },
+    "route_epoch": {
+      "title": "Route epoch",
+      "$ref": "#/$defs/monotone_epoch"
+    },
+    "topology_epoch": {
+      "title": "Topology epoch",
+      "$ref": "#/$defs/monotone_epoch"
+    },
+    "epoch_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "membership_epoch",
+        "key_epoch",
+        "route_epoch",
+        "topology_epoch"
+      ],
+      "properties": {
+        "membership_epoch": {"$ref": "#/$defs/membership_epoch"},
+        "key_epoch": {"$ref": "#/$defs/key_epoch"},
+        "route_epoch": {"$ref": "#/$defs/route_epoch"},
+        "topology_epoch": {"$ref": "#/$defs/topology_epoch"}
+      }
+    },
+    "extension_payload_bytes_limit_ref": {
+      "const": "ananta.sfu-broadcast.extension-payload-bytes.max.v1"
+    },
+    "fanout_count_limit_ref": {
+      "const": "ananta.sfu-broadcast.fanout-count.max.v1"
+    },
+    "extension_ttl_limit_ref": {
+      "const": "ananta.sfu-broadcast.extension-ttl-ms.max.v1"
+    },
+    "named_limit_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "extension_payload_bytes_max",
+        "fanout_count_max",
+        "extension_ttl_ms_max"
+      ],
+      "properties": {
+        "extension_payload_bytes_max": {
+          "$ref": "#/$defs/extension_payload_bytes_limit_ref"
+        },
+        "fanout_count_max": {
+          "$ref": "#/$defs/fanout_count_limit_ref"
+        },
+        "extension_ttl_ms_max": {
+          "$ref": "#/$defs/extension_ttl_limit_ref"
+        }
+      }
+    },
+    "domain_separation": {
+      "type": "string",
+      "minLength": 24,
+      "maxLength": 64,
+      "pattern": "^sfu_broadcast\\.[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*\\.v1$"
+    },
+    "fanout_envelope": {
+      "allOf": [
+        {
+          "$ref": "https://ananta.local/schemas/webrtc/secure_envelope.v1.json"
+        },
+        {
+          "type": "object",
+          "required": ["payload_type"],
+          "properties": {
+            "payload_type": {"$ref": "#/$defs/domain_separation"}
+          }
+        }
+      ]
+    },
+    "conformance_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_version",
+        "domain",
+        "references",
+        "epochs",
+        "limits",
+        "envelope"
+      ],
+      "properties": {
+        "profile_version": {"const": 1},
+        "domain": {"$ref": "#/$defs/domain_separation"},
+        "references": {"$ref": "#/$defs/reference_set"},
+        "epochs": {"$ref": "#/$defs/epoch_set"},
+        "limits": {"$ref": "#/$defs/named_limit_refs"},
+        "envelope": {"$ref": "#/$defs/fanout_envelope"}
+      }
+    }
+  }
+}

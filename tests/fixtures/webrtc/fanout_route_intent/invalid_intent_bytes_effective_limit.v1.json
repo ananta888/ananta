@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "intent_bytes_effective_limit",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/resolved_limits/ananta.sfu-broadcast.route-intent-bytes.max.v1",
+    "value": 4095
+  },
+  "expected": {"valid": false, "phase": "effective_limits", "code": "route_effective_limit_exceeded"}
+}

@@ -1,0 +1,11 @@
+{
+  "fixture_version": 1,
+  "name": "native_runtime_instance_forbidden",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/route/runtime/runtime_instance_ref",
+    "value": "invented-livekit-node"
+  },
+  "expected": {"valid": false, "phase": "schema", "code": "route_native_runtime_instance_forbidden"}
+}

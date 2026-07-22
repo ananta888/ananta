@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "expired_receiver_group_intent",
+  "base_fixture": "valid_group.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/now_ms",
+    "value": 1900000005000
+  },
+  "expected": {"valid": false, "phase": "hub_time", "code": "intent_expired"}
+}

@@ -1,0 +1,10 @@
+{
+  "fixture_version": 1,
+  "name": "unsupported_publisher_nonempty_plan",
+  "base_fixture": "valid_publisher_projection.v1.json",
+  "mutations": [
+    {"operation": "replace", "json_pointer": "/instance/resolution", "value": "unsupported"},
+    {"operation": "replace", "json_pointer": "/instance/safe_outcome", "value": "apply_projection"}
+  ],
+  "expected": {"valid": false, "phase": "safe_fallback_validation", "code": "unsafe_fallback"}
+}

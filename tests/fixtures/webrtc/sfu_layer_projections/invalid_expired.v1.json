@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "projection_parent_envelope_expired",
+  "base_fixture": "valid_receiver_projection.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/instance/envelope/expires_at_ms", "value": 1899979204000},
+  "expected": {"valid": false, "phase": "parent_envelope", "code": "parent_envelope_expired"}
+}

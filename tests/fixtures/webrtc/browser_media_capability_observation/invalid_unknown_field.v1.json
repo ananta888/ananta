@@ -1,0 +1,17 @@
+{
+  "fixture_version": 1,
+  "name": "unknown_non_privacy_field",
+  "base_fixture": "valid_partial.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/future_capability_hint",
+    "value": "not-accepted"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "schema",
+    "keyword": "additionalProperties",
+    "code": "unknown_field"
+  }
+}

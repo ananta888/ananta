@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "publisher_bitrate_bound_exceeded",
+  "base_fixture": "valid_publisher_projection.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/instance/encoding_plan/1/max_bitrate_bps", "value": 8000001},
+  "expected": {"valid": false, "phase": "pre_allocation_limit", "code": "publisher_bound_exceeded"}
+}

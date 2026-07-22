@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "stale_topology_epoch",
+  "base_fixture": "valid_receiver_projection.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/instance/topology_epoch", "value": 3},
+  "expected": {"valid": false, "phase": "context_validation", "code": "stale_topology_epoch"}
+}

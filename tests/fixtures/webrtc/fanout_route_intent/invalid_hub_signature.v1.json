@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "invalid_hub_signature",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/parent_envelope_verification/authenticated",
+    "value": false
+  },
+  "expected": {"valid": false, "phase": "parent_authentication", "code": "route_hub_signature_invalid"}
+}

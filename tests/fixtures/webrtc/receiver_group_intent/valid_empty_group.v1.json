@@ -1,0 +1,22 @@
+{
+  "fixture_version": 1,
+  "name": "valid_empty_receiver_group",
+  "base_fixture": "valid_group.v1.json",
+  "mutations": [
+    {"target": "instance", "operation": "replace", "json_pointer": "/group_id", "value": "receiver-group-empty"},
+    {"target": "instance", "operation": "replace", "json_pointer": "/audience_snapshot_ref", "value": "audience-snapshot-empty"},
+    {"target": "instance", "operation": "replace", "json_pointer": "/epochs/audience_epoch", "value": 6},
+    {"target": "instance", "operation": "replace", "json_pointer": "/member_count", "value": 0},
+    {"target": "instance", "operation": "replace", "json_pointer": "/publications/member_digests/0/value", "value": "5a95faed4f2dcafc1380c46fabc1936f2cc39d81cd3533db7bc9c9e4daf1f911"},
+    {"target": "instance", "operation": "replace", "json_pointer": "/publications/member_digests/1/value", "value": "04dfe3aa436debc46c0bf5739dd7506edd64065af360b0b0f1c9f086f0e1b5a3"},
+    {"target": "validation_context", "operation": "replace", "json_pointer": "/latest_epochs/audience_epoch", "value": 6},
+    {"target": "validation_context", "operation": "replace", "json_pointer": "/resolved_audience/audience_snapshot_ref", "value": "audience-snapshot-empty"},
+    {"target": "validation_context", "operation": "replace", "json_pointer": "/resolved_audience/audience_epoch", "value": 6},
+    {"target": "validation_context", "operation": "replace", "json_pointer": "/resolved_audience/members", "value": []}
+  ],
+  "expected": {
+    "valid": true,
+    "code": "ok_empty_fail_closed",
+    "sfu_materialization": false
+  }
+}

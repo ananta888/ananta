@@ -1,0 +1,90 @@
+{
+  "fixture_version": 1,
+  "name": "valid_room_adaptive_receive_only",
+  "validation_phase": "sfu_layer_projection_boundary",
+  "validation_context": {
+    "now_ms": 1899979205000,
+    "received_payload_bytes": 1800,
+    "active_scope": {
+      "tenant_ref": "tenant-fixture",
+      "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+      "admission_epoch": 11,
+      "membership_epoch": 9,
+      "key_epoch": 7,
+      "topology_epoch": 4,
+      "session_owner_ref": "hub-owner-a",
+      "owner_generation": 3,
+      "participant_role": "receive_only"
+    },
+    "current_projection_version": 6,
+    "current_fencing_token": 31,
+    "last_accepted_envelope_sequence": 100,
+    "room_constructed": false,
+    "parent_authentication_verified": true,
+    "resolved_named_limits": true
+  },
+  "instance": {
+    "schema": "ananta.sfu-room-session-projection.v1",
+    "schema_version": 1,
+    "domain": "sfu_broadcast.room_session_projection.v1",
+    "tenant_ref": "tenant-fixture",
+    "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+    "admission_epoch": 11,
+    "membership_epoch": 9,
+    "key_epoch": 7,
+    "topology_epoch": 4,
+    "topology": "sfu_broadcast",
+    "infrastructure_profile": "stock_livekit_sfu_v1",
+    "session_owner_ref": "hub-owner-a",
+    "layer_control_mode": "adaptive_stream",
+    "baseline_profile": {
+      "profile_version": "conservative-baseline-v1",
+      "lowest_safe_video_layer": {"spatial_id": 0, "temporal_id": 0},
+      "unknown_capability_action": "ordinary_fallback",
+      "unsupported_capability_action": "deny"
+    },
+    "projection_version": 7,
+    "issued_at": "2030-03-17T12:00:00Z",
+    "ttl_seconds": 30,
+    "fencing": {
+      "fencing_token": 31,
+      "expected_previous_projection_version": 6,
+      "owner_generation": 3
+    },
+    "construction_policy": {
+      "mode_locked_before_room_construction": true,
+      "receive_only_projection_required": true,
+      "owner_change_action": "controlled_reconnect_or_new_session"
+    },
+    "authorization_effect": "none",
+    "limits": {
+      "named": {
+        "extension_payload_bytes_max": "ananta.sfu-broadcast.extension-payload-bytes.max.v1",
+        "fanout_count_max": "ananta.sfu-broadcast.fanout-count.max.v1",
+        "extension_ttl_ms_max": "ananta.sfu-broadcast.extension-ttl-ms.max.v1"
+      },
+      "projection_bytes_max": 8192,
+      "projection_ttl_seconds_max": 30,
+      "projection_updates_per_minute_max": 4
+    },
+    "envelope": {
+      "version": 1,
+      "scope": {"kind": "room", "id": "sfu-0123456789abcdef0123456789abcdef"},
+      "sender_id": "hub-owner-a",
+      "recipient": {"kind": "peer", "id": "room-bip_AAAAAAAAAAAAAAAAAAAAAA"},
+      "epoch": 7,
+      "sequence": 101,
+      "key_id": "key-fixture-7",
+      "payload_type": "sfu_broadcast.room_session_projection.v1",
+      "expires_at_ms": 1899979230000,
+      "nonce_b64": "AAECAwQFBgcICQoL",
+      "aad": {
+        "traffic_class": "control",
+        "content_encoding": "json",
+        "contract_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "ciphertext_b64": "PCC7fraWo3zoY62pwowbH+aipUlqsi50Kw2BkWSjyvtU6PuP"
+    }
+  },
+  "expected": {"valid": true, "code": "ok", "room_construction_allowed": true}
+}

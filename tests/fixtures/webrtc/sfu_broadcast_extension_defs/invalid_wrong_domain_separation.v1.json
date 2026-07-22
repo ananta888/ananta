@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "pattern_valid_but_mismatched_domain",
+  "base_fixture": "valid_profile.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/envelope/payload_type",
+    "value": "sfu_broadcast.other_fixture.v1"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "extension_semantics",
+    "code": "domain_separation_mismatch"
+  }
+}

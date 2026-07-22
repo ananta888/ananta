@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "member_grant_outside_publication_allowlist",
+  "base_fixture": "valid_group.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/resolved_audience/members/1/publication_grants/1/publication_ref",
+    "value": "publication-unlisted"
+  },
+  "expected": {"valid": false, "phase": "hub_scope", "code": "cross_publication_scope"}
+}

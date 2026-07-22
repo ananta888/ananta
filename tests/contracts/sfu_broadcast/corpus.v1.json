@@ -1,0 +1,204 @@
+{
+  "schema": "ananta.sfu-broadcast-contract-corpus.v1",
+  "schema_version": 1,
+  "corpus_version": 1,
+  "required_categories": [
+    "minimal",
+    "maximum",
+    "unknown_property",
+    "oversize",
+    "expiry",
+    "replay",
+    "stale_epoch",
+    "cross_scope",
+    "signature"
+  ],
+  "production_evidence": false,
+  "source_evidence_ids": [],
+  "activation_decision": "blocked",
+  "notes": [
+    "Fixture paths and validation contexts are deterministic test inputs, not SRC_* or RUN_* evidence.",
+    "No case is activation evidence; Parent no_go and observe_only remain fail-closed.",
+    "CON-002 contains six known RFC-8785 HMAC digest-vector mismatches and remains a release blocker."
+  ],
+  "known_blockers": [
+    {"id": "CON002_VALID_GROUP_CAMERA_DIGEST", "code": "receiver_group_member_digest_mismatch", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_group.v1.json", "json_pointer": "/instance/publications/member_digests/0/value", "disposition": "expected_fail_closed"},
+    {"id": "CON002_VALID_GROUP_SCREEN_DIGEST", "code": "receiver_group_member_digest_mismatch", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_group.v1.json", "json_pointer": "/instance/publications/member_digests/1/value", "disposition": "expected_fail_closed"},
+    {"id": "CON002_EMPTY_GROUP_CAMERA_DIGEST", "code": "receiver_group_member_digest_mismatch", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_empty_group.v1.json", "json_pointer": "/mutations/4/value", "disposition": "expected_fail_closed"},
+    {"id": "CON002_EMPTY_GROUP_SCREEN_DIGEST", "code": "receiver_group_member_digest_mismatch", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_empty_group.v1.json", "json_pointer": "/mutations/5/value", "disposition": "expected_fail_closed"},
+    {"id": "CON002_MAX_GROUP_CAMERA_DIGEST", "code": "receiver_group_member_digest_mismatch", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_maximal_group.v1.json", "json_pointer": "/mutations/4/value", "disposition": "expected_fail_closed"},
+    {"id": "CON002_MAX_GROUP_SCREEN_DIGEST", "code": "receiver_group_member_digest_mismatch", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_maximal_group.v1.json", "json_pointer": "/mutations/5/value", "disposition": "expected_fail_closed"}
+  ],
+  "contracts": [
+    {
+      "contract_id": "ananta.webrtc.receiver-group-intent.v1",
+      "schema_path": "schemas/webrtc/receiver_group_intent.v1.json",
+      "schema_version": 1,
+      "base_fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_group.v1.json",
+      "cases": {
+        "minimal": {"probe": "source_with_member_digest_check", "expected_code": "receiver_group_member_digest_mismatch", "disposition": "expected_fail_closed"},
+        "maximum": {"probe": "source_with_member_digest_check", "fixture": "tests/fixtures/webrtc/receiver_group_intent/valid_maximal_group.v1.json", "expected_code": "receiver_group_member_digest_mismatch", "disposition": "expected_fail_closed"},
+        "unknown_property": {"probe": "add_unknown_property", "expected_code": "contract_unknown_property"},
+        "oversize": {"probe": "exceed_document_bytes", "expected_code": "contract_document_bytes_exceeded"},
+        "expiry": {"probe": "advance_clock_past_expiry", "expected_code": "contract_expired"},
+        "replay": {"probe": "reuse_sequence", "expected_code": "contract_replay"},
+        "stale_epoch": {"probe": "raise_authoritative_epoch", "expected_code": "contract_stale_epoch"},
+        "cross_scope": {"probe": "replace_expected_scope", "expected_code": "contract_cross_scope"},
+        "signature": {"probe": "reject_trust", "expected_code": "contract_signature_invalid"}
+      }
+    },
+    {
+      "contract_id": "ananta.webrtc.fanout-route-intent.v1",
+      "schema_path": "schemas/webrtc/fanout_route_intent.v1.json",
+      "schema_version": 1,
+      "base_fixture": "tests/fixtures/webrtc/fanout_route_intent/valid_livekit_native.v1.json",
+      "cases": {
+        "minimal": {"probe": "source", "expected_code": "ok"},
+        "maximum": {"probe": "pad_to_document_limit", "fixture": "tests/fixtures/webrtc/fanout_route_intent/valid_maximal_livekit_native.v1.json", "expected_code": "ok"},
+        "unknown_property": {"probe": "add_unknown_property", "expected_code": "contract_unknown_property"},
+        "oversize": {"probe": "exceed_document_bytes", "expected_code": "contract_document_bytes_exceeded"},
+        "expiry": {"probe": "advance_clock_past_expiry", "expected_code": "contract_expired"},
+        "replay": {"probe": "reuse_sequence", "expected_code": "contract_replay"},
+        "stale_epoch": {"probe": "raise_authoritative_epoch", "expected_code": "contract_stale_epoch"},
+        "cross_scope": {"probe": "replace_expected_scope", "expected_code": "contract_cross_scope"},
+        "signature": {"probe": "reject_trust", "expected_code": "contract_signature_invalid"}
+      }
+    },
+    {
+      "contract_id": "ananta.receiver-quality-observation.v1",
+      "schema_path": "schemas/webrtc/receiver_quality_observation.v1.json",
+      "schema_version": 1,
+      "base_fixture": "tests/fixtures/webrtc/receiver_quality_observation/valid_privacy_bounded.v1.json",
+      "cases": {
+        "minimal": {"probe": "source", "expected_code": "ok"},
+        "maximum": {"probe": "pad_to_document_limit", "fixture": "tests/fixtures/webrtc/receiver_quality_observation/valid_max_samples.v1.json", "expected_code": "ok"},
+        "unknown_property": {"probe": "add_unknown_property", "expected_code": "contract_unknown_property"},
+        "oversize": {"probe": "exceed_document_bytes", "expected_code": "contract_document_bytes_exceeded"},
+        "expiry": {"probe": "advance_clock_past_expiry", "expected_code": "contract_expired"},
+        "replay": {"probe": "reuse_sequence", "expected_code": "contract_replay"},
+        "stale_epoch": {"probe": "raise_authoritative_epoch", "expected_code": "contract_stale_epoch"},
+        "cross_scope": {"probe": "replace_expected_scope", "expected_code": "contract_cross_scope"},
+        "signature": {"probe": "reject_trust", "expected_code": "contract_signature_invalid"}
+      }
+    },
+    {
+      "contract_id": "ananta.webrtc.fanout-accounting-window.v1",
+      "schema_path": "schemas/webrtc/fanout_accounting_window.v1.json",
+      "schema_version": 1,
+      "base_fixture": "tests/fixtures/webrtc/fanout_accounting_window/valid_measured.v1.json",
+      "cases": {
+        "minimal": {"probe": "source", "expected_code": "ok"},
+        "maximum": {"probe": "pad_to_document_limit", "expected_code": "ok"},
+        "unknown_property": {"probe": "add_unknown_property", "expected_code": "contract_unknown_property"},
+        "oversize": {"probe": "exceed_document_bytes", "expected_code": "contract_document_bytes_exceeded"},
+        "expiry": {"probe": "advance_clock_past_expiry", "expected_code": "contract_expired"},
+        "replay": {"probe": "reuse_sequence", "expected_code": "contract_replay"},
+        "stale_epoch": {"probe": "raise_authoritative_epoch", "expected_code": "contract_stale_epoch"},
+        "cross_scope": {"probe": "replace_expected_scope", "expected_code": "contract_cross_scope"},
+        "signature": {"probe": "reject_trust", "expected_code": "contract_signature_invalid"}
+      }
+    },
+    {
+      "contract_id": "sfu_node_observation.v1",
+      "schema_path": "schemas/webrtc/sfu_node_observation.v1.json",
+      "schema_version": 1,
+      "base_fixture": "tests/fixtures/webrtc/sfu_node_observation/positive.runtime-mtls.json",
+      "cases": {
+        "minimal": {"probe": "source", "expected_code": "ok"},
+        "maximum": {"probe": "pad_to_document_limit", "expected_code": "ok"},
+        "unknown_property": {"probe": "add_unknown_property", "expected_code": "contract_unknown_property"},
+        "oversize": {"probe": "exceed_document_bytes", "expected_code": "contract_document_bytes_exceeded"},
+        "expiry": {"probe": "advance_clock_past_expiry", "expected_code": "contract_expired"},
+        "replay": {"probe": "reuse_sequence", "expected_code": "contract_replay"},
+        "stale_epoch": {"probe": "raise_authoritative_epoch", "expected_code": "contract_stale_epoch"},
+        "cross_scope": {"probe": "replace_expected_scope", "expected_code": "contract_cross_scope"},
+        "signature": {"probe": "reject_trust", "expected_code": "contract_signature_invalid"}
+      }
+    },
+    {
+      "contract_id": "ananta.browser-media-capability-observation.v1",
+      "schema_path": "schemas/webrtc/browser_media_capability_observation.v1.json",
+      "schema_version": 1,
+      "base_fixture": "tests/fixtures/webrtc/browser_media_capability_observation/valid_unknown.v1.json",
+      "cases": {
+        "minimal": {"probe": "source", "expected_code": "ok"},
+        "maximum": {"probe": "pad_to_document_limit", "fixture": "tests/fixtures/webrtc/browser_media_capability_observation/valid_partial.v1.json", "expected_code": "ok"},
+        "unknown_property": {"probe": "add_unknown_property", "expected_code": "contract_unknown_property"},
+        "oversize": {"probe": "exceed_document_bytes", "expected_code": "contract_document_bytes_exceeded"},
+        "expiry": {"probe": "advance_clock_past_expiry", "expected_code": "contract_expired"},
+        "replay": {"probe": "reuse_sequence", "expected_code": "contract_replay"},
+        "stale_epoch": {"probe": "raise_authoritative_epoch", "expected_code": "contract_stale_epoch"},
+        "cross_scope": {"probe": "replace_expected_scope", "expected_code": "contract_cross_scope"},
+        "signature": {"probe": "reject_trust", "expected_code": "contract_signature_invalid"}
+      }
+    },
+    {
+      "contract_id": "ananta.sfu-room-session-projection.v1",
+      "schema_path": "schemas/webrtc/sfu_room_session_projection.v1.json",
+      "schema_version": 1,
+      "base_fixture": "tests/fixtures/webrtc/sfu_layer_projections/valid_room_adaptive_receive_only.v1.json",
+      "cases": {
+        "minimal": {"probe": "source", "expected_code": "ok"},
+        "maximum": {"probe": "pad_to_document_limit", "fixture": "tests/fixtures/webrtc/sfu_layer_projections/valid_room_manual_quality.v1.json", "expected_code": "ok"},
+        "unknown_property": {"probe": "add_unknown_property", "expected_code": "contract_unknown_property"},
+        "oversize": {"probe": "exceed_document_bytes", "expected_code": "contract_document_bytes_exceeded"},
+        "expiry": {"probe": "advance_clock_past_expiry", "expected_code": "contract_expired"},
+        "replay": {"probe": "reuse_sequence", "expected_code": "contract_replay"},
+        "stale_epoch": {"probe": "raise_authoritative_epoch", "expected_code": "contract_stale_epoch"},
+        "cross_scope": {"probe": "replace_expected_scope", "expected_code": "contract_cross_scope"},
+        "signature": {"probe": "reject_trust", "expected_code": "contract_signature_invalid"}
+      }
+    },
+    {
+      "contract_id": "ananta.sfu-publisher-layer-projection.v1",
+      "schema_path": "schemas/webrtc/sfu_publisher_layer_projection.v1.json",
+      "schema_version": 1,
+      "base_fixture": "tests/fixtures/webrtc/sfu_layer_projections/valid_publisher_projection.v1.json",
+      "cases": {
+        "minimal": {"probe": "source", "expected_code": "ok"},
+        "maximum": {"probe": "pad_to_document_limit", "expected_code": "ok"},
+        "unknown_property": {"probe": "add_unknown_property", "expected_code": "contract_unknown_property"},
+        "oversize": {"probe": "exceed_document_bytes", "expected_code": "contract_document_bytes_exceeded"},
+        "expiry": {"probe": "advance_clock_past_expiry", "expected_code": "contract_expired"},
+        "replay": {"probe": "reuse_sequence", "expected_code": "contract_replay"},
+        "stale_epoch": {"probe": "raise_authoritative_epoch", "expected_code": "contract_stale_epoch"},
+        "cross_scope": {"probe": "replace_expected_scope", "expected_code": "contract_cross_scope"},
+        "signature": {"probe": "reject_trust", "expected_code": "contract_signature_invalid"}
+      }
+    },
+    {
+      "contract_id": "ananta.sfu-receiver-layer-projection.v1",
+      "schema_path": "schemas/webrtc/sfu_receiver_layer_projection.v1.json",
+      "schema_version": 1,
+      "base_fixture": "tests/fixtures/webrtc/sfu_layer_projections/valid_receiver_projection.v1.json",
+      "cases": {
+        "minimal": {"probe": "source", "expected_code": "ok"},
+        "maximum": {"probe": "pad_to_document_limit", "fixture": "tests/fixtures/webrtc/sfu_layer_projections/valid_receiver_unknown_safe_layer.v1.json", "expected_code": "ok"},
+        "unknown_property": {"probe": "add_unknown_property", "expected_code": "contract_unknown_property"},
+        "oversize": {"probe": "exceed_document_bytes", "expected_code": "contract_document_bytes_exceeded"},
+        "expiry": {"probe": "advance_clock_past_expiry", "expected_code": "contract_expired"},
+        "replay": {"probe": "reuse_sequence", "expected_code": "contract_replay"},
+        "stale_epoch": {"probe": "raise_authoritative_epoch", "expected_code": "contract_stale_epoch"},
+        "cross_scope": {"probe": "replace_expected_scope", "expected_code": "contract_cross_scope"},
+        "signature": {"probe": "reject_trust", "expected_code": "contract_signature_invalid"}
+      }
+    },
+    {
+      "contract_id": "ananta.sfu-layer-projection-receipt.v1",
+      "schema_path": "schemas/webrtc/sfu_layer_projection_receipt.v1.json",
+      "schema_version": 1,
+      "base_fixture": "tests/fixtures/webrtc/sfu_layer_projections/valid_receipt_applied.v1.json",
+      "cases": {
+        "minimal": {"probe": "source", "expected_code": "ok"},
+        "maximum": {"probe": "pad_to_document_limit", "fixture": "tests/fixtures/webrtc/sfu_layer_projections/valid_receipt_unsupported_fallback.v1.json", "expected_code": "ok"},
+        "unknown_property": {"probe": "add_unknown_property", "expected_code": "contract_unknown_property"},
+        "oversize": {"probe": "exceed_document_bytes", "expected_code": "contract_document_bytes_exceeded"},
+        "expiry": {"probe": "advance_clock_past_expiry", "expected_code": "contract_expired"},
+        "replay": {"probe": "reuse_sequence", "expected_code": "contract_replay"},
+        "stale_epoch": {"probe": "raise_authoritative_epoch", "expected_code": "contract_stale_epoch"},
+        "cross_scope": {"probe": "replace_expected_scope", "expected_code": "contract_cross_scope"},
+        "signature": {"probe": "reject_trust", "expected_code": "contract_signature_invalid"}
+      }
+    }
+  ]
+}

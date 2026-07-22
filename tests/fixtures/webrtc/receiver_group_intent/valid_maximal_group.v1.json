@@ -1,0 +1,35 @@
+{
+  "fixture_version": 1,
+  "name": "valid_eight_member_receiver_group",
+  "base_fixture": "valid_group.v1.json",
+  "mutations": [
+    {"target": "instance", "operation": "replace", "json_pointer": "/group_id", "value": "receiver-group-max"},
+    {"target": "instance", "operation": "replace", "json_pointer": "/audience_snapshot_ref", "value": "audience-snapshot-max"},
+    {"target": "instance", "operation": "replace", "json_pointer": "/epochs/audience_epoch", "value": 7},
+    {"target": "instance", "operation": "replace", "json_pointer": "/member_count", "value": 8},
+    {"target": "instance", "operation": "replace", "json_pointer": "/publications/member_digests/0/value", "value": "870ac3ba1fb90dc0750a0e3e116988dfc33a51625353b775cdf44a33b4a6919c"},
+    {"target": "instance", "operation": "replace", "json_pointer": "/publications/member_digests/1/value", "value": "5919f5684288c6e788991b1b0add682540cccd055b195a5b385574bf22d4b4d3"},
+    {"target": "validation_context", "operation": "replace", "json_pointer": "/latest_epochs/audience_epoch", "value": 7},
+    {"target": "validation_context", "operation": "replace", "json_pointer": "/resolved_audience/audience_snapshot_ref", "value": "audience-snapshot-max"},
+    {"target": "validation_context", "operation": "replace", "json_pointer": "/resolved_audience/audience_epoch", "value": 7},
+    {
+      "target": "validation_context",
+      "operation": "replace",
+      "json_pointer": "/resolved_audience/members",
+      "value": [
+        {"member_ref": "member-01", "tenant_ref": "tenant-fixture", "room_ref": "sfu-0123456789abcdef0123456789abcdef", "consent_scope_ref": "consent-scope-fixture", "privacy_scope": "ordinary", "membership_epoch": 12, "consent_epoch": 17, "key_epoch": 7, "consent_status": "granted", "capability_attributes": {"/algorithms": ["sfu-receive-v1"]}, "publication_grants": [{"publication_ref": "publication-camera-main", "grant_ref": "grant-01-camera", "subscription_ref": "subscription-01-camera", "subscription_status": "active"}, {"publication_ref": "publication-screen-main", "grant_ref": "grant-01-screen", "subscription_ref": "subscription-01-screen", "subscription_status": "active"}]},
+        {"member_ref": "member-02", "tenant_ref": "tenant-fixture", "room_ref": "sfu-0123456789abcdef0123456789abcdef", "consent_scope_ref": "consent-scope-fixture", "privacy_scope": "ordinary", "membership_epoch": 12, "consent_epoch": 17, "key_epoch": 7, "consent_status": "granted", "capability_attributes": {"/algorithms": ["sfu-receive-v1"]}, "publication_grants": [{"publication_ref": "publication-camera-main", "grant_ref": "grant-02-camera", "subscription_ref": "subscription-02-camera", "subscription_status": "active"}, {"publication_ref": "publication-screen-main", "grant_ref": "grant-02-screen", "subscription_ref": "subscription-02-screen", "subscription_status": "active"}]},
+        {"member_ref": "member-03", "tenant_ref": "tenant-fixture", "room_ref": "sfu-0123456789abcdef0123456789abcdef", "consent_scope_ref": "consent-scope-fixture", "privacy_scope": "ordinary", "membership_epoch": 12, "consent_epoch": 17, "key_epoch": 7, "consent_status": "granted", "capability_attributes": {"/algorithms": ["sfu-receive-v1"]}, "publication_grants": [{"publication_ref": "publication-camera-main", "grant_ref": "grant-03-camera", "subscription_ref": "subscription-03-camera", "subscription_status": "active"}, {"publication_ref": "publication-screen-main", "grant_ref": "grant-03-screen", "subscription_ref": "subscription-03-screen", "subscription_status": "active"}]},
+        {"member_ref": "member-04", "tenant_ref": "tenant-fixture", "room_ref": "sfu-0123456789abcdef0123456789abcdef", "consent_scope_ref": "consent-scope-fixture", "privacy_scope": "ordinary", "membership_epoch": 12, "consent_epoch": 17, "key_epoch": 7, "consent_status": "granted", "capability_attributes": {"/algorithms": ["sfu-receive-v1"]}, "publication_grants": [{"publication_ref": "publication-camera-main", "grant_ref": "grant-04-camera", "subscription_ref": "subscription-04-camera", "subscription_status": "active"}, {"publication_ref": "publication-screen-main", "grant_ref": "grant-04-screen", "subscription_ref": "subscription-04-screen", "subscription_status": "active"}]},
+        {"member_ref": "member-05", "tenant_ref": "tenant-fixture", "room_ref": "sfu-0123456789abcdef0123456789abcdef", "consent_scope_ref": "consent-scope-fixture", "privacy_scope": "ordinary", "membership_epoch": 12, "consent_epoch": 17, "key_epoch": 7, "consent_status": "granted", "capability_attributes": {"/algorithms": ["sfu-receive-v1"]}, "publication_grants": [{"publication_ref": "publication-camera-main", "grant_ref": "grant-05-camera", "subscription_ref": "subscription-05-camera", "subscription_status": "active"}, {"publication_ref": "publication-screen-main", "grant_ref": "grant-05-screen", "subscription_ref": "subscription-05-screen", "subscription_status": "active"}]},
+        {"member_ref": "member-06", "tenant_ref": "tenant-fixture", "room_ref": "sfu-0123456789abcdef0123456789abcdef", "consent_scope_ref": "consent-scope-fixture", "privacy_scope": "ordinary", "membership_epoch": 12, "consent_epoch": 17, "key_epoch": 7, "consent_status": "granted", "capability_attributes": {"/algorithms": ["sfu-receive-v1"]}, "publication_grants": [{"publication_ref": "publication-camera-main", "grant_ref": "grant-06-camera", "subscription_ref": "subscription-06-camera", "subscription_status": "active"}, {"publication_ref": "publication-screen-main", "grant_ref": "grant-06-screen", "subscription_ref": "subscription-06-screen", "subscription_status": "active"}]},
+        {"member_ref": "member-07", "tenant_ref": "tenant-fixture", "room_ref": "sfu-0123456789abcdef0123456789abcdef", "consent_scope_ref": "consent-scope-fixture", "privacy_scope": "ordinary", "membership_epoch": 12, "consent_epoch": 17, "key_epoch": 7, "consent_status": "granted", "capability_attributes": {"/algorithms": ["sfu-receive-v1"]}, "publication_grants": [{"publication_ref": "publication-camera-main", "grant_ref": "grant-07-camera", "subscription_ref": "subscription-07-camera", "subscription_status": "active"}, {"publication_ref": "publication-screen-main", "grant_ref": "grant-07-screen", "subscription_ref": "subscription-07-screen", "subscription_status": "active"}]},
+        {"member_ref": "member-08", "tenant_ref": "tenant-fixture", "room_ref": "sfu-0123456789abcdef0123456789abcdef", "consent_scope_ref": "consent-scope-fixture", "privacy_scope": "ordinary", "membership_epoch": 12, "consent_epoch": 17, "key_epoch": 7, "consent_status": "granted", "capability_attributes": {"/algorithms": ["sfu-receive-v1"]}, "publication_grants": [{"publication_ref": "publication-camera-main", "grant_ref": "grant-08-camera", "subscription_ref": "subscription-08-camera", "subscription_status": "active"}, {"publication_ref": "publication-screen-main", "grant_ref": "grant-08-screen", "subscription_ref": "subscription-08-screen", "subscription_status": "active"}]}
+      ]
+    }
+  ],
+  "expected": {
+    "valid": true,
+    "code": "ok_at_member_limit"
+  }
+}

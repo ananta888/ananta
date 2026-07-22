@@ -1,0 +1,27 @@
+{
+  "fixture_version": 1,
+  "name": "runtime_extension_evidence_missing",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "mutations": [
+    {
+      "operation": "replace",
+      "json_pointer": "/route/runtime",
+      "value": {
+        "runtime_control_mode": "authenticated_runtime_extension",
+        "placement_owner": "authenticated_runtime_extension",
+        "cluster_ref": "sfu-cluster-fixture",
+        "region_ref": "region-fixture",
+        "runtime_instance_ref": "runtime-instance-fixture",
+        "runtime_port_version": "ananta.sfu.authenticated-runtime-route.v1",
+        "command_semantics": "absolute_desired_state",
+        "acknowledgement": "authenticated_fenced_ack"
+      }
+    },
+    {
+      "operation": "replace",
+      "json_pointer": "/route/fencing/enforcement",
+      "value": "authenticated_runtime_compare_and_set"
+    }
+  ],
+  "expected": {"valid": false, "phase": "schema", "code": "route_runtime_evidence_unverified"}
+}

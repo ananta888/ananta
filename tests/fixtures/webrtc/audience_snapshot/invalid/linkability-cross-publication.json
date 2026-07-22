@@ -1,0 +1,26 @@
+{
+  "schema": "ananta.webrtc.audience-snapshot.v1",
+  "snapshot_id": "aud_PPPPPPPPPPPPPPPPPPPPPP",
+  "projection_version": 1,
+  "immutable": true,
+  "scope": {
+    "tenant_ref": "tenant-alpha",
+    "room_ref": "sfu-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "publication_ref": "publication-camera-secondary",
+    "policy": {"policy_ref": "policy-broadcast-default", "version": 3}
+  },
+  "epochs": {"membership_epoch": 11, "consent_epoch": 7, "key_epoch": 5},
+  "created_at": "2030-01-01T00:00:00Z",
+  "expires_at": "2030-01-01T00:02:00Z",
+  "ttl_seconds": 120,
+  "lineage": {"change_kind": "initial", "predecessor_snapshot_id": null, "predecessor_projection_version": null},
+  "limits": {"members_max": 8, "grant_refs_per_member_max": 8, "snapshot_bytes_max": 32768, "ttl_seconds_max": 300},
+  "hub_audience": {
+    "members": [
+      {"member_ref": "member-alice", "membership_ref": "membership-alice-v11", "consent_ref": "consent-alice-secondary-v7", "receiver_handle": "rcv_AAAAAAAAAAAAAAAAAAAAAA", "grant_refs": [{"grant_ref": "grant-alice-camera-secondary", "grant_version": 1, "valid_from": "2029-12-31T23:59:00Z", "valid_until": "2030-01-01T00:05:00Z"}]},
+      {"member_ref": "member-bob", "membership_ref": "membership-bob-v11", "consent_ref": "consent-bob-secondary-v7", "receiver_handle": "rcv_BBBBBBBBBBBBBBBBBBBBBB", "grant_refs": [{"grant_ref": "grant-bob-camera-secondary", "grant_version": 1, "valid_from": "2029-12-31T23:58:00Z", "valid_until": "2030-01-01T00:04:00Z"}]}
+    ]
+  },
+  "member_digest": {"algorithm": "hmac-sha-256", "domain": "ananta.webrtc.audience-snapshot.member-digest.v1", "key_scope": "hub-only-non-media", "key_ref": "hub-nonmedia-digest-key:test-v1", "key_version": 1, "encoding": "base64url-no-padding", "value": "Q2CDu-HF0XZrMD_C-lKX3cwKI96Y60JJOLnhm8tGFn8"},
+  "sfu_projection": {"receiver_handles": ["rcv_AAAAAAAAAAAAAAAAAAAAAA", "rcv_BBBBBBBBBBBBBBBBBBBBBB"], "audience_digest": "Q2CDu-HF0XZrMD_C-lKX3cwKI96Y60JJOLnhm8tGFn8"}
+}

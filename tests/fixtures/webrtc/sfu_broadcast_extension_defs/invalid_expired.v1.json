@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "expired_parent_envelope",
+  "base_fixture": "valid_profile.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/now_ms",
+    "value": 1900000005000
+  },
+  "expected": {
+    "valid": false,
+    "phase": "parent_semantics",
+    "code": "parent_envelope_expired"
+  }
+}

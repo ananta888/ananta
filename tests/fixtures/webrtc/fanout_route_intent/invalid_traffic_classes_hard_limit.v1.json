@@ -1,0 +1,17 @@
+{
+  "fixture_version": 1,
+  "name": "traffic_classes_hard_limit",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/route/traffic/budgets",
+    "value": [
+      {"traffic_class": "audio", "max_bitrate_bps": 1, "max_packets_per_second": 1, "max_burst_bytes": 1},
+      {"traffic_class": "video", "max_bitrate_bps": 1, "max_packets_per_second": 1, "max_burst_bytes": 1},
+      {"traffic_class": "retransmission", "max_bitrate_bps": 1, "max_packets_per_second": 1, "max_burst_bytes": 1},
+      {"traffic_class": "data", "max_bitrate_bps": 1, "max_packets_per_second": 1, "max_burst_bytes": 1},
+      {"traffic_class": "video", "max_bitrate_bps": 2, "max_packets_per_second": 2, "max_burst_bytes": 2}
+    ]
+  },
+  "expected": {"valid": false, "phase": "schema", "code": "route_schema_invalid"}
+}

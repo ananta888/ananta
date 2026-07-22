@@ -1,0 +1,11 @@
+{
+  "fixture_version": 1,
+  "name": "traffic_budget_exceeds_authority",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/route/traffic/budgets/0/max_bitrate_bps",
+    "value": 2500001
+  },
+  "expected": {"valid": false, "phase": "authority_traffic", "code": "route_traffic_budget_exceeded"}
+}

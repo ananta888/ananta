@@ -1,0 +1,11 @@
+{
+  "fixture_version": 1,
+  "name": "group_digest_manipulation",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/route/group/publication_member_digest",
+    "value": "3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "expected": {"valid": false, "phase": "authority_digest", "code": "route_group_digest_mismatch"}
+}

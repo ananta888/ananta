@@ -1,0 +1,11 @@
+{
+  "fixture_version": 1,
+  "name": "additional_publication_forbidden",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/route/publication/additional_publication_refs",
+    "value": ["publication-screen-main"]
+  },
+  "expected": {"valid": false, "phase": "schema", "code": "route_schema_invalid"}
+}

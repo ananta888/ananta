@@ -1,0 +1,11 @@
+{
+  "fixture_version": 1,
+  "name": "free_layer_label_forbidden",
+  "base_fixture": "valid_measured.v1.json",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/accounting/counters/layers/custom-rid",
+    "value": {"egress_bytes": 1, "egress_packets": 1}
+  },
+  "expected": {"valid": false, "phase": "schema", "code": "accounting_schema_invalid"}
+}

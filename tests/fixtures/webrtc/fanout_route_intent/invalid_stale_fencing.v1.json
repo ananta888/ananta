@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "stale_fencing",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/last_accepted_fencing_token",
+    "value": 100
+  },
+  "expected": {"valid": false, "phase": "epochs_fencing", "code": "route_stale_fencing"}
+}

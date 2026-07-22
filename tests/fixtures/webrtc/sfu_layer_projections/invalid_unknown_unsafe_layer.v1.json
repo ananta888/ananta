@@ -1,0 +1,10 @@
+{
+  "fixture_version": 1,
+  "name": "unknown_capability_unsafe_layer",
+  "base_fixture": "valid_receiver_unknown_safe_layer.v1.json",
+  "mutations": [
+    {"operation": "replace", "json_pointer": "/instance/effective_layer", "value": {"spatial_id": 2, "temporal_id": 2}},
+    {"operation": "replace", "json_pointer": "/instance/safe_outcome", "value": "applied_within_corridor"}
+  ],
+  "expected": {"valid": false, "phase": "safe_fallback_validation", "code": "unsafe_fallback"}
+}

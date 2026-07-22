@@ -1,0 +1,81 @@
+{
+  "fixture_version": 1,
+  "name": "capability_tuple_budget_exceeded",
+  "base_fixture": "valid_partial.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/capability_buckets",
+    "value": [
+      {
+        "codec_bucket": "audio_opus",
+        "layering_bucket": "unsupported",
+        "encoded_transform_bucket": "available",
+        "decode_bucket": "audio_realtime",
+        "evidence_bucket": "static_capability_query"
+      },
+      {
+        "codec_bucket": "audio_opus",
+        "layering_bucket": "unknown",
+        "encoded_transform_bucket": "unsupported",
+        "decode_bucket": "audio_realtime",
+        "evidence_bucket": "static_api_presence"
+      },
+      {
+        "codec_bucket": "video_vp8",
+        "layering_bucket": "simulcast",
+        "encoded_transform_bucket": "available",
+        "decode_bucket": "video_baseline",
+        "evidence_bucket": "static_capability_query"
+      },
+      {
+        "codec_bucket": "video_vp8",
+        "layering_bucket": "svc",
+        "encoded_transform_bucket": "available",
+        "decode_bucket": "video_enhanced",
+        "evidence_bucket": "static_capability_query"
+      },
+      {
+        "codec_bucket": "video_h264",
+        "layering_bucket": "simulcast",
+        "encoded_transform_bucket": "unsupported",
+        "decode_bucket": "video_baseline",
+        "evidence_bucket": "static_capability_query"
+      },
+      {
+        "codec_bucket": "video_h264",
+        "layering_bucket": "svc",
+        "encoded_transform_bucket": "available",
+        "decode_bucket": "video_enhanced",
+        "evidence_bucket": "static_capability_query"
+      },
+      {
+        "codec_bucket": "video_vp9",
+        "layering_bucket": "svc",
+        "encoded_transform_bucket": "available",
+        "decode_bucket": "video_enhanced",
+        "evidence_bucket": "static_capability_query"
+      },
+      {
+        "codec_bucket": "video_av1",
+        "layering_bucket": "svc",
+        "encoded_transform_bucket": "unsupported",
+        "decode_bucket": "video_enhanced",
+        "evidence_bucket": "static_capability_query"
+      },
+      {
+        "codec_bucket": "unsupported",
+        "layering_bucket": "unsupported",
+        "encoded_transform_bucket": "unsupported",
+        "decode_bucket": "unsupported",
+        "evidence_bucket": "static_api_presence"
+      }
+    ]
+  },
+  "expected": {
+    "valid": false,
+    "phase": "schema",
+    "keyword": "maxItems",
+    "code": "capability_entropy_exceeded"
+  }
+}

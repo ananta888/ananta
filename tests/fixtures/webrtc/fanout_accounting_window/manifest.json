@@ -1,0 +1,40 @@
+{
+  "schema": "ananta.webrtc.fanout-accounting-window-fixture-manifest.v1",
+  "contract_schema": "https://ananta.local/schemas/webrtc/fanout_accounting_window.v1.json",
+  "deterministic": true,
+  "production_evidence": false,
+  "source_evidence_ids": [],
+  "notes": [
+    "Fixture validation_context values are deterministic test state, not SRC_* or RUN_* evidence.",
+    "The Parent Envelope uses fixture-only authentication state; it does not assert a production key or signature.",
+    "Derived cases apply mutation or mutations to instance unless target is explicitly validation_context."
+  ],
+  "cases": [
+    {"file": "valid_measured.v1.json", "valid": true, "code": "ok"},
+    {"file": "valid_estimated_ratio.v1.json", "valid": true, "code": "accounting_estimate_accepted"},
+    {"file": "valid_idempotent_retry.v1.json", "valid": true, "code": "accounting_idempotent_noop"},
+    {"file": "invalid_unknown_property.v1.json", "valid": false, "code": "accounting_schema_invalid"},
+    {"file": "invalid_payload.v1.json", "valid": false, "code": "accounting_schema_invalid"},
+    {"file": "invalid_original_participant_id.v1.json", "valid": false, "code": "accounting_schema_invalid"},
+    {"file": "invalid_ip_address.v1.json", "valid": false, "code": "accounting_schema_invalid"},
+    {"file": "invalid_token.v1.json", "valid": false, "code": "accounting_schema_invalid"},
+    {"file": "invalid_key_material.v1.json", "valid": false, "code": "accounting_schema_invalid"},
+    {"file": "invalid_free_labels.v1.json", "valid": false, "code": "accounting_schema_invalid"},
+    {"file": "invalid_receiver_class.v1.json", "valid": false, "code": "accounting_schema_invalid"},
+    {"file": "invalid_layer_label.v1.json", "valid": false, "code": "accounting_schema_invalid"},
+    {"file": "invalid_counter_overflow.v1.json", "valid": false, "code": "accounting_counter_overflow"},
+    {"file": "invalid_counter_regression.v1.json", "valid": false, "code": "accounting_counter_regression"},
+    {"file": "invalid_report_effective_limit.v1.json", "valid": false, "code": "accounting_effective_limit_exceeded"},
+    {"file": "invalid_window_duration.v1.json", "valid": false, "code": "accounting_window_invalid"},
+    {"file": "invalid_window_overlap.v1.json", "valid": false, "code": "accounting_window_overlap"},
+    {"file": "invalid_duplicate_sequence.v1.json", "valid": false, "code": "accounting_duplicate_sequence_conflict"},
+    {"file": "invalid_sequence_regression.v1.json", "valid": false, "code": "accounting_sequence_regression"},
+    {"file": "invalid_unmarked_ratio.v1.json", "valid": false, "code": "accounting_unplausible_egress_receiver_ratio_unmarked"},
+    {"file": "invalid_signature.v1.json", "valid": false, "code": "accounting_signature_invalid"},
+    {"file": "invalid_signature_binding.v1.json", "valid": false, "code": "accounting_signature_binding_mismatch"},
+    {"file": "invalid_cross_node.v1.json", "valid": false, "code": "accounting_node_signature_mismatch"},
+    {"file": "invalid_cross_room.v1.json", "valid": false, "code": "accounting_cross_room"},
+    {"file": "invalid_cross_publication.v1.json", "valid": false, "code": "accounting_cross_publication"},
+    {"file": "invalid_stale_route_epoch.v1.json", "valid": false, "code": "accounting_stale_route_epoch"}
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_allowed_layer_is_echo_only",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/allowed_layer/spatial_id",
+    "value": 2
+  },
+  "expected": {
+    "valid": false,
+    "phase": "authority_binding",
+    "code": "allowed_layer_echo_mismatch"
+  }
+}

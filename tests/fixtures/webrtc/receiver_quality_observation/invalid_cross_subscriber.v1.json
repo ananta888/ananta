@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_cross_subscriber",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/subscriber_ref",
+    "value": "subscriber-other-01"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "scope_binding",
+    "code": "cross_subscriber_observation"
+  }
+}

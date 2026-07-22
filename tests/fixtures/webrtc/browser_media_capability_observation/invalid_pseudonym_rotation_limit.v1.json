@@ -1,0 +1,17 @@
+{
+  "fixture_version": 1,
+  "name": "sender_attempts_to_raise_pseudonym_rotation",
+  "base_fixture": "valid_partial.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/pseudonym_rotation_seconds",
+    "value": 901
+  },
+  "expected": {
+    "valid": false,
+    "phase": "schema",
+    "keyword": "const",
+    "code": "pseudonym_rotation_limit_exceeded"
+  }
+}

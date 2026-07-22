@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "counter_above_safe_integer",
+  "base_fixture": "valid_measured.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/accounting/counters/publisher_ingress/bytes", "value": 9007199254740992},
+  "expected": {"valid": false, "phase": "counter_boundary", "code": "accounting_counter_overflow"}
+}

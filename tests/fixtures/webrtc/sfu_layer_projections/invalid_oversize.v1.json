@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "projection_plaintext_oversize",
+  "base_fixture": "valid_receiver_projection.v1.json",
+  "mutation": {"target": "validation_context", "operation": "replace", "json_pointer": "/received_payload_bytes", "value": 8193},
+  "expected": {"valid": false, "phase": "pre_allocation_limit", "code": "payload_bytes_exceeded"}
+}

@@ -1,0 +1,11 @@
+{
+  "fixture_version": 1,
+  "name": "accounting_sequence_regression",
+  "base_fixture": "valid_measured.v1.json",
+  "mutations": [
+    {"operation": "replace", "json_pointer": "/accounting/window/sequence", "value": 39},
+    {"operation": "replace", "json_pointer": "/accounting/window/started_at_ms", "value": 1900000010000},
+    {"operation": "replace", "json_pointer": "/accounting/window/ended_at_ms", "value": 1900000020000}
+  ],
+  "expected": {"valid": false, "phase": "merge", "code": "accounting_sequence_regression"}
+}

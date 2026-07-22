@@ -1,0 +1,8 @@
+{
+  "fixture_version": 1,
+  "name": "window_overlaps_accepted_window",
+  "base_fixture": "valid_measured.v1.json",
+  "target": "validation_context",
+  "mutation": {"operation": "replace", "json_pointer": "/accepted_windows/0/ended_at_ms", "value": 1900000005000},
+  "expected": {"valid": false, "phase": "merge", "code": "accounting_window_overlap"}
+}

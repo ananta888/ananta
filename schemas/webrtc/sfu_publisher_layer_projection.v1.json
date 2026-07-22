@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/sfu_publisher_layer_projection.v1.json",
+  "title": "SFU publisher layer projection v1",
+  "description": "A hub-issued narrowing of an existing publication intent into a bounded encoding plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "domain",
+    "tenant_ref",
+    "room_ref",
+    "publisher_ref",
+    "publication_ref",
+    "publication_intent_ref",
+    "media_kind",
+    "session_projection_version",
+    "projection_version",
+    "profile_version",
+    "capability_basis",
+    "resolution",
+    "safe_outcome",
+    "encoding_plan",
+    "hard_bounds",
+    "membership_epoch",
+    "route_epoch",
+    "topology_epoch",
+    "key_epoch",
+    "issued_at",
+    "ttl_seconds",
+    "fencing",
+    "authorization_effect",
+    "limits",
+    "envelope"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.sfu-publisher-layer-projection.v1"},
+    "schema_version": {"const": 1},
+    "domain": {"const": "sfu_broadcast.publisher_layer_projection.v1"},
+    "tenant_ref": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/tenant_ref"},
+    "room_ref": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/room_ref"},
+    "publisher_ref": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/canonical_id"},
+    "publication_ref": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/publication_ref"},
+    "publication_intent_ref": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/canonical_id"},
+    "media_kind": {"enum": ["audio", "video", "screenshare"]},
+    "session_projection_version": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "projection_version": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "profile_version": {"const": "publisher-layer-profile-v1"},
+    "capability_basis": {"$ref": "#/$defs/capability_basis"},
+    "resolution": {"enum": ["planned", "unknown", "unsupported"]},
+    "safe_outcome": {"enum": ["apply_projection", "ordinary_fallback", "deny"]},
+    "encoding_plan": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/encoding"}
+    },
+    "hard_bounds": {"$ref": "#/$defs/hard_bounds"},
+    "membership_epoch": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/membership_epoch"},
+    "route_epoch": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/route_epoch"},
+    "topology_epoch": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/topology_epoch"},
+    "key_epoch": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/key_epoch"},
+    "issued_at": {"$ref": "#/$defs/utc_second"},
+    "ttl_seconds": {"const": 15},
+    "fencing": {"$ref": "#/$defs/fencing"},
+    "authorization_effect": {"const": "narrow_only"},
+    "limits": {"$ref": "#/$defs/limits"},
+    "envelope": {"$ref": "#/$defs/envelope"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"resolution": {"const": "planned"}}, "required": ["resolution"]},
+      "then": {
+        "properties": {
+          "safe_outcome": {"const": "apply_projection"},
+          "encoding_plan": {"minItems": 1}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"resolution": {"enum": ["unknown", "unsupported"]}}, "required": ["resolution"]},
+      "then": {
+        "properties": {
+          "safe_outcome": {"enum": ["ordinary_fallback", "deny"]},
+          "encoding_plan": {"maxItems": 0}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"media_kind": {"const": "audio"}}, "required": ["media_kind"]},
+      "then": {"properties": {"encoding_plan": {"items": {"$ref": "#/$defs/audio_encoding"}}}}
+    },
+    {
+      "if": {"properties": {"media_kind": {"enum": ["video", "screenshare"]}}, "required": ["media_kind"]},
+      "then": {"properties": {"encoding_plan": {"items": {"$ref": "#/$defs/video_encoding"}}}}
+    }
+  ],
+  "$defs": {
+    "utc_second": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 20,
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$",
+      "format": "date-time"
+    },
+    "capability_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability_version", "matched_bucket"],
+      "properties": {
+        "capability_version": {"const": "coarse-v1"},
+        "matched_bucket": {
+          "$ref": "https://ananta.local/schemas/webrtc/browser_media_capability_observation.v1.json#/$defs/capability_bucket"
+        }
+      }
+    },
+    "encoding": {
+      "oneOf": [
+        {"$ref": "#/$defs/audio_encoding"},
+        {"$ref": "#/$defs/video_encoding"}
+      ]
+    },
+    "audio_encoding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["encoding_class", "codec_class", "rid_class", "scalability_class", "max_bitrate_bps", "max_channels"],
+      "properties": {
+        "encoding_class": {"const": "audio_primary"},
+        "codec_class": {"const": "audio_opus"},
+        "rid_class": {"const": "none"},
+        "scalability_class": {"const": "none"},
+        "max_bitrate_bps": {"type": "integer", "minimum": 6000, "maximum": 128000},
+        "max_channels": {"type": "integer", "minimum": 1, "maximum": 2}
+      }
+    },
+    "video_encoding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "encoding_class",
+        "codec_class",
+        "rid_class",
+        "scalability_class",
+        "spatial_id",
+        "temporal_id_max",
+        "max_bitrate_bps",
+        "max_width",
+        "max_height",
+        "max_fps"
+      ],
+      "properties": {
+        "encoding_class": {"enum": ["video_baseline", "video_enhancement", "screenshare_detail"]},
+        "codec_class": {"enum": ["video_vp8", "video_h264", "video_vp9", "video_av1"]},
+        "rid_class": {"enum": ["none", "low", "medium", "high"]},
+        "scalability_class": {"enum": ["none", "simulcast", "svc_l1t2", "svc_l1t3", "svc_l2t2", "svc_l3t3"]},
+        "spatial_id": {"type": "integer", "minimum": 0, "maximum": 3},
+        "temporal_id_max": {"type": "integer", "minimum": 0, "maximum": 3},
+        "max_bitrate_bps": {"type": "integer", "minimum": 30000, "maximum": 8000000},
+        "max_width": {"type": "integer", "minimum": 160, "maximum": 3840, "multipleOf": 2},
+        "max_height": {"type": "integer", "minimum": 90, "maximum": 2160, "multipleOf": 2},
+        "max_fps": {"type": "integer", "minimum": 1, "maximum": 60}
+      }
+    },
+    "hard_bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bounds_profile_version",
+        "encodings_max",
+        "spatial_layers_max",
+        "temporal_layers_max",
+        "aggregate_bitrate_bps_max",
+        "width_max",
+        "height_max",
+        "fps_max"
+      ],
+      "properties": {
+        "bounds_profile_version": {"const": "publisher-hard-bounds-v1"},
+        "encodings_max": {"const": 3},
+        "spatial_layers_max": {"const": 4},
+        "temporal_layers_max": {"const": 4},
+        "aggregate_bitrate_bps_max": {"const": 8000000},
+        "width_max": {"const": 3840},
+        "height_max": {"const": 2160},
+        "fps_max": {"const": 60}
+      }
+    },
+    "fencing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fencing_token", "expected_previous_projection_version"],
+      "properties": {
+        "fencing_token": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/monotone_epoch"},
+        "expected_previous_projection_version": {"type": "integer", "minimum": 0, "maximum": 2147483646}
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["named", "projection_bytes_max", "encodings_max", "projection_ttl_seconds_max", "projection_updates_per_minute_max"],
+      "properties": {
+        "named": {"$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/named_limit_refs"},
+        "projection_bytes_max": {"const": 12288},
+        "encodings_max": {"const": 3},
+        "projection_ttl_seconds_max": {"const": 15},
+        "projection_updates_per_minute_max": {"const": 8}
+      }
+    },
+    "envelope": {
+      "allOf": [
+        {"$ref": "https://ananta.local/schemas/webrtc/secure_envelope.v1.json"},
+        {
+          "type": "object",
+          "properties": {
+            "scope": {"properties": {"kind": {"const": "room"}}},
+            "recipient": {"properties": {"kind": {"const": "peer"}}},
+            "payload_type": {"const": "sfu_broadcast.publisher_layer_projection.v1"},
+            "aad": {"properties": {"traffic_class": {"const": "control"}, "content_encoding": {"const": "json"}}}
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/receiver_group_intent.v1.json",
+  "title": "Hub-owned WebRTC receiver group intent v1",
+  "$comment": "A receiver group is a projection of existing grants. It never grants membership, consent, publication access, subscription access, or key access.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "group_id",
+    "revision",
+    "audience_snapshot_ref",
+    "scope",
+    "epochs",
+    "member_count",
+    "publications",
+    "selectors",
+    "policy",
+    "valid_from_ms",
+    "expires_at_ms",
+    "limits"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.webrtc.receiver-group-intent.v1"},
+    "group_id": {
+      "title": "Stable hub-owned receiver group identifier",
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/canonical_id"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "audience_snapshot_ref": {
+      "title": "Immutable hub-owned audience snapshot reference",
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/canonical_id"
+    },
+    "scope": {"$ref": "#/$defs/group_scope"},
+    "epochs": {"$ref": "#/$defs/group_epochs"},
+    "member_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8
+    },
+    "publications": {"$ref": "#/$defs/publication_set"},
+    "selectors": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/selector_clause"}
+    },
+    "policy": {"$ref": "#/$defs/policy_binding"},
+    "valid_from_ms": {"$ref": "#/$defs/timestamp_ms"},
+    "expires_at_ms": {"$ref": "#/$defs/timestamp_ms"},
+    "limits": {"$ref": "#/$defs/limit_bindings"}
+  },
+  "$defs": {
+    "group_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_ref",
+        "room_ref",
+        "consent_scope_ref",
+        "privacy_scope",
+        "publication_scope_ref"
+      ],
+      "properties": {
+        "tenant_ref": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/tenant_ref"
+        },
+        "room_ref": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/room_ref"
+        },
+        "consent_scope_ref": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/canonical_id"
+        },
+        "privacy_scope": {
+          "$ref": "https://ananta.local/schemas/webrtc/media_publication.v1.json#/properties/privacy"
+        },
+        "publication_scope_ref": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/canonical_id"
+        }
+      }
+    },
+    "group_epochs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "membership_epoch",
+        "consent_epoch",
+        "key_epoch",
+        "audience_epoch"
+      ],
+      "properties": {
+        "membership_epoch": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/membership_epoch"
+        },
+        "consent_epoch": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/monotone_epoch"
+        },
+        "key_epoch": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/key_epoch"
+        },
+        "audience_epoch": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/monotone_epoch"
+        }
+      }
+    },
+    "publication_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_publication_ref",
+        "shared_publication_refs",
+        "member_digests"
+      ],
+      "properties": {
+        "primary_publication_ref": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/publication_ref"
+        },
+        "shared_publication_refs": {
+          "type": "array",
+          "maxItems": 7,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/publication_ref"
+          }
+        },
+        "member_digests": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/publication_member_digest"}
+        }
+      }
+    },
+    "publication_member_digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publication_ref",
+        "algorithm",
+        "domain",
+        "key_ref",
+        "value"
+      ],
+      "properties": {
+        "publication_ref": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/publication_ref"
+        },
+        "algorithm": {"const": "hmac-sha-256"},
+        "domain": {"const": "ananta.webrtc.receiver-group.member-digest.v1"},
+        "key_ref": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/canonical_id"
+        },
+        "value": {
+          "$ref": "https://ananta.local/schemas/webrtc/group_key_epoch.v1.json#/properties/member_set_digest"
+        }
+      }
+    },
+    "policy_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_ref", "version"],
+      "properties": {
+        "policy_ref": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/canonical_id"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      }
+    },
+    "limit_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fanout_count_max", "intent_ttl_ms_max"],
+      "properties": {
+        "fanout_count_max": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/fanout_count_limit_ref"
+        },
+        "intent_ttl_ms_max": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/extension_ttl_limit_ref"
+        }
+      }
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "selector_clause": {
+      "oneOf": [
+        {"$ref": "#/$defs/capability_algorithm_selector"},
+        {"$ref": "#/$defs/capability_role_selector"},
+        {"$ref": "#/$defs/capability_task_type_selector"},
+        {"$ref": "#/$defs/capability_cpu_selector"},
+        {"$ref": "#/$defs/capability_memory_selector"},
+        {"$ref": "#/$defs/capability_gpu_selector"},
+        {"$ref": "#/$defs/capability_codec_selector"},
+        {"$ref": "#/$defs/capability_battery_selector"},
+        {"$ref": "#/$defs/capability_network_selector"},
+        {"$ref": "#/$defs/consent_status_selector"},
+        {"$ref": "#/$defs/subscription_status_selector"},
+        {"$ref": "#/$defs/subscription_publication_selector"}
+      ]
+    },
+    "capability_algorithm_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "attribute", "operator", "value"],
+      "properties": {
+        "kind": {"const": "capability"},
+        "attribute": {"const": "/algorithms"},
+        "operator": {"const": "contains"},
+        "value": {
+          "$ref": "https://ananta.local/schemas/webrtc/capability_advertisement.v1.json#/properties/algorithms/items"
+        }
+      }
+    },
+    "capability_role_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "attribute", "operator", "value"],
+      "properties": {
+        "kind": {"const": "capability"},
+        "attribute": {"const": "/roles"},
+        "operator": {"const": "contains"},
+        "value": {
+          "$ref": "https://ananta.local/schemas/webrtc/capability_advertisement.v1.json#/properties/roles/items"
+        }
+      }
+    },
+    "capability_task_type_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "attribute", "operator", "value"],
+      "properties": {
+        "kind": {"const": "capability"},
+        "attribute": {"const": "/task_types"},
+        "operator": {"const": "contains"},
+        "value": {
+          "$ref": "https://ananta.local/schemas/webrtc/capability_advertisement.v1.json#/properties/task_types/items"
+        }
+      }
+    },
+    "capability_cpu_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "attribute", "operator", "value"],
+      "properties": {
+        "kind": {"const": "capability"},
+        "attribute": {"const": "/resource_profile/cpu"},
+        "operator": {"const": "eq"},
+        "value": {
+          "$ref": "https://ananta.local/schemas/webrtc/capability_advertisement.v1.json#/properties/resource_profile/properties/cpu"
+        }
+      }
+    },
+    "capability_memory_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "attribute", "operator", "value"],
+      "properties": {
+        "kind": {"const": "capability"},
+        "attribute": {"const": "/resource_profile/memory"},
+        "operator": {"const": "eq"},
+        "value": {
+          "$ref": "https://ananta.local/schemas/webrtc/capability_advertisement.v1.json#/properties/resource_profile/properties/memory"
+        }
+      }
+    },
+    "capability_gpu_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "attribute", "operator", "value"],
+      "properties": {
+        "kind": {"const": "capability"},
+        "attribute": {"const": "/resource_profile/gpu"},
+        "operator": {"const": "eq"},
+        "value": {
+          "$ref": "https://ananta.local/schemas/webrtc/capability_advertisement.v1.json#/properties/resource_profile/properties/gpu"
+        }
+      }
+    },
+    "capability_codec_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "attribute", "operator", "value"],
+      "properties": {
+        "kind": {"const": "capability"},
+        "attribute": {"const": "/resource_profile/codec"},
+        "operator": {"const": "eq"},
+        "value": {
+          "$ref": "https://ananta.local/schemas/webrtc/capability_advertisement.v1.json#/properties/resource_profile/properties/codec"
+        }
+      }
+    },
+    "capability_battery_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "attribute", "operator", "value"],
+      "properties": {
+        "kind": {"const": "capability"},
+        "attribute": {"const": "/resource_profile/battery"},
+        "operator": {"const": "eq"},
+        "value": {
+          "$ref": "https://ananta.local/schemas/webrtc/capability_advertisement.v1.json#/properties/resource_profile/properties/battery"
+        }
+      }
+    },
+    "capability_network_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "attribute", "operator", "value"],
+      "properties": {
+        "kind": {"const": "capability"},
+        "attribute": {"const": "/resource_profile/network"},
+        "operator": {"const": "eq"},
+        "value": {
+          "$ref": "https://ananta.local/schemas/webrtc/capability_advertisement.v1.json#/properties/resource_profile/properties/network"
+        }
+      }
+    },
+    "consent_status_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "attribute", "operator", "value"],
+      "properties": {
+        "kind": {"const": "consent"},
+        "attribute": {"const": "/status"},
+        "operator": {"const": "eq"},
+        "value": {"const": "granted"}
+      }
+    },
+    "subscription_status_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "attribute", "operator", "value"],
+      "properties": {
+        "kind": {"const": "subscription"},
+        "attribute": {"const": "/status"},
+        "operator": {"const": "in"},
+        "value": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "allOf": [
+              {"$ref": "https://ananta.local/schemas/webrtc/media_subscription.v1.json#/properties/status"},
+              {"enum": ["authorized", "active"]}
+            ]
+          }
+        }
+      }
+    },
+    "subscription_publication_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "attribute", "operator", "value"],
+      "properties": {
+        "kind": {"const": "subscription"},
+        "attribute": {"const": "/publication_id"},
+        "operator": {"const": "eq"},
+        "value": {
+          "$ref": "https://ananta.local/schemas/webrtc/media_subscription.v1.json#/properties/publication_id"
+        }
+      }
+    }
+  }
+}

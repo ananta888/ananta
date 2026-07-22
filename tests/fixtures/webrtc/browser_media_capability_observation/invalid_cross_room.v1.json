@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "cross_room_observation",
+  "base_fixture": "valid_partial.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/room_ref",
+    "value": "sfu-fedcba9876543210fedcba9876543210"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "admission_binding",
+    "code": "cross_room_observation"
+  }
+}

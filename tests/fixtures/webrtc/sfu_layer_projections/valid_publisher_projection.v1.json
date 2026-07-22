@@ -1,0 +1,129 @@
+{
+  "fixture_version": 1,
+  "name": "valid_publisher_projection",
+  "validation_phase": "sfu_layer_projection_boundary",
+  "validation_context": {
+    "now_ms": 1899979205000,
+    "received_payload_bytes": 3200,
+    "active_scope": {
+      "tenant_ref": "tenant-fixture",
+      "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+      "publisher_ref": "publisher-fixture-01",
+      "publication_ref": "publication-fixture-01",
+      "publication_intent_ref": "publication-intent-fixture-01",
+      "membership_epoch": 9,
+      "route_epoch": 5,
+      "topology_epoch": 4,
+      "key_epoch": 7,
+      "session_projection_version": 7,
+      "profile_version": "publisher-layer-profile-v1",
+      "bounds_profile_version": "publisher-hard-bounds-v1"
+    },
+    "current_projection_version": 3,
+    "current_fencing_token": 41,
+    "last_accepted_envelope_sequence": 110,
+    "updates_rolling_minute": 2,
+    "parent_authentication_verified": true,
+    "resolved_named_limits": true
+  },
+  "instance": {
+    "schema": "ananta.sfu-publisher-layer-projection.v1",
+    "schema_version": 1,
+    "domain": "sfu_broadcast.publisher_layer_projection.v1",
+    "tenant_ref": "tenant-fixture",
+    "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+    "publisher_ref": "publisher-fixture-01",
+    "publication_ref": "publication-fixture-01",
+    "publication_intent_ref": "publication-intent-fixture-01",
+    "media_kind": "video",
+    "session_projection_version": 7,
+    "projection_version": 4,
+    "profile_version": "publisher-layer-profile-v1",
+    "capability_basis": {
+      "capability_version": "coarse-v1",
+      "matched_bucket": {
+        "codec_bucket": "video_vp8",
+        "layering_bucket": "simulcast",
+        "encoded_transform_bucket": "available",
+        "decode_bucket": "video_baseline",
+        "evidence_bucket": "static_capability_query"
+      }
+    },
+    "resolution": "planned",
+    "safe_outcome": "apply_projection",
+    "encoding_plan": [
+      {
+        "encoding_class": "video_baseline",
+        "codec_class": "video_vp8",
+        "rid_class": "low",
+        "scalability_class": "simulcast",
+        "spatial_id": 0,
+        "temporal_id_max": 2,
+        "max_bitrate_bps": 250000,
+        "max_width": 320,
+        "max_height": 180,
+        "max_fps": 15
+      },
+      {
+        "encoding_class": "video_enhancement",
+        "codec_class": "video_vp8",
+        "rid_class": "medium",
+        "scalability_class": "simulcast",
+        "spatial_id": 1,
+        "temporal_id_max": 2,
+        "max_bitrate_bps": 800000,
+        "max_width": 640,
+        "max_height": 360,
+        "max_fps": 30
+      }
+    ],
+    "hard_bounds": {
+      "bounds_profile_version": "publisher-hard-bounds-v1",
+      "encodings_max": 3,
+      "spatial_layers_max": 4,
+      "temporal_layers_max": 4,
+      "aggregate_bitrate_bps_max": 8000000,
+      "width_max": 3840,
+      "height_max": 2160,
+      "fps_max": 60
+    },
+    "membership_epoch": 9,
+    "route_epoch": 5,
+    "topology_epoch": 4,
+    "key_epoch": 7,
+    "issued_at": "2030-03-17T12:00:00Z",
+    "ttl_seconds": 15,
+    "fencing": {"fencing_token": 41, "expected_previous_projection_version": 3},
+    "authorization_effect": "narrow_only",
+    "limits": {
+      "named": {
+        "extension_payload_bytes_max": "ananta.sfu-broadcast.extension-payload-bytes.max.v1",
+        "fanout_count_max": "ananta.sfu-broadcast.fanout-count.max.v1",
+        "extension_ttl_ms_max": "ananta.sfu-broadcast.extension-ttl-ms.max.v1"
+      },
+      "projection_bytes_max": 12288,
+      "encodings_max": 3,
+      "projection_ttl_seconds_max": 15,
+      "projection_updates_per_minute_max": 8
+    },
+    "envelope": {
+      "version": 1,
+      "scope": {"kind": "room", "id": "sfu-0123456789abcdef0123456789abcdef"},
+      "sender_id": "hub-owner-a",
+      "recipient": {"kind": "peer", "id": "room-bip_BBBBBBBBBBBBBBBBBBBBBB"},
+      "epoch": 7,
+      "sequence": 111,
+      "key_id": "key-fixture-7",
+      "payload_type": "sfu_broadcast.publisher_layer_projection.v1",
+      "expires_at_ms": 1899979215000,
+      "nonce_b64": "AQIDBAUGBwgJCgsM",
+      "aad": {
+        "traffic_class": "control",
+        "content_encoding": "json",
+        "contract_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "ciphertext_b64": "PCC7fraWo3zoY62pwowbH+aipUlqsi50Kw2BkWSjyvtU6PuP"
+    }
+  },
+  "expected": {"valid": true, "code": "ok", "allocation_allowed": true}
+}

@@ -1,0 +1,110 @@
+{
+  "fixture_version": 1,
+  "name": "valid_privacy_bounded_receiver_quality",
+  "validation_phase": "receiver_quality_boundary",
+  "validation_context": {
+    "now": "2030-03-17T12:00:01Z",
+    "received_report_bytes": 2410,
+    "active_scope": {
+      "tenant_ref": "tenant-fixture",
+      "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+      "subscriber_ref": "subscriber-fixture-01",
+      "publication_ref": "publication-fixture-01",
+      "browser_instance_pseudonym": "room-bip_AAAAAAAAAAAAAAAAAAAAAA",
+      "route_epoch": 9,
+      "allowed_layer": {
+        "source": "hub_state_echo",
+        "spatial_id": 1,
+        "temporal_id": 2
+      }
+    },
+    "last_accepted_sequence": 40,
+    "accepted_report_times_rolling_minute": [
+      "2030-03-17T11:59:40Z",
+      "2030-03-17T11:59:45Z",
+      "2030-03-17T11:59:50Z"
+    ],
+    "retained_report_count": 4
+  },
+  "instance": {
+    "schema": "ananta.receiver-quality-observation.v1",
+    "schema_version": 1,
+    "observation_version": "bounded-v1",
+    "tenant_ref": "tenant-fixture",
+    "room_ref": "sfu-0123456789abcdef0123456789abcdef",
+    "subscriber_ref": "subscriber-fixture-01",
+    "publication_ref": "publication-fixture-01",
+    "browser_instance_pseudonym": "room-bip_AAAAAAAAAAAAAAAAAAAAAA",
+    "route_epoch": 9,
+    "sequence": 41,
+    "issued_at": "2030-03-17T12:00:00Z",
+    "authorization_effect": "none",
+    "advisory_only": true,
+    "limits": {
+      "history_reports_max": 12,
+      "samples_per_report_max": 16,
+      "reports_per_minute_max": 12,
+      "report_bytes_max": 8192,
+      "sample_window_ms_max": 2000,
+      "history_window_ms_max": 30000,
+      "observation_age_ms_max": 5000
+    },
+    "requested_layer": {
+      "spatial_id": 2,
+      "temporal_id": 2
+    },
+    "allowed_layer": {
+      "source": "hub_state_echo",
+      "spatial_id": 1,
+      "temporal_id": 2
+    },
+    "effective_layer": {
+      "spatial_id": 1,
+      "temporal_id": 1
+    },
+    "samples": [
+      {
+        "sample_sequence": 9001,
+        "observed_at": "2030-03-17T11:59:58Z",
+        "window_ms": 1000,
+        "metrics": {
+          "rtt_ms": 48,
+          "jitter_ms": 7,
+          "packet_loss_basis_points": 25,
+          "receive_bitrate_bps": 1850000,
+          "decode_time_ms_per_frame": 9,
+          "freeze_duration_ms": 0,
+          "audio_gap_duration_ms": 0,
+          "buffer_level_ms": 130,
+          "viewport_width_css_px": 1280,
+          "viewport_height_css_px": 720,
+          "cpu_pressure_basis_points": 900
+        }
+      },
+      {
+        "sample_sequence": 9002,
+        "observed_at": "2030-03-17T12:00:00Z",
+        "window_ms": 2000,
+        "metrics": {
+          "rtt_ms": 52,
+          "jitter_ms": 8,
+          "packet_loss_basis_points": 40,
+          "receive_bitrate_bps": 1720000,
+          "decode_time_ms_per_frame": 11,
+          "freeze_duration_ms": 120,
+          "audio_gap_duration_ms": 15,
+          "buffer_level_ms": 105,
+          "viewport_width_css_px": 1280,
+          "viewport_height_css_px": 720,
+          "cpu_pressure_basis_points": 1400
+        }
+      }
+    ]
+  },
+  "expected": {
+    "valid": true,
+    "code": "ok",
+    "authorization_effect": "none",
+    "retained_reports_after_acceptance_max": 12
+  }
+}

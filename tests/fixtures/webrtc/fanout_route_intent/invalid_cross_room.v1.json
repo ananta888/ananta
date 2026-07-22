@@ -1,0 +1,11 @@
+{
+  "fixture_version": 1,
+  "name": "cross_room_parent_scope",
+  "base_fixture": "valid_livekit_native.v1.json",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/envelope/scope/id",
+    "value": "sfu-ffffffffffffffffffffffffffffffff"
+  },
+  "expected": {"valid": false, "phase": "parent_scope", "code": "route_cross_room"}
+}

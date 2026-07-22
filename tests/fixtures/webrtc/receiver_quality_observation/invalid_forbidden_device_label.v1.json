@@ -1,0 +1,16 @@
+{
+  "fixture_version": 1,
+  "name": "receiver_quality_forbidden_device_label",
+  "base_fixture": "valid_privacy_bounded.v1.json",
+  "target": "instance",
+  "mutation": {
+    "operation": "add",
+    "json_pointer": "/samples/0/device_label",
+    "value": "Built-in Display"
+  },
+  "expected": {
+    "valid": false,
+    "phase": "privacy_semantics",
+    "code": "privacy_device_forbidden"
+  }
+}

@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/webrtc/sfu_room_session_projection.v1.json",
+  "title": "SFU room session projection v1",
+  "description": "A hub-issued, pre-connect and session-immutable room layer-control projection.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "domain",
+    "tenant_ref",
+    "room_ref",
+    "admission_epoch",
+    "membership_epoch",
+    "key_epoch",
+    "topology_epoch",
+    "topology",
+    "infrastructure_profile",
+    "session_owner_ref",
+    "layer_control_mode",
+    "baseline_profile",
+    "projection_version",
+    "issued_at",
+    "ttl_seconds",
+    "fencing",
+    "construction_policy",
+    "authorization_effect",
+    "limits",
+    "envelope"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.sfu-room-session-projection.v1"},
+    "schema_version": {"const": 1},
+    "domain": {"const": "sfu_broadcast.room_session_projection.v1"},
+    "tenant_ref": {
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/tenant_ref"
+    },
+    "room_ref": {
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/room_ref"
+    },
+    "admission_epoch": {
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/monotone_epoch"
+    },
+    "membership_epoch": {
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/membership_epoch"
+    },
+    "key_epoch": {
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/key_epoch"
+    },
+    "topology_epoch": {
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/topology_epoch"
+    },
+    "topology": {"enum": ["ordinary", "sfu_broadcast"]},
+    "infrastructure_profile": {
+      "enum": [
+        "ordinary_mesh_v1",
+        "stock_livekit_sfu_v1",
+        "authenticated_runtime_extension_v1"
+      ]
+    },
+    "session_owner_ref": {
+      "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/canonical_id"
+    },
+    "layer_control_mode": {"enum": ["adaptive_stream", "manual_quality"]},
+    "baseline_profile": {"$ref": "#/$defs/baseline_profile"},
+    "projection_version": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "issued_at": {"$ref": "#/$defs/utc_second"},
+    "ttl_seconds": {"const": 30},
+    "fencing": {"$ref": "#/$defs/fencing"},
+    "construction_policy": {"$ref": "#/$defs/construction_policy"},
+    "authorization_effect": {"const": "none"},
+    "limits": {"$ref": "#/$defs/limits"},
+    "envelope": {"$ref": "#/$defs/envelope"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"topology": {"const": "ordinary"}}, "required": ["topology"]},
+      "then": {"properties": {"infrastructure_profile": {"const": "ordinary_mesh_v1"}}}
+    },
+    {
+      "if": {"properties": {"topology": {"const": "sfu_broadcast"}}, "required": ["topology"]},
+      "then": {
+        "properties": {
+          "infrastructure_profile": {
+            "enum": ["stock_livekit_sfu_v1", "authenticated_runtime_extension_v1"]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "utc_second": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 20,
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$",
+      "format": "date-time"
+    },
+    "baseline_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_version",
+        "lowest_safe_video_layer",
+        "unknown_capability_action",
+        "unsupported_capability_action"
+      ],
+      "properties": {
+        "profile_version": {"const": "conservative-baseline-v1"},
+        "lowest_safe_video_layer": {
+          "allOf": [
+            {"$ref": "https://ananta.local/schemas/webrtc/receiver_quality_observation.v1.json#/$defs/layer_selection"},
+            {"properties": {"spatial_id": {"const": 0}, "temporal_id": {"const": 0}}}
+          ]
+        },
+        "unknown_capability_action": {"enum": ["ordinary_fallback", "deny"]},
+        "unsupported_capability_action": {"enum": ["ordinary_fallback", "deny"]}
+      }
+    },
+    "fencing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fencing_token", "expected_previous_projection_version", "owner_generation"],
+      "properties": {
+        "fencing_token": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/monotone_epoch"
+        },
+        "expected_previous_projection_version": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483646
+        },
+        "owner_generation": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/monotone_epoch"
+        }
+      }
+    },
+    "construction_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode_locked_before_room_construction",
+        "receive_only_projection_required",
+        "owner_change_action"
+      ],
+      "properties": {
+        "mode_locked_before_room_construction": {"const": true},
+        "receive_only_projection_required": {"const": true},
+        "owner_change_action": {"const": "controlled_reconnect_or_new_session"}
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "named",
+        "projection_bytes_max",
+        "projection_ttl_seconds_max",
+        "projection_updates_per_minute_max"
+      ],
+      "properties": {
+        "named": {
+          "$ref": "https://ananta.local/schemas/webrtc/sfu_broadcast_extension_defs.v1.json#/$defs/named_limit_refs"
+        },
+        "projection_bytes_max": {"const": 8192},
+        "projection_ttl_seconds_max": {"const": 30},
+        "projection_updates_per_minute_max": {"const": 4}
+      }
+    },
+    "envelope": {
+      "allOf": [
+        {"$ref": "https://ananta.local/schemas/webrtc/secure_envelope.v1.json"},
+        {
+          "type": "object",
+          "properties": {
+            "scope": {"properties": {"kind": {"const": "room"}}},
+            "recipient": {"properties": {"kind": {"const": "peer"}}},
+            "payload_type": {"const": "sfu_broadcast.room_session_projection.v1"},
+            "aad": {
+              "properties": {
+                "traffic_class": {"const": "control"},
+                "content_encoding": {"const": "json"}
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

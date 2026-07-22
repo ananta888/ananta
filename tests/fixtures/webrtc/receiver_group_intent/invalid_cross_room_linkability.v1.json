@@ -1,0 +1,12 @@
+{
+  "fixture_version": 1,
+  "name": "digest_key_reused_across_rooms",
+  "base_fixture": "valid_group.v1.json",
+  "target": "validation_context",
+  "mutation": {
+    "operation": "replace",
+    "json_pointer": "/digest_key_registry/0/room_ref",
+    "value": "sfu-ffffffffffffffffffffffffffffffff"
+  },
+  "expected": {"valid": false, "phase": "hub_digest_key", "code": "digest_key_scope_mismatch"}
+}

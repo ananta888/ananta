@@ -1,0 +1,10 @@
+{
+  "fixture_version": 1,
+  "name": "owner_change_without_reconnect",
+  "base_fixture": "valid_room_adaptive_receive_only.v1.json",
+  "mutations": [
+    {"operation": "replace", "json_pointer": "/instance/session_owner_ref", "value": "hub-owner-b"},
+    {"operation": "replace", "json_pointer": "/validation_context/room_constructed", "value": true}
+  ],
+  "expected": {"valid": false, "phase": "session_transition", "code": "owner_change_requires_reconnect"}
+}

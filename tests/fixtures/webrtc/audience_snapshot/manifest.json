@@ -1,0 +1,261 @@
+{
+  "schema": "ananta.webrtc.audience-snapshot-fixture-manifest.v1",
+  "deterministic": true,
+  "production_evidence": false,
+  "digest_test_key": {
+    "key_ref": "hub-nonmedia-digest-key:test-v1",
+    "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "production_eligible": false
+  },
+  "state_profiles": {
+    "initial_v1": {
+      "validation_time": "2030-01-01T00:00:30Z",
+      "tenant_ref": "tenant-alpha",
+      "room_ref": "sfu-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "publication_ref": "publication-camera-main",
+      "membership_epoch": 11,
+      "consent_epoch": 7,
+      "key_epoch": 5,
+      "grants": [
+        {
+          "grant_ref": "grant-alice-camera-main",
+          "grant_version": 7,
+          "status": "active",
+          "member_ref": "member-alice",
+          "membership_ref": "membership-alice-v11",
+          "consent_ref": "consent-alice-v7"
+        },
+        {
+          "grant_ref": "grant-bob-camera-main",
+          "grant_version": 4,
+          "status": "active",
+          "member_ref": "member-bob",
+          "membership_ref": "membership-bob-v11",
+          "consent_ref": "consent-bob-v7"
+        }
+      ]
+    },
+    "successor_v2": {
+      "validation_time": "2030-01-01T00:01:00Z",
+      "tenant_ref": "tenant-alpha",
+      "room_ref": "sfu-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "publication_ref": "publication-camera-main",
+      "membership_epoch": 11,
+      "consent_epoch": 7,
+      "key_epoch": 5,
+      "grants": [
+        {
+          "grant_ref": "grant-alice-camera-main",
+          "grant_version": 7,
+          "status": "active",
+          "member_ref": "member-alice",
+          "membership_ref": "membership-alice-v11",
+          "consent_ref": "consent-alice-v7"
+        },
+        {
+          "grant_ref": "grant-bob-camera-main",
+          "grant_version": 5,
+          "status": "active",
+          "member_ref": "member-bob",
+          "membership_ref": "membership-bob-v11",
+          "consent_ref": "consent-bob-v7"
+        }
+      ]
+    },
+    "room_b_v1": {
+      "validation_time": "2030-01-01T00:00:30Z",
+      "tenant_ref": "tenant-alpha",
+      "room_ref": "sfu-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "publication_ref": "publication-camera-main",
+      "membership_epoch": 11,
+      "consent_epoch": 7,
+      "key_epoch": 5,
+      "grants": [
+        {
+          "grant_ref": "grant-room-b-alice-camera-main",
+          "grant_version": 1,
+          "status": "active",
+          "member_ref": "member-alice",
+          "membership_ref": "membership-room-b-alice-v11",
+          "consent_ref": "consent-room-b-alice-v7"
+        },
+        {
+          "grant_ref": "grant-room-b-bob-camera-main",
+          "grant_version": 1,
+          "status": "active",
+          "member_ref": "member-bob",
+          "membership_ref": "membership-room-b-bob-v11",
+          "consent_ref": "consent-room-b-bob-v7"
+        }
+      ]
+    },
+    "secondary_publication_v1": {
+      "validation_time": "2030-01-01T00:00:30Z",
+      "tenant_ref": "tenant-alpha",
+      "room_ref": "sfu-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "publication_ref": "publication-camera-secondary",
+      "membership_epoch": 11,
+      "consent_epoch": 7,
+      "key_epoch": 5,
+      "grants": [
+        {
+          "grant_ref": "grant-alice-camera-secondary",
+          "grant_version": 1,
+          "status": "active",
+          "member_ref": "member-alice",
+          "membership_ref": "membership-alice-v11",
+          "consent_ref": "consent-alice-secondary-v7"
+        },
+        {
+          "grant_ref": "grant-bob-camera-secondary",
+          "grant_version": 1,
+          "status": "active",
+          "member_ref": "member-bob",
+          "membership_ref": "membership-bob-v11",
+          "consent_ref": "consent-bob-secondary-v7"
+        }
+      ]
+    },
+    "key_epoch_6": {
+      "validation_time": "2030-01-01T00:00:30Z",
+      "tenant_ref": "tenant-alpha",
+      "room_ref": "sfu-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "publication_ref": "publication-camera-main",
+      "membership_epoch": 11,
+      "consent_epoch": 7,
+      "key_epoch": 6,
+      "grants": [
+        {
+          "grant_ref": "grant-alice-camera-main",
+          "grant_version": 7,
+          "status": "active",
+          "member_ref": "member-alice",
+          "membership_ref": "membership-alice-v11",
+          "consent_ref": "consent-alice-v7"
+        },
+        {
+          "grant_ref": "grant-bob-camera-main",
+          "grant_version": 4,
+          "status": "active",
+          "member_ref": "member-bob",
+          "membership_ref": "membership-bob-v11",
+          "consent_ref": "consent-bob-v7"
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "file": "valid/initial.json",
+      "state_profile": "initial_v1",
+      "prior_accepted_files": [],
+      "expected_schema_valid": true,
+      "expected_contract_valid": true,
+      "expected_reason": null
+    },
+    {
+      "file": "valid/successor-grant-change.json",
+      "state_profile": "successor_v2",
+      "prior_accepted_files": [
+        "valid/initial.json"
+      ],
+      "expected_schema_valid": true,
+      "expected_contract_valid": true,
+      "expected_reason": null
+    },
+    {
+      "file": "invalid/duplicate-grant.json",
+      "state_profile": "initial_v1",
+      "prior_accepted_files": [],
+      "expected_schema_valid": false,
+      "expected_contract_valid": false,
+      "expected_reason": "audience_duplicate_grant_ref"
+    },
+    {
+      "file": "invalid/stale-grant.json",
+      "state_profile": "initial_v1",
+      "prior_accepted_files": [],
+      "expected_schema_valid": true,
+      "expected_contract_valid": false,
+      "expected_reason": "audience_stale_grant"
+    },
+    {
+      "file": "invalid/digest-manipulation.json",
+      "state_profile": "initial_v1",
+      "prior_accepted_files": [],
+      "expected_schema_valid": true,
+      "expected_contract_valid": false,
+      "expected_reason": "audience_digest_mismatch"
+    },
+    {
+      "file": "invalid/cross-tenant-grant.json",
+      "state_profile": "initial_v1",
+      "prior_accepted_files": [],
+      "expected_schema_valid": true,
+      "expected_contract_valid": false,
+      "expected_reason": "audience_cross_tenant_grant"
+    },
+    {
+      "file": "invalid/dictionary-digest.json",
+      "state_profile": "initial_v1",
+      "prior_accepted_files": [],
+      "expected_schema_valid": false,
+      "expected_contract_valid": false,
+      "expected_reason": "audience_digest_algorithm_unsupported"
+    },
+    {
+      "file": "invalid/linkability-cross-room.json",
+      "state_profile": "room_b_v1",
+      "prior_accepted_files": [
+        "valid/initial.json"
+      ],
+      "expected_schema_valid": true,
+      "expected_contract_valid": false,
+      "expected_reason": "audience_cross_room_linkability"
+    },
+    {
+      "file": "invalid/linkability-cross-publication.json",
+      "state_profile": "secondary_publication_v1",
+      "prior_accepted_files": [
+        "valid/initial.json"
+      ],
+      "expected_schema_valid": true,
+      "expected_contract_valid": false,
+      "expected_reason": "audience_cross_publication_linkability"
+    },
+    {
+      "file": "invalid/linkability-cross-key-epoch.json",
+      "state_profile": "key_epoch_6",
+      "prior_accepted_files": [
+        "valid/initial.json"
+      ],
+      "expected_schema_valid": true,
+      "expected_contract_valid": false,
+      "expected_reason": "audience_cross_key_epoch_linkability"
+    },
+    {
+      "file": "invalid/members-effective-limit.json",
+      "state_profile": "initial_v1",
+      "prior_accepted_files": [],
+      "expected_schema_valid": true,
+      "expected_contract_valid": false,
+      "expected_reason": "audience_members_limit_exceeded"
+    },
+    {
+      "file": "invalid/snapshot-bytes-effective-limit.json",
+      "state_profile": "initial_v1",
+      "prior_accepted_files": [],
+      "expected_schema_valid": true,
+      "expected_contract_valid": false,
+      "expected_reason": "audience_snapshot_bytes_limit_exceeded"
+    },
+    {
+      "file": "invalid/ttl-effective-limit.json",
+      "state_profile": "initial_v1",
+      "prior_accepted_files": [],
+      "expected_schema_valid": true,
+      "expected_contract_valid": false,
+      "expected_reason": "audience_ttl_limit_exceeded"
+    }
+  ]
+}

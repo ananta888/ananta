@@ -1,0 +1,7 @@
+{
+  "fixture_version": 1,
+  "name": "window_duration_not_fixed",
+  "base_fixture": "valid_measured.v1.json",
+  "mutation": {"operation": "replace", "json_pointer": "/accounting/window/ended_at_ms", "value": 1900000009000},
+  "expected": {"valid": false, "phase": "window", "code": "accounting_window_invalid"}
+}
