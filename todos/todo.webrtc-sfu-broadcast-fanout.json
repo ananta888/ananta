@@ -74,7 +74,12 @@
     ]
   },
   "revision_notes": [
-    "Stand 2026-07-22: 32 Tasks sind partial; die Implementierung ist ungeprueft. Bekannte Blocker: SFB-CON-002-HMAC, SFB-GRP-009-Legacy-Cap, SFB-QOS-018-Publish-Fake, SFB-OPS-002-Duplicate-Reihenfolge und SFB-OPS-011-Runtime/Compose/TPM. Der Parent bleibt no_go/observe_only und es liegt keine gueltige SRC_*/RUN_*-Evidence vor; deshalb bleibt jede Aktivierung fail-closed.",
+    "Finaler breiter Python-Rerun 2026-07-22: Die Auswahl umfasste 136 Dateien mit 656 Tests; 612 Tests passed, 44 wurden skipped und 0 failed in 371.90s. Der zuvor behobene Ed25519-Raw-Key-Grenzfall, bei dem bytes.strip() valide 32-Byte-Keys mit einem Whitespace-Grenzbyte korrumpieren konnte, ist zusaetzlich durch einen deterministischen Regressionstest abgesichert.",
+    "SFB-GATE-002 ist done: scripts/run_sfu_broadcast_fuzz_gate.py erzeugte artifacts/test-gates/sfu-broadcast-fuzz.json mit status passed, 3 Seeds und 64 Cases je Seed. Die Coverage umfasst die geforderten Queue- und Port-Angriffe; das Artefakt bindet source-, config- und corpus-sha256 sowie started_at, ended_at, CPU-, RSS- und Timeoutwerte. known_blockers und reason_codes sind leer, minimized_failure ist null und real_media_plane_claimed ist false. Die GATE-002-Entscheidung stuetzt sich auf dieses Fuzz-Gate-Artefakt, nicht auf Contract-Parity.",
+    "Stand 2026-07-22 (finaler konservativer DoD-Audit): 69 Tasks sind done, 34 partial, 0 todo, 0 in_progress und 0 blocked; der reine Done-Anteil betraegt 66.99 %. Alle nicht-done Tasks bleiben im JSON partial; external-blocked ist eine analytische Teilmenge und kein eigener Statuswert.",
+    "Finale lokale Nachweise: finaler breiter Python-Rerun 612 passed, 44 skipped und 0 failed in 371.90s bei 136 Dateien und 656 Tests; Ed25519-Raw-Key-Regression deterministisch abgedeckt; ein frueherer Ed25519-Fokuslauf 7/7; OBS-007 11/11; TURN-Accounting 10/10; Frontend 1719 passed/1 skipped in 313 Dateien; Build passed; Lint 0 Fehler und 27 Warnungen; Alembic besitzt genau Head e68df4c5b7a9 und der Migrationstest ist 2/2; lokale Security 26/26; Fuzz-Gate passed; Contract-Parity fuer die Contract-Tasks 31 Python plus 7 TypeScript; PR-Matrix 8/8. Diese Nachweise schliessen lokale DoDs, ersetzen aber keine explizit geforderte externe Runtime-Evidence.",
+    "External-blocked-Teilmenge (34 Tasks): SFB-BASE-006, SFB-GATE-001, SFB-GATE-003, SFB-GATE-004, SFB-GATE-005, SFB-GATE-006, SFB-GATE-007, SFB-GATE-008, SFB-GATE-009, SFB-GATE-010, SFB-GATE-011, SFB-GATE-012, SFB-GATE-013, SFB-GATE-014, SFB-GATE-015, SFB-GRP-010, SFB-GRP-013, SFB-OPS-010, SFB-OPS-011, SFB-OPS-012, SFB-OPS-014, SFB-OPS-016, SFB-QOS-010, SFB-QOS-011, SFB-QOS-012, SFB-QOS-013, SFB-QOS-014, SFB-QOS-016, SFB-QOS-017, SFB-QOS-018, SFB-QOS-019, SFB-TURN-007, SFB-TURN-010, SFB-TURN-011. Fuer diese Tasks fehlen beziehungsweise scheitern weiterhin task-spezifische reale Runtime-, Browser-, Packet-Capture-, Container-, Chaos-, Soak-, Scale- oder Game-Day-Nachweise; andere Matrixstufen sind nur geplant.",
+    "Parent-Readiness und Rollout bleiben unveraendert no_go/observe_only. Das Parent-Artefakt ist vorhanden und liefert korrekt fail-closed; deshalb ist SFB-BASE-003 als Pruefer done, waehrend Aktivierung und Gesamtfreigabe blockiert bleiben. Semantic-intern sind 5/5 gruen, das Gesamtartefakt bleibt wegen stale Capture und Load-Drops fail. Es wird keine SRC_*/RUN_*-Evidence erfunden.",
     "Version 2.2 schliesst den Release-DAG fuer Retention/Purge und behandelt wegen des nur programmweiten Parent-Gates alle 34 real referenzierten Parent-Voraussetzungen ehrlich als aktivierungsrelevant.",
     "Stock-LiveKit und authenticated Runtime Extension besitzen getrennte Identity-, ACK-, Observation-, Placement- und Failoverkriterien; im livekit_native-Modus werden weder vorab bekannte Node-IDs noch Node-Signaturen erfunden.",
     "Persistente Runtime-/TURN-Identitaeten, Replaycursor, Flagprojektionen, Admission-Saga, app-scoped Composition Root, bounded Hub-Scheduler und Distributed-LiveKit-/Redis-Wiring schliessen die operativen Backendluecken.",
@@ -85,8 +90,7 @@
     "Harte 7-/8-Limits, persistenter Group-Key-Zustand, ephemere Vendoridentitaeten, Browser-Quality-Reporting, verschluesselter Data-Fanout und produktiver E2EE-Lifecycle besitzen nun eigene Tasks.",
     "TURN umfasst nun reale LiveKit-Anbindung sowie Health-/Accounting-Produzenten statt nur Hub-Ledger und Coturn-Compose.",
     "SFB-OPS-006 wurde entfernt und in SFB-OPS-005 integriert, weil LiveKit-native Nodewahl und eine zweite Hub-Node-Placement-Policy keine parallelen Sources of Truth bilden duerfen.",
-    "Prioritaeten, Risiken, Ausfuehrungsstufen und Critical Path wurden neu kalibriert; lange Gates koennen nach ihren direkten Voraussetzungen parallel laufen.",
-    "Auditstand 2026-07-21: Von 103 Tasks sind nach Quellcode-/Testabgleich aktuell nur SFB-BASE-003 und SFB-BASE-004 vollständig umgesetzt (2/103, 1.94 %). 101 Tasks bleiben todo, 0 blocked, 0 in_progress."
+    "Prioritaeten, Risiken, Ausfuehrungsstufen und Critical Path wurden neu kalibriert; lange Gates koennen nach ihren direkten Voraussetzungen parallel laufen."
   ],
   "scope_boundary": {
     "parent_track_is_source_of_truth_for": [
@@ -417,7 +421,7 @@
     {
       "id": "SFB-M1",
       "title": "Spezialisierte Fanout-Vertraege und Conformance",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "SFB-CON-001",
         "SFB-CON-002",
@@ -528,7 +532,7 @@
     {
       "id": "SFB-M6",
       "title": "TURN-Sicherheit, Quoten und Worst-Case-Oekonomie",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "SFB-TURN-001",
         "SFB-TURN-002",
@@ -553,7 +557,7 @@
     {
       "id": "SFB-M7",
       "title": "Inhaltsfreie Broadcast-Observability und Operator-UX",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "SFB-OBS-001",
         "SFB-OBS-002",
@@ -572,7 +576,7 @@
     {
       "id": "SFB-M8",
       "title": "Security-, Chaos-, Soak-, Scale- und Rollout-Gate",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "SFB-GATE-001",
         "SFB-GATE-002",
@@ -625,9 +629,9 @@
         "total": 5,
         "todo": 0,
         "in_progress": 0,
-        "partial": 4,
+        "partial": 1,
         "blocked": 0,
-        "done": 1
+        "done": 4
       },
       "S1_contracts_config_flags": {
         "order": 1,
@@ -653,9 +657,9 @@
         "total": 16,
         "todo": 0,
         "in_progress": 0,
-        "partial": 15,
+        "partial": 0,
         "blocked": 0,
-        "done": 1
+        "done": 16
       },
       "S2_control_plane_harness": {
         "order": 2,
@@ -679,11 +683,11 @@
           "SFB-GATE-001"
         ],
         "total": 16,
-        "todo": 8,
+        "todo": 0,
         "in_progress": 0,
-        "partial": 8,
+        "partial": 4,
         "blocked": 0,
-        "done": 0
+        "done": 12
       },
       "S3_runtime_vertical_slice": {
         "order": 3,
@@ -714,11 +718,11 @@
           "SFB-QOS-009"
         ],
         "total": 23,
-        "todo": 18,
+        "todo": 0,
         "in_progress": 0,
-        "partial": 5,
+        "partial": 10,
         "blocked": 0,
-        "done": 0
+        "done": 13
       },
       "S4_fleet_turn": {
         "order": 4,
@@ -748,11 +752,11 @@
           "SFB-TURN-006"
         ],
         "total": 22,
-        "todo": 22,
+        "todo": 0,
         "in_progress": 0,
-        "partial": 0,
+        "partial": 6,
         "blocked": 0,
-        "done": 0
+        "done": 16
       },
       "S5_observability_ui": {
         "order": 5,
@@ -767,11 +771,11 @@
           "SFB-OBS-006"
         ],
         "total": 7,
-        "todo": 7,
+        "todo": 0,
         "in_progress": 0,
         "partial": 0,
         "blocked": 0,
-        "done": 0
+        "done": 7
       },
       "S6_fast_ci": {
         "order": 6,
@@ -783,11 +787,11 @@
           "SFB-GATE-015"
         ],
         "total": 4,
-        "todo": 4,
+        "todo": 0,
         "in_progress": 0,
-        "partial": 0,
+        "partial": 3,
         "blocked": 0,
-        "done": 0
+        "done": 1
       },
       "S7_real_browser_security": {
         "order": 7,
@@ -798,9 +802,9 @@
           "SFB-GATE-004"
         ],
         "total": 3,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "partial": 0,
+        "partial": 3,
         "blocked": 0,
         "done": 0
       },
@@ -814,9 +818,9 @@
           "SFB-GATE-008"
         ],
         "total": 4,
-        "todo": 4,
+        "todo": 0,
         "in_progress": 0,
-        "partial": 0,
+        "partial": 4,
         "blocked": 0,
         "done": 0
       },
@@ -829,9 +833,9 @@
           "SFB-GATE-011"
         ],
         "total": 3,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "partial": 0,
+        "partial": 3,
         "blocked": 0,
         "done": 0
       }
@@ -880,8 +884,8 @@
       "description": "Ein deterministischer Audit erfasst vorhandene Pair-, Relay-, Signaling-, E2EE-, Media-, SFU-, TURN- und Observability-Bausteine und trennt reale Implementierung von geplanten Dateien.",
       "type": "architecture",
       "milestone_id": "SFB-M0",
-      "status": "partial",
-      "progress_percent": 80,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -906,8 +910,8 @@
       "description": "Die bestehende Programmarchitektur wird fuer Audience-Projektion, SFU-Fleet, TURN und Egress erweitert, ohne Parent-Verantwortungen zu duplizieren.",
       "type": "architecture",
       "milestone_id": "SFB-M0",
-      "status": "partial",
-      "progress_percent": 90,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1023,8 +1027,8 @@
       "description": "Messbudgets fuer Join, Rekey, Layerwechsel, Failover, Queueing, Egress, TURN, Speicher und Dateideskriptoren werden vor Implementierungs- und Lastentscheidungen maschinenlesbar definiert.",
       "type": "configuration",
       "milestone_id": "SFB-M0",
-      "status": "partial",
-      "progress_percent": 75,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1083,8 +1087,8 @@
       "description": "Alle Child-Gates verwenden ein gemeinsames maschinenlesbares Manifest fuer Artefakte, Digests, Freshness und Herkunft; nicht vorhandene Signaturen oder Source-/Run-IDs werden nicht erfunden.",
       "type": "release_gate",
       "milestone_id": "SFB-M0",
-      "status": "partial",
-      "progress_percent": 75,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1111,8 +1115,8 @@
       "description": "Dynamische Hubentscheidungen fuer Broadcast, Cohorts und Kill-Switch werden getrennt vom statischen Katalog persistent, CAS-geschuetzt und auditierbar gespeichert.",
       "type": "backend",
       "milestone_id": "SFB-M0",
-      "status": "partial",
-      "progress_percent": 75,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "critical",
       "depends_on": [
@@ -1139,8 +1143,8 @@
       "description": "Eine kleine Hub-API mutiert persistente Flag-/Cohortentscheidungen und projiziert eine versionierte fail-closed Sicht an normale Clients; Runtime-Node-ACK und Fencing liegen in SFB-OPS-013.",
       "type": "backend",
       "milestone_id": "SFB-M0",
-      "status": "partial",
-      "progress_percent": 70,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "critical",
       "depends_on": [
@@ -1168,8 +1172,8 @@
       "description": "Broadcast-Erweiterungen verwenden das kanonische kryptografische Parent-Envelope direkt und definieren nur gemeinsame Referenzen, Limits und Domain-Separation fuer spezialisierte Fanout-Schemas.",
       "type": "schema",
       "milestone_id": "SFB-M1",
-      "status": "partial",
-      "progress_percent": 80,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1197,8 +1201,8 @@
       "description": "Ein kleiner injizierbarer Port liefert Hub-only Pseudonym-/Member-Digest-Operationen, ohne Content-Keys wiederzuverwenden oder Rohschluessel in Domainmodelle, Datenbank, Logs oder Gateartefakte zu geben.",
       "type": "security",
       "milestone_id": "SFB-M1",
-      "status": "partial",
-      "progress_percent": 75,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1225,8 +1229,8 @@
       "description": "Ein eigener langsam veraenderlicher Vertrag transportiert grobe, room-scoped Browserfaehigkeiten getrennt von laufenden Quality-Stats und ohne daraus Berechtigungen abzuleiten.",
       "type": "schema",
       "milestone_id": "SFB-M1",
-      "status": "partial",
-      "progress_percent": 75,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1250,8 +1254,8 @@
       "description": "Versionierte Hub-Projektionen transportieren den Pre-Connect-Roommodus, Publisher-Encodingplaene und receiver-spezifische Layerkorridore getrennt, kurzlebig und epochgebunden zu autorisierten Browsern.",
       "type": "schema",
       "milestone_id": "SFB-M1",
-      "status": "partial",
-      "progress_percent": 75,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1283,8 +1287,8 @@
       "description": "Ein Hub-eigener Intent beschreibt eine kompatible Empfaengermenge als Projektion individueller Grants, ohne selbst neue Berechtigung zu erzeugen.",
       "type": "schema",
       "milestone_id": "SFB-M1",
-      "status": "partial",
-      "progress_percent": 50,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1311,8 +1315,8 @@
       "description": "Nichtautoritative Qualitaetsbeobachtungen liefern die Grundlage fuer receiver-spezifische Layerentscheidungen, ohne Rechte oder Topologie festzulegen.",
       "type": "schema",
       "milestone_id": "SFB-M1",
-      "status": "partial",
-      "progress_percent": 75,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1338,8 +1342,8 @@
       "description": "Die in SFB-BASE-006 gewaehlte SFU-Produzentengrenze liefert authentifizierte, zeitlich begrenzte Betriebsbeobachtungen; nur der Hub leitet daraus Cluster-/Regions-Admission ab.",
       "type": "schema",
       "milestone_id": "SFB-M1",
-      "status": "partial",
-      "progress_percent": 75,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1365,8 +1369,8 @@
       "description": "Ein persistierter Hub-Snapshot friert die individuell autorisierte Empfaengermenge und ihre kanonischen Grant-/Consent-/Epoch-Referenzen fuer eine Route unveraenderlich ein.",
       "type": "schema",
       "milestone_id": "SFB-M1",
-      "status": "partial",
-      "progress_percent": 75,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1393,8 +1397,8 @@
       "description": "Der Hub projiziert eine Receiver Group als kurzlebigen, runtimegebundenen und gefenceten Route-Intent fuer die ausgewaehlte SFU-Control-Grenze.",
       "type": "schema",
       "milestone_id": "SFB-M1",
-      "status": "partial",
-      "progress_percent": 75,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1410,7 +1414,7 @@
         "tests/fixtures/webrtc/fanout_route_intent/"
       ],
       "acceptance_criteria": [
-        "Der Intent bindet Route-ID, Group- und Audience-Digest, runtime_control_mode, Cluster/Region und – nur wenn die gewaehlte Grenze dies belegt – eine konkrete Node-/Runtime-ID sowie Publication, erlaubte Layer, Traffic-Class-Budgets, Route-/Topology-/Key-Epoch, Fencing-Token, Gueltigkeitsfenster und Hub-Signatur.",
+        "Der Intent bindet Route-ID, Group- und Audience-Digest, runtime_control_mode, Cluster/Region und \u2013 nur wenn die gewaehlte Grenze dies belegt \u2013 eine konkrete Node-/Runtime-ID sowie Publication, erlaubte Layer, Traffic-Class-Budgets, Route-/Topology-/Key-Epoch, Fencing-Token, Gueltigkeitsfenster und Hub-Signatur.",
         "Die SFU kann aus dem Intent weder weitere Receiver noch hoehere Layer, laengere TTL oder neue Publications ableiten.",
         "Cross-Runtime-/Cluster-/Region-, Cross-Room-, Cross-Publication-, stale-Fencing-, stale-Key- und Replay-Fixtures werden mit stabilen Reason-Codes abgelehnt; im livekit_native-Placement darf ein noch nicht bekannter konkreter Node weder erfunden noch als Tokenprecondition verlangt werden.",
         "Intentgroesse, Receiver-Referenzen, Layerzahl, Traffic-Klassen und TTL sind durch benannte Schema- und Config-Limits begrenzt."
@@ -1422,8 +1426,8 @@
       "description": "Ingress, SFU-Egress, TURN-Relay, Drops, Queues und Shared-Processing werden in festen Zeitfenstern getrennt und revisionssicher bilanziert.",
       "type": "schema",
       "milestone_id": "SFB-M1",
-      "status": "partial",
-      "progress_percent": 75,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1450,8 +1454,8 @@
       "description": "Ein kanonischer Fixture-Korpus prueft alle Broadcast-Erweiterungen in der Hub-Laufzeit und dient weiteren Implementierungen als unveraenderte Conformance-Basis.",
       "type": "testing",
       "milestone_id": "SFB-M1",
-      "status": "partial",
-      "progress_percent": 70,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1482,8 +1486,8 @@
       "description": "Angular akzeptiert und erzeugt nur Erweiterungsvertraege, die exakt dieselben Grenzen und Reason-Codes wie der Hub verwenden.",
       "type": "frontend",
       "milestone_id": "SFB-M1",
-      "status": "partial",
-      "progress_percent": 70,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1508,8 +1512,8 @@
       "description": "Additive Datenmodelle speichern nur Broadcast-Projektionen und validieren ihre Referenzen transaktional gegen die kanonische Semantic-SFU-Room-State-Revision; normalisierte Publication-/Subscription-Tabellen werden nicht faelschlich vorausgesetzt.",
       "type": "backend",
       "milestone_id": "SFB-M2",
-      "status": "partial",
-      "progress_percent": 70,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1538,8 +1542,8 @@
       "description": "Persistenzzugriff wird in getrennte Ports mit expliziten CAS-, Paging-, Expiry- und Reconciliation-Operationen zerlegt.",
       "type": "backend",
       "milestone_id": "SFB-M2",
-      "status": "partial",
-      "progress_percent": 70,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1563,8 +1567,8 @@
       "description": "Der Hub bildet die Schnittmenge individueller kanonischer Grants, Capabilities, Consent- und Privacy-Scopes auf eine unveraenderliche Audience-Projektion ab.",
       "type": "backend",
       "milestone_id": "SFB-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1590,8 +1594,8 @@
       "description": "Join, Leave, Revoke oder Policyaenderung aktualisiert betroffene Gruppen begrenzt und reproduzierbar, mit kontrolliertem Full-Rebuild-Fallback.",
       "type": "backend",
       "milestone_id": "SFB-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1615,8 +1619,8 @@
       "description": "Mehrere Hub-Instanzen koennen dieselben Events beobachten, aber nur eine monotone Audience-/Group-Version darf autoritativ werden.",
       "type": "backend",
       "milestone_id": "SFB-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1631,7 +1635,7 @@
       ],
       "acceptance_criteria": [
         "Jede Mutation prueft Membership-, Key- und Policy-Epoch sowie expected Group-Version in einer atomaren Transaktion.",
-        "Gewinnende Projektion erhaelt monotones Fencing; stale Writer, verspätete Events und kleinere Epoch/Fencing-Werte koennen keinen aktiven Zustand ueberschreiben.",
+        "Gewinnende Projektion erhaelt monotones Fencing; stale Writer, versp\u00e4tete Events und kleinere Epoch/Fencing-Werte koennen keinen aktiven Zustand ueberschreiben.",
         "Retry mit identischem Idempotency-Key liefert dieselbe Group-Version und erzeugt weder Doppelroute noch zusaetzlichen Auditdatensatz.",
         "Concurrent-Tests mit mindestens zwei Repository-Instanzen beweisen genau einen Gewinner bei Join/Revoke-Race, Hubwechsel und DB-Retry."
       ]
@@ -1642,8 +1646,8 @@
       "description": "Alle aktuell verteilten Teilnehmer-, Receiver- und Group-Member-Limits werden inventarisiert und auf einen Hub-validierten Profilvertrag mit unveraenderlichem administrativem Hard-Cap umgestellt; Data-Destinationlimits bleiben getrennt in SFB-QOS-007/013 und gemessene 10/25/50/100/250-Werte Kandidaten bis zum Capacity-Gate.",
       "type": "configuration",
       "milestone_id": "SFB-M2",
-      "status": "partial",
-      "progress_percent": 55,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1684,7 +1688,7 @@
       "description": "Der bisher teilweise prozesslokale issued/latest/receipt-Zustand wird in einen begrenzten, CAS- und epochgeschuetzten Repositorypfad migriert und gegen die gemessenen Gruppenprofile skaliert.",
       "type": "security",
       "milestone_id": "SFB-M2",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P0",
       "risk": "critical",
@@ -1723,8 +1727,8 @@
       "description": "Rohe kanonische Participant-IDs werden nicht mehr als LiveKit-Identity oder Data-Destination verwendet; der Hub stellt eine room-/membership-epochgebundene LiveKit-Identity und davon getrennte kurzlebige route-/publicationgebundene Destination-Handles aus.",
       "type": "security",
       "milestone_id": "SFB-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1757,8 +1761,8 @@
       "description": "Route-Intent, Dispatch, Ack, Active, Update, Revoke, Expire und Failed werden deterministisch und epochgebunden verwaltet.",
       "type": "backend",
       "milestone_id": "SFB-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1784,8 +1788,8 @@
       "description": "Der ausgewaehlte Parent-SFU-Adapter erhaelt kleine Extension-Ports fuer Route anwenden, aktualisieren, widerrufen und bestaetigen, ohne Vendorobjekte in Domaincode zu leaken.",
       "type": "infrastructure",
       "milestone_id": "SFB-M2",
-      "status": "partial",
-      "progress_percent": 70,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1812,7 +1816,7 @@
       "description": "Der Hub setzt den vendorneutralen Route-Port ueber die in SFB-BASE-006 ausgewaehlte oeffentliche LiveKit-Control-API oder den authentifizierten Runtime-Control-Endpunkt um; SFU-interne Paket- oder Queueausfuehrung wird hier nicht behauptet.",
       "type": "infrastructure",
       "milestone_id": "SFB-M2",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P0",
       "risk": "critical",
@@ -1847,8 +1851,8 @@
       "description": "Ein Hub-eigener Reconciler vergleicht persistierte Sollprojektion und beobachteten SFU-Zustand und schliesst Luecken ohne stale Zugriff zu reaktivieren.",
       "type": "backend",
       "milestone_id": "SFB-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1874,8 +1878,8 @@
       "description": "Individuelle Grantreferenzen und abgelaufene Audience-Snapshots werden nach Routeende automatisch und restart-sicher entfernt, ohne alte Berechtigung durch Replay oder Reconciliation wiederzubeleben.",
       "type": "backend",
       "milestone_id": "SFB-M2",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -1904,8 +1908,8 @@
       "description": "Die Evidence aus SFB-BASE-006 wird in kleine vendorneutrale Capability-Ports und fail-closed Supportentscheidungen fuer Simulcast, SVC, Subscriptionsteuerung, Data-Fanout, Egressmetriken, TURN, Drain und optionale Runtimehooks ueberfuehrt.",
       "type": "infrastructure",
       "milestone_id": "SFB-M3",
-      "status": "partial",
-      "progress_percent": 70,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -1967,8 +1971,8 @@
       "description": "Der Hub validiert room-scoped Capability-Observationen aus SFB-CON-011, persistiert nur den kurzlebigen normalisierten Zustand und stellt ihn ueber einen kleinen Read-Port fuer Admission- und Layerpolicy bereit.",
       "type": "backend",
       "milestone_id": "SFB-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2009,8 +2013,8 @@
       "description": "Der Browser misst lokal Codec-, Encoding-, Transform- und Decodefaehigkeiten und exportiert nur die fuer Hub-Policy erforderliche grobe Capabilityklasse.",
       "type": "frontend",
       "milestone_id": "SFB-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2043,8 +2047,8 @@
       "description": "Administrative Profile begrenzen erzeugbare Encodings und erlaubte Receiverlayer getrennt fuer Audio, Kamera, Screenshare und semantische Referenzen.",
       "type": "configuration",
       "milestone_id": "SFB-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2072,8 +2076,8 @@
       "description": "Der Hub nimmt begrenzte nichtautoritative Quality-Observationen entgegen und stellt der Layerpolicy ein normalisiertes Zeitfenster bereit.",
       "type": "backend",
       "milestone_id": "SFB-M3",
-      "status": "partial",
-      "progress_percent": 70,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2102,7 +2106,7 @@
       "description": "Ein fokussierter Angular-Reporter aggregiert erlaubte LiveKit-/WebRTC-Healthwerte lokal, sendet nur begrenzte Buckets an SFB-QOS-004 und besitzt einen vollstaendigen Lifecycle; der bestehende MediaHealthService wird nicht um Netzwerk-, Retry- und Policyverantwortung ueberladen.",
       "type": "frontend",
       "milestone_id": "SFB-M3",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -2148,8 +2152,8 @@
       "description": "Der Hub berechnet je Subscription einen signierten erlaubten Layerkorridor aus Quality, Viewport, User-Intent, Kosten- und Ressourcenpolicy; Browser und SFU regeln lokal innerhalb dieses Korridors.",
       "type": "backend",
       "milestone_id": "SFB-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2174,8 +2178,8 @@
       "description": "Der Hub liefert begrenzte Strategieparameter; Browser und realer SFU-Adapter vollziehen schnelle Layer- und Keyframe-Entscheidungen lokal, stabil und routegebunden.",
       "type": "configuration",
       "milestone_id": "SFB-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2201,7 +2205,7 @@
       "description": "Der Hub materialisiert Publisher- und Receiverprojektionen aus SFB-QOS-003/005/006, liefert sie authentifiziert und aktualisiert sie epochgebunden an die kleinen Publication-/Layer-Consumer im Browser.",
       "type": "integration",
       "milestone_id": "SFB-M3",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P0",
       "risk": "critical",
@@ -2249,7 +2253,7 @@
       "description": "Der Angular-Client erzeugt die vom Hub erlaubten Kamera- und Screenshare-Encodings einmal pro Publication und erhaelt sie ueber Add-, Replace-, Reconnect- und Cleanup-Lifecycle.",
       "type": "frontend",
       "milestone_id": "SFB-M3",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P0",
       "risk": "critical",
@@ -2287,7 +2291,7 @@
       "description": "Der Browser- und optionale Hub-SendData-Pfad verwenden den kanonischen Parent-Secure-Envelope, opaque Destination-Handles sowie harte Chunk-, Queue-, Reassembly-, Replay- und Lifecyclegrenzen fuer shared und receiver-private Daten.",
       "type": "transport",
       "milestone_id": "SFB-M3",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P0",
       "risk": "critical",
@@ -2341,7 +2345,7 @@
       "description": "Die reale BaseKeyProvider-/LiveKit-Worker-Strecke wird als einziger produktiver E2EE-Pfad gegen Multi-Layer, Group-Key-Rotation, Index-Wrap, Reconnect und Cleanup geprueft; unverdrahtete Hilfsservices gelten nicht als Production-Evidence.",
       "type": "security",
       "milestone_id": "SFB-M3",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P0",
       "risk": "critical",
@@ -2376,8 +2380,8 @@
       "description": "Eine geschlossene generische Registry ordnet bereits definierte Parent-Message-Kinds einer Routingklasse zu, ohne Visual-, Speech-, Evidence- oder Trainingsdomainservices zu duplizieren.",
       "type": "configuration",
       "milestone_id": "SFB-M2",
-      "status": "partial",
-      "progress_percent": 75,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2407,8 +2411,8 @@
       "description": "Der Hub definiert limitsichere Traffic-Class-Profile; Browser und ausgewaehlter oeffentlicher LiveKit-Data-Pfad setzen bounded Queueing vor dem Publish um. Nicht belegte SFU-interne Schedulerhooks werden nicht vorausgesetzt.",
       "type": "transport",
       "milestone_id": "SFB-M3",
-      "status": "partial",
-      "progress_percent": 70,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2437,8 +2441,8 @@
       "description": "Der Hub begrenzt Receiver-, Room- und Tenantfairness mit einem signierten Profil; receiverseitige Layerwahl wird durch SFB-QOS-016 vollzogen, waehrend Queue-, Scheduler-, Starvation- oder Disconnect-Hooks nur bei positiver Runtime-Capability durch SFB-QOS-010 genutzt werden.",
       "type": "configuration",
       "milestone_id": "SFB-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2465,7 +2469,7 @@
       "description": "Der serverseitige Adapter setzt autorisierte Subscription-Operationen, content-free Egressbeobachtungen und nur nachgewiesene optionale Runtime-Hooks um; schnelle receiverseitige Layerwahl bleibt getrennt in SFB-QOS-016.",
       "type": "infrastructure",
       "milestone_id": "SFB-M3",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -2496,7 +2500,7 @@
       "description": "Ein kleiner Angular-Controller setzt Hub-signierte receiver-spezifische Layerkorridore ueber oeffentliche LiveKit-Client-APIs und adaptiveStream um, ohne SFU-internes Queueing oder eine zweite Policy zu behaupten.",
       "type": "frontend",
       "milestone_id": "SFB-M3",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -2535,7 +2539,7 @@
       "description": "Kamera- und Screenshare-Tracks werden ueber einen kleinen, im LiveKit-Adapter gekapselten Render-Port produktiv an Angular-Videoelemente gebunden; Sichtbarkeit und Viewport speisen genau eine ausgewaehlte Layersteuerung.",
       "type": "frontend",
       "milestone_id": "SFB-M3",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P0",
       "risk": "critical",
@@ -2576,8 +2580,8 @@
       "description": "SFU-Beobachtungen werden idempotent bilanziert und beeinflussen Hub-Admission und Layer-Caps, nicht einzelne Paketentscheidungen im Hub.",
       "type": "observability",
       "milestone_id": "SFB-M3",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2595,7 +2599,7 @@
       "acceptance_criteria": [
         "Accounting dedupliziert signierte Fenster nach Node, Sequenz und Zeitraum, trennt tatsaechliche Bytes von geschaetzten oder fehlenden Werten und prueft accounting_tolerance_bytes sowie accounting_tolerance_percent.",
         "Capacity Feedback ist zeitfenstergebunden, geglaettet, hard-limit-gekappt und kann bei Schaetzung, Gap oder fehlendem Fenster nur Admission ablehnen oder Layer-Caps senken, niemals Rechte, Reservierung oder Kapazitaet erhoehen.",
-        "Counter-Gap, Node-Neustart, Regression, verspätetes Fenster und Diskrepanz zwischen Route und Egress erzeugen Alert-/Reconciliation-Reason-Codes.",
+        "Counter-Gap, Node-Neustart, Regression, versp\u00e4tetes Fenster und Diskrepanz zwischen Route und Egress erzeugen Alert-/Reconciliation-Reason-Codes.",
         "Tests belegen innerhalb accounting_tolerance_bytes und accounting_tolerance_percent die Proportionalitaet zu tatsaechlich zugestellten Receiverlayern und trennen Shared-Processing-Ersparnis von Netzwerk-Egress."
       ]
     },
@@ -2605,8 +2609,8 @@
       "description": "Der Hub verwaltet die Identitaets-, CA-, Enrollment- und Revocation-Seite der in SFB-BASE-006 gewaehlten Control-Grenze; Node-Key-Provider, CSR-Client und Exporter bleiben getrennt in SFB-OPS-011/SFB-OPS-012.",
       "type": "security",
       "milestone_id": "SFB-M5",
-      "status": "partial",
-      "progress_percent": 70,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2643,8 +2647,8 @@
       "description": "Health- und Capacity-Beobachtungen werden nur von der fuer den ausgewaehlten Runtime-Modus belegten Produzentengrenze angenommen und bleiben nichtautoritative Eingangsdaten.",
       "type": "backend",
       "milestone_id": "SFB-M5",
-      "status": "partial",
-      "progress_percent": 50,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2677,8 +2681,8 @@
       "description": "Enrollment, Capability, Observation, Health, Drain, Version und Revocation ueberleben Hub-/SFU-Neustarts und sind nicht prozesslokal.",
       "type": "backend",
       "milestone_id": "SFB-M5",
-      "status": "partial",
-      "progress_percent": 70,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -2705,8 +2709,8 @@
       "description": "Der Hub bewertet signierte Observationen und aktive Probes in ein explizites Healthmodell; stale oder unvollstaendig ist nicht healthy.",
       "type": "backend",
       "milestone_id": "SFB-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2733,8 +2737,8 @@
       "description": "Projected Ingress, Egress, Receiver, Tracks, CPU, Speicher, FDs und TURN werden vor Admission auf der vom Hub autorisierten Cluster-/Regionsebene reserviert. Bei livekit_native beobachtet der Hub die konkrete Nodebindung, er waehlt sie nicht parallel zu LiveKit.",
       "type": "backend",
       "milestone_id": "SFB-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2796,7 +2800,7 @@
       "description": "Ein kleiner, zur in SFB-BASE-006 gewaehlten Runtime-Grenze passender Adapter liest ausschliesslich dokumentierte LiveKit-/Host-Health- und Capacityquellen und sendet begrenzte Observationen an SFB-OPS-002; er trifft keine Placement- oder Admissionentscheidung.",
       "type": "observability",
       "milestone_id": "SFB-M5",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -2830,8 +2834,8 @@
       "description": "Persistente Hub-Flag-/Cohortversionen werden begrenzt an betroffene Runtimeinstanzen projiziert; stale oder fehlende ACKs sperren neue Admission, ohne eine zweite Flag-Source-of-Truth zu erzeugen.",
       "type": "backend",
       "milestone_id": "SFB-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "critical",
       "depends_on": [
@@ -2863,7 +2867,7 @@
       "description": "Der bestehende Semantic-SFU-Admission-Service wird ueber kleine Ports mit aktiver Flagversion, Cluster-/Regionsreservierung, opaque LiveKit-Identity, Routeadapter und beobachteter Runtimebindung integriert.",
       "type": "backend",
       "milestone_id": "SFB-M5",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P0",
       "risk": "critical",
@@ -2902,7 +2906,7 @@
       "description": "Die in SFB-BASE-006 gewaehlte Placement-Grenze wird reproduzierbar mit mindestens zwei Runtimezielen verdrahtet: LiveKits Redis-basiertes natives Node-Routing oder zwei Hub-auswaehlbare Clusterziele ohne Hub-interne Nodewahl.",
       "type": "infrastructure",
       "milestone_id": "SFB-M5",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P0",
       "risk": "critical",
@@ -2937,8 +2941,8 @@
       "description": "Persistente Route-, Retention-, Fleet- und Admission-Saga-Reconciler werden ueber genau einen Hub-eigenen, lease-/fencinggeschuetzten Lifecycle ausgefuehrt; Worker oder Runtimeinstanzen erhalten keine Orchestrierungsrolle.",
       "type": "backend",
       "milestone_id": "SFB-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2977,8 +2981,8 @@
       "description": "Knoten koennen aus Admission genommen und kontrolliert geleert werden; inkompatible Versionen erzeugen weder stilles Downgrade noch abrupten Massenreconnect.",
       "type": "infrastructure",
       "milestone_id": "SFB-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3007,8 +3011,8 @@
       "description": "Bei Runtime- oder beobachtetem Nodeausfall entscheidet der Hub zwischen Rejoin, neuer Cluster-/Regionsbindung und Parent-Fallback und invalidiert alte Routen, Tokens und Fencing deterministisch; Key-Epochen bleiben Eigentum des Parent-Sicherheitsflows.",
       "type": "security",
       "milestone_id": "SFB-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3036,8 +3040,8 @@
       "description": "Ein lease- und fencinggeschuetzter Hub-Reconciler bringt Node Directory, Reservierungen, Placement und Routen nach Restart oder Partition auf eine einzige persistierte Sollsicht.",
       "type": "backend",
       "milestone_id": "SFB-M5",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3064,7 +3068,7 @@
       "description": "Das reale SFU-Deployment setzt die im Kapazitaetsprofil modellierten Grenzen auf Container-, Prozess-, Netzwerk- und Betriebssystemebene um und meldet Pressure fail-closed an den Hub.",
       "type": "infrastructure",
       "milestone_id": "SFB-M5",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -3096,8 +3100,8 @@
       "description": "Der Hub stellt keine statischen Browsersecrets aus, sondern kurzlebige TURN-Zugangsdaten und unterscheidet explizit serverseitig claimgebundene Authorization Hooks von standardmaessigen REST-HMAC-Bearer-Credentials.",
       "type": "security",
       "milestone_id": "SFB-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "critical",
       "depends_on": [
@@ -3126,8 +3130,8 @@
       "description": "Nur administrativ erlaubte STUN/TURN-Schemes, Hosts, Ports und Transportprofile gelangen in Browserkonfiguration; Candidate- und IP-Daten werden minimiert.",
       "type": "security",
       "milestone_id": "SFB-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3152,8 +3156,8 @@
       "description": "Relay-Nutzung wird getrennt von Direct- und SFU-Traffic pro Tenant, Room, Receiver, Node und Zeitfenster bilanziert, ohne hochkardinale Originalidentitaeten offenzulegen.",
       "type": "observability",
       "milestone_id": "SFB-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -3173,7 +3177,7 @@
       "acceptance_criteria": [
         "Ledger trennt Allocationcount, aktive Ports, Ingress-/Egressbytes, Paketcount, Dauer, Authfehler und Exhaustion nach festem Fenster und Unit.",
         "Events binden Credential-ID-Pseudonym, Tenant, Room, Receiverklasse, SFU-Node, Sequenz und Zeitfenster und werden idempotent dedupliziert.",
-        "Counterregression, Duplicate, Gap, verspätetes Fenster, Node-/TURN-Restart und Differenz zu SFU-Egress erzeugen markierte Schaetzung oder Reconciliation statt stillem Unterzaehlen.",
+        "Counterregression, Duplicate, Gap, versp\u00e4tetes Fenster, Node-/TURN-Restart und Differenz zu SFU-Egress erzeugen markierte Schaetzung oder Reconciliation statt stillem Unterzaehlen.",
         "Retention, Pagination und Labelcardinality sind konfiguriert; IP, Secret, Username, Token und komplette Original-Participant-ID werden nicht gespeichert."
       ]
     },
@@ -3183,8 +3187,8 @@
       "description": "Der Hub beruecksichtigt SFU-plus-TURN-Amplifikation vor Admission und erzwingt Bandbreiten-, Allocation-, Port- und Kostenlimits pro Scope.",
       "type": "backend",
       "milestone_id": "SFB-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -3210,8 +3214,8 @@
       "description": "TURN-Ueberlast betrifft nur die betroffenen Receiver und fuehrt kontrolliert zu Layercap, control-only, Parent-Fallback oder expliziter Ablehnung.",
       "type": "transport",
       "milestone_id": "SFB-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3238,7 +3242,7 @@
       "description": "Die bisherige Test-/Legacy-Konfiguration wird durch ein deaktivierbares, gepinntes und ressourcenbegrenztes TURN-Pool-Profil fuer SFU-Broadcast ergaenzt.",
       "type": "infrastructure",
       "milestone_id": "SFB-M6",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -3267,8 +3271,8 @@
       "description": "Coturn-Collector erhalten eine persistente, least-privilege turn_observer-Identitaet, die kryptografisch und autorisierungsseitig von sfu_control, sfu_observer, TURN-Credentials und Hub-Adminrollen getrennt ist.",
       "type": "security",
       "milestone_id": "SFB-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3302,8 +3306,8 @@
       "description": "Ein bounded Vertrag und eine authentifizierte Hub-API nehmen Health-, Allocation-, Byte-, Port- und Fehlerfenster aus dem realen TURN-Pool entgegen; erst dieser Produzentenpfad ermoeglicht Ledger und Quoten.",
       "type": "backend",
       "milestone_id": "SFB-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3339,7 +3343,7 @@
       "description": "Ein eigener Infrastructure-Adapter liest ausschliesslich freigegebene Coturn-Status-/Accountingquellen, normalisiert sie auf SFB-TURN-009 und exportiert sie begrenzt; er besitzt keine Hub-Policy.",
       "type": "infrastructure",
       "milestone_id": "SFB-M6",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -3373,8 +3377,8 @@
       "description": "Der Hub verwaltet vertrauenswuerdige TURN-Instanzen, signierte Healthbeobachtungen, Quoten und deterministische Poolwahl persistent; Browser und SFU erhalten nur die freigegebene kurze Endpunktliste.",
       "type": "backend",
       "milestone_id": "SFB-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3409,7 +3413,7 @@
       "description": "Der durch SFB-TURN-008 ausgewaehlte Pool wird ueber den von SFB-BASE-006 belegten LiveKit-ICE/TURN-Konfigurationspfad und den bestehenden Peer-Network-Profile-Pfad verdrahtet; Konfiguration allein gilt erst mit realer Relay-Evidence als aktiv.",
       "type": "infrastructure",
       "milestone_id": "SFB-M6",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -3444,8 +3448,8 @@
       "description": "Ein maschinenlesbares Profil beschreibt reale All-TURN-, Kosten-, Port-, FD-, Credential- und Exhaustion-Szenarien, die das integrierte Gate SFB-GATE-007 ausfuehrt.",
       "type": "configuration",
       "milestone_id": "SFB-M6",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3478,8 +3482,8 @@
       "description": "Ein versionierter Datenkatalog legt fuer jede Broadcastmetrik Zweck, Einheit, Labels, Scope, Retention, Zugriff und Privacyklasse fest.",
       "type": "observability",
       "milestone_id": "SFB-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3506,8 +3510,8 @@
       "description": "Domainservices und Adapter emittieren strukturierte content-free Beobachtungen; ein zentraler Metrics-Sink ist austauschbar und policybegrenzt.",
       "type": "observability",
       "milestone_id": "SFB-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3538,8 +3542,8 @@
       "description": "Security-, E2E-, Chaos- und Lastlaeufe pruefen Logs, Traces, Metrikexports, Dumps und Gateartefakte auf unerlaubte Inhalte.",
       "type": "security",
       "milestone_id": "SFB-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3563,8 +3567,8 @@
       "description": "Ein einziges read-only Hubmodell korreliert Room, Group, Route, Node, Layer, Queue, TURN und Gatezustand fuer Operatoren und begrenzte Nutzerdiagnostik und ersetzt eine separate Group-API.",
       "type": "backend",
       "milestone_id": "SFB-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3593,8 +3597,8 @@
       "description": "Bewusster Start/Stop sowie Data-Saver-, Audio-only- und Quality-Preference-Intents werden als persistente Hub-Kommandos validiert und ueber vorhandene Admission-/Route-State-Machines vollzogen; das Read-Model bleibt read-only.",
       "type": "backend",
       "milestone_id": "SFB-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3637,8 +3641,8 @@
       "description": "Berechtigte Nutzer starten und stoppen Broadcast bewusst und sehen Audience-Zusammenfassung, effektiven Transport, Layer, TURN, Queueing, Reconnect und Reason-Codes ohne Secrets oder fremde Receiverdetails; der bereits breite SemanticSfuPathCoordinator wird nicht weiter aufgeblasen.",
       "type": "frontend",
       "milestone_id": "SFB-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -3686,8 +3690,8 @@
       "description": "Operatoren erkennen Ueberlastung, Security-, Privacy- und Fleetprobleme frueh; ausfuehrbare Incident-, Game-Day- und Rollback-Runbooks gehoeren ausschliesslich zu SFB-GATE-010.",
       "type": "documentation",
       "milestone_id": "SFB-M7",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3717,7 +3721,7 @@
       "description": "Die bestehenden Parent-Harnesses werden um reale Browser, den ausgewaehlten SFU-/TURN-Stack, Broadcast-Fixtures, Fault Injection und synthetische Empfaengerlast erweitert; kein paralleles zweites Harness-Framework entsteht.",
       "type": "testing",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P0",
       "risk": "high",
@@ -3749,8 +3753,8 @@
       "description": "Schemas, Validatoren, Hub-State-Machines, Adapterports und vendorneutrale Queuevertraege werden ohne Real-Container gegen strukturierte Fehlformen und Ressourcenangriffe gefuzzed; der reale Media Plane gehoert zu SFB-GATE-013.",
       "type": "testing",
       "milestone_id": "SFB-M8",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3778,7 +3782,7 @@
       "description": "Der ausgewaehlte gepinnte SFU-Container und seine echten Ingress-/Egressadapter werden ueber den gemeinsamen Harness mit malformed und hochratigem Media-/Transportverkehr belastet.",
       "type": "testing",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -3810,7 +3814,7 @@
       "description": "Adversarial Tests pruefen Hubautoritaet, individuelle Grants, Route-Intents, Nodeidentitaet, E2EE-Opacity und Revocation unter Racebedingungen.",
       "type": "security",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P0",
       "risk": "critical",
@@ -3845,7 +3849,7 @@
       "description": "Die freigegebene Browser-/Plattformmatrix prueft ausschliesslich Advanced-Broadcast-Erweiterungen wie reale Multi-Layer-Publication, Receiver Groups, Layerwechsel und deren sichtbaren Parent-Fallback; Basis-Join, -Rekey und normales SFU bleiben Parent-Gates.",
       "type": "e2e",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -3881,7 +3885,7 @@
       "description": "Ein langer Lauf kombiniert dynamische Membership, Consent, Rekey, Qualitywechsel, Queuepressure und private Recovery und prueft Ressourcen- und Privacygrenzen.",
       "type": "testing",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -3913,7 +3917,7 @@
       "description": "Hub-, Datenbank- und SFU-Fehler werden unter parallelen Rooms und laufender Egresslast injiziert und gegen Placement-/Route-Fencing verifiziert.",
       "type": "testing",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -3944,7 +3948,7 @@
       "description": "TURN-Worst-Case wird mit Churn, Fleetfailover, Layerpolicy und Admission kombiniert, damit lokale Einzelgates keine systemische Amplifikation uebersehen.",
       "type": "testing",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -3970,7 +3974,7 @@
       "description": "Stufenlaeufe messen gewoehnliche und optimierte Pfade; 250 Receiver sind ein Messpunkt und keine vorweggenommene Produktzusage.",
       "type": "benchmark",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -4007,7 +4011,7 @@
       "description": "Benchmarkevidence wird in versionierte konservative Profile uebersetzt; Admission stoppt vor dem kleinsten relevanten sicheren Worst-Case-Limit.",
       "type": "release_gate",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -4044,7 +4048,7 @@
       "description": "Advanced Broadcast wird additiv und cohortweise eingefuehrt; Abschaltung und Rueckfall benoetigen keine destruktive Big-Bang-Migration.",
       "type": "release_gate",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -4077,7 +4081,7 @@
       "description": "Alle nach dem Parent-Supply-Chain-Gate hinzugekommenen SFU-/TURN-Images, Adapter, SDKs, Browserpakete, Composeprofile und Runtimekonfigurationen werden am finalen Child-Source-Hash erneut geprueft.",
       "type": "release_gate",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "critical",
@@ -4108,7 +4112,7 @@
       "description": "Die produktive Broadcast-Steuerung und Diagnostik wird in realen Browsern auf Tastatur, assistive Name-/Role-/Value-/Live-Region-Semantik, kleine Viewports, Touch, Zustandswechsel und einen tatsaechlich gestarteten Media-/Reporter-/Data-Lifecycle geprueft.",
       "type": "e2e",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -4142,7 +4146,7 @@
       "description": "Ein zentraler Runner ordnet schnelle PR-Gates, reale Container-/Browser-Gates, Nightly-Soak/Scale/Chaos und manuelle Game-Days ihren Commands, Artefakten, Timeouts und Cleanupregeln zu.",
       "type": "release_gate",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P1",
       "risk": "high",
@@ -4170,7 +4174,7 @@
       "description": "Ein einziges maschinenlesbares Gate aggregiert Parent-Readiness, Contracts, Security, Privacy, E2E, Chaos, Soak, Capacity, Operations und Rollback ohne Ergebnisse zu erfinden.",
       "type": "release_gate",
       "milestone_id": "SFB-M8",
-      "status": "todo",
+      "status": "partial",
       "progress_percent": 0,
       "priority": "P0",
       "risk": "critical",
@@ -4210,13 +4214,13 @@
   "tasks_status_summary": {
     "total": 103,
     "by_status": {
-      "todo": 69,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 32,
+      "partial": 34,
       "blocked": 0,
-      "done": 2
+      "done": 69
     },
-    "progress_percent_done": 23.64,
+    "progress_percent_done": 66.99,
     "by_priority": {
       "P0": 47,
       "P1": 56,
@@ -4231,16 +4235,16 @@
     },
     "critical_path": {
       "total": 32,
-      "done": 1,
-      "remaining": 31
+      "done": 25,
+      "remaining": 7
     },
     "milestones": {
       "total": 8,
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 5,
+      "partial": 6,
       "blocked": 0,
-      "done": 0
+      "done": 2
     }
   },
   "definition_of_done": [
@@ -4263,224 +4267,224 @@
     "by_type": {
       "architecture": {
         "total": 4,
-        "done": 0,
+        "done": 2,
+        "partial": 2,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 78.8,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 2,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "release_gate": {
+        "total": 7,
+        "done": 2,
+        "partial": 5,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 28.6,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 5,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "configuration": {
+        "total": 8,
+        "done": 8,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 8
+        }
+      },
+      "backend": {
+        "total": 26,
+        "done": 25,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 96.2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 25
+        }
+      },
+      "schema": {
+        "total": 9,
+        "done": 9,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 9
+        }
+      },
+      "security": {
+        "total": 11,
+        "done": 8,
+        "partial": 3,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 72.7,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 3,
+          "blocked": 0,
+          "done": 8
+        }
+      },
+      "testing": {
+        "total": 7,
+        "done": 2,
+        "partial": 5,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 28.6,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 5,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "frontend": {
+        "total": 7,
+        "done": 3,
         "partial": 4,
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 71.3,
+        "progress_percent": 42.9,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 4,
           "blocked": 0,
-          "done": 0
-        }
-      },
-      "release_gate": {
-        "total": 7,
-        "done": 1,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 5,
-        "in_progress": 0,
-        "progress_percent": 25,
-        "by_status": {
-          "todo": 5,
-          "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
-          "done": 1
-        }
-      },
-      "configuration": {
-        "total": 8,
-        "done": 1,
-        "partial": 3,
-        "blocked": 0,
-        "todo": 4,
-        "in_progress": 0,
-        "progress_percent": 38.1,
-        "by_status": {
-          "todo": 4,
-          "in_progress": 0,
-          "partial": 3,
-          "blocked": 0,
-          "done": 1
-        }
-      },
-      "backend": {
-        "total": 26,
-        "done": 0,
-        "partial": 7,
-        "blocked": 0,
-        "todo": 19,
-        "in_progress": 0,
-        "progress_percent": 18.3,
-        "by_status": {
-          "todo": 19,
-          "in_progress": 0,
-          "partial": 7,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "schema": {
-        "total": 9,
-        "done": 0,
-        "partial": 9,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 72.8,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 0,
-          "partial": 9,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "security": {
-        "total": 11,
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "todo": 9,
-        "in_progress": 0,
-        "progress_percent": 13.2,
-        "by_status": {
-          "todo": 9,
-          "in_progress": 0,
-          "partial": 2,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "testing": {
-        "total": 7,
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 6,
-        "in_progress": 0,
-        "progress_percent": 10,
-        "by_status": {
-          "todo": 6,
-          "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "frontend": {
-        "total": 7,
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 6,
-        "in_progress": 0,
-        "progress_percent": 10,
-        "by_status": {
-          "todo": 6,
-          "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "infrastructure": {
         "total": 11,
-        "done": 0,
-        "partial": 3,
+        "done": 3,
+        "partial": 8,
         "blocked": 0,
-        "todo": 8,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 16.8,
+        "progress_percent": 31.4,
         "by_status": {
-          "todo": 8,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 3,
+          "partial": 8,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "integration": {
         "total": 1,
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0,
+        "progress_percent": 0.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         }
       },
       "transport": {
         "total": 3,
-        "done": 0,
+        "done": 2,
         "partial": 1,
         "blocked": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 23.3,
+        "progress_percent": 66.7,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "observability": {
         "total": 5,
-        "done": 0,
-        "partial": 0,
+        "done": 4,
+        "partial": 1,
         "blocked": 0,
-        "todo": 5,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0,
+        "progress_percent": 80.0,
         "by_status": {
-          "todo": 5,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
-          "done": 0
+          "done": 4
         }
       },
       "documentation": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "e2e": {
         "total": 2,
         "done": 0,
-        "partial": 0,
+        "partial": 2,
         "blocked": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0,
+        "progress_percent": 0.0,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 2,
           "blocked": 0,
           "done": 0
         }
@@ -4488,15 +4492,15 @@
       "benchmark": {
         "total": 1,
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0,
+        "progress_percent": 0.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         }
@@ -4505,12 +4509,12 @@
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 69,
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 32,
+    "partial": 34,
     "blocked": 0,
-    "done": 2,
-    "milestones_done": 0,
+    "done": 69,
+    "milestones_done": 2,
     "milestones_total": 8
   }
 }
