@@ -1,0 +1,60 @@
+{
+  "policy_id": "ananta.sfu-fanout-traffic-projection",
+  "policy_version": "ananta.sfu-fanout-traffic-projection.v1",
+  "parent_contract": {
+    "schema_id": "https://ananta.local/schemas/webrtc/datachannel_message.v1.json",
+    "schema_version": "ananta.webrtc-datachannel.v1",
+    "message_kind_field": "traffic_class"
+  },
+  "payload_inspection": "forbidden",
+  "fail_closed_defaults": {
+    "route_class": "forbidden_for_sfu",
+    "privacy_scope": "sfu_forbidden",
+    "unknown_kind_reason_code": "unknown_parent_message_kind",
+    "unsupported_schema_reason_code": "unsupported_parent_schema_version"
+  },
+  "classifications": [
+    {
+      "parent_message_kind": "control",
+      "parent_schema_version": "ananta.webrtc-datachannel.v1",
+      "privacy_scope": "authorized_group",
+      "route_class": "shared",
+      "reason_code": "group_control_contract"
+    },
+    {
+      "parent_message_kind": "transcript",
+      "parent_schema_version": "ananta.webrtc-datachannel.v1",
+      "privacy_scope": "authorized_group",
+      "route_class": "shared",
+      "reason_code": "group_transcript_contract"
+    },
+    {
+      "parent_message_kind": "audio_recovery",
+      "parent_schema_version": "ananta.webrtc-datachannel.v1",
+      "privacy_scope": "authorized_sender_receiver_pair",
+      "route_class": "pair_private",
+      "reason_code": "raw_audio_pair_only"
+    },
+    {
+      "parent_message_kind": "visual_semantic",
+      "parent_schema_version": "ananta.webrtc-datachannel.v1",
+      "privacy_scope": "authorized_receiver",
+      "route_class": "receiver_private",
+      "reason_code": "visual_residual_receiver_only"
+    },
+    {
+      "parent_message_kind": "evidence_bulk",
+      "parent_schema_version": "ananta.webrtc-datachannel.v1",
+      "privacy_scope": "sfu_forbidden",
+      "route_class": "forbidden_for_sfu",
+      "reason_code": "evidence_not_permitted_on_sfu"
+    },
+    {
+      "parent_message_kind": "diagnostic",
+      "parent_schema_version": "ananta.webrtc-datachannel.v1",
+      "privacy_scope": "authorized_receiver",
+      "route_class": "receiver_private",
+      "reason_code": "diagnostic_receiver_only"
+    }
+  ]
+}

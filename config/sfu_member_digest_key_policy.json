@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "purpose": "sfu-member-non-media-digest",
+  "algorithm": "HMAC-SHA256",
+  "kdf": "HKDF-SHA256",
+  "digest_bytes": 32,
+  "content_key_reuse_forbidden": true,
+  "identifiers": {
+    "key_id_pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+    "scope_pattern": "^[A-Za-z0-9][A-Za-z0-9:/._-]{0,255}$",
+    "wildcard_scope_allowed": false
+  },
+  "limits": {
+    "minimum_secret_bytes": 32,
+    "maximum_member_identifier_bytes": 1024
+  },
+  "rotation": {
+    "states": [
+      "generation",
+      "active",
+      "dual_read",
+      "retired",
+      "destroyed"
+    ],
+    "maximum_active_seconds": 604800,
+    "maximum_dual_read_seconds": 86400,
+    "generation_can_sign": false,
+    "dual_read_can_sign": false,
+    "retired_can_verify": false,
+    "destroyed_secret_must_be_absent": true
+  }
+}
