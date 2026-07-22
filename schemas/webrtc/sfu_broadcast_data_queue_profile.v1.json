@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.invalid/schemas/webrtc/sfu_broadcast_data_queue_profile.v1.json",
+  "title": "SFU broadcast bounded data queue profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "profile_id",
+    "profile_version",
+    "payload_inspection",
+    "accounting",
+    "per_destination_class",
+    "aggregate_limits",
+    "traffic_kinds",
+    "reason_codes",
+    "cleanup"
+  ],
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+    "profile_version": { "const": "1.0.0" },
+    "payload_inspection": { "const": "forbidden" },
+    "accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "queue_bytes_unit",
+        "buffered_duration_unit",
+        "chunk_count_unit"
+      ],
+      "properties": {
+        "queue_bytes_unit": { "const": "encoded_wire_bytes_before_publish" },
+        "buffered_duration_unit": { "const": "milliseconds" },
+        "chunk_count_unit": { "const": "application_chunks_before_publish" }
+      }
+    },
+    "per_destination_class": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interrupt",
+        "private_recovery",
+        "transcript_revision",
+        "control_hint",
+        "shared_reference"
+      ],
+      "properties": {
+        "interrupt": { "$ref": "#/$defs/class_profile" },
+        "private_recovery": { "$ref": "#/$defs/class_profile" },
+        "transcript_revision": { "$ref": "#/$defs/class_profile" },
+        "control_hint": { "$ref": "#/$defs/class_profile" },
+        "shared_reference": { "$ref": "#/$defs/class_profile" }
+      }
+    },
+    "aggregate_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["room", "browser_instance", "hub_send_data_adapter"],
+      "properties": {
+        "room": { "$ref": "#/$defs/aggregate_limits" },
+        "browser_instance": { "$ref": "#/$defs/aggregate_limits" },
+        "hub_send_data_adapter": { "$ref": "#/$defs/aggregate_limits" }
+      }
+    },
+    "traffic_kinds": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/traffic_kind" }
+    },
+    "reason_codes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accepted",
+        "accepted_after_priority_eviction",
+        "coalesced",
+        "unknown_traffic_kind",
+        "forbidden_traffic_kind",
+        "invalid_metadata",
+        "blocked_timeout",
+        "cleanup_expired"
+      ],
+      "properties": {
+        "accepted": { "$ref": "#/$defs/reason_code" },
+        "accepted_after_priority_eviction": { "$ref": "#/$defs/reason_code" },
+        "coalesced": { "$ref": "#/$defs/reason_code" },
+        "unknown_traffic_kind": { "$ref": "#/$defs/reason_code" },
+        "forbidden_traffic_kind": { "$ref": "#/$defs/reason_code" },
+        "invalid_metadata": { "$ref": "#/$defs/reason_code" },
+        "blocked_timeout": { "$ref": "#/$defs/reason_code" },
+        "cleanup_expired": { "$ref": "#/$defs/reason_code" }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sweep_interval_ms", "disconnect_after_blocked_ms"],
+      "properties": {
+        "sweep_interval_ms": { "type": "integer", "minimum": 10, "maximum": 1000 },
+        "disconnect_after_blocked_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 60000
+        }
+      }
+    }
+  },
+  "$defs": {
+    "reason_code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,95}$"
+    },
+    "queue_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "queue_bytes_max",
+        "messages_max",
+        "age_ms_max",
+        "buffered_duration_ms_max",
+        "chunk_count_max"
+      ],
+      "properties": {
+        "queue_bytes_max": { "type": "integer", "minimum": 1, "maximum": 8388608 },
+        "messages_max": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "age_ms_max": { "type": "integer", "minimum": 1, "maximum": 60000 },
+        "buffered_duration_ms_max": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600000
+        },
+        "chunk_count_max": { "type": "integer", "minimum": 1, "maximum": 8192 }
+      }
+    },
+    "aggregate_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "queue_bytes_max",
+        "messages_max",
+        "buffered_duration_ms_max",
+        "chunk_count_max"
+      ],
+      "properties": {
+        "queue_bytes_max": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+        "messages_max": { "type": "integer", "minimum": 1, "maximum": 8192 },
+        "buffered_duration_ms_max": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1200000
+        },
+        "chunk_count_max": { "type": "integer", "minimum": 1, "maximum": 16384 }
+      }
+    },
+    "class_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "priority",
+        "overflow_action",
+        "overflow_reason_code",
+        "coalesce_key_required",
+        "limits"
+      ],
+      "properties": {
+        "priority": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "overflow_action": {
+          "enum": ["coalesce", "drop", "layer_downshift", "disconnect"]
+        },
+        "overflow_reason_code": { "$ref": "#/$defs/reason_code" },
+        "coalesce_key_required": { "type": "boolean" },
+        "limits": { "$ref": "#/$defs/queue_limits" }
+      }
+    },
+    "traffic_kind": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "traffic_kind",
+        "traffic_class",
+        "authority",
+        "delivery_scope",
+        "allowed",
+        "reason_code"
+      ],
+      "properties": {
+        "traffic_kind": {
+          "enum": [
+            "control_hint",
+            "interrupt",
+            "transcript_revision",
+            "shared_reference",
+            "private_recovery",
+            "authoritative_membership_mutation",
+            "authoritative_key_mutation",
+            "training_payload",
+            "dataset_payload",
+            "model_adapter_payload",
+            "evidence_payload"
+          ]
+        },
+        "traffic_class": {
+          "type": ["string", "null"],
+          "enum": [
+            "control_hint",
+            "interrupt",
+            "transcript_revision",
+            "shared_reference",
+            "private_recovery",
+            null
+          ]
+        },
+        "authority": { "enum": ["non_authoritative", "authoritative", "prohibited_payload"] },
+        "delivery_scope": {
+          "enum": [
+            "authorized_group",
+            "authorized_receiver",
+            "authorized_sender_receiver_pair",
+            "forbidden"
+          ]
+        },
+        "allowed": { "type": "boolean" },
+        "reason_code": { "$ref": "#/$defs/reason_code" }
+      }
+    }
+  }
+}

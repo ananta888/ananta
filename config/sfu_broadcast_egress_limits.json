@@ -1,0 +1,202 @@
+{
+  "$schema": "../schemas/webrtc/sfu_broadcast_data_queue_profile.v1.json",
+  "profile_id": "sfu-broadcast-data-queue-default",
+  "profile_version": "1.0.0",
+  "payload_inspection": "forbidden",
+  "accounting": {
+    "queue_bytes_unit": "encoded_wire_bytes_before_publish",
+    "buffered_duration_unit": "milliseconds",
+    "chunk_count_unit": "application_chunks_before_publish"
+  },
+  "per_destination_class": {
+    "interrupt": {
+      "priority": 0,
+      "overflow_action": "coalesce",
+      "overflow_reason_code": "SFB_DATA_INTERRUPT_COALESCE_REQUIRED",
+      "coalesce_key_required": true,
+      "limits": {
+        "queue_bytes_max": 16384,
+        "messages_max": 8,
+        "age_ms_max": 750,
+        "buffered_duration_ms_max": 1000,
+        "chunk_count_max": 16
+      }
+    },
+    "private_recovery": {
+      "priority": 1,
+      "overflow_action": "disconnect",
+      "overflow_reason_code": "SFB_DATA_PRIVATE_RECOVERY_DISCONNECT",
+      "coalesce_key_required": false,
+      "limits": {
+        "queue_bytes_max": 32768,
+        "messages_max": 4,
+        "age_ms_max": 1500,
+        "buffered_duration_ms_max": 2000,
+        "chunk_count_max": 32
+      }
+    },
+    "transcript_revision": {
+      "priority": 2,
+      "overflow_action": "coalesce",
+      "overflow_reason_code": "SFB_DATA_TRANSCRIPT_COALESCE_REQUIRED",
+      "coalesce_key_required": true,
+      "limits": {
+        "queue_bytes_max": 65536,
+        "messages_max": 16,
+        "age_ms_max": 2000,
+        "buffered_duration_ms_max": 4000,
+        "chunk_count_max": 64
+      }
+    },
+    "control_hint": {
+      "priority": 3,
+      "overflow_action": "drop",
+      "overflow_reason_code": "SFB_DATA_CONTROL_HINT_DROPPED",
+      "coalesce_key_required": false,
+      "limits": {
+        "queue_bytes_max": 32768,
+        "messages_max": 16,
+        "age_ms_max": 1000,
+        "buffered_duration_ms_max": 2000,
+        "chunk_count_max": 32
+      }
+    },
+    "shared_reference": {
+      "priority": 4,
+      "overflow_action": "layer_downshift",
+      "overflow_reason_code": "SFB_DATA_SHARED_REFERENCE_LAYER_DOWNSHIFT",
+      "coalesce_key_required": false,
+      "limits": {
+        "queue_bytes_max": 131072,
+        "messages_max": 32,
+        "age_ms_max": 5000,
+        "buffered_duration_ms_max": 8000,
+        "chunk_count_max": 128
+      }
+    }
+  },
+  "aggregate_limits": {
+    "room": {
+      "queue_bytes_max": 524288,
+      "messages_max": 256,
+      "buffered_duration_ms_max": 30000,
+      "chunk_count_max": 512
+    },
+    "browser_instance": {
+      "queue_bytes_max": 1048576,
+      "messages_max": 512,
+      "buffered_duration_ms_max": 60000,
+      "chunk_count_max": 1024
+    },
+    "hub_send_data_adapter": {
+      "queue_bytes_max": 4194304,
+      "messages_max": 2048,
+      "buffered_duration_ms_max": 240000,
+      "chunk_count_max": 4096
+    }
+  },
+  "traffic_kinds": [
+    {
+      "traffic_kind": "control_hint",
+      "traffic_class": "control_hint",
+      "authority": "non_authoritative",
+      "delivery_scope": "authorized_group",
+      "allowed": true,
+      "reason_code": "SFB_DATA_KIND_CONTROL_HINT_ALLOWED"
+    },
+    {
+      "traffic_kind": "interrupt",
+      "traffic_class": "interrupt",
+      "authority": "non_authoritative",
+      "delivery_scope": "authorized_sender_receiver_pair",
+      "allowed": true,
+      "reason_code": "SFB_DATA_KIND_INTERRUPT_ALLOWED"
+    },
+    {
+      "traffic_kind": "transcript_revision",
+      "traffic_class": "transcript_revision",
+      "authority": "non_authoritative",
+      "delivery_scope": "authorized_group",
+      "allowed": true,
+      "reason_code": "SFB_DATA_KIND_TRANSCRIPT_REVISION_ALLOWED"
+    },
+    {
+      "traffic_kind": "shared_reference",
+      "traffic_class": "shared_reference",
+      "authority": "non_authoritative",
+      "delivery_scope": "authorized_group",
+      "allowed": true,
+      "reason_code": "SFB_DATA_KIND_SHARED_REFERENCE_ALLOWED"
+    },
+    {
+      "traffic_kind": "private_recovery",
+      "traffic_class": "private_recovery",
+      "authority": "non_authoritative",
+      "delivery_scope": "authorized_receiver",
+      "allowed": true,
+      "reason_code": "SFB_DATA_KIND_PRIVATE_RECOVERY_ALLOWED"
+    },
+    {
+      "traffic_kind": "authoritative_membership_mutation",
+      "traffic_class": null,
+      "authority": "authoritative",
+      "delivery_scope": "forbidden",
+      "allowed": false,
+      "reason_code": "SFB_DATA_KIND_MEMBERSHIP_FORBIDDEN"
+    },
+    {
+      "traffic_kind": "authoritative_key_mutation",
+      "traffic_class": null,
+      "authority": "authoritative",
+      "delivery_scope": "forbidden",
+      "allowed": false,
+      "reason_code": "SFB_DATA_KIND_KEY_MUTATION_FORBIDDEN"
+    },
+    {
+      "traffic_kind": "training_payload",
+      "traffic_class": null,
+      "authority": "prohibited_payload",
+      "delivery_scope": "forbidden",
+      "allowed": false,
+      "reason_code": "SFB_DATA_KIND_TRAINING_FORBIDDEN"
+    },
+    {
+      "traffic_kind": "dataset_payload",
+      "traffic_class": null,
+      "authority": "prohibited_payload",
+      "delivery_scope": "forbidden",
+      "allowed": false,
+      "reason_code": "SFB_DATA_KIND_DATASET_FORBIDDEN"
+    },
+    {
+      "traffic_kind": "model_adapter_payload",
+      "traffic_class": null,
+      "authority": "prohibited_payload",
+      "delivery_scope": "forbidden",
+      "allowed": false,
+      "reason_code": "SFB_DATA_KIND_ADAPTER_FORBIDDEN"
+    },
+    {
+      "traffic_kind": "evidence_payload",
+      "traffic_class": null,
+      "authority": "prohibited_payload",
+      "delivery_scope": "forbidden",
+      "allowed": false,
+      "reason_code": "SFB_DATA_KIND_EVIDENCE_FORBIDDEN"
+    }
+  ],
+  "reason_codes": {
+    "accepted": "SFB_DATA_QUEUE_ACCEPTED",
+    "accepted_after_priority_eviction": "SFB_DATA_QUEUE_PRIORITY_EVICTION",
+    "coalesced": "SFB_DATA_QUEUE_COALESCED",
+    "unknown_traffic_kind": "SFB_DATA_KIND_UNKNOWN",
+    "forbidden_traffic_kind": "SFB_DATA_KIND_FORBIDDEN",
+    "invalid_metadata": "SFB_DATA_METADATA_INVALID",
+    "blocked_timeout": "SFB_DATA_ADAPTER_BLOCKED_TIMEOUT",
+    "cleanup_expired": "SFB_DATA_QUEUE_EXPIRED"
+  },
+  "cleanup": {
+    "sweep_interval_ms": 250,
+    "disconnect_after_blocked_ms": 10000
+  }
+}
