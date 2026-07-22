@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
 
 import { AgentDirectoryService } from '../../services/agent-directory.service';
-import { LivekitSfuTransportService } from '../../services/livekit-sfu-transport.service';
+import { SFU_TRANSPORT_PROJECTION } from '../../services/livekit-sfu-transport.service';
 import { MobileRuntimeService } from '../../services/mobile-runtime.service';
 import { NetworkProfileService } from '../../services/network-profile.service';
 import { SemanticReceiverPathService } from '../../services/semantic-receiver-path.service';
@@ -185,8 +185,10 @@ describe('SemanticMediaProgramFacade', () => {
       { provide: SemanticSpeechCaptureProducerService, useValue: speechProducer },
       { provide: SemanticSpeechQualityControllerService, useValue: { state$: qualityState$ } },
       { provide: SemanticComputeIntentFacade, useValue: compute },
-      { provide: LivekitSfuTransportService, useValue: {
-        state$: sfuState$, authorizedSubscriberIds: () => new Set(['bob']),
+      { provide: SFU_TRANSPORT_PROJECTION, useValue: {
+        state$: sfuState$.asObservable(),
+        currentState: () => sfuState$.value,
+        authorizedSubscriberIds: () => new Set(['bob']),
       } },
       { provide: MobileRuntimeService, useValue: { online$: runtimeOnline$ } },
       { provide: SpeechEvidenceSyncService, useValue: evidence },

@@ -2,7 +2,10 @@ import { Injectable, OnDestroy, inject } from '@angular/core';
 import { BehaviorSubject, firstValueFrom, forkJoin, Subscription, take, timeout } from 'rxjs';
 
 import { AgentDirectoryService } from '../../services/agent-directory.service';
-import { LivekitSfuTransportService } from '../../services/livekit-sfu-transport.service';
+import {
+  SFU_TRANSPORT_PROJECTION,
+  type SfuTransportProjectionPort,
+} from '../../services/livekit-sfu-transport.service';
 import { MobileRuntimeService } from '../../services/mobile-runtime.service';
 import { NetworkProfile, NetworkProfileService } from '../../services/network-profile.service';
 import {
@@ -131,7 +134,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private readonly speechQualityController = inject(SemanticSpeechQualityControllerService);
   private readonly compute = inject(SemanticComputeIntentFacade);
   private readonly receiverPaths = inject(SemanticReceiverPathService);
-  private readonly sfu = inject(LivekitSfuTransportService);
+  private readonly sfu: SfuTransportProjectionPort = inject(SFU_TRANSPORT_PROJECTION);
   private readonly sfuCoordinator = inject(SemanticSfuPathCoordinatorService);
   private readonly media = inject(WebrtcMediaSessionService);
   private readonly mediaPublications = inject(WebrtcMediaPublicationService);
@@ -623,7 +626,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       .map(participant => ({ receiverId: participant.user_id, label: participant.user_id }));
     this.receiverPaths.setReceivers(participants);
     this.receiverPaths.setHubState({
-      sfuConnected: this.sfu.state$.value.status === 'connected',
+      sfuConnected: this.sfu.currentState().status === 'connected',
       sfuAuthorizedReceiverIds: this.sfu.authorizedSubscriberIds(),
       sfuFeatureEnabled: this.profile.semantic_media_feature_flags.semantic_media_sfu,
     });
