@@ -1,0 +1,271 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "id": "todo.hermes-inspired-kanban-model-dashboard-angular-tui",
+  "title": "Hermes-inspiriertes Kanban und Modelle-Dashboard fuer Angular und TUI",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "hermes-inspired-kanban-model-dashboard-angular-tui",
+  "status": "todo",
+  "created_at": "2026-07-23",
+  "updated_at": "2026-07-23",
+  "purpose": "Eine gemeinsame, quellcodekonforme Ananta-Domaene fuer ein Hermes-inspiriertes Multi-Agent-Kanban und eine kompakte Modelle-Uebersicht schaffen, die im Angular-Dashboard und in der prompt_toolkit-basierten Operator-TUI per Tastatur und Maus bedienbar ist.",
+  "goal": "Angular und TUI verwenden dieselben versionierten Backend-Vertraege, Autorisierungsregeln, Revisionsmechanismen und Model-Catalog-Daten. Angular erhaelt ein responsives Drag-and-drop-Board und ein Modelle-Dashboard; die TUI ein robustes klickbares Menue ohne zwingendes Terminal-Drag-and-drop.",
+  "repository_baseline": {
+    "angular": [
+      "frontend-angular/package.json verwendet Angular 21.2.x, RxJS 7.8.2, Angular CDK 21.2.14, Vitest und Playwright.",
+      "Vorhandene Modell- und Provider-Routen liegen unter agent/routes/config/read_models.py und agent/routes/config/providers.py.",
+      "Unter frontend-angular/src/app/features/model-training existieren bereits modellbezogene Komponenten und Tests."
+    ],
+    "tui": [
+      "client_surfaces/operator_tui/interactive.py basiert auf prompt_toolkit.",
+      "Mausunterstuetzung, MouseState, RegionTarget/build_region_index, Sections, Tabs und Plugins sind vorhanden.",
+      "Die TUI besitzt asynchrone Worker- und Refresh-Muster sowie mehrere Renderer- und Output-Adapter."
+    ],
+    "backend": [
+      "pyproject.toml enthaelt Flask, SQLModel, Alembic, Pydantic, prompt_toolkit und Flask-Sock.",
+      "Task-, Goal-, Worker- und Runtime-Bereiche werden integriert statt dupliziert."
+    ]
+  },
+  "scope": {
+    "included": [
+      "Kanonische Kanban-Domaene, Persistenz, REST und Live-Events",
+      "Angular Kanban, Kartendetail, Filter und Modelle-Dashboard",
+      "TUI Kanban-Menue, Modelle-Menue, Maus- und Tastaturbedienung",
+      "Worker-Zuweisung mit expliziter Startpolicy",
+      "Todo-JSON-Import als kontrollierte Projektion",
+      "Security, Observability, Performance, Tests und Rollout"
+    ],
+    "excluded": [
+      "Kein pixelgenauer Hermes-Klon",
+      "Kein automatischer Agentenstart allein durch Kartenverschiebung",
+      "Kein zwingendes Drag-and-drop im Terminal",
+      "Keine zweite Provider-, Credential- oder Modellkonfigurationsquelle",
+      "Keine direkten Persistenzschreibzugriffe ausserhalb der Domain-Services"
+    ]
+  },
+  "architecture_invariants": [
+    "Der Backend-Domain-Service ist alleinige Schreibautoritaet fuer Board- und Kartenstatus.",
+    "Angular und TUI teilen DTOs, Statuswerte, Transitionen und Fehlersemantik.",
+    "Provider-Secrets werden nie an Angular oder TUI ausgeliefert.",
+    "Worker aktualisieren Karten nur ueber autorisierte Domain-Kommandos.",
+    "Alle Schreiboperationen sind revisionsgesichert und auditiert.",
+    "Jede TUI-Funktion bleibt ohne Maus per Tastatur erreichbar.",
+    "Feature-Flags sind default-false und erlauben getrennten Rollout."
+  ],
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {"id": "M1", "title": "Architektur und Vertraege", "status": "todo", "task_ids": ["HKM-ARCH-001", "HKM-ARCH-002", "HKM-ARCH-003"]},
+    {"id": "M2", "title": "Gemeinsames Backend und APIs", "status": "todo", "task_ids": ["HKM-BE-001", "HKM-BE-002", "HKM-BE-003", "HKM-BE-004", "HKM-BE-005", "HKM-BE-006", "HKM-BE-007", "HKM-BE-008"]},
+    {"id": "M3", "title": "Angular Kanban und Modelle-Dashboard", "status": "todo", "task_ids": ["HKM-NG-001", "HKM-NG-002", "HKM-NG-003", "HKM-NG-004", "HKM-NG-005", "HKM-NG-006", "HKM-NG-007", "HKM-NG-008"]},
+    {"id": "M4", "title": "Mausfaehige Ananta-TUI", "status": "todo", "task_ids": ["HKM-TUI-001", "HKM-TUI-002", "HKM-TUI-003", "HKM-TUI-004", "HKM-TUI-005", "HKM-TUI-006"]},
+    {"id": "M5", "title": "Cross-Surface- und Worker-Integration", "status": "todo", "task_ids": ["HKM-INT-001", "HKM-INT-002", "HKM-INT-003", "HKM-INT-004"]},
+    {"id": "M6", "title": "Security, Betrieb und Release", "status": "todo", "task_ids": ["HKM-SEC-001", "HKM-SEC-002", "HKM-OPS-001", "HKM-OPS-002", "HKM-REL-001"]}
+  ],
+  "critical_path_tasks": ["HKM-ARCH-001", "HKM-ARCH-002", "HKM-ARCH-003", "HKM-BE-001", "HKM-BE-002", "HKM-BE-003", "HKM-BE-004", "HKM-BE-006", "HKM-BE-007", "HKM-NG-001", "HKM-NG-002", "HKM-NG-003", "HKM-NG-006", "HKM-NG-008", "HKM-TUI-001", "HKM-TUI-002", "HKM-TUI-003", "HKM-TUI-004", "HKM-TUI-006", "HKM-INT-001", "HKM-SEC-001", "HKM-SEC-002", "HKM-REL-001"],
+  "tasks": [
+    {
+      "id": "HKM-ARCH-001", "title": "Ist-Analyse und verbindliche Architekturentscheidung", "milestone": "M1", "type": "architecture", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": [],
+      "code_anchors": ["frontend-angular/package.json", "agent/routes/config/read_models.py", "agent/routes/config/providers.py", "client_surfaces/operator_tui/interactive.py", "client_surfaces/operator_tui/sections.py", "client_surfaces/operator_tui/plugins.py", "client_surfaces/operator_tui/region_index.py"],
+      "acceptance_criteria": ["Ein ADR belegt alle vorhandenen Angular-, Backend- und TUI-Erweiterungspunkte mit konkreten Dateipfaden.", "Das ADR legt eine gemeinsame Domain- und API-Wahrheit fuer Angular und TUI fest.", "Persistenz, Live-Updates, Berechtigungen, Audit, Feature-Flags und Hermes-Lizenzgrenzen sind entschieden."]
+    },
+    {
+      "id": "HKM-ARCH-002", "title": "Kanonische Kanban- und Model-Dashboard-Vertraege", "milestone": "M1", "type": "contract", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-ARCH-001"],
+      "code_anchors": ["ananta_contracts/", "agent/routes/config/read_models.py", "agent/routes/config/providers.py"],
+      "acceptance_criteria": ["Versionierte Pydantic-Vertraege existieren fuer Board, Spalte, Karte, Kommentar, Abhaengigkeit, Aktivitaet und Modellstatus.", "ModelSummary trennt Provider, Runtime, Modell-ID, Verfuegbarkeit, geladenen Zustand, Kontextfenster, Quantisierung, Faehigkeiten und Health.", "Contract-Tests verhindern inkompatible Feld-, Enum- und Fehleraenderungen."]
+    },
+    {
+      "id": "HKM-ARCH-003", "title": "Feature-Flag- und Rollout-Vertrag", "milestone": "M1", "type": "governance", "status": "todo", "priority": "P0", "risk": "medium", "progress_percent": 0, "depends_on": ["HKM-ARCH-001"],
+      "code_anchors": ["agent/config.py", "agent/routes/config/settings.py", ".env.example"],
+      "acceptance_criteria": ["Getrennte default-false Flags existieren fuer Angular-Kanban, Angular-Model-Dashboard, TUI-Kanban und TUI-Model-Menue.", "Deaktivierte Endpunkte und UI-Einstiege verhalten sich dokumentiert fail-closed.", "Tests decken Default, gezielte Aktivierung und ungueltige Werte ab."]
+    },
+    {
+      "id": "HKM-BE-001", "title": "Persistenz fuer Boards, Spalten und Karten", "milestone": "M2", "type": "backend", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-ARCH-002"],
+      "code_anchors": ["agent/repositories/", "agent/services/", "alembic/"],
+      "acceptance_criteria": ["SQLModel-Entitaeten und Alembic-Migrationen existieren fuer Boards, Spalten, Karten und Revisionen.", "Positionen werden deterministisch und transaktional gespeichert; Optimistic Locking verhindert stilles Ueberschreiben.", "Upgrade, Downgrade, Parallelverschiebung und Loeschpolicy sind automatisiert getestet."]
+    },
+    {
+      "id": "HKM-BE-002", "title": "Kommentare, Aktivitaet und Abhaengigkeiten", "milestone": "M2", "type": "backend", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-BE-001"],
+      "code_anchors": ["agent/repositories/", "agent/services/"],
+      "acceptance_criteria": ["Kommentare besitzen stabile ID, Autor, Zeitstempel und Bearbeitungsstatus.", "Jede Status-, Positions-, Zuweisungs- und Abhaengigkeitsaenderung erzeugt ein Audit-Ereignis.", "Zyklische Abhaengigkeiten werden abgelehnt und harte Blocker sind nachvollziehbar ableitbar."]
+    },
+    {
+      "id": "HKM-BE-003", "title": "Kanban-Domain-Service mit atomaren Kommandos", "milestone": "M2", "type": "backend", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-BE-001", "HKM-BE-002"],
+      "code_anchors": ["agent/services/", "agent/routes/tasks/"],
+      "acceptance_criteria": ["Domain-Kommandos existieren fuer createBoard, createCard, moveCard, assignCard, commentCard, blockCard und completeCard.", "Alle Schreiboperationen validieren Berechtigung, Revision und Transition serverseitig.", "moveCard ist atomar; Konflikt-, Idempotenz- und Parallelfaelle sind getestet."]
+    },
+    {
+      "id": "HKM-BE-004", "title": "Versionierte Kanban-REST-API", "milestone": "M2", "type": "api", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-BE-003"],
+      "code_anchors": ["agent/routes/tasks/", "api-spec.md", "docs/backend.md"],
+      "acceptance_criteria": ["Endpunkte listen Boards, Karten, Kommentare und Aktivitaeten mit Pagination und stabiler Sortierung.", "Schreibendpunkte verwenden ausschliesslich Domain-Kommandos.", "Validation, Forbidden, Not Found und Revision Conflict besitzen dokumentierte Fehlervertraege und Route-Tests."]
+    },
+    {
+      "id": "HKM-BE-005", "title": "Live-Update-Kanal fuer Board-Aenderungen", "milestone": "M2", "type": "realtime", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-BE-003"],
+      "code_anchors": ["agent/", "frontend-angular/src/app/"],
+      "acceptance_criteria": ["Aenderungen werden ueber bestehende WebSocket-/Flask-Sock-Infrastruktur oder begruendetes SSE publiziert.", "Events enthalten Board-ID, Ereignistyp, Revision und minimale Payload.", "Reconnect, Deduplizierung, Revisionsluecke und REST-Fallback sind getestet."]
+    },
+    {
+      "id": "HKM-BE-006", "title": "Autorisierung und Mandantengrenzen", "milestone": "M2", "type": "security", "status": "todo", "priority": "P0", "risk": "critical", "progress_percent": 0, "depends_on": ["HKM-BE-004"],
+      "code_anchors": ["agent/routes/", "agent/services/"],
+      "acceptance_criteria": ["Lesen, Bearbeiten, Zuweisen, Worker-Start und Administration sind getrennte Capabilities.", "Board-, Karten- und Modellaktionen validieren Identitaet und Mandantenzuordnung.", "Security-Tests pruefen IDOR, Rolleneskalation, fremde IDs und Audit ohne Secrets."]
+    },
+    {
+      "id": "HKM-BE-007", "title": "Model-Catalog-Service ueber vorhandene Provider-Routen", "milestone": "M2", "type": "backend", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-ARCH-002"],
+      "code_anchors": ["agent/routes/config/read_models.py", "agent/routes/config/providers.py", "agent/config.py"],
+      "acceptance_criteria": ["Der Service aggregiert vorhandene Provider- und Modellquellen statt paralleler Logik.", "Providerfehler werden isoliert; lokale und Cloud-Modelle liefern dieselbe ModelSummary-Struktur.", "Credentials und Tokens verlassen den Service nie; Fake-Provider decken Tests ab."]
+    },
+    {
+      "id": "HKM-BE-008", "title": "Sichere Modellaktionen und Default-Auswahl", "milestone": "M2", "type": "backend", "status": "todo", "priority": "P1", "risk": "critical", "progress_percent": 0, "depends_on": ["HKM-BE-006", "HKM-BE-007"],
+      "code_anchors": ["agent/routes/config/", "agent/services/"],
+      "acceptance_criteria": ["refresh, load, unload und setDefault sind capability-geprueft und providerspezifisch begrenzt.", "Default-Aenderungen sind atomar, auditiert und ruecklesbar.", "Keine UI kann freie Shell-Kommandos, URLs oder Modellpfade durchreichen; Negativtests belegen dies."]
+    },
+    {
+      "id": "HKM-NG-001", "title": "Angular Feature-Shell, Navigation und Routing", "milestone": "M3", "type": "frontend", "status": "todo", "priority": "P0", "risk": "medium", "progress_percent": 0, "depends_on": ["HKM-ARCH-003", "HKM-BE-004", "HKM-BE-007"],
+      "code_anchors": ["frontend-angular/src/app/"],
+      "acceptance_criteria": ["Lazy geladene Routen fuer Kanban und Modelle sind in bestehende Navigation integriert.", "Feature-Flags und Berechtigungen steuern Navigation und direkten Routenzugriff.", "Routing-Tests pruefen aktiviert, deaktiviert, unauthorisiert und bestehende Routenregressionen."]
+    },
+    {
+      "id": "HKM-NG-002", "title": "Typed API-Clients und zentraler UI-Zustand", "milestone": "M3", "type": "frontend", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-NG-001", "HKM-BE-005"],
+      "code_anchors": ["frontend-angular/src/app/"],
+      "acceptance_criteria": ["Typed Services kapseln Kanban- und Model-Catalog-Endpunkte.", "Boardzustand, Ladefehler und Live-Revision liegen in klar begrenzten Stores/Services.", "Optimistische Aenderungen, 409-Rollback, Reconnect und Subscription-Cleanup sind getestet."]
+    },
+    {
+      "id": "HKM-NG-003", "title": "Hermes-inspirierte Kanban-Board-Komponente", "milestone": "M3", "type": "frontend", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-NG-002"],
+      "code_anchors": ["frontend-angular/src/app/", "frontend-angular/package.json"],
+      "acceptance_criteria": ["Board zeigt konfigurierbare Spalten, Kartenzahl, WIP-Hinweis und stabile Reihenfolge.", "Angular CDK DragDrop wird ohne weiteres DragDrop-Framework verwendet und ruft moveCard auf.", "Karten zeigen Titel, Status, Prioritaet, Assignee, Labels, Blocker und letzte Aktivitaet; Konflikte sind sichtbar."]
+    },
+    {
+      "id": "HKM-NG-004", "title": "Kartendetail, Kommentare und Aktivitaetsverlauf", "milestone": "M3", "type": "frontend", "status": "todo", "priority": "P1", "risk": "medium", "progress_percent": 0, "depends_on": ["HKM-NG-003"],
+      "code_anchors": ["frontend-angular/src/app/"],
+      "acceptance_criteria": ["Detailansicht zeigt Beschreibung, Abhaengigkeiten, Kommentare und chronologischen Auditverlauf.", "Bearbeitungen pruefen Revision und behandeln Konflikte ohne Datenverlust.", "Markdown und Links verwenden vorhandenes Sanitizing; lange und boesartige Inhalte sind getestet."]
+    },
+    {
+      "id": "HKM-NG-005", "title": "Filter, Suche und gespeicherte Ansichten", "milestone": "M3", "type": "frontend", "status": "todo", "priority": "P1", "risk": "low", "progress_percent": 0, "depends_on": ["HKM-NG-003"],
+      "code_anchors": ["frontend-angular/src/app/"],
+      "acceptance_criteria": ["Filter nach Assignee, Status, Prioritaet, Risiko und Label sind kombinierbar.", "Debounced Suche veraendert keine kanonische Boardreihenfolge.", "View-State wird nach bestehender Ananta-Konvention gespeichert und Reload-/Reset-Tests sind vorhanden."]
+    },
+    {
+      "id": "HKM-NG-006", "title": "Modelle-Uebersicht als Angular-Dashboard", "milestone": "M3", "type": "frontend", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-NG-002", "HKM-BE-008"],
+      "code_anchors": ["frontend-angular/src/app/features/model-training/", "frontend-angular/src/app/"],
+      "acceptance_criteria": ["Dashboard gruppiert lokale und Cloud-Modelle nach Provider und Verfuegbarkeit.", "Health, geladen, Kontextfenster, Quantisierung, Faehigkeiten, Default und aktive Runtime werden klar getrennt dargestellt.", "Nur erlaubte Aktionen sind sichtbar; ein Providerfehler blockiert keine gesunden Provider."]
+    },
+    {
+      "id": "HKM-NG-007", "title": "Responsive und barrierearme Angular-Bedienung", "milestone": "M3", "type": "frontend", "status": "todo", "priority": "P1", "risk": "medium", "progress_percent": 0, "depends_on": ["HKM-NG-003", "HKM-NG-006"],
+      "code_anchors": ["frontend-angular/src/app/", "frontend-angular/tests/"],
+      "acceptance_criteria": ["Alle Kanban-Aktionen sind ohne Maus erreichbar; DragDrop besitzt eine alternative Move-Aktion.", "Fokus, ARIA, Dialog-Fokusfallen und axe-basierte Tests sind vorhanden.", "Schmale Viewports bleiben bedienbar und Status wird nicht nur durch Farbe vermittelt."]
+    },
+    {
+      "id": "HKM-NG-008", "title": "Angular Unit-, Integrations- und E2E-Nachweise", "milestone": "M3", "type": "testing", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-NG-003", "HKM-NG-004", "HKM-NG-006", "HKM-NG-007"],
+      "code_anchors": ["frontend-angular/tests/", "frontend-angular/src/app/"],
+      "acceptance_criteria": ["Vitest deckt Stores, API-Clients, Komponenten und Konfliktbehandlung ab.", "Playwright deckt Laden, Verschieben, Kommentar, Filter und Default-Modell-Aenderung mit kontrollierten Fixtures ab.", "npm run build, lint, test:unit und relevante test:e2e-Suiten sind gruen und frei von realen Cloud-Credentials."]
+    },
+    {
+      "id": "HKM-TUI-001", "title": "TUI-Sektionen und Adapter registrieren", "milestone": "M4", "type": "tui", "status": "todo", "priority": "P0", "risk": "medium", "progress_percent": 0, "depends_on": ["HKM-ARCH-003", "HKM-BE-004", "HKM-BE-007"],
+      "code_anchors": ["client_surfaces/operator_tui/sections.py", "client_surfaces/operator_tui/adapters.py", "client_surfaces/operator_tui/plugins.py", "client_surfaces/operator_tui/app.py"],
+      "acceptance_criteria": ["Eigene Sektionen fuer Kanban und Modelle nutzen bestehende Section-/Plugin-Registrierung.", "Feature-Flags verhindern Registrierung oder Zugriff bei deaktivierter Funktion.", "Sektionen laden asynchron und liefern serialisierbaren View-State statt Domainlogik im Renderer."]
+    },
+    {
+      "id": "HKM-TUI-002", "title": "Mausfaehiges einfaches Kanban-Menue", "milestone": "M4", "type": "tui", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-TUI-001"],
+      "code_anchors": ["client_surfaces/operator_tui/interactive.py", "client_surfaces/operator_tui/mouse.py", "client_surfaces/operator_tui/region_index.py", "client_surfaces/operator_tui/renderer.py"],
+      "acceptance_criteria": ["Spalten und Karten werden als klickbare RegionTargets registriert; Klick fokussiert und Enter/Doppelklick oeffnet Details.", "Verschieben erfolgt robust ueber links, rechts oder Zielspalte statt zwingendem Terminal-DragDrop.", "Maus und Tastatur teilen Selection-State; Terminals ohne Maus behalten volle Bedienbarkeit."]
+    },
+    {
+      "id": "HKM-TUI-003", "title": "TUI-Kartenaktionen und Konfliktbehandlung", "milestone": "M4", "type": "tui", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-TUI-002", "HKM-BE-003"],
+      "code_anchors": ["client_surfaces/operator_tui/commands.py", "client_surfaces/operator_tui/"],
+      "acceptance_criteria": ["Starten, Blockieren, Abschliessen, Zuweisen und Verschieben verwenden dieselben Backend-Kommandos wie Angular.", "Schreibaktionen uebergeben Revision; 409 fuehrt zu Statusmeldung und Snapshot-Reload.", "Bestaetigungen und asynchrone Ausfuehrung verhindern Fehlbedienung und blockierten Eventloop."]
+    },
+    {
+      "id": "HKM-TUI-004", "title": "Modelle als maus- und tastaturfaehiges TUI-Menue", "milestone": "M4", "type": "tui", "status": "todo", "priority": "P0", "risk": "medium", "progress_percent": 0, "depends_on": ["HKM-TUI-001", "HKM-BE-008"],
+      "code_anchors": ["client_surfaces/operator_tui/ai_snake_config_view.py", "client_surfaces/operator_tui/interactive.py", "client_surfaces/operator_tui/region_index.py"],
+      "acceptance_criteria": ["Modelle zeigen Provider, Health, Verfuegbarkeit, geladen und Default-Markierung.", "Auswahl funktioniert per Pfeiltasten, Enter, Maus und vorhandenen Fokuskonventionen.", "Refresh ist asynchron; nur serverseitig erlaubte Aktionen werden angeboten und lange Namen bleiben im Detail lesbar."]
+    },
+    {
+      "id": "HKM-TUI-005", "title": "TUI-Layout fuer kleine und grosse Terminals", "milestone": "M4", "type": "tui", "status": "todo", "priority": "P1", "risk": "medium", "progress_percent": 0, "depends_on": ["HKM-TUI-002", "HKM-TUI-004"],
+      "code_anchors": ["client_surfaces/operator_tui/renderer.py", "client_surfaces/operator_tui/visual/"],
+      "acceptance_criteria": ["Bei geringer Breite wechselt Kanban deterministisch von Mehrspalten- zu Listenansicht.", "Resize aktualisiert Regionen und Fokus ohne stale Mouse-Hitboxes oder Ueberschreiben anderer Panes.", "Snapshot-Tests decken mindestens 80x24, 120x30 und 160x40 ab."]
+    },
+    {
+      "id": "HKM-TUI-006", "title": "TUI-Tests fuer Maus, Tastatur und Async-Laden", "milestone": "M4", "type": "testing", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-TUI-003", "HKM-TUI-005"],
+      "code_anchors": ["tests/", "client_surfaces/operator_tui/"],
+      "acceptance_criteria": ["Tests simulieren normalisierte Mausereignisse auf registrierten Regionen.", "Keyboard-Tests decken Navigation, Oeffnen, Aktion, Abbruch und Fokuswechsel ab.", "Async-Fetch und Snapshot-Tests sind deterministisch; bestehende Operator-TUI-Tests bleiben gruen."]
+    },
+    {
+      "id": "HKM-INT-001", "title": "API- und Zustandsparitaet zwischen Angular und TUI", "milestone": "M5", "type": "integration", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-NG-008", "HKM-TUI-006"],
+      "code_anchors": ["ananta_contracts/", "tests/", "frontend-angular/src/app/"],
+      "acceptance_criteria": ["Python- und TypeScript-Tests validieren dieselben Contract-Fixtures.", "Aenderungen aus Angular erscheinen mit gleicher Revision in der TUI und umgekehrt.", "Keine Oberflaeche besitzt inoffizielle Statuswerte, Transitionen oder Fehlersemantik."]
+    },
+    {
+      "id": "HKM-INT-002", "title": "Agenten- und Worker-Zuweisung an Ananta-Runtime", "milestone": "M5", "type": "integration", "status": "todo", "priority": "P1", "risk": "critical", "progress_percent": 0, "depends_on": ["HKM-BE-003", "HKM-BE-006"],
+      "code_anchors": ["agent/services/task_execution_service.py", "worker/", "agent/job_module/"],
+      "acceptance_criteria": ["Assignee referenziert kanonische Worker-/Agentenidentitaeten statt freie Namen.", "Zuweisung startet nicht automatisch; ein Startkommando prueft Status, Capability, Verfuegbarkeit und Idempotenz.", "Fortschritt, Abbruch, Timeout und Worker-Verlust werden ueber Domain-Kommandos nachvollziehbar projiziert."]
+    },
+    {
+      "id": "HKM-INT-003", "title": "Todo-JSON-Import als optionale Board-Projektion", "milestone": "M5", "type": "integration", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-BE-003"],
+      "code_anchors": ["todos/todo.track.schema.json", "agent/routes/tasks/goals.py", "docs/architecture/planning-track-contract.md"],
+      "acceptance_criteria": ["Gueltige Todo-Tracks erzeugen deterministische Board- und Kartenprojektionen.", "Task-IDs, Abhaengigkeiten, Milestones, Prioritaet, Risiko und Status werden verlustfrei abgebildet.", "Kein stiller bidirektionaler Sync; Schemafehler sind atomar und erneuter Import ist idempotent oder diff-basiert."]
+    },
+    {
+      "id": "HKM-INT-004", "title": "Observability und datensparsame Auditmetriken", "milestone": "M5", "type": "observability", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-BE-004", "HKM-BE-005"],
+      "code_anchors": ["agent/", "docs/backend.md"],
+      "acceptance_criteria": ["Metriken erfassen Latenz, Fehler, Konflikte, Reconnects und Provider-Health ohne Inhalte oder Credentials als Labels.", "Audit und technische Logs sind getrennt und besitzen Retention.", "Health- und Tests erkennen Live-Kanal- sowie Providerfehler und verhindern Secret-Leaks."]
+    },
+    {
+      "id": "HKM-SEC-001", "title": "Threat Model fuer Kanban- und Modellsteuerung", "milestone": "M6", "type": "security", "status": "todo", "priority": "P0", "risk": "critical", "progress_percent": 0, "depends_on": ["HKM-ARCH-002"],
+      "code_anchors": ["docs/security/", "agent/routes/", "frontend-angular/src/app/", "client_surfaces/operator_tui/"],
+      "acceptance_criteria": ["Threat Model umfasst IDOR, CSRF, XSS/Markdown, WebSocket-Auth, Replay, Races, Provider-SSRF und Command Injection.", "Trust Boundaries zwischen Browser, TUI, Hub, Provider und Worker sind dargestellt.", "Jede kritische Bedrohung besitzt Mitigation, Testanker und dokumentiertes Restrisiko."]
+    },
+    {
+      "id": "HKM-SEC-002", "title": "Negative Security- und Robustheitstests", "milestone": "M6", "type": "testing", "status": "todo", "priority": "P0", "risk": "critical", "progress_percent": 0, "depends_on": ["HKM-SEC-001", "HKM-BE-008"],
+      "code_anchors": ["tests/security/", "frontend-angular/tests/"],
+      "acceptance_criteria": ["Tests pruefen fremde IDs, manipulierte Revisionen, ungueltige Transitionen und zyklische Abhaengigkeiten.", "Script-, URL-, HTML-, SSRF- und Command-Injection-Payloads werden sicher abgewiesen oder neutralisiert.", "Unauthentisierte Live-Verbindungen und Missbrauch teurer Modellaktionen sind begrenzt und getestet."]
+    },
+    {
+      "id": "HKM-OPS-001", "title": "Dokumentation und Bedienkonzept", "milestone": "M6", "type": "documentation", "status": "todo", "priority": "P1", "risk": "low", "progress_percent": 0, "depends_on": ["HKM-NG-008", "HKM-TUI-006"],
+      "code_anchors": ["docs/", "README.md"],
+      "acceptance_criteria": ["Dokumentation erklaert Angular-Kanban, Modelle-Dashboard, TUI-Navigation und Maus-Fallback.", "Tastatur, Maus, Flags, Berechtigungen und Providergrenzen sind dokumentiert.", "Unterschiede zu Hermes und Troubleshooting fuer Konflikte, Reconnect und fehlende Provider sind transparent."]
+    },
+    {
+      "id": "HKM-OPS-002", "title": "Performancebudgets und Lasttests", "milestone": "M6", "type": "performance", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-INT-001"],
+      "code_anchors": ["tests/", "frontend-angular/tests/"],
+      "acceptance_criteria": ["Ein Board mit mindestens 1000 Karten bleibt paginierbar und blockiert Angular oder TUI nicht unkontrolliert.", "Budgets fuer Laden, Verschieben, Filter und TUI-Render-Tick sind gemessen und dokumentiert.", "Event-Stuerme sind begrenzt; Angular nutzt stabile IDs und TUI rendert nur benoetigte Zeilen oder belegt ein vertretbares Budget."]
+    },
+    {
+      "id": "HKM-REL-001", "title": "Release-Gate und schrittweiser Rollout", "milestone": "M6", "type": "release", "status": "todo", "priority": "P0", "risk": "high", "progress_percent": 0, "depends_on": ["HKM-SEC-002", "HKM-OPS-001", "HKM-OPS-002"],
+      "code_anchors": ["docs/", "scripts/", "artifacts/test-gates/"],
+      "acceptance_criteria": ["Ein Evidence-Gate sammelt Backend-, Contract-, Angular-, TUI-, Security- und Performance-Nachweise mit Commit-SHA.", "Rollout erfolgt getrennt fuer read-only Modelle, read-only Kanban, Schreibaktionen und Worker-Start mit Rollback-Flags.", "Produktiver Worker-Start bleibt bis zu gruenem Autorisierungs-, Idempotenz- und Security-Nachweis deaktiviert."]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 34,
+    "by_status": {"todo": 34, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0": 23, "P1": 11, "P2": 0},
+    "by_risk": {"low": 2, "medium": 7, "high": 20, "critical": 5},
+    "critical_path": {"total": 23, "done": 0, "remaining": 23},
+    "milestones": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 34,
+    "by_type": {"architecture": 1, "contract": 1, "governance": 1, "backend": 5, "api": 1, "realtime": 1, "security": 2, "frontend": 7, "testing": 3, "tui": 5, "integration": 3, "observability": 1, "documentation": 1, "performance": 1, "release": 1}
+  },
+  "progress_summary": {"state": "todo", "todo_remaining": 34, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "estimated_effort": {
+    "mvp_developer_days": "10-15",
+    "production_ready_developer_days": "20-35",
+    "full_worker_orchestration_developer_days": "30-45",
+    "assumptions": ["Vorhandene Auth-, Settings-, Live-Update- und Provider-Infrastruktur ist erweiterbar.", "Ein Entwickler kennt Angular, Flask/SQLModel und prompt_toolkit.", "Kein pixelgenauer Hermes-Klon und kein Terminal-Drag-and-drop sind erforderlich."]
+  },
+  "definition_of_done": [
+    "JSON validiert gegen todos/todo.track.schema.json.",
+    "Alle P0-Tasks und Release-Gates sind done.",
+    "Angular build, lint, unit und e2e sind gruen.",
+    "Python Contract-, Backend-, TUI- und Security-Tests sind gruen.",
+    "Cross-Surface-Paritaet, Feature-Flag-Rollback und Evidence-Artefakt sind reproduzierbar belegt."
+  ],
+  "summary_notes": [
+    "Die Hauptkomplexitaet liegt in gemeinsamer Domain-Autoritaet, Revisionen, Live-Synchronisation und sicherer Worker- und Modellsteuerung.",
+    "Die TUI verwendet vorhandene Maus- und Region-Infrastruktur; Kartenbewegung erfolgt primaer ueber robuste Aktionen.",
+    "Die Modelle-Uebersicht aggregiert vorhandene Provider- und Modellrouten und fuehrt keine parallele Konfiguration ein."
+  ]
+}
