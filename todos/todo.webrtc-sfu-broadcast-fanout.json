@@ -7,7 +7,7 @@
   "track": "webrtc-sfu-broadcast-fanout",
   "status": "partial",
   "created_at": "2026-07-18",
-  "updated_at": "2026-07-22",
+  "updated_at": "2026-07-23",
   "parents": [
     "todos/todo.ai-snake-semantic-media-speech-program.json"
   ],
@@ -74,6 +74,11 @@
     ]
   },
   "revision_notes": [
+    "Lokaler Real-Relay-Fortschritt 2026-07-23, ausdruecklich keine formale Gate- oder Nightly-Evidence: Der gehaertete finale Host-Network-Coturn-Lauf /tmp/ananta-sfu-broadcast-hardened-host-turn-relay.json endete nach 19.84s mit Exit 0 und release_evidence:false. Ausschliesslich Relay-basierte ausgewaehlte lokale Candidate-Pairs wurden akzeptiert; der Publisher besass exakt 1 PeerConnection und 1 LiveKit-Publikation, Chromium und Firefox jeweils 3 Receiver, und der Wrong-Key-Peer dekodierte 0 Frames. Die Haertungsvalidierung ergab 15 passed und 8 marker-skipped; die eigens gestarteten Ressourcen wurden vollstaendig bereinigt.",
+    "Die Direct-SFU-Diagnose erreichte 100/100 Receiver ueber drei Chromium-Prozesse. Wegen des diagnostischen Profils, der fehlenden formalen Nightly-Artefaktbindung und der fehlenden vergleichbaren All-TURN-/Soak-/Chaos-Messung wird daraus weder ein freigegebener Receivercap noch ein Abschluss von Scale-, Soak- oder Capacity-Tasks abgeleitet.",
+    "Ein Supply-Chain-Produzent fuer Child-SBOM, Scans und Container-Controls wurde mit 4 fokussierten Tests implementiert. Der reale Vollscan wurde abgebrochen und erzeugte keine verwertbare Evidence; SFB-GATE-012 bleibt deshalb partial. CLI-Entry-Points der E2E-Werkzeuge wurden korrigiert und mit 9 fokussierten Tests abgesichert, ohne daraus Runtime- oder Release-Evidence abzuleiten.",
+    "Harte Infrastrukturblocker am 2026-07-23: Das produktionsnahe Fleetprofil benoetigt weiterhin fehlende Runtime-/Capability-Digests, das exakte Redis-Image, Runtime-Agent-Image und -Konfiguration sowie Redis-TLS-Material. Das produktive TURN-Profil benoetigt weiterhin die vorgesehene Coturn-/Observer-Laufzeit, externe IP-/Identity-/Versions-/URL-/State-Konfiguration, zehn externe Secrets und einen aktiven Swarm; TURNS auf 5349 ist im lokal ausgefuehrten Profil nicht erreichbar. Formale Accessibility-, zweistuendige Soak-, vergleichbare All-TURN-Scale-, Chaos- und Game-Day-Nachweise fehlen weiterhin.",
+    "Konservativer Statusabgleich 2026-07-23: 69 Tasks bleiben done, 34 partial, 0 todo, 0 in_progress und 0 blocked; der aus den Taskstatuswerten berechnete reine Done-Anteil bleibt 66.99 %. Parent-Readiness und Rollout bleiben no_go/observe_only, und es wurden weder SRC_*/RUN_*-IDs erfunden noch /tmp-Diagnosen als formale Gate-Evidence gewertet.",
     "Finaler breiter Python-Rerun 2026-07-22: Die Auswahl umfasste 136 Dateien mit 656 Tests; 612 Tests passed, 44 wurden skipped und 0 failed in 371.90s. Der zuvor behobene Ed25519-Raw-Key-Grenzfall, bei dem bytes.strip() valide 32-Byte-Keys mit einem Whitespace-Grenzbyte korrumpieren konnte, ist zusaetzlich durch einen deterministischen Regressionstest abgesichert.",
     "SFB-GATE-002 ist done: scripts/run_sfu_broadcast_fuzz_gate.py erzeugte artifacts/test-gates/sfu-broadcast-fuzz.json mit status passed, 3 Seeds und 64 Cases je Seed. Die Coverage umfasst die geforderten Queue- und Port-Angriffe; das Artefakt bindet source-, config- und corpus-sha256 sowie started_at, ended_at, CPU-, RSS- und Timeoutwerte. known_blockers und reason_codes sind leer, minimized_failure ist null und real_media_plane_claimed ist false. Die GATE-002-Entscheidung stuetzt sich auf dieses Fuzz-Gate-Artefakt, nicht auf Contract-Parity.",
     "Stand 2026-07-22 (finaler konservativer DoD-Audit): 69 Tasks sind done, 34 partial, 0 todo, 0 in_progress und 0 blocked; der reine Done-Anteil betraegt 66.99 %. Alle nicht-done Tasks bleiben im JSON partial; external-blocked ist eine analytische Teilmenge und kein eigener Statuswert.",
