@@ -174,6 +174,31 @@ def _content_lines(state: OperatorState, width: int, *, height: int | None = Non
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     lines = [_pane_title(section.title.upper(), state.focus == FocusPane.CONTENT)]
 
+    global_overlay_active = any(
+        bool(game.get(key))
+        for key in (
+            "shortcut_help_middle_open",
+            "ai_snake_config_open",
+            "center_browser_active",
+        )
+    )
+    if section.id in {"kanban", "models"} and not global_overlay_active:
+        from client_surfaces.operator_tui.plugins import default_plugin_registry
+
+        plugin = default_plugin_registry().get(section.id)
+        if plugin is not None:
+            plugin_payload = dict(payload)
+            plugin_payload["_panel_state"] = panel_state.value
+            rendered = plugin.render(
+                plugin_payload,
+                width,
+                max(1, int(height or 24) - 1),
+                state.selected_index,
+            )
+            if rendered:
+                lines.extend(rendered)
+                return lines
+
     if bool(game.get("shortcut_help_middle_open")):
         return _content_shortcut_lines(state, width)
     if bool(game.get("ai_snake_config_open")):
@@ -867,6 +892,4 @@ def _tutorial_propose_dock_lines(state: OperatorState, width: int) -> list[str]:
         rows.append(f"| {_clip('waiting for first propose...', inner_width).ljust(inner_width)} |")
 
     return [top, title, *rows, top]
-
-
 

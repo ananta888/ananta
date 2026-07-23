@@ -99,11 +99,20 @@ class PluginRegistry:
 
 def default_plugin_registry() -> PluginRegistry:
     registry = PluginRegistry()
+    from client_surfaces.operator_tui.dashboard_surfaces import (
+        KanbanContentPlugin,
+        ModelCatalogContentPlugin,
+    )
+
+    registry.register(KanbanContentPlugin())
+    registry.register(ModelCatalogContentPlugin())
     registry.register(EditorPlugin())
     return registry
 
 
 def resolve_item_reference(payload: dict[str, Any], selected: int) -> str | None:
+    if str(payload.get("_content_plugin") or "") in {"kanban", "models"}:
+        return None
     items = payload.get("items") or []
     if not items or selected < 0 or selected >= len(items):
         return None

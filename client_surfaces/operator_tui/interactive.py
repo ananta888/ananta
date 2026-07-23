@@ -23,7 +23,11 @@ from prompt_toolkit.layout.containers import Window
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.output.color_depth import ColorDepth
 
-from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
+from client_surfaces.operator_tui.adapters import (
+    SectionAdapterRegistry,
+    merge_panel_state,
+    merge_section_result,
+)
 from client_surfaces.operator_tui.ai_snake_context import (
     artifact_ref_from_game,
     build_context_envelope_ref,
@@ -132,6 +136,7 @@ from client_surfaces.operator_tui import _interactive_chat as _ichat
 
 if TYPE_CHECKING:
     from agent.cli.splash import SplashMachine, SplashState
+    from client_surfaces.operator_tui.dashboard_surfaces import DashboardSurfaceController
 
 
 class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin, TutorialAiMixin, HeaderSnakeMixin, MouseArtifactMixin, ChatMixin):
@@ -140,8 +145,12 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         state: OperatorState,
         registry: SectionAdapterRegistry | None = None,
         splash: SplashMachine | None = None,
+        dashboard_controller: DashboardSurfaceController | None = None,
     ) -> None:
         self._registry = registry or SectionAdapterRegistry()
+        self._dashboard_controller = dashboard_controller
+        if self._dashboard_controller is not None:
+            self._dashboard_controller.register(self._registry)
         self._splash = splash
         self._plugins: PluginRegistry = default_plugin_registry()
         self._mouse_capabilities = detect_mouse_support()
@@ -570,6 +579,51 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
 
     def _handle_enter_key(self) -> None:
         _ic.handle_enter_key(self)
+
+    def _apply_dashboard_result(self, result) -> None:
+        self._set_state(
+            self.state.with_updates(
+                section_payloads=merge_section_result(self.state.section_payloads, result),
+                panel_states=merge_panel_state(self.state.panel_states, result),
+                selected_index=(
+                    self._dashboard_controller.selected_index(result.section_id)
+                    if self._dashboard_controller is not None
+                    else self.state.selected_index
+                ),
+                status_message=result.message or self.state.status_message,
+            )
+        )
+
+    def _schedule_dashboard_result(self, awaitable) -> None:
+        async def _apply() -> None:
+            result = await awaitable
+            self._apply_dashboard_result(result)
+
+        self._app.create_background_task(_apply())
+
+    def _activate_dashboard_selection(self) -> bool:
+        controller = self._dashboard_controller
+        if controller is None or self.state.section_id not in {"kanban", "models"}:
+            return False
+        controller.select(self.state.section_id, self.state.selected_index)
+        self._schedule_dashboard_result(controller.activate_selected(self.state.section_id))
+        return True
+
+    def _activate_dashboard_target(self, target: RegionTarget) -> bool:
+        controller = self._dashboard_controller
+        if controller is None or target.section_id not in {"kanban", "models"}:
+            return False
+        selected = int(target.payload.get("selected_index") or 0)
+        controller.select(target.section_id, selected)
+        self._set_state(
+            self.state.with_updates(
+                section_id=target.section_id,
+                focus=FocusPane.CONTENT,
+                selected_index=selected,
+            )
+        )
+        self._schedule_dashboard_result(controller.activate_target(target))
+        return True
 
     def _cancel_active_input_mode(self) -> bool:
         return _ic.cancel_active_input_mode(self)

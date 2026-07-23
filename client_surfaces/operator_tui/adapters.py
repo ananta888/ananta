@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 from client_surfaces.operator_tui.models import PanelState, SectionLoadResult
 from client_surfaces.operator_tui.sections import get_section
 
 SectionLoader = Callable[[str], SectionLoadResult]
+AsyncSectionLoader = Callable[[str], Awaitable[SectionLoadResult]]
 
 
 class SectionAdapterRegistry:
@@ -20,8 +21,41 @@ class SectionAdapterRegistry:
         self._endpoint = str(endpoint or "").strip().rstrip("/")
         self._token = str(token or "").strip()
         self._use_hub = bool(self._endpoint) and loader is None
+        self._async_loaders: dict[str, AsyncSectionLoader] = {}
+        self._async_results: dict[str, SectionLoadResult] = {}
+
+    def register_async(self, section_id: str, loader: AsyncSectionLoader) -> None:
+        candidate = str(section_id or "").strip().lower()
+        if not candidate:
+            raise ValueError("section_id is required")
+        self._async_loaders[candidate] = loader
+
+    def registered_async_sections(self) -> tuple[str, ...]:
+        return tuple(self._async_loaders)
+
+    async def load_async(self, section_id: str) -> SectionLoadResult:
+        candidate = str(section_id or "").strip().lower()
+        loader = self._async_loaders.get(candidate)
+        if loader is None:
+            return self.load(candidate)
+        try:
+            result = await loader(candidate)
+        except PermissionError as exc:
+            result = SectionLoadResult(candidate, PanelState.UNAUTHORIZED, {}, str(exc))
+        except TimeoutError as exc:
+            result = SectionLoadResult(candidate, PanelState.DEGRADED, {}, str(exc) or "timed out")
+        except Exception as exc:
+            result = SectionLoadResult(candidate, PanelState.DEGRADED, {}, str(exc))
+        self._async_results[candidate] = result
+        return result
 
     def load(self, section_id: str) -> SectionLoadResult:
+        candidate = str(section_id or "").strip().lower()
+        if candidate in self._async_loaders:
+            return self._async_results.get(
+                candidate,
+                SectionLoadResult(candidate, PanelState.LOADING, {}, "wird geladen"),
+            )
         section = get_section(section_id)
 
         if self._use_hub:

@@ -655,6 +655,10 @@ def handle_left_click(
     height: int,
 ) -> None:
     """On left click: select the item, direct AI snake there, open chat, trigger explanation."""
+    if target.section_id in {"kanban", "models"} and self._activate_dashboard_target(target):
+        game["_copy_status_message"] = f"{target.section_id}: {target.label}"
+        return
+
     if target.kind == "tab":
         from client_surfaces.operator_tui.tab_manager import activate_tab
         tab_id = str(target.payload.get("tab_id") or "")

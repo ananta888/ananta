@@ -104,6 +104,12 @@ def handle_enter_key(tui: InteractiveOperatorTui) -> None:
                 )
             )
         return
+    if (
+        tui.state.focus is FocusPane.CONTENT
+        and tui.state.section_id in {"kanban", "models"}
+        and tui._activate_dashboard_selection()
+    ):
+        return
     if tui.state.focus is FocusPane.CONTENT and tui.state.section_id == "templates":
         if tui._open_template_editor_for_selected():
             return

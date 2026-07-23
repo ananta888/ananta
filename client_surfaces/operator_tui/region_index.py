@@ -276,6 +276,20 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
                 )
             )
 
+    if section.id in {"kanban", "models"}:
+        from client_surfaces.operator_tui.dashboard_surfaces import dashboard_region_rects
+
+        regions.extend(
+            dashboard_region_rects(
+                section.id,
+                payload,
+                x1=content_x1,
+                x2=content_x2,
+                y1=body_y1,
+                y2=body_y2,
+            )
+        )
+
     if combo_open:
         combo_key = str(combo.get("key") or "")
         filter_text = str(combo.get("filter") or "")

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import os
+from collections.abc import Mapping
+
 from client_surfaces.operator_tui.models import Section
 
-SECTIONS: tuple[Section, ...] = (
+_CORE_SECTIONS: tuple[Section, ...] = (
     Section("dashboard", "Dashboard", True, ("health", "capabilities", "task_summary"), "degraded_panel", 2.0, 10.0),
     Section("goals", "Goals", True, ("goals", "goal_modes"), "empty_or_degraded_panel", 2.0, 15.0),
     Section("tasks", "Tasks", True, ("tasks", "timeline", "orchestration"), "empty_or_degraded_panel", 2.0, 8.0),
@@ -17,6 +20,43 @@ SECTIONS: tuple[Section, ...] = (
     Section("share", "Share / Teilnehmer", True, ("share_session", "device_key"), "local_only", 1.0, 30.0),
     Section("help", "Help", True, ("keymap", "commands"), "local_only", 0.2, 60.0),
 )
+
+
+def _flag_enabled(values: Mapping[str, str], name: str) -> bool:
+    return str(values.get(name) or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def dashboard_sections(values: Mapping[str, str] | None = None) -> tuple[Section, ...]:
+    env = os.environ if values is None else values
+    optional: list[Section] = []
+    if _flag_enabled(env, "ANANTA_TUI_KANBAN_ENABLED"):
+        optional.append(
+            Section(
+                "kanban",
+                "Kanban",
+                True,
+                ("task_projection",),
+                "empty_or_degraded_panel",
+                2.0,
+                8.0,
+            )
+        )
+    if _flag_enabled(env, "ANANTA_TUI_MODEL_MENU_ENABLED"):
+        optional.append(
+            Section(
+                "models",
+                "Models",
+                True,
+                ("model_catalog",),
+                "empty_or_degraded_panel",
+                2.0,
+                30.0,
+            )
+        )
+    return tuple(optional)
+
+
+SECTIONS: tuple[Section, ...] = _CORE_SECTIONS + dashboard_sections()
 
 
 def section_ids() -> tuple[str, ...]:
@@ -48,6 +88,9 @@ def normalize_section_id(value: str) -> str:
         "share": "share",
         "teilnehmer": "share",
         "participants": "share",
+        "board": "kanban",
+        "model": "models",
+        "modelle": "models",
         "commands": "help",
         "?": "help",
     }

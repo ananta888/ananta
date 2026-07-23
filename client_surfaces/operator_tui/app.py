@@ -174,10 +174,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("checks=" + ",".join(result.checks))
         print(result.output_preview)
         return 0 if result.ok else 1
+    hub_token = _get_hub_token()
     registry = SectionAdapterRegistry(
         endpoint=str(args.base_url).rstrip("/"),
-        token=_get_hub_token(),
+        token=hub_token,
     )
+    from client_surfaces.operator_tui.dashboard_http_adapter import (
+        build_dashboard_controller,
+    )
+
+    dashboard_controller = build_dashboard_controller(
+        endpoint=str(args.base_url).rstrip("/"),
+        token=hub_token,
+    )
+    dashboard_controller.register(registry)
     budget = PerformanceBudget()
     state = load_active_section(build_initial_state(args), registry)
     for command in args.command:
@@ -227,7 +237,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             _play_splash_to_terminal(state)
         from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
 
-        return InteractiveOperatorTui(state, registry, splash=None).run()
+        return InteractiveOperatorTui(
+            state,
+            registry,
+            splash=None,
+            dashboard_controller=dashboard_controller,
+        ).run()
     if splash is not None:
         splash.tick()
     print(render_operator_shell(state, width=args.width, height=args.height, splash=splash))
