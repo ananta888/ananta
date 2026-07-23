@@ -1,13 +1,38 @@
 from __future__ import annotations
 
 from flask import Blueprint, current_app, g, request
+from pydantic import ValidationError
 
 from agent.auth import check_auth
+from agent.common.audit import log_audit
 from agent.common.errors import api_response
+from agent.config_defaults import sync_runtime_state
+from agent.repositories.model_default_selection import (
+    SqlModelDefaultSelectionRepository,
+)
+from agent.services.dashboard_feature_flag_service import (
+    resolve_dashboard_feature_flags,
+)
+from agent.services.model_catalog_service import (
+    MODEL_CATALOG_REFRESH_CAPABILITY,
+    MODEL_DEFAULT_SELECT_CAPABILITY,
+    CatalogQuery,
+    ModelCatalogCapabilityPolicy,
+    ModelCatalogService,
+    ModelDefaultSelectionError,
+    ModelDefaultSelectionService,
+    ProviderDiscovery,
+)
 from agent.services.ollama_model_discovery_service import OllamaModelDiscovery
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.service_registry import get_core_services
+from agent.services.surface_rate_limit_policy import (
+    MODEL_CATALOG_REFRESH,
+    MODEL_DEFAULT_SELECTION,
+    surface_rate_limit_policy,
+)
 from agent.services.voice_provider import VoiceProviderError, get_voice_provider_service
+from ananta_contracts.model_catalog import ModelDefaultSelectionCommand
 
 from . import shared
 
@@ -16,52 +41,6 @@ providers_bp = Blueprint("config_providers", __name__)
 
 def _force_refresh_forbidden() -> bool:
     return shared.parse_bool_query_flag(request.args.get("force_refresh")) and not bool(getattr(g, "is_admin", False))
-
-
-def _decorate_model(
-    provider_id: str, model_id: str, item: dict, task_kind: str, benchmark_index: dict[str, dict]
-) -> dict:
-    enriched = dict(item)
-    if not task_kind:
-        return enriched
-    bench = benchmark_index.get(f"{provider_id}:{model_id}")
-    if bench:
-        enriched["benchmark"] = (bench.get("row") or {}).get("focus") or {}
-        enriched["recommended_rank"] = bench.get("rank")
-    return enriched
-
-
-def _catalog_entry(
-    pid: str,
-    url: str | None,
-    available: bool,
-    models: list[dict],
-    capabilities: dict | None = None,
-    task_kind: str = "",
-) -> dict:
-    recommended_model = None
-    if task_kind:
-        ranked_models = [item for item in models if isinstance(item, dict) and item.get("recommended_rank")]
-        if ranked_models:
-            ranked_models.sort(key=lambda item: int(item.get("recommended_rank") or 9999))
-            recommended_model = ranked_models[0].get("id")
-    return {
-        "provider": pid,
-        "base_url": url,
-        "available": bool(available),
-        "model_count": len(models),
-        "models": models,
-        "capabilities": capabilities or {},
-        "recommended_model": recommended_model,
-    }
-
-
-def _routing_decision_for_catalog_entry(*, app_cfg: dict, provider_entry: dict, task_kind: str) -> dict:
-    return get_routing_decision_service().provider_catalog_decision(
-        cfg=app_cfg,
-        provider=provider_entry,
-        task_kind=task_kind,
-    )
 
 
 def _provider_specs(*, app_cfg: dict, urls: dict, default_provider: str, default_model: str) -> list[dict]:
@@ -139,6 +118,217 @@ def _voice_runtime_catalog_entry(app_cfg: dict) -> dict:
         },
         "recommended_model": (models[0].get("id") if models else None),
     }
+
+
+class _FlaskProviderInventory:
+    def __init__(self, *, app_cfg: dict, urls: dict) -> None:
+        self._app_cfg = app_cfg
+        self._urls = urls
+
+    def list_specs(self, query: CatalogQuery):
+        return _provider_specs(
+            app_cfg=self._app_cfg,
+            urls=self._urls,
+            default_provider=query.default_provider,
+            default_model=query.default_model,
+        )
+
+    def discover(self, provider, query: CatalogQuery) -> ProviderDiscovery:
+        models, ollama_discovery = _catalog_models_for_dynamic_backend(
+            dict(provider),
+            timeout_seconds=query.timeout_seconds,
+            cache_ttl_seconds=query.cache_ttl_seconds,
+            force_refresh=query.force_refresh,
+        )
+        available = (
+            bool(ollama_discovery.available)
+            if ollama_discovery is not None
+            else bool(provider.get("available"))
+        )
+        metadata = None
+        if ollama_discovery is not None:
+            metadata = {
+                "status": ollama_discovery.status,
+                "source": (
+                    "configured_fallback"
+                    if ollama_discovery.used_configured_fallback
+                    else "ollama_api_tags"
+                ),
+                "used_configured_fallback": (
+                    ollama_discovery.used_configured_fallback
+                ),
+            }
+        return ProviderDiscovery(
+            models=tuple(dict(item) for item in models),
+            available=available,
+            metadata=metadata,
+        )
+
+    def voice_entry(self):
+        return _voice_runtime_catalog_entry(self._app_cfg)
+
+
+class _FlaskCatalogPolicy:
+    def __init__(self, *, app_cfg: dict) -> None:
+        self._app_cfg = app_cfg
+
+    def benchmark_rows(self, task_kind: str):
+        return shared.benchmark_rows_for_task(
+            task_kind=task_kind,
+            top_n=8 if task_kind else None,
+        )
+
+    def routing_decision(self, provider_entry, task_kind: str):
+        return get_routing_decision_service().provider_catalog_decision(
+            cfg=self._app_cfg,
+            provider=dict(provider_entry),
+            task_kind=task_kind,
+        )
+
+    def fallback_policy(self):
+        return get_routing_decision_service().resolve_fallback_policy(
+            self._app_cfg
+        )
+
+
+class _FlaskDefaultSelectionRuntime:
+    def apply(self, *, provider_id: str, model_id: str) -> None:
+        current = dict(current_app.config.get("AGENT_CONFIG", {}) or {})
+        current.update(
+            {
+                "default_provider": provider_id,
+                "default_model": model_id,
+            }
+        )
+        current_app.config["AGENT_CONFIG"] = current
+        sync_runtime_state(
+            current_app,
+            current,
+            changed_keys={"default_provider", "default_model"},
+        )
+
+
+def _model_catalog_service() -> ModelCatalogService:
+    app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    urls = current_app.config.get("PROVIDER_URLS", {}) or {}
+    return ModelCatalogService(
+        inventory=_FlaskProviderInventory(app_cfg=app_cfg, urls=urls),
+        policy=_FlaskCatalogPolicy(app_cfg=app_cfg),
+    )
+
+
+def _catalog_query(*, force_refresh: bool | None = None) -> CatalogQuery:
+    app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    task_kind = str(request.args.get("task_kind") or "").strip().lower()
+    if task_kind not in shared._BENCH_TASK_KINDS:
+        task_kind = ""
+    timeout_seconds, cache_ttl_seconds, requested_refresh = (
+        shared.lmstudio_catalog_runtime_options()
+    )
+    return CatalogQuery(
+        default_provider=str(app_cfg.get("default_provider") or ""),
+        default_model=str(app_cfg.get("default_model") or ""),
+        task_kind=task_kind,
+        timeout_seconds=timeout_seconds,
+        cache_ttl_seconds=cache_ttl_seconds,
+        force_refresh=(
+            requested_refresh if force_refresh is None else force_refresh
+        ),
+    )
+
+
+def _model_catalog_feature_enabled() -> bool:
+    app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    defaults = {
+        "feature_angular_model_dashboard_enabled": current_app.config.get(
+            "FEATURE_ANGULAR_MODEL_DASHBOARD_ENABLED",
+            False,
+        ),
+        "feature_tui_model_menu_enabled": current_app.config.get(
+            "FEATURE_TUI_MODEL_MENU_ENABLED",
+            False,
+        ),
+    }
+    return resolve_dashboard_feature_flags(
+        app_cfg,
+        defaults=defaults,
+    ).model_catalog_enabled
+
+
+def _feature_disabled_response():
+    return api_response(
+        status="error",
+        message="model_catalog_feature_disabled",
+        code=404,
+    )
+
+
+def _capability_allowed(capability: str) -> bool:
+    claims = {
+        **dict(getattr(g, "auth_payload", {}) or {}),
+        **dict(getattr(g, "user", {}) or {}),
+    }
+    return ModelCatalogCapabilityPolicy().allows(
+        capability,
+        is_admin=bool(getattr(g, "is_admin", False)),
+        claims=claims,
+    )
+
+
+def _capability_denied_response(capability: str):
+    log_audit(
+        "model_catalog_capability_denied",
+        {"capability": capability, "path": request.path},
+    )
+    return api_response(
+        status="error",
+        message="forbidden",
+        data={"reason_code": "model_catalog_capability_required"},
+        code=403,
+    )
+
+
+def _model_catalog_input_error(message: str):
+    return api_response(
+        status="error",
+        message=message,
+        code=400,
+    )
+
+
+def _query_args_are_valid(*allowed: str) -> bool:
+    return not (set(request.args.keys()) - set(allowed))
+
+
+def _refresh_body_is_valid() -> bool:
+    body = request.get_json(silent=True)
+    if body == {}:
+        return True
+    return body is None and not request.get_data(cache=True).strip()
+
+
+def _surface_rate_limit_response(namespace: str):
+    decision = surface_rate_limit_policy.consume(
+        config=current_app.config,
+        namespace=namespace,
+        auth_payload=getattr(g, "auth_payload", None),
+        user=getattr(g, "user", None),
+        remote_addr=request.remote_addr,
+    )
+    if decision.allowed:
+        return None
+    result = api_response(
+        status="error",
+        message="rate_limit_exceeded",
+        data={
+            "reason_code": "rate_limit_exceeded",
+            "retry_after_seconds": decision.retry_after_seconds,
+        },
+        code=429,
+    )
+    response = result[0] if isinstance(result, tuple) else result
+    response.headers["Retry-After"] = str(decision.retry_after_seconds)
+    return result
 
 
 @providers_bp.route("/providers", methods=["GET"])
@@ -238,171 +428,102 @@ def list_provider_catalog():
             message="admin_required_for_force_refresh",
             code=403,
         )
-    urls = current_app.config.get("PROVIDER_URLS", {})
-    app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-    default_provider = str(app_cfg.get("default_provider") or "")
-    default_model = str(app_cfg.get("default_model") or "")
-    task_kind = str(request.args.get("task_kind") or "").strip().lower()
-    if task_kind not in shared._BENCH_TASK_KINDS:
-        task_kind = ""
+    snapshot = _model_catalog_service().snapshot(_catalog_query())
+    return api_response(data=dict(snapshot.legacy_catalog))
 
-    bench_rows, bench_db = shared.benchmark_rows_for_task(task_kind=task_kind, top_n=8 if task_kind else None)
-    benchmark_index = {
-        str(item.get("id") or ""): {"rank": index + 1, "row": item} for index, item in enumerate(bench_rows)
-    }
-    catalog = {"default_provider": default_provider, "default_model": default_model, "providers": []}
-    available_model_ids: set[str] = set()
 
-    timeout_seconds, cache_ttl_seconds, force_refresh = shared.lmstudio_catalog_runtime_options()
-    provider_specs = _provider_specs(
-        app_cfg=app_cfg, urls=urls, default_provider=default_provider, default_model=default_model
+@providers_bp.route("/models/catalog/v1", methods=["GET"])
+@check_auth
+def get_versioned_model_catalog():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _query_args_are_valid("task_kind"):
+        return _model_catalog_input_error("model_catalog_query_invalid")
+    catalog = _model_catalog_service().versioned_catalog(
+        _catalog_query(force_refresh=False)
     )
-    local_backends = [item for item in provider_specs if bool((item.get("capabilities") or {}).get("dynamic_models"))]
-    for backend in local_backends:
-        local_models = []
-        discovered_models, ollama_discovery = _catalog_models_for_dynamic_backend(
-            backend,
-            timeout_seconds=timeout_seconds,
-            cache_ttl_seconds=cache_ttl_seconds,
-            force_refresh=force_refresh,
-        )
-        if not discovered_models:
-            discovered_models = [{"id": model_id} for model_id in list(backend.get("models") or [])]
-        backend_available = (
-            bool(ollama_discovery.available) if ollama_discovery is not None else bool(backend.get("available"))
-        )
-        for item in discovered_models:
-            model_id = str(item.get("id") or "").strip()
-            if not model_id:
-                continue
-            if backend_available:
-                available_model_ids.add(f"{backend['provider']}:{model_id}")
-            local_models.append(
-                _decorate_model(
-                    backend["provider"],
-                    model_id,
-                    {
-                        "id": model_id,
-                        "display_name": model_id,
-                        "context_length": item.get("context_length"),
-                        "available": bool(item.get("available", backend_available)),
-                        "source": item.get("source"),
-                        "selected": default_provider == backend["provider"] and default_model == model_id,
-                    },
-                    task_kind,
-                    benchmark_index,
-                )
-            )
-        provider_entry = _catalog_entry(
-            backend["provider"],
-            backend.get("base_url"),
-            backend_available and bool(local_models or list(backend.get("models") or [])),
-            local_models,
-            capabilities={
-                **dict(backend.get("capabilities") or {}),
-                "dynamic_models": True,
-                "supports_chat": True,
-                "openai_compatible": True,
-                "transport_provider": backend.get("transport_provider"),
-                "supports_tool_calls": bool(backend.get("supports_tool_calls")),
-                "provider_type": backend.get("provider_type") or "local_openai_compatible",
-                "remote_hub": bool(backend.get("remote_hub")),
-                "instance_id": backend.get("instance_id"),
-                "max_hops": backend.get("max_hops"),
-                "remote_hub_policy": (backend.get("capabilities") or {}).get("remote_hub_policy"),
-                "federation_policy": (backend.get("capabilities") or {}).get("federation_policy"),
-                "trust_level": backend.get("trust_level"),
-                "allowed_operations": list(backend.get("allowed_operations") or []),
-                "allow_artifact_access": bool(backend.get("allow_artifact_access", False)),
-                "allow_file_access": bool(backend.get("allow_file_access", False)),
-            },
-            task_kind=task_kind,
-        )
-        if ollama_discovery is not None:
-            provider_entry["model_discovery"] = {
-                "status": ollama_discovery.status,
-                "source": ("configured_fallback" if ollama_discovery.used_configured_fallback else "ollama_api_tags"),
-                "used_configured_fallback": ollama_discovery.used_configured_fallback,
-            }
-        provider_entry["routing_decision"] = _routing_decision_for_catalog_entry(
-            app_cfg=app_cfg,
-            provider_entry={**provider_entry, **backend},
-            task_kind=task_kind,
-        )
-        catalog["providers"].append(provider_entry)
+    return api_response(data=catalog.to_wire())
 
-    static_providers = [
-        item for item in provider_specs if not bool((item.get("capabilities") or {}).get("dynamic_models"))
-    ]
-    for provider in static_providers:
-        models = []
-        for model_id in provider["models"]:
-            if provider["available"]:
-                available_model_ids.add(f"{provider['provider']}:{model_id}")
-            models.append(
-                _decorate_model(
-                    provider["provider"],
-                    model_id,
-                    {
-                        "id": model_id,
-                        "display_name": model_id,
-                        "selected": default_provider == provider["provider"] and default_model == model_id,
-                    },
-                    task_kind,
-                    benchmark_index,
-                )
-            )
-        provider_entry = _catalog_entry(
-            provider["provider"],
-            provider["base_url"],
-            provider["available"],
-            models,
-            capabilities=provider["capabilities"],
-            task_kind=task_kind,
+
+@providers_bp.route("/models/catalog/v1/refresh", methods=["POST"])
+@check_auth
+def refresh_versioned_model_catalog():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_CATALOG_REFRESH_CAPABILITY):
+        return _capability_denied_response(
+            MODEL_CATALOG_REFRESH_CAPABILITY
         )
-        provider_entry["routing_decision"] = _routing_decision_for_catalog_entry(
-            app_cfg=app_cfg,
-            provider_entry={**provider_entry, **provider},
-            task_kind=task_kind,
+    if not _query_args_are_valid("task_kind") or not _refresh_body_is_valid():
+        return _model_catalog_input_error(
+            "model_catalog_refresh_command_invalid"
         )
-        catalog["providers"].append(provider_entry)
+    rate_limited = _surface_rate_limit_response(MODEL_CATALOG_REFRESH)
+    if rate_limited is not None:
+        return rate_limited
+    catalog = _model_catalog_service().versioned_catalog(
+        _catalog_query(force_refresh=True)
+    )
+    log_audit(
+        "model_catalog_refreshed",
+        {"model_count": len(catalog.models)},
+    )
+    return api_response(data=catalog.to_wire())
 
-    voice_entry = _voice_runtime_catalog_entry(app_cfg)
-    voice_entry["routing_decision"] = {
-        "provider": voice_entry["provider"],
-        "provider_type": "local_voice_runtime",
-        "eligible_for_inference": False,
-        "eligible_for_execution": True,
-        "availability": "available" if voice_entry.get("available") else "degraded",
-        "reason": "voice_runtime_health_probe",
-    }
-    catalog["providers"].append(voice_entry)
 
-    if task_kind:
-        recommended_items = [
-            {
-                "id": row.get("id"),
-                "provider": row.get("provider"),
-                "model": row.get("model"),
-                "suitability_score": ((row.get("focus") or {}).get("suitability_score")),
-                "available": str(row.get("id") or "") in available_model_ids,
-            }
-            for row in bench_rows[:5]
-        ]
-        catalog["recommendations"] = {
-            "task_kind": task_kind,
-            "updated_at": bench_db.get("updated_at"),
-            "items": recommended_items,
-        }
-        selected = next((item for item in recommended_items if item.get("available")), None)
-        if selected:
-            catalog["selection"] = {
-                "task_kind": task_kind,
-                "provider": selected.get("provider"),
-                "model": selected.get("model"),
-                "id": selected.get("id"),
-                "selection_source": "benchmarks_available_top_ranked",
-            }
-    catalog["routing_fallback_policy"] = get_routing_decision_service().resolve_fallback_policy(app_cfg)
-
-    return api_response(data=catalog)
+@providers_bp.route("/models/default/v1", methods=["POST"])
+@check_auth
+def select_versioned_model_default():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_DEFAULT_SELECT_CAPABILITY):
+        return _capability_denied_response(
+            MODEL_DEFAULT_SELECT_CAPABILITY
+        )
+    try:
+        command = ModelDefaultSelectionCommand.model_validate(
+            request.get_json(silent=True)
+        )
+    except ValidationError:
+        return api_response(
+            status="error",
+            message="model_default_selection_command_invalid",
+            code=400,
+        )
+    rate_limited = _surface_rate_limit_response(MODEL_DEFAULT_SELECTION)
+    if rate_limited is not None:
+        return rate_limited
+    catalog = _model_catalog_service()
+    selector = ModelDefaultSelectionService(
+        catalog=catalog,
+        store=SqlModelDefaultSelectionRepository(),
+        runtime=_FlaskDefaultSelectionRuntime(),
+    )
+    try:
+        selected = selector.select(
+            command,
+            query=_catalog_query(force_refresh=False),
+        )
+    except ModelDefaultSelectionError as exc:
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            code=exc.status_code,
+        )
+    except Exception:
+        current_app.logger.exception("Model default selection failed")
+        return api_response(
+            status="error",
+            message="model_default_selection_persistence_failed",
+            code=503,
+        )
+    log_audit(
+        "model_default_selected",
+        {
+            "provider_id": selected.provider_id,
+            "model_id": selected.model_id,
+        },
+    )
+    return api_response(
+        data=selected.model_dump(mode="json", by_alias=True)
+    )

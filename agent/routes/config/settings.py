@@ -8,11 +8,17 @@ from agent.auth import admin_required, check_auth
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
+from agent.config import settings as runtime_settings
 from agent.config_defaults import sync_runtime_state
 from agent.db_models import ConfigDB
 from agent.governance_modes import governance_mode_catalog, resolve_governance_mode
 from agent.runtime_profiles import resolve_runtime_profile, runtime_profile_catalog
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config
+from agent.services.dashboard_feature_flag_service import (
+    DashboardFeatureFlagError,
+    normalize_feature_flag_update,
+    resolve_dashboard_feature_flags,
+)
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.governance_profile_service import build_effective_policy_profile
 from agent.services.platform_governance_service import get_platform_governance_service
@@ -29,6 +35,22 @@ from agent.services.template_variable_registry import (
 from . import shared
 
 settings_bp = Blueprint("config_settings", __name__)
+
+
+def _dashboard_feature_flags():
+    defaults = {
+        key: getattr(runtime_settings, key, False)
+        for key in (
+            "feature_angular_kanban_enabled",
+            "feature_angular_model_dashboard_enabled",
+            "feature_tui_kanban_enabled",
+            "feature_tui_model_menu_enabled",
+        )
+    }
+    return resolve_dashboard_feature_flags(
+        current_app.config.get("AGENT_CONFIG", {}),
+        defaults=defaults,
+    )
 
 
 def unwrap_config(data):
@@ -62,7 +84,14 @@ def get_config():
     cfg["governance_mode_effective"] = resolve_governance_mode(cfg)
     cfg["effective_policy_profile"] = build_effective_policy_profile(cfg)
     cfg["lora_adapter_registry"] = _build_lora_registry_summary(cfg)
+    cfg["dashboard_feature_flags"] = _dashboard_feature_flags().as_dict()
     return api_response(data=cfg)
+
+
+@settings_bp.route("/config/features/v1", methods=["GET"])
+@check_auth
+def get_dashboard_feature_flags():
+    return api_response(data=_dashboard_feature_flags().as_dict())
 
 
 def _build_lora_registry_summary(cfg: dict) -> dict:
@@ -86,6 +115,15 @@ def set_config():
         return api_response(status="error", message="invalid_json", code=400)
 
     new_cfg = unwrap_config(new_cfg)
+    new_cfg.pop("dashboard_feature_flags", None)
+    try:
+        new_cfg.update(normalize_feature_flag_update(new_cfg))
+    except DashboardFeatureFlagError as exc:
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            code=400,
+        )
     current_cfg = current_app.config.get("AGENT_CONFIG", {})
     if "runtime_profile" in new_cfg:
         requested_profile = str(new_cfg.get("runtime_profile") or "").strip().lower()

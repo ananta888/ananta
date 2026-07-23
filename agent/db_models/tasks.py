@@ -46,6 +46,8 @@ class TaskDB(SQLModel, table=True):
     derivation_reason: Optional[str] = None
     derivation_depth: int = 0
     depends_on: List[str] = Field(default=[], sa_column=Column(JSON))
+    kanban_position: int = Field(default=0, index=True)
+    kanban_revision: int = Field(default=0, index=True)
 
 
 class ArchivedTaskDB(SQLModel, table=True):
@@ -89,6 +91,8 @@ class ArchivedTaskDB(SQLModel, table=True):
     derivation_reason: Optional[str] = None
     derivation_depth: int = 0
     depends_on: List[str] = Field(default=[], sa_column=Column(JSON))
+    kanban_position: int = Field(default=0)
+    kanban_revision: int = Field(default=0)
 
 
 class ConfigDB(SQLModel, table=True):

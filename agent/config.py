@@ -215,6 +215,22 @@ class Settings(BaseSettings):
     feature_history_enabled: bool = Field(default=True, validation_alias="FEATURE_HISTORY_ENABLED")
     feature_load_balancing_enabled: bool = Field(default=True, validation_alias="FEATURE_LOAD_BALANCING_ENABLED")
     feature_robust_http_enabled: bool = Field(default=True, validation_alias="FEATURE_ROBUST_HTTP_ENABLED")
+    feature_angular_kanban_enabled: bool = Field(
+        default=False,
+        validation_alias="FEATURE_ANGULAR_KANBAN_ENABLED",
+    )
+    feature_angular_model_dashboard_enabled: bool = Field(
+        default=False,
+        validation_alias="FEATURE_ANGULAR_MODEL_DASHBOARD_ENABLED",
+    )
+    feature_tui_kanban_enabled: bool = Field(
+        default=False,
+        validation_alias="FEATURE_TUI_KANBAN_ENABLED",
+    )
+    feature_tui_model_menu_enabled: bool = Field(
+        default=False,
+        validation_alias="FEATURE_TUI_MODEL_MENU_ENABLED",
+    )
     terminal_feature_enabled: bool = Field(default=False, validation_alias="TERMINAL_FEATURE_ENABLED")
     terminal_hub_target_enabled: bool = Field(default=False, validation_alias="TERMINAL_HUB_TARGET_ENABLED")
     terminal_hub_as_worker_target_enabled: bool = Field(default=False, validation_alias="TERMINAL_HUB_AS_WORKER_TARGET_ENABLED")

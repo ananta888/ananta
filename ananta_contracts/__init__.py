@@ -33,6 +33,16 @@ from .langgraph_checkpoint import (
     LangGraphCheckpointSnapshot,
 )
 from .model_capability import ModelCapability, ModelStatus
+from .model_catalog import (
+    ModelAvailability,
+    ModelCatalog,
+    ModelDefaultSelection,
+    ModelDefaultSelectionCommand,
+    ModelHealth,
+    ModelRuntime,
+    ModelSummary,
+    ProviderCatalogFailure,
+)
 from .temporal_workflow import (
     ActivityClass,
     AnantaWorkflowInput,
@@ -69,6 +79,14 @@ __all__ = [
     "LangGraphCheckpointSnapshot",
     "ModelCapability",
     "ModelStatus",
+    "ModelAvailability",
+    "ModelCatalog",
+    "ModelDefaultSelection",
+    "ModelDefaultSelectionCommand",
+    "ModelHealth",
+    "ModelRuntime",
+    "ModelSummary",
+    "ProviderCatalogFailure",
     "CapabilityDeclaration",
     "CapabilityDimension",
     "CapabilityImplementation",
