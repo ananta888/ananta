@@ -75,6 +75,7 @@ class RuntimeObservation:
     publisher_count: int
     receiver_count: int
     publisher_upload_count: int
+    publisher_publication_count: int
     decoded_receiver_count: int
     room_service_update_subscriptions: bool
     room_service_send_data: bool
@@ -358,6 +359,7 @@ def build_report(bindings: StaticBindings, runtime: RuntimeObservation | None = 
             "publishers": runtime.publisher_count,
             "receivers": runtime.receiver_count,
             "publisher_uploads": runtime.publisher_upload_count,
+            "publisher_publications": runtime.publisher_publication_count,
             "decoded_receivers": runtime.decoded_receiver_count,
             "cleanup_complete": runtime.cleanup_complete,
         },
@@ -438,7 +440,11 @@ def validate_spike_report(report: Mapping[str, Any]) -> tuple[str, ...]:
     pinned = report.get("pinned")
     topology = report.get("topology")
     engines = report.get("engines")
-    if report.get("schema") != "ananta.semantic-sfu-three-peer-spike.v1" or report.get("verdict") != "pass":
+    if (
+        report.get("schema") != "ananta.semantic-sfu-three-peer-spike.v1"
+        or report.get("verdict") != "pass"
+        or report.get("release_evidence") is not False
+    ):
         reasons.append("browser_smoke_verdict_invalid")
     if not isinstance(pinned, Mapping) or (
         pinned.get("server_version") != EXPECTED_SERVER_VERSION
@@ -446,7 +452,12 @@ def validate_spike_report(report: Mapping[str, Any]) -> tuple[str, ...]:
         or pinned.get("client_version") != EXPECTED_CLIENT_VERSION
     ):
         reasons.append("browser_smoke_version_binding_invalid")
-    if not isinstance(topology, Mapping) or topology.get("publishers") != 1 or topology.get("receivers") != 3:
+    if (
+        not isinstance(topology, Mapping)
+        or topology.get("publishers") != 1
+        or topology.get("receivers") != 3
+        or topology.get("expected_publisher_publications") != 1
+    ):
         reasons.append("browser_smoke_topology_invalid")
     if not isinstance(engines, list) or not engines:
         reasons.append("browser_smoke_engine_evidence_missing")
@@ -460,7 +471,9 @@ def validate_spike_report(report: Mapping[str, Any]) -> tuple[str, ...]:
             receivers = [row for row in peers if isinstance(row, Mapping) and str(row.get("identity", "")).startswith("receiver-")]
             if (
                 not isinstance(publisher, Mapping)
-                or publisher.get("outbound_video_streams") != 1
+                or publisher.get("peer_connections") != 1
+                or publisher.get("local_video_publication_count") != 1
+                or int(publisher.get("outbound_video_streams") or 0) < 1
                 or int(publisher.get("outbound_video_bytes") or 0) < 1
                 or len(receivers) != 3
                 or any(int(row.get("decoded_samples") or 0) < 3 or int(row.get("inbound_video_bytes") or 0) < 1 for row in receivers)
@@ -475,7 +488,7 @@ def validate_spike_report(report: Mapping[str, Any]) -> tuple[str, ...]:
 def execute_runtime_probe(bindings: StaticBindings, root: Path = ROOT, timeout: int = 90) -> RuntimeObservation:
     reasons: list[str] = list(bindings.reason_codes)
     image_reference = image_id = server_version = runtime_config_sha = container_hash = smoke_hash = None
-    publisher_count = receiver_count = upload_count = decoded_count = 0
+    publisher_count = receiver_count = upload_count = publication_count = decoded_count = 0
     update_ok = send_ok = permission_ok = e2ee_ok = cleanup_ok = False
     provenance = "unavailable"
     process: subprocess.Popen[str] | None = None
@@ -486,6 +499,8 @@ def execute_runtime_probe(bindings: StaticBindings, root: Path = ROOT, timeout: 
     env.update({
         "ANANTA_SEMANTIC_MEDIA_SFU_API_KEY": api_key,
         "ANANTA_SEMANTIC_MEDIA_SFU_API_SECRET": api_secret,
+        "ANANTA_SEMANTIC_MEDIA_TURN_GATE_USER": f"probe-{secrets.token_hex(8)}",
+        "ANANTA_SEMANTIC_MEDIA_TURN_GATE_PASSWORD": secrets.token_urlsafe(48),
         "ANANTA_SEMANTIC_MEDIA_SFU_PUBLIC_WS_URL": "ws://127.0.0.1:7880",
         "ANANTA_SEMANTIC_MEDIA_SFU_BROWSER_ENGINES": "chromium",
         "ANANTA_SEMANTIC_MEDIA_SFU_RECEIVER_COUNT": "3",
@@ -570,7 +585,10 @@ def execute_runtime_probe(bindings: StaticBindings, root: Path = ROOT, timeout: 
                 peers = engines[0].get("peers") if isinstance(engines, list) and engines and isinstance(engines[0], Mapping) else []
                 publisher = next((row for row in peers if isinstance(row, Mapping) and row.get("identity") == "publisher"), {})
                 receivers = [row for row in peers if isinstance(row, Mapping) and str(row.get("identity", "")).startswith("receiver-")]
-                upload_count = int(publisher.get("outbound_video_streams") or 0)
+                upload_count = int(publisher.get("peer_connections") or 0)
+                publication_count = int(
+                    publisher.get("local_video_publication_count") or 0
+                )
                 decoded_count = sum(int(row.get("decoded_samples") or 0) >= 3 for row in receivers)
                 e2ee_ok = not validate_spike_report(report) and decoded_count == 3
         except (ProbeFailure, OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError) as exc:
@@ -609,6 +627,7 @@ def execute_runtime_probe(bindings: StaticBindings, root: Path = ROOT, timeout: 
         publisher_count=publisher_count,
         receiver_count=receiver_count,
         publisher_upload_count=upload_count,
+        publisher_publication_count=publication_count,
         decoded_receiver_count=decoded_count,
         room_service_update_subscriptions=update_ok,
         room_service_send_data=send_ok,
@@ -665,4 +684,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

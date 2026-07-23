@@ -51,6 +51,7 @@ def test_mock_only_runtime_claim_cannot_mark_capability_available() -> None:
         publisher_count=1,
         receiver_count=3,
         publisher_upload_count=1,
+        publisher_publication_count=1,
         decoded_receiver_count=3,
         room_service_update_subscriptions=True,
         room_service_send_data=True,
@@ -89,6 +90,17 @@ def test_spike_report_requires_one_publisher_and_three_receivers() -> None:
     assert "browser_smoke_topology_invalid" in probe_module.validate_spike_report(report)
 
 
+def test_spike_report_distinguishes_publication_from_simulcast_encodings() -> None:
+    report = _valid_spike_report()
+    publisher = report["engines"][0]["peers"][0]
+    publisher["outbound_video_streams"] = 3
+
+    assert probe_module.validate_spike_report(report) == ()
+
+    publisher["local_video_publication_count"] = 2
+    assert "browser_smoke_media_evidence_invalid" in probe_module.validate_spike_report(report)
+
+
 def test_cli_writes_blocked_report_and_returns_nonzero_without_runtime(tmp_path: Path) -> None:
     output = tmp_path / "capabilities.json"
     result = subprocess.run(
@@ -108,6 +120,8 @@ def test_cli_writes_blocked_report_and_returns_nonzero_without_runtime(tmp_path:
 def _valid_spike_report() -> dict[str, object]:
     peers: list[dict[str, object]] = [{
         "identity": "publisher",
+        "peer_connections": 1,
+        "local_video_publication_count": 1,
         "outbound_video_streams": 1,
         "outbound_video_bytes": 100,
     }]
@@ -118,12 +132,17 @@ def _valid_spike_report() -> dict[str, object]:
     } for index in range(1, 4))
     return {
         "schema": "ananta.semantic-sfu-three-peer-spike.v1",
+        "release_evidence": False,
         "pinned": {
             "server_version": probe_module.EXPECTED_SERVER_VERSION,
             "server_digest": probe_module.EXPECTED_IMAGE_DIGEST,
             "client_version": probe_module.EXPECTED_CLIENT_VERSION,
         },
-        "topology": {"publishers": 1, "receivers": 3},
+        "topology": {
+            "publishers": 1,
+            "receivers": 3,
+            "expected_publisher_publications": 1,
+        },
         "e2ee": {"enabled": True, "server_plaintext_access": False},
         "engines": [{"peers": peers}],
         "verdict": "pass",

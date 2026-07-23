@@ -5,9 +5,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 try:
     from scripts.sfu_broadcast_gate_common import (
@@ -28,8 +33,6 @@ except ModuleNotFoundError:
         scan_content_free_document,
     )
 
-
-ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PROFILE = ROOT / "config/test-profiles/sfu-broadcast/acceptance.v1.json"
 DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/sfu-broadcast-acceptance.json"
 PROFILE_SCHEMA = "ananta.sfu-broadcast-acceptance-profile.v1"

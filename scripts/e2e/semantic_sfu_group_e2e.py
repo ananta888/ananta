@@ -178,8 +178,8 @@ def sample_metrics(report: Mapping[str, Any], latency: int, cpu: float, memory: 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--spike-output", type=Path, default=ROOT / "artifacts/domain/semantic-sfu-three-peer.json")
-    parser.add_argument("--load-output", type=Path, default=ROOT / "artifacts/domain/semantic-sfu-load.json")
+    parser.add_argument("--spike-output", type=Path, default=Path("/tmp/ananta-semantic-sfu-three-peer.json"))
+    parser.add_argument("--load-output", type=Path, default=Path("/tmp/ananta-semantic-sfu-load.json"))
     parser.add_argument("--samples", type=int, default=3)
     args = parser.parse_args()
     if not 3 <= args.samples <= 10:
@@ -190,6 +190,8 @@ def main() -> int:
         {
             "ANANTA_SEMANTIC_MEDIA_SFU_API_KEY": "ananta-local-spike",
             "ANANTA_SEMANTIC_MEDIA_SFU_API_SECRET": secrets.token_urlsafe(48),
+            "ANANTA_SEMANTIC_MEDIA_TURN_GATE_USER": f"local-{secrets.token_hex(8)}",
+            "ANANTA_SEMANTIC_MEDIA_TURN_GATE_PASSWORD": secrets.token_urlsafe(48),
             "ANANTA_SEMANTIC_MEDIA_SFU_PUBLIC_WS_URL": "ws://127.0.0.1:7880",
         }
     )

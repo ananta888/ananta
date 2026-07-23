@@ -5,7 +5,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 try:
     from scripts.e2e.sfu_broadcast_harness import (
@@ -26,8 +31,6 @@ except ModuleNotFoundError:
         read_bounded_json,
     )
 
-
-ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MATRIX = ROOT / "config/test-profiles/sfu-broadcast/browser-matrix.v1.json"
 DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/sfu-broadcast-cross-browser.json"
 
@@ -88,4 +91,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

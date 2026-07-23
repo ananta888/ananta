@@ -15,12 +15,12 @@ services:
     volumes:
       - ./config/livekit.semantic-media.yaml:/etc/livekit/livekit.yaml:ro
     environment:
-      LIVEKIT_KEYS: "${ANANTA_SEMANTIC_MEDIA_SFU_API_KEY:-devkey}: ${ANANTA_SEMANTIC_MEDIA_SFU_API_SECRET:-replace-with-at-least-32-random-characters}"
+      LIVEKIT_KEYS: "${ANANTA_SEMANTIC_MEDIA_SFU_API_KEY:?Set an ephemeral LiveKit API key}: ${ANANTA_SEMANTIC_MEDIA_SFU_API_SECRET:?Set an ephemeral LiveKit API secret}"
     ports:
-      - "${ANANTA_SEMANTIC_MEDIA_SFU_HTTP_PORT:-7880}:7880/tcp"
-      - "${ANANTA_SEMANTIC_MEDIA_SFU_TCP_PORT:-7881}:7881/tcp"
-      - "${ANANTA_SEMANTIC_MEDIA_SFU_UDP_PORT:-7882}:7882/udp"
-      - "${ANANTA_SEMANTIC_MEDIA_SFU_TURN_UDP_PORT:-3478}:3478/udp"
+      - "${ANANTA_SEMANTIC_MEDIA_SFU_BIND_IP:-127.0.0.1}:${ANANTA_SEMANTIC_MEDIA_SFU_HTTP_PORT:-7880}:7880/tcp"
+      - "${ANANTA_SEMANTIC_MEDIA_SFU_BIND_IP:-127.0.0.1}:${ANANTA_SEMANTIC_MEDIA_SFU_TCP_PORT:-7881}:7881/tcp"
+      - "${ANANTA_SEMANTIC_MEDIA_SFU_BIND_IP:-127.0.0.1}:${ANANTA_SEMANTIC_MEDIA_SFU_UDP_PORT:-7882}:7882/udp"
+      - "${ANANTA_SEMANTIC_MEDIA_SFU_BIND_IP:-127.0.0.1}:${ANANTA_SEMANTIC_MEDIA_SFU_TURN_UDP_PORT:-3478}:3478/udp"
     networks:
       - semantic-media-edge
     healthcheck:
@@ -51,8 +51,9 @@ services:
       - --fingerprint
       - --lt-cred-mech
       - --realm=ananta.semantic-media.gate
-      - --user=${ANANTA_SEMANTIC_MEDIA_TURN_GATE_USER:-ananta-turn-gate}:${ANANTA_SEMANTIC_MEDIA_TURN_GATE_PASSWORD:-ananta-turn-gate-fixture-32-bytes}
+      - --user=${ANANTA_SEMANTIC_MEDIA_TURN_GATE_USER:?Set an ephemeral TURN user}:${ANANTA_SEMANTIC_MEDIA_TURN_GATE_PASSWORD:?Set an ephemeral TURN password}
       - --listening-port=3478
+      - --external-ip=${ANANTA_SEMANTIC_MEDIA_TURN_GATE_EXTERNAL_IP:-127.0.0.1}
       - --min-port=49160
       - --max-port=49200
       - --log-file=stdout
@@ -69,7 +70,8 @@ services:
     tmpfs:
       - /var/lib/coturn:rw,noexec,nosuid,nodev,size=4m,uid=65534,gid=65534
     ports:
-      - "127.0.0.1:${ANANTA_SEMANTIC_MEDIA_TURN_GATE_PORT:-3479}:3478/udp"
+      - "${ANANTA_SEMANTIC_MEDIA_TURN_GATE_BIND_IP:-127.0.0.1}:${ANANTA_SEMANTIC_MEDIA_TURN_GATE_PORT:-3479}:3478/udp"
+      - "${ANANTA_SEMANTIC_MEDIA_TURN_GATE_BIND_IP:-127.0.0.1}:49160-49200:49160-49200/udp"
     networks:
       - semantic-media-edge
     deploy:

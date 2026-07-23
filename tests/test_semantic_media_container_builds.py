@@ -47,4 +47,19 @@ def test_turn_gate_retains_only_the_capability_required_by_upstream_binary() -> 
     assert not sfu.get("cap_add")
     assert turn["read_only"] is True
     assert turn["user"] == "65534:65534"
-    assert turn["ports"] == ["127.0.0.1:${ANANTA_SEMANTIC_MEDIA_TURN_GATE_PORT:-3479}:3478/udp"]
+    assert turn["ports"] == [
+        "${ANANTA_SEMANTIC_MEDIA_TURN_GATE_BIND_IP:-127.0.0.1}:${ANANTA_SEMANTIC_MEDIA_TURN_GATE_PORT:-3479}:3478/udp",
+        "${ANANTA_SEMANTIC_MEDIA_TURN_GATE_BIND_IP:-127.0.0.1}:49160-49200:49160-49200/udp",
+    ]
+    assert all(
+        str(port).startswith(
+            "${ANANTA_SEMANTIC_MEDIA_SFU_BIND_IP:-127.0.0.1}:"
+        )
+        for port in sfu["ports"]
+    )
+    compose_text = (ROOT / "docker-compose.semantic-media.yml").read_text(encoding="utf-8")
+    assert "devkey" not in compose_text
+    assert "replace-with-at-least-32-random-characters" not in compose_text
+    assert "ananta-turn-gate-fixture-32-bytes" not in compose_text
+    assert "ANANTA_SEMANTIC_MEDIA_SFU_API_KEY:?" in compose_text
+    assert "ANANTA_SEMANTIC_MEDIA_TURN_GATE_PASSWORD:?" in compose_text

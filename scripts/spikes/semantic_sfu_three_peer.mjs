@@ -13,7 +13,7 @@ const require = createRequire(resolve(root, 'frontend-angular/package.json'));
 const { chromium, firefox } = require('playwright');
 const sdkPath = resolve(root, 'frontend-angular/node_modules/livekit-client/dist/livekit-client.umd.js');
 const workerPath = resolve(root, 'frontend-angular/node_modules/livekit-client/dist/livekit-client.e2ee.worker.js');
-const outputPath = resolve(root, process.env.ANANTA_SEMANTIC_MEDIA_SFU_SPIKE_OUTPUT ?? 'artifacts/domain/semantic-sfu-three-peer.json');
+const outputPath = resolve(process.env.ANANTA_SEMANTIC_MEDIA_SFU_SPIKE_OUTPUT ?? '/tmp/ananta-semantic-sfu-three-peer.json');
 
 const apiKey = process.env.ANANTA_SEMANTIC_MEDIA_SFU_API_KEY ?? '';
 const apiSecret = process.env.ANANTA_SEMANTIC_MEDIA_SFU_API_SECRET ?? '';
@@ -60,12 +60,14 @@ try {
 const verdict = engineResults.length > 0 && engineResults.every(result => result.verdict === 'pass') ? 'pass' : 'fail';
 const report = {
   schema: 'ananta.semantic-sfu-three-peer-spike.v1',
+  release_evidence: false,
+  scope: 'local_diagnostic_not_release_evidence',
   pinned: {
     server_version: '1.13.1',
     server_digest: 'sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3',
     client_version: '2.20.1',
   },
-  topology: { publishers: 1, receivers: receiverCount, expected_publisher_uploads: 1 },
+  topology: { publishers: 1, receivers: receiverCount, expected_publisher_publications: 1 },
   transport_profile: forceRelay ? 'turn_relay_required' : 'ordinary_candidate_selection',
   e2ee: {
     enabled: true,
@@ -83,7 +85,12 @@ console.log(JSON.stringify({ output: outputPath, verdict, engines: engineResults
 if (verdict !== 'pass') process.exitCode = 1;
 
 async function runEngine(engineName, engine) {
-  const browser = await engine.launch({ headless: true });
+  const browser = await engine.launch({
+    headless: true,
+    ...(engineName === 'firefox' && forceRelay ? {
+      firefoxUserPrefs: { 'media.peerconnection.ice.loopback': true },
+    } : {}),
+  });
   const room = `ananta-spike-${engineName}`;
   const sharedKey = Uint8Array.from({ length: 32 }, (_, index) => (index * 17 + 31) & 0xff);
   const wrongKey = Uint8Array.from(sharedKey, byte => byte ^ 0xa5);
@@ -163,9 +170,10 @@ async function runEngine(engineName, engine) {
       }, 50);
       const videoTrack = canvas.captureStream(15).getVideoTracks()[0];
       window.__ananta.videoTrack = videoTrack;
-      await window.__ananta.room.localParticipant.publishTrack(videoTrack, {
+      const publication = await window.__ananta.room.localParticipant.publishTrack(videoTrack, {
         name: 'fanout-camera', source: window.LivekitClient.Track.Source.Camera,
       });
+      window.__ananta.videoPublicationSid = publication.trackSid;
     });
     for (const receiver of pages.filter(entry => entry.identity.startsWith('receiver-'))) {
       await receiver.page.waitForFunction(() => window.__ananta?.decoded >= 3, null, { timeout: 20_000 });
@@ -177,10 +185,13 @@ async function runEngine(engineName, engine) {
     const wrong = metrics.find(row => row.identity === 'wrong-key-probe');
     const publisherMetrics = metrics.find(row => row.identity === 'publisher');
     const relaySelected = metrics.every(row =>
-      row.selected_candidate_types.some(value => value.startsWith('relay:')),
+      row.selected_candidate_types.length > 0
+      && row.selected_candidate_types.every(value => value.startsWith('relay:')),
     );
     const pass = Boolean(
-      publisherMetrics && publisherMetrics.outbound_video_streams === 1 && publisherMetrics.outbound_video_bytes > 0
+      publisherMetrics && publisherMetrics.peer_connections === 1
+      && publisherMetrics.local_video_publication_count === 1
+      && publisherMetrics.outbound_video_streams >= 1 && publisherMetrics.outbound_video_bytes > 0
       && receivers.length === receiverCount && receivers.every(row => row.decoded_samples >= 3 && row.inbound_video_bytes > 0)
       && (!wrongKeyProbe || (wrong && wrong.decoded_samples === 0 && wrong.inbound_video_bytes > 0))
       && (!forceRelay || relaySelected),
@@ -224,8 +235,11 @@ async function stats(page) {
         }
       });
     }
+    const localVideoPublications =
+      window.__ananta?.room?.localParticipant?.videoTrackPublications?.size ?? 0;
     return {
       peer_connections: window.__anantaPeerConnections?.length ?? 0,
+      local_video_publication_count: localVideoPublications,
       outbound_video_streams: outbound, inbound_video_streams: inbound,
       outbound_video_bytes: Math.trunc(sent), inbound_video_bytes: Math.trunc(received),
       dropped_video_frames: Math.trunc(dropped), selected_candidate_types: [...new Set(candidateTypes)].sort(),
