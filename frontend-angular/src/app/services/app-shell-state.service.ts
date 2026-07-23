@@ -4,12 +4,14 @@ import { filter } from 'rxjs';
 
 import { AppNavGroup, AppRouteArea, AppShellMode, buildNavGroups } from '../models/route-metadata';
 import { MobileRuntimeService } from './mobile-runtime.service';
+import { DashboardFeatureFlagStore } from '../features/dashboard-foundation/dashboard-feature-flags';
 
 @Injectable({ providedIn: 'root' })
 export class AppShellStateService {
   private router = inject(Router);
   private activatedRoute = inject(ActivatedRoute);
   private mobile = inject(MobileRuntimeService);
+  private dashboardFeatures = inject(DashboardFeatureFlagStore);
 
   readonly mobileNavOpen = signal(false);
   readonly darkMode = signal(false);
@@ -18,6 +20,7 @@ export class AppShellStateService {
   readonly routeUrl = signal('/');
 
   init(): void {
+    this.dashboardFeatures.ensureLoaded().subscribe();
     this.mobile.init();
     this.darkMode.set(this.applyStoredTheme());
     this.mode.set(this.applyStoredMode());
@@ -27,7 +30,12 @@ export class AppShellStateService {
   }
 
   navGroups(role?: string | null): AppNavGroup[] {
-    return buildNavGroups(role, this.mode());
+    return buildNavGroups(role, this.mode()).map(group => ({
+      ...group,
+      items: group.items.filter(item =>
+        item.path !== '/board' || this.dashboardFeatures.angularKanban()
+      ),
+    })).filter(group => group.items.length > 0);
   }
 
   toggleMobileNav(): void {

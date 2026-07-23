@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { ChangePasswordComponent } from './change-password.component';
 import { UserManagementComponent } from './user-management.component';
 import { MfaSetupComponent } from './mfa-setup.component';
@@ -7,6 +7,8 @@ import { SettingsQualityComponent } from './settings-quality.component';
 import { SettingsSystemComponent } from './settings-system.component';
 import { SettingsVoiceComponent } from './settings-voice.component';
 import { SettingsState } from './settings-state.service';
+import { DashboardFeatureFlagStore } from '../features/dashboard-foundation/dashboard-feature-flags';
+import { ModelDashboardComponent } from '../features/system/model-dashboard/model-dashboard.component';
 export {
   buildOllamaModelStrategyRowsValue, buildProjectModelRoutingRecommendationValue,
   findMatchingCatalogModelId, normalizeArtifactFlowConfigValue,
@@ -25,7 +27,10 @@ export {
   imports: [
     ChangePasswordComponent, UserManagementComponent, MfaSetupComponent,
     SettingsLlmComponent, SettingsQualityComponent, SettingsSystemComponent, SettingsVoiceComponent,
+    ModelDashboardComponent,
   ],
   templateUrl: './settings.component.html',
 })
-export class SettingsComponent extends SettingsState {}
+export class SettingsComponent extends SettingsState {
+  readonly dashboardFeatures = inject(DashboardFeatureFlagStore);
+}

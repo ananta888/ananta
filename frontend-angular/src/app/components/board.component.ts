@@ -1,320 +1,371 @@
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
-
 import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject } from '@angular/core';
+import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
-import { DragDropModule, CdkDragDrop } from '@angular/cdk/drag-drop';
-import { AgentDirectoryService } from '../services/agent-directory.service';
-import { NotificationService } from '../services/notification.service';
-import { normalizeTaskStatus } from '../utils/task-status';
-import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
-import { UiSkeletonComponent } from './ui-skeleton.component';
-import { TaskManagementFacade } from '../features/tasks/task-management.facade';
-import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
-import { EmptyStateComponent } from '../shared/ui/state';
-import { DecisionExplanationComponent, NextStepsComponent, NextStepAction } from '../shared/ui/display';
+
+import { DashboardFeatureFlagStore } from '../features/dashboard-foundation/dashboard-feature-flags';
+import { KanbanCard, KanbanColumnId } from '../features/tasks/kanban/kanban-api.client';
+import { KanbanStore } from '../features/tasks/kanban/kanban.store';
 
 @Component({
   standalone: true,
   selector: 'app-board',
-  imports: [
-    CommonModule,
-    FormsModule,
-    RouterLink,
-    DragDropModule,
-    TaskStatusDisplayPipe,
-    UiSkeletonComponent,
-    EmptyStateComponent,
-    DecisionExplanationComponent,
-    NextStepsComponent,
-  ],
+  providers: [KanbanStore],
+  imports: [CommonModule, FormsModule, DragDropModule],
   template: `
-    <div class="row flex-between">
-      <h2>Board</h2>
-      <div class="row board-toolbar">
-        <input class="board-search" [(ngModel)]="searchText" (ngModelChange)="persistBoardPrefs()" placeholder="Suchen..." aria-label="Tasks durchsuchen">
-        <div class="button-group">
-          <button (click)="setView('board')" [class.secondary]="view !== 'board'" aria-label="Sprint Board Ansicht" [attr.aria-pressed]="view === 'board'">Sprint Board</button>
-          <button (click)="setView('scrum')" [class.secondary]="view !== 'scrum'" aria-label="Scrum Insights Ansicht" [attr.aria-pressed]="view === 'scrum'">Scrum Insights</button>
-        </div>
-        <button (click)="reload()" class="button-outline" aria-label="Board aktualisieren">Aktualisieren</button>
-      </div>
-    </div>
-    @if (hub && lastLoadedAt()) {
-      <div class="muted font-sm mb-sm">Live Snapshot: {{ lastLoadedAt()! * 1000 | date:'HH:mm:ss' }}</div>
-    }
-    @if (!hub) {
-      <p class="muted">Kein Hub-Agent konfiguriert.</p>
-    }
-
-    @if (hub && view === 'board') {
-      <div>
-        @if (isHintVisible('board-routing')) {
-          <div class="state-banner mb-md inline-help">
-            <div>
-              <strong>Wie das Board entscheidet</strong>
-              <p class="muted no-margin mt-sm">{{ decisionExplanation('routing') }} Blockierte Aufgaben bleiben sichtbar, weil Ananta dort bewusst auf Klaerung wartet.</p>
-            </div>
-            <button class="secondary btn-small" type="button" (click)="dismissHint('board-routing')">Ausblenden</button>
+    @if (features.angularKanban()) {
+      <main class="kanban-shell" aria-labelledby="kanban-title" data-testid="kanban-board">
+        <header class="kanban-hero">
+          <div>
+            <p class="kanban-eyebrow">Hub Task Projection</p>
+            <h1 id="kanban-title">Arbeitsfluss</h1>
+            <p>Serverseitige Reihenfolge, Revisionen und Abhängigkeiten ohne zweite Task-Quelle.</p>
           </div>
-        }
-        <div class="card row gap-sm flex-end">
-          <label for="new-task-input">Neuer Task
-            <input id="new-task-input" [(ngModel)]="newTitle" placeholder="Task-Titel" aria-required="true" />
+          <button type="button" class="button-outline" (click)="store.reloadSnapshot()">
+            Snapshot aktualisieren
+          </button>
+        </header>
+
+        <section class="kanban-controls" aria-label="Board und Filter">
+          <label>Board
+            <select
+              [ngModel]="store.board()?.id || ''"
+              (ngModelChange)="store.selectBoard($event)"
+              data-testid="kanban-board-select">
+              @for (board of store.boards(); track board.id) {
+                <option [value]="board.id">{{ board.name }} ({{ board.card_count }})</option>
+              }
+            </select>
           </label>
-          <button (click)="create()" [disabled]="!newTitle" data-test="btn-create-task" aria-label="Neuen Task anlegen">Anlegen</button>
-          @if (err) {
-            <span class="danger" role="alert">{{err}}</span>
-          }
-        </div>
-        @if (!loading && tasks.length === 0) {
-          <app-empty-state
-            class="block mb-lg"
-            title="Noch keine Aufgaben im Board"
-            description="Lege oben eine einzelne Aufgabe an oder starte auf dem Dashboard mit einem Ziel, damit Ananta daraus passende Tasks ableitet."
-            primaryLabel="Ziel planen"
-            [primaryRouterLink]="['/dashboard']"
-            secondaryLabel="Beispiel einsetzen"
-            (secondary)="newTitle = 'Repository analysieren und naechste Schritte vorschlagen'"
-          ></app-empty-state>
+          <label class="search-control">Suche
+            <input
+              type="search"
+              [(ngModel)]="searchText"
+              (ngModelChange)="store.search($event)"
+              placeholder="Titel oder Beschreibung"
+              aria-describedby="search-help">
+            <small id="search-help">Die Suche startet nach 300 ms auf dem Server.</small>
+          </label>
+          <label>Status
+            <select
+              [ngModel]="store.filters().column_id || ''"
+              (ngModelChange)="setColumnFilter($event)">
+              <option value="">Alle Status</option>
+              <option value="todo">Offen</option>
+              <option value="in_progress">In Arbeit</option>
+              <option value="blocked">Blockiert</option>
+              <option value="completed">Abgeschlossen</option>
+            </select>
+          </label>
+          <label>Blockierung
+            <select
+              [ngModel]="blockedFilter"
+              (ngModelChange)="setBlockedFilter($event)">
+              <option value="">Alle</option>
+              <option value="true">Nur blockiert</option>
+              <option value="false">Nicht blockiert</option>
+            </select>
+          </label>
+          <label>Zuständige ID
+            <input
+              [(ngModel)]="assigneeFilter"
+              (change)="store.setFilter({ assignee_id: assigneeFilter.trim() || undefined })">
+          </label>
+        </section>
+
+        @if (store.error()) {
+          <p class="kanban-alert" role="alert">{{ store.error() }}</p>
         }
-        @if (loading) {
-          <app-ui-skeleton
-            [count]="boardColumns.length"
-            [columns]="2"
-            [lineCount]="4"
-            containerClass="board-column"
-            lineClass="skeleton line skeleton-line-40">
-          </app-ui-skeleton>
+        @if (store.loading()) {
+          <p class="kanban-loading" role="status">Board-Snapshot wird geladen …</p>
         }
-        @if (!loading) {
-          <div class="grid cols-2 board-grid">
-            @for (col of boardColumns; track col) {
-              <div class="card board-column"
+
+        <section class="create-card" aria-labelledby="create-card-title">
+          <h2 id="create-card-title">Karte anlegen</h2>
+          <label>Titel
+            <input [(ngModel)]="newTitle" maxlength="500">
+          </label>
+          <label>Beschreibung
+            <input [(ngModel)]="newDescription" maxlength="20000">
+          </label>
+          <button
+            type="button"
+            [disabled]="!newTitle.trim()"
+            (click)="createCard()">
+            Karte anlegen
+          </button>
+        </section>
+
+        @if (store.board(); as board) {
+          <p class="snapshot-meta">
+            Revision <code>{{ board.revision }}</code>
+            <span aria-hidden="true">·</span>
+            {{ board.card_count }} Karten
+          </p>
+          <section class="kanban-grid" aria-label="Kanban-Spalten">
+            @for (column of board.columns; track column.id; let columnIndex = $index) {
+              <section
+                class="kanban-column"
                 cdkDropList
-                [id]="col.id"
-                [cdkDropListData]="tasksBy(col.id)"
-                [cdkDropListConnectedTo]="dropListIds"
-                (cdkDropListDropped)="onDrop($event, col.id)"
-                role="region"
-                [attr.aria-label]="col.label + ' Spalte'">
-                <h3>{{col.label}}</h3>
-                <div class="board-dropzone">
-                  @for (t of tasksBy(col.id); track t) {
-                    <div
-                      class="board-item row"
+                [id]="column.id"
+                [cdkDropListData]="store.cardsFor(column.id)"
+                [cdkDropListConnectedTo]="dropListIds()"
+                (cdkDropListDropped)="drop($event, column.id)"
+                [attr.aria-labelledby]="'column-' + column.id">
+                <header>
+                  <h2 [id]="'column-' + column.id">{{ column.title }}</h2>
+                  <span class="column-count">{{ store.cardsFor(column.id).length }} angezeigt</span>
+                </header>
+                <div class="card-list">
+                  @for (card of store.cardsFor(column.id); track card.id) {
+                    <article
+                      class="kanban-card"
                       cdkDrag
-                      [cdkDragData]="t"
-                      role="button"
-                      tabindex="0"
-                      [attr.aria-label]="'Task: ' + t.title">
-                      <a [routerLink]="['/task', t.id]" [attr.aria-label]="'Task Details für ' + t.title">{{t.title}}</a>
-                      @if (t.priority) {
-                        <span class="muted font-sm">{{t.priority}}</span>
-                      }
-                      <div class="board-rc-badges">
-                        @if (normalizeTaskStatus(t.status) === 'paused') {
-                          <span class="rc-badge rc-badge-paused" title="Task pausiert">⏸ Pausiert</span>
-                        }
-                        @if (t.status === 'pending_approval' || t.status === 'blocked_pending_approval') {
-                          <a [routerLink]="['/task', t.id]" [queryParams]="{tab:'run-control'}" class="rc-badge rc-badge-approval" title="Approval Gate ausstehend">🔐 Approval</a>
-                        }
-                        @if (t.manual_override_active) {
-                          <span class="rc-badge rc-badge-intervention" title="Operator-Eingriff aktiv">✏ Eingriff</span>
-                        }
+                      [cdkDragData]="card"
+                      [attr.aria-label]="card.title + ', Status ' + statusLabel(card.column_id)">
+                      <button class="card-title" type="button" (click)="store.openDetail(card)">
+                        {{ card.title }}
+                      </button>
+                      <p class="card-description">{{ card.description || 'Keine Beschreibung' }}</p>
+                      <div class="card-meta">
+                        <span class="status-token" [attr.data-status]="card.column_id">
+                          {{ statusLabel(card.column_id) }}
+                        </span>
+                        <span>Priorität {{ card.priority }}</span>
+                        <span>Revision {{ card.revision }}</span>
                       </div>
-                    </div>
+                      @if (card.blocked) {
+                        <p class="blocked-note"><strong>Blockiert:</strong> Klärung erforderlich</p>
+                      }
+                      <div class="keyboard-move" aria-label="Karte per Tastatur verschieben">
+                        <button
+                          type="button"
+                          [disabled]="columnIndex === 0"
+                          (click)="moveRelative(card, columnIndex - 1)">
+                          Nach links
+                        </button>
+                        <button
+                          type="button"
+                          [disabled]="columnIndex === board.columns.length - 1"
+                          (click)="moveRelative(card, columnIndex + 1)">
+                          Nach rechts
+                        </button>
+                      </div>
+                    </article>
                   }
-                  @if (!tasksBy(col.id).length) {
-                    <div class="muted board-empty">{{ emptyColumnHint(col.id) }}</div>
+                  @if (!store.cardsFor(column.id).length) {
+                    <p class="empty-column">Keine Karten in diesem gefilterten Snapshot.</p>
                   }
                 </div>
-              </div>
+              </section>
             }
-          </div>
+          </section>
         }
-      </div>
-    }
 
-    @if (hub && view === 'scrum') {
-      <div>
-        <div class="grid cols-2">
-          <div class="card">
-            <h3>Burndown Chart</h3>
-            <div class="burndown-chart">
-              <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Burndown Chart zeigt Fortschritt von Tasks über Zeit">
-                <line x1="0" y1="0" x2="100" y2="100" stroke="gray" stroke-dasharray="2" />
-                <polyline [attr.points]="'0,0 20,15 40,40 60,45 80,70 100,' + getBurndownValue()" fill="none" stroke="red" stroke-width="2" />
-              </svg>
-              <div class="burndown-chart-legend">
-                <span>Start</span><span>Mitte</span><span>Ende</span>
+        @if (store.selectedCard(); as card) {
+          <div class="detail-backdrop" (click)="store.closeDetail()" aria-hidden="true"></div>
+          <aside
+            class="card-detail"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="card-detail-title"
+            data-testid="kanban-card-detail">
+            <header>
+              <div>
+                <p class="kanban-eyebrow">Karte {{ card.id }}</p>
+                <h2 id="card-detail-title">{{ card.title }}</h2>
               </div>
-            </div>
-            <p class="muted font-sm text-center">Done: {{tasksBy('completed').length}} / Total: {{tasks.length}}</p>
-          </div>
-          <div class="card">
-            <h3>Roadmap</h3>
-            <div class="muted font-sm mb-sm">Blocked: {{ tasksBy('blocked').length }} | In Progress: {{ tasksBy('in_progress').length }}</div>
-            @if (tasksBy('blocked').length) {
-              <div class="state-banner warning mb-sm">
-                <strong>{{ term('blocked').label }}</strong>
-                <p class="muted no-margin mt-sm">{{ safetyBoundaryExplanation('blocked') }}</p>
-                <app-decision-explanation class="block mt-sm" kind="blocked"></app-decision-explanation>
-                <app-next-steps class="block mt-sm" [steps]="blockedNextSteps()" title="Naechste Schritte"></app-next-steps>
-              </div>
-            }
-            @for (t of getRoadmapTasks(); track t) {
-              <div class="roadmap-task">
-                <strong>{{t.title}}</strong>
-                <div class="muted font-sm">{{t.description?.substring(0, 100)}}...</div>
-                <div class="mt-sm">
-                  <span class="tag" [class.tag-success]="normalizeTaskStatus(t.status) === 'completed'" [class.tag-warning]="normalizeTaskStatus(t.status) !== 'completed'">{{t.status | taskStatusDisplay}}</span>
-                </div>
-              </div>
-            }
-            @if (getRoadmapTasks().length === 0) {
-              <app-empty-state
-                title="Keine Roadmap-Aufgaben gefunden"
-                description="Sobald Tasks mit To-Do-Status oder Roadmap-Bezug vorhanden sind, erscheinen sie hier."
-                [compact]="true"
-              ></app-empty-state>
-            }
-          </div>
-        </div>
-      </div>
+              <button type="button" (click)="store.closeDetail()" aria-label="Kartendetails schließen">
+                Schließen
+              </button>
+            </header>
+            <p>{{ card.description || 'Keine Beschreibung hinterlegt.' }}</p>
+            <dl class="detail-facts">
+              <div><dt>Status</dt><dd>{{ statusLabel(card.column_id) }}</dd></div>
+              <div><dt>Revision</dt><dd>{{ card.revision }}</dd></div>
+              <div><dt>Kommentare</dt><dd>{{ card.comment_count }}</dd></div>
+              <div><dt>Aktivitäten</dt><dd>{{ card.activity_count }}</dd></div>
+            </dl>
+
+            <section aria-labelledby="dependencies-title">
+              <h3 id="dependencies-title">Abhängigkeiten</h3>
+              <label>Karten-IDs, durch Komma getrennt
+                <input [(ngModel)]="dependencyText">
+              </label>
+              <button type="button" (click)="saveDependencies()">Abhängigkeiten speichern</button>
+            </section>
+
+            <section aria-labelledby="comments-title">
+              <h3 id="comments-title">Kommentare</h3>
+              <label>Neuer Kommentar
+                <textarea [(ngModel)]="commentText" maxlength="10000"></textarea>
+              </label>
+              <button type="button" [disabled]="!commentText.trim()" (click)="addComment()">
+                Kommentar speichern
+              </button>
+              <ol class="timeline">
+                @for (comment of store.comments(); track comment.id) {
+                  <li><strong>{{ comment.author_id }}</strong><p>{{ comment.body }}</p></li>
+                }
+              </ol>
+            </section>
+
+            <section aria-labelledby="activity-title">
+              <h3 id="activity-title">Aktivität</h3>
+              <ol class="timeline">
+                @for (event of store.activity(); track event.id) {
+                  <li>
+                    <strong>{{ activityLabel(event.event_type) }}</strong>
+                    <p>{{ event.message }}</p>
+                  </li>
+                }
+              </ol>
+            </section>
+          </aside>
+        }
+      </main>
     }
-  `
+  `,
+  styles: [`
+    :host { --ink: #152018; --paper: #f5f2e8; --accent: #dd5b36; --line: #c9c2ae; display: block; }
+    .kanban-shell { color: var(--ink); display: grid; gap: 1rem; }
+    .kanban-hero {
+      background: linear-gradient(120deg, #193b2b, #315a3c 68%, #d6a43d);
+      border-radius: 1.2rem; color: #fff; display: flex; justify-content: space-between;
+      gap: 1rem; padding: clamp(1.25rem, 3vw, 2.5rem); box-shadow: 0 18px 45px #193b2b26;
+    }
+    .kanban-hero h1 { font-family: Georgia, serif; font-size: clamp(2rem, 5vw, 4rem); margin: 0; }
+    .kanban-eyebrow { font-size: .72rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    .kanban-controls, .create-card {
+      align-items: end; background: var(--paper); border: 1px solid var(--line); border-radius: 1rem;
+      display: grid; gap: .8rem; grid-template-columns: repeat(5, minmax(9rem, 1fr)); padding: 1rem;
+    }
+    .create-card { grid-template-columns: 1.2fr 2fr auto; }
+    .create-card h2 { grid-column: 1 / -1; margin: 0; font-size: 1rem; }
+    label { display: grid; gap: .35rem; font-weight: 700; }
+    label small { font-weight: 400; }
+    input, select, textarea { min-height: 2.75rem; }
+    .snapshot-meta { color: #58625b; margin: 0; }
+    .kanban-grid { display: grid; gap: .85rem; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow-x: auto; }
+    .kanban-column {
+      background: #ebe6d8; border: 1px solid var(--line); border-radius: 1rem; min-width: 15rem;
+      padding: .8rem; box-shadow: inset 0 3px 0 #193b2b;
+    }
+    .kanban-column > header { align-items: baseline; display: flex; justify-content: space-between; }
+    .kanban-column h2 { font-family: Georgia, serif; font-size: 1.25rem; }
+    .column-count { font-size: .75rem; }
+    .card-list { display: grid; gap: .7rem; min-height: 5rem; }
+    .kanban-card { background: #fffdf7; border: 1px solid #d8d0bc; border-radius: .8rem; padding: .85rem; }
+    .kanban-card:focus-within { outline: 3px solid #1677c8; outline-offset: 2px; }
+    .card-title { background: none; border: 0; color: var(--ink); font: 700 1rem/1.25 Georgia, serif; padding: 0; text-align: left; }
+    .card-description { color: #58625b; font-size: .86rem; }
+    .card-meta { display: flex; flex-wrap: wrap; gap: .35rem; font-size: .72rem; }
+    .card-meta span { border: 1px solid #bcb5a4; border-radius: 99rem; padding: .2rem .45rem; }
+    .status-token::before { content: '● '; }
+    .status-token[data-status="todo"]::before { color: #686f77; }
+    .status-token[data-status="in_progress"]::before { color: #0b6da7; }
+    .status-token[data-status="blocked"]::before { color: #a32922; }
+    .status-token[data-status="completed"]::before { color: #167044; }
+    .blocked-note { background: #fff0eb; border-left: 4px solid #a32922; padding: .45rem; }
+    .keyboard-move { display: flex; gap: .4rem; margin-top: .7rem; }
+    .keyboard-move button { font-size: .72rem; padding: .35rem .5rem; }
+    .empty-column { border: 1px dashed #98917f; border-radius: .6rem; color: #59615b; padding: .8rem; }
+    .kanban-alert { background: #fff0eb; border-left: 5px solid #a32922; padding: .8rem; }
+    .kanban-loading { background: #e8f2eb; padding: .8rem; }
+    .detail-backdrop { background: #13231bb3; inset: 0; position: fixed; z-index: 9998; }
+    .card-detail {
+      background: #fffdf7; border: 0; box-shadow: -16px 0 50px #0004; inset: 0 0 0 auto;
+      max-width: 38rem; overflow-y: auto; padding: 1.2rem; position: fixed; width: min(92vw, 38rem); z-index: 9999;
+    }
+    .card-detail > header { align-items: start; display: flex; justify-content: space-between; }
+    .detail-facts { display: grid; grid-template-columns: repeat(2, 1fr); gap: .6rem; }
+    .detail-facts div { background: var(--paper); padding: .6rem; }
+    dt { font-size: .72rem; font-weight: 800; text-transform: uppercase; } dd { margin: .2rem 0 0; }
+    .card-detail section { border-top: 1px solid var(--line); margin-top: 1rem; padding-top: 1rem; }
+    .timeline { border-left: 2px solid var(--line); display: grid; gap: .7rem; padding-left: 1.2rem; }
+    .timeline li::marker { color: var(--accent); }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 3px solid #1677c8; outline-offset: 2px;
+    }
+    @media (max-width: 900px) {
+      .kanban-grid { grid-template-columns: repeat(4, minmax(17rem, 1fr)); }
+      .kanban-controls { grid-template-columns: repeat(2, 1fr); }
+      .create-card { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .kanban-hero { align-items: start; flex-direction: column; }
+      .kanban-controls { grid-template-columns: 1fr; }
+      .kanban-grid { scroll-snap-type: x mandatory; }
+      .kanban-column { scroll-snap-align: start; width: 82vw; }
+      .detail-facts { grid-template-columns: 1fr; }
+    }
+  `],
 })
-export class BoardComponent implements OnInit, OnDestroy {
-  private dir = inject(AgentDirectoryService);
-  private ns = inject(NotificationService);
-  private taskFacade = inject(TaskManagementFacade);
-
-  hub = this.dir.list().find(a => a.role === 'hub');
+export class BoardComponent implements OnInit {
+  readonly features = inject(DashboardFeatureFlagStore);
+  readonly store = inject(KanbanStore);
+  searchText = '';
+  assigneeFilter = '';
+  blockedFilter = '';
   newTitle = '';
-  searchText = localStorage.getItem('ananta.board.search') || '';
-  err = '';
-  view: 'board' | 'scrum' = (localStorage.getItem('ananta.board.view') as 'board' | 'scrum') || 'board';
-  hiddenHints = new Set<string>((localStorage.getItem('ananta.hidden-hints') || '').split(',').filter(Boolean));
-  boardColumns = [
-    { id: 'todo', label: 'To-Do' },
-    { id: 'in_progress', label: 'In-Progress' },
-    { id: 'blocked', label: 'Blocked' },
-    { id: 'completed', label: 'Done' }
-  ];
-  dropListIds = this.boardColumns.map(col => col.id);
+  newDescription = '';
+  commentText = '';
+  dependencyText = '';
 
-  ngOnInit() {
-    if (this.hub?.url) {
-      this.taskFacade.connectTaskCollection(this.hub.url);
-    }
-  }
-
-  ngOnDestroy() {
-    this.taskFacade.disconnectTaskCollection(this.hub?.url);
-  }
-
-  get tasks(): any[] {
-    return this.taskFacade.tasks();
-  }
-
-  get loading(): boolean {
-    return this.taskFacade.tasksLoading();
-  }
-
-  lastLoadedAt() {
-    return this.taskFacade.tasksLastLoadedAt();
-  }
-
-  reload(){
-    if(!this.hub) return;
-    this.taskFacade.reloadTaskCollection();
-  }
-  normalizeTaskStatus = normalizeTaskStatus;
-  blockedNextSteps(): NextStepAction[] {
-    return [
-      { id: 'open-dashboard', label: 'Dashboard oeffnen', description: 'Timeline/Guardrails ansehen oder neu planen.', routerLink: ['/dashboard'] },
-      { id: 'open-settings', label: 'Config pruefen', description: 'Profile und Policies einsehen.', routerLink: ['/settings'] },
-    ];
-  }
-
-  persistBoardPrefs() {
-    localStorage.setItem('ananta.board.search', this.searchText || '');
-    localStorage.setItem('ananta.board.view', this.view);
-  }
-
-  setView(view: 'board' | 'scrum') {
-    this.view = view;
-    this.persistBoardPrefs();
-  }
-
-  tasksBy(status: string) {
-    if (!Array.isArray(this.tasks)) return [];
-    return this.tasks.filter((t: any) => {
-      const normalized = this.normalizeTaskStatus(t.status);
-      const desired = this.normalizeTaskStatus(status);
-      const matchStatus = normalized === desired;
-      const matchSearch = !this.searchText ||
-        (t.title || '').toLowerCase().includes(this.searchText.toLowerCase()) ||
-        (t.description || '').toLowerCase().includes(this.searchText.toLowerCase());
-      return matchStatus && matchSearch;
+  ngOnInit(): void {
+    this.features.ensureLoaded().subscribe(flags => {
+      if (flags.angularKanban) this.store.load();
     });
   }
 
-  getBurndownValue() {
-    const total = this.tasks.length || 1;
-    const done = this.tasksBy('completed').length;
-    return 100 - (done / total * 100);
+  drop(event: CdkDragDrop<readonly KanbanCard[]>, columnId: KanbanColumnId): void {
+    const card = event.item.data as KanbanCard;
+    if (card) this.store.move(card, columnId, event.currentIndex);
   }
 
-  getRoadmapTasks() {
-    return this.tasks.filter(t => (t.title||'').toLowerCase().includes('roadmap') || this.normalizeTaskStatus(t.status) === 'todo');
+  dropListIds(): string[] {
+    return (this.store.board()?.columns ?? []).map(column => column.id);
   }
 
-  onDrop(event: CdkDragDrop<any[]>, newStatus: string) {
-    const task = event.item?.data;
-    if (!this.hub || !task) return;
-    const current = this.normalizeTaskStatus(task.status);
-    const desired = this.normalizeTaskStatus(newStatus);
-    if (current === desired) return;
-    const previousStatus = task.status;
-    task.status = desired;
-    this.taskFacade.patchTask(this.hub.url, task.id, { status: desired }).subscribe({
-      next: () => this.ns.success(`Status auf ${desired} aktualisiert`),
-      error: () => {
-        task.status = previousStatus;
-        this.ns.error('Status-Update fehlgeschlagen');
-      },
-      complete: () => this.taskFacade.reloadTaskCollection(),
-    });
+  moveRelative(card: KanbanCard, index: number): void {
+    const column = this.store.board()?.columns[index];
+    if (column) this.store.move(card, column.id, this.store.cardsFor(column.id).length);
   }
 
-  create(){
-    if(!this.hub || !this.newTitle) return;
-    this.taskFacade.createTask(this.hub.url, { title: this.newTitle, status: 'todo' }).subscribe({
-      next: () => { this.newTitle = ''; this.err = ''; this.reload(); },
-      error: () => { this.err = 'Fehler beim Anlegen'; }
-    });
+  setColumnFilter(value: string): void {
+    this.store.setFilter({ column_id: value as KanbanColumnId || undefined });
   }
 
-  term = userFacingTerm;
-  decisionExplanation = decisionExplanation;
-  safetyBoundaryExplanation = safetyBoundaryExplanation;
-
-  emptyColumnHint(status: string): string {
-    const normalized = this.normalizeTaskStatus(status);
-    if (normalized === 'blocked') return 'Keine Aufgaben warten auf Klaerung.';
-    if (normalized === 'completed') return 'Noch keine Aufgaben abgeschlossen.';
-    if (normalized === 'in_progress') return 'Gerade keine aktive Bearbeitung.';
-    return 'Keine offenen Aufgaben.';
+  setBlockedFilter(value: string): void {
+    this.blockedFilter = value;
+    this.store.setFilter({ blocked: value === '' ? undefined : value === 'true' });
   }
 
-  isHintVisible(key: string): boolean {
-    return !this.hiddenHints.has(key);
+  createCard(): void {
+    this.store.create(this.newTitle, this.newDescription);
+    this.newTitle = '';
+    this.newDescription = '';
   }
 
-  dismissHint(key: string): void {
-    this.hiddenHints.add(key);
-    localStorage.setItem('ananta.hidden-hints', Array.from(this.hiddenHints).join(','));
+  addComment(): void {
+    this.store.addComment(this.commentText);
+    this.commentText = '';
+  }
+
+  saveDependencies(): void {
+    this.store.updateDependencies(this.dependencyText);
+  }
+
+  statusLabel(status: KanbanColumnId): string {
+    return ({
+      todo: 'Offen',
+      in_progress: 'In Arbeit',
+      blocked: 'Blockiert',
+      completed: 'Abgeschlossen',
+    })[status];
+  }
+
+  activityLabel(value: string): string {
+    return value.replace(/^kanban_/, '').replaceAll('_', ' ');
   }
 }
