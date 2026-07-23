@@ -1,0 +1,71 @@
+{
+  "schema": "ananta.kanban-model-dashboard.release-profile.v1",
+  "profile_id": "kanban-model-dashboard-release-v1",
+  "max_age_seconds": 86400,
+  "required_suites": [
+    "contract",
+    "backend",
+    "angular",
+    "tui",
+    "security",
+    "accessibility",
+    "performance"
+  ],
+  "evidence_file_pattern": "{suite}.json",
+  "rollout_stages": [
+    {
+      "id": "read_only_models",
+      "required_suites": [
+        "contract",
+        "backend",
+        "angular",
+        "tui",
+        "security",
+        "accessibility"
+      ]
+    },
+    {
+      "id": "read_only_board",
+      "required_suites": [
+        "contract",
+        "backend",
+        "angular",
+        "tui",
+        "security",
+        "accessibility",
+        "performance"
+      ]
+    },
+    {
+      "id": "board_writes",
+      "required_suites": [
+        "contract",
+        "backend",
+        "angular",
+        "tui",
+        "security",
+        "accessibility",
+        "performance"
+      ]
+    },
+    {
+      "id": "allowlisted_default_selection",
+      "required_suites": [
+        "contract",
+        "backend",
+        "angular",
+        "tui",
+        "security",
+        "accessibility"
+      ]
+    }
+  ],
+  "excluded_actions": [
+    "worker_start",
+    "worker_orchestration",
+    "model_load",
+    "model_unload",
+    "direct_provider_url",
+    "shell_command"
+  ]
+}

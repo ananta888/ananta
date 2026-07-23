@@ -1,0 +1,54 @@
+{
+  "schema": "ananta.kanban-model-dashboard.local-performance.v1",
+  "scope": "local_diagnostic_not_release_evidence",
+  "task_count": 1000,
+  "status_groups": [
+    "todo",
+    "created",
+    "assigned",
+    "proposing",
+    "updated",
+    "in_progress",
+    "delegated",
+    "waiting_for_review",
+    "paused",
+    "blocked_by_dependency",
+    "failed",
+    "completed"
+  ],
+  "view_groups": [
+    "view-00",
+    "view-01",
+    "view-02",
+    "view-03",
+    "view-04",
+    "view-05",
+    "view-06",
+    "view-07",
+    "view-08",
+    "view-09"
+  ],
+  "event_count": 1000,
+  "duplicate_every": 10,
+  "event_rate_min_per_second": 100,
+  "samples": {
+    "snapshot": 50,
+    "move": 50,
+    "filter_equivalent": 50
+  },
+  "operations_per_sample": {
+    "snapshot": 500,
+    "move": 1000,
+    "filter_equivalent": 500,
+    "events": 100
+  },
+  "absolute_budgets": {
+    "snapshot_p95_ms": 1500.0,
+    "move_p95_ms": 2500.0,
+    "filter_equivalent_p95_ms": 1500.0,
+    "peak_rss_mb": 1024.0,
+    "lost_events_max": 0,
+    "event_rate_min_per_second": 100.0
+  },
+  "max_baseline_regression_percent": 15.0
+}
