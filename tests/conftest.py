@@ -265,6 +265,8 @@ def _db_runtime() -> dict[str, Any]:
         ExtractedDocumentDB,
         GoalDB,
         InstructionOverlayDB,
+        KanbanBoardSequenceDB,
+        KanbanOutboxEventDB,
         KnowledgeCollectionDB,
         KnowledgeIndexDB,
         KnowledgeIndexRunDB,
@@ -370,6 +372,8 @@ def _db_runtime() -> dict[str, Any]:
         "Session": Session,
         "delete": delete,
         "models": (
+            KanbanOutboxEventDB,
+            KanbanBoardSequenceDB,
             SemanticSfuAdmissionReceiptDB,
             SemanticSfuRoomStateDB,
             SpeechReconciliationArtifactDB,
