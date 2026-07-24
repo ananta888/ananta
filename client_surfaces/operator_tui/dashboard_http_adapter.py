@@ -8,12 +8,16 @@ import uuid
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from client_surfaces.operator_tui.dashboard_auth import (
+    DashboardReauthenticationRequired,
+    DashboardTokenProvider,
+    ResolvingDashboardTokenProvider,
+)
 from client_surfaces.operator_tui.dashboard_surfaces import (
     DashboardFeatureFlags,
     DashboardSurfaceController,
     RevisionConflict,
 )
-from client_surfaces.operator_tui.hub_loader import resolve_token
 from client_surfaces.operator_tui.ops_api_client import OpsApiClient, OpsApiHttpError
 
 _FEATURES_PATH = "/config/features/v1"
@@ -61,6 +65,7 @@ class DashboardHubAdapter:
         board_id: str = "hub",
         timeout_seconds: float = 5.0,
         idempotency_key_factory: Callable[[], str] | None = None,
+        token_provider: DashboardTokenProvider | None = None,
     ) -> None:
         base = str(endpoint or "").strip().rstrip("/")
         parsed = urllib.parse.urlsplit(base)
@@ -74,7 +79,10 @@ class DashboardHubAdapter:
         ):
             raise ValueError("dashboard_hub_endpoint_invalid")
         self._endpoint = base
-        self._raw_token = str(token or "").strip()
+        self._token_provider = token_provider or ResolvingDashboardTokenProvider(
+            endpoint=base,
+            credential=token,
+        )
         self._local_flags = local_flags or DashboardFeatureFlags.from_mapping()
         self._board_id = str(board_id or "").strip()
         if not self._board_id:
@@ -83,15 +91,27 @@ class DashboardHubAdapter:
         self._idempotency_key_factory = idempotency_key_factory or (
             lambda: f"tui-{uuid.uuid4().hex}"
         )
-        self._client: OpsApiClient | None = None
         self._model_revision = ""
         self._model_providers: dict[str, tuple[str, ...]] = {}
 
-    def _http_client(self) -> OpsApiClient:
-        if self._client is None:
-            token = resolve_token(self._endpoint, self._raw_token)
-            self._client = OpsApiClient(self._endpoint, token)
-        return self._client
+    def _http_client(self, *, force_refresh: bool = False) -> OpsApiClient:
+        token = self._token_provider.access_token(force_refresh=force_refresh)
+        return OpsApiClient(self._endpoint, token)
+
+    def _request_sync(
+        self,
+        method: str,
+        path: str,
+        *,
+        payload: dict[str, Any] | None,
+        force_refresh: bool,
+    ) -> dict[str, Any]:
+        return self._http_client(force_refresh=force_refresh).request_json(
+            method,
+            path,
+            payload=payload,
+            timeout=self._timeout_seconds,
+        )
 
     async def _request(
         self,
@@ -100,39 +120,56 @@ class DashboardHubAdapter:
         *,
         payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        try:
-            return await asyncio.to_thread(
-                self._http_client().request_json,
-                method,
-                path,
-                payload=payload,
-                timeout=self._timeout_seconds,
-            )
-        except OpsApiHttpError as exc:
-            if exc.status_code == 409:
-                details = exc.payload.get("error")
-                details = details.get("details") if isinstance(details, dict) else {}
-                current_revision = (
-                    details.get("current_revision") if isinstance(details, dict) else None
+        force_refresh = False
+        for attempt in range(2):
+            try:
+                return await asyncio.to_thread(
+                    self._request_sync,
+                    method,
+                    path,
+                    payload=payload,
+                    force_refresh=force_refresh,
                 )
-                raise RevisionConflict(
-                    exc.code,
-                    current_revision=current_revision,
-                ) from exc
-            if exc.status_code in {401, 403}:
+            except DashboardReauthenticationRequired as exc:
                 raise DashboardPermissionError(
+                    exc.code,
+                    status_code=401,
+                    message=str(exc),
+                ) from exc
+            except OpsApiHttpError as exc:
+                if exc.status_code == 401 and attempt == 0:
+                    force_refresh = True
+                    continue
+                if exc.status_code == 409:
+                    details = exc.payload.get("error")
+                    details = details.get("details") if isinstance(details, dict) else {}
+                    current_revision = (
+                        details.get("current_revision")
+                        if isinstance(details, dict)
+                        else None
+                    )
+                    raise RevisionConflict(
+                        exc.code,
+                        current_revision=current_revision,
+                    ) from exc
+                if exc.status_code in {401, 403}:
+                    raise DashboardPermissionError(
+                        exc.code,
+                        status_code=exc.status_code,
+                        message=str(exc),
+                    ) from exc
+                nested = exc.payload.get("error")
+                details = nested.get("details") if isinstance(nested, dict) else {}
+                raise DashboardHttpError(
                     exc.code,
                     status_code=exc.status_code,
                     message=str(exc),
+                    details=details if isinstance(details, dict) else {},
                 ) from exc
-            nested = exc.payload.get("error")
-            details = nested.get("details") if isinstance(nested, dict) else {}
-            raise DashboardHttpError(
-                exc.code,
-                status_code=exc.status_code,
-                message=str(exc),
-                details=details if isinstance(details, dict) else {},
-            ) from exc
+        raise DashboardHttpError(
+            "dashboard_request_retry_exhausted",
+            status_code=503,
+        )
 
     @staticmethod
     def _data(response: Mapping[str, Any]) -> Any:
@@ -177,6 +214,102 @@ class DashboardHubAdapter:
         return data
 
     async def fetch_board(self) -> Mapping[str, Any]:
+        try:
+            return await self._fetch_atomic_board_snapshot()
+        except DashboardHttpError as exc:
+            if exc.status_code != 404:
+                raise
+        return await self._fetch_legacy_board()
+
+    async def _fetch_atomic_board_snapshot(self) -> Mapping[str, Any]:
+        await self._require_feature("tui_kanban")
+        encoded_board = urllib.parse.quote(self._board_id, safe="")
+        snapshot = self._require_mapping(
+            self._data(
+                await self._request(
+                    "GET",
+                    f"{_KANBAN_ROOT}/boards/{encoded_board}/snapshot",
+                )
+            ),
+            code="kanban_snapshot_contract_invalid",
+        )
+        if snapshot.get("schema_version") != _KANBAN_SCHEMA:
+            raise DashboardHttpError(
+                "kanban_snapshot_contract_invalid",
+                status_code=502,
+            )
+        board = self._require_mapping(
+            snapshot.get("board"),
+            code="kanban_snapshot_contract_invalid",
+        )
+        raw_cards = snapshot.get("cards")
+        raw_columns = board.get("columns")
+        if not isinstance(raw_cards, list) or not isinstance(raw_columns, list):
+            raise DashboardHttpError(
+                "kanban_snapshot_contract_invalid",
+                status_code=502,
+            )
+        event_sequence = self._revision(snapshot.get("event_sequence"))
+        board_id = str(board.get("id") or "")
+        if board_id != self._board_id:
+            raise DashboardHttpError(
+                "kanban_snapshot_board_mismatch",
+                status_code=502,
+            )
+        columns: list[dict[str, Any]] = [
+            {
+                "id": str(column.get("id") or ""),
+                "title": str(column.get("title") or column.get("id") or ""),
+                "wip_limit": None,
+                "tasks": [],
+            }
+            for column in raw_columns
+            if isinstance(column, Mapping)
+        ]
+        by_id = {column["id"]: column for column in columns}
+        for card in raw_cards:
+            if (
+                not isinstance(card, Mapping)
+                or str(card.get("board_id") or "") != board_id
+            ):
+                raise DashboardHttpError(
+                    "kanban_snapshot_card_contract_invalid",
+                    status_code=502,
+                )
+            column = by_id.get(str(card.get("column_id") or ""))
+            if column is None:
+                raise DashboardHttpError(
+                    "kanban_card_column_unknown",
+                    status_code=502,
+                )
+            assignee = card.get("assignee")
+            assignee_id = (
+                str(assignee.get("id") or "")
+                if isinstance(assignee, Mapping)
+                else ""
+            )
+            column["tasks"].append(
+                {
+                    "id": str(card.get("id") or ""),
+                    "title": str(card.get("title") or card.get("id") or ""),
+                    "description": str(card.get("description") or ""),
+                    "status": str(card.get("status") or ""),
+                    "priority": str(card.get("priority") or ""),
+                    "assignee_id": assignee_id,
+                    "labels": list(card.get("labels") or []),
+                    "blocked": bool(card.get("blocked")),
+                    "dependencies": list(card.get("dependencies") or []),
+                    "revision": card.get("revision"),
+                }
+            )
+        return {
+            "board_id": board_id,
+            "revision": board.get("revision"),
+            "event_sequence": event_sequence,
+            "columns": columns,
+        }
+
+    async def _fetch_legacy_board(self) -> Mapping[str, Any]:
         await self._require_feature("tui_kanban")
         encoded_board = urllib.parse.quote(self._board_id, safe="")
         board = self._require_mapping(
@@ -277,7 +410,12 @@ class DashboardHubAdapter:
             seen_cursors.add(cursor)
         else:
             raise DashboardHttpError("kanban_card_page_limit_exceeded", status_code=502)
-        return {"revision": board.get("revision"), "columns": columns}
+        return {
+            "board_id": str(board.get("id") or self._board_id),
+            "revision": board.get("revision"),
+            "event_sequence": None,
+            "columns": columns,
+        }
 
     @staticmethod
     def _revision(value: object) -> int:

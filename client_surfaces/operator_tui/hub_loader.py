@@ -72,7 +72,12 @@ def _login(base: str, username: str, password: str, timeout: float = 3.0) -> str
     return token, expires_at
 
 
-def resolve_token(base: str, raw_token: str) -> str:
+def resolve_token(
+    base: str,
+    raw_token: str,
+    *,
+    force_refresh: bool = False,
+) -> str:
     """Return a valid JWT.
 
     If raw_token looks like a JWT (contains dots), use it directly.
@@ -94,6 +99,8 @@ def resolve_token(base: str, raw_token: str) -> str:
     ).strip()
     cache_key = (base, username)
     with _jwt_lock:
+        if force_refresh:
+            _jwt_cache.pop(cache_key, None)
         cached = _jwt_cache.get(cache_key)
         if cached and time.time() < cached[1]:
             return cached[0]

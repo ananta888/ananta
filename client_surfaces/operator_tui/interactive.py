@@ -28,6 +28,10 @@ from client_surfaces.operator_tui.adapters import (
     merge_panel_state,
     merge_section_result,
 )
+from client_surfaces.operator_tui.dashboard_autoload import DashboardSectionAutoloader
+from client_surfaces.operator_tui.dashboard_live_lifecycle import (
+    DashboardLiveSyncLifecycle,
+)
 from client_surfaces.operator_tui.ai_snake_context import (
     artifact_ref_from_game,
     build_context_envelope_ref,
@@ -146,6 +150,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         registry: SectionAdapterRegistry | None = None,
         splash: SplashMachine | None = None,
         dashboard_controller: DashboardSurfaceController | None = None,
+        dashboard_live_token: str = "",
     ) -> None:
         self._registry = registry or SectionAdapterRegistry()
         self._dashboard_controller = dashboard_controller
@@ -286,9 +291,39 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             mouse_support=bool(self._mouse_capabilities.get("enabled")),
             color_depth=ColorDepth.TRUE_COLOR,
         )
+        self._dashboard_live_sync = (
+            DashboardLiveSyncLifecycle(
+                endpoint=state.endpoint,
+                credential=dashboard_live_token,
+                registry=self._registry,
+                schedule=lambda awaitable: self._app.create_background_task(awaitable),
+                current_section=lambda: self.state.section_id,
+                apply_result=self._apply_dashboard_result,
+                status_sink=self._set_dashboard_live_status,
+            )
+            if self._dashboard_controller is not None
+            and self._dashboard_controller.flags.kanban
+            else None
+        )
+        self._dashboard_autoloader = DashboardSectionAutoloader(
+            self._registry,
+            schedule=lambda awaitable: self._app.create_background_task(awaitable),
+            current_section=lambda: self.state.section_id,
+            apply_result=self._apply_dashboard_result,
+            on_snapshot_applied=(
+                self._dashboard_live_sync.snapshot_applied
+                if self._dashboard_live_sync is not None
+                else None
+            ),
+        )
 
     def run(self) -> int:
-        self._app.run(pre_run=self._on_app_start)
+        try:
+            self._app.run(pre_run=self._on_app_start)
+        finally:
+            self._dashboard_autoloader.cancel()
+            if self._dashboard_live_sync is not None:
+                self._dashboard_live_sync.stop()
         return 0
 
     def _on_app_start(self) -> None:
@@ -296,6 +331,7 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             self._app.create_background_task(self._splash_loop())
         if self._header_3d_active():
             self._app.create_background_task(self._header_logo_loop())
+        self._dashboard_autoloader.request(self.state.section_id)
 
     def _header_3d_active(self) -> bool:
         enabled = os.environ.get("ANANTA_TUI_HEADER_3D", "1").strip().lower() not in {"0", "false", "no", "off"}
@@ -594,9 +630,25 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
             )
         )
 
+    def _set_dashboard_live_status(self, status: str) -> None:
+        if self.state.section_id != "kanban":
+            return
+        self._set_state(
+            self.state.with_updates(
+                status_message=str(status or self.state.status_message),
+            )
+        )
+
     def _schedule_dashboard_result(self, awaitable) -> None:
+        expected_section = self.state.section_id
+
         async def _apply() -> None:
             result = await awaitable
+            if (
+                self.state.section_id != expected_section
+                or result.section_id != expected_section
+            ):
+                return
             self._apply_dashboard_result(result)
 
         self._app.create_background_task(_apply())
@@ -605,6 +657,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         controller = self._dashboard_controller
         if controller is None or self.state.section_id not in {"kanban", "models"}:
             return False
+        if self._dashboard_autoloader.is_loading(self.state.section_id):
+            return True
         controller.select(self.state.section_id, self.state.selected_index)
         self._schedule_dashboard_result(controller.activate_selected(self.state.section_id))
         return True
@@ -896,12 +950,17 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         )
 
     def _set_state(self, state: OperatorState) -> None:
+        section_changed = state.section_id != self.state.section_id
+        if section_changed:
+            live_sync = getattr(self, "_dashboard_live_sync", None)
+            if live_sync is not None:
+                live_sync.stop()
         if self._splash is not None:
             from agent.cli.splash import SplashState
             ctx = self._splash.context
             if ctx.state in (SplashState.FULLSCREEN, SplashState.TRANSITION):
                 self._splash.transition_to(SplashState.COMPACT_HEADER)
-        if state.section_id != self.state.section_id:
+        if section_changed:
             game = dict(state.header_logo_game or {})
             game["visual_viewport_enabled"] = False
             game["visual_viewport"] = {"enabled": False}
@@ -909,6 +968,8 @@ class InteractiveOperatorTui(SnakeTickMixin, SnakeHeuristicMixin, SnakeOpsMixin,
         self.state = state
         self._rendered_text = self._render()
         self._app.invalidate()
+        if section_changed:
+            self._dashboard_autoloader.request(self.state.section_id)
 
     def _render(self) -> str:
         if self._splash is not None:
