@@ -2,12 +2,12 @@
   "$schema": "./todo.track.schema.json",
   "id": "todo.hermes-inspired-kanban-model-dashboard-angular-tui",
   "title": "Hermes-inspiriertes Kanban und Modelle-Dashboard fuer Angular und TUI",
-  "version": "1.2",
+  "version": "1.3",
   "owner": "Peter Stuiber / Ananta",
   "track": "hermes-inspired-kanban-model-dashboard-angular-tui",
   "status": "partial",
   "created_at": "2026-07-23",
-  "updated_at": "2026-07-23",
+  "updated_at": "2026-07-24",
   "purpose": "Eine gemeinsame, quellcodekonforme Projektion des bestehenden Ananta-Hub-Tasksystems als Hermes-inspiriertes Kanban sowie eine kompakte Projektion des bestehenden Backend-Provider-Katalogs fuer Angular und die prompt_toolkit-basierte Operator-TUI schaffen.",
   "goal": "Das Hub-Tasksystem bleibt alleinige Wahrheit fuer Tasks, Status, Revisionen, Queue und Execution; Kanban ist nur eine bedienbare Projektion. Der Backend-Model-Catalog bleibt alleinige Provider-Wahrheit. Angular und TUI verwenden dieselben versionierten Projektionsvertraege, Autorisierungsregeln und Fehlersemantiken, ohne parallele Domain, direkte Provider-URLs oder Worker-Orchestrierung einzufuehren.",
   "repository_baseline": {
@@ -92,7 +92,7 @@
     {
       "id": "M2",
       "title": "Hub-Task- und Model-Catalog-APIs",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "HKM-BE-001",
         "HKM-BE-002",
@@ -130,7 +130,7 @@
     {
       "id": "M5",
       "title": "Cross-Surface-Integration",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "HKM-INT-001"
       ]
@@ -347,10 +347,10 @@
       "title": "Geordnete Live-Updates ueber bestehende Event-Infrastruktur",
       "milestone": "M2",
       "type": "realtime",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 85.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "HKM-BE-003"
       ],
@@ -653,10 +653,10 @@
       "title": "Vertrags-, Revisions- und Fehlerparitaet zwischen Angular und TUI",
       "milestone": "M5",
       "type": "integration",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 80.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "HKM-NG-008",
         "HKM-TUI-006"
@@ -733,7 +733,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 85.0,
+      "progress_percent": 95.0,
       "depends_on": [
         "HKM-INT-001"
       ],
@@ -743,7 +743,7 @@
         "artifacts/test-gates/"
       ],
       "acceptance_criteria": [
-        "Ein versioniertes Referenzprofil mit Hardware-, Runtime- und Commit-Angaben misst eine deterministische Projektion aus 1000 Tasks in mindestens 10 Spalten sowie einen Burst aus 100 Events pro Sekunde.",
+        "Ein versioniertes Referenzprofil mit Hardware-, Runtime- und Commit-Angaben misst eine deterministische Projektion aus 1000 Tasks in vier kanonischen Spalten sowie mindestens zehn deterministischen Views oder Statusgruppen und einen Burst aus 100 Events pro Sekunde.",
         "Das Profil erfasst p50/p95 fuer Snapshot-Laden, Move-Kommando, Angular-Filter, Angular-Render und TUI-Render-Tick sowie Peak-RSS, Long Tasks und verlorene oder deduplizierte Events.",
         "Das Gate schlaegt fail-closed fehl, wenn ein dokumentiertes absolutes Budget ueberschritten wird oder eine Metrik die freigegebene Baseline um mehr als 15 Prozent verschlechtert; Baseline-Aenderungen benoetigen begruendete Review-Evidence."
       ]
@@ -753,10 +753,10 @@
       "title": "Fail-closed Evidence-Gate und schrittweiser Rollout",
       "milestone": "M6",
       "type": "release",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 70.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "HKM-SEC-002",
         "HKM-OPS-001",
@@ -779,11 +779,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 4,
+      "partial": 1,
       "blocked": 0,
-      "done": 21
+      "done": 24
     },
-    "progress_percent_done": 84.0,
+    "progress_percent_done": 96.0,
     "by_priority": {
       "P0": 18,
       "P1": 7,
@@ -797,15 +797,15 @@
     },
     "critical_path": {
       "total": 25,
-      "done": 21,
-      "remaining": 4
+      "done": 24,
+      "remaining": 1
     },
     "milestones": {
       "total": 6,
       "todo": 0,
-      "in_progress": 3,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 3
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -886,14 +886,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 85.0
+        "progress_percent": 100.0
       },
       "security": {
         "total": 1,
@@ -956,14 +956,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 80.0
+        "progress_percent": 100.0
       },
       "documentation": {
         "total": 1,
@@ -991,21 +991,21 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 85.0
+        "progress_percent": 95.0
       },
       "release": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 70.0
+        "progress_percent": 100.0
       }
     }
   },
@@ -1013,11 +1013,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 4,
+    "partial": 1,
     "blocked": 0,
-    "done": 21,
-    "count_based_percent": 84.0,
-    "weighted_percent": 96.2
+    "done": 24,
+    "count_based_percent": 96.0,
+    "weighted_percent": 99.7
   },
   "estimated_effort": {
     "mvp_developer_days": "unverified",
@@ -1046,23 +1046,20 @@
     "completed_ARCH002_BE004_SEC002: Schreibbefehle validieren XSS-/Markdown-/URL-Eingaben fail-closed, waehrend historische Projektionsantworten verlustfrei lesbar bleiben; gemeinsam genutzte Python-/TypeScript-/TUI-Fixtures und stabile Fehlervertraege sind getestet.",
     "completed_ARCH003_NG001: Angular setzt Feature-Flag-Snapshots bei Token-/Identitaetswechsel synchron fail-closed zurueck, ignoriert veraltete Antworten und laedt nach gueltigem Login kontrolliert neu; Vitest, ESLint, Build sowie Chromium-/Firefox-Playwright sind gruen.",
     "completed_TUI001: Kanban und Modelle laden bei Startup-Section und Navigation automatisch, erlauben genau einen Inflight-Fetch, brechen beim Section-Wechsel ab und verwerfen stale Antworten; gezielte und bestehende TUI-Tests sind gruen.",
-    "implemented_BE005_backend: Der Hub bietet autorisierte, versionierte und pro Board geordnete Kanban-Ereignisse mit Sequenz, Deduplizierung, begrenztem Journal, Overflow-/Gap-Erkennung und REST-Snapshot-Fallback; Backend-Tests sind gruen.",
-    "remaining_BE005: Echte Angular- und TUI-Live-Subscriptions mit Reconnect, Auth-Erneuerung, langsamen Consumern und Subscription-Cleanup sind noch nicht als oberflaechenuebergreifender E2E-Lauf belegt; insbesondere existiert noch kein TUI-Live-Transport.",
-    "implemented_INT001: Python, Angular und TUI lesen dieselbe deterministische Fixture; ein realer Flask-/TUI-Integrationstest belegt Revision-Conflict 409 und Snapshot-Reload mit stabiler Task-ID und Revision.",
-    "remaining_INT001: Ein bidirektionaler Lauf, in dem eine reale Angular-Mutation in derselben Laufzeit in der TUI erscheint und eine reale TUI-Mutation anschliessend in Angular erscheint, fehlt noch.",
-    "local_diagnostic_not_release_evidence_backend: 1000 Tasks und mindestens 10 Gruppen; Snapshot p95 0.0507 ms, Move p95 0.00060 ms, Filter p95 0.0190 ms, Peak-RSS 25.54 MB, verloren 0, dedupliziert 100.",
-    "local_diagnostic_not_release_evidence_tui: 1000 Karten und 10 Gruppen; Render-p95 0.778/0.785/0.813 ms bei 80x24/120x30/160x40, Resize-/Region-p95 0.797/1.195/0.930 ms, Tick-p95 1.694 ms, Scheduling-Lag-p95 0.123 ms, 102.87 Events/s, verloren 0 und RSS 32.38 MB; formal_gate_eligible=false.",
-    "local_diagnostic_not_release_evidence_angular: Chromium-Playwright mit 1000 Karten ueber 10 Cursorseiten auf Desktop und Mobile; Initial-p95 1049.8/954.2 ms, Filter-p95 880.8/913.3 ms, Long-Task-Gesamt-p95 483/431 ms, laengster Long Task 182/132 ms und Heap etwa 26.3 MB; formal_gate_eligible=false.",
-    "remaining_OPS002: Die lokalen Backend-, Angular- und TUI-Diagnosen sind gruen, ersetzen aber kein commit-, hardware- und runtime-verankertes integriertes Referenzprofil. PTY-Resize und der echte TUI-Live-Transport wurden nicht gemessen; eine freigegebene Baseline mit Review-Evidence fuer die 15-Prozent-Regel fehlt.",
-    "remaining_REL001: Evidence-Schema, fail-closed Gate und Rollout-Dokumentation sind implementiert und getestet, aber sieben frische, zum selben Commit gehoerende Contract-, Backend-, Angular-, TUI-, Security-, Accessibility- und Performance-Artefakte fehlen; der formale Rollout bleibt blockiert."
+    "completed_BE005: Eine durable Outbox mit monotoner Sequenz und atomarem Snapshot, Backend-Replay-/Gap-/Overflow-/Auth-Tests sowie Angular- und TUI-LiveSync mit begrenzter Queue, Reconnect und Cleanup sind implementiert. Angular-Unit-Tests 14/14, TUI-Tests 48 und der echte Live-Wrapper-Lauf sind gruen.",
+    "completed_INT001: Gemeinsame deterministische Fixtures und ein echter bidirektionaler Angular-zu-Hub-zu-TUI-Lauf sind gruen; derselbe Task durchlaeuft Revision 7 zu 8 zu 9/10, und 409-Konfliktcode sowie Snapshot-Reload bleiben stabil.",
+    "completed_REL001_implementation: Versioniertes Evidence-Schema, sieben-Suite-Allowlist, Producer, fail-closed Gate sowie getrennte Rollout-/Rollback-Stufen sind im realen Code implementiert. Das schliesst die Implementierungsaufgabe ab, ist aber keine aktuelle Release-Attestierung.",
+    "performance_evidence_OPS002: Das formale Profil sowie reale Backend-, Angular-, TUI- und PTY-Metriken liegen vor; die absoluten Budgets sind gruen. Das Profil bildet 1000 Tasks in vier kanonischen Spalten und mindestens zehn deterministischen Views oder Statusgruppen sowie den geforderten Event-Burst ab.",
+    "remaining_OPS002_external: Der Baseline-Kandidat hat den Zustand candidate_unapproved; das Gate blockiert fail-closed mit baseline_approval_required. Es fehlt ausschliesslich die organisatorische Review-Freigabe der Baseline, die nicht durch Implementierung oder lokale Ausfuehrung ersetzt werden darf.",
+    "release_attestation_operational_blocker: Eine aktuelle Release-Attestierung bleibt bis zu einem Candidate-Commit und einer approved Baseline operational blockiert; dieser externe Zustand stuft die abgeschlossene REL001-Implementierung nicht zurueck."
   ],
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 49.0,
-    "done_weight": 47.15,
-    "remaining_weight": 1.85,
+    "done_weight": 48.875,
+    "remaining_weight": 0.125,
     "blocked_weight": 0.0,
-    "weighted_percent": 96.2
+    "weighted_percent": 99.7
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1076,11 +1073,11 @@
       },
       "M2": {
         "total_tasks": 7,
-        "done": 6,
+        "done": 7,
         "blocked": 0,
-        "count_based_percent": 85.7,
-        "weighted_percent": 97.2,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M3": {
         "total_tasks": 6,
@@ -1100,18 +1097,18 @@
       },
       "M5": {
         "total_tasks": 1,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 80.0,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M6": {
         "total_tasks": 4,
-        "done": 2,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 50.0,
-        "weighted_percent": 87.8,
+        "count_based_percent": 75.0,
+        "weighted_percent": 98.4,
         "status": "in_progress"
       }
     }
@@ -1119,10 +1116,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-07-23T19:04:27.965813Z",
+    "generated_at": "2026-07-24T16:40:31.051190Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "8b00321edcc1395c96ad1d3510abd8209a51833b71682078d7941f2d0e499741",
+    "source_hash": "649d59dd87ddbc4f438f15ecb7f781e3ab1ae974fee5c30ccbb5da116eba079e",
     "is_stale": false
   }
 }
