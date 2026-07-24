@@ -1,0 +1,199 @@
+{
+  "schema": "ananta.kanban-model-dashboard.performance-profile.v1",
+  "profile_id": "kanban-model-dashboard.formal-performance.v1",
+  "profile_version": 1,
+  "workload": {
+    "task_count": 1000,
+    "canonical_columns": [
+      "todo",
+      "in_progress",
+      "blocked",
+      "completed"
+    ],
+    "status_groups": [
+      "todo",
+      "pending",
+      "ready",
+      "in_progress",
+      "running",
+      "delegated",
+      "blocked_by_dependency",
+      "failed",
+      "completed",
+      "cancelled"
+    ],
+    "view_groups": [
+      "view-00",
+      "view-01",
+      "view-02",
+      "view-03",
+      "view-04",
+      "view-05",
+      "view-06",
+      "view-07",
+      "view-08",
+      "view-09"
+    ],
+    "events": {
+      "target_rate_per_second": 100,
+      "unique_count": 1000,
+      "duplicate_every": 10
+    },
+    "terminal_sizes": [
+      {
+        "columns": 80,
+        "rows": 24
+      },
+      {
+        "columns": 120,
+        "rows": 30
+      },
+      {
+        "columns": 160,
+        "rows": 40
+      }
+    ],
+    "angular_viewports": [
+      "desktop",
+      "mobile"
+    ]
+  },
+  "sampling": {
+    "angular_measured_runs_per_viewport_min": 3,
+    "pty_resize_samples_per_size_min": 5
+  },
+  "required_source_schemas": {
+    "backend": "ananta.kanban-local-performance-diagnostic.v1",
+    "angular": "ananta.kanban-performance-local-diagnostic.v1",
+    "tui": "ananta.tui-kanban-local-performance-diagnostic.v1",
+    "pty": "ananta.tui-kanban-pty-local-diagnostic.v1"
+  },
+  "source_profiles": {
+    "backend": "config/test-profiles/kanban-model-dashboard/local-performance.v1.json",
+    "tui": "config/test-profiles/kanban-model-dashboard/local-tui-performance.v1.json"
+  },
+  "absolute_budgets": {
+    "backend.snapshot_p50_ms": {
+      "operator": "<=",
+      "value": 1000.0
+    },
+    "backend.snapshot_p95_ms": {
+      "operator": "<=",
+      "value": 1500.0
+    },
+    "backend.move_p50_ms": {
+      "operator": "<=",
+      "value": 1500.0
+    },
+    "backend.move_p95_ms": {
+      "operator": "<=",
+      "value": 2500.0
+    },
+    "angular.render_p50_ms": {
+      "operator": "<=",
+      "value": 4000.0
+    },
+    "angular.render_p95_ms": {
+      "operator": "<=",
+      "value": 5000.0
+    },
+    "angular.filter_p50_ms": {
+      "operator": "<=",
+      "value": 1500.0
+    },
+    "angular.filter_p95_ms": {
+      "operator": "<=",
+      "value": 1800.0
+    },
+    "tui.render_p50_ms": {
+      "operator": "<=",
+      "value": 50.0
+    },
+    "tui.render_p95_ms": {
+      "operator": "<=",
+      "value": 100.0
+    },
+    "tui.pty_resize_p50_ms": {
+      "operator": "<=",
+      "value": 1000.0
+    },
+    "tui.pty_resize_p95_ms": {
+      "operator": "<=",
+      "value": 1500.0
+    },
+    "memory.peak_rss_mb": {
+      "operator": "<=",
+      "value": 2048.0
+    },
+    "browser.long_task_count_p50": {
+      "operator": "<=",
+      "value": 20
+    },
+    "browser.long_task_count_p95": {
+      "operator": "<=",
+      "value": 30
+    },
+    "browser.long_task_total_p95_ms": {
+      "operator": "<=",
+      "value": 3000.0
+    },
+    "browser.longest_task_p95_ms": {
+      "operator": "<=",
+      "value": 900.0
+    },
+    "events.observed_rate_per_second": {
+      "operator": ">=",
+      "value": 100.0
+    },
+    "events.lost": {
+      "operator": "==",
+      "value": 0
+    },
+    "events.deduplicated": {
+      "operator": "==",
+      "value": 100
+    }
+  },
+  "baseline_comparison": {
+    "max_regression_percent": 15.0,
+    "required_approval_status": "approved",
+    "approved_baseline_path": "config/test-profiles/kanban-model-dashboard/baselines/formal-performance-approved.v1.json",
+    "metrics": {
+      "backend.snapshot_p50_ms": "lower_is_better",
+      "backend.snapshot_p95_ms": "lower_is_better",
+      "backend.move_p50_ms": "lower_is_better",
+      "backend.move_p95_ms": "lower_is_better",
+      "angular.render_p50_ms": "lower_is_better",
+      "angular.render_p95_ms": "lower_is_better",
+      "angular.filter_p50_ms": "lower_is_better",
+      "angular.filter_p95_ms": "lower_is_better",
+      "tui.render_p50_ms": "lower_is_better",
+      "tui.render_p95_ms": "lower_is_better",
+      "tui.pty_resize_p50_ms": "lower_is_better",
+      "tui.pty_resize_p95_ms": "lower_is_better",
+      "memory.peak_rss_mb": "lower_is_better",
+      "browser.long_task_count_p50": "lower_is_better",
+      "browser.long_task_count_p95": "lower_is_better",
+      "browser.long_task_total_p95_ms": "lower_is_better",
+      "browser.longest_task_p95_ms": "lower_is_better",
+      "events.observed_rate_per_second": "higher_is_better",
+      "events.lost": "lower_is_better",
+      "events.deduplicated": "exact"
+    }
+  },
+  "required_environment_metadata": [
+    "host.hostname",
+    "host.os.system",
+    "host.os.release",
+    "host.os.machine",
+    "host.cpu.model",
+    "host.cpu.logical_count",
+    "host.memory.total_bytes",
+    "runtimes.python.version",
+    "runtimes.node.version",
+    "runtimes.playwright.version",
+    "browser.name",
+    "browser.version",
+    "commit.sha"
+  ]
+}

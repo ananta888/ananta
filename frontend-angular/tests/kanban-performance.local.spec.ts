@@ -138,6 +138,15 @@ const boards = Array.from({ length: VIEW_GROUP_COUNT }, (_, index) => ({
   capabilities: ['kanban.read'],
 }));
 
+function matchingCards(query: string): typeof cards {
+  const normalized = query.trim().toLowerCase();
+  return normalized
+    ? cards.filter(card =>
+      card.title.toLowerCase().includes(normalized)
+      || card.description.toLowerCase().includes(normalized))
+    : cards;
+}
+
 async function json(route: Route, data: unknown, status = 200): Promise<void> {
   await route.fulfill({
     status,
@@ -199,17 +208,50 @@ async function installFixtures(page: Page): Promise<{ cardPageRequests: () => nu
     if (path.endsWith('/boards') && request.method() === 'GET') {
       return json(route, { items: boards, next_cursor: null });
     }
+    if (path.endsWith('/boards/hub/snapshot') && request.method() === 'GET') {
+      return json(route, {
+        schema_version: 'kanban.snapshot.v1',
+        board: {
+          schema_version: 'kanban.v1',
+          ...boards[0],
+          columns,
+        },
+        cards,
+        event_sequence: 0,
+      });
+    }
+    if (path.endsWith('/boards/hub/events') && request.method() === 'GET') {
+      const rawSequence = url.searchParams.get('after_sequence')
+        ?? request.headers()['last-event-id']
+        ?? '0';
+      const afterSequence = Number.parseInt(rawSequence, 10);
+      const sequence = Number.isSafeInteger(afterSequence) && afterSequence >= 0
+        ? afterSequence
+        : 0;
+      return json(route, {
+        schema_version: 'kanban.event-batch.v1',
+        board_id: 'hub',
+        requested_after_sequence: sequence,
+        events: [],
+        overflow: false,
+        gap_detected: false,
+        gap_reason: null,
+        overflow_reason: null,
+        snapshot_required: false,
+        snapshot_url: '/api/v1/kanban/boards/hub/snapshot',
+        next_after_sequence: sequence,
+        latest_sequence: sequence,
+        has_more: false,
+      });
+    }
     if (path.endsWith('/cards') && request.method() === 'GET') {
       cardPageRequests += 1;
       const query = (url.searchParams.get('q') ?? '').trim().toLowerCase();
       if (query) {
-        const filtered = cards.filter(card =>
-          card.title.toLowerCase().includes(query)
-          || card.description.toLowerCase().includes(query));
         return json(route, {
           board_id: 'hub',
           board_revision: 'perf-snapshot-1',
-          items: filtered.slice(0, PAGE_SIZE),
+          items: matchingCards(query).slice(0, PAGE_SIZE),
           next_cursor: null,
         });
       }

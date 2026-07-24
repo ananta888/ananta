@@ -3,11 +3,13 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import math
 import os
 import pty
 import re
 import selectors
 import signal
+import statistics
 import struct
 import subprocess
 import sys
@@ -22,6 +24,7 @@ from typing import Any, Iterator, Sequence
 
 LOCAL_SCOPE = "local_diagnostic_not_release_evidence"
 DEFAULT_TERMINAL_SIZES = ((80, 24), (120, 30), (160, 40))
+DEFAULT_RESIZE_SAMPLES_PER_SIZE = 5
 _MARKER = "[Backlog]PTYCA"
 _COLUMNS = (
     "backlog",
@@ -112,7 +115,7 @@ class _FixtureHubHandler(BaseHTTPRequestHandler):
             self._send(
                 {
                     "data": {
-                        "schema_version": "kanban.v1",
+                        "schema_version": "kanban.snapshot.v1",
                         "board": board,
                         "cards": list(self.cards),
                         "event_sequence": 0,
@@ -228,6 +231,7 @@ def run_pty_resize_diagnostic(
     card_count: int = 1000,
     terminal_sizes: Sequence[tuple[int, int]] = DEFAULT_TERMINAL_SIZES,
     timeout_seconds: float = 15.0,
+    resize_samples_per_size: int = DEFAULT_RESIZE_SAMPLES_PER_SIZE,
 ) -> dict[str, Any]:
     if os.name != "posix" or not sys.platform.startswith("linux"):
         raise RuntimeError("linux_pty_required")
@@ -236,12 +240,16 @@ def run_pty_resize_diagnostic(
     sizes = tuple((int(columns), int(rows)) for columns, rows in terminal_sizes)
     if sizes != DEFAULT_TERMINAL_SIZES:
         raise ValueError("pty_terminal_size_matrix_invalid")
+    samples_per_size = int(resize_samples_per_size)
+    if samples_per_size < 3 or samples_per_size > 50:
+        raise ValueError("pty_resize_sample_count_invalid")
 
     with fixture_hub(card_count) as endpoint:
         measurements, peak_rss_kib = _run_tui_process(
             endpoint=endpoint,
             sizes=sizes,
             timeout_seconds=max(2.0, float(timeout_seconds)),
+            resize_samples_per_size=samples_per_size,
         )
     return {
         "schema": "ananta.tui-kanban-pty-local-diagnostic.v1",
@@ -253,6 +261,7 @@ def run_pty_resize_diagnostic(
         "terminal_sizes": [
             {"columns": columns, "rows": rows} for columns, rows in sizes
         ],
+        "resize_samples_per_size": samples_per_size,
         "resize_measurements": measurements,
         "peak_rss_kib": peak_rss_kib,
         "diagnostic_status": "passed_local_pty_resize",
@@ -264,6 +273,7 @@ def _run_tui_process(
     endpoint: str,
     sizes: tuple[tuple[int, int], ...],
     timeout_seconds: float,
+    resize_samples_per_size: int,
 ) -> tuple[list[dict[str, Any]], int]:
     master_fd, slave_fd = pty.openpty()
     process: subprocess.Popen[bytes] | None = None
@@ -312,26 +322,40 @@ def _run_tui_process(
         measurements: list[dict[str, Any]] = []
         peak_rss_kib = _rss_kib(process.pid)
         for columns, rows in sizes:
-            _drain(master_fd)
-            started = time.perf_counter()
-            _set_terminal_size(master_fd, columns, rows)
-            os.killpg(process.pid, signal.SIGWINCH)
-            redraw = _read_until(
-                master_fd,
-                marker=b"KANBAN",
-                timeout_seconds=timeout_seconds,
-                process=process,
-            )
-            latency_ms = (time.perf_counter() - started) * 1000.0
-            captured.extend(redraw)
-            peak_rss_kib = max(peak_rss_kib, _rss_kib(process.pid))
+            latency_samples: list[float] = []
+            marker_present = True
+            process_alive = True
+            for _sample in range(resize_samples_per_size):
+                _drain(master_fd)
+                started = time.perf_counter()
+                _set_terminal_size(master_fd, columns, rows)
+                os.killpg(process.pid, signal.SIGWINCH)
+                redraw = _read_until(
+                    master_fd,
+                    marker=b"KANBAN",
+                    timeout_seconds=timeout_seconds,
+                    process=process,
+                )
+                latency_samples.append(
+                    round((time.perf_counter() - started) * 1000.0, 3)
+                )
+                captured.extend(redraw)
+                marker_present = marker_present and b"KANBAN" in redraw
+                process_alive = process_alive and process.poll() is None
+                peak_rss_kib = max(peak_rss_kib, _rss_kib(process.pid))
+            p50_ms = round(statistics.median(latency_samples), 3)
+            p95_ms = round(_percentile(latency_samples, 0.95), 3)
             measurements.append(
                 {
                     "columns": columns,
                     "rows": rows,
-                    "redraw_latency_ms": round(latency_ms, 3),
-                    "marker_present": b"KANBAN" in redraw,
-                    "process_alive": process.poll() is None,
+                    "sample_count": len(latency_samples),
+                    "redraw_latency_samples_ms": latency_samples,
+                    "redraw_latency_p50_ms": p50_ms,
+                    "redraw_latency_p95_ms": p95_ms,
+                    "redraw_latency_ms": p95_ms,
+                    "marker_present": marker_present,
+                    "process_alive": process_alive,
                 }
             )
         if process.poll() is not None:
@@ -354,6 +378,17 @@ def _run_tui_process(
         if slave_fd >= 0:
             os.close(slave_fd)
         os.close(master_fd)
+
+
+def _percentile(values: Sequence[float], quantile: float) -> float:
+    if not values:
+        raise ValueError("pty_percentile_requires_samples")
+    ordered = sorted(float(value) for value in values)
+    index = max(
+        0,
+        min(len(ordered) - 1, math.ceil(len(ordered) * quantile) - 1),
+    )
+    return ordered[index]
 
 
 def _set_terminal_size(fd: int, columns: int, rows: int) -> None:
@@ -450,11 +485,17 @@ def main() -> int:
     )
     parser.add_argument("--cards", type=int, default=1000)
     parser.add_argument("--timeout-seconds", type=float, default=15.0)
+    parser.add_argument(
+        "--resize-samples",
+        type=int,
+        default=DEFAULT_RESIZE_SAMPLES_PER_SIZE,
+    )
     parser.add_argument("--output", default="")
     args = parser.parse_args()
     report = run_pty_resize_diagnostic(
         card_count=args.cards,
         timeout_seconds=args.timeout_seconds,
+        resize_samples_per_size=args.resize_samples,
     )
     rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output:
