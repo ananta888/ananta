@@ -1,0 +1,101 @@
+{
+  "_meta": {
+    "purpose": "Deterministic cross-surface wire contract for HKM-INT-001.",
+    "deterministic": true,
+    "dependent_tests": [
+      "tests/test_kanban_model_dashboard_shared_contract.py",
+      "tests/client_surfaces/operator_tui/test_dashboard_shared_contract_fixture.py",
+      "frontend-angular/src/app/contracts/kanban-model-dashboard.fixture.spec.ts",
+      "tests/client_surfaces/operator_tui/test_kanban_cross_surface_e2e.py",
+      "frontend-angular/tests/kanban-cross-surface-live-hub.spec.ts"
+    ]
+  },
+  "fixture_version": "kanban-model-dashboard.fixture.v1",
+  "board": {
+    "schema_version": "kanban.v1",
+    "id": "hub",
+    "name": "Hub",
+    "scope_type": "hub",
+    "scope_id": null,
+    "revision": "fixture-board-revision-0007",
+    "card_count": 1,
+    "capabilities": [
+      "kanban.read",
+      "kanban.write"
+    ],
+    "columns": [
+      {
+        "id": "in_progress",
+        "title": "In Progress",
+        "statuses": [
+          "in_progress"
+        ],
+        "card_count": 1
+      }
+    ]
+  },
+  "card": {
+    "schema_version": "kanban.v1",
+    "id": "TASK-HKM-INT-001",
+    "board_id": "hub",
+    "title": "Shared contract task",
+    "description": "Deterministic fixture card",
+    "status": "in_progress",
+    "column_id": "in_progress",
+    "position": 0,
+    "revision": 7,
+    "priority": "Medium",
+    "assignee": null,
+    "labels": [
+      "integration-contract"
+    ],
+    "blocked": false,
+    "dependencies": [],
+    "comment_count": 0,
+    "activity_count": 1,
+    "created_at": "2026-07-23T12:00:00Z",
+    "updated_at": "2026-07-23T12:00:00Z"
+  },
+  "event": {
+    "schema_version": "kanban.event.v1",
+    "event_id": "42",
+    "board_id": "hub",
+    "task_id": "TASK-HKM-INT-001",
+    "revision": 7,
+    "sequence": 42,
+    "event_type": "kanban.card.moved",
+    "occurred_at": "2026-07-23T12:00:00Z",
+    "payload": {
+      "column_id": "in_progress",
+      "position": 0
+    }
+  },
+  "error": {
+    "http_status": 409,
+    "body": {
+      "error": {
+        "code": "kanban_revision_conflict",
+        "message": "kanban_revision_conflict",
+        "details": {
+          "current_revision": 8
+        }
+      }
+    }
+  },
+  "model_summary": {
+    "schema": "ananta.model-summary.v1",
+    "provider_id": "local",
+    "runtime": "local",
+    "model_id": "safe-model",
+    "display_name": "Safe Model",
+    "availability": "available",
+    "loaded": true,
+    "context_window": 8192,
+    "quantization": "Q4",
+    "capabilities": [
+      "chat"
+    ],
+    "health": "healthy",
+    "is_default": true
+  }
+}
