@@ -25,8 +25,12 @@ from agent.services.kanban_authorization_service import (
     KanbanPrincipal,
 )
 from agent.services.kanban_feature_flags import KanbanFeatureFlags
+from agent.services.kanban_event_stream_service import (
+    get_kanban_event_stream_service,
+)
 from agent.services.kanban_projection_service import KanbanProjectionService, KanbanServiceError
 from agent.services.surface_rate_limit_policy import (
+    KANBAN_EVENT_RECONNECT,
     KANBAN_WRITE,
     is_auth_disabled,
     surface_rate_limit_policy,
@@ -96,7 +100,62 @@ def _bool_filter(name: str) -> bool | None:
     )
 
 
-def _endpoint(*, write: bool = False):
+def _event_cursor() -> tuple[int, int]:
+    unknown = set(request.args) - {"after_sequence", "limit"}
+    if unknown:
+        raise KanbanServiceError(
+            "kanban_event_cursor_invalid",
+            "event query contains unsupported parameters",
+            status_code=400,
+        )
+    raw_after = (
+        request.args.get("after_sequence")
+        or request.headers.get("Last-Event-ID")
+        or "0"
+    )
+    try:
+        after_sequence = int(str(raw_after).strip())
+        limit = int(request.args.get("limit", "100"))
+    except ValueError as exc:
+        raise KanbanServiceError(
+            "kanban_event_cursor_invalid",
+            "event cursor and limit must be integers",
+            status_code=400,
+        ) from exc
+    if after_sequence < 0 or not 1 <= limit <= 500:
+        raise KanbanServiceError(
+            "kanban_event_cursor_invalid",
+            "event cursor or limit is out of range",
+            status_code=400,
+        )
+    return after_sequence, limit
+
+
+def _rate_limit_response(namespace: str):
+    decision = surface_rate_limit_policy.consume(
+        config=current_app.config,
+        namespace=namespace,
+        auth_payload=getattr(g, "auth_payload", None),
+        user=getattr(g, "user", None),
+        remote_addr=request.remote_addr,
+    )
+    if decision.allowed:
+        return None
+    response, status_code = _error(
+        "rate_limit_exceeded",
+        "Kanban surface rate limit exceeded",
+        429,
+        {"retry_after_seconds": decision.retry_after_seconds},
+    )
+    response.headers["Retry-After"] = str(decision.retry_after_seconds)
+    return response, status_code
+
+
+def _endpoint(
+    *,
+    write: bool = False,
+    rate_limit_namespace: str | None = None,
+):
     def decorate(function):
         @wraps(function)
         def wrapped(*args, **kwargs):
@@ -111,29 +170,15 @@ def _endpoint(*, write: bool = False):
                     "Kanban writes require authenticated identity",
                     403,
                 )
-            if write:
-                decision = surface_rate_limit_policy.consume(
-                    config=current_app.config,
-                    namespace=KANBAN_WRITE,
-                    auth_payload=getattr(g, "auth_payload", None),
-                    user=getattr(g, "user", None),
-                    remote_addr=request.remote_addr,
-                )
-                if not decision.allowed:
-                    response, status_code = _error(
-                        "rate_limit_exceeded",
-                        "Kanban write rate limit exceeded",
-                        429,
-                        {
-                            "retry_after_seconds": (
-                                decision.retry_after_seconds
-                            )
-                        },
-                    )
-                    response.headers["Retry-After"] = str(
-                        decision.retry_after_seconds
-                    )
-                    return response, status_code
+            effective_rate_limit = (
+                rate_limit_namespace
+                if rate_limit_namespace is not None
+                else KANBAN_WRITE if write else None
+            )
+            if effective_rate_limit is not None:
+                rate_limited = _rate_limit_response(effective_rate_limit)
+                if rate_limited is not None:
+                    return rate_limited
             try:
                 return function(*args, **kwargs)
             except ValidationError as exc:
@@ -185,6 +230,15 @@ def create_board():
 @_endpoint()
 def board(board_id: str):
     return _success(KanbanProjectionService().get_board(board_id, _principal()))
+
+
+@kanban_bp.get("/boards/<path:board_id>/snapshot")
+@check_auth
+@_endpoint()
+def snapshot(board_id: str):
+    return _success(
+        KanbanProjectionService().get_snapshot(board_id, _principal())
+    )
 
 
 @kanban_bp.get("/boards/<path:board_id>/cards")
@@ -257,6 +311,22 @@ def activity(board_id: str, card_id: str):
             _principal(),
             limit=_limit(),
             cursor=request.args.get("cursor"),
+        )
+    )
+
+
+@kanban_bp.get("/boards/<path:board_id>/events")
+@check_auth
+@_endpoint(rate_limit_namespace=KANBAN_EVENT_RECONNECT)
+def events(board_id: str):
+    principal = _principal()
+    KanbanProjectionService().get_board(board_id, principal)
+    after_sequence, limit = _event_cursor()
+    return _success(
+        get_kanban_event_stream_service().reconnect(
+            board_id=board_id,
+            after_sequence=after_sequence,
+            limit=limit,
         )
     )
 

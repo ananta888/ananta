@@ -13,6 +13,25 @@ def test_kanban_api_commands(client, admin_auth_header, app) -> None:
     )
     assert created.status_code == 201
     card = created.get_json()["data"]
+    snapshot = client.get(
+        "/api/v1/kanban/boards/hub/snapshot",
+        headers=admin_auth_header,
+    )
+    assert snapshot.status_code == 200
+    snapshot_data = snapshot.get_json()["data"]
+    assert snapshot_data["schema_version"] == "kanban.snapshot.v1"
+    assert snapshot_data["board"]["id"] == "hub"
+    assert any(item["id"] == card["id"] for item in snapshot_data["cards"])
+    assert snapshot_data["event_sequence"] >= 1
+    replay = client.get(
+        "/api/v1/kanban/boards/hub/events?after_sequence=0&limit=100",
+        headers=admin_auth_header,
+    )
+    assert replay.status_code == 200
+    assert any(
+        event["task_id"] == card["id"]
+        for event in replay.get_json()["data"]["events"]
+    )
     listed = client.get("/api/v1/kanban/boards/hub/cards", headers=admin_auth_header)
     assert listed.status_code == 200
     assert listed.get_json()["data"]["items"][0]["id"] == card["id"]

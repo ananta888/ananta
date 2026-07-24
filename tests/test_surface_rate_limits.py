@@ -8,6 +8,7 @@ from pydantic import BaseModel
 import agent.routes.config.providers as provider_routes
 import agent.routes.tasks.kanban as kanban_routes
 from agent.services.surface_rate_limit_policy import (
+    KANBAN_EVENT_RECONNECT,
     KANBAN_WRITE,
     MODEL_CATALOG_REFRESH,
     MODEL_DEFAULT_SELECTION,
@@ -91,6 +92,9 @@ class _BoardResult(BaseModel):
 class _KanbanService:
     def create_board(self, command, principal):
         return _BoardResult()
+
+    def get_board(self, board_id, principal):
+        return _BoardResult(id=board_id)
 
 
 @pytest.fixture
@@ -198,8 +202,12 @@ def test_catalog_refresh_has_stable_429_and_retry_after(
     deterministic_surface_limiter,
 ) -> None:
     _enable_model_catalog(app)
+    limit = 3
     app.config["SURFACE_RATE_LIMITS"] = {
-        MODEL_CATALOG_REFRESH: {"limit": 1, "window_seconds": 41}
+        MODEL_CATALOG_REFRESH: {
+            "limit": limit,
+            "window_seconds": 41,
+        }
     }
     monkeypatch.setattr(
         provider_routes,
@@ -207,18 +215,21 @@ def test_catalog_refresh_has_stable_429_and_retry_after(
         lambda: _CatalogService(),
     )
 
-    first = client.post(
-        "/models/catalog/v1/refresh",
-        headers=admin_auth_header,
-        json={},
-    )
+    allowed = [
+        client.post(
+            "/models/catalog/v1/refresh",
+            headers=admin_auth_header,
+            json={},
+        )
+        for _ in range(limit)
+    ]
     denied = client.post(
         "/models/catalog/v1/refresh",
         headers=admin_auth_header,
         json={},
     )
 
-    assert first.status_code == 200
+    assert all(response.status_code == 200 for response in allowed)
     assert denied.status_code == 429
     assert denied.headers["Retry-After"] == "41"
     assert denied.get_json()["message"] == "rate_limit_exceeded"
@@ -232,8 +243,12 @@ def test_default_selection_has_stable_429_and_retry_after(
     deterministic_surface_limiter,
 ) -> None:
     _enable_model_catalog(app)
+    limit = 3
     app.config["SURFACE_RATE_LIMITS"] = {
-        MODEL_DEFAULT_SELECTION: {"limit": 1, "window_seconds": 43}
+        MODEL_DEFAULT_SELECTION: {
+            "limit": limit,
+            "window_seconds": 43,
+        }
     }
     monkeypatch.setattr(provider_routes, "ModelDefaultSelectionCommand", _Command)
     monkeypatch.setattr(provider_routes, "ModelDefaultSelectionService", _Selector)
@@ -243,18 +258,21 @@ def test_default_selection_has_stable_429_and_retry_after(
         lambda: _CatalogService(),
     )
 
-    first = client.post(
-        "/models/default/v1",
-        headers=admin_auth_header,
-        json={"provider_id": "local", "model_id": "model"},
-    )
+    allowed = [
+        client.post(
+            "/models/default/v1",
+            headers=admin_auth_header,
+            json={"provider_id": "local", "model_id": "model"},
+        )
+        for _ in range(limit)
+    ]
     denied = client.post(
         "/models/default/v1",
         headers=admin_auth_header,
         json={"provider_id": "local", "model_id": "model"},
     )
 
-    assert first.status_code == 200
+    assert all(response.status_code == 200 for response in allowed)
     assert denied.status_code == 429
     assert denied.headers["Retry-After"] == "43"
     assert denied.get_json()["message"] == "rate_limit_exceeded"
@@ -291,4 +309,50 @@ def test_all_kanban_writes_share_stable_rate_limit(
     assert first.status_code == 201
     assert denied.status_code == 429
     assert denied.headers["Retry-After"] == "47"
+    assert denied.get_json()["error"]["code"] == "rate_limit_exceeded"
+
+
+def test_event_reconnect_has_stable_n_plus_one_limit_and_retry_after(
+    app,
+    client,
+    admin_auth_header,
+    monkeypatch,
+    deterministic_surface_limiter,
+) -> None:
+    _enable_kanban(app)
+    limit = 3
+    app.config["SURFACE_RATE_LIMITS"] = {
+        KANBAN_EVENT_RECONNECT: {
+            "limit": limit,
+            "window_seconds": 53,
+        }
+    }
+    monkeypatch.setattr(
+        kanban_routes,
+        "KanbanProjectionService",
+        _KanbanService,
+    )
+    board = client.post(
+        "/api/v1/kanban/boards",
+        headers=admin_auth_header,
+        json={"scope_type": "hub", "idempotency_key": "event-rate-board"},
+    )
+    assert board.status_code == 201
+    board_id = board.get_json()["data"]["id"]
+
+    allowed = [
+        client.get(
+            f"/api/v1/kanban/boards/{board_id}/events",
+            headers=admin_auth_header,
+        )
+        for _ in range(limit)
+    ]
+    denied = client.get(
+        f"/api/v1/kanban/boards/{board_id}/events",
+        headers=admin_auth_header,
+    )
+
+    assert all(response.status_code == 200 for response in allowed)
+    assert denied.status_code == 429
+    assert denied.headers["Retry-After"] == "53"
     assert denied.get_json()["error"]["code"] == "rate_limit_exceeded"

@@ -62,6 +62,7 @@ from .knowledge import (
     KnowledgeIndexRunDB,
     KnowledgeLinkDB,
 )
+from .kanban_projection import KanbanBoardSequenceDB, KanbanOutboxEventDB
 from .memory import (
     MemoryEntryDB,
     MemoryTreeChunkDB,
@@ -291,6 +292,8 @@ __all__ = [
     "KnowledgeIndexDB",
     "KnowledgeIndexRunDB",
     "KnowledgeLinkDB",
+    "KanbanBoardSequenceDB",
+    "KanbanOutboxEventDB",
     "LoginAttemptDB",
     "OidcIdentityLinkDB",
     "MemoryEntryDB",

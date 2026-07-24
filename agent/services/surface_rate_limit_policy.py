@@ -15,6 +15,7 @@ from agent.services.rate_limit_service import (
 
 
 KANBAN_WRITE = "kanban_write"
+KANBAN_EVENT_RECONNECT = "kanban_event_reconnect"
 MODEL_CATALOG_REFRESH = "model_catalog_refresh"
 MODEL_DEFAULT_SELECTION = "model_default_selection"
 
@@ -33,12 +34,14 @@ class SurfaceRateLimitDecision:
 
 _DEFAULTS: dict[str, SurfaceRateLimit] = {
     KANBAN_WRITE: SurfaceRateLimit(limit=120, window_seconds=60),
+    KANBAN_EVENT_RECONNECT: SurfaceRateLimit(limit=60, window_seconds=60),
     MODEL_CATALOG_REFRESH: SurfaceRateLimit(limit=6, window_seconds=60),
     MODEL_DEFAULT_SELECTION: SurfaceRateLimit(limit=12, window_seconds=60),
 }
 
 _ENV_PREFIXES = {
     KANBAN_WRITE: "ANANTA_KANBAN_WRITE_RATE_LIMIT",
+    KANBAN_EVENT_RECONNECT: "ANANTA_KANBAN_EVENT_RECONNECT_RATE_LIMIT",
     MODEL_CATALOG_REFRESH: "ANANTA_MODEL_CATALOG_REFRESH_RATE_LIMIT",
     MODEL_DEFAULT_SELECTION: "ANANTA_MODEL_DEFAULT_SELECTION_RATE_LIMIT",
 }

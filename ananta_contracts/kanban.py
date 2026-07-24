@@ -5,17 +5,20 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 KANBAN_SCHEMA_VERSION = "kanban.v1"
+KANBAN_SNAPSHOT_SCHEMA_VERSION = "kanban.snapshot.v1"
 
 
 class KanbanContractModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
 
+
+class KanbanWriteCommandModel(KanbanContractModel):
     @model_validator(mode="after")
     def reject_unsafe_text_payloads(self) -> "KanbanContractModel":
         """Reject executable markup while preserving ordinary plain text."""
@@ -121,6 +124,25 @@ class KanbanCardPage(KanbanContractModel):
     next_cursor: str | None = None
 
 
+class KanbanSnapshot(KanbanContractModel):
+    """Atomic board recovery point paired with the durable event cursor."""
+
+    schema_version: Literal["kanban.snapshot.v1"] = (
+        KANBAN_SNAPSHOT_SCHEMA_VERSION
+    )
+    board: KanbanBoard
+    cards: tuple[KanbanCard, ...]
+    event_sequence: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_board_identity(self) -> "KanbanSnapshot":
+        if any(card.board_id != self.board.id for card in self.cards):
+            raise ValueError("snapshot cards must belong to the snapshot board")
+        if self.board.card_count != len(self.cards):
+            raise ValueError("snapshot board card_count must match cards")
+        return self
+
+
 class KanbanComment(KanbanContractModel):
     schema_version: str = KANBAN_SCHEMA_VERSION
     id: str
@@ -165,7 +187,7 @@ class KanbanCapabilities(KanbanContractModel):
     capabilities: tuple[KanbanCapability, ...]
 
 
-class CreateBoardCommand(KanbanContractModel):
+class CreateBoardCommand(KanbanWriteCommandModel):
     schema_version: str = KANBAN_SCHEMA_VERSION
     scope_type: KanbanScopeType
     scope_id: str | None = Field(default=None, min_length=1, max_length=255)
@@ -180,7 +202,7 @@ class CreateBoardCommand(KanbanContractModel):
         return self
 
 
-class CreateCardCommand(KanbanContractModel):
+class CreateCardCommand(KanbanWriteCommandModel):
     schema_version: str = KANBAN_SCHEMA_VERSION
     title: str = Field(min_length=1, max_length=500)
     description: str | None = Field(default=None, max_length=20_000)
@@ -190,7 +212,7 @@ class CreateCardCommand(KanbanContractModel):
     idempotency_key: str = Field(min_length=1, max_length=128)
 
 
-class RevisionedCardCommand(KanbanContractModel):
+class RevisionedCardCommand(KanbanWriteCommandModel):
     schema_version: str = KANBAN_SCHEMA_VERSION
     board_id: str = Field(min_length=1, max_length=320)
     expected_revision: int = Field(ge=0)
@@ -221,3 +243,17 @@ class BlockCardCommand(RevisionedCardCommand):
 
 class CompleteCardCommand(RevisionedCardCommand):
     outcome: str | None = Field(default=None, max_length=2_000)
+
+
+class KanbanRevisionConflictDetails(KanbanContractModel):
+    current_revision: int = Field(ge=0)
+
+
+class KanbanRevisionConflictError(KanbanContractModel):
+    code: Literal["kanban_revision_conflict"]
+    message: str = Field(min_length=1, max_length=500)
+    details: KanbanRevisionConflictDetails
+
+
+class KanbanRevisionConflictResponse(KanbanContractModel):
+    error: KanbanRevisionConflictError

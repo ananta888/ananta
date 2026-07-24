@@ -34,10 +34,16 @@ from ananta_contracts.kanban import (
     KanbanComment,
     KanbanCommentPage,
     KanbanScopeType,
+    KanbanSnapshot,
     MoveCardCommand,
     SetDependenciesCommand,
 )
+from ananta_contracts.kanban_events import KanbanEvent
 from agent.common.audit import log_audit
+from agent.services.kanban_event_stream_service import (
+    build_kanban_event,
+    get_kanban_event_stream_service,
+)
 from agent.db_models.tasks import TaskDB
 from agent.repositories.kanban_projection import (
     KanbanIdempotencyConflict,
@@ -124,22 +130,36 @@ class HubKanbanEventAdapter:
         notify_task_update(task.id)
 
 
+class KanbanCommittedEventMirrorPort(Protocol):
+    def mirror(self, event: KanbanEvent) -> None: ...
+
+
+class HubKanbanCommittedEventMirror:
+    def mirror(self, event: KanbanEvent) -> None:
+        get_kanban_event_stream_service().mirror(event)
+
+
 @dataclass(frozen=True)
 class _Mutation:
     key_hash: str
     digest: str
-
-
 class KanbanProjectionService:
     def __init__(
         self,
         store: SqlKanbanProjectionStore | None = None,
         authorization: KanbanAuthorizationService | None = None,
         events: KanbanEventPort | None = None,
+        event_mirror: KanbanCommittedEventMirrorPort | None = None,
     ):
+        default_events = events is None
         self._store = store or SqlKanbanProjectionStore()
         self._auth = authorization or KanbanAuthorizationService()
         self._events = events or HubKanbanEventAdapter()
+        self._event_mirror = (
+            event_mirror
+            if event_mirror is not None
+            else HubKanbanCommittedEventMirror() if default_events else None
+        )
 
     @staticmethod
     def parse_scope(board_id: str) -> KanbanScope:
@@ -342,9 +362,9 @@ class KanbanProjectionService:
 
     @staticmethod
     def _limit(limit: int) -> None:
-        if not 1 <= limit <= 100:
+        if not 1 <= limit <= 200:
             raise KanbanServiceError(
-                "kanban_limit_invalid", "limit must be between 1 and 100", status_code=400
+                "kanban_limit_invalid", "limit must be between 1 and 200", status_code=400
             )
 
     def list_boards(
@@ -384,6 +404,30 @@ class KanbanProjectionService:
     def get_board(self, board_id: str, principal: KanbanPrincipal) -> KanbanBoard:
         scope, goal, team = self._scope(board_id, principal, KanbanCapability.READ)
         return self._board(scope, self._store.list_tasks(scope), principal, goal, team)
+
+    def get_snapshot(
+        self,
+        board_id: str,
+        principal: KanbanPrincipal,
+    ) -> KanbanSnapshot:
+        scope, _, _ = self._scope(
+            board_id,
+            principal,
+            KanbanCapability.READ,
+        )
+        snapshot = self._store.read_snapshot(scope)
+        board = self._board(
+            scope,
+            list(snapshot.tasks),
+            principal,
+            snapshot.goal,
+            snapshot.team,
+        )
+        return KanbanSnapshot(
+            board=board,
+            cards=tuple(self._cards(scope, list(snapshot.tasks))),
+            event_sequence=snapshot.event_sequence,
+        )
 
     def create_board(self, command: CreateBoardCommand, principal: KanbanPrincipal) -> KanbanBoard:
         board_id = (
@@ -565,6 +609,35 @@ class KanbanProjectionService:
             )
         return KanbanServiceError("kanban_idempotency_conflict", str(exc), status_code=409)
 
+    def _publish_committed(
+        self,
+        *,
+        action: str,
+        task: TaskDB,
+        actor_id: str,
+        details: dict[str, Any],
+        event: KanbanEvent | None,
+    ) -> None:
+        self._events.publish(
+            action=action,
+            task=task,
+            actor_id=actor_id,
+            details=details,
+        )
+        if event is None or self._event_mirror is None:
+            return
+        try:
+            self._event_mirror.mirror(event)
+        except Exception as exc:
+            log_audit(
+                "kanban.event.mirror.failed",
+                {
+                    "board_id": event.board_id,
+                    "event_id": event.event_id,
+                    "error_type": type(exc).__name__,
+                },
+            )
+
     def create_card(
         self, board_id: str, command: CreateCardCommand, principal: KanbanPrincipal
     ) -> KanbanCard:
@@ -612,15 +685,22 @@ class KanbanProjectionService:
                 key_hash=mutation.key_hash,
                 request_digest=mutation.digest,
                 prepare=prepare,
+                event_factory=lambda current, sequence: build_kanban_event(
+                    action="kanban.card.created",
+                    task=current,
+                    details={"board_id": board_id},
+                    sequence=sequence,
+                ),
             )
         except (KanbanTaskNotFound, KanbanRevisionConflict, KanbanIdempotencyConflict) as exc:
             raise self._store_error(exc) from exc
         if not result.replayed:
-            self._events.publish(
+            self._publish_committed(
                 action="kanban.card.created",
                 task=result.task,
                 actor_id=principal.subject,
                 details={"board_id": board_id},
+                event=result.event,
             )
         return self.get_card(board_id, result.task.id, principal)
 
@@ -647,15 +727,22 @@ class KanbanProjectionService:
                 key_hash=mutation.key_hash,
                 request_digest=mutation.digest,
                 mutate=lambda task, tasks: mutate(task, tasks, mutation),
+                event_factory=lambda current, sequence: build_kanban_event(
+                    action=f"kanban.card.{name}",
+                    task=current,
+                    details={"board_id": command.board_id, **audit},
+                    sequence=sequence,
+                ),
             )
         except (KanbanTaskNotFound, KanbanRevisionConflict, KanbanIdempotencyConflict) as exc:
             raise self._store_error(exc) from exc
         if not result.replayed:
-            self._events.publish(
+            self._publish_committed(
                 action=f"kanban.card.{name}",
                 task=result.task,
                 actor_id=principal.subject,
                 details={"board_id": command.board_id, **audit},
+                event=result.event,
             )
         return self.get_card(command.board_id, card_id, principal)
 
