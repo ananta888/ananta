@@ -1,7 +1,7 @@
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Subject, debounceTime, distinctUntilChanged, forkJoin } from 'rxjs';
+import { Subject, Subscription, debounceTime, distinctUntilChanged, forkJoin } from 'rxjs';
 
 import { NotificationService } from '../../../services/notification.service';
 import { SystemFacade } from '../../system/system.facade';
@@ -55,6 +55,9 @@ export class KanbanStore {
   private readonly destroyRef = inject(DestroyRef);
   private readonly searchChanges = new Subject<string>();
   private baseUrl = '';
+  private boardListRequest?: Subscription;
+  private viewRequest?: Subscription;
+  private viewGeneration = 0;
 
   readonly boards = signal<readonly KanbanBoardSummary[]>([]);
   readonly board = signal<KanbanBoard | null>(null);
@@ -84,11 +87,17 @@ export class KanbanStore {
       this.error.set('Kein Hub-Agent konfiguriert.');
       return;
     }
+    const generation = ++this.viewGeneration;
+    this.boardListRequest?.unsubscribe();
+    this.viewRequest?.unsubscribe();
     this.baseUrl = hub.url;
     this.loading.set(true);
     this.error.set('');
-    this.api.boards(this.baseUrl).subscribe({
+    this.boardListRequest = this.api.boards(this.baseUrl)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: page => {
+        if (generation !== this.viewGeneration) return;
         this.boards.set(page.items);
         const boardId = this.board()?.id && page.items.some(item => item.id === this.board()?.id)
           ? this.board()!.id
@@ -101,6 +110,7 @@ export class KanbanStore {
         this.selectBoard(boardId);
       },
       error: () => {
+        if (generation !== this.viewGeneration) return;
         this.loading.set(false);
         this.error.set('Boards konnten nicht geladen werden.');
       },
@@ -109,12 +119,16 @@ export class KanbanStore {
 
   selectBoard(boardId: string): void {
     if (!this.baseUrl || !boardId) return;
+    const generation = ++this.viewGeneration;
+    this.boardListRequest?.unsubscribe();
+    this.viewRequest?.unsubscribe();
     this.loading.set(true);
-    forkJoin({
+    this.viewRequest = forkJoin({
       board: this.api.board(this.baseUrl, boardId),
       cards: this.api.cards(this.baseUrl, boardId, this.filters()),
-    }).subscribe({
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: snapshot => {
+        if (generation !== this.viewGeneration) return;
         this.board.set(snapshot.board);
         this.cards.set(snapshot.cards.items);
         this.loading.set(false);
@@ -122,6 +136,7 @@ export class KanbanStore {
         this.closeDetail();
       },
       error: () => {
+        if (generation !== this.viewGeneration) return;
         this.loading.set(false);
         this.error.set('Board-Snapshot konnte nicht geladen werden.');
       },
@@ -137,14 +152,20 @@ export class KanbanStore {
   loadCards(): void {
     const boardId = this.board()?.id;
     if (!this.baseUrl || !boardId) return;
+    const generation = ++this.viewGeneration;
+    this.viewRequest?.unsubscribe();
     this.loading.set(true);
-    this.api.cards(this.baseUrl, boardId, this.filters()).subscribe({
+    this.viewRequest = this.api.cards(this.baseUrl, boardId, this.filters())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: page => {
+        if (generation !== this.viewGeneration) return;
         this.cards.set(page.items);
         this.loading.set(false);
         this.error.set('');
       },
       error: () => {
+        if (generation !== this.viewGeneration) return;
         this.loading.set(false);
         this.error.set('Gefilterte Karten konnten nicht geladen werden.');
       },
@@ -280,4 +301,3 @@ export class KanbanStore {
     });
   }
 }
-

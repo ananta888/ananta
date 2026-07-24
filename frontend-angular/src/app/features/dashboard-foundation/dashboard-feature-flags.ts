@@ -1,8 +1,21 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CanActivateFn, Router } from '@angular/router';
-import { Observable, catchError, finalize, map, of, shareReplay, tap } from 'rxjs';
+import {
+  EMPTY,
+  Observable,
+  catchError,
+  distinctUntilChanged,
+  finalize,
+  map,
+  of,
+  shareReplay,
+  switchMap,
+  tap,
+} from 'rxjs';
 
 import { HubApiCoreService } from '../../services/hub-api-core.service';
+import { UserAuthService } from '../../services/user-auth.service';
 import { SystemFacade } from '../system/system.facade';
 
 export interface DashboardFeatureFlags {
@@ -62,26 +75,77 @@ export class DashboardFeatureFlagClient {
 @Injectable({ providedIn: 'root' })
 export class DashboardFeatureFlagStore {
   private readonly client = inject(DashboardFeatureFlagClient);
-  private request?: Observable<DashboardFeatureFlags>;
+  private readonly auth = inject(UserAuthService);
+  private readonly destroyRef = inject(DestroyRef);
+  private request?: {
+    identity: number;
+    requestId: number;
+    stream: Observable<DashboardFeatureFlags>;
+  };
+  private token: string | null = null;
+  private identity = 0;
+  private requestId = 0;
 
   readonly flags = signal(CLOSED_DASHBOARD_FEATURE_FLAGS);
   readonly loaded = signal(false);
   readonly angularKanban = () => this.flags().angularKanban;
   readonly angularModelDashboard = () => this.flags().angularModelDashboard;
 
+  constructor() {
+    this.auth.token$
+      .pipe(
+        distinctUntilChanged(),
+        tap(token => this.beginIdentity(token)),
+        switchMap(() => this.token ? this.ensureLoaded() : EMPTY),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
+  }
+
   ensureLoaded(force = false): Observable<DashboardFeatureFlags> {
+    if (!this.token) return of(CLOSED_DASHBOARD_FEATURE_FLAGS);
     if (this.loaded() && !force) return of(this.flags());
-    if (this.request && !force) return this.request;
-    this.request = this.client.read().pipe(
+    if (this.request?.identity === this.identity && !force) return this.request.stream;
+    if (force) {
+      this.requestId += 1;
+      this.request = undefined;
+      this.flags.set(CLOSED_DASHBOARD_FEATURE_FLAGS);
+      this.loaded.set(false);
+    }
+
+    const identity = this.identity;
+    const requestId = ++this.requestId;
+    const stream = this.client.read().pipe(
       catchError(() => of(CLOSED_DASHBOARD_FEATURE_FLAGS)),
+      map(flags => this.isCurrent(identity, requestId) ? flags : CLOSED_DASHBOARD_FEATURE_FLAGS),
       tap(flags => {
-        this.flags.set(flags);
-        this.loaded.set(true);
+        if (this.isCurrent(identity, requestId)) {
+          this.flags.set(flags);
+          this.loaded.set(true);
+        }
       }),
-      finalize(() => { this.request = undefined; }),
-      shareReplay({ bufferSize: 1, refCount: false }),
+      finalize(() => {
+        if (this.request?.identity === identity && this.request.requestId === requestId) {
+          this.request = undefined;
+        }
+      }),
+      shareReplay({ bufferSize: 1, refCount: true }),
     );
-    return this.request;
+    this.request = { identity, requestId, stream };
+    return stream;
+  }
+
+  private beginIdentity(value: string | null): void {
+    this.identity += 1;
+    this.requestId += 1;
+    this.request = undefined;
+    this.token = typeof value === 'string' && value.trim() ? value : null;
+    this.flags.set(CLOSED_DASHBOARD_FEATURE_FLAGS);
+    this.loaded.set(false);
+  }
+
+  private isCurrent(identity: number, requestId: number): boolean {
+    return Boolean(this.token) && this.identity === identity && this.requestId === requestId;
   }
 }
 
@@ -93,4 +157,3 @@ export const angularKanbanGuard: CanActivateFn = () => {
     catchError(() => of(router.createUrlTree(['/workspace']))),
   );
 };
-

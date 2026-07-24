@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, defer, map, mergeMap, of, throwError } from 'rxjs';
 
 import { HubApiCoreService } from '../../../services/hub-api-core.service';
 
@@ -91,6 +91,10 @@ export interface KanbanFilters {
   readonly blocked?: boolean;
 }
 
+export const KANBAN_CARD_PAGE_SIZE = 100;
+export const KANBAN_CARD_LOAD_LIMIT = 1_000;
+export const KANBAN_CARD_PAGE_LIMIT = KANBAN_CARD_LOAD_LIMIT / KANBAN_CARD_PAGE_SIZE;
+
 function unwrap<T>(value: unknown): T {
   const body = value && typeof value === 'object' && 'data' in value
     ? (value as { data: unknown }).data
@@ -98,13 +102,97 @@ function unwrap<T>(value: unknown): T {
   return body as T;
 }
 
-function query(filters: KanbanFilters): string {
-  const params = new URLSearchParams({ limit: '100' });
+function query(filters: KanbanFilters, cursor?: string): string {
+  const params = new URLSearchParams({ limit: String(KANBAN_CARD_PAGE_SIZE) });
   if (filters.q) params.set('q', filters.q);
   if (filters.column_id) params.set('column_id', filters.column_id);
   if (filters.assignee_id) params.set('assignee_id', filters.assignee_id);
   if (filters.blocked !== undefined) params.set('blocked', String(filters.blocked));
+  if (cursor) params.set('cursor', cursor);
   return params.toString();
+}
+
+type KanbanCardPageLoadState = {
+  readonly boardId: string | null;
+  readonly boardRevision: string | null;
+  readonly items: readonly KanbanCard[];
+  readonly itemIds: ReadonlySet<string>;
+  readonly cursors: ReadonlySet<string>;
+  readonly pages: number;
+};
+
+function paginationError(code: string): Observable<never> {
+  return throwError(() => new Error(code));
+}
+
+export function loadAllKanbanCardPages(
+  loadPage: (cursor?: string) => Observable<KanbanCardPage>,
+): Observable<KanbanCardPage> {
+  return defer(() => {
+    const visit = (
+      cursor: string | undefined,
+      state: KanbanCardPageLoadState,
+    ): Observable<KanbanCardPage> => loadPage(cursor).pipe(
+      mergeMap(page => {
+        if (page.items.length > KANBAN_CARD_PAGE_SIZE) {
+          return paginationError('kanban_card_page_size_exceeded');
+        }
+        if (
+          (state.boardId !== null && state.boardId !== page.board_id)
+          || (state.boardRevision !== null && state.boardRevision !== page.board_revision)
+          || page.items.some(card => card.board_id !== page.board_id)
+        ) {
+          return paginationError('kanban_card_snapshot_drift');
+        }
+        if (state.items.length + page.items.length > KANBAN_CARD_LOAD_LIMIT) {
+          return paginationError('kanban_card_load_limit_exceeded');
+        }
+
+        const itemIds = new Set(state.itemIds);
+        for (const card of page.items) {
+          if (itemIds.has(card.id)) return paginationError('kanban_card_duplicate');
+          itemIds.add(card.id);
+        }
+        const items = [...state.items, ...page.items];
+        const pages = state.pages + 1;
+        const boardId = state.boardId ?? page.board_id;
+        const boardRevision = state.boardRevision ?? page.board_revision;
+        if (!page.next_cursor) {
+          return of({
+            board_id: boardId,
+            board_revision: boardRevision,
+            items,
+            next_cursor: null,
+          });
+        }
+        if (pages >= KANBAN_CARD_PAGE_LIMIT) {
+          return paginationError('kanban_card_page_limit_exceeded');
+        }
+        if (state.cursors.has(page.next_cursor)) {
+          return paginationError('kanban_card_cursor_loop');
+        }
+        const cursors = new Set(state.cursors);
+        cursors.add(page.next_cursor);
+        return visit(page.next_cursor, {
+          boardId,
+          boardRevision,
+          items,
+          itemIds,
+          cursors,
+          pages,
+        });
+      }),
+    );
+
+    return visit(undefined, {
+      boardId: null,
+      boardRevision: null,
+      items: [],
+      itemIds: new Set<string>(),
+      cursors: new Set<string>(),
+      pages: 0,
+    });
+  });
 }
 
 @Injectable({ providedIn: 'root' })
@@ -137,11 +225,20 @@ export class KanbanApiClient {
     return this.get(baseUrl, `/boards/${encodeURIComponent(boardId)}`);
   }
 
-  cards(baseUrl: string, boardId: string, filters: KanbanFilters): Observable<KanbanCardPage> {
+  private cardPage(
+    baseUrl: string,
+    boardId: string,
+    filters: KanbanFilters,
+    cursor?: string,
+  ): Observable<KanbanCardPage> {
     return this.get(
       baseUrl,
-      `/boards/${encodeURIComponent(boardId)}/cards?${query(filters)}`,
+      `/boards/${encodeURIComponent(boardId)}/cards?${query(filters, cursor)}`,
     );
+  }
+
+  cards(baseUrl: string, boardId: string, filters: KanbanFilters): Observable<KanbanCardPage> {
+    return loadAllKanbanCardPages(cursor => this.cardPage(baseUrl, boardId, filters, cursor));
   }
 
   card(baseUrl: string, boardId: string, cardId: string): Observable<KanbanCard> {
@@ -219,4 +316,3 @@ export class KanbanApiClient {
     );
   }
 }
-
