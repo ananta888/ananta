@@ -173,3 +173,38 @@ def test_render_header_logo_records_performance_metrics(monkeypatch):
     assert metrics.get("backend") in {"halfblock", "ascii", "ansi", "kitty", "sixel", "none", "kitty-3d", "sixel-3d"}
     assert "render_ms" in metrics
     assert "fps" in metrics
+
+
+def test_render_header_logo_halfblock_path_uses_cached_ansi_frames(
+    monkeypatch,
+):
+    monkeypatch.setenv("ANANTA_TUI_LOGO_RENDERER", "ansi")
+    monkeypatch.setattr(
+        animated_header,
+        "select_graphics_backend",
+        lambda **_kwargs: "halfblock",
+    )
+    calls: list[dict[str, object]] = []
+
+    def _cached(**kwargs):
+        calls.append(kwargs)
+        return ["cached"]
+
+    monkeypatch.setattr(animated_header, "render_ansi_header_logo", _cached)
+
+    lines = animated_header.render_header_logo(
+        cols=40,
+        rows=8,
+        color=True,
+        t_now=1.0,
+    )
+
+    assert lines == ["cached"]
+    assert calls == [
+        {
+            "cols": 40,
+            "rows": 8,
+            "color": True,
+            "t_now": 1.0,
+        }
+    ]

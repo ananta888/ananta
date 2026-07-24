@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
+from client_surfaces.operator_tui.kanban_viewport import plan_kanban_viewport
 from client_surfaces.operator_tui.models import PanelState, SectionLoadResult
 from client_surfaces.operator_tui.mouse import MouseState, normalize_mouse_state
 from client_surfaces.operator_tui.plugins import ContentPlugin
@@ -173,7 +174,15 @@ def normalise_board(snapshot: Mapping[str, Any]) -> dict[str, Any]:
         )
     return {
         "_content_plugin": "kanban",
+        "board_id": _safe_text(snapshot.get("board_id"), limit=320),
         "revision": board_revision,
+        "event_sequence": (
+            snapshot.get("event_sequence")
+            if isinstance(snapshot.get("event_sequence"), int)
+            and not isinstance(snapshot.get("event_sequence"), bool)
+            and snapshot.get("event_sequence") >= 0
+            else None
+        ),
         "columns": columns,
         "items": items,
     }
@@ -508,37 +517,48 @@ class KanbanContentPlugin(ContentPlugin):
             return ["  Keine Tasks"]
         w = max(12, int(width))
         h = max(1, int(height))
-        layout = "columns" if w >= 100 else "list"
-        lines = [f"  layout:{layout} revision:{payload.get('revision', '-')}"]
-        if layout == "list":
-            for column in columns:
-                if not isinstance(column, dict):
-                    continue
-                for task in column.get("tasks") or []:
-                    if not isinstance(task, dict):
-                        continue
-                    marker = ">" if int(task.get("_flat_index", -1)) == selected else " "
-                    blocker = " BLOCKED" if task.get("blocked") else ""
-                    label = (
-                        f"{marker} [{column.get('title')}] {task.get('title')} "
-                        f"({task.get('priority') or '-'}){blocker}"
-                    )
-                    lines.append(_clip(label, w))
+        plan = plan_kanban_viewport(
+            payload,
+            width=w,
+            height=h,
+            selected_index=selected,
+        )
+        lines = [
+            f"  layout:{plan.layout} revision:{payload.get('revision', '-')}"
+        ]
+        if plan.layout == "list":
+            for slot in plan.list_slots:
+                task = slot.task
+                marker = ">" if slot.flat_index == selected else " "
+                blocker = " BLOCKED" if task.get("blocked") else ""
+                label = (
+                    f"{marker} [{slot.column_title}] {task.get('title')} "
+                    f"({task.get('priority') or '-'}){blocker}"
+                )
+                lines.append(_clip(label, w))
         else:
-            visible_columns = [column for column in columns[:4] if isinstance(column, dict)]
+            visible_columns = plan.columns
             count = max(1, len(visible_columns))
             cell_width = max(12, (w - (count - 1) * 3) // count)
-            lines.append(" | ".join(_clip(column.get("title"), cell_width) for column in visible_columns))
-            row_count = max((len(column.get("tasks") or []) for column in visible_columns), default=0)
+            lines.append(
+                " | ".join(
+                    _clip(column.title, cell_width)
+                    for column in visible_columns
+                )
+            )
+            row_count = max(
+                (len(column.slots) for column in visible_columns),
+                default=0,
+            )
             for row in range(row_count):
                 cells: list[str] = []
                 for column in visible_columns:
-                    tasks = column.get("tasks") or []
-                    task = tasks[row] if row < len(tasks) and isinstance(tasks[row], dict) else None
-                    if task is None:
+                    slot = column.slots[row] if row < len(column.slots) else None
+                    if slot is None:
                         cells.append("")
                     else:
-                        marker = ">" if int(task.get("_flat_index", -1)) == selected else " "
+                        task = slot.task
+                        marker = ">" if slot.flat_index == selected else " "
                         blocker = " !" if task.get("blocked") else ""
                         cells.append(f"{marker}{task.get('title')}{blocker}")
                 lines.append(" | ".join(_clip(cell, cell_width) for cell in cells))
@@ -593,6 +613,7 @@ def dashboard_region_rects(
     x2: int,
     y1: int,
     y2: int,
+    selected_index: int = 0,
 ) -> list[RegionRect]:
     if section_id not in {"kanban", "models"}:
         return []
@@ -622,47 +643,50 @@ def dashboard_region_rects(
             )
         return regions
 
-    columns = [column for column in payload.get("columns") or [] if isinstance(column, Mapping)]
-    if width < 100:
-        row = y1 + 2
-        for column in columns:
-            for task in column.get("tasks") or []:
-                if not isinstance(task, Mapping) or row > y2:
-                    continue
-                regions.append(
-                    RegionRect(
-                        x1,
-                        row,
-                        x2,
-                        row,
-                        RegionTarget(
-                            "dashboard_item",
-                            "kanban",
-                            "content",
-                            _safe_text(task.get("title"), limit=240),
-                            {
-                                "selected_index": int(task.get("_flat_index", 0)),
-                                "id": _safe_text(task.get("id"), limit=160),
-                            },
-                        ),
-                    )
+    plan = plan_kanban_viewport(
+        payload,
+        width=width,
+        height=max(1, y2 - y1),
+        selected_index=selected_index,
+    )
+    if plan.layout == "list":
+        for visible_row, slot in enumerate(plan.list_slots):
+            row = y1 + 2 + visible_row
+            if row > y2:
+                break
+            task = slot.task
+            regions.append(
+                RegionRect(
+                    x1,
+                    row,
+                    x2,
+                    row,
+                    RegionTarget(
+                        "dashboard_item",
+                        "kanban",
+                        "content",
+                        _safe_text(task.get("title"), limit=240),
+                        {
+                            "selected_index": slot.flat_index,
+                            "id": _safe_text(task.get("id"), limit=160),
+                        },
+                    ),
                 )
-                row += 1
+            )
         return regions
 
-    visible_columns = columns[:4]
+    visible_columns = plan.columns
     count = max(1, len(visible_columns))
     gap = 3
     cell_width = max(12, (width - (count - 1) * gap) // count)
     for column_index, column in enumerate(visible_columns):
         column_x1 = x1 + column_index * (cell_width + gap)
         column_x2 = min(x2, column_x1 + cell_width - 1)
-        for row_index, task in enumerate(column.get("tasks") or []):
-            if not isinstance(task, Mapping):
-                continue
+        for row_index, slot in enumerate(column.slots):
             row = y1 + 3 + row_index
             if row > y2:
                 break
+            task = slot.task
             regions.append(
                 RegionRect(
                     column_x1,
@@ -675,7 +699,7 @@ def dashboard_region_rects(
                         "content",
                         _safe_text(task.get("title"), limit=240),
                         {
-                            "selected_index": int(task.get("_flat_index", 0)),
+                            "selected_index": slot.flat_index,
                             "id": _safe_text(task.get("id"), limit=160),
                         },
                     ),

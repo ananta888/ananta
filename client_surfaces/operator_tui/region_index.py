@@ -243,7 +243,7 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
     # In AI config view, content rows start after:
     # row 0 title + row 1/2 descriptions + row 3 empty spacer.
     item_row_offset = 4 if config_mode else 1
-    if isinstance(items, list):
+    if isinstance(items, list) and section.id not in {"kanban", "models"}:
         for idx, item in enumerate(items[:20]):
             if not isinstance(item, dict):
                 continue
@@ -287,6 +287,7 @@ def build_region_index(state: OperatorState, *, width: int, height: int) -> Regi
                 x2=content_x2,
                 y1=body_y1,
                 y2=body_y2,
+                selected_index=state.selected_index,
             )
         )
 

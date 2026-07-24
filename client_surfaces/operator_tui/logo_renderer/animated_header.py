@@ -15,7 +15,6 @@ from client_surfaces.operator_tui.logo_renderer.detect import (
 from client_surfaces.operator_tui.logo_renderer.ascii import AsciiRenderer
 from client_surfaces.operator_tui.logo_renderer.compositor import compose_text_overlay
 from client_surfaces.operator_tui.logo_renderer.frame_cache import LogoFrameCache
-from client_surfaces.operator_tui.logo_renderer.halfblock import HalfblockRenderer
 from client_surfaces.operator_tui.logo_renderer.kitty import KittyRenderer
 from client_surfaces.operator_tui.logo_renderer.moderngl_renderer import ModernGLOffscreenRenderer
 from client_surfaces.operator_tui.logo_renderer.raylib_renderer import RaylibPrototypeRenderer
@@ -24,6 +23,8 @@ from client_surfaces.operator_tui.logo_renderer.sixel import SixelRenderer
 
 _DEFAULT_SVG = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "ananta.svg"))
 _CACHE = LogoFrameCache()
+_SIXEL_RENDERER = SixelRenderer()
+_KITTY_RENDERER = KittyRenderer()
 _LOOPS: dict[int, AnimationLoop] = {}
 _LAST_METRICS: dict[str, str | int | float | bool] = {}
 
@@ -110,8 +111,8 @@ def render_header_logo(
     frame_w = 0
     frame_h = 0
     started = time.perf_counter()
-    sixel_renderer = SixelRenderer()
-    kitty_renderer = KittyRenderer()
+    sixel_renderer = _SIXEL_RENDERER
+    kitty_renderer = _KITTY_RENDERER
     sixel_available = sixel_renderer.detect(
         probe=_build_probe(cols=cols, rows=rows, color=color, env=env)
     )
@@ -237,12 +238,17 @@ def render_header_logo(
             _record_metrics(env=env, backend="ascii", render_ms=render_ms, encode_ms=encode_ms, output_ms=output_ms, frame_width=frame_w, frame_height=frame_h)
             return list(frame.text_lines) if frame.text_lines else [""]
         part_start = time.perf_counter()
-        frame = HalfblockRenderer().render_frame(width_cells=cols, height_cells=rows, t=t_now or 0.0)
+        lines = render_ansi_header_logo(
+            cols=cols,
+            rows=rows,
+            color=color,
+            t_now=t_now,
+        )
         render_ms += (time.perf_counter() - part_start) * 1000.0
-        if frame.text_lines:
+        if lines:
             output_ms += (time.perf_counter() - started) * 1000.0
             _record_metrics(env=env, backend="halfblock", render_ms=render_ms, encode_ms=encode_ms, output_ms=output_ms, frame_width=frame_w, frame_height=frame_h)
-            return list(frame.text_lines)
+            return lines
         # All text renderers exhausted; guarantee non-None in ANSI-fallback mode.
         output_ms += (time.perf_counter() - started) * 1000.0
         _record_metrics(env=env, backend="ansi", render_ms=render_ms, encode_ms=0.0, output_ms=output_ms, frame_width=0, frame_height=0)

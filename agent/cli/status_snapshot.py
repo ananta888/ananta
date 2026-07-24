@@ -3,10 +3,12 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable
 
 COMPACT_HEADER_LINES = 8
+_GIT_INFO_REFRESH_SECONDS = 1.0
 
 
 @dataclass(frozen=True)
@@ -74,6 +76,21 @@ def _safe_cwd() -> str:
 
 
 def _git_info(cwd: str) -> tuple[str, str, bool, str]:
+    refresh_bucket = int(
+        time.monotonic() / _GIT_INFO_REFRESH_SECONDS
+    )
+    return _git_info_for_refresh_bucket(cwd, refresh_bucket)
+
+
+@lru_cache(maxsize=16)
+def _git_info_for_refresh_bucket(
+    cwd: str,
+    _refresh_bucket: int,
+) -> tuple[str, str, bool, str]:
+    return _read_git_info(cwd)
+
+
+def _read_git_info(cwd: str) -> tuple[str, str, bool, str]:
     if not cwd:
         return "", "", False, ""
     try:

@@ -142,3 +142,35 @@ def test_collect_status_basic():
     assert snap.endpoint == "http://x:5000"
     assert snap.section == "goals"
     assert isinstance(snap.cwd, str)
+
+
+def test_git_info_is_reused_within_refresh_bucket(monkeypatch):
+    from agent.cli import status_snapshot
+
+    calls: list[str] = []
+
+    def _read(cwd: str):
+        calls.append(cwd)
+        return "/repo", "main", False, "operator"
+
+    status_snapshot._git_info_for_refresh_bucket.cache_clear()
+    monkeypatch.setattr(status_snapshot, "_read_git_info", _read)
+    monkeypatch.setattr(status_snapshot.time, "monotonic", lambda: 10.1)
+
+    assert status_snapshot._git_info("/repo") == (
+        "/repo",
+        "main",
+        False,
+        "operator",
+    )
+    assert status_snapshot._git_info("/repo") == (
+        "/repo",
+        "main",
+        False,
+        "operator",
+    )
+    assert calls == ["/repo"]
+
+    monkeypatch.setattr(status_snapshot.time, "monotonic", lambda: 11.1)
+    assert status_snapshot._git_info("/repo")[1] == "main"
+    assert calls == ["/repo", "/repo"]

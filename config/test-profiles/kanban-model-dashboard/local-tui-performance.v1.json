@@ -1,0 +1,63 @@
+{
+  "schema": "ananta.kanban-model-dashboard.local-tui-performance.v1",
+  "scope": "local_diagnostic_not_release_evidence",
+  "surface": "operator_tui",
+  "card_count": 1000,
+  "status_groups": [
+    "status-00",
+    "status-01",
+    "status-02",
+    "status-03",
+    "status-04",
+    "status-05",
+    "status-06",
+    "status-07",
+    "status-08",
+    "status-09"
+  ],
+  "view_groups": [
+    "view-00",
+    "view-01",
+    "view-02",
+    "view-03",
+    "view-04",
+    "view-05",
+    "view-06",
+    "view-07",
+    "view-08",
+    "view-09"
+  ],
+  "terminal_sizes": [
+    {
+      "columns": 80,
+      "rows": 24
+    },
+    {
+      "columns": 120,
+      "rows": 30
+    },
+    {
+      "columns": 160,
+      "rows": 40
+    }
+  ],
+  "samples": {
+    "render_tick": 20,
+    "resize_region_rebuild": 20,
+    "event_loop": 30
+  },
+  "operations_per_sample": {
+    "render_tick": 20,
+    "resize_region_rebuild": 20
+  },
+  "absolute_budgets": {
+    "render_tick_p95_ms": 150.0,
+    "resize_region_rebuild_p95_ms": 250.0,
+    "peak_rss_mb": 512.0,
+    "event_loop_cooperative_tick_p95_ms": 25.0,
+    "event_loop_progress_ratio_min": 0.95,
+    "event_loop_scheduling_lag_p95_ms": 25.0
+  },
+  "event_loop_target_rate_per_second": 100,
+  "max_baseline_regression_percent": 15.0
+}
