@@ -125,12 +125,18 @@ def test_angular_and_tui_share_real_hub_projection_bidirectionally(
             "description": fixture_card["description"],
             "status": fixture_card["status"],
             "priority": fixture_card["priority"],
-            "assignee_id": "",
+            "assignee": "",
             "labels": fixture_card["labels"],
             "blocked": fixture_card["blocked"],
+            "blocked_reason": "",
             "dependencies": fixture_card["dependencies"],
             "revision": fixture_card["revision"],
             "column_id": fixture_card["column_id"],
+            "kind": "kanban_card",
+            "last_activity": "",
+            "allowed_transitions": [],
+            "assignable_assignees": [],
+            "_flat_index": 0,
         }
 
         frontend_port = _available_port()
