@@ -11,6 +11,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+try:
+    from scripts.run_kanban_model_dashboard_evidence import (
+        ARTIFACT_BOUNDARY,
+        PRODUCER_NAME,
+        REQUIRED_SUITES,
+        recorded_commands_match_allowlist,
+        suite_allowlist_sha256,
+    )
+except ModuleNotFoundError:
+    from run_kanban_model_dashboard_evidence import (  # type: ignore
+        ARTIFACT_BOUNDARY,
+        PRODUCER_NAME,
+        REQUIRED_SUITES,
+        recorded_commands_match_allowlist,
+        suite_allowlist_sha256,
+    )
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PROFILE = (
@@ -23,6 +39,7 @@ DEFAULT_OUTPUT = (
 PROFILE_SCHEMA = "ananta.kanban-model-dashboard.release-profile.v1"
 EVIDENCE_SCHEMA = "ananta.kanban-model-dashboard.evidence.v1"
 OUTPUT_SCHEMA = "ananta.kanban-model-dashboard.release-result.v1"
+HEX_64_PATTERN = __import__("re").compile(r"^[0-9a-f]{64}$")
 
 
 class ReleaseGateError(ValueError):
@@ -75,12 +92,7 @@ def _validate_profile(profile: Mapping[str, Any]) -> tuple[str, ...]:
     if profile.get("schema") != PROFILE_SCHEMA:
         reasons.add("profile_schema_invalid")
     suites = profile.get("required_suites")
-    if (
-        not isinstance(suites, list)
-        or not suites
-        or any(not isinstance(item, str) or not item for item in suites)
-        or len(set(suites)) != len(suites)
-    ):
+    if not isinstance(suites, list) or tuple(suites) != REQUIRED_SUITES:
         reasons.add("profile_required_suites_invalid")
     max_age = profile.get("max_age_seconds")
     if not isinstance(max_age, int) or isinstance(max_age, bool) or max_age <= 0:
@@ -177,6 +189,96 @@ def _validate_evidence(
         for name, value in input_hashes.items()
     ):
         reasons.add("evidence_input_hashes_invalid")
+
+    producer = evidence.get("producer")
+    if (
+        not isinstance(producer, Mapping)
+        or producer.get("name") != PRODUCER_NAME
+        or producer.get("artifact_boundary") != ARTIFACT_BOUNDARY
+        or producer.get("allowlist_sha256")
+        != suite_allowlist_sha256(suite)
+    ):
+        reasons.add("evidence_producer_invalid")
+
+    candidate = evidence.get("candidate")
+    if (
+        not isinstance(candidate, Mapping)
+        or candidate.get("commit_sha") != expected_commit
+        or candidate.get("checkout_commit_sha") != expected_commit
+        or candidate.get("verified") is not True
+        or candidate.get("input_blobs_verified") is not True
+        or candidate.get("evidence_path_not_in_candidate") is not True
+    ):
+        reasons.add("evidence_candidate_verification_invalid")
+
+    runtime = evidence.get("runtime")
+    if (
+        not isinstance(runtime, Mapping)
+        or not isinstance(runtime.get("python_version"), str)
+        or not isinstance(runtime.get("python_executable"), str)
+        or not isinstance(runtime.get("npx_executable"), str)
+    ):
+        reasons.add("evidence_runtime_invalid")
+
+    commands = evidence.get("commands")
+    if not recorded_commands_match_allowlist(suite, commands, runtime):
+        reasons.add("evidence_commands_not_allowlisted")
+    elif any(
+        not isinstance(command, Mapping)
+        or command.get("status") != "passed"
+        or command.get("exit_code") != 0
+        or not isinstance(command.get("stdout_sha256"), str)
+        or not HEX_64_PATTERN.fullmatch(command["stdout_sha256"])
+        or not isinstance(command.get("stderr_sha256"), str)
+        or not HEX_64_PATTERN.fullmatch(command["stderr_sha256"])
+        or not isinstance(command.get("result_validation"), Mapping)
+        or command["result_validation"].get("status") != "passed"
+        or _parse_utc(command.get("started_at")) is None
+        or _parse_utc(command.get("finished_at")) is None
+        for command in commands
+    ):
+        reasons.add("evidence_commands_not_passed")
+
+    inputs = evidence.get("inputs")
+    if not isinstance(inputs, list) or not inputs:
+        reasons.add("evidence_inputs_missing")
+    else:
+        described: dict[str, str] = {}
+        for item in inputs:
+            if not isinstance(item, Mapping):
+                reasons.add("evidence_inputs_invalid")
+                continue
+            name = item.get("path")
+            digest_value = item.get("sha256")
+            candidate_digest = item.get("candidate_sha256")
+            size = item.get("size_bytes")
+            if (
+                not isinstance(name, str)
+                or not name
+                or name.startswith("artifacts/e2e/kanban-model-dashboard/")
+                or not isinstance(digest_value, str)
+                or not HEX_64_PATTERN.fullmatch(digest_value)
+                or candidate_digest != digest_value
+                or not isinstance(size, int)
+                or isinstance(size, bool)
+                or size < 0
+            ):
+                reasons.add("evidence_inputs_invalid")
+                continue
+            if name in described:
+                reasons.add("evidence_inputs_invalid")
+            described[name] = digest_value
+        if isinstance(input_hashes, Mapping) and described != dict(input_hashes):
+            reasons.add("evidence_input_hashes_mismatch")
+
+    reason_codes = evidence.get("reason_codes")
+    if reason_codes != []:
+        reasons.add("evidence_reason_codes_not_empty")
+    if any(
+        key in evidence
+        for key in ("run_id", "run_ids", "source_id", "source_ids")
+    ):
+        reasons.add("evidence_unverified_identifier_present")
 
     return EvidenceResult(
         suite=suite,

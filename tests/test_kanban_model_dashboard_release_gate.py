@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -12,6 +13,12 @@ from scripts.run_kanban_model_dashboard_release_gate import (
     OUTPUT_SCHEMA,
     ReleaseGateError,
     run_gate,
+)
+from scripts.run_kanban_model_dashboard_evidence import (
+    ARTIFACT_BOUNDARY,
+    PRODUCER_NAME,
+    SUITE_SPECS,
+    suite_allowlist_sha256,
 )
 
 
@@ -58,13 +65,81 @@ def _profile(path: Path) -> Path:
 
 
 def _evidence(directory: Path, suite: str, **updates: object) -> None:
+    digest = hashlib.sha256(suite.encode()).hexdigest()
+    runtime = {
+        "python_version": "3.12.0",
+        "python_executable": sys.executable,
+        "npx_executable": "/usr/bin/npx",
+    }
+    commands = []
+    for index, spec in enumerate(SUITE_SPECS[suite].commands):
+        argv = [
+            (
+                sys.executable
+                if token == "{python}"
+                else "/usr/bin/npx"
+                if token == "{npx}"
+                else token
+            )
+            for token in spec.argv
+        ]
+        commands.append(
+            {
+                "index": index,
+                "allowlist_argv": list(spec.argv),
+                "argv": argv,
+                "cwd": spec.cwd,
+                "env_overrides": dict(spec.env),
+                "timeout_seconds": spec.timeout_seconds,
+                "started_at": "2026-07-23T10:59:00Z",
+                "finished_at": "2026-07-23T11:00:00Z",
+                "duration_ms": 60_000,
+                "exit_code": 0,
+                "status": "passed",
+                "stdout_bytes": 0,
+                "stdout_sha256": hashlib.sha256(b"").hexdigest(),
+                "stderr_bytes": 0,
+                "stderr_sha256": hashlib.sha256(b"").hexdigest(),
+                "result_validation": {
+                    "kind": spec.validator,
+                    "status": "passed",
+                    "observed": {},
+                },
+            }
+        )
     value = {
         "schema": EVIDENCE_SCHEMA,
         "suite": suite,
         "status": "passed",
         "commit_sha": COMMIT,
+        "started_at": "2026-07-23T10:59:00Z",
         "produced_at": "2026-07-23T11:00:00Z",
-        "input_hashes": {"source": hashlib.sha256(suite.encode()).hexdigest()},
+        "producer": {
+            "name": PRODUCER_NAME,
+            "version": "1",
+            "artifact_boundary": ARTIFACT_BOUNDARY,
+            "allowlist_sha256": suite_allowlist_sha256(suite),
+        },
+        "candidate": {
+            "commit_sha": COMMIT,
+            "checkout_commit_sha": COMMIT,
+            "verified": True,
+            "input_blobs_verified": True,
+            "evidence_path_not_in_candidate": True,
+        },
+        "runtime": runtime,
+        "input_hashes": {"source": digest},
+        "inputs": [
+            {
+                "path": "source",
+                "size_bytes": len(suite),
+                "sha256": digest,
+                "candidate_sha256": digest,
+            }
+        ],
+        "commands": commands,
+        "result_hashes": {},
+        "reason_codes": [],
     }
     value.update(updates)
     (directory / f"{suite}.json").write_text(json.dumps(value), encoding="utf-8")
@@ -148,7 +223,7 @@ def test_release_gate_fails_closed_for_missing_and_symlinked_evidence(
         if suite != "performance":
             _evidence(evidence_dir, suite)
     target = tmp_path / "external.json"
-    _evidence(tmp_path, "external")
+    target.write_text("{}", encoding="utf-8")
     (evidence_dir / "performance.json").symlink_to(target)
 
     result = run_gate(
@@ -172,3 +247,54 @@ def test_release_gate_rejects_unbound_commit() -> None:
             commit_sha="HEAD",
             as_of=AS_OF,
         )
+
+
+def test_release_gate_rejects_failed_or_non_allowlisted_commands(
+    tmp_path: Path,
+) -> None:
+    profile = _profile(tmp_path / "profile.json")
+    evidence_dir = tmp_path / "evidence"
+    evidence_dir.mkdir()
+    for suite in SUITES:
+        _evidence(evidence_dir, suite)
+    backend_path = evidence_dir / "backend.json"
+    backend = json.loads(backend_path.read_text())
+    backend["commands"][0]["exit_code"] = 1
+    backend["commands"][0]["status"] = "failed"
+    backend_path.write_text(json.dumps(backend))
+
+    result = run_gate(
+        profile_path=profile,
+        evidence_dir=evidence_dir,
+        commit_sha=COMMIT,
+        as_of=AS_OF,
+    )
+
+    assert result["status"] == "failed"
+    assert "backend:evidence_commands_not_passed" in result["reason_codes"]
+
+
+def test_release_gate_rejects_circular_input_binding(tmp_path: Path) -> None:
+    profile = _profile(tmp_path / "profile.json")
+    evidence_dir = tmp_path / "evidence"
+    evidence_dir.mkdir()
+    for suite in SUITES:
+        _evidence(evidence_dir, suite)
+    contract_path = evidence_dir / "contract.json"
+    contract = json.loads(contract_path.read_text())
+    circular = "artifacts/e2e/kanban-model-dashboard/contract.json"
+    contract["input_hashes"] = {
+        circular: contract["inputs"][0]["sha256"]
+    }
+    contract["inputs"][0]["path"] = circular
+    contract_path.write_text(json.dumps(contract))
+
+    result = run_gate(
+        profile_path=profile,
+        evidence_dir=evidence_dir,
+        commit_sha=COMMIT,
+        as_of=AS_OF,
+    )
+
+    assert result["status"] == "failed"
+    assert "contract:evidence_inputs_invalid" in result["reason_codes"]
