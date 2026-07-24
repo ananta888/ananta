@@ -1,0 +1,531 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "qdrant_vector_store_integration",
+  "purpose": "Qdrant als optionales, lokal betreibbares Vector-Store-Backend für CodeCompass, Wiki-RAG und spätere Retrieval-Domänen integrieren, ohne den bestehenden JSON-Store als deterministischen Offline- und Test-Fallback zu verlieren.",
+  "goal": "Ananta erhält einen stabilen VectorStore-Contract mit austauschbaren Backends. JSON bleibt Default für kleine Projekte und Tests; Qdrant übernimmt bei größeren Indizes persistente ANN-Suche, Payload-Filter, inkrementelle Upserts und Löschungen. Provider-, Modell-, Dimensions-, Profil- und Manifestwechsel bleiben deterministisch nachvollziehbar.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "code_analysis": {
+    "summary": [
+      "worker/retrieval/codecompass_vector_store.py implementiert Speicherung und Suche derzeit direkt als JSON-Datei.",
+      "search_by_vector() lädt alle Einträge und berechnet Cosine Similarity in Python; dies skaliert linear mit der Indexgröße.",
+      "Der bestehende Store enthält bereits wichtige Index-State-Felder für Manifest, Provider, Modell, Dimensionen, Provider-Config, Embedding-Text-Profil und Vector-Encoding.",
+      "CodeCompassVectorEngine und CodeCompassVectorRetrievalService sollten nicht direkt von Qdrant abhängen, sondern gegen einen gemeinsamen VectorStore-Contract arbeiten.",
+      "Wiki-Retrieval besitzt mit worker/retrieval/wiki_vector_store.py einen weiteren Store, der bei der Abstraktion berücksichtigt werden muss, ohne beide Domänen vorschnell zu vermischen.",
+      "Die bestehende Hybrid-Retrieval-Pipeline kombiniert dense, lexical und symbol; Qdrant ersetzt nur das dense Storage-/Search-Backend und nicht Ranking, Scope oder exakte Kanäle."
+    ],
+    "relevant_files": [
+      "worker/retrieval/codecompass_vector_store.py",
+      "worker/retrieval/codecompass_vector_engine.py",
+      "worker/retrieval/codecompass_channel_providers.py",
+      "worker/retrieval/wiki_vector_store.py",
+      "worker/retrieval/embedding_provider.py",
+      "worker/retrieval/embedding_text_builder.py",
+      "agent/services/codecompass_vector_retrieval_service.py",
+      "agent/services/wiki_retrieval_index_service.py",
+      "agent/services/embedding_provider_config_service.py",
+      "agent/hybrid_orchestrator.py",
+      "docs/worker/retrieval_and_indexing.md",
+      "docs/worker/codecompass-vector-retrieval.md",
+      "tests/test_codecompass_vector_store.py",
+      "tests/test_codecompass_vector_provider_policy.py",
+      "tests/test_wiki_vector_store.py"
+    ],
+    "main_architecture_gap": "CodeCompassVectorStore ist gleichzeitig Contract, JSON-Persistenz, Index-State-Verwaltung und Search-Implementierung. Ein Backend-Wechsel würde aktuell zu direkten Qdrant-Abhängigkeiten in Retrieval-Code führen.",
+    "operations_gap": "Es fehlen Qdrant-Healthcheck, Collection-Lifecycle, lokales Compose-Profil, Backup/Restore, Timeouts und ein klarer Degraded-/Fallback-Modus.",
+    "security_gap": "Qdrant-Endpunkte, API-Keys und Remote-Nutzung benötigen dieselben expliziten Allowlist- und Secret-Regeln wie externe Embedding-Provider.",
+    "migration_gap": "Bestehende JSON-Indizes benötigen eine kontrollierte Reindex-/Migrationsstrategie; ein stilles Mischen inkompatibler Dimensionen oder Profile ist zu verhindern."
+  },
+  "architecture_principles": [
+    "Qdrant ist optional; Ananta muss ohne Qdrant vollständig start- und testbar bleiben.",
+    "JSON bleibt Referenz-, Offline- und Test-Backend.",
+    "Retrieval-Services hängen ausschließlich vom VectorStore-Contract ab, nicht von qdrant-client.",
+    "Embedding-Erzeugung bleibt Aufgabe des bestehenden EmbeddingProvider; Qdrant erzeugt keine Embeddings.",
+    "Eine Collection enthält nur Vektoren mit kompatibler Dimension, Distance-Metrik und logischem Schema.",
+    "Collection-Aliase oder versionierte Collection-Namen ermöglichen atomare Rebuilds ohne teilweise sichtbare Indizes.",
+    "Exakte Symbol-, Pfad-, Graph- und Lexical-Signale bleiben unabhängig von Qdrant priorisierbar.",
+    "Domain-, Workspace-, Repository- und Profil-Scope müssen serverseitig als Payload-Filter angewendet werden.",
+    "Keine API-Keys, Authorization-Header oder vollständigen Dokumentinhalte in Diagnostics und Logs.",
+    "Automatischer Fallback darf keine inkonsistenten Ergebnisse verschleiern; jeder Fallback wird diagnostisch sichtbar."
+  ],
+  "proposed_config_shape": {
+    "vector_store": {
+      "provider": "json",
+      "fail_mode": "degraded_empty",
+      "fallback_provider": "json",
+      "json": {
+        "index_path": ".rag/codecompass/vector_index.json"
+      },
+      "qdrant": {
+        "url": "http://localhost:6333",
+        "api_key_env": "ANANTA_QDRANT_API_KEY",
+        "collection_prefix": "ananta",
+        "collection_strategy": "workspace_repository_profile",
+        "distance": "cosine",
+        "timeout_seconds": 10,
+        "prefer_grpc": false,
+        "external_calls_allowed": false,
+        "allowed_base_urls": ["http://localhost:6333"],
+        "on_unavailable": "degraded_empty",
+        "rebuild_strategy": "versioned_collection_alias_swap"
+      }
+    }
+  },
+  "expected_new_files": [
+    "worker/retrieval/vector_store_contract.py",
+    "worker/retrieval/json_vector_store.py",
+    "worker/retrieval/qdrant_vector_store.py",
+    "worker/retrieval/vector_store_factory.py",
+    "worker/retrieval/vector_store_config.py",
+    "config/examples/vector-store.qdrant-local.json",
+    "config/examples/vector-store.json-local.json",
+    "docs/worker/qdrant-vector-store.md",
+    "docker-compose.qdrant.yml",
+    "tests/test_vector_store_contract.py",
+    "tests/test_vector_store_factory.py",
+    "tests/test_qdrant_vector_store_unit.py",
+    "tests/test_qdrant_vector_store_integration.py",
+    "tests/test_qdrant_vector_store_security.py",
+    "tests/test_qdrant_vector_store_migration.py"
+  ],
+  "expected_modified_files": [
+    "worker/retrieval/codecompass_vector_store.py",
+    "worker/retrieval/codecompass_vector_engine.py",
+    "worker/retrieval/wiki_vector_store.py",
+    "agent/services/codecompass_vector_retrieval_service.py",
+    "agent/services/wiki_retrieval_index_service.py",
+    "agent/services/embedding_provider_config_service.py",
+    "docs/worker/retrieval_and_indexing.md",
+    "docs/worker/codecompass-vector-retrieval.md",
+    "pyproject.toml",
+    ".env.example",
+    "README.md"
+  ],
+  "milestones": [
+    {"id": "M1", "title": "VectorStore-Contract und JSON-Refactoring", "task_ids": ["QVS-001", "QVS-002", "QVS-003", "QVS-004"], "status": "todo"},
+    {"id": "M2", "title": "Qdrant-Backend und Collection-Lifecycle", "task_ids": ["QVS-005", "QVS-006", "QVS-007", "QVS-008", "QVS-009"], "status": "todo"},
+    {"id": "M3", "title": "Inkrementelles Indexing, Filter und Migration", "task_ids": ["QVS-010", "QVS-011", "QVS-012", "QVS-013"], "status": "todo"},
+    {"id": "M4", "title": "Security, Betrieb und Observability", "task_ids": ["QVS-014", "QVS-015", "QVS-016", "QVS-017"], "status": "todo"},
+    {"id": "M5", "title": "Tests, Benchmarks, Dokumentation und Rollout", "task_ids": ["QVS-018", "QVS-019", "QVS-020", "QVS-021", "QVS-022"], "status": "todo"}
+  ],
+  "tasks": [
+    {
+      "id": "QVS-001",
+      "title": "Gemeinsamen VectorStore-Contract definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "files": ["worker/retrieval/vector_store_contract.py", "tests/test_vector_store_contract.py"],
+      "description": "Backend-neutralen Contract für Diagnostics, Rebuild, Refresh, Upsert, Delete, Search und Lifecycle definieren.",
+      "acceptance_criteria": [
+        "Der Contract definiert diagnostics(), rebuild(), refresh(), upsert(), delete(), search_by_vector() und close().",
+        "Search unterstützt top_k sowie typisierte Payload-/Scope-Filter.",
+        "Rebuild- und Refresh-Ergebnisse verwenden ein gemeinsames Result-Schema mit status, mode, reason, indexed_documents und diagnostics.",
+        "Der Contract importiert weder qdrant_client noch JSON-Dateiimplementierungen.",
+        "Type-Checks oder Contract-Tests erkennen fehlende Methoden in Backends."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-002",
+      "title": "Bestehenden JSON-Store in Referenz-Backend überführen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "refactoring",
+      "files": ["worker/retrieval/codecompass_vector_store.py", "worker/retrieval/json_vector_store.py", "tests/test_codecompass_vector_store.py"],
+      "description": "Vorhandenes Verhalten ohne funktionale Regression hinter den neuen Contract verschieben.",
+      "acceptance_criteria": [
+        "Alle bestehenden CodeCompassVectorStore-Tests bleiben grün oder werden semantisch gleichwertig migriert.",
+        "JSON-State-Felder und bisherige Refresh-Gründe bleiben kompatibel.",
+        "Cosine-Suche liefert bei identischen Testvektoren dieselbe Reihenfolge wie zuvor.",
+        "Bestehende Indexdateien können weiterhin gelesen werden.",
+        "Eine zeitlich begrenzte Kompatibilitätsklasse oder Alias verhindert unnötige Import-Brüche."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-003",
+      "title": "VectorStore-Konfiguration validieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "configuration",
+      "files": ["worker/retrieval/vector_store_config.py", "config/examples/vector-store.json-local.json", "config/examples/vector-store.qdrant-local.json"],
+      "description": "Provider-spezifische, secretfreie und deterministisch hashbare Konfiguration einführen.",
+      "acceptance_criteria": [
+        "provider akzeptiert mindestens json und qdrant.",
+        "Ungültige URL, Distance-Metrik, Timeout- oder Collection-Werte werden früh mit verständlicher Meldung abgelehnt.",
+        "Config-Hash schließt relevante Einstellungen ein, aber keine Secretwerte.",
+        "Default bleibt json und benötigt keinen laufenden Dienst.",
+        "Beispielkonfigurationen sind durch automatisierte Config-Tests ladbar."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-004",
+      "title": "VectorStoreFactory in Retrieval-Services verdrahten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "files": ["worker/retrieval/vector_store_factory.py", "worker/retrieval/codecompass_vector_engine.py", "agent/services/codecompass_vector_retrieval_service.py", "tests/test_vector_store_factory.py"],
+      "description": "Store-Auswahl zentralisieren und direkte Konstruktion des JSON-Stores aus Services entfernen.",
+      "acceptance_criteria": [
+        "Factory erzeugt anhand validierter Config das gewählte Backend.",
+        "CodeCompassVectorEngine arbeitet nur gegen den Contract.",
+        "Unbekannte Provider führen zu einem expliziten Config-Fehler.",
+        "JSON bleibt ohne Konfigurationsänderung das effektive Backend.",
+        "Diagnostics nennen provider und backend_version."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-005",
+      "title": "Qdrant-Client optional integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "dependency",
+      "files": ["pyproject.toml", "worker/retrieval/qdrant_vector_store.py"],
+      "description": "qdrant-client als optionales Dependency-Extra ergänzen, damit Basisinstallationen schlank bleiben.",
+      "acceptance_criteria": [
+        "Die Standardinstallation funktioniert ohne qdrant-client.",
+        "Ein dokumentiertes Extra, beispielsweise ananta[qdrant], installiert kompatible Qdrant-Abhängigkeiten.",
+        "provider=qdrant ohne installiertes Extra liefert eine konkrete Installationsmeldung.",
+        "Imports des Qdrant-Clients erfolgen lazy oder backendlokal.",
+        "Dependency-Version ist nachvollziehbar begrenzt und durch CI getestet."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-006",
+      "title": "Qdrant Collection-Schema definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "schema",
+      "files": ["worker/retrieval/qdrant_vector_store.py", "docs/worker/qdrant-vector-store.md"],
+      "description": "Vektorparameter, Point-ID und Payload-Schema stabil und versioniert festlegen.",
+      "acceptance_criteria": [
+        "Collection verwendet konfigurierte Dimension und Cosine als Default-Distance.",
+        "Point-IDs werden deterministisch aus record_id plus Scope gebildet und bleiben bei identischen Inputs stabil.",
+        "Payload enthält mindestens record_id, kind, file, parent_id, role_labels, importance_score, source_scope, profile_name, manifest_hash und schema_version.",
+        "Große embedding_text-Inhalte werden nur gespeichert, wenn dies explizit konfiguriert ist.",
+        "Schema-Version ist in Collection-Metadaten oder jedem Point nachvollziehbar."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-007",
+      "title": "Versionierte Collections und Alias-Swap implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "indexing",
+      "files": ["worker/retrieval/qdrant_vector_store.py", "tests/test_qdrant_vector_store_unit.py"],
+      "description": "Vollständige Rebuilds in neue Collections schreiben und nach Erfolg atomar aktivieren.",
+      "acceptance_criteria": [
+        "Ein Rebuild schreibt nie teilweise in die aktive Collection.",
+        "Neue Collection-Namen enthalten einen stabilen Scope und eine eindeutige Indexversion.",
+        "Alias wird erst nach erfolgreichem Upload und Validierung umgeschaltet.",
+        "Fehlgeschlagener Rebuild lässt die bisherige Collection aktiv.",
+        "Alte Collections werden nach konfigurierbarer Retention sicher bereinigt."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-008",
+      "title": "Qdrant Dense Search implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "retrieval",
+      "files": ["worker/retrieval/qdrant_vector_store.py", "tests/test_qdrant_vector_store_unit.py"],
+      "description": "Query-Vektoren über Qdrant suchen und in das bestehende Candidate-Format zurückführen.",
+      "acceptance_criteria": [
+        "search_by_vector() gibt bestehende Felder inklusive vector_score und score zurück.",
+        "top_k wird serverseitig angewendet.",
+        "Leere Collections liefern eine leere Trefferliste statt Ausnahme.",
+        "Dimensionsfehler führen zu degraded Diagnostic mit reason dimensions_mismatch.",
+        "Qdrant-Scores werden dokumentiert und nicht unbemerkt anders skaliert als das bestehende Ranking erwartet."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-009",
+      "title": "Collection-Kompatibilität vor Nutzung prüfen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "validation",
+      "files": ["worker/retrieval/qdrant_vector_store.py", "tests/test_qdrant_vector_store_unit.py"],
+      "description": "Aktive Collection gegen Provider-, Modell-, Dimensions-, Profil-, Config- und Schema-State validieren.",
+      "acceptance_criteria": [
+        "Inkompatible Dimensionen werden niemals durchsucht.",
+        "Provider-, Modell-, embedding_text_profile-, vector_encoding- oder Config-Hash-Wechsel erzeugen einen eindeutigen Rebuild-Grund.",
+        "Collection-State ist secretfrei.",
+        "Unvollständige Legacy-Collections werden als migration_required oder rebuild_required markiert.",
+        "Diagnostics zeigen erwartete und gefundene Versionen ohne sensible Werte."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-010",
+      "title": "Inkrementelle Upserts implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "indexing",
+      "files": ["worker/retrieval/qdrant_vector_store.py", "worker/retrieval/codecompass_vector_engine.py", "tests/test_qdrant_vector_store_integration.py"],
+      "description": "Geänderte oder neue Records ohne vollständigen Rebuild aktualisieren.",
+      "acceptance_criteria": [
+        "Upsert akzeptiert Batch-Größen und begrenzt Speicherverbrauch.",
+        "Unveränderte source_hash-Werte werden nicht erneut eingebettet oder hochgeladen.",
+        "Wiederholter identischer Upsert ist idempotent.",
+        "Teilfehler liefern genaue Batch-Diagnostics und verlieren keine bereits aktive Collection.",
+        "Indexed-, skipped- und failed-Zähler sind sichtbar."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-011",
+      "title": "Löschungen und Umbenennungen synchronisieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "indexing",
+      "files": ["worker/retrieval/qdrant_vector_store.py", "worker/retrieval/codecompass_vector_engine.py", "tests/test_qdrant_vector_store_integration.py"],
+      "description": "Entfernte Pfade und Records deterministisch aus Qdrant löschen.",
+      "acceptance_criteria": [
+        "Gelöschte record_id-Werte sind nach Refresh nicht mehr auffindbar.",
+        "Umbenennung wird als Delete plus Upsert behandelt, sofern keine stabile Record-ID erhalten bleibt.",
+        "Delete kann per Point-ID und sicherem Scope-Filter erfolgen.",
+        "Ein Scope kann nicht versehentlich Points eines anderen Workspaces oder Repositories löschen.",
+        "Tests decken Datei-Löschung, Umbenennung und vollständige Scope-Bereinigung ab."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-012",
+      "title": "Payload-Filter für Scope und Metadaten einführen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "files": ["worker/retrieval/qdrant_vector_store.py", "worker/retrieval/codecompass_channel_providers.py", "tests/test_qdrant_vector_store_security.py"],
+      "description": "Workspace-, Repository-, Profil- und Domain-Grenzen bereits in der Qdrant-Query erzwingen.",
+      "acceptance_criteria": [
+        "Jede produktive Suche enthält mindestens workspace_id und repository_id oder einen äquivalenten isolierenden Scope.",
+        "source_scope, profile_name, kind, file prefix und role_labels können als Filter genutzt werden.",
+        "Ein Test mit identischen Vektoren in zwei Workspaces liefert ausschließlich Treffer des angefragten Workspaces.",
+        "Fehlender verpflichtender Scope führt nicht zu globaler Suche, sondern zu Ablehnung oder degraded_empty.",
+        "Filter werden serverseitig an Qdrant übergeben und nicht nur nachträglich in Python angewendet."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-013",
+      "title": "JSON-zu-Qdrant Migration und Reindex-Befehl bereitstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "migration",
+      "files": ["worker/retrieval/qdrant_vector_store.py", "worker/retrieval/vector_store_factory.py", "tests/test_qdrant_vector_store_migration.py", "docs/worker/qdrant-vector-store.md"],
+      "description": "Expliziten, wiederholbaren Migrationsweg für vorhandene JSON-Indizes anbieten.",
+      "acceptance_criteria": [
+        "Migration kann kompatible vorhandene Vektoren übernehmen, ohne Embeddings erneut zu erzeugen.",
+        "Inkompatible oder fehlende State-Felder erzwingen einen dokumentierten Rebuild.",
+        "Dry-run zeigt Collection-Ziel, Entry-Anzahl, Dimensionen und Konflikte.",
+        "Migration ist idempotent und kann nach Unterbrechung sicher erneut gestartet werden.",
+        "Der JSON-Index wird nicht automatisch gelöscht."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-014",
+      "title": "Qdrant-Endpunkte und Secrets absichern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "files": ["worker/retrieval/vector_store_config.py", "worker/retrieval/qdrant_vector_store.py", "tests/test_qdrant_vector_store_security.py", ".env.example"],
+      "description": "Remote-Zugriff nur explizit erlauben und API-Key ausschließlich aus Secretquellen laden.",
+      "acceptance_criteria": [
+        "localhost ist in der lokalen Beispielconfig explizit allowlisted.",
+        "Nicht lokale URLs benötigen external_calls_allowed=true und passenden allowed_base_urls-Eintrag.",
+        "API-Key wird ausschließlich über Umgebungsvariable oder bestehende Secret-Abstraktion geladen.",
+        "API-Key erscheint weder in Config-Hash, Exceptions, Logs noch Diagnostics.",
+        "TLS-Verifikation ist bei HTTPS standardmäßig aktiv und nicht still deaktivierbar."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-015",
+      "title": "Healthcheck, Timeout und Degraded-Modi implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "resilience",
+      "files": ["worker/retrieval/qdrant_vector_store.py", "worker/retrieval/vector_store_factory.py", "tests/test_qdrant_vector_store_unit.py"],
+      "description": "Ausfälle kontrolliert behandeln, ohne Requests unbegrenzt zu blockieren.",
+      "acceptance_criteria": [
+        "Healthcheck unterscheidet unavailable, unauthorized, incompatible_collection und ready.",
+        "Connect- und Request-Timeouts sind konfigurierbar und besitzen sichere Defaults.",
+        "on_unavailable unterstützt mindestens fail_fast, degraded_empty und explicit_json_fallback.",
+        "Ein Fallback wird in jedem Retrieval-Trace als provider_fallback sichtbar.",
+        "Automatischer JSON-Fallback wird nur verwendet, wenn dessen Index-State kompatibel ist."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-016",
+      "title": "Lokales Docker-Compose-Profil ergänzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "operations",
+      "files": ["docker-compose.qdrant.yml", ".env.example", "README.md"],
+      "description": "Reproduzierbaren lokalen Betrieb mit persistentem Volume und sicheren Netzwerkdefaults ermöglichen.",
+      "acceptance_criteria": [
+        "Compose startet Qdrant mit persistentem benanntem Volume.",
+        "REST-Port 6333 und optional gRPC-Port 6334 sind dokumentiert.",
+        "Service besitzt Healthcheck und Restart-Policy.",
+        "Standardmäßig wird Qdrant nicht öffentlich über alle Interfaces exponiert, sofern das Compose-Setup dies kontrollieren kann.",
+        "Start-, Stop-, Reset- und Backup-Hinweise sind dokumentiert."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-017",
+      "title": "Metrics und Diagnostics für Qdrant ergänzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "observability",
+      "files": ["worker/retrieval/qdrant_vector_store.py", "agent/services/codecompass_vector_retrieval_service.py"],
+      "description": "Backend-Verhalten messbar und im bestehenden Retrieval-Trace erklärbar machen.",
+      "acceptance_criteria": [
+        "Diagnostics enthalten Collection-Alias, Schema-Version, Point-Anzahl, Dimensionen und Distance-Metrik.",
+        "Search-Trace enthält Backend, Filter-Summary, top_k, Trefferzahl und Laufzeit.",
+        "Indexing-Metriken enthalten embedded, upserted, deleted, skipped und failed.",
+        "Keine vollständigen Vektoren oder Dokumenttexte werden standardmäßig geloggt.",
+        "Metriknamen unterscheiden JSON- und Qdrant-Backend eindeutig."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-018",
+      "title": "Unit-Tests mit Fake-Qdrant-Client erstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "testing",
+      "files": ["tests/test_qdrant_vector_store_unit.py"],
+      "description": "Fehler- und Lifecycle-Pfade ohne Docker und Netzwerk deterministisch testen.",
+      "acceptance_criteria": [
+        "Tests decken Collection-Erzeugung, Alias-Swap, Search, Filter, Upsert und Delete ab.",
+        "Tests decken Timeout, Unauthorized, Dimension-Mismatch und fehlende Collection ab.",
+        "Tests enthalten keine echten Netzwerkaufrufe.",
+        "Point-ID- und Collection-Namensbildung werden deterministisch geprüft.",
+        "Secret-Redaction wird ausdrücklich getestet."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-019",
+      "title": "Docker-basierte Integrationstests ergänzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "testing",
+      "files": ["tests/test_qdrant_vector_store_integration.py", "docker-compose.qdrant.yml"],
+      "description": "Echtes Qdrant-Verhalten optional in CI und lokal prüfen.",
+      "acceptance_criteria": [
+        "Integrationstest startet gegen eine festgelegte Qdrant-Version.",
+        "Test indexiert Beispieldokumente, sucht, filtert, aktualisiert und löscht sie.",
+        "Test prüft Alias-Swap bei Rebuild.",
+        "Test ist klar markiert und wird ohne aktiviertes Integrationstest-Profil übersprungen.",
+        "Testdaten und Collections werden zuverlässig bereinigt."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-020",
+      "title": "Qualitäts- und Performance-Benchmark erstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "benchmark",
+      "files": ["tests/test_qdrant_vector_store_benchmark.py", "docs/worker/qdrant-vector-store.md"],
+      "description": "JSON und Qdrant anhand realistischer Indexgrößen vergleichen, ohne nur synthetische Latenz zu betrachten.",
+      "acceptance_criteria": [
+        "Benchmark misst Build-Zeit, Refresh-Zeit, p50/p95 Search-Latenz, Speicherbedarf und Recall@k.",
+        "Vergleich umfasst mindestens kleine, mittlere und große Indexprofile.",
+        "Ranking-Ergebnisse werden gegen einen Exact-Cosine-Referenzlauf geprüft.",
+        "Akzeptierte Recall-Abweichung durch ANN ist explizit dokumentiert.",
+        "Ein begründeter Schwellenwert empfiehlt, wann JSON oder Qdrant verwendet werden sollte."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-021",
+      "title": "Wiki-VectorStore auf gemeinsamen Contract vorbereiten",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "architecture",
+      "files": ["worker/retrieval/wiki_vector_store.py", "agent/services/wiki_retrieval_index_service.py", "tests/test_wiki_vector_store.py"],
+      "description": "Gemeinsame Infrastruktur nutzen, ohne CodeCompass- und Wiki-Payload-Schemata unkontrolliert zu koppeln.",
+      "acceptance_criteria": [
+        "Wiki-Retrieval kann den gemeinsamen Contract verwenden oder besitzt einen dokumentierten Adapter.",
+        "Wiki und CodeCompass verwenden getrennte Collections oder strikt getrennte Payload-Schemas.",
+        "Bestehende Wiki-Tests bleiben grün.",
+        "Scope- und Tenant-Isolation gelten identisch.",
+        "Qdrant-Aktivierung für Wiki bleibt separat konfigurierbar."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "QVS-022",
+      "title": "Dokumentation und gestuften Rollout abschließen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "documentation",
+      "files": ["docs/worker/qdrant-vector-store.md", "docs/worker/retrieval_and_indexing.md", "docs/worker/codecompass-vector-retrieval.md", "README.md"],
+      "description": "Installation, Konfiguration, Migration, Fehlerfälle und Rückkehr zu JSON vollständig erklären.",
+      "acceptance_criteria": [
+        "Dokumentation enthält lokale Docker-Installation und verlinkt das Open-Source-Projekt Qdrant.",
+        "Beispiele zeigen JSON-Default, lokales Qdrant und explizit erlaubtes Remote-Qdrant.",
+        "Migration, Rebuild, Backup, Restore und Collection-Reset sind beschrieben.",
+        "Rollout beginnt opt-in, danach optional pro Workspace und erst nach Benchmarks als Empfehlung für große Repositories.",
+        "Rollback auf JSON benötigt keine Codeänderung und ist getestet."
+      ],
+      "progress_percent": 0
+    }
+  ],
+  "definition_of_done": [
+    "Alle Retrieval-Komponenten verwenden einen backendneutralen VectorStore-Contract.",
+    "JSON bleibt ohne Zusatzdienst vollständig funktionsfähig.",
+    "Qdrant kann lokal über Docker gestartet und per Config aktiviert werden.",
+    "Rebuild, inkrementelle Upserts, Deletes und gefilterte Search funktionieren gegen echtes Qdrant.",
+    "Workspace- und Repository-Isolation ist durch Tests belegt.",
+    "Provider-, Modell-, Dimensions-, Profil- und Config-Wechsel können keine inkompatiblen Suchergebnisse erzeugen.",
+    "Ausfälle, Fallbacks und Migrationen sind diagnostisch sichtbar.",
+    "Unit-, Integrations-, Security- und Benchmark-Tests sind dokumentiert und grün.",
+    "Installation, Betrieb, Backup, Migration und Rollback sind vollständig dokumentiert."
+  ],
+  "non_goals": [
+    "Qdrant ersetzt nicht den EmbeddingProvider.",
+    "Qdrant ersetzt nicht Lexical-, Symbol-, Graph- oder Domain-Retrieval.",
+    "Qdrant Cloud wird nicht zum Default.",
+    "Bestehende JSON-Indizes werden nicht automatisch gelöscht.",
+    "Ein Multi-Node-Qdrant-Cluster ist nicht Teil der ersten Implementierungsphase.",
+    "Sparse Vectors und Qdrant-native Hybrid-Fusion sind nicht Teil des ersten Rollouts; sie können später separat evaluiert werden."
+  ]
+}
