@@ -89,6 +89,42 @@ async function authenticatedFixtures(page: Page): Promise<{
   await page.route('**/api/v1/kanban/**', async route => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (path.endsWith('/boards/hub/snapshot') && request.method() === 'GET') {
+      return json(route, {
+        schema_version: 'kanban.snapshot.v1',
+        board: {
+          id: 'hub', name: 'Hub task board', scope_type: 'hub', scope_id: null,
+          revision: 'snapshot-1', card_count: 1,
+          capabilities: ['kanban.read', 'kanban.write', 'kanban.comment'], columns,
+        },
+        cards: [task],
+        event_sequence: 0,
+      });
+    }
+    if (path.endsWith('/boards/hub/events') && request.method() === 'GET') {
+      const requestUrl = new URL(request.url());
+      const cursor = Number(
+        requestUrl.searchParams.get('after_sequence')
+          ?? request.headers()['last-event-id']
+          ?? '0',
+      );
+      return json(route, {
+        schema_version: 'kanban.event-batch.v1',
+        board_id: 'hub',
+        requested_after_sequence: cursor,
+        next_after_sequence: cursor,
+        latest_sequence: cursor,
+        events: [],
+        has_more: false,
+        overflow: false,
+        overflow_reason: null,
+        gap_detected: false,
+        gap_after_sequence: null,
+        snapshot_required: false,
+        snapshot_url: null,
+        auth_renewal: { required: false, reason: null },
+      });
+    }
     if (path.endsWith('/boards') && request.method() === 'GET') {
       return json(route, { items: [{
         id: 'hub', name: 'Hub task board', scope_type: 'hub', scope_id: null,

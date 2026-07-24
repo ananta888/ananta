@@ -168,11 +168,36 @@ test('Angular and TUI exchange one Hub-owned Kanban projection with conflict rec
     revision: 9,
   });
 
-  // Angular still owns its revision-8 view. This real write must receive 409,
-  // discard the optimistic view, and reload the Hub snapshot at revision 9.
-  await card.getByRole('button', { name: 'Nach links' }).click();
-  await expect(card).toContainText('Offen');
+  // The durable Hub replay updates Angular without a manual reload.
+  await expect(card).toContainText('Offen', { timeout: 15_000 });
   await expect(card).toContainText('Revision 9');
+
+  // Pause only the browser replay channel so Angular deliberately retains
+  // revision 9 while the TUI creates revision 10.
+  await page.route('**/api/v1/kanban/boards/*/events*', route => route.abort());
+  const hiddenTuiMove = runTuiProbe(
+    'move',
+    '--task-id',
+    String(fixtureCard['id']),
+    '--expected-revision',
+    '9',
+    '--target-status',
+    'in_progress',
+    '--idempotency-key',
+    'cross-surface-tui-progress-r9',
+  );
+  expect(hiddenTuiMove['ok']).toBe(true);
+  expect(record(hiddenTuiMove['card'], 'hidden TUI move card')).toMatchObject({
+    id: fixtureCard['id'],
+    column_id: 'in_progress',
+    revision: 10,
+  });
+
+  // This real Angular write uses revision 9, receives 409, discards its
+  // optimistic view, and reloads the atomic snapshot at revision 10.
+  await card.getByRole('button', { name: 'Nach rechts' }).click();
+  await expect(card).toContainText('In Arbeit');
+  await expect(card).toContainText('Revision 10');
 
   const staleTuiWrite = runTuiProbe(
     'move',
@@ -189,7 +214,7 @@ test('Angular and TUI exchange one Hub-owned Kanban projection with conflict rec
   expect(staleTuiWrite['ok']).toBe(false);
   expect(staleError['http_status']).toBe(fixtureError['http_status']);
   expect(staleError['code']).toBe(fixtureErrorValue['code']);
-  expect(staleError['current_revision']).toBe(9);
+  expect(staleError['current_revision']).toBe(10);
 
   const finalTuiSnapshot = runTuiProbe(
     'snapshot',
@@ -200,7 +225,7 @@ test('Angular and TUI exchange one Hub-owned Kanban projection with conflict rec
     id: fixtureCard['id'],
     title: fixtureCard['title'],
     description: fixtureCard['description'],
-    column_id: 'todo',
-    revision: 9,
+    column_id: 'in_progress',
+    revision: 10,
   });
 });

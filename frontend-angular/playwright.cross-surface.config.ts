@@ -33,7 +33,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run start:e2e',
+    command: `E2E_PORT=${frontendPort} npm run start:e2e`,
     url: frontendUrl,
     reuseExistingServer: false,
     timeout: 180_000,

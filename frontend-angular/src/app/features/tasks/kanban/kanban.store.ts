@@ -15,6 +15,7 @@ import {
   KanbanComment,
   KanbanFilters,
 } from './kanban-api.client';
+import { KanbanLiveBoardService } from './kanban-live-events';
 
 function requestId(): string {
   return globalThis.crypto?.randomUUID?.()
@@ -53,11 +54,14 @@ export class KanbanStore {
   private readonly system = inject(SystemFacade);
   private readonly notifications = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly live = inject(KanbanLiveBoardService);
   private readonly searchChanges = new Subject<string>();
   private baseUrl = '';
   private boardListRequest?: Subscription;
   private viewRequest?: Subscription;
   private viewGeneration = 0;
+  private liveRequest?: Subscription;
+  private liveGeneration = 0;
 
   readonly boards = signal<readonly KanbanBoardSummary[]>([]);
   readonly board = signal<KanbanBoard | null>(null);
@@ -71,6 +75,7 @@ export class KanbanStore {
   readonly error = signal('');
 
   constructor() {
+    this.destroyRef.onDestroy(() => this.stopLive());
     this.searchChanges.pipe(
       debounceTime(300),
       distinctUntilChanged(),
@@ -82,6 +87,7 @@ export class KanbanStore {
   }
 
   load(): void {
+    this.stopLive();
     const hub = this.system.resolveHubAgent();
     if (!hub?.url) {
       this.error.set('Kein Hub-Agent konfiguriert.');
@@ -119,28 +125,41 @@ export class KanbanStore {
 
   selectBoard(boardId: string): void {
     if (!this.baseUrl || !boardId) return;
-    const generation = ++this.viewGeneration;
+    ++this.viewGeneration;
     this.boardListRequest?.unsubscribe();
     this.viewRequest?.unsubscribe();
+    this.stopLive();
+    const generation = this.liveGeneration;
     this.loading.set(true);
-    this.viewRequest = forkJoin({
-      board: this.api.board(this.baseUrl, boardId),
-      cards: this.api.cards(this.baseUrl, boardId, this.filters()),
-    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: snapshot => {
-        if (generation !== this.viewGeneration) return;
-        this.board.set(snapshot.board);
-        this.cards.set(snapshot.cards.items);
-        this.loading.set(false);
-        this.error.set('');
-        this.closeDetail();
-      },
-      error: () => {
-        if (generation !== this.viewGeneration) return;
-        this.loading.set(false);
-        this.error.set('Board-Snapshot konnte nicht geladen werden.');
-      },
-    });
+    this.error.set('');
+    this.closeDetail();
+    this.liveRequest = this.live.connect(this.baseUrl, boardId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: update => {
+          if (generation !== this.liveGeneration) return;
+          if (update.kind === 'snapshot') {
+            this.board.set(update.snapshot.board);
+            this.cards.set(update.snapshot.cards);
+            this.loading.set(false);
+            this.error.set('');
+            return;
+          }
+          this.loading.set(false);
+          this.error.set(update.message);
+        },
+        error: () => {
+          if (generation !== this.liveGeneration) return;
+          this.loading.set(false);
+          this.error.set('Board-Live-Verbindung ist fehlgeschlagen.');
+        },
+      });
+  }
+
+  private stopLive(): void {
+    this.liveGeneration += 1;
+    this.liveRequest?.unsubscribe();
+    this.liveRequest = undefined;
   }
 
   reloadSnapshot(): void {

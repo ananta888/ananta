@@ -176,8 +176,8 @@ def test_angular_and_tui_share_real_hub_projection_bidirectionally(
         db_session.expire_all()
         persisted = db_session.get(TaskDB, fixture_card["id"])
         assert persisted is not None
-        assert persisted.status == "todo"
-        assert persisted.kanban_revision == fixture_card["revision"] + 2
+        assert persisted.status == "in_progress"
+        assert persisted.kanban_revision == fixture_card["revision"] + 3
     finally:
         server.shutdown()
         server.server_close()
