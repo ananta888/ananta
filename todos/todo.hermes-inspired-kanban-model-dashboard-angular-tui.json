@@ -2,7 +2,7 @@
   "$schema": "./todo.track.schema.json",
   "id": "todo.hermes-inspired-kanban-model-dashboard-angular-tui",
   "title": "Hermes-inspiriertes Kanban und Modelle-Dashboard fuer Angular und TUI",
-  "version": "1.1",
+  "version": "1.2",
   "owner": "Peter Stuiber / Ananta",
   "track": "hermes-inspired-kanban-model-dashboard-angular-tui",
   "status": "partial",
@@ -82,7 +82,7 @@
     {
       "id": "M1",
       "title": "Architektur und Projektionsvertraege",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "HKM-ARCH-001",
         "HKM-ARCH-002",
@@ -106,7 +106,7 @@
     {
       "id": "M3",
       "title": "Angular Kanban und Modelle-Dashboard",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "HKM-NG-001",
         "HKM-NG-002",
@@ -119,7 +119,7 @@
     {
       "id": "M4",
       "title": "Maus- und tastaturfaehige Ananta-TUI",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "HKM-TUI-001",
         "HKM-TUI-002",
@@ -206,10 +206,10 @@
       "title": "Typisierte Kanban- und Model-Catalog-Projektionsvertraege",
       "milestone": "M1",
       "type": "contract",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 85.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "HKM-ARCH-001"
       ],
@@ -230,10 +230,10 @@
       "title": "Feature-Flag- und Rollout-Vertrag",
       "milestone": "M1",
       "type": "governance",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 85.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "HKM-ARCH-001"
       ],
@@ -324,10 +324,10 @@
       "title": "Additive versionierte Kanban-Projektion in bestehenden Task-APIs",
       "milestone": "M2",
       "type": "api",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 85.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "HKM-BE-003"
       ],
@@ -350,7 +350,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 70.0,
+      "progress_percent": 85.0,
       "depends_on": [
         "HKM-BE-003"
       ],
@@ -416,10 +416,10 @@
       "title": "Bestehende Angular-/board-Route als Feature-Shell refaktorieren",
       "milestone": "M3",
       "type": "frontend",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 80.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "HKM-ARCH-003",
         "HKM-BE-004",
@@ -556,10 +556,10 @@
       "title": "TUI-Sektionen und asynchrone Adapter registrieren",
       "milestone": "M4",
       "type": "tui",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 80.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "HKM-ARCH-003",
         "HKM-BE-004",
@@ -656,7 +656,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 45.0,
+      "progress_percent": 80.0,
       "depends_on": [
         "HKM-NG-008",
         "HKM-TUI-006"
@@ -677,10 +677,10 @@
       "title": "Threat-basierte negative Security- und Robustheitstests",
       "milestone": "M6",
       "type": "testing",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 75.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "HKM-ARCH-001",
         "HKM-BE-005",
@@ -733,7 +733,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 55.0,
+      "progress_percent": 85.0,
       "depends_on": [
         "HKM-INT-001"
       ],
@@ -756,7 +756,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 40.0,
+      "progress_percent": 70.0,
       "depends_on": [
         "HKM-SEC-002",
         "HKM-OPS-001",
@@ -779,11 +779,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 10,
+      "partial": 4,
       "blocked": 0,
-      "done": 15
+      "done": 21
     },
-    "progress_percent_done": 60.0,
+    "progress_percent_done": 84.0,
     "by_priority": {
       "P0": 18,
       "P1": 7,
@@ -797,15 +797,15 @@
     },
     "critical_path": {
       "total": 25,
-      "done": 15,
-      "remaining": 10
+      "done": 21,
+      "remaining": 4
     },
     "milestones": {
       "total": 6,
       "todo": 0,
-      "in_progress": 6,
+      "in_progress": 3,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -830,28 +830,28 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 85.0
+        "progress_percent": 100.0
       },
       "governance": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 85.0
+        "progress_percent": 100.0
       },
       "backend": {
         "total": 4,
@@ -872,14 +872,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 85.0
+        "progress_percent": 100.0
       },
       "realtime": {
         "total": 1,
@@ -893,7 +893,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 70.0
+        "progress_percent": 85.0
       },
       "security": {
         "total": 1,
@@ -914,42 +914,42 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 4
+          "done": 5
         },
-        "done": 4,
-        "partial": 1,
+        "done": 5,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 96.0
+        "progress_percent": 100.0
       },
       "testing": {
         "total": 3,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 2
+          "done": 3
         },
-        "done": 2,
-        "partial": 1,
+        "done": 3,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 91.7
+        "progress_percent": 100.0
       },
       "tui": {
         "total": 3,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 2
+          "done": 3
         },
-        "done": 2,
-        "partial": 1,
+        "done": 3,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 93.3
+        "progress_percent": 100.0
       },
       "integration": {
         "total": 1,
@@ -963,7 +963,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 45.0
+        "progress_percent": 80.0
       },
       "documentation": {
         "total": 1,
@@ -991,7 +991,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 55.0
+        "progress_percent": 85.0
       },
       "release": {
         "total": 1,
@@ -1005,7 +1005,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 40.0
+        "progress_percent": 70.0
       }
     }
   },
@@ -1013,11 +1013,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 10,
+    "partial": 4,
     "blocked": 0,
-    "done": 15,
-    "count_based_percent": 60.0,
-    "weighted_percent": 87.2
+    "done": 21,
+    "count_based_percent": 84.0,
+    "weighted_percent": 96.2
   },
   "estimated_effort": {
     "mvp_developer_days": "unverified",
@@ -1031,86 +1031,87 @@
   },
   "definition_of_done": [
     "JSON validiert gegen todos/todo.track.schema.json und alle Summary-Zahlen sowie Abhaengigkeiten werden deterministisch geprueft.",
-    "Alle 25 verbleibenden Tasks sind done; kein P1-Task darf fuer einen formalen Track-Abschluss offen bleiben.",
+    "Alle 25 Tasks sind done; kein P1-Task darf fuer einen formalen Track-Abschluss offen bleiben.",
     "Angular build, lint, Vitest und Playwright sowie Python Contract-, Backend-, TUI- und Security-Tests sind fuer denselben Commit gruen.",
     "Cross-Surface-Paritaet, WCAG- und Performancebudgets sowie Feature-Flag-Rollback sind durch frische reproduzierbare Evidence belegt.",
     "Das Release-Gate ist fail-closed gruen und belegt Hub-Task- und Backend-Model-Catalog-Autoritaet ohne Worker-Start, parallele Board-Domain oder direkte Provider-Zugriffe."
   ],
   "summary_notes": [
-    "Die Code-Mapping-Angaben in repository_baseline sind mangels gueltiger SRC_- oder RUN_-IDs unverified; deshalb bleiben alle Tasks auf todo.",
-    "Die Hauptkomplexitaet liegt in revisionssicherer Hub-Task-Projektion, gemeinsamer Fehlersemantik, Live-Synchronisation und sicherer serverseitiger Model-Catalog-Steuerung.",
     "Die vorhandene Angular-/board-Route, BoardComponent/CDK-Logik, TaskManagementFacade, Planning-Projektion und TUI-Section-/Region-/Mouse-Infrastruktur werden refaktoriert oder adaptiert statt dupliziert.",
     "Die TUI verwendet robuste Maus- und Keyboard-Aktionen; Terminal-DragDrop ist weder erforderlich noch Release-Kriterium.",
     "removed_scope: Worker-Start/-Orchestrierung, Todo-JSON-Board-Import, Aufbau generischer Observability, Modell-load/-unload sowie freie Provider-URLs, Pfade und Shell-Kommandos sind aus diesem Track entfernt.",
     "removed_tasks: HKM-BE-008 wurde in HKM-BE-007 integriert; HKM-NG-004 und HKM-NG-005 wurden in HKM-NG-002/HKM-NG-003 integriert; HKM-TUI-003 wurde in HKM-TUI-002 integriert; HKM-TUI-005 wurde in HKM-TUI-006 integriert; HKM-INT-002, HKM-INT-003 und HKM-INT-004 wurden als Scope-Creep beziehungsweise bestehende Querschnittssysteme entfernt; HKM-SEC-001 wurde in HKM-ARCH-001 und HKM-SEC-002 integriert.",
-    "SOLID: Kleine Projektions-, Catalog- und Client-Ports schuetzen SRP, ISP und DIP; Flask-Routen, Angular-Komponenten und TUI-Renderer bleiben Delivery-Adapter statt Domain-Wahrheit.",
-    "implementation_checkpoint: Backend/contracts/security commit 158b55654; TUI commit af47598e5; Angular commit 236c5ffe7; performance/release gates commit ad7d9927f; ADR/operations documentation commit 63d773829.",
-    "implementation_checkpoint_tests: Backend Kanban 6 passed; model/flags 69 passed with 0 warnings; security/performance 25 new and 20 regression tests passed; TUI 20 new Surface/HTTP and 63 existing relevant tests passed; Angular 6 Vitest tests, ESLint and build passed (existing ngraph CommonJS warning), Chromium and Firefox Playwright 2 passed, axe clean at 1440x900 and 390x844; release-gate unit tests 8 passed.",
-    "local_diagnostic_not_release_evidence: 1000 tasks and at least 10 groups; snapshot p95 0.0507 ms, move p95 0.00060 ms, filter p95 0.0190 ms, peak RSS 25.54 MB, lost 0, deduped 100. This local backend projection diagnostic is not representative release evidence.",
-    "remaining_ARCH002_BE004_SEC002: The XSS validator is too broad on the shared Kanban base class and must be restricted to command input only.",
-    "remaining_ARCH003_NG001: The Angular fail-closed feature snapshot must reset and reload when UserAuthService.token$ changes.",
-    "remaining_TUI001: Asynchronous kanban/models loading currently occurs only via Enter or click; automatic loading on navigation and --section is missing.",
-    "remaining_BE005: Full event ordering, backpressure, authentication renewal, and gap behavior are not formally proven by end-to-end tests.",
-    "remaining_INT001: Shared Python/TypeScript/TUI contract fixtures and a real cross-surface revision run are missing.",
-    "remaining_OPS002: Only a local backend projection diagnostic exists; representative Angular/TUI hardware evidence is missing.",
-    "remaining_REL001: The release gate is implemented and unit-tested fail-closed, but seven fresh commit-bound suite artifacts are missing, so rollout remains blocked."
+    "SOLID: Kleine Projektions-, Catalog-, Event-Stream- und Client-Ports schuetzen SRP, ISP und DIP; Flask-Routen, Angular-Komponenten und TUI-Renderer bleiben Delivery-Adapter statt Domain-Wahrheit.",
+    "implementation_checkpoint: Backend/contracts/security commit 158b55654; TUI commit af47598e5; Angular commit 236c5ffe7; performance/release gates commit ad7d9927f; ADR/operations documentation commit 63d773829; Todo-Checkpoint commit aa8e1e506. Die danach implementierten Restarbeiten sind noch nicht commitgebunden.",
+    "completed_ARCH002_BE004_SEC002: Schreibbefehle validieren XSS-/Markdown-/URL-Eingaben fail-closed, waehrend historische Projektionsantworten verlustfrei lesbar bleiben; gemeinsam genutzte Python-/TypeScript-/TUI-Fixtures und stabile Fehlervertraege sind getestet.",
+    "completed_ARCH003_NG001: Angular setzt Feature-Flag-Snapshots bei Token-/Identitaetswechsel synchron fail-closed zurueck, ignoriert veraltete Antworten und laedt nach gueltigem Login kontrolliert neu; Vitest, ESLint, Build sowie Chromium-/Firefox-Playwright sind gruen.",
+    "completed_TUI001: Kanban und Modelle laden bei Startup-Section und Navigation automatisch, erlauben genau einen Inflight-Fetch, brechen beim Section-Wechsel ab und verwerfen stale Antworten; gezielte und bestehende TUI-Tests sind gruen.",
+    "implemented_BE005_backend: Der Hub bietet autorisierte, versionierte und pro Board geordnete Kanban-Ereignisse mit Sequenz, Deduplizierung, begrenztem Journal, Overflow-/Gap-Erkennung und REST-Snapshot-Fallback; Backend-Tests sind gruen.",
+    "remaining_BE005: Echte Angular- und TUI-Live-Subscriptions mit Reconnect, Auth-Erneuerung, langsamen Consumern und Subscription-Cleanup sind noch nicht als oberflaechenuebergreifender E2E-Lauf belegt; insbesondere existiert noch kein TUI-Live-Transport.",
+    "implemented_INT001: Python, Angular und TUI lesen dieselbe deterministische Fixture; ein realer Flask-/TUI-Integrationstest belegt Revision-Conflict 409 und Snapshot-Reload mit stabiler Task-ID und Revision.",
+    "remaining_INT001: Ein bidirektionaler Lauf, in dem eine reale Angular-Mutation in derselben Laufzeit in der TUI erscheint und eine reale TUI-Mutation anschliessend in Angular erscheint, fehlt noch.",
+    "local_diagnostic_not_release_evidence_backend: 1000 Tasks und mindestens 10 Gruppen; Snapshot p95 0.0507 ms, Move p95 0.00060 ms, Filter p95 0.0190 ms, Peak-RSS 25.54 MB, verloren 0, dedupliziert 100.",
+    "local_diagnostic_not_release_evidence_tui: 1000 Karten und 10 Gruppen; Render-p95 0.778/0.785/0.813 ms bei 80x24/120x30/160x40, Resize-/Region-p95 0.797/1.195/0.930 ms, Tick-p95 1.694 ms, Scheduling-Lag-p95 0.123 ms, 102.87 Events/s, verloren 0 und RSS 32.38 MB; formal_gate_eligible=false.",
+    "local_diagnostic_not_release_evidence_angular: Chromium-Playwright mit 1000 Karten ueber 10 Cursorseiten auf Desktop und Mobile; Initial-p95 1049.8/954.2 ms, Filter-p95 880.8/913.3 ms, Long-Task-Gesamt-p95 483/431 ms, laengster Long Task 182/132 ms und Heap etwa 26.3 MB; formal_gate_eligible=false.",
+    "remaining_OPS002: Die lokalen Backend-, Angular- und TUI-Diagnosen sind gruen, ersetzen aber kein commit-, hardware- und runtime-verankertes integriertes Referenzprofil. PTY-Resize und der echte TUI-Live-Transport wurden nicht gemessen; eine freigegebene Baseline mit Review-Evidence fuer die 15-Prozent-Regel fehlt.",
+    "remaining_REL001: Evidence-Schema, fail-closed Gate und Rollout-Dokumentation sind implementiert und getestet, aber sieben frische, zum selben Commit gehoerende Contract-, Backend-, Angular-, TUI-, Security-, Accessibility- und Performance-Artefakte fehlen; der formale Rollout bleibt blockiert."
   ],
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 49.0,
-    "done_weight": 42.75,
-    "remaining_weight": 6.25,
+    "done_weight": 47.15,
+    "remaining_weight": 1.85,
     "blocked_weight": 0.0,
-    "weighted_percent": 87.2
+    "weighted_percent": 96.2
   },
   "milestone_progress_summary": {
     "milestones": {
       "M1": {
         "total_tasks": 3,
-        "done": 1,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 33.3,
-        "weighted_percent": 90.5,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M2": {
         "total_tasks": 7,
-        "done": 5,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 71.4,
-        "weighted_percent": 92.2,
+        "count_based_percent": 85.7,
+        "weighted_percent": 97.2,
         "status": "in_progress"
       },
       "M3": {
         "total_tasks": 6,
-        "done": 5,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 83.3,
-        "weighted_percent": 97.5,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M4": {
         "total_tasks": 4,
-        "done": 3,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 75.0,
-        "weighted_percent": 96.0,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M5": {
         "total_tasks": 1,
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 45.0,
+        "weighted_percent": 80.0,
         "status": "in_progress"
       },
       "M6": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 25.0,
-        "weighted_percent": 66.2,
+        "count_based_percent": 50.0,
+        "weighted_percent": 87.8,
         "status": "in_progress"
       }
     }
@@ -1118,10 +1119,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-07-23T17:21:17.752805Z",
+    "generated_at": "2026-07-23T19:04:27.965813Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "2daa83d71fd4c91089974a965090bd691d04713252a7a20f302328fdd8b6b002",
+    "source_hash": "8b00321edcc1395c96ad1d3510abd8209a51833b71682078d7941f2d0e499741",
     "is_stale": false
   }
 }
