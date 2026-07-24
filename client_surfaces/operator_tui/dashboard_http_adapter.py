@@ -29,6 +29,7 @@ _FEATURE_SCHEMA = "ananta.dashboard-feature-flags.v1"
 _MODEL_CATALOG_SCHEMA = "ananta.model-catalog.v1"
 _MODEL_DEFAULT_COMMAND_SCHEMA = "ananta.model-default-selection-command.v1"
 _KANBAN_SCHEMA = "kanban.v1"
+_KANBAN_SNAPSHOT_SCHEMA = "kanban.snapshot.v1"
 
 
 class DashboardHttpError(RuntimeError):
@@ -214,6 +215,7 @@ class DashboardHubAdapter:
         return data
 
     async def fetch_board(self) -> Mapping[str, Any]:
+        await self._require_feature("tui_kanban")
         try:
             return await self._fetch_atomic_board_snapshot()
         except DashboardHttpError as exc:
@@ -222,7 +224,6 @@ class DashboardHubAdapter:
         return await self._fetch_legacy_board()
 
     async def _fetch_atomic_board_snapshot(self) -> Mapping[str, Any]:
-        await self._require_feature("tui_kanban")
         encoded_board = urllib.parse.quote(self._board_id, safe="")
         snapshot = self._require_mapping(
             self._data(
@@ -233,7 +234,7 @@ class DashboardHubAdapter:
             ),
             code="kanban_snapshot_contract_invalid",
         )
-        if snapshot.get("schema_version") != _KANBAN_SCHEMA:
+        if snapshot.get("schema_version") != _KANBAN_SNAPSHOT_SCHEMA:
             raise DashboardHttpError(
                 "kanban_snapshot_contract_invalid",
                 status_code=502,
@@ -310,7 +311,6 @@ class DashboardHubAdapter:
         }
 
     async def _fetch_legacy_board(self) -> Mapping[str, Any]:
-        await self._require_feature("tui_kanban")
         encoded_board = urllib.parse.quote(self._board_id, safe="")
         board = self._require_mapping(
             self._data(

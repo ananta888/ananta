@@ -301,6 +301,7 @@ def test_board_and_cards_are_composed_through_authenticated_hub_calls(local_hub)
     )
     assert [request["path"] for request in state.requests] == [
         "/config/features/v1",
+        "/api/v1/kanban/boards/hub/snapshot",
         "/api/v1/kanban/boards/hub",
         "/api/v1/kanban/boards/hub/cards",
     ]
