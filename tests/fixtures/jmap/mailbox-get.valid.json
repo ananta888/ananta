@@ -1,0 +1,39 @@
+{
+  "sessionState": "session-state-1",
+  "methodResponses": [
+    [
+      "Mailbox/get",
+      {
+        "accountId": "account-test-1",
+        "state": "mailbox-state-1",
+        "list": [
+          {
+            "id": "mailbox-inbox",
+            "name": "Inbox",
+            "parentId": null,
+            "role": "inbox",
+            "sortOrder": 10,
+            "totalEmails": 1,
+            "unreadEmails": 1,
+            "totalThreads": 1,
+            "unreadThreads": 1,
+            "myRights": {
+              "mayReadItems": true,
+              "mayAddItems": true,
+              "mayRemoveItems": true,
+              "maySetSeen": true,
+              "maySetKeywords": true,
+              "mayCreateChild": true,
+              "mayRename": true,
+              "mayDelete": true,
+              "maySubmit": true
+            },
+            "isSubscribed": true
+          }
+        ],
+        "notFound": []
+      },
+      "mailbox-get-1"
+    ]
+  ]
+}

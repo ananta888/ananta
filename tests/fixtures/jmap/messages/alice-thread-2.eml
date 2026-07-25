@@ -1,0 +1,11 @@
+From: Bob Example <bob@example.test>
+To: Alice Example <alice@example.test>
+Subject: Re: Project lighthouse
+Date: Tue, 14 Jan 2025 09:05:00 +0000
+Message-ID: <lighthouse-2@example.test>
+In-Reply-To: <lighthouse-1@example.test>
+References: <lighthouse-1@example.test>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+The deterministic reply fixture.

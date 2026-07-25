@@ -1,0 +1,44 @@
+# Isolated infrastructure for manual JMAP integration work.
+#
+# This profile intentionally provisions neither an administrator nor a mailbox,
+# credentials, or seeded messages. A healthy container proves process liveness
+# only; it is not evidence for an authenticated or seeded JMAP E2E flow.
+
+services:
+  stalwart-jmap-test:
+    image: stalwartlabs/stalwart:v0.16.10-alpine@sha256:9dc88c60cb9aac1f7a42dd8fefe868567d68c836017bad5521caea6d05debd32
+    profiles: ["jmap-test"]
+    restart: "no"
+    environment:
+      STALWART_PUBLIC_URL: "${ANANTA_JMAP_TEST_PUBLIC_URL:-http://127.0.0.1:18080}"
+    ports:
+      - "${ANANTA_JMAP_TEST_BIND_IP:-127.0.0.1}:${ANANTA_JMAP_TEST_HTTP_PORT:-18080}:8080/tcp"
+    volumes:
+      - stalwart-jmap-test-config:/etc/stalwart
+      - stalwart-jmap-test-data:/var/lib/stalwart
+    networks:
+      - jmap-test
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -T 2 -O /dev/null http://127.0.0.1:8080/healthz/live",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    cpus: "${ANANTA_JMAP_TEST_CPU_LIMIT:-1.0}"
+    mem_limit: "${ANANTA_JMAP_TEST_MEMORY_LIMIT:-512M}"
+    stop_grace_period: 20s
+
+networks:
+  jmap-test:
+    internal: true
+
+volumes:
+  stalwart-jmap-test-config:
+  stalwart-jmap-test-data:

@@ -1,0 +1,4 @@
+services:
+  stalwart-jmap-test:
+    environment:
+      STALWART_RECOVERY_ADMIN: "admin:${STALWART_TEST_ADMIN_PASSWORD:?set by scripts/stalwart_jmap_test_stack.py}"

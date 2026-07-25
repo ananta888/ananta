@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "server_hostname": "mail.example.test",
+  "domain": "example.test",
+  "admin_secret_file": "tests/fixtures/jmap/secrets/admin-password",
+  "accounts": [
+    {
+      "name": "alice",
+      "secret_file": "tests/fixtures/jmap/secrets/alice-password",
+      "mailboxes": [
+        "Projects"
+      ],
+      "messages": [
+        {
+          "fixture_id": "alice-thread-1",
+          "path": "tests/fixtures/jmap/messages/alice-thread-1.eml",
+          "mailboxes": [
+            "Inbox",
+            "Projects"
+          ],
+          "keywords": [
+            "$seen"
+          ],
+          "received_at": "2025-01-14T09:00:00Z",
+          "thread_group": "lighthouse"
+        },
+        {
+          "fixture_id": "alice-thread-2",
+          "path": "tests/fixtures/jmap/messages/alice-thread-2.eml",
+          "mailboxes": [
+            "Inbox"
+          ],
+          "keywords": [
+            "$answered"
+          ],
+          "received_at": "2025-01-14T09:05:00Z",
+          "thread_group": "lighthouse"
+        }
+      ]
+    },
+    {
+      "name": "bob",
+      "secret_file": "tests/fixtures/jmap/secrets/bob-password",
+      "mailboxes": [
+        "Archive"
+      ],
+      "messages": [
+        {
+          "fixture_id": "bob-attachment",
+          "path": "tests/fixtures/jmap/messages/bob-attachment.eml",
+          "mailboxes": [
+            "Inbox",
+            "Archive"
+          ],
+          "keywords": [
+            "$flagged"
+          ],
+          "received_at": "2025-01-14T10:00:00Z",
+          "has_attachment": true
+        }
+      ]
+    }
+  ]
+}

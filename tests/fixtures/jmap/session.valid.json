@@ -1,0 +1,34 @@
+{
+  "capabilities": {
+    "urn:ietf:params:jmap:core": {
+      "maxSizeUpload": 1048576,
+      "maxConcurrentUpload": 2,
+      "maxSizeRequest": 1048576,
+      "maxConcurrentRequests": 2,
+      "maxCallsInRequest": 8,
+      "maxObjectsInGet": 64,
+      "maxObjectsInSet": 32,
+      "collationAlgorithms": []
+    },
+    "urn:ietf:params:jmap:mail": {}
+  },
+  "accounts": {
+    "account-test-1": {
+      "name": "fixture@example.test",
+      "isPersonal": true,
+      "isReadOnly": false,
+      "accountCapabilities": {
+        "urn:ietf:params:jmap:mail": {}
+      }
+    }
+  },
+  "primaryAccounts": {
+    "urn:ietf:params:jmap:mail": "account-test-1"
+  },
+  "username": "fixture@example.test",
+  "apiUrl": "https://mail.example.test/jmap",
+  "downloadUrl": "https://mail.example.test/jmap/download/{accountId}/{blobId}/{name}?type={type}",
+  "uploadUrl": "https://mail.example.test/jmap/upload/{accountId}",
+  "eventSourceUrl": "https://mail.example.test/jmap/eventsource/?types={types}&closeafter={closeafter}&ping={ping}",
+  "state": "session-state-1"
+}

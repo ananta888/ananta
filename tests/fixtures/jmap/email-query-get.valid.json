@@ -1,0 +1,75 @@
+{
+  "sessionState": "session-state-1",
+  "methodResponses": [
+    [
+      "Email/query",
+      {
+        "accountId": "account-test-1",
+        "queryState": "email-query-state-1",
+        "canCalculateChanges": true,
+        "position": 0,
+        "ids": [
+          "email-001"
+        ],
+        "total": 1,
+        "limit": 25
+      },
+      "email-query-1"
+    ],
+    [
+      "Email/get",
+      {
+        "accountId": "account-test-1",
+        "state": "email-state-1",
+        "list": [
+          {
+            "id": "email-001",
+            "blobId": "blob-email-001",
+            "threadId": "thread-001",
+            "mailboxIds": {
+              "mailbox-inbox": true
+            },
+            "keywords": {
+              "$seen": false
+            },
+            "size": 512,
+            "receivedAt": "2025-01-02T03:04:05Z",
+            "messageId": [
+              "fixture-001@example.test"
+            ],
+            "from": [
+              {
+                "name": "Fixture Sender",
+                "email": "sender@example.test"
+              }
+            ],
+            "to": [
+              {
+                "name": "Fixture Recipient",
+                "email": "fixture@example.test"
+              }
+            ],
+            "subject": "Deterministic JMAP fixture",
+            "preview": "Metadata-only fixture preview.",
+            "hasAttachment": false,
+            "bodyStructure": {
+              "partId": "part-text",
+              "blobId": "blob-part-text",
+              "size": 37,
+              "type": "text/plain",
+              "charset": "utf-8",
+              "name": null,
+              "disposition": null,
+              "cid": null,
+              "language": null,
+              "location": null,
+              "subParts": []
+            }
+          }
+        ],
+        "notFound": []
+      },
+      "email-get-1"
+    ]
+  ]
+}

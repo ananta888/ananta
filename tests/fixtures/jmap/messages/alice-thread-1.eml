@@ -1,0 +1,9 @@
+From: Alice Example <alice@example.test>
+To: Bob Example <bob@example.test>
+Subject: Project lighthouse
+Date: Tue, 14 Jan 2025 09:00:00 +0000
+Message-ID: <lighthouse-1@example.test>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+The first deterministic fixture message.
