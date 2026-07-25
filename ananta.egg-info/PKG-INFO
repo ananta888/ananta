@@ -44,11 +44,58 @@ Requires-Dist: pypdf
 Requires-Dist: python-docx
 Requires-Dist: openpyxl
 Requires-Dist: python-pptx
+Requires-Dist: langdetect
+Requires-Dist: jsonschema<5,>=4.21
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pytest-timeout; extra == "dev"
 Requires-Dist: httpx; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
+Provides-Extra: langchain
+Requires-Dist: langchain-core<0.4,>=0.3; extra == "langchain"
+Provides-Extra: langgraph
+Requires-Dist: langgraph<0.3,>=0.2; extra == "langgraph"
+Requires-Dist: langchain-core<0.4,>=0.3; extra == "langgraph"
+Provides-Extra: lc-lg
+Requires-Dist: langchain-core<0.4,>=0.3; extra == "lc-lg"
+Requires-Dist: langgraph<0.3,>=0.2; extra == "lc-lg"
+Provides-Extra: lc-lg-ollama
+Requires-Dist: langchain-ollama<0.4,>=0.3; extra == "lc-lg-ollama"
+Provides-Extra: lc-lg-openai
+Requires-Dist: langchain-openai<0.4,>=0.3; extra == "lc-lg-openai"
+Provides-Extra: lc-lg-anthropic
+Requires-Dist: langchain-anthropic<0.4,>=0.3; extra == "lc-lg-anthropic"
+Provides-Extra: lc-lg-all
+Requires-Dist: langchain-core<0.4,>=0.3; extra == "lc-lg-all"
+Requires-Dist: langgraph<0.3,>=0.2; extra == "lc-lg-all"
+Requires-Dist: langchain-ollama<0.4,>=0.3; extra == "lc-lg-all"
+Requires-Dist: langchain-openai<0.4,>=0.3; extra == "lc-lg-all"
+Requires-Dist: langchain-anthropic<0.4,>=0.3; extra == "lc-lg-all"
+Provides-Extra: temporal
+Requires-Dist: temporalio==1.30.0; extra == "temporal"
+Provides-Extra: observability
+Requires-Dist: opentelemetry-api<2,>=1.30; extra == "observability"
+Requires-Dist: opentelemetry-sdk<2,>=1.30; extra == "observability"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.30; extra == "observability"
+Provides-Extra: rtipm-sentence-transformers
+Requires-Dist: sentence-transformers<4,>=3; extra == "rtipm-sentence-transformers"
+Provides-Extra: rtipm-huggingface
+Requires-Dist: transformers<5,>=4.40; extra == "rtipm-huggingface"
+Requires-Dist: torch>=2.2; extra == "rtipm-huggingface"
+Provides-Extra: rtipm-onnxruntime
+Requires-Dist: onnxruntime<2,>=1.17; extra == "rtipm-onnxruntime"
+Requires-Dist: onnx<2,>=1.16; extra == "rtipm-onnxruntime"
+Requires-Dist: transformers<5,>=4.40; extra == "rtipm-onnxruntime"
+Provides-Extra: rtipm-pytorch
+Requires-Dist: torch>=2.2; extra == "rtipm-pytorch"
+Requires-Dist: transformers<5,>=4.40; extra == "rtipm-pytorch"
+Provides-Extra: rtipm-all
+Requires-Dist: sentence-transformers<4,>=3; extra == "rtipm-all"
+Requires-Dist: transformers<5,>=4.40; extra == "rtipm-all"
+Requires-Dist: torch>=2.2; extra == "rtipm-all"
+Requires-Dist: onnxruntime<2,>=1.17; extra == "rtipm-all"
+Requires-Dist: onnx<2,>=1.16; extra == "rtipm-all"
 Dynamic: license-file
