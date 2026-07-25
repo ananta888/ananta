@@ -5,6 +5,7 @@ import math
 from pathlib import Path
 from typing import Any
 
+from worker.retrieval.json_vector_store import JsonVectorStore
 from worker.retrieval.embedding_provider import EmbeddingProvider
 from worker.retrieval.embedding_text_builder import (
     CODECOMPASS_EMBEDDING_TEXT_PROFILE,
@@ -14,6 +15,12 @@ from worker.retrieval.embedding_text_builder import (
 from worker.retrieval.vector_encoding import (
     VectorEncoder,
     VectorEncodingProfile,
+)
+from worker.retrieval.vector_store_contract import (
+    VectorScope,
+    VectorSearchQuery,
+    VectorSearchResult,
+    VectorStoreFilters,
 )
 
 
@@ -31,27 +38,24 @@ def _cosine_similarity(left: list[float], right: list[float]) -> float:
 
 
 class CodeCompassVectorStore:
+    """Backward-compatible CodeCompass adapter around the prepared-vector JSON backend."""
+
     def __init__(self, *, index_path: str | Path):
         self._index_path = Path(index_path)
+        self._backend = JsonVectorStore(index_path=self._index_path)
 
     @property
     def index_path(self) -> Path:
         return self._index_path
 
     def diagnostics(self) -> dict[str, Any]:
-        return {"status": "ready", "reason": "json_vector_store"}
+        return self._backend.diagnostics().as_dict()
 
     def load(self) -> dict[str, Any]:
-        if not self._index_path.exists():
-            return {"state": {}, "entries": []}
-        payload = json.loads(self._index_path.read_text(encoding="utf-8"))
-        entries = [item for item in list(payload.get("entries") or []) if isinstance(item, dict)]
-        return {"state": dict(payload.get("state") or {}), "entries": entries}
+        return self._backend.load()
 
     def save(self, *, state: dict[str, Any], entries: list[dict[str, Any]]) -> None:
-        self._index_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"state": dict(state or {}), "entries": list(entries or [])}
-        self._index_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._backend.save(state=state, entries=entries)
 
     def rebuild(
         self,
@@ -234,27 +238,26 @@ class CodeCompassVectorStore:
 
     def search_by_vector(
         self,
+        query: VectorSearchQuery | None = None,
         *,
-        query_vector: list[float],
+        query_vector: list[float] | None = None,
         top_k: int = 10,
         vector_encoder: VectorEncoder | None = None,
-    ) -> list[dict[str, Any]]:
-        loaded = self.load()
-        state = dict(loaded.get("state") or {})
-        profile_data = dict(state.get("vector_encoding_profile") or {})
-        encoder = vector_encoder or VectorEncoder(VectorEncodingProfile.from_config(profile_data))
-        entries = [dict(item) for item in list(loaded.get("entries") or []) if isinstance(item, dict)]
-        ranked: list[dict[str, Any]] = []
-        for entry in entries:
-            vector = self._entry_vector(entry, encoder)
-            score = _cosine_similarity(query_vector, vector)
-            metadata = dict(entry.get("metadata") or {})
-            metadata["vector_encoding_mode"] = encoder.profile.mode
-            if encoder.profile.experimental:
-                metadata["vector_encoding_experimental"] = "true"
-            ranked.append({**entry, "metadata": metadata, "vector_score": score, "score": score})
-        ranked.sort(key=lambda item: float(item.get("score") or 0.0), reverse=True)
-        return ranked[: max(1, int(top_k))]
+        scope: VectorScope | None = None,
+        filters: VectorStoreFilters | None = None,
+    ) -> VectorSearchResult | list[dict[str, Any]]:
+        if query is not None:
+            return self._backend.search_by_vector(query, vector_encoder=vector_encoder)
+        contract_result = self._backend.search_by_vector(
+            VectorSearchQuery(
+                query_vector=tuple(float(item) for item in list(query_vector or [])),
+                top_k=top_k,
+                scope=scope,
+                filters=filters,
+            ),
+            vector_encoder=vector_encoder,
+        )
+        return [hit.as_dict() for hit in contract_result.hits]
 
     def search(
         self,
@@ -267,3 +270,6 @@ class CodeCompassVectorStore:
         vectors = embedding_provider.embed_texts([build_query_embedding_text(str(query or ""))])
         query_vector = [float(item) for item in list(vectors[0] if vectors else [])]
         return self.search_by_vector(query_vector=query_vector, top_k=top_k, vector_encoder=vector_encoder)
+
+    def close(self) -> None:
+        self._backend.close()

@@ -1,0 +1,13 @@
+{
+  "vector_store": {
+    "provider": "json",
+    "availability": {
+      "on_unavailable": "degraded_empty",
+      "fallback_provider": null
+    },
+    "json": {
+      "index_path": ".rag/codecompass/vector_index.json"
+    }
+  },
+  "_note": "Offline and test default. No network service or additional dependency is required."
+}

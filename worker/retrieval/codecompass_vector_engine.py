@@ -2,8 +2,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from worker.retrieval.embedding_provider import EmbeddingProvider, EmbeddingProviderError
-from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
+from worker.retrieval.embedding_provider import (
+    EmbeddingProvider,
+    EmbeddingProviderError,
+    build_embedding_provider,
+)
+from worker.retrieval.embedding_text_builder import build_query_embedding_text
+from worker.retrieval.vector_store_contract import (
+    VectorScope,
+    VectorSearchPort,
+    VectorSearchQuery,
+    VectorStoreError,
+    VectorStoreFilters,
+)
 
 _TASK_KIND_WEIGHT = {
     "bugfix": 1.0,
@@ -23,7 +34,7 @@ class CodeCompassVectorEngine:
     def __init__(
         self,
         *,
-        store: CodeCompassVectorStore,
+        store: VectorSearchPort,
         embedding_provider: EmbeddingProvider | None,
         degraded_reason: str | None = None,
     ):
@@ -45,6 +56,8 @@ class CodeCompassVectorEngine:
         top_k: int = 10,
         task_kind: str | None = None,
         retrieval_intent: str | None = None,
+        scope: VectorScope | None = None,
+        filters: VectorStoreFilters | None = None,
     ) -> list[dict[str, Any]]:
         if self._embedding_provider is None:
             self._last_diagnostic = {"status": "degraded", "reason": "provider_resolution_failed"}
@@ -52,18 +65,41 @@ class CodeCompassVectorEngine:
         task_weight = float(_TASK_KIND_WEIGHT.get(str(task_kind or "").strip().lower(), 1.0))
         intent_weight = float(_INTENT_WEIGHT.get(str(retrieval_intent or "").strip().lower(), 1.0))
         try:
-            rows = self._store.search(
-                query=str(query or ""),
-                embedding_provider=self._embedding_provider,
-                top_k=max(1, int(top_k)),
+            vectors = self._embedding_provider.embed_texts(
+                [build_query_embedding_text(str(query or ""))]
             )
-            self._last_diagnostic = {"status": "ready", "reason": "ok", "candidate_count": len(rows)}
+            query_vector = tuple(float(item) for item in list(vectors[0] if vectors else []))
+            result = self._store.search_by_vector(
+                VectorSearchQuery(
+                    query_vector=query_vector,
+                    top_k=max(1, int(top_k)),
+                    scope=scope,
+                    filters=filters,
+                )
+            )
+            rows = [hit.as_dict() for hit in result.hits]
+            status = "degraded" if result.reason in {"missing_index", "empty_index"} else "ready"
+            self._last_diagnostic = {
+                "status": status,
+                "reason": result.reason,
+                "candidate_count": len(rows),
+                **dict(result.diagnostics),
+            }
         except EmbeddingProviderError as exc:
             self._last_diagnostic = {"status": "degraded", "reason": "embedding_provider_failure", "error": str(exc)}
             return []
-        state = dict((self._store.load().get("state") or {}))
-        model_name = str(state.get("embedding_model_name") or getattr(self._embedding_provider, "model_version", "unknown"))
-        manifest_hash = str(state.get("manifest_hash") or "")
+        except VectorStoreError as exc:
+            self._last_diagnostic = {
+                "status": "degraded",
+                "reason": exc.reason,
+                **dict(exc.details),
+            }
+            return []
+        model_name = str(
+            result.diagnostics.get("model")
+            or getattr(self._embedding_provider, "model_version", "unknown")
+        )
+        manifest_hash = str(result.diagnostics.get("manifest_hash") or "")
         weighted: list[dict[str, Any]] = []
         for row in rows:
             vector_score = float(row.get("vector_score") or row.get("score") or 0.0)
@@ -93,21 +129,16 @@ class CodeCompassVectorEngine:
     @classmethod
     def build_from_config(
         cls,
-        store: CodeCompassVectorStore,
+        store: VectorSearchPort,
         *,
         scope: str = "codecompass_vector",
         provider_config: dict[str, Any] | None = None,
     ) -> "CodeCompassVectorEngine":
-        """EPC-009: Build engine using EmbeddingProviderConfigService."""
+        """Build a worker-local engine without importing Hub service modules."""
         try:
-            from agent.services.embedding_provider_config_service import (
-                EmbeddingProviderConfigService,
-                build_embedding_provider_from_config,
-            )
-            svc = EmbeddingProviderConfigService(global_config=provider_config or {})
-            cfg = svc.resolve(scope)
-            provider = build_embedding_provider_from_config(cfg)
-        except Exception:
+            payload = {"provider": "local_hash", **dict(provider_config or {})}
+            provider = build_embedding_provider(payload)
+        except (EmbeddingProviderError, TypeError, ValueError):
             return cls(
                 store=store,
                 embedding_provider=None,

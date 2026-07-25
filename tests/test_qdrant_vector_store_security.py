@@ -1,0 +1,120 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import pytest
+
+from tests.qdrant_test_support import FakeQdrantClient
+from worker.retrieval.qdrant_client_port import (
+    QdrantClientError,
+    normalise_origin,
+    validate_endpoint_policy,
+)
+from worker.retrieval.qdrant_collection_manager import QdrantCollectionManager
+from worker.retrieval.qdrant_filter_builder import QdrantFilterBuilder
+from worker.retrieval.qdrant_vector_store import QdrantVectorStore
+from worker.retrieval.vector_store_contract import (
+    CompatibilitySpec,
+    PreparedVectorPoint,
+    VectorScope,
+    VectorSearchQuery,
+    VectorStoreFilters,
+)
+
+
+def _compatibility() -> CompatibilitySpec:
+    return CompatibilitySpec(
+        2, "cosine", "p", "m", "default", "float32", "cfg", "vector_store.v1", "one"
+    )
+
+
+def _point(scope: VectorScope) -> PreparedVectorPoint:
+    return PreparedVectorPoint("same", (1.0, 0.0), scope, {"kind": "code"}, "hash")
+
+
+def test_missing_scope_fails_closed_without_query() -> None:
+    client = FakeQdrantClient()
+    store = QdrantVectorStore(
+        client=client,
+        collection_manager=QdrantCollectionManager(client),
+    )
+    result = store.search_by_vector(VectorSearchQuery((1.0, 0.0), 10, None))
+    assert result.reason == "vector_scope_required"
+    assert client.calls["query_points"] == 0
+
+
+def test_identical_vectors_are_isolated_by_server_side_scope() -> None:
+    client = FakeQdrantClient()
+    store = QdrantVectorStore(
+        client=client,
+        collection_manager=QdrantCollectionManager(client),
+    )
+    scope_a = VectorScope("a", "repo", "default", "codecompass")
+    scope_b = VectorScope("b", "repo", "default", "codecompass")
+    store.rebuild([_point(scope_a)], compatibility=_compatibility())
+    store.rebuild([_point(scope_b)], compatibility=_compatibility())
+
+    result = store.search_by_vector(VectorSearchQuery((1.0, 0.0), 10, scope_a))
+
+    assert len(result.hits) == 1
+    assert result.hits[0].payload["workspace_id"] == "a"
+
+
+def test_filter_cannot_override_trusted_profile() -> None:
+    builder = QdrantFilterBuilder()
+    scope = VectorScope("a", "repo", "trusted", "codecompass")
+    with pytest.raises(Exception) as exc:
+        builder.build(scope=scope, filters=VectorStoreFilters(profile_name="other"))
+    assert "vector_scope_conflict" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://user:secret@localhost:6333",
+        "http://localhost:6333/path",
+        "http://localhost:6333?api_key=secret",
+        "http://localhost:6333#secret",
+    ],
+)
+def test_origin_rejects_userinfo_path_query_and_fragment(origin: str) -> None:
+    with pytest.raises(QdrantClientError) as exc:
+        normalise_origin(origin)
+    assert exc.value.reason == "vector_store_invalid_origin"
+    assert "secret" not in str(exc.value)
+
+
+@dataclass
+class _Endpoint:
+    rest_url: str
+    grpc_url: str | None
+    allowed_origins: tuple[str, ...]
+    external_calls_allowed: bool
+    tls_verify: bool = True
+
+
+def test_local_origin_still_requires_allowlist() -> None:
+    endpoint = _Endpoint("http://localhost:6333", None, (), False)
+    with pytest.raises(QdrantClientError) as exc:
+        validate_endpoint_policy(endpoint)
+    assert exc.value.reason == "vector_store_invalid_origin"
+
+
+def test_remote_origin_requires_opt_in_and_tls() -> None:
+    endpoint = _Endpoint(
+        "https://qdrant.example:6333",
+        None,
+        ("https://qdrant.example:6333",),
+        False,
+    )
+    with pytest.raises(QdrantClientError):
+        validate_endpoint_policy(endpoint)
+    insecure = _Endpoint(
+        "http://qdrant.example:6333",
+        None,
+        ("http://qdrant.example:6333",),
+        True,
+    )
+    with pytest.raises(QdrantClientError) as exc:
+        validate_endpoint_policy(insecure)
+    assert exc.value.reason == "vector_store_tls_policy_violation"

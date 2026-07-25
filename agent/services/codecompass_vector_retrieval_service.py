@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Mapping
 
 from agent.services.embedding_provider_config_service import (
     EmbeddingProviderConfigService,
@@ -15,9 +15,22 @@ from agent.services.codecompass_retrieval_strategy import (
 )
 from worker.retrieval.codecompass_embedding_loader import load_codecompass_embedding_documents
 from worker.retrieval.codecompass_vector_engine import CodeCompassVectorEngine
-from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
-from worker.retrieval.embedding_text_builder import CODECOMPASS_EMBEDDING_TEXT_PROFILE
+from worker.retrieval.embedding_text_builder import (
+    CODECOMPASS_EMBEDDING_TEXT_PROFILE,
+    build_embedding_texts_batch,
+)
 from worker.retrieval.vector_encoding import VectorEncoder, VectorEncodingProfile
+from worker.retrieval.vector_store_config import VectorStoreConfig
+from worker.retrieval.vector_store_contract import (
+    CompatibilitySpec,
+    PreparedVectorPoint,
+    VectorScope,
+    VectorStore,
+    VectorStoreError,
+    VectorStoreFilters,
+)
+from worker.retrieval.vector_store_endpoint_policy import SecretResolver
+from worker.retrieval.vector_store_factory import VectorStoreFactory
 
 if TYPE_CHECKING:
     from agent.services.restricted_model_inference_service import RestrictedModelInferenceService
@@ -50,11 +63,26 @@ class CodeCompassVectorRetrievalService:
         strategy_config: RetrievalStrategyConfig | None = None,
         vector_encoding_config: dict[str, Any] | None = None,
         vector_encoding_fallback_policy: str = "fallback_float32",
+        vector_store_config: Mapping[str, Any] | VectorStoreConfig | None = None,
+        vector_store_factory: VectorStoreFactory | None = None,
+        vector_store: VectorStore | None = None,
+        secret_resolver: SecretResolver | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.embedding_records_path = self._resolve_path(embedding_records_path)
         self.manifest_path = self._resolve_path(manifest_path)
-        self.store = CodeCompassVectorStore(index_path=self._resolve_path(index_path))
+        resolved_index_path = self._resolve_path(index_path)
+        store_config = (
+            vector_store_config
+            if isinstance(vector_store_config, VectorStoreConfig)
+            else VectorStoreConfig.from_mapping(vector_store_config)
+            if vector_store_config is not None
+            else VectorStoreConfig.for_json(resolved_index_path)
+        )
+        self.store = vector_store or (vector_store_factory or VectorStoreFactory()).create(
+            store_config,
+            secret_resolver=secret_resolver,
+        )
         self.provider_config = dict(provider_config or {})
         self.embedding_text_profile = str(embedding_text_profile or CODECOMPASS_EMBEDDING_TEXT_PROFILE)
         self.fail_mode = str(fail_mode or "degraded_empty")
@@ -73,23 +101,36 @@ class CodeCompassVectorRetrievalService:
 
     def search(self, *, query: str, top_k: int = 10, allowed_paths: list[str] | None = None) -> list[dict[str, Any]]:
         try:
-            documents, manifest, load_diagnostics = self._load_documents()
             provider_service = EmbeddingProviderConfigService(global_config=self.provider_config)
             provider_cfg = provider_service.resolve("codecompass_vector")
             provider = build_embedding_provider_from_config(provider_cfg)
-            refresh = self.store.refresh(
-                documents=documents,
-                embedding_provider=provider,
-                retrieval_cache_state=str(manifest.get("retrieval_cache_state") or ""),
-                manifest_hash=str(manifest.get("manifest_hash") or ""),
-                embedding_provider_config_hash=provider_cfg.config_hash(),
-                embedding_text_profile=self.embedding_text_profile,
-                vector_encoder=self._vector_encoder,
-            )
             engine = CodeCompassVectorEngine(store=self.store, embedding_provider=provider)
             effective_top_k = self._strategy_config.effective_top_k(top_k)
-            rows = engine.search(query=query, top_k=effective_top_k, retrieval_intent="fuzzy_semantic")
-            rows = self._filter_allowed_paths(rows, allowed_paths)
+            if allowed_paths is None:
+                rows = engine.search(
+                    query=query,
+                    top_k=effective_top_k,
+                    retrieval_intent="fuzzy_semantic",
+                )
+            else:
+                prefixes = [str(path).strip() for path in allowed_paths if str(path).strip()]
+                by_record: dict[str, dict[str, Any]] = {}
+                for prefix in prefixes:
+                    for row in engine.search(
+                        query=query,
+                        top_k=effective_top_k,
+                        retrieval_intent="fuzzy_semantic",
+                        filters=VectorStoreFilters(file_prefix=prefix),
+                    ):
+                        record_id = str(row.get("record_id") or "")
+                        current = by_record.get(record_id)
+                        if current is None or float(row.get("score") or 0.0) > float(current.get("score") or 0.0):
+                            by_record[record_id] = row
+                rows = sorted(
+                    by_record.values(),
+                    key=lambda item: float(item.get("score") or 0.0),
+                    reverse=True,
+                )[:effective_top_k]
 
             prefilter_applied = False
             if self._strategy_config.wants_prefilter() and self._restricted_inference is not None:
@@ -110,15 +151,11 @@ class CodeCompassVectorRetrievalService:
                 log.debug("semantic_prefilter requested but no restricted_inference_service configured; skipping")
                 rows = rows[:top_k]
 
-            refresh_diag = refresh.get("diagnostics", {})
             self._last_diagnostic = {
-                "status": "ready",
-                "reason": refresh.get("reason", "ok"),
+                **engine.last_diagnostic(),
                 "candidate_count": len(rows),
                 "retrieval_strategy": self._strategy_config.strategy,
                 "prefilter_applied": prefilter_applied,
-                "load": load_diagnostics,
-                "refresh": refresh_diag,
                 "engine": engine.last_diagnostic(),
                 "vector_encoding": {
                     "mode": self._vector_encoder.profile.mode,
@@ -126,8 +163,6 @@ class CodeCompassVectorRetrievalService:
                     "experimental": self._vector_encoder.profile.experimental,
                     "profile_hash": self._vector_encoder.profile.config_hash(),
                     "fallback_policy": self._vector_encoding_fallback_policy,
-                    "compression_ratio": refresh_diag.get("vector_encoding_compression_ratio"),
-                    "max_abs_error": refresh_diag.get("vector_encoding_max_abs_error"),
                 },
             }
             return rows
@@ -140,6 +175,83 @@ class CodeCompassVectorRetrievalService:
                 "error": str(exc),
             }
             return []
+
+    def refresh_index(self) -> dict[str, Any]:
+        """Explicit Hub-owned indexing entry point; search remains read-only."""
+        try:
+            documents, manifest, load_diagnostics = self._load_documents()
+            provider_service = EmbeddingProviderConfigService(global_config=self.provider_config)
+            provider_cfg = provider_service.resolve("codecompass_vector")
+            provider = build_embedding_provider_from_config(provider_cfg)
+            vectors = provider.embed_texts(build_embedding_texts_batch(documents))
+            if len(vectors) != len(documents):
+                raise VectorStoreError("embedding_response_size_mismatch")
+            scope = VectorScope(
+                workspace_id=str(manifest.get("workspace_id") or "local"),
+                repository_id=str(manifest.get("repository_id") or self.repo_root.name or "repository"),
+                profile_name=str(manifest.get("profile_name") or "default"),
+                domain="codecompass",
+            )
+            points = [
+                PreparedVectorPoint(
+                    record_id=str(document.get("record_id") or ""),
+                    vector=tuple(float(item) for item in vector),
+                    scope=scope,
+                    source_hash=str(document.get("source_hash") or document.get("content_hash") or ""),
+                    payload={
+                        "kind": str(document.get("kind") or ""),
+                        "file": str(document.get("file") or ""),
+                        "parent_id": str(document.get("parent_id") or ""),
+                        "role_labels": [
+                            str(item)
+                            for item in list(document.get("role_labels") or [])
+                            if str(item).strip()
+                        ],
+                        "importance_score": float(document.get("importance_score") or 0.0),
+                        "source_scope": str(document.get("source_scope") or manifest.get("source_scope") or "repo"),
+                        "profile_name": str(document.get("profile_name") or manifest.get("profile_name") or "default"),
+                        "source_manifest_hash": str(document.get("manifest_hash") or manifest.get("manifest_hash") or ""),
+                        "embedding_text": str(document.get("embedding_text") or ""),
+                    },
+                )
+                for document, vector in zip(documents, vectors, strict=True)
+            ]
+            result = self.store.refresh(
+                points,
+                compatibility=CompatibilitySpec(
+                    dimensions=int(getattr(provider, "dimensions", 0) or 0),
+                    distance="cosine",
+                    provider=str(getattr(provider, "provider_id", "unknown") or "unknown"),
+                    model=str(getattr(provider, "model_version", "unknown") or "unknown"),
+                    profile=self.embedding_text_profile,
+                    encoding=self._vector_encoder.profile.config_hash(),
+                    config_hash=provider_cfg.config_hash(),
+                    schema_version="codecompass_vector_index.v2",
+                    manifest_hash=str(manifest.get("manifest_hash") or ""),
+                ),
+            )
+            self._last_diagnostic = {
+                "status": result.status,
+                "reason": result.reason,
+                "load": load_diagnostics,
+                "refresh": dict(result.diagnostics),
+            }
+            return result.as_dict()
+        except Exception as exc:
+            if self.fail_mode != "degraded_empty":
+                raise
+            self._last_diagnostic = {
+                "status": "degraded",
+                "reason": self._classify_exception(exc),
+                "error": str(exc),
+            }
+            return {
+                "status": "degraded",
+                "mode": "none",
+                "reason": self._last_diagnostic["reason"],
+                "indexed_documents": 0,
+                "diagnostics": dict(self._last_diagnostic),
+            }
 
     def _load_documents(self) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
         if not self.embedding_records_path.exists():
@@ -173,22 +285,9 @@ class CodeCompassVectorRetrievalService:
                 return [dict(item) for item in records if isinstance(item, dict)]
         raise ValueError(f"expected_embedding_records:{path}")
 
-    @staticmethod
-    def _filter_allowed_paths(rows: list[dict[str, Any]], allowed_paths: list[str] | None) -> list[dict[str, Any]]:
-        if allowed_paths is None:
-            return rows
-        prefixes = [str(path).strip().rstrip("/") for path in allowed_paths if str(path).strip()]
-        if not prefixes:
-            return []
-        kept: list[dict[str, Any]] = []
-        for row in rows:
-            source = str(row.get("source") or row.get("file") or "").strip().lstrip("./")
-            if any(source == prefix or source.startswith(f"{prefix}/") for prefix in prefixes):
-                kept.append(row)
-        return kept
-
-    @staticmethod
     def _classify_exception(exc: Exception) -> str:
+        if isinstance(exc, VectorStoreError):
+            return exc.reason
         text = str(exc)
         if isinstance(exc, FileNotFoundError):
             return "missing_embedding_records"

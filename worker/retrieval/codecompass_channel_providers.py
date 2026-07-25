@@ -13,7 +13,13 @@ from worker.retrieval.codecompass_fts_engine import CodeCompassFtsEngine
 from worker.retrieval.codecompass_fts_store import CodeCompassFtsStore
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 from worker.retrieval.codecompass_vector_engine import CodeCompassVectorEngine
-from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
+from worker.retrieval.vector_store_config import (
+    JsonVectorStoreConfig,
+    VectorStoreConfig,
+    VectorStoreConfigError,
+    VectorStoreProvider,
+)
+from worker.retrieval.vector_store_factory import VectorStoreFactory
 
 
 class CodeCompassChannelProvider(Protocol):
@@ -157,6 +163,8 @@ class JsonlSymbolProvider:
 def providers_from_environment(
     *,
     provider_config: Mapping[str, Any] | None = None,
+    vector_store_config: Mapping[str, Any] | VectorStoreConfig | None = None,
+    vector_store_factory: VectorStoreFactory | None = None,
 ) -> tuple[dict[str, CodeCompassChannelProvider], CodeCompassGraphStore | None, dict[str, str]]:
     """Compose only explicitly mounted worker indexes; never read Hub paths."""
 
@@ -172,13 +180,36 @@ def providers_from_environment(
         diagnostics["codecompass_fts"] = "fts_index_not_mounted"
 
     vector_path = _existing_file("ANANTA_CODECOMPASS_VECTOR_INDEX")
-    if vector_path is not None:
-        providers["codecompass_vector"] = CodeCompassVectorEngine.build_from_config(
-            CodeCompassVectorStore(index_path=vector_path),
-            provider_config=dict(provider_config or {}),
-        )
-    else:
+    configured = (
+        vector_store_config
+        if isinstance(vector_store_config, VectorStoreConfig)
+        else VectorStoreConfig.from_mapping(vector_store_config)
+        if vector_store_config is not None
+        else None
+    )
+    if configured is None and vector_path is not None:
+        configured = VectorStoreConfig.for_json(vector_path)
+    elif configured is not None and configured.provider == VectorStoreProvider.JSON:
+        if vector_path is None:
+            configured = None
+        else:
+            configured = VectorStoreConfig(
+                provider=configured.provider,
+                availability=configured.availability,
+                json=JsonVectorStoreConfig(index_path=vector_path),
+                qdrant=configured.qdrant,
+            )
+    if configured is None:
         diagnostics["codecompass_vector"] = "vector_index_not_mounted"
+    else:
+        try:
+            store = (vector_store_factory or VectorStoreFactory()).create(configured)
+            providers["codecompass_vector"] = CodeCompassVectorEngine.build_from_config(
+                store,
+                provider_config=dict(provider_config or {}),
+            )
+        except VectorStoreConfigError as exc:
+            diagnostics["codecompass_vector"] = exc.reason
 
     symbol_paths = [
         Path(item.strip())

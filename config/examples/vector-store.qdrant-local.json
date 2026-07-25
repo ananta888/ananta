@@ -1,0 +1,35 @@
+{
+  "vector_store": {
+    "provider": "qdrant",
+    "availability": {
+      "on_unavailable": "degraded_empty",
+      "fallback_provider": null
+    },
+    "json": {
+      "index_path": ".rag/codecompass/vector_index.json"
+    },
+    "qdrant": {
+      "endpoint": {
+        "rest_url": "http://localhost:6333",
+        "grpc_url": "grpc://localhost:6334",
+        "api_key_ref": null,
+        "allowed_origins": [
+          "http://localhost:6333",
+          "grpc://localhost:6334"
+        ],
+        "external_calls_allowed": false,
+        "timeout_seconds": 10,
+        "prefer_grpc": false,
+        "tls_verify": true
+      },
+      "collection_prefix": "ananta",
+      "collection_strategy": "workspace_repository_profile",
+      "distance": "cosine",
+      "rebuild_strategy": "versioned_collection_alias_swap",
+      "schema_version": "qdrant_vector_store.v1",
+      "retention_collections": 2,
+      "store_embedding_text": false
+    }
+  },
+  "_note": "Local Qdrant remains opt-in. Both REST and gRPC origins are explicitly allowlisted."
+}

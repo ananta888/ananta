@@ -62,18 +62,21 @@ def test_codecompass_vector_retrieval_service_indexes_and_searches_without_netwo
         provider_config={"provider": "local_hash", "model_version": "hash-v1", "dimensions": 12},
     )
 
+    refresh = service.refresh_index()
     rows = service.search(query="payment timeout", top_k=2)
     diagnostic = service.last_diagnostic()
 
+    assert refresh["status"] == "ok"
     assert rows
     assert rows[0]["engine"] == "codecompass_vector"
     assert rows[0]["metadata"]["record_id"]
     assert "vector_score" in rows[0]["metadata"]
     assert diagnostic["status"] == "ready"
-    assert diagnostic["refresh"]["manifest_hash"] == "mh-fixture"
+    assert refresh["diagnostics"]["manifest_hash"] == "mh-fixture"
+    assert diagnostic["manifest_hash"] == "mh-fixture"
 
 
-def test_codecompass_vector_retrieval_service_missing_embedding_degrades_empty(tmp_path: Path) -> None:
+def test_codecompass_vector_retrieval_service_search_is_read_only_when_index_is_missing(tmp_path: Path) -> None:
     service = CodeCompassVectorRetrievalService(
         repo_root=tmp_path,
         embedding_records_path="rag-helper/out/embedding.json",
@@ -83,7 +86,7 @@ def test_codecompass_vector_retrieval_service_missing_embedding_degrades_empty(t
 
     assert service.search(query="anything") == []
     assert service.last_diagnostic()["status"] == "degraded"
-    assert service.last_diagnostic()["reason"] == "missing_embedding_records"
+    assert service.last_diagnostic()["reason"] == "empty_index"
 
 
 def test_codecompass_vector_retrieval_service_applies_allowed_paths(tmp_path: Path) -> None:
@@ -95,6 +98,7 @@ def test_codecompass_vector_retrieval_service_applies_allowed_paths(tmp_path: Pa
         index_path=".rag/codecompass/vector_index.json",
     )
 
+    service.refresh_index()
     rows = service.search(query="payment timeout retrieval", top_k=5, allowed_paths=["src"])
 
     assert rows

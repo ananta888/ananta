@@ -142,6 +142,11 @@ rtipm-all = [
     "onnxruntime>=1.17,<2",
     "onnx>=1.16,<2",
 ]
+qdrant = [
+    # Optional dense-vector backend. The server compatibility target is
+    # Qdrant 1.18.x; core/JSON installations do not import this package.
+    "qdrant-client>=1.18,<1.19",
+]
 
 [project.scripts]
 ananta = "agent.cli.main:main"
