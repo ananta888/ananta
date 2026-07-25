@@ -81,6 +81,9 @@ opentelemetry-api<2,>=1.30
 opentelemetry-sdk<2,>=1.30
 opentelemetry-exporter-otlp-proto-http<2,>=1.30
 
+[qdrant]
+qdrant-client<1.19,>=1.18
+
 [rtipm-all]
 sentence-transformers<4,>=3
 transformers<5,>=4.40

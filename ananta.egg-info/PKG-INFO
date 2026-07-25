@@ -98,4 +98,6 @@ Requires-Dist: transformers<5,>=4.40; extra == "rtipm-all"
 Requires-Dist: torch>=2.2; extra == "rtipm-all"
 Requires-Dist: onnxruntime<2,>=1.17; extra == "rtipm-all"
 Requires-Dist: onnx<2,>=1.16; extra == "rtipm-all"
+Provides-Extra: qdrant
+Requires-Dist: qdrant-client<1.19,>=1.18; extra == "qdrant"
 Dynamic: license-file
