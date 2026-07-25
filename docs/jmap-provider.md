@@ -1,8 +1,8 @@
 # JMAP Provider
 
-Dieses Runbook beschreibt die JMAP-Providergrenze von Ananta, die isolierte
-Stalwart-Testinfrastruktur und die Voraussetzungen für belastbare
-Live-Evidenz. Es ersetzt weder die
+Dieses Runbook beschreibt die JMAP-Providergrenze von Ananta, die
+repository-eigene Testinfrastruktur und die Voraussetzungen für belastbare
+Provider-Evidenz. Es ersetzt weder die
 [provider-neutrale TUI-Dokumentation](operator-tui-mail-client.md) noch das
 [Migrationsrunbook](migrations/imap-to-mail-account-v2.md).
 
@@ -76,50 +76,26 @@ Ein `mail_message_ref.v2` trägt den Provider und einen
 protokollspezifischen Locator. JMAP-`Email/id`, Blob-ID und IMAP-UID sind nicht
 austauschbar.
 
-## Isoliertes Stalwart-Profil
+## Repository-eigener JMAP-Contract
 
-Das Testprofil verwendet exakt:
+Die lokale Abnahme verwendet ausschließlich den in
+`tests/e2e/mail_ananta_composition_harness.py` definierten
+`ContractJmapAdapter`. Er implementiert die für diesen Track benötigten
+standardisierten JMAP-Core- und JMAP-Mail-Antworten deterministisch hinter der
+realen Transportabstraktion.
 
-```text
-stalwartlabs/stalwart:v0.16.10-alpine@sha256:9dc88c60cb9aac1f7a42dd8fefe868567d68c836017bad5521caea6d05debd32
-```
+Der Contract:
 
-Start aus dem Repository-Root:
+- lädt kein Image und keinen fremden Servercode,
+- startet keinen Container und öffnet keine externe Netzwerkverbindung,
+- verwendet keine vendorspezifische Management-Capability,
+- isoliert State pro Testinstanz,
+- prüft die reale Hub-Submission, Lease/Fencing, Worker-Composition,
+  Discovery, Sync, Body-Grant und Mutation.
 
-```bash
-docker compose \
-  -p ananta-jmap-test \
-  -f docker/compose-next/compose.jmap-test.yml \
-  --profile jmap-test \
-  up -d
-```
-
-Das Profil veröffentlicht nur den Management-/HTTP-Port auf Loopback:
-
-```text
-http://127.0.0.1:18080
-```
-
-Abweichende Werte benötigen gemeinsam
-`ANANTA_JMAP_TEST_HTTP_PORT` und `ANANTA_JMAP_TEST_PUBLIC_URL`, damit das
-Discovery-Dokument keine falschen URLs publiziert. Der Healthcheck ruft
-`http://127.0.0.1:8080/healthz/live` im Container auf. Dieser Endpunkt belegt
-nur Liveness, nicht Datastore-Readiness, JMAP-Capabilities, Authentifizierung
-oder Seed-Daten.
-
-Die beiden benannten Volumes sind nur dem isolierten Compose-Projekt
-zugeordnet. Vollständiges Entfernen der lokalen Testinstanz:
-
-```bash
-docker compose \
-  -p ananta-jmap-test \
-  -f docker/compose-next/compose.jmap-test.yml \
-  --profile jmap-test \
-  down -v
-```
-
-Kein produktiver Stack darf diese Volumes, den Loopback-HTTP-Listener oder
-Test-Credentials wiederverwenden.
+Die Dependency-Injection-Grenze schützt DIP und LSP: Der produktive
+`JmapHttpTransport` bleibt gegen seinen schmalen Adapter-Port programmiert,
+während der Test eine deterministische Implementierung einsetzt.
 
 ## Deterministische Mock-Fixtures
 
@@ -133,54 +109,26 @@ Die Hostnamen verwenden die reservierte `.test`-Zone. IDs, States und
 Zeitwerte sind konstant. Die Fixtures sind keine Exporte einer Live-Mailbox und
 enthalten keine Credentials, echten Nachrichten oder erzeugten Lauf-IDs.
 
-## Kein behauptetes Live-Seed-E2E
+## Externe Evidenzgrenze
 
-Das Compose-Profil seedet absichtlich nichts. Für einen echten Test fehlen
-derzeit:
+Der lokale Contract belegt das Verhalten von Ananta, nicht die
+Interoperabilität mit einer konkreten externen Implementierung. Vor einem
+Production-Default bleibt deshalb ein vendorneutraler Provider-Smoke nötig:
 
-- ein nicht interaktiver, versionsgebundener Stalwart-Bootstrap,
-- ein Test-Domain- und Account-Objekt,
-- ein SecretStore-Eintrag oder kurzlebiges Test-Credential,
-- eine reproduzierbare Mail-Injektion,
-- eine lokale Endpoint-Allowlist für Anantas JMAP-Policy,
-- ein Harness für Discovery, Auth, Mailbox-Sync, explizites Body-Laden und
-  Teardown,
-- eine Evidence-Ausgabe, die nur tatsächlich beobachtete Resultate erfasst.
+- Operator stellt eine kompatible JMAP-Session und kurzlebige Credentials
+  bereit.
+- Ananta führt Discovery, Authentifizierung, Capability-Prüfung,
+  Metadatensync, explizites Body-Laden und eine kontrollierte Mutation aus.
+- Das Ergebnis enthält ausschließlich redigierte Referenzen und tatsächlich
+  bereitgestellte `RUN_*`-IDs.
 
-Bis diese Punkte implementiert und ausgeführt sind, sind Formulierungen wie
-"live seeded", "E2E bestanden" oder "Provider verifiziert" unzulässig.
+Dieser externe Smoke ist kein lokaler Testbestandteil und darf nicht
+stillschweigend einen Server herunterladen oder starten.
 
-## Lizenz und Freigabeblocker
-
-Die Integrationsvorgabe verlangt für Stalwart die Wahl zwischen
-**AGPL-3.0** und **Stalwart Enterprise License v1 (SELv1)**. Für jeden
-Deployment-Kontext muss die tatsächlich gewählte Lizenz samt
-Artifact-Digest, Lizenztext und Freigabe dokumentiert werden. Das
-Ananta-Repository erteilt selbst keine Stalwart-Lizenz.
-
-Es besteht eine reale Upstream-Abweichung: Der aktuell abrufbare Quell-Tag
-[`v0.16.10`](https://github.com/stalwartlabs/stalwart/tree/v0.16.10#license)
-und dessen
-[`LicenseRef-SEL.txt`](https://github.com/stalwartlabs/stalwart/blob/v0.16.10/LICENSES/LicenseRef-SEL.txt)
-bezeichnen die Alternativlizenz als **Stalwart Enterprise License v2
-(SELv2)**, nicht SELv1. Der
-[AGPL-3.0-Text](https://github.com/stalwartlabs/stalwart/blob/v0.16.10/LICENSES/AGPL-3.0-only.txt)
-ist im Tag vorhanden.
-
-Daraus folgen zwei zulässige Freigabepfade:
-
-- AGPL-3.0 wird nach Prüfung der konkreten Nutzungs-, Änderungs- und
-  Bereitstellungspflichten freigegeben.
-- Für SELv1 wird ein gültiger, zum gepinnten Artifact passender Lizenztext und
-  Berechtigungsnachweis durch Legal/Procurement bereitgestellt.
-
-Der Upstream-Tag allein ist kein SELv1-Nachweis. Ohne geklärte Lizenzwahl darf
-das Image nicht als freigegebene Produktionsabhängigkeit oder distributable
-Testabhängigkeit behandelt werden. Diese Dokumentation ist keine
-Rechtsberatung.
-
-## Quellen
-
-- [Stalwart JMAP overview](https://stalw.art/docs/http/jmap/)
-- [Stalwart Docker installation](https://stalw.art/docs/install/platform/docker/)
-- [Stalwart liveness and readiness endpoints](https://stalw.art/docs/cluster/orchestration/kubernetes/#liveness-and-readiness-endpoints)
+Der ausführbare Gate-Pfad ist `tests/e2e/test_jmap_live_provider.py`. Er
+verwendet ohne Transport-Mock die produktive Endpoint-Policy und den echten
+HTTP-Adapter. Er ist nur mit vollständiger Opt-in-Konfiguration, einem
+dedizierten Testkonto, einer tatsächlich bereitgestellten `RUN_*`-ID und der
+Bestätigung einer reversiblen Keyword-Mutation aktiv. Die Variablen und das
+redigierte Evidenzformat sind in
+[jmap-test-stack.md](jmap-test-stack.md) dokumentiert.
