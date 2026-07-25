@@ -1,5 +1,5 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "id": "todo.webrtc-sfu-broadcast-fanout",
   "title": "WebRTC-SFU Broadcast, Receiver Groups und skalierbarer E2EE-Fan-out",
   "version": "2.2",

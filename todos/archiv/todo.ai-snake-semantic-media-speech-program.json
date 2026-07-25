@@ -1,5 +1,5 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "id": "todo.ai-snake-semantic-media-speech-program",
   "title": "AI-Snake: sicheres semantisches Medien-, Sprach-, Peer-Daten- und Offline-Trainingsprogramm",
   "version": "1.0",

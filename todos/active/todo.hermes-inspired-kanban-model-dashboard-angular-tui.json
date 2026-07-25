@@ -1,5 +1,5 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "id": "todo.hermes-inspired-kanban-model-dashboard-angular-tui",
   "title": "Hermes-inspiriertes Kanban und Modelle-Dashboard fuer Angular und TUI",
   "version": "1.3",
