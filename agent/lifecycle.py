@@ -16,6 +16,7 @@ BACKGROUND_SERVICE_NAMES = (
     "speech_adaptation_dispatcher",
     "speech_evidence_retention_reconciler",
     "semantic_media_audit_reconciler",
+    "mail_polling_scheduler",
     "sfu_broadcast_reconciler_scheduler",
     "speech_reconciliation_reconciler",
     "speech_reconciliation_queue_pump",
@@ -74,6 +75,10 @@ class BackgroundServiceManager:
             self._start_semantic_media_audit_reconciler,
         )
         self._start_service(
+            "mail_polling_scheduler",
+            self._start_mail_polling_scheduler,
+        )
+        self._start_service(
             "sfu_broadcast_reconciler_scheduler",
             self._start_sfu_broadcast_reconciler_scheduler,
         )
@@ -121,6 +126,7 @@ class BackgroundServiceManager:
             ("speech_reconciliation_result_collector", self._stop_speech_reconciliation_result_collector),
             ("speech_reconciliation_reconciler", self._stop_speech_reconciliation_reconciler),
             ("semantic_media_audit_reconciler", self._stop_semantic_media_audit_reconciler),
+            ("mail_polling_scheduler", self._stop_mail_polling_scheduler),
             ("sfu_broadcast_reconciler_scheduler", self._stop_sfu_broadcast_reconciler_scheduler),
             ("speech_evidence_retention_reconciler", self._stop_speech_evidence_retention_reconciler),
         ):
@@ -254,6 +260,13 @@ class BackgroundServiceManager:
 
         start_semantic_media_audit_reconciler_thread(self.app)
 
+    def _start_mail_polling_scheduler(self):
+        from agent.services.background.mail_polling_scheduler import (
+            start_mail_polling_scheduler,
+        )
+
+        start_mail_polling_scheduler(self.app)
+
     def _start_sfu_broadcast_reconciler_scheduler(self):
         from agent.services.background.sfu_broadcast_reconciler_scheduler import (
             start_sfu_broadcast_reconciler_scheduler,
@@ -295,6 +308,13 @@ class BackgroundServiceManager:
         )
 
         stop_semantic_media_audit_reconciler(self.app)
+
+    def _stop_mail_polling_scheduler(self):
+        from agent.services.background.mail_polling_scheduler import (
+            stop_mail_polling_scheduler,
+        )
+
+        stop_mail_polling_scheduler(self.app)
 
     def _stop_sfu_broadcast_reconciler_scheduler(self):
         from agent.services.background.sfu_broadcast_reconciler_scheduler import (

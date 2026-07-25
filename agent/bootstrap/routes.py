@@ -47,6 +47,7 @@ from agent.routes.integrations_workflows import integrations_workflows_bp
 from agent.routes.job_applications import job_app_bp
 from agent.routes.knowledge import knowledge_bp
 from agent.routes.langgraph_checkpoint_internal import langgraph_checkpoint_internal_bp
+from agent.routes.mail_control import mail_control_bp
 from agent.routes.mcp import mcp_bp
 from agent.routes.ml_intern_lora_runtime import ml_intern_lora_runtime_bp
 from agent.routes.ml_intern_speech_adapters import ml_intern_speech_adapters_bp
@@ -207,6 +208,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(workflow_runtime_operations_bp)
     app.register_blueprint(workflow_runtime_rollout_bp)
     app.register_blueprint(vector_store_control_bp)
+    app.register_blueprint(mail_control_bp)
     register_workflow_runtime_test_support(app)
     app.register_blueprint(diff3_bp)
     app.register_blueprint(snapshot_diff_bp)

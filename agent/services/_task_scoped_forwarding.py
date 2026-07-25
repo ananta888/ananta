@@ -141,6 +141,24 @@ def forward_task_request_if_remote(
 ) -> "TaskScopedRouteResponse | None":
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
+    mail_lease: dict[str, Any] | None = None
+    mail_lease_owner: str | None = None
+
+    def release_mail_lease() -> None:
+        nonlocal mail_lease
+        if mail_lease is None:
+            return
+        try:
+            from agent.services.mail_task_service import get_mail_task_service
+
+            get_mail_task_service().release_lease(
+                job_id=tid,
+                fencing_token=int(mail_lease["fencing_token"]),
+                owner_ref=mail_lease_owner,
+            )
+        finally:
+            mail_lease = None
+
     # Hub owns cross-container routing. Worker containers must execute locally
     # and never re-forward step endpoints to avoid forwarding loops.
     if str(getattr(settings, "role", "") or "").strip().lower() != "hub":
@@ -164,6 +182,27 @@ def forward_task_request_if_remote(
             return None
     except Exception:
         pass
+    if (
+        str(task.get("task_kind") or "").strip().lower() == "mail_operation"
+        and str(endpoint or "").rstrip("/").endswith("/execute")
+    ):
+        from agent.services.mail_task_service import get_mail_task_service
+
+        mail_lease_owner = (
+            "hub-worker:"
+            + hashlib.sha256(str(worker_url).encode("utf-8")).hexdigest()[:24]
+        )
+        mail_lease = get_mail_task_service().claim_for_delegation(
+            job_id=tid,
+            owner_ref=mail_lease_owner,
+        )
+        if mail_lease is None:
+            raise WorkerForwardingError(
+                details={
+                    "details": "mail_task_account_lease_unavailable",
+                    "worker_url": worker_url,
+                }
+            )
     assigned_token = task.get("assigned_agent_token")
     resolved_token = assigned_token
     try:
@@ -202,6 +241,7 @@ def forward_task_request_if_remote(
             except Exception:
                 pass
             if bool(_fallback_policy.get("worker_404_hub_fallback_enabled", True)):
+                release_mail_lease()
                 current_app.logger.warning(
                     "Worker %s returned 404 for %s — falling back to local hub execution",
                     worker_url,
@@ -213,6 +253,7 @@ def forward_task_request_if_remote(
             raise RuntimeError(f"worker_empty_payload:{worker_url}:{endpoint}")
         if isinstance(response, dict):
             on_success(response, task)
+            release_mail_lease()
         return TaskScopedRouteResponse(data=response)
     except Exception as exc:
         err_text = str(exc or "")
@@ -223,9 +264,11 @@ def forward_task_request_if_remote(
                 response = unwrap_api_envelope(response)
                 if isinstance(response, dict):
                     on_success(response, task)
+                    release_mail_lease()
                 return TaskScopedRouteResponse(data=response)
             except Exception:
                 pass
+        release_mail_lease()
         current_app.logger.error("Forwarding an %s fehlgeschlagen: %s", worker_url, exc)
         raise WorkerForwardingError(details={"details": str(exc), "worker_url": worker_url})
 
@@ -469,6 +512,37 @@ def persist_forwarded_execution(*, tid: str, response: dict, task: dict, request
             result=candidate,
         )
         verification_status["vector_index_task_result"] = normalized_result
+    if str(response.get("schema") or "") == "ananta.mail_task_result.v1":
+        result_fields = {
+            "schema",
+            "job_id",
+            "idempotency_key",
+            "operation",
+            "status",
+            "reason_code",
+            "retryable",
+            "retry_after_ms",
+            "provider",
+            "result_refs",
+            "counters",
+            "lease_fencing_token",
+        }
+        framework_fields = {"handler_contract"}
+        unknown_fields = set(response) - result_fields - framework_fields
+        if unknown_fields:
+            raise ValueError("mail_task_result_forwarding_fields_unknown")
+        candidate = {field: response.get(field) for field in result_fields}
+        from agent.services.mail_task_service import get_mail_task_service
+
+        normalized_result = get_mail_task_service().validate_worker_result(
+            job_id=tid,
+            result=candidate,
+        )
+        verification_status["mail_task_result"] = normalized_result
+        get_mail_task_service().release_lease(
+            job_id=tid,
+            fencing_token=int(normalized_result["lease_fencing_token"]),
+        )
     if execution_scope:
         verification_status["execution_scope"] = dict(execution_scope)
     if execution_provenance:

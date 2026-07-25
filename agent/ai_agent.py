@@ -163,6 +163,7 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     from worker.retrieval.vector_index_job_handler import (
         build_vector_index_task_handler,
     )
+    from worker.mail_task_execution import build_mail_task_handler
     from worker.semantic_media.compute_task_handler import (
         SemanticComputeWorkerConfigurationError,
         build_semantic_compute_task_handler,
@@ -207,6 +208,25 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         ],
     )
     register_task_handler(
+        "mail_operation",
+        build_mail_task_handler(),
+        app=app,
+        capabilities=["mail_provider_execution"],
+        safety_flags={
+            "requires_review": False,
+            "worker_only": True,
+            "hub_delegation_required": True,
+            "worker_orchestration_forbidden": True,
+            "peer_network_forbidden": True,
+            "content_in_task_payload_forbidden": True,
+        },
+        verification_hooks=[
+            "mail_task_result_schema",
+            "idempotency_key",
+            "account_lease_fencing",
+        ],
+    )
+    register_task_handler(
         "visual_process_assistant_retrieval",
         VisualProcessAssistantRetrievalHandler(),
         app=app,
@@ -228,6 +248,7 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     registered = [
         "codecompass_index_build",
         "vector_index_operation",
+        "mail_operation",
         "visual_process_assistant_retrieval",
         "visual_process_assistant_inference",
     ]

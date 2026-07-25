@@ -117,6 +117,33 @@ VECTOR_STORE_FALLBACKS_TOTAL = Counter(
     "Explicit vector-store provider fallbacks",
     ["requested_backend", "effective_backend", "reason_code"],
 )
+# Mail labels are bounded by agent.adapters.mail_metrics_adapter. Account,
+# mailbox, message, URL, tenant and free-form reason values are forbidden.
+MAIL_PROVIDER_CALLS_TOTAL = Counter(
+    "mail_provider_calls_total",
+    "Mail provider calls grouped by bounded provider, operation and outcome",
+    ["provider", "operation", "outcome", "error_class"],
+)
+MAIL_PROVIDER_CALL_DURATION_SECONDS = Histogram(
+    "mail_provider_call_duration_seconds",
+    "Mail provider call duration",
+    ["provider", "operation", "outcome"],
+)
+MAIL_PROVIDER_RETRIES_TOTAL = Counter(
+    "mail_provider_retries_total",
+    "Mail provider retries grouped by bounded error class",
+    ["provider", "operation", "error_class"],
+)
+MAIL_SYNC_CHANGES_TOTAL = Counter(
+    "mail_sync_changes_total",
+    "Mail synchronization changes grouped by bounded change kind",
+    ["provider", "change_kind"],
+)
+MAIL_CIRCUIT_STATE = Gauge(
+    "mail_circuit_state",
+    "Mail provider circuit state as a bounded one-hot gauge",
+    ["provider", "state"],
+)
 VISUAL_PROCESS_ASSISTANT_REQUESTS_TOTAL = Counter(
     "visual_process_assistant_requests_total",
     "Visual Process Assistant lifecycle transitions",
