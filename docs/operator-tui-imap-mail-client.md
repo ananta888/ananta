@@ -1,5 +1,13 @@
 # Operator TUI IMAP Mail Client
 
+> **Hinweis:** Diese Seite dokumentiert den IMAP-spezifischen
+> Kompatibilitätspfad. Der kanonische, provider-neutrale Einstieg ist
+> [Operator TUI Mail Client](operator-tui-mail-client.md). JMAP-Betrieb und die
+> Umstellung bestehender Konten sind im
+> [JMAP-Provider-Runbook](jmap-provider.md) und in der
+> [MailAccount-v2-Migration](migrations/imap-to-mail-account-v2.md)
+> dokumentiert.
+
 Der IMAP-Client in der Operator TUI ist **lokal-first** und standardmäßig restriktiv:
 
 - Mail-Bodys werden nicht automatisch in Worker-Kontext gegeben.
