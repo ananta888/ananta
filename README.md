@@ -268,6 +268,12 @@ CODECOMPASS_VECTOR_ENCODING_FALLBACK_POLICY=fallback_float32
 python scripts/demo_vector_encoding.py
 ```
 
+An optional Qdrant vector-store profile is available without changing the JSON
+default. It uses scoped collections, atomic alias swaps, secret references and
+hub-owned index tasks. Setup, rollout, migration, backup/restore and benchmark
+instructions are in
+[docs/worker/qdrant-vector-store.md](docs/worker/qdrant-vector-store.md).
+
 **Qualitätsmetriken und Rollout-Regeln**: `docs/worker/codecompass-vector-quantization-metrics.md`  
 **Architektur**: `docs/architecture/transformer-feature-provider.md`, `docs/architecture/agent-feature-provider.md`  
 **Forschung**: `docs/research/turboquant-for-codecompass.md`

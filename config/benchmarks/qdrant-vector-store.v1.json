@@ -1,0 +1,68 @@
+{
+  "schema": "qdrant_vector_store_benchmark.v1",
+  "profile_version": 1,
+  "seed": 424242,
+  "distance": "cosine",
+  "warmup_runs": 2,
+  "measurement_runs": 5,
+  "top_k": [10, 50],
+  "reference_host_approval_required": true,
+  "profiles": {
+    "small": {
+      "records": 10000,
+      "queries": 100,
+      "dimensions": 384,
+      "payload_bytes": 512,
+      "minimum_cpu_count": 4,
+      "minimum_ram_bytes": 4294967296,
+      "budgets": {
+        "qdrant_build_p95_seconds": 180.0,
+        "qdrant_refresh_p95_seconds": 120.0,
+        "qdrant_search_p95_ms": 250.0,
+        "client_peak_rss_bytes": 4294967296,
+        "qdrant_peak_rss_bytes": 2147483648,
+        "minimum_recall_at_k": 0.99
+      }
+    },
+    "medium": {
+      "records": 100000,
+      "queries": 500,
+      "dimensions": 768,
+      "payload_bytes": 1024,
+      "minimum_cpu_count": 8,
+      "minimum_ram_bytes": 34359738368,
+      "budgets": {
+        "qdrant_build_p95_seconds": 1200.0,
+        "qdrant_refresh_p95_seconds": 900.0,
+        "qdrant_search_p95_ms": 350.0,
+        "client_peak_rss_bytes": 25769803776,
+        "qdrant_peak_rss_bytes": 8589934592,
+        "minimum_recall_at_k": 0.99
+      }
+    },
+    "large": {
+      "records": 1000000,
+      "queries": 1000,
+      "dimensions": 1536,
+      "payload_bytes": 2048,
+      "minimum_cpu_count": 16,
+      "minimum_ram_bytes": 137438953472,
+      "budgets": {
+        "qdrant_build_p95_seconds": 7200.0,
+        "qdrant_refresh_p95_seconds": 5400.0,
+        "qdrant_search_p95_ms": 500.0,
+        "client_peak_rss_bytes": 103079215104,
+        "qdrant_peak_rss_bytes": 34359738368,
+        "minimum_recall_at_k": 0.99
+      }
+    }
+  },
+  "inconclusive_when": [
+    "reference_host_not_approved",
+    "insufficient_resources",
+    "container_memory_unavailable",
+    "fewer_than_five_measurement_runs",
+    "qdrant_unavailable",
+    "profile_aborted"
+  ]
+}
