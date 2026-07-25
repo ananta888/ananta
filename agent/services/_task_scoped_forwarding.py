@@ -443,6 +443,32 @@ def persist_forwarded_execution(*, tid: str, response: dict, task: dict, request
             .materialize_worker_result(job_id=tid, result=candidate, task=task)
         )
         verification_status["knowledge_index_job_result"] = normalized_result
+    if str(response.get("schema") or "") == "ananta.vector_index_task_result.v1":
+        result_fields = {
+            "schema",
+            "job_id",
+            "idempotency_key",
+            "operation",
+            "status",
+            "reason_code",
+            "diagnostics",
+            "result",
+            "error",
+        }
+        framework_fields = {"handler_contract"}
+        unknown_fields = set(response) - result_fields - framework_fields
+        if unknown_fields:
+            raise ValueError("vector_index_result_forwarding_fields_unknown")
+        candidate = {field: response.get(field) for field in result_fields}
+        from agent.services.vector_index_task_service import (
+            get_vector_index_task_service,
+        )
+
+        normalized_result = get_vector_index_task_service().validate_worker_result(
+            job_id=tid,
+            result=candidate,
+        )
+        verification_status["vector_index_task_result"] = normalized_result
     if execution_scope:
         verification_status["execution_scope"] = dict(execution_scope)
     if execution_provenance:

@@ -94,6 +94,29 @@ SHELL_POOL_FREE = Gauge("shell_pool_free", "Number of free shells in the pool")
 RAG_RETRIEVAL_DURATION = Histogram("rag_retrieval_duration_seconds", "Duration of RAG retrieval calls")
 RAG_CHUNKS_SELECTED = Histogram("rag_chunks_selected", "Number of chunks selected for context")
 RAG_REQUESTS_TOTAL = Counter("rag_requests_total", "Total RAG requests", ["mode"])
+# Vector-store labels are deliberately bounded in
+# agent.adapters.vector_store_metrics_adapter. Never add collection, workspace,
+# repository, profile, file, payload or vector values as labels.
+VECTOR_STORE_OPERATIONS_TOTAL = Counter(
+    "vector_store_operations_total",
+    "Vector-store operations grouped by bounded backend, operation and outcome",
+    ["backend", "operation", "outcome", "reason_code"],
+)
+VECTOR_STORE_OPERATION_DURATION_SECONDS = Histogram(
+    "vector_store_operation_duration_seconds",
+    "Vector-store operation duration",
+    ["backend", "operation", "outcome"],
+)
+VECTOR_STORE_ITEMS_TOTAL = Counter(
+    "vector_store_items_total",
+    "Items processed by vector-store operations",
+    ["backend", "operation", "outcome", "count_kind"],
+)
+VECTOR_STORE_FALLBACKS_TOTAL = Counter(
+    "vector_store_fallbacks_total",
+    "Explicit vector-store provider fallbacks",
+    ["requested_backend", "effective_backend", "reason_code"],
+)
 VISUAL_PROCESS_ASSISTANT_REQUESTS_TOTAL = Counter(
     "visual_process_assistant_requests_total",
     "Visual Process Assistant lifecycle transitions",

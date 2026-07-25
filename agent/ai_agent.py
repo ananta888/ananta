@@ -160,6 +160,9 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     from worker.retrieval.knowledge_index_job_handler import (
         build_knowledge_index_task_handler,
     )
+    from worker.retrieval.vector_index_job_handler import (
+        build_vector_index_task_handler,
+    )
     from worker.semantic_media.compute_task_handler import (
         SemanticComputeWorkerConfigurationError,
         build_semantic_compute_task_handler,
@@ -186,6 +189,24 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         ],
     )
     register_task_handler(
+        "vector_index_operation",
+        build_vector_index_task_handler(),
+        app=app,
+        capabilities=["retrieval", "index_write"],
+        safety_flags={
+            "requires_review": False,
+            "worker_only": True,
+            "search_forbidden": True,
+            "worker_orchestration_forbidden": True,
+            "network_access": "configured_vector_store_only",
+        },
+        verification_hooks=[
+            "vector_index_task_result_schema",
+            "idempotency_key",
+            "trusted_scope",
+        ],
+    )
+    register_task_handler(
         "visual_process_assistant_retrieval",
         VisualProcessAssistantRetrievalHandler(),
         app=app,
@@ -206,6 +227,7 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     )
     registered = [
         "codecompass_index_build",
+        "vector_index_operation",
         "visual_process_assistant_retrieval",
         "visual_process_assistant_inference",
     ]
