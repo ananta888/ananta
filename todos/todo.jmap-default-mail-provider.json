@@ -1,5 +1,5 @@
 {
-  "version": "1.1",
+  "version": "1.5",
   "updated_at": "2026-07-25",
   "owner": "Peter Stuiber",
   "track": "jmap-default-mail-provider",
@@ -9,16 +9,19 @@
   "goal": "Neue und explizit aktivierte auto-Mailkonten verwenden nach sicherer Discovery bevorzugt JMAP. Bestehende IMAP-Konten funktionieren ohne Datenverlust weiter. TUI, Suche, Artefakte, Grants, Goals und Worker verwenden protokollneutrale Mail-Vertraege; der Hub bleibt Eigentuemer aller Mail-Tasks, Policies und Protokollwechsel.",
   "summary": {
     "total_tasks": 23,
-    "done": 0,
-    "partial": 15,
-    "todo": 8,
+    "done": 21,
+    "partial": 2,
+    "todo": 0,
     "blocked": 0,
-    "done_task_percent": 0.0,
+    "done_task_percent": 91.3,
     "weighted_percent_complete": null,
     "weighted_percent_reason": "Ohne bereitgestellte SRC_*/RUN_*-Evidenz und Taskgewichte wird kein belastbarer gewichteter Fortschritt behauptet.",
-    "estimated_reusable_foundation_percent_range": [10, 15],
-    "foundation_estimate_is_acceptance_evidence": false,
-    "jmap_specific_implementation_percent": 0
+    "local_code_acceptance_complete": true,
+    "warnings_strict_tests_passed": 149,
+    "expected_live_tests_skipped": 1,
+    "ananta_production_composition_contract_complete": true,
+    "seeded_live_jmap_e2e_complete": false,
+    "production_default_rollout_approved": false
   },
   "non_goals": [
     "Kein Entfernen der bestehenden IMAP-Unterstuetzung.",
@@ -32,7 +35,7 @@
     "Kein automatischer Wechsel bestehender IMAP-Konten zu JMAP ohne separaten Dry Run, explizite Freigabe und Rollbackpfad."
   ],
   "source_alignment": {
-    "status": "unverified_missing_source_ids",
+    "status": "locally_inspected_unverified_missing_source_ids",
     "repository": "ananta888/ananta",
     "branch": "main",
     "commit_sha": null,
@@ -57,15 +60,70 @@
       "tests/test_imap_mock_integration_flow.py",
       "tests/test_imap_artifact_worker_security.py",
       "docs/operator-tui-imap-mail-client.md",
-      "todos/archiv/todo.operator-tui-imap-email-client.json"
+      "todos/archiv/todo.operator-tui-imap-email-client.json",
+      "agent/services/mail_contract_service.py",
+      "agent/services/mail_provider_ports.py",
+      "agent/services/mail_provider_router.py",
+      "agent/services/imap_provider_adapter.py",
+      "agent/services/mail_account_service.py",
+      "agent/services/mail_metadata_store_service.py",
+      "agent/services/mail_feature_policy.py",
+      "agent/services/mail_secret_resolver.py",
+      "agent/services/jmap_endpoint_policy.py",
+      "agent/services/jmap_http_transport.py",
+      "agent/services/jmap_discovery_service.py",
+      "agent/services/jmap_client_service.py",
+      "agent/services/jmap_mail_read_provider.py",
+      "agent/services/mail_body_service.py",
+      "agent/services/jmap_blob_service.py",
+      "agent/services/jmap_sync_service.py",
+      "agent/services/mail_sync_state_store.py",
+      "agent/services/jmap_mail_mutation_provider.py",
+      "agent/services/mail_task_service.py",
+      "agent/services/mail_operation_intent_service.py",
+      "agent/services/mail_runtime_policy.py",
+      "agent/services/mail_application_service.py",
+      "agent/routes/mail_control.py",
+      "worker/mail_task_composition.py",
+      "worker/mail_provider_task_execution.py",
+      "worker/mail_task_execution.py",
+      "docker/compose-next/compose.jmap-test.yml",
+      "tests/e2e/test_mail_hub_worker_provider_parity.py",
+      "agent/services/jmap_request_scheduler.py",
+      "agent/services/jmap_mutation_reconciliation.py",
+      "agent/services/mail_sync_transaction_service.py",
+      "agent/services/mail_migration_journal.py",
+      "agent/services/mail_polling_scheduler.py",
+      "agent/services/background/mail_polling_scheduler.py",
+      "agent/services/jmap_auth_service.py",
+      "agent/services/mail_migration_service.py",
+      "agent/services/mail_protocol_cutover_service.py",
+      "agent/lifecycle.py",
+      "scripts/stalwart_jmap_test_stack.py",
+      "docker/compose-next/compose.jmap-seed.yml",
+      "tests/test_mail_foundation_acceptance_round2.py",
+      "tests/test_jmap_scheduler_and_limits.py",
+      "tests/test_jmap_transport_binding_and_oauth.py",
+      "tests/test_mail_sync_transaction_and_reconciliation.py",
+      "tests/test_mail_polling_scheduler.py",
+      "tests/test_mail_operational_negative_gates.py",
+      "tests/e2e/test_stalwart_jmap_fixture_contract.py",
+      "tests/e2e/test_stalwart_live_jmap.py",
+      "docs/jmap-test-stack.md",
+      "agent/services/jmap_contract_service.py",
+      "worker/mail_sync_transaction_adapter.py",
+      "tests/test_jmap_result_reference.py",
+      "tests/test_mail_transactional_runtime_composition.py",
+      "tests/e2e/mail_ananta_composition_harness.py",
+      "tests/e2e/test_stalwart_ananta_composition_contract.py",
+      "tests/test_jmap_failure_matrix.py",
+      "tests/e2e/test_mail_sync_state_failure_matrix.py"
     ],
     "unverified_observations": [
-      "Der vorhandene Accountvertrag ist mit host, port und IMAP-spezifischen auth/tls-Feldern protokollgebunden.",
-      "Der vorhandene MailMessageRef verwendet mailbox und numerische uid; JMAP benoetigt account-gescopte opaque IDs.",
-      "ImapConnectorService besitzt bereits testbare Client- und Factory-Schnitte, deckt aber nur lesende IMAP-Operationen ab.",
-      "Der vorhandene Accountstore verwendet data/imap/accounts.json und schema imap_accounts.v1.",
-      "No-Body-by-default, Redaction, Artifact und SourceArtifactGrant sind als wiederverwendbare Sicherheitsbasis vorhanden.",
-      "Alle JMAP-spezifischen Produktionsmodule, Tests, E2E-Umgebungen und Betriebsdokumente fehlen."
+      "Alle geplanten lokalen Schema-, Provider-, Security-, Hub/Worker-, Polling-, Sync-Transaction-, Mutation-, Migration/Restore-, Cutover-, TUI-, Betriebs- und Testbausteine sind vorhanden.",
+      "Die warnings-strikte lokale Gesamtabnahme einschliesslich produktiver Failure-Matrix und Ananta-Composition-Contract ist gruen.",
+      "Der Live-Stalwart-Pfad ist implementiert, wurde ohne explizites Lizenz-Acknowledgement nicht gestartet.",
+      "Alle lokalen Beobachtungen bleiben ohne bereitgestellte SRC_* IDs unverified und sind keine grounded Claims."
     ]
   },
   "architecture_decisions": [
@@ -140,12 +198,65 @@
     ]
   },
   "milestones": [
-    {"id": "M00", "title": "Grounded Baseline", "task_ids": ["T00"]},
-    {"id": "M01", "title": "Mail-Domain, Ports und sichere Persistenz", "task_ids": ["T01", "T02", "T03", "T04", "T05"]},
-    {"id": "M02", "title": "Sicherer JMAP-Transport und Provider", "task_ids": ["T06", "T07", "T08", "T09", "T10"]},
-    {"id": "M03", "title": "Hub-Orchestrierung, Sync und Mutationen", "task_ids": ["T11", "T12", "T13"]},
-    {"id": "M04", "title": "Migration, Kompatibilitaet und Betrieb", "task_ids": ["T14", "T15", "T16", "T17", "T18"]},
-    {"id": "M05", "title": "Verifikation und Rollout", "task_ids": ["T19", "T20", "T21", "T22"]}
+    {
+      "id": "M00",
+      "title": "Grounded Baseline",
+      "task_ids": [
+        "T00"
+      ]
+    },
+    {
+      "id": "M01",
+      "title": "Mail-Domain, Ports und sichere Persistenz",
+      "task_ids": [
+        "T01",
+        "T02",
+        "T03",
+        "T04",
+        "T05"
+      ]
+    },
+    {
+      "id": "M02",
+      "title": "Sicherer JMAP-Transport und Provider",
+      "task_ids": [
+        "T06",
+        "T07",
+        "T08",
+        "T09",
+        "T10"
+      ]
+    },
+    {
+      "id": "M03",
+      "title": "Hub-Orchestrierung, Sync und Mutationen",
+      "task_ids": [
+        "T11",
+        "T12",
+        "T13"
+      ]
+    },
+    {
+      "id": "M04",
+      "title": "Migration, Kompatibilitaet und Betrieb",
+      "task_ids": [
+        "T14",
+        "T15",
+        "T16",
+        "T17",
+        "T18"
+      ]
+    },
+    {
+      "id": "M05",
+      "title": "Verifikation und Rollout",
+      "task_ids": [
+        "T19",
+        "T20",
+        "T21",
+        "T22"
+      ]
+    }
   ],
   "tasks": [
     {
@@ -156,26 +267,43 @@
       "risk": "high",
       "type": "governance",
       "depends_on": [],
-      "progress_note": "Lokale Pfade wurden inspiziert; bereitgestellte SRC_*-/RUN_*-IDs und ein unveraenderlicher Baseline-Commit fehlen.",
-      "affected_files": ["todos/todo.jmap-default-mail-provider.json", "artifacts/domain/jmap-source-baseline.json"],
+      "progress_note": "Lokaler Endstand und alle reproduzierbaren Gates wurden inspiziert; unveraenderlicher Baseline-Commit sowie bereitgestellte SRC_*-/RUN_*-IDs fehlen weiterhin.",
+      "affected_files": [
+        "todos/todo.jmap-default-mail-provider.json",
+        "artifacts/domain/jmap-source-baseline.json"
+      ],
       "acceptance_criteria": [
         "Baseline nennt Repository, unveraenderlichen Commit-SHA und Inspektionszeitpunkt.",
         "Jede grounded Quellbehauptung referenziert ausschliesslich bereitgestellte SRC_* IDs; unbekannte IDs werden als unverified behandelt.",
         "Ausfuehrungsevidenz referenziert ausschliesslich tatsaechlich erzeugte RUN_* IDs.",
         "Inventar trennt vorhandene IMAP-Basis, fehlende JMAP-Komponenten, Runtime-Daten und geplante Dateien.",
         "Taskstatus und Summary werden deterministisch aus dem belegten Stand abgeleitet."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": [
+          "Repository/Commit/Inspektionszeitpunkt mit bereitgestellten SRC_* IDs grounden.",
+          "Lokale Gatebeobachtungen erst mit echten RUN_* IDs als Ausfuehrungsevidenz einstufen."
+        ]
+      }
     },
     {
       "id": "T01",
       "title": "MailAccount-v2 als diskriminierten protokollneutralen Vertrag einfuehren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "schema",
-      "depends_on": ["T00"],
-      "progress_note": "IMAP-Accountschema und Validierung existieren, sind aber protokollgebunden und pruefen verbotene Secretfelder nicht rekursiv.",
-      "affected_files": ["agent/services/mail_contract_service.py", "agent/services/imap_contract_service.py", "agent/services/mail_account_mapper.py"],
+      "depends_on": [
+        "T00"
+      ],
+      "progress_note": "MailAccount-v2, Protokolldiskriminierung, rekursive Secretfeld-Sperre und reiner IMAP-v1-Mapper sind implementiert und regressionsgetestet.",
+      "affected_files": [
+        "agent/services/mail_contract_service.py",
+        "agent/services/imap_contract_service.py",
+        "agent/services/mail_account_mapper.py"
+      ],
       "acceptance_criteria": [
         "MailAccount-v2 enthaelt account_id, display_name, requested_protocol, resolved_protocol, username_ref, credential_ref, sync_policy, enabled und provider_config.",
         "requested_protocol erlaubt auto|jmap|imap; resolved_protocol erlaubt jmap|imap|null.",
@@ -184,18 +312,30 @@
         "IMAP uebernimmt host, port, tls_mode und auth_mode ohne Bedeutungsverlust.",
         "Validierung blockiert password, token, access_token, refresh_token, secret, authorization und session_token rekursiv in allen Accountfeldern.",
         "Ein reiner deterministischer Mapper konvertiert imap-account-v1 Payloads ohne Persistenz-Side-Effects."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T02",
       "title": "Lokale MailMessageRef-v2 und versionierte Provider-Locators definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "schema",
-      "depends_on": ["T01"],
-      "progress_note": "Legacy MailMessageRef und IMAP-Keying existieren; lokale stabile IDs, UIDVALIDITY und JMAP-Locators fehlen.",
-      "affected_files": ["agent/services/mail_contract_service.py", "agent/services/imap_metadata_store_service.py", "agent/services/imap_mail_artifact_service.py"],
+      "depends_on": [
+        "T01"
+      ],
+      "progress_note": "Versionierte Provider-Locator-Aliase, stabile mail_ref_id und konservative matched|ambiguous|unmatched-Deduplizierung sind persistent, konfliktfest und getestet.",
+      "affected_files": [
+        "agent/services/mail_contract_service.py",
+        "agent/services/mail_metadata_store_service.py",
+        "agent/services/mail_legacy_mapper.py",
+        "tests/test_mail_foundation_acceptance_round2.py"
+      ],
       "acceptance_criteria": [
         "mail_ref_id ist eine lokale opake dauerhaft persistierte ID und unabhaengig von Provider-Metadaten.",
         "JMAP-Locator enthaelt provider_account_id, email_id, thread_id und optionale mailbox_ids; IMAP-Locator enthaelt mailbox, uid und uidvalidity.",
@@ -205,18 +345,30 @@
         "Deduplizierung liefert matched|ambiguous|unmatched; unsichere oder fehlende Message-ID fuehrt nie zu automatischem Merge.",
         "Mailartefakte tragen mail_ref_id; SourceArtifactGrant referenziert weiterhin den stabilen artifact_ref statt direkt eine Provider-ID.",
         "Tests belegen JMAP-Mailboxverschiebung, IMAP-UIDVALIDITY-Wechsel sowie fehlende und duplizierte Message-ID."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T03",
       "title": "Kleine Mail-Ports, Capabilities und Reason-Code-Taxonomie einfuehren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "architecture",
-      "depends_on": ["T01", "T02"],
-      "progress_note": "ImapClient und ImapClientFactory sind testbare Vorstufen; ein neutraler Router und getrennte Ports fehlen.",
-      "affected_files": ["agent/services/mail_provider_ports.py", "agent/services/mail_provider_router.py", "agent/services/imap_provider_adapter.py"],
+      "depends_on": [
+        "T01",
+        "T02"
+      ],
+      "progress_note": "Kleine capability-spezifische Provider-Ports, Composition-Root-Router und kompatibler IMAP-Adapter sind implementiert; Consumer bleiben protokollneutral.",
+      "affected_files": [
+        "agent/services/mail_provider_ports.py",
+        "agent/services/mail_provider_router.py",
+        "agent/services/imap_provider_adapter.py"
+      ],
       "acceptance_criteria": [
         "Separate MailReadPort, MailBodyPort, MailMutationPort, MailSyncPort, MailLifecyclePort und MailCapabilities werden definiert.",
         "Kein Consumer muss Methoden implementieren oder importieren, die er nicht verwendet.",
@@ -225,18 +377,30 @@
         "Ein Composition-Root-Router waehlt Adapter anhand des validierten resolved_protocol.",
         "Der bestehende ImapConnectorService wird adapterkompatibel wiederverwendet und nicht dupliziert.",
         "TUI, Suche, Artefakte und Exporte importieren keine konkreten IMAP-/JMAP-Services mehr."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T04",
       "title": "Fruehe Feature-, Secret- und Endpoint-Security-Policy implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "security",
-      "depends_on": ["T00"],
-      "progress_note": "Secret-Refs, Redaction und einzelne IMAP-Flags existieren; eine JMAP-Endpoint-Policy und produktionssicherer Secret-Resolver fehlen.",
-      "affected_files": ["agent/services/mail_feature_policy.py", "agent/services/mail_secret_resolver.py", "agent/services/jmap_endpoint_policy.py", "agent/services/imap_secret_store_service.py"],
+      "depends_on": [
+        "T00"
+      ],
+      "progress_note": "Feature-, Secret-, Endpoint-, Redirect-, DNS-/Peer-Binding-, URI-Template-, Limit- und Redaction-Policies sind fail-closed implementiert und negativ getestet.",
+      "affected_files": [
+        "agent/services/mail_feature_policy.py",
+        "agent/services/mail_secret_resolver.py",
+        "agent/services/jmap_endpoint_policy.py",
+        "agent/services/imap_secret_store_service.py"
+      ],
       "acceptance_criteria": [
         "Fruehe Flags enthalten mail_enabled, jmap_enabled, imap_fallback_enabled und protocol_autodiscovery_enabled; deaktivierte Konten erzeugen keinen Netzwerkzugriff.",
         "Credentials werden nur ueber validierte env://- oder file://-Refs beziehungsweise einen injizierten Secret-Port geladen; der insecure_plaintext-Fallback ist fuer JMAP unzulaessig.",
@@ -246,18 +410,32 @@
         "Authorization wird bei Originwechsel nie weitergereicht; Credentials werden erst nach erfolgreicher Endpoint-Pruefung aufgeloest.",
         "Defaults begrenzen Redirects auf 3, Session-Antworten auf 1 MiB, API-JSON auf 16 MiB, Blobdownloads auf 25 MiB, Retries auf 2 und Backoff auf 30 Sekunden.",
         "Logs, Traces, Exceptions und Diagnostics redigieren Authorization, Tokens, Credentialwerte, URL-Querys und Blob-URLs."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T05",
       "title": "Neutralen Mail-v2-Store und reine Legacy-Mapper bereitstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "persistence",
-      "depends_on": ["T01", "T02", "T04"],
-      "progress_note": "IMAP-Account- und Metadatenstores bestehen als Migrationsquelle; neutraler v2-Store, Alias-Tabellen und atomare Transaktionen fehlen.",
-      "affected_files": ["agent/services/mail_account_service.py", "agent/services/mail_metadata_store_service.py", "agent/services/mail_legacy_mapper.py"],
+      "depends_on": [
+        "T01",
+        "T02",
+        "T04"
+      ],
+      "progress_note": "Versionierte data/mail Stores besitzen prozessuebergreifende Locks, atomare Einzeldatei-Replaces und WAL-basierte Mehrdatei-Transaktionen; Legacy-Reads bleiben side-effect-frei.",
+      "affected_files": [
+        "agent/services/mail_account_service.py",
+        "agent/services/mail_metadata_store_service.py",
+        "agent/services/mail_artifact_service.py",
+        "agent/services/mail_migration_journal.py"
+      ],
       "acceptance_criteria": [
         "Neue Stores verwenden versionierte mail_accounts.v2- und mail_metadata.v2-Vertraege unter data/mail, ohne bestehende data/imap Daten zu loeschen.",
         "Legacy-Lesen und reine Mapper verursachen keine Backups, Migrationen oder Writes im Read-Pfad.",
@@ -265,18 +443,30 @@
         "mail_ref_id, Provider-Locator-Aliase, Artefaktalias und Sync-State koennen transaktional aktualisiert werden.",
         "Unbekannte Schema-Versionen, korrupte Daten und Scope-Mismatches schlagen fail-closed mit stabilen reason_codes fehl.",
         "Store-APIs sind ueber injizierbare Ports testbar und setzen keine gemeinsame Container-Festplatte voraus."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T06",
       "title": "Sicheren JMAP-HTTP-Transport und Auth-Adapter implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "security",
-      "depends_on": ["T04"],
-      "progress_note": "Credential-Refs und Redaction sind vorhanden; JMAP-HTTP-Transport, Statusmapping und OAuth-Port fehlen.",
-      "affected_files": ["agent/services/jmap_http_transport.py", "agent/services/jmap_auth_service.py", "agent/services/mail_secret_resolver.py"],
+      "depends_on": [
+        "T04"
+      ],
+      "progress_note": "Injizierter begrenzter HTTP-Transport, OAuth-Tokenadapter, TLS-/Peer-Bindung, Statusmapping, Rotation, Retry-After und mutationssicheres Fehlerverhalten sind implementiert und getestet.",
+      "affected_files": [
+        "agent/services/jmap_http_transport.py",
+        "agent/services/jmap_auth_service.py",
+        "agent/services/mail_secret_resolver.py",
+        "tests/test_jmap_transport_binding_and_oauth.py"
+      ],
       "acceptance_criteria": [
         "HTTP-Client, Clock, Sleeper und SecretResolver sind injizierte Ports; Tests benoetigen kein Netzwerk und keine realen Secrets.",
         "Bearer und Basic/App-Password werden ausschliesslich ueber credential_ref geladen; Basic ist nur mit verifizierter TLS-Verbindung und expliziter Policy zulaessig.",
@@ -286,17 +476,30 @@
         "Mutationen werden nach mehrdeutigem Transportfehler nicht automatisch wiederholt, sondern durch Reconciliation geklaert.",
         "Content-Type, Content-Length und tatsaechlich gelesene Bytes werden vor JSON-Parsing begrenzt.",
         "Fehlerobjekte enthalten keine Header, Credentials, Response-Bodies oder sensiblen URLs."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T07",
       "title": "JMAP Session Discovery und Provider-Account-Auswahl implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
-      "depends_on": ["T01", "T04", "T06"],
-      "affected_files": ["agent/services/jmap_discovery_service.py", "agent/services/jmap_contract_service.py"],
+      "depends_on": [
+        "T01",
+        "T04",
+        "T06"
+      ],
+      "affected_files": [
+        "agent/services/jmap_discovery_service.py",
+        "agent/services/jmap_contract_service.py",
+        "tests/test_jmap_transport_binding_and_oauth.py"
+      ],
       "acceptance_criteria": [
         "Discovery unterstuetzt eine explizite session_url und HTTPS .well-known/jmap fuer eine validierte Discovery-Domain; optionale SRV-Aufloesung ist separat policy-gesteuert.",
         "Jeder Redirect wird begrenzt und erneut durch Endpoint-, DNS-, Origin- und Credential-Policy geprueft; HTTPS-Downgrade ist unzulaessig.",
@@ -305,17 +508,33 @@
         "apiUrl, downloadUrl, uploadUrl und eventSourceUrl werden als validierte URI-Templates normalisiert, aber nicht als vertrauenswuerdig vorausgesetzt.",
         "Session-Antworten und sensible Header werden nicht persistiert; ein nicht sensibler In-Memory-Cache besitzt TTL und invalidiert bei Session-state-Aenderung.",
         "Fehler verwenden unter anderem jmap_discovery_not_found, jmap_session_invalid, jmap_capability_missing, jmap_account_ambiguous und jmap_endpoint_denied."
-      ]
+      ],
+      "progress_note": "Explizite/.well-known Discovery, Capability-/Provider-Account-Auswahl, TTL/LRU-Cache und Session-state-Invalidierung sind implementiert und getestet.",
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T08",
       "title": "JMAP Core Client mit Batching, Limits und Backpressure implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
-      "depends_on": ["T03", "T06", "T07"],
-      "affected_files": ["agent/services/jmap_client_service.py"],
+      "depends_on": [
+        "T03",
+        "T06",
+        "T07"
+      ],
+      "affected_files": [
+        "agent/services/jmap_contract_service.py",
+        "agent/services/jmap_client_service.py",
+        "agent/services/jmap_request_scheduler.py",
+        "tests/test_jmap_result_reference.py",
+        "tests/test_jmap_scheduler_and_limits.py"
+      ],
       "acceptance_criteria": [
         "Client sendet eindeutige callIds und korreliert methodResponses ueber callId und Methodenname statt Arrayposition.",
         "using enthaelt nur benoetigte, angebotene und fuer den Provider-Account zulaessige Capabilities.",
@@ -324,18 +543,31 @@
         "Backpressure begrenzt Queue, Parallelitaet, Batchgroesse und Gesamtdeadline; Abbruch propagiert ohne Hintergrundtask-Leak.",
         "Request-, Method- und Set-Fehler werden getrennt normalisiert; rateLimit respektiert das zentrale Retrybudget.",
         "Ungueltiges oder uebergrosses JSON, unbekannte Methoden und partielle Responses fuehren zu stabilen Fehlerresultaten statt Prozessabsturz."
-      ]
+      ],
+      "progress_note": "Typisierte JmapResultReference, sicherer MethodCall-Builder, RFC-konforme Query-zu-Get-Verkettung sowie fail-closed Unknown/Forward/Malformed/Method-Mismatch-Pruefungen sind implementiert; Scheduler-, Limit- und Result-Reference-Gates sind warnings-strikt gruen.",
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T09",
       "title": "JMAP Metadata-, Mailbox- und Query-Provider implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
-      "depends_on": ["T03", "T08"],
-      "progress_note": "Lokale IMAP-Headersuche und Threading sind wiederverwendbar; JMAP Mailbox/get, Email/query und Email/get fehlen.",
-      "affected_files": ["agent/services/jmap_mail_read_provider.py", "agent/services/mail_search_service.py", "agent/services/mail_domain_mapper.py"],
+      "depends_on": [
+        "T03",
+        "T08"
+      ],
+      "progress_note": "Mailbox/get, serverseitige Email/query-Filter, metadata-only Email/get, Pagination und lokale Domainabbildung sind implementiert; Read/Search bleiben side-effect-frei.",
+      "affected_files": [
+        "agent/services/jmap_mail_read_provider.py",
+        "agent/services/mail_search_service.py",
+        "agent/services/mail_domain_mapper.py"
+      ],
       "acceptance_criteria": [
         "Mailbox/get liefert normalisierte Mailboxen mit role, name, parentId, sortOrder, totalEmails und unreadEmails.",
         "Email/query unterstuetzt Absender, Empfaenger, Betreff, Zeitraum, Mailbox, ungelesen und markiert mit stabiler Sortierung und begrenzter Pagination.",
@@ -344,18 +576,33 @@
         "JMAP threadId wird durch einen separaten Domain-Mapper in die bestehende Conversation-Gruppierung uebernommen.",
         "Read- und Search-Pfade loesen keinen Sync, Rebuild, Protokollwechsel oder Store-Write aus.",
         "Pagination-, notFound- und partielle Get-Ergebnisse werden deterministisch normalisiert."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T10",
       "title": "Expliziten Body-, Blob-, Sanitizing- und Grant-Pfad implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "security",
-      "depends_on": ["T03", "T04", "T06", "T08"],
-      "progress_note": "Explizites IMAP-Bodyladen, Attachment-Dateischutz, Redaction und Grants existieren; JMAP Body-/Blob-Pfad und HTML-Sanitizing fehlen.",
-      "affected_files": ["agent/services/mail_body_service.py", "agent/services/jmap_blob_service.py", "agent/services/mail_html_sanitizer.py", "agent/services/imap_redaction_pipeline_service.py"],
+      "depends_on": [
+        "T03",
+        "T04",
+        "T06",
+        "T08"
+      ],
+      "progress_note": "Expliziter grant-gebundener Body-/Attachment-Pfad, positive Bodylimits, HTML-Sanitizing, sichere URI-Template-Expansion und begrenzter Blobdownload sind implementiert.",
+      "affected_files": [
+        "agent/services/mail_body_service.py",
+        "agent/services/jmap_blob_service.py",
+        "agent/services/mail_html_sanitizer.py",
+        "agent/services/imap_redaction_pipeline_service.py"
+      ],
       "acceptance_criteria": [
         "Body- und Attachment-Zugriff benoetigt eine explizite Benutzeraktion, Account-/Workspace-Scope, Policypruefung und Auditentscheidung.",
         "Email/get setzt fetchTextBodyValues/fetchHTMLBodyValues nur fuer explizite Abrufe und verwendet einen positiven begrenzten maxBodyValueBytes-Wert.",
@@ -365,17 +612,34 @@
         "Bestehende Attachment-, Artifact-, Export- und Redaction-Policies bleiben verbindlich.",
         "Task-Payloads, Logs und Metriken enthalten weder Body noch Attachmentbytes; Weitergabe an Worker/LLM erfordert einen gueltigen SourceArtifactGrant.",
         "Negative Tests verweigern direkten Body-/Blobzugriff ohne Grant oder mit fremdem Scope."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T11",
       "title": "Hub-eigene Mail-Task-Orchestrierung und Polling-Scheduler implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "architecture",
-      "depends_on": ["T03", "T04", "T05"],
-      "affected_files": ["agent/services/mail_task_service.py", "agent/routes/mail_control.py", "worker/mail_task_execution.py"],
+      "depends_on": [
+        "T03",
+        "T04",
+        "T05"
+      ],
+      "affected_files": [
+        "agent/services/mail_task_service.py",
+        "agent/services/mail_polling_scheduler.py",
+        "agent/services/background/mail_polling_scheduler.py",
+        "agent/lifecycle.py",
+        "worker/mail_task_execution.py",
+        "worker/mail_task_composition.py",
+        "worker/mail_provider_task_execution.py"
+      ],
       "acceptance_criteria": [
         "Nur der Hub erzeugt, koalesziert, priorisiert, delegiert und storniert Discovery-, Sync-, Body-, Mutations-, Migrations- und Cutover-Tasks.",
         "Worker fuehren ausschliesslich delegierte Auftraege aus und erzeugen weder Folgetasks noch Worker-zu-Worker-Orchestrierung.",
@@ -385,18 +649,35 @@
         "Polling wird vom Hub ressourcenschonend geplant und erzeugt nur koaleszierte Sync-Tasks; disabled/offline beendet bestehende Zeitplaene.",
         "Such- und Lesepfade mutieren weder Queue noch Index; nur explizite Hub-Aktionen erzeugen Arbeit.",
         "TUI und externe Trigger sprechen ausschliesslich mit einer hubseitigen Mail-Application-Fassade."
-      ]
+      ],
+      "progress_note": "Hub-eigene Queue, DB-Leases/Fencing, Idempotenz, Cancellation, Worker-Isolation und persistenter koaleszierender Polling-Scheduler inklusive Lifecycle-Shutdown sind implementiert und getestet.",
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T12",
       "title": "Inkrementelle JMAP-Synchronisation mit atomaren State-Commits implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "backend",
-      "depends_on": ["T05", "T09", "T11"],
-      "progress_note": "IMAP-Sync-Policies und idempotentes Legacy-Keying existieren; JMAP-State-Tokens, Paging und Crash-Recovery fehlen.",
-      "affected_files": ["agent/services/mail_sync_state_store.py", "agent/services/jmap_sync_service.py", "agent/services/imap_sync_policy_service.py"],
+      "depends_on": [
+        "T05",
+        "T09",
+        "T11"
+      ],
+      "progress_note": "Getrennte JMAP-States, begrenztes Paging/Rebuild und eine produktiv verdrahtete SQLite-Unit-of-Work committen Metadata, Locator-Aliase, Cursor und Checkpoint atomar mit CAS, Rollback und Prozessverlust-Sicherheit.",
+      "affected_files": [
+        "agent/services/mail_sync_state_store.py",
+        "agent/services/mail_sync_transaction_service.py",
+        "agent/services/jmap_sync_service.py",
+        "worker/mail_sync_transaction_adapter.py",
+        "worker/mail_task_composition.py",
+        "tests/test_mail_transactional_runtime_composition.py"
+      ],
       "acceptance_criteria": [
         "Store trennt mailbox_state, email_state und query_state pro lokalem Account und provider_account_id; query_state ist an einen kanonischen Filter-/Sort-Fingerprint gebunden.",
         "Mailbox/changes, Email/changes und Email/queryChanges haben getrennte Verantwortlichkeiten und werden nur mit passendem State verwendet.",
@@ -406,17 +687,32 @@
         "cannotCalculateChanges startet einen begrenzten zweiphasigen Rebuild und behaelt bis zum Commit den letzten gueltigen Store.",
         "headers_only, manual und limited_recent behalten ihre Semantik; Bodies werden niemals automatisch geladen.",
         "Ein Sync-Lauf wechselt bei JMAP-Fehlern nicht automatisch zu IMAP."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T13",
       "title": "Governancierte Mailmutationen ueber Email/set integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "backend",
-      "depends_on": ["T03", "T08", "T11"],
-      "affected_files": ["agent/services/jmap_mail_mutation_provider.py", "agent/services/mail_mutation_policy.py"],
+      "depends_on": [
+        "T03",
+        "T08",
+        "T11"
+      ],
+      "affected_files": [
+        "agent/services/jmap_mail_mutation_provider.py",
+        "agent/services/jmap_mutation_reconciliation.py",
+        "agent/services/mail_mutation_policy.py",
+        "agent/services/mail_operation_intent_service.py",
+        "worker/mail_operation_intent_client.py"
+      ],
       "acceptance_criteria": [
         "Gelesen/Ungelesen und Markiert werden ueber standardisierte Keywords wie $seen und $flagged aktualisiert.",
         "Verschieben verwendet atomare mailboxIds-Patches und erhaelt zulaessige Mehrfachzuordnungen.",
@@ -426,17 +722,30 @@
         "notUpdated und notDestroyed werden pro Objekt in stabile reason_codes normalisiert.",
         "Mehrdeutig fehlgeschlagene Mutationen werden nicht automatisch retried, sondern ueber einen Read/Reconcile-Schritt geklaert.",
         "IMAP bietet nur capability-belegte sichere Aktionen; nicht unterstuetzte Aktionen werden vor Taskerzeugung abgelehnt."
-      ]
+      ],
+      "progress_note": "Governancierte Keyword-, Move-, Trash-/Destroy-Mutationen, ifInState, persistente Intents, Audit und Read/Reconcile nach mehrdeutigem Transportfehler sind implementiert und getestet.",
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T14",
       "title": "Expliziten IMAP-v1-zu-Mail-v2-Migrationsjob mit Journal und Restore implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "migration",
-      "depends_on": ["T05", "T11"],
-      "affected_files": ["agent/services/mail_migration_service.py", "agent/services/mail_migration_journal.py"],
+      "depends_on": [
+        "T05",
+        "T11"
+      ],
+      "affected_files": [
+        "agent/services/mail_migration_service.py",
+        "agent/services/mail_migration_journal.py",
+        "tests/test_mail_foundation_acceptance_round2.py"
+      ],
       "acceptance_criteria": [
         "Migration wird nur als expliziter hub-eigener Task gestartet und besitzt Dry Run, Plan, Bestaetigung und Audit.",
         "data/imap wird vor Writes konsistent gesichert; Backup und Quelle erhalten Content-Hashes und werden nicht veraendert.",
@@ -445,17 +754,30 @@
         "Account-, Message-, Artifact- und Grant-Aliase werden gemeinsam migriert und bleiben rueckwaerts aufloesbar.",
         "Abbruch oder Prozesscrash kann ohne Duplikate fortgesetzt werden; Restore stellt den letzten konsistenten Zustand wieder her.",
         "Bericht enthaelt migrated, skipped, ambiguous, conflicted und failed ohne Mailinhalte, Adressen, Betreff oder Secrets."
-      ]
+      ],
+      "progress_note": "Migration besitzt Dry Run, Locks, WAL, Source/Backup/Target-Hashes, Journal/Resume, Aliasumfang, Manipulationsschutz und tatsaechlichen freigabepflichtigen Restore.",
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T15",
       "title": "Optionalen auditierbaren IMAP-zu-JMAP-Cutover implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "critical",
       "type": "migration",
-      "depends_on": ["T07", "T12", "T14"],
-      "affected_files": ["agent/services/mail_protocol_cutover_service.py"],
+      "depends_on": [
+        "T07",
+        "T12",
+        "T14"
+      ],
+      "affected_files": [
+        "agent/services/mail_protocol_cutover_service.py",
+        "tests/test_mail_foundation_router_cutover.py"
+      ],
       "acceptance_criteria": [
         "Cutover ist ein separater Hub-Task und wird nie durch normalen Accountzugriff, Discovery oder Sync implizit gestartet.",
         "JMAP Discovery, TLS, Auth, Provider-Account-Auswahl und begrenzter Dry-Run-Sync muessen vor Freigabe erfolgreich sein.",
@@ -464,18 +786,36 @@
         "Lokale mail_ref_id, IMAP- und JMAP-Locator-Aliase, Artefakte, Exporte und Grants bleiben erhalten.",
         "Rollback setzt resolved_protocol auf IMAP zurueck, ohne JMAP-Locators, States oder Auditdaten zu verlieren.",
         "Ein JMAP-Ausfall waehrend oder nach Cutover erzeugt keinen automatischen Protokollwechsel im selben Lauf."
-      ]
+      ],
+      "progress_note": "Separater Hub-Cutover komponiert Discovery/Auth/Sync/Matching-Preflights, Approval, CAS, konservative Dedupe-Gates, Audit und expliziten Rollback.",
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T16",
       "title": "Suche, Artefakte, Exporte und Grants auf neutrale Mailreferenzen adaptieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "compatibility",
-      "depends_on": ["T02", "T03", "T05", "T09", "T10", "T14"],
-      "progress_note": "IMAP-Suche, Artefakte, Exporte und Grants existieren; sie verwenden weiterhin IMAP-spezifische Referenzen und Imports.",
-      "affected_files": ["agent/services/mail_search_service.py", "agent/services/mail_artifact_service.py", "agent/services/mail_export_service.py", "agent/services/imap_mail_artifact_service.py"],
+      "depends_on": [
+        "T02",
+        "T03",
+        "T05",
+        "T09",
+        "T10",
+        "T14"
+      ],
+      "progress_note": "Suche, Artefakte, Exporte, Grants und Worker-Kontext verwenden stabile lokale Referenzen; Provider-Locators bleiben intern und Legacy-IMAP bleibt kompatibel.",
+      "affected_files": [
+        "agent/services/mail_search_service.py",
+        "agent/services/mail_artifact_service.py",
+        "agent/services/mail_export_service.py",
+        "agent/services/imap_mail_artifact_service.py"
+      ],
       "acceptance_criteria": [
         "Suche, Artefakte und Exporte verwenden mail_ref_id und neutrale Ports statt mailbox/uid als Domainidentitaet.",
         "Neue artifact_ref-Werte werden stabil aus lokaler mail_ref_id abgeleitet; bestehende mail://account/mailbox/uid Referenzen bleiben ueber Aliase lesbar.",
@@ -483,18 +823,31 @@
         "JMAP provider_account_id, email_id und thread_id leaken nicht in TUI-/Worker-Vertraege, ausser redigiert fuer explizite Diagnose/Provenance.",
         "Cross-Account-, Cross-Workspace- und fehlende Grant-Zugriffe schlagen fail-closed fehl.",
         "Bestehende IMAP-Artefakt-, Redaction-, Export- und Worker-Security-Tests bleiben gruen."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T17",
       "title": "Operator TUI auf die hubseitige Mail-Fassade und JMAP-Default umstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "frontend",
-      "depends_on": ["T07", "T11", "T13", "T16"],
-      "progress_note": "Mail-Liste, Detail, Suche, Body, Artefakte und Grants existieren; Accountanlage und Imports sind IMAP-spezifisch.",
-      "affected_files": ["client_surfaces/operator_tui/commands_mail.py", "agent/services/mail_application_service.py"],
+      "depends_on": [
+        "T07",
+        "T11",
+        "T13",
+        "T16"
+      ],
+      "progress_note": "TUI haengt ausschliesslich an MailApplicationService; Account-Preview/Discovery/Confirm, auto|jmap|imap, lokale Referenzen und getrennte Runtime-/Discovery-/Connection-/Sync-/Taskzustaende sind vorhanden.",
+      "affected_files": [
+        "client_surfaces/operator_tui/commands_mail.py",
+        "agent/services/mail_application_service.py"
+      ],
       "acceptance_criteria": [
         "TUI importiert nur die hubseitige Mail-Application-Fassade und keine konkreten JMAP-/IMAP-Services.",
         "mail account add unterstuetzt --protocol auto|jmap|imap und --session-url; Discovery laeuft als explizite Hub-Aktion vor einer Speicherbestaetigung.",
@@ -503,18 +856,33 @@
         "Mail-Liste, Detail, Suche, explizites Bodyladen und Artefaktfreigabe funktionieren ueber beide Provider ohne Provider-ID-Leak.",
         "Reason-Codes sind verstaendlich und enthalten keine Credentials, Mailinhalte oder sensiblen URLs.",
         "IMAP wird als Fallback und nicht als Fehlerzustand dargestellt; irreversible Aktionen verwenden serverseitige Intent-Bestaetigung."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T18",
       "title": "Telemetrie, Health, Circuit Breaker und gestufte Runtime-Policy ergaenzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "operations",
-      "depends_on": ["T11", "T12", "T13"],
-      "progress_note": "IMAP-Flags und einfache Runtime-States existieren; neutrale Metriken, Circuit Breaker und differenzierte Health fehlen.",
-      "affected_files": ["agent/services/mail_runtime_policy.py", "agent/adapters/mail_metrics_adapter.py", "agent/metrics.py"],
+      "depends_on": [
+        "T11",
+        "T12",
+        "T13"
+      ],
+      "progress_note": "Gestufte Runtime-Policy, bounded Metrics, persistenter Circuit Breaker, passive/aktive Health, Availability und Offline-/Disable-Cancellation des Pollings sind produktiv komponiert.",
+      "affected_files": [
+        "agent/services/mail_runtime_policy.py",
+        "agent/services/mail_polling_scheduler.py",
+        "agent/adapters/mail_metrics_adapter.py",
+        "agent/metrics.py",
+        "worker/mail_task_composition.py"
+      ],
       "acceptance_criteria": [
         "Rolloutphasen definieren Defaults explizit; ein Upgrade startet keine neue Mailverbindung und aendert keine Bestandskonten.",
         "Metriken erfassen Provider, Operation, Latenz, Callzahl, Retry, Syncaenderungen und bounded Fehlerklasse mit begrenzter Labelkardinalitaet.",
@@ -523,18 +891,47 @@
         "Passive Health unterscheidet config, discovery, auth, api, sync und store ohne Netzwerk-Side-Effect; aktive Diagnose ist eine explizite Hub-Aktion.",
         "Disabled- und Offline-Policy storniert Polling, schliesst Ressourcen und erzeugt keine Endlosschleifen.",
         "Audit dokumentiert Protocol-Resolution, Fallbackentscheidung, Cutover, Mutation und Policyablehnung ohne sensible Daten."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T19",
       "title": "Cross-Provider Unit-, Contract-, Security- und Failure-Gates liefern",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "test",
-      "depends_on": ["T04", "T06", "T07", "T08", "T09", "T10", "T12", "T13", "T14", "T16", "T18"],
-      "progress_note": "Deterministische IMAP-Fakes und umfangreiche IMAP-/TUI-/Security-Tests existieren; JMAP- und Cross-Provider-Gates fehlen.",
-      "affected_files": ["tests/test_mail_provider_contract.py", "tests/test_jmap_discovery_service.py", "tests/test_jmap_client_service.py", "tests/test_jmap_sync_service.py", "tests/test_mail_migration_service.py"],
+      "depends_on": [
+        "T04",
+        "T06",
+        "T07",
+        "T08",
+        "T09",
+        "T10",
+        "T12",
+        "T13",
+        "T14",
+        "T16",
+        "T18"
+      ],
+      "progress_note": "Die vollstaendige warnings-strikte Matrix ist lokal gruen: Transport/Auth/Retry/Groessenlimits, unbekannte/partielle Responses, Set-Teilfehler, Reconciliation, paginierte Changes, cannotCalculateChanges, produktiver SQLite-Crash/Resume/CAS-Rollback sowie breite Legacy-/TUI-/Hub-/Composition-Regressionen.",
+      "affected_files": [
+        "tests/test_jmap_failure_matrix.py",
+        "tests/e2e/test_mail_sync_state_failure_matrix.py",
+        "tests/test_jmap_result_reference.py",
+        "tests/test_jmap_scheduler_and_limits.py",
+        "tests/test_jmap_transport_binding_and_oauth.py",
+        "tests/test_mail_sync_transaction_and_reconciliation.py",
+        "tests/test_mail_transactional_runtime_composition.py",
+        "tests/test_mail_polling_scheduler.py",
+        "tests/test_mail_operational_negative_gates.py",
+        "tests/e2e/test_stalwart_jmap_fixture_contract.py",
+        "tests/e2e/test_stalwart_ananta_composition_contract.py"
+      ],
       "acceptance_criteria": [
         "Jeder Implementierungstask besitzt fokussierte Unit-/Contracttests; T19 aggregiert nur das Cross-Provider- und Regression-Gate.",
         "Deterministische HTTP-Fakes decken Discovery, Auth, Capabilities, Batching, Query/Get, Changes, queryChanges, Set-Fehler, Retry und Cancellation ab.",
@@ -544,17 +941,39 @@
         "Hub-Tests decken Lease, Idempotenz, Polling-Koaleszierung, Cancellation und das Verbot von Worker-zu-Worker-Orchestrierung ab.",
         "Provider-Contracttests laufen gegen JMAP- und IMAP-Adapter mit capability-spezifischen Ports.",
         "Bestehende IMAP-, Artifact-, Redaction-, Export-, Goal- und TUI-Tests bleiben gruen."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T20",
       "title": "Gepinnte lokale JMAP-E2E-Testumgebung bereitstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "test-infrastructure",
-      "depends_on": ["T04", "T06", "T07", "T08"],
-      "affected_files": ["docker/compose-next/compose.jmap-test.yml", "tests/fixtures/jmap/seed.json"],
+      "depends_on": [
+        "T04",
+        "T06",
+        "T07",
+        "T08"
+      ],
+      "affected_files": [
+        "docker/compose-next/compose.jmap-test.yml",
+        "docker/compose-next/compose.jmap-seed.yml",
+        "scripts/stalwart_jmap_test_stack.py",
+        "tests/fixtures/jmap/stalwart-seed.json",
+        "tests/fixtures/jmap/messages/alice-thread-1.eml",
+        "tests/fixtures/jmap/messages/alice-thread-2.eml",
+        "tests/fixtures/jmap/messages/bob-attachment.eml",
+        "tests/fixtures/jmap/secrets/admin-password",
+        "tests/fixtures/jmap/secrets/alice-password",
+        "tests/fixtures/jmap/secrets/bob-password",
+        "docs/jmap-test-stack.md"
+      ],
       "acceptance_criteria": [
         "Kompatibler JMAP-Testserver ist mit verifiziertem Image-Digest und dokumentierter Lizenz gepinnt.",
         "Compose verwendet isoliertes internes Netzwerk, Loopback-Hostbindung, Healthcheck, Ressourcenlimits, reproduzierbare Volumes und explizites Testprofil.",
@@ -562,17 +981,34 @@
         "Deterministische Seed-Daten enthalten mehrere Mailboxen, Threads, Keywords, Attachments und zwei isolierte Accounts.",
         "Reset und Cleanup entfernen Testkonten, Container, Netzwerke, Volumes und temporaere Secrets auch nach Fehlern.",
         "Umgebung benoetigt keine externe Cloud und unterstuetzt reproduzierbare Offline-/Restart-Szenarien."
-      ]
+      ],
+      "progress_note": "Digest-gepinntes isoliertes Stalwart-Profil, Seed-Overlay, deterministischer Bootstrap mit zwei Accounts/Mailboxen/Thread/Keywords/Attachment, Secretfiles, Reset/Teardown und Zero-Resource-Contract sind implementiert; Compose und In-process-Contract sind gruen.",
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     },
     {
       "id": "T21",
       "title": "JMAP-, IMAP-Fallback-, Migration- und Failure-E2E-Gates ausfuehren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "test",
-      "depends_on": ["T15", "T17", "T18", "T19", "T20"],
-      "affected_files": ["tests/e2e/test_jmap_mail_flow.py", "tests/e2e/test_mail_migration_flow.py", "artifacts/e2e/jmap-mail-gate.json"],
+      "depends_on": [
+        "T15",
+        "T17",
+        "T18",
+        "T19",
+        "T20"
+      ],
+      "affected_files": [
+        "tests/e2e/mail_ananta_composition_harness.py",
+        "tests/e2e/test_stalwart_ananta_composition_contract.py",
+        "tests/e2e/test_stalwart_live_jmap.py",
+        "artifacts/e2e/jmap-mail-gate.json"
+      ],
       "acceptance_criteria": [
         "E2E deckt Accountanlage, Discovery, Provider-Account-Auswahl, Mailboxliste, Metadatensync, Suche, explizites Bodyladen, Keywords, Verschieben und governanciertes Loeschen ab.",
         "Ein zweiter Lauf beweist idempotente Synchronisation ohne Duplikate; parallele Trigger werden durch Hub-Lease koalesziert.",
@@ -581,18 +1017,37 @@
         "Migration-E2E verwendet eine deterministische Kopie eines Legacy-Stores und beweist Dry Run, Commit, Resume, Restore und optionalen Cutover-Rollback.",
         "Cleanup weist null verbleibende Testcontainer, Netzwerke, Volumes und Secretfiles nach.",
         "Strukturiertes Evidenzartefakt ist redigiert und referenziert nur tatsaechlich bereitgestellte RUN_* IDs."
-      ]
+      ],
+      "progress_note": "Der reproduzierbare Contract fuehrt Hub-Submission, Lease/Fencing, Production-Worker, JMAP Discovery/Sync/Body/Mutation, IMAP-Fallback sowie Migration/Restore in-process erfolgreich aus. Der identische Live-Pfad ist implementiert, wurde ohne explizites Lizenz-Acknowledgement aber korrekt nicht gestartet.",
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": [
+          "Live-Stalwart nur nach externer Lizenzfreigabe mit ANANTA_STALWART_TEST_LICENSE_ACK=1 ausfuehren.",
+          "Das redigierte Live-Evidenzartefakt erst mit tatsaechlich bereitgestellten RUN_* IDs erzeugen.",
+          "Governance-Freigabe fuer Production-Default-Rollout nach Auswertung des Live-Laufs einholen."
+        ]
+      }
     },
     {
       "id": "T22",
       "title": "Protokollneutrale Dokumentation, Migration Guide und gestuften Rollout liefern",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "documentation",
-      "depends_on": ["T17", "T18", "T21"],
-      "progress_note": "Historische IMAP-Dokumentation existiert; neutrale Mail-, JMAP-, Migrations- und Rolloutdokumentation fehlt.",
-      "affected_files": ["docs/operator-tui-mail-client.md", "docs/jmap-provider.md", "docs/migrations/imap-to-mail-account-v2.md", "docs/operator-tui-imap-mail-client.md"],
+      "depends_on": [
+        "T17",
+        "T18",
+        "T21"
+      ],
+      "progress_note": "Provider-neutrale TUI-, JMAP-, Migration-, Rollout-, Betriebs- und Stalwart-Teststack-Dokumentation ist vorhanden und trennt verschobene Features, Lizenz und Live-Evidenz klar.",
+      "affected_files": [
+        "docs/operator-tui-mail-client.md",
+        "docs/jmap-provider.md",
+        "docs/migrations/imap-to-mail-account-v2.md",
+        "docs/operator-tui-imap-mail-client.md"
+      ],
       "acceptance_criteria": [
         "Dokumentation erklaert JMAP als aktivierbaren Preferred Provider, IMAP als Fallback und die Hub-Worker-/Grant-Sicherheitsgrenzen.",
         "Setup beschreibt requested/resolved Protocol, Discovery, Provider-Account-Auswahl, Session-URL, Credential-Refs und redigiertes Troubleshooting.",
@@ -601,7 +1056,12 @@
         "Betriebsdoku beschreibt Polling, Limits, Circuit Breaker, Health, Metriken, Secretrotation und Incident-Rollback.",
         "Archivierte IMAP-Dokumentation verweist auf die neue neutrale Doku und bleibt als Historie erhalten.",
         "Nicht enthaltene Features wie Push, Submission, Mailbox-CRUD und Upload werden eindeutig als Follow-up ausgewiesen."
-      ]
+      ],
+      "acceptance_review": {
+        "reviewed_against_local_code": true,
+        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "remaining": []
+      }
     }
   ],
   "global_acceptance_criteria": [
@@ -621,27 +1081,35 @@
   "verification_gates": [
     {
       "id": "VG-01",
-      "name": "Unit, Contract und Security",
-      "command": "python -m pytest -q tests/test_mail_* tests/test_jmap_* tests/test_imap_*",
-      "required": true
+      "name": "Finale warnings-strikte Mail/JMAP/IMAP-Gesamtabnahme",
+      "command": "python -m pytest -q -W error tests/test_mail_* tests/test_jmap_* tests/test_imap_* tests/test_tui_imap_mail_integration_commands.py tests/test_tui_imap_mail_view_commands.py tests/e2e/test_mail_hub_worker_provider_parity.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_stalwart_jmap_fixture_contract.py tests/e2e/test_stalwart_ananta_composition_contract.py tests/e2e/test_stalwart_live_jmap.py",
+      "required_for": "local_code_acceptance",
+      "last_local_status": "passed_with_expected_live_skip_unverified_missing_RUN_id",
+      "last_local_count": "149 passed, 1 skipped"
     },
     {
       "id": "VG-02",
-      "name": "Pinned JMAP E2E",
-      "command": "python -m pytest -q -m jmap_e2e tests/e2e/test_jmap_mail_flow.py tests/e2e/test_mail_migration_flow.py",
-      "required": true
+      "name": "Deterministischer Stalwart Fixture Contract",
+      "command": "python scripts/stalwart_jmap_test_stack.py contract",
+      "required_for": "local_code_acceptance",
+      "last_local_status": "passed_unverified_missing_RUN_id",
+      "last_local_count": "2 accounts, 3 messages, 1 attachment"
     },
     {
       "id": "VG-03",
-      "name": "Compose Contract und Cleanup",
-      "command": "docker compose -f docker/compose-next/compose.jmap-test.yml --profile jmap-test config --quiet",
-      "required": true
+      "name": "Base- und Seed-Compose-Contract",
+      "command": "docker compose -f docker/compose-next/compose.jmap-test.yml --profile jmap-test config --quiet && STALWART_TEST_ADMIN_PASSWORD=<redacted> docker compose -f docker/compose-next/compose.jmap-test.yml -f docker/compose-next/compose.jmap-seed.yml --profile jmap-test config --quiet",
+      "required_for": "local_code_acceptance",
+      "last_local_status": "passed_unverified_missing_RUN_id",
+      "last_local_count": "both exit 0"
     },
     {
       "id": "VG-04",
-      "name": "Legacy IMAP Regression",
-      "command": "python -m pytest -q tests/test_imap_connector_service.py tests/test_imap_mock_integration_flow.py tests/test_imap_artifact_worker_security.py",
-      "required": true
+      "name": "Seeded Live-Stalwart mit echtem Ananta-Mailflow",
+      "command": "ANANTA_STALWART_TEST_LICENSE_ACK=1 RUN_STALWART_LIVE_E2E=1 python -m pytest -q -W error tests/e2e/test_stalwart_live_jmap.py",
+      "required_for": "production_default_rollout",
+      "last_local_status": "not_run",
+      "reason": "Explizites Lizenz-Acknowledgement fehlte; der identische In-process-Production-Composition-Contract ist gruen."
     }
   ],
   "evidence_policy": {
@@ -664,22 +1132,38 @@
       "status": "pending_external",
       "required_for": "enable_jmap_preferred_by_default",
       "rule": "Operator/Governance bestaetigt Metriken, Incident-Rollback, Supportdoku und die Rolloutphase. Ohne Freigabe bleibt JMAP Opt-in."
+    },
+    {
+      "id": "ERG-03",
+      "title": "Stalwart Lizenz- und Seed-Harness-Freigabe",
+      "status": "pending_external",
+      "required_for": "seeded_jmap_server_e2e",
+      "rule": "Legal/Operator waehlen und dokumentieren den zulaessigen Lizenzpfad fuer den exakten Digest. Erst danach darf das reproduzierbare Bootstrap-/Seed-/Teardown-Harness gegen das Image ausgefuehrt werden."
     }
   ],
   "known_solid_debt": [
     {
       "problem": "commands_mail.py koppelt UI, Accountstore, Suche, Artefakte und Exporte direkt.",
-      "principles": ["SRP", "DIP"],
+      "principles": [
+        "SRP",
+        "DIP"
+      ],
       "treatment": "T17 fuehrt eine schmale hubseitige Mail-Application-Fassade ein; neue JMAP-Imports in der TUI sind unzulaessig."
     },
     {
       "problem": "Bestehende IMAP-Services kombinieren teilweise Transport, Mapping und Persistenz.",
-      "principles": ["SRP", "OCP"],
+      "principles": [
+        "SRP",
+        "OCP"
+      ],
       "treatment": "Sie bleiben als kompatible Adapter/Migrationsquelle erhalten; neue neutrale Ports und JMAP-Komponenten werden additiv und getrennt implementiert."
     },
     {
       "problem": "FileFallbackImapSecretStore kann insecure_plaintext verwenden.",
-      "principles": ["DIP", "LSP"],
+      "principles": [
+        "DIP",
+        "LSP"
+      ],
       "treatment": "T04/T06 verwenden einen injizierten produktionssicheren SecretResolver; der Klartextfallback ist fuer JMAP und Production-Default nicht substituierbar."
     }
   ],
@@ -691,5 +1175,79 @@
     "Dokumentation und TUI beschreiben die aktive Rolloutphase korrekt; kein Upgrade startet still neue Verbindungen oder migriert Bestandskonten.",
     "Source- und Run-Behauptungen verwenden ausschliesslich bereitgestellte SRC_*-/RUN_*-IDs; fehlende externe Gates bleiben pending_external.",
     "Der reale Provider-Smoke und die Default-Rollout-Freigabe sind fuer Production-Aktivierung erforderlich, aber klar von der lokal reproduzierbaren Code-Abnahme getrennt."
-  ]
+  ],
+  "local_verification": {
+    "evidence_status": "observed_locally_unverified_missing_RUN_ids",
+    "rule": "Diese Ergebnisse dokumentieren den lokalen Arbeitslauf, sind ohne bereitgestellte RUN_* IDs aber keine grounded Ausfuehrungsevidenz.",
+    "gates": [
+      {
+        "id": "LV-16",
+        "command": "python -m pytest -q -W error tests/test_mail_* tests/test_jmap_* tests/test_imap_* tests/test_tui_imap_mail_integration_commands.py tests/test_tui_imap_mail_view_commands.py tests/e2e/test_mail_hub_worker_provider_parity.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_stalwart_jmap_fixture_contract.py tests/e2e/test_stalwart_ananta_composition_contract.py tests/e2e/test_stalwart_live_jmap.py",
+        "result": "passed_with_expected_live_skip",
+        "passed": 149,
+        "failed": 0,
+        "skipped": 1,
+        "warnings": 0
+      },
+      {
+        "id": "LV-17",
+        "command": "python scripts/stalwart_jmap_test_stack.py contract",
+        "result": "passed",
+        "summary": {
+          "version": 1,
+          "account_count": 2,
+          "mailbox_count": 2,
+          "message_count": 3,
+          "attachment_count": 1,
+          "thread_groups": {
+            "lighthouse": 2
+          }
+        }
+      },
+      {
+        "id": "LV-18",
+        "command": "docker compose -f docker/compose-next/compose.jmap-test.yml --profile jmap-test config --quiet",
+        "result": "passed",
+        "exit_code": 0
+      },
+      {
+        "id": "LV-19",
+        "command": "STALWART_TEST_ADMIN_PASSWORD=<redacted-contract-value> docker compose -f docker/compose-next/compose.jmap-test.yml -f docker/compose-next/compose.jmap-seed.yml --profile jmap-test config --quiet",
+        "result": "passed",
+        "exit_code": 0
+      },
+      {
+        "id": "LV-20",
+        "command": "ANANTA_STALWART_TEST_LICENSE_ACK=1 RUN_STALWART_LIVE_E2E=1 python -m pytest -q -W error tests/e2e/test_stalwart_live_jmap.py",
+        "result": "not_run",
+        "reason": "ANANTA_STALWART_TEST_LICENSE_ACK=1 war nicht vorhanden; keine organisatorische Freigabe wurde unterstellt."
+      }
+    ]
+  },
+  "remaining_work": {
+    "code_and_test": [],
+    "external_or_organizational": [
+      "T00: bereitgestellte SRC_*-/RUN_* IDs und unveraenderliche Source-Baseline.",
+      "T21: explizite Stalwart-Lizenzfreigabe, Live-Lauf und echte RUN_*-Evidenz.",
+      "Realer Provider-Smoke und Governance-Freigabe fuer JMAP-preferred als Produktionsdefault."
+    ]
+  },
+  "solid_review": {
+    "cleaned_up": [
+      "ISP/DIP: typisierte Result-References, kleine Provider-/OAuth-/Scheduler-/Reconcile-/Transaction-Ports und Composition Roots trennen Protokoll, Policy und Infrastruktur.",
+      "SRP: Hub-Orchestrierung, Worker-Ausfuehrung, Polling, Intent-Autorisierung, Transport, Persistenz und Providerlogik sind getrennt.",
+      "Atomicity/DIP: der produktive Composition-Root haengt nun an einer echten SQLite-Metadata/Checkpoint-Unit-of-Work.",
+      "OCP/LSP: JMAP und IMAP bleiben additive capability-spezifische Bindings mit gemeinsamem Resultvertrag."
+    ],
+    "preserved_debt": [
+      "SRP/OCP: historische IMAP-Services kombinieren teilweise Transport, Mapping und Persistenz und bleiben als Kompatibilitaetsadapter bestehen."
+    ],
+    "introduced_violations": [
+      {
+        "problem": "mail_migration_journal.py kombiniert Journal, prozessuebergreifendes File-Locking und WAL-Mehrdatei-Transaktion.",
+        "principle": "SRP",
+        "better_structure": "Bei der naechsten Infrastrukturpflege in MailMigrationJournal, MailFileLock und MailMultiFileTransaction-Module aufteilen; Vertraege und Verhalten unveraendert lassen."
+      }
+    ]
+  }
 }
