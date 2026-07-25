@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 
-def build_imap_sync_plan(
+def build_mail_sync_plan(
     *,
     sync_policy: str,
     total_available: int,
@@ -41,4 +41,25 @@ def build_imap_sync_plan(
             "date_window_days": max(1, int(recent_days)),
             "reason_code": "limited_recent",
         }
-    raise ValueError("imap_sync_policy_unknown")
+    raise ValueError("mail_sync_policy_unknown")
+
+
+def build_imap_sync_plan(
+    *,
+    sync_policy: str,
+    total_available: int,
+    requested_limit: int = 100,
+    recent_days: int = 14,
+) -> dict[str, Any]:
+    """Backward-compatible facade for the protocol-neutral sync policy."""
+    try:
+        return build_mail_sync_plan(
+            sync_policy=sync_policy,
+            total_available=total_available,
+            requested_limit=requested_limit,
+            recent_days=recent_days,
+        )
+    except ValueError as exc:
+        if str(exc) == "mail_sync_policy_unknown":
+            raise ValueError("imap_sync_policy_unknown") from exc
+        raise
