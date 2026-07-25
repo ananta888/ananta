@@ -524,6 +524,18 @@ jobs:
         run: docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.github-ci.yml config > ci-artifacts/compose/compose-github-ci.yml
       - name: Validate Compose-next distributed config
         run: docker compose -f docker/compose-next/compose.stack.distributed.yml config > ci-artifacts/compose/compose-next-distributed.yml
+      - name: Validate optional Qdrant overlay
+        run: |
+          install -d -m 0700 /tmp/ananta-compose-secrets
+          printf '%s' 'compose-validation-only' > /tmp/ananta-compose-secrets/qdrant-api-key
+          chmod 0600 /tmp/ananta-compose-secrets/qdrant-api-key
+          ANANTA_QDRANT_API_KEY_FILE=/tmp/ananta-compose-secrets/qdrant-api-key \
+            docker compose \
+              -f docker/compose-next/compose.stack.quickstart.yml \
+              -f docker/compose-next/compose.qdrant.yml \
+              --profile qdrant \
+              config \
+              > ci-artifacts/compose/compose-next-qdrant.yml
       - name: Validate Compose-next production Native runtime
         run: >
           docker compose
