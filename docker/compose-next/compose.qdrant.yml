@@ -1,0 +1,85 @@
+services:
+  ai-agent-alpha:
+    environment:
+      ANANTA_QDRANT_API_KEY_FILE: /run/secrets/qdrant-api-key
+    secrets:
+      - source: qdrant-api-key
+        target: qdrant-api-key
+        mode: 0400
+    networks:
+      - default
+      - qdrant-worker
+    depends_on:
+      qdrant:
+        condition: service_healthy
+
+  ai-agent-beta:
+    environment:
+      ANANTA_QDRANT_API_KEY_FILE: /run/secrets/qdrant-api-key
+    secrets:
+      - source: qdrant-api-key
+        target: qdrant-api-key
+        mode: 0400
+    networks:
+      - default
+      - qdrant-worker
+    depends_on:
+      qdrant:
+        condition: service_healthy
+
+  qdrant:
+    profiles: ["qdrant"]
+    image: qdrant/qdrant:v1.18.2@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        if [ ! -s /run/secrets/qdrant-api-key ]; then
+          echo "qdrant_api_key_secret_missing" >&2
+          exit 78
+        fi
+        export QDRANT__SERVICE__API_KEY="$(cat /run/secrets/qdrant-api-key)"
+        exec /qdrant/qdrant
+    restart: unless-stopped
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m
+    secrets:
+      - source: qdrant-api-key
+        target: qdrant-api-key
+        mode: 0400
+    volumes:
+      - qdrant-data:/qdrant/storage
+      - qdrant-snapshots:/qdrant/snapshots
+    ports:
+      - "${ANANTA_QDRANT_BIND_IP:-127.0.0.1}:${ANANTA_QDRANT_REST_PORT:-6333}:6333/tcp"
+      - "${ANANTA_QDRANT_BIND_IP:-127.0.0.1}:${ANANTA_QDRANT_GRPC_PORT:-6334}:6334/tcp"
+    networks:
+      - qdrant-worker
+      - qdrant-edge
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec ': >/dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+    cpus: "${ANANTA_QDRANT_CPU_LIMIT:-2.0}"
+    mem_limit: "${ANANTA_QDRANT_MEMORY_LIMIT:-2G}"
+    pids_limit: 256
+    stop_grace_period: 30s
+
+networks:
+  qdrant-worker:
+    internal: true
+  qdrant-edge:
+
+volumes:
+  qdrant-data:
+  qdrant-snapshots:
+
+secrets:
+  qdrant-api-key:
+    file: "${ANANTA_QDRANT_API_KEY_FILE:-../../config/secrets/qdrant-api-key}"
