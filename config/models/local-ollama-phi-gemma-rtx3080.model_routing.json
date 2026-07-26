@@ -69,7 +69,7 @@
       "from_profile": "local_ollama_phi4_mini",
       "to_profile": "local_ollama_gemma4_e4b_reasoning",
       "condition": {
-        "repeated_failure_count": 2
+        "repeated_failure_count": 3
       }
     }
   ]

@@ -430,6 +430,16 @@ def test_local_phi_gemma_group_budget_matches_profile_retry_budgets():
     )
     assert profile_retry_budget == 3
     assert rules.fallback_groups[group_id].max_total_retries == profile_retry_budget
+    repeated_failure_rule = next(
+        rule
+        for rule in rules.escalation_rules
+        if rule.trigger == "repeated_failure"
+    )
+    assert repeated_failure_rule.from_profile == "local_ollama_phi4_mini"
+    assert repeated_failure_rule.to_profile == (
+        "local_ollama_gemma4_e4b_reasoning"
+    )
+    assert repeated_failure_rule.condition["repeated_failure_count"] == 3
 
     resolver = ModelProfileResolver(
         profiles.profiles,
@@ -452,7 +462,9 @@ def test_local_phi_gemma_group_budget_matches_profile_retry_budgets():
         for profile in profiles.profiles
         if profile.profile_id == "local_ollama_gemma4_e4b_reasoning"
     )
-    assert gemma.max_input_tokens() == 8192 - 3072
+    assert gemma.max_input_tokens() == (
+        8192 - 3072 - gemma.system_prompt_prefix_tokens()
+    )
 
 
 def test_profile_context_check_reserves_configured_completion_tokens():
