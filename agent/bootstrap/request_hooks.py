@@ -11,15 +11,26 @@ from agent.config import settings
 
 def configure_audit_logger() -> None:
     audit_file = os.path.join(settings.data_dir, "audit.log")
-    audit_handler = logging.FileHandler(audit_file, encoding="utf-8")
+    normalized_audit_file = os.path.abspath(audit_file)
+    audit_logger = logging.getLogger("audit")
+    audit_handler = next(
+        (
+            handler
+            for handler in audit_logger.handlers
+            if isinstance(handler, logging.FileHandler)
+            and handler.baseFilename == normalized_audit_file
+        ),
+        None,
+    )
+    if audit_handler is None:
+        audit_handler = logging.FileHandler(audit_file, encoding="utf-8")
+        audit_logger.addHandler(audit_handler)
     if settings.log_json:
         audit_handler.setFormatter(JsonFormatter())
     else:
         audit_handler.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s"))
 
-    audit_logger = logging.getLogger("audit")
     audit_logger.setLevel(logging.INFO)
-    audit_logger.addHandler(audit_handler)
     audit_logger.propagate = False
 
 
