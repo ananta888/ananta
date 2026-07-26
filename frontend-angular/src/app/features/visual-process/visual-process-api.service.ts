@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { AgentDirectoryService } from '../../services/agent-directory.service';
+import { ApiResponse, unwrapApiResponse } from '../../services/api-envelope';
 import type { VpDatasetBuildRuntimeView, VpTrainingRuntimeView } from './vp-model-training-contract';
 
 export interface ArtifactRef { name: string; kind: string; required: boolean; description?: string; }
@@ -237,6 +238,9 @@ export class VisualProcessApiService {
   }
 
   listNodeDefinitions(): Observable<NodeDefinitionRegistryResult> {
+    // This route intentionally returns 404 while the Hub registry inspector is
+    // disabled. The editor owns that degraded-state fallback; changing to the
+    // versioned alias would not bypass the same Hub feature gate.
     return this.http.get<NodeDefinitionRegistryResult>(`${this.baseUrl}/api/visual-process/node-definitions`);
   }
 
@@ -251,7 +255,9 @@ export class VisualProcessApiService {
   }
 
   listModelProfiles(): Observable<ModelRoutingProfilesResult> {
-    return this.http.get<ModelRoutingProfilesResult>(`${this.baseUrl}/config/model-routing/profiles`);
+    return unwrapApiResponse<ModelRoutingProfilesResult>(
+      this.http.get<ApiResponse<ModelRoutingProfilesResult>>(`${this.baseUrl}/config/model-routing/profiles`),
+    );
   }
 
   getModelRoutingDiagnostics(): Observable<Record<string, unknown>> {

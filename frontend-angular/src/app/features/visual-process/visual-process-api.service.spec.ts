@@ -4,7 +4,12 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { AgentDirectoryService } from '../../services/agent-directory.service';
-import { VisualProcessApiService, VpGraph, sortValidationIssues } from './visual-process-api.service';
+import {
+  ModelRoutingProfilesResult,
+  VisualProcessApiService,
+  VpGraph,
+  sortValidationIssues,
+} from './visual-process-api.service';
 
 function graph(): VpGraph {
   return { id: 'graph-1', name: 'Graph', description: '', version: '1', tags: [], steps: [], edges: [] };
@@ -32,6 +37,47 @@ describe('VisualProcessApiService definition contracts', () => {
     const request = http.expectOne('http://hub/api/visual-process/node-definitions');
     expect(request.request.method).toBe('GET');
     request.flush({ schema: 'ananta.visual_process.node_definition_registry.v1', definitions: [] });
+  });
+
+  it('unwraps the current Hub envelope for model-routing profiles', () => {
+    const payload: ModelRoutingProfilesResult = {
+      profiles: [],
+      fallback_groups: {
+        local_phi_to_gemma_reasoning: {
+          ordered_profiles: ['local_phi4_mini_primary', 'local_gemma_reasoning_fallback'],
+          max_total_retries: 3,
+        },
+      },
+      status: 'loaded',
+    };
+    let result: ModelRoutingProfilesResult | undefined;
+
+    api.listModelProfiles().subscribe(value => { result = value; });
+    const request = http.expectOne('http://hub/config/model-routing/profiles');
+    expect(request.request.method).toBe('GET');
+    request.flush({ status: 'success', data: payload });
+
+    expect(result).toEqual(payload);
+    expect(result?.fallback_groups.local_phi_to_gemma_reasoning.ordered_profiles).toEqual([
+      'local_phi4_mini_primary',
+      'local_gemma_reasoning_fallback',
+    ]);
+  });
+
+  it('keeps accepting the legacy unwrapped model-routing response', () => {
+    const payload: ModelRoutingProfilesResult = {
+      profiles: [],
+      fallback_groups: {
+        legacy_fallback: { ordered_profiles: ['legacy-primary'] },
+      },
+      status: 'loaded',
+    };
+    let result: ModelRoutingProfilesResult | undefined;
+
+    api.listModelProfiles().subscribe(value => { result = value; });
+    http.expectOne('http://hub/config/model-routing/profiles').flush(payload);
+
+    expect(result).toEqual(payload);
   });
 
   it('keeps the compatibility create path for a new graph', () => {
