@@ -144,6 +144,7 @@ def forward_task_request_if_remote(
 
     mail_lease: dict[str, Any] | None = None
     mail_lease_owner: str | None = None
+    preserve_mail_lease_on_error = False
 
     def release_mail_lease() -> None:
         nonlocal mail_lease
@@ -294,6 +295,7 @@ def forward_task_request_if_remote(
             raise RuntimeError(f"worker_empty_payload:{worker_url}:{endpoint}")
         if isinstance(response, dict):
             if recovery_fenced:
+                rejected_response = None
                 with recovery_gate.result_guard(
                     tid,
                     token=dispatch_lease_token or None,
@@ -307,8 +309,7 @@ def forward_task_request_if_remote(
                     worker_url=str(worker_url),
                 ) as decision:
                     if not decision.allowed:
-                        release_mail_lease()
-                        return TaskScopedRouteResponse(
+                        rejected_response = TaskScopedRouteResponse(
                             data={
                                 "status": "skipped",
                                 "reason": decision.reason_code,
@@ -321,7 +322,15 @@ def forward_task_request_if_remote(
                             ),
                             code=409,
                         )
-                    on_success(response, task)
+                    else:
+                        preserve_mail_lease_on_error = bool(
+                            mail_lease is not None
+                        )
+                        on_success(response, task)
+                if rejected_response is not None:
+                    release_mail_lease()
+                    return rejected_response
+                preserve_mail_lease_on_error = False
             else:
                 on_success(response, task)
             release_mail_lease()
@@ -343,7 +352,13 @@ def forward_task_request_if_remote(
                 return TaskScopedRouteResponse(data=response)
             except Exception:
                 pass
-        release_mail_lease()
+        if preserve_mail_lease_on_error:
+            current_app.logger.warning(
+                "Recovery mail lease retained after result commit failure for task %s",
+                tid,
+            )
+        else:
+            release_mail_lease()
         current_app.logger.error("Forwarding an %s fehlgeschlagen: %s", worker_url, exc)
         raise WorkerForwardingError(details={"details": str(exc), "worker_url": worker_url})
 
@@ -707,10 +722,13 @@ def persist_forwarded_execution(
             result=candidate,
         )
         verification_status["mail_task_result"] = normalized_result
-        get_mail_task_service().release_lease(
-            job_id=tid,
-            fencing_token=int(normalized_result["lease_fencing_token"]),
-        )
+        if not recovery_child:
+            get_mail_task_service().release_lease(
+                job_id=tid,
+                fencing_token=int(
+                    normalized_result["lease_fencing_token"]
+                ),
+            )
     if execution_scope:
         verification_status["execution_scope"] = dict(execution_scope)
     if execution_provenance:

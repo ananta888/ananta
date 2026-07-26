@@ -2288,12 +2288,23 @@ def test_task_scoped_recovery_forward_without_lease_fails_before_transport(
     assert accepted == []
 
 
-@pytest.mark.parametrize("guard_allowed", [False, True])
-def test_recovery_mail_forward_releases_mail_lease_after_guard_decision(
+@pytest.mark.parametrize(
+    ("guard_allowed", "callback_fails", "guard_commit_fails"),
+    [
+        (False, False, False),
+        (True, False, False),
+        (True, True, False),
+        (True, False, True),
+    ],
+)
+def test_recovery_mail_forward_closes_guard_before_lease_resolution(
     app,
     monkeypatch,
     guard_allowed,
+    callback_fails,
+    guard_commit_fails,
 ):
+    from agent.common.errors import WorkerForwardingError
     from agent.config import settings
     from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import mail_task_service, recovery_dispatch_gate_service
@@ -2305,26 +2316,36 @@ def test_recovery_mail_forward_releases_mail_lease_after_guard_decision(
 
         @contextlib.contextmanager
         def result_guard(self, *_args, **_kwargs):
-            yield Record(
-                allowed=guard_allowed,
-                reason_code=(
-                    "recovery_dispatch_lease_valid"
-                    if guard_allowed
-                    else "recovery_dispatch_lease_stale"
-                ),
-            )
+            events.append("guard_enter")
+            try:
+                yield Record(
+                    allowed=guard_allowed,
+                    reason_code=(
+                        "recovery_dispatch_lease_valid"
+                        if guard_allowed
+                        else "recovery_dispatch_lease_stale"
+                    ),
+                )
+            finally:
+                events.append("guard_exit")
+                if guard_commit_fails:
+                    raise RuntimeError("result guard commit failed")
 
+    events = []
     claims = []
     releases = []
+
+    def release_lease(**values):
+        events.append("release")
+        releases.append(dict(values))
+        return True
+
     mail_service = Record(
         claim_for_delegation=lambda **values: (
             claims.append(dict(values))
             or {"fencing_token": 17}
         ),
-        release_lease=lambda **values: (
-            releases.append(dict(values))
-            or True
-        ),
+        release_lease=release_lease,
     )
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
@@ -2349,8 +2370,14 @@ def test_recovery_mail_forward_releases_mail_lease_after_guard_decision(
     )
     accepted = []
 
-    with app.app_context():
-        response = forwarding.forward_task_request_if_remote(
+    def accept_result(*_args):
+        events.append("persist")
+        if callback_fails:
+            raise RuntimeError("result persistence failed")
+        accepted.append(True)
+
+    def call():
+        return forwarding.forward_task_request_if_remote(
             tid="recovery-mail-child",
             task={
                 "id": "recovery-mail-child",
@@ -2368,33 +2395,155 @@ def test_recovery_mail_forward_releases_mail_lease_after_guard_decision(
                 "status": "completed",
                 "output": "guarded",
             },
-            on_success=lambda *_args: accepted.append(True),
+            on_success=accept_result,
         )
 
+    with app.app_context():
+        if callback_fails or guard_commit_fails:
+            with pytest.raises(WorkerForwardingError) as raised:
+                call()
+            assert raised.value.details["details"] == (
+                "result persistence failed"
+                if callback_fails
+                else "result guard commit failed"
+            )
+            response = None
+        else:
+            response = call()
+
     assert len(claims) == 1
-    assert len(releases) == 1
-    owner_ref = releases[0]["owner_ref"]
+    owner_ref = claims[0]["owner_ref"]
     assert claims == [
         {
             "job_id": "recovery-mail-child",
             "owner_ref": owner_ref,
         }
     ]
-    assert releases == [
-        {
-            "job_id": "recovery-mail-child",
-            "fencing_token": 17,
-            "owner_ref": owner_ref,
-        }
-    ]
     assert owner_ref.startswith("hub-worker:")
-    if guard_allowed:
+    if callback_fails or guard_commit_fails:
+        assert response is None
+        assert accepted == ([] if callback_fails else [True])
+        assert releases == []
+        assert events == ["guard_enter", "persist", "guard_exit"]
+    elif guard_allowed:
+        assert releases == [
+            {
+                "job_id": "recovery-mail-child",
+                "fencing_token": 17,
+                "owner_ref": owner_ref,
+            }
+        ]
         assert response.code == 200
         assert accepted == [True]
+        assert events == [
+            "guard_enter",
+            "persist",
+            "guard_exit",
+            "release",
+        ]
     else:
+        assert releases == [
+            {
+                "job_id": "recovery-mail-child",
+                "fencing_token": 17,
+                "owner_ref": owner_ref,
+            }
+        ]
         assert response.code == 409
         assert response.data["reason"] == "recovery_dispatch_lease_stale"
         assert accepted == []
+        assert events == ["guard_enter", "guard_exit", "release"]
+
+
+def test_recovery_mail_persistence_defers_release_until_guard_commit(
+    monkeypatch,
+):
+    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services import (
+        mail_task_service,
+        recovery_worker_result_service,
+    )
+
+    task_id = "recovery-mail-persist"
+    authoritative = Record(
+        id=task_id,
+        status="in_progress",
+        history=[],
+        last_proposal={},
+        verification_status={},
+        status_reason_details={},
+    )
+    monkeypatch.setattr(
+        forwarding,
+        "get_repository_registry",
+        lambda: Record(
+            task_repo=Record(
+                get_by_id=lambda _task_id: authoritative,
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        recovery_worker_result_service,
+        "get_recovery_worker_result_service",
+        lambda: Record(
+            merge_response=lambda **_values: {},
+        ),
+    )
+    validated = []
+    released = []
+
+    def validate_worker_result(*, job_id, result):
+        validated.append((job_id, dict(result)))
+        return dict(result)
+
+    monkeypatch.setattr(
+        mail_task_service,
+        "get_mail_task_service",
+        lambda: Record(
+            validate_worker_result=validate_worker_result,
+            release_lease=lambda **values: released.append(
+                dict(values)
+            ),
+        ),
+    )
+
+    def fail_persistence(*_args, **_kwargs):
+        raise RuntimeError("result persistence failed")
+
+    monkeypatch.setattr(
+        forwarding,
+        "update_local_task_status",
+        fail_persistence,
+    )
+    response = {
+        "schema": "ananta.mail_task_result.v1",
+        "job_id": task_id,
+        "idempotency_key": "mail-idempotency-key",
+        "operation": "send",
+        "status": "completed",
+        "reason_code": None,
+        "retryable": False,
+        "retry_after_ms": None,
+        "provider": "jmap",
+        "result_refs": [],
+        "counters": {},
+        "lease_fencing_token": 17,
+    }
+
+    with pytest.raises(RuntimeError, match="result persistence failed"):
+        forwarding.persist_forwarded_execution(
+            tid=task_id,
+            response=response,
+            task={
+                "id": task_id,
+                "task_kind": "mail_operation",
+                "derivation_reason": "goal_task_recovery",
+            },
+            request_data=Record(command=None),
+        )
+
+    assert validated == [(task_id, response)]
+    assert released == []
 
 
 def test_task_scoped_recovery_forward_never_retries_without_worker_token(
