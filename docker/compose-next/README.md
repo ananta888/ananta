@@ -44,7 +44,11 @@ Die Dev-Varianten sind für Entwicklung ausgelegt:
 
 - Python-Code wird per Flask-Reloader bei Änderungen neu gestartet (`FLASK_DEBUG=1`).
 - Angular läuft mit `ng serve` und aktualisiert automatisch.
-- Repo ist als Bind-Mount eingebunden (`../../:/app`).
+- Laufende Python-Pakete und Konfiguration werden einzeln read-only
+  eingebunden. Dadurch bleiben Hot Reload und Host-Änderungen sichtbar,
+  während `.env`, lokale Schlüssel, Git-Metadaten und Modellblobs nicht in
+  Hub- oder Worker-Container gelangen. Nur `project-workspaces` ist für
+  delegierte Arbeitsartefakte schreibbar.
 
 ## Start
 
@@ -67,6 +71,59 @@ docker compose --env-file .env -f docker/compose-next/compose.dev.lmstudio.yml u
 INITIAL_ADMIN_PASSWORD=... POSTGRES_PASSWORD=... \
 docker compose --env-file .env -f docker/compose-next/compose.dev.ollama.yml up -d --build
 ```
+
+Der Ollama-Stack lädt beim ersten Start `phi4-mini` sowie
+`gemma4:e4b-it-qat` und erzeugt die lokalen Aliase
+`ananta-phi4-mini-32k` und `ananta-gemma4-reasoning-8k`. Mit
+`OLLAMA_DATA_DIR=/home/<user>/ananta-data/ollama` liegt der Modellspeicher als
+normaler WSL2-Bind-Mount außerhalb von Docker-Volumes und kann bei gestopptem
+Ollama-Container direkt gesichert werden. Ohne diese Variable wird
+`../../../ananta-data/ollama` relativ zur Compose-Datei verwendet. Die
+Long-Syntax erzwingt dabei auch für benutzerdefinierte relative Werte einen
+Host-Bind-Mount statt eines Docker-Volumes.
+
+Bereits vorhandene Basismodelle werden beim Start nicht erneut aus der
+Registry geladen. Mit `OLLAMA_BOOTSTRAP_OFFLINE=1` sind Netzwerkzugriffe des
+Modell-Bootstraps deaktiviert; fehlt dann ein erforderliches Basismodell,
+bricht der Stack absichtlich ab. Der frühere GGUF-Autoimport läuft in diesem
+dedizierten Phi-/Gemma-Stack nicht mit.
+
+Vor dem Hub-Start erzeugt ein einmaliger Bootstrap automatisch getrennte
+Workflow-Keyrings unter
+`${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}`.
+Der Hub erhält den privaten Ed25519-Signing- und Dispatch-Keyring, sein eigenes
+Service-/Session-Secret sowie das Worker-Registrierungs-Keyring. Jeder Worker
+erhält ausschließlich den öffentlichen Verification-Keyring und ein eigenes,
+von allen anderen Identitäten getrenntes Service-, Registrierungs- und
+Session-Secret. Strikte registrierte Worker-Authentisierung ist im Stack
+aktiv; inline Secrets und persistierte Token-Rotation sind deaktiviert.
+Vollständige bestehende Credentials werden validiert und unverändert
+wiederverwendet. Ein alter, vollständiger Satz der drei Authorization-Keyrings
+wird transaktional um die neuen Identitätsdateien ergänzt. Jeder andere
+unvollständige Satz bricht fail-closed ab, statt aktive Signaturen oder
+Worker-Identitäten unbemerkt zu rotieren.
+
+Da die strikte Worker-Authentisierung aktiv ist, muss `CORS_ORIGINS` eine
+explizite, kommaseparierte Browser-Origin-Liste enthalten. Die lokalen
+Standardwerte erlauben `http://localhost:4200` und
+`http://127.0.0.1:4200`; bei einem anderen Frontend-Port ist die Variable
+anzupassen.
+
+Der Bootstrap überträgt die Besitzrechte anschließend an
+`${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}`. Für einen abweichenden
+WSL-Benutzer sind beide Werte in `.env` auf die Ausgabe von `id -u` und
+`id -g` zu setzen; die privaten Dateimodi bleiben dabei `0600`.
+
+Alpha und Beta verwenden zudem jeweils eine eigene SQLite-Datenbank im
+zugehörigen `alpha-data`- beziehungsweise `beta-data`-Volume. Nur der Hub
+besitzt den PostgreSQL-Zugang und damit die autoritativen Tasks. Das
+rollenbasierte Image führt `alembic upgrade head` auch für jeden Worker vor
+dem Prozessstart aus, damit ein wiederverwendetes Worker-Volume nicht mit
+einem veralteten Schema startet. Das
+Credential-Verzeichnis ist über `.gitignore` ausgeschlossen, gehört aber zu
+einer vollständigen lokalen Laufzeitsicherung. `.dockerignore` schließt es
+zusätzlich aus jedem Image-Build-Kontext aus. Diese automatisch erzeugten
+Entwicklungs-Credentials dürfen nicht in Produktion übernommen werden.
 
 Das LoRA-Overlay wird ausschließlich über
 `scripts/run-lora-training-stack.sh <Profil>` gestartet. Der Wrapper bindet

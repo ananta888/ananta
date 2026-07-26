@@ -1,0 +1,76 @@
+{
+  "version": "1.0",
+  "_note": "Local-only Phi-4 Mini primary and Gemma 4 E4B QAT fallback for an RTX 3080 (10 GB).",
+  "security_policy": {
+    "block_cloud_with_secrets": true,
+    "allowed_cloud_providers": []
+  },
+  "routing_rules": [
+    {
+      "rule_id": "local-phi4-mini-default",
+      "model_role": "any",
+      "profile_id": "local_ollama_phi4_mini",
+      "enabled": true,
+      "reason": "Use the small local Phi-4 Mini profile as the default for all general work."
+    },
+    {
+      "rule_id": "local-phi4-mini-reasoning-primary",
+      "model_role": "reasoning",
+      "profile_id": "local_ollama_phi4_mini",
+      "enabled": true,
+      "reason": "Keep Phi-4 Mini primary for reasoning work; Gemma remains the ordered recovery fallback."
+    }
+  ],
+  "fallback_chain": [
+    "local_ollama_phi4_mini",
+    "local_ollama_gemma4_e4b_reasoning"
+  ],
+  "fallback_groups": {
+    "local_phi_to_gemma_reasoning": {
+      "ordered_profiles": [
+        "local_ollama_phi4_mini",
+        "local_ollama_gemma4_e4b_reasoning"
+      ],
+      "max_total_retries": 3,
+      "stop_on_policy_block": true,
+      "stop_on_success": true,
+      "cost_policy": {
+        "max_estimated_cost_per_step": 0.0
+      }
+    }
+  },
+  "context_recovery": {
+    "strategies": [
+      "compact_context",
+      "segment_planning",
+      "propose_task_plan",
+      "require_approval",
+      "stop"
+    ],
+    "require_approval_for_generated_plan": true
+  },
+  "escalation_rules": [
+    {
+      "trigger": "provider_unavailable",
+      "from_profile": "local_ollama_phi4_mini",
+      "to_profile": "local_ollama_gemma4_e4b_reasoning",
+      "condition": {}
+    },
+    {
+      "trigger": "schema_validation_failed",
+      "from_profile": "local_ollama_phi4_mini",
+      "to_profile": "local_ollama_gemma4_e4b_reasoning",
+      "condition": {
+        "requires_json": true
+      }
+    },
+    {
+      "trigger": "repeated_failure",
+      "from_profile": "local_ollama_phi4_mini",
+      "to_profile": "local_ollama_gemma4_e4b_reasoning",
+      "condition": {
+        "repeated_failure_count": 2
+      }
+    }
+  ]
+}

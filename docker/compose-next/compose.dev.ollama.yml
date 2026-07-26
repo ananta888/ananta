@@ -9,13 +9,51 @@ services:
       ANANTA_QUICKSTART_ROLE: hub
       FLASK_DEBUG: 1
       DEFAULT_PROVIDER: ollama
-      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434/api/generate}
+      DEFAULT_MODEL: ananta-phi4-mini-32k
+      OLLAMA_MODEL: ananta-phi4-mini-32k
+      OLLAMA_URL: ${COMPOSE_OLLAMA_URL:-http://ollama:11434/api/generate}
+      MODEL_PROFILES_PATH: /app/config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml
+      MODEL_ROUTING_PATH: /app/config/models/local-ollama-phi-gemma-rtx3080.model_routing.json
+      # compose.base.yml supplies an inline development default. This local
+      # stack deliberately clears it so the file-managed Hub key is the sole
+      # session-signing authority.
+      SECRET_KEY: ""
+      ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE: /run/ananta-dev-workflow/workflow-auth-signing-keyring.json
+      ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE: /run/ananta-dev-workflow/workflow-dispatch-keyring.json
+      ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH: "1"
+      ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE: /run/ananta-dev-workflow/worker-registration-keyring.json
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200}
+      AGENT_TOKEN_FILE: /run/ananta-dev-workflow/hub-service-token
+      SECRET_KEY_FILE: /run/ananta-dev-workflow/hub-session-signing-key
+      AGENT_TOKEN_PERSISTENCE: "0"
+      OPENROUTER_API_KEY: ""
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     volumes:
-      - ../../:/app:rw
+      # Mount only live application sources. Runtime secrets, ignored files,
+      # Git metadata and local model blobs never become visible under /app.
+      - ../../agent:/app/agent:ro
+      - ../../worker:/app/worker:ro
+      - ../../ananta_contracts:/app/ananta_contracts:ro
+      - ../../client_runtime:/app/client_runtime:ro
+      - ../../client_surfaces:/app/client_surfaces:ro
+      - ../../src:/app/src:ro
+      - ../../config:/app/config:ro
+      - ../../migrations:/app/migrations:ro
+      - ../../scripts:/app/scripts:ro
+      - ../../prompts:/app/prompts:ro
+      - ../../policies:/app/policies:ro
+      - ../../profiles:/app/profiles:ro
+      - ../../schemas:/app/schemas:ro
+      - ../../simulation:/app/simulation:ro
+      - ../../voice_runtime:/app/voice_runtime:ro
+      - ../../alembic.ini:/app/alembic.ini:ro
       - ../../project-workspaces:/project-workspaces:rw
       - hub-data:/app/data
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}/hub
+        target: /run/ananta-dev-workflow
+        read_only: true
     depends_on:
       postgres:
         condition: service_healthy
@@ -23,6 +61,10 @@ services:
         condition: service_healthy
       ollama:
         condition: service_healthy
+      model-bootstrap:
+        condition: service_completed_successfully
+      workflow-keyring-bootstrap:
+        condition: service_completed_successfully
 
   ai-agent-alpha:
     extends:
@@ -34,23 +76,66 @@ services:
       ANANTA_QUICKSTART_ROLE: worker
       FLASK_DEBUG: 1
       DEFAULT_PROVIDER: ollama
-      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434/api/generate}
+      DEFAULT_MODEL: ananta-phi4-mini-32k
+      OLLAMA_MODEL: ananta-phi4-mini-32k
+      OLLAMA_URL: ${COMPOSE_OLLAMA_URL:-http://ollama:11434/api/generate}
+      MODEL_PROFILES_PATH: /app/config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml
+      MODEL_ROUTING_PATH: /app/config/models/local-ollama-phi-gemma-rtx3080.model_routing.json
+      SECRET_KEY: ""
+      ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE: /run/ananta-dev-workflow/public/workflow-auth-verification-keyring.json
+      ANANTA_WORKFLOW_HUB_URL: http://ai-agent-hub:5000
+      ANANTA_WORKFLOW_HUB_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
+      AGENT_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
+      SECRET_KEY_FILE: /run/ananta-dev-workflow/private/worker-session-signing-key
+      REGISTRATION_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-registration-token
+      AGENT_TOKEN_PERSISTENCE: "0"
+      DISABLE_INITIAL_ADMIN: "1"
+      INITIAL_ADMIN_USER: ""
+      INITIAL_ADMIN_PASSWORD: ""
+      OPENROUTER_API_KEY: ""
       AGENT_NAME: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
       AGENT_URL: http://ai-agent-alpha:5000
       HUB_URL: http://ai-agent-hub:5000
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      # Workers use isolated local databases. They receive an allowlisted task
+      # manifest from the Hub and cannot prewrite authoritative Hub state.
+      DATABASE_URL: sqlite:////app/data/ananta.db
+      REDIS_URL: ""
     volumes:
-      - ../../:/app:rw
+      - ../../agent:/app/agent:ro
+      - ../../worker:/app/worker:ro
+      - ../../ananta_contracts:/app/ananta_contracts:ro
+      - ../../client_runtime:/app/client_runtime:ro
+      - ../../client_surfaces:/app/client_surfaces:ro
+      - ../../src:/app/src:ro
+      - ../../config:/app/config:ro
+      - ../../migrations:/app/migrations:ro
+      - ../../scripts:/app/scripts:ro
+      - ../../prompts:/app/prompts:ro
+      - ../../policies:/app/policies:ro
+      - ../../profiles:/app/profiles:ro
+      - ../../schemas:/app/schemas:ro
+      - ../../simulation:/app/simulation:ro
+      - ../../voice_runtime:/app/voice_runtime:ro
+      - ../../alembic.ini:/app/alembic.ini:ro
       - ../../project-workspaces:/project-workspaces:rw
       - alpha-data:/app/data
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}/worker
+        target: /run/ananta-dev-workflow/public
+        read_only: true
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}/alpha
+        target: /run/ananta-dev-workflow/private
+        read_only: true
     depends_on:
       ai-agent-hub:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
       ollama:
         condition: service_healthy
+      model-bootstrap:
+        condition: service_completed_successfully
+      workflow-keyring-bootstrap:
+        condition: service_completed_successfully
 
   ai-agent-beta:
     extends:
@@ -62,30 +147,71 @@ services:
       ANANTA_QUICKSTART_ROLE: worker
       FLASK_DEBUG: 1
       DEFAULT_PROVIDER: ollama
-      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434/api/generate}
+      DEFAULT_MODEL: ananta-phi4-mini-32k
+      OLLAMA_MODEL: ananta-phi4-mini-32k
+      OLLAMA_URL: ${COMPOSE_OLLAMA_URL:-http://ollama:11434/api/generate}
+      MODEL_PROFILES_PATH: /app/config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml
+      MODEL_ROUTING_PATH: /app/config/models/local-ollama-phi-gemma-rtx3080.model_routing.json
+      SECRET_KEY: ""
+      ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE: /run/ananta-dev-workflow/public/workflow-auth-verification-keyring.json
+      ANANTA_WORKFLOW_HUB_URL: http://ai-agent-hub:5000
+      ANANTA_WORKFLOW_HUB_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
+      AGENT_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
+      SECRET_KEY_FILE: /run/ananta-dev-workflow/private/worker-session-signing-key
+      REGISTRATION_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-registration-token
+      AGENT_TOKEN_PERSISTENCE: "0"
+      DISABLE_INITIAL_ADMIN: "1"
+      INITIAL_ADMIN_USER: ""
+      INITIAL_ADMIN_PASSWORD: ""
+      OPENROUTER_API_KEY: ""
       AGENT_NAME: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
       AGENT_URL: http://ai-agent-beta:5000
       HUB_URL: http://ai-agent-hub:5000
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      # Never share the Hub's PostgreSQL principal or authoritative Task rows.
+      DATABASE_URL: sqlite:////app/data/ananta.db
+      REDIS_URL: ""
     volumes:
-      - ../../:/app:rw
+      - ../../agent:/app/agent:ro
+      - ../../worker:/app/worker:ro
+      - ../../ananta_contracts:/app/ananta_contracts:ro
+      - ../../client_runtime:/app/client_runtime:ro
+      - ../../client_surfaces:/app/client_surfaces:ro
+      - ../../src:/app/src:ro
+      - ../../config:/app/config:ro
+      - ../../migrations:/app/migrations:ro
+      - ../../scripts:/app/scripts:ro
+      - ../../prompts:/app/prompts:ro
+      - ../../policies:/app/policies:ro
+      - ../../profiles:/app/profiles:ro
+      - ../../schemas:/app/schemas:ro
+      - ../../simulation:/app/simulation:ro
+      - ../../voice_runtime:/app/voice_runtime:ro
+      - ../../alembic.ini:/app/alembic.ini:ro
       - ../../project-workspaces:/project-workspaces:rw
       - beta-data:/app/data
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}/worker
+        target: /run/ananta-dev-workflow/public
+        read_only: true
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}/beta
+        target: /run/ananta-dev-workflow/private
+        read_only: true
     depends_on:
       ai-agent-hub:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
       ollama:
         condition: service_healthy
+      model-bootstrap:
+        condition: service_completed_successfully
+      workflow-keyring-bootstrap:
+        condition: service_completed_successfully
 
   angular-frontend:
     extends:
       file: compose.base.yml
       service: angular-frontend-base
     volumes:
-      - ../../:/app:rw
       - frontend-node-modules:/app/frontend-angular/node_modules
     environment:
       ANANTA_QUICKSTART_MODE: role
@@ -109,7 +235,7 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-127.0.0.1:5432}:5432"
 
   redis:
     image: redis:7.4.8-alpine@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6
@@ -122,23 +248,26 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-127.0.0.1:6379}:6379"
 
   ollama:
-    image: ollama/ollama:0.20.7@sha256:487324a9312240e3e122446f351b1f1e3f68d884ef854c246db2e08792440d94
+    image: ollama/ollama:0.32.4@sha256:0ab10b9b9dc5f50d30dc61aec25e3316822ca22cf0f27d4e98d74cc7dedd7c80
     restart: unless-stopped
     gpus: all
     ports:
-      - "11434:11434"
+      - "${OLLAMA_PORT:-127.0.0.1:11434}:11434"
     environment:
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
-      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-2}
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
       OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
     volumes:
-      - ../../.ollama:/root/.ollama
-      - /mnt/c/Users/Public/lm-models:/models:ro
+      # Host bind mount: models remain visible and backupable in WSL, never in
+      # a Docker-managed volume. OLLAMA_DATA_DIR may point to another WSL path.
+      - type: bind
+        source: ${OLLAMA_DATA_DIR:-../../../ananta-data/ollama}
+        target: /root/.ollama
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 30s
@@ -146,18 +275,44 @@ services:
       retries: 10
       start_period: 40s
 
-  autoimport:
-    image: ollama/ollama:0.20.7@sha256:487324a9312240e3e122446f351b1f1e3f68d884ef854c246db2e08792440d94
+  model-bootstrap:
+    image: ollama/ollama:0.32.4@sha256:0ab10b9b9dc5f50d30dc61aec25e3316822ca22cf0f27d4e98d74cc7dedd7c80
+    restart: "no"
     depends_on:
       ollama:
         condition: service_healthy
-    volumes:
-      - ../../autoimport-state:/state
-      - ../../scripts/ollama-autoimport.sh:/usr/local/bin/ollama-autoimport.sh:ro
     environment:
-      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-4096}
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["/bin/sh", "/usr/local/bin/ollama-autoimport.sh"]
+      OLLAMA_BOOTSTRAP_OFFLINE: ${OLLAMA_BOOTSTRAP_OFFLINE:-0}
+    volumes:
+      - ../../config/models/modelfiles:/modelfiles:ro
+      - ../../scripts/ollama-create-ananta-model-aliases.sh:/usr/local/bin/ollama-create-ananta-model-aliases.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/ollama-create-ananta-model-aliases.sh"]
+
+  workflow-keyring-bootstrap:
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
+    restart: "no"
+    working_dir: /app
+    entrypoint: ["python", "/app/scripts/bootstrap-dev-workflow-keyrings.py"]
+    command:
+      - "--root"
+      - "/run/ananta-dev-workflow"
+      - "--alpha-worker-id"
+      - "${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}"
+      - "--beta-worker-id"
+      - "${ANANTA_WORKER_BETA_ID:-ananta-worker-2}"
+      - "--owner-uid"
+      - "${ANANTA_HOST_UID:-1000}"
+      - "--owner-gid"
+      - "${ANANTA_HOST_GID:-1000}"
+    volumes:
+      - ../../scripts/bootstrap-dev-workflow-keyrings.py:/app/scripts/bootstrap-dev-workflow-keyrings.py:ro
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}
+        target: /run/ananta-dev-workflow
 
 volumes:
   hub-data:

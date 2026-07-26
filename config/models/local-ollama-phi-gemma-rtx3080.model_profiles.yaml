@@ -1,0 +1,65 @@
+version: "1.0"
+_note: "Local-only RTX 3080 profile: Phi-4 Mini primary with Gemma 4 E4B QAT reasoning fallback."
+
+profiles:
+  - profile_id: local_ollama_phi4_mini
+    provider_id: ollama
+    model: "ananta-phi4-mini-32k"
+    model_role: any
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_json: true
+    supports_tools: false
+    supports_streaming: true
+    context_tokens: 32768
+    max_context_for_profile: 32768
+    max_output_tokens: 2048
+    timeout_seconds: 180
+    temperature: 0.1
+    cost_class: free
+    quality_class: medium
+    estimated_latency_class: local
+    json_reliability_class: usable
+    tool_calling_mode: prompt_json
+    preferred_for: [chat, summarization, json, tool_selection, small_context]
+    # Initial request + two retries = exactly three Phi attempts before Gemma.
+    retry_budget: 2
+    fallback_group: local_phi_to_gemma_reasoning
+    fallback_rank: 10
+    base_url: "http://ollama:11434/v1"
+    enabled: true
+    notes: "Primary local model. Its small footprint leaves VRAM reserve on an RTX 3080."
+
+  - profile_id: local_ollama_gemma4_e4b_reasoning
+    provider_id: ollama
+    model: "ananta-gemma4-reasoning-8k"
+    model_role: reasoning
+    # Gemma 4 enables Thinking when this token starts the system message.
+    system_prompt_prefix: "<|think|>"
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_json: true
+    supports_tools: false
+    supports_streaming: true
+    context_tokens: 8192
+    max_context_for_profile: 8192
+    max_output_tokens: 3072
+    timeout_seconds: 240
+    temperature: 0.1
+    cost_class: free
+    quality_class: high
+    estimated_latency_class: local
+    json_reliability_class: usable
+    tool_calling_mode: prompt_json
+    preferred_for: [reasoning, planning, analysis, code_review, repeated_failures]
+    # One recovery retry is enough before the Hub chooses a later strategy.
+    retry_budget: 1
+    fallback_group: local_phi_to_gemma_reasoning
+    fallback_rank: 20
+    base_url: "http://ollama:11434/v1"
+    enabled: true
+    notes: "Local QAT Gemma 4 fallback for higher-quality reasoning; no cloud egress."

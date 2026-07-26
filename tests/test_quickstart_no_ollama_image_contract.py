@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -16,6 +15,10 @@ def test_quickstart_dockerfile_uses_role_entrypoint_and_exposes_fullstack_ports(
 
 def test_quickstart_entrypoint_supports_single_image_roles_and_openai_guard() -> None:
     entrypoint = (ROOT / "scripts" / "quickstart-single-image-entrypoint.sh").read_text(encoding="utf-8")
+    worker_body = entrypoint.split("run_worker() {", 1)[1].split(
+        "\n}",
+        1,
+    )[0]
 
     assert "set -euo pipefail" in entrypoint
     assert "ANANTA_QUICKSTART_MODE" in entrypoint
@@ -28,6 +31,9 @@ def test_quickstart_entrypoint_supports_single_image_roles_and_openai_guard() ->
     assert "deerflow_runner" in entrypoint
     assert "ml_intern_runner" in entrypoint
     assert "DEFAULT_PROVIDER=openai requires OPENAI_API_KEY" in entrypoint
+    assert worker_body.index("alembic upgrade head") < worker_body.index(
+        "exec python -m agent.ai_agent"
+    )
 
 
 def test_readme_documents_single_image_fullstack_path() -> None:

@@ -5,6 +5,7 @@
 .claude/
 .codex/
 .opencode/
+.ananta/
 .cache/
 frontend-angular/dist
 frontend-angular/.angular

@@ -55,6 +55,7 @@ run_worker() {
   export PORT="${PORT:-5000}"
   log "Starting worker '${AGENT_NAME:-worker}' on port ${PORT}"
   mkdir -p /app/data
+  alembic upgrade head
   exec python -m agent.ai_agent
 }
 
