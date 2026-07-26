@@ -50,6 +50,38 @@ Die Dev-Varianten sind für Entwicklung ausgelegt:
   Hub- oder Worker-Container gelangen. Nur `project-workspaces` ist für
   delegierte Arbeitsartefakte schreibbar.
 
+## WSL2-Docker-Daemon
+
+Unter aktuellem WSL2 soll genau das native, über `/etc/wsl.conf` aktivierte
+systemd PID 1 sein. Ein älterer Shell-Hook wie
+`/usr/sbin/start-systemd-namespace` in `/etc/bash.bashrc` darf nicht parallel
+weiterlaufen. Die Kombination startet eine zweite systemd-/Docker-Umgebung,
+erzeugt konkurrierende Sockets und kann `docker info` trotz laufender Prozesse
+hängen lassen.
+
+Sichere Diagnose ohne Änderung oder Datenverlust:
+
+```bash
+ps -p 1 -o comm=
+systemctl is-active systemd-logind containerd docker
+timeout 10 docker info
+rg -n 'start-systemd-namespace' /etc/bash.bashrc /etc/profile.d 2>/dev/null
+```
+
+Wenn PID 1 bereits `systemd` ist und der alte Hook noch geladen wird:
+
+1. `/etc/bash.bashrc` mit `sudo cp -a` unter einem eindeutigen Namen sichern.
+2. Nur die Zeile deaktivieren, die `start-systemd-namespace` lädt.
+3. In Windows PowerShell `wsl.exe --shutdown` ausführen und Ubuntu neu öffnen.
+4. Die obigen Prüfungen sowie `docker version` erneut ausführen.
+5. Erst danach den Stack mit seinem expliziten Compose-Pfad starten.
+
+Diese Reparatur benötigt weder das Löschen noch das Neuerstellen von
+Docker-Volumes oder Bind-Mount-Daten. Befehle wie `docker system prune
+--volumes` gehören ausdrücklich nicht zu diesem Ablauf. Weitere
+Windows-/WSL-Hinweise stehen in
+[`../../docs/DOCKER_WINDOWS.md`](../../docs/DOCKER_WINDOWS.md).
+
 ## Start
 
 ```bash
@@ -108,6 +140,28 @@ explizite, kommaseparierte Browser-Origin-Liste enthalten. Die lokalen
 Standardwerte erlauben `http://localhost:4200` und
 `http://127.0.0.1:4200`; bei einem anderen Frontend-Port ist die Variable
 anzupassen.
+
+## Backup und isolierter Restore-Drill
+
+Ein Backup nur von `data/` oder nur der Docker-Volumes ist für diesen Stack
+unvollständig. Die Host-CLI `scripts/ananta-backup.py` erfasst PostgreSQL,
+Hub-/Worker-Volumes, Workflow-Credentials, Projekt-Workspaces sowie die
+reproduzierbare Konfiguration und veröffentlicht ausschließlich ein
+OpenPGP-verschlüsseltes Paket in WSL und auf dem Windows-Known-Folder-Desktop.
+Das WSL-Ziel muss außerhalb `/mnt` liegen.
+
+Routinemäßige State-Backups lassen Ollama-Modellblobs aus. Für ein zusätzliches
+separates Paket nimmt `--include-ollama-models` ausschließlich
+`.ollama/models` auf; die Ollama-Hostidentität `id_ed25519` bleibt immer
+ausgeschlossen. `scripts/ananta-restore.py` führt ausschließlich einen
+isolierten Restore-Drill in ein neues oder leeres WSL-Verzeichnis aus und
+importiert nichts in den Live-Stack.
+
+Key-Verwaltung, exakte Zielregeln, Offline-Kopien, Restore-Prüfungen und
+bekannte Grenzen beschreibt das
+[`lokale Backup-/Restore-Runbook`](../../docs/operator/local-backup-restore.md).
+Bitcoin-Core-Wallets gehören noch nicht zu diesem Stack und werden nicht
+mitgesichert.
 
 Der Bootstrap überträgt die Besitzrechte anschließend an
 `${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}`. Für einen abweichenden

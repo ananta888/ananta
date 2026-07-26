@@ -201,9 +201,25 @@ docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docke
 3. **Dashboards**: Basis-Dashboards für System-Metriken und Ananta-Logs werden automatisch über Provisioning (`docker/grafana/provisioning`) geladen.
 
 ### Datensicherung (Backup)
-Alle relevanten Daten liegen im Verzeichnis `data/`. Zur Sicherung genügt ein Backup dieses Ordners:
-- SQLModel-Datenbank (Postgres/SQLite) f?r Tasks/Templates/Teams/Rollen.
-- `config.json`: Agent-Konfigurationen.
+
+Ein Backup nur des Verzeichnisses `data/` ist nicht vollständig. Der lokale
+Compose-Stack verteilt seinen wiederherstellbaren Zustand auf PostgreSQL,
+Hub-/Worker-Volumes, Workflow-Credentials, Projekt-Workspaces und
+Konfigurationsdateien. Ollama-Modelle liegen zusätzlich in einem WSL2-
+Bind-Mount.
+
+Für konsistente, OpenPGP-verschlüsselte Sicherungen stehen die Host-CLIs
+`scripts/ananta-backup.py` und `scripts/ananta-restore.py` bereit. Das
+Routine-Backup lässt Modelle aus; ein getrenntes Paket mit
+`--include-ollama-models` nimmt ausschließlich `.ollama/models` hinzu. Der
+Restore ist immer ein isolierter Verifikations-Drill und importiert nicht in
+den laufenden Stack.
+
+Ziele, Recovery-Key, Windows-Kopie, Offline-Medien und der vollständige Ablauf
+sind im
+[`lokalen Backup-/Restore-Runbook`](operator/local-backup-restore.md)
+dokumentiert. Bitcoin-Core-Wallets sind noch nicht Teil dieses Stacks oder
+dieses Backups.
 
 ### Skalierung
 Weitere Worker-Agenten können einfach hinzugefügt werden, indem neue Instanzen des Agents auf anderen Ports gestartet und im Hub/Frontend registriert werden.
