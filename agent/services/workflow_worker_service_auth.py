@@ -551,6 +551,7 @@ def validate_strict_worker_registration(
             user_session_secret=session_secret,
         )
 
+    other_service_tokens: list[str] = []
     for agent in agents:
         existing_id = str(getattr(agent, "name", "") or "").strip()
         existing_url = _normalize_worker_url(getattr(agent, "url", ""))
@@ -571,6 +572,8 @@ def validate_strict_worker_registration(
                 "workflow_worker_service_token_conflict",
                 status_code=409,
             )
+        if existing_token and not same_identity:
+            other_service_tokens.append(existing_token)
     if not secrets.compare_digest(
         _credential_sha256(service_token),
         credential.service_token_sha256,
@@ -583,7 +586,7 @@ def validate_strict_worker_registration(
         user_session_secret=session_secret,
         hub_service_token=hub_service_token,
         worker_service_tokens=(
-            *(str(getattr(agent, "token", "") or "") for agent in agents),
+            *other_service_tokens,
             service_token,
         ),
         config=config,

@@ -744,6 +744,30 @@ def test_registration_allows_service_token_rotation_for_same_bound_identity(
     assert credential.worker_id == "worker-alpha"
 
 
+def test_registration_refresh_is_idempotent_for_same_bound_identity(
+    tmp_path,
+) -> None:
+    keyring = tmp_path / "worker-registration-keyring.json"
+    _write_keyring(keyring)
+    existing = _agent(
+        name="worker-alpha",
+        url="http://worker-alpha:5000",
+        token=ALPHA_TOKEN,
+        capabilities=["workflow.adapter.native"],
+    )
+
+    credential = validate_strict_worker_registration(
+        _registration(),
+        registered_agents=[existing],
+        hub_service_token=HUB_TOKEN,
+        config={
+            "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(keyring)
+        },
+    )
+
+    assert credential.worker_id == "worker-alpha"
+
+
 def test_registration_rejects_cross_keyring_secret_reuse_matrix(tmp_path) -> None:
     runtime_keyring = tmp_path / "runtime-keyring.json"
     _write_runtime_keyring(runtime_keyring)
