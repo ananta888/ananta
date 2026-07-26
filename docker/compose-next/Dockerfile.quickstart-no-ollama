@@ -8,6 +8,8 @@ FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a7
 
 ARG DEBIAN_SNAPSHOT=20260715T000000Z
 ARG INSTALL_LANGGRAPH_RUNTIME=0
+ARG ANANTA_RUNTIME_UID=1000
+ARG ANANTA_RUNTIME_GID=1000
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -39,6 +41,25 @@ RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99snaps
     git \
     && rm -rf /var/lib/apt/lists/*
 
+# The development stack runs Python processes as the WSL owner. Keep a real
+# passwd/group identity in the image so subprocesses and third-party CLIs can
+# resolve that numeric identity instead of failing on getpwuid()/whoami.
+RUN case "${ANANTA_RUNTIME_UID}" in \
+        ""|*[!0-9]*) echo "ANANTA_RUNTIME_UID must be a positive integer" >&2; exit 64 ;; \
+    esac \
+    && case "${ANANTA_RUNTIME_GID}" in \
+        ""|*[!0-9]*) echo "ANANTA_RUNTIME_GID must be a positive integer" >&2; exit 64 ;; \
+    esac \
+    && test "${ANANTA_RUNTIME_UID}" -gt 0 \
+    && test "${ANANTA_RUNTIME_GID}" -gt 0 \
+    && groupadd --gid "${ANANTA_RUNTIME_GID}" ananta \
+    && useradd --uid "${ANANTA_RUNTIME_UID}" \
+        --gid "${ANANTA_RUNTIME_GID}" \
+        --home-dir /app/data/home \
+        --no-create-home \
+        --shell /bin/bash \
+        ananta
+
 # Docker/Compose client only. Host access remains disabled unless the explicit
 # compose.ops-control.yml boundary overlay is selected by an operator.
 COPY --from=docker_cli /usr/local/bin/docker /usr/local/bin/docker
@@ -59,13 +80,15 @@ RUN npm i -g "opencode-ai@${OPENCODE_AI_VERSION}" \
 
 WORKDIR /app
 
-# Allow git to read the /app volume (owned by host UID 1000) from root inside the container.
-RUN git config --global --add safe.directory /app
+# Allow both root bootstrap commands and the runtime identity to read /app.
+RUN git config --system --add safe.directory /app
 
 # Kopiere Release-Lockdatei und installiere Python-Runtime-Pakete (Caching nutzen)
 COPY requirements.lock .
+COPY requirements-dev.lock .
 COPY docker/compose-next/requirements.langgraph-worker.lock /tmp/requirements.langgraph-worker.lock
 RUN pip install --no-cache-dir -r requirements.lock \
+    && pip install --no-cache-dir -c requirements-dev.lock "pytest==9.0.3" \
     && case "${INSTALL_LANGGRAPH_RUNTIME}" in \
         0) ;; \
         1) pip install --no-cache-dir -r /tmp/requirements.langgraph-worker.lock \

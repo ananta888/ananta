@@ -14,12 +14,12 @@ handlers:
     class: logging.FileHandler
     formatter: simple
     level: INFO
-    filename: app.log
+    filename: data/app.log
   audit_file:
     class: logging.FileHandler
     formatter: json
     level: INFO
-    filename: audit.log
+    filename: data/audit.log
 loggers:
   audit:
     handlers: [audit_file]

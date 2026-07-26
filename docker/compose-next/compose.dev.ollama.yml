@@ -3,10 +3,13 @@ services:
     extends:
       file: compose.base.yml
       service: ai-agent-hub-base
+    user: "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
     command: sh -c "alembic upgrade head && exec python -m agent.ai_agent"
     environment:
       ANANTA_QUICKSTART_MODE: role
       ANANTA_QUICKSTART_ROLE: hub
+      HOME: /app/data/home
+      XDG_CACHE_HOME: /app/data/cache
       FLASK_DEBUG: 1
       DEFAULT_PROVIDER: ollama
       DEFAULT_MODEL: ananta-phi4-mini-32k
@@ -65,15 +68,20 @@ services:
         condition: service_completed_successfully
       workflow-keyring-bootstrap:
         condition: service_completed_successfully
+      runtime-data-bootstrap:
+        condition: service_completed_successfully
 
   ai-agent-alpha:
     extends:
       file: compose.base.yml
       service: ai-agent-worker-base
+    user: "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
     command: sh -c "alembic upgrade head && exec python -m agent.ai_agent"
     environment:
       ANANTA_QUICKSTART_MODE: role
       ANANTA_QUICKSTART_ROLE: worker
+      HOME: /app/data/home
+      XDG_CACHE_HOME: /app/data/cache
       FLASK_DEBUG: 1
       DEFAULT_PROVIDER: ollama
       DEFAULT_MODEL: ananta-phi4-mini-32k
@@ -136,15 +144,20 @@ services:
         condition: service_completed_successfully
       workflow-keyring-bootstrap:
         condition: service_completed_successfully
+      runtime-data-bootstrap:
+        condition: service_completed_successfully
 
   ai-agent-beta:
     extends:
       file: compose.base.yml
       service: ai-agent-worker-base
+    user: "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
     command: sh -c "alembic upgrade head && exec python -m agent.ai_agent"
     environment:
       ANANTA_QUICKSTART_MODE: role
       ANANTA_QUICKSTART_ROLE: worker
+      HOME: /app/data/home
+      XDG_CACHE_HOME: /app/data/cache
       FLASK_DEBUG: 1
       DEFAULT_PROVIDER: ollama
       DEFAULT_MODEL: ananta-phi4-mini-32k
@@ -206,19 +219,26 @@ services:
         condition: service_completed_successfully
       workflow-keyring-bootstrap:
         condition: service_completed_successfully
+      runtime-data-bootstrap:
+        condition: service_completed_successfully
 
   angular-frontend:
     extends:
       file: compose.base.yml
       service: angular-frontend-base
+    user: "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
     volumes:
-      - frontend-node-modules:/app/frontend-angular/node_modules
+      - frontend-node-modules:/app/frontend-angular/node_modules:ro
     environment:
       ANANTA_QUICKSTART_MODE: role
       ANANTA_QUICKSTART_ROLE: frontend
+      HOME: /app/frontend-angular/.angular/home
+      XDG_CACHE_HOME: /app/frontend-angular/.angular/cache
     depends_on:
       ai-agent-hub:
         condition: service_healthy
+      runtime-data-bootstrap:
+        condition: service_completed_successfully
 
   postgres:
     image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
@@ -293,8 +313,18 @@ services:
     build:
       context: ../..
       dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+      args:
+        ANANTA_RUNTIME_UID: ${ANANTA_HOST_UID:-1000}
+        ANANTA_RUNTIME_GID: ${ANANTA_HOST_GID:-1000}
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     restart: "no"
+    user: "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
+    network_mode: "none"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     working_dir: /app
     entrypoint: ["python", "/app/scripts/bootstrap-dev-workflow-keyrings.py"]
     command:
@@ -308,11 +338,57 @@ services:
       - "${ANANTA_HOST_UID:-1000}"
       - "--owner-gid"
       - "${ANANTA_HOST_GID:-1000}"
+    depends_on:
+      runtime-data-bootstrap:
+        condition: service_completed_successfully
     volumes:
       - ../../scripts/bootstrap-dev-workflow-keyrings.py:/app/scripts/bootstrap-dev-workflow-keyrings.py:ro
       - type: bind
         source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}
         target: /run/ananta-dev-workflow
+
+  runtime-data-bootstrap:
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+      args:
+        ANANTA_RUNTIME_UID: ${ANANTA_HOST_UID:-1000}
+        ANANTA_RUNTIME_GID: ${ANANTA_HOST_GID:-1000}
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
+    restart: "no"
+    user: "0:0"
+    network_mode: "none"
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_READ_SEARCH
+    security_opt:
+      - no-new-privileges:true
+    working_dir: /app
+    entrypoint: ["python", "/app/scripts/bootstrap-dev-runtime-ownership.py"]
+    command:
+      - "--data-root"
+      - "/run/ananta-dev-data"
+      - "--workspace-root"
+      - "/project-workspaces"
+      - "--credential-root"
+      - "/run/ananta-dev-workflow"
+      - "--owner-uid"
+      - "${ANANTA_HOST_UID:-1000}"
+      - "--owner-gid"
+      - "${ANANTA_HOST_GID:-1000}"
+    volumes:
+      - ../../scripts/bootstrap-dev-runtime-ownership.py:/app/scripts/bootstrap-dev-runtime-ownership.py:ro
+      - ../../project-workspaces:/project-workspaces
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}
+        target: /run/ananta-dev-workflow
+      - hub-data:/run/ananta-dev-data/hub
+      - alpha-data:/run/ananta-dev-data/alpha
+      - beta-data:/run/ananta-dev-data/beta
+      - frontend-angular-cache:/run/ananta-dev-data/frontend-angular-cache
 
 volumes:
   hub-data:

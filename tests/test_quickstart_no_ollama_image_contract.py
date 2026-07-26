@@ -11,6 +11,9 @@ def test_quickstart_dockerfile_uses_role_entrypoint_and_exposes_fullstack_ports(
     assert "services/evolver_bridge" in dockerfile
     assert "opencode-ai@" in dockerfile
     assert "ollama/ollama" not in dockerfile
+    assert "ARG ANANTA_RUNTIME_UID=1000" in dockerfile
+    assert "ARG ANANTA_RUNTIME_GID=1000" in dockerfile
+    assert "--no-create-home" in dockerfile
 
 
 def test_quickstart_entrypoint_supports_single_image_roles_and_openai_guard() -> None:
@@ -19,6 +22,14 @@ def test_quickstart_entrypoint_supports_single_image_roles_and_openai_guard() ->
         "\n}",
         1,
     )[0]
+    agent_only_body = entrypoint.split("run_agent_only() {", 1)[1].split(
+        "\n}",
+        1,
+    )[0]
+    single_container_body = entrypoint.split(
+        "run_single_container() {",
+        1,
+    )[1].split("\n}", 1)[0]
 
     assert "set -euo pipefail" in entrypoint
     assert "ANANTA_QUICKSTART_MODE" in entrypoint
@@ -34,6 +45,8 @@ def test_quickstart_entrypoint_supports_single_image_roles_and_openai_guard() ->
     assert worker_body.index("alembic upgrade head") < worker_body.index(
         "exec python -m agent.ai_agent"
     )
+    assert "prepare_runtime_directories" in agent_only_body
+    assert "prepare_runtime_directories" in single_container_body
 
 
 def test_readme_documents_single_image_fullstack_path() -> None:

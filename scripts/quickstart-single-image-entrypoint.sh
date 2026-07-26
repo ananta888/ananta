@@ -25,36 +25,45 @@ require_openai_key_if_needed() {
   fi
 }
 
-ensure_pytest_available() {
-  if command -v pytest >/dev/null 2>&1; then
-    return
+prepare_runtime_directories() {
+  local runtime_file
+  umask 077
+  mkdir -p /app/data
+  if [[ -n "${HOME:-}" ]]; then
+    mkdir -p "${HOME}"
   fi
-  log "pytest not found; installing via pip"
-  python -m pip install --no-cache-dir pytest >/dev/null
-  if ! command -v pytest >/dev/null 2>&1; then
-    error_exit "pytest installation failed"
+  if [[ -n "${XDG_CACHE_HOME:-}" ]]; then
+    mkdir -p "${XDG_CACHE_HOME}"
   fi
-  log "pytest installed"
+  for runtime_file in /app/data/app.log /app/data/audit.log; do
+    if [[ -L "$runtime_file" ]]; then
+      error_exit "Refusing symlinked runtime log: ${runtime_file}"
+    fi
+    if [[ -e "$runtime_file" && ! -f "$runtime_file" ]]; then
+      error_exit "Runtime log is not a regular file: ${runtime_file}"
+    fi
+    if [[ -f "$runtime_file" ]]; then
+      chmod 0600 "$runtime_file"
+    fi
+  done
 }
 
 run_hub() {
   require_openai_key_if_needed
-  ensure_pytest_available
   export ROLE=hub
   export PORT="${PORT:-5000}"
   log "Starting hub on port ${PORT}"
-  mkdir -p /app/data
+  prepare_runtime_directories
   alembic upgrade head
   exec python -m agent.ai_agent
 }
 
 run_worker() {
   require_openai_key_if_needed
-  ensure_pytest_available
   export ROLE=worker
   export PORT="${PORT:-5000}"
   log "Starting worker '${AGENT_NAME:-worker}' on port ${PORT}"
-  mkdir -p /app/data
+  prepare_runtime_directories
   alembic upgrade head
   exec python -m agent.ai_agent
 }
@@ -62,6 +71,13 @@ run_worker() {
 run_frontend() {
   local frontend_port frontend_poll disable_host_check
   local -a command
+  umask 077
+  if [[ -n "${HOME:-}" ]]; then
+    mkdir -p "${HOME}"
+  fi
+  if [[ -n "${XDG_CACHE_HOME:-}" ]]; then
+    mkdir -p "${XDG_CACHE_HOME}"
+  fi
   frontend_port="${FRONTEND_PORT:-4200}"
   frontend_poll="${FRONTEND_POLL_MS:-2000}"
   disable_host_check="$(normalize_lower "${ANANTA_FRONTEND_DISABLE_HOST_CHECK:-1}")"
@@ -123,6 +139,7 @@ run_agent_only() {
     exec "$@"
   fi
   log "Agent-only fallback command (hub bootstrap)"
+  prepare_runtime_directories
   exec sh -c "alembic upgrade head && exec python -m agent.ai_agent"
 }
 
@@ -153,6 +170,7 @@ run_single_container() {
   frontend_port="${FRONTEND_PORT:-4200}"
   frontend_poll="${FRONTEND_POLL_MS:-2000}"
   require_openai_key_if_needed
+  prepare_runtime_directories
 
   trap cleanup_children INT TERM
 

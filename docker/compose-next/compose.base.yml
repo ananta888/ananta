@@ -3,6 +3,9 @@ services:
     build:
       context: ../..
       dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+      args:
+        ANANTA_RUNTIME_UID: ${ANANTA_HOST_UID:-1000}
+        ANANTA_RUNTIME_GID: ${ANANTA_HOST_GID:-1000}
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     restart: unless-stopped
     working_dir: /app
@@ -58,6 +61,9 @@ services:
     build:
       context: ../..
       dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+      args:
+        ANANTA_RUNTIME_UID: ${ANANTA_HOST_UID:-1000}
+        ANANTA_RUNTIME_GID: ${ANANTA_HOST_GID:-1000}
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     restart: unless-stopped
     working_dir: /app
@@ -92,6 +98,9 @@ services:
     build:
       context: ../..
       dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+      args:
+        ANANTA_RUNTIME_UID: ${ANANTA_HOST_UID:-1000}
+        ANANTA_RUNTIME_GID: ${ANANTA_HOST_GID:-1000}
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     restart: unless-stopped
     working_dir: /app/frontend-angular
@@ -106,10 +115,10 @@ services:
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     ports:
       - "${FRONTEND_PORT:-4200}:4200"
-    # Mount the host frontend-angular source so ng serve picks up local edits.
-    # node_modules + .angular cache come from named volumes so the host
-    # bind-mount does not wipe the npm install baked into the image.
+    # Mount the host frontend-angular source read-only so ng serve observes
+    # local edits without allowing the container to modify the checkout.
+    # node_modules is read-only; only the separate .angular cache is writable.
     volumes:
-      - ../../frontend-angular:/app/frontend-angular:rw
-      - frontend-node-modules:/app/frontend-angular/node_modules
+      - ../../frontend-angular:/app/frontend-angular:ro
+      - frontend-node-modules:/app/frontend-angular/node_modules:ro
       - frontend-angular-cache:/app/frontend-angular/.angular
