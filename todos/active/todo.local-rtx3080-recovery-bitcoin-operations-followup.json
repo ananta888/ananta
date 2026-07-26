@@ -24,8 +24,8 @@
     "wallet"
   ],
   "review_basis": {
-    "reviewed_commit_range": "origin/main@0332a75a plus the local Ananta recovery working tree reviewed on 2026-07-26",
-    "review_goal": "Nur die nach der Hub-owned Recovery-Implementierung noch offenen oder live nicht verifizierbaren Arbeiten erfassen; abgeschlossene Implementierung nicht erneut planen.",
+    "reviewed_commit_range": "origin/main@f887f240669a plus the local Docker, model-routing, Visual Process and encrypted backup/restore working tree reviewed and accepted on 2026-07-26",
+    "review_goal": "Abgeschlossene Docker-/GPU-/Live-Reload-Arbeiten mit Laufzeitnachweisen markieren und nur die nach der verschlüsselten Backup-/Restore-Abnahme verbleibenden Betriebs-, Bitcoin- und Quality-Gate-Arbeiten offen halten.",
     "reviewed_paths": [
       "agent/repositories/tasks.py",
       "agent/services/recovery_dispatch_gate_service.py",
@@ -39,14 +39,21 @@
       "docker/compose-next/compose.dev.ollama.yml",
       "frontend-angular/src/app/features/visual-process/",
       "scripts/bootstrap-dev-workflow-keyrings.py",
+      "scripts/ananta-backup.py",
+      "scripts/ananta-restore.py",
+      "scripts/ananta_backup/",
+      "tests/backup/",
       "tests/test_recovery_status_cas_policy.py"
     ],
     "runtime_evidence": {
-      "frontend_http": "Port 4200 antwortete mit HTTP 200.",
-      "docker_daemon": "docker info lief in WSL2 wiederholt in den 10-Sekunden-Timeout; ein echter Compose-Neustart war deshalb nicht möglich.",
-      "gpu": "RTX 3080 mit 10240 MiB VRAM war zuvor in WSL2 sichtbar.",
-      "gemma_reasoning_probe": "Ein direkter lokaler Ollama-Chat-Probe mit dem Thinking-Präfix lieferte getrennte Reasoning-Daten und eine finale Antwort; die automatische Profilanwendung ist implementiert, aber noch nicht nach einem Compose-Neustart abgenommen.",
-      "focused_recovery_review": "Kein offener P2-Blocker nach unabhängiger Reproduktion; der verbleibende nichtterminale CAS-Punkt ist ein Hardening-Follow-up.",
+      "frontend_http": "Angular auf Port 4200 und der Hub auf Port 5000 antworteten nach den Compose-Recreates; alle Hauptdienste liefen getrennt und der Hub war healthy.",
+      "docker_daemon": "Der doppelte WSL-Systemd-Startpfad wurde deaktiviert; nativer systemd PID 1 betreibt Docker 29.1.3 und containerd stabil, ohne Volumes oder Bind-Mount-Daten zu löschen.",
+      "gpu": "Die externe RTX 3080 war in WSL2/Ollama mit 10240 MiB VRAM sichtbar. Phi-4-mini lief mit num_ctx=32768 bei ungefähr 7414 MiB GPU-Belegung; Gemma lief mit num_ctx=8192 bei ungefähr 5038 MiB.",
+      "fallback": "Ein erzwungener Lauf belegte exakt drei fehlgeschlagene Phi-Aufrufe und einen erfolgreichen Gemma-Aufruf im vierten Versuch. 80 fokussierte Recovery-/Planungsprüfungen bestanden.",
+      "live_reload": "Python- und Angular-Live-Reload wurden ohne Image-Rebuild abgenommen. Änderungen in gemeinsam gemounteten Python-Quellen werden erwartungsgemäß von Hub, Alpha und Beta erkannt; die Services bleiben getrennte Container, besitzen aber keine reloader-selektive Dateibaum-Isolation. Ein echter Chromium-Roundtrip speicherte local_phi_to_gemma_reasoning, propose_task_plan und require_approval über die Hub-API und lud sie nach Browser-Reload korrekt.",
+      "backup_restore": "50 Backup-Prüfungen bestanden; ein externer GPG/zstd-Test blieb nur im minimalen Test-Image übersprungen. Der aktuelle Host-E2E erzeugte zwei identische verschlüsselte Pakete mit 732530 Bytes und SHA-256 6f01c7e9129db8ef90a3a984c0b147e1db69babaf4a22ede218e846c036b8c14. Der Restore aus der Windows-/OneDrive-Kopie nutzte für Preflight und Vollprüfung denselben privaten, erneut gehashten WSL-Ciphertext-Snapshot und bestand pg_restore, PostgreSQL-Katalogabfrage, beide SQLite-Integritätsprüfungen sowie die kryptografische Workflow-Credential-Bindung. Testpakete, entschlüsseltes Ziel, Testschlüssel und ephemerer PostgreSQL-Container wurden danach entfernt.",
+      "ollama_backup_scope": "Die realen Ollama-Manifeste und alle referenzierten Blobs im ungefähr 8,1-GB-Modellbaum bestanden Hash- und Größenprüfung. Der Host-E2E nutzte für die schnelle Routineabnahme bewusst das getrennte State-Paket ohne Modellblobs.",
+      "focused_recovery_review": "Kein offener P0/P1-Befund nach unabhängiger Reproduktion; der verbleibende nichtterminale CAS-Punkt ist Defense-in-Depth-Hardening.",
       "bitcoin": "Im aktuellen Arbeitsbaum wurde noch kein Bitcoin-Core-Pruned-Node und keine Wallet-Backup-Automation implementiert."
     }
   },
@@ -153,7 +160,7 @@
         {
           "id": "OPS-DOCKER-001",
           "title": "WSL2 Docker- und containerd-Daemon wiederherstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "operations",
@@ -172,7 +179,7 @@
         {
           "id": "OPS-GPU-002",
           "title": "Phi-4-mini 32K und Gemma-Fallback 8K auf RTX 3080 live abnehmen",
-          "status": "partial",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "acceptance",
@@ -195,7 +202,7 @@
         {
           "id": "OPS-LIVERELOAD-003",
           "title": "Angular- und Python-Live-Reload im Compose-Stack verifizieren",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "acceptance",
@@ -208,7 +215,7 @@
           ],
           "acceptance_criteria": [
             "Eine Angular-Änderung erscheint ohne Image-Rebuild im Browser.",
-            "Änderungen in Hub- und Worker-Python-Code starten ausschließlich den betroffenen Development-Service neu.",
+            "Änderungen in den gemeinsam gemounteten Python-Quellen werden von Hub und Workern ohne Image-Rebuild erkannt; die gemeinsame Reloader-Sicht und dadurch mögliche gleichzeitige Development-Neustarts sind dokumentiert.",
             "Hub, jeder Worker, Angular und Ollama bleiben getrennte Container.",
             "Der Visual-Process-Editor speichert und lädt Retry-Budget, Fallback, Kontext- und Recovery-Strategien vollständig.",
             "Ein Browser-E2E-Lauf steuert den Angular-Editor über die Ananta-API, nicht über die TUI."
@@ -223,7 +230,7 @@
         {
           "id": "OPS-BACKUP-004",
           "title": "Zwei schnelle, überprüfbare Backup-Wege für WSL2 und Windows bereitstellen",
-          "status": "open",
+          "status": "partial",
           "priority": "P0",
           "risk": "critical",
           "type": "operations",
@@ -235,6 +242,12 @@
             "docker/compose-next/"
           ],
           "description": "Ein lokales versioniertes Backup im WSL2-Dateisystem und eine zusätzlich verschlüsselte Kopie auf dem Windows-11-Desktop bereitstellen.",
+          "completion_evidence": [
+            "Host-CLIs für Dry-Run, verschlüsseltes No-Clobber-Backup und isolierten Restore-Drill sind implementiert.",
+            "Der echte State-Backup-/Restore-Drill vom 2026-07-26 bestand inklusive Windows-OneDrive-Desktop-Publikation und echtem pg_restore.",
+            "Eine dauerhafte Benutzerkopie wurde noch nicht erzeugt, weil noch kein separat gesicherter Recovery-Public-Key des Benutzers vorliegt.",
+            "Der optionale vollständige 8,1-GB-Ollama-Modellpaket-Restore und zwei physisch getrennte Offline-Kopien bleiben operative Abnahmepunkte."
+          ],
           "acceptance_criteria": [
             "Ollama-Modelle, Ananta-Konfiguration, Datenbank, relevante Workspaces und später die Bitcoin-Wallet werden über explizite Bind-Mount-Pfade inventarisiert.",
             "Backup und Restore besitzen jeweils einen Dry-Run und verständliche Prüfsummen-Ausgabe.",
@@ -351,24 +364,26 @@
   "meta": {
     "total_items": 11,
     "by_status": {
-      "completed": 0,
-      "partial": 3,
-      "open": 8
+      "completed": 3,
+      "partial": 2,
+      "open": 6
     },
     "notes": [
       "Die Hub-owned Recovery-Implementierung selbst ist nicht Teil dieser offenen Liste; sie wurde in fokussierten und breiten Tests geprüft.",
-      "Der Docker-Compose-Vertrag ist syntaktisch valide, aber der WSL2-Docker-Daemon blockiert derzeit die echte Live-Abnahme.",
+      "Docker/WSL2, GPU/Fallback und Live-Reload sind live abgenommen; der erwartete 404 für die deaktivierte Visual-Process-Registry wird durch die vorhandene Offline-Registry abgefangen.",
       "ARF-CAS-001 ist laut unabhängigem Review kein aktueller P2-Blocker, weil kein API-Pfad beliebige interne CAS-Felder durchreicht; es bleibt Defense-in-Depth-Hardening.",
       "OPS-SOLID-005 erfasst die bestehende SRP-Schuld des lokalen Credential-Bootstraps; sie blockiert den Development-Stack nicht.",
+      "Die Drei-Versuche-Grenze wird zur Laufzeit durch das Profil-Retry-Budget erzwungen; repeated_failure_count im Routing-Dokument ist derzeit nur ausgerichtete Metadaten. Diese doppelte Policy-Darstellung bleibt eine kleine SOLID-/Single-Source-of-Truth-Schuld.",
+      "QA-REL-001 bleibt teilweise offen: pip check meldet die bereits bestehende Lockfile-Abweichung, dass das in pyproject.toml deklarierte langdetect in requirements.lock fehlt. Vitest benötigt außerdem einen schreibbaren Vite-Temp-Pfad und läuft deshalb gegen den read-only Development-Stack in einem gehärteten ephemeren Testcontainer; Angular-Watch und Production-Build sind grün.",
+      "OPS-BACKUP-004 bleibt teilweise offen: Der Drill-Schlüssel und alle Acceptance-Artefakte wurden absichtlich entfernt. Für die dauerhafte WSL-/Desktop-Sicherung muss der Benutzer einen separat wiederherstellbaren OpenPGP-Public-Key bereitstellen und danach zwei physisch getrennte Offline-Kopien erzeugen.",
+      "Das Routine-State-Backup umfasst Konfiguration, PostgreSQL, Hub-/Worker-Volumes, Workflow-Secrets und Workspaces. Ollama-Modelle sind ein optionales getrenntes Paket; Bitcoin-Core- und Wallet-Daten sind noch nicht Teil dieses Stacks.",
+      "Bekannte Backup-P2-Grenzen: unsigned OpenPGP authentisiert die Herkunft nicht, das Task-Gate ist kein vollständiger Hub-Drain, allgemeine Unterprozesse besitzen noch keine harten Timeouts/Filesystem-Hard-Quota, reguläre TreePlan-Dateien sind noch nicht vollständig gegen Same-UID-Pfadtausch verankert, SIGKILL/Stromausfall kann private Klartext-Staging-Verzeichnisse hinterlassen, der Restore-Publish ersetzt im Rennen noch ein neu erzeugtes leeres Ziel und ComposeAdapter trägt weiterhin mehrere Infrastrukturverantwortlichkeiten (SRP/DIP).",
       "Bitcoin Core, Wallet-Erstellung und Wallet-Backups sind noch nicht implementiert und dürfen erst nach expliziter Sicherheits- und Restore-Abnahme für Mainnet verwendet werden.",
       "Diese TODO autorisiert weder einen Bitcoin-Kauf noch die Verarbeitung einer Wallet-Passphrase durch Automatisierung."
     ],
     "recommended_order": [
-      "OPS-DOCKER-001",
-      "OPS-GPU-002",
-      "OPS-LIVERELOAD-003",
-      "QA-REL-001",
       "OPS-BACKUP-004",
+      "QA-REL-001",
       "BTC-NODE-001",
       "BTC-WALLET-002",
       "BTC-E2E-003",
