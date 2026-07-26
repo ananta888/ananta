@@ -19,7 +19,97 @@ def _expect_equal(problems: list[str], label: str, actual: Any, expected: Any) -
         problems.append(f"{label}: expected={expected!r} actual={actual!r}")
 
 
+def _validate_category_todo_payload(
+    todo_payload: dict[str, Any],
+) -> list[str]:
+    """Validate the summary cache and references of todo.schema.json files."""
+
+    categories = list(todo_payload.get("categories") or [])
+    items = [
+        item
+        for category in categories
+        if isinstance(category, dict)
+        for item in list(category.get("items") or [])
+        if isinstance(item, dict)
+    ]
+    meta = dict(todo_payload.get("meta") or {})
+    summary = dict(meta.get("by_status") or {})
+    problems: list[str] = []
+
+    _expect_equal(
+        problems,
+        "meta.total_items",
+        meta.get("total_items"),
+        len(items),
+    )
+    status_counts = Counter(
+        str(item.get("status"))
+        for item in items
+        if item.get("status")
+    )
+    for status in ("completed", "partial", "open"):
+        _expect_equal(
+            problems,
+            f"meta.by_status.{status}",
+            summary.get(status),
+            status_counts.get(status, 0),
+        )
+    unknown_statuses = sorted(
+        status
+        for status in status_counts
+        if status not in {"completed", "partial", "open"}
+    )
+    if unknown_statuses:
+        problems.append(
+            "category item statuses are unsupported: "
+            + ", ".join(unknown_statuses)
+        )
+
+    item_ids = [str(item.get("id") or "") for item in items]
+    missing_ids = sum(not item_id for item_id in item_ids)
+    if missing_ids:
+        problems.append(f"category items missing id: {missing_ids}")
+    known_ids = {item_id for item_id in item_ids if item_id}
+    if len(known_ids) != len(item_ids) - missing_ids:
+        problems.append("category item ids must be unique")
+
+    for item in items:
+        item_id = str(item.get("id") or "<missing>")
+        dependencies = list(item.get("depends_on") or [])
+        unknown_dependencies = sorted(
+            str(dependency)
+            for dependency in dependencies
+            if str(dependency) not in known_ids
+        )
+        if unknown_dependencies:
+            problems.append(
+                f"{item_id}.depends_on references unknown ids: "
+                + ", ".join(unknown_dependencies)
+            )
+
+    recommended_order = [
+        str(item_id)
+        for item_id in list(meta.get("recommended_order") or [])
+    ]
+    unknown_recommendations = sorted(
+        item_id
+        for item_id in recommended_order
+        if item_id not in known_ids
+    )
+    if unknown_recommendations:
+        problems.append(
+            "meta.recommended_order references unknown ids: "
+            + ", ".join(unknown_recommendations)
+        )
+    if len(set(recommended_order)) != len(recommended_order):
+        problems.append("meta.recommended_order contains duplicates")
+    return problems
+
+
 def validate_todo_payload(todo_payload: dict[str, Any]) -> list[str]:
+    if "categories" in todo_payload and "tasks" not in todo_payload:
+        return _validate_category_todo_payload(todo_payload)
+
     tasks = list(todo_payload.get("tasks") or [])
     summary = dict(todo_payload.get("tasks_status_summary") or {})
     by_status = dict(summary.get("by_status") or {})

@@ -81,3 +81,71 @@ def test_validate_todo_payload_rejects_partial_counter_drift_everywhere() -> Non
     assert any(problem.startswith("milestones.partial:") for problem in problems)
     assert any(problem.startswith("progress_summary.partial:") for problem in problems)
     assert any(problem.startswith("M1.partial:") for problem in problems)
+
+
+def test_validate_category_todo_payload_accepts_consistent_summary() -> None:
+    payload = {
+        "categories": [
+            {
+                "name": "ops",
+                "label": "Operations",
+                "items": [
+                    {
+                        "id": "OPS-1",
+                        "status": "completed",
+                        "depends_on": [],
+                    },
+                    {
+                        "id": "OPS-2",
+                        "status": "partial",
+                        "depends_on": ["OPS-1"],
+                    },
+                ],
+            }
+        ],
+        "meta": {
+            "total_items": 2,
+            "by_status": {
+                "completed": 1,
+                "partial": 1,
+                "open": 0,
+            },
+            "recommended_order": ["OPS-1", "OPS-2"],
+        },
+    }
+
+    assert validate_todo_payload(payload) == []
+
+
+def test_validate_category_todo_payload_reports_drift_and_unknown_refs() -> None:
+    payload = {
+        "categories": [
+            {
+                "name": "ops",
+                "label": "Operations",
+                "items": [
+                    {
+                        "id": "OPS-1",
+                        "status": "open",
+                        "depends_on": ["MISSING"],
+                    }
+                ],
+            }
+        ],
+        "meta": {
+            "total_items": 2,
+            "by_status": {
+                "completed": 0,
+                "partial": 0,
+                "open": 0,
+            },
+            "recommended_order": ["MISSING"],
+        },
+    }
+
+    problems = validate_todo_payload(payload)
+
+    assert any(problem.startswith("meta.total_items:") for problem in problems)
+    assert any(problem.startswith("meta.by_status.open:") for problem in problems)
+    assert any("depends_on references unknown ids" in problem for problem in problems)
+    assert any("recommended_order references unknown ids" in problem for problem in problems)
