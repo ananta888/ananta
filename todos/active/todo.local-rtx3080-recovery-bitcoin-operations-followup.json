@@ -1,0 +1,380 @@
+{
+  "$schema": "../todo.schema.json",
+  "id": "todo.local-rtx3080-recovery-bitcoin-operations-followup",
+  "title": "Ananta — verbleibende lokale RTX-3080-, Recovery-, Backup- und Bitcoin-Arbeiten",
+  "version": 1,
+  "created": "2026-07-26",
+  "updated": "2026-07-26",
+  "project": "ananta",
+  "owner": "Krusty <stuiber@ananta.de>",
+  "status": "active",
+  "priority": "P1",
+  "tags": [
+    "hub-worker",
+    "model-recovery",
+    "phi4-mini",
+    "gemma4",
+    "ollama",
+    "rtx3080",
+    "wsl2",
+    "docker-compose",
+    "backup",
+    "bitcoin-core",
+    "pruned-node",
+    "wallet"
+  ],
+  "review_basis": {
+    "reviewed_commit_range": "origin/main@0332a75a plus the local Ananta recovery working tree reviewed on 2026-07-26",
+    "review_goal": "Nur die nach der Hub-owned Recovery-Implementierung noch offenen oder live nicht verifizierbaren Arbeiten erfassen; abgeschlossene Implementierung nicht erneut planen.",
+    "reviewed_paths": [
+      "agent/repositories/tasks.py",
+      "agent/services/recovery_dispatch_gate_service.py",
+      "agent/services/task_recovery_planning_service.py",
+      "agent/services/task_runtime_service.py",
+      "agent/services/task_admin_service.py",
+      "agent/services/task_queue_service.py",
+      "agent/services/model_prompt_prefix_service.py",
+      "config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml",
+      "config/models/local-ollama-phi-gemma-rtx3080.model_routing.json",
+      "docker/compose-next/compose.dev.ollama.yml",
+      "frontend-angular/src/app/features/visual-process/",
+      "scripts/bootstrap-dev-workflow-keyrings.py",
+      "tests/test_recovery_status_cas_policy.py"
+    ],
+    "runtime_evidence": {
+      "frontend_http": "Port 4200 antwortete mit HTTP 200.",
+      "docker_daemon": "docker info lief in WSL2 wiederholt in den 10-Sekunden-Timeout; ein echter Compose-Neustart war deshalb nicht möglich.",
+      "gpu": "RTX 3080 mit 10240 MiB VRAM war zuvor in WSL2 sichtbar.",
+      "gemma_reasoning_probe": "Ein direkter lokaler Ollama-Chat-Probe mit dem Thinking-Präfix lieferte getrennte Reasoning-Daten und eine finale Antwort; die automatische Profilanwendung ist implementiert, aber noch nicht nach einem Compose-Neustart abgenommen.",
+      "focused_recovery_review": "Kein offener P2-Blocker nach unabhängiger Reproduktion; der verbleibende nichtterminale CAS-Punkt ist ein Hardening-Follow-up.",
+      "bitcoin": "Im aktuellen Arbeitsbaum wurde noch kein Bitcoin-Core-Pruned-Node und keine Wallet-Backup-Automation implementiert."
+    }
+  },
+  "goals": [
+    "Den bereits implementierten lokalen Phi-4-mini/Gemma-Fallback-Stack nach Reparatur des WSL2-Docker-Daemons live abnehmen.",
+    "Recovery-CAS langfristig vollständig über typisierte Hub-Authorities statt interne generische nichtterminale Mutationen führen.",
+    "Ollama-, Ananta- und später Bitcoin-Daten über dokumentierte WSL2-Bind-Mounts reproduzierbar sichern und wiederherstellen.",
+    "Einen isolierten Bitcoin-Core-Pruned-Node mit lokaler, verschlüsselter Wallet und überprüfbaren Backups bereitstellen."
+  ],
+  "non_goals": [
+    "Keine Worker-zu-Worker-Orchestrierung; der Hub bleibt alleiniger Besitzer von Planung, Queue, Recovery und Policy.",
+    "Kein automatisierter Bitcoin-Kauf und keine Speicherung von Börsen-Credentials.",
+    "Keine Wallet-Passphrase, Seed-Wörter, privaten Schlüssel oder API-Tokens in Git, Docker-Compose, .env-Beispielen, Logs oder TODO-Artefakten.",
+    "Kein Force-Push und kein Umgehen von Tests oder Git-Hooks.",
+    "Kein Big-Bang-Refactor der großen Recovery-Module."
+  ],
+  "categories": [
+    {
+      "name": "recovery_security_followup",
+      "label": "Recovery-Authority und SOLID-Folgearbeiten",
+      "items": [
+        {
+          "id": "ARF-CAS-001",
+          "title": "Nichtterminale Recovery-CAS-Operationen typisieren",
+          "status": "open",
+          "priority": "P1",
+          "risk": "high",
+          "type": "security-hardening",
+          "depends_on": [],
+          "paths": [
+            "agent/repositories/tasks.py",
+            "agent/services/task_runtime_service.py",
+            "agent/services/task_queue_service.py",
+            "agent/services/task_recovery_planning_service.py",
+            "agent/common/"
+          ],
+          "description": "Queue-Claim, Planning-Saga, Child-Release und Recovery-Rollen-Ingress erhalten je eine eng gebundene Hub-Authority. Danach werden candidate-only und generische nichtterminale Recovery-CAS-Mutationen deny-by-default.",
+          "acceptance_criteria": [
+            "Jede erlaubte Operation bindet Task-, Source-, Goal-, Plan-, Ausgangs-/Zielstatus-, Reason- und vollständige Feld-Deltas.",
+            "Repository-eigene Zeit- und History-Felder können nicht vom Caller vorgegeben werden.",
+            "Ein gewöhnlicher Task kann nicht allein über einen CAS-Candidate in eine Recovery-Source- oder Recovery-Child-Rolle wechseln.",
+            "Queue-, Planning-, DispatchGate- und Voice-Positivpfade bleiben unter Konkurrenz atomar.",
+            "Negative Tests decken fremde Felder, falsche Lineage, Replay, Parallelität und candidate-only Rollen-Ingress ab."
+          ]
+        },
+        {
+          "id": "ARF-SOLID-002",
+          "title": "Große Recovery-Klassen schrittweise nach Verantwortlichkeiten teilen",
+          "status": "open",
+          "priority": "P2",
+          "risk": "medium",
+          "type": "refactor",
+          "depends_on": ["ARF-CAS-001"],
+          "paths": [
+            "agent/repositories/tasks.py",
+            "agent/services/task_recovery_planning_service.py",
+            "agent/services/recovery_dispatch_gate_service.py",
+            "agent/services/recovery_worker_result_service.py",
+            "agent/services/lifecycle_service.py",
+            "agent/services/task_runtime_service.py"
+          ],
+          "description": "Bestehende SRP-Schulden ohne Architekturwechsel über kleine Ports, Policies und Adapter abbauen.",
+          "acceptance_criteria": [
+            "Reine Transition-/Merge-Policies sind repository- und Flask-frei testbar.",
+            "Capability-Prüfung, Persistenz, Orchestrierung, Callback-Delivery und Projektion liegen in getrennten Verantwortlichkeiten.",
+            "Öffentliche APIs und Hub–Worker-Flows bleiben rückwärtskompatibel.",
+            "Jeder Refactor-Schritt ist einzeln reviewbar und behält die Recovery-Contract-Suite grün."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "development_stack_hardening",
+      "label": "Lokale Credential- und Compose-SOLID-Folgearbeiten",
+      "items": [
+        {
+          "id": "OPS-SOLID-005",
+          "title": "Workflow-Keyring-Bootstrap in fokussierte Komponenten teilen",
+          "status": "open",
+          "priority": "P2",
+          "risk": "medium",
+          "type": "refactor",
+          "depends_on": ["OPS-DOCKER-001"],
+          "paths": [
+            "scripts/bootstrap-dev-workflow-keyrings.py",
+            "tests/test_dev_workflow_keyring_bootstrap.py",
+            "ananta_contracts/"
+          ],
+          "description": "Die derzeit zusammengefasste Entwicklungsschlüssel-Erzeugung ohne Verhaltens- oder Formatbruch in kleine, injizierbare Verantwortlichkeiten zerlegen.",
+          "acceptance_criteria": [
+            "Erzeugung, Validierung, Transaktions-Recovery, atomare Publikation, Ownership und CLI-Orchestrierung liegen in getrennten, fokussierten Komponenten.",
+            "Dateisystem- und Zufallsquellen sind über schmale Ports injizierbar und ohne Root-Rechte unit-testbar.",
+            "Bestehende Keyring-Dateiformate, restriktive Modi, Fail-Closed-Verhalten und Compose-Startreihenfolge bleiben kompatibel.",
+            "Crash-Recovery-, Symlink-, Hardlink-, unvollständige-Set- und Legacy-Upgrade-Tests bleiben grün.",
+            "Der Refactor führt weder Worker-zu-Worker-Orchestrierung noch gemeinsame private Credentials ein."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docker_gpu_acceptance",
+      "label": "WSL2-, Docker-, GPU- und Live-Reload-Abnahme",
+      "items": [
+        {
+          "id": "OPS-DOCKER-001",
+          "title": "WSL2 Docker- und containerd-Daemon wiederherstellen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "operations",
+          "depends_on": [],
+          "paths": [
+            "docker/compose-next/compose.dev.ollama.yml",
+            "docker/compose-next/README.md"
+          ],
+          "acceptance_criteria": [
+            "`docker info` und `docker version` antworten innerhalb von zehn Sekunden.",
+            "Docker und containerd bleiben nach einem WSL2-Neustart stabil aktiv und geraten nicht in eine Restart-Schleife.",
+            "Die Ursache und die sichere Wiederherstellung sind in der Compose-Dokumentation festgehalten.",
+            "Es werden keine Volumes oder Bind-Mount-Daten zur Reparatur gelöscht."
+          ]
+        },
+        {
+          "id": "OPS-GPU-002",
+          "title": "Phi-4-mini 32K und Gemma-Fallback 8K auf RTX 3080 live abnehmen",
+          "status": "partial",
+          "priority": "P0",
+          "risk": "high",
+          "type": "acceptance",
+          "depends_on": ["OPS-DOCKER-001"],
+          "paths": [
+            "config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml",
+            "config/models/local-ollama-phi-gemma-rtx3080.model_routing.json",
+            "config/models/modelfiles/",
+            "docker/compose-next/compose.dev.ollama.yml"
+          ],
+          "acceptance_criteria": [
+            "Ollama sieht die RTX 3080 im Container und überschreitet unter Last nicht die verfügbaren 10240 MiB VRAM.",
+            "Phi-4-mini läuft mit effektivem Kontext 32768 und dem vorgesehenen quantisierten Modell.",
+            "Gemma läuft mit effektivem Kontext 8192 und passt inklusive KV-Cache sicher in den verbleibenden VRAM-Rahmen.",
+            "Nach genau drei fehlgeschlagenen Phi-Antworten greift Gemma; vorher findet kein Modellwechsel statt.",
+            "Bei ausgeschöpftem Kontext funktionieren Komprimierung, Segmentplanung und genehmigungspflichtige Task-Erzeugung wie im Visual Process konfiguriert.",
+            "Modellblobs liegen ausschließlich im dokumentierten WSL2-Bind-Mount, nicht in einem anonymen Docker-Volume."
+          ]
+        },
+        {
+          "id": "OPS-LIVERELOAD-003",
+          "title": "Angular- und Python-Live-Reload im Compose-Stack verifizieren",
+          "status": "partial",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "acceptance",
+          "depends_on": ["OPS-DOCKER-001"],
+          "paths": [
+            "docker/compose-next/compose.dev.ollama.yml",
+            "frontend-angular/",
+            "agent/",
+            "worker/"
+          ],
+          "acceptance_criteria": [
+            "Eine Angular-Änderung erscheint ohne Image-Rebuild im Browser.",
+            "Änderungen in Hub- und Worker-Python-Code starten ausschließlich den betroffenen Development-Service neu.",
+            "Hub, jeder Worker, Angular und Ollama bleiben getrennte Container.",
+            "Der Visual-Process-Editor speichert und lädt Retry-Budget, Fallback, Kontext- und Recovery-Strategien vollständig.",
+            "Ein Browser-E2E-Lauf steuert den Angular-Editor über die Ananta-API, nicht über die TUI."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "backup_restore",
+      "label": "Sicherung und Wiederherstellung",
+      "items": [
+        {
+          "id": "OPS-BACKUP-004",
+          "title": "Zwei schnelle, überprüfbare Backup-Wege für WSL2 und Windows bereitstellen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "operations",
+          "depends_on": ["OPS-DOCKER-001"],
+          "paths": [
+            "scripts/",
+            "docs/",
+            ".env.example",
+            "docker/compose-next/"
+          ],
+          "description": "Ein lokales versioniertes Backup im WSL2-Dateisystem und eine zusätzlich verschlüsselte Kopie auf dem Windows-11-Desktop bereitstellen.",
+          "acceptance_criteria": [
+            "Ollama-Modelle, Ananta-Konfiguration, Datenbank, relevante Workspaces und später die Bitcoin-Wallet werden über explizite Bind-Mount-Pfade inventarisiert.",
+            "Backup und Restore besitzen jeweils einen Dry-Run und verständliche Prüfsummen-Ausgabe.",
+            "Die Windows-Zielauflösung verwendet einen explizit validierten `/mnt/c/Users/<Benutzer>/Desktop`-Pfad und überschreibt nichts still.",
+            "Secrets und Wallet-Material werden vor der Windows-Kopie mit einem vom Benutzer separat verwalteten Schlüssel verschlüsselt.",
+            "Ein Restore-Drill in ein leeres Testziel beweist, dass Modelle, Konfiguration und Daten ohne Docker-Volume-Abhängigkeit wiederherstellbar sind.",
+            "Mindestens zwei physisch getrennte Offline-Datenträger bleiben als manuelle Sicherheitsanforderung dokumentiert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "bitcoin_pruned_node_wallet",
+      "label": "Bitcoin Core Pruned Node und lokale Wallet",
+      "items": [
+        {
+          "id": "BTC-NODE-001",
+          "title": "Bitcoin Core als isolierten Pruned Node in Compose ergänzen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "implementation",
+          "depends_on": ["OPS-DOCKER-001"],
+          "paths": [
+            "docker/compose-next/",
+            "docs/operator/",
+            ".env.example"
+          ],
+          "acceptance_criteria": [
+            "Bitcoin Core läuft in einem eigenen Container und validiert alle Blöcke selbst.",
+            "Blockchain-, Chainstate- und Wallet-Daten liegen in dokumentierten WSL2-Bind-Mounts.",
+            "`prune=20000` ist der konservative Startwert und bleibt konfigurierbar; tatsächlich belegter Speicher wird dokumentiert.",
+            "RPC ist nur im internen Compose-Netz beziehungsweise explizit auf Loopback erreichbar; keine Standard-Credentials und kein öffentlicher Wallet-RPC.",
+            "Port 8333 ist standardmäßig nicht öffentlich freigegeben und kann bewusst für eingehende Peers aktiviert werden.",
+            "Health- und Readiness-Prüfungen unterscheiden Prozessstart, Initial Block Download und vollständig aktuellen Zustand."
+          ]
+        },
+        {
+          "id": "BTC-WALLET-002",
+          "title": "Lokale verschlüsselte Bitcoin-Core-Wallet sicher verwalten und sichern",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": ["BTC-NODE-001", "OPS-BACKUP-004"],
+          "paths": [
+            "scripts/",
+            "docs/operator/"
+          ],
+          "acceptance_criteria": [
+            "Wallet-Erstellung, Empfangsadresse, Verschlüsselung und `backupwallet` sind als interaktiver, bestätigungspflichtiger Ablauf dokumentiert.",
+            "Passphrase und private Schlüssel erscheinen nie in Prozessargumenten, Git, Shell-History, Logs oder unverschlüsselten Windows-Dateien.",
+            "Ein lokales verschlüsseltes Backup, eine verschlüsselte Windows-Desktop-Kopie und zwei getrennte Offline-Kopien werden unterstützt.",
+            "Backup-Dateien erhalten Prüfsummen, restriktive Dateirechte und einen eindeutigen Wallet-/Netzwerk-Hinweis.",
+            "Ein Restore-Drill auf Regtest oder Signet beweist Wallet-Erkennung und Adressbestand, ohne Mainnet-Guthaben zu riskieren.",
+            "Die Dokumentation erklärt, dass Bitcoin nicht im Node liegt, sondern durch private Schlüssel ausgegeben wird."
+          ]
+        },
+        {
+          "id": "BTC-E2E-003",
+          "title": "Pruned-Node- und Wallet-Ablauf vor echtem Kauf testen",
+          "status": "open",
+          "priority": "P1",
+          "risk": "critical",
+          "type": "acceptance",
+          "depends_on": ["BTC-NODE-001", "BTC-WALLET-002"],
+          "paths": [
+            "tests/",
+            "docs/operator/"
+          ],
+          "acceptance_criteria": [
+            "Regtest-/Signet-E2E prüft Node-Sync, Adresserzeugung, Empfang, Bestätigung, Neustart und Restore.",
+            "Pruning wird nach erfolgreicher Blockprüfung nachgewiesen; alte Blockdateien werden erwartungsgemäß entfernt.",
+            "Vor einer Mainnet-Auszahlung wird eine kleine Testüberweisung und eine Adressprüfung dokumentiert.",
+            "Börsen-Auszahlungsgebühr und aktuelle Netzwerkgebühr bleiben manuelle, zeitabhängige Prüfpunkte.",
+            "Der Ablauf kauft keine Bitcoin automatisch und speichert keine Börsen-Zugangsdaten."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "quality_release",
+      "label": "Integrierte Qualitäts- und Betriebsfreigabe",
+      "items": [
+        {
+          "id": "QA-REL-001",
+          "title": "Vollständiges Repository- und Docker-E2E-Gate nach Daemon-Reparatur ausführen",
+          "status": "partial",
+          "priority": "P1",
+          "risk": "high",
+          "type": "quality-gate",
+          "depends_on": [
+            "OPS-DOCKER-001",
+            "OPS-GPU-002",
+            "OPS-LIVERELOAD-003"
+          ],
+          "paths": [
+            "tests/",
+            "frontend-angular/",
+            "artifacts/test-gates/",
+            "docker/compose-next/"
+          ],
+          "acceptance_criteria": [
+            "`make check` beziehungsweise das dokumentierte vollständige Backend-Gate ist grün.",
+            "Der vollständige Angular-Testlauf und Production-Build sind grün.",
+            "Compose startet Hub, Worker, Angular und Ollama gesund und reproduzierbar aus einem leeren Laufzeitziel.",
+            "Ein echter Recovery-E2E-Lauf erzeugt Plan, Approval, Tasks, Lease, Hub-Run-Evidence, Hub-Artefakte, Grounding und finalen Callback.",
+            "Ein stabiler, secrets-freier Gate-Bericht wird unter `artifacts/test-gates/` abgelegt."
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 11,
+    "by_status": {
+      "completed": 0,
+      "partial": 3,
+      "open": 8
+    },
+    "notes": [
+      "Die Hub-owned Recovery-Implementierung selbst ist nicht Teil dieser offenen Liste; sie wurde in fokussierten und breiten Tests geprüft.",
+      "Der Docker-Compose-Vertrag ist syntaktisch valide, aber der WSL2-Docker-Daemon blockiert derzeit die echte Live-Abnahme.",
+      "ARF-CAS-001 ist laut unabhängigem Review kein aktueller P2-Blocker, weil kein API-Pfad beliebige interne CAS-Felder durchreicht; es bleibt Defense-in-Depth-Hardening.",
+      "OPS-SOLID-005 erfasst die bestehende SRP-Schuld des lokalen Credential-Bootstraps; sie blockiert den Development-Stack nicht.",
+      "Bitcoin Core, Wallet-Erstellung und Wallet-Backups sind noch nicht implementiert und dürfen erst nach expliziter Sicherheits- und Restore-Abnahme für Mainnet verwendet werden.",
+      "Diese TODO autorisiert weder einen Bitcoin-Kauf noch die Verarbeitung einer Wallet-Passphrase durch Automatisierung."
+    ],
+    "recommended_order": [
+      "OPS-DOCKER-001",
+      "OPS-GPU-002",
+      "OPS-LIVERELOAD-003",
+      "QA-REL-001",
+      "OPS-BACKUP-004",
+      "BTC-NODE-001",
+      "BTC-WALLET-002",
+      "BTC-E2E-003",
+      "ARF-CAS-001",
+      "ARF-SOLID-002",
+      "OPS-SOLID-005"
+    ]
+  }
+}
