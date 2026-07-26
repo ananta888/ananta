@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from agent.services.model_invocation_service import ModelInvocationService
-from agent.services.model_profile_loader import ModelProfileLoader
+from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader
 from agent.services.model_prompt_prefix_service import ModelPromptPrefixService
 
 
@@ -65,6 +65,42 @@ def test_provider_request_body_applies_profile_prefix() -> None:
         "role": "system",
         "content": "<|think|>\nReturn JSON.",
     }
+
+
+def test_native_ollama_generate_keeps_prefix_in_system_field() -> None:
+    body, is_native_ollama = ModelInvocationService._provider_request_body(
+        provider="ollama",
+        url="http://ollama:11434/api/generate",
+        model="ananta-gemma4-reasoning-8k",
+        messages=[
+            {"role": "system", "content": "Return a concise answer."},
+            {"role": "user", "content": "Ready?"},
+        ],
+        profile=_profile("<|think|>"),
+        provider_context=None,
+        tools=None,
+        send_native_tools=False,
+        response_format=None,
+    )
+
+    assert is_native_ollama is True
+    assert body["system"] == "<|think|>\nReturn a concise answer."
+    assert body["prompt"] == "user: Ready?"
+    assert "<|think|>" not in body["prompt"]
+
+
+def test_profile_input_budget_reserves_prompt_prefix_tokens() -> None:
+    profile = ModelProfile(
+        profile_id="gemma",
+        provider_id="ollama",
+        model="gemma4:e4b-it-qat",
+        context_tokens=8_192,
+        max_output_tokens=3_072,
+        system_prompt_prefix="<|think|>",
+    )
+
+    assert profile.system_prompt_prefix_tokens() == 9
+    assert profile.max_input_tokens() == 5_111
 
 
 def test_profile_loader_validates_prompt_prefix_boundary() -> None:

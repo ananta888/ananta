@@ -92,6 +92,8 @@ def test_bootstrap_skips_pull_when_base_models_are_present(tmp_path: Path) -> No
     ]
     gemma_modelfile = GEMMA_MODELFILE.read_text(encoding="utf-8")
     assert "PARAMETER num_ctx 8192" in gemma_modelfile
+    assert "PARAMETER top_k 64" in gemma_modelfile
+    assert "PARAMETER top_p 0.95" in gemma_modelfile
     assert "<|think|>" not in gemma_modelfile
 
 

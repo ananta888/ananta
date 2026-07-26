@@ -92,7 +92,20 @@ class ModelProfile:
                 context_window,
                 max(1, int(self.max_context_for_profile)),
             )
-        return max(1, context_window - max(1, int(self.max_output_tokens or 1)))
+        return max(
+            1,
+            context_window
+            - max(1, int(self.max_output_tokens or 1))
+            - self.system_prompt_prefix_tokens(),
+        )
+
+    def system_prompt_prefix_tokens(self) -> int:
+        """Conservatively reserve context for a configured prompt prefix."""
+
+        prefix = str(self.system_prompt_prefix or "").strip()
+        if not prefix:
+            return 0
+        return max(1, len(prefix.encode("utf-8")))
 
 
 @dataclass

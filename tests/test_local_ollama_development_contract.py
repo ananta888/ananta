@@ -127,5 +127,6 @@ def test_local_profiles_reserve_explicit_safe_input_budgets():
     assert gemma.context_tokens == 8_192
     assert gemma.max_context_for_profile == 8_192
     assert gemma.max_output_tokens == 3_072
-    assert gemma.max_input_tokens() == 5_120
+    assert gemma.max_input_tokens() == 5_111
     assert gemma.system_prompt_prefix == "<|think|>"
+    assert gemma.temperature == 1.0

@@ -1158,17 +1158,30 @@ class ModelInvocationService:
                 "ollama_generate_native_tools_unsupported",
                 terminal_reason="policy_blocked",
             )
+        system_prompt = "\n".join(
+            str(message.get("content") or "")
+            for message in messages
+            if (
+                isinstance(message, dict)
+                and str(message.get("role") or "").strip().lower() == "system"
+            )
+        ).strip()
         prompt = "\n".join(
             f"{str(message.get('role') or 'user')}: "
             f"{str(message.get('content') or '')}"
             for message in messages
-            if isinstance(message, dict)
+            if (
+                isinstance(message, dict)
+                and str(message.get("role") or "").strip().lower() != "system"
+            )
         )
         body: dict[str, Any] = {
             "model": model,
             "prompt": prompt,
             "stream": False,
         }
+        if system_prompt:
+            body["system"] = system_prompt
         if profile is not None:
             body["options"] = {
                 "temperature": float(profile.temperature),

@@ -49,7 +49,7 @@ profiles:
     max_context_for_profile: 8192
     max_output_tokens: 3072
     timeout_seconds: 240
-    temperature: 0.1
+    temperature: 1.0
     cost_class: free
     quality_class: high
     estimated_latency_class: local
