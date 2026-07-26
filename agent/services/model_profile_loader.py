@@ -60,6 +60,7 @@ class ModelProfile:
     base_url: str | None = None
     enabled: bool = True
     notes: str = ""
+    system_prompt_prefix: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
     # T01/T02 — Token budget extension fields (all safe-defaulted)
     context_window_tokens: int | None = None
@@ -223,13 +224,16 @@ class ModelProfileLoader:
             "tool_calling_mode", "preferred_for", "avoid_for", "max_context_for_profile",
             "retry_budget", "fallback_group", "fallback_rank", "api_key_env",
             "base_url",
-            "enabled", "notes",
+            "enabled", "notes", "system_prompt_prefix",
             # T02 — token budget extension fields
             "context_window_tokens", "hard_max_output_tokens", "tokenizer_strategy",
             "tokenizer_name", "input_cost_per_1m_tokens", "output_cost_per_1m_tokens",
         }
         extra = {k: v for k, v in raw.items() if k not in known_keys}
-        tool_calling_mode = str(raw.get("tool_calling_mode") or ("native_tools" if raw.get("supports_tools") else "none")).strip()
+        tool_calling_mode = str(
+            raw.get("tool_calling_mode")
+            or ("native_tools" if raw.get("supports_tools") else "none")
+        ).strip()
         if tool_calling_mode not in ALLOWED_TOOL_CALLING_MODES:
             errors.append(f"profile[{index}]:{pid!r}:invalid_tool_calling_mode:{tool_calling_mode}")
         json_reliability_class = str(raw.get("json_reliability_class") or "unknown").strip()
@@ -270,6 +274,9 @@ class ModelProfileLoader:
                 base_url=str(raw["base_url"]) if raw.get("base_url") else None,
                 enabled=bool(raw.get("enabled", True)),
                 notes=str(raw.get("notes") or ""),
+                system_prompt_prefix=_optional_prompt_prefix(
+                    raw.get("system_prompt_prefix")
+                ),
                 extra=extra,
                 # T02 — token budget extension fields
                 context_window_tokens=_optional_int(raw.get("context_window_tokens")),
@@ -281,7 +288,11 @@ class ModelProfileLoader:
             )
         except Exception as exc:
             errors.append(f"profile[{index}]:{pid!r}:field_error:{exc}")
-            return None
+            return ModelProfile(
+                profile_id=pid,
+                provider_id=provider,
+                model=model,
+            ), errors
         return profile, errors
 
 
@@ -295,6 +306,17 @@ def _optional_int(value: Any) -> int | None:
     if value is None or value == "":
         return None
     return int(value)
+
+
+def _optional_prompt_prefix(value: Any) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    if not normalized:
+        return None
+    if "\x00" in normalized or len(normalized.encode("utf-8")) > 1_024:
+        raise ValueError("system_prompt_prefix must be at most 1024 bytes without NUL")
+    return normalized
 
 
 def _string_list(value: Any) -> list[str]:

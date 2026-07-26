@@ -1225,6 +1225,14 @@ class ModelInvocationService:
         send_native_tools: bool,
         response_format: dict | None,
     ) -> tuple[dict[str, Any], bool]:
+        from agent.services.model_prompt_prefix_service import (
+            ModelPromptPrefixService,
+        )
+
+        effective_messages = ModelPromptPrefixService.apply(
+            messages,
+            profile=profile,
+        )
         ollama_generate = (
             provider == "ollama"
             and str(url).endswith("/api/generate")
@@ -1232,7 +1240,7 @@ class ModelInvocationService:
         if ollama_generate:
             return (
                 cls._ollama_generate_request_body(
-                    messages=messages,
+                    messages=effective_messages,
                     model=model,
                     profile=profile,
                     provider_context=provider_context,
@@ -1244,7 +1252,7 @@ class ModelInvocationService:
             )
         body: dict[str, Any] = {
             "model": model,
-            "messages": messages,
+            "messages": effective_messages,
         }
         if profile is not None:
             body["temperature"] = float(profile.temperature)
