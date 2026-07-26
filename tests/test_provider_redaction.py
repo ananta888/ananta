@@ -25,6 +25,22 @@ def test_redaction_masks_configured_secret_refs_in_values() -> None:
     assert redacted["metadata"]["trace"] == "ok"
 
 
+def test_redaction_preserves_numeric_protocol_token_limits_only() -> None:
+    payload = {
+        "max_tokens": 321,
+        "completion_tokens": 12,
+        "token": "real-secret",
+        "max_output_tokens": "string-secret",
+    }
+
+    redacted = redact_provider_payload(payload)
+
+    assert redacted["max_tokens"] == 321
+    assert redacted["completion_tokens"] == 12
+    assert redacted["token"] == "***REDACTED***"
+    assert redacted["max_output_tokens"] == "***REDACTED***"
+
+
 def test_redaction_keeps_safe_payload_unchanged() -> None:
     payload = {"status": "ok", "count": 2, "tags": ["a", "b"]}
     assert redact_provider_payload(payload) == payload

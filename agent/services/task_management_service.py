@@ -24,6 +24,10 @@ from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.mutation_gate_service import get_mutation_gate_service
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.repository_registry import get_repository_registry
+from agent.services.recovery_task_mutation_policy import (
+    RecoveryTaskMutationConflict,
+    ensure_external_recovery_mutation_allowed,
+)
 from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
 from agent.services.task_status_service import normalize_task_status
@@ -35,6 +39,25 @@ class TaskManagementService:
     def actor_username(self) -> str:
         user = getattr(g, "user", {}) or {}
         return str(user.get("sub") or user.get("username") or "system")
+
+    @staticmethod
+    def _recovery_mutation_conflict(
+        task: Any,
+        *,
+        action: str,
+    ) -> dict[str, Any] | None:
+        try:
+            ensure_external_recovery_mutation_allowed(
+                task,
+                action=action,
+            )
+        except RecoveryTaskMutationConflict as exc:
+            return {
+                "error": exc.reason_code,
+                "code": 409,
+                "data": exc.as_data(),
+            }
+        return None
 
     @staticmethod
     def _critical_state_mutation(status: str | None) -> bool:
@@ -189,6 +212,20 @@ class TaskManagementService:
 
     def create_task(self, *, data: Any, source: str, created_by: str) -> dict[str, Any]:
         task_id = data.id or str(uuid.uuid4())
+        if data.id:
+            repos = get_repository_registry()
+            if (
+                repos.task_repo.get_by_id(task_id) is not None
+                or repos.archived_task_repo.get_by_id(task_id) is not None
+            ):
+                return {
+                    "error": "task_id_already_exists",
+                    "code": 409,
+                    "data": {
+                        "reason_code": "task_id_already_exists",
+                        "task_id": task_id,
+                    },
+                }
         status = normalize_task_status(data.status, default="created")
         safe_data = {k: v for k, v in data.model_dump().items() if v is not None and k not in ["id", "status"]}
         self._apply_instruction_selection_to_payload(
@@ -238,6 +275,12 @@ class TaskManagementService:
         existing = get_local_task_status(task_id)
         if not existing:
             return {"error": "not_found", "code": 404}
+        recovery_conflict = self._recovery_mutation_conflict(
+            existing,
+            action="task_patch",
+        )
+        if recovery_conflict:
+            return recovery_conflict
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
         self._apply_instruction_selection_to_payload(
             update_data,
@@ -273,6 +316,12 @@ class TaskManagementService:
         task = get_local_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        recovery_conflict = self._recovery_mutation_conflict(
+            task,
+            action=f"proposal_{action}",
+        )
+        if recovery_conflict:
+            return recovery_conflict
         proposal = dict(task.get("last_proposal") or {})
         research_artifact = proposal.get("research_artifact")
         if not isinstance(research_artifact, dict):
@@ -326,6 +375,12 @@ class TaskManagementService:
         task = get_local_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        recovery_conflict = self._recovery_mutation_conflict(
+            task,
+            action="assign",
+        )
+        if recovery_conflict:
+            return recovery_conflict
         can_assign, reasons, _worker = enforce_assignment_policy(
             task,
             data.agent_url,
@@ -371,6 +426,12 @@ class TaskManagementService:
         task = get_local_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        recovery_conflict = self._recovery_mutation_conflict(
+            task,
+            action="auto_assign",
+        )
+        if recovery_conflict:
+            return recovery_conflict
         effective_task_kind = payload.get("task_kind") or task.get("task_kind")
         effective_required_capabilities = payload.get("required_capabilities") or task.get("required_capabilities") or derive_required_capabilities(
             task,
@@ -437,6 +498,12 @@ class TaskManagementService:
         task = get_local_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        recovery_conflict = self._recovery_mutation_conflict(
+            task,
+            action="unassign",
+        )
+        if recovery_conflict:
+            return recovery_conflict
         update_local_task_status(
             task_id,
             "todo",
@@ -455,6 +522,12 @@ class TaskManagementService:
         parent_task = get_local_task_status(task_id)
         if not parent_task:
             return {"error": "parent_task_not_found", "code": 404}
+        recovery_conflict = self._recovery_mutation_conflict(
+            parent_task,
+            action="subtask_callback",
+        )
+        if recovery_conflict:
+            return recovery_conflict
         subtasks = list(parent_task.get("subtasks") or [])
         updated = False
         for item in subtasks:
@@ -479,6 +552,12 @@ class TaskManagementService:
         parent_task = get_local_task_status(task_id)
         if not parent_task:
             return {"error": "parent_task_not_found", "code": 404}
+        recovery_conflict = self._recovery_mutation_conflict(
+            parent_task,
+            action="create_followups",
+        )
+        if recovery_conflict:
+            return recovery_conflict
 
         created: list[dict[str, Any]] = []
         skipped: list[dict[str, Any]] = []

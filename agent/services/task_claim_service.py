@@ -23,43 +23,75 @@ class TaskClaimService:
         if not task:
             return {"error": "not_found", "code": 404}
 
-        task_payload = task.model_dump()
-        can_claim, error_msg = policy.can_claim_task(task_payload, agent_url)
-        if not can_claim:
-            lease_info = extract_active_lease(task_payload)
+        lease_seconds = policy.validate_lease_duration(requested_lease)
+        lease_until = compute_lease_expiry(lease_seconds)
+        claim_decision: dict[str, object] = {}
+
+        def validate_authoritative(
+            task_payload: dict,
+        ) -> tuple[bool, str | None]:
+            can_claim, error_msg = policy.can_claim_task(
+                task_payload,
+                agent_url,
+            )
+            claim_decision["task_payload"] = task_payload
+            claim_decision["reason"] = error_msg
+            return can_claim, error_msg
+
+        claimed = task_queue_service.claim_task(
+            task_id=task_id,
+            agent_url=agent_url,
+            lease_until=lease_until,
+            idempotency_key=idempotency_key,
+            claim_validator=validate_authoritative,
+        )
+        if claimed is False:
+            authoritative_payload = claim_decision.get(
+                "task_payload"
+            )
+            lease_info = extract_active_lease(
+                authoritative_payload
+                if isinstance(authoritative_payload, dict)
+                else {}
+            )
+            reason = str(
+                claim_decision.get("reason")
+                or "claim_state_changed_or_recovery_gate_closed"
+            )
             persist_policy_decision(
                 decision_type="execution_claim",
                 status="blocked",
                 policy_name="task_claim_policy",
-                policy_version="claim-v1",
-                reasons=[error_msg or "claim_denied"],
+                policy_version="claim-v2",
+                reasons=[reason],
                 details={"agent_url": agent_url},
                 task_id=task_id,
                 worker_url=agent_url,
             )
             return {
-                "error": error_msg or "claim_denied",
+                "error": reason,
                 "code": 409,
-                "data": {"lease": lease_info.__dict__ if lease_info else {}},
+                "data": {
+                    "lease": (
+                        lease_info.__dict__
+                        if lease_info is not None
+                        else {}
+                    )
+                },
             }
-
-        lease_seconds = policy.validate_lease_duration(requested_lease)
-        lease_until = compute_lease_expiry(lease_seconds)
         persist_policy_decision(
             decision_type="execution_claim",
             status="approved",
             policy_name="task_claim_policy",
-            policy_version="claim-v1",
+            policy_version="claim-v2",
             reasons=["lease_granted"],
-            details={"agent_url": agent_url, "lease_seconds": lease_seconds},
+            details={
+                "agent_url": agent_url,
+                "lease_seconds": lease_seconds,
+                "idempotency_key": idempotency_key,
+            },
             task_id=task_id,
             worker_url=agent_url,
-        )
-        task_queue_service.claim_task(
-            task_id=task_id,
-            agent_url=agent_url,
-            lease_until=lease_until,
-            idempotency_key=idempotency_key,
         )
         return {"data": {"task_id": task_id, "claimed": True, "lease_until": lease_until}}
 

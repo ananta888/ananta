@@ -165,12 +165,20 @@ class LangGraphLegacyNodeMixin:
         # LCG-031: use model_provider_ref from config directly
         model_ref = self._config.model_provider_ref
         provider_context = self._bound_provider_context(execution_payload or {})
+        provider_contexts = self._bound_provider_contexts_by_profile_id(
+            execution_payload or {},
+            primary=provider_context,
+        )
         response = runner_obj.run(
             prompt=prompt,
             payload={
                 "node": node.get("id", ""),
                 "graph_id": state.graph_id,
                 "provider_context": provider_context,
+                "provider_contexts_by_profile_id": provider_contexts,
+                "model_routing": (execution_payload or {}).get(
+                    "model_routing"
+                ),
             },
             budget=budget,
             model_provider_ref=model_ref,
@@ -220,6 +228,57 @@ class LangGraphLegacyNodeMixin:
                     "Provider context does not match the delegated execution binding.",
                 )
         return context
+
+    @staticmethod
+    def _bound_provider_contexts_by_profile_id(
+        payload: dict[str, Any],
+        *,
+        primary: dict[str, Any] | None,
+    ) -> dict[str, dict[str, Any]] | None:
+        raw = payload.get("provider_contexts_by_profile_id")
+        if raw is None:
+            return None
+        if not isinstance(raw, dict) or len(raw) > 8 or primary is None:
+            raise WorkerError(
+                "provider_profile_contexts_invalid",
+                "Hub profile contexts must be a bounded object.",
+            )
+        contexts: dict[str, dict[str, Any]] = {}
+        scope_fields = (
+            "tenant_id",
+            "workflow_id",
+            "run_id",
+            "step_id",
+            "plan_hash",
+            "policy_version",
+            "prompt_version",
+            "attempt_id",
+            "fencing_token",
+            "authorization_envelope",
+        )
+        for raw_profile_id, raw_context in raw.items():
+            profile_id = str(raw_profile_id or "").strip()
+            if (
+                not profile_id
+                or len(profile_id) > 256
+                or "\x00" in profile_id
+                or not isinstance(raw_context, dict)
+            ):
+                raise WorkerError(
+                    "provider_profile_contexts_invalid",
+                    "Hub profile contexts contain an invalid binding.",
+                )
+            context = dict(raw_context)
+            if any(
+                context.get(field) != primary.get(field)
+                for field in scope_fields
+            ):
+                raise WorkerError(
+                    "provider_profile_context_scope_mismatch",
+                    "Hub profile context does not match the primary delegation.",
+                )
+            contexts[profile_id] = context
+        return contexts
 
     def _invoke_tool_node(
         self,

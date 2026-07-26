@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from ananta_contracts.provider_endpoint_policy import (
+    normalize_provider_endpoint_identity,
+)
+
 PROVIDER_INVOCATION_CONTEXT_SCHEMA = "ananta.provider-invocation-context.v1"
 PROVIDER_BUDGET_DECISION_SCHEMA = "ananta.provider-budget-decision.v1"
+_PROVIDER_CALL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,159}$")
 
 
 class ProviderInvocationBlocked(RuntimeError):
@@ -33,6 +39,7 @@ class ProviderInvocationContext:
     estimated_cost_micros_per_1000_tokens: int = 0
     cache_enabled: bool = False
     require_hub_provider_budget: bool = False
+    require_hub_provider_attempt_budget: bool = False
     require_hub_retry_budget: bool = False
     combined_retry_maximum: int = 0
     retry_attempt: int = 0
@@ -42,11 +49,14 @@ class ProviderInvocationContext:
     authorization_envelope: dict[str, Any] = field(default_factory=dict)
     attempt_id: str = ""
     fencing_token: int = 0
+    provider_profile_id: str = ""
     selected_provider_id: str = ""
     selected_model_id: str = ""
     provider_binding_id: str = ""
+    provider_endpoint_identity: str = ""
     provider_transport_mode: str = ""
     provider_decision_reason: str = ""
+    provider_call_id: str = ""
     schema: str = PROVIDER_INVOCATION_CONTEXT_SCHEMA
 
     @classmethod
@@ -104,6 +114,9 @@ class ProviderInvocationContext:
             require_hub_provider_budget=bool(
                 raw.get("require_hub_provider_budget", False)
             ),
+            require_hub_provider_attempt_budget=bool(
+                raw.get("require_hub_provider_attempt_budget", False)
+            ),
             require_hub_retry_budget=bool(
                 raw.get("require_hub_retry_budget", False)
             ),
@@ -115,15 +128,22 @@ class ProviderInvocationContext:
             authorization_envelope=dict(raw.get("authorization_envelope") or {}),
             attempt_id=str(raw.get("attempt_id") or "").strip(),
             fencing_token=int(raw.get("fencing_token") or 0),
+            provider_profile_id=str(
+                raw.get("provider_profile_id") or ""
+            ).strip(),
             selected_provider_id=str(raw.get("selected_provider_id") or "").strip(),
             selected_model_id=str(raw.get("selected_model_id") or "").strip(),
             provider_binding_id=str(raw.get("provider_binding_id") or "").strip(),
+            provider_endpoint_identity=str(
+                raw.get("provider_endpoint_identity") or ""
+            ).strip(),
             provider_transport_mode=str(
                 raw.get("provider_transport_mode") or ""
             ).strip(),
             provider_decision_reason=str(
                 raw.get("provider_decision_reason") or ""
             ).strip(),
+            provider_call_id=str(raw.get("provider_call_id") or "").strip(),
         )
 
     def assert_valid(self) -> None:
@@ -153,8 +173,30 @@ class ProviderInvocationContext:
             raise ProviderInvocationBlocked("provider_retry_id_required")
         if bool(self.selected_provider_id) != bool(self.selected_model_id):
             raise ProviderInvocationBlocked("provider_selection_binding_incomplete")
+        if self.provider_endpoint_identity:
+            if not self.selected_provider_id:
+                raise ProviderInvocationBlocked(
+                    "provider_endpoint_binding_incomplete"
+                )
+            try:
+                normalized_endpoint = normalize_provider_endpoint_identity(
+                    provider_id=self.selected_provider_id,
+                    endpoint_url=self.provider_endpoint_identity,
+                )
+            except ValueError as exc:
+                raise ProviderInvocationBlocked(
+                    "provider_endpoint_identity_invalid"
+                ) from exc
+            if normalized_endpoint != self.provider_endpoint_identity:
+                raise ProviderInvocationBlocked(
+                    "provider_endpoint_identity_not_canonical"
+                )
         if self.provider_transport_mode not in {"", "legacy", "none", "hub_bound"}:
             raise ProviderInvocationBlocked("provider_transport_mode_invalid")
+        if self.provider_call_id and not _PROVIDER_CALL_ID.fullmatch(
+            self.provider_call_id
+        ):
+            raise ProviderInvocationBlocked("provider_call_id_invalid")
         if self.require_hub_provider_budget and (
             not self.selected_provider_id
             or not self.selected_model_id
@@ -163,6 +205,16 @@ class ProviderInvocationContext:
             or not self.provider_decision_reason
         ):
             raise ProviderInvocationBlocked("provider_selection_binding_required")
+        if (
+            self.require_hub_provider_attempt_budget
+            and (
+                not self.require_hub_provider_budget
+                or not self.provider_profile_id
+            )
+        ):
+            raise ProviderInvocationBlocked(
+                "provider_attempt_budget_binding_required"
+            )
         if self.provider_transport_mode == "none" and (
             self.selected_provider_id
             or self.selected_model_id
@@ -190,6 +242,14 @@ class ProviderInvocationContext:
             retry_attempt=max(0, int(attempt)),
             retry_id=str(retry_id).strip(),
         )
+
+    def for_provider_call(self, provider_call_id: str) -> "ProviderInvocationContext":
+        value = replace(
+            self,
+            provider_call_id=str(provider_call_id or "").strip(),
+        )
+        value.assert_valid()
+        return value
 
 
 @dataclass(frozen=True)

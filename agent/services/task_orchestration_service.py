@@ -14,6 +14,10 @@ from agent.services.copilot_routing_advisor import (
     get_copilot_routing_advisor,
 )
 from agent.services.repository_registry import get_repository_registry
+from agent.services.recovery_task_mutation_policy import (
+    RecoveryTaskMutationConflict,
+    ensure_external_recovery_mutation_allowed,
+)
 from agent.services.task_delegation_services import (
     DelegationRequest,
     TaskDelegationPlan,
@@ -85,6 +89,25 @@ class TaskOrchestrationService:
         self.execution_context_factory = WorkerExecutionContextFactory(self.dependencies)
         self.delegation_result_writer = TaskDelegationResultWriter(self.dependencies)
 
+    @staticmethod
+    def _recovery_conflict(
+        task: dict[str, Any],
+        *,
+        action: str,
+    ) -> dict[str, Any] | None:
+        try:
+            ensure_external_recovery_mutation_allowed(
+                task,
+                action=action,
+            )
+        except RecoveryTaskMutationConflict as exc:
+            return {
+                "error": exc.reason_code,
+                "code": 409,
+                "data": exc.as_data(),
+            }
+        return None
+
     def delegate_task(
         self,
         *,
@@ -99,6 +122,12 @@ class TaskOrchestrationService:
         parent_task = self.dependencies.get_task_status(task_id)
         if not parent_task:
             return {"error": "parent_task_not_found", "code": 404}
+        recovery_conflict = self._recovery_conflict(
+            parent_task,
+            action="delegate_task",
+        )
+        if recovery_conflict:
+            return recovery_conflict
 
         delegation_request = DelegationRequest(
             parent_task=parent_task,
@@ -143,6 +172,12 @@ class TaskOrchestrationService:
         task = self.dependencies.get_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        recovery_conflict = self._recovery_conflict(
+            task,
+            action="orchestration_complete",
+        )
+        if recovery_conflict:
+            return recovery_conflict
 
         outcome = self._derive_completion_outcome(payload)
         output = str(payload.get("output") or "")

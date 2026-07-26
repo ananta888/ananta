@@ -118,6 +118,30 @@ def test_cancel_success(svc):
     assert cmd.status == "applied"
 
 
+def test_cancel_policy_conflict_preserves_structured_409(svc):
+    reason = "recovery_source_cancel_requires_hub_control"
+    with _mock_intervene(
+        ok=False,
+        msg=reason,
+        data={
+            "reason_code": reason,
+            "task_id": "recovery-source",
+            "source_task_id": "recovery-source",
+            "action": "cancel",
+            "http_status": 409,
+        },
+    ):
+        cmd = svc.send_command(
+            command_type="cancel_run",
+            task_id="recovery-source",
+        )
+
+    assert cmd.status == "rejected_by_policy"
+    assert cmd.result["error"] == reason
+    assert cmd.result["reason_code"] == reason
+    assert cmd.result["http_status"] == 409
+
+
 def test_retry_success(svc):
     with _mock_intervene(ok=True, data={"id": "t1", "status": "todo"}):
         cmd = svc.send_command(command_type="retry_run_or_task", task_id="t1")
@@ -394,6 +418,62 @@ def test_run_control_routes_return_stable_409_without_duplicate_effect(
     }
     assert len(svc._commands) == 1
     assert len(svc._instructions) == 1
+
+
+def test_run_control_cancel_route_preserves_task_policy_409(
+    client,
+    monkeypatch: pytest.MonkeyPatch,
+    svc,
+):
+    task_id = "recovery-source-route"
+    reason = "recovery_source_cancel_requires_hub_control"
+    monkeypatch.setattr(
+        "agent.routes.run_control.get_run_control_service",
+        lambda: svc,
+    )
+    monkeypatch.setattr(
+        "agent.services.run_control_service.log_audit",
+        lambda *_args: None,
+    )
+    token = generate_token(
+        {"sub": "route-operator", "role": "user"},
+        settings.secret_key,
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+    principal = RunControlPrincipal.from_values(
+        "route-operator",
+        "route-operator",
+    )
+    assert svc.bind_resource_owner(
+        kind="task",
+        resource_id=task_id,
+        principal=principal,
+    )
+
+    with _mock_intervene(
+        ok=False,
+        msg=reason,
+        data={
+            "reason_code": reason,
+            "task_id": task_id,
+            "source_task_id": task_id,
+            "action": "cancel",
+            "http_status": 409,
+        },
+    ):
+        response = client.post(
+            f"/api/tasks/{task_id}/commands",
+            headers=headers,
+            json={"type": "cancel_run"},
+        )
+
+    assert response.status_code == 409
+    payload = response.get_json()
+    assert payload["reason_code"] == reason
+    command = payload["command"]
+    assert command["status"] == "rejected_by_policy"
+    assert command["result"]["error"] == reason
+    assert command["result"]["http_status"] == 409
 
 
 def test_idempotency_and_resources_are_exactly_principal_scoped(svc):
@@ -678,6 +758,35 @@ def test_approve_gate_rejects_approval_from_another_task(svc):
 
     assert cmd.status == "failed"
     assert cmd.result == {"error": "approval_not_found"}
+    approval_service.decide_request.assert_not_called()
+
+
+def test_approve_gate_cannot_bypass_admin_only_recovery_approval(svc):
+    from agent.services.task_recovery_planning_service import (
+        RECOVERY_MATERIALIZE_TOOL,
+    )
+
+    approval_service = MagicMock()
+    approval_service.get_request.return_value = MagicMock(
+        task_id="t1",
+        goal_id=None,
+        tool_name=RECOVERY_MATERIALIZE_TOOL,
+    )
+    with patch(
+        "agent.services.approval_request_service.get_approval_request_service",
+        return_value=approval_service,
+    ):
+        cmd = svc.send_command(
+            command_type="approve_gate",
+            task_id="t1",
+            payload={"approval_id": "recovery-approval"},
+        )
+
+    assert cmd.status == "rejected_by_policy"
+    assert (
+        cmd.result["error"]
+        == "recovery_approval_requires_admin_endpoint"
+    )
     approval_service.decide_request.assert_not_called()
 
 

@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import time
 from typing import Any, Mapping
 
-from sqlmodel import Session, select, update
+from sqlmodel import Session, select
 
 from agent.database import engine
 from agent.db_models import TaskDB
-from agent.services.hub_event_service import build_task_history_event
 from agent.services.task_state_machine_service import can_transition_to
 from agent.services.task_status_service import normalize_task_status
 
@@ -45,9 +43,11 @@ class VoiceTaskTerminalService:
         **fields: Any,
     ) -> bool:
         normalized_status = normalize_task_status(status)
-        now = time.time()
+        recovery_completion = False
         with Session(engine) as session:
-            task = session.exec(select(TaskDB).where(TaskDB.id == task_id).with_for_update()).first()
+            task = session.exec(
+                select(TaskDB).where(TaskDB.id == task_id)
+            ).first()
             if task is None or str(task.task_kind or "") not in _VOICE_TASK_KINDS:
                 return False
             previous_status = str(task.status or "")
@@ -60,38 +60,28 @@ class VoiceTaskTerminalService:
                 )
                 if not recovery_completion:
                     return False
-            history = list(task.history or [])
-            history.append(
-                build_task_history_event(
-                    task,
-                    event_type,
-                    actor=event_actor,
-                    details=dict(event_details or {}),
-                    timestamp=now,
-                )
-            )
-            values: dict[str, Any] = {
-                "status": normalized_status,
-                "updated_at": now,
-                "history": history[-200:],
-            }
-            values.update({key: value for key, value in fields.items() if key in _MUTABLE_FIELDS})
-            changed = session.exec(
-                update(TaskDB)
-                .where(
-                    TaskDB.id == task_id,
-                    TaskDB.task_kind == task.task_kind,
-                    TaskDB.status == task.status,
-                )
-                .values(**values)
-            )
-            session.commit()
-            updated = changed.rowcount == 1
-        if updated:
-            from agent.services.task_runtime_service import notify_task_update
+        from agent.services.task_runtime_service import (
+            compare_and_set_local_task_status,
+        )
 
-            notify_task_update(task_id)
-        return updated
+        return compare_and_set_local_task_status(
+            task_id,
+            normalized_status,
+            expected_statuses={previous_status},
+            authoritative_predicate=lambda authoritative: (
+                str(authoritative.task_kind or "")
+                in _VOICE_TASK_KINDS
+            ),
+            event_type=event_type,
+            event_actor=event_actor,
+            event_details=dict(event_details or {}),
+            force=recovery_completion,
+            **{
+                key: value
+                for key, value in fields.items()
+                if key in _MUTABLE_FIELDS
+            },
+        )
 
 
 voice_task_terminal_service = VoiceTaskTerminalService()

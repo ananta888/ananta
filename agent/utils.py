@@ -93,7 +93,22 @@ def _archive_old_tasks(tasks_path=None):
                 return {
                     tid: task
                     for tid, task in archived_tasks.items()
-                    if float((task or {}).get("archived_at", (task or {}).get("created_at", now)) or now) >= cutoff_archive
+                    if (
+                        float(
+                            (task or {}).get(
+                                "archived_at",
+                                (task or {}).get(
+                                    "created_at",
+                                    now,
+                                ),
+                            )
+                            or now
+                        )
+                        >= cutoff_archive
+                        or archive_utils._is_recovery_related_task(
+                            task
+                        )
+                    )
                 }
 
             update_json(archive_path, cleanup_archive_func, default={})
@@ -123,6 +138,8 @@ def _http_post(
     return_response: bool = False,
     silent: bool = False,
     idempotency_key: Optional[str] = None,
+    allow_redirects: bool = True,
+    stream: bool = False,
 ) -> Any:
     if timeout is None:
         timeout = settings.http_timeout
@@ -137,6 +154,8 @@ def _http_post(
             return_response=return_response,
             silent=silent,
             idempotency_key=idempotency_key,
+            allow_redirects=allow_redirects,
+            stream=stream,
         )
 
 

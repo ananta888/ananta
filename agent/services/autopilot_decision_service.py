@@ -7,6 +7,9 @@ from agent.common.utils.structured_action_utils import normalize_structured_acti
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 from agent.services.verification_policy_service import evaluate_quality_gates
 from agent.utils import _extract_reason
+from ananta_contracts.model_recovery import (
+    sanitize_terminal_model_recovery_signal,
+)
 
 
 class AutopilotDecisionService:
@@ -77,6 +80,24 @@ class AutopilotDecisionService:
             profile = self._extract_llm_call_profile(normalized)
             if profile:
                 snapshot["cli_result"] = {"llm_call_profile": profile}
+        model_diagnostics = self._extract_model_diagnostics(normalized)
+        recovery_signal = sanitize_terminal_model_recovery_signal(
+            model_diagnostics.get("model_recovery_signal")
+        )
+        if recovery_signal is not None:
+            snapshot["model_recovery_signal"] = recovery_signal
+        if bool(
+            model_diagnostics.get(
+                "terminal_model_recovery_signal_seen"
+            )
+        ):
+            snapshot["terminal_model_recovery_signal_seen"] = True
+        if isinstance(model_diagnostics.get("fallback_decisions"), list):
+            snapshot["fallback_decisions"] = [
+                dict(item)
+                for item in model_diagnostics["fallback_decisions"]
+                if isinstance(item, dict)
+            ][-32:]
         return snapshot
 
     def _extract_llm_call_profile(self, normalized: dict[str, Any]) -> list[dict[str, Any]]:
@@ -94,6 +115,39 @@ class AutopilotDecisionService:
                     if isinstance(item, dict):
                         entries.append(dict(item))
         return entries
+
+    def _extract_model_diagnostics(self, normalized: dict[str, Any]) -> dict[str, Any]:
+        candidates: list[dict[str, Any]] = []
+        for value in (
+            normalized.get("metadata"),
+            normalized.get("propose_strategy_meta"),
+        ):
+            if isinstance(value, dict):
+                candidates.append(value)
+        routing = normalized.get("routing")
+        if isinstance(routing, dict) and isinstance(routing.get("propose_strategy_meta"), dict):
+            candidates.append(routing["propose_strategy_meta"])
+        wrapped = normalized.get("proposal")
+        if isinstance(wrapped, dict) and isinstance(wrapped.get("metadata"), dict):
+            candidates.append(wrapped["metadata"])
+
+        diagnostics: dict[str, Any] = {}
+        for candidate in candidates:
+            raw_signal = candidate.get("model_recovery_signal")
+            if (
+                isinstance(raw_signal, dict)
+                and raw_signal.get("terminal") is True
+            ):
+                diagnostics[
+                    "terminal_model_recovery_signal_seen"
+                ] = True
+            signal = sanitize_terminal_model_recovery_signal(raw_signal)
+            if signal is not None:
+                diagnostics["model_recovery_signal"] = signal
+            decisions = candidate.get("fallback_decisions")
+            if isinstance(decisions, list):
+                diagnostics["fallback_decisions"] = list(decisions)
+        return diagnostics
 
     def evaluate_tool_guardrails_for_autopilot(
         self,

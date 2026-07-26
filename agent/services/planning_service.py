@@ -1,4 +1,7 @@
+import contextlib
+import hashlib
 import logging
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
@@ -47,6 +50,7 @@ from agent.services.llm_first_planning_orchestrator_service import get_llm_first
 from agent.services.planning_template_mining_service import get_planning_template_mining_service
 from agent.services.planning_review_queue_service import get_planning_review_queue_service
 from agent.services.repository_registry import get_repository_registry
+from agent.services.recovery_plan_contract import calculate_recovery_plan_digest
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.verification_policy_service import default_verification_spec
 from agent.services.worker_routing_policy_utils import (
@@ -61,6 +65,97 @@ from agent.services.planning_service_pipeline import (
 
 
 class PlanningService:
+    _materialization_locks_guard = threading.Lock()
+    _materialization_locks: dict[str, threading.RLock] = {}
+
+    @classmethod
+    def _materialization_lock(cls, plan_id: str) -> threading.RLock:
+        """Return a process-local lock for one persisted plan.
+
+        The persisted plan status remains the durable idempotency marker.  The
+        narrow per-plan lock additionally prevents two concurrent approval
+        callbacks in one Hub process from staging different random task IDs.
+        """
+        with cls._materialization_locks_guard:
+            return cls._materialization_locks.setdefault(str(plan_id), threading.RLock())
+
+    @classmethod
+    @contextlib.contextmanager
+    def _distributed_materialization_lock(cls, plan_id: str):
+        """Serialize exact-plan edits/materialization across Hub processes.
+
+        PostgreSQL advisory locks are used only as a coordination primitive;
+        repositories keep their existing transaction boundaries. SQLite and
+        injected test repositories remain protected by the process-local lock.
+        """
+
+        try:
+            from sqlalchemy import text
+
+            from agent.database import engine
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "Distributed plan lock setup failed for %s",
+                plan_id,
+            )
+            yield False
+            return
+
+        if str(engine.dialect.name or "").lower() != "postgresql":
+            yield True
+            return
+
+        connection = None
+        try:
+            lock_id = int(
+                hashlib.sha256(
+                    f"planning-materialization:{plan_id}".encode("utf-8")
+                ).hexdigest()[:15],
+                16,
+            )
+            connection = engine.connect()
+            acquired = bool(
+                connection.execute(
+                    text("SELECT pg_try_advisory_lock(:lock_id)"),
+                    {"lock_id": lock_id},
+                ).scalar()
+            )
+        except Exception:
+            if connection is not None:
+                connection.close()
+            logging.getLogger(__name__).exception(
+                "Distributed plan lock acquisition failed for %s",
+                plan_id,
+            )
+            yield False
+            return
+
+        try:
+            yield acquired
+        finally:
+            try:
+                if acquired:
+                    connection.execute(
+                        text("SELECT pg_advisory_unlock(:lock_id)"),
+                        {"lock_id": lock_id},
+                    )
+            finally:
+                if connection is not None:
+                    connection.close()
+
+    @contextlib.contextmanager
+    def plan_mutation_lock(self, plan_id: str):
+        """Serialize every exact-plan mutation in this and other Hub processes."""
+
+        normalized_plan_id = str(plan_id or "").strip()
+        with (
+            self._materialization_lock(normalized_plan_id),
+            self._distributed_materialization_lock(
+                normalized_plan_id
+            ) as distributed_lock_acquired,
+        ):
+            yield bool(distributed_lock_acquired)
+
     @staticmethod
     def _maybe_evolve_prompt(*, telemetry_run, planning_policy: dict[str, Any]) -> None:
         try:
@@ -426,6 +521,7 @@ class PlanningService:
         repair_attempt_count: int = 0,
         parse_mode: str | None = None,
         planning_run_id: str | None = None,
+        initial_rationale: dict[str, Any] | None = None,
     ) -> tuple[PlanDB | None, list[PlanNodeDB]]:
         repos = get_repository_registry()
         flags = get_goal_feature_flags()
@@ -447,6 +543,7 @@ class PlanningService:
                 "node_count": len(subtasks),
                 "context_used": bool(context),
                 "raw_response_preview": (raw_response or "")[:400],
+                **dict(initial_rationale or {}),
             },
         )
         plan = repos.plan_repo.save(plan)
@@ -480,9 +577,45 @@ class PlanningService:
         goal_id: Optional[str],
         goal_trace_id: Optional[str],
         mode: str = "generic",
+        deterministic_task_ids: bool = False,
+        source_task_id: Optional[str] = None,
+        initial_task_status: str = "todo",
     ) -> tuple[list[str], str | None]:
         repos = get_repository_registry()
-        staged = self._prepare_materialization(nodes=nodes)
+        if goal_id:
+            authoritative_goal = repos.goal_repo.get_by_id(
+                str(goal_id)
+            )
+            if (
+                authoritative_goal is None
+                or str(
+                    getattr(
+                        authoritative_goal,
+                        "status",
+                        "",
+                    )
+                    or ""
+                )
+                .strip()
+                .lower()
+                in {
+                    "completed",
+                    "failed",
+                    "cancelled",
+                    "aborted",
+                    "timeout",
+                    "archived",
+                }
+            ):
+                return [], "goal_terminal"
+        staged = self._prepare_materialization(
+            nodes=nodes,
+            deterministic_seed=(
+                str(getattr(plan, "id", "") or "")
+                if deterministic_task_ids and plan is not None
+                else None
+            ),
+        )
         if staged is None:
             if plan:
                 plan.status = "failed"
@@ -496,9 +629,34 @@ class PlanningService:
             for node in nodes:
                 node.rationale = {**(node.rationale or {}), "shell_command_mode": "pipeline"}
 
-        created_ids: list[str] = []
+        existing_ids: list[str] = []
+        entries_to_create = list(staged)
+        if deterministic_task_ids and plan is not None:
+            (
+                existing_ids,
+                entries_to_create,
+                binding_error,
+            ) = self._classify_deterministic_materialization(
+                plan=plan,
+                staged=staged,
+                team_id=team_id,
+                parent_task_id=parent_task_id,
+                source_task_id=source_task_id,
+                initial_task_status=initial_task_status,
+            )
+            if binding_error is not None:
+                plan.status = "failed"
+                plan.rationale = {
+                    **dict(plan.rationale or {}),
+                    "materialization_error": binding_error,
+                }
+                plan.updated_at = time.time()
+                repos.plan_repo.save(plan)
+                return [], binding_error
+
+        newly_created_ids: list[str] = []
         try:
-            for entry in staged:
+            for entry in entries_to_create:
                 node = entry["node"]
                 task_id = entry["task_id"]
                 task_depends_on = entry["depends_on"]
@@ -511,10 +669,12 @@ class PlanningService:
                     plan_id=plan.id if plan else None,
                     parent_task_id=parent_task_id,
                     derivation_reason=f"goal_{plan.planning_mode if plan else 'planning'}",
-                    derivation_depth=1 if parent_task_id else 0,
+                    derivation_depth=1 if (parent_task_id or source_task_id) else 0,
                     depends_on=task_depends_on,
+                    source_task_id=source_task_id,
+                    initial_status=initial_task_status,
                 )
-                created_ids.append(task_id)
+                newly_created_ids.append(task_id)
                 node.materialized_task_id = task_id
                 node.status = "materialized"
                 node.updated_at = time.time()
@@ -522,17 +682,613 @@ class PlanningService:
                 planner._stats["tasks_created"] += 1
         except Exception as exc:
             logging.getLogger(__name__).warning("Plan materialization failed for plan %s: %s", plan.id if plan else "ad-hoc", exc)
-            self._rollback_materialization(plan=plan, nodes=nodes, created_ids=created_ids, error=str(exc))
+            self._rollback_materialization(
+                plan=plan,
+                nodes=nodes,
+                created_ids=newly_created_ids,
+                error=str(exc),
+            )
             return [], "materialization_failed"
 
+        materialized_ids = [
+            str(entry["task_id"])
+            for entry in staged
+            if str(entry["task_id"]) in set(existing_ids + newly_created_ids)
+        ]
         if plan:
-            plan.status = "materialized" if created_ids else "draft"
+            plan.status = "materialized" if materialized_ids else "draft"
             plan.updated_at = time.time()
             repos.plan_repo.save(plan)
-        return created_ids, None
+        return materialized_ids, None
 
-    def _prepare_materialization(self, nodes: list[PlanNodeDB]) -> list[dict[str, Any]] | None:
-        node_to_task_id = {node.node_key: f"goal-{uuid.uuid4().hex[:8]}" for node in nodes}
+    def materialize_existing_plan(
+        self,
+        *,
+        planner,
+        plan_id: str,
+        approval_request_id: str,
+        team_id: str | None = None,
+        parent_task_id: str | None = None,
+        source_task_id: str | None = None,
+        expected_plan_digest: str | None = None,
+        initial_task_status: str = "todo",
+    ) -> dict[str, Any]:
+        """Materialize one persisted draft after a Hub approval was granted.
+
+        Approval validation deliberately remains outside this service.  This
+        method owns only the planning-domain transition from a validated,
+        persisted plan to Hub tasks, making the mutation reusable without
+        exposing ``_materialize_plan`` to routes or approval infrastructure.
+        """
+        normalized_plan_id = str(plan_id or "").strip()
+        normalized_approval_id = str(approval_request_id or "").strip()
+        normalized_initial_status = str(
+            initial_task_status or "todo"
+        ).strip().lower()
+        if not normalized_plan_id:
+            return {"status": "failed", "reason_code": "plan_id_required", "created_task_ids": []}
+        if not normalized_approval_id:
+            return {"status": "failed", "reason_code": "approval_request_id_required", "created_task_ids": []}
+        if normalized_initial_status not in {
+            "todo",
+            "blocked_by_dependency",
+            "paused",
+        }:
+            return {
+                "status": "failed",
+                "reason_code": "initial_task_status_invalid",
+                "created_task_ids": [],
+            }
+
+        with self.plan_mutation_lock(
+            normalized_plan_id
+        ) as distributed_lock_acquired:
+            if not distributed_lock_acquired:
+                return {
+                    "status": "failed",
+                    "reason_code": "plan_mutation_in_progress",
+                    "plan_id": normalized_plan_id,
+                    "created_task_ids": [],
+                }
+            repos = get_repository_registry()
+            plan = repos.plan_repo.get_by_id(normalized_plan_id)
+            if plan is None:
+                return {"status": "failed", "reason_code": "plan_not_found", "created_task_ids": []}
+            if str(
+                dict(plan.rationale or {}).get("approval_request_id") or ""
+            ) != normalized_approval_id:
+                return {
+                    "status": "failed",
+                    "reason_code": "plan_approval_binding_mismatch",
+                    "plan_id": plan.id,
+                    "created_task_ids": [],
+                }
+            already_materialized = (
+                str(plan.status or "") == "materialized"
+            )
+            if (
+                not already_materialized
+                and str(plan.status or "")
+                not in {"draft", "pending_approval", "approved"}
+            ):
+                return {
+                    "status": "failed",
+                    "reason_code": f"plan_status_not_materializable:{plan.status}",
+                    "plan_id": plan.id,
+                    "created_task_ids": [],
+                }
+
+            nodes = repos.plan_node_repo.get_by_plan_id(plan.id)
+            if not nodes:
+                return {
+                    "status": "failed",
+                    "reason_code": "plan_nodes_missing",
+                    "plan_id": plan.id,
+                    "created_task_ids": [],
+                }
+            normalized_expected_digest = str(
+                expected_plan_digest or ""
+            ).strip()
+            if normalized_expected_digest:
+                current_digest = calculate_recovery_plan_digest(plan, nodes)
+                bound_digest = str(
+                    dict(plan.rationale or {}).get("plan_digest") or ""
+                ).strip()
+                if (
+                    current_digest != normalized_expected_digest
+                    or bound_digest != normalized_expected_digest
+                ):
+                    return {
+                        "status": "failed",
+                        "reason_code": "recovery_plan_digest_stale",
+                        "plan_id": plan.id,
+                        "current_plan_digest": current_digest,
+                        "created_task_ids": [],
+                    }
+
+            if already_materialized:
+                staged = self._prepare_materialization(
+                    nodes=nodes,
+                    deterministic_seed=str(plan.id),
+                )
+                if staged is None:
+                    return {
+                        "status": "failed",
+                        "reason_code": "invalid_dependencies",
+                        "plan_id": plan.id,
+                        "created_task_ids": [],
+                    }
+                (
+                    existing_ids,
+                    missing_entries,
+                    binding_error,
+                ) = self._classify_deterministic_materialization(
+                    plan=plan,
+                    staged=staged,
+                    team_id=team_id,
+                    parent_task_id=parent_task_id,
+                    source_task_id=source_task_id,
+                    initial_task_status=normalized_initial_status,
+                )
+                if binding_error is not None or missing_entries:
+                    return {
+                        "status": "failed",
+                        "reason_code": (
+                            binding_error
+                            or "materialized_tasks_missing"
+                        ),
+                        "plan_id": plan.id,
+                        "created_task_ids": [],
+                    }
+                return {
+                    "status": "materialized",
+                    "reason_code": "already_materialized",
+                    "plan_id": plan.id,
+                    "created_task_ids": existing_ids,
+                }
+
+            validation = self._validate_existing_plan_for_materialization(
+                plan=plan,
+                nodes=nodes,
+                team_id=team_id,
+            )
+            if not validation["ok"]:
+                plan.status = "draft"
+                plan.rationale = {
+                    **dict(plan.rationale or {}),
+                    "approval_state": "validation_failed",
+                    "materialization_validation": validation,
+                }
+                plan.updated_at = time.time()
+                repos.plan_repo.save(plan)
+                return {
+                    "status": "failed",
+                    "reason_code": str(validation["reason_code"]),
+                    "plan_id": plan.id,
+                    "created_task_ids": [],
+                    "validation": validation,
+                }
+
+            plan.status = "approved"
+            plan.rationale = {
+                **dict(plan.rationale or {}),
+                "approval_request_id": normalized_approval_id,
+                "approval_state": "granted",
+                "materialization_validation": validation,
+            }
+            plan.updated_at = time.time()
+            plan = repos.plan_repo.save(plan)
+            created_ids, error = self._materialize_plan(
+                planner=planner,
+                plan=plan,
+                nodes=nodes,
+                team_id=team_id,
+                parent_task_id=parent_task_id,
+                goal_id=plan.goal_id,
+                goal_trace_id=plan.trace_id,
+                mode=str(plan.planning_mode or "generic"),
+                deterministic_task_ids=True,
+                source_task_id=source_task_id,
+                initial_task_status=normalized_initial_status,
+            )
+            if error:
+                retryable = self._restore_retryable_materialization_state(
+                    plan_id=plan.id,
+                    error=error,
+                    team_id=team_id,
+                    parent_task_id=parent_task_id,
+                    source_task_id=source_task_id,
+                    initial_task_status=normalized_initial_status,
+                )
+                return {
+                    "status": "failed",
+                    "reason_code": error,
+                    "plan_id": plan.id,
+                    "created_task_ids": [],
+                    "retryable": retryable,
+                }
+            return {
+                "status": "materialized",
+                "reason_code": "approved_plan_materialized",
+                "plan_id": plan.id,
+                "created_task_ids": created_ids,
+            }
+
+    @staticmethod
+    def _task_matches_materialization_binding(
+        task: Any,
+        *,
+        plan: PlanDB,
+        node: PlanNodeDB,
+        task_id: str,
+        team_id: str | None,
+        parent_task_id: str | None,
+        source_task_id: str | None,
+        depends_on: list[str],
+        initial_task_status: str,
+    ) -> bool:
+        """Check the immutable ownership fields of a deterministic plan task."""
+
+        expected_source = (
+            source_task_id
+            if source_task_id is not None
+            else parent_task_id
+        )
+        expected_depth = 1 if (parent_task_id or source_task_id) else 0
+        rationale = dict(node.rationale or {})
+        expected = {
+            "id": str(task_id),
+            "goal_id": str(plan.goal_id or ""),
+            "goal_trace_id": str(plan.trace_id or ""),
+            "plan_id": str(plan.id or ""),
+            "plan_node_id": str(node.id or ""),
+            "team_id": str(team_id or ""),
+            "parent_task_id": str(parent_task_id or ""),
+            "source_task_id": str(expected_source or ""),
+            "derivation_reason": f"goal_{plan.planning_mode or 'planning'}",
+            "derivation_depth": int(expected_depth),
+            "status": str(initial_task_status or "todo").strip().lower(),
+            "title": str(node.title or ""),
+            "description": str(node.description or ""),
+            "priority": str(node.priority or ""),
+            "task_kind": str(rationale.get("task_kind") or ""),
+            "retrieval_intent": str(
+                rationale.get("retrieval_intent") or ""
+            ),
+            "required_context_scope": str(
+                rationale.get("required_context_scope") or ""
+            ),
+            "preferred_bundle_mode": str(
+                rationale.get("preferred_bundle_mode") or ""
+            ),
+        }
+        actual = {
+            "id": str(getattr(task, "id", "") or ""),
+            "goal_id": str(getattr(task, "goal_id", "") or ""),
+            "goal_trace_id": str(
+                getattr(task, "goal_trace_id", "") or ""
+            ),
+            "plan_id": str(getattr(task, "plan_id", "") or ""),
+            "plan_node_id": str(
+                getattr(task, "plan_node_id", "") or ""
+            ),
+            "team_id": str(getattr(task, "team_id", "") or ""),
+            "parent_task_id": str(
+                getattr(task, "parent_task_id", "") or ""
+            ),
+            "source_task_id": str(
+                getattr(task, "source_task_id", "") or ""
+            ),
+            "derivation_reason": str(
+                getattr(task, "derivation_reason", "") or ""
+            ),
+            "derivation_depth": int(
+                getattr(task, "derivation_depth", 0) or 0
+            ),
+            "status": str(getattr(task, "status", "") or "")
+            .strip()
+            .lower(),
+            "title": str(getattr(task, "title", "") or ""),
+            "description": str(
+                getattr(task, "description", "") or ""
+            ),
+            "priority": str(getattr(task, "priority", "") or ""),
+            "task_kind": str(
+                getattr(task, "task_kind", "") or ""
+            ),
+            "retrieval_intent": str(
+                getattr(task, "retrieval_intent", "") or ""
+            ),
+            "required_context_scope": str(
+                getattr(task, "required_context_scope", "") or ""
+            ),
+            "preferred_bundle_mode": str(
+                getattr(task, "preferred_bundle_mode", "") or ""
+            ),
+        }
+        return (
+            actual == expected
+            and list(getattr(task, "depends_on", None) or [])
+            == list(depends_on or [])
+            and list(
+                getattr(task, "required_capabilities", None) or []
+            )
+            == list(rationale.get("required_capabilities") or [])
+            and dict(getattr(task, "verification_spec", None) or {})
+            == dict(node.verification_spec or {})
+        )
+
+    def _classify_deterministic_materialization(
+        self,
+        *,
+        plan: PlanDB,
+        staged: list[dict[str, Any]],
+        team_id: str | None,
+        parent_task_id: str | None,
+        source_task_id: str | None,
+        initial_task_status: str,
+    ) -> tuple[list[str], list[dict[str, Any]], str | None]:
+        """Resume only a provably identical deterministic partial DAG."""
+
+        repos = get_repository_registry()
+        existing_ids: list[str] = []
+        entries_to_create: list[dict[str, Any]] = []
+        for entry in staged:
+            node = entry["node"]
+            task_id = str(entry["task_id"])
+            bound_task_id = str(
+                getattr(node, "materialized_task_id", "") or ""
+            ).strip()
+            if bound_task_id and bound_task_id != task_id:
+                return [], [], "materialization_binding_conflict"
+
+            task = repos.task_repo.get_by_id(task_id)
+            if task is None:
+                if bound_task_id:
+                    return [], [], "materialization_binding_conflict"
+                entries_to_create.append(entry)
+                continue
+            if not self._task_matches_materialization_binding(
+                task,
+                plan=plan,
+                node=node,
+                task_id=task_id,
+                team_id=team_id,
+                parent_task_id=parent_task_id,
+                source_task_id=source_task_id,
+                depends_on=list(entry["depends_on"] or []),
+                initial_task_status=initial_task_status,
+            ):
+                return [], [], "materialization_binding_conflict"
+            if not bound_task_id:
+                # Crash window: task commit succeeded, node commit did not.
+                node.materialized_task_id = task_id
+                node.status = "materialized"
+                node.updated_at = time.time()
+                repos.plan_node_repo.save(node)
+            existing_ids.append(task_id)
+        return existing_ids, entries_to_create, None
+
+    def _restore_retryable_materialization_state(
+        self,
+        *,
+        plan_id: str,
+        error: str,
+        team_id: str | None,
+        parent_task_id: str | None,
+        source_task_id: str | None,
+        initial_task_status: str,
+    ) -> bool:
+        """Re-open a plan when every deterministic survivor is exact."""
+
+        if str(error or "") != "materialization_failed":
+            return False
+        repos = get_repository_registry()
+        plan = repos.plan_repo.get_by_id(plan_id)
+        nodes = repos.plan_node_repo.get_by_plan_id(plan_id)
+        if plan is None or not nodes:
+            return False
+        staged = self._prepare_materialization(
+            nodes=nodes,
+            deterministic_seed=str(plan.id),
+        )
+        if staged is None:
+            return False
+        (
+            existing_ids,
+            _missing_entries,
+            binding_error,
+        ) = self._classify_deterministic_materialization(
+            plan=plan,
+            staged=staged,
+            team_id=team_id,
+            parent_task_id=parent_task_id,
+            source_task_id=source_task_id,
+            initial_task_status=initial_task_status,
+        )
+        if binding_error is not None:
+            return False
+        plan.status = "pending_approval"
+        plan.rationale = {
+            **dict(plan.rationale or {}),
+            "approval_state": "materialization_retryable",
+            "materialization_error": str(error)[:500],
+            "materialization_survivor_task_ids": list(
+                existing_ids
+            ),
+        }
+        plan.updated_at = time.time()
+        repos.plan_repo.save(plan)
+        return True
+
+    def _validate_existing_plan_for_materialization(
+        self,
+        *,
+        plan: PlanDB,
+        nodes: list[PlanNodeDB],
+        team_id: str | None,
+    ) -> dict[str, Any]:
+        """Re-run deterministic proposal, DAG, and quality gates after review."""
+        dependency_error = self._dependency_contract_error(nodes)
+        if dependency_error is not None:
+            return {
+                "ok": False,
+                "reason_code": dependency_error,
+            }
+        key_to_position = {
+            str(node.node_key): str(index)
+            for index, node in enumerate(nodes, start=1)
+        }
+        subtasks: list[dict[str, Any]] = []
+        for node in nodes:
+            rationale = dict(node.rationale or {})
+            subtasks.append(
+                {
+                    "title": str(node.title or ""),
+                    "description": str(node.description or ""),
+                    "priority": str(node.priority or "Medium"),
+                    "task_kind": str(rationale.get("task_kind") or "coding"),
+                    "depends_on": [
+                        key_to_position[dep]
+                        for dep in list(node.depends_on or [])
+                    ],
+                    "required_capabilities": [
+                        str(item)
+                        for item in list(rationale.get("required_capabilities") or [])
+                        if str(item).strip()
+                    ],
+                    "expected_artifacts": [
+                        dict(item)
+                        for item in list(rationale.get("expected_artifacts") or [])
+                        if isinstance(item, dict)
+                    ],
+                    "verification_spec": dict(node.verification_spec or {}),
+                }
+            )
+
+        scoped = get_goal_config_runtime_service().get_effective_config(
+            goal_id=plan.goal_id,
+            task_id=None,
+        )
+        planning_policy = self._resolve_planning_policy(dict(scoped.config or {}))
+        quality = get_planning_quality_service().evaluate(
+            subtasks=subtasks,
+            mode=str(plan.planning_mode or "generic"),
+            planning_policy=planning_policy,
+            team_id=team_id,
+        )
+        remaining_reasons = [
+            item
+            for item in str(quality.reason or "").split("|")
+            if item and item != "ok"
+        ]
+        soft_only = bool(subtasks) and remaining_reasons and all(
+            item.startswith("missing_categories:")
+            for item in remaining_reasons
+        )
+        if not quality.ok and not soft_only:
+            return {
+                "ok": False,
+                "reason_code": "planning_quality_gate_failed",
+                "quality_reason": str(quality.reason or ""),
+                "missing_categories": list(quality.missing_categories or []),
+                "generic_task_indices": list(quality.generic_task_indices or []),
+            }
+
+        proposal = build_plan_proposal(
+            goal_id=plan.goal_id,
+            trace_id=plan.trace_id,
+            summary=f"Approved recovery plan {plan.id}",
+            subtasks=subtasks,
+            required_capabilities=[],
+        )
+        known_capabilities = {
+            "planning",
+            "coding",
+            "testing",
+            "review",
+            "research",
+            "ops",
+            "analysis",
+            "doc",
+            "plan.propose",
+            "risk.estimate",
+            "dependencies.suggest",
+            "clarifying_questions.suggest",
+        }
+        proposal_validation = validate_plan_proposal_payload(
+            proposal,
+            known_capabilities=known_capabilities,
+        )
+        if not proposal_validation.ok:
+            return {
+                "ok": False,
+                "reason_code": "invalid_plan_proposal",
+                "proposal_validation_errors": list(proposal_validation.errors or []),
+            }
+        if self._prepare_materialization(nodes=nodes) is None:
+            return {
+                "ok": False,
+                "reason_code": "invalid_dependencies",
+            }
+        return {
+            "ok": True,
+            "reason_code": "validated",
+            "quality_soft_accepted": bool(soft_only),
+        }
+
+    @staticmethod
+    def _dependency_contract_error(
+        nodes: list[PlanNodeDB],
+    ) -> str | None:
+        node_keys = [str(node.node_key or "").strip() for node in nodes]
+        if any(not key for key in node_keys):
+            return "plan_node_key_missing"
+        if len(set(node_keys)) != len(node_keys):
+            return "plan_node_key_duplicate"
+        known = set(node_keys)
+        for node in nodes:
+            dependencies = [
+                str(value or "").strip()
+                for value in list(node.depends_on or [])
+            ]
+            if len(set(dependencies)) != len(dependencies):
+                return "plan_dependency_duplicate"
+            if str(node.node_key) in dependencies:
+                return "plan_dependency_self_reference"
+            if any(not dependency or dependency not in known for dependency in dependencies):
+                return "plan_dependency_unknown"
+        return None
+
+    def _prepare_materialization(
+        self,
+        nodes: list[PlanNodeDB],
+        *,
+        deterministic_seed: str | None = None,
+    ) -> list[dict[str, Any]] | None:
+        if self._dependency_contract_error(nodes) is not None:
+            return None
+        if deterministic_seed:
+            node_to_task_id = {
+                node.node_key: (
+                    "goal-"
+                    + hashlib.sha256(
+                        (
+                            str(deterministic_seed)
+                            + "\x00"
+                            + str(node.id)
+                            + "\x00"
+                            + str(node.node_key)
+                        ).encode("utf-8")
+                    ).hexdigest()[:16]
+                )
+                for node in nodes
+            }
+        else:
+            node_to_task_id = {
+                node.node_key: f"goal-{uuid.uuid4().hex[:8]}"
+                for node in nodes
+            }
         staged: list[dict[str, Any]] = []
         created_order: list[str] = []
         staged_graph: dict[str, list[str]] = {}
@@ -542,8 +1298,9 @@ class PlanningService:
             is_parallel_node = bool((node.rationale or {}).get("parallel"))
             dependency_mode = str((node.rationale or {}).get("dependency_mode") or "").strip().lower()
             if node.depends_on:
-                mapped = [node_to_task_id.get(dep) for dep in node.depends_on]
-                task_depends_on = [dep for dep in mapped if dep]
+                task_depends_on = [
+                    node_to_task_id[dep] for dep in node.depends_on
+                ]
             elif dependency_mode == "sequential" and not is_parallel_node and created_order:
                 task_depends_on = created_order[-1:]
             task_depends_on = normalize_depends_on(task_depends_on, task_id)
@@ -610,6 +1367,7 @@ class PlanningService:
         goal_trace_id: Optional[str] = None,
         mode: str = "generic",
         mode_data: Optional[dict] = None,
+        initial_plan_rationale: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         flags = get_goal_feature_flags()
         if not flags.get("goal_workflow_enabled", True):
@@ -940,6 +1698,7 @@ class PlanningService:
             mode=mode,
             team_id=team_id,
             parent_task_id=parent_task_id,
+            initial_plan_rationale=initial_plan_rationale,
         )
 
     def get_latest_plan_for_goal(self, goal_id: str) -> tuple[PlanDB | None, list[PlanNodeDB]]:
@@ -950,32 +1709,59 @@ class PlanningService:
         plan = plans[0]
         return plan, repos.plan_node_repo.get_by_plan_id(plan.id)
 
-    def patch_plan_node(self, goal_id: str, node_id: str, payload: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    def get_plan_for_goal(self, goal_id: str, plan_id: str) -> tuple[PlanDB | None, list[PlanNodeDB]]:
+        """Return one explicitly addressed plan only when it belongs to the goal."""
         repos = get_repository_registry()
+        plan = repos.plan_repo.get_by_id(plan_id)
+        if not plan or str(plan.goal_id) != str(goal_id):
+            return None, []
+        return plan, repos.plan_node_repo.get_by_plan_id(plan.id)
+
+    def patch_plan_node(self, goal_id: str, node_id: str, payload: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
         plan, _ = self.get_latest_plan_for_goal(goal_id)
         if not plan:
             return None, "plan_not_found"
-        node = repos.plan_node_repo.get_by_id(node_id)
-        if not node or node.plan_id != plan.id:
-            return None, "node_not_found"
-        if node.materialized_task_id:
-            return None, "node_already_materialized"
+        return self.patch_plan_node_for_plan(goal_id, plan.id, node_id, payload)
 
-        allowed_fields = {"title", "description", "priority", "depends_on", "editable"}
-        for key, value in (payload or {}).items():
-            if key not in allowed_fields:
-                continue
-            if key == "depends_on":
-                setattr(node, key, [str(item).strip() for item in value if str(item).strip()] if isinstance(value, list) else [])
-            else:
-                setattr(node, key, value)
-        node.updated_at = time.time()
-        node.status = "edited"
-        node.rationale = {**(node.rationale or {}), "edited": True}
-        repos.plan_node_repo.save(node)
-        plan.updated_at = time.time()
-        repos.plan_repo.save(plan)
-        return node.model_dump(), None
+    def patch_plan_node_for_plan(
+        self,
+        goal_id: str,
+        plan_id: str,
+        node_id: str,
+        payload: dict[str, Any],
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        """Patch an unmaterialized node in one goal-bound persisted plan."""
+        normalized_plan_id = str(plan_id or "").strip()
+        with self.plan_mutation_lock(
+            normalized_plan_id
+        ) as distributed_lock_acquired:
+            if not distributed_lock_acquired:
+                return None, "plan_mutation_in_progress"
+            repos = get_repository_registry()
+            plan, _ = self.get_plan_for_goal(goal_id, normalized_plan_id)
+            if not plan:
+                return None, "plan_not_found"
+            node = repos.plan_node_repo.get_by_id(node_id)
+            if not node or node.plan_id != plan.id:
+                return None, "node_not_found"
+            if node.materialized_task_id:
+                return None, "node_already_materialized"
+
+            allowed_fields = {"title", "description", "priority", "depends_on", "editable"}
+            for key, value in (payload or {}).items():
+                if key not in allowed_fields:
+                    continue
+                if key == "depends_on":
+                    setattr(node, key, [str(item).strip() for item in value if str(item).strip()] if isinstance(value, list) else [])
+                else:
+                    setattr(node, key, value)
+            node.updated_at = time.time()
+            node.status = "edited"
+            node.rationale = {**(node.rationale or {}), "edited": True}
+            repos.plan_node_repo.save(node)
+            plan.updated_at = time.time()
+            repos.plan_repo.save(plan)
+            return node.model_dump(), None
 
 
 planning_service = PlanningService()

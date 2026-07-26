@@ -436,29 +436,56 @@ class GraphValidator:
         except Exception:
             known_profiles = None
 
+        graph_routing = None
+        graph_routing_valid = True
         try:
-            ModelRoutingConfig.from_metadata(graph.metadata)
+            graph_routing = ModelRoutingConfig.from_metadata(graph.metadata)
         except Exception as exc:
+            graph_routing_valid = False
             issues.append(ValidationIssue(
-                "warning",
+                "error",
                 "model_routing_invalid",
                 f"Graph model_routing is invalid: {exc}",
             ))
 
         for step in graph.steps:
             try:
-                routing = ModelRoutingConfig.from_metadata(step.metadata)
+                step_routing = ModelRoutingConfig.from_metadata(step.metadata)
             except Exception as exc:
                 issues.append(ValidationIssue(
-                    "warning",
+                    "error",
                     "model_routing_invalid",
                     f"Step '{step.label}' model_routing is invalid: {exc}",
                     step_id=step.id,
                 ))
                 continue
-            if routing is None:
+            if not graph_routing_valid:
                 continue
-            if routing.preferred_profile_id and known_profiles is not None and routing.preferred_profile_id not in known_profiles:
+            merged_routing: dict[str, Any] = {}
+            if graph_routing is not None:
+                merged_routing.update(graph_routing.as_metadata())
+            if step_routing is not None:
+                merged_routing.update(step_routing.as_metadata())
+            if not merged_routing:
+                continue
+            try:
+                routing = ModelRoutingConfig.from_mapping(merged_routing)
+            except Exception as exc:
+                issues.append(ValidationIssue(
+                    "error",
+                    "model_routing_invalid",
+                    (
+                        f"Effective model_routing for step '{step.label}' "
+                        f"is invalid after graph/step merge: {exc}"
+                    ),
+                    step_id=step.id,
+                ))
+                continue
+            if (
+                routing.preferred_profile_id
+                and known_profiles is not None
+                and routing.preferred_profile_id not in known_profiles
+            ):
                 issues.append(ValidationIssue(
                     "warning",
                     "model_profile_missing",

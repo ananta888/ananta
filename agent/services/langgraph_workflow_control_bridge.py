@@ -43,6 +43,7 @@ from agent.services.workflow_control_service import (
 from agent.services.workflow_provider_selection_service import (
     WorkflowProviderDecisionPort,
     WorkflowProviderRequirement,
+    trusted_model_routing_from_metadata,
 )
 from agent.services.workflow_runtime.commands import (
     SignedWorkflowCommand,
@@ -597,6 +598,7 @@ class LangGraphWorkflowControlBridge:
         limits: tuple[int, int, int],
     ) -> WorkflowAdapterTaskSubmission:
         requires_provider = command == "execute"
+        model_routing = trusted_model_routing_from_metadata(node.metadata)
         decision = self._providers.decide(
             WorkflowProviderRequirement(
                 tenant_id=binding.tenant_id,
@@ -605,6 +607,8 @@ class LangGraphWorkflowControlBridge:
                 task_type=str(binding.request.metadata.get("adapter_task_type") or "agent_workflow"),
                 runtime_kind=self.runtime_id,
                 requires_provider=requires_provider,
+                required_capabilities=tuple(node.required_capabilities),
+                model_routing=model_routing,
             )
         )
         if requires_provider and decision.binding is None:
@@ -663,6 +667,15 @@ class LangGraphWorkflowControlBridge:
             ),
             provider_binding=decision.binding,
             provider_decision_reason=decision.reason_code,
+            primary_profile_id=decision.primary_profile_id,
+            provider_profile_bindings=decision.profile_bindings,
+            provider_attempt_plan=decision.profile_attempt_plan,
+            provider_maximum_attempts=decision.maximum_provider_attempts,
+            model_routing=(
+                model_routing.as_metadata()
+                if model_routing is not None
+                else {}
+            ),
         )
 
     @staticmethod

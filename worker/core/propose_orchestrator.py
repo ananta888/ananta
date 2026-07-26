@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
 from worker.core.propose import (
     ProposeStrategyResult,
@@ -15,6 +15,7 @@ from worker.core.propose import (
 )
 
 from agent.services.propose_policy import ProposePolicy, LLM_STRATEGY_IDS
+from ananta_contracts.model_recovery import aggregate_model_recovery_signals
 
 
 @dataclass
@@ -69,6 +70,8 @@ class ProposeStrategyOrchestrator:
         strategy_order = self.policy.effective_strategy_order()
         attempted: List[Dict] = []
         collected_llm_profiles: List[Dict[str, Any]] = []
+        collected_fallback_decisions: List[Dict[str, Any]] = []
+        collected_recovery_signals: List[Dict[str, Any]] = []
 
         llm_required = self.policy.llm_required
         llm_unavailable_count = 0
@@ -97,6 +100,21 @@ class ProposeStrategyOrchestrator:
                 for entry in entries:
                     if isinstance(entry, dict):
                         collected_llm_profiles.append(dict(entry))
+                decisions = list((result.metadata or {}).get("fallback_decisions") or [])
+                for decision in decisions:
+                    if isinstance(decision, dict):
+                        collected_fallback_decisions.append(dict(decision))
+                signal = (result.metadata or {}).get("model_recovery_signal")
+                if isinstance(signal, dict):
+                    signal = dict(signal)
+                    signal["strategy_failures"] = [
+                        {
+                            "strategy_id": strategy_id,
+                            "terminal_reason": signal.get("terminal_reason"),
+                            "attempt_count": signal.get("attempt_count"),
+                        }
+                    ]
+                    collected_recovery_signals.append(signal)
 
             attempted.append({
                 "strategy_id": strategy_id,
@@ -115,6 +133,14 @@ class ProposeStrategyOrchestrator:
                     result.metadata["selected_strategy"] = strategy_id
                     if collected_llm_profiles:
                         result.metadata["llm_call_profile"] = list(collected_llm_profiles)
+                    if collected_fallback_decisions:
+                        result.metadata["fallback_decisions"] = list(collected_fallback_decisions[-32:])
+                    if not result.is_executable:
+                        recovery_signal = aggregate_model_recovery_signals(
+                            collected_recovery_signals
+                        )
+                        if recovery_signal is not None:
+                            result.metadata["model_recovery_signal"] = recovery_signal
                 return result
 
             # T003: after last LLM strategy, enforce llm_required
@@ -133,6 +159,11 @@ class ProposeStrategyOrchestrator:
                 }
                 if collected_llm_profiles:
                     meta["llm_call_profile"] = list(collected_llm_profiles)
+                if collected_fallback_decisions:
+                    meta["fallback_decisions"] = list(collected_fallback_decisions[-32:])
+                recovery_signal = aggregate_model_recovery_signals(collected_recovery_signals)
+                if recovery_signal is not None:
+                    meta["model_recovery_signal"] = recovery_signal
                 return ProposeStrategyResult.needs_review(
                     "orchestrator",
                     "llm_required_but_unavailable",
@@ -144,6 +175,11 @@ class ProposeStrategyOrchestrator:
         fallback_meta = {"attempted_strategies": attempted, "selected_strategy": None}
         if collected_llm_profiles:
             fallback_meta["llm_call_profile"] = list(collected_llm_profiles)
+        if collected_fallback_decisions:
+            fallback_meta["fallback_decisions"] = list(collected_fallback_decisions[-32:])
+        recovery_signal = aggregate_model_recovery_signals(collected_recovery_signals)
+        if recovery_signal is not None:
+            fallback_meta["model_recovery_signal"] = recovery_signal
         match self.policy.on_all_strategies_declined:
             case "needs_review":
                 r = ProposeStrategyResult.needs_review(

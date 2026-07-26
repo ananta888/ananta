@@ -7,12 +7,19 @@ import hashlib
 import json
 import threading
 import time
+import uuid
 from dataclasses import dataclass
 from typing import Any, Protocol
-from urllib.parse import urlparse
 
 from agent.providers.redaction import redact_provider_payload
 from agent.services.token_budget_service import TokenBudgetService
+from ananta_contracts.provider_endpoint_policy import (
+    is_forbidden_provider_endpoint_target,
+    is_legacy_compatible_provider_endpoint,
+    is_local_provider_endpoint,
+    normalize_provider_endpoint_identity,
+    validate_provider_endpoint_resolution,
+)
 from ananta_contracts.provider_invocation import (
     ProviderBudgetDecision,
     ProviderInvocationBlocked,
@@ -87,11 +94,21 @@ class _BudgetUsage:
     cost_micros: int = 0
 
 
+@dataclass
+class _BudgetReservation:
+    reserved_tokens: int
+    reserved_cost_micros: int
+    actual_total_tokens: int | None = None
+
+
 class AtomicProviderBudgetLedger:
     """Process-local reference ledger; persistent stores implement the same port."""
 
     def __init__(self) -> None:
         self._usage: dict[tuple[str, str, str], _BudgetUsage] = {}
+        self._reservations: dict[
+            tuple[str, str, str, str], _BudgetReservation
+        ] = {}
         self._lock = threading.RLock()
 
     @staticmethod
@@ -105,7 +122,6 @@ class AtomicProviderBudgetLedger:
         estimated_prompt_tokens: int,
         reservation_id: str = "",
     ) -> ProviderBudgetDecision:
-        del reservation_id
         now = time.time()
         reserved_tokens = max(0, estimated_prompt_tokens) + context.max_completion_tokens_per_call
         reserved_cost = (
@@ -115,6 +131,27 @@ class AtomicProviderBudgetLedger:
         )
         with self._lock:
             usage = self._usage.setdefault(self._key(context), _BudgetUsage())
+            reservation_key = (*self._key(context), reservation_id)
+            existing = self._reservations.get(reservation_key)
+            if existing is not None:
+                if (
+                    existing.reserved_tokens != reserved_tokens
+                    or existing.reserved_cost_micros != reserved_cost
+                ):
+                    return ProviderBudgetDecision(
+                        False,
+                        "provider_budget_reservation_binding_mismatch",
+                        usage.attempts,
+                        usage.tokens,
+                        usage.cost_micros,
+                    )
+                return ProviderBudgetDecision(
+                    True,
+                    "provider_budget_reservation_replayed",
+                    usage.attempts,
+                    existing.reserved_tokens,
+                    existing.reserved_cost_micros,
+                )
             if context.deadline_epoch_seconds is not None and now >= context.deadline_epoch_seconds:
                 return ProviderBudgetDecision(
                     False, "provider_deadline_exceeded", usage.attempts, usage.tokens, usage.cost_micros
@@ -134,6 +171,10 @@ class AtomicProviderBudgetLedger:
             usage.attempts += 1
             usage.tokens += reserved_tokens
             usage.cost_micros += reserved_cost
+            self._reservations[reservation_key] = _BudgetReservation(
+                reserved_tokens=reserved_tokens,
+                reserved_cost_micros=reserved_cost,
+            )
             return ProviderBudgetDecision(
                 True, "provider_budget_reserved", usage.attempts, reserved_tokens, reserved_cost
             )
@@ -146,13 +187,26 @@ class AtomicProviderBudgetLedger:
         actual_total_tokens: int | None,
         reservation_id: str = "",
     ) -> None:
-        del reservation_id
         if actual_total_tokens is None:
             return
         with self._lock:
             usage = self._usage.setdefault(self._key(context), _BudgetUsage())
+            reservation = self._reservations.get(
+                (*self._key(context), reservation_id)
+            )
+            if reservation is None:
+                raise ProviderInvocationBlocked(
+                    "provider_budget_reservation_not_found"
+                )
+            if reservation.actual_total_tokens is not None:
+                if reservation.actual_total_tokens != int(actual_total_tokens):
+                    raise ProviderInvocationBlocked(
+                        "provider_budget_reconciliation_conflict"
+                    )
+                return
             delta = int(actual_total_tokens) - int(reserved_tokens)
             usage.tokens = max(0, usage.tokens + delta)
+            reservation.actual_total_tokens = int(actual_total_tokens)
 
     def snapshot(self, context: ProviderInvocationContext) -> dict[str, int]:
         with self._lock:
@@ -252,6 +306,10 @@ class ProviderInvocationMiddleware:
     ) -> PreparedProviderInvocation:
         resolved = ProviderInvocationContext.from_value(context)
         resolved.assert_valid()
+        if not resolved.provider_call_id:
+            resolved = resolved.for_provider_call(
+                f"provider-call:{uuid.uuid4().hex}"
+            )
         if resolved.selected_provider_id and (
             provider != resolved.selected_provider_id or model != resolved.selected_model_id
         ):
@@ -263,6 +321,12 @@ class ProviderInvocationMiddleware:
                 "provider_selection_binding_mismatch",
             )
             raise ProviderInvocationBlocked("provider_selection_binding_mismatch")
+        self._assert_endpoint_authorized(
+            context=resolved,
+            provider=provider,
+            model=model,
+            endpoint_url=endpoint_url,
+        )
         if resolved.retry_attempt > 0 and resolved.require_hub_retry_budget:
             if self._retry_budgets is None:
                 raise ProviderInvocationBlocked("provider_combined_retry_budget_unavailable")
@@ -274,11 +338,6 @@ class ProviderInvocationMiddleware:
             self._publish(resolved, "provider.retry.checked", provider, model, reason)
             if not allowed:
                 raise ProviderInvocationBlocked(reason or "provider_combined_retry_budget_denied")
-        external = not self._is_local_endpoint(endpoint_url)
-        if external and not resolved.external_egress_allowed:
-            self._publish(resolved, "provider.egress.blocked", provider, model, "provider_egress_denied")
-            raise ProviderInvocationBlocked("provider_egress_denied")
-
         redacted = redact_provider_payload(payload, secret_refs=resolved.secret_refs)
         canonical_payload = json.dumps(redacted, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
         payload_hash = hashlib.sha256(canonical_payload.encode("utf-8")).hexdigest()
@@ -335,6 +394,102 @@ class ProviderInvocationMiddleware:
             budget_reservation_id=reservation_id,
             uses_hub_budget=uses_hub_budget,
         )
+
+    def _assert_endpoint_authorized(
+        self,
+        *,
+        context: ProviderInvocationContext,
+        provider: str,
+        model: str,
+        endpoint_url: str,
+    ) -> None:
+        try:
+            actual_identity = normalize_provider_endpoint_identity(
+                provider_id=provider,
+                endpoint_url=endpoint_url,
+            )
+        except ValueError as exc:
+            reason = "provider_endpoint_identity_invalid"
+            self._publish(
+                context,
+                "provider.endpoint.blocked",
+                provider,
+                model,
+                reason,
+            )
+            raise ProviderInvocationBlocked(reason) from exc
+        if is_forbidden_provider_endpoint_target(actual_identity):
+            reason = "provider_endpoint_target_denied"
+            self._publish(
+                context,
+                "provider.endpoint.blocked",
+                provider,
+                model,
+                reason,
+            )
+            raise ProviderInvocationBlocked(reason)
+
+        expected_identity = context.provider_endpoint_identity
+        endpoint_bound = bool(expected_identity)
+        if endpoint_bound and actual_identity != expected_identity:
+            reason = "provider_endpoint_binding_mismatch"
+            self._publish(
+                context,
+                "provider.endpoint.blocked",
+                provider,
+                model,
+                reason,
+            )
+            raise ProviderInvocationBlocked(reason)
+        if (
+            context.require_hub_provider_budget
+            and not endpoint_bound
+            and not is_legacy_compatible_provider_endpoint(
+                provider_id=provider,
+                endpoint_url=actual_identity,
+            )
+        ):
+            reason = "provider_endpoint_binding_required"
+            self._publish(
+                context,
+                "provider.endpoint.blocked",
+                provider,
+                model,
+                reason,
+            )
+            raise ProviderInvocationBlocked(reason)
+
+        external = not is_local_provider_endpoint(
+            provider_id=provider,
+            endpoint_url=actual_identity,
+            endpoint_bound=endpoint_bound,
+        )
+        if external and not context.external_egress_allowed:
+            reason = "provider_egress_denied"
+            self._publish(
+                context,
+                "provider.egress.blocked",
+                provider,
+                model,
+                reason,
+            )
+            raise ProviderInvocationBlocked(reason)
+        try:
+            validate_provider_endpoint_resolution(
+                provider_id=provider,
+                endpoint_url=actual_identity,
+                endpoint_bound=endpoint_bound,
+            )
+        except ValueError as exc:
+            reason = str(exc) or "provider_endpoint_resolution_denied"
+            self._publish(
+                context,
+                "provider.endpoint.blocked",
+                provider,
+                model,
+                reason,
+            )
+            raise ProviderInvocationBlocked(reason) from exc
 
     def complete(
         self,
@@ -401,6 +556,10 @@ class ProviderInvocationMiddleware:
             "prompt_version": context.prompt_version,
             "provider": provider,
             "model": model,
+            "provider_binding_id": context.provider_binding_id,
+            "provider_endpoint_identity": (
+                context.provider_endpoint_identity
+            ),
             "payload_hash": payload_hash,
         }
         rendered = json.dumps(binding, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
@@ -422,8 +581,13 @@ class ProviderInvocationMiddleware:
             "step_id": context.step_id,
             "attempt_id": context.attempt_id,
             "retry_attempt": context.retry_attempt,
+            "provider_call_id": context.provider_call_id,
             "provider": provider,
             "model": model,
+            "provider_binding_id": context.provider_binding_id,
+            "provider_endpoint_identity": (
+                context.provider_endpoint_identity
+            ),
             "payload_hash": payload_hash,
         }
         rendered = json.dumps(
@@ -433,11 +597,6 @@ class ProviderInvocationMiddleware:
             ensure_ascii=True,
         )
         return "provider-call-" + hashlib.sha256(rendered.encode("utf-8")).hexdigest()
-
-    @staticmethod
-    def _is_local_endpoint(endpoint_url: str) -> bool:
-        host = (urlparse(endpoint_url).hostname or "").lower()
-        return host in {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
 
     def _publish(
         self,

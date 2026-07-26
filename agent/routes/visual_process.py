@@ -32,6 +32,7 @@ import hashlib
 import json
 import time
 from dataclasses import replace
+from typing import Any
 
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 from sqlmodel import Session, select
@@ -278,6 +279,10 @@ def _build_model_plan(graph: VisualProcessGraph) -> dict:
                 "resolver_source": result.final_source,
                 "resolver_rank": result.final_rank,
                 "fallback_group_id": routing.get("fallback_group_id") or getattr(selected, "fallback_group", None),
+                "context_recovery_strategies": list(routing.get("context_recovery_strategies") or []),
+                "require_approval_for_generated_plan": bool(
+                    routing.get("require_approval_for_generated_plan", True)
+                ),
                 "candidate_chain": [p.profile_id for p in chain],
                 "cloud_allowed": bool(routing.get("allow_cloud", False)),
                 "blocked_candidates": [
@@ -302,6 +307,16 @@ def _build_model_plan(graph: VisualProcessGraph) -> dict:
             "status": "ready",
             "step_count": len(per_step),
             "total_estimated_cost": round(total_cost, 8),
+        },
+    }
+
+
+def _invalid_model_plan() -> dict[str, Any]:
+    return {
+        "per_step_model_plan": [],
+        "model_routing_summary": {
+            "status": "invalid",
+            "total_estimated_cost": 0.0,
         },
     }
 
@@ -439,7 +454,7 @@ def dry_run():
     executor = get_step_executor()
     step_execution_plan = [p.as_dict() for p in executor.execution_plan(graph.steps)]
     non_executable = [p for p in step_execution_plan if not p["executable"]]
-    model_plan = _build_model_plan(graph)
+    model_plan = _build_model_plan(graph) if validation.valid else _invalid_model_plan()
 
     return jsonify(
         {
@@ -463,7 +478,7 @@ def validate_model_routing():
     if err:
         return jsonify(err), 400
     validation = _validator.validate(graph)
-    model_plan = _build_model_plan(graph)
+    model_plan = _build_model_plan(graph) if validation.valid else _invalid_model_plan()
     return jsonify({"validation": validation.as_dict(), **model_plan}), 200 if validation.valid else 422
 
 
@@ -473,8 +488,16 @@ def estimate_model_cost():
     graph, err = _parse_graph()
     if err:
         return jsonify(err), 400
+    validation = _validator.validate(graph)
+    if not validation.valid:
+        return jsonify(
+            {
+                "validation": validation.as_dict(),
+                **_invalid_model_plan(),
+            }
+        ), 422
     model_plan = _build_model_plan(graph)
-    return jsonify(model_plan), 200
+    return jsonify({"validation": validation.as_dict(), **model_plan}), 200
 
 
 # ── Graph persistence (VPPERS-001) ────────────────────────────────────────────

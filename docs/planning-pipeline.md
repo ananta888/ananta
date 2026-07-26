@@ -20,6 +20,125 @@ LLM output may suggest task details, but policy-relevant decisions remain determ
 - no context scope escalation (for example forcing full/admin scope)
 - no tool-permission activation from plan text
 
+## Model-exhaustion recovery
+
+The Hub may turn a terminal, bounded `model_recovery_signal.v1` into a
+reviewable task plan when the effective model-routing policy enables
+`segment_planning` or `propose_task_plan`.
+
+Control flow:
+
+Worker model attempts -> bounded exhaustion signal -> Hub policy validation ->
+persisted recovery plan -> exact human approval -> Hub task queue
+
+Operational rules:
+
+- Workers report invocation facts only. They never create follow-up tasks or
+  orchestrate another worker.
+- Policy, security, client-error, and budget denials never enter recovery.
+- Step-level recovery settings override the graph/global policy. An explicitly
+  empty strategy list disables inherited recovery for that step.
+- Recovery strategies have concrete, ordered Hub semantics:
+  `stop` performs no compactor or planner call; `compact_context` creates one
+  deterministic context summary and persists only its bounded metadata/hash;
+  `segment_planning` and `propose_task_plan` create at most one draft through
+  the planning saga. The full chain compacts once and then proposes one
+  segmented draft.
+- `segment_planning` and `propose_task_plan` both require the explicit
+  `require_approval` strategy and
+  `require_approval_for_generated_plan=true`. No generated child reaches the
+  task queue before the exact plan digest is granted.
+- A verified terminal model chain is never automatically forwarded to a
+  second Phi/Gemma chain by the outer Autopilot loop. Disabled, stopped,
+  invalid, denied, or failed recovery enters review (or fails when review is
+  disabled) with zero cooldown.
+- Recovery plans have depth one and cannot recursively generate another
+  recovery plan.
+- The Hub stores the plan as `pending_approval` and binds approval to its exact
+  digest, goal, source task, recovery key, and approval request.
+- Operators inspect a specific plan with
+  `GET /goals/<goal_id>/plans/<plan_id>` and may edit an unmaterialized node
+  with the admin-only
+  `PATCH /goals/<goal_id>/plans/<plan_id>/nodes/<node_id>`.
+- Editing a plan invalidates the old digest. A stale grant is consumed and a
+  fresh approval request is created; digest validation and node editing share
+  the plan lock, so an edit cannot race past the grant check.
+- Only an admin may decide the recovery materialization approval through the
+  approval API. Generic Run-Control approval commands cannot decide this
+  recovery-specific tool.
+- The policy hash is re-evaluated when a grant is applied. Removing or changing
+  the effective recovery policy consumes the obsolete grant without creating
+  work.
+- Before materialization, the Hub revalidates the proposal, dependency graph,
+  quality gates, goal state, source-task state, and all approval bindings.
+- Child task IDs are deterministic per persisted plan/node. Recovery children
+  reference the source through `source_task_id`, never `parent_task_id`, so the
+  source-to-child wait relationship cannot form a dependency cycle.
+- Newly materialized recovery children remain `paused` until the exact
+  approval grant has been consumed. Afterwards only DAG roots move to `todo`;
+  dependent children and the source remain `blocked_by_dependency` until
+  dependency reconciliation proves them ready. A terminal source or goal
+  cancels the children instead.
+- Materialization binds the source's complete dependency list: pre-existing
+  dependencies, the exact ordered set of approved children, their combined
+  authoritative list, and a deterministic digest. New dependencies cannot be
+  added or removed after approval; the finalizer fails closed on any mismatch.
+- Workers receive only an assignment-bound Recovery manifest from the Hub.
+  They use isolated databases and cannot publish Task status, proposal,
+  verification, or repository writes directly into the Hub control plane.
+- Suppressed Worker diagnostics cross the boundary in the closed
+  `ananta.recovery_worker_result.v1` envelope. Its task, phase, payload, size,
+  and digest are checked under the matching dispatch lease. The envelope is
+  Worker evidence only; Hub verification records and artifact provenance are
+  always derived independently by the Hub.
+- Recovery artifact references cross split databases only through the strict
+  registered-Worker ingress. Before returning a terminal result, the Worker
+  publishes a closed, assignment- and dispatch-lease-bound metadata manifest.
+  The Hub reads only the identical relative path from the explicitly mounted
+  task workspace, rejects traversal, symlinks, size/hash drift and stale
+  leases, then creates deterministic Hub-owned Artifact/Version records.
+  Worker database IDs remain untrusted provenance; exact duplicate ingress is
+  idempotent and safely repairs a partially persisted Hub record.
+- An execute result is accepted only once and is bound to phase, terminal
+  status, and an accepted-result digest. Timeout/cancellation revokes the
+  capability under the same owner locks; only a terminal result with a valid
+  `result_accepted` lease proof wins that race. The Hub stages verified output
+  non-terminally and publishes terminal status plus lease acceptance in one
+  Task-aggregate commit. Terminal rows without that proof fail closed instead
+  of leaving the source blocked indefinitely.
+- Source completion aggregates the full approved PlanNode set and only
+  Hub-verified child results. Its post-commit work uses a durable marker and a
+  stable idempotency key. Each delivery claim has a unique attempt ID, and
+  acknowledgement or failure may update only that exact claim. A crash after
+  the source commit can therefore be replayed without reopening the result
+  decision, while a stale attempt cannot overwrite a newer successful replay.
+- Generic task administration cannot independently cancel, retry, archive, or
+  delete an active recovery child. These requests fail with HTTP 409 and the
+  authoritative source/plan binding. A terminal child may be manually cleaned
+  up only after both its source and Goal are terminal and no Worker dispatch
+  lease remains in flight.
+- Archived recovery children and sources cannot be generically restored.
+  Re-execution requires a new Hub-owned plan; retention jobs preserve archived
+  recovery lineage in both database and JSON fallback stores.
+- PostgreSQL deployments serialize proposal creation for a recovery key with
+  an advisory lock across Hub processes. Exact plan edits and materialization
+  use a separate per-plan PostgreSQL advisory lock; non-PostgreSQL development
+  runtimes retain process-local locks.
+- Granted recovery approvals act as durable outbox markers. Each Hub tick
+  reconciles interrupted `granted` actions and incomplete `consumed` DAG
+  releases idempotently, so a process interruption cannot leave approved work
+  permanently paused.
+
+## Provider-budget rolling upgrades
+
+Run-wide, signed-node, and provider-profile reservations commit atomically.
+Before deploying a release that introduces the signed-node budget row, drain
+in-flight provider calls created by the previous release. A legacy run-only
+reservation is not backfilled because its historical node attribution cannot
+be proven safely. Replay or reconciliation of such a reservation fails closed
+with `provider_scoped_budget_migration_required`; the operator must drain or
+terminate that old run before retrying it under the new release.
+
 ## Planning track contract
 
 Planning output is contract-first and grounded in `todos/todo.track.schema.json`.

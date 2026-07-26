@@ -22,7 +22,7 @@ def task_verification(tid: str):
     task = _repos().task_repo.get_by_id(tid)
     if not task:
         return api_response(status="error", message="not_found", code=404)
-    records = _services().verification_service.ensure_task_spec(tid)
+    records = _services().verification_service.project_task_spec(tid)
     return api_response(
         data={
             "task_id": tid,

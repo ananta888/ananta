@@ -628,7 +628,20 @@ class RunControlService:
             cmd.result.update(data)
             cmd.effective_at = time.time()
         else:
-            cmd.status = "rejected_by_policy" if msg == "invalid_transition" else "failed"
+            try:
+                intervention_status = int(
+                    data.get("http_status") or 0
+                )
+            except (TypeError, ValueError):
+                intervention_status = 0
+            cmd.status = (
+                "rejected_by_policy"
+                if (
+                    msg == "invalid_transition"
+                    or 400 <= intervention_status < 500
+                )
+                else "failed"
+            )
             cmd.result.update({"error": msg, **{k: v for k, v in data.items() if k != "error"}})
 
     def _do_pause(self, cmd: RunCommand) -> None:
@@ -897,6 +910,22 @@ class RunControlService:
         if resource_mismatch:
             cmd.status = "failed"
             cmd.result = {"error": "approval_not_found"}
+            return
+        from agent.services.task_recovery_planning_service import (
+            RECOVERY_MATERIALIZE_TOOL,
+        )
+
+        if str(getattr(request_row, "tool_name", "") or "") == (
+            RECOVERY_MATERIALIZE_TOOL
+        ):
+            # Run-Control principals carry ownership, but no trusted
+            # administrator claim. Recovery materialization therefore remains
+            # on the dedicated admin-gated approval endpoint.
+            cmd.status = "rejected_by_policy"
+            cmd.result = {
+                "error": "recovery_approval_requires_admin_endpoint",
+                "approval_id": approval_id,
+            }
             return
         try:
             row = service.decide_request(

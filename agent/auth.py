@@ -770,6 +770,35 @@ def check_service_auth(
     return decorator
 
 
+def check_registered_worker_auth(
+    f: Callable | None = None,
+    *,
+    scope: str = "",
+):
+    """Require an identity-bound registered Worker for one narrow scope.
+
+    Unlike :func:`check_service_auth`, this decorator intentionally has no
+    legacy shared-``AGENT_TOKEN`` fallback.  It is used by endpoints whose
+    response is assigned to one concrete Worker identity.
+    """
+
+    def decorator(target: Callable):
+        @wraps(target)
+        def wrapper(*args, **kwargs):
+            error = _strict_registered_worker_bearer_error(
+                required_scope=str(scope or "").strip()
+            )
+            if error is not None:
+                return error
+            return target(*args, **kwargs)
+
+        return wrapper
+
+    if f is not None:
+        return decorator(f)
+    return decorator
+
+
 def check_user_auth(f):
     """Validate a Hub-issued user JWT.
 

@@ -95,6 +95,24 @@ def get_goal_plan(goal_id: str):
     )
 
 
+@goals_bp.route("/goals/<goal_id>/plans/<plan_id>", methods=["GET"])
+@check_auth
+def get_goal_plan_by_id(goal_id: str, plan_id: str):
+    goal = _repos().goal_repo.get_by_id(goal_id)
+    if not goal or not _can_access_goal(goal):
+        return api_response(status="error", message="not_found", code=404)
+    plan, nodes = _services().planning_service.get_plan_for_goal(goal_id, plan_id)
+    if not plan:
+        return api_response(status="error", message="plan_not_found", code=404)
+    return api_response(
+        data={
+            "goal_id": goal_id,
+            "plan": plan.model_dump(),
+            "nodes": [node.model_dump() for node in nodes],
+        }
+    )
+
+
 @goals_bp.route("/goals/<goal_id>/plan/nodes/<node_id>", methods=["PATCH"])
 @check_auth
 @validate_request(GoalPlanNodePatchRequest)
@@ -115,6 +133,43 @@ def patch_goal_plan_node(goal_id: str, node_id: str):
         {
             "goal_id": goal_id,
             "plan_id": plan.id if plan else None,
+            "trace_id": goal.trace_id,
+            "node_id": node_id,
+            "changes": payload,
+        },
+    )
+    return api_response(data=data)
+
+
+@goals_bp.route("/goals/<goal_id>/plans/<plan_id>/nodes/<node_id>", methods=["PATCH"])
+@check_auth
+@validate_request(GoalPlanNodePatchRequest)
+def patch_goal_plan_node_by_id(goal_id: str, plan_id: str, node_id: str):
+    goal = _repos().goal_repo.get_by_id(goal_id)
+    if not goal or not _can_access_goal(goal):
+        return api_response(status="error", message="not_found", code=404)
+    if not _is_admin_request():
+        return api_response(status="error", message="forbidden", code=403)
+    payload = g.validated_data.model_dump(exclude_unset=True)
+    data, error = _services().planning_service.patch_plan_node_for_plan(
+        goal_id,
+        plan_id,
+        node_id,
+        payload,
+    )
+    if error:
+        if error in {"plan_not_found", "node_not_found"}:
+            code = 404
+        elif error == "plan_mutation_in_progress":
+            code = 409
+        else:
+            code = 400
+        return api_response(status="error", message=error, code=code)
+    log_audit(
+        "plan_node_updated",
+        {
+            "goal_id": goal_id,
+            "plan_id": plan_id,
             "trace_id": goal.trace_id,
             "node_id": node_id,
             "changes": payload,
@@ -224,6 +279,9 @@ def goal_workflow_status(goal_id: str):
 @check_auth
 def purge_goal(goal_id: str):
     from agent.services.goal_purge_service import get_goal_purge_service
+    from agent.services.recovery_task_mutation_policy import (
+        RecoveryTaskMutationConflict,
+    )
     goal = _repos().goal_repo.get_by_id(goal_id)
     if not goal:
         return api_response(data={"goal_id": goal_id, "already_deleted": True, "deleted_total": 0})
@@ -232,7 +290,18 @@ def purge_goal(goal_id: str):
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
     include_prompt_traces = str(request.args.get("include_prompt_traces", "1")).strip().lower() not in {"0", "false", "no"}
-    result = get_goal_purge_service().purge_goal(goal_id, include_prompt_traces=include_prompt_traces)
+    try:
+        result = get_goal_purge_service().purge_goal(
+            goal_id,
+            include_prompt_traces=include_prompt_traces,
+        )
+    except RecoveryTaskMutationConflict as exc:
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            data=exc.as_data(),
+            code=409,
+        )
     if result is None:
         return api_response(data={"goal_id": goal_id, "already_deleted": True, "deleted_total": 0})
     log_audit(

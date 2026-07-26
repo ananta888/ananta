@@ -9,6 +9,9 @@ from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.db_models import InstructionOverlayDB, UserInstructionProfileDB
 from agent.services.instruction_layer_service import get_instruction_layer_service
+from agent.services.recovery_task_mutation_policy import (
+    RecoveryTaskMutationConflict,
+)
 from agent.services.repository_registry import get_repository_registry
 
 instruction_layers_bp = Blueprint("instruction_layers", __name__)
@@ -629,6 +632,13 @@ def set_task_instruction_selection(task_id: str):
             profile_id=profile_id,
             overlay_id=overlay_id,
             actor=_current_username(),
+        )
+    except RecoveryTaskMutationConflict as exc:
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            data=exc.as_data(),
+            code=409,
         )
     except ValueError as exc:
         message = str(exc)

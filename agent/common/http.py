@@ -116,6 +116,8 @@ class HttpClient:
         silent: bool = False,
         return_response: bool = False,
         idempotency_key: Optional[str] = None,
+        allow_redirects: bool = True,
+        stream: bool = False,
     ) -> Any:
         tracked_key = None
         tracked_session = None
@@ -125,6 +127,11 @@ class HttpClient:
                 headers["Idempotency-Key"] = idempotency_key
 
             effective_timeout = timeout if timeout is not None and timeout > 0 else self.timeout
+            transport_options: dict[str, Any] = {}
+            if not allow_redirects:
+                transport_options["allow_redirects"] = False
+            if stream:
+                transport_options["stream"] = True
             request_session = self.session
             try:
                 # Register per-request sessions so task-/goal-level cancellation can abort
@@ -144,11 +151,19 @@ class HttpClient:
                         try:
                             if form:
                                 request_box["response"] = request_session.post(
-                                    url, data=data or {}, headers=headers, timeout=effective_timeout
+                                    url,
+                                    data=data or {},
+                                    headers=headers,
+                                    timeout=effective_timeout,
+                                    **transport_options,
                                 )
                             else:
                                 request_box["response"] = request_session.post(
-                                    url, json=data or {}, headers=headers, timeout=effective_timeout
+                                    url,
+                                    json=data or {},
+                                    headers=headers,
+                                    timeout=effective_timeout,
+                                    **transport_options,
                                 )
                         except Exception as exc:
                             request_box["error"] = exc
@@ -185,9 +200,21 @@ class HttpClient:
                 request_session = self.session
 
             if form:
-                r = request_session.post(url, data=data or {}, headers=headers, timeout=effective_timeout)
+                r = request_session.post(
+                    url,
+                    data=data or {},
+                    headers=headers,
+                    timeout=effective_timeout,
+                    **transport_options,
+                )
             else:
-                r = request_session.post(url, json=data or {}, headers=headers, timeout=effective_timeout)
+                r = request_session.post(
+                    url,
+                    json=data or {},
+                    headers=headers,
+                    timeout=effective_timeout,
+                    **transport_options,
+                )
             if return_response:
                 return r
             r.raise_for_status()
@@ -218,7 +245,10 @@ class HttpClient:
                         form=form,
                         timeout=timeout,
                         silent=silent,
+                        return_response=return_response,
                         idempotency_key=idempotency_key,
+                        allow_redirects=allow_redirects,
+                        stream=stream,
                     )
 
             if not silent:

@@ -353,10 +353,31 @@ class VisualGuideService:
 
     # ── LLM helpers (VG-011) ──────────────────────────────────────────────────
 
+    @staticmethod
+    def _profile_routing_requested() -> bool:
+        """Return whether the governed model-routing boundary is enabled."""
+
+        return any(
+            str(os.environ.get(name) or "").strip()
+            for name in (
+                "MODEL_PROFILES_PATH",
+                "MODEL_ROUTING_PATH",
+                "ANANTA_MODEL_ROUTING_PATH",
+            )
+        )
+
+    def _configured_chat_model(self, cfg: dict) -> str | None:
+        # An explicit legacy model would bypass profile selection. Once
+        # governed routing is configured, the resolver alone selects the
+        # local Phi/Gemma profile.
+        if self._profile_routing_requested():
+            return None
+        return str(cfg.get("chat_model") or "gpt-4o-mini") or None
+
     def _call_llm_for_ui_tick(self, snapshot: str, n_candidates: int, pug: dict) -> str:
         """Call LLM via ModelInvocationService to generate guide reply for ui_tick."""
         _cfg = _route_bridge.current_ai_snake_config()
-        model = str(_cfg.get("chat_model") or "gpt-4o-mini") or None
+        model = self._configured_chat_model(_cfg)
 
         if n_candidates == 1:
             system_prompt = (
@@ -394,6 +415,11 @@ class VisualGuideService:
             choice = (response.get("choices") or [{}])[0]
             return ((choice.get("message") or {}).get("content") or "").strip()
         except Exception as exc:
+            if self._profile_routing_requested():
+                # Fail closed: configured profile routing may explicitly
+                # prohibit cloud egress. A direct OpenAI retry would escape
+                # both the resolver and its audit trail.
+                raise
             # TODO: ModelInvocationService may not have correct provider config for visual guide;
             # falling back to direct openai call
             _log.debug("ModelInvocationService failed for ui_tick, falling back to openai: %s", exc)
@@ -438,7 +464,7 @@ class VisualGuideService:
     def _call_llm_for_region_explain(self, region_steps: list[dict], route: str) -> list[str]:
         """Call LLM via ModelInvocationService to get explanations for region steps."""
         _cfg = _route_bridge.current_ai_snake_config()
-        model = str(_cfg.get("chat_model") or "gpt-4o-mini") or None
+        model = self._configured_chat_model(_cfg)
 
         labels = [str(s.get("bubble") or "") for s in region_steps if s.get("bubble")]
         if not labels:
@@ -470,6 +496,8 @@ class VisualGuideService:
             choice = (response.get("choices") or [{}])[0]
             raw = ((choice.get("message") or {}).get("content") or "").strip()
         except Exception as exc:
+            if self._profile_routing_requested():
+                raise
             # TODO: ModelInvocationService may not have correct provider config for visual guide;
             # falling back to direct openai call
             _log.debug("ModelInvocationService failed for region_explain, falling back: %s", exc)
@@ -620,7 +648,7 @@ class VisualGuideService:
     def _call_llm_for_manual_guide(self, intent: str, snapshot: str, route: str) -> str:
         """Call LLM to generate guide steps for an explicit /guide intent."""
         _cfg = _route_bridge.current_ai_snake_config()
-        model = str(_cfg.get("chat_model") or "gpt-4o-mini") or None
+        model = self._configured_chat_model(_cfg)
 
         system_prompt = (
             "Du bist die orangene Guide-Snake in der Ananta App.\n"
@@ -647,6 +675,8 @@ class VisualGuideService:
             choice = (response.get("choices") or [{}])[0]
             return ((choice.get("message") or {}).get("content") or "").strip()
         except Exception as exc:
+            if self._profile_routing_requested():
+                raise
             _log.debug("ModelInvocationService failed for manual guide, falling back: %s", exc)
             return self._call_openai_fallback_manual_guide(system_prompt, user_msg, _cfg)
 

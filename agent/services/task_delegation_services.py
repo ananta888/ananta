@@ -512,22 +512,83 @@ class TaskDelegationResultWriter:
         plan: TaskDelegationPlan,
         bundle: WorkerExecutionBundle,
     ) -> dict[str, Any]:
+        from agent.services.recovery_dispatch_gate_service import (
+            get_recovery_dispatch_gate_service,
+        )
+        from agent.services.repository_registry import (
+            get_repository_registry,
+        )
+        repos = get_repository_registry()
+        gate = get_recovery_dispatch_gate_service()
+        authoritative = repos.task_repo.get_by_id(request.task_id)
+        if gate.is_recovery_child(authoritative):
+            with gate.dispatch_guard(
+                request.task_id
+            ) as gate_decision:
+                return {
+                    "error": (
+                        gate_decision.reason_code
+                        if not gate_decision.allowed
+                        else "recovery_child_delegation_not_supported"
+                    ),
+                    "code": 409,
+                    "data": {
+                        "source_task_id": (
+                            gate_decision.source_task_id
+                        ),
+                        "plan_id": gate_decision.plan_id,
+                    },
+                }
+        if authoritative is None or str(
+            getattr(authoritative, "status", "") or ""
+        ).strip().lower() in {
+            "completed",
+            "failed",
+            "cancelled",
+            "verification_failed",
+            "skipped",
+            "aborted",
+            "timeout",
+            "archived",
+        }:
+            return {
+                "error": "task_not_dispatchable",
+                "code": 409,
+                "data": {},
+            }
+        worker = repos.agent_repo.get_by_url(plan.agent_url)
+        worker_token = str(
+            getattr(worker, "token", "") or ""
+        ).strip()
+        if worker is None or not worker_token:
+            return {
+                "error": "worker_auth_unavailable",
+                "code": 409,
+                "data": {"worker_url": plan.agent_url},
+            }
         try:
-            policy_decision = plan.policy_decision or self._persist_manual_policy(
-                request=request,
-                plan=plan,
-                bundle=bundle,
+            policy_decision = (
+                plan.policy_decision
+                or self._persist_manual_policy(
+                    request=request,
+                    plan=plan,
+                    bundle=bundle,
+                )
             )
             response = unwrap_api_envelope(
                 self.dependencies.forward_task_to_worker(
                     plan.agent_url,
                     "/tasks",
                     bundle.delegation_payload,
-                    token=request.data.agent_token or "",
+                    token=worker_token,
                 )
             )
         except Exception as exc:
-            return {"error": "delegation_failed", "code": 502, "data": {"details": str(exc)}}
+            return {
+                "error": "delegation_failed",
+                "code": 502,
+                "data": {"details": str(exc)},
+            }
 
         self._update_parent_task(
             request=request,

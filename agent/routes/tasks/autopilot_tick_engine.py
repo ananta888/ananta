@@ -9,6 +9,9 @@ from typing import Any, Callable
 from agent.config import settings
 from agent.metrics import DISPATCH_WAIT_SECONDS, TASK_QUEUE_WAIT_SECONDS
 from agent.services.repository_registry import get_repository_registry
+from agent.services.recovery_dispatch_gate_service import (
+    get_recovery_dispatch_gate_service,
+)
 from agent.routes.tasks.autopilot_dispatch_policy import (
     build_tick_debug_payload,
     classify_no_candidate_reason,
@@ -51,6 +54,30 @@ from agent.routes.tasks.autopilot_task_dispatcher_helpers import (
 )
 
 
+def _is_hub_managed_model_recovery_task(task: Any) -> bool:
+    """Keep generic Autopilot repair loops out of the Hub Recovery saga."""
+
+    if (
+        str(getattr(task, "derivation_reason", "") or "").strip()
+        == "goal_task_recovery"
+    ):
+        return True
+    for attribute in ("status_reason_details", "verification_status"):
+        payload = getattr(task, attribute, None)
+        details = dict(payload) if isinstance(payload, dict) else {}
+        if any(
+            isinstance(details.get(key), dict) and details.get(key)
+            for key in (
+                "model_recovery",
+                "model_recovery_strategy",
+                "model_recovery_release",
+                "recovery_dispatch_lease",
+            )
+        ):
+            return True
+    return False
+
+
 def execute_autopilot_tick(
     *,
     loop: Any,
@@ -73,7 +100,14 @@ def execute_autopilot_tick(
         repos = get_repository_registry(loop._app)
         goal = repos.goal_repo.get_by_id(goal_scope)
         goal_status = str(getattr(goal, "status", "") or "").strip().lower() if goal else ""
-        if goal_status in {"completed", "failed", "cancelled", "aborted", "timeout"}:
+        if goal_status in {
+            "completed",
+            "failed",
+            "cancelled",
+            "aborted",
+            "timeout",
+            "archived",
+        }:
             loop.last_tick_at = time.time()
             loop.tick_count += 1
             # Stop goal-scoped loops once the goal is terminal to avoid
@@ -90,6 +124,20 @@ def execute_autopilot_tick(
     if goal_scope:
         all_tasks = [task for task in all_tasks if str(getattr(task, "goal_id", "") or "").strip() == goal_scope]
     scoped_tasks = len(all_tasks)
+    approval_lifecycle = None
+    try:
+        from agent.services.approval_request_service import (
+            get_approval_request_service,
+        )
+
+        approval_lifecycle = get_approval_request_service()
+        approval_lifecycle.expire_old_requests()
+        approval_lifecycle.reconcile_granted_domain_actions()
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "approval lifecycle refresh failed during autopilot tick",
+            exc_info=True,
+        )
 
     # Reset tasks stuck in `proposing` with no output for > 90 s back to `todo`
     # so the autopilot can retry them (workers can crash mid-dispatch).
@@ -99,6 +147,8 @@ def execute_autopilot_tick(
     _RECOVER_WAITING_REVIEW_SECONDS = 30
     now_ts = time.time()
     for _t in all_tasks:
+        if _is_hub_managed_model_recovery_task(_t):
+            continue
         if str(getattr(_t, "status", "") or "").lower() != "proposing":
             continue
         _updated = float(getattr(_t, "updated_at", None) or 0)
@@ -118,6 +168,8 @@ def execute_autopilot_tick(
     # Recover stale active tasks that stopped progressing without terminal output.
     # This keeps autonomous runs moving when worker transport/runtime hangs.
     for _t in all_tasks:
+        if _is_hub_managed_model_recovery_task(_t):
+            continue
         _status = str(getattr(_t, "status", "") or "").lower()
         if _status not in {"assigned", "in_progress"}:
             continue
@@ -176,6 +228,8 @@ def execute_autopilot_tick(
     # retries before failing, to allow round-robin assignment to reach a capable worker.
     _TOOLING_RECOVERY_MAX = 2
     for _t in all_tasks:
+        if _is_hub_managed_model_recovery_task(_t):
+            continue
         if str(getattr(_t, "status", "") or "").lower() != "waiting_for_review":
             continue
         _updated = float(getattr(_t, "updated_at", None) or 0)
@@ -246,6 +300,70 @@ def execute_autopilot_tick(
         if _updated and (now_ts - _updated) < _FORCE_FAIL_WAITING_REVIEW_SECONDS:
             continue
         _verification = dict(getattr(_t, "verification_status", None) or {})
+        _model_recovery = dict(_verification.get("model_recovery") or {})
+        if str(_model_recovery.get("status") or "").strip().lower() == "pending_approval":
+            # Approval requests have their own persisted TTL/lifecycle.  A
+            # generic 90-second autonomous timeout must not override a human
+            # review gate and terminalize the source task underneath it.
+            approval_id = str(
+                _model_recovery.get("approval_request_id") or ""
+            ).strip()
+            approval = (
+                approval_lifecycle.get_request(approval_id)
+                if approval_lifecycle is not None and approval_id
+                else None
+            )
+            approval_status = str(
+                getattr(approval, "status", "") or ""
+            ).strip().lower()
+            expires_at = getattr(approval, "expires_at", None)
+            active_approval = (
+                approval_status in {"pending", "granted"}
+                and (
+                    expires_at is None
+                    or float(expires_at) >= now_ts
+                )
+            )
+            if active_approval:
+                continue
+            if (
+                _current_task_status(_t.id, app=loop._app)
+                != "waiting_for_review"
+            ):
+                continue
+            terminal_recovery_status = (
+                approval_status
+                if approval_status
+                in {"expired", "denied", "superseded", "consumed"}
+                else "approval_missing"
+            )
+            _model_recovery["status"] = terminal_recovery_status
+            _verification["model_recovery"] = _model_recovery
+            update_local_task_status(
+                _t.id,
+                "needs_review",
+                verification_status=_verification,
+                status_reason_code=f"recovery_approval_{terminal_recovery_status}",
+                event_type="task_recovery_approval_inactive",
+                event_actor="autopilot_tick",
+                event_details={
+                    "approval_request_id": approval_id,
+                    "approval_status": terminal_recovery_status,
+                },
+                force=True,
+            )
+            append_trace_event(
+                _t.id,
+                "task_recovery_approval_inactive",
+                approval_request_id=approval_id,
+                approval_status=terminal_recovery_status,
+            )
+            continue
+        if _is_hub_managed_model_recovery_task(_t):
+            # Stopped/denied/materialized Recovery sources and Recovery
+            # children are governed by the Hub saga, never by the generic
+            # stale-review retry/fail policy.
+            continue
         _strategy = dict(_verification.get("autopilot_strategy") or {})
         _reason_code = str(_strategy.get("reason_code") or "").strip().lower()
         _recover = dict(_verification.get("autopilot_recovery") or {})
@@ -535,6 +653,86 @@ def execute_autopilot_tick(
                 future.cancel()
                 reason = "stop_event" if loop._stop_event.is_set() else f"hard_timeout_{per_task_hard_timeout}s"
                 recoverable = reason == "stop_event"
+                authoritative_task = (
+                    get_repository_registry(app)
+                    .task_repo.get_by_id(tid)
+                )
+                recovery_managed = (
+                    _is_hub_managed_model_recovery_task(
+                        authoritative_task
+                    )
+                )
+                if recovery_managed:
+                    try:
+                        from agent.services.request_cancellation_service import (
+                            get_request_cancellation_service,
+                        )
+
+                        get_request_cancellation_service().cancel_task_requests(
+                            task_id=tid,
+                            include_workers=True,
+                        )
+                    except Exception:
+                        logging.exception(
+                            "Recovery dispatch cancellation failed for %s",
+                            tid,
+                        )
+                    recovery_reason_code = (
+                        "recovery_dispatch_stopped"
+                        if recoverable
+                        else "recovery_dispatch_hard_timeout"
+                    )
+                    desired_status = (
+                        "paused" if recoverable else "failed"
+                    )
+                    recovery_status = (
+                        get_recovery_dispatch_gate_service()
+                        .abort_dispatch_lease(
+                            tid,
+                            target_status=desired_status,
+                            reason_code=recovery_reason_code,
+                            error=f"dispatch_{reason}",
+                            app=app,
+                        )
+                        or desired_status
+                    )
+                    accepted_terminal_won = recovery_status in {
+                        "completed",
+                        "verification_failed",
+                        "cancelled",
+                        "aborted",
+                        "timeout",
+                        "archived",
+                        "skipped",
+                    }
+                    append_trace_event(
+                        tid,
+                        (
+                            "recovery_dispatch_abort_lost_race"
+                            if accepted_terminal_won
+                            else "recovery_dispatch_aborted"
+                        ),
+                        reason=reason,
+                        status=recovery_status,
+                    )
+                    task_results.append(
+                        TaskDispatchResult(
+                            task_id=tid,
+                            completed=(
+                                recovery_status == "completed"
+                            ),
+                            failed=(
+                                recovery_status
+                                not in {"completed", "paused"}
+                            ),
+                            failure_type=(
+                                None
+                                if recovery_status == "completed"
+                                else recovery_reason_code
+                            ),
+                        )
+                    )
+                    continue
                 logging.warning(
                     "[tick][task_id=%s] dispatch aborted (%s), marking %s",
                     tid, reason, "todo" if recoverable else "failed",

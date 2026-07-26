@@ -9,6 +9,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from agent.services.model_routing_contract import (
+    MODEL_ROUTING_JSON_SCHEMA,
+    ModelRoutingConfig,
+    ModelRoutingContractError,
+    sanitize_model_routing_metadata,
+)
 from agent.services.workflow_runtime._serialization import redact_json, sha256_json
 from agent.services.workflow_runtime.errors import ContractIssue, ContractValidationError
 
@@ -152,7 +158,7 @@ class ExecutionNode:
             gate_id=str(raw.get("gate_id") or "").strip(),
             side_effect_class=str(raw.get("side_effect_class") or "none").strip().lower(),
             budget=ExecutionBudget.from_mapping(raw["budget"]) if raw.get("budget") is not None else None,
-            metadata=dict(raw.get("metadata") or {}),
+            metadata=sanitize_model_routing_metadata(raw.get("metadata")),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -167,7 +173,7 @@ class ExecutionNode:
             "gate_id": self.gate_id,
             "side_effect_class": self.side_effect_class,
             "budget": self.budget.to_dict() if self.budget else None,
-            "metadata": dict(self.metadata),
+            "metadata": sanitize_model_routing_metadata(self.metadata),
         }
 
 
@@ -384,6 +390,7 @@ class WorkflowRequestExecutionPlanAdapter:
         for step in steps:
             step_id = str(getattr(step, "step_id", "")).strip()
             step_metadata = dict(getattr(step, "metadata", {}) or {})
+            model_routing = ModelRoutingConfig.from_metadata(step_metadata)
             required_capabilities = _clean_tuple(step_metadata.get("required_capabilities"))
             declared_capabilities.update(required_capabilities)
             gate_id = f"gate:{step_id}" if bool(getattr(step, "gate", False)) else ""
@@ -413,6 +420,11 @@ class WorkflowRequestExecutionPlanAdapter:
                             step_metadata.get("operation_name")
                             or step_metadata.get("declared_operation")
                             or ""
+                        ),
+                        **(
+                            {"model_routing": model_routing.as_metadata()}
+                            if model_routing is not None
+                            else {}
                         ),
                     },
                 )
@@ -544,6 +556,25 @@ def _validate_node_runtime_metadata(
         issues.append(ContractIssue("join_mode_invalid", f"{path}.metadata.join_mode"))
     if "failure_policy" in metadata and metadata["failure_policy"] not in NODE_FAILURE_POLICIES:
         issues.append(ContractIssue("node_failure_policy_invalid", f"{path}.metadata.failure_policy"))
+    if "model_routing" in metadata:
+        try:
+            ModelRoutingConfig.assert_runtime_mapping(metadata["model_routing"])
+        except ModelRoutingContractError as exc:
+            issues.append(
+                ContractIssue(
+                    exc.reason_code,
+                    f"{path}.metadata.model_routing",
+                    exc.detail,
+                )
+            )
+        except Exception as exc:
+            issues.append(
+                ContractIssue(
+                    "model_routing_invalid",
+                    f"{path}.metadata.model_routing",
+                    type(exc).__name__,
+                )
+            )
 
     merge_fields = {"merge_strategy", "partial_failure"}.intersection(metadata)
     if node.node_type != "merge" and merge_fields:
@@ -740,6 +771,7 @@ EXECUTION_PLAN_JSON_SCHEMA: dict[str, Any] = {
                         "partial_failure": {
                             "enum": sorted(MERGE_PARTIAL_FAILURE_POLICIES)
                         },
+                        "model_routing": MODEL_ROUTING_JSON_SCHEMA,
                     },
                 },
             },

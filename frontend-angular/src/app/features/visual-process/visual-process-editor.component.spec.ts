@@ -175,6 +175,25 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
     expect(component.graph().steps[after - 1].kind).toBeTruthy();
   });
 
+  it('stores graph recovery strategies canonically and enforces approval for generated plans', () => {
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.setGraphRoutingField('context_recovery_strategies', ['stop']);
+    component.setGraphRoutingField('require_approval_for_generated_plan', false);
+
+    component.toggleGraphRecoveryStrategy('segment_planning', true);
+    component.toggleGraphRecoveryStrategy('propose_task_plan', true);
+
+    expect(component.graphRouting().context_recovery_strategies).toEqual([
+      'segment_planning', 'propose_task_plan', 'require_approval', 'stop',
+    ]);
+    expect(component.graphRouting().require_approval_for_generated_plan).toBe(true);
+
+    component.toggleGraphRecoveryStrategy('require_approval', false);
+    expect(component.graphRouting().context_recovery_strategies).toEqual(['stop']);
+  });
+
   it('has a fallback catalog entry for ML-Intern LoRA training', () => {
     const kind = FALLBACK_KINDS.find(item => item.id === 'ml_intern_train_lora');
     expect(kind).toBeDefined();

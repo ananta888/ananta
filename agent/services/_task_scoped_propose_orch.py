@@ -21,6 +21,14 @@ from agent.runtime_policy import normalize_task_kind
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.planning_context_compactor_service import get_planning_context_compactor_service
+from agent.services.model_routing_contract import (
+    extract_model_routing_from_task,
+    has_model_routing_declaration,
+)
+from ananta_contracts.model_recovery import (
+    is_recoverable_model_error_type,
+    sanitize_terminal_model_recovery_signal,
+)
 from agent.services.propose_policy_service import get_propose_policy_service
 from agent.services.service_registry import get_core_services
 from agent.services.propose_policy import get_task_kind_preset
@@ -206,7 +214,71 @@ def run_propose_orchestrator_path(
                     pass
 
     result_dict = result.to_dict()
-    if not result.is_executable:
+    routing_contract = extract_model_routing_from_task(task)
+    configured_recovery = (
+        list(routing_contract.context_recovery_strategies)
+        if routing_contract is not None
+        else []
+    )
+    recovery_explicit = has_model_routing_declaration(task)
+    if routing_contract is not None:
+        recovery_explicit = bool(
+            "context_recovery_strategies"
+            in set(
+                getattr(routing_contract, "model_fields_set", set()) or set()
+            )
+        )
+    if not recovery_explicit:
+        from agent.services.model_invocation_service import ModelInvocationService
+
+        configured_recovery = list(
+            ModelInvocationService.get_context_recovery_policy().get(
+                "context_recovery_strategies"
+            )
+            or []
+        )
+    raw_terminal_model_signal = (result.metadata or {}).get(
+        "model_recovery_signal"
+    )
+    terminal_model_signal = sanitize_terminal_model_recovery_signal(
+        raw_terminal_model_signal
+    )
+    result_metadata = (
+        dict(result_dict.get("metadata") or {})
+        if isinstance(result_dict.get("metadata"), dict)
+        else {}
+    )
+    result_metadata.pop("model_recovery_signal", None)
+    if terminal_model_signal is not None:
+        result_metadata["model_recovery_signal"] = terminal_model_signal
+    result_dict["metadata"] = result_metadata
+    fallback_decision_payloads = [
+        dict(item)
+        for item in list((result.metadata or {}).get("fallback_decisions") or [])
+        if isinstance(item, dict)
+    ]
+    policy_terminal = any(
+        bool(item.get("terminal"))
+        and not is_recoverable_model_error_type(item.get("trigger"))
+        for item in fallback_decision_payloads
+    )
+    if (
+        isinstance(raw_terminal_model_signal, dict)
+        and raw_terminal_model_signal.get("terminal") is True
+        and terminal_model_signal is None
+    ):
+        policy_terminal = True
+    defer_to_hub_recovery = bool(
+        not result.is_executable
+        and terminal_model_signal is not None
+        and configured_recovery
+        and not policy_terminal
+    )
+    if (
+        not result.is_executable
+        and not defer_to_hub_recovery
+        and not policy_terminal
+    ):
         fallback_backend, fallback_reason = resolve_cli_backend(
             task_kind,
             requested_backend="auto",
@@ -283,6 +355,14 @@ def run_propose_orchestrator_path(
         "source_catalog_hash": (source_catalog or {}).get("catalog_hash") if isinstance(source_catalog, dict) else None,
         "answer_schema": "grounded_answer.v1",
     }
+    if defer_to_hub_recovery:
+        propose_strategy_meta["hub_recovery_deferred"] = True
+        propose_strategy_meta["configured_context_recovery_strategies"] = configured_recovery
+    if terminal_model_signal is not None:
+        propose_strategy_meta["model_recovery_signal"] = terminal_model_signal
+    fallback_decisions = fallback_decision_payloads
+    if fallback_decisions:
+        propose_strategy_meta["fallback_decisions"] = fallback_decisions[-32:]
     proposal_meta = dict(getattr(result.proposal, "metadata", None) or {}) if result.proposal is not None else {}
     proposal_provider = str(proposal_meta.get("provider") or "").strip() or None
     proposal_model = str(proposal_meta.get("model") or "").strip() or None

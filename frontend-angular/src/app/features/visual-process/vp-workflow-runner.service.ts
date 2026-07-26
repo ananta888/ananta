@@ -131,8 +131,19 @@ export class VpWorkflowRunnerService {
     this.workflowStatus.set(status);
     const steps = (status['steps'] as any[] | undefined) ?? [];
     const normalize = (value: string): VpRuntimeOverlay['steps'][string]['status'] => {
-      const mapped: Record<string, VpRuntimeOverlay['steps'][string]['status']> = { done:'succeeded', success:'succeeded', waiting:'pending', cancelled:'cancelled', canceled:'cancelled' };
-      const candidate = mapped[value] ?? value;
+      const raw = String(value || '').trim().toLowerCase();
+      const mapped: Record<string, VpRuntimeOverlay['steps'][string]['status']> = {
+        done: 'succeeded',
+        success: 'succeeded',
+        completed: 'succeeded',
+        in_progress: 'running',
+        waiting: 'pending',
+        waiting_for_approval: 'awaiting_approval',
+        waiting_for_review: 'awaiting_approval',
+        cancelled: 'cancelled',
+        canceled: 'cancelled',
+      };
+      const candidate = mapped[raw] ?? raw;
       return ['pending','running','awaiting_approval','succeeded','failed','skipped','cancelled'].includes(candidate) ? candidate as VpRuntimeOverlay['steps'][string]['status'] : 'unknown';
     };
     const mappedSteps: VpRuntimeOverlay['steps'] = Object.fromEntries(steps.filter(item => item?.step_id).map(item => [item.step_id, {
@@ -151,9 +162,14 @@ export class VpWorkflowRunnerService {
       steps: mappedSteps, started_at: status['started_at'] as number | undefined, finished_at: status['finished_at'] as number | undefined,
       updated_at: Date.now(), error: status['error'] as string | undefined, gate: status['gate'] as Record<string, unknown> | undefined,
     });
-    if (['done', 'failed', 'cancelled'].includes(status.status)) {
+    const overallStatus = String(status.status || '').trim().toLowerCase();
+    if (['done', 'completed', 'succeeded', 'failed', 'cancelled', 'canceled'].includes(overallStatus)) {
       this.stopPolling();
-      this.status.set(status.status === 'done' ? 'Workflow abgeschlossen ✓' : `Workflow ${status.status}`);
+      this.status.set(
+        ['done', 'completed', 'succeeded'].includes(overallStatus)
+          ? 'Workflow abgeschlossen ✓'
+          : `Workflow ${overallStatus}`,
+      );
     }
   }
 

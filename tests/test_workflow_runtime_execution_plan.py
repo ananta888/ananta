@@ -111,6 +111,72 @@ def test_workflow_request_v1_is_read_through_compatibility_adapter() -> None:
     assert plan.metadata["adapted_from"] == "ananta.workflow_request.v1"
 
 
+def test_workflow_adapter_transports_only_validated_model_routing_fields() -> None:
+    request = WorkflowRequest(
+        workflow_id="workflow-routed",
+        policy_scope={"scope": "worker"},
+        steps=(
+            WorkflowStepRequest(
+                step_id="reason",
+                metadata={
+                    "model_routing": {
+                        "model_role": "reasoning",
+                        "preferred_profile_id": "local-gemma",
+                        "fallback_group_id": "phi-to-gemma",
+                        "allow_cloud": False,
+                        "unreviewed_provider_url": "https://example.invalid",
+                    }
+                },
+            ),
+        ),
+    )
+
+    plan = WorkflowRequestExecutionPlanAdapter.adapt(
+        request,
+        tenant_id="tenant-a",
+        policy_version="policy-v1",
+    )
+
+    routing = plan.nodes[0].metadata["model_routing"]
+    assert routing["model_role"] == "reasoning"
+    assert routing["preferred_profile_id"] == "local-gemma"
+    assert "unreviewed_provider_url" not in routing
+    validate_json_schema(plan.to_dict(), EXECUTION_PLAN_JSON_SCHEMA)
+
+
+def test_execution_plan_rejects_non_allowlisted_model_routing_metadata() -> None:
+    plan = replace(
+        _plan(),
+        nodes=(
+            replace(
+                _plan().nodes[0],
+                metadata={"model_routing": {"unknown_runtime_field": True}},
+            ),
+            _plan().nodes[1],
+        ),
+    )
+
+    assert "model_routing_field_not_allowed" in {
+        issue.code for issue in plan.validate()
+    }
+
+
+def test_execution_plan_loader_sanitizes_unknown_model_routing_fields() -> None:
+    payload = _plan().to_dict(include_hash=False)
+    payload["nodes"][0]["metadata"]["model_routing"] = {
+        "preferred_profile_id": "local-phi",
+        "unknown_runtime_field": True,
+    }
+
+    restored = ExecutionPlan.from_mapping(payload)
+
+    assert restored.nodes[0].metadata["model_routing"]["preferred_profile_id"] == "local-phi"
+    assert (
+        "unknown_runtime_field"
+        not in restored.nodes[0].metadata["model_routing"]
+    )
+
+
 def test_legacy_request_execution_budget_is_explicit_and_bounded() -> None:
     request = WorkflowRequest(
         workflow_id="workflow-budgeted",

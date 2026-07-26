@@ -240,6 +240,15 @@ def test_task_execute_uses_native_worker_pipeline_without_shell_proxy(client, ap
         "runtime_failure",
     }
     assert ("native_worker_runtime" in payload["output"]) or ("degraded" in payload["output"])
+    assert not payload.get("artifacts")
+    native_stage = next(
+        stage
+        for stage in payload["pipeline"]["stages"]
+        if stage.get("name") == "native_worker_execute"
+    )
+    assert native_stage["metadata"]["reason_code"] == (
+        "native_worker_in_process_execution_disabled"
+    )
 
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status

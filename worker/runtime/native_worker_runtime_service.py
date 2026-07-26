@@ -552,13 +552,7 @@ class NativeWorkerRuntimeService:
             "output": json.dumps({"trace_id": trace_id, "degraded": degraded}, ensure_ascii=False),
             "policy_classification_summary": policy_classification_summary,
             "native_runtime": {"runtime_path": "native_worker_pipeline", "degraded": degraded},
-            "artifact_refs": [
-                {
-                    "kind": "native_worker_degraded_state",
-                    "task_id": tid,
-                    "trace_bundle_ref": "native_worker_runtime:degraded",
-                }
-            ],
+            "artifact_refs": [],
             "approval_decision": {"classification": "blocked", "reason_code": degraded.get("machine_reason")},
         }
 
@@ -579,13 +573,7 @@ class NativeWorkerRuntimeService:
             "output": json.dumps({"trace_id": trace_id, "degraded": degraded_payload}, ensure_ascii=False),
             "policy_classification_summary": policy_classification_summary,
             "native_runtime": {"runtime_path": "native_worker_pipeline", "degraded": degraded_payload},
-            "artifact_refs": [
-                {
-                    "kind": "native_worker_degraded_state",
-                    "task_id": tid,
-                    "trace_bundle_ref": "native_worker_runtime:degraded",
-                }
-            ],
+            "artifact_refs": [],
             "approval_decision": {
                 "classification": "blocked",
                 "reason_code": str(degraded_payload.get("machine_reason") or "degraded"),

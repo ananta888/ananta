@@ -61,3 +61,39 @@ def test_provider_health_marked_on_timeout():
         next_profile=_profile("gemma", provider_id="openrouter"),
     )
     assert not cache.is_available("lmstudio")
+
+
+def test_profile_retry_budget_counts_additional_attempts_only():
+    profile = _profile("phi")
+    profile.retry_budget = 2
+    service = ModelFallbackPolicyService()
+
+    assert service.should_retry_profile(error_type="timeout", profile=profile, failed_attempts=1)
+    assert service.should_retry_profile(error_type="timeout", profile=profile, failed_attempts=2)
+    assert not service.should_retry_profile(error_type="timeout", profile=profile, failed_attempts=3)
+
+
+def test_context_overflow_never_retries_unchanged_profile():
+    profile = _profile("phi")
+    profile.retry_budget = 10
+
+    assert not ModelFallbackPolicyService().should_retry_profile(
+        error_type="context_too_large", profile=profile, failed_attempts=1
+    )
+
+
+def test_profile_retry_budget_is_defensively_bounded():
+    profile = _profile("phi")
+    profile.retry_budget = 1_000_000
+    service = ModelFallbackPolicyService()
+
+    assert service.should_retry_profile(
+        error_type="schema_validation_failed",
+        profile=profile,
+        failed_attempts=8,
+    )
+    assert not service.should_retry_profile(
+        error_type="schema_validation_failed",
+        profile=profile,
+        failed_attempts=9,
+    )

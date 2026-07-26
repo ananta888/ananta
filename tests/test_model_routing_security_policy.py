@@ -63,7 +63,10 @@ def test_cloud_profile_blocked_when_secrets_in_context():
         profiles=[_cloud()],
         security_policy=SecurityPolicyChecker(block_cloud_with_secrets=True),
     )
-    ctx = RoutingContext(context_text="api_key=sk-supersecret12345678901234")
+    ctx = RoutingContext(
+        context_text="api_key=sk-supersecret12345678901234",
+        allow_cloud=True,
+    )
     result = resolver.resolve(ctx)
     assert not result.ok
     assert any("security_policy" in reason for _, reason in result.blocked_candidates)
@@ -74,7 +77,10 @@ def test_local_profile_passes_even_when_secrets_present():
         profiles=[_local()],
         security_policy=SecurityPolicyChecker(block_cloud_with_secrets=True),
     )
-    ctx = RoutingContext(context_text="api_key=sk-supersecret12345678901234")
+    ctx = RoutingContext(
+        context_text="api_key=sk-supersecret12345678901234",
+        allow_cloud=True,
+    )
     result = resolver.resolve(ctx)
     assert result.ok
     assert result.profile.profile_id == "local-p"
@@ -85,7 +91,10 @@ def test_policy_can_disable_secret_blocking():
         profiles=[_cloud()],
         security_policy=SecurityPolicyChecker(block_cloud_with_secrets=False),
     )
-    ctx = RoutingContext(context_text="api_key=sk-supersecret12345678901234")
+    ctx = RoutingContext(
+        context_text="api_key=sk-supersecret12345678901234",
+        allow_cloud=True,
+    )
     result = resolver.resolve(ctx)
     assert result.ok
 
@@ -102,7 +111,7 @@ def test_cloud_without_cloud_allowed_flag_is_blocked():
         block_secret_context=True,
     )
     resolver = ModelProfileResolver(profiles=[p])
-    result = resolver.resolve(RoutingContext())
+    result = resolver.resolve(RoutingContext(allow_cloud=True))
     assert not result.ok
     assert any("cloud_allowed=false" in r for _, r in result.blocked_candidates)
 
@@ -117,7 +126,7 @@ def test_cloud_missing_block_secret_context_blocked():
         block_secret_context=False,
     )
     resolver = ModelProfileResolver(profiles=[p])
-    result = resolver.resolve(RoutingContext())
+    result = resolver.resolve(RoutingContext(allow_cloud=True))
     assert not result.ok
     assert any("block_secret_context" in r for _, r in result.blocked_candidates)
 
@@ -143,7 +152,7 @@ def test_allowed_cloud_providers_blocks_unknown_provider():
         profiles=[p],
         security_policy=SecurityPolicyChecker(allowed_cloud_providers=["openrouter"]),
     )
-    result = resolver.resolve(RoutingContext())
+    result = resolver.resolve(RoutingContext(allow_cloud=True))
     assert not result.ok
     assert any("not_in_allowlist" in r for _, r in result.blocked_candidates)
 
@@ -161,5 +170,5 @@ def test_allowed_cloud_providers_permits_listed_provider():
         profiles=[p],
         security_policy=SecurityPolicyChecker(allowed_cloud_providers=["openrouter"]),
     )
-    result = resolver.resolve(RoutingContext())
+    result = resolver.resolve(RoutingContext(allow_cloud=True))
     assert result.ok

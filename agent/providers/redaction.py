@@ -15,6 +15,15 @@ DEFAULT_SECRET_KEY_MARKERS = {
     "token",
 }
 
+SAFE_NUMERIC_TOKEN_KEYS = {
+    "completion_tokens",
+    "max_completion_tokens",
+    "max_output_tokens",
+    "max_tokens",
+    "prompt_tokens",
+    "total_tokens",
+}
+
 
 def _normalize_markers(secret_keys: Iterable[str] | None) -> set[str]:
     markers = set(DEFAULT_SECRET_KEY_MARKERS)
@@ -38,6 +47,15 @@ def _is_sensitive_key(key: str, markers: set[str]) -> bool:
     return any(marker in normalized for marker in markers)
 
 
+def _is_safe_numeric_token_field(key: str, value: Any) -> bool:
+    normalized = str(key or "").strip().lower()
+    return (
+        normalized in SAFE_NUMERIC_TOKEN_KEYS
+        and not isinstance(value, bool)
+        and isinstance(value, (int, float))
+    )
+
+
 def _redact_scalar(value: Any, *, secret_refs: set[str], replacement: str) -> Any:
     if isinstance(value, str) and str(value).strip().lower() in secret_refs:
         return replacement
@@ -58,7 +76,10 @@ def redact_provider_payload(
         redacted: dict[str, Any] = {}
         for raw_key, raw_value in payload.items():
             key = str(raw_key)
-            if _is_sensitive_key(key, markers):
+            if (
+                _is_sensitive_key(key, markers)
+                and not _is_safe_numeric_token_field(key, raw_value)
+            ):
                 redacted[key] = replacement
             else:
                 redacted[key] = redact_provider_payload(

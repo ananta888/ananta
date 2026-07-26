@@ -36,7 +36,16 @@ def _current_task_status(task_id: str, *, app: Any) -> str:
 
 
 def _is_terminal_status(status: str) -> bool:
-    return status in {"completed", "failed", "cancelled"}
+    return status in {
+        "completed",
+        "failed",
+        "cancelled",
+        "verification_failed",
+        "skipped",
+        "aborted",
+        "timeout",
+        "archived",
+    }
 
 
 def _should_terminalize_no_executable_strategy(strategy_failures: list[dict[str, Any]]) -> bool:
@@ -346,6 +355,12 @@ def _execute_proposed_step(
     app_ctx: Any,
     log: logging.LoggerAdapter,
 ) -> TaskDispatchResult:
+    from agent.services.recovery_dispatch_gate_service import (
+        get_recovery_dispatch_gate_service,
+        recovery_dispatch_request_fingerprint,
+    )
+
+    recovery_gate = get_recovery_dispatch_gate_service()
     execute_payload = {
         "task_id": task.id,
         "command": command,
@@ -353,6 +368,66 @@ def _execute_proposed_step(
         "timeout": int(policy["execute_timeout"]),
         "retries": int(policy["execute_retries"]),
     }
+    from agent.services.recovery_worker_result_service import (
+        get_recovery_worker_result_service,
+    )
+
+    recovery_proposal_context = (
+        get_recovery_worker_result_service()
+        .proposal_context_for_task(task.id)
+    )
+    if recovery_proposal_context is not None:
+        execute_payload["recovery_proposal_context"] = (
+            recovery_proposal_context
+        )
+    from agent.services.recovery_task_mutation_policy import (
+        recovery_task_role,
+    )
+
+    run_evidence_context = None
+    if recovery_task_role(task) == "child":
+        run_evidence_context = (
+            recovery_gate.reserve_run_evidence_context(
+                task.id,
+                worker_url=target_worker.url,
+                replace=False,
+                app=app_ctx,
+            )
+        )
+    if run_evidence_context is not None:
+        execute_payload["recovery_run_evidence_context"] = (
+            run_evidence_context
+        )
+    dispatch_lease = recovery_gate.acquire_dispatch_lease(
+        task.id,
+        phase="execute",
+        worker_url=target_worker.url,
+        request_fingerprint=recovery_dispatch_request_fingerprint(
+            "execute",
+            execute_payload,
+        ),
+        app=app_ctx,
+    )
+    if not dispatch_lease.allowed:
+        append_trace_event(
+            task.id,
+            "autopilot_execute_skipped_recovery_lease",
+            delegated_to=target_worker.url,
+            reason_code=dispatch_lease.decision.reason_code,
+            source_task_id=(
+                dispatch_lease.decision.source_task_id
+            ),
+            plan_id=dispatch_lease.decision.plan_id,
+        )
+        result.dispatched = True
+        result.failed = True
+        result.failure_type = dispatch_lease.decision.reason_code
+        return result
+    if dispatch_lease.token:
+        execute_payload["dispatch_lease_token"] = (
+            dispatch_lease.token
+        )
+        execute_payload["dispatch_lease_phase"] = "execute"
     try:
         latest_status = _current_task_status(task.id, app=app_ctx)
         if _is_terminal_status(latest_status):
@@ -376,6 +451,29 @@ def _execute_proposed_step(
         )
         WORKER_BUSY_SECONDS.observe(max(0.0, time.time() - _execute_started))
     except Exception as e:
+        if dispatch_lease.token:
+            recovery_gate.revoke_dispatch_lease(
+                task.id,
+                reason_code=(
+                    "recovery_dispatch_transport_outcome_unknown"
+                ),
+                app=app_ctx,
+            )
+            append_trace_event(
+                task.id,
+                "autopilot_execute_transport_fenced",
+                delegated_to=target_worker.url,
+                reason=str(e),
+                reason_code=(
+                    "recovery_dispatch_transport_outcome_unknown"
+                ),
+            )
+            result.dispatched = True
+            result.failed = True
+            result.failure_type = (
+                "recovery_dispatch_transport_outcome_unknown"
+            )
+            return result
         if _is_transient_worker_transport_error(e):
             defer_until = time.time() + 30
             update_local_task_status(
@@ -441,35 +539,113 @@ def _execute_proposed_step(
         exit_code=exit_code,
         agent_cfg=loop._agent_config(),
     )
-    latest_status = _current_task_status(task.id, app=app_ctx)
-    if _is_terminal_status(latest_status):
-        append_trace_event(
+    result_guard = (
+        recovery_gate.result_guard(
             task.id,
-            "autopilot_result_skipped_terminal",
-            delegated_to=target_worker.url,
-            terminal_status=latest_status,
-            attempted_status=task_status,
-            exit_code=exit_code,
+            token=dispatch_lease.token,
+            phase="execute",
+            request_fingerprint=(
+                recovery_dispatch_request_fingerprint(
+                    "execute",
+                    execute_payload,
+                )
+            ),
+            worker_url=target_worker.url,
+            app=app_ctx,
         )
-        result.dispatched = True
-        result.completed = latest_status == "completed"
-        result.failed = latest_status != "completed"
-        result.failure_type = None if result.completed else latest_status
-        return result
-    if quality_gate_reason:
-        append_trace_event(
-            task.id,
-            "quality_gate_failed",
-            reason=quality_gate_reason,
-            delegated_to=target_worker.url,
-        )
-    update_local_task_status(
-        task.id,
-        task_status,
-        last_output=output,
-        last_exit_code=exit_code,
-        last_proposal=_merged_last_proposal_snapshot(task_id=task.id, snapshot=proposal_snapshot, app=app_ctx),
+        if dispatch_lease.token
+        else contextlib.nullcontext(None)
     )
+    with result_guard as result_decision:
+        if (
+            result_decision is not None
+            and not result_decision.allowed
+        ):
+            append_trace_event(
+                task.id,
+                "autopilot_execute_result_rejected",
+                delegated_to=target_worker.url,
+                reason_code=result_decision.reason_code,
+            )
+            result.dispatched = True
+            result.failed = True
+            result.failure_type = result_decision.reason_code
+            return result
+        latest_status = _current_task_status(task.id, app=app_ctx)
+        if _is_terminal_status(latest_status):
+            append_trace_event(
+                task.id,
+                "autopilot_result_skipped_terminal",
+                delegated_to=target_worker.url,
+                terminal_status=latest_status,
+                attempted_status=task_status,
+                exit_code=exit_code,
+            )
+            result.dispatched = True
+            result.completed = latest_status == "completed"
+            result.failed = latest_status != "completed"
+            result.failure_type = None if result.completed else latest_status
+            return result
+        if quality_gate_reason:
+            append_trace_event(
+                task.id,
+                "quality_gate_failed",
+                reason=quality_gate_reason,
+                delegated_to=target_worker.url,
+            )
+        merged_proposal = _merged_last_proposal_snapshot(
+            task_id=task.id,
+            snapshot=proposal_snapshot,
+            app=app_ctx,
+        )
+        if dispatch_lease.token:
+            from agent.models import TaskStepExecuteRequest
+            from agent.services._task_scoped_forwarding import (
+                persist_forwarded_execution,
+            )
+
+            accepted_response = dict(execute_data or {})
+            accepted_response.update(
+                {
+                    "status": task_status,
+                    "output": output,
+                    "exit_code": exit_code,
+                }
+            )
+            task_payload = (
+                task.model_dump()
+                if hasattr(task, "model_dump")
+                else dict(task)
+            )
+            task_payload["last_proposal"] = merged_proposal
+            persist_forwarded_execution(
+                tid=task.id,
+                response=accepted_response,
+                task=task_payload,
+                request_data=TaskStepExecuteRequest(
+                    **execute_payload
+                ),
+                last_proposal=merged_proposal,
+            )
+            task_status = _current_task_status(
+                task.id,
+                app=app_ctx,
+            )
+        else:
+            update_local_task_status(
+                task.id,
+                task_status,
+                last_output=output,
+                last_exit_code=exit_code,
+                last_proposal=merged_proposal,
+            )
+    if dispatch_lease.token:
+        # ``result_guard`` publishes the staged terminal status while leaving
+        # its context.  Reload only after that atomic lease/result commit.
+        task_status = _current_task_status(
+            task.id,
+            app=app_ctx,
+        )
     append_trace_event(
         task.id,
         "autopilot_result",

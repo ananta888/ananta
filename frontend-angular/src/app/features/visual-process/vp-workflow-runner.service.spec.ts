@@ -21,6 +21,42 @@ describe('VpWorkflowRunnerService runtime overlay', () => {
     expect(runner.runtimeOverlay()!.steps['late'].status).toBe('unknown');
   });
 
+  it('normalizes Hub task states and keeps approval waits active in the overlay', () => {
+    const { runner } = setup();
+    (runner as any).applyStatus({
+      schema: '1',
+      backend: 'local',
+      workflow_id: 'wf-recovery',
+      status: 'RUNNING',
+      steps: [
+        { step_id: 'completed', run_state: ' COMPLETED ' },
+        { step_id: 'active', status: 'IN_PROGRESS' },
+        { step_id: 'approval', status: 'WAITING_FOR_APPROVAL' },
+        { step_id: 'review', run_state: 'waiting_for_review' },
+      ],
+    });
+
+    const overlay = runner.runtimeOverlay()!;
+    expect(overlay.steps['completed'].status).toBe('succeeded');
+    expect(overlay.steps['active'].status).toBe('running');
+    expect(overlay.steps['approval'].status).toBe('awaiting_approval');
+    expect(overlay.steps['review'].status).toBe('awaiting_approval');
+    expect(overlay.current_step_ids).toEqual(['active', 'approval', 'review']);
+  });
+
+  it.each(['COMPLETED', 'succeeded'])('stops polling for terminal success status %s', status => {
+    const { runner, api } = setup();
+    api.getWorkflowStatus.mockReturnValue(of({
+      schema: '1', backend: 'local', workflow_id: 'wf-terminal', status, steps: [],
+    }));
+
+    runner.attach('wf-terminal');
+
+    expect((runner as any).pollHandle).toBeNull();
+    expect(runner.status()).toBe('Workflow abgeschlossen ✓');
+    runner.destroy();
+  });
+
   it('supports attach, refresh and detach while retaining the last overlay', () => {
     const { runner, api } = setup();
     api.getWorkflowStatus.mockReturnValue(of({ schema:'1', backend:'local', workflow_id:'wf-1', status:'done', steps:[] }));

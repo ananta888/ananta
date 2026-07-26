@@ -53,6 +53,13 @@ def _check_token_rotation(app):
             logging.error(f"Fehler bei der Prüfung der Token-Rotation: {e}")
 
 
+def _archive_old_tasks_if_hub(app) -> None:
+    """Keep task ownership and retention mutations in the Hub control plane."""
+    if str(settings.role or "").strip().lower() != "hub":
+        return
+    _archive_old_tasks(app.config["TASKS_PATH"])
+
+
 def start_housekeeping_thread(app):
     def run_housekeeping():
         import agent.common.context
@@ -63,7 +70,7 @@ def start_housekeeping_thread(app):
             try:
                 _archive_terminal_logs()
                 _cleanup_old_backups()
-                _archive_old_tasks(app.config["TASKS_PATH"])
+                _archive_old_tasks_if_hub(app)
                 _check_token_rotation(app)
                 if settings.role == "hub":
                     from agent.services.voice_retention_cleanup_service import (

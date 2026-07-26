@@ -199,6 +199,47 @@ class TestValidator:
         assert result.valid
         assert any(issue.code == "step_uses_network" for issue in result.issues)
 
+    def test_effective_graph_and_step_model_routing_is_validated(self):
+        from agent.visual_process.models import VisualProcessGraph, VisualProcessStep
+        from agent.visual_process.validator import GraphValidator
+
+        graph = VisualProcessGraph(
+            id="effective-routing",
+            name="Effective routing",
+            metadata={
+                "model_routing": {
+                    "context_recovery_strategies": [
+                        "propose_task_plan",
+                        "require_approval",
+                        "stop",
+                    ],
+                    "require_approval_for_generated_plan": True,
+                }
+            },
+            steps=[
+                VisualProcessStep(
+                    id="unsafe-override",
+                    label="Unsafe override",
+                    kind="coding",
+                    metadata={
+                        "model_routing": {
+                            "require_approval_for_generated_plan": False,
+                        }
+                    },
+                )
+            ],
+        )
+
+        result = GraphValidator().validate(graph)
+
+        assert not result.valid
+        assert any(
+            issue.code == "model_routing_invalid"
+            and issue.step_id == "unsafe-override"
+            and "after graph/step merge" in issue.message
+            for issue in result.errors()
+        )
+
 
 # ── VPDF-003: Context Assembly ────────────────────────────────────────────────
 

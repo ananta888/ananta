@@ -20,6 +20,11 @@ class WorkflowAdapterIdentityView(Protocol):
     payload: dict[str, Any]
     provider_binding: Any
     provider_decision_reason: str
+    primary_profile_id: str
+    provider_profile_bindings: tuple[Any, ...]
+    provider_attempt_plan: tuple[Any, ...]
+    provider_maximum_attempts: int
+    model_routing: dict[str, Any]
 
 
 def hub_task_id(submission: WorkflowAdapterIdentityView) -> str:
@@ -84,6 +89,19 @@ def submission_request_digest(submission: WorkflowAdapterIdentityView) -> str:
                 else None
             ),
             "provider_decision_reason": submission.provider_decision_reason,
+            "primary_profile_id": submission.primary_profile_id,
+            "provider_profile_bindings": [
+                item.to_dict()
+                for item in submission.provider_profile_bindings
+            ],
+            "provider_attempt_plan": [
+                item.to_dict()
+                for item in submission.provider_attempt_plan
+            ],
+            "provider_maximum_attempts": (
+                submission.provider_maximum_attempts
+            ),
+            "model_routing": dict(submission.model_routing),
         },
         sort_keys=True,
         separators=(",", ":"),

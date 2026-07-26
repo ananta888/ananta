@@ -125,6 +125,11 @@ class LLMStrategy(ABC):
 
         # Falls es ein Response-Objekt ist (z.B. von requests)
         if hasattr(resp, "status_code"):
+            if 300 <= resp.status_code < 400:
+                raise PermanentError(
+                    f"LLM-Provider Redirect verweigert ({resp.status_code}): {url}",
+                    details={"status_code": resp.status_code},
+                )
             if resp.status_code >= 400:
                 msg = f"LLM-Provider Fehler ({resp.status_code}): {resp.text[:200]}"
                 if _classify_status(resp.status_code) == "transient":

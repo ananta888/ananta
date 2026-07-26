@@ -202,6 +202,68 @@ class TestHandleRegionExplain:
         assert len(appended) == 1
 
 
+class TestGovernedModelRouting:
+    def test_profile_routing_owns_model_selection(self, monkeypatch):
+        from agent.services.model_invocation_service import (
+            ModelInvocationService,
+        )
+
+        monkeypatch.setenv("MODEL_PROFILES_PATH", "/configured/profiles.yaml")
+        svc = _make_service()
+        response = {
+            "choices": [{"message": {"content": "Lokaler Guide"}}]
+        }
+        with (
+            patch(
+                "agent.services.visual_guide.service."
+                "_route_bridge.current_ai_snake_config",
+                return_value={"chat_model": "gpt-4o-mini"},
+            ),
+            patch.object(
+                ModelInvocationService,
+                "_make_chat_call",
+                return_value=response,
+            ) as invoke,
+        ):
+            assert (
+                svc._call_llm_for_ui_tick("snapshot", 1, {})
+                == "Lokaler Guide"
+            )
+
+        assert invoke.call_args.kwargs["model"] is None
+
+    def test_profile_routing_never_uses_direct_openai_fallback(
+        self,
+        monkeypatch,
+    ):
+        from agent.services.model_invocation_service import (
+            ModelInvocationService,
+        )
+
+        monkeypatch.setenv("MODEL_ROUTING_PATH", "/configured/routing.json")
+        svc = _make_service()
+        with (
+            patch(
+                "agent.services.visual_guide.service."
+                "_route_bridge.current_ai_snake_config",
+                return_value={"chat_model": "gpt-4o-mini"},
+            ),
+            patch.object(
+                ModelInvocationService,
+                "_make_chat_call",
+                side_effect=RuntimeError("routing rejected"),
+            ),
+            patch.object(
+                svc,
+                "_call_openai_fallback_ui_tick",
+            ) as direct_fallback,
+            pytest.raises(RuntimeError, match="routing rejected"),
+        ):
+            svc._call_llm_for_ui_tick("snapshot", 1, {})
+
+        direct_fallback.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # VG-001 regression: delta_snapshot vs reply_snapshot separation
 # ---------------------------------------------------------------------------

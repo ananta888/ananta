@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import threading
+import weakref
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -13,6 +14,21 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 SessionFactory = Callable[[], Session]
+_SQLITE_LOCKS_GUARD = threading.Lock()
+_SQLITE_ENGINE_LOCKS: weakref.WeakKeyDictionary[
+    Engine, threading.RLock
+] = weakref.WeakKeyDictionary()
+
+
+def _sqlite_engine_lock(engine: Engine) -> threading.RLock:
+    """Share SQLite transaction serialization across store instances."""
+
+    with _SQLITE_LOCKS_GUARD:
+        lock = _SQLITE_ENGINE_LOCKS.get(engine)
+        if lock is None:
+            lock = threading.RLock()
+            _SQLITE_ENGINE_LOCKS[engine] = lock
+        return lock
 
 
 def stable_row_id(namespace: str, *parts: object) -> str:
@@ -30,7 +46,9 @@ class SQLAlchemyStoreSupport:
     """
 
     def __init__(self, bind: Engine | SessionFactory) -> None:
+        engine: Engine | None = None
         if isinstance(bind, Engine):
+            engine = bind
             self._session_factory: SessionFactory = sessionmaker(
                 bind=bind,
                 class_=Session,
@@ -44,15 +62,22 @@ class SQLAlchemyStoreSupport:
                 if probe.bind is None:
                     raise ValueError("workflow_runtime_session_bind_required")
                 self._dialect_name = probe.bind.dialect.name
+                if isinstance(probe.bind, Engine):
+                    engine = probe.bind
             finally:
                 probe.close()
         else:
             raise TypeError("workflow_runtime_engine_or_session_factory_required")
 
-        # SQLite has no row-level locks. Serialising one adapter instance gives
-        # in-memory SQLite the same observable CAS semantics; database UNIQUE
-        # constraints still protect separate processes/adapters.
-        self._lock = threading.RLock()
+        # SQLite has no row-level locks. Serialize every adapter instance that
+        # shares one Engine so aggregate/profile writes cannot interleave on a
+        # StaticPool connection. Database constraints remain the cross-process
+        # defense for file-backed SQLite.
+        self._lock = (
+            _sqlite_engine_lock(engine)
+            if self._dialect_name == "sqlite" and engine is not None
+            else threading.RLock()
+        )
 
     @contextmanager
     def _transaction(self) -> Iterator[Session]:

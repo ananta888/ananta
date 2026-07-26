@@ -16,6 +16,10 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any
 
+from .provider_execution import (
+    ProviderBindingAuthorization,
+    ProviderProfileAttemptPlanEntry,
+)
 from .workflow_operation import operation_id_for
 
 WORKFLOW_INPUT_SCHEMA = "ananta.temporal-workflow-input.v1"
@@ -87,6 +91,28 @@ def _bounded_strings(
     if len(normalized) > maximum:
         raise TemporalContractError("sequence_too_large", f"{field_name} exceeds {maximum} entries")
     return tuple(normalized)
+
+
+def _bounded_contract_items(
+    value: object,
+    *,
+    field_name: str,
+    maximum: int = 8,
+) -> tuple[object, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise TemporalContractError(
+            "invalid_sequence",
+            f"{field_name} must be a sequence",
+        )
+    items = tuple(value)
+    if len(items) > maximum:
+        raise TemporalContractError(
+            "sequence_too_large",
+            f"{field_name} exceeds {maximum} entries",
+        )
+    return items
 
 
 def _mapping(value: object, *, field_name: str, maximum_bytes: int = 32_768) -> dict[str, Any]:
@@ -221,6 +247,8 @@ class AuthorizationEnvelopeRef:
     nonce: str
     key_id: str
     signature: str
+    allowed_provider_bindings: tuple[ProviderBindingAuthorization, ...] = ()
+    provider_attempt_plan: tuple[ProviderProfileAttemptPlanEntry, ...] = ()
     schema: str = "ananta.runtime_authorization.v1"
 
     def __post_init__(self) -> None:
@@ -261,6 +289,45 @@ class AuthorizationEnvelopeRef:
             for name, value in budgets.items()
         ):
             raise TemporalContractError("invalid_authorization_budget", "authorization budget is invalid")
+        if len(self.allowed_provider_bindings) > 8 or len(
+            self.provider_attempt_plan
+        ) > 8:
+            raise TemporalContractError(
+                "invalid_provider_authorization",
+                "provider authorization is invalid",
+            )
+        try:
+            for item in self.allowed_provider_bindings:
+                item.validate()
+            for item in self.provider_attempt_plan:
+                item.validate()
+        except (AttributeError, ValueError) as exc:
+            raise TemporalContractError(
+                "invalid_provider_authorization",
+                "provider authorization is invalid",
+            ) from exc
+        if self.provider_attempt_plan:
+            allowed = {
+                item.binding_id: item
+                for item in self.allowed_provider_bindings
+            }
+            planned = {
+                item.binding_id: item.binding_authorization
+                for item in self.provider_attempt_plan
+            }
+            if (
+                set(allowed) != set(planned)
+                or any(allowed[key] != planned[key] for key in planned)
+                or self.budgets.get("provider_attempts")
+                != sum(
+                    item.maximum_attempts
+                    for item in self.provider_attempt_plan
+                )
+            ):
+                raise TemporalContractError(
+                    "invalid_provider_attempt_plan",
+                    "provider attempt plan is invalid",
+                )
 
     @classmethod
     def from_mapping(cls, raw: object) -> "AuthorizationEnvelopeRef":
@@ -285,6 +352,20 @@ class AuthorizationEnvelopeRef:
             nonce=str(raw.get("nonce") or ""),
             key_id=str(raw.get("key_id") or ""),
             signature=str(raw.get("signature") or ""),
+            allowed_provider_bindings=tuple(
+                ProviderBindingAuthorization.from_mapping(item)
+                for item in _bounded_contract_items(
+                    raw.get("allowed_provider_bindings"),
+                    field_name="allowed_provider_bindings",
+                )
+            ),
+            provider_attempt_plan=tuple(
+                ProviderProfileAttemptPlanEntry.from_mapping(item)
+                for item in _bounded_contract_items(
+                    raw.get("provider_attempt_plan"),
+                    field_name="provider_attempt_plan",
+                )
+            ),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -292,6 +373,20 @@ class AuthorizationEnvelopeRef:
         payload["allowed_tools"] = list(self.allowed_tools)
         payload["allowed_artifacts"] = list(self.allowed_artifacts)
         payload["budgets"] = dict(self.budgets)
+        if self.allowed_provider_bindings:
+            payload["allowed_provider_bindings"] = [
+                item.to_dict()
+                for item in self.allowed_provider_bindings
+            ]
+        else:
+            payload.pop("allowed_provider_bindings", None)
+        if self.provider_attempt_plan:
+            payload["provider_attempt_plan"] = [
+                item.to_dict()
+                for item in self.provider_attempt_plan
+            ]
+        else:
+            payload.pop("provider_attempt_plan", None)
         return payload
 
     def validate_binding(

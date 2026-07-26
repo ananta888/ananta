@@ -1,4 +1,6 @@
+import json
 import time
+from collections.abc import Mapping
 from typing import Any
 
 from flask import current_app
@@ -16,6 +18,9 @@ from agent.services.task_runtime_service import (
 )
 from agent.services.task_status_service import normalize_task_status
 from agent.utils import _http_post
+from ananta_contracts.recovery_artifact_ingress import (
+    MAX_RECOVERY_FORWARD_RESPONSE_BYTES,
+)
 
 
 def _repos():
@@ -76,8 +81,20 @@ def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = 
         timeout = max(timeout, command_timeout)
     headers = {"Authorization": f"Bearer {token}"} if token else None
     url = f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}"
+    recovery_forward = bool(
+        str(data.get("dispatch_lease_token") or "").strip()
+    )
+    request_options: dict[str, Any] = {
+        "data": data,
+        "headers": headers,
+        "timeout": timeout,
+        "return_response": True,
+        "silent": True,
+    }
+    if recovery_forward:
+        request_options["stream"] = True
     try:
-        response = _http_post(url, data=data, headers=headers, timeout=timeout, return_response=True, silent=True)
+        response = _http_post(url, **request_options)
     except TypeError:
         # Backward-compatible path for callsites/tests that monkeypatch _http_post
         # without newer keyword arguments.
@@ -86,19 +103,106 @@ def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = 
         return None
     if isinstance(response, dict):
         return response
+    code = int(getattr(response, "status_code", 500) or 500)
+    if recovery_forward:
+        body = _parse_bounded_recovery_worker_response(response)
+        if code < 400:
+            return body
+        return _worker_error_payload(
+            body=body,
+            code=code,
+            worker_url=worker_url,
+            endpoint=endpoint,
+        )
     # Preserve API envelope on success.
-    if int(getattr(response, "status_code", 500) or 500) < 400:
+    if code < 400:
         try:
             return response.json()
         except Exception:
             return {"status": "ok", "data": {}}
     # Structured error payload for caller-side diagnostics/backoff.
-    code = int(getattr(response, "status_code", 500) or 500)
     body: Any
     try:
         body = response.json()
     except Exception:
         body = {"raw": str(getattr(response, "text", "") or "")[:600]}
+    return _worker_error_payload(
+        body=body,
+        code=code,
+        worker_url=worker_url,
+        endpoint=endpoint,
+    )
+
+
+def _parse_bounded_recovery_worker_response(response: Any) -> Any:
+    """Stream and parse one Recovery response only after enforcing its cap."""
+
+    maximum_bytes = MAX_RECOVERY_FORWARD_RESPONSE_BYTES
+    headers = getattr(response, "headers", None)
+    content_length = (
+        headers.get("Content-Length")
+        if isinstance(headers, Mapping)
+        else None
+    )
+    try:
+        declared_bytes = int(content_length)
+    except (TypeError, ValueError):
+        declared_bytes = None
+    try:
+        if (
+            declared_bytes is not None
+            and declared_bytes > maximum_bytes
+        ):
+            raise ValueError("recovery_worker_response_too_large")
+        chunks: list[bytes] = []
+        total_bytes = 0
+        iter_content = getattr(response, "iter_content", None)
+        if callable(iter_content):
+            content_chunks = iter_content(
+                chunk_size=64 * 1024,
+                decode_unicode=False,
+            )
+        else:
+            content_chunks = (
+                getattr(response, "content", b""),
+            )
+        for chunk in content_chunks:
+            if not chunk:
+                continue
+            if not isinstance(chunk, bytes):
+                raise ValueError(
+                    "recovery_worker_response_bytes_invalid"
+                )
+            total_bytes += len(chunk)
+            if total_bytes > maximum_bytes:
+                raise ValueError(
+                    "recovery_worker_response_too_large"
+                )
+            chunks.append(chunk)
+        try:
+            return json.loads(b"".join(chunks))
+        except (
+            RecursionError,
+            TypeError,
+            UnicodeError,
+            ValueError,
+        ) as exc:
+            raise ValueError(
+                "recovery_worker_response_json_invalid"
+            ) from exc
+    finally:
+        close = getattr(response, "close", None)
+        if callable(close):
+            close()
+
+
+def _worker_error_payload(
+    *,
+    body: Any,
+    code: int,
+    worker_url: str,
+    endpoint: str,
+) -> dict[str, Any]:
     message = None
     if isinstance(body, dict):
         message = body.get("message") or body.get("error")

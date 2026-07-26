@@ -6,9 +6,16 @@ import json
 import logging
 import threading
 import time
+import uuid
+from collections.abc import Callable, Mapping
 from typing import Any
 
 import requests
+
+from ananta_contracts.provider_endpoint_policy import (
+    build_provider_request_url,
+    normalize_provider_endpoint_identity,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +29,44 @@ _PROFILE_RESOLVER_CACHE: Any = None
 _PROFILE_RESOLVER_LOCK = threading.Lock()
 
 
-class LLMUnavailableError(Exception):
-    """LLM provider not reachable, timed out, or returned server error."""
+class ModelRoutingConfigurationError(RuntimeError):
+    """Explicit model-routing configuration cannot be loaded safely."""
 
-    def __init__(self, message: str, *, llm_call_profile: list[dict[str, Any]] | None = None):
+
+class LLMUnavailableError(Exception):
+    """A model attempt failed or returned an unusable contracted response."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        llm_call_profile: list[dict[str, Any]] | None = None,
+        fallback_decisions: list[dict[str, Any]] | None = None,
+        terminal_reason: str | None = None,
+        model_recovery_signal: dict[str, Any] | None = None,
+    ):
         super().__init__(message)
         self.llm_call_profile = list(llm_call_profile or [])
+        self.fallback_decisions = list(fallback_decisions or [])
+        self.terminal_reason = str(terminal_reason or "").strip() or self._last_error_type()
+        if isinstance(model_recovery_signal, dict):
+            self.model_recovery_signal = dict(model_recovery_signal)
+        else:
+            from ananta_contracts.model_recovery import build_model_recovery_signal
+
+            self.model_recovery_signal = build_model_recovery_signal(
+                terminal_reason=self.terminal_reason,
+                fallback_decisions=self.fallback_decisions,
+                llm_call_profile=self.llm_call_profile,
+            )
+
+    def _last_error_type(self) -> str:
+        for item in reversed(self.llm_call_profile):
+            if isinstance(item, dict):
+                value = str(item.get("error_type") or "").strip()
+                if value:
+                    return value
+        return "unknown"
 
 
 class ModelInvocationService:
@@ -111,7 +150,11 @@ class ModelInvocationService:
             error_type=error_type,
             error_message=message,
         )
-        raise LLMUnavailableError(message, llm_call_profile=[entry])
+        raise LLMUnavailableError(
+            message,
+            llm_call_profile=[entry],
+            terminal_reason=error_type,
+        )
 
     @classmethod
     def _get_settings(cls):
@@ -119,10 +162,376 @@ class ModelInvocationService:
 
         return settings
 
+    @staticmethod
+    def _model_routing_configuration_requested() -> bool:
+        import os
+
+        return any(
+            str(os.environ.get(name) or "").strip()
+            for name in (
+                "MODEL_PROFILES_PATH",
+                "MODEL_ROUTING_PATH",
+                "ANANTA_MODEL_ROUTING_PATH",
+            )
+        )
+
+    @staticmethod
+    def _configured_routing_unavailable_error() -> LLMUnavailableError:
+        return ModelInvocationService._routing_policy_blocked_error(
+            "configured_model_routing_unavailable"
+        )
+
+    @staticmethod
+    def _routing_policy_blocked_error(reason: str) -> LLMUnavailableError:
+        normalized_reason = str(reason or "model_routing_policy_blocked").strip()[
+            :160
+        ]
+        return LLMUnavailableError(
+            normalized_reason,
+            fallback_decisions=[
+                {
+                    "reason": normalized_reason,
+                    "previous_profile_id": None,
+                    "next_profile_id": None,
+                    "trigger": "policy_blocked",
+                    "terminal": True,
+                }
+            ],
+            terminal_reason="policy_blocked",
+        )
+
+    @classmethod
+    def _provider_context_for_request(
+        cls,
+        *,
+        provider_context: Any,
+        provider_contexts_by_profile_id: Mapping[str, Any] | None,
+        profile: Any,
+        profile_index: int,
+        provider: str,
+        model: str,
+        request_attempt: int,
+    ) -> Any:
+        """Advance retry state and select only an already Hub-bound fallback.
+
+        A Worker never rewrites a signed provider selection.  A fallback may
+        use a different provider/model only when the caller supplied a
+        separate context for that exact profile.
+        """
+
+        from ananta_contracts.provider_invocation import (
+            ProviderInvocationBlocked,
+            ProviderInvocationContext,
+        )
+
+        try:
+            primary = ProviderInvocationContext.from_value(provider_context)
+            primary.assert_valid()
+            candidate = primary
+            primary_matches = (
+                not primary.selected_provider_id
+                or (
+                    primary.selected_provider_id == provider
+                    and primary.selected_model_id == model
+                )
+            )
+            profile_id = str(getattr(profile, "profile_id", "") or "").strip()
+            if not primary_matches:
+                if profile_index < 1:
+                    raise ProviderInvocationBlocked(
+                        "provider_selection_binding_mismatch"
+                    )
+                fallback_contexts = provider_contexts_by_profile_id
+                if fallback_contexts is None and isinstance(
+                    provider_context,
+                    Mapping,
+                ):
+                    nested = provider_context.get(
+                        "provider_contexts_by_profile_id"
+                    )
+                    fallback_contexts = (
+                        nested if isinstance(nested, Mapping) else None
+                    )
+                if (
+                    fallback_contexts is not None
+                    and not isinstance(fallback_contexts, Mapping)
+                ):
+                    raise ProviderInvocationBlocked(
+                        "provider_fallback_bindings_invalid"
+                    )
+                raw_candidate = (
+                    fallback_contexts.get(profile_id)
+                    if fallback_contexts is not None and profile_id
+                    else None
+                )
+                if raw_candidate is None:
+                    raise ProviderInvocationBlocked(
+                        "provider_fallback_binding_required"
+                    )
+                candidate = ProviderInvocationContext.from_value(raw_candidate)
+                candidate.assert_valid()
+                cls._assert_same_provider_delegation(primary, candidate)
+                if (
+                    primary.require_hub_provider_budget
+                    and not candidate.require_hub_provider_budget
+                ):
+                    raise ProviderInvocationBlocked(
+                        "provider_fallback_binding_budget_mismatch"
+                    )
+                if (
+                    primary.require_hub_provider_budget
+                    and candidate.provider_binding_id
+                    == primary.provider_binding_id
+                ):
+                    raise ProviderInvocationBlocked(
+                        "provider_fallback_binding_not_distinct"
+                    )
+            if candidate.selected_provider_id and (
+                candidate.selected_provider_id != provider
+                or candidate.selected_model_id != model
+            ):
+                raise ProviderInvocationBlocked(
+                    "provider_selection_binding_mismatch"
+                )
+            if (
+                candidate.require_hub_provider_attempt_budget
+                and candidate.provider_profile_id != profile_id
+            ):
+                raise ProviderInvocationBlocked(
+                    "provider_attempt_plan_profile_mismatch"
+                )
+            retry_attempt = max(
+                int(primary.retry_attempt),
+                int(candidate.retry_attempt),
+            ) + max(0, int(request_attempt))
+            retry_prefix = (
+                str(candidate.retry_id or primary.retry_id or "").strip()
+                or (
+                    "model-invocation:"
+                    f"{candidate.run_id}:"
+                    f"{candidate.attempt_id or 'unbound'}"
+                )
+            )
+            return candidate.for_attempt(
+                retry_attempt,
+                retry_id=f"{retry_prefix}:provider:{retry_attempt}",
+            ).for_provider_call(
+                f"provider-call:{uuid.uuid4().hex}"
+            )
+        except ProviderInvocationBlocked as exc:
+            raise cls._routing_policy_blocked_error(exc.reason_code) from exc
+        except (TypeError, ValueError) as exc:
+            raise cls._routing_policy_blocked_error(
+                "provider_context_invalid"
+            ) from exc
+
+    @staticmethod
+    def _assert_same_provider_delegation(primary: Any, fallback: Any) -> None:
+        from ananta_contracts.provider_invocation import ProviderInvocationBlocked
+
+        binding_fields = (
+            "tenant_id",
+            "run_id",
+            "workflow_id",
+            "step_id",
+            "plan_hash",
+            "attempt_id",
+            "fencing_token",
+            "policy_version",
+            "prompt_version",
+        )
+        if any(
+            getattr(primary, field) != getattr(fallback, field)
+            for field in binding_fields
+        ):
+            raise ProviderInvocationBlocked(
+                "provider_fallback_binding_scope_mismatch"
+            )
+
+    @staticmethod
+    def _provider_attempt_plan(raw: Any) -> tuple[Any, ...]:
+        if raw is None or raw == ():
+            return ()
+        if isinstance(raw, (str, bytes)) or not isinstance(
+            raw,
+            (list, tuple),
+        ):
+            raise ValueError("provider_attempt_plan_invalid")
+        if not 1 <= len(raw) <= 8:
+            raise ValueError("provider_attempt_plan_invalid")
+        from ananta_contracts.provider_execution import (
+            ProviderProfileAttemptPlanEntry,
+        )
+
+        values = tuple(
+            item
+            if isinstance(item, ProviderProfileAttemptPlanEntry)
+            else ProviderProfileAttemptPlanEntry.from_mapping(item)
+            for item in raw
+        )
+        if len({item.profile_id for item in values}) != len(values):
+            raise ValueError("provider_attempt_plan_duplicate")
+        return values
+
+    @classmethod
+    def _validated_provider_attempt_plan(
+        cls,
+        raw: Any,
+    ) -> tuple[Any, ...]:
+        try:
+            return cls._provider_attempt_plan(raw)
+        except (TypeError, ValueError) as exc:
+            raise cls._routing_policy_blocked_error(
+                "provider_attempt_plan_invalid"
+            ) from exc
+
+    @staticmethod
+    def _profiles_for_signed_attempt_plan(
+        resolver: Any,
+        signed_attempt_plan: tuple[Any, ...],
+    ) -> tuple[list[Any], dict[str, Any]]:
+        profiles: list[Any] = []
+        for entry in signed_attempt_plan:
+            profile = resolver.profile_by_id(entry.profile_id)
+            if (
+                profile is None
+                or str(profile.provider_id).strip().lower()
+                != entry.provider_id
+                or str(profile.model).strip() != entry.model_id
+            ):
+                raise ModelRoutingConfigurationError(
+                    "provider_attempt_plan_local_profile_mismatch"
+                )
+            if entry.endpoint_identity:
+                try:
+                    endpoint_identity = normalize_provider_endpoint_identity(
+                        provider_id=profile.provider_id,
+                        endpoint_url=profile.base_url,
+                    )
+                except ValueError as exc:
+                    raise ModelRoutingConfigurationError(
+                        "provider_attempt_plan_local_endpoint_mismatch"
+                    ) from exc
+                if endpoint_identity != entry.endpoint_identity:
+                    raise ModelRoutingConfigurationError(
+                        "provider_attempt_plan_local_endpoint_mismatch"
+                    )
+            profiles.append(profile)
+        return profiles, {
+            "profile_id": signed_attempt_plan[0].profile_id,
+            "initial_profile_id": signed_attempt_plan[0].profile_id,
+            "resolution_source": "hub_signed_provider_attempt_plan",
+            "resolution_rank": 0,
+            "candidate_chain": [
+                entry.profile_id for entry in signed_attempt_plan
+            ],
+            "profile_attempt_caps": {
+                entry.profile_id: entry.maximum_attempts
+                for entry in signed_attempt_plan
+            },
+        }
+
+    @staticmethod
+    def _signed_attempt_failure_action(
+        *,
+        signed_attempt_plan: tuple[Any, ...],
+        index: int,
+        failed_attempts: int,
+        error_type: str,
+        fallback_policy: Any,
+        fallback_decisions: list[dict[str, Any]],
+        call_profile: list[dict[str, Any]],
+        error: LLMUnavailableError,
+    ) -> str:
+        current = signed_attempt_plan[index]
+        normalized_error_type = fallback_policy.normalize_error_type(
+            error_type
+        )
+        if normalized_error_type == "context_too_large":
+            fallback_decisions.append(
+                {
+                    "reason": (
+                        "hub_signed_context_recovery_required"
+                    ),
+                    "previous_profile_id": current.profile_id,
+                    "next_profile_id": None,
+                    "trigger": normalized_error_type,
+                    "failed_attempts": failed_attempts,
+                    "maximum_attempts": current.maximum_attempts,
+                    "terminal": True,
+                }
+            )
+            raise LLMUnavailableError(
+                str(error),
+                llm_call_profile=call_profile,
+                fallback_decisions=fallback_decisions,
+                terminal_reason=normalized_error_type,
+            )
+        if not fallback_policy.allows_fallback(normalized_error_type):
+            fallback_decisions.append(
+                {
+                    "reason": (
+                        "hub_signed_fallback_trigger_denied:"
+                        f"{normalized_error_type}"
+                    ),
+                    "previous_profile_id": current.profile_id,
+                    "next_profile_id": None,
+                    "trigger": normalized_error_type,
+                    "failed_attempts": failed_attempts,
+                    "maximum_attempts": current.maximum_attempts,
+                    "terminal": True,
+                }
+            )
+            raise LLMUnavailableError(
+                str(error),
+                llm_call_profile=call_profile,
+                fallback_decisions=fallback_decisions,
+                terminal_reason=error_type,
+            )
+        if (
+            fallback_policy.allows_same_profile_retry(
+                normalized_error_type
+            )
+            and failed_attempts < current.maximum_attempts
+        ):
+            fallback_decisions.append(
+                {
+                    "reason": "hub_signed_same_profile_retry",
+                    "previous_profile_id": current.profile_id,
+                    "next_profile_id": current.profile_id,
+                    "trigger": normalized_error_type,
+                    "failed_attempts": failed_attempts,
+                    "maximum_attempts": current.maximum_attempts,
+                    "terminal": False,
+                }
+            )
+            return "retry"
+        if index + 1 < len(signed_attempt_plan):
+            fallback_decisions.append(
+                {
+                    "reason": "hub_signed_profile_cap_exhausted",
+                    "previous_profile_id": current.profile_id,
+                    "next_profile_id": signed_attempt_plan[
+                        index + 1
+                    ].profile_id,
+                    "trigger": normalized_error_type,
+                    "failed_attempts": failed_attempts,
+                    "maximum_attempts": current.maximum_attempts,
+                    "terminal": False,
+                }
+            )
+            return "fallback"
+        raise LLMUnavailableError(
+            str(error),
+            llm_call_profile=call_profile,
+            fallback_decisions=fallback_decisions,
+            terminal_reason=error_type,
+        )
+
     @classmethod
     def _get_resolver(cls):
         """Lazily load ModelProfileResolver from the configured profiles path.
-        Returns None if no profiles file is configured or parseable."""
+        Returns None only when no model-routing configuration was requested."""
         global _PROFILE_RESOLVER_CACHE
         if _PROFILE_RESOLVER_CACHE is not None:
             return _PROFILE_RESOLVER_CACHE
@@ -142,39 +551,66 @@ class ModelInvocationService:
                 )
 
                 profiles_path_env = os.environ.get("MODEL_PROFILES_PATH", "").strip()
+                routing_path_str = (
+                    os.environ.get("MODEL_ROUTING_PATH", "").strip()
+                    or os.environ.get("ANANTA_MODEL_ROUTING_PATH", "").strip()
+                )
                 if not profiles_path_env:
+                    if routing_path_str:
+                        raise ModelRoutingConfigurationError(
+                            "model_profiles_path_required_for_configured_routing"
+                        )
                     return None
                 path = Path(profiles_path_env)
                 if not path.exists():
-                    logger.info("model_invocation: MODEL_PROFILES_PATH %s not found", path)
-                    return None
+                    raise ModelRoutingConfigurationError(
+                        "configured_model_profiles_file_not_found"
+                    )
                 result = ModelProfileLoader().load_file(path)
                 if not result.ok or not result.profiles:
                     logger.warning("model_invocation: profile load errors: %s", result.errors)
-                    return None
+                    raise ModelRoutingConfigurationError(
+                        "configured_model_profiles_invalid"
+                    )
 
                 logger.info("model_invocation: loaded %d profiles from %s", len(result.profiles), path)
 
                 # Load routing rules
                 routing_rules = RoutingRules()
-                routing_path_str = (
-                    os.environ.get("MODEL_ROUTING_PATH", "").strip()
-                    or os.environ.get("ANANTA_MODEL_ROUTING_PATH", "").strip()
-                )
                 if routing_path_str:
                     rp = Path(routing_path_str)
-                    if rp.exists():
-                        try:
-                            raw_routing = json.loads(rp.read_text(encoding="utf-8"))
-                            if isinstance(raw_routing, dict):
-                                routing_rules = RoutingRules.from_dict(raw_routing)
-                                logger.info("model_invocation: loaded routing rules from %s", rp)
-                        except Exception as exc:
-                            logger.warning(
-                                "model_invocation: routing parse failed for %s: %s — using empty rules", rp, exc
-                            )
-                    else:
-                        logger.info("model_invocation: MODEL_ROUTING_PATH %s not found — using empty rules", rp)
+                    if not rp.exists():
+                        raise ModelRoutingConfigurationError(
+                            "configured_model_routing_file_not_found"
+                        )
+                    try:
+                        from jsonschema import Draft202012Validator
+
+                        raw_routing = json.loads(rp.read_text(encoding="utf-8"))
+                        if not isinstance(raw_routing, dict):
+                            raise ValueError("model_routing_root_must_be_object")
+                        schema_path = (
+                            Path(__file__).resolve().parents[2]
+                            / "config"
+                            / "schemas"
+                            / "model_routing.schema.json"
+                        )
+                        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+                        Draft202012Validator(schema).validate(raw_routing)
+                        routing_rules = RoutingRules.from_dict(
+                            raw_routing,
+                            strict=True,
+                        )
+                        logger.info("model_invocation: loaded routing rules from %s", rp)
+                    except Exception as exc:
+                        logger.warning(
+                            "model_invocation: configured routing load failed for %s: %s",
+                            rp,
+                            exc,
+                        )
+                        raise ModelRoutingConfigurationError(
+                            "configured_model_routing_invalid"
+                        ) from exc
                 else:
                     logger.debug("model_invocation: no MODEL_ROUTING_PATH set — using empty rules")
 
@@ -207,9 +643,36 @@ class ModelInvocationService:
                         "precedence. Remove DEFAULT_PROVIDER/DEFAULT_MODEL to silence this warning."
                     )
                 return resolver
+            except ModelRoutingConfigurationError:
+                raise
             except Exception as exc:
                 logger.warning("model_invocation: resolver init failed: %s", exc)
+                if cls._model_routing_configuration_requested():
+                    raise ModelRoutingConfigurationError(
+                        "configured_model_routing_initialization_failed"
+                    ) from exc
                 return None
+
+    @classmethod
+    def get_context_recovery_policy(cls) -> dict[str, Any]:
+        """Return the Hub-loaded, non-executable recovery policy.
+
+        The resolver remains the source of truth for the configured routing
+        file.  Returning only the two allowlisted recovery fields keeps this
+        read model separate from invocation and task orchestration.
+        """
+        resolver = cls._get_resolver()
+        rules = getattr(resolver, "rules", None) if resolver is not None else None
+        if rules is None:
+            return {}
+        return {
+            "context_recovery_strategies": list(
+                getattr(rules, "context_recovery_strategies", []) or []
+            ),
+            "require_approval_for_generated_plan": bool(
+                getattr(rules, "require_approval_for_generated_plan", True)
+            ),
+        }
 
     @classmethod
     def _provider_info_from_profile(cls, profile) -> tuple[str, str, str | None]:
@@ -242,7 +705,22 @@ class ModelInvocationService:
             elif provider == "mock":
                 base_url = s.mock_url.rstrip("/") + "/v1"
 
-        if not base_url.endswith("/chat/completions"):
+        ollama_native = (
+            provider == "ollama"
+            and base_url.endswith("/api/generate")
+        )
+        if (
+            not ollama_native
+            and
+            provider == "ollama"
+            and "/chat/completions" not in base_url
+            and not base_url.endswith("/v1")
+        ):
+            base_url = base_url + "/v1"
+        if (
+            not ollama_native
+            and not base_url.endswith("/chat/completions")
+        ):
             if not base_url.endswith("/v1"):
                 # already has path like /v1/chat/completions — leave as-is if it has /chat
                 if "/chat" not in base_url:
@@ -251,7 +729,14 @@ class ModelInvocationService:
             else:
                 base_url = base_url + "/chat/completions"
 
-        return provider, base_url, api_key
+        return (
+            provider,
+            build_provider_request_url(
+                provider_id=provider,
+                endpoint_url=base_url,
+            ),
+            api_key,
+        )
 
     @classmethod
     def _provider_info(cls) -> tuple[str, str, str | None]:
@@ -339,6 +824,28 @@ class ModelInvocationService:
             return mode
         return "native_tools" if bool(getattr(profile, "supports_tools", False)) else "none"
 
+    @staticmethod
+    def _max_output_tokens_for_request(
+        profile: Any,
+        provider_context: Any,
+    ) -> int:
+        configured = max(1, int(profile.max_output_tokens))
+        if isinstance(provider_context, Mapping):
+            raw_provider_limit = provider_context.get(
+                "max_completion_tokens_per_call"
+            )
+        else:
+            raw_provider_limit = getattr(
+                provider_context,
+                "max_completion_tokens_per_call",
+                None,
+            )
+        try:
+            provider_limit = int(raw_provider_limit or 0)
+        except (TypeError, ValueError):
+            provider_limit = 0
+        return min(configured, provider_limit) if provider_limit > 0 else configured
+
     @classmethod
     def _messages_for_tool_mode(
         cls,
@@ -392,7 +899,7 @@ class ModelInvocationService:
         profile = list(getattr(exc, "llm_call_profile", []) or [])
         if profile and isinstance(profile[-1], dict):
             return str(profile[-1].get("error_type") or "unknown")
-        return "unknown"
+        return str(getattr(exc, "terminal_reason", "") or "unknown")
 
     @staticmethod
     def _finalize_trace_error(prompt_trace: Any, trace_svc: Any, error_type: str, error_message: str) -> None:
@@ -409,6 +916,364 @@ class ModelInvocationService:
         except Exception:
             pass
 
+    @staticmethod
+    def _response_message(payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        choice = (payload.get("choices") or [{}])[0] if isinstance(payload, dict) else {}
+        choice = choice if isinstance(choice, dict) else {}
+        message = choice.get("message")
+        return choice, message if isinstance(message, dict) else {}
+
+    @classmethod
+    def _raise_response_contract_error(
+        cls,
+        payload: dict[str, Any],
+        *,
+        error_type: str,
+        detail: str,
+    ) -> None:
+        metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+        profile = [
+            dict(item)
+            for item in list(metadata.get("llm_call_profile") or [])
+            if isinstance(item, dict)
+        ]
+        if profile:
+            profile[-1] = {
+                **profile[-1],
+                "success": False,
+                "error_type": error_type,
+                "error_message": str(detail or error_type)[:200],
+            }
+        else:
+            profile.append(
+                cls._build_llm_call_profile_entry(
+                    name="chat_completions",
+                    backend="response_validation",
+                    provider=None,
+                    model=None,
+                    success=False,
+                    started_at=None,
+                    ended_at=None,
+                    error_type=error_type,
+                    error_message=str(detail or error_type)[:200],
+                )
+            )
+        raise LLMUnavailableError(
+            f"llm_{error_type}: {str(detail or error_type)[:200]}",
+            llm_call_profile=profile,
+            terminal_reason=error_type,
+        )
+
+    @classmethod
+    def _validate_tool_response(cls, payload: dict[str, Any], tools: list | None) -> None:
+        normalized_tools = cls._normalize_openai_tools(tools)
+        allowed_tools = {
+            item["function"]["name"]: item["function"].get("parameters")
+            or {"type": "object", "properties": {}}
+            for item in normalized_tools
+            if isinstance(item.get("function"), dict)
+        }
+        if not allowed_tools:
+            return
+
+        _, message = cls._response_message(payload)
+        native_calls = message.get("tool_calls")
+        if isinstance(native_calls, list) and native_calls:
+            for raw_call in native_calls:
+                if not isinstance(raw_call, dict):
+                    cls._raise_response_contract_error(
+                        payload,
+                        error_type="tool_args_invalid",
+                        detail="tool_call_must_be_object",
+                    )
+                function = raw_call.get("function")
+                if not isinstance(function, dict):
+                    cls._raise_response_contract_error(
+                        payload,
+                        error_type="tool_args_invalid",
+                        detail="tool_call_function_missing",
+                    )
+                tool_name = str(function.get("name") or "").strip()
+                if tool_name not in allowed_tools:
+                    cls._raise_response_contract_error(
+                        payload,
+                        error_type="tool_not_allowed",
+                        detail="tool_name_not_in_request_contract",
+                    )
+                raw_args = function.get("arguments", {})
+                try:
+                    args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+                except (TypeError, ValueError):
+                    cls._raise_response_contract_error(
+                        payload,
+                        error_type="tool_args_invalid",
+                        detail="tool_arguments_are_not_valid_json",
+                    )
+                if not isinstance(args, dict):
+                    cls._raise_response_contract_error(
+                        payload,
+                        error_type="tool_args_invalid",
+                        detail="tool_arguments_must_be_object",
+                    )
+                try:
+                    import jsonschema
+
+                    jsonschema.validate(instance=args, schema=allowed_tools[tool_name])
+                except ImportError:
+                    pass
+                except Exception:
+                    cls._raise_response_contract_error(
+                        payload,
+                        error_type="tool_args_invalid",
+                        detail="tool_arguments_failed_schema_validation",
+                    )
+            return
+
+        metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+        call_profile = [
+            item
+            for item in list(metadata.get("llm_call_profile") or [])
+            if isinstance(item, dict)
+        ]
+        tool_mode = str((call_profile[-1] if call_profile else {}).get("tool_calling_mode") or "").strip()
+        # Native-tool profiles may intentionally answer with structured content,
+        # which the strategy normalizer still handles for compatibility.
+        if tool_mode not in {"prompt_json", "both"}:
+            return
+
+        try:
+            selection = json.loads(str(message.get("content") or ""))
+        except (TypeError, ValueError):
+            cls._raise_response_contract_error(
+                payload,
+                error_type="tool_args_invalid",
+                detail="prompt_json_tool_selection_is_not_valid_json",
+            )
+        if not isinstance(selection, dict):
+            cls._raise_response_contract_error(
+                payload,
+                error_type="tool_args_invalid",
+                detail="prompt_json_tool_selection_must_be_object",
+            )
+        tool_name = str(selection.get("tool") or "").strip()
+        if tool_name not in allowed_tools:
+            cls._raise_response_contract_error(
+                payload,
+                error_type="tool_not_allowed",
+                detail="prompt_json_tool_name_not_in_request_contract",
+            )
+        args = selection.get("args")
+        if not isinstance(args, dict):
+            cls._raise_response_contract_error(
+                payload,
+                error_type="tool_args_invalid",
+                detail="prompt_json_tool_args_must_be_object",
+            )
+        try:
+            import jsonschema
+
+            jsonschema.validate(instance=args, schema=allowed_tools[tool_name])
+        except ImportError:
+            pass
+        except Exception:
+            cls._raise_response_contract_error(
+                payload,
+                error_type="tool_args_invalid",
+                detail="prompt_json_tool_args_failed_schema_validation",
+            )
+
+    @classmethod
+    def _validate_json_schema_response(
+        cls,
+        payload: dict[str, Any],
+        *,
+        json_schema: dict[str, Any],
+        allow_format_repair: bool,
+    ) -> None:
+        _, message = cls._response_message(payload)
+        from agent.services.structured_output_service import StructuredOutputService
+
+        structured = StructuredOutputService(
+            max_repair_attempts=1 if allow_format_repair else 0
+        ).validate_json(
+            str(message.get("content") or ""),
+            json_schema,
+            allow_format_repair=allow_format_repair,
+        )
+        if structured.valid:
+            return
+        issue_codes = [
+            str(
+                (issue.as_dict() if hasattr(issue, "as_dict") else {}).get("reason_code")
+                or ""
+            ).strip()
+            for issue in list(structured.issues or [])[:4]
+        ]
+        detail = "schema_validation_failed"
+        normalized_codes = [code for code in issue_codes if code]
+        if normalized_codes:
+            detail = f"{detail}:{','.join(normalized_codes)}"
+        cls._raise_response_contract_error(
+            payload,
+            error_type="schema_validation_failed",
+            detail=detail,
+        )
+
+    @staticmethod
+    def _provider_response_redirect_denied(
+        *,
+        provider: str,
+        request_url: str,
+        response: Any,
+    ) -> bool:
+        if 300 <= int(response.status_code) < 400:
+            return True
+        response_url = str(
+            getattr(response, "url", "") or ""
+        ).strip()
+        if not response_url:
+            return False
+        try:
+            return normalize_provider_endpoint_identity(
+                provider_id=provider,
+                endpoint_url=response_url,
+            ) != normalize_provider_endpoint_identity(
+                provider_id=provider,
+                endpoint_url=request_url,
+            )
+        except ValueError:
+            return True
+
+    @staticmethod
+    def _ollama_generate_request_body(
+        *,
+        messages: list[dict],
+        model: str,
+        profile: Any,
+        provider_context: Any,
+        tools_requested: bool,
+    ) -> dict[str, Any]:
+        if tools_requested:
+            raise LLMUnavailableError(
+                "ollama_generate_native_tools_unsupported",
+                terminal_reason="policy_blocked",
+            )
+        prompt = "\n".join(
+            f"{str(message.get('role') or 'user')}: "
+            f"{str(message.get('content') or '')}"
+            for message in messages
+            if isinstance(message, dict)
+        )
+        body: dict[str, Any] = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+        }
+        if profile is not None:
+            body["options"] = {
+                "temperature": float(profile.temperature),
+                "num_predict": (
+                    ModelInvocationService._max_output_tokens_for_request(
+                        profile,
+                        provider_context,
+                    )
+                ),
+            }
+        return body
+
+    @staticmethod
+    def _normalize_ollama_generate_response(
+        payload: Any,
+        *,
+        model: str,
+    ) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            return {}
+        prompt_tokens = int(payload.get("prompt_eval_count") or 0)
+        completion_tokens = int(payload.get("eval_count") or 0)
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": str(payload.get("response") or ""),
+                        "tool_calls": [],
+                    },
+                    "finish_reason": (
+                        "stop" if bool(payload.get("done", True)) else None
+                    ),
+                }
+            ],
+            "usage": {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+            },
+            "model": str(payload.get("model") or model),
+        }
+
+    @classmethod
+    def _provider_request_body(
+        cls,
+        *,
+        provider: str,
+        url: str,
+        model: str,
+        messages: list[dict],
+        profile: Any,
+        provider_context: Any,
+        tools: list | None,
+        send_native_tools: bool,
+        response_format: dict | None,
+    ) -> tuple[dict[str, Any], bool]:
+        ollama_generate = (
+            provider == "ollama"
+            and str(url).endswith("/api/generate")
+        )
+        if ollama_generate:
+            return (
+                cls._ollama_generate_request_body(
+                    messages=messages,
+                    model=model,
+                    profile=profile,
+                    provider_context=provider_context,
+                    tools_requested=bool(
+                        tools and send_native_tools
+                    ),
+                ),
+                True,
+            )
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+        }
+        if profile is not None:
+            body["temperature"] = float(profile.temperature)
+            body["max_tokens"] = cls._max_output_tokens_for_request(
+                profile,
+                provider_context,
+            )
+        if tools and send_native_tools:
+            body["tools"] = cls._normalize_openai_tools(tools)
+            body["tool_choice"] = "auto"
+        if response_format:
+            body["response_format"] = response_format
+        return body, False
+
+    @classmethod
+    def _normalize_provider_response(
+        cls,
+        payload: Any,
+        *,
+        ollama_generate: bool,
+        model: str,
+    ) -> Any:
+        if ollama_generate:
+            return cls._normalize_ollama_generate_response(
+                payload,
+                model=model,
+            )
+        return payload
+
     @classmethod
     def _make_single_chat_call(
         cls,
@@ -416,6 +1281,7 @@ class ModelInvocationService:
         *,
         tools: list | None,
         response_format: dict | None,
+        response_validator: Callable[[dict[str, Any]], None] | None = None,
         attempt: dict[str, Any],
         resolution_info: dict[str, Any],
         provider_context: Any = None,
@@ -432,17 +1298,21 @@ class ModelInvocationService:
             tools=tools,
             tool_calling_mode=tool_mode,
         )
-
         headers = {"Content-Type": "application/json"}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
-        body: dict[str, Any] = {"model": effective_model, "messages": outgoing_messages}
-        if tools and send_native_tools:
-            body["tools"] = cls._normalize_openai_tools(tools)
-            body["tool_choice"] = "auto"
-        if response_format:
-            body["response_format"] = response_format
+        body, ollama_generate = cls._provider_request_body(
+            provider=provider,
+            url=url,
+            model=effective_model,
+            messages=outgoing_messages,
+            profile=profile,
+            provider_context=provider_context,
+            tools=tools,
+            send_native_tools=send_native_tools,
+            response_format=response_format,
+        )
 
         middleware = cls._get_provider_middleware()
         try:
@@ -480,6 +1350,8 @@ class ModelInvocationService:
                 "cache_hit": True,
             }
             cached_payload["metadata"] = cached_meta
+            if response_validator is not None:
+                response_validator(cached_payload)
             return cached_payload
 
         prompt_trace = None
@@ -519,7 +1391,13 @@ class ModelInvocationService:
                 lock.acquire()
         try:
             try:
-                resp = requests.post(url, json=body, headers=headers, timeout=timeout)
+                resp = requests.post(
+                    url,
+                    json=body,
+                    headers=headers,
+                    timeout=timeout,
+                    allow_redirects=False,
+                )
             except requests.exceptions.ConnectionError as exc:
                 middleware.fail(
                     prepared,
@@ -555,6 +1433,35 @@ class ModelInvocationService:
                     error_type="timeout",
                 )
 
+            if cls._provider_response_redirect_denied(
+                provider=provider,
+                request_url=url,
+                response=resp,
+            ):
+                middleware.fail(
+                    prepared,
+                    provider=provider,
+                    model=effective_model,
+                    reason_code="provider_redirect_denied",
+                )
+                cls._finalize_trace_error(
+                    prompt_trace,
+                    trace_svc,
+                    "provider_redirect_denied",
+                    f"HTTP {resp.status_code}",
+                )
+                cls._raise_llm_error(
+                    message=(
+                        "llm_provider_redirect_denied: "
+                        f"HTTP {resp.status_code}"
+                    ),
+                    name="chat_completions",
+                    backend="llm_api",
+                    provider=provider,
+                    model=effective_model,
+                    started_at=started_at,
+                    error_type="provider_redirect_denied",
+                )
             if resp.status_code >= 500:
                 middleware.fail(
                     prepared,
@@ -573,23 +1480,32 @@ class ModelInvocationService:
                     error_type="server_error",
                 )
             if resp.status_code >= 400:
+                response_excerpt = str(resp.text or "")[:200]
+                normalized_response = response_excerpt.lower()
+                error_type = (
+                    "context_too_large"
+                    if any(marker in normalized_response for marker in (
+                        "context length", "context window", "too many tokens", "maximum context", "num_ctx",
+                    ))
+                    else "client_error"
+                )
                 middleware.fail(
                     prepared,
                     provider=provider,
                     model=effective_model,
-                    reason_code="client_error",
+                    reason_code=error_type,
                 )
                 cls._finalize_trace_error(
-                    prompt_trace, trace_svc, "client_error", f"HTTP {resp.status_code} {resp.text[:200]}"
+                    prompt_trace, trace_svc, error_type, f"HTTP {resp.status_code} {response_excerpt}"
                 )
                 cls._raise_llm_error(
-                    message=f"llm_client_error: HTTP {resp.status_code} {resp.text[:200]}",
+                    message=f"llm_{error_type}: HTTP {resp.status_code} {response_excerpt}",
                     name="chat_completions",
                     backend="llm_api",
                     provider=provider,
                     model=effective_model,
                     started_at=started_at,
-                    error_type="client_error",
+                    error_type=error_type,
                 )
 
             try:
@@ -611,9 +1527,82 @@ class ModelInvocationService:
                     started_at=started_at,
                     error_type="invalid_json_response",
                 )
+            payload = cls._normalize_provider_response(
+                payload,
+                ollama_generate=ollama_generate,
+                model=effective_model,
+            )
+
+            first_choice = (payload.get("choices") or [{}])[0] if isinstance(payload, dict) else {}
+            first_message = first_choice.get("message") if isinstance(first_choice, dict) else {}
+            has_content = bool(str((first_message or {}).get("content") or "").strip())
+            has_tool_calls = bool((first_message or {}).get("tool_calls"))
+            if not has_content and not has_tool_calls:
+                middleware.fail(
+                    prepared,
+                    provider=provider,
+                    model=effective_model,
+                    reason_code="empty_content",
+                )
+                cls._finalize_trace_error(prompt_trace, trace_svc, "empty_content", "LLM response has no content")
+                cls._raise_llm_error(
+                    message="llm_empty_content",
+                    name="chat_completions",
+                    backend="llm_api",
+                    provider=provider,
+                    model=effective_model,
+                    started_at=started_at,
+                    error_type="empty_content",
+                )
 
             ended_at = time.time()
             usage = payload.get("usage") if isinstance(payload, dict) else {}
+            call_entry = cls._build_llm_call_profile_entry(
+                name="chat_completions",
+                backend="llm_api",
+                provider=provider,
+                model=effective_model,
+                success=True,
+                started_at=started_at,
+                ended_at=ended_at,
+                usage=usage if isinstance(usage, dict) else None,
+            )
+            call_entry["profile_id"] = getattr(profile, "profile_id", None)
+            call_entry["tool_calling_mode"] = tool_mode
+            if isinstance(payload, dict):
+                meta = (
+                    payload.get("metadata")
+                    if isinstance(payload.get("metadata"), dict)
+                    else {}
+                )
+                if prompt_trace is not None:
+                    meta["prompt_trace_id"] = str(
+                        getattr(prompt_trace, "trace_id", "") or ""
+                    )
+                meta["llm_call_profile"] = list(
+                    meta.get("llm_call_profile") or []
+                ) + [call_entry]
+                if resolution_info:
+                    meta["resolution_info"] = dict(resolution_info)
+                payload["metadata"] = meta
+            if response_validator is not None:
+                try:
+                    response_validator(payload)
+                except LLMUnavailableError as exc:
+                    error_type = cls._fallback_error_type(exc)
+                    middleware.fail(
+                        prepared,
+                        provider=provider,
+                        model=effective_model,
+                        reason_code=error_type,
+                    )
+                    cls._finalize_trace_error(
+                        prompt_trace,
+                        trace_svc,
+                        error_type,
+                        str(exc),
+                    )
+                    raise
             middleware_result = middleware.complete(
                 prepared,
                 provider=provider,
@@ -636,26 +1625,9 @@ class ModelInvocationService:
                     trace_svc.store(finalized)
                 except Exception:
                     pass
-            call_entry = cls._build_llm_call_profile_entry(
-                name="chat_completions",
-                backend="llm_api",
-                provider=provider,
-                model=effective_model,
-                success=True,
-                started_at=started_at,
-                ended_at=ended_at,
-                usage=usage if isinstance(usage, dict) else None,
-            )
-            call_entry["profile_id"] = getattr(profile, "profile_id", None)
-            call_entry["tool_calling_mode"] = tool_mode
             if isinstance(payload, dict):
                 meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
-                if prompt_trace is not None:
-                    meta["prompt_trace_id"] = str(getattr(prompt_trace, "trace_id", "") or "")
                 meta["provider_middleware"] = middleware_result
-                meta["llm_call_profile"] = list(meta.get("llm_call_profile") or []) + [call_entry]
-                if resolution_info:
-                    meta["resolution_info"] = dict(resolution_info)
                 payload["metadata"] = meta
             return payload
         finally:
@@ -669,39 +1641,140 @@ class ModelInvocationService:
         *,
         tools: list | None = None,
         response_format: dict | None = None,
+        response_validator: Callable[[dict[str, Any]], None] | None = None,
         model: str | None = None,
         timeout: int | None = None,
         routing_ctx: Any = None,
         provider_context: Any = None,
+        provider_contexts_by_profile_id: Mapping[str, Any] | None = None,
+        provider_attempt_plan: Any = None,
     ) -> dict:
         resolver = None
         resolution_result = None
         candidate_profiles: list[Any] = []
         resolution_info: dict[str, Any] = {}
-        if routing_ctx is not None:
-            try:
-                resolver = cls._get_resolver()
-                if resolver is not None:
-                    resolution_result, candidate_profiles = resolver.resolve_candidate_chain(routing_ctx)
-                    if resolution_result.ok:
-                        resolution_info = {
-                            "profile_id": resolution_result.profile.profile_id,
-                            "resolution_source": resolution_result.final_source,
-                            "resolution_rank": resolution_result.final_rank,
-                            "candidate_chain": [p.profile_id for p in candidate_profiles],
-                        }
-                    else:
-                        resolution_info = {
-                            "resolution_source": "none",
-                            "resolution_fallback_reason": "no_profile_resolved",
-                            "blocked_candidates": [r for _, r in resolution_result.blocked_candidates],
-                        }
-            except Exception as exc:
-                resolution_info = {
-                    "resolution_source": "error",
-                    "resolution_fallback_reason": f"resolver_error:{exc}",
-                }
-                logger.warning("model_invocation: resolver failed: %s - using legacy path", exc)
+        explicit_routing = routing_ctx is not None
+        signed_attempt_plan = cls._validated_provider_attempt_plan(
+            provider_attempt_plan
+        )
+        try:
+            resolver = cls._get_resolver()
+            requested_model_override = str(model or "").strip()
+            if (
+                resolver is not None
+                and requested_model_override
+                and requested_model_override != "auto"
+            ):
+                raise cls._routing_policy_blocked_error(
+                    "model_override_not_allowed_with_profile_routing"
+                )
+            if routing_ctx is None and resolver is not None:
+                from agent.services.model_profile_resolver import RoutingContext
+
+                routing_ctx = RoutingContext(
+                    model_role="any",
+                    context_text="\n".join(
+                        str(message.get("content") or "")
+                        for message in messages
+                        if isinstance(message, dict)
+                    ),
+                    allow_cloud=False,
+                )
+            if signed_attempt_plan and resolver is not None:
+                (
+                    candidate_profiles,
+                    resolution_info,
+                ) = cls._profiles_for_signed_attempt_plan(
+                    resolver,
+                    signed_attempt_plan,
+                )
+            elif routing_ctx is not None and resolver is not None:
+                resolution_result, candidate_profiles = (
+                    resolver.resolve_candidate_chain(routing_ctx)
+                )
+                if resolution_result.ok:
+                    resolution_info = {
+                        "profile_id": resolution_result.profile.profile_id,
+                        "initial_profile_id": resolution_result.profile.profile_id,
+                        "resolution_source": resolution_result.final_source,
+                        "resolution_rank": resolution_result.final_rank,
+                        "candidate_chain": [
+                            profile.profile_id for profile in candidate_profiles
+                        ],
+                    }
+                else:
+                    resolution_info = {
+                        "resolution_source": "none",
+                        "resolution_fallback_reason": "no_profile_resolved",
+                        "blocked_candidates": [
+                            reason
+                            for _, reason in resolution_result.blocked_candidates
+                        ],
+                    }
+        except ModelRoutingConfigurationError as exc:
+            logger.warning("model_invocation: configured routing unavailable: %s", exc)
+            raise cls._configured_routing_unavailable_error() from exc
+        except LLMUnavailableError:
+            raise
+        except Exception as exc:
+            resolution_info = {
+                "resolution_source": "error",
+                "resolution_fallback_reason": f"resolver_error:{type(exc).__name__}",
+            }
+            logger.warning("model_invocation: resolver failed: %s", exc)
+            if explicit_routing or signed_attempt_plan:
+                raise cls._configured_routing_unavailable_error() from exc
+
+        if resolver is None and (
+            signed_attempt_plan
+            or explicit_routing
+            or cls._model_routing_configuration_requested()
+        ):
+            raise cls._configured_routing_unavailable_error()
+
+        if (
+            not signed_attempt_plan
+            and routing_ctx is not None
+            and resolver is not None
+            and (
+                resolution_result is None or not resolution_result.ok
+            )
+        ):
+            decision_reasons = [
+                str(getattr(decision, "reason", "") or "").strip().lower()
+                for decision in list(
+                    getattr(resolution_result, "decisions", []) or []
+                )
+            ]
+            if any("context_too_large" in reason for reason in decision_reasons):
+                terminal_reason = "context_too_large"
+            elif any(
+                "provider_health:unavailable" in reason
+                for reason in decision_reasons
+            ):
+                terminal_reason = "provider_unavailable"
+            else:
+                terminal_reason = "policy_blocked"
+            raise LLMUnavailableError(
+                f"model_routing_exhausted:{terminal_reason}",
+                fallback_decisions=[
+                    {
+                        "reason": "model_routing_candidate_chain_exhausted",
+                        "previous_profile_id": None,
+                        "next_profile_id": None,
+                        "trigger": terminal_reason,
+                        "terminal": True,
+                        "blocked_candidates": cls._blocked_candidates_as_dict(
+                            getattr(
+                                resolution_result,
+                                "blocked_candidates",
+                                [],
+                            )
+                        ),
+                    }
+                ],
+                terminal_reason=terminal_reason,
+            )
 
         attempts: list[dict[str, Any]] = []
         if candidate_profiles:
@@ -745,45 +1818,162 @@ class ModelInvocationService:
         fallback_policy = ModelFallbackPolicyService(
             getattr(resolver, "health", None) if resolver is not None else None
         )
+        fallback_group_rule = None
+        if (
+            not signed_attempt_plan
+            and resolver is not None
+            and routing_ctx is not None
+            and hasattr(resolver, "fallback_group_rule_for_context")
+        ):
+            fallback_group_rule = resolver.fallback_group_rule_for_context(
+                routing_ctx,
+                (
+                    resolution_result.profile.profile_id
+                    if resolution_result is not None
+                    and resolution_result.profile is not None
+                    else None
+                ),
+            )
+        group_retry_budget = (
+            max(0, int(fallback_group_rule.max_total_retries))
+            if fallback_group_rule is not None
+            else None
+        )
+        if group_retry_budget is not None:
+            resolution_info["fallback_group_max_total_retries"] = (
+                group_retry_budget
+            )
+        same_profile_retries_used = 0
+        request_attempt = 0
 
         for index, attempt in enumerate(attempts):
-            try:
-                payload = cls._make_single_chat_call(
-                    messages,
-                    tools=tools,
-                    response_format=response_format,
-                    attempt=attempt,
-                    resolution_info=resolution_info,
-                    provider_context=provider_context,
-                )
-                if isinstance(payload, dict):
-                    meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
-                    meta["llm_call_profile"] = call_profile + list(meta.get("llm_call_profile") or [])
-                    meta["fallback_decisions"] = list(fallback_decisions)
-                    if resolution_info:
-                        meta["resolution_info"] = dict(resolution_info)
-                    payload["metadata"] = meta
-                return payload
-            except LLMUnavailableError as exc:
-                call_profile.extend([entry for entry in list(exc.llm_call_profile or []) if isinstance(entry, dict)])
-                next_profile = attempts[index + 1]["profile"] if index + 1 < len(attempts) else None
-                decision = fallback_policy.should_fallback(
-                    error_type=cls._fallback_error_type(exc),
-                    previous_profile=attempt.get("profile"),
-                    next_profile=next_profile,
-                    blocked_candidates=blocked,
-                )
-                fallback_decisions.append(decision.as_dict())
-                if decision.terminal:
-                    raise LLMUnavailableError(str(exc), llm_call_profile=call_profile)
-                logger.warning(
-                    "model_invocation: fallback %s -> %s trigger=%s",
-                    decision.previous_profile_id,
-                    decision.next_profile_id,
-                    decision.trigger,
-                )
+            failed_attempts = 0
+            while True:
+                try:
+                    attempt_resolution_info = dict(resolution_info)
+                    attempt_profile = attempt.get("profile")
+                    if attempt_profile is not None:
+                        attempt_resolution_info.update(
+                            {
+                                "profile_id": attempt_profile.profile_id,
+                                "provider_id": attempt["provider"],
+                                "model": attempt["model"],
+                                "fallback_index": index,
+                            }
+                        )
+                    request_provider_context = (
+                        cls._provider_context_for_request(
+                            provider_context=provider_context,
+                            provider_contexts_by_profile_id=(
+                                provider_contexts_by_profile_id
+                            ),
+                            profile=attempt_profile,
+                            profile_index=index,
+                            provider=attempt["provider"],
+                            model=attempt["model"],
+                            request_attempt=request_attempt,
+                        )
+                    )
+                    payload = cls._make_single_chat_call(
+                        messages,
+                        tools=tools,
+                        response_format=response_format,
+                        response_validator=response_validator,
+                        attempt=attempt,
+                        resolution_info=attempt_resolution_info,
+                        provider_context=request_provider_context,
+                    )
+                    request_attempt += 1
+                    if isinstance(payload, dict):
+                        meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+                        meta["llm_call_profile"] = call_profile + list(meta.get("llm_call_profile") or [])
+                        meta["fallback_decisions"] = list(fallback_decisions)
+                        if attempt_resolution_info:
+                            meta["resolution_info"] = dict(
+                                attempt_resolution_info
+                            )
+                        payload["metadata"] = meta
+                    return payload
+                except LLMUnavailableError as exc:
+                    request_attempt += 1
+                    call_profile.extend(
+                        entry
+                        for entry in list(exc.llm_call_profile or [])
+                        if isinstance(entry, dict)
+                    )
+                    for nested_decision in list(getattr(exc, "fallback_decisions", []) or []):
+                        if isinstance(nested_decision, dict) and nested_decision not in fallback_decisions:
+                            fallback_decisions.append(dict(nested_decision))
+                    failed_attempts += 1
+                    error_type = cls._fallback_error_type(exc)
+                    if signed_attempt_plan:
+                        action = cls._signed_attempt_failure_action(
+                            signed_attempt_plan=signed_attempt_plan,
+                            index=index,
+                            failed_attempts=failed_attempts,
+                            error_type=error_type,
+                            fallback_policy=fallback_policy,
+                            fallback_decisions=fallback_decisions,
+                            call_profile=call_profile,
+                            error=exc,
+                        )
+                        if action == "retry":
+                            continue
+                        break
+                    profile_retry_allowed = fallback_policy.should_retry_profile(
+                        error_type=error_type,
+                        profile=attempt.get("profile"),
+                        failed_attempts=failed_attempts,
+                    )
+                    group_retry_allowed = (
+                        group_retry_budget is None
+                        or same_profile_retries_used < group_retry_budget
+                    )
+                    if profile_retry_allowed and group_retry_allowed:
+                        same_profile_retries_used += 1
+                        fallback_decisions.append({
+                            "reason": "same_profile_retry_allowed",
+                            "previous_profile_id": getattr(attempt.get("profile"), "profile_id", None),
+                            "next_profile_id": getattr(attempt.get("profile"), "profile_id", None),
+                            "trigger": error_type,
+                            "failed_attempts": failed_attempts,
+                            "group_retries_used": same_profile_retries_used,
+                            "terminal": False,
+                        })
+                        logger.warning(
+                            "model_invocation: retry profile=%s failed_attempts=%s trigger=%s",
+                            getattr(attempt.get("profile"), "profile_id", None), failed_attempts, error_type,
+                        )
+                        continue
+                    next_profile = attempts[index + 1]["profile"] if index + 1 < len(attempts) else None
+                    decision = fallback_policy.should_fallback(
+                        error_type=error_type,
+                        previous_profile=attempt.get("profile"),
+                        next_profile=next_profile,
+                        blocked_candidates=blocked,
+                    )
+                    fallback_decisions.append(decision.as_dict())
+                    if decision.terminal:
+                        raise LLMUnavailableError(
+                            str(exc),
+                            llm_call_profile=call_profile,
+                            fallback_decisions=fallback_decisions,
+                            terminal_reason=error_type,
+                        )
+                    logger.warning(
+                        "model_invocation: fallback %s -> %s trigger=%s",
+                        decision.previous_profile_id,
+                        decision.next_profile_id,
+                        decision.trigger,
+                    )
+                    break
 
-        raise LLMUnavailableError("llm_unavailable:no_attempts", llm_call_profile=call_profile)
+        raise LLMUnavailableError(
+            "llm_unavailable:no_attempts",
+            llm_call_profile=call_profile,
+            fallback_decisions=fallback_decisions,
+            terminal_reason="no_attempts",
+        )
 
     @classmethod
     def invoke_with_tools(cls, prompt: str, tools: list, model: str | None = None, **kwargs) -> dict:
@@ -795,10 +1985,19 @@ class ModelInvocationService:
         response = cls._make_chat_call(
             messages,
             tools=tools,
+            response_validator=(
+                lambda payload: cls._validate_tool_response(payload, tools)
+                if bool(kwargs.get("retry_on_contract_error", False))
+                else None
+            ),
             model=model,
             timeout=kwargs.get("timeout"),
             routing_ctx=kwargs.get("routing_ctx"),
             provider_context=kwargs.get("provider_context"),
+            provider_contexts_by_profile_id=kwargs.get(
+                "provider_contexts_by_profile_id"
+            ),
+            provider_attempt_plan=kwargs.get("provider_attempt_plan"),
         )
         choice = (response.get("choices") or [{}])[0]
         msg = choice.get("message") or {}
@@ -854,14 +2053,20 @@ class ModelInvocationService:
                     )
 
         metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
+        call_profile = [
+            item
+            for item in list(metadata.get("llm_call_profile") or [])
+            if isinstance(item, dict)
+        ]
+        final_call = call_profile[-1] if call_profile else {}
         return {
             "tool_calls": tool_calls,
             "content": msg.get("content") or "",
             "finish_reason": choice.get("finish_reason"),
             "usage": response.get("usage") if isinstance(response.get("usage"), dict) else {},
             "metadata": metadata,
-            "provider": cls._provider_info()[0],
-            "model": response.get("model") or model,
+            "provider": str(final_call.get("provider") or "").strip() or cls._provider_info()[0],
+            "model": response.get("model") or final_call.get("model") or model,
         }
 
     @classmethod
@@ -873,9 +2078,25 @@ class ModelInvocationService:
         response = cls._make_chat_call(
             messages,
             response_format={"type": "json_object"},
+            response_validator=(
+                lambda payload: cls._validate_json_schema_response(
+                    payload,
+                    json_schema=json_schema,
+                    allow_format_repair=bool(
+                        kwargs.get("allow_format_repair", False)
+                    ),
+                )
+                if bool(kwargs.get("retry_on_contract_error", False))
+                else None
+            ),
             model=model,
+            timeout=kwargs.get("timeout"),
             routing_ctx=kwargs.get("routing_ctx"),
             provider_context=kwargs.get("provider_context"),
+            provider_contexts_by_profile_id=kwargs.get(
+                "provider_contexts_by_profile_id"
+            ),
+            provider_attempt_plan=kwargs.get("provider_attempt_plan"),
         )
         choice = (response.get("choices") or [{}])[0]
         return (choice.get("message") or {}).get("content") or ""
@@ -891,15 +2112,36 @@ class ModelInvocationService:
         response = cls._make_chat_call(
             messages,
             response_format={"type": "json_object"},
+            response_validator=(
+                lambda payload: cls._validate_json_schema_response(
+                    payload,
+                    json_schema=json_schema,
+                    allow_format_repair=bool(
+                        kwargs.get("allow_format_repair", False)
+                    ),
+                )
+                if bool(kwargs.get("retry_on_contract_error", False))
+                else None
+            ),
             model=model,
             timeout=kwargs.get("timeout"),
             routing_ctx=kwargs.get("routing_ctx"),
             provider_context=kwargs.get("provider_context"),
+            provider_contexts_by_profile_id=kwargs.get(
+                "provider_contexts_by_profile_id"
+            ),
+            provider_attempt_plan=kwargs.get("provider_attempt_plan"),
         )
         choice = (response.get("choices") or [{}])[0]
         msg = choice.get("message") if isinstance(choice, dict) else {}
         metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
-        provider = cls._provider_info()[0]
+        call_profile = [
+            item
+            for item in list(metadata.get("llm_call_profile") or [])
+            if isinstance(item, dict)
+        ]
+        final_call = call_profile[-1] if call_profile else {}
+        provider = str(final_call.get("provider") or "").strip() or cls._provider_info()[0]
         content = (msg.get("content") or "") if isinstance(msg, dict) else ""
         from agent.services.structured_output_service import StructuredOutputService
 
@@ -916,7 +2158,7 @@ class ModelInvocationService:
             "usage": response.get("usage") if isinstance(response.get("usage"), dict) else {},
             "metadata": metadata,
             "provider": provider,
-            "model": response.get("model") or model,
+            "model": response.get("model") or final_call.get("model") or model,
             "structured_output": structured.value,
             "structured_output_valid": structured.valid,
             "structured_output_issues": [issue.as_dict() for issue in structured.issues],
@@ -932,8 +2174,13 @@ class ModelInvocationService:
         response = cls._make_chat_call(
             messages,
             model=model,
+            timeout=kwargs.get("timeout"),
             routing_ctx=kwargs.get("routing_ctx"),
             provider_context=kwargs.get("provider_context"),
+            provider_contexts_by_profile_id=kwargs.get(
+                "provider_contexts_by_profile_id"
+            ),
+            provider_attempt_plan=kwargs.get("provider_attempt_plan"),
         )
         choice = (response.get("choices") or [{}])[0]
         return (choice.get("message") or {}).get("content") or ""
@@ -950,16 +2197,26 @@ class ModelInvocationService:
             timeout=kwargs.get("timeout"),
             routing_ctx=kwargs.get("routing_ctx"),
             provider_context=kwargs.get("provider_context"),
+            provider_contexts_by_profile_id=kwargs.get(
+                "provider_contexts_by_profile_id"
+            ),
+            provider_attempt_plan=kwargs.get("provider_attempt_plan"),
         )
         choice = (response.get("choices") or [{}])[0]
         msg = choice.get("message") if isinstance(choice, dict) else {}
         metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
-        provider = cls._provider_info()[0]
+        call_profile = [
+            item
+            for item in list(metadata.get("llm_call_profile") or [])
+            if isinstance(item, dict)
+        ]
+        final_call = call_profile[-1] if call_profile else {}
+        provider = str(final_call.get("provider") or "").strip() or cls._provider_info()[0]
         return {
             "content": (msg.get("content") or "") if isinstance(msg, dict) else "",
             "finish_reason": choice.get("finish_reason") if isinstance(choice, dict) else None,
             "usage": response.get("usage") if isinstance(response.get("usage"), dict) else {},
             "metadata": metadata,
             "provider": provider,
-            "model": response.get("model") or model,
+            "model": response.get("model") or final_call.get("model") or model,
         }

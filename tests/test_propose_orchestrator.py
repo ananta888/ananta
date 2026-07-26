@@ -18,6 +18,7 @@ from worker.core.propose import (
 )
 
 from agent.services.propose_policy import ProposePolicy
+from agent.services.model_recovery_signal import build_model_recovery_signal
 
 
 class TestProposeStrategyOrchestrator:
@@ -102,3 +103,42 @@ class TestProposeStrategyOrchestrator:
         orch.run(context)
 
         strategies["s3"].run.assert_not_called()
+
+    def test_aggregates_bounded_model_recovery_signals(self, context):
+        policy = ProposePolicy(
+            strategy_order=["tool_calling_llm", "json_schema_llm"],
+            on_all_strategies_declined="needs_review",
+        )
+        strategies = {}
+        for strategy_id, reason in (
+            ("tool_calling_llm", "tool_args_invalid"),
+            ("json_schema_llm", "schema_validation_failed"),
+        ):
+            strategy = Mock()
+            strategy.run.return_value = ProposeStrategyResult.declined(
+                strategy_id,
+                reason="llm_required_but_unavailable",
+                metadata={
+                    "model_recovery_signal": build_model_recovery_signal(
+                        terminal_reason=reason,
+                        llm_call_profile=[
+                            {
+                                "profile_id": "phi",
+                                "success": False,
+                                "error_type": reason,
+                            }
+                        ],
+                    )
+                },
+            )
+            strategies[strategy_id] = strategy
+
+        result = ProposeStrategyOrchestrator(policy, strategies).run(context)
+
+        signal = result.metadata["model_recovery_signal"]
+        assert signal["schema"] == "model_recovery_signal.v1"
+        assert signal["terminal_reason"] == "schema_validation_failed"
+        assert [item["strategy_id"] for item in signal["strategy_failures"]] == [
+            "tool_calling_llm",
+            "json_schema_llm",
+        ]

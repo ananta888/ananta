@@ -102,3 +102,128 @@ def test_archive_old_tasks_db(app):
         # 3. Prüfen
         assert task_repo.get_by_id("new_db_task") is not None
         assert task_repo.get_by_id("old_db_task") is None
+
+
+def test_archive_old_tasks_retains_active_and_recovery_lineage(app):
+    from agent.db_models import TaskDB
+    from agent.repository import task_repo
+
+    with app.app_context():
+        settings.tasks_retention_days = 1
+        old_time = time.time() - (2 * 86400)
+        task_repo.save(
+            TaskDB(
+                id="old-active-task",
+                created_at=old_time,
+                status="todo",
+            )
+        )
+        task_repo.save(
+            TaskDB(
+                id="old-recovery-child",
+                created_at=old_time,
+                status="cancelled",
+                source_task_id="recovery-source",
+                derivation_reason="goal_task_recovery",
+            )
+        )
+
+        _archive_old_tasks()
+
+        assert task_repo.get_by_id("old-active-task") is not None
+        assert task_repo.get_by_id("old-recovery-child") is not None
+
+
+def test_archive_old_tasks_retains_terminal_dependency_of_active_task(app):
+    from agent.db_models import TaskDB
+    from agent.repository import task_repo
+
+    with app.app_context():
+        settings.tasks_retention_days = 1
+        old_time = time.time() - (2 * 86400)
+        task_repo.save(
+            TaskDB(
+                id="old-live-dependency",
+                created_at=old_time,
+                status="completed",
+            )
+        )
+        task_repo.save(
+            TaskDB(
+                id="active-dependent",
+                status="blocked_by_dependency",
+                depends_on=["old-live-dependency"],
+            )
+        )
+
+        _archive_old_tasks()
+
+        assert task_repo.get_by_id("old-live-dependency") is not None
+
+
+def test_archive_retention_preserves_archived_recovery_lineage(app):
+    from agent.db_models import ArchivedTaskDB
+    from agent.repository import archived_task_repo
+
+    with app.app_context():
+        settings.archived_tasks_retention_days = 1
+        old_time = time.time() - (2 * 86400)
+        archived_task_repo.save(
+            ArchivedTaskDB(
+                id="old-archived-recovery-child",
+                created_at=old_time,
+                updated_at=old_time,
+                archived_at=old_time,
+                status="cancelled",
+                source_task_id="archived-recovery-source",
+                derivation_reason="goal_task_recovery",
+            )
+        )
+
+        _archive_old_tasks()
+
+        assert (
+            archived_task_repo.get_by_id(
+                "old-archived-recovery-child"
+            )
+            is not None
+        )
+
+
+def test_json_archive_retention_preserves_recovery_lineage(app):
+    with app.app_context():
+        settings.archived_tasks_retention_days = 1
+        tasks_path = app.config["TASKS_PATH"]
+        archive_path = tasks_path.replace(".json", "_archive.json")
+        old_time = time.time() - (2 * 86400)
+        with open(tasks_path, "w", encoding="utf-8") as tasks_file:
+            json.dump({}, tasks_file)
+        with open(
+            archive_path,
+            "w",
+            encoding="utf-8",
+        ) as archive_file:
+            json.dump(
+                {
+                    "old-json-recovery": {
+                        "id": "old-json-recovery",
+                        "status": "cancelled",
+                        "created_at": old_time,
+                        "archived_at": old_time,
+                        "source_task_id": "json-source",
+                        "derivation_reason": (
+                            "goal_task_recovery"
+                        ),
+                    }
+                },
+                archive_file,
+            )
+
+        _archive_old_tasks(tasks_path=tasks_path)
+
+        with open(
+            archive_path,
+            encoding="utf-8",
+        ) as archive_file:
+            archived = json.load(archive_file)
+        assert "old-json-recovery" in archived

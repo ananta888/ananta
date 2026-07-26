@@ -1,15 +1,22 @@
 """JsonSchemaLLMStrategy — FA-T009/T021/AFR-T004: response_format=json_object."""
+
 from __future__ import annotations
 
 import json
 from collections.abc import Mapping
 
-from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
-from worker.core.propose import ProposeStrategyResult, ExecutableProposal
-from agent.services.model_invocation_service import ModelInvocationService, LLMUnavailableError
-from agent.services.propose_runtime_policy import resolve_propose_llm_timeout_seconds
+from agent.services.model_invocation_service import LLMUnavailableError, ModelInvocationService
+from ananta_contracts.model_recovery import metadata_from_llm_error
+from agent.services.model_routing_contract import (
+    ModelRoutingContractError,
+    build_model_routing_context,
+    model_routing_policy_failure_metadata,
+)
 from agent.services.prompt_context_bundle_service import get_prompt_context_bundle_service
+from agent.services.propose_runtime_policy import resolve_propose_llm_timeout_seconds
 from agent.services.strategy_prompt_composer import get_strategy_prompt_composer
+from worker.core.propose import ExecutableProposal, ProposeStrategyResult
+from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 
 _MOCK_ONLY_PROVIDERS = {"mock"}
 
@@ -27,20 +34,44 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
         "type": "object",
         "properties": {
             "command": {"type": ["string", "null"]},
-            "tool_calls": {"type": "array", "items": {"type": "object"}},
+            "tool_calls": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["name"],
+                    "properties": {
+                        "name": {"type": "string", "minLength": 1},
+                        "args": {"type": "object"},
+                    },
+                },
+            },
             "reason": {"type": "string"},
         },
+        "anyOf": [
+            {
+                "required": ["command"],
+                "properties": {"command": {"type": "string", "minLength": 1}},
+            },
+            {
+                "required": ["tool_calls"],
+                "properties": {"tool_calls": {"type": "array", "minItems": 1}},
+            },
+        ],
         "additionalProperties": False,
     }
 
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
         from agent.config import settings
+
         _eff_cfg = dict(context.effective_config) if isinstance(context.effective_config, Mapping) else {}
-        provider = (str(_eff_cfg.get("default_provider") or "") or settings.default_provider or "lmstudio").strip().lower()
+        provider = (
+            (str(_eff_cfg.get("default_provider") or "") or settings.default_provider or "lmstudio").strip().lower()
+        )
 
         if provider in _MOCK_ONLY_PROVIDERS:
             return ProposeStrategyResult.declined(
-                "json_schema_llm", reason="provider_json_schema_not_supported_mock",
+                "json_schema_llm",
+                reason="provider_json_schema_not_supported_mock",
             )
 
         bundle = get_prompt_context_bundle_service().build_for_propose_context(context).to_dict()
@@ -53,10 +84,12 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 "output_contract": (
                     "You MUST respond with valid JSON only — no prose, no markdown, no explanations.\n\n"
                     "The JSON must match this schema:\n"
-                    "{\n  \"command\": \"<shell command string, or null>\",\n"
-                    "  \"tool_calls\": [{\"name\": \"<tool_name>\", \"args\": {<arguments>}}]\n}\n\n"
-                    "Rules:\n- Include at least one of \"command\" or \"tool_calls\".\n"
-                    "- \"reason\" is optional but recommended.\n- Output ONLY the raw JSON object. No fences. No text before or after."
+                    '{\n  "command": "<shell command string, or null>",\n'
+                    '  "tool_calls": [{"name": "<tool_name>", "args": {<arguments>}}]\n}\n\n'
+                    'Rules:\n- Include at least one of "command" or "tool_calls".\n'
+                    '- "reason" is optional but recommended.\n'
+                    "- Output ONLY the raw JSON object. No fences. "
+                    "No text before or after."
                 ),
             },
         )
@@ -72,17 +105,34 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 model=None,
                 system_prompt=system_prompt,
                 timeout=timeout_seconds,
+                retry_on_contract_error=True,
+                routing_ctx=build_model_routing_context(
+                    context.task,
+                    context_text=context.base_prompt,
+                    requires_json=True,
+                ),
+                provider_context=_eff_cfg.get("provider_context"),
+                provider_contexts_by_profile_id=_eff_cfg.get("provider_contexts_by_profile_id"),
+                provider_attempt_plan=_eff_cfg.get("provider_attempt_plan"),
+            )
+        except ModelRoutingContractError as exc:
+            return ProposeStrategyResult.declined(
+                "json_schema_llm",
+                reason="model_routing_policy_blocked",
+                reason_codes=["model_routing_invalid", "policy_blocked"],
+                metadata=model_routing_policy_failure_metadata(exc),
             )
         except LLMUnavailableError as exc:
             return ProposeStrategyResult.declined(
                 "json_schema_llm",
                 reason=f"llm_required_but_unavailable: {exc}",
-                reason_codes=["llm_required", "llm_provider_unavailable"],
-                metadata={"llm_call_profile": list(getattr(exc, "llm_call_profile", []) or [])},
+                reason_codes=["llm_required", "llm_provider_unavailable", "model_chain_exhausted"],
+                metadata=metadata_from_llm_error(exc),
             )
         except Exception as exc:
             return ProposeStrategyResult.failed(
-                "json_schema_llm", f"llm_call_failed: {exc}",
+                "json_schema_llm",
+                f"llm_call_failed: {exc}",
                 metadata={
                     "llm_call_profile": [
                         {
@@ -109,54 +159,71 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
             raw_response = llm_result
             structured_output = None
             structured_output_valid = False
+            structured_contract_present = False
             structured_output_issues = []
             llm_profile = []
+            fallback_decisions = []
             llm_model = None
             llm_provider = provider
         elif isinstance(llm_result, Mapping):
             raw_response = str(llm_result.get("content") or "")
             structured_output = llm_result.get("structured_output")
             structured_output_valid = bool(llm_result.get("structured_output_valid", False))
+            structured_contract_present = "structured_output_valid" in llm_result
             structured_output_issues = list(llm_result.get("structured_output_issues") or [])
-            llm_profile = list((llm_result.get("metadata") or {}).get("llm_call_profile") or [])
+            invocation_metadata = (
+                dict(llm_result.get("metadata") or {}) if isinstance(llm_result.get("metadata"), Mapping) else {}
+            )
+            llm_profile = list(invocation_metadata.get("llm_call_profile") or [])
+            fallback_decisions = [
+                dict(item)
+                for item in list(invocation_metadata.get("fallback_decisions") or [])
+                if isinstance(item, Mapping)
+            ]
             llm_model = str(llm_result.get("model") or "").strip() or None
             llm_provider = str(llm_result.get("provider") or "").strip() or provider
         else:
             raw_response = str(llm_result or "")
             structured_output = None
             structured_output_valid = False
+            structured_contract_present = False
             structured_output_issues = []
             llm_profile = []
+            fallback_decisions = []
             llm_model = None
             llm_provider = provider
+        invocation_diagnostics = {
+            **({"llm_call_profile": llm_profile} if llm_profile else {}),
+            **({"fallback_decisions": fallback_decisions} if fallback_decisions else {}),
+        }
 
         if not raw_response or not raw_response.strip():
             return ProposeStrategyResult.declined(
                 "json_schema_llm",
                 reason="llm_returned_empty_response",
-                metadata={"llm_call_profile": llm_profile} if llm_profile else None,
+                metadata=invocation_diagnostics or None,
             )
 
-        if isinstance(llm_result, Mapping) and not structured_output_valid:
+        if structured_contract_present and not structured_output_valid:
             return ProposeStrategyResult.advisory(
                 "json_schema_llm",
                 advisory_text=raw_response[:300],
                 reason="structured_output_validation_failed",
                 reason_codes=["structured_output_validation_failed"],
                 metadata={
-                    "llm_call_profile": llm_profile,
+                    **invocation_diagnostics,
                     "structured_output_issues": structured_output_issues,
                 },
             )
         try:
-            parsed = structured_output if isinstance(llm_result, Mapping) else json.loads(raw_response)
+            parsed = structured_output if structured_contract_present else json.loads(raw_response)
         except json.JSONDecodeError:
             return ProposeStrategyResult.advisory(
                 "json_schema_llm",
                 advisory_text=raw_response[:300],
                 reason="json_parse_failed",
                 reason_codes=["json_parse_failed"],
-                metadata={"llm_call_profile": llm_profile} if llm_profile else None,
+                metadata=invocation_diagnostics or None,
             )
 
         if not isinstance(parsed, dict):
@@ -164,7 +231,7 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 "json_schema_llm",
                 advisory_text=str(parsed)[:300],
                 reason="json_not_object",
-                metadata={"llm_call_profile": llm_profile} if llm_profile else None,
+                metadata=invocation_diagnostics or None,
             )
 
         tool_calls = parsed.get("tool_calls") or []
@@ -188,17 +255,30 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                     "provider": llm_provider,
                     "model": llm_model,
                     "llm_call_profile": llm_profile,
+                    "fallback_decisions": fallback_decisions,
                     "prompt_context_bundle": {
                         "schema": bundle.get("schema"),
                         "task_kind": bundle.get("task_kind"),
-                        "selected_chunks": ((bundle.get("context_summary") or {}).get("budget") or {}).get("selected_count"),
-                        "instruction_layers_present": bool((bundle.get("context_summary") or {}).get("instruction_layers_present")),
-                        "instruction_stack_present": bool((bundle.get("context_summary") or {}).get("instruction_stack_present")),
-                        "instruction_stack_checksum": (bundle.get("context_summary") or {}).get("instruction_stack_checksum"),
+                        "selected_chunks": ((bundle.get("context_summary") or {}).get("budget") or {}).get(
+                            "selected_count"
+                        ),
+                        "instruction_layers_present": bool(
+                            (bundle.get("context_summary") or {}).get("instruction_layers_present")
+                        ),
+                        "instruction_stack_present": bool(
+                            (bundle.get("context_summary") or {}).get("instruction_stack_present")
+                        ),
+                        "instruction_stack_checksum": (bundle.get("context_summary") or {}).get(
+                            "instruction_stack_checksum"
+                        ),
                     },
                 },
             )
-            return ProposeStrategyResult.executable("json_schema_llm", proposal)
+            return ProposeStrategyResult.executable(
+                "json_schema_llm",
+                proposal,
+                metadata=invocation_diagnostics,
+            )
 
         if command:
             proposal = ExecutableProposal(
@@ -213,20 +293,33 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                     "provider": llm_provider,
                     "model": llm_model,
                     "llm_call_profile": llm_profile,
+                    "fallback_decisions": fallback_decisions,
                     "prompt_context_bundle": {
                         "schema": bundle.get("schema"),
                         "task_kind": bundle.get("task_kind"),
-                        "selected_chunks": ((bundle.get("context_summary") or {}).get("budget") or {}).get("selected_count"),
-                        "instruction_layers_present": bool((bundle.get("context_summary") or {}).get("instruction_layers_present")),
-                        "instruction_stack_present": bool((bundle.get("context_summary") or {}).get("instruction_stack_present")),
-                        "instruction_stack_checksum": (bundle.get("context_summary") or {}).get("instruction_stack_checksum"),
+                        "selected_chunks": ((bundle.get("context_summary") or {}).get("budget") or {}).get(
+                            "selected_count"
+                        ),
+                        "instruction_layers_present": bool(
+                            (bundle.get("context_summary") or {}).get("instruction_layers_present")
+                        ),
+                        "instruction_stack_present": bool(
+                            (bundle.get("context_summary") or {}).get("instruction_stack_present")
+                        ),
+                        "instruction_stack_checksum": (bundle.get("context_summary") or {}).get(
+                            "instruction_stack_checksum"
+                        ),
                     },
                 },
             )
-            return ProposeStrategyResult.executable("json_schema_llm", proposal)
+            return ProposeStrategyResult.executable(
+                "json_schema_llm",
+                proposal,
+                metadata=invocation_diagnostics,
+            )
 
         return ProposeStrategyResult.declined(
             "json_schema_llm",
             reason="llm_returned_no_executable_output",
-            metadata={"llm_call_profile": llm_profile} if llm_profile else None,
+            metadata=invocation_diagnostics or None,
         )

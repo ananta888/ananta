@@ -70,7 +70,13 @@ def test_call_llm_stores_usage_in_request_context(app):
             with patch("agent.llm_integration.settings") as mock_settings:
                 mock_settings.retry_count = 0
                 mock_settings.retry_backoff = 0.0
-                out = _call_llm("openai", "m", "p", {"openai": "http://x"}, "k")
+                out = _call_llm(
+                    "ollama",
+                    "m",
+                    "p",
+                    {"ollama": "http://127.0.0.1:11434/v1"},
+                    "k",
+                )
 
         assert out == "ok"
         assert g.llm_last_usage["prompt_tokens"] == 11
@@ -618,11 +624,14 @@ def test_llm_generate_runtime_falls_back_to_ollama_in_routing_metadata(client, a
         return
     kwargs = mock_generate.call_args.kwargs
     assert kwargs["provider"] == "ollama"
-    assert kwargs["model"] in {"ananta-default", "ananta-default:latest"}
+    assert kwargs["model"] in {"ananta-phi4-mini-32k", "ananta-phi4-mini-32k:latest"}
     data = res.json["data"]
     routing = data.get("routing") or {}
     assert (routing.get("effective") or {}).get("provider") == "ollama"
-    assert (routing.get("effective") or {}).get("model") in {"ananta-default", "ananta-default:latest"}
+    assert (routing.get("effective") or {}).get("model") in {
+        "ananta-phi4-mini-32k",
+        "ananta-phi4-mini-32k:latest",
+    }
     assert (routing.get("fallback") or {}).get("provider_source") == "agent_config.llm_config.provider"
 
 

@@ -8,6 +8,129 @@ import portalocker
 from agent.common.utils.json_utils import update_json
 from agent.config import settings
 
+_TERMINAL_TASK_STATUSES = frozenset(
+    {
+        "completed",
+        "failed",
+        "cancelled",
+        "verification_failed",
+        "skipped",
+        "aborted",
+        "timeout",
+        "archived",
+    }
+)
+_RECOVERY_DETAIL_KEYS = frozenset(
+    {
+        "model_recovery",
+        "model_recovery_strategy",
+        "model_recovery_release",
+        "recovery_dispatch_lease",
+    }
+)
+
+
+def _task_value(task, name: str):
+    if isinstance(task, dict):
+        return task.get(name)
+    return getattr(task, name, None)
+
+
+def _is_terminal_task(task) -> bool:
+    status = (
+        str(_task_value(task, "status") or "")
+        .strip()
+        .lower()
+        .replace("-", "_")
+    )
+    status = {
+        "done": "completed",
+        "canceled": "cancelled",
+        "verificationfailed": "verification_failed",
+    }.get(status, status)
+    return status in _TERMINAL_TASK_STATUSES
+
+
+def _is_recovery_related_task(task) -> bool:
+    details = _task_value(task, "status_reason_details")
+    details = dict(details) if isinstance(details, dict) else {}
+    return bool(
+        str(_task_value(task, "source_task_id") or "").strip()
+        or str(_task_value(task, "derivation_reason") or "").strip()
+        == "goal_task_recovery"
+        or any(details.get(key) for key in _RECOVERY_DETAIL_KEYS)
+    )
+
+
+def _referenced_by_active_task(task_id: str, tasks) -> bool:
+    normalized_id = str(task_id or "").strip()
+    return any(
+        not _is_terminal_task(candidate)
+        and normalized_id
+        in {
+            str(value or "").strip()
+            for value in list(
+                _task_value(candidate, "depends_on") or []
+            )
+        }
+        for candidate in tasks
+    )
+
+
+def _safe_to_archive_task(task, *, all_tasks) -> bool:
+    """Retain active/recovery lineage and live dependency targets."""
+    return bool(
+        _is_terminal_task(task)
+        and not _is_recovery_related_task(task)
+        and not _referenced_by_active_task(
+            str(_task_value(task, "id") or ""),
+            all_tasks,
+        )
+    )
+
+
+def _purge_expired_non_recovery_archives(
+    archived_task_repo,
+    *,
+    cutoff: float,
+) -> int:
+    """Retention never destroys Hub-owned Recovery lineage records."""
+
+    archived_tasks = []
+    limit = 500
+    offset = 0
+    while True:
+        chunk = list(
+            archived_task_repo.get_all(
+                limit=limit,
+                offset=offset,
+            )
+            or []
+        )
+        if not chunk:
+            break
+        archived_tasks.extend(chunk)
+        if len(chunk) < limit:
+            break
+        offset += limit
+
+    deleted = 0
+    for task in archived_tasks:
+        archived_at = float(
+            _task_value(task, "archived_at")
+            or _task_value(task, "updated_at")
+            or 0.0
+        )
+        if (
+            archived_at < cutoff
+            and not _is_recovery_related_task(task)
+            and archived_task_repo.delete(
+                str(_task_value(task, "id") or "")
+            )
+        ):
+            deleted += 1
+    return deleted
+
 
 def archive_terminal_logs(data_dir: str) -> None:
     """Archiviert alte Einträge aus dem Terminal-Log."""
@@ -100,11 +223,26 @@ def archive_old_tasks(tasks_path: str):
 
     # 1. Datenbank-Archivierung bevorzugen
     try:
-        archived_task_repo.delete_old(cutoff_archive)
+        _purge_expired_non_recovery_archives(
+            archived_task_repo,
+            cutoff=cutoff_archive,
+        )
         old_tasks = task_repo.get_old_tasks(cutoff_active)
-        if old_tasks:
-            logging.info(f"Archiviere {len(old_tasks)} Tasks aus der Datenbank.")
-            for t in old_tasks:
+        all_tasks = task_repo.get_all()
+        archivable_tasks = [
+            task
+            for task in old_tasks
+            if _safe_to_archive_task(
+                task,
+                all_tasks=all_tasks,
+            )
+        ]
+        if archivable_tasks:
+            logging.info(
+                "Archiviere %s terminale Tasks aus der Datenbank.",
+                len(archivable_tasks),
+            )
+            for t in archivable_tasks:
                 try:
                     archived = ArchivedTaskDB(**t.model_dump())
                     archived_task_repo.save(archived)
@@ -126,7 +264,14 @@ def archive_old_tasks(tasks_path: str):
         remaining = {
             tid: t
             for tid, t in archived_tasks.items()
-            if t.get("archived_at", t.get("created_at", now)) >= cutoff_archive
+            if (
+                t.get(
+                    "archived_at",
+                    t.get("created_at", now),
+                )
+                >= cutoff_archive
+                or _is_recovery_related_task(t)
+            )
         }
         removed = len(archived_tasks) - len(remaining)
         if removed > 0:
@@ -139,8 +284,21 @@ def archive_old_tasks(tasks_path: str):
     def archive_func(tasks):
         if not isinstance(tasks, dict):
             return tasks
-        to_archive = {tid: t for tid, t in tasks.items() if t.get("created_at", now) < cutoff_active}
-        remaining = {tid: t for tid, t in tasks.items() if t.get("created_at", now) >= cutoff_active}
+        all_tasks = list(tasks.values())
+        to_archive = {
+            tid: t
+            for tid, t in tasks.items()
+            if t.get("created_at", now) < cutoff_active
+            and _safe_to_archive_task(
+                t,
+                all_tasks=all_tasks,
+            )
+        }
+        remaining = {
+            tid: t
+            for tid, t in tasks.items()
+            if tid not in to_archive
+        }
 
         if to_archive:
             logging.info(f"Archiviere {len(to_archive)} Tasks in {archive_path}")

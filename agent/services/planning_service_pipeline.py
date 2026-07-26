@@ -381,6 +381,7 @@ def _validate_and_finalize_plan(
     mode: str,
     team_id: Optional[str],
     parent_task_id: Optional[str],
+    initial_plan_rationale: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     proposal_payload = build_plan_proposal(
         goal_id=str(goal_id or "").strip() or "ad-hoc-goal",
@@ -448,6 +449,7 @@ def _validate_and_finalize_plan(
             repair_attempt_count=repair_attempt_count,
             parse_mode=parse_mode,
             planning_run_id=str(telemetry_run.id),
+            initial_rationale=initial_plan_rationale,
         )
 
     created_ids: list[str] = []

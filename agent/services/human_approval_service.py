@@ -266,6 +266,25 @@ def submit_human_decision_via_repo(
         raise HumanApprovalError(f"db error: {exc}") from exc
     if task is None:
         raise HumanApprovalError(f"gate task not found: {gate_task_id}")
+    if str(getattr(task, "goal_id", "") or "") != str(
+        goal_id or ""
+    ):
+        raise HumanApprovalError("gate_task_goal_mismatch")
+    from agent.services.recovery_task_mutation_policy import (
+        RecoveryTaskMutationConflict,
+        ensure_external_recovery_mutation_allowed,
+    )
+
+    try:
+        ensure_external_recovery_mutation_allowed(
+            task,
+            action="human_gate_decision",
+        )
+    except RecoveryTaskMutationConflict as exc:
+        raise HumanApprovalError(exc.reason_code) from exc
+    pending = current_decision(task) or {}
+    if str(pending.get("status") or "") != DECISION_PENDING:
+        raise HumanApprovalError("pending_gate_decision_required")
     block = apply_human_decision(
         task=task,
         operator=operator,

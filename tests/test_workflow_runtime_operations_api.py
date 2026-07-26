@@ -727,3 +727,55 @@ def test_runtime_command_is_fail_closed_for_stale_read_model(client, monkeypatch
     assert response.status_code == 409
     assert response.get_json()["reason_code"] == "runtime_read_model_stale"
     assert gateway.calls == []
+
+
+def test_runtime_operation_route_preserves_hub_policy_409(
+    client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reason = "recovery_source_cancel_requires_hub_control"
+
+    class RejectedCommandService:
+        @staticmethod
+        def dispatch(**_values: Any) -> dict[str, Any]:
+            return {
+                "command_id": "command-recovery-source-cancel",
+                "type": "cancel_run",
+                "status": "rejected_by_policy",
+                "result": {
+                    "error": reason,
+                    "reason_code": reason,
+                    "http_status": 409,
+                },
+            }
+
+    monkeypatch.setattr(
+        (
+            "agent.routes.workflow_runtime_operations."
+            "get_workflow_runtime_command_service"
+        ),
+        lambda: RejectedCommandService(),
+    )
+
+    response = client.post(
+        (
+            "/api/workflow-runtime/operations/runs/"
+            "run-recovery-source/commands"
+        ),
+        headers={
+            **_headers(tenant_id="tenant-a"),
+            "Idempotency-Key": "source-cancel-command-001",
+        },
+        json={
+            "type": "cancel_run",
+            "approval_id": "approval-source-cancel",
+            "evidence_refs": ["evidence-source-cancel"],
+        },
+    )
+
+    assert response.status_code == 409
+    payload = response.get_json()
+    assert payload["reason_code"] == (
+        "runtime_command_rejected_by_hub_policy"
+    )
+    assert payload["command"]["result"]["reason_code"] == reason

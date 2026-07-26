@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import contextlib
 import contextvars
-import hashlib
-import json
 import re
 import uuid
 from typing import Any, Iterator, Mapping, Protocol
@@ -314,11 +312,24 @@ class NativeTaskScopedNodeHandler:
         reason = "" if status == "completed" else _reason(
             result.get("failure_type"), "native_node_execution_failed"
         )
-        artifacts = self._artifact_refs(
-            command,
-            hub_task_id=hub_task_id,
-            runtime_result=result,
+        artifacts = (
+            self._artifact_refs(
+                command,
+                runtime_result=result,
+            )
+            if status == "completed"
+            else {}
         )
+        if (
+            status == "completed"
+            and set(artifacts)
+            != set(command.node.output_artifacts)
+        ):
+            return self._failed(
+                command,
+                hub_task_id,
+                "native_node_materialized_artifacts_missing",
+            )
         output_data = {
             "status": status,
             "exit_code": int(result.get("exit_code") or 0),
@@ -363,6 +374,19 @@ class NativeTaskScopedNodeHandler:
             {"provider": binding.provider_id, "model": binding.model_id}
         )
         config["llm_config"] = llm_config
+        if command.provider_profile_bindings:
+            # These values were produced and validated by the Hub contract.
+            # The Worker only transports exact copies to invocation seams.
+            config["provider_context"] = dict(command.provider_context)
+            config["provider_contexts_by_profile_id"] = {
+                profile_id: dict(context)
+                for profile_id, context in (
+                    command.provider_contexts_by_profile_id.items()
+                )
+            }
+            config["provider_attempt_plan"] = [
+                item.to_dict() for item in command.provider_attempt_plan
+            ]
         return config
 
     @staticmethod
@@ -380,23 +404,30 @@ class NativeTaskScopedNodeHandler:
     def _artifact_refs(
         command: NativeNodeCommand,
         *,
-        hub_task_id: str,
         runtime_result: Mapping[str, Any],
     ) -> dict[str, str]:
-        digest = hashlib.sha256(
-            json.dumps(
-                dict(runtime_result),
-                sort_keys=True,
-                ensure_ascii=False,
-                default=str,
-            ).encode("utf-8")
-        ).hexdigest()
-        return {
-            artifact_id: (
-                f"artifact://native-worker/{hub_task_id}/{artifact_id}/sha256:{digest}"
-            )
-            for artifact_id in command.node.output_artifacts
-        }
+        raw = runtime_result.get("artifact_refs")
+        if not isinstance(raw, Mapping):
+            return {}
+        declared = set(command.node.output_artifacts)
+        if set(raw) != declared:
+            return {}
+        normalized: dict[str, str] = {}
+        for artifact_id in command.node.output_artifacts:
+            reference = raw.get(artifact_id)
+            if (
+                not isinstance(reference, str)
+                or not reference.startswith("artifact://")
+                or len(reference) > 2_048
+                or any(
+                    character.isspace()
+                    or ord(character) < 32
+                    for character in reference
+                )
+            ):
+                return {}
+            normalized[artifact_id] = reference
+        return normalized
 
     @staticmethod
     def _failed(

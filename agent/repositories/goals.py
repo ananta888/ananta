@@ -4,6 +4,15 @@ from sqlmodel import Session, select
 
 from agent.db_models import GoalDB, PlanDB, PlanNodeDB
 
+_TERMINAL_GOAL_STATUSES = {
+    "completed",
+    "failed",
+    "cancelled",
+    "aborted",
+    "timeout",
+    "archived",
+}
+
 
 def _engine():
     from agent.database import engine
@@ -22,7 +31,34 @@ class GoalRepository:
 
     def save(self, goal: GoalDB):
         with Session(_engine()) as session:
-            merged = session.merge(goal)
+            statement = select(GoalDB).where(
+                GoalDB.id == str(goal.id)
+            )
+            if (
+                str(_engine().dialect.name or "").lower()
+                == "postgresql"
+            ):
+                statement = statement.with_for_update()
+            existing = session.exec(statement).one_or_none()
+            candidate = goal.model_copy(deep=True)
+            if (
+                existing is not None
+                and str(existing.status or "").strip().lower()
+                in _TERMINAL_GOAL_STATUSES
+            ):
+                # Detached/stale Goal objects may add harmless metadata, but
+                # can never resurrect or rewrite terminal lifecycle state.
+                candidate.status = existing.status
+                candidate.readiness = existing.readiness
+                candidate.execution_preferences = {
+                    **dict(candidate.execution_preferences or {}),
+                    **dict(existing.execution_preferences or {}),
+                }
+                candidate.updated_at = max(
+                    float(candidate.updated_at or 0.0),
+                    float(existing.updated_at or 0.0),
+                )
+            merged = session.merge(candidate)
             session.commit()
             session.refresh(merged)
             return merged

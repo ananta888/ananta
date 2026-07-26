@@ -12,9 +12,13 @@ import json
 import logging
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol
 
+from agent.services.model_routing_contract import (
+    ModelRoutingConfig,
+    ModelRoutingContractError,
+)
 from agent.services.workflow_adapter_event_projection import (
     WorkflowAdapterCanonicalEventProjector,
     WorkflowAdapterResultProjectionError,
@@ -45,7 +49,13 @@ from agent.services.workflow_runtime import (
     RuntimeAuthorizationEnvelope,
     ownership_event,
 )
-from ananta_contracts.provider_execution import ProviderExecutionBinding
+from ananta_contracts.provider_execution import (
+    ProviderBindingAuthorization,
+    ProviderExecutionBinding,
+    ProviderExecutionBindingError,
+    ProviderProfileAttemptPlanEntry,
+    ProviderProfileExecutionBinding,
+)
 from ananta_contracts.workflow_adapter_task import (
     WORKFLOW_ADAPTER_RUNTIME_PATH,
     WORKFLOW_ADAPTER_TASK_SCHEMA,
@@ -92,6 +102,11 @@ class WorkflowAdapterTaskSubmission:
     authorization_ttl_seconds: float = 1800.0
     provider_binding: ProviderExecutionBinding | None = None
     provider_decision_reason: str = ""
+    primary_profile_id: str = ""
+    provider_profile_bindings: tuple[ProviderProfileExecutionBinding, ...] = ()
+    provider_attempt_plan: tuple[ProviderProfileAttemptPlanEntry, ...] = ()
+    provider_maximum_attempts: int = 0
+    model_routing: dict[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
         identifiers = (
@@ -149,6 +164,30 @@ class WorkflowAdapterTaskSubmission:
             except ValueError as exc:
                 raise WorkflowAdapterQueueError(
                     "workflow_adapter_provider_selection_invalid", status_code=422
+                ) from exc
+        try:
+            _validate_provider_profile_bindings(
+                command=self.command,
+                provider_binding=self.provider_binding,
+                primary_profile_id=self.primary_profile_id,
+                profile_bindings=self.provider_profile_bindings,
+                provider_attempt_plan=self.provider_attempt_plan,
+                provider_maximum_attempts=self.provider_maximum_attempts,
+            )
+        except ProviderExecutionBindingError as exc:
+            raise WorkflowAdapterQueueError(
+                exc.reason_code,
+                status_code=422,
+            ) from exc
+        if self.model_routing:
+            try:
+                ModelRoutingConfig.assert_runtime_mapping(
+                    self.model_routing
+                )
+            except (ModelRoutingContractError, ValueError) as exc:
+                raise WorkflowAdapterQueueError(
+                    "workflow_adapter_model_routing_invalid",
+                    status_code=422,
                 ) from exc
         if (
             not self.provider_decision_reason
@@ -360,9 +399,32 @@ class WorkflowAdapterTaskQueueService:
                 policy_version=submission.policy_version,
                 allowed_tools=submission.allowed_tools,
                 allowed_artifacts=submission.allowed_artifacts,
+                allowed_provider_bindings=tuple(
+                    ProviderBindingAuthorization.from_binding(item.binding)
+                    for item in submission.provider_profile_bindings
+                )
+                or (
+                    (
+                        ProviderBindingAuthorization.from_binding(
+                            submission.provider_binding
+                        ),
+                    )
+                    if submission.provider_binding is not None
+                    else ()
+                ),
+                provider_attempt_plan=submission.provider_attempt_plan,
                 budgets={
                     "retries": submission.maximum_retries,
                     "attempts": submission.maximum_retries + 1,
+                    **(
+                        {
+                            "provider_attempts": (
+                                submission.provider_maximum_attempts
+                            )
+                        }
+                        if submission.provider_maximum_attempts
+                        else {}
+                    ),
                     "tokens": submission.max_total_tokens,
                     "cost_micros": submission.max_cost_micros,
                 },
@@ -397,6 +459,12 @@ class WorkflowAdapterTaskQueueService:
                 if contract.provider_binding is not None
                 else None
             ),
+            "provider_profile_bindings": [
+                item.to_dict() for item in contract.provider_profile_bindings
+            ],
+            "provider_attempt_plan": [
+                item.to_dict() for item in contract.provider_attempt_plan
+            ],
             "subject_id": submission.subject_id,
             "operation_id": operation_id,
             "idempotency_key": submission.idempotency_key,
@@ -889,6 +957,96 @@ class WorkflowAdapterTaskQueueService:
                 else None
             ),
         )
+
+
+def _validate_provider_profile_bindings(
+    *,
+    command: str,
+    provider_binding: ProviderExecutionBinding | None,
+    primary_profile_id: str,
+    profile_bindings: tuple[ProviderProfileExecutionBinding, ...],
+    provider_attempt_plan: tuple[ProviderProfileAttemptPlanEntry, ...],
+    provider_maximum_attempts: int,
+) -> None:
+    if len(profile_bindings) > 8:
+        raise ProviderExecutionBindingError(
+            "provider_profile_binding_limit_exceeded"
+        )
+    if command == "dry_run":
+        if (
+            primary_profile_id
+            or profile_bindings
+            or provider_attempt_plan
+            or provider_maximum_attempts
+        ):
+            raise ProviderExecutionBindingError(
+                "workflow_adapter_dry_run_provider_transport_denied"
+            )
+        return
+    if not profile_bindings:
+        if (
+            primary_profile_id
+            or provider_attempt_plan
+            or provider_maximum_attempts
+        ):
+            raise ProviderExecutionBindingError(
+                "provider_primary_profile_binding_missing"
+            )
+        return
+    if provider_binding is None or not primary_profile_id:
+        raise ProviderExecutionBindingError(
+            "provider_primary_profile_binding_missing"
+        )
+    if (
+        len(provider_attempt_plan) != len(profile_bindings)
+        or sum(item.maximum_attempts for item in provider_attempt_plan)
+        != provider_maximum_attempts
+        or not len(profile_bindings) <= provider_maximum_attempts <= 33
+    ):
+        raise ProviderExecutionBindingError(
+            "provider_profile_retry_budget_invalid"
+        )
+    seen: set[str] = set()
+    primary: ProviderExecutionBinding | None = None
+    for item in profile_bindings:
+        if not isinstance(item, ProviderProfileExecutionBinding):
+            raise ProviderExecutionBindingError(
+                "provider_profile_binding_invalid"
+            )
+        item.validate()
+        if item.profile_id in seen:
+            raise ProviderExecutionBindingError(
+                "provider_profile_binding_duplicate"
+            )
+        seen.add(item.profile_id)
+        if item.profile_id == primary_profile_id:
+            primary = item.binding
+    if primary != provider_binding:
+        raise ProviderExecutionBindingError(
+            "provider_primary_profile_binding_mismatch"
+        )
+    expected = {
+        item.profile_id: item.binding
+        for item in profile_bindings
+    }
+    if tuple(item.profile_id for item in provider_attempt_plan) != tuple(
+        item.profile_id for item in profile_bindings
+    ):
+        raise ProviderExecutionBindingError(
+            "provider_attempt_plan_order_mismatch"
+        )
+    for item in provider_attempt_plan:
+        item.validate()
+        binding = expected.get(item.profile_id)
+        if (
+            binding is None
+            or item.binding_id != binding.binding_id
+            or item.provider_id != binding.provider_id
+            or item.model_id != binding.model_id
+        ):
+            raise ProviderExecutionBindingError(
+                "provider_attempt_plan_binding_mismatch"
+            )
 
 
 def _task_context(task: Any) -> dict[str, Any]:

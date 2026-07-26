@@ -216,28 +216,59 @@ def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
 
 
 def _cancel_stale_planning_goals(actor: str = "preflight") -> int:
-    from sqlalchemy import text
-
-    from agent.database import engine
-
     try:
         now = time.time()
-        with engine.begin() as conn:
-            result = conn.execute(
-                text(
-                    """
-                    UPDATE goals
-                    SET status = 'failed',
-                        planning_lease_expires_at = NULL,
-                        updated_at = :now
-                    WHERE status IN ('planning_running', 'planning_queued')
-                      AND planning_lease_expires_at IS NOT NULL
-                      AND planning_lease_expires_at < :now
-                    """
-                ),
-                {"now": now},
+        stale_ids = [
+            str(getattr(goal, "id", "") or "")
+            for goal in _repos().goal_repo.get_all()
+            if str(getattr(goal, "status", "") or "")
+            in {"planning_running", "planning_queued"}
+            and getattr(goal, "planning_lease_expires_at", None)
+            is not None
+            and float(
+                getattr(
+                    goal,
+                    "planning_lease_expires_at",
+                    0.0,
+                )
+                or 0.0
             )
-            cancelled = int(result.rowcount or 0)
+            < now
+        ]
+        cancelled = 0
+        for goal_id in stale_ids:
+            goal = _repos().goal_repo.get_by_id(goal_id)
+            if (
+                goal is None
+                or str(getattr(goal, "status", "") or "")
+                not in {"planning_running", "planning_queued"}
+                or getattr(
+                    goal,
+                    "planning_lease_expires_at",
+                    None,
+                )
+                is None
+                or float(
+                    getattr(
+                        goal,
+                        "planning_lease_expires_at",
+                        0.0,
+                    )
+                    or 0.0
+                )
+                >= now
+            ):
+                continue
+            goal.planning_lease_expires_at = None
+            _services().goal_lifecycle_service.transition_goal(
+                goal,
+                target_status="failed",
+                reason="planning_lease_expired",
+                readiness=dict(
+                    getattr(goal, "readiness", None) or {}
+                ),
+            )
+            cancelled += 1
         if cancelled:
             try:
                 current_app.logger.warning(

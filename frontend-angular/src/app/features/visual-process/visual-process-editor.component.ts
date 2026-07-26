@@ -7,6 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { Subscription, map } from 'rxjs';
 import {
   VisualProcessApiService,
+  CONTEXT_RECOVERY_STRATEGIES, ContextRecoveryStrategy,
   VpGraph, VpStep, VpEdge,
   SkillProfile, PresetSummary,
   TaskKindInfo, SavedGraphSummary,
@@ -161,13 +162,12 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   graphTagsStr = computed(() => this.graph().tags.join(', '));
 
   gateStepId = computed<string | null>(() => {
-    const status = this.workflowStatus();
-    if (!status) return null;
-    const steps = status['steps'] as any[] | undefined;
-    if (!steps) return null;
+    const overlay = this.runtimeOverlay();
+    if (!overlay) return null;
     const graphSteps = this.graph().steps;
-    const found = steps.find(
-      s => s.run_state === 'awaiting_approval' && graphSteps.find(gs => gs.id === s.step_id)?.gate,
+    const found = Object.values(overlay.steps).find(
+      step => step.status === 'awaiting_approval'
+        && graphSteps.find(graphStep => graphStep.id === step.step_id)?.gate,
     );
     return found?.step_id ?? null;
   });
@@ -431,6 +431,8 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
     return (raw && typeof raw === 'object' ? raw : {}) as ModelRoutingConfig;
   }
 
+  readonly recoveryStrategyOptions = CONTEXT_RECOVERY_STRATEGIES;
+
   fallbackGroupIds(): string[] {
     return Object.keys(this.fallbackGroups());
   }
@@ -441,9 +443,40 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
       const routing = { ...((metadata['model_routing'] as ModelRoutingConfig | undefined) ?? {}) };
       if (value === '' || value === null || value === undefined) delete (routing as Record<string, unknown>)[key as string];
       else (routing as Record<string, unknown>)[key as string] = value;
-      metadata['model_routing'] = routing;
+      if (Object.keys(routing).length) metadata['model_routing'] = routing;
+      else delete metadata['model_routing'];
       return { ...graph, metadata };
     }, { coalesceKey: `graph:model-routing:${key}` });
+  }
+
+  graphRecoveryStrategyEnabled(strategy: ContextRecoveryStrategy): boolean {
+    return (this.graphRouting().context_recovery_strategies ?? []).includes(strategy);
+  }
+
+  toggleGraphRecoveryStrategy(strategy: ContextRecoveryStrategy, enabled: boolean): void {
+    const selected = new Set(this.graphRouting().context_recovery_strategies ?? []);
+    if (enabled) selected.add(strategy);
+    else selected.delete(strategy);
+    if (
+      (strategy === 'segment_planning' || strategy === 'propose_task_plan')
+      && enabled
+    ) {
+      selected.add('require_approval');
+    }
+    if (strategy === 'require_approval' && !enabled) {
+      selected.delete('segment_planning');
+      selected.delete('propose_task_plan');
+    }
+    this.setGraphRoutingField(
+      'context_recovery_strategies',
+      CONTEXT_RECOVERY_STRATEGIES.filter(item => selected.has(item)),
+    );
+    if (
+      (strategy === 'segment_planning' || strategy === 'propose_task_plan')
+      && enabled
+    ) {
+      this.setGraphRoutingField('require_approval_for_generated_plan', true);
+    }
   }
 
   validateModelRouting(): void {

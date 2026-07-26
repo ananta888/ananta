@@ -76,7 +76,14 @@ def classify_no_candidate_reason(
     """APR-003: Classify why the dispatch queue has no candidates."""
     if not all_tasks:
         return "no_tasks"
-    _TERMINAL = {"completed", "failed", "cancelled"}
+    _TERMINAL = {
+        "completed",
+        "failed",
+        "cancelled",
+        "aborted",
+        "timeout",
+        "archived",
+    }
     statuses = [str(getattr(t, "status", "") or "").strip().lower() for t in all_tasks]
     if all(s in _TERMINAL for s in statuses):
         return "all_terminal"

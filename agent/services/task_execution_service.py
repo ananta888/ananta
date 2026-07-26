@@ -7,7 +7,7 @@ import logging
 from flask import current_app, has_app_context
 
 from agent.common.audit import log_audit
-from agent.common.errors import ToolGuardrailError
+from agent.common.errors import TaskConflictError, ToolGuardrailError
 from agent.llm_benchmarks import estimate_cost_units
 from agent.llm_integration import _call_llm
 from agent.models import (
@@ -71,6 +71,58 @@ class TaskExecutionService:
             self._compaction_svc = _build_compaction_svc(cfg)
         return self._compaction_svc
 
+    @staticmethod
+    def _require_scoped_recovery_dispatch(
+        task_id: str | None,
+    ) -> None:
+        """Keep legacy global step routes outside recovery orchestration.
+
+        Recovery tasks require the task-scoped service because that path owns
+        the dispatch lease, worker admission, and terminal-owner result fence.
+        This check deliberately runs before direct tools, LLMs, policies, or
+        task-state writes.
+        """
+
+        normalized_task_id = str(task_id or "").strip()
+        if not normalized_task_id:
+            return
+        task = get_local_task_status(normalized_task_id)
+        if not task:
+            raise TaskConflictError(
+                "legacy_task_id_not_authoritative",
+                details={
+                    "task_id": normalized_task_id,
+                    "required_endpoint": (
+                        f"/tasks/{normalized_task_id}/step/execute"
+                    ),
+                },
+            )
+        from agent.services.recovery_dispatch_gate_service import (
+            get_recovery_dispatch_gate_service,
+        )
+
+        gate = get_recovery_dispatch_gate_service()
+        recovery_child = gate.is_recovery_child(task)
+        recovery_source = gate.is_recovery_source(task)
+        if not (recovery_child or recovery_source):
+            return
+        raise TaskConflictError(
+            (
+                "recovery_task_requires_scoped_endpoint"
+                if recovery_child
+                else "recovery_source_not_executable"
+            ),
+            details={
+                "task_id": normalized_task_id,
+                "scoped_propose_endpoint": (
+                    f"/tasks/{normalized_task_id}/step/propose"
+                ),
+                "scoped_execute_endpoint": (
+                    f"/tasks/{normalized_task_id}/step/execute"
+                ),
+            },
+        )
+
     def resolve_policy(
         self,
         request_data: TaskStepExecuteRequest,
@@ -97,6 +149,9 @@ class TaskExecutionService:
         agent_name: str,
         llm_caller=None,
     ) -> dict:
+        self._require_scoped_recovery_dispatch(
+            request_data.task_id
+        )
         prompt = request_data.prompt or "Was soll ich als nächstes tun?"
         caller = llm_caller or _call_llm
 
@@ -354,6 +409,9 @@ class TaskExecutionService:
         agent_cfg: dict,
         agent_name: str,
     ) -> dict:
+        self._require_scoped_recovery_dispatch(
+            request_data.task_id
+        )
         execution_policy = self.resolve_policy(request_data, source="execute_step", agent_cfg=agent_cfg)
         execution_run = self.execute_local_step(
             tid=request_data.task_id,

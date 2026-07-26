@@ -24,6 +24,9 @@ from agent.db_models import ConfigDB
 from agent.llm_integration import generate_text, probe_lmstudio_runtime, probe_ollama_runtime
 from agent.models import AutoPlannerAnalyzeRequest, AutoPlannerConfigureRequest, AutoPlannerPlanRequest
 from agent.services.goal_planning_recovery_service import register_recovery_planner_callback
+from agent.services.recovery_task_mutation_policy import (
+    recovery_task_role,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.planning_service import get_planning_service as get_fallback_planning_service
@@ -437,6 +440,7 @@ class AutoPlanner:
         goal_trace_id: Optional[str] = None,
         mode: str = "generic",
         mode_data: Optional[dict] = None,
+        initial_plan_rationale: Optional[dict] = None,
     ) -> dict:
         """
         Analysiert ein Goal und generiert Subtasks.
@@ -444,20 +448,25 @@ class AutoPlanner:
         Returns:
             dict mit 'subtasks' (Liste der generierten Tasks) und 'created_task_ids'
         """
-        result = get_planning_service().plan_goal(
-            planner=self,
-            goal=goal,
-            context=context,
-            team_id=team_id,
-            parent_task_id=parent_task_id,
-            create_tasks=create_tasks,
-            use_template=use_template,
-            use_repo_context=use_repo_context,
-            goal_id=goal_id,
-            goal_trace_id=goal_trace_id,
-            mode=mode,
-            mode_data=mode_data,
-        )
+        planning_arguments = {
+            "planner": self,
+            "goal": goal,
+            "context": context,
+            "team_id": team_id,
+            "parent_task_id": parent_task_id,
+            "create_tasks": create_tasks,
+            "use_template": use_template,
+            "use_repo_context": use_repo_context,
+            "goal_id": goal_id,
+            "goal_trace_id": goal_trace_id,
+            "mode": mode,
+            "mode_data": mode_data,
+        }
+        if initial_plan_rationale is not None:
+            planning_arguments["initial_plan_rationale"] = dict(
+                initial_plan_rationale
+            )
+        result = get_planning_service().plan_goal(**planning_arguments)
 
         created_ids = list(result.get("created_task_ids") or [])
 
@@ -494,6 +503,12 @@ class AutoPlanner:
         task = _repos().task_repo.get_by_id(task_id)
         if not task:
             return {"followups_created": [], "analysis": None, "error": "task_not_found"}
+        if recovery_task_role(task) is not None:
+            return {
+                "followups_created": [],
+                "analysis": None,
+                "skipped": "model_recovery_followups_require_hub_plan",
+            }
 
         task_dict = task.model_dump()
         prompt = _build_followup_prompt(task_dict, output or task.last_output or "", exit_code)
@@ -652,7 +667,10 @@ class AutoPlanner:
 
 
 auto_planner = AutoPlanner()
-register_recovery_planner_callback(lambda **kwargs: auto_planner.plan_goal(**kwargs))
+register_recovery_planner_callback(
+    lambda **kwargs: auto_planner.plan_goal(**kwargs),
+    stats_provider=lambda: auto_planner._stats,
+)
 
 
 def init_auto_planner():

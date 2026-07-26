@@ -58,6 +58,10 @@ from agent.services.kanban_authorization_service import (
     KanbanAuthorizationService,
     KanbanPrincipal,
 )
+from agent.services.recovery_task_mutation_policy import (
+    RecoveryTaskMutationConflict,
+    ensure_external_recovery_mutation_allowed,
+)
 from agent.services.task_state_machine_service import can_transition_to
 from agent.services.task_runtime_service import notify_task_update
 
@@ -719,23 +723,98 @@ class KanbanProjectionService:
         mutation = self._mutation(
             principal, command.idempotency_key, name, command.model_dump(mode="json")
         )
-        try:
-            result = self._store.mutate_task(
-                scope,
-                card_id,
-                expected_revision=command.expected_revision,
-                key_hash=mutation.key_hash,
-                request_digest=mutation.digest,
-                mutate=lambda task, tasks: mutate(task, tasks, mutation),
-                event_factory=lambda current, sequence: build_kanban_event(
-                    action=f"kanban.card.{name}",
-                    task=current,
-                    details={"board_id": command.board_id, **audit},
-                    sequence=sequence,
+        from agent.services.task_mutation_lock_service import (
+            get_task_mutation_lock_port,
+        )
+        from agent.services.task_runtime_service import (
+            run_external_task_status_post_commit,
+        )
+
+        initial_tasks = self._store.list_tasks(scope)
+        initial_task = next(
+            (item for item in initial_tasks if item.id == card_id),
+            None,
+        )
+        lock_ids = {str(card_id)}
+        source_task_id = str(
+            getattr(initial_task, "source_task_id", "") or ""
+        ).strip()
+        if source_task_id:
+            lock_ids.add(source_task_id)
+        with get_task_mutation_lock_port().mutation_locks(
+            lock_ids
+        ) as acquired:
+            if not acquired:
+                raise KanbanServiceError(
+                    "kanban_task_lock_unavailable",
+                    "the card mutation fence is unavailable",
+                    status_code=409,
+                )
+            fenced_tasks = self._store.list_tasks(scope)
+            fenced_task = next(
+                (
+                    item
+                    for item in fenced_tasks
+                    if item.id == card_id
                 ),
+                None,
             )
-        except (KanbanTaskNotFound, KanbanRevisionConflict, KanbanIdempotencyConflict) as exc:
-            raise self._store_error(exc) from exc
+            old_status = (
+                str(getattr(fenced_task, "status", "") or "")
+                if fenced_task is not None
+                else None
+            )
+            try:
+                ensure_external_recovery_mutation_allowed(
+                    fenced_task,
+                    action=f"kanban_{name}",
+                )
+            except RecoveryTaskMutationConflict as exc:
+                raise KanbanServiceError(
+                    exc.reason_code,
+                    "Hub Recovery cards can only be changed by the Recovery saga",
+                    status_code=409,
+                    details=exc.as_data(),
+                ) from exc
+            try:
+                result = self._store.mutate_task(
+                    scope,
+                    card_id,
+                    expected_revision=command.expected_revision,
+                    key_hash=mutation.key_hash,
+                    request_digest=mutation.digest,
+                    mutate=lambda task, tasks: mutate(
+                        task,
+                        tasks,
+                        mutation,
+                    ),
+                    event_factory=lambda current, sequence: build_kanban_event(
+                        action=f"kanban.card.{name}",
+                        task=current,
+                        details={
+                            "board_id": command.board_id,
+                            **audit,
+                        },
+                        sequence=sequence,
+                    ),
+                )
+            except (
+                KanbanTaskNotFound,
+                KanbanRevisionConflict,
+                KanbanIdempotencyConflict,
+            ) as exc:
+                raise self._store_error(exc) from exc
+        if not result.replayed:
+            # The task status itself is already committed and therefore fences
+            # new recovery dispatches.  Run cascades only after releasing this
+            # card/source lock pair so nested source/child locks cannot invert
+            # the global multi-key lock order.
+            run_external_task_status_post_commit(
+                card_id,
+                old_status=old_status,
+                event_type=f"kanban_card_{name}",
+                force=False,
+            )
         if not result.replayed:
             self._publish_committed(
                 action=f"kanban.card.{name}",

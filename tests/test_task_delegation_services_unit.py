@@ -1,3 +1,4 @@
+import contextlib
 from types import SimpleNamespace
 
 from agent.services.task_delegation_services import (
@@ -178,6 +179,37 @@ def _request(**overrides):
     return DelegationRequest(task_id="parent-1", parent_task=parent_task, data=data)
 
 
+def _isolate_result_writer_repositories(monkeypatch):
+    from agent.services import repository_registry
+
+    parent = SimpleNamespace(
+        id="parent-1",
+        status="todo",
+        derivation_reason=None,
+        status_reason_details={},
+    )
+    worker = SimpleNamespace(
+        url="http://planner:5000",
+        token="worker-token",
+    )
+    monkeypatch.setattr(
+        repository_registry,
+        "get_repository_registry",
+        lambda: SimpleNamespace(
+            task_repo=SimpleNamespace(
+                get_by_id=lambda task_id: (
+                    parent if task_id == parent.id else None
+                )
+            ),
+            agent_repo=SimpleNamespace(
+                get_by_url=lambda worker_url: (
+                    worker if worker_url == worker.url else None
+                )
+            ),
+        ),
+    )
+
+
 def test_task_delegation_planner_selects_capable_worker_with_routing_hint():
     deps = _Dependencies(
         workers=[
@@ -286,7 +318,10 @@ def test_worker_execution_context_factory_uses_explicit_context_query_and_empty_
     assert bundle.routing_decision.as_dict()["selected_by_policy"] is False
 
 
-def test_task_delegation_result_writer_forwards_then_updates_parent_and_returns_stable_model():
+def test_task_delegation_result_writer_forwards_then_updates_parent_and_returns_stable_model(
+    monkeypatch,
+):
+    _isolate_result_writer_repositories(monkeypatch)
     deps = _Dependencies(forward_result={"data": {"accepted": True, "task_id": "sub-1"}})
     request = _request()
     plan = TaskDelegationPlan(
@@ -325,7 +360,10 @@ def test_task_delegation_result_writer_forwards_then_updates_parent_and_returns_
     assert response["data"]["worker_selection"] == {"worker_url": "http://planner:5000"}
 
 
-def test_task_delegation_result_writer_reports_forwarding_failure_without_parent_update():
+def test_task_delegation_result_writer_reports_forwarding_failure_without_parent_update(
+    monkeypatch,
+):
+    _isolate_result_writer_repositories(monkeypatch)
     deps = _Dependencies(forward_error=RuntimeError("worker unavailable"))
     request = _request()
     plan = TaskDelegationPlan(
@@ -357,6 +395,100 @@ def test_task_delegation_result_writer_reports_forwarding_failure_without_parent
 
     assert response["error"] == "delegation_failed"
     assert response["code"] == 502
+    assert deps.update_calls == []
+
+
+def test_manual_recovery_delegation_fails_closed_without_worker_transport(
+    monkeypatch,
+):
+    from agent.services import recovery_dispatch_gate_service
+    from agent.services import repository_registry
+
+    deps = _Dependencies()
+    request = _request()
+    plan = TaskDelegationPlan(
+        agent_url="http://planner:5000",
+        selected_by_policy=True,
+        selection=None,
+        policy_decision=None,
+        routing_hint=None,
+        effective_task_kind="planning",
+        effective_required_capabilities=["planning"],
+        preferred_backend=None,
+    )
+    bundle = WorkerExecutionBundle(
+        subtask_id="sub-recovery",
+        context_bundle=SimpleNamespace(id="ctx-recovery"),
+        context_policy={},
+        retrieval_hints={},
+        task_neighborhood={},
+        expected_output_schema={},
+        allowed_tools=[],
+        routing_decision=RoutingDecision({}),
+        worker_job=SimpleNamespace(id="job-recovery"),
+        workspace_scope={},
+        worker_execution_context={},
+        delegation_payload={"id": "sub-recovery"},
+    )
+    recovery_task = SimpleNamespace(
+        id=request.task_id,
+        derivation_reason="goal_task_recovery",
+        status="todo",
+    )
+
+    class Gate:
+        @staticmethod
+        def is_recovery_child(_task):
+            return True
+
+        @contextlib.contextmanager
+        def dispatch_guard(self, _task_id):
+            yield SimpleNamespace(
+                allowed=True,
+                reason_code="recovery_release_gate_valid",
+                source_task_id="source-recovery",
+                plan_id="plan-recovery",
+            )
+
+    monkeypatch.setattr(
+        repository_registry,
+        "get_repository_registry",
+        lambda: SimpleNamespace(
+            task_repo=SimpleNamespace(
+                get_by_id=lambda _task_id: recovery_task
+            ),
+            agent_repo=SimpleNamespace(
+                get_by_url=lambda _url: (_ for _ in ()).throw(
+                    AssertionError(
+                        "worker lookup must not run for manual recovery"
+                    )
+                )
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        recovery_dispatch_gate_service,
+        "get_recovery_dispatch_gate_service",
+        lambda: Gate(),
+    )
+
+    response = TaskDelegationResultWriter(
+        deps
+    ).forward_and_write(
+        request=request,
+        plan=plan,
+        bundle=bundle,
+    )
+
+    assert response["error"] == (
+        "recovery_child_delegation_not_supported"
+    )
+    assert response["code"] == 409
+    assert response["data"] == {
+        "source_task_id": "source-recovery",
+        "plan_id": "plan-recovery",
+    }
+    assert deps.forward_calls == []
     assert deps.update_calls == []
 
 

@@ -9,6 +9,21 @@ export interface StepIOContract { inputs: ArtifactRef[]; outputs: ArtifactRef[];
 export interface LoopPolicy { kind: string; max_iterations: number; condition?: string; break_on_output?: string; }
 export interface TransitionCondition { kind: string; expression?: string; output_name?: string; loop_policy?: LoopPolicy; }
 export interface StepPosition { x: number; y: number; }
+export type ContextRecoveryStrategy =
+  | 'compact_context'
+  | 'segment_planning'
+  | 'propose_task_plan'
+  | 'require_approval'
+  | 'stop';
+
+export const CONTEXT_RECOVERY_STRATEGIES: readonly ContextRecoveryStrategy[] = [
+  'compact_context',
+  'segment_planning',
+  'propose_task_plan',
+  'require_approval',
+  'stop',
+];
+
 export interface ModelRoutingConfig {
   strategy?: string;
   model_role?: string;
@@ -24,6 +39,10 @@ export interface ModelRoutingConfig {
   default_model_role?: string;
   require_approval_on_cloud_escalation?: boolean;
   require_approval_above_estimated_cost?: number;
+  /** Hub-only sequence for contexts too large for the current profile. */
+  context_recovery_strategies?: ContextRecoveryStrategy[];
+  /** A proposed LLM task plan is never executed without this Hub gate. */
+  require_approval_for_generated_plan?: boolean;
 }
 export interface ModelProfileSummary {
   profile_id: string;
@@ -61,6 +80,8 @@ export interface PerStepModelPlan {
   resolver_source?: string;
   resolver_rank?: number;
   fallback_group_id?: string;
+  context_recovery_strategies?: string[];
+  require_approval_for_generated_plan?: boolean;
   candidate_chain?: string[];
   cloud_allowed?: boolean;
   blocked_candidates?: Record<string, unknown>[];

@@ -11,6 +11,8 @@ from flask import Flask, g
 from agent.auth import admin_required, check_auth, check_service_auth
 from agent.services.workflow_worker_service_auth import (
     KNOWLEDGE_INDEX_PAYLOAD_SCOPE,
+    RECOVERY_ARTIFACT_INGRESS_SCOPE,
+    RECOVERY_TASK_DISPATCH_SCOPE,
     RUNTIME_SERVICE_KEYRING_SCHEMA,
     STRICT_WORKER_REGISTRATION_PROVENANCE,
     WORKER_REGISTRATION_KEYRING_SCHEMA,
@@ -38,6 +40,137 @@ BETA_SESSION_KEY = "beta-session-signing-key-0123456789abcdefg"
 
 def _sha256(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def test_recovery_dispatch_reuses_strict_registered_worker_identity(
+    tmp_path,
+) -> None:
+    from agent.services.recovery_dispatch_gate_service import (
+        RecoveryDispatchGateService,
+    )
+
+    worker = _agent(
+        name="worker-recovery",
+        url="http://worker-recovery:5000",
+        token=ALPHA_TOKEN,
+        capabilities=["coding"],
+    )
+    keyring = tmp_path / "recovery-worker-keyring.json"
+    keyring.write_text(
+        json.dumps(
+            {
+                "schema": WORKER_REGISTRATION_KEYRING_SCHEMA,
+                "workers": {
+                    worker.name: {
+                        "worker_url": worker.url,
+                        "registration_token": ALPHA_BOOTSTRAP,
+                        "service_token_sha256": _sha256(
+                            ALPHA_TOKEN
+                        ),
+                        "session_signing_key_sha256": _sha256(
+                            ALPHA_SESSION_KEY
+                        ),
+                        "allowed_capabilities": ["coding"],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    keyring.chmod(0o440)
+    app = Flask(__name__)
+    app.secret_key = (
+        "recovery-user-session-secret-0123456789abcdef"
+    )
+    app.config.update(
+        AGENT_TOKEN=HUB_TOKEN,
+        ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE=(
+            str(keyring)
+        ),
+    )
+
+    class Repo:
+        def get_by_url(self, url):
+            return worker if url == worker.url else None
+
+        def get_all(self):
+            return [worker]
+
+    repos = SimpleNamespace(agent_repo=Repo())
+    task = SimpleNamespace(required_capabilities=["coding"])
+    assert RecoveryDispatchGateService._worker_identity_valid(
+        repos,
+        task=task,
+        worker_url=worker.url,
+        worker_token=ALPHA_TOKEN,
+        app=app,
+    )
+    identity = authenticate_registered_workflow_worker(
+        ALPHA_TOKEN,
+        required_scope=RECOVERY_TASK_DISPATCH_SCOPE,
+        claimed_worker_id=worker.name,
+        claimed_worker_url=worker.url,
+        registered_agents=[worker],
+        hub_service_token=HUB_TOKEN,
+        user_session_secret=app.secret_key,
+        config=app.config,
+    )
+    assert identity.worker_id == worker.name
+    ingress_identity = authenticate_registered_workflow_worker(
+        ALPHA_TOKEN,
+        required_scope=RECOVERY_ARTIFACT_INGRESS_SCOPE,
+        claimed_worker_id=worker.name,
+        claimed_worker_url=worker.url,
+        registered_agents=[worker],
+        hub_service_token=HUB_TOKEN,
+        user_session_secret=app.secret_key,
+        config=app.config,
+    )
+    assert ingress_identity.worker_id == worker.name
+
+    task.required_capabilities = ["coding", "gpu"]
+    assert not RecoveryDispatchGateService._worker_identity_valid(
+        repos,
+        task=task,
+        worker_url=worker.url,
+        worker_token=ALPHA_TOKEN,
+        app=app,
+    )
+    task.required_capabilities = ["coding"]
+    worker.status = "offline"
+    assert not RecoveryDispatchGateService._worker_identity_valid(
+        repos,
+        task=task,
+        worker_url=worker.url,
+        worker_token=ALPHA_TOKEN,
+        app=app,
+    )
+    worker.status = "online"
+    worker.registration_provenance = "legacy"
+    assert not RecoveryDispatchGateService._worker_identity_valid(
+        repos,
+        task=task,
+        worker_url=worker.url,
+        worker_token=ALPHA_TOKEN,
+        app=app,
+    )
+    worker.registration_provenance = (
+        STRICT_WORKER_REGISTRATION_PROVENANCE
+    )
+    assert not RecoveryDispatchGateService._worker_identity_valid(
+        repos,
+        task=task,
+        worker_url="http://attacker:5000",
+        worker_token=ALPHA_TOKEN,
+        app=app,
+    )
+    assert not RecoveryDispatchGateService._worker_identity_valid(
+        repos,
+        task=task,
+        worker_url=worker.url,
+        worker_token=BETA_TOKEN,
+        app=app,
+    )
 
 
 class _AgentRepo:
@@ -186,7 +319,11 @@ def test_registered_worker_token_is_identity_bound_scoped_and_never_admin(
         "service_scope": WORKFLOW_WORKER_COMMAND_SCOPE,
     }
     assert generic.status_code == 401
-    assert admin.status_code == 403
+    # A scoped service credential is not a generic Admin credential:
+    # authentication fails before Admin authorization is evaluated.
+    assert admin.status_code == 401
+    assert admin.get_json()["message"] == "unauthorized"
+    assert "admin" not in admin.get_json()
     assert checkpoint.status_code == 403
     assert checkpoint.get_json()["data"]["reason_code"] == (
         "workflow_worker_service_scope_forbidden"
@@ -370,7 +507,12 @@ def test_temporal_runtime_uses_its_own_scope_and_never_hub_admin_identity(
     }
     assert worker_command.status_code == 401
     assert generic.status_code == 401
-    assert admin.status_code == 403
+    # Runtime service identity is endpoint-scoped, so the generic Admin
+    # boundary rejects it during authentication rather than returning an
+    # authorization decision.
+    assert admin.status_code == 401
+    assert admin.get_json()["message"] == "unauthorized"
+    assert "admin" not in admin.get_json()
     assert wrong_identity.status_code == 401
     assert wrong_identity.get_json()["data"]["reason_code"] == (
         "workflow_runtime_service_identity_mismatch"

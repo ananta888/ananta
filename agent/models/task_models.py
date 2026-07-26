@@ -19,6 +19,9 @@ class TaskStepProposeRequest(SQLModel):
     strategy_mode: Optional[str] = None
     task_id: Optional[str] = None
     research_context: Optional["ResearchContextInputContract"] = None
+    recovery_run_evidence_context: Optional[dict] = None
+    dispatch_lease_token: Optional[str] = None
+    dispatch_lease_phase: Optional[str] = None
 
 
 class TaskStepProposeResponse(SQLModel):
@@ -38,6 +41,10 @@ class TaskStepExecuteRequest(SQLModel):
     retries: Optional[int] = 0
     retry_delay: Optional[int] = 1
     retry_policy_override: Optional[dict] = None
+    recovery_proposal_context: Optional[dict] = None
+    recovery_run_evidence_context: Optional[dict] = None
+    dispatch_lease_token: Optional[str] = None
+    dispatch_lease_phase: Optional[str] = None
 
 
 class TaskStepExecuteResponse(SQLModel):

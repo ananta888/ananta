@@ -16,6 +16,12 @@ from agent.services.workflow_runtime import (
     UpcasterRegistry,
     WorkflowState,
 )
+from ananta_contracts.provider_execution import (
+    ProviderBindingAuthorization,
+    ProviderExecutionBinding,
+    ProviderProfileAttemptPlanEntry,
+    ProviderProfileExecutionBinding,
+)
 
 
 def _keys() -> HmacKeyRing:
@@ -109,6 +115,124 @@ def test_authorization_tamper_rotation_revocation_and_write_revalidation_fail_cl
     with pytest.raises(SignatureValidationError, match="hub_revalidation"):
         _authorize(AuthorizationVerifier(keys), fresh, writing=True)
     _authorize(AuthorizationVerifier(keys), fresh, writing=True, hub_revalidator=lambda _: True)
+
+
+def test_provider_authorization_is_signed_and_empty_extension_preserves_old_envelope() -> None:
+    keys = _keys()
+    legacy = _envelope(keys)
+    legacy_payload = legacy.to_dict()
+    assert "allowed_provider_bindings" not in legacy_payload
+    assert "provider_attempt_plan" not in legacy_payload
+    _authorize(
+        AuthorizationVerifier(keys),
+        RuntimeAuthorizationEnvelope.from_mapping(legacy_payload),
+    )
+
+    execution_binding = ProviderExecutionBinding(
+        provider_id="ollama",
+        model_id="phi4-mini:latest",
+        source="hub_model_profile_routing",
+        reason_code="hub_provider_profile_selected",
+        endpoint_identity=(
+            "http://ollama:11434/v1/chat/completions"
+        ),
+    )
+    profile_binding = ProviderProfileExecutionBinding(
+        profile_id="phi-primary",
+        binding=execution_binding,
+    )
+    authorization = ProviderBindingAuthorization.from_binding(
+        execution_binding
+    )
+    plan_entry = ProviderProfileAttemptPlanEntry.from_profile_binding(
+        profile_binding,
+        maximum_attempts=3,
+    )
+    envelope = RuntimeAuthorizationEnvelope.issue(
+        key_ring=keys,
+        tenant_id="tenant-a",
+        workflow_id="workflow-1",
+        run_id="run-1",
+        step_id="step-1",
+        plan_hash="f" * 64,
+        policy_version="policy-2",
+        allowed_provider_bindings=(authorization,),
+        provider_attempt_plan=(plan_entry,),
+        budgets={"provider_attempts": 3, "tokens": 1000},
+        ttl_seconds=60,
+        now=100,
+    )
+    envelope.verify(
+        key_ring=keys,
+        tenant_id="tenant-a",
+        workflow_id="workflow-1",
+        run_id="run-1",
+        step_id="step-1",
+        plan_hash="f" * 64,
+        policy_version="policy-2",
+        now=120,
+    )
+
+    tampered_model = "gemma4:e4b-it-qat"
+    tampered = replace(
+        envelope,
+        allowed_provider_bindings=(
+            replace(authorization, model_id=tampered_model),
+        ),
+        provider_attempt_plan=(
+            replace(plan_entry, model_id=tampered_model),
+        ),
+    )
+    with pytest.raises(SignatureValidationError, match="signature_invalid"):
+        tampered.verify(
+            key_ring=keys,
+            tenant_id="tenant-a",
+            workflow_id="workflow-1",
+            run_id="run-1",
+            step_id="step-1",
+            plan_hash="f" * 64,
+            policy_version="policy-2",
+            now=120,
+        )
+
+    tampered_endpoint = (
+        "http://ollama:11435/v1/chat/completions"
+    )
+    endpoint_tampered = replace(
+        envelope,
+        allowed_provider_bindings=(
+            replace(
+                authorization,
+                endpoint_identity=tampered_endpoint,
+            ),
+        ),
+        provider_attempt_plan=(
+            replace(
+                plan_entry,
+                endpoint_identity=tampered_endpoint,
+            ),
+        ),
+    )
+    with pytest.raises(SignatureValidationError, match="signature_invalid"):
+        endpoint_tampered.verify(
+            key_ring=keys,
+            tenant_id="tenant-a",
+            workflow_id="workflow-1",
+            run_id="run-1",
+            step_id="step-1",
+            plan_hash="f" * 64,
+            policy_version="policy-2",
+            now=120,
+        )
+
+    legacy_binding = ProviderExecutionBinding(
+        provider_id="ollama",
+        model_id="phi4-mini:latest",
+        source="hub_model_profile_routing",
+        reason_code="hub_provider_profile_selected",
+    )
+    assert "endpoint_identity" not in legacy_binding.to_dict()
+    assert legacy_binding.binding_id != execution_binding.binding_id
 
 
 def test_state_and_checkpoint_reject_secrets_tamper_cross_run_and_stale_fence() -> None:

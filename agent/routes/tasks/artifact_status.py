@@ -177,6 +177,18 @@ def reconcile_task_from_artifacts(tid: str):
     if dry_run:
         result = svc.dry_run(**kwargs)
     else:
-        result = svc.apply(actor=actor, reason=reason, **kwargs)
+        from agent.services.recovery_task_mutation_policy import (
+            RecoveryTaskMutationConflict,
+        )
+
+        try:
+            result = svc.apply(actor=actor, reason=reason, **kwargs)
+        except RecoveryTaskMutationConflict as exc:
+            return api_response(
+                status="error",
+                message=exc.reason_code,
+                data=exc.as_data(),
+                code=409,
+            )
 
     return jsonify(result), 200

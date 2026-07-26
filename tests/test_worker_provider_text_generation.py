@@ -11,6 +11,7 @@ from ananta_contracts.provider_invocation import (
 from ananta_contracts.workflow_worker_gateway import PROVIDER_BUDGET_RECEIPT_SCHEMA
 from worker.runtime.provider_text_generation import (
     HubBudgetedWorkerTextGeneration,
+    WorkerProviderHttpTransport,
     build_hub_budgeted_worker_text_generation,
 )
 
@@ -146,6 +147,310 @@ def test_external_endpoint_is_denied_by_hub_bound_egress_policy() -> None:
             provider_context=_context(
                 selected_provider_id="openai",
                 selected_model_id="gpt-test",
+                provider_endpoint_identity=(
+                    "https://api.openai.com/v1/chat/completions"
+                ),
+            ),
+        )
+
+    assert budgets.reservations == []
+    assert transport.calls == []
+
+
+def test_configured_ollama_docker_service_is_allowed_without_external_egress() -> None:
+    budgets = _Budget()
+    transport = _Transport()
+    provider = HubBudgetedWorkerTextGeneration(
+        provider_urls={"ollama": "http://ollama:11434"},
+        budgets=budgets,
+        transport=transport,
+    )
+
+    result = provider.generate_text(
+        prompt="hello",
+        provider="ollama",
+        model="phi4-mini",
+        provider_context=_context(
+            selected_provider_id="ollama",
+            selected_model_id="phi4-mini",
+        ),
+    )
+
+    assert result["text"] == "worker response"
+    assert transport.calls[0]["url"] == (
+        "http://ollama:11434/v1/chat/completions"
+    )
+    assert budgets.reservations[0]["context"].provider_call_id
+
+
+def test_worker_uses_exact_ollama_native_generate_target() -> None:
+    budgets = _Budget()
+    transport = _Transport()
+    provider = HubBudgetedWorkerTextGeneration(
+        provider_urls={
+            "ollama": "http://ollama:11434/api/generate"
+        },
+        budgets=budgets,
+        transport=transport,
+    )
+
+    provider.generate_text(
+        prompt="hello",
+        provider="ollama",
+        model="phi4-mini",
+        provider_context=_context(
+            selected_provider_id="ollama",
+            selected_model_id="phi4-mini",
+            provider_endpoint_identity=(
+                "http://ollama:11434/api/generate"
+            ),
+        ),
+    )
+
+    assert transport.calls[0]["url"] == (
+        "http://ollama:11434/api/generate"
+    )
+    assert transport.calls[0]["payload"] == {
+        "model": "phi4-mini",
+        "prompt": "hello",
+        "stream": False,
+        "options": {"num_predict": 64},
+    }
+
+
+def test_worker_denies_ambiguous_custom_provider_path_before_budget() -> None:
+    budgets = _Budget()
+    transport = _Transport()
+    provider = HubBudgetedWorkerTextGeneration(
+        provider_urls={
+            "ollama": "http://ollama:11434/custom/chat"
+        },
+        budgets=budgets,
+        transport=transport,
+    )
+
+    with pytest.raises(
+        ProviderInvocationBlocked,
+        match="provider_endpoint_identity_invalid",
+    ):
+        provider.generate_text(
+            prompt="hello",
+            provider="ollama",
+            model="phi4-mini",
+            provider_context=_context(
+                selected_provider_id="ollama",
+                selected_model_id="phi4-mini",
+            ),
+        )
+
+    assert budgets.reservations == []
+    assert transport.calls == []
+
+
+def test_signed_worker_endpoint_allows_exact_lan_and_rejects_path_or_port_change() -> None:
+    endpoint_identity = (
+        "http://192.168.50.25:11434/v1/chat/completions"
+    )
+    budgets = _Budget()
+    transport = _Transport()
+    exact = HubBudgetedWorkerTextGeneration(
+        provider_urls={"ollama": "http://192.168.50.25:11434/v1"},
+        budgets=budgets,
+        transport=transport,
+    )
+    result = exact.generate_text(
+        prompt="hello",
+        provider="ollama",
+        model="phi4-mini",
+        provider_context=_context(
+            selected_provider_id="ollama",
+            selected_model_id="phi4-mini",
+            provider_endpoint_identity=endpoint_identity,
+        ),
+    )
+    assert result["text"] == "worker response"
+
+    for changed_endpoint in (
+        "http://192.168.50.25:11435/v1",
+        "http://192.168.50.25:11434/api/generate",
+    ):
+        changed_budgets = _Budget()
+        changed_transport = _Transport()
+        changed = HubBudgetedWorkerTextGeneration(
+            provider_urls={"ollama": changed_endpoint},
+            budgets=changed_budgets,
+            transport=changed_transport,
+        )
+        with pytest.raises(
+            ProviderInvocationBlocked,
+            match="provider_endpoint_binding_mismatch",
+        ):
+            changed.generate_text(
+                prompt="hello",
+                provider="ollama",
+                model="phi4-mini",
+                provider_context=_context(
+                    selected_provider_id="ollama",
+                    selected_model_id="phi4-mini",
+                    provider_endpoint_identity=endpoint_identity,
+                ),
+            )
+        assert changed_budgets.reservations == []
+        assert changed_transport.calls == []
+
+
+def test_worker_metadata_endpoint_is_denied_even_when_signed() -> None:
+    budgets = _Budget()
+    transport = _Transport()
+    endpoint = "http://169.254.169.254/v1/chat/completions"
+    provider = HubBudgetedWorkerTextGeneration(
+        provider_urls={"ollama": endpoint},
+        budgets=budgets,
+        transport=transport,
+    )
+
+    with pytest.raises(
+        ProviderInvocationBlocked,
+        match="provider_endpoint_target_denied",
+    ):
+        provider.generate_text(
+            prompt="hello",
+            provider="ollama",
+            model="phi4-mini",
+            provider_context=_context(
+                selected_provider_id="ollama",
+                selected_model_id="phi4-mini",
+                provider_endpoint_identity=endpoint,
+                external_egress_allowed=True,
+            ),
+        )
+
+    assert budgets.reservations == []
+    assert transport.calls == []
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    (
+        "http://127.0.0.1:9999/v1/chat/completions",
+        "http://10.0.0.5:9999/v1/chat/completions",
+        "http://100.64.0.1:9999/v1/chat/completions",
+        "http://[fc00::1]:9999/v1/chat/completions",
+    ),
+    ids=("loopback", "rfc1918", "cgnat", "ipv6-ula"),
+)
+def test_worker_cloud_provider_cannot_use_private_literal(
+    endpoint: str,
+) -> None:
+    budgets = _Budget()
+    transport = _Transport()
+    provider = HubBudgetedWorkerTextGeneration(
+        provider_urls={"openai": endpoint},
+        budgets=budgets,
+        transport=transport,
+        environment={"OPENAI_API_KEY": "secret"},
+    )
+
+    with pytest.raises(
+        ProviderInvocationBlocked,
+        match="provider_endpoint_non_global_literal_denied",
+    ):
+        provider.generate_text(
+            prompt="hello",
+            provider="openai",
+            model="model-a",
+            provider_context=_context(
+                selected_provider_id="openai",
+                selected_model_id="model-a",
+                provider_endpoint_identity=endpoint,
+                external_egress_allowed=True,
+            ),
+        )
+
+    assert budgets.reservations == []
+    assert transport.calls == []
+
+
+@pytest.mark.parametrize(
+    "redirect_target",
+    (
+        "http://169.254.169.254/latest/meta-data",
+        "https://public.example/v1/chat/completions",
+    ),
+    ids=("metadata", "public"),
+)
+def test_worker_http_transport_never_follows_provider_redirect(
+    monkeypatch,
+    redirect_target: str,
+) -> None:
+    import urllib.error
+
+    source_url = "http://ollama:11434/v1/chat/completions"
+
+    class _Opener:
+        @staticmethod
+        def open(request, timeout):
+            del timeout
+            raise urllib.error.HTTPError(
+                request.full_url,
+                302,
+                "Found",
+                {"Location": redirect_target},
+                None,
+            )
+
+    def build_opener(handler):
+        assert (
+            handler.redirect_request(
+                None,
+                None,
+                302,
+                "Found",
+                {"Location": redirect_target},
+                redirect_target,
+            )
+            is None
+        )
+        return _Opener()
+
+    monkeypatch.setattr(
+        "worker.runtime.provider_text_generation.urllib.request.build_opener",
+        build_opener,
+    )
+
+    with pytest.raises(
+        ProviderInvocationBlocked,
+        match="worker_provider_http_error",
+    ):
+        WorkerProviderHttpTransport().post_json(
+            url=source_url,
+            headers={"Content-Type": "application/json"},
+            payload={"model": "phi4-mini"},
+            timeout_seconds=5,
+        )
+
+
+def test_arbitrary_single_label_endpoint_is_not_treated_as_local() -> None:
+    budgets = _Budget()
+    transport = _Transport()
+    provider = HubBudgetedWorkerTextGeneration(
+        provider_urls={"ollama": "http://arbitrary-single-label:11434"},
+        budgets=budgets,
+        transport=transport,
+    )
+
+    with pytest.raises(ProviderInvocationBlocked, match="provider_egress_denied"):
+        provider.generate_text(
+            prompt="hello",
+            provider="ollama",
+            model="phi4-mini",
+            provider_context=_context(
+                selected_provider_id="ollama",
+                selected_model_id="phi4-mini",
+                provider_endpoint_identity=(
+                    "http://arbitrary-single-label:11434"
+                    "/v1/chat/completions"
+                ),
             ),
         )
 
@@ -208,3 +513,7 @@ def test_production_builder_reserves_and_reconciles_budget_only_via_hub() -> Non
     assert reserve_values["binding"]["authorization_envelope"] == {
         "envelope_id": "envelope-1"
     }
+    assert reserve_values["provider_binding_id"] == "binding-1"
+    assert reserve_values["provider_id"] == "lmstudio"
+    assert reserve_values["model_id"] == "model-1"
+    assert reserve_values["provider_profile_id"] == ""

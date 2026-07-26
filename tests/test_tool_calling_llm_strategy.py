@@ -1,18 +1,18 @@
 """Tests for ToolCallingLLMStrategy — FA-T009/AFR-T004."""
 
-import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
-from worker.core.propose_orchestrator import ProposeContext
+import pytest
+
+from agent.services.model_invocation_service import LLMUnavailableError
 from worker.core.propose import (
-    ProposeStrategyResult,
+    STATUS_ADVISORY,
     STATUS_DECLINED,
     STATUS_EXECUTABLE,
     STATUS_FAILED,
-    STATUS_ADVISORY,
 )
+from worker.core.propose_orchestrator import ProposeContext
 from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
-from agent.services.model_invocation_service import LLMUnavailableError
 
 
 class TestToolCallingLLMStrategy:
@@ -58,7 +58,21 @@ class TestToolCallingLLMStrategy:
 
     def test_declined_llm_unavailable(self, context_with_tools, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
-        mock_llm = Mock(side_effect=LLMUnavailableError("connection refused"))
+        mock_llm = Mock(
+            side_effect=LLMUnavailableError(
+                "connection refused",
+                llm_call_profile=[{"profile_id": "gemma", "error_type": "connection_error"}],
+                fallback_decisions=[
+                    {
+                        "reason": "candidate_chain_exhausted",
+                        "previous_profile_id": "gemma",
+                        "trigger": "provider_unavailable",
+                        "terminal": True,
+                    }
+                ],
+                terminal_reason="provider_unavailable",
+            )
+        )
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
             mock_llm,
@@ -68,6 +82,25 @@ class TestToolCallingLLMStrategy:
         assert result.status == STATUS_DECLINED
         assert "llm_required_but_unavailable" in result.reason
         assert "llm_provider_unavailable" in result.reason_codes
+        assert result.metadata["model_recovery_signal"]["state"] == "exhausted"
+        assert result.metadata["fallback_decisions"][0]["reason"] == "candidate_chain_exhausted"
+
+    def test_invalid_explicit_routing_is_a_terminal_policy_decision(self, context_with_tools, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "ollama")
+        context_with_tools.task = {"model_routing": "invalid"}
+        mock_llm = Mock()
+        monkeypatch.setattr(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
+            mock_llm,
+        )
+
+        result = ToolCallingLLMStrategy().run(context_with_tools)
+
+        assert result.status == STATUS_DECLINED
+        assert result.reason == "model_routing_policy_blocked"
+        assert result.metadata["fallback_decisions"][0]["trigger"] == "policy_blocked"
+        assert result.metadata["fallback_decisions"][0]["terminal"] is True
+        mock_llm.assert_not_called()
 
     def test_declined_empty_tool_calls(self, context_with_tools, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
@@ -109,13 +142,15 @@ class TestToolCallingLLMStrategy:
 
     def test_executable_valid_tool_calls(self, context_with_tools, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
-        mock_llm = Mock(return_value={
-            "tool_calls": [{"name": "write_file", "args": {"path": "main.py", "content": "def fib(): pass"}}],
-            "finish_reason": "tool_calls",
-            "provider": "ollama",
-            "model": "qwen2.5",
-            "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
-        })
+        mock_llm = Mock(
+            return_value={
+                "tool_calls": [{"name": "write_file", "args": {"path": "main.py", "content": "def fib(): pass"}}],
+                "finish_reason": "tool_calls",
+                "provider": "ollama",
+                "model": "qwen2.5",
+                "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
+            }
+        )
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
             mock_llm,
@@ -169,13 +204,15 @@ class TestToolCallingLLMStrategy:
         context_with_tools.rendered_system_prompt = None
         context_with_tools.instruction_stack = None
         context_with_tools.instruction_diagnostics = None
-        mock_llm = Mock(return_value={
-            "tool_calls": [{"name": "write_file", "args": {"path": "main.py", "content": "print(1)"}}],
-            "finish_reason": "tool_calls",
-            "provider": "ollama",
-            "model": "qwen2.5",
-            "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
-        })
+        mock_llm = Mock(
+            return_value={
+                "tool_calls": [{"name": "write_file", "args": {"path": "main.py", "content": "print(1)"}}],
+                "finish_reason": "tool_calls",
+                "provider": "ollama",
+                "model": "qwen2.5",
+                "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
+            }
+        )
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
             mock_llm,
@@ -277,13 +314,31 @@ class TestToolCallingEffectiveConfigPropagation:
     def test_effective_config_real_provider_proceeds_to_invoke(self, ctx_with_effective_config, monkeypatch):
         """When effective_config sets a real provider, the strategy invokes the LLM."""
         monkeypatch.setattr("agent.config.settings.default_provider", "mockllm")  # settings says mock
-        mock_invoke = Mock(return_value={
-            "tool_calls": [{"name": "write_file", "args": {"path": "x.py", "content": ""}}],
-            "finish_reason": "tool_calls",
-            "provider": "ollama",
-            "model": "test-model",
-            "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
-        })
+        attempt_plan = [
+            {
+                "profile_id": "phi",
+                "binding_id": "provider-binding:" + "a" * 64,
+                "provider_id": "ollama",
+                "model_id": "phi4-mini",
+                "maximum_attempts": 3,
+            }
+        ]
+        ctx_with_effective_config.effective_config.update(
+            {
+                "provider_context": {"provider_profile_id": "phi"},
+                "provider_contexts_by_profile_id": {"phi": {"provider_profile_id": "phi"}},
+                "provider_attempt_plan": attempt_plan,
+            }
+        )
+        mock_invoke = Mock(
+            return_value={
+                "tool_calls": [{"name": "write_file", "args": {"path": "x.py", "content": ""}}],
+                "finish_reason": "tool_calls",
+                "provider": "ollama",
+                "model": "test-model",
+                "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
+            }
+        )
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
             mock_invoke,
@@ -293,18 +348,33 @@ class TestToolCallingEffectiveConfigPropagation:
         # effective_config says "ollama" (real), so the strategy should proceed despite settings saying mock
         assert result.status == STATUS_EXECUTABLE
         assert mock_invoke.called, "invoke_with_tools must be called when effective_config provider is real"
+        call_kwargs = mock_invoke.call_args.kwargs
+        assert call_kwargs["provider_context"] == {"provider_profile_id": "phi"}
+        assert call_kwargs["provider_contexts_by_profile_id"] == {"phi": {"provider_profile_id": "phi"}}
+        assert call_kwargs["provider_attempt_plan"] == attempt_plan
 
     def test_llm_call_profile_present_in_executable_result(self, ctx_with_effective_config, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
-            Mock(return_value={
-                "tool_calls": [{"name": "write_file", "args": {"path": "f.py", "content": ""}}],
-                "finish_reason": "tool_calls",
-                "provider": "ollama",
-                "model": "test-model",
-                "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False, "success": True, "latency_ms": 500}]},
-            }),
+            Mock(
+                return_value={
+                    "tool_calls": [{"name": "write_file", "args": {"path": "f.py", "content": ""}}],
+                    "finish_reason": "tool_calls",
+                    "provider": "ollama",
+                    "model": "test-model",
+                    "metadata": {
+                        "llm_call_profile": [
+                            {
+                                "source": "model_invocation_service",
+                                "estimated": False,
+                                "success": True,
+                                "latency_ms": 500,
+                            }
+                        ]
+                    },
+                }
+            ),
         )
         strategy = ToolCallingLLMStrategy()
         result = strategy.run(ctx_with_effective_config)

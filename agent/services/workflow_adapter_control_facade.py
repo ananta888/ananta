@@ -13,6 +13,10 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from agent.services.model_routing_contract import (
+    ModelRoutingConfig,
+    ModelRoutingContractError,
+)
 from agent.services.workflow_adapter_task_queue_service import (
     WORKFLOW_ADAPTER_CONTROL_SCHEMA,
     WorkflowAdapterQueueError,
@@ -24,6 +28,7 @@ from agent.services.workflow_provider_selection_service import (
     WorkflowProviderDecisionPort,
     WorkflowProviderRequirement,
     build_workflow_provider_decision_service,
+    trusted_model_routing_from_metadata,
 )
 from agent.services.workflow_route_authorization_service import WorkflowRoutePrincipal
 from agent.services.workflow_runtime.execution_plan import (
@@ -60,6 +65,7 @@ _CONTROL_FIELDS = frozenset(
         "max_total_tokens",
         "max_cost_micros",
         "authorization_ttl_seconds",
+        "model_routing",
         "payload",
     }
 )
@@ -77,6 +83,7 @@ class WorkflowAdapterCommand:
     payload: dict[str, Any]
     allowed_tools: tuple[str, ...]
     allowed_artifacts: tuple[str, ...]
+    model_routing: ModelRoutingConfig | None
     maximum_retries: int
     max_total_tokens: int
     max_cost_micros: int
@@ -164,6 +171,17 @@ class WorkflowAdapterCommand:
             raw.get("allowed_artifacts"),
             "workflow_adapter_allowed_artifacts_invalid",
         )
+        model_routing: ModelRoutingConfig | None = None
+        if raw.get("model_routing") is not None:
+            try:
+                model_routing = ModelRoutingConfig.assert_runtime_mapping(
+                    raw.get("model_routing")
+                )
+            except (ModelRoutingContractError, ValueError) as exc:
+                raise WorkflowAdapterQueueError(
+                    "workflow_adapter_model_routing_invalid",
+                    status_code=422,
+                ) from exc
         try:
             maximum_retries = int(raw.get("maximum_retries") or 0)
             max_total_tokens = int(raw.get("max_total_tokens") or 0)
@@ -184,6 +202,7 @@ class WorkflowAdapterCommand:
             payload=payload,
             allowed_tools=allowed_tools,
             allowed_artifacts=allowed_artifacts,
+            model_routing=model_routing,
             maximum_retries=maximum_retries,
             max_total_tokens=max_total_tokens,
             max_cost_micros=max_cost_micros,
@@ -248,22 +267,6 @@ class AuthorizedWorkflowAdapterControl:
             principal=self._principal,
             header_idempotency_key=idempotency_key,
         )
-        provider_decision = self._provider_decisions.decide(
-            WorkflowProviderRequirement(
-                tenant_id=self._principal.tenant_id,
-                workflow_id=request.workflow_id,
-                step_id=request.step_id,
-                task_type=request.task_type,
-                runtime_kind=str(kind).lower(),
-                requires_provider=str(command).lower() == "execute",
-            )
-        )
-        if str(command).lower() == "execute" and provider_decision.binding is None:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_provider_selection_unavailable:"
-                f"{provider_decision.reason_code}",
-                status_code=503,
-            )
         workflow_request = WorkflowRequest(
             workflow_id=request.workflow_id,
             workflow_type=f"workflow_adapter:{kind}",
@@ -284,6 +287,15 @@ class AuthorizedWorkflowAdapterControl:
                         ],
                         "side_effect_class": (
                             "read" if command == "dry_run" else "idempotent_write"
+                        ),
+                        **(
+                            {
+                                "model_routing": (
+                                    request.model_routing.as_metadata()
+                                )
+                            }
+                            if request.model_routing is not None
+                            else {}
                         ),
                     },
                 ),
@@ -311,6 +323,30 @@ class AuthorizedWorkflowAdapterControl:
                 max_cost_micros=request.max_cost_micros,
             ),
         )
+        compiled_node = plan.nodes[0]
+        compiled_routing = trusted_model_routing_from_metadata(
+            compiled_node.metadata
+        )
+        provider_decision = self._provider_decisions.decide(
+            WorkflowProviderRequirement(
+                tenant_id=self._principal.tenant_id,
+                workflow_id=request.workflow_id,
+                step_id=request.step_id,
+                task_type=request.task_type,
+                runtime_kind=str(kind).lower(),
+                requires_provider=str(command).lower() == "execute",
+                required_capabilities=tuple(
+                    compiled_node.required_capabilities
+                ),
+                model_routing=compiled_routing,
+            )
+        )
+        if str(command).lower() == "execute" and provider_decision.binding is None:
+            raise WorkflowAdapterQueueError(
+                "workflow_adapter_provider_selection_unavailable:"
+                f"{provider_decision.reason_code}",
+                status_code=503,
+            )
         receipt = self._queue.submit(
             WorkflowAdapterTaskSubmission(
                 tenant_id=self._principal.tenant_id,
@@ -334,6 +370,19 @@ class AuthorizedWorkflowAdapterControl:
                 authorization_ttl_seconds=request.authorization_ttl_seconds,
                 provider_binding=provider_decision.binding,
                 provider_decision_reason=provider_decision.reason_code,
+                primary_profile_id=provider_decision.primary_profile_id,
+                provider_profile_bindings=provider_decision.profile_bindings,
+                provider_attempt_plan=(
+                    provider_decision.profile_attempt_plan
+                ),
+                provider_maximum_attempts=(
+                    provider_decision.maximum_provider_attempts
+                ),
+                model_routing=(
+                    compiled_routing.as_metadata()
+                    if compiled_routing is not None
+                    else {}
+                ),
             )
         )
         payload = receipt.to_dict()

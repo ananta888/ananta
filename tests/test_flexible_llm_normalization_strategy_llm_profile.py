@@ -48,17 +48,83 @@ def test_flexible_strategy_attaches_real_llm_profile_on_success():
     assert result.proposal.metadata["llm_call_profile"][0]["source"] == "model_invocation_service"
 
 
+def test_flexible_strategy_forwards_hub_provider_attempt_plan():
+    strategy = FlexibleLLMNormalizationStrategy()
+    context = _context()
+    attempt_plan = [
+        {
+            "profile_id": "phi",
+            "binding_id": "provider-binding:" + "a" * 64,
+            "provider_id": "ollama",
+            "model_id": "phi4-mini",
+            "maximum_attempts": 3,
+        }
+    ]
+    context.effective_config = {
+        "provider_context": {"provider_profile_id": "phi"},
+        "provider_contexts_by_profile_id": {
+            "phi": {"provider_profile_id": "phi"}
+        },
+        "provider_attempt_plan": attempt_plan,
+    }
+    with patch(
+        "agent.services.propose_strategies.flexible_llm_normalization_strategy."
+        "ModelInvocationService.invoke_result",
+        return_value={"content": '{"command":"echo ok"}', "metadata": {}},
+    ) as invoke:
+        result = strategy.run(context)
+
+    assert result.proposal is not None
+    assert invoke.call_args.kwargs["provider_context"] == {
+        "provider_profile_id": "phi"
+    }
+    assert invoke.call_args.kwargs["provider_contexts_by_profile_id"] == {
+        "phi": {"provider_profile_id": "phi"}
+    }
+    assert invoke.call_args.kwargs["provider_attempt_plan"] == attempt_plan
+
+
 def test_flexible_strategy_attaches_llm_profile_on_declined_unavailable():
     strategy = FlexibleLLMNormalizationStrategy()
     llm_profile = [{"source": "model_invocation_service", "estimated": False, "success": False}]
     with patch(
         "agent.services.propose_strategies.flexible_llm_normalization_strategy.ModelInvocationService.invoke_result",
-        side_effect=LLMUnavailableError("down", llm_call_profile=llm_profile),
+        side_effect=LLMUnavailableError(
+            "down",
+            llm_call_profile=llm_profile,
+            fallback_decisions=[
+                {
+                    "reason": "candidate_chain_exhausted",
+                    "trigger": "provider_unavailable",
+                    "terminal": True,
+                }
+            ],
+            terminal_reason="provider_unavailable",
+        ),
     ):
         result = strategy.run(_context())
 
     assert result.status == "declined"
     assert result.metadata["llm_call_profile"][0]["success"] is False
+    assert result.metadata["model_recovery_signal"]["schema"] == "model_recovery_signal.v1"
+    assert result.metadata["fallback_decisions"][0]["terminal"] is True
+
+
+def test_flexible_strategy_rejects_invalid_explicit_routing_as_policy():
+    strategy = FlexibleLLMNormalizationStrategy()
+    context = _context()
+    context.task["model_routing"] = "invalid"
+    with patch(
+        "agent.services.propose_strategies.flexible_llm_normalization_strategy."
+        "ModelInvocationService.invoke_result",
+    ) as invoke:
+        result = strategy.run(context)
+
+    assert result.status == "declined"
+    assert result.reason == "model_routing_policy_blocked"
+    assert result.metadata["fallback_decisions"][0]["trigger"] == "policy_blocked"
+    assert result.metadata["fallback_decisions"][0]["terminal"] is True
+    invoke.assert_not_called()
 
 
 # TRM-003: malformed response still carries llm_call_profile with provider/model
@@ -101,4 +167,3 @@ def test_flexible_strategy_profile_survives_general_exception():
     # but the result itself must be a ProposeStrategyResult
     from worker.core.propose import ProposeStrategyResult
     assert isinstance(result, ProposeStrategyResult)
-

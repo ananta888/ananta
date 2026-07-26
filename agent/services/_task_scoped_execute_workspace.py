@@ -138,13 +138,6 @@ def run_execute_workspace_path(
                     "reason_code": reason_code,
                 },
             )
-            native_artifact_refs = [
-                {
-                    "kind": "native_worker_degraded_state",
-                    "task_id": tid,
-                    "trace_bundle_ref": "native_worker_runtime:delegation_required",
-                }
-            ]
             execution_repair_meta = {
                 "native_worker_runtime": {
                     "schema": "ananta.native-worker-delegation.v1",
@@ -240,23 +233,51 @@ def run_execute_workspace_path(
         tool_run_refs: list[dict] = []
         try:
             from agent.services.tool_run_catalog_service import get_tool_run_catalog_service
-            run_entry = get_tool_run_catalog_service().build_run_entry(
-                task_id=str(tid),
-                index=1,
-                tool_name="shell",
-                command=str(command or ""),
-                exit_code=int(execution_run.exit_code),
-                stdout=str(execution_run.output or ""),
-                stderr="",
-                artifact_paths=[
-                    str(item.get("path") or item.get("artifact_path") or "")
-                    for item in list(combined_artifact_refs or [])
-                    if isinstance(item, dict)
-                ],
-                started_at=exec_started_at,
-                ended_at=time.time(),
+            from ananta_contracts.recovery_run_evidence import (
+                recovery_tool_run_context_from_task,
             )
-            tool_run_refs = [run_entry]
+
+            recovery_child = bool(
+                str(task.get("derivation_reason") or "")
+                == "goal_task_recovery"
+                or dict(
+                    task.get("status_reason_details") or {}
+                ).get("model_recovery_release")
+            )
+            run_context = recovery_tool_run_context_from_task(
+                task
+            )
+            if not recovery_child or run_context is not None:
+                run_record = (
+                    dict(run_context["records"][0])
+                    if run_context is not None
+                    else {}
+                )
+                run_entry = get_tool_run_catalog_service().build_run_entry(
+                    task_id=str(tid),
+                    index=1,
+                    tool_name="shell",
+                    command=str(command or ""),
+                    exit_code=int(execution_run.exit_code),
+                    stdout=str(execution_run.output or ""),
+                    stderr="",
+                    artifact_paths=[
+                        str(item.get("path") or item.get("artifact_path") or "")
+                        for item in list(combined_artifact_refs or [])
+                        if isinstance(item, dict)
+                    ],
+                    started_at=exec_started_at,
+                    ended_at=time.time(),
+                    source_id=(
+                        str(run_record.get("source_id") or "")
+                        or None
+                    ),
+                    run_id=(
+                        str(run_record.get("record_id") or "")
+                        or None
+                    ),
+                )
+                tool_run_refs = [run_entry]
         except Exception:
             tool_run_refs = []
 
@@ -329,7 +350,16 @@ def run_execute_workspace_path(
             },
         )
         if execution_run.status == "completed":
-            worker_execution_contract = dict(task.get("worker_execution_contract") or {})
+            worker_execution_context = dict(
+                task.get("worker_execution_context") or {}
+            )
+            worker_execution_contract = dict(
+                task.get("worker_execution_contract")
+                or worker_execution_context.get(
+                    "worker_execution_contract"
+                )
+                or {}
+            )
             expected_paths = [
                 str(item.get("relative_path") or "").strip()
                 for item in list(worker_execution_contract.get("expected_artifacts") or [])

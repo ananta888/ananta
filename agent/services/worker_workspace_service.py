@@ -4,6 +4,7 @@ import difflib
 import hashlib
 import json
 import logging
+import mimetypes
 import os
 import re
 import shutil
@@ -207,10 +208,23 @@ class WorkerWorkspaceService:
             text = payload.decode("utf-8", errors="replace")
         return text.splitlines(keepends=True), None
 
-    def resolve_workspace_context(self, *, task: dict) -> WorkerWorkspaceContext:
+    def resolve_workspace_dir_for_read(
+        self,
+        *,
+        task: dict,
+        agent_name: str | None = None,
+    ) -> Path:
+        """Resolve the assigned task workspace without creating or mutating it.
+
+        Hub-side artifact ingress uses the authenticated Worker identity as
+        ``agent_name`` so per-Worker workspace layouts resolve identically in
+        both containers.  This intentionally avoids the git, predecessor
+        materialization, and directory-creation side effects of
+        :meth:`resolve_workspace_context`.
+        """
+
         execution_context = dict((task or {}).get("worker_execution_context") or {})
         workspace_cfg = dict(execution_context.get("workspace") or {})
-        artifact_sync_cfg = dict(execution_context.get("artifact_sync") or {})
 
         agent_cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
         runtime_cfg = agent_cfg.get("worker_runtime")
@@ -219,7 +233,15 @@ class WorkerWorkspaceService:
         if not workspace_root:
             workspace_root = str(Path(settings.data_dir) / "worker-runtime")
 
-        agent_name = _safe_segment(current_app.config.get("AGENT_NAME") if has_app_context() else settings.agent_name, fallback="worker")
+        resolved_agent_name = _safe_segment(
+            agent_name
+            or (
+                current_app.config.get("AGENT_NAME")
+                if has_app_context()
+                else settings.agent_name
+            ),
+            fallback="worker",
+        )
         task_id = _safe_segment(workspace_cfg.get("task_id") or task.get("id"), fallback="task")
         worker_job_id = _safe_segment(
             workspace_cfg.get("worker_job_id") or (task or {}).get("current_worker_job_id"),
@@ -242,13 +264,18 @@ class WorkerWorkspaceService:
                 explicit_scope_key = True
 
         output_dir = str(workspace_cfg.get("output_dir") or "").strip()
-        workspace_dir = self._resolve_workspace_dir(
+        return self._resolve_workspace_dir(
             output_dir=output_dir,
             workspace_root=workspace_root,
-            agent_name=agent_name,
+            agent_name=resolved_agent_name,
             scope_key=scope_key,
             explicit_scope_key=explicit_scope_key,
         )
+
+    def resolve_workspace_context(self, *, task: dict) -> WorkerWorkspaceContext:
+        execution_context = dict((task or {}).get("worker_execution_context") or {})
+        artifact_sync_cfg = dict(execution_context.get("artifact_sync") or {})
+        workspace_dir = self.resolve_workspace_dir_for_read(task=task)
         artifacts_dir = workspace_dir / "artifacts"
         rag_helper_dir = workspace_dir / "rag_helper"
         workspace_dir.mkdir(parents=True, exist_ok=True)
@@ -704,6 +731,15 @@ class WorkerWorkspaceService:
     ) -> dict | None:
         if not sync_cfg.get("enabled") or not sync_cfg.get("sync_to_hub"):
             return None
+        from agent.services.recovery_task_mutation_policy import (
+            recovery_task_role,
+        )
+
+        if recovery_task_role(task) == "child":
+            # Recovery output crosses the authoritative, lease-bound ingress
+            # as real workspace files. A derived legacy DB artifact would be
+            # unbound and duplicate the trusted Hub materialization.
+            return None
         changed_rel_paths, sync_note = self._mutation_sync_filter(
             workspace_dir=workspace_dir, changed_rel_paths=changed_rel_paths
         )
@@ -764,6 +800,103 @@ class WorkerWorkspaceService:
             },
         }
 
+    def collect_recovery_workspace_artifact_claims(
+        self,
+        *,
+        task_id: str,
+        task: dict,
+        workspace_dir: Path,
+        changed_rel_paths: list[str],
+        sync_cfg: dict,
+    ) -> list[dict]:
+        """Describe Recovery files without creating local Artifact rows."""
+
+        from agent.services.recovery_workspace_file_reader import (
+            RecoveryWorkspaceFileReadError,
+            get_recovery_workspace_file_reader,
+        )
+        from ananta_contracts.recovery_artifact_ingress import (
+            MAX_RECOVERY_ARTIFACT_BYTES,
+            MAX_RECOVERY_ARTIFACT_COUNT,
+            MAX_RECOVERY_ARTIFACT_TOTAL_BYTES,
+        )
+
+        if not sync_cfg.get("enabled") or not sync_cfg.get(
+            "sync_to_hub"
+        ):
+            return []
+        changed_rel_paths, sync_note = self._mutation_sync_filter(
+            workspace_dir=workspace_dir,
+            changed_rel_paths=changed_rel_paths,
+        )
+        if sync_note == "mutation_policy_blocked":
+            logging.warning(
+                "recovery workspace claim skipped: mutation policy blocked "
+                "(task %s)",
+                task_id,
+            )
+            return []
+        max_changed_files = min(
+            MAX_RECOVERY_ARTIFACT_COUNT,
+            max(
+                0,
+                int(sync_cfg.get("max_changed_files") or 30),
+            ),
+        )
+        max_file_size = min(
+            MAX_RECOVERY_ARTIFACT_BYTES,
+            max(
+                0,
+                int(
+                    sync_cfg.get("max_file_size_bytes")
+                    or (2 * 1024 * 1024)
+                ),
+            ),
+        )
+        refs: list[dict] = []
+        total_bytes = 0
+        reader = get_recovery_workspace_file_reader()
+        for rel in changed_rel_paths[:max_changed_files]:
+            try:
+                snapshot = reader.read(
+                    workspace_root=workspace_dir,
+                    relative_path=str(rel),
+                    maximum_bytes=max_file_size,
+                )
+            except RecoveryWorkspaceFileReadError:
+                continue
+            size_bytes = snapshot.size_bytes
+            total_bytes += size_bytes
+            if total_bytes > MAX_RECOVERY_ARTIFACT_TOTAL_BYTES:
+                break
+            refs.append(
+                {
+                    "kind": "workspace_file",
+                    "task_id": task_id,
+                    "worker_job_id": (task or {}).get(
+                        "current_worker_job_id"
+                    ),
+                    "filename": snapshot.resolved_path.name,
+                    "media_type": (
+                        mimetypes.guess_type(
+                            snapshot.resolved_path.name
+                        )[0]
+                        or "application/octet-stream"
+                    ),
+                    "workspace_relative_path": str(rel),
+                    "content_hash": hashlib.sha256(
+                        snapshot.content
+                    ).hexdigest(),
+                    "size_bytes": size_bytes,
+                    "provenance_summary": {
+                        "artifact_type": "workspace_file_claim",
+                        "authority": "executor_claim",
+                        "persisted": False,
+                    },
+                }
+            )
+        return refs
+
     def sync_changed_files_to_artifacts(
         self,
         *,
@@ -773,6 +906,18 @@ class WorkerWorkspaceService:
         changed_rel_paths: list[str],
         sync_cfg: dict,
     ) -> list[dict]:
+        from agent.services.recovery_task_mutation_policy import (
+            recovery_task_role,
+        )
+
+        if recovery_task_role(task) == "child":
+            return self.collect_recovery_workspace_artifact_claims(
+                task_id=task_id,
+                task=task,
+                workspace_dir=workspace_dir,
+                changed_rel_paths=changed_rel_paths,
+                sync_cfg=sync_cfg,
+            )
         if not sync_cfg.get("enabled") or not sync_cfg.get("sync_to_hub"):
             return []
         changed_rel_paths, sync_note = self._mutation_sync_filter(

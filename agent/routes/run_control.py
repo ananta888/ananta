@@ -104,10 +104,27 @@ def _send_command(task_id: str | None = None, goal_id: str | None = None, run_id
         ), 409
     http_status = 200
     if cmd.status == "rejected_by_policy":
-        http_status = 422
+        try:
+            policy_status = int(
+                cmd.result.get("http_status") or 422
+            )
+        except (TypeError, ValueError):
+            policy_status = 422
+        http_status = (
+            policy_status
+            if 400 <= policy_status < 500
+            else 422
+        )
     elif cmd.status == "failed":
         http_status = 500
-    return jsonify({"status": "ok", "command": cmd.as_dict()}), http_status
+    payload = {"status": "ok", "command": cmd.as_dict()}
+    if cmd.status == "rejected_by_policy":
+        payload["reason_code"] = str(
+            cmd.result.get("reason_code")
+            or cmd.result.get("error")
+            or "run_command_rejected_by_policy"
+        )
+    return jsonify(payload), http_status
 
 
 # ── Run-scoped routes (run_id is task_id in practice) ─────────────────────────

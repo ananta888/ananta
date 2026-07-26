@@ -21,8 +21,15 @@ from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import AgentSessionDB, PolicySnapshotDB, TaskDB, ToolCallDB
 from agent.routes.tasks.status import normalize_task_status
+from agent.services.recovery_task_mutation_policy import (
+    RecoveryTaskMutationConflict,
+    ensure_external_recovery_mutation_allowed,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.services.share_session_service import get_share_session_service
+from agent.services.task_runtime_service import (
+    update_local_task_status,
+)
 from agent.services.user_token_scope import (
     CONTROL_CENTER_STREAM_TOKEN_USE,
     control_center_stream_identity_is_bound,
@@ -421,19 +428,55 @@ def patch_task(task_id: str):
     task = _repos().task_repo.get_by_id(task_id)
     if task is None:
         return api_response(status="error", message="not_found", code=404)
+    try:
+        ensure_external_recovery_mutation_allowed(
+            task,
+            action="control_center_patch",
+        )
+    except RecoveryTaskMutationConflict as exc:
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            data=exc.as_data(),
+            code=409,
+        )
 
     body = request.get_json(silent=True) or {}
+    values: dict[str, Any] = {}
     if "title" in body:
-        task.title = str(body.get("title") or "").strip() or task.title
+        values["title"] = (
+            str(body.get("title") or "").strip() or task.title
+        )
     if "description" in body:
-        task.description = str(body.get("description") or "")
+        values["description"] = str(
+            body.get("description") or ""
+        )
     if "priority" in body:
-        task.priority = str(body.get("priority") or task.priority)
-    if "status" in body:
-        task.status = normalize_task_status(str(body.get("status") or task.status))
-    task.updated_at = time.time()
-
-    saved = _repos().task_repo.save(task)
+        values["priority"] = str(
+            body.get("priority") or task.priority
+        )
+    target_status = normalize_task_status(
+        str(body.get("status") or task.status)
+    )
+    update_local_task_status(
+        task_id,
+        target_status,
+        event_type="control_center_task_updated",
+        event_actor=_user_id() or "control_center",
+        event_details={
+            "status_requested": "status" in body,
+            "fields": sorted(values),
+        },
+        force=True,
+        **values,
+    )
+    saved = _repos().task_repo.get_by_id(task_id)
+    if saved is None:
+        return api_response(
+            status="error",
+            message="not_found",
+            code=404,
+        )
     log_audit("control_center_task_updated", {"task_id": saved.id, "actor": _user_id(), "status": saved.status})
     return api_response(data={"task": _task_item(saved)})
 

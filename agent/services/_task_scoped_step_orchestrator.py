@@ -11,7 +11,11 @@ Backwards compatibility preserved via thin delegating wrappers in
 
 from __future__ import annotations
 
-from typing import Callable
+import contextlib
+import hashlib
+import threading
+import time
+from typing import Any, Callable
 
 from flask import current_app, has_app_context
 
@@ -48,6 +52,473 @@ from agent.services.task_scoped_execution_service import (
 
 
 _INTERACTIVE_TERMINAL_FINALIZE_COMMAND = "__ANANTA_FINALIZE_INTERACTIVE_OPENCODE__"
+_RECOVERY_OUTCOME_CACHE_LOCK = threading.Lock()
+_RECOVERY_OUTCOME_CACHE: dict[str, tuple[float, Any]] = {}
+
+
+def _recovery_cache_key(
+    token: str | None,
+    *,
+    task_id: str,
+    phase: str,
+    request_fingerprint: str,
+) -> str:
+    return hashlib.sha256(
+        (
+            f"{str(task_id or '').strip()}\0"
+            f"{str(phase or '').strip().lower()}\0"
+            f"{str(request_fingerprint or '').strip()}\0"
+            f"{str(token or '')}"
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _cache_recovery_outcome(
+    token: str | None,
+    outcome: Any,
+    *,
+    task_id: str,
+    phase: str,
+    request_fingerprint: str,
+) -> None:
+    if not token:
+        return
+    now = time.time()
+    with _RECOVERY_OUTCOME_CACHE_LOCK:
+        expired = [
+            key
+            for key, (stored_at, _value) in (
+                _RECOVERY_OUTCOME_CACHE.items()
+            )
+            if now - stored_at > 1800.0
+        ]
+        for key in expired:
+            _RECOVERY_OUTCOME_CACHE.pop(key, None)
+        while len(_RECOVERY_OUTCOME_CACHE) >= 256:
+            oldest = min(
+                _RECOVERY_OUTCOME_CACHE,
+                key=lambda key: _RECOVERY_OUTCOME_CACHE[key][0],
+            )
+            _RECOVERY_OUTCOME_CACHE.pop(oldest, None)
+        _RECOVERY_OUTCOME_CACHE[
+            _recovery_cache_key(
+                token,
+                task_id=task_id,
+                phase=phase,
+                request_fingerprint=request_fingerprint,
+            )
+        ] = (now, outcome)
+
+
+def _cached_recovery_outcome(
+    token: str | None,
+    *,
+    task_id: str,
+    phase: str,
+    request_fingerprint: str,
+) -> Any | None:
+    if not token:
+        return None
+    with _RECOVERY_OUTCOME_CACHE_LOCK:
+        cached = _RECOVERY_OUTCOME_CACHE.get(
+            _recovery_cache_key(
+                token,
+                task_id=task_id,
+                phase=phase,
+                request_fingerprint=request_fingerprint,
+            )
+        )
+    if cached is None or time.time() - cached[0] > 1800.0:
+        return None
+    return cached[1]
+
+
+def _publish_recovery_artifact_receipts(
+    *,
+    task: dict[str, Any],
+    outcome: Any,
+    token: str | None,
+    request_fingerprint: str,
+) -> Any:
+    """Replace Worker-local artifact refs with idempotent Hub receipts."""
+
+    from agent.config import settings
+
+    data = getattr(outcome, "data", None)
+    artifacts = (
+        data.get("artifacts")
+        if isinstance(data, dict)
+        else None
+    )
+    if not isinstance(artifacts, list) or not artifacts:
+        return outcome
+    already_materialized = all(
+        isinstance(value, dict)
+        and str(value.get("artifact_id") or "").startswith(
+            "recovery-artifact-"
+        )
+        and dict(value.get("provenance_summary") or {}).get(
+            "authority"
+        )
+        == "hub"
+        for value in artifacts
+    )
+    if already_materialized:
+        return outcome
+    role = str(settings.role or "").strip().lower()
+    if role == "hub":
+        from agent.services.recovery_trusted_local_artifact_adapter import (
+            get_recovery_trusted_local_artifact_adapter,
+        )
+
+        data["artifacts"] = (
+            get_recovery_trusted_local_artifact_adapter().materialize(
+                task=task,
+                artifacts=list(artifacts),
+                lease_token=str(token or ""),
+                request_fingerprint=str(
+                    request_fingerprint or ""
+                ),
+            )
+        )
+        return outcome
+    from agent.services.recovery_worker_artifact_publisher import (
+        get_recovery_worker_artifact_publisher,
+    )
+
+    data["artifacts"] = (
+        get_recovery_worker_artifact_publisher().publish(
+            task=task,
+            artifacts=list(artifacts),
+            lease_token=str(token or ""),
+            request_fingerprint=str(
+                request_fingerprint or ""
+            ),
+        )
+    )
+    return outcome
+
+
+def _dispatch_admission_error(*, tid: str, phase: str, decision):
+    from agent.services.task_scoped_execution_service import (
+        TaskScopedRouteResponse,
+    )
+
+    return TaskScopedRouteResponse(
+        data={
+            "status": "skipped",
+            "reason": decision.reason_code,
+            "task_id": tid,
+            "phase": phase,
+            "source_task_id": decision.source_task_id,
+            "plan_id": decision.plan_id,
+            "release_epoch": decision.release_epoch,
+        },
+        status="skipped",
+        message="Recovery dispatch admission denied",
+        code=409,
+    )
+
+
+def _apply_request_run_evidence_context(
+    *,
+    task: dict[str, Any],
+    request_data: Any,
+) -> None:
+    """Apply a lease-validated context only to this request-local Task."""
+
+    value = getattr(
+        request_data,
+        "recovery_run_evidence_context",
+        None,
+    )
+    if value is None:
+        return
+    details = dict(task.get("status_reason_details") or {})
+    details["recovery_tool_run_context"] = dict(value)
+    task["status_reason_details"] = details
+
+
+def _admit_task_scoped_dispatch(
+    *,
+    tid: str,
+    task: dict,
+    request_data,
+    phase: str,
+):
+    """Issue on the Hub and consume on the Worker one recovery dispatch lease."""
+
+    from agent.config import settings
+    from agent.services.recovery_dispatch_gate_service import (
+        RecoveryDispatchGateDecision,
+        get_recovery_dispatch_gate_service,
+        recovery_dispatch_request_fingerprint,
+    )
+
+    gate = get_recovery_dispatch_gate_service()
+    provided_token = str(
+        getattr(request_data, "dispatch_lease_token", None) or ""
+    ).strip()
+    role = str(settings.role or "").strip().lower()
+    recovery_child = gate.is_recovery_child(task)
+    run_evidence_context = getattr(
+        request_data,
+        "recovery_run_evidence_context",
+        None,
+    )
+    if recovery_child and role == "hub":
+        from agent.services.recovery_hub_run_evidence_service import (
+            RecoveryHubRunEvidenceError,
+            get_recovery_hub_run_evidence_service,
+        )
+
+        try:
+            request_data.recovery_run_evidence_context = (
+                get_recovery_hub_run_evidence_service()
+                .bind_request_context(
+                    task=task,
+                    value=run_evidence_context,
+                )
+            )
+        except RecoveryHubRunEvidenceError as exc:
+            decision = RecoveryDispatchGateDecision(
+                False,
+                str(exc),
+                source_task_id=str(
+                    task.get("source_task_id") or ""
+                )
+                or None,
+                plan_id=str(task.get("plan_id") or "") or None,
+            )
+            return {
+                "error": _dispatch_admission_error(
+                    tid=tid,
+                    phase=phase,
+                    decision=decision,
+                ),
+                "token": provided_token or None,
+                "worker_url": None,
+                "guard_local_result": False,
+                "replayed": False,
+                "request_fingerprint": "",
+            }
+    elif recovery_child and run_evidence_context is not None:
+        from ananta_contracts.recovery_run_evidence import (
+            RecoveryRunEvidenceContractError,
+            validate_recovery_tool_run_context,
+        )
+
+        try:
+            request_data.recovery_run_evidence_context = (
+                validate_recovery_tool_run_context(
+                    run_evidence_context,
+                    task_id=tid,
+                )
+            )
+        except RecoveryRunEvidenceContractError as exc:
+            decision = RecoveryDispatchGateDecision(
+                False,
+                str(exc),
+                source_task_id=str(
+                    task.get("source_task_id") or ""
+                )
+                or None,
+                plan_id=str(task.get("plan_id") or "") or None,
+            )
+            return {
+                "error": _dispatch_admission_error(
+                    tid=tid,
+                    phase=phase,
+                    decision=decision,
+                ),
+                "token": provided_token or None,
+                "worker_url": None,
+                "guard_local_result": False,
+                "replayed": False,
+                "request_fingerprint": "",
+            }
+    elif not recovery_child and run_evidence_context is not None:
+        decision = RecoveryDispatchGateDecision(
+            False,
+            "recovery_tool_run_context_unexpected",
+        )
+        return {
+            "error": _dispatch_admission_error(
+                tid=tid,
+                phase=phase,
+                decision=decision,
+            ),
+            "token": provided_token or None,
+            "worker_url": None,
+            "guard_local_result": False,
+            "replayed": False,
+            "request_fingerprint": "",
+        }
+    if (
+        role == "hub"
+        and str(phase or "").strip().lower() == "execute"
+        and recovery_child
+    ):
+        from agent.services.recovery_worker_result_service import (
+            RecoveryWorkerResultError,
+            get_recovery_worker_result_service,
+        )
+
+        try:
+            bound_context = (
+                get_recovery_worker_result_service()
+                .bind_execute_proposal_context(
+                    task=task,
+                    value=getattr(
+                        request_data,
+                        "recovery_proposal_context",
+                        None,
+                    ),
+                )
+            )
+        except RecoveryWorkerResultError as exc:
+            decision = RecoveryDispatchGateDecision(
+                False,
+                str(exc),
+                source_task_id=str(
+                    task.get("source_task_id") or ""
+                )
+                or None,
+                plan_id=str(task.get("plan_id") or "") or None,
+            )
+            return {
+                "error": _dispatch_admission_error(
+                    tid=tid,
+                    phase=phase,
+                    decision=decision,
+                ),
+                "token": provided_token or None,
+                "worker_url": None,
+                "guard_local_result": False,
+                "replayed": False,
+                "request_fingerprint": "",
+            }
+        request_data.recovery_proposal_context = bound_context
+    request_fingerprint = recovery_dispatch_request_fingerprint(
+        phase,
+        request_data,
+    )
+    if role != "hub":
+        decision = gate.admit_incoming_dispatch(
+            task=task,
+            token=provided_token or None,
+            phase=phase,
+            request_fingerprint=request_fingerprint,
+        )
+        return {
+            "error": (
+                None
+                if decision.allowed
+                else _dispatch_admission_error(
+                    tid=tid,
+                    phase=phase,
+                    decision=decision,
+                )
+            ),
+            "token": provided_token or None,
+            "worker_url": None,
+            "guard_local_result": False,
+            "replayed": (
+                decision.reason_code
+                == "recovery_dispatch_worker_readmitted"
+            ),
+            "request_fingerprint": request_fingerprint,
+        }
+
+    if provided_token:
+        local_url = str(
+            settings.agent_url or f"http://localhost:{settings.port}"
+        ).strip().rstrip("/")
+        assigned_url = str(
+            task.get("assigned_agent_url") or local_url
+        ).strip().rstrip("/")
+        decision = (
+            gate.admit_dispatch_lease(
+                tid,
+                token=provided_token,
+                phase=phase,
+                worker_url=local_url,
+                request_fingerprint=request_fingerprint,
+                trusted_local=True,
+            )
+            if assigned_url == local_url
+            else gate.validate_dispatch_lease(
+                tid,
+                token=provided_token,
+                phase=phase,
+                request_fingerprint=request_fingerprint,
+            )
+        )
+        return {
+            "error": (
+                None
+                if decision.allowed
+                else _dispatch_admission_error(
+                    tid=tid,
+                    phase=phase,
+                    decision=decision,
+                )
+            ),
+            "token": provided_token,
+            "worker_url": assigned_url,
+            "guard_local_result": assigned_url == local_url,
+            "replayed": (
+                decision.reason_code
+                == "recovery_dispatch_worker_readmitted"
+            ),
+            "request_fingerprint": request_fingerprint,
+        }
+    if not gate.is_recovery_child(task):
+        if gate.is_recovery_source(task):
+            decision = gate.evaluate_task(task)
+            return {
+                "error": _dispatch_admission_error(
+                    tid=tid,
+                    phase=phase,
+                    decision=decision,
+                ),
+                "token": None,
+                "worker_url": None,
+                "guard_local_result": False,
+                "replayed": False,
+                "request_fingerprint": request_fingerprint,
+            }
+        return {
+            "error": None,
+            "token": None,
+            "worker_url": None,
+            "guard_local_result": False,
+            "replayed": False,
+            "request_fingerprint": request_fingerprint,
+        }
+
+    # Recovery capabilities are minted only by the Hub claim/dispatcher
+    # path.  An authenticated API caller cannot create its own permit.
+    return {
+        "error": _dispatch_admission_error(
+            tid=tid,
+            phase=phase,
+            decision=RecoveryDispatchGateDecision(
+                False,
+                "recovery_dispatch_lease_missing",
+                source_task_id=str(
+                    task.get("source_task_id") or ""
+                )
+                or None,
+                plan_id=str(task.get("plan_id") or "") or None,
+            ),
+        ),
+        "token": None,
+        "worker_url": None,
+        "guard_local_result": False,
+        "replayed": False,
+        "request_fingerprint": request_fingerprint,
+    }
 
 
 def run_propose_step(
@@ -60,9 +531,139 @@ def run_propose_step(
     tool_definitions_resolver: Callable,
 ):
     """Route a propose request to the appropriate strategy."""
+    task = service._require_task(tid)
+    admission = _admit_task_scoped_dispatch(
+        tid=tid,
+        task=task,
+        request_data=request_data,
+        phase="propose",
+    )
+    if not admission.get("request_fingerprint"):
+        from agent.services.recovery_dispatch_gate_service import (
+            recovery_dispatch_request_fingerprint,
+        )
+
+        admission["request_fingerprint"] = (
+            recovery_dispatch_request_fingerprint(
+                "propose",
+                request_data,
+            )
+        )
+    if admission["error"] is not None:
+        return admission["error"]
+    if admission["replayed"]:
+        cached = _cached_recovery_outcome(
+            getattr(request_data, "dispatch_lease_token", None),
+            task_id=tid,
+            phase="propose",
+            request_fingerprint=admission[
+                "request_fingerprint"
+            ],
+        )
+        if cached is not None:
+            return cached
+        from agent.services.recovery_dispatch_gate_service import (
+            RecoveryDispatchGateDecision,
+        )
+
+        return _dispatch_admission_error(
+            tid=tid,
+            phase="propose",
+            decision=RecoveryDispatchGateDecision(
+                False,
+                "recovery_dispatch_invocation_in_progress",
+            ),
+        )
+    from agent.config import settings
+
+    defer_local_writes = bool(admission["token"]) and (
+        admission["guard_local_result"]
+        or str(settings.role or "").strip().lower() != "hub"
+    )
+    boundary = contextlib.nullcontext()
+    if defer_local_writes:
+        from agent.services.recovery_result_write_boundary import (
+            defer_recovery_task_writes,
+        )
+
+        boundary = defer_recovery_task_writes(
+            task_id=tid,
+            phase="propose",
+        )
+    with boundary as deferred_boundary:
+        outcome = _run_propose_step_admitted(
+            service,
+            tid,
+            request_data,
+            cli_runner=cli_runner,
+            forwarder=forwarder,
+            tool_definitions_resolver=tool_definitions_resolver,
+        )
+    if deferred_boundary is not None:
+        from agent.services.recovery_worker_result_service import (
+            get_recovery_worker_result_service,
+        )
+
+        get_recovery_worker_result_service().attach(
+            boundary=deferred_boundary,
+            response=outcome.data,
+        )
+    if admission["guard_local_result"]:
+        from agent.services.recovery_dispatch_gate_service import (
+            get_recovery_dispatch_gate_service,
+            recovery_dispatch_request_fingerprint,
+        )
+
+        with get_recovery_dispatch_gate_service().result_guard(
+            tid,
+            token=admission["token"],
+            phase="propose",
+            request_fingerprint=(
+                recovery_dispatch_request_fingerprint(
+                    "propose",
+                    request_data,
+                )
+            ),
+            worker_url=admission["worker_url"],
+        ) as decision:
+            if not decision.allowed:
+                return _dispatch_admission_error(
+                    tid=tid,
+                    phase="propose",
+                    decision=decision,
+                )
+            service._persist_forwarded_proposal(
+                outcome.data,
+                task,
+                request_payload=request_data.model_dump(),
+            )
+    _cache_recovery_outcome(
+        admission["token"],
+        outcome,
+        task_id=tid,
+        phase="propose",
+        request_fingerprint=admission["request_fingerprint"],
+    )
+    return outcome
+
+
+def _run_propose_step_admitted(
+    service,
+    tid: str,
+    request_data,
+    *,
+    cli_runner: Callable,
+    forwarder: Callable,
+    tool_definitions_resolver: Callable,
+):
+    """Execute an already admitted propose request."""
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
     task = service._require_task(tid)
+    _apply_request_run_evidence_context(
+        task=task,
+        request_data=request_data,
+    )
     terminal_guard = service._terminal_parent_goal_guard(tid=tid, task=task, phase="propose")
     if terminal_guard is not None:
         return terminal_guard
@@ -104,7 +705,16 @@ def run_propose_step(
                 "catalog_hash": existing_source_catalog.get("source_catalog_hash"),
                 "sources": list(existing_source_catalog.get("sources") or []),
             }
-    citation_contract = service._render_citation_contract_prompt(source_catalog)
+    run_evidence_context = dict(
+        (task.get("status_reason_details") or {}).get(
+            "recovery_tool_run_context"
+        )
+        or {}
+    )
+    citation_contract = service._render_citation_contract_prompt(
+        source_catalog,
+        run_evidence_context=run_evidence_context or None,
+    )
     explicit_task_kind = str(task.get("task_kind") or "").strip().lower()
     task_kind = explicit_task_kind or normalize_task_kind(None, base_prompt)
     rc_input = getattr(request_data, "research_context", None)
@@ -257,9 +867,223 @@ def run_execute_step(
     tool_definitions_resolver: Callable | None = None,
 ):
     """Route an execute request to the appropriate strategy."""
+    task = service._require_task(tid)
+    from agent.services.recovery_dispatch_gate_service import (
+        get_recovery_dispatch_gate_service,
+    )
+
+    if (
+        get_recovery_dispatch_gate_service().is_recovery_child(
+            task
+        )
+        and not getattr(
+            request_data,
+            "recovery_proposal_context",
+            None,
+        )
+    ):
+        from agent.services.recovery_worker_result_service import (
+            get_recovery_worker_result_service,
+        )
+
+        request_data.recovery_proposal_context = (
+            get_recovery_worker_result_service()
+            .proposal_context_for_task(tid)
+        )
+    admission = _admit_task_scoped_dispatch(
+        tid=tid,
+        task=task,
+        request_data=request_data,
+        phase="execute",
+    )
+    if not admission.get("request_fingerprint"):
+        from agent.services.recovery_dispatch_gate_service import (
+            recovery_dispatch_request_fingerprint,
+        )
+
+        admission["request_fingerprint"] = (
+            recovery_dispatch_request_fingerprint(
+                "execute",
+                request_data,
+            )
+        )
+    if admission["error"] is not None:
+        return admission["error"]
+    if admission["replayed"]:
+        cached = _cached_recovery_outcome(
+            getattr(request_data, "dispatch_lease_token", None),
+            task_id=tid,
+            phase="execute",
+            request_fingerprint=admission[
+                "request_fingerprint"
+            ],
+        )
+        if cached is not None:
+            cached = _publish_recovery_artifact_receipts(
+                task=task,
+                outcome=cached,
+                token=admission["token"],
+                request_fingerprint=admission[
+                    "request_fingerprint"
+                ],
+            )
+            _cache_recovery_outcome(
+                admission["token"],
+                cached,
+                task_id=tid,
+                phase="execute",
+                request_fingerprint=admission[
+                    "request_fingerprint"
+                ],
+            )
+            return cached
+        from agent.services.recovery_dispatch_gate_service import (
+            RecoveryDispatchGateDecision,
+        )
+
+        return _dispatch_admission_error(
+            tid=tid,
+            phase="execute",
+            decision=RecoveryDispatchGateDecision(
+                False,
+                "recovery_dispatch_invocation_in_progress",
+            ),
+        )
+    from agent.config import settings
+
+    defer_local_writes = bool(admission["token"]) and (
+        admission["guard_local_result"]
+        or str(settings.role or "").strip().lower() != "hub"
+    )
+    boundary = contextlib.nullcontext()
+    if defer_local_writes:
+        from agent.services.recovery_result_write_boundary import (
+            defer_recovery_task_writes,
+        )
+
+        boundary = defer_recovery_task_writes(
+            task_id=tid,
+            phase="execute",
+        )
+    with boundary as deferred_boundary:
+        outcome = _run_execute_step_admitted(
+            service,
+            tid,
+            request_data,
+            forwarder=forwarder,
+            cli_runner=cli_runner,
+            tool_definitions_resolver=tool_definitions_resolver,
+        )
+    if deferred_boundary is not None:
+        from agent.services.recovery_worker_result_service import (
+            get_recovery_worker_result_service,
+        )
+
+        get_recovery_worker_result_service().attach(
+            boundary=deferred_boundary,
+            response=outcome.data,
+        )
+        # Cache the completed Worker computation before the network ingress.
+        # If the ingress outcome is unknown, a lease-bound replay can publish
+        # this same artifact manifest again without re-executing the task.
+        _cache_recovery_outcome(
+            admission["token"],
+            outcome,
+            task_id=tid,
+            phase="execute",
+            request_fingerprint=admission[
+                "request_fingerprint"
+            ],
+        )
+        outcome = _publish_recovery_artifact_receipts(
+            task=task,
+            outcome=outcome,
+            token=admission["token"],
+            request_fingerprint=admission[
+                "request_fingerprint"
+            ],
+        )
+    if admission["guard_local_result"]:
+        from agent.services.recovery_dispatch_gate_service import (
+            get_recovery_dispatch_gate_service,
+            recovery_dispatch_request_fingerprint,
+        )
+
+        with get_recovery_dispatch_gate_service().result_guard(
+            tid,
+            token=admission["token"],
+            phase="execute",
+            request_fingerprint=(
+                recovery_dispatch_request_fingerprint(
+                    "execute",
+                    request_data,
+                )
+            ),
+            worker_url=admission["worker_url"],
+        ) as decision:
+            if not decision.allowed:
+                return _dispatch_admission_error(
+                    tid=tid,
+                    phase="execute",
+                    decision=decision,
+                )
+            service._persist_forwarded_execution(
+                tid=tid,
+                response=outcome.data,
+                task=task,
+                request_data=request_data,
+            )
+    _cache_recovery_outcome(
+        admission["token"],
+        outcome,
+        task_id=tid,
+        phase="execute",
+        request_fingerprint=admission["request_fingerprint"],
+    )
+    return outcome
+
+
+def _run_execute_step_admitted(
+    service,
+    tid: str,
+    request_data,
+    *,
+    forwarder: Callable,
+    cli_runner: Callable | None = None,
+    tool_definitions_resolver: Callable | None = None,
+):
+    """Execute an already admitted execute request."""
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
     task = service._require_task(tid)
+    _apply_request_run_evidence_context(
+        task=task,
+        request_data=request_data,
+    )
+    from agent.services.recovery_worker_result_service import (
+        get_recovery_worker_result_service,
+    )
+    from agent.services.recovery_dispatch_gate_service import (
+        get_recovery_dispatch_gate_service,
+    )
+
+    proposal_context = getattr(
+        request_data,
+        "recovery_proposal_context",
+        None,
+    )
+    recovery_child = (
+        get_recovery_dispatch_gate_service().is_recovery_child(
+            task
+        )
+    )
+    if proposal_context is not None and not recovery_child:
+        raise ValueError("recovery_proposal_context_unexpected")
+    if recovery_child:
+        get_recovery_worker_result_service().apply_proposal_context(
+            task=task,
+            value=proposal_context,
+        )
     terminal_guard = service._terminal_parent_goal_guard(tid=tid, task=task, phase="execute")
     if terminal_guard is not None:
         return terminal_guard

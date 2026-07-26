@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from agent.services.hub_provider_context_factory import HubProviderContextSpec
 from agent.services.native_graph_models import (
     NativeGraphRequest,
     NativeRunState,
@@ -17,6 +18,7 @@ from agent.services.workflow_authorization_grant_service import (
 from agent.services.workflow_provider_selection_service import (
     WorkflowProviderDecisionPort,
     WorkflowProviderRequirement,
+    trusted_model_routing_from_metadata,
 )
 from agent.services.workflow_runtime.execution_plan import ExecutionNode, ExecutionPlan
 from agent.services.workflow_runtime.native_graph_contracts import (
@@ -27,6 +29,7 @@ from agent.services.workflow_runtime.native_graph_ports import HubTaskQueuePort
 from agent.services.workflow_runtime.ownership import ExecutionOwnershipStore
 from agent.services.workflow_runtime.security import HmacKeyRing, RuntimeAuthorizationEnvelope
 from agent.services.workflow_runtime.side_effects import SideEffectLedger
+from ananta_contracts.provider_execution import ProviderBindingAuthorization
 
 
 class NativeGraphDelegationService:
@@ -73,6 +76,9 @@ class NativeGraphDelegationService:
                     runtime_kind="ananta-native",
                     requires_provider=requires_provider,
                     required_capabilities=tuple(node.required_capabilities),
+                    model_routing=trusted_model_routing_from_metadata(
+                        node.metadata
+                    ),
                 )
             )
         except Exception:
@@ -104,6 +110,20 @@ class NativeGraphDelegationService:
             return
         ownership = claim.ownership
         state.attempts[node.node_id] = state.attempts.get(node.node_id, 0) + 1
+        authorization_budgets = native_budget_mapping(budget)
+        if provider_decision.maximum_provider_attempts:
+            authorization_budgets["provider_attempts"] = (
+                provider_decision.maximum_provider_attempts
+            )
+        if provider_decision.binding is not None:
+            if plan.budget.max_tokens is not None:
+                authorization_budgets["provider_run_tokens"] = int(
+                    plan.budget.max_tokens
+                )
+            if plan.budget.max_cost_micros is not None:
+                authorization_budgets[
+                    "provider_run_cost_micros"
+                ] = int(plan.budget.max_cost_micros)
         authorization = RuntimeAuthorizationEnvelope.issue(
             key_ring=self._key_ring,
             tenant_id=plan.tenant_id,
@@ -116,7 +136,21 @@ class NativeGraphDelegationService:
             allowed_artifacts=tuple(
                 sorted(set(node.input_artifacts + node.output_artifacts))
             ),
-            budgets=native_budget_mapping(budget),
+            allowed_provider_bindings=tuple(
+                ProviderBindingAuthorization.from_binding(item.binding)
+                for item in provider_decision.profile_bindings
+            )
+            or (
+                (
+                    ProviderBindingAuthorization.from_binding(
+                        provider_decision.binding
+                    ),
+                )
+                if provider_decision.binding is not None
+                else ()
+            ),
+            provider_attempt_plan=provider_decision.profile_attempt_plan,
+            budgets=authorization_budgets,
             ttl_seconds=max(30.0, min(3600.0, budget.timeout_seconds + 30.0)),
             now=float(self._clock()),
         )
@@ -132,6 +166,46 @@ class NativeGraphDelegationService:
         )
         if operation_id is None:
             return
+        provider_context: dict[str, Any] = {}
+        provider_contexts_by_profile_id: dict[str, dict[str, Any]] = {}
+        if provider_decision.profile_bindings:
+            total_tokens = int(budget.max_tokens or 0)
+            context_spec = HubProviderContextSpec(
+                tenant_id=plan.tenant_id,
+                workflow_id=plan.workflow_id,
+                run_id=request.run_id,
+                step_id=node.node_id,
+                plan_hash=plan.plan_hash,
+                policy_version=plan.policy_version,
+                prompt_version="native-node-prompt-v1",
+                correlation_id=request.run_id,
+                max_attempts=(
+                    provider_decision.maximum_provider_attempts
+                ),
+                max_total_tokens=total_tokens,
+                max_completion_tokens_per_call=(
+                    min(1_024, max(1, total_tokens // 2))
+                    if total_tokens > 0
+                    else 0
+                ),
+                max_cost_micros=int(budget.max_cost_micros or 0),
+                combined_retry_maximum=0,
+                authorization_envelope=authorization.to_dict(),
+                attempt_id=ownership.attempt_id,
+                fencing_token=ownership.fencing_token,
+                require_separate_provider_attempt_budget=True,
+            )
+            provider_context = context_spec.build(
+                provider_decision.binding,
+                decision_reason=provider_decision.reason_code,
+                profile_id=provider_decision.primary_profile_id,
+            )
+            provider_contexts_by_profile_id = (
+                context_spec.build_profile_contexts(
+                    provider_decision.profile_bindings,
+                    decision_reason=provider_decision.reason_code,
+                )
+            )
         command = NativeNodeCommand(
             command_id=f"ncmd:{request.run_id}:{node.node_id}:{ownership.attempt_id}",
             control_task_id=request.control_task_id,
@@ -153,6 +227,16 @@ class NativeGraphDelegationService:
             operation_id=operation_id,
             side_effect_revision=side_effect_revision,
             provider_binding=provider_decision.binding,
+            primary_profile_id=provider_decision.primary_profile_id,
+            provider_profile_bindings=provider_decision.profile_bindings,
+            provider_attempt_plan=provider_decision.profile_attempt_plan,
+            provider_maximum_attempts=(
+                provider_decision.maximum_provider_attempts
+            ),
+            provider_context=provider_context,
+            provider_contexts_by_profile_id=(
+                provider_contexts_by_profile_id
+            ),
         )
         receipt = self._queue.submit(command)
         if (

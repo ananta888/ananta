@@ -29,6 +29,9 @@ WORKFLOW_TEMPORAL_TASK_SCOPE = "workflow.temporal.tasks"
 KNOWLEDGE_INDEX_PAYLOAD_SCOPE = "knowledge.index.payloads"
 SEMANTIC_COMPUTE_WORKER_SCOPE = "semantic.compute.execute"
 SPEECH_EVIDENCE_CURATION_WORKER_SCOPE = "speech.evidence.curate"
+RECOVERY_TASK_DISPATCH_SCOPE = "task.recovery.dispatch"
+RECOVERY_TASK_MANIFEST_SCOPE = "task.recovery.manifest.read"
+RECOVERY_ARTIFACT_INGRESS_SCOPE = "task.recovery.artifacts.publish"
 
 _STRICT_ENV = "ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH"
 _KEYRING_FILE_ENV = "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE"
@@ -53,6 +56,18 @@ _SCOPE_CAPABILITIES = {
         }
     ),
     SPEECH_EVIDENCE_CURATION_WORKER_SCOPE: frozenset({"speech_evidence_curation"}),
+    # Recovery dispatch has request-bound capabilities.  Authentication proves
+    # strict registry identity here; the recovery gate then requires every
+    # capability declared by the concrete Hub task.
+    RECOVERY_TASK_DISPATCH_SCOPE: frozenset(),
+    # Recovery manifests are additionally bound to the authoritative task
+    # assignment by the Hub endpoint.  The scope itself grants no generic
+    # task-read capability.
+    RECOVERY_TASK_MANIFEST_SCOPE: frozenset(),
+    # Artifact publication is additionally fenced by the exact Recovery
+    # dispatch lease and authoritative task assignment.  This scope grants no
+    # generic Artifact create/read capability.
+    RECOVERY_ARTIFACT_INGRESS_SCOPE: frozenset(),
 }
 _RUNTIME_SERVICE_SCOPES = frozenset({WORKFLOW_TEMPORAL_TASK_SCOPE})
 
@@ -624,6 +639,8 @@ def authenticate_registered_workflow_worker(
         str(getattr(agent, "role", "") or "").strip().lower() != "worker"
         or not bool(getattr(agent, "registration_validated", False))
         or str(getattr(agent, "registration_provenance", "") or "") != STRICT_WORKER_REGISTRATION_PROVENANCE
+        or str(getattr(agent, "status", "") or "").strip().lower()
+        not in {"online", "degraded", "busy"}
         or not actual_id
         or not actual_url
     ):
@@ -675,7 +692,10 @@ def authenticate_registered_workflow_worker(
             worker_registration_tokens=(item.registration_token for item in keyring.values()),
             user_session_secret=user_session_secret,
         )
-    if not set(capabilities).intersection(_SCOPE_CAPABILITIES[required_scope]):
+    scope_capabilities = _SCOPE_CAPABILITIES[required_scope]
+    if scope_capabilities and not set(capabilities).intersection(
+        scope_capabilities
+    ):
         raise WorkflowWorkerAuthDenied(
             "workflow_worker_service_scope_forbidden",
             status_code=403,
@@ -756,6 +776,9 @@ __all__ = [
     "RegisteredWorkflowWorkerIdentity",
     "RUNTIME_SERVICE_ID_HEADER",
     "RUNTIME_SERVICE_KEYRING_SCHEMA",
+    "RECOVERY_TASK_DISPATCH_SCOPE",
+    "RECOVERY_TASK_MANIFEST_SCOPE",
+    "RECOVERY_ARTIFACT_INGRESS_SCOPE",
     "STRICT_WORKER_REGISTRATION_PROVENANCE",
     "WORKER_ID_HEADER",
     "WORKER_REGISTRATION_KEYRING_SCHEMA",

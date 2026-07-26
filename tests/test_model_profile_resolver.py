@@ -129,7 +129,10 @@ def test_security_allows_cloud_without_secrets():
         profiles=[cloud_p],
         security_policy=SecurityPolicyChecker(block_cloud_with_secrets=True),
     )
-    ctx = RoutingContext(context_text="just normal text about python")
+    ctx = RoutingContext(
+        context_text="just normal text about python",
+        allow_cloud=True,
+    )
     result = resolver.resolve(ctx)
     assert result.ok
 
@@ -347,6 +350,133 @@ def test_secret_context_blocks_cloud_candidates_but_keeps_local():
     assert result.ok
     assert [p.profile_id for p in chain] == ["local"]
     assert any(pid == "gemma" and "secrets_detected" in reason for pid, reason in result.blocked_candidates)
+
+
+def test_fallback_group_cost_cap_is_the_stricter_routing_context_limit():
+    expensive = _local(
+        "expensive",
+        fallback_group="local",
+        price_input_per_million=1_000_000.0,
+        price_output_per_million=1_000_000.0,
+        max_output_tokens=1,
+    )
+    free = _local(
+        "free",
+        fallback_group="local",
+        price_input_per_million=0.0,
+        price_output_per_million=0.0,
+        max_output_tokens=1,
+    )
+    resolver = ModelProfileResolver(
+        [expensive, free],
+        routing_rules=RoutingRules.from_dict(
+            {
+                "fallback_groups": {
+                    "local": {
+                        "ordered_profiles": ["expensive", "free"],
+                        "max_total_retries": 0,
+                        "cost_policy": {
+                            "max_estimated_cost_per_step": 1.0,
+                        },
+                    }
+                }
+            }
+        ),
+    )
+    ctx = RoutingContext(
+        fallback_group_id="local",
+        context_text="four",
+        max_estimated_cost_per_step=5.0,
+    )
+
+    result, chain = resolver.resolve_candidate_chain(ctx)
+
+    assert resolver.effective_max_estimated_cost_per_step(ctx) == 1.0
+    assert result.ok
+    assert result.profile.profile_id == "free"
+    assert [profile.profile_id for profile in chain] == ["free"]
+    assert any(
+        decision.profile_id == "expensive"
+        and decision.reason == "policy:estimated_cost_per_step_exceeded"
+        for decision in result.decisions
+    )
+
+
+def test_local_phi_gemma_group_budget_matches_profile_retry_budgets():
+    import json
+    from pathlib import Path
+
+    from agent.services.model_profile_loader import ModelProfileLoader
+
+    root = Path(__file__).resolve().parents[1]
+    routing = json.loads(
+        (
+            root
+            / "config/models/local-ollama-phi-gemma-rtx3080.model_routing.json"
+        ).read_text(encoding="utf-8")
+    )
+    profiles = ModelProfileLoader().load_file(
+        root
+        / "config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
+    )
+    rules = RoutingRules.from_dict(routing, strict=True)
+
+    assert profiles.ok, profiles.errors
+    group_id = "local_phi_to_gemma_reasoning"
+    profile_retry_budget = sum(
+        profile.retry_budget
+        for profile in profiles.profiles
+        if profile.fallback_group == group_id
+    )
+    assert profile_retry_budget == 3
+    assert rules.fallback_groups[group_id].max_total_retries == profile_retry_budget
+
+    resolver = ModelProfileResolver(
+        profiles.profiles,
+        routing_rules=rules,
+    )
+    result, chain = resolver.resolve_candidate_chain(
+        RoutingContext(
+            model_role="reasoning",
+            fallback_group_id=group_id,
+        )
+    )
+    assert result.ok
+    assert result.profile.profile_id == "local_ollama_phi4_mini"
+    assert [profile.profile_id for profile in chain] == [
+        "local_ollama_phi4_mini",
+        "local_ollama_gemma4_e4b_reasoning",
+    ]
+    gemma = next(
+        profile
+        for profile in profiles.profiles
+        if profile.profile_id == "local_ollama_gemma4_e4b_reasoning"
+    )
+    assert gemma.max_input_tokens() == 8192 - 3072
+
+
+def test_profile_context_check_reserves_configured_completion_tokens():
+    profile = _local(
+        "bounded",
+        context_tokens=100,
+        max_context_for_profile=100,
+        max_output_tokens=20,
+    )
+    resolver = ModelProfileResolver([profile])
+
+    accepted = resolver.resolve(
+        RoutingContext(context_text="x" * (80 * 4))
+    )
+    rejected = resolver.resolve(
+        RoutingContext(context_text="x" * (80 * 4 + 1))
+    )
+
+    assert accepted.ok
+    assert not rejected.ok
+    assert any(
+        decision.reason == "capability:context_too_large"
+        for decision in rejected.decisions
+    )
 
 
 # ── T02 — Token budget extension fields ──────────────────────────────────────

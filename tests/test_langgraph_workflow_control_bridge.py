@@ -13,6 +13,9 @@ from agent.services.workflow_control_bindings import (
 )
 from agent.services.workflow_control_service import RuntimeSelection, WorkflowPrincipal
 from agent.services.workflow_provider_selection_service import WorkflowProviderDecision
+from agent.services.workflow_provider_selection_service import (
+    HubConfiguredWorkflowProviderDecisionService,
+)
 from agent.services.workflow_runtime import (
     ExecutionNode,
     ExecutionPlan,
@@ -98,20 +101,31 @@ class _ProviderDecisions:
         )
 
 
-def _subject():
+def _subject(
+    *,
+    command: str = "dry_run",
+    node_metadata: dict | None = None,
+    provider_decisions=None,
+):
     plan = ExecutionPlan(
         tenant_id="tenant-a",
         plan_id="plan-a",
         workflow_id="workflow-a",
         policy_version="policy-v1",
-        nodes=(ExecutionNode(node_id="branch-a"), ExecutionNode(node_id="branch-b")),
+        nodes=(
+            ExecutionNode(
+                node_id="branch-a",
+                metadata=dict(node_metadata or {}),
+            ),
+            ExecutionNode(node_id="branch-b"),
+        ),
         capabilities=tuple(sorted(LANGGRAPH_EXECUTION_CAPABILITIES)),
         metadata={"parallel_limit": 2},
     )
     request = WorkflowRequest(
         workflow_id=plan.workflow_id,
         metadata={
-            "adapter_command": "dry_run",
+            "adapter_command": command,
             "tenant_parallel_limit": 2,
             "worker_parallel_limit": 2,
         },
@@ -140,7 +154,7 @@ def _subject():
             key_ring,
             InMemoryReplayNonceStore(),
         ),
-        provider_decisions=_ProviderDecisions(),
+        provider_decisions=provider_decisions or _ProviderDecisions(),
         reconciler_id="reconciler-a",
     )
     return bridge, bindings, queue, plan
@@ -203,3 +217,67 @@ def test_hub_fans_out_one_task_per_node_and_recovers_without_duplicates() -> Non
     assert restarted.query(principal=principal, run_id="run-a")["status"] == "completed"
     assert len(queue.submissions) == 2
     assert restarted.reconcile_active()["processed"] == 0
+
+
+def test_bridge_binds_compiled_step_routing_before_worker_delegation() -> None:
+    decisions = HubConfiguredWorkflowProviderDecisionService(
+        lambda: {
+            "model_profiles_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
+            ),
+            "model_routing_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_routing.json"
+            ),
+        }
+    )
+    bridge, _bindings, queue, plan = _subject(
+        command="execute",
+        node_metadata={
+            "model_routing": {
+                "model_role": "reasoning",
+                "preferred_profile_id": (
+                    "local_ollama_gemma4_e4b_reasoning"
+                ),
+                "fallback_group_id": "local_phi_to_gemma_reasoning",
+            }
+        },
+        provider_decisions=decisions,
+    )
+    principal = WorkflowPrincipal("tenant-a", "owner-a")
+    selection = RuntimeSelection(
+        runtime_id="langgraph",
+        capabilities=LANGGRAPH_EXECUTION_CAPABILITIES,
+        mode="live",
+        reason_code="runtime_selected",
+    )
+
+    bridge.start(
+        principal=principal,
+        plan=plan,
+        run_id="run-a",
+        selection=selection,
+        authorization_envelope={
+            "schema": "ananta.workflow_route_control.v1",
+            "tenant_id": "tenant-a",
+            "subject_id": "owner-a",
+            "workflow_id": "workflow-a",
+            "run_id": "run-a",
+        },
+    )
+
+    first = queue.submissions[0]
+    assert first.primary_profile_id == (
+        "local_ollama_gemma4_e4b_reasoning"
+    )
+    assert first.provider_binding.model_id == (
+        "ananta-gemma4-reasoning-8k"
+    )
+    assert first.model_routing["fallback_group_id"] == (
+        "local_phi_to_gemma_reasoning"
+    )
+    assert [item.profile_id for item in first.provider_profile_bindings] == [
+        "local_ollama_gemma4_e4b_reasoning",
+        "local_ollama_phi4_mini",
+    ]

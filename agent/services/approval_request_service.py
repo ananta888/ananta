@@ -22,6 +22,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import update as sa_update
 from sqlmodel import Session, select
 
 from agent.config import settings
@@ -41,6 +42,7 @@ AUDIT_APPROVAL_REQUEST_EXPIRED = "approval_request_expired"
 AUDIT_APPROVAL_REQUEST_SUPERSEDED = "approval_request_superseded"
 AUDIT_APPROVAL_LEGACY_BYPASS_USED = "approval_legacy_bypass_used"
 AUDIT_APPROVAL_REQUEST_REDISPATCH = "approval_request_redispatch"
+AUDIT_APPROVAL_DOMAIN_ACTION_FAILED = "approval_domain_action_failed"
 
 
 class ApprovalDecisionError(ValueError):
@@ -322,6 +324,7 @@ class ApprovalRequestService:
         status: str | None = None,
         task_id: str | None = None,
         goal_id: str | None = None,
+        tool_name: str | None = None,
         limit: int = 200,
     ) -> list[ApprovalRequestDB]:
         with Session(_engine()) as session:
@@ -332,6 +335,10 @@ class ApprovalRequestService:
                 statement = statement.where(ApprovalRequestDB.task_id == task_id)
             if goal_id:
                 statement = statement.where(ApprovalRequestDB.goal_id == goal_id)
+            if tool_name:
+                statement = statement.where(
+                    ApprovalRequestDB.tool_name == tool_name
+                )
             return list(session.exec(statement).all())[: max(1, min(int(limit), 1000))]
 
     def decide_request(
@@ -353,18 +360,38 @@ class ApprovalRequestService:
                 raise ApprovalDecisionError("request_not_found", 404)
             now = time.time()
             if request.status == "pending" and request.expires_at is not None and request.expires_at < now:
-                request.status = "expired"
-                session.add(request)
+                transition = session.exec(
+                    sa_update(ApprovalRequestDB)
+                    .where(
+                        ApprovalRequestDB.id == str(request_id or "")
+                    )
+                    .where(ApprovalRequestDB.status == "pending")
+                    .values(status="expired")
+                )
+                if int(
+                    getattr(transition, "rowcount", 0) or 0
+                ) != 1:
+                    session.rollback()
+                    raise ApprovalDecisionError(
+                        "request_transition_conflict",
+                        409,
+                    )
                 session.commit()
+                request = session.get(
+                    ApprovalRequestDB,
+                    str(request_id or ""),
+                )
+                if request is None:
+                    raise ApprovalDecisionError(
+                        "request_not_found",
+                        404,
+                    )
                 session.refresh(request)
                 self._audit(AUDIT_APPROVAL_REQUEST_EXPIRED, request)
                 raise ApprovalDecisionError("request_expired", 409)
             if request.status != "pending":
                 raise ApprovalDecisionError(f"request_already_{request.status}", 409)
-            request.status = decision_value
-            request.decided_at = now
-            request.decided_by = str(decided_by or "operator")
-            request.decision_reason = str(reason or "")[:500] or None
+            decision_expires_at = request.expires_at
             if expires_at is not None:
                 try:
                     override = float(expires_at)
@@ -373,17 +400,270 @@ class ApprovalRequestService:
                 max_override = now + 7 * 24 * 3600
                 if override <= now or override > max_override:
                     raise ApprovalDecisionError("expires_at_out_of_range", 400)
-                request.expires_at = override
-            session.add(request)
+                decision_expires_at = override
+            transition = session.exec(
+                sa_update(ApprovalRequestDB)
+                .where(ApprovalRequestDB.id == str(request_id or ""))
+                .where(ApprovalRequestDB.status == "pending")
+                .values(
+                    status=decision_value,
+                    decided_at=now,
+                    decided_by=str(decided_by or "operator"),
+                    decision_reason=str(reason or "")[:500] or None,
+                    expires_at=decision_expires_at,
+                )
+            )
+            if int(getattr(transition, "rowcount", 0) or 0) != 1:
+                session.rollback()
+                raise ApprovalDecisionError("request_transition_conflict", 409)
             session.commit()
+            request = session.get(ApprovalRequestDB, str(request_id or ""))
+            if request is None:
+                raise ApprovalDecisionError("request_not_found", 404)
             session.refresh(request)
         self._audit(AUDIT_APPROVAL_REQUEST_DECIDED, request, {"decision": decision_value})
         if decision_value == "granted":
             self._redispatch_task_after_grant(request)
+        # Domain-specific post-decision effects remain Hub-owned and are
+        # selected by exact tool name. Generic approvals keep their existing
+        # lifecycle and never gain an implicit execution path.
+        domain_outcome: dict[str, Any] = {}
+        try:
+            from agent.services.approval_decision_dispatcher_service import (
+                get_approval_decision_dispatcher_service,
+            )
+
+            domain_outcome = (
+                get_approval_decision_dispatcher_service().dispatch(request) or {}
+            )
+        except Exception as exc:
+            log.exception("approval decision dispatch failed")
+            domain_outcome = {
+                "status": "failed",
+                "reason_code": "approval_decision_dispatch_failed",
+                "error_type": type(exc).__name__,
+            }
+
+        if str(domain_outcome.get("status") or "") == "ignored":
+            return request
+
+        failed = str(domain_outcome.get("status") or "") == "failed"
+        request = self._persist_domain_outcome(
+            request_id=request.id,
+            outcome=domain_outcome,
+            # Recovery grants are durable outbox entries.  Reverting such a
+            # grant to pending after an interrupted side effect loses the only
+            # deterministic replay marker.
+            restore_pending=(
+                failed
+                and decision_value == "granted"
+                and str(request.tool_name or "")
+                != "planning.recovery_plan.materialize"
+            ),
+        ) or request
+        if failed:
+            self._audit(
+                AUDIT_APPROVAL_DOMAIN_ACTION_FAILED,
+                request,
+                {
+                    "reason_code": str(
+                        domain_outcome.get("reason_code")
+                        or "approval_domain_action_failed"
+                    )[:160],
+                },
+            )
+            raise ApprovalDecisionError(
+                str(
+                    domain_outcome.get("reason_code")
+                    or "approval_domain_action_failed"
+                )[:160],
+                409,
+            )
         return request
+
+    @staticmethod
+    def _bounded_domain_outcome(outcome: dict[str, Any]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key in (
+            "status",
+            "reason_code",
+            "plan_id",
+            "approval_request_id",
+            "plan_digest",
+        ):
+            value = str(outcome.get(key) or "").strip()
+            if value:
+                result[key] = value[:256]
+        node_count = outcome.get("node_count")
+        if isinstance(node_count, int) and not isinstance(node_count, bool):
+            result["node_count"] = max(0, min(node_count, 10_000))
+        created = outcome.get("created_task_ids")
+        if isinstance(created, list):
+            result["created_task_ids"] = [
+                str(value)[:160]
+                for value in created[:256]
+                if str(value).strip()
+            ]
+        return result
+
+    def _persist_domain_outcome(
+        self,
+        *,
+        request_id: str,
+        outcome: dict[str, Any],
+        restore_pending: bool,
+    ) -> ApprovalRequestDB | None:
+        """Persist a bounded handler result and keep failed actions retryable."""
+        with Session(_engine()) as session:
+            request = session.get(ApprovalRequestDB, str(request_id or ""))
+            if request is None:
+                return None
+            next_scope = {
+                **dict(request.scope or {}),
+                "decision_outcome": self._bounded_domain_outcome(outcome),
+            }
+            session.exec(
+                sa_update(ApprovalRequestDB)
+                .where(ApprovalRequestDB.id == str(request_id or ""))
+                .values(scope=next_scope)
+            )
+            if restore_pending:
+                # Never revive a concurrently consumed or expired grant.
+                session.exec(
+                    sa_update(ApprovalRequestDB)
+                    .where(
+                        ApprovalRequestDB.id
+                        == str(request_id or "")
+                    )
+                    .where(ApprovalRequestDB.status == "granted")
+                    .values(
+                        status="pending",
+                        decided_at=None,
+                        decided_by=None,
+                        decision_reason=None,
+                    )
+                )
+            session.commit()
+            request = session.get(
+                ApprovalRequestDB,
+                str(request_id or ""),
+            )
+            if request is None:
+                return None
+            session.refresh(request)
+            return request
+
+    def reconcile_granted_domain_actions(
+        self,
+        *,
+        limit: int = 64,
+    ) -> dict[str, int]:
+        """Resume durable recovery effects after a Hub interruption.
+
+        The approval row is the outbox marker: ``granted`` means the exact
+        action still needs dispatch, while a ``consumed`` recovery without a
+        persisted domain outcome may still need its paused DAG released.
+        """
+
+        from agent.services.approval_decision_dispatcher_service import (
+            get_approval_decision_dispatcher_service,
+        )
+        from agent.services.task_recovery_planning_service import (
+            RECOVERY_MATERIALIZE_TOOL,
+        )
+
+        bounded_limit = max(1, min(int(limit), 256))
+        candidates = self.list_requests(
+            status="granted",
+            tool_name=RECOVERY_MATERIALIZE_TOOL,
+            limit=bounded_limit,
+        )
+        if len(candidates) < bounded_limit:
+            consumed = self.list_requests(
+                status="consumed",
+                tool_name=RECOVERY_MATERIALIZE_TOOL,
+                limit=bounded_limit - len(candidates),
+            )
+            candidates.extend(
+                row
+                for row in consumed
+                if (
+                    not dict(row.scope or {}).get("decision_outcome")
+                    or str(
+                        dict(
+                            dict(row.scope or {}).get(
+                                "decision_outcome"
+                            )
+                            or {}
+                        ).get("status")
+                        or ""
+                    )
+                    == "failed"
+                )
+            )
+        if len(candidates) < bounded_limit:
+            denied = self.list_requests(
+                status="denied",
+                tool_name=RECOVERY_MATERIALIZE_TOOL,
+                limit=bounded_limit - len(candidates),
+            )
+            candidates.extend(
+                row
+                for row in denied
+                if (
+                    not dict(row.scope or {}).get("decision_outcome")
+                    or str(
+                        dict(
+                            dict(row.scope or {}).get(
+                                "decision_outcome"
+                            )
+                            or {}
+                        ).get("status")
+                        or ""
+                    )
+                    == "failed"
+                )
+            )
+
+        dispatcher = get_approval_decision_dispatcher_service()
+        counts = {
+            "examined": 0,
+            "completed": 0,
+            "failed": 0,
+            "in_progress": 0,
+        }
+        for request in candidates[:bounded_limit]:
+            if str(request.tool_name or "") != RECOVERY_MATERIALIZE_TOOL:
+                continue
+            counts["examined"] += 1
+            outcome = dispatcher.dispatch(request) or {}
+            status = str(outcome.get("status") or "")
+            reason_code = str(outcome.get("reason_code") or "")
+            if status == "ignored" and reason_code == (
+                "recovery_action_in_progress"
+            ):
+                counts["in_progress"] += 1
+                continue
+            if status == "ignored":
+                continue
+            self._persist_domain_outcome(
+                request_id=request.id,
+                outcome=outcome,
+                restore_pending=False,
+            )
+            if status == "failed":
+                counts["failed"] += 1
+            else:
+                counts["completed"] += 1
+        return counts
 
     def _redispatch_task_after_grant(self, request: ApprovalRequestDB) -> None:
         """ALWA-008: put a pending_approval task back into the dispatch flow."""
+        if (
+            str(request.tool_name or "")
+            == "planning.recovery_plan.materialize"
+        ):
+            return
         task_id = str(request.task_id or "").strip()
         if not task_id:
             return
@@ -393,6 +673,12 @@ class ApprovalRequestService:
             task_repo = get_repository_registry().task_repo
             task = task_repo.get_by_id(task_id)
             if task is None:
+                return
+            from agent.services.recovery_task_mutation_policy import (
+                recovery_task_role,
+            )
+
+            if recovery_task_role(task) is not None:
                 return
             if str(getattr(task, "status", "") or "") in {"pending_approval", "blocked_pending_approval", "blocked"}:
                 task.status = "todo"
@@ -470,31 +756,88 @@ class ApprovalRequestService:
     def consume_request(self, request_id: str) -> ApprovalRequestDB | None:
         with Session(_engine()) as session:
             request = session.get(ApprovalRequestDB, str(request_id or ""))
-            if request is None or request.status != "granted":
+            if request is None:
                 return None
-            request.status = "consumed"
-            request.consumed_at = time.time()
-            session.add(request)
+            if request.status == "consumed":
+                return request
+            if request.status != "granted":
+                return None
+            transition = session.exec(
+                sa_update(ApprovalRequestDB)
+                .where(
+                    ApprovalRequestDB.id == str(request_id or "")
+                )
+                .where(ApprovalRequestDB.status == "granted")
+                .values(
+                    status="consumed",
+                    consumed_at=time.time(),
+                )
+            )
+            if int(getattr(transition, "rowcount", 0) or 0) != 1:
+                session.rollback()
+                current = session.get(
+                    ApprovalRequestDB,
+                    str(request_id or ""),
+                )
+                return (
+                    current
+                    if current is not None
+                    and current.status == "consumed"
+                    else None
+                )
             session.commit()
+            request = session.get(
+                ApprovalRequestDB,
+                str(request_id or ""),
+            )
+            if request is None:
+                return None
             session.refresh(request)
         self._audit(AUDIT_APPROVAL_REQUEST_CONSUMED, request)
         return request
 
     def expire_old_requests(self) -> int:
         now = time.time()
-        expired = 0
+        expired_rows: list[ApprovalRequestDB] = []
         with Session(_engine()) as session:
             rows = session.exec(
                 select(ApprovalRequestDB).where(ApprovalRequestDB.status.in_(("pending", "granted")))  # type: ignore[attr-defined]
             ).all()
             for row in rows:
-                if row.expires_at is not None and row.expires_at < now:
+                if row.expires_at is None or row.expires_at >= now:
+                    continue
+                if (
+                    row.status == "granted"
+                    and str(row.tool_name or "")
+                    == "planning.recovery_plan.materialize"
+                ):
+                    # A granted recovery is a durable outbox item, even when
+                    # dispatch resumes after its original operator TTL.
+                    continue
+                previous_status = str(row.status or "")
+                transition = session.exec(
+                    sa_update(ApprovalRequestDB)
+                    .where(ApprovalRequestDB.id == row.id)
+                    .where(
+                        ApprovalRequestDB.status
+                        == previous_status
+                    )
+                    .where(
+                        ApprovalRequestDB.status.in_(
+                            ("pending", "granted")
+                        )
+                    )
+                    .values(status="expired")
+                )
+                if int(
+                    getattr(transition, "rowcount", 0) or 0
+                ) == 1:
                     row.status = "expired"
-                    session.add(row)
-                    expired += 1
-                    self._audit(AUDIT_APPROVAL_REQUEST_EXPIRED, row)
+                    expired_rows.append(row)
             session.commit()
-        return expired
+        for row in expired_rows:
+            self._audit(AUDIT_APPROVAL_REQUEST_EXPIRED, row)
+        return len(expired_rows)
 
     # --- goal-level pre-approvals (ALWA-011) -----------------------------------
 

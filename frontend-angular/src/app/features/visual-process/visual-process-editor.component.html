@@ -107,6 +107,21 @@
                [ngModel]="graphRouting().max_estimated_cost_per_run ?? null"
                (ngModelChange)="setGraphRoutingField('max_estimated_cost_per_run', $event === null ? undefined : +$event)" />
       </label>
+      <div class="vpe-meta-label">Kontext-Notfallkette
+        @for (strategy of recoveryStrategyOptions; track strategy) {
+          <label class="vpe-meta-label vpe-checkbox">
+            <input type="checkbox" [ngModel]="graphRecoveryStrategyEnabled(strategy)"
+                   (ngModelChange)="toggleGraphRecoveryStrategy(strategy, $event)" />
+            {{ strategy }}
+          </label>
+        }
+      </div>
+      <label class="vpe-meta-label vpe-checkbox">
+        <input type="checkbox" [ngModel]="graphRouting().require_approval_for_generated_plan !== false"
+               [disabled]="graphRecoveryStrategyEnabled('segment_planning') || graphRecoveryStrategyEnabled('propose_task_plan')"
+               (ngModelChange)="setGraphRoutingField('require_approval_for_generated_plan', $event)" />
+        Generierten Task-Plan vor Übernahme freigeben
+      </label>
       <label class="vpe-meta-label vpe-checkbox">
         <input type="checkbox" [ngModel]="!!graphRouting().allow_cloud"
                (ngModelChange)="setGraphRoutingField('allow_cloud', $event)" />

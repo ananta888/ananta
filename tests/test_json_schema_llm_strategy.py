@@ -1,18 +1,19 @@
 """Tests for JsonSchemaLLMStrategy — FA-T009/AFR-T004."""
 
 import json
-import pytest
 from unittest.mock import Mock
 
-from worker.core.propose_orchestrator import ProposeContext
+import pytest
+
+from agent.services.model_invocation_service import LLMUnavailableError
+from worker.core.json_schema_llm_strategy import JsonSchemaLLMStrategy
 from worker.core.propose import (
-    STATUS_DECLINED,
     STATUS_ADVISORY,
+    STATUS_DECLINED,
     STATUS_EXECUTABLE,
     STATUS_FAILED,
 )
-from worker.core.json_schema_llm_strategy import JsonSchemaLLMStrategy
-from agent.services.model_invocation_service import LLMUnavailableError
+from worker.core.propose_orchestrator import ProposeContext
 
 
 class TestJsonSchemaLLMStrategy:
@@ -38,7 +39,21 @@ class TestJsonSchemaLLMStrategy:
 
     def test_declined_llm_unavailable(self, context, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
-        mock_svc = Mock(side_effect=LLMUnavailableError("timeout"))
+        mock_svc = Mock(
+            side_effect=LLMUnavailableError(
+                "timeout",
+                llm_call_profile=[{"profile_id": "gemma", "error_type": "timeout"}],
+                fallback_decisions=[
+                    {
+                        "reason": "candidate_chain_exhausted",
+                        "previous_profile_id": "gemma",
+                        "trigger": "timeout",
+                        "terminal": True,
+                    }
+                ],
+                terminal_reason="timeout",
+            )
+        )
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             mock_svc,
@@ -48,17 +63,40 @@ class TestJsonSchemaLLMStrategy:
         assert result.status == STATUS_DECLINED
         assert "llm_required_but_unavailable" in result.reason
         assert "llm_provider_unavailable" in result.reason_codes
+        assert result.metadata["model_recovery_signal"]["terminal_reason"] == "timeout"
+        assert result.metadata["fallback_decisions"][0]["terminal"] is True
+
+    def test_invalid_explicit_routing_is_a_terminal_policy_decision(self, context, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "ollama")
+        context.task = {"model_routing": "invalid"}
+        mock_svc = Mock()
+        monkeypatch.setattr(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
+            mock_svc,
+        )
+
+        result = JsonSchemaLLMStrategy().run(context)
+
+        assert result.status == STATUS_DECLINED
+        assert result.reason == "model_routing_policy_blocked"
+        assert result.metadata["fallback_decisions"][0]["trigger"] == "policy_blocked"
+        assert result.metadata["fallback_decisions"][0]["terminal"] is True
+        mock_svc.assert_not_called()
 
     def test_executable_tool_calls(self, context, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
-        mock_svc = Mock(return_value={
-            "content": json.dumps({
-                "tool_calls": [{"name": "write_file", "args": {"path": "schema.py"}}],
-            }),
-            "provider": "ollama",
-            "model": "qwen2.5",
-            "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
-        })
+        mock_svc = Mock(
+            return_value={
+                "content": json.dumps(
+                    {
+                        "tool_calls": [{"name": "write_file", "args": {"path": "schema.py"}}],
+                    }
+                ),
+                "provider": "ollama",
+                "model": "qwen2.5",
+                "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
+            }
+        )
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             mock_svc,
@@ -161,12 +199,34 @@ class TestJsonSchemaEffectiveConfigPropagation:
 
     def test_effective_config_real_provider_invokes_llm(self, ctx, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "mock")
-        mock_invoke = Mock(return_value={
-            "content": json.dumps({"tool_calls": [{"name": "write_file", "args": {"path": "f.py", "content": ""}}]}),
-            "provider": "ollama",
-            "model": "eff-model",
-            "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False, "success": True}]},
-        })
+        attempt_plan = [
+            {
+                "profile_id": "phi",
+                "binding_id": "provider-binding:" + "a" * 64,
+                "provider_id": "ollama",
+                "model_id": "phi4-mini",
+                "maximum_attempts": 3,
+            }
+        ]
+        ctx.effective_config.update(
+            {
+                "provider_context": {"provider_profile_id": "phi"},
+                "provider_contexts_by_profile_id": {"phi": {"provider_profile_id": "phi"}},
+                "provider_attempt_plan": attempt_plan,
+            }
+        )
+        mock_invoke = Mock(
+            return_value={
+                "content": json.dumps(
+                    {"tool_calls": [{"name": "write_file", "args": {"path": "f.py", "content": ""}}]}
+                ),
+                "provider": "ollama",
+                "model": "eff-model",
+                "metadata": {
+                    "llm_call_profile": [{"source": "model_invocation_service", "estimated": False, "success": True}]
+                },
+            }
+        )
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             mock_invoke,
@@ -176,3 +236,7 @@ class TestJsonSchemaEffectiveConfigPropagation:
         # effective_config overrides settings' "mock" to "ollama" — LLM should be invoked
         assert mock_invoke.called, "invoke must be called when effective_config provider is real"
         assert result.status in (STATUS_EXECUTABLE, STATUS_DECLINED)  # declined only if tool-name filtered
+        call_kwargs = mock_invoke.call_args.kwargs
+        assert call_kwargs["provider_context"] == {"provider_profile_id": "phi"}
+        assert call_kwargs["provider_contexts_by_profile_id"] == {"phi": {"provider_profile_id": "phi"}}
+        assert call_kwargs["provider_attempt_plan"] == attempt_plan

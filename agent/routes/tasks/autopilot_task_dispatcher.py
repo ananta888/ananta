@@ -19,6 +19,14 @@ from agent.routes.tasks.autopilot_strategy_candidates import (
     _safe_context_length,
     _strategy_cfg,
 )
+from agent.services.recovery_dispatch_gate_service import (
+    get_recovery_dispatch_gate_service,
+    recovery_dispatch_request_fingerprint,
+)
+from ananta_contracts.model_recovery import (
+    is_recoverable_model_error_type,
+    sanitize_terminal_model_recovery_signal,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.tool_guardrails import estimate_text_tokens
 
@@ -59,6 +67,25 @@ def _dispatch_one_task_inner(  # noqa: C901
     # Skip stale dispatch candidates when a parallel thread already finalized
     # this task in the database.
     app_ctx = getattr(loop, "_app", None)
+    recovery_gate = get_recovery_dispatch_gate_service()
+    with recovery_gate.dispatch_guard(
+        task.id,
+        app=app_ctx,
+    ) as gate_decision:
+        if not gate_decision.allowed:
+            append_trace_event(
+                task.id,
+                "autopilot_dispatch_skipped_recovery_gate",
+                delegated_to=target_worker.url,
+                reason_code=gate_decision.reason_code,
+                plan_id=gate_decision.plan_id,
+                source_task_id=gate_decision.source_task_id,
+                release_epoch=gate_decision.release_epoch,
+            )
+            result.dispatched = True
+            result.failed = True
+            result.failure_type = gate_decision.reason_code
+            return result
     latest_status = _current_task_status(task.id, app=app_ctx)
     if _is_terminal_status(latest_status):
         append_trace_event(
@@ -79,7 +106,14 @@ def _dispatch_one_task_inner(  # noqa: C901
         repos = get_repository_registry(app_ctx)
         goal_obj = repos.goal_repo.get_by_id(goal_id)
         goal_status = str(getattr(goal_obj, "status", "") or "").strip().lower()
-        if goal_status in {"completed", "failed", "cancelled", "aborted", "timeout"}:
+        if goal_status in {
+            "completed",
+            "failed",
+            "cancelled",
+            "aborted",
+            "timeout",
+            "archived",
+        }:
             append_trace_event(
                 task.id,
                 "autopilot_dispatch_skipped_goal_terminal",
@@ -115,12 +149,30 @@ def _dispatch_one_task_inner(  # noqa: C901
             result.failed = latest_status != "completed"
             result.failure_type = None if result.completed else latest_status
             return result
-        update_local_task_status(
+        with recovery_gate.dispatch_guard(
             task.id,
-            "assigned",
-            assigned_agent_url=target_worker.url,
-            assigned_agent_token=target_worker.token,
-        )
+            app=app_ctx,
+        ) as gate_decision:
+            if not gate_decision.allowed:
+                append_trace_event(
+                    task.id,
+                    "autopilot_assignment_skipped_recovery_gate",
+                    delegated_to=target_worker.url,
+                    reason_code=gate_decision.reason_code,
+                    plan_id=gate_decision.plan_id,
+                    source_task_id=gate_decision.source_task_id,
+                    release_epoch=gate_decision.release_epoch,
+                )
+                result.dispatched = True
+                result.failed = True
+                result.failure_type = gate_decision.reason_code
+                return result
+            update_local_task_status(
+                task.id,
+                "assigned",
+                assigned_agent_url=target_worker.url,
+                assigned_agent_token=target_worker.token,
+            )
         append_trace_event(
             task.id,
             "autopilot_handoff",
@@ -301,6 +353,8 @@ def _dispatch_one_task_inner(  # noqa: C901
         strategy_failures: list[dict[str, Any]] = []
         collected_llm_profiles: list[dict[str, Any]] = []
         selected_attempt_meta: dict[str, Any] = {}
+        rejected_terminal_model_signal_seen = False
+        verified_terminal_model_signal_seen = False
         required_context_tokens = max(
             1024,
             estimate_text_tokens(getattr(task, "title", None))
@@ -505,6 +559,60 @@ def _dispatch_one_task_inner(  # noqa: C901
                 propose_payload["model"] = candidate_model
             if candidate_temperature is not None:
                 propose_payload["temperature"] = candidate_temperature
+            from agent.services.recovery_task_mutation_policy import (
+                recovery_task_role,
+            )
+
+            run_evidence_context = None
+            if recovery_task_role(task) == "child":
+                run_evidence_context = (
+                    recovery_gate.reserve_run_evidence_context(
+                        task.id,
+                        worker_url=target_worker.url,
+                        replace=True,
+                        app=app_ctx,
+                    )
+                )
+            if run_evidence_context is not None:
+                propose_payload[
+                    "recovery_run_evidence_context"
+                ] = run_evidence_context
+            dispatch_lease = recovery_gate.acquire_dispatch_lease(
+                task.id,
+                phase="propose",
+                worker_url=target_worker.url,
+                request_fingerprint=(
+                    recovery_dispatch_request_fingerprint(
+                        "propose",
+                        propose_payload,
+                    )
+                ),
+                app=app_ctx,
+            )
+            if not dispatch_lease.allowed:
+                append_trace_event(
+                    task.id,
+                    "autopilot_propose_skipped_recovery_lease",
+                    delegated_to=target_worker.url,
+                    reason_code=(
+                        dispatch_lease.decision.reason_code
+                    ),
+                    source_task_id=(
+                        dispatch_lease.decision.source_task_id
+                    ),
+                    plan_id=dispatch_lease.decision.plan_id,
+                )
+                result.dispatched = True
+                result.failed = True
+                result.failure_type = (
+                    dispatch_lease.decision.reason_code
+                )
+                return result
+            if dispatch_lease.token:
+                propose_payload["dispatch_lease_token"] = (
+                    dispatch_lease.token
+                )
+                propose_payload["dispatch_lease_phase"] = "propose"
             append_trace_event(
                 task.id,
                 "autopilot_strategy_attempt",
@@ -553,8 +661,68 @@ def _dispatch_one_task_inner(  # noqa: C901
                     token=target_worker.token,
                 )
                 WORKER_PROPOSE_DURATION_SECONDS.observe(max(0.0, time.time() - _propose_started))
-                candidate_data = services.autopilot_decision_service.normalize_proposal_data(candidate_data)
+                if dispatch_lease.token:
+                    with recovery_gate.result_guard(
+                        task.id,
+                        token=dispatch_lease.token,
+                        phase="propose",
+                        request_fingerprint=(
+                            recovery_dispatch_request_fingerprint(
+                                "propose",
+                                propose_payload,
+                            )
+                        ),
+                        worker_url=target_worker.url,
+                        app=app_ctx,
+                    ) as result_decision:
+                        if not result_decision.allowed:
+                            append_trace_event(
+                                task.id,
+                                "autopilot_propose_result_rejected",
+                                delegated_to=target_worker.url,
+                                reason_code=(
+                                    result_decision.reason_code
+                                ),
+                            )
+                            result.dispatched = True
+                            result.failed = True
+                            result.failure_type = (
+                                result_decision.reason_code
+                            )
+                            return result
+                        candidate_data = (
+                            services.autopilot_decision_service
+                            .normalize_proposal_data(candidate_data)
+                        )
+                        from agent.services.recovery_worker_result_service import (
+                            get_recovery_worker_result_service,
+                        )
+
+                        get_recovery_worker_result_service().accept_proposal_response(
+                            task_id=task.id,
+                            response=candidate_data,
+                        )
+                else:
+                    candidate_data = services.autopilot_decision_service.normalize_proposal_data(candidate_data)
             except Exception as strategy_exc:
+                if dispatch_lease.token:
+                    recovery_gate.revoke_dispatch_lease(
+                        task.id,
+                        reason_code=(
+                            "recovery_dispatch_transport_outcome_unknown"
+                        ),
+                        app=app_ctx,
+                    )
+                    append_trace_event(
+                        task.id,
+                        "autopilot_propose_transport_fenced",
+                        delegated_to=target_worker.url,
+                        attempt=attempt_index,
+                        reason=str(strategy_exc),
+                        reason_code=(
+                            "recovery_dispatch_transport_outcome_unknown"
+                        ),
+                    )
                 record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
                 if callable(record_propose_attempt):
                     record_propose_attempt(task.id, success=False)
@@ -596,6 +764,44 @@ def _dispatch_one_task_inner(  # noqa: C901
             record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
             if callable(record_propose_attempt):
                 record_propose_attempt(task.id, success=False)
+            raw_recovery_signal = candidate_snapshot.get(
+                "model_recovery_signal"
+            )
+            terminal_recovery_signal = (
+                sanitize_terminal_model_recovery_signal(
+                    raw_recovery_signal
+                )
+            )
+            if terminal_recovery_signal is not None:
+                verified_terminal_model_signal_seen = True
+            fallback_decisions = [
+                dict(item)
+                for item in list(
+                    candidate_snapshot.get("fallback_decisions")
+                    or []
+                )[-16:]
+                if isinstance(item, dict)
+            ]
+            terminal_denial_seen = any(
+                bool(item.get("terminal"))
+                and not is_recoverable_model_error_type(
+                    item.get("trigger")
+                )
+                for item in fallback_decisions
+            )
+            terminal_signal_seen = bool(
+                candidate_snapshot.get(
+                    "terminal_model_recovery_signal_seen"
+                )
+            ) or (
+                isinstance(raw_recovery_signal, dict)
+                and raw_recovery_signal.get("terminal") is True
+            )
+            if terminal_denial_seen or (
+                terminal_signal_seen
+                and terminal_recovery_signal is None
+            ):
+                rejected_terminal_model_signal_seen = True
             strategy_failures.append(
                 {
                     "attempt": attempt_index,
@@ -608,8 +814,48 @@ def _dispatch_one_task_inner(  # noqa: C901
                     "required_context_tokens": required_context_tokens,
                     "failure_type": "invalid_proposal",
                     "raw_preview": candidate_snapshot.get("raw_preview"),
+                    **(
+                        {
+                            "model_recovery_signal": dict(
+                                terminal_recovery_signal
+                            )
+                        }
+                        if terminal_recovery_signal is not None
+                        else {}
+                    ),
+                    **(
+                        {
+                            "fallback_decisions": [
+                                dict(item)
+                                for item in fallback_decisions
+                            ]
+                        }
+                        if fallback_decisions
+                        else {}
+                    ),
                 }
             )
+            if (
+                terminal_recovery_signal is not None
+                or terminal_denial_seen
+                or terminal_signal_seen
+            ):
+                append_trace_event(
+                    task.id,
+                    "autopilot_terminal_model_chain_observed",
+                    delegated_to=target_worker.url,
+                    attempt=attempt_index,
+                    terminal_reason=(
+                        (
+                            terminal_recovery_signal or {}
+                        ).get("terminal_reason")
+                        or "terminal_model_denial"
+                    ),
+                    recovery_eligible=(
+                        terminal_recovery_signal is not None
+                    ),
+                )
+                break
 
         if propose_data is None:
             latest_status = _current_task_status(task.id, app=app_ctx)
@@ -654,12 +900,73 @@ def _dispatch_one_task_inner(  # noqa: C901
             allow_human_review = bool(propose_policy_cfg.get("allow_human_review", True))
             on_declined = str(propose_policy_cfg.get("on_all_strategies_declined") or "needs_review").strip().lower()
             repair_budget, repair_delay_seconds = _resolve_autonomous_repair_budget(agent_cfg=agent_cfg)
+            recovery_outcome: dict[str, Any] = {}
+            try:
+                from agent.services.model_recovery_strategy_executor import (
+                    get_model_recovery_strategy_executor,
+                )
+
+                recovery_outcome = (
+                    get_model_recovery_strategy_executor().execute_after_model_exhaustion(
+                        task=task,
+                        strategy_failures=strategy_failures,
+                    )
+                    or {}
+                )
+            except Exception as recovery_exc:
+                log.warning(
+                    "Hub task recovery proposal failed for task %s: %s",
+                    task.id,
+                    recovery_exc,
+                )
+                recovery_outcome = {
+                    "status": "failed",
+                    "reason_code": "task_recovery_coordinator_failed",
+                    "error_type": type(recovery_exc).__name__,
+                }
+            recovery_pending = (
+                str(recovery_outcome.get("status") or "").strip().lower()
+                == "pending_approval"
+            )
+            recovery_terminal_handled = bool(
+                recovery_outcome.get(
+                    "terminal_model_chain_handled"
+                )
+            ) or verified_terminal_model_signal_seen
             schedule_repair_retry = (
                 terminalize_no_exec
                 and not allow_human_review
                 and repair_rounds < repair_budget
+                and not recovery_pending
+                and not recovery_terminal_handled
+                and not rejected_terminal_model_signal_seen
             )
-            if schedule_repair_retry:
+            if recovery_pending:
+                retry_status = "waiting_for_review"
+                cooldown_seconds = 0
+                reason_code = "model_recovery_plan_pending_approval"
+            elif rejected_terminal_model_signal_seen:
+                retry_status = (
+                    "waiting_for_review"
+                    if allow_human_review
+                    else "failed"
+                )
+                cooldown_seconds = 0
+                reason_code = (
+                    "invalid_terminal_model_recovery_signal"
+                )
+            elif recovery_terminal_handled:
+                retry_status = (
+                    "waiting_for_review"
+                    if allow_human_review
+                    else "failed"
+                )
+                cooldown_seconds = 0
+                reason_code = str(
+                    recovery_outcome.get("reason_code")
+                    or "model_recovery_stopped"
+                )[:160]
+            elif schedule_repair_retry:
                 retry_status = "todo"
                 cooldown_seconds = repair_delay_seconds
             elif terminalize_no_exec and allow_human_review:
@@ -685,6 +992,57 @@ def _dispatch_one_task_inner(  # noqa: C901
                     "next_retry_after": (now_ts + cooldown_seconds) if cooldown_seconds > 0 else now_ts,
                     "reason_code": reason_code,
                 },
+                **(
+                    {
+                        "model_recovery": {
+                            "schema": "ananta.task_recovery_state.v1",
+                            "status": "pending_approval",
+                            "plan_id": recovery_outcome.get("plan_id"),
+                            "approval_request_id": recovery_outcome.get("approval_request_id"),
+                            "recovery_key": recovery_outcome.get("recovery_key"),
+                            "node_count": recovery_outcome.get("node_count"),
+                        }
+                    }
+                    if recovery_pending
+                    else {}
+                ),
+                **(
+                    {
+                        "model_recovery_strategy": {
+                            "schema": (
+                                "ananta.model_recovery_strategy.v1"
+                            ),
+                            "status": recovery_outcome.get(
+                                "status"
+                            ),
+                            "reason_code": recovery_outcome.get(
+                                "reason_code"
+                            ),
+                            "recovery_actions": list(
+                                recovery_outcome.get(
+                                    "recovery_actions"
+                                )
+                                or []
+                            ),
+                            "policy_hash": recovery_outcome.get(
+                                "policy_hash"
+                            ),
+                            "compaction": dict(
+                                recovery_outcome.get(
+                                    "compaction"
+                                )
+                                or {}
+                            ),
+                            "compacted_context_hash": (
+                                recovery_outcome.get(
+                                    "compacted_context_hash"
+                                )
+                            ),
+                        }
+                    }
+                    if recovery_terminal_handled
+                    else {}
+                ),
             }
             retry_snapshot = _ensure_llm_profile_snapshot(
                 snapshot={"strategy_failures": strategy_failures[-5:]},
@@ -697,19 +1055,154 @@ def _dispatch_one_task_inner(  # noqa: C901
                     )
                 ),
             )
+            if recovery_pending:
+                authoritative_task = (
+                    get_repository_registry(app_ctx)
+                    .task_repo.get_by_id(task.id)
+                )
+                authoritative_recovery = dict(
+                    (
+                        getattr(
+                            authoritative_task,
+                            "status_reason_details",
+                            None,
+                        )
+                        or {}
+                    ).get("model_recovery")
+                    or {}
+                )
+                authoritative_recovery_status = str(
+                    authoritative_recovery.get("status") or ""
+                ).strip().lower()
+                if authoritative_recovery_status not in {
+                    "",
+                    "pending_approval",
+                }:
+                    append_trace_event(
+                        task.id,
+                        "autopilot_recovery_state_write_skipped",
+                        delegated_to=target_worker.url,
+                        authoritative_recovery_status=(
+                            authoritative_recovery_status
+                        ),
+                        recovery_plan_id=(
+                            authoritative_recovery.get("plan_id")
+                        ),
+                    )
+                    result.dispatched = True
+                    result.failed = (
+                        authoritative_recovery_status
+                        not in {
+                            "materialized",
+                            "materialized_waiting_for_children",
+                        }
+                    )
+                    result.failure_type = (
+                        None
+                        if not result.failed
+                        else authoritative_recovery_status
+                    )
+                    return result
+            latest_status = _current_task_status(task.id, app=app_ctx)
+            if _is_terminal_status(latest_status):
+                append_trace_event(
+                    task.id,
+                    "autopilot_strategy_update_skipped_terminal",
+                    delegated_to=target_worker.url,
+                    terminal_status=latest_status,
+                    recovery_plan_id=recovery_outcome.get("plan_id"),
+                )
+                result.dispatched = True
+                result.completed = latest_status == "completed"
+                result.failed = latest_status != "completed"
+                result.failure_type = (
+                    None if result.completed else latest_status
+                )
+                return result
             update_local_task_status(
                 task.id,
                 retry_status,
                 error="autopilot_strategy_exhausted",
                 verification_status=verification_status,
+                status_reason_code=reason_code,
+                status_reason_details={
+                    **dict(getattr(task, "status_reason_details", None) or {}),
+                    **(
+                        {
+                            "model_recovery": {
+                                "schema": "ananta.task_recovery_state.v1",
+                                "status": "pending_approval",
+                                "plan_id": recovery_outcome.get("plan_id"),
+                                "approval_request_id": recovery_outcome.get("approval_request_id"),
+                                "recovery_key": recovery_outcome.get("recovery_key"),
+                                "recovery_depth": 1,
+                            }
+                        }
+                        if recovery_pending
+                        else {}
+                    ),
+                    **(
+                        {
+                            "model_recovery_strategy": {
+                                "schema": (
+                                    "ananta.model_recovery_strategy.v1"
+                                ),
+                                "status": recovery_outcome.get(
+                                    "status"
+                                ),
+                                "reason_code": (
+                                    recovery_outcome.get(
+                                        "reason_code"
+                                    )
+                                ),
+                                "recovery_actions": list(
+                                    recovery_outcome.get(
+                                        "recovery_actions"
+                                    )
+                                    or []
+                                ),
+                                "policy_hash": (
+                                    recovery_outcome.get(
+                                        "policy_hash"
+                                    )
+                                ),
+                                "compaction": dict(
+                                    recovery_outcome.get(
+                                        "compaction"
+                                    )
+                                    or {}
+                                ),
+                                "compacted_context_hash": (
+                                    recovery_outcome.get(
+                                        "compacted_context_hash"
+                                    )
+                                ),
+                            }
+                        }
+                        if recovery_terminal_handled
+                        else {}
+                    ),
+                },
                 manual_override_until=(now_ts + cooldown_seconds) if cooldown_seconds > 0 else None,
                 last_proposal=_merged_last_proposal_snapshot(
                     task_id=task.id,
                     snapshot=retry_snapshot,
                     app=app_ctx,
                 ),
-                force=True,
-                event_type="autopilot_strategy_retry_scheduled",
+                force=False,
+                event_type=(
+                    "task_recovery_plan_pending_approval"
+                    if recovery_pending
+                    else (
+                        "model_recovery_strategy_stopped"
+                        if recovery_terminal_handled
+                        else (
+                            "invalid_terminal_model_recovery_signal_stopped"
+                            if rejected_terminal_model_signal_seen
+                            else "autopilot_strategy_retry_scheduled"
+                        )
+                    )
+                ),
                 event_actor="autopilot_tick",
                 event_details={
                     "retry_status": retry_status,
@@ -721,6 +1214,9 @@ def _dispatch_one_task_inner(  # noqa: C901
                     "repair_budget": repair_budget,
                     "allow_human_review": allow_human_review,
                     "on_all_strategies_declined": on_declined,
+                    "model_recovery_status": recovery_outcome.get("status"),
+                    "recovery_plan_id": recovery_outcome.get("plan_id"),
+                    "approval_request_id": recovery_outcome.get("approval_request_id"),
                 },
             )
             append_trace_event(
@@ -729,9 +1225,23 @@ def _dispatch_one_task_inner(  # noqa: C901
                 delegated_to=target_worker.url,
                 failures=strategy_failures[-5:],
                 cooldown_seconds=cooldown_seconds,
+                model_recovery={
+                    "status": recovery_outcome.get("status"),
+                    "reason_code": recovery_outcome.get("reason_code"),
+                    "plan_id": recovery_outcome.get("plan_id"),
+                    "approval_request_id": recovery_outcome.get("approval_request_id"),
+                },
             )
             result.failed = True
-            result.failure_type = "strategy_exhausted"
+            result.failure_type = (
+                "recovery_plan_pending_approval"
+                if recovery_pending
+                else (
+                    str(recovery_outcome.get("reason_code"))
+                    if recovery_terminal_handled
+                    else "strategy_exhausted"
+                )
+            )
             return result
 
         model_meta.update(selected_attempt_meta)

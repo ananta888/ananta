@@ -70,7 +70,13 @@ class OpenAIStrategy(LLMStrategy):
                 payload["response_format"] = {"type": "json_object"}
 
         resp = _http_post(
-            url, payload, headers=headers, timeout=timeout, idempotency_key=idempotency_key, return_response=True
+            url,
+            payload,
+            headers=headers,
+            timeout=timeout,
+            idempotency_key=idempotency_key,
+            return_response=True,
+            allow_redirects=False,
         )
         self._handle_response(resp, url)
 
@@ -151,7 +157,13 @@ class AnthropicStrategy(LLMStrategy):
                 payload["tool_choice"] = tool_choice
 
         resp = _http_post(
-            url, payload, headers=headers, timeout=timeout, idempotency_key=idempotency_key, return_response=True
+            url,
+            payload,
+            headers=headers,
+            timeout=timeout,
+            idempotency_key=idempotency_key,
+            return_response=True,
+            allow_redirects=False,
         )
         self._handle_response(resp, url)
 
@@ -220,7 +232,14 @@ class OllamaStrategy(LLMStrategy):
         if "json" in full_prompt.lower() and not tools:
             payload["format"] = "json"
 
-        resp = _http_post(url, payload, timeout=timeout, idempotency_key=idempotency_key, return_response=True)
+        resp = _http_post(
+            url,
+            payload,
+            timeout=timeout,
+            idempotency_key=idempotency_key,
+            return_response=True,
+            allow_redirects=False,
+        )
         self._handle_response(resp, url)
 
         data = resp.json()

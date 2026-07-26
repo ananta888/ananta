@@ -1,4 +1,6 @@
-import time
+import json
+
+import pytest
 
 from agent.routes.tasks import utils as task_utils
 
@@ -76,3 +78,105 @@ def test_forward_to_worker_extends_timeout_for_step_propose(monkeypatch, app):
     assert result == {"ok": True}
     assert calls[0]["url"] == "http://worker.local/tasks/T-1/step/propose"
     assert calls[0]["timeout"] == 195
+
+
+class StreamingResponse:
+    status_code = 200
+    headers: dict[str, str] = {}
+
+    def __init__(self, chunks: list[bytes]) -> None:
+        self.chunks = chunks
+        self.closed = False
+        self.json_calls = 0
+
+    def iter_content(
+        self,
+        *,
+        chunk_size: int,
+        decode_unicode: bool,
+    ):
+        assert chunk_size > 0
+        assert decode_unicode is False
+        yield from self.chunks
+
+    def json(self):
+        self.json_calls += 1
+        raise AssertionError("streamed Recovery body used response.json")
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_recovery_forward_streams_and_bounds_body_before_json_parse(
+    monkeypatch,
+):
+    payload = {
+        "status": "success",
+        "data": {
+            "status": "completed",
+            "artifacts": [],
+        },
+    }
+    encoded = json.dumps(payload).encode("utf-8")
+    response = StreamingResponse(
+        [encoded[:7], encoded[7:]]
+    )
+    calls = []
+
+    def fake_http_post(url, **kwargs):
+        calls.append({"url": url, **kwargs})
+        return response
+
+    monkeypatch.setattr(
+        task_utils,
+        "_http_post",
+        fake_http_post,
+    )
+
+    result = task_utils._forward_to_worker(
+        "http://worker.local",
+        "/tasks/recovery-child/step/execute",
+        {
+            "dispatch_lease_token": "lease-token",
+            "dispatch_lease_phase": "execute",
+        },
+        token="worker-token",
+    )
+
+    assert result == payload
+    assert calls[0]["stream"] is True
+    assert calls[0]["return_response"] is True
+    assert response.json_calls == 0
+    assert response.closed is True
+
+
+def test_recovery_forward_rejects_oversized_stream_before_json_parse(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        task_utils,
+        "MAX_RECOVERY_FORWARD_RESPONSE_BYTES",
+        8,
+    )
+    response = StreamingResponse(
+        [b'{"data"', b':"oversized"}']
+    )
+    monkeypatch.setattr(
+        task_utils,
+        "_http_post",
+        lambda _url, **_kwargs: response,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="recovery_worker_response_too_large",
+    ):
+        task_utils._forward_to_worker(
+            "http://worker.local",
+            "/tasks/recovery-child/step/execute",
+            {"dispatch_lease_token": "lease-token"},
+            token="worker-token",
+        )
+
+    assert response.json_calls == 0
+    assert response.closed is True

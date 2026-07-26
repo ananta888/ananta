@@ -358,6 +358,153 @@ class TestGoalsAPIPlanningRecovery:
         assert patched["title"] == "Adjusted step"
         assert patched["status"] == "edited"
 
+    def test_goal_plan_id_routes_address_non_latest_plan_without_changing_latest_contract(
+        self,
+        client,
+        admin_auth_header,
+        user_auth_header,
+    ):
+        goal = goal_repo.save(
+            GoalDB(
+                goal="Review an approval-bound recovery plan",
+                summary="Review an approval-bound recovery plan",
+                status="planned",
+            )
+        )
+        older_plan = plan_repo.save(
+            PlanDB(
+                id="plan-exact-older",
+                goal_id=goal.id,
+                trace_id=goal.trace_id,
+                status="pending_approval",
+                created_at=10.0,
+                updated_at=10.0,
+            )
+        )
+        older_node = plan_node_repo.save(
+            PlanNodeDB(
+                id="node-exact-older",
+                plan_id=older_plan.id,
+                node_key="recovery-step",
+                title="Original recovery step",
+                position=0,
+            )
+        )
+        latest_plan = plan_repo.save(
+            PlanDB(
+                id="plan-exact-latest",
+                goal_id=goal.id,
+                trace_id=goal.trace_id,
+                status="draft",
+                created_at=20.0,
+                updated_at=20.0,
+            )
+        )
+        plan_node_repo.save(
+            PlanNodeDB(
+                id="node-exact-latest",
+                plan_id=latest_plan.id,
+                node_key="latest-step",
+                title="Latest step",
+                position=0,
+            )
+        )
+
+        latest_response = client.get(
+            f"/goals/{goal.id}/plan",
+            headers=admin_auth_header,
+        )
+        assert latest_response.status_code == 200
+        assert latest_response.get_json()["data"]["plan"]["id"] == latest_plan.id
+
+        exact_response = client.get(
+            f"/goals/{goal.id}/plans/{older_plan.id}",
+            headers=admin_auth_header,
+        )
+        assert exact_response.status_code == 200
+        exact_payload = exact_response.get_json()["data"]
+        assert exact_payload["plan"]["id"] == older_plan.id
+        assert [node["id"] for node in exact_payload["nodes"]] == [older_node.id]
+
+        forbidden_response = client.patch(
+            f"/goals/{goal.id}/plans/{older_plan.id}/nodes/{older_node.id}",
+            headers=user_auth_header,
+            json={"title": "Must not be changed"},
+        )
+        assert forbidden_response.status_code == 403
+
+        patch_response = client.patch(
+            f"/goals/{goal.id}/plans/{older_plan.id}/nodes/{older_node.id}",
+            headers=admin_auth_header,
+            json={"title": "Operator-reviewed recovery step", "priority": "High"},
+        )
+        assert patch_response.status_code == 200
+        patched = patch_response.get_json()["data"]
+        assert patched["title"] == "Operator-reviewed recovery step"
+        assert patched["priority"] == "High"
+        assert patched["status"] == "edited"
+
+        legacy_patch_response = client.patch(
+            f"/goals/{goal.id}/plan/nodes/{older_node.id}",
+            headers=admin_auth_header,
+            json={"title": "Legacy route still targets latest"},
+        )
+        assert legacy_patch_response.status_code == 404
+        assert legacy_patch_response.get_json()["message"] == "node_not_found"
+
+    def test_goal_plan_id_routes_reject_plan_from_another_goal(
+        self,
+        client,
+        admin_auth_header,
+    ):
+        visible_goal = goal_repo.save(
+            GoalDB(
+                goal="Visible goal",
+                summary="Visible goal",
+                status="planned",
+            )
+        )
+        other_goal = goal_repo.save(
+            GoalDB(
+                goal="Other goal",
+                summary="Other goal",
+                status="planned",
+            )
+        )
+        other_plan = plan_repo.save(
+            PlanDB(
+                id="plan-from-other-goal",
+                goal_id=other_goal.id,
+                trace_id=other_goal.trace_id,
+                status="pending_approval",
+            )
+        )
+        other_node = plan_node_repo.save(
+            PlanNodeDB(
+                id="node-from-other-goal",
+                plan_id=other_plan.id,
+                node_key="other-step",
+                title="Other step",
+                position=0,
+            )
+        )
+
+        get_response = client.get(
+            f"/goals/{visible_goal.id}/plans/{other_plan.id}",
+            headers=admin_auth_header,
+        )
+        assert get_response.status_code == 404
+        assert get_response.get_json()["message"] == "plan_not_found"
+
+        patch_response = client.patch(
+            f"/goals/{visible_goal.id}/plans/{other_plan.id}/nodes/{other_node.id}",
+            headers=admin_auth_header,
+            json={"title": "Cross-goal mutation"},
+        )
+        assert patch_response.status_code == 404
+        assert patch_response.get_json()["message"] == "plan_not_found"
+        assert plan_node_repo.get_by_id(other_node.id).title == "Other step"
+
     def test_non_admin_goal_access_is_team_scoped(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
         monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)

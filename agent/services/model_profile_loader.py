@@ -19,7 +19,7 @@ ALLOWED_PROVIDERS = frozenset({
 })
 
 ALLOWED_MODEL_ROLES = frozenset({
-    "planner", "coder", "reviewer", "embedder", "summarizer", "chat", "any",
+    "planner", "coder", "reviewer", "embedder", "summarizer", "chat", "reasoning", "any",
 })
 
 ALLOWED_TOOL_CALLING_MODES = frozenset({"native_tools", "prompt_json", "both", "none"})
@@ -81,6 +81,17 @@ class ModelProfile:
 
     def supports_native_tools(self) -> bool:
         return self.supports_tools and self.tool_calling_mode in {"native_tools", "both"}
+
+    def max_input_tokens(self) -> int:
+        """Return the prompt budget after reserving completion capacity."""
+
+        context_window = max(1, int(self.context_tokens or 1))
+        if self.max_context_for_profile is not None:
+            context_window = min(
+                context_window,
+                max(1, int(self.max_context_for_profile)),
+            )
+        return max(1, context_window - max(1, int(self.max_output_tokens or 1)))
 
 
 @dataclass
@@ -210,7 +221,8 @@ class ModelProfileLoader:
             "temperature", "cost_class", "quality_class", "price_input_per_million",
             "price_output_per_million", "estimated_latency_class", "json_reliability_class",
             "tool_calling_mode", "preferred_for", "avoid_for", "max_context_for_profile",
-            "retry_budget", "fallback_group", "fallback_rank", "api_key_env", "base_url",
+            "retry_budget", "fallback_group", "fallback_rank", "api_key_env",
+            "base_url",
             "enabled", "notes",
             # T02 — token budget extension fields
             "context_window_tokens", "hard_max_output_tokens", "tokenizer_strategy",

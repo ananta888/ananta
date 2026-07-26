@@ -1,10 +1,52 @@
 import time
 from typing import Any, Callable, Dict, List, Optional
 
-from agent.repository import task_repo
-from agent.services.task_runtime_service import update_local_task_status
+from agent.repository import goal_repo, task_repo
+from agent.services.recovery_dispatch_gate_service import (
+    get_recovery_dispatch_gate_service,
+)
+from agent.services.recovery_task_mutation_policy import (
+    recovery_task_role,
+)
+from agent.services.task_runtime_service import (
+    compare_and_set_local_task_status,
+    update_local_task_status,
+)
 from agent.services.task_state_machine_service import can_autopilot_dispatch
 from agent.services.task_status_service import normalize_task_status
+
+_DEPENDENCY_SUCCESS_STATUSES = frozenset({"completed"})
+_DEPENDENCY_FAILURE_TERMINAL_STATUSES = frozenset(
+    {
+        "failed",
+        "verification_failed",
+        "cancelled",
+        "aborted",
+        "timeout",
+        "skipped",
+        "archived",
+    }
+)
+
+
+def _normalized_dependency_ids(
+    task: Any,
+    dependency_resolver: Callable[[Any], List[str]],
+) -> List[str]:
+    deps: List[str] = []
+    seen: set[str] = set()
+    task_id = str(getattr(task, "id", "") or "").strip()
+    for dependency in list(dependency_resolver(task) or []):
+        dependency_id = str(dependency or "").strip()
+        if (
+            not dependency_id
+            or dependency_id == task_id
+            or dependency_id in seen
+        ):
+            continue
+        seen.add(dependency_id)
+        deps.append(dependency_id)
+    return deps
 
 
 class TaskQueueService:
@@ -19,7 +61,12 @@ class TaskQueueService:
         """Gibt die sortierte Liste der dispatch-bereiten Tasks zurueck."""
         from agent.routes.tasks.orchestration_policy.routing import build_dispatch_queue
 
-        tasks = [t.model_dump() for t in task_repo.get_all()]
+        gate = get_recovery_dispatch_gate_service()
+        tasks = [
+            task.model_dump()
+            for task in task_repo.get_all()
+            if gate.evaluate_task(task).allowed
+        ]
         queue = build_dispatch_queue(tasks)
         if limit:
             return queue[:limit]
@@ -36,6 +83,7 @@ class TaskQueueService:
         tasks = task_repo.get_all()
         if team_id:
             tasks = [task for task in tasks if str(task.team_id or "") == str(team_id)]
+        gate = get_recovery_dispatch_gate_service()
         candidate_map = {
             task.id: task
             for task in tasks
@@ -43,6 +91,7 @@ class TaskQueueService:
                 task.status,
                 manual_override_active=bool((getattr(task, "manual_override_until", None) or 0) > now),
             )
+            and gate.evaluate_task(task).allowed
         }
         queue = build_dispatch_queue([task.model_dump() for task in candidate_map.values()])
         return [
@@ -128,23 +177,120 @@ class TaskQueueService:
             **dict(extra_fields or {}),
         )
 
-    def claim_task(self, *, task_id: str, agent_url: str, lease_until: float, idempotency_key: str = "") -> None:
-        current = task_repo.get_by_id(task_id)
-        if current is None:
-            return
-        current_status = normalize_task_status(getattr(current, "status", None), default="todo")
-        if current_status in {"completed", "failed", "cancelled"}:
-            return
-        if not can_autopilot_dispatch(current_status):
-            return
-        update_local_task_status(
-            task_id,
-            "assigned",
-            assigned_agent_url=agent_url,
-            event_type="task_claimed",
-            event_actor=agent_url,
-            event_details={"agent_url": agent_url, "lease_until": lease_until, "idempotency_key": idempotency_key},
+    def claim_task(
+        self,
+        *,
+        task_id: str,
+        agent_url: str,
+        lease_until: float,
+        idempotency_key: str = "",
+        claim_validator: Callable[
+            [dict[str, Any]],
+            tuple[bool, str | None],
+        ]
+        | None = None,
+    ) -> bool:
+        gate = get_recovery_dispatch_gate_service()
+        initial = task_repo.get_by_id(task_id)
+        if initial is None:
+            return False
+        from agent.services.lifecycle_service import (
+            goal_mutation_lock_id,
         )
+        from agent.services.task_mutation_lock_service import (
+            get_task_mutation_lock_port,
+        )
+
+        goal_id = str(
+            getattr(initial, "goal_id", "") or ""
+        ).strip()
+        source_task_id = str(
+            getattr(initial, "source_task_id", "") or ""
+        ).strip()
+        lock_ids = {str(task_id)}
+        if source_task_id:
+            lock_ids.add(source_task_id)
+        if goal_id:
+            lock_ids.add(goal_mutation_lock_id(goal_id))
+        with get_task_mutation_lock_port().mutation_locks(
+            lock_ids
+        ) as acquired:
+            if not acquired:
+                return False
+            current = task_repo.get_by_id(task_id)
+            if current is None:
+                return False
+            authoritative_goal_id = str(
+                getattr(current, "goal_id", "") or ""
+            ).strip()
+            authoritative_source_id = str(
+                getattr(current, "source_task_id", "") or ""
+            ).strip()
+            if (
+                authoritative_goal_id != goal_id
+                or authoritative_source_id != source_task_id
+            ):
+                return False
+            if authoritative_goal_id:
+                goal = goal_repo.get_by_id(
+                    authoritative_goal_id
+                )
+                if (
+                    goal is None
+                    or str(getattr(goal, "status", "") or "")
+                    .strip()
+                    .lower()
+                    in {
+                        "completed",
+                        "failed",
+                        "cancelled",
+                        "aborted",
+                        "timeout",
+                        "archived",
+                    }
+                ):
+                    return False
+            gate_decision = gate.evaluate_task(current)
+            if not gate_decision.allowed:
+                return False
+            current_status = normalize_task_status(
+                getattr(current, "status", None),
+                default="todo",
+            )
+            if current_status not in {
+                "todo",
+                "created",
+                "assigned",
+            }:
+                return False
+            if claim_validator is not None:
+                allowed, _reason = claim_validator(
+                    current.model_dump()
+                )
+                if not allowed:
+                    return False
+            elif current_status == "assigned":
+                # Reclaim/renewal of an assigned task requires the Hub-owned
+                # lease policy.  Bare callers cannot turn assigned -> assigned.
+                return False
+            if (
+                current_status != "assigned"
+                and not can_autopilot_dispatch(current_status)
+            ):
+                return False
+            return compare_and_set_local_task_status(
+                task_id,
+                "assigned",
+                expected_statuses={current_status},
+                assigned_agent_url=agent_url,
+                event_type="task_claimed",
+                event_actor=agent_url,
+                event_details={
+                    "agent_url": agent_url,
+                    "lease_until": lease_until,
+                    "idempotency_key": idempotency_key,
+                },
+            )
 
     def reconcile_dependencies(
         self,
@@ -156,21 +302,58 @@ class TaskQueueService:
         snapshot_by_id = {task.id: task for task in tasks}
         for task in tasks:
             live_task = task_repo.get_by_id(task.id) or snapshot_by_id.get(task.id)
-            raw_deps = dependency_resolver(live_task)
-            deps: List[str] = []
-            seen: set[str] = set()
-            for dep in list(raw_deps or []):
-                dep_id = str(dep or "").strip()
-                if not dep_id:
-                    continue
-                if dep_id == str(getattr(live_task, "id", "") or "").strip():
-                    continue
-                if dep_id in seen:
-                    continue
-                seen.add(dep_id)
-                deps.append(dep_id)
+            deps = _normalized_dependency_ids(
+                live_task,
+                dependency_resolver,
+            )
 
             my_status = normalize_task_status(getattr(live_task, "status", None), default="todo")
+            recovery_source = (
+                recovery_task_role(live_task) == "source"
+            )
+            if recovery_source and my_status in {
+                "completed",
+                "verification_failed",
+            }:
+                from agent.services.recovery_source_post_commit_service import (
+                    get_recovery_source_post_commit_service,
+                )
+
+                get_recovery_source_post_commit_service().deliver_if_pending(
+                    live_task.id
+                )
+                continue
+            if (
+                recovery_source
+                and my_status in {"blocked", "blocked_by_dependency"}
+            ):
+                from agent.services.recovery_source_finalization_service import (
+                    get_recovery_source_finalization_service,
+                )
+                from agent.services.recovery_source_post_commit_service import (
+                    get_recovery_source_post_commit_service,
+                )
+
+                finalization = (
+                    get_recovery_source_finalization_service()
+                    .finalize_if_ready(
+                        source_task_id=live_task.id,
+                        child_task_ids=deps,
+                    )
+                )
+                if finalization.transitioned:
+                    get_recovery_source_post_commit_service().deliver_if_pending(
+                        live_task.id
+                    )
+                    transitions.append(
+                        {
+                            "task_id": live_task.id,
+                            "event_type": "recovery_source_finalized",
+                            "depends_on": deps,
+                            "reason": finalization.reason_code,
+                        }
+                    )
+                continue
             if not deps:
                 if my_status in {"blocked", "blocked_by_dependency"}:
                     update_local_task_status(live_task.id, "todo")
@@ -190,10 +373,23 @@ class TaskQueueService:
                     dep_statuses.append(("missing", dep_id))
                 else:
                     dep_statuses.append((normalize_task_status(getattr(dep_task, "status", None), default=""), dep_id))
-            has_failed = any(status == "failed" for status, _ in dep_statuses)
-            all_done = bool(dep_statuses) and all(status == "completed" for status, _ in dep_statuses)
+            recovery_child = (
+                recovery_task_role(live_task) == "child"
+            )
+            has_failed = any(
+                status in _DEPENDENCY_FAILURE_TERMINAL_STATUSES
+                or (status == "missing" and recovery_child)
+                for status, _ in dep_statuses
+            )
+            all_done = bool(dep_statuses) and all(
+                status in _DEPENDENCY_SUCCESS_STATUSES
+                for status, _ in dep_statuses
+            )
             if my_status in {"blocked", "blocked_by_dependency"} and all_done:
-                update_local_task_status(live_task.id, "todo")
+                update_local_task_status(
+                    live_task.id,
+                    "todo",
+                )
                 transitions.append(
                     {
                         "task_id": live_task.id,
@@ -203,12 +399,53 @@ class TaskQueueService:
                     }
                 )
             elif my_status in {"blocked", "blocked_by_dependency"} and has_failed:
-                failed_dependency_ids = [dep_id for status, dep_id in dep_statuses if status == "failed"]
-                update_local_task_status(
-                    live_task.id,
-                    "failed",
-                    error=f"dependency_failed:{','.join(failed_dependency_ids)}",
-                )
+                failed_dependency_ids = [
+                    dep_id
+                    for status, dep_id in dep_statuses
+                    if (
+                        status
+                        in _DEPENDENCY_FAILURE_TERMINAL_STATUSES
+                        or (status == "missing" and recovery_child)
+                    )
+                ]
+                if recovery_child:
+                    transitioned, failed_dependency_ids = (
+                        self._fail_recovery_child_for_terminal_dependencies(
+                            task_id=str(live_task.id),
+                            source_task_id=str(
+                                getattr(
+                                    live_task,
+                                    "source_task_id",
+                                    "",
+                                )
+                                or ""
+                            ),
+                            dependency_ids=deps,
+                            dependency_resolver=dependency_resolver,
+                        )
+                    )
+                    if not transitioned:
+                        continue
+                    from agent.services.task_runtime_service import (
+                        run_external_task_status_post_commit,
+                    )
+
+                    run_external_task_status_post_commit(
+                        str(live_task.id),
+                        old_status=my_status,
+                        event_type="dependency_failed",
+                        force=True,
+                    )
+                else:
+                    update_local_task_status(
+                        live_task.id,
+                        "failed",
+                        error=(
+                            "dependency_failed:"
+                            + ",".join(failed_dependency_ids)
+                        ),
+                        status_reason_code="dependency_terminal",
+                    )
                 transitions.append(
                     {
                         "task_id": live_task.id,
@@ -229,6 +466,199 @@ class TaskQueueService:
                     }
                 )
         return transitions
+
+    @staticmethod
+    def _fail_recovery_child_for_terminal_dependencies(
+        *,
+        task_id: str,
+        source_task_id: str,
+        dependency_ids: List[str],
+        dependency_resolver: Callable[[Any], List[str]],
+    ) -> tuple[bool, List[str]]:
+        """Publish one dependency failure under a closed Hub capability."""
+
+        from agent.services.task_mutation_lock_service import (
+            get_task_mutation_lock_port,
+        )
+
+        normalized_task_id = str(task_id or "").strip()
+        normalized_source_id = str(source_task_id or "").strip()
+        lock_ids = {
+            normalized_task_id,
+            normalized_source_id,
+            *dependency_ids,
+        }
+        lock_ids.discard("")
+        for _attempt in range(8):
+            retry_lock_ids: set[str] | None = None
+            with get_task_mutation_lock_port().mutation_locks(
+                lock_ids
+            ) as acquired:
+                if not acquired:
+                    return False, []
+                authoritative = task_repo.get_by_id(
+                    normalized_task_id
+                )
+                if (
+                    authoritative is None
+                    or recovery_task_role(authoritative) != "child"
+                    or normalize_task_status(
+                        getattr(authoritative, "status", None),
+                        default="todo",
+                    )
+                    not in {"blocked", "blocked_by_dependency"}
+                ):
+                    return False, []
+                authoritative_source_id = str(
+                    getattr(
+                        authoritative,
+                        "source_task_id",
+                        "",
+                    )
+                    or ""
+                ).strip()
+                current_dependency_ids = (
+                    _normalized_dependency_ids(
+                        authoritative,
+                        dependency_resolver,
+                    )
+                )
+                required_lock_ids = {
+                    normalized_task_id,
+                    authoritative_source_id,
+                    *current_dependency_ids,
+                }
+                required_lock_ids.discard("")
+                if not required_lock_ids.issubset(lock_ids):
+                    retry_lock_ids = lock_ids.union(
+                        required_lock_ids
+                    )
+                else:
+                    dependency_statuses: List[tuple[str, str]] = []
+                    for dependency_id in current_dependency_ids:
+                        dependency = task_repo.get_by_id(
+                            dependency_id
+                        )
+                        dependency_statuses.append(
+                            (
+                                dependency_id,
+                                (
+                                    "missing"
+                                    if dependency is None
+                                    else normalize_task_status(
+                                        getattr(
+                                            dependency,
+                                            "status",
+                                            None,
+                                        ),
+                                        default="",
+                                    )
+                                ),
+                            )
+                        )
+                    failed_dependency_ids = [
+                        dependency_id
+                        for dependency_id, status
+                        in dependency_statuses
+                        if status
+                        in _DEPENDENCY_FAILURE_TERMINAL_STATUSES
+                        or status == "missing"
+                    ]
+                    if not failed_dependency_ids:
+                        return False, []
+                    reconciled_at = time.time()
+                    marker = {
+                        "schema": (
+                            "ananta.recovery_dependency_"
+                            "reconciliation.v1"
+                        ),
+                        "task_id": normalized_task_id,
+                        "source_task_id": authoritative_source_id,
+                        "previous_status": normalize_task_status(
+                            getattr(authoritative, "status", None),
+                            default="todo",
+                        ),
+                        "target_status": "failed",
+                        "reason_code": (
+                            "recovery_dependency_terminal"
+                        ),
+                        "dependency_statuses": [
+                            {
+                                "task_id": dependency_id,
+                                "status": status,
+                            }
+                            for dependency_id, status
+                            in dependency_statuses
+                        ],
+                        "failed_dependency_ids": list(
+                            failed_dependency_ids
+                        ),
+                        "reconciled_at": reconciled_at,
+                    }
+                    details = dict(
+                        getattr(
+                            authoritative,
+                            "status_reason_details",
+                            None,
+                        )
+                        or {}
+                    )
+                    details[
+                        "recovery_dependency_reconciliation"
+                    ] = marker
+                    from agent.common.recovery_dependency_reconciliation_write_boundary import (
+                        authorize_recovery_dependency_reconciliation_write,
+                    )
+
+                    with authorize_recovery_dependency_reconciliation_write(
+                        task_id=normalized_task_id,
+                        marker=marker,
+                    ):
+                        authoritative.status = "failed"
+                        authoritative.status_reason_code = (
+                            "recovery_dependency_terminal"
+                        )
+                        authoritative.status_reason_details = (
+                            details
+                        )
+                        authoritative.updated_at = reconciled_at
+                        persisted = task_repo.save(authoritative)
+                    persisted_marker = dict(
+                        dict(
+                            getattr(
+                                persisted,
+                                "status_reason_details",
+                                None,
+                            )
+                            or {}
+                        ).get(
+                            "recovery_dependency_reconciliation"
+                        )
+                        or {}
+                    )
+                    return (
+                        bool(
+                            persisted is not None
+                            and normalize_task_status(
+                                getattr(
+                                    persisted,
+                                    "status",
+                                    None,
+                                ),
+                                default="",
+                            )
+                            == "failed"
+                            and persisted_marker == marker
+                        ),
+                        list(failed_dependency_ids),
+                    )
+            if retry_lock_ids is None:
+                return False, []
+            lock_ids = retry_lock_ids
+        raise RuntimeError(
+            "recovery_dependency_reconciliation_snapshot_unstable:"
+            + normalized_task_id
+        )
 
 
 def get_task_queue_service() -> TaskQueueService:

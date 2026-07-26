@@ -14,6 +14,9 @@ from agent.services.hub_event_service import (
     build_verification_governance_event,
 )
 from agent.services.repository_registry import get_repository_registry
+from agent.services.recovery_task_mutation_policy import (
+    recovery_task_role,
+)
 from agent.services.task_runtime_service import notify_task_update
 from agent.services.verification_policy_service import default_verification_spec, evaluate_quality_gates
 from agent.services.execution_improvement_loop_service import get_execution_improvement_loop_service
@@ -74,6 +77,18 @@ class VerificationService:
             repos.task_repo.save(task)
         return spec
 
+    def project_task_spec(
+        self,
+        task_id: str,
+    ) -> dict[str, Any] | None:
+        """Return an effective spec without mutating from a GET path."""
+
+        task = get_repository_registry().task_repo.get_by_id(task_id)
+        if not task:
+            return None
+        spec = dict(task.verification_spec or {})
+        return spec or default_verification_spec(task.model_dump())
+
     def create_or_update_record(
         self,
         task_id: str,
@@ -83,15 +98,23 @@ class VerificationService:
         exit_code: int | None,
         gate_results: dict | None = None,
     ) -> VerificationRecordDB | None:
+        from agent.common.recovery_result_write_boundary import (
+            defer_task_verification_mutation,
+        )
+
+        if defer_task_verification_mutation(
+            task_id,
+            trace_id=trace_id,
+        ):
+            return None
         with Session(_engine()) as session:
             task = session.get(TaskDB, task_id)
             if not task:
                 return None
 
             spec = dict(task.verification_spec or {})
-            if not spec:
+            if not spec and recovery_task_role(task) is None:
                 spec = default_verification_spec(task.model_dump())
-                task.verification_spec = spec
 
             existing = session.exec(
                 select(VerificationRecordDB).where(VerificationRecordDB.task_id == task_id).order_by(VerificationRecordDB.created_at.desc())
@@ -148,6 +171,7 @@ class VerificationService:
             merged_record = session.merge(record)
             session.flush()
             verification_status = {
+                **dict(task.verification_status or {}),
                 "status": merged_record.status,
                 "record_id": merged_record.id,
                 "retry_count": merged_record.retry_count,
@@ -159,28 +183,40 @@ class VerificationService:
                 "verification_critique": (merged_record.results or {}).get("verification_critique"),
                 "results": merged_record.results,
             }
-            task.verification_spec = spec
-            task.verification_status = verification_status
-            task.updated_at = time.time()
-            history = list(task.history or [])
-            history.append(
-                build_task_history_event(
-                    task,
-                    "task_verification_updated",
-                    actor="verification_service",
-                    details={
-                        "verification_status": verification_status.get("status"),
-                        "record_id": verification_status.get("record_id"),
-                    },
-                    timestamp=time.time(),
-                )
-            )
-            task.history = history[-200:]
-            session.add(task)
             session.commit()
             session.refresh(merged_record)
             saved = merged_record
 
+        authoritative_task = (
+            get_repository_registry().task_repo.get_by_id(task_id)
+        )
+        if authoritative_task is not None:
+            authoritative_task.verification_spec = spec
+            authoritative_task.verification_status = (
+                verification_status
+            )
+            authoritative_task.updated_at = time.time()
+            history = list(authoritative_task.history or [])
+            history.append(
+                build_task_history_event(
+                    authoritative_task,
+                    "task_verification_updated",
+                    actor="verification_service",
+                    details={
+                        "verification_status": (
+                            verification_status.get("status")
+                        ),
+                        "record_id": verification_status.get(
+                            "record_id"
+                        ),
+                    },
+                    timestamp=time.time(),
+                )
+            )
+            authoritative_task.history = history[-200:]
+            get_repository_registry().task_repo.save(
+                authoritative_task
+            )
         notify_task_update(task_id)
         log_audit(
             "verification_record_updated",

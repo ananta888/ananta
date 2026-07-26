@@ -28,6 +28,11 @@ from agent.services.workflow_worker_gateway_service import (
     WorkflowWorkerGatewayError,
     WorkflowWorkerGatewayService,
 )
+from ananta_contracts.provider_execution import (
+    ProviderExecutionBinding,
+    ProviderProfileAttemptPlanEntry,
+    ProviderProfileExecutionBinding,
+)
 from ananta_contracts.workflow_operation import operation_id_for
 from ananta_contracts.workflow_worker_gateway import WORKFLOW_WORKER_COMMAND_SCHEMA
 
@@ -84,7 +89,14 @@ class _HubToolDescriptors:
         return WorkflowToolDescriptor(tool_id, side_effect_class)
 
 
-def fixture() -> tuple[
+def fixture(
+    *,
+    provider_attempts: int | None = None,
+    provider_attempt_plan: tuple[
+        ProviderProfileAttemptPlanEntry, ...
+    ] = (),
+    budget_overrides: dict[str, int] | None = None,
+) -> tuple[
     WorkflowWorkerGatewayService,
     dict,
     InMemoryEventStore,
@@ -93,6 +105,15 @@ def fixture() -> tuple[
 ]:
     now = time.time()
     key_ring = HmacKeyRing({"key-1": b"x" * 32}, active_key_id="key-1")
+    budgets = {
+        "attempts": 2,
+        "cost_micros": 1_000,
+        "retries": 3,
+        "tokens": 100,
+    }
+    if provider_attempts is not None:
+        budgets["provider_attempts"] = provider_attempts
+    budgets.update(budget_overrides or {})
     envelope = RuntimeAuthorizationEnvelope.issue(
         key_ring=key_ring,
         tenant_id="tenant-1",
@@ -102,12 +123,12 @@ def fixture() -> tuple[
         plan_hash=PLAN_HASH,
         policy_version="policy-v1",
         allowed_tools=("apply_patch",),
-        budgets={
-            "attempts": 2,
-            "cost_micros": 1_000,
-            "retries": 3,
-            "tokens": 100,
-        },
+        allowed_provider_bindings=tuple(
+            item.binding_authorization
+            for item in provider_attempt_plan
+        ),
+        provider_attempt_plan=provider_attempt_plan,
+        budgets=budgets,
         now=now,
         ttl_seconds=600,
     )
@@ -171,6 +192,72 @@ def fixture() -> tuple[
         "fencing_token": claim.ownership.fencing_token,
     }
     return service, base, events, ledger, approvals
+
+
+def _provider_profile_plan(
+    *,
+    phi_attempts: int = 3,
+    gemma_attempts: int = 2,
+) -> tuple[
+    tuple[ProviderProfileExecutionBinding, ...],
+    tuple[ProviderProfileAttemptPlanEntry, ...],
+]:
+    bindings = tuple(
+        ProviderProfileExecutionBinding(
+            profile_id=profile_id,
+            binding=ProviderExecutionBinding(
+                provider_id="ollama",
+                model_id=model_id,
+                source="hub_model_profile_routing",
+                reason_code="hub_provider_profile_selected",
+                endpoint_identity=(
+                    "http://ollama:11434/v1/chat/completions"
+                ),
+            ),
+        )
+        for profile_id, model_id in (
+            ("phi-primary", "phi4-mini:latest"),
+            ("gemma-fallback", "gemma4:e4b-it-qat"),
+        )
+    )
+    attempts = (phi_attempts, gemma_attempts)
+    return bindings, tuple(
+        ProviderProfileAttemptPlanEntry.from_profile_binding(
+            binding,
+            maximum_attempts=maximum,
+        )
+        for binding, maximum in zip(
+            bindings,
+            attempts,
+            strict=True,
+        )
+    )
+
+
+def _profile_provider_reserve(
+    base: dict,
+    entry: ProviderProfileAttemptPlanEntry,
+    *,
+    reservation_id: str,
+    maximum_attempts: int,
+    reserved_tokens: int = 1,
+    reserved_cost_micros: int = 0,
+) -> dict:
+    return {
+        **base,
+        "command": "provider_budget_reserve",
+        "reservation_id": reservation_id,
+        "maximum_attempts": maximum_attempts,
+        "maximum_tokens": 100,
+        "maximum_cost_micros": 1_000,
+        "reserved_tokens": reserved_tokens,
+        "reserved_cost_micros": reserved_cost_micros,
+        "provider_profile_id": entry.profile_id,
+        "provider_binding_id": entry.binding_id,
+        "provider_id": entry.provider_id,
+        "model_id": entry.model_id,
+        "provider_endpoint_identity": entry.endpoint_identity,
+    }
 
 
 def _tool_command(base: dict, command: str = "side_effect_claim") -> dict:
@@ -434,6 +521,609 @@ def test_provider_budget_cannot_exceed_signed_envelope_or_stale_fence() -> None:
                 "fencing_token": 999,
             }
         )
+
+
+def test_provider_reservation_actuals_cannot_bypass_smaller_signed_node_cap() -> None:
+    service, base, _events, _ledger, _approvals = fixture(
+        budget_overrides={
+            "tokens": 30,
+            "cost_micros": 300,
+            "provider_run_tokens": 100,
+            "provider_run_cost_micros": 1_000,
+        }
+    )
+
+    with pytest.raises(
+        WorkflowWorkerGatewayError,
+        match="authorization_budget_exceeded",
+    ):
+        service.execute(
+            {
+                **base,
+                "command": "provider_budget_reserve",
+                "reservation_id": "provider-node-cap-bypass",
+                "maximum_attempts": 2,
+                # Zero means that the Worker does not add its own cap. The
+                # signed node cap must still govern the actual reservation.
+                "maximum_tokens": 0,
+                "maximum_cost_micros": 0,
+                "reserved_tokens": 80,
+                "reserved_cost_micros": 800,
+            }
+        )
+
+
+def test_provider_node_cap_is_cumulative_replay_safe_and_atomic() -> None:
+    service, base, _events, _ledger, _approvals = fixture(
+        budget_overrides={
+            "tokens": 30,
+            "cost_micros": 300,
+            "provider_run_tokens": 100,
+            "provider_run_cost_micros": 1_000,
+        }
+    )
+
+    def command(index: int) -> dict:
+        return {
+            **base,
+            "command": "provider_budget_reserve",
+            "reservation_id": f"provider-node-split-{index}",
+            "maximum_attempts": 2,
+            "maximum_tokens": 30,
+            "maximum_cost_micros": 300,
+            "reserved_tokens": 20,
+            "reserved_cost_micros": 150,
+        }
+
+    def reserve(index: int):
+        try:
+            return index, service.execute(command(index))
+        except WorkflowWorkerGatewayError as exc:
+            return index, exc
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(reserve, range(2)))
+
+    successes = [
+        (index, value)
+        for index, value in results
+        if isinstance(value, dict)
+    ]
+    failures = [
+        value
+        for _index, value in results
+        if isinstance(value, WorkflowWorkerGatewayError)
+    ]
+    assert len(successes) == 1
+    assert len(failures) == 1
+    assert failures[0].reason_code == "provider_token_budget_exceeded"
+
+    winner_index, winner = successes[0]
+    assert service.execute(command(winner_index)) == winner
+    final = service.execute(
+        {
+            **base,
+            "command": "provider_budget_reserve",
+            "reservation_id": "provider-node-split-final",
+            "maximum_attempts": 2,
+            "maximum_tokens": 30,
+            "maximum_cost_micros": 300,
+            "reserved_tokens": 10,
+            "reserved_cost_micros": 150,
+        }
+    )
+    assert final["attempts"] == 2
+    assert final["tokens"] == 30
+    assert final["cost_micros"] == 300
+
+
+def test_provider_node_actual_overrun_is_visible_in_receipt_and_event() -> None:
+    service, base, events, _ledger, _approvals = fixture(
+        budget_overrides={
+            "tokens": 30,
+            "cost_micros": 300,
+            "provider_run_tokens": 100,
+            "provider_run_cost_micros": 1_000,
+        }
+    )
+    service.execute(
+        {
+            **base,
+            "command": "provider_budget_reserve",
+            "reservation_id": "provider-node-overrun",
+            "maximum_attempts": 2,
+            "maximum_tokens": 30,
+            "maximum_cost_micros": 300,
+            "reserved_tokens": 20,
+            "reserved_cost_micros": 150,
+        }
+    )
+    receipt = service.execute(
+        {
+            **base,
+            "command": "provider_budget_reconcile",
+            "reservation_id": "provider-node-overrun",
+            "actual_total_tokens": 50,
+        }
+    )
+
+    assert receipt["tokens"] == 50
+    assert receipt["scoped_tokens"] == 50
+    assert receipt["scoped_budget_overrun"] is True
+    assert receipt["reason_code"] == (
+        "provider_scoped_budget_overrun_recorded"
+    )
+    reconciled_event = next(
+        event
+        for event in events.list_events(
+            tenant_id="tenant-1",
+            run_id="run-1",
+        )
+        if event.event_type == "workflow.budget.provider_reconciled"
+    )
+    assert reconciled_event.payload["scoped_budget_overrun"] is True
+    assert reconciled_event.payload["reason_code"] == (
+        "provider_scoped_budget_overrun_recorded"
+    )
+
+
+def test_failed_aggregate_reservation_does_not_burn_profile_or_unlock_fallback() -> None:
+    _bindings, plan = _provider_profile_plan(
+        phi_attempts=1,
+        gemma_attempts=1,
+    )
+    service, base, _events, _ledger, _approvals = fixture(
+        provider_attempts=2,
+        provider_attempt_plan=plan,
+        budget_overrides={
+            "tokens": 100,
+            "provider_run_tokens": 2,
+        },
+    )
+    phi, gemma = plan
+
+    with pytest.raises(
+        WorkflowWorkerGatewayError,
+        match="provider_token_budget_exceeded",
+    ):
+        service.execute(
+            _profile_provider_reserve(
+                base,
+                phi,
+                reservation_id="phi-aggregate-denied",
+                maximum_attempts=2,
+                reserved_tokens=3,
+            )
+        )
+    with pytest.raises(
+        WorkflowWorkerGatewayError,
+        match="provider_attempt_plan_sequence_denied",
+    ):
+        service.execute(
+            _profile_provider_reserve(
+                base,
+                gemma,
+                reservation_id="gemma-still-locked",
+                maximum_attempts=2,
+            )
+        )
+
+    phi_receipt = service.execute(
+        _profile_provider_reserve(
+            base,
+            phi,
+            reservation_id="phi-valid",
+            maximum_attempts=2,
+        )
+    )
+    gemma_receipt = service.execute(
+        _profile_provider_reserve(
+            base,
+            gemma,
+            reservation_id="gemma-after-valid-phi",
+            maximum_attempts=2,
+        )
+    )
+
+    assert phi_receipt["attempts"] == 1
+    assert gemma_receipt["attempts"] == 1
+    assert gemma_receipt["tokens"] == 2
+
+
+def test_concurrent_profile_reservations_consume_one_atomic_slot() -> None:
+    _bindings, plan = _provider_profile_plan(
+        phi_attempts=1,
+        gemma_attempts=1,
+    )
+    service, base, _events, _ledger, _approvals = fixture(
+        provider_attempts=2,
+        provider_attempt_plan=plan,
+    )
+    phi, gemma = plan
+    commands = tuple(
+        _profile_provider_reserve(
+            base,
+            phi,
+            reservation_id=f"phi-concurrent-{index}",
+            maximum_attempts=2,
+        )
+        for index in range(2)
+    )
+
+    def reserve(command: dict):
+        try:
+            return service.execute(command)
+        except WorkflowWorkerGatewayError as exc:
+            return exc
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(reserve, commands))
+
+    receipts = [item for item in results if isinstance(item, dict)]
+    errors = [
+        item
+        for item in results
+        if isinstance(item, WorkflowWorkerGatewayError)
+    ]
+    assert len(receipts) == 1
+    assert len(errors) == 1
+    assert errors[0].reason_code == "provider_retry_budget_exceeded"
+    assert receipts[0]["attempts"] == 1
+    assert receipts[0]["tokens"] == 1
+
+    fallback = service.execute(
+        _profile_provider_reserve(
+            base,
+            gemma,
+            reservation_id="gemma-after-concurrent-phi",
+            maximum_attempts=2,
+        )
+    )
+    assert fallback["attempts"] == 1
+    assert fallback["tokens"] == 2
+
+
+def test_profile_route_has_separate_five_call_budget_and_rejects_sixth_or_inflation() -> None:
+    service, base, _events, _ledger, _approvals = fixture(
+        provider_attempts=5
+    )
+    for attempt in range(5):
+        reserved = service.execute(
+            {
+                **base,
+                "command": "provider_budget_reserve",
+                "reservation_id": f"profile-provider-call-{attempt}",
+                "maximum_attempts": 5,
+                "require_separate_provider_attempt_budget": False,
+                "maximum_tokens": 100,
+                "maximum_cost_micros": 1_000,
+                "reserved_tokens": 1,
+                "reserved_cost_micros": 0,
+            }
+        )
+        assert reserved["attempts"] == attempt + 1
+
+    with pytest.raises(
+        WorkflowWorkerGatewayError,
+        match="provider_retry_budget_exceeded",
+    ):
+        service.execute(
+            {
+                **base,
+                "command": "provider_budget_reserve",
+                "reservation_id": "profile-provider-call-six",
+                "maximum_attempts": 5,
+                "require_separate_provider_attempt_budget": False,
+                "maximum_tokens": 100,
+                "maximum_cost_micros": 1_000,
+                "reserved_tokens": 1,
+                "reserved_cost_micros": 0,
+            }
+        )
+
+    fresh, fresh_base, _events, _ledger, _approvals = fixture(
+        provider_attempts=5
+    )
+    with pytest.raises(
+        WorkflowWorkerGatewayError,
+        match="authorization_budget_exceeded",
+    ):
+        fresh.execute(
+            {
+                **fresh_base,
+                "command": "provider_budget_reserve",
+                "reservation_id": "profile-provider-call-inflated",
+                "maximum_attempts": 6,
+                "require_separate_provider_attempt_budget": False,
+                "maximum_tokens": 100,
+                "maximum_cost_micros": 1_000,
+                "reserved_tokens": 1,
+                "reserved_cost_micros": 0,
+            }
+        )
+
+
+def test_signed_profile_plan_enforces_bindings_caps_idempotency_and_hub_limit() -> None:
+    _bindings, plan = _provider_profile_plan()
+    service, base, _events, _ledger, _approvals = fixture(
+        provider_attempts=5,
+        provider_attempt_plan=plan,
+    )
+    phi, gemma = plan
+
+    first_command = _profile_provider_reserve(
+        base,
+        phi,
+        reservation_id="signed-phi-1",
+        maximum_attempts=5,
+    )
+    first = service.execute(first_command)
+    duplicate = service.execute(first_command)
+    assert first == duplicate
+    assert first["attempts"] == 1
+    assert first["maximum_attempts"] == 3
+
+    for index in (2, 3):
+        receipt = service.execute(
+            _profile_provider_reserve(
+                base,
+                phi,
+                reservation_id=f"signed-phi-{index}",
+                maximum_attempts=5,
+            )
+        )
+        assert receipt["attempts"] == index
+
+    with pytest.raises(
+        WorkflowWorkerGatewayError,
+        match="provider_retry_budget_exceeded",
+    ):
+        service.execute(
+            _profile_provider_reserve(
+                base,
+                phi,
+                reservation_id="signed-phi-4",
+                maximum_attempts=5,
+            )
+        )
+
+    for index in (1, 2):
+        receipt = service.execute(
+            _profile_provider_reserve(
+                base,
+                gemma,
+                reservation_id=f"signed-gemma-{index}",
+                maximum_attempts=5,
+            )
+        )
+        assert receipt["attempts"] == index
+        assert receipt["maximum_attempts"] == 2
+
+    with pytest.raises(
+        WorkflowWorkerGatewayError,
+        match="authorization_budget_exceeded",
+    ):
+        service.execute(
+            _profile_provider_reserve(
+                base,
+                gemma,
+                reservation_id="signed-limit-inflated",
+                maximum_attempts=6,
+            )
+        )
+
+
+def test_signed_profile_plan_denies_fallback_before_predecessor_is_exhausted() -> None:
+    _bindings, plan = _provider_profile_plan()
+    service, base, _events, _ledger, _approvals = fixture(
+        provider_attempts=5,
+        provider_attempt_plan=plan,
+    )
+    phi, gemma = plan
+
+    for reservation_id in ("gemma-first",):
+        with pytest.raises(
+            WorkflowWorkerGatewayError,
+            match="provider_attempt_plan_sequence_denied",
+        ):
+            service.execute(
+                _profile_provider_reserve(
+                    base,
+                    gemma,
+                    reservation_id=reservation_id,
+                    maximum_attempts=5,
+                )
+            )
+
+    service.execute(
+        _profile_provider_reserve(
+            base,
+            phi,
+            reservation_id="phi-first",
+            maximum_attempts=5,
+        )
+    )
+    with pytest.raises(
+        WorkflowWorkerGatewayError,
+        match="provider_attempt_plan_sequence_denied",
+    ):
+        service.execute(
+            _profile_provider_reserve(
+                base,
+                gemma,
+                reservation_id="gemma-interleaved",
+                maximum_attempts=5,
+            )
+        )
+
+    for index in (2, 3):
+        service.execute(
+            _profile_provider_reserve(
+                base,
+                phi,
+                reservation_id=f"phi-{index}",
+                maximum_attempts=5,
+            )
+        )
+    fallback = service.execute(
+        _profile_provider_reserve(
+            base,
+            gemma,
+            reservation_id="gemma-after-phi-exhaustion",
+            maximum_attempts=5,
+        )
+    )
+
+    assert fallback["attempts"] == 1
+    assert fallback["maximum_attempts"] == 2
+
+
+def test_signed_provider_binding_rejects_model_provider_and_recomputed_id() -> None:
+    _bindings, plan = _provider_profile_plan()
+    service, base, _events, _ledger, _approvals = fixture(
+        provider_attempts=5,
+        provider_attempt_plan=plan,
+    )
+    phi = plan[0]
+    recomputed = ProviderExecutionBinding(
+        provider_id="ollama",
+        model_id="attacker-model:latest",
+        source="hub_model_profile_routing",
+        reason_code="hub_provider_profile_selected",
+    )
+    tampered_values = (
+        {"model_id": "attacker-model:latest"},
+        {"provider_id": "openai"},
+        {
+            "provider_endpoint_identity": (
+                "http://ollama:11435/v1/chat/completions"
+            )
+        },
+        {
+            "binding_id": recomputed.binding_id,
+            "provider_id": recomputed.provider_id,
+            "model_id": recomputed.model_id,
+        },
+    )
+    for index, changes in enumerate(tampered_values):
+        command = _profile_provider_reserve(
+            base,
+            phi,
+            reservation_id=f"tampered-provider-{index}",
+            maximum_attempts=5,
+        )
+        with pytest.raises(
+            WorkflowWorkerGatewayError,
+            match="provider_authorization_binding_denied",
+        ):
+            service.execute({**command, **changes})
+
+
+def test_profile_attempts_are_step_scoped_while_tokens_remain_run_aggregate() -> None:
+    now = time.time()
+    key_ring = HmacKeyRing(
+        {"key-1": b"x" * 32},
+        active_key_id="key-1",
+    )
+    ownership = InMemoryExecutionOwnershipStore()
+    provider_budgets = InMemoryProviderBudgetStore()
+    grants = InMemoryWorkflowAuthorizationGrantService(
+        clock=lambda: now + 1
+    )
+    service = WorkflowWorkerGatewayService(
+        authorization=AuthorizationVerifier(key_ring),
+        ownership=ownership,
+        ledger=InMemorySideEffectLedger(),
+        events=InMemoryEventStore(),
+        provider_budgets=provider_budgets,
+        authorization_revalidator=grants,
+        clock=lambda: now + 1,
+    )
+
+    def bind_step(
+        step_id: str,
+        plan: tuple[ProviderProfileAttemptPlanEntry, ...],
+    ) -> dict:
+        envelope = RuntimeAuthorizationEnvelope.issue(
+            key_ring=key_ring,
+            tenant_id="tenant-1",
+            workflow_id="workflow-1",
+            run_id="shared-run",
+            step_id=step_id,
+            plan_hash=PLAN_HASH,
+            policy_version="policy-v1",
+            allowed_provider_bindings=tuple(
+                item.binding_authorization for item in plan
+            ),
+            provider_attempt_plan=plan,
+            budgets={
+                "attempts": 1,
+                "provider_attempts": sum(
+                    item.maximum_attempts for item in plan
+                ),
+                "tokens": 100,
+                "cost_micros": 1_000,
+            },
+            now=now,
+            ttl_seconds=600,
+        )
+        grants.grant(envelope)
+        claim = ownership.claim(
+            tenant_id="tenant-1",
+            workflow_id="workflow-1",
+            run_id="shared-run",
+            step_id=step_id,
+            owner_id=f"hub-native:shared-run:{step_id}",
+            lease_seconds=300,
+            maximum_retries=0,
+            now=now,
+        )
+        return {
+            "schema": WORKFLOW_WORKER_COMMAND_SCHEMA,
+            "binding": {
+                "tenant_id": "tenant-1",
+                "workflow_id": "workflow-1",
+                "run_id": "shared-run",
+                "step_id": step_id,
+                "plan_hash": PLAN_HASH,
+                "policy_version": "policy-v1",
+                "authorization_envelope": envelope.to_dict(),
+            },
+            "attempt_id": claim.ownership.attempt_id,
+            "fencing_token": claim.ownership.fencing_token,
+        }
+
+    _bindings, five_call_plan = _provider_profile_plan()
+    _other_bindings, two_call_plan = _provider_profile_plan(
+        phi_attempts=1,
+        gemma_attempts=1,
+    )
+    total_reserved = 0
+    last_receipt: dict = {}
+    for step_id, plan in (
+        ("step-a", five_call_plan),
+        ("step-b", five_call_plan),
+        ("step-c", two_call_plan),
+    ):
+        base = bind_step(step_id, plan)
+        maximum = sum(item.maximum_attempts for item in plan)
+        for entry in plan:
+            for attempt in range(entry.maximum_attempts):
+                last_receipt = service.execute(
+                    _profile_provider_reserve(
+                        base,
+                        entry,
+                        reservation_id=(
+                            f"{step_id}-{entry.profile_id}-{attempt}"
+                        ),
+                        maximum_attempts=maximum,
+                    )
+                )
+                total_reserved += 1
+
+    assert total_reserved == 12
+    assert last_receipt["tokens"] == 12
+    assert last_receipt["maximum_attempts"] == 1
 
 
 def test_worker_retry_uses_same_hub_owned_budget_and_is_idempotent() -> None:

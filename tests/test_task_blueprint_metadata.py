@@ -17,6 +17,18 @@ class _QueueStub:
 def test_materialize_from_plan_node_carries_blueprint_provenance_to_task_metadata(monkeypatch) -> None:
     queue = _QueueStub()
     monkeypatch.setattr(lifecycle_service, "get_task_queue_service", lambda: queue)
+    monkeypatch.setattr(
+        lifecycle_service,
+        "goal_repo",
+        SimpleNamespace(
+            get_by_id=lambda _goal_id: SimpleNamespace(
+                status="in_progress",
+                execution_preferences={},
+                goal="Implement feature",
+                mode_data={},
+            )
+        ),
+    )
 
     node = SimpleNamespace(
         id="node-1",
@@ -250,3 +262,42 @@ def test_materialize_from_plan_node_no_research_context_input_when_no_sources(mo
 
     wec = queue.calls[0]["extra_fields"]["worker_execution_context"]
     assert "research_context_input" not in wec
+
+
+def test_recovery_child_keeps_source_trace_without_parent_dependency(
+    monkeypatch,
+) -> None:
+    queue = _QueueStub()
+    monkeypatch.setattr(
+        lifecycle_service,
+        "get_task_queue_service",
+        lambda: queue,
+    )
+    node = SimpleNamespace(
+        id="node-recovery",
+        title="Recovery child",
+        description="Execute one approved recovery step",
+        priority="High",
+        rationale={"task_kind": "coding"},
+        verification_spec={},
+    )
+
+    lifecycle_service.TaskLifecycleService().materialize_from_plan_node(
+        task_id="task-recovery-child",
+        node=node,
+        team_id=None,
+        goal_id=None,
+        goal_trace_id="trace-recovery",
+        plan_id="plan-recovery",
+        parent_task_id=None,
+        source_task_id="task-source",
+        initial_status="paused",
+        derivation_reason="goal_task_recovery",
+        derivation_depth=1,
+        depends_on=None,
+    )
+
+    call = queue.calls[0]
+    assert call["status"] == "paused"
+    assert call["extra_fields"]["parent_task_id"] is None
+    assert call["extra_fields"]["source_task_id"] == "task-source"

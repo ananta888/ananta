@@ -163,6 +163,10 @@ class TaskExecutionTrackingService:
         return _build_control_layer_observability_snapshot(max_tasks=max_tasks)
 
     def reconcile_worker_executions(self, *, now: float | None = None, limit: int = 50) -> dict:
+        from agent.services.recovery_task_mutation_policy import (
+            recovery_task_role,
+        )
+
         repos = get_repository_registry()
         snapshot = self.build_execution_reconciliation_snapshot(limit=limit, now=now)
         if not snapshot.get("affected_tasks"):
@@ -175,6 +179,23 @@ class TaskExecutionTrackingService:
             if not task:
                 continue
             issue_code = str(issue.get("issue_code") or "")
+            recovery_role = recovery_task_role(task)
+            if recovery_role is not None:
+                decisions.append(
+                    {
+                        "issue_code": issue_code,
+                        "task_id": task.id,
+                        "worker_job_id": issue.get(
+                            "worker_job_id"
+                        ),
+                        "skipped": True,
+                        "reason_code": (
+                            "recovery_execution_requires_lease_reconciliation"
+                        ),
+                        "recovery_role": recovery_role,
+                    }
+                )
+                continue
             verification_status = dict(task.verification_status or {})
             verification_status["execution_reconciliation"] = {
                 "issue_code": issue_code,
@@ -370,6 +391,23 @@ class TaskExecutionTrackingService:
     def persist_research_artifact(self, *, tid: str, task: dict | None, research_artifact: dict | None) -> dict | None:
         if not isinstance(research_artifact, dict):
             return None
+        from agent.services.recovery_task_mutation_policy import (
+            recovery_task_role,
+        )
+
+        if recovery_task_role(task) == "child":
+            from agent.services.recovery_research_workspace_artifact_service import (
+                get_recovery_research_workspace_artifact_service,
+            )
+
+            return (
+                get_recovery_research_workspace_artifact_service()
+                .materialize_claim(
+                    tid=tid,
+                    task=dict(task or {}),
+                    research_artifact=research_artifact,
+                )
+            )
         report_markdown = str(research_artifact.get("report_markdown") or "").strip()
         if not report_markdown:
             return None

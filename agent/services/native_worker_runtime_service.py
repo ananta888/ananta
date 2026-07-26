@@ -338,13 +338,10 @@ class NativeWorkerRuntimeService:
                 "runtime_path": "delegated_worker_required",
                 "degraded": payload,
             },
-            "artifact_refs": [
-                {
-                    "kind": "native_worker_degraded_state",
-                    "task_id": tid,
-                    "trace_bundle_ref": "native_worker_runtime:delegation_required",
-                }
-            ],
+            # Degraded runtime diagnostics are not artifacts: they do not
+            # identify a real workspace file and therefore cannot cross the
+            # Recovery artifact-ingress contract.
+            "artifact_refs": [],
             "approval_decision": {
                 "classification": "blocked",
                 "reason_code": "native_worker_in_process_execution_disabled",

@@ -151,7 +151,37 @@ _MODEL_ROUTING_FIELDS = [
         "Cloud erlauben",
         "boolean",
         help_text="Erlaubt Cloud-Kandidaten nur innerhalb der Hub-Policy.",
-        default=False,
+        essential=False,
+    ),
+    _field(
+        "/metadata/model_routing/context_recovery_strategies",
+        "Kontext-Notfallkette",
+        "multi_select",
+        help_text=(
+            "Geordnete Hub-Strategien nach erschöpfter Modellkette; Worker "
+            "dürfen daraus keine Tasks selbst erzeugen."
+        ),
+        options=[
+            {"value": "compact_context", "label": "Kontext verdichten"},
+            {"value": "segment_planning", "label": "In Abschnitte planen"},
+            {"value": "propose_task_plan", "label": "Task-Plan vorschlagen"},
+            {"value": "require_approval", "label": "Freigabe anfordern"},
+            {"value": "stop", "label": "Danach stoppen"},
+        ],
+        essential=False,
+        effect=(
+            "Der Hub darf nach terminaler Modell-Erschöpfung einen begrenzten "
+            "Planentwurf erzeugen; die Reihenfolge wird als Policy transportiert."
+        ),
+    ),
+    _field(
+        "/metadata/model_routing/require_approval_for_generated_plan",
+        "Generierten Task-Plan freigeben",
+        "boolean",
+        help_text=(
+            "Bindet die Task-Materialisierung an eine exakte, Hub-seitige "
+            "Freigabe des gespeicherten Plan-Digests."
+        ),
         essential=False,
     ),
 ]

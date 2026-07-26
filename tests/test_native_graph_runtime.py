@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 
@@ -8,7 +9,10 @@ from agent.services.native_graph_orchestration_service import (
     NativeGraphOrchestrator,
     NativeGraphRequest,
 )
-from agent.services.workflow_provider_selection_service import WorkflowProviderDecision
+from agent.services.workflow_provider_selection_service import (
+    HubConfiguredWorkflowProviderDecisionService,
+    WorkflowProviderDecision,
+)
 from agent.services.workflow_runtime import (
     AuthorizationVerifier,
     HmacKeyRing,
@@ -22,7 +26,11 @@ from agent.services.workflow_runtime import (
     WorkflowCommandVerifier,
 )
 from agent.services.workflow_runtime.execution_plan import ExecutionPlan
-from ananta_contracts.provider_execution import ProviderExecutionBinding
+from ananta_contracts.provider_execution import (
+    ProviderExecutionBinding,
+    ProviderProfileAttemptPlanEntry,
+    ProviderProfileExecutionBinding,
+)
 from tests.workflow_runtime_contract_fixtures import (
     n_minus_one_runtime_contract_fixture,
 )
@@ -285,6 +293,366 @@ def test_native_provider_node_receives_immutable_hub_binding() -> None:
 
     assert result.status == "running"
     assert queue.submissions[0].provider_binding == binding
+
+
+def test_native_provider_node_uses_compiled_gemma_route_and_separate_budget() -> None:
+    value = plan().to_dict()
+    value.pop("plan_hash", None)
+    value["nodes"][0]["metadata"] = {
+        "provider_transport": "required",
+        "model_routing": {
+            "model_role": "reasoning",
+            "preferred_profile_id": (
+                "local_ollama_gemma4_e4b_reasoning"
+            ),
+            "fallback_group_id": "local_phi_to_gemma_reasoning",
+        },
+    }
+    routed_plan = ExecutionPlan.from_mapping(value)
+    decisions = HubConfiguredWorkflowProviderDecisionService(
+        lambda: {
+            "model_profiles_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
+            ),
+            "model_routing_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_routing.json"
+            ),
+        }
+    )
+    orchestrator, queue, _, _, _, _ = runtime(
+        provider_decisions=decisions
+    )
+
+    result = orchestrator.start(request(routed_plan))
+
+    assert result.status == "running"
+    command = queue.submissions[0]
+    assert command.primary_profile_id == (
+        "local_ollama_gemma4_e4b_reasoning"
+    )
+    assert command.provider_binding.model_id == (
+        "ananta-gemma4-reasoning-8k"
+    )
+    assert [item.profile_id for item in command.provider_profile_bindings] == [
+        "local_ollama_gemma4_e4b_reasoning",
+        "local_ollama_phi4_mini",
+    ]
+    assert command.provider_maximum_attempts == 5
+    assert command.authorization.budgets["attempts"] == 1
+    assert command.authorization.budgets["provider_attempts"] == 5
+    assert command.provider_context["max_attempts"] == 5
+    assert command.provider_context["require_hub_retry_budget"] is False
+
+
+def test_native_provider_nodes_keep_node_caps_and_share_signed_run_ceiling() -> None:
+    provider_bindings = tuple(
+        ProviderProfileExecutionBinding(
+            profile_id=profile_id,
+            binding=ProviderExecutionBinding(
+                provider_id="ollama",
+                model_id=model_id,
+                source="hub_model_profile_routing",
+                reason_code="hub_provider_profile_selected",
+            ),
+        )
+        for profile_id, model_id in (
+            ("phi-primary", "phi4-mini:latest"),
+            ("gemma-fallback", "gemma4:e4b-it-qat"),
+        )
+    )
+    attempt_plan = tuple(
+        ProviderProfileAttemptPlanEntry.from_profile_binding(
+            binding,
+            maximum_attempts=maximum,
+        )
+        for binding, maximum in zip(
+            provider_bindings,
+            (3, 2),
+            strict=True,
+        )
+    )
+    decision = WorkflowProviderDecision(
+        status="selected",
+        reason_code="hub_provider_profile_selected",
+        binding=provider_bindings[0].binding,
+        primary_profile_id=provider_bindings[0].profile_id,
+        profile_bindings=provider_bindings,
+        profile_attempt_plan=attempt_plan,
+        maximum_provider_attempts=5,
+    )
+    two_node_plan = ExecutionPlan.from_mapping(
+        {
+            "tenant_id": "tenant-a",
+            "plan_id": "provider-budget-v1",
+            "workflow_id": "provider-budget",
+            "policy_version": "policy-v1",
+            "capabilities": ["bounded_parallel"],
+            "nodes": [
+                {
+                    "id": "small",
+                    "required_capabilities": ["bounded_parallel"],
+                    "budget": {
+                        "max_attempts": 1,
+                        "max_tokens": 30,
+                        "max_cost_micros": 300,
+                    },
+                    "metadata": {
+                        "parallel_group": "provider",
+                        "parallel_limit": 2,
+                        "provider_transport": "required",
+                    },
+                },
+                {
+                    "id": "large",
+                    "required_capabilities": ["bounded_parallel"],
+                    "budget": {
+                        "max_attempts": 1,
+                        "max_tokens": 50,
+                        "max_cost_micros": 500,
+                    },
+                    "metadata": {
+                        "parallel_group": "provider",
+                        "parallel_limit": 2,
+                        "provider_transport": "required",
+                    },
+                },
+            ],
+            "budget": {
+                "max_attempts": 1,
+                "max_tokens": 100,
+                "max_cost_micros": 1_000,
+            },
+        }
+    )
+    orchestrator, queue, _handler, keys, _ledger, _stores = runtime(
+        provider_decisions=StaticProviderDecisions(decision)
+    )
+
+    started = orchestrator.start(request(two_node_plan))
+
+    assert started.status == "running"
+    commands = {
+        command.node.node_id: command for command in queue.submissions
+    }
+    assert set(commands) == {"small", "large"}
+    for node_id, node_tokens, node_cost in (
+        ("small", 30, 300),
+        ("large", 50, 500),
+    ):
+        command = commands[node_id]
+        assert command.authorization.budgets["tokens"] == node_tokens
+        assert command.authorization.budgets["cost_micros"] == node_cost
+        assert command.authorization.budgets["provider_run_tokens"] == 100
+        assert (
+            command.authorization.budgets["provider_run_cost_micros"]
+            == 1_000
+        )
+        assert command.provider_context["max_total_tokens"] == node_tokens
+        assert command.provider_context["max_cost_micros"] == node_cost
+
+    original = commands["small"]
+    assert original.node.budget is not None
+    tampered = replace(
+        original,
+        node=replace(
+            original.node,
+            budget=replace(
+                original.node.budget,
+                max_tokens=80,
+            ),
+        ),
+    )
+    tamper_handler = DeterministicHandler()
+    tamper_runtime = NativeDelegatedNodeRuntime(
+        handler=tamper_handler,
+        authorization_verifier=AuthorizationVerifier(
+            keys,
+            InMemoryReplayNonceStore(clock=lambda: 100.0),
+        ),
+        policy=AllowPolicy(),
+        capabilities=frozenset({"bounded_parallel"}),
+        hub_revalidator=HubRevalidator(),
+        clock=lambda: 100.0,
+    )
+
+    denied = tamper_runtime.execute(
+        tampered,
+        hub_task_id="hub-task-tampered",
+    )
+
+    assert denied.status == "failed"
+    assert denied.reason_code == "authorization_budget_exceeded"
+    assert tamper_handler.calls == []
+
+
+def test_native_command_plan_controls_propose_strategy_despite_worker_drift(
+    monkeypatch,
+) -> None:
+    from agent.services.model_invocation_service import (
+        LLMUnavailableError,
+        ModelInvocationService,
+    )
+    from agent.services.model_profile_loader import ModelProfile
+    from agent.services.model_profile_resolver import (
+        ModelProfileResolver,
+        RoutingRules,
+    )
+    from agent.services.propose_strategies.flexible_llm_normalization_strategy import (
+        FlexibleLLMNormalizationStrategy,
+    )
+    from worker.core.propose_orchestrator import ProposeContext
+    from worker.runtime.native_graph.composition import (
+        NativeTaskScopedNodeHandler,
+    )
+
+    decisions = HubConfiguredWorkflowProviderDecisionService(
+        lambda: {
+            "model_profiles_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
+            ),
+            "model_routing_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_routing.json"
+            ),
+        }
+    )
+    orchestrator, queue, _handler, _keys, _ledger, _stores = runtime(
+        provider_decisions=decisions
+    )
+    started = orchestrator.start(request(provider_plan()))
+    assert started.status == "running"
+    command = queue.submissions[0]
+
+    native_handler = NativeTaskScopedNodeHandler(
+        agent_config={},
+        task_snapshots=SimpleNamespace(),
+        executor=SimpleNamespace(),
+    )
+    effective_config = native_handler._hub_bound_agent_config(command)
+    assert effective_config["provider_attempt_plan"] == [
+        entry.to_dict() for entry in command.provider_attempt_plan
+    ]
+
+    # The Worker has the opposite order and deliberately incorrect retry
+    # budgets. Only the Hub-signed plan transported by the Native command may
+    # control the strategy's ModelInvocation calls.
+    phi = ModelProfile(
+        profile_id="local_ollama_phi4_mini",
+        provider_id="ollama",
+        model="ananta-phi4-mini-32k",
+        local=True,
+        retry_budget=0,
+        fallback_group="drifted",
+        fallback_rank=20,
+        base_url="http://ollama:11434/v1",
+    )
+    gemma = ModelProfile(
+        profile_id="local_ollama_gemma4_e4b_reasoning",
+        provider_id="ollama",
+        model="ananta-gemma4-reasoning-8k",
+        local=True,
+        retry_budget=12,
+        fallback_group="drifted",
+        fallback_rank=10,
+        base_url="http://ollama:11434/v1",
+    )
+    resolver = ModelProfileResolver(
+        [gemma, phi],
+        routing_rules=RoutingRules.from_dict(
+            {
+                "fallback_groups": {
+                    "drifted": {
+                        "ordered_profiles": [
+                            gemma.profile_id,
+                            phi.profile_id,
+                        ],
+                        "max_total_retries": 12,
+                    }
+                }
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        ModelInvocationService,
+        "_get_resolver",
+        classmethod(lambda cls: resolver),
+    )
+    monkeypatch.setattr(
+        ModelInvocationService,
+        "_get_settings",
+        classmethod(
+            lambda cls: SimpleNamespace(
+                default_provider="ollama",
+                default_model="auto",
+                lmstudio_url="",
+                ollama_url="http://ollama:11434/v1",
+                openai_url="",
+                openai_api_key=None,
+                mock_url="",
+                llm_invoke_timeout_seconds=120,
+            )
+        ),
+    )
+    calls: list[tuple[str, str]] = []
+
+    def invoke_once(cls, messages, **values):  # noqa: ANN001
+        del cls, messages
+        attempt = values["attempt"]
+        provider_context = values["provider_context"]
+        calls.append(
+            (
+                attempt["profile"].profile_id,
+                provider_context.provider_profile_id,
+            )
+        )
+        if len(calls) < 5:
+            raise LLMUnavailableError(
+                "simulated timeout",
+                terminal_reason="provider_timeout",
+            )
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": '{"command":"echo native-plan-ok"}'
+                    }
+                }
+            ],
+            "metadata": {},
+            "model": attempt["model"],
+            "usage": {},
+        }
+
+    monkeypatch.setattr(
+        ModelInvocationService,
+        "_make_single_chat_call",
+        classmethod(invoke_once),
+    )
+    context = ProposeContext(
+        goal_id="goal-native",
+        task_id="task-native",
+        task={"id": "task-native", "goal_id": "goal-native"},
+        base_prompt="return one command",
+        effective_config=effective_config,
+    )
+
+    result = FlexibleLLMNormalizationStrategy().run(context)
+
+    expected_profiles = (
+        ["local_ollama_phi4_mini"] * 3
+        + ["local_ollama_gemma4_e4b_reasoning"] * 2
+    )
+    assert result.proposal is not None
+    assert result.proposal.command == "echo native-plan-ok"
+    assert [profile for profile, _context_profile in calls] == (
+        expected_profiles
+    )
+    assert [
+        context_profile for _profile, context_profile in calls
+    ] == expected_profiles
 
 
 def signed_control(

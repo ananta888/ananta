@@ -22,6 +22,10 @@ from agent.services.template_variable_registry import (
     find_unknown_template_variables,
     resolve_allowed_template_variables,
 )
+from agent.services.recovery_task_mutation_policy import (
+    RecoveryTaskMutationConflict,
+    ensure_external_recovery_mutation_allowed,
+)
 from agent.tools_registry import ToolRegistry, ToolResult, _TOOL_ALIASES, registry  # noqa: F401
 
 logger = logging.getLogger(__name__)
@@ -617,6 +621,15 @@ def upsert_team_tool(
     },
 )
 def delete_team_tool(team_id: str):
+    try:
+        for task in task_repo.get_all():
+            if str(getattr(task, "team_id", "") or "") == team_id:
+                ensure_external_recovery_mutation_allowed(
+                    task,
+                    action="team_delete",
+                )
+    except RecoveryTaskMutationConflict as exc:
+        return {"error": exc.reason_code, **exc.as_data()}
     team_member_repo.delete_by_team(team_id)
     task_repo.clear_team_assignments(team_id)
     goal_repo.clear_team_assignments(team_id)

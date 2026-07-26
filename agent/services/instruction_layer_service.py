@@ -12,6 +12,9 @@ from agent.services.instruction_layer_compiler import (
     _STACK_VERSION,
     InstructionLayerService as InstructionLayerCompiler,
 )
+from agent.services.recovery_task_mutation_policy import (
+    ensure_external_recovery_mutation_allowed,
+)
 from agent.services.repository_registry import get_repository_registry
 
 
@@ -204,6 +207,10 @@ class InstructionLayerService(InstructionLayerCompiler):
         task = repos.task_repo.get_by_id(task_id)
         if task is None:
             raise ValueError("task_not_found")
+        ensure_external_recovery_mutation_allowed(
+            task,
+            action="instruction_selection",
+        )
         owner = str(owner_username or "").strip()
         if not owner:
             raise ValueError("owner_username_required")

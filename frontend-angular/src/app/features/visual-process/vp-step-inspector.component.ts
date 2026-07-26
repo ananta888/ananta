@@ -8,6 +8,8 @@ import {
 } from '../model-training/model-training.models';
 
 import {
+  CONTEXT_RECOVERY_STRATEGIES,
+  ContextRecoveryStrategy,
   FallbackGroupSummary,
   ModelProfileSummary,
   ModelRoutingConfig,
@@ -102,6 +104,7 @@ export class VpStepInspectorComponent {
     return (raw && typeof raw === 'object' ? raw : {}) as ModelRoutingConfig;
   });
   readonly fallbackGroupIds = computed(() => Object.keys(this.fallbackGroups()));
+  readonly recoveryStrategyOptions = CONTEXT_RECOVERY_STRATEGIES;
 
   kindOptionSuffix(kind: TaskKindInfo): string {
     if (kind.implementation_status === 'experimental') return ' [exp]';
@@ -239,9 +242,40 @@ export class VpStepInspectorComponent {
       const routing = { ...((metadata['model_routing'] as ModelRoutingConfig | undefined) ?? {}) };
       if (value === '' || value === null || value === undefined) delete (routing as Record<string, unknown>)[key as string];
       else (routing as Record<string, unknown>)[key as string] = value;
-      metadata['model_routing'] = routing;
+      if (Object.keys(routing).length) metadata['model_routing'] = routing;
+      else delete metadata['model_routing'];
       step.metadata = metadata;
     });
+  }
+
+  recoveryStrategyEnabled(strategy: ContextRecoveryStrategy): boolean {
+    return (this.stepRouting().context_recovery_strategies ?? []).includes(strategy);
+  }
+
+  toggleRecoveryStrategy(strategy: ContextRecoveryStrategy, enabled: boolean): void {
+    const selected = new Set(this.stepRouting().context_recovery_strategies ?? []);
+    if (enabled) selected.add(strategy);
+    else selected.delete(strategy);
+    if (
+      (strategy === 'segment_planning' || strategy === 'propose_task_plan')
+      && enabled
+    ) {
+      selected.add('require_approval');
+    }
+    if (strategy === 'require_approval' && !enabled) {
+      selected.delete('segment_planning');
+      selected.delete('propose_task_plan');
+    }
+    this.setStepRoutingField(
+      'context_recovery_strategies',
+      CONTEXT_RECOVERY_STRATEGIES.filter(item => selected.has(item)),
+    );
+    if (
+      (strategy === 'segment_planning' || strategy === 'propose_task_plan')
+      && enabled
+    ) {
+      this.setStepRoutingField('require_approval_for_generated_plan', true);
+    }
   }
 
   clearStepRouting(): void {
@@ -254,13 +288,19 @@ export class VpStepInspectorComponent {
 
   applyModelRoutingPreset(kind: 'local' | 'cheap_cloud' | 'strong'): void {
     const profileId = kind === 'local'
-      ? 'local_lmstudio_phi_json_worker'
+      ? 'local_ollama_phi4_mini'
       : kind === 'cheap_cloud'
         ? 'openrouter_gemma3_4b_cheap_json'
         : 'openrouter_qwen3_30b_a3b_stronger';
     this.setStepRoutingField('preferred_profile_id', profileId);
-    this.setStepRoutingField('fallback_group_id', kind === 'local' ? 'local_first_cheap' : undefined);
+    this.setStepRoutingField('fallback_group_id', kind === 'local' ? 'local_phi_to_gemma_reasoning' : undefined);
     this.setStepRoutingField('allow_cloud', kind !== 'local');
+    if (kind === 'local') {
+      this.setStepRoutingField('context_recovery_strategies', [
+        'compact_context', 'segment_planning', 'propose_task_plan', 'require_approval', 'stop',
+      ]);
+      this.setStepRoutingField('require_approval_for_generated_plan', true);
+    }
     this.statusChanged.emit(`Model-Profil "${profileId}" gesetzt`);
   }
 

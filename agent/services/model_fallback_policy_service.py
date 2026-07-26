@@ -11,6 +11,9 @@ from typing import Any
 
 from agent.services.model_profile_loader import ModelProfile
 from agent.services.model_profile_resolver import ProviderHealthCache
+from ananta_contracts.model_recovery import (
+    normalize_model_recovery_error_type,
+)
 
 
 FALLBACK_ERROR_TYPES = frozenset({
@@ -33,6 +36,15 @@ TERMINAL_ERROR_TYPES = frozenset({
     "http_4xx",
     "client_error",
 })
+
+# Retrying a request which is known to exceed the context window only repeats
+# the same deterministic failure.  The Hub must instead select a configured
+# context-recovery action (compaction, segmentation, approval, or stop).
+NON_RETRYABLE_SAME_PROFILE_ERROR_TYPES = frozenset({
+    "context_too_large",
+    *TERMINAL_ERROR_TYPES,
+})
+MAX_PROFILE_RETRY_BUDGET = 8
 
 
 @dataclass
@@ -110,13 +122,44 @@ class ModelFallbackPolicyService:
             terminal=False,
         )
 
+    @classmethod
+    def allows_fallback(cls, error_type: str | None) -> bool:
+        """Return whether an error may advance through a model chain."""
+        return cls.normalize_error_type(error_type) in FALLBACK_ERROR_TYPES
+
+    @classmethod
+    def allows_same_profile_retry(cls, error_type: str | None) -> bool:
+        """Return whether repeating the unchanged model request is safe."""
+        normalized = cls.normalize_error_type(error_type)
+        return (
+            normalized in FALLBACK_ERROR_TYPES
+            and normalized not in NON_RETRYABLE_SAME_PROFILE_ERROR_TYPES
+        )
+
+    def should_retry_profile(
+        self,
+        *,
+        error_type: str,
+        profile: ModelProfile | None,
+        failed_attempts: int,
+    ) -> bool:
+        """Return whether the current profile gets another invocation.
+
+        ``retry_budget`` is the number of *additional* attempts after the
+        initial call.  Keeping that definition on the profile makes a policy
+        portable across routes while the invocation service remains a simple
+        transport adapter.  A context overflow is deliberately excluded: it
+        requires Hub-level recovery, never an unchanged retry.
+        """
+        normalized = self.normalize_error_type(error_type)
+        if profile is None or not self.allows_same_profile_retry(normalized):
+            return False
+        retry_budget = min(
+            MAX_PROFILE_RETRY_BUDGET,
+            max(0, int(profile.retry_budget or 0)),
+        )
+        return int(failed_attempts) <= retry_budget
+
     @staticmethod
     def normalize_error_type(error_type: str | None) -> str:
-        value = str(error_type or "").strip().lower()
-        if value in {"server_error", "llm_server_error"}:
-            return "http_5xx"
-        if value in {"client_error", "llm_client_error"}:
-            return "http_4xx"
-        if value in {"connection_error", "llm_connection_failed"}:
-            return "provider_unavailable"
-        return value or "unknown"
+        return normalize_model_recovery_error_type(error_type)

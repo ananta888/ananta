@@ -42,6 +42,10 @@ from agent.services.blueprint_serializer import (
     _user_lifecycle_state_from_metadata,
 )
 from agent.services.repository_registry import get_repository_registry
+from agent.services.recovery_task_mutation_policy import (
+    RecoveryTaskMutationConflict,
+    ensure_external_recovery_mutation_allowed,
+)
 from agent.services.team_definition_version_service import (
     build_team_blueprint_diff,
     team_definition_metadata,
@@ -470,6 +474,21 @@ def delete_team(team_id):
     team = repos.team_repo.get_by_id(team_id)
     if not team:
         return _team_error("not_found", 404)
+
+    try:
+        for task in repos.task_repo.get_all():
+            if str(getattr(task, "team_id", "") or "") == team_id:
+                ensure_external_recovery_mutation_allowed(
+                    task,
+                    action="team_delete",
+                )
+    except RecoveryTaskMutationConflict as exc:
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            data=exc.as_data(),
+            code=409,
+        )
 
     # Team-Mitglieder zuerst entfernen, damit FK-Constraints das Team-Delete nicht blockieren.
     repos.team_member_repo.delete_by_team(team_id)

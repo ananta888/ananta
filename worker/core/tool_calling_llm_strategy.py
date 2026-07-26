@@ -1,17 +1,23 @@
 """ToolCallingLLMStrategy — FA-T009/T021/AFR-T004: real API tools= param."""
+
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 
-from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
-from worker.core.propose import ProposeStrategyResult, ExecutableProposal
-from agent.services.model_invocation_service import ModelInvocationService, LLMUnavailableError
-from agent.services.llm_response_normalizer import LLMResponseNormalizer
 from agent.services.context_bundle_service import ContextBundler
+from agent.services.llm_response_normalizer import LLMResponseNormalizer
+from agent.services.model_invocation_service import LLMUnavailableError, ModelInvocationService
+from ananta_contracts.model_recovery import metadata_from_llm_error
+from agent.services.model_routing_contract import (
+    ModelRoutingContractError,
+    build_model_routing_context,
+    model_routing_policy_failure_metadata,
+)
 from agent.services.prompt_context_bundle_service import get_prompt_context_bundle_service
 from agent.services.propose_runtime_policy import resolve_propose_llm_timeout_seconds
 from agent.services.strategy_prompt_composer import get_strategy_prompt_composer
+from worker.core.propose import ExecutableProposal, ProposeStrategyResult
+from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 
 _MOCK_ONLY_PROVIDERS = {"mock"}
 
@@ -28,7 +34,13 @@ def _build_system_prompt(context: ProposeContext) -> str:
             policy_mode="standard",
             llm_scope="external_cloud_allowed",
         )
-        governed_context_summary = f"chunks={bundle.get('chunk_count', 0)} denied={((bundle.get('policy_filter') or {}).get('denied_count', 0))}"
+        denied_count = (bundle.get("policy_filter") or {}).get(
+            "denied_count",
+            0,
+        )
+        governed_context_summary = (
+            f"chunks={bundle.get('chunk_count', 0)} denied={denied_count}"
+        )
     pcb = get_prompt_context_bundle_service().build_for_propose_context(context).to_dict()
     return get_strategy_prompt_composer().compose_system_prompt(
         context=context,
@@ -50,20 +62,25 @@ class ToolCallingLLMStrategy(ProposeStrategy):
 
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
         from agent.config import settings
+
         _eff_cfg = dict(context.effective_config) if isinstance(context.effective_config, Mapping) else {}
-        provider = (str(_eff_cfg.get("default_provider") or "") or settings.default_provider or "lmstudio").strip().lower()
+        provider = (
+            (str(_eff_cfg.get("default_provider") or "") or settings.default_provider or "lmstudio").strip().lower()
+        )
         pcb = get_prompt_context_bundle_service().build_for_propose_context(context).to_dict()
 
         if provider in _MOCK_ONLY_PROVIDERS:
             return ProposeStrategyResult.declined(
-                "tool_calling_llm", reason="provider_tools_not_supported_mock",
+                "tool_calling_llm",
+                reason="provider_tools_not_supported_mock",
             )
 
         resolver = context.tool_definitions_resolver
         tools = resolver() if resolver is not None else []
         if not tools:
             return ProposeStrategyResult.declined(
-                "tool_calling_llm", reason="no_tools_defined",
+                "tool_calling_llm",
+                reason="no_tools_defined",
             )
         allowed_tool_names: set[str] = set()
         for tool in tools:
@@ -88,17 +105,34 @@ class ToolCallingLLMStrategy(ProposeStrategy):
                 model=None,
                 system_prompt=_build_system_prompt(context),
                 timeout=timeout_seconds,
+                retry_on_contract_error=True,
+                routing_ctx=build_model_routing_context(
+                    context.task,
+                    context_text=context.base_prompt,
+                    requires_tools=True,
+                ),
+                provider_context=_eff_cfg.get("provider_context"),
+                provider_contexts_by_profile_id=_eff_cfg.get("provider_contexts_by_profile_id"),
+                provider_attempt_plan=_eff_cfg.get("provider_attempt_plan"),
+            )
+        except ModelRoutingContractError as exc:
+            return ProposeStrategyResult.declined(
+                "tool_calling_llm",
+                reason="model_routing_policy_blocked",
+                reason_codes=["model_routing_invalid", "policy_blocked"],
+                metadata=model_routing_policy_failure_metadata(exc),
             )
         except LLMUnavailableError as exc:
             return ProposeStrategyResult.declined(
                 "tool_calling_llm",
                 reason=f"llm_required_but_unavailable: {exc}",
-                reason_codes=["llm_required", "llm_provider_unavailable"],
-                metadata={"llm_call_profile": list(getattr(exc, "llm_call_profile", []) or [])},
+                reason_codes=["llm_required", "llm_provider_unavailable", "model_chain_exhausted"],
+                metadata=metadata_from_llm_error(exc),
             )
         except Exception as exc:
             return ProposeStrategyResult.failed(
-                "tool_calling_llm", f"llm_call_failed: {exc}",
+                "tool_calling_llm",
+                f"llm_call_failed: {exc}",
                 metadata={
                     "llm_call_profile": [
                         {
@@ -125,10 +159,18 @@ class ToolCallingLLMStrategy(ProposeStrategy):
         tool_calls = llm_response.get("tool_calls") or []
         content = llm_response.get("content") or ""
         finish_reason = llm_response.get("finish_reason") or ""
-        llm_profile = list(((llm_response.get("metadata") or {}).get("llm_call_profile") or []))
-        allow_shell_execution = bool(
-            getattr(getattr(context, "policy", None), "allow_shell_execution", False)
+        invocation_metadata = (
+            dict(llm_response.get("metadata") or {}) if isinstance(llm_response.get("metadata"), dict) else {}
         )
+        llm_profile = list(invocation_metadata.get("llm_call_profile") or [])
+        fallback_decisions = [
+            dict(item) for item in list(invocation_metadata.get("fallback_decisions") or []) if isinstance(item, dict)
+        ]
+        invocation_diagnostics = {
+            **({"llm_call_profile": llm_profile} if llm_profile else {}),
+            **({"fallback_decisions": fallback_decisions} if fallback_decisions else {}),
+        }
+        allow_shell_execution = bool(getattr(getattr(context, "policy", None), "allow_shell_execution", False))
 
         # No native tool calls → try to extract from content via normalizer
         if not tool_calls and content.strip():
@@ -141,8 +183,7 @@ class ToolCallingLLMStrategy(ProposeStrategy):
             if isinstance(fallback.metadata, dict):
                 fallback.metadata["source"] = "tool_calling_llm_content_fallback"
                 fallback.metadata["allow_shell_execution"] = allow_shell_execution
-                if llm_profile:
-                    fallback.metadata["llm_call_profile"] = llm_profile
+                fallback.metadata.update(invocation_diagnostics)
             if fallback.is_executable or fallback.status == "advisory":
                 return fallback
 
@@ -152,12 +193,12 @@ class ToolCallingLLMStrategy(ProposeStrategy):
                     "tool_calling_llm",
                     reason="tools_not_supported_model_returned_stop",
                     reason_codes=["tools_not_supported"],
-                    metadata={"llm_call_profile": llm_profile} if llm_profile else None,
+                    metadata=invocation_diagnostics or None,
                 )
             return ProposeStrategyResult.declined(
                 "tool_calling_llm",
                 reason="llm_returned_no_tool_calls",
-                metadata={"llm_call_profile": llm_profile} if llm_profile else None,
+                metadata=invocation_diagnostics or None,
             )
 
         # Validate tool calls: each must have a name
@@ -178,7 +219,7 @@ class ToolCallingLLMStrategy(ProposeStrategy):
             return ProposeStrategyResult.declined(
                 "tool_calling_llm",
                 reason=reason,
-                metadata={"llm_call_profile": llm_profile} if llm_profile else None,
+                metadata=invocation_diagnostics or None,
             )
 
         proposal = ExecutableProposal(
@@ -193,15 +234,24 @@ class ToolCallingLLMStrategy(ProposeStrategy):
                 "provider": str(llm_response.get("provider") or provider).strip().lower() or provider,
                 "model": str(llm_response.get("model") or "").strip() or None,
                 "llm_call_profile": llm_profile,
+                "fallback_decisions": fallback_decisions,
                 "tools_used": [tc.get("name") for tc in valid_tcs],
                 "prompt_context_bundle": {
                     "schema": pcb.get("schema"),
                     "task_kind": pcb.get("task_kind"),
                     "selected_chunks": ((pcb.get("context_summary") or {}).get("budget") or {}).get("selected_count"),
-                    "instruction_layers_present": bool((pcb.get("context_summary") or {}).get("instruction_layers_present")),
-                    "instruction_stack_present": bool((pcb.get("context_summary") or {}).get("instruction_stack_present")),
+                    "instruction_layers_present": bool(
+                        (pcb.get("context_summary") or {}).get("instruction_layers_present")
+                    ),
+                    "instruction_stack_present": bool(
+                        (pcb.get("context_summary") or {}).get("instruction_stack_present")
+                    ),
                     "instruction_stack_checksum": (pcb.get("context_summary") or {}).get("instruction_stack_checksum"),
                 },
             },
         )
-        return ProposeStrategyResult.executable("tool_calling_llm", proposal)
+        return ProposeStrategyResult.executable(
+            "tool_calling_llm",
+            proposal,
+            metadata=invocation_diagnostics,
+        )

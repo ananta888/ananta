@@ -26,6 +26,10 @@ from agent.db_models import (
     WorkerResultDB,
 )
 from agent.services.prompt_trace_service import get_prompt_trace_service
+from agent.services.recovery_task_mutation_policy import (
+    ensure_external_recovery_mutation_allowed,
+    is_active_recovery_task,
+)
 from agent.services.task_admin_service import get_task_admin_service
 
 
@@ -94,7 +98,24 @@ class GoalPurgeService:
                 return None
 
             trace_id = str(getattr(goal, "trace_id", "") or "").strip()
-            task_ids = self._collect_ids(session.exec(select(TaskDB.id).where(TaskDB.goal_id == goal_id_norm)).all())
+            goal_tasks = list(
+                session.exec(
+                    select(TaskDB).where(
+                        TaskDB.goal_id == goal_id_norm
+                    )
+                ).all()
+            )
+            for task in goal_tasks:
+                if is_active_recovery_task(task):
+                    ensure_external_recovery_mutation_allowed(
+                        task,
+                        action="goal_purge",
+                    )
+            task_ids = [
+                str(task.id)
+                for task in goal_tasks
+                if str(task.id or "").strip()
+            ]
             cancel_attempted = 0
             cancel_ok = 0
             cancel_failed = 0

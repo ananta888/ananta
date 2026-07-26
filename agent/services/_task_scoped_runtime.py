@@ -788,7 +788,14 @@ def terminal_parent_goal_guard(*, tid: str, task: dict, phase: str) -> "TaskScop
         return None
     goal = get_repository_registry().goal_repo.get_by_id(goal_id)
     goal_status = str(getattr(goal, "status", "") or "").strip().lower() if goal is not None else ""
-    if goal_status not in {"completed", "failed", "cancelled", "aborted", "timeout"}:
+    if goal_status not in {
+        "completed",
+        "failed",
+        "cancelled",
+        "aborted",
+        "timeout",
+        "archived",
+    }:
         return None
     update_local_task_status(
         tid,

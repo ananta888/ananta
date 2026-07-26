@@ -62,10 +62,13 @@ from agent.services.workflow_runtime.persistence import (
 from agent.services.workflow_runtime.provider_budgets import (
     PROVIDER_BUDGET_RECEIPT_SCHEMA,
     InMemoryProviderBudgetStore,
+    ProviderAttemptScope,
     ProviderBudgetError,
     ProviderBudgetLimits,
     ProviderBudgetSnapshot,
     ProviderBudgetStore,
+    ProviderProfileAttemptReservation,
+    ProviderScopedBudgetReservation,
 )
 from agent.services.workflow_runtime.retention import (
     RETENTION_ATTESTATION_SCHEMA,
@@ -173,10 +176,13 @@ __all__ = [
     "OptimisticConcurrencyError",
     "OwnershipClaim",
     "PROVIDER_BUDGET_RECEIPT_SCHEMA",
+    "ProviderAttemptScope",
     "ProviderBudgetError",
     "ProviderBudgetLimits",
     "ProviderBudgetSnapshot",
     "ProviderBudgetStore",
+    "ProviderProfileAttemptReservation",
+    "ProviderScopedBudgetReservation",
     "QuarantinedContract",
     "RETENTION_ATTESTATION_SCHEMA",
     "RETENTION_POLICY_SCHEMA",

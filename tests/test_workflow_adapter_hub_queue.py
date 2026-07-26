@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from agent.services.model_routing_contract import ModelRoutingConfig
 from agent.services.workflow_adapter_control_facade import (
     WORKFLOW_ADAPTER_COMMAND_SCHEMA,
     WorkflowAdapterControlFacade,
@@ -202,6 +203,298 @@ def test_hub_queue_persists_one_signed_fenced_and_routable_contract() -> None:
     assert ownership.get(
         tenant_id="tenant-a", run_id="run-a", step_id="step-a"
     ).status == "active"
+
+
+def test_hub_builds_and_transports_phi_gemma_profile_contexts_with_route_budget() -> None:
+    decision = HubConfiguredWorkflowProviderDecisionService(
+        lambda: {
+            "model_profiles_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
+            ),
+            "model_routing_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_routing.json"
+            ),
+        }
+    ).decide(
+        WorkflowProviderRequirement(
+            tenant_id="tenant-a",
+            workflow_id="workflow-a",
+            step_id="step-a",
+            task_type="agent_workflow",
+            runtime_kind="langgraph",
+            requires_provider=True,
+        )
+    )
+    service, repository, _queue, _ownership, _keys = _service()
+
+    receipt = service.submit(
+        _submission(
+            maximum_retries=0,
+            provider_binding=decision.binding,
+            provider_decision_reason=decision.reason_code,
+            primary_profile_id=decision.primary_profile_id,
+            provider_profile_bindings=decision.profile_bindings,
+            provider_attempt_plan=decision.profile_attempt_plan,
+            provider_maximum_attempts=decision.maximum_provider_attempts,
+            payload={
+                "graph_id": "graph-a",
+                "provider_contexts_by_profile_id": {
+                    "attacker": {"selected_model_id": "unbound"}
+                },
+            },
+        )
+    )
+    task = repository.values[receipt.hub_task_id]
+    contract = WorkflowAdapterTask.from_mapping(task.worker_execution_context)
+    contexts = contract.payload["provider_contexts_by_profile_id"]
+    primary = contract.payload["provider_context"]
+    envelope = RuntimeAuthorizationEnvelope.from_mapping(
+        contract.authorization_envelope.to_dict()
+    )
+
+    assert decision.maximum_provider_attempts == 5
+    assert contract.provider_maximum_attempts == 5
+    assert primary["max_attempts"] == 5
+    assert primary["combined_retry_maximum"] == 0
+    assert primary["require_hub_retry_budget"] is False
+    assert primary["require_hub_provider_attempt_budget"] is True
+    assert primary["provider_endpoint_identity"] == (
+        "http://ollama:11434/v1/chat/completions"
+    )
+    assert envelope.budgets["attempts"] == 1
+    assert envelope.budgets["retries"] == 0
+    assert envelope.budgets["provider_attempts"] == 5
+    assert [
+        (item.profile_id, item.maximum_attempts)
+        for item in envelope.provider_attempt_plan
+    ] == [
+        ("local_ollama_phi4_mini", 3),
+        ("local_ollama_gemma4_e4b_reasoning", 2),
+    ]
+    assert {
+        (
+            item.binding_id,
+            item.provider_id,
+            item.model_id,
+            item.endpoint_identity,
+        )
+        for item in envelope.allowed_provider_bindings
+    } == {
+        (
+            item.binding.binding_id,
+            item.binding.provider_id,
+            item.binding.model_id,
+            "http://ollama:11434/v1/chat/completions",
+        )
+        for item in decision.profile_bindings
+    }
+    assert set(contexts) == {
+        "local_ollama_phi4_mini",
+        "local_ollama_gemma4_e4b_reasoning",
+    }
+    assert contexts["local_ollama_phi4_mini"] == primary
+    assert contexts["local_ollama_gemma4_e4b_reasoning"][
+        "selected_model_id"
+    ] == "ananta-gemma4-reasoning-8k"
+    assert contexts["local_ollama_gemma4_e4b_reasoning"][
+        "provider_endpoint_identity"
+    ] == "http://ollama:11434/v1/chat/completions"
+    assert contract.worker_payload()[
+        "provider_contexts_by_profile_id"
+    ] == contexts
+    assert "attacker" not in contexts
+
+    tampered = dict(task.worker_execution_context)
+    tampered["payload"] = dict(tampered["payload"])
+    tampered_contexts = {
+        key: dict(value)
+        for key, value in tampered["payload"][
+            "provider_contexts_by_profile_id"
+        ].items()
+    }
+    tampered_contexts["local_ollama_gemma4_e4b_reasoning"][
+        "selected_model_id"
+    ] = "attacker-model"
+    tampered["payload"]["provider_contexts_by_profile_id"] = (
+        tampered_contexts
+    )
+    with pytest.raises(
+        ValueError,
+        match="provider_profile_binding_mismatch",
+    ):
+        WorkflowAdapterTask.from_mapping(tampered)
+
+
+def test_hub_signed_attempt_plan_controls_worker_despite_local_retry_drift(
+    monkeypatch,
+) -> None:
+    from agent.services.model_invocation_service import (
+        LLMUnavailableError,
+        ModelInvocationService,
+    )
+    from agent.services.model_profile_loader import ModelProfile
+    from agent.services.model_profile_resolver import (
+        ModelProfileResolver,
+        RoutingRules,
+    )
+    from worker.runtime.provider_text_generation import (
+        HubProfileRoutedWorkerTextGeneration,
+    )
+
+    decision = HubConfiguredWorkflowProviderDecisionService(
+        lambda: {
+            "model_profiles_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
+            ),
+            "model_routing_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_routing.json"
+            ),
+        }
+    ).decide(
+        WorkflowProviderRequirement(
+            tenant_id="tenant-a",
+            workflow_id="workflow-a",
+            step_id="step-a",
+            task_type="agent_workflow",
+            runtime_kind="langgraph",
+            requires_provider=True,
+        )
+    )
+    service, repository, _queue, _ownership, _keys = _service()
+    receipt = service.submit(
+        _submission(
+            maximum_retries=0,
+            provider_binding=decision.binding,
+            provider_decision_reason=decision.reason_code,
+            primary_profile_id=decision.primary_profile_id,
+            provider_profile_bindings=decision.profile_bindings,
+            provider_attempt_plan=decision.profile_attempt_plan,
+            provider_maximum_attempts=decision.maximum_provider_attempts,
+        )
+    )
+    contract = WorkflowAdapterTask.from_mapping(
+        repository.values[receipt.hub_task_id].worker_execution_context
+    )
+    payload = contract.worker_payload()
+
+    # Deliberately reverse local routing and invert retry budgets. These are
+    # technical profile records only; the signed Hub plan remains authoritative.
+    phi = ModelProfile(
+        profile_id="local_ollama_phi4_mini",
+        provider_id="ollama",
+        model="ananta-phi4-mini-32k",
+        local=True,
+        retry_budget=0,
+        fallback_group="drifted",
+        fallback_rank=20,
+        base_url="http://ollama:11434/v1",
+    )
+    gemma = ModelProfile(
+        profile_id="local_ollama_gemma4_e4b_reasoning",
+        provider_id="ollama",
+        model="ananta-gemma4-reasoning-8k",
+        local=True,
+        retry_budget=12,
+        fallback_group="drifted",
+        fallback_rank=10,
+        base_url="http://ollama:11434/v1",
+    )
+    resolver = ModelProfileResolver(
+        [gemma, phi],
+        routing_rules=RoutingRules.from_dict(
+            {
+                "fallback_groups": {
+                    "drifted": {
+                        "ordered_profiles": [
+                            gemma.profile_id,
+                            phi.profile_id,
+                        ],
+                        "max_total_retries": 12,
+                    }
+                }
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        ModelInvocationService,
+        "_get_resolver",
+        classmethod(lambda cls: resolver),
+    )
+    monkeypatch.setattr(
+        ModelInvocationService,
+        "_get_settings",
+        classmethod(
+            lambda cls: SimpleNamespace(
+                default_provider="ollama",
+                default_model="auto",
+                lmstudio_url="",
+                ollama_url="http://ollama:11434/v1",
+                openai_url="",
+                openai_api_key=None,
+                mock_url="",
+                llm_invoke_timeout_seconds=120,
+            )
+        ),
+    )
+    calls: list[tuple[str, str]] = []
+
+    def invoke_once(cls, messages, **values):  # noqa: ANN001
+        attempt = values["attempt"]
+        context = values["provider_context"]
+        calls.append(
+            (
+                attempt["profile"].profile_id,
+                context.provider_profile_id,
+            )
+        )
+        if len(calls) < 5:
+            raise LLMUnavailableError(
+                "simulated timeout",
+                terminal_reason="provider_timeout",
+            )
+        return {
+            "choices": [{"message": {"content": "gemma ok"}}],
+            "metadata": {},
+            "model": attempt["model"],
+            "usage": {},
+        }
+
+    monkeypatch.setattr(
+        ModelInvocationService,
+        "_make_single_chat_call",
+        classmethod(invoke_once),
+    )
+    worker = HubProfileRoutedWorkerTextGeneration(
+        direct=SimpleNamespace(
+            generate_text=lambda **values: pytest.fail(
+                "signed profile route must not use direct provider path"
+            )
+        ),
+        model_routing=ModelInvocationService,
+    )
+    primary = payload["provider_context"]
+    result = worker.generate_text(
+        **payload,
+        prompt="execute signed route",
+        provider=primary["selected_provider_id"],
+        model=primary["selected_model_id"],
+    )
+
+    expected_profiles = (
+        ["local_ollama_phi4_mini"] * 3
+        + ["local_ollama_gemma4_e4b_reasoning"] * 2
+    )
+    assert result["text"] == "gemma ok"
+    assert [profile for profile, _context_profile in calls] == (
+        expected_profiles
+    )
+    assert [
+        context_profile for _profile, context_profile in calls
+    ] == expected_profiles
 
 
 def test_queue_enforces_idempotency_and_principal_tenant_binding() -> None:
@@ -430,6 +723,9 @@ def test_control_facade_derives_plan_budget_and_principal_binding() -> None:
             "maximum_retries": 1,
             "max_total_tokens": 1_000,
             "max_cost_micros": 2_000,
+            "model_routing": {
+                "preferred_profile_id": "trusted-profile"
+            },
             "payload": {"graph_id": "graph-a"},
         },
     )
@@ -444,6 +740,56 @@ def test_control_facade_derives_plan_budget_and_principal_binding() -> None:
     assert queue.submission.max_cost_micros == 2_000
     assert queue.submission.provider_binding == binding
     assert decisions.requirement.runtime_kind == "langgraph"
+    assert decisions.requirement.model_routing.preferred_profile_id == (
+        "trusted-profile"
+    )
+    assert queue.submission.model_routing == {
+        "preferred_profile_id": "trusted-profile"
+    }
+
+
+def test_control_facade_rejects_invalid_routing_and_ignores_payload_routing() -> None:
+    queue = _FacadeQueue()
+    decisions = _ProviderDecisions(
+        WorkflowProviderDecision(
+            status="not_required",
+            reason_code="provider_transport_not_required",
+        )
+    )
+    control = WorkflowAdapterControlFacade(
+        queue,
+        provider_decisions=decisions,
+    ).bind(
+        WorkflowRoutePrincipal(tenant_id="tenant-a", subject="user-a")
+    )
+
+    with pytest.raises(
+        WorkflowAdapterQueueError,
+        match="model_routing_invalid",
+    ):
+        control.submit(
+            kind="langgraph",
+            command="dry_run",
+            body={
+                "task_type": "agent_workflow",
+                "model_routing": {"worker_smuggled_field": True},
+            },
+        )
+
+    control.submit(
+        kind="langgraph",
+        command="dry_run",
+        body={
+            "task_type": "agent_workflow",
+            "payload": {
+                "model_routing": {
+                    "preferred_profile_id": "payload-smuggling"
+                }
+            },
+        },
+    )
+    assert decisions.requirement.model_routing is None
+    assert queue.submission.model_routing == {}
 
 
 def test_execute_fails_closed_without_hub_provider_decision_and_dry_run_is_provider_free() -> None:
@@ -506,3 +852,63 @@ def test_configured_decision_is_identical_for_native_langchain_and_langgraph() -
         decisions.append(subject.decide(requirement).binding)
 
     assert decisions[0] == decisions[1] == decisions[2]
+
+
+def test_profile_decision_honors_trusted_gemma_primary_and_fallback_group() -> None:
+    subject = HubConfiguredWorkflowProviderDecisionService(
+        lambda: {
+            "model_profiles_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
+            ),
+            "model_routing_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_routing.json"
+            ),
+        }
+    )
+    decision = subject.decide(
+        WorkflowProviderRequirement(
+            tenant_id="tenant-a",
+            workflow_id="workflow-a",
+            step_id="step-a",
+            task_type="reasoning",
+            runtime_kind="langgraph",
+            requires_provider=True,
+            model_routing=ModelRoutingConfig(
+                model_role="reasoning",
+                preferred_profile_id=(
+                    "local_ollama_gemma4_e4b_reasoning"
+                ),
+                fallback_group_id="local_phi_to_gemma_reasoning",
+            ),
+        )
+    )
+
+    assert decision.status == "selected"
+    assert decision.primary_profile_id == (
+        "local_ollama_gemma4_e4b_reasoning"
+    )
+    assert decision.binding is not None
+    assert decision.binding.model_id == "ananta-gemma4-reasoning-8k"
+    assert [item.profile_id for item in decision.profile_bindings] == [
+        "local_ollama_gemma4_e4b_reasoning",
+        "local_ollama_phi4_mini",
+    ]
+    assert decision.maximum_provider_attempts == 5
+
+    denied = subject.decide(
+        WorkflowProviderRequirement(
+            tenant_id="tenant-a",
+            workflow_id="workflow-a",
+            step_id="step-a",
+            task_type="reasoning",
+            runtime_kind="langgraph",
+            requires_provider=True,
+            model_routing=ModelRoutingConfig(
+                fallback_group_id="unconfigured-group"
+            ),
+        )
+    )
+    assert denied.status == "denied"
+    assert denied.reason_code == "provider_fallback_group_not_found"

@@ -144,11 +144,38 @@ def build_source_catalog_from_execution_context(
     )
 
 
-def render_citation_contract_prompt(source_catalog: dict | None) -> str:
-    if not isinstance(source_catalog, dict):
-        return ""
-    sources = [dict(item) for item in list(source_catalog.get("sources") or []) if isinstance(item, dict)]
-    if not sources:
+def render_citation_contract_prompt(
+    source_catalog: dict | None,
+    *,
+    run_evidence_context: dict | None = None,
+) -> str:
+    catalog = (
+        dict(source_catalog)
+        if isinstance(source_catalog, dict)
+        else {}
+    )
+    sources = [
+        dict(item)
+        for item in list(catalog.get("sources") or [])
+        if isinstance(item, dict)
+    ]
+    run_records: list[dict[str, Any]] = []
+    if run_evidence_context is not None:
+        from ananta_contracts.recovery_run_evidence import (
+            validate_recovery_tool_run_context,
+        )
+
+        validated_context = validate_recovery_tool_run_context(
+            run_evidence_context,
+            task_id=str(
+                run_evidence_context.get("task_id") or ""
+            ),
+        )
+        run_records = [
+            dict(value)
+            for value in validated_context["records"]
+        ]
+    if not sources and not run_records:
         return ""
     preview = []
     for item in sources[:12]:
@@ -161,17 +188,31 @@ def render_citation_contract_prompt(source_catalog: dict | None) -> str:
                 "allowed_for_llm_scope": bool(item.get("allowed_for_llm_scope", True)),
             }
         )
+    run_preview = [
+        {
+            "source_id": item["source_id"],
+            "source_type": item["source_type"],
+            "record_id": item["record_id"],
+            "allowed_for_llm_scope": True,
+            "state": "reserved_for_this_task_execution",
+        }
+        for item in run_records
+    ]
     return (
         "Citation Contract (grounded_answer.v1):\n"
         "- Use only provided source IDs (SRC_* or RUN_*).\n"
         "- Do not invent source IDs, paths, line ranges, or tool result IDs.\n"
         "- Every factual claim must include citation_refs.\n"
         "- Tool execution claims must cite RUN_* evidence.\n"
+        "- Reserved RUN_* IDs may be cited only for the matching tool execution result.\n"
         "- Uncertain statements must be marked with confidence=unverified and empty citation_refs.\n"
-        f"- source_catalog_id: {source_catalog.get('catalog_id')}\n"
-        f"- source_catalog_hash: {source_catalog.get('catalog_hash')}\n"
+        f"- source_catalog_id: {catalog.get('catalog_id')}\n"
+        f"- source_catalog_hash: {catalog.get('catalog_hash')}\n"
         "Allowed sources excerpt:\n"
-        + json.dumps(preview, ensure_ascii=False)
+        + json.dumps(
+            [*preview, *run_preview],
+            ensure_ascii=False,
+        )
     )
 
 

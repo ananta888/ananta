@@ -13,6 +13,7 @@ deprecation window, see todos/todo.refactor-large-files-split.json SPLIT-001).
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import time
 from collections.abc import Mapping
@@ -182,6 +183,42 @@ def forward_task_request_if_remote(
             return None
     except Exception:
         pass
+    assigned_token = task.get("assigned_agent_token")
+    resolved_token = assigned_token
+    dispatch_lease_token = str(
+        payload.get("dispatch_lease_token") or ""
+    ).strip()
+    dispatch_phase = str(
+        payload.get("dispatch_lease_phase")
+        or (
+            "propose"
+            if endpoint.endswith("/step/propose")
+            else "execute"
+        )
+    ).strip().lower()
+    from agent.services.recovery_dispatch_gate_service import (
+        get_recovery_dispatch_gate_service,
+        recovery_dispatch_request_fingerprint,
+    )
+
+    recovery_gate = get_recovery_dispatch_gate_service()
+    recovery_child = recovery_gate.is_recovery_child(task)
+    recovery_fenced = bool(
+        dispatch_lease_token
+        or recovery_child
+    )
+    if recovery_child and not dispatch_lease_token:
+        return TaskScopedRouteResponse(
+            data={
+                "status": "skipped",
+                "reason": "recovery_dispatch_lease_missing",
+                "task_id": tid,
+                "phase": dispatch_phase,
+            },
+            status="skipped",
+            message="Recovery dispatch requires a lease",
+            code=409,
+        )
     if (
         str(task.get("task_kind") or "").strip().lower() == "mail_operation"
         and str(endpoint or "").rstrip("/").endswith("/execute")
@@ -203,8 +240,6 @@ def forward_task_request_if_remote(
                     "worker_url": worker_url,
                 }
             )
-    assigned_token = task.get("assigned_agent_token")
-    resolved_token = assigned_token
     try:
         agent = get_repository_registry().agent_repo.get_by_url(worker_url)
         current_token = str(getattr(agent, "token", "") or "").strip()
@@ -214,10 +249,15 @@ def forward_task_request_if_remote(
         pass
     try:
         response = forwarder(worker_url, endpoint, payload, token=resolved_token)
-        if response is None and resolved_token:
+        if (
+            response is None
+            and resolved_token
+            and not recovery_fenced
+        ):
             response = forwarder(worker_url, endpoint, payload, token=None)
         if (
             resolved_token
+            and not recovery_fenced
             and isinstance(response, dict)
             and str(response.get("status") or "").strip().lower() == "error"
             and (
@@ -232,6 +272,7 @@ def forward_task_request_if_remote(
             isinstance(response, dict)
             and str(response.get("status") or "").strip().lower() == "error"
             and int(response.get("http_status") or 0) == 404
+            and not recovery_fenced
         ):
             _fallback_policy = {}
             try:
@@ -252,13 +293,47 @@ def forward_task_request_if_remote(
         if not isinstance(response, dict) or not response:
             raise RuntimeError(f"worker_empty_payload:{worker_url}:{endpoint}")
         if isinstance(response, dict):
-            on_success(response, task)
+            if recovery_fenced:
+                with recovery_gate.result_guard(
+                    tid,
+                    token=dispatch_lease_token or None,
+                    phase=dispatch_phase,
+                    request_fingerprint=(
+                        recovery_dispatch_request_fingerprint(
+                            dispatch_phase,
+                            payload,
+                        )
+                    ),
+                    worker_url=str(worker_url),
+                ) as decision:
+                    if not decision.allowed:
+                        release_mail_lease()
+                        return TaskScopedRouteResponse(
+                            data={
+                                "status": "skipped",
+                                "reason": decision.reason_code,
+                                "task_id": tid,
+                                "phase": dispatch_phase,
+                            },
+                            status="skipped",
+                            message=(
+                                "Recovery dispatch result rejected"
+                            ),
+                            code=409,
+                        )
+                    on_success(response, task)
+            else:
+                on_success(response, task)
             release_mail_lease()
         return TaskScopedRouteResponse(data=response)
     except Exception as exc:
         err_text = str(exc or "")
         err_lc = err_text.lower()
-        if assigned_token and ("401" in err_lc or "unauthorized" in err_lc):
+        if (
+            assigned_token
+            and not recovery_fenced
+            and ("401" in err_lc or "unauthorized" in err_lc)
+        ):
             try:
                 response = forwarder(worker_url, endpoint, payload, token=None)
                 response = unwrap_api_envelope(response)
@@ -282,6 +357,26 @@ def persist_forwarded_proposal(
 ) -> None:
     if not isinstance(response, dict):
         return
+    from agent.services.recovery_task_mutation_policy import (
+        recovery_task_role,
+    )
+    from agent.services.recovery_worker_result_service import (
+        get_recovery_worker_result_service,
+    )
+
+    recovery_role = recovery_task_role(task)
+    worker_result_service = get_recovery_worker_result_service()
+    if recovery_role == "child":
+        # Validate before proposal/history persistence.  A malformed Worker
+        # envelope must have no authoritative Hub side effect.
+        worker_result_service.merge_response(
+            task_id=str(task["id"]),
+            phase="propose",
+            response=response,
+            verification_status=task.get("verification_status"),
+        )
+    elif response.get("recovery_worker_result") is not None:
+        raise ValueError("recovery_worker_result_unexpected")
     request_payload = dict(request_payload or {})
     prompt_text = str(request_payload.get("prompt") or "").strip()
     forwarded_request = {
@@ -438,21 +533,94 @@ def persist_forwarded_proposal(
             "timestamp": time.time(),
         },
     )
+    worker_result_service.accept_proposal_response(
+        task_id=str(task["id"]),
+        response=response,
+    )
 
 
-def persist_forwarded_execution(*, tid: str, response: dict, task: dict, request_data) -> None:
+def persist_forwarded_execution(
+    *,
+    tid: str,
+    response: dict,
+    task: dict,
+    request_data,
+    last_proposal: dict | None = None,
+) -> None:
     if "status" not in response:
         return
-    history = task.get("history", [])
-    proposal_meta = task.get("last_proposal", {}) or {}
-    verification_status = dict(task.get("verification_status") or {})
+    from agent.services.recovery_task_mutation_policy import (
+        recovery_task_role,
+    )
+
+    recovery_child = recovery_task_role(task) == "child"
+    authoritative_recovery_task = None
+    if recovery_child:
+        authoritative_recovery_task = (
+            get_repository_registry().task_repo.get_by_id(tid)
+        )
+        if authoritative_recovery_task is None:
+            raise RuntimeError("recovery_result_task_missing")
+        history = list(
+            getattr(authoritative_recovery_task, "history", None)
+            or []
+        )
+        proposal_meta = dict(
+            getattr(
+                authoritative_recovery_task,
+                "last_proposal",
+                None,
+            )
+            or {}
+        )
+        verification_status = dict(
+            getattr(
+                authoritative_recovery_task,
+                "verification_status",
+                None,
+            )
+            or {}
+        )
+    else:
+        history = list(task.get("history", []) or [])
+        proposal_meta = dict(task.get("last_proposal", {}) or {})
+        verification_status = dict(
+            task.get("verification_status") or {}
+        )
+    raw_artifacts = response.get("artifacts")
+    artifacts = (
+        normalize_recovery_forwarded_artifacts(
+            task_id=tid,
+            artifacts=raw_artifacts,
+        )
+        if recovery_child
+        else normalize_forwarded_artifacts(
+            task_id=tid,
+            artifacts=(
+                list(raw_artifacts)
+                if isinstance(raw_artifacts, list)
+                else None
+            ),
+        )
+    )
+    from agent.services.recovery_worker_result_service import (
+        get_recovery_worker_result_service,
+    )
+
+    if recovery_child:
+        verification_status = (
+            get_recovery_worker_result_service().merge_response(
+                task_id=tid,
+                phase="execute",
+                response=response,
+                verification_status=verification_status,
+            )
+        )
+    elif response.get("recovery_worker_result") is not None:
+        raise ValueError("recovery_worker_result_unexpected")
     execution_scope = response.get("execution_scope") if isinstance(response.get("execution_scope"), dict) else None
     execution_provenance = (
         response.get("execution_provenance") if isinstance(response.get("execution_provenance"), dict) else None
-    )
-    artifacts = normalize_forwarded_artifacts(
-        task_id=tid,
-        artifacts=list(response.get("artifacts") or []) if isinstance(response.get("artifacts"), list) else None,
     )
     review = response.get("review") if isinstance(response.get("review"), dict) else None
     assistant_request = _accept_visual_process_assistant_result(
@@ -571,9 +739,11 @@ def persist_forwarded_execution(*, tid: str, response: dict, task: dict, request
     history.append(
         {
             "event_type": "execution_result",
+            "status": response.get("status"),
             "prompt": task.get("description"),
             "reason": "Forwarded to " + str(task.get("assigned_agent_url")),
-            "command": request_data.command or task.get("last_proposal", {}).get("command"),
+            "command": request_data.command
+            or proposal_meta.get("command"),
             "output": response.get("output"),
             "exit_code": response.get("exit_code"),
             "backend": proposal_meta.get("backend"),
@@ -586,14 +756,117 @@ def persist_forwarded_execution(*, tid: str, response: dict, task: dict, request
             "timestamp": time.time(),
         }
     )
-    update_local_task_status(
-        tid,
-        response["status"],
-        history=history,
-        last_output=response.get("output"),
-        last_exit_code=response.get("exit_code"),
-        verification_status=verification_status,
+    update_values = {
+        "history": history,
+        "last_output": response.get("output"),
+        "last_exit_code": response.get("exit_code"),
+        "verification_status": verification_status,
+    }
+    if isinstance(last_proposal, dict):
+        update_values["last_proposal"] = dict(last_proposal)
+    if recovery_child:
+        current_status = str(
+            getattr(authoritative_recovery_task, "status", "") or ""
+        ).strip().lower()
+        if current_status in {
+            "completed",
+            "failed",
+            "cancelled",
+            "verification_failed",
+            "skipped",
+            "aborted",
+            "timeout",
+            "archived",
+        }:
+            raise RuntimeError(
+                "recovery_result_terminal_before_commit"
+            )
+        # Persist output/evidence while the Task remains non-terminal.  The
+        # result guard publishes the final status together with lease
+        # acceptance after Hub verification succeeds.
+        update_local_task_status(
+            tid,
+            current_status or "in_progress",
+            **update_values,
+        )
+    else:
+        update_local_task_status(
+            tid,
+            response["status"],
+            **update_values,
+        )
+    if recovery_child:
+        from agent.services.recovery_hub_run_evidence_service import (
+            get_recovery_hub_run_evidence_service,
+        )
+
+        get_recovery_hub_run_evidence_service().accept_worker_result(
+            task_id=tid,
+            response=response,
+            request_data=request_data,
+            repositories=get_repository_registry(),
+        )
+    from agent.services.recovery_result_verification_service import (
+        get_recovery_result_verification_service,
     )
+
+    verification_result = (
+        get_recovery_result_verification_service().verify_and_record(
+            task_id=tid,
+            response=response,
+            artifacts=artifacts,
+            publish_failure_status=False,
+        )
+    )
+    if not recovery_child:
+        return
+    if not isinstance(verification_result, dict):
+        raise RuntimeError("recovery_result_verification_missing")
+
+    latest = get_repository_registry().task_repo.get_by_id(tid)
+    if latest is None:
+        raise RuntimeError("recovery_result_task_missing")
+    final_status = (
+        "completed"
+        if str(verification_result.get("status") or "")
+        .strip()
+        .lower()
+        == "passed"
+        else "verification_failed"
+    )
+    from agent.services.recovery_dispatch_gate_service import (
+        build_recovery_result_candidate,
+    )
+
+    detached = (
+        latest.model_copy(deep=True)
+        if callable(getattr(latest, "model_copy", None))
+        else copy.deepcopy(latest)
+    )
+    details = dict(
+        getattr(detached, "status_reason_details", None) or {}
+    )
+    lease = dict(details.get("recovery_dispatch_lease") or {})
+    details["recovery_result_candidate"] = (
+        build_recovery_result_candidate(
+            task_id=tid,
+            status=final_status,
+            verification_record_id=str(
+                verification_result.get("record_id") or ""
+            ),
+            lease_revision=int(lease.get("revision") or 0),
+            lease_token_digest=str(
+                lease.get("token_digest") or ""
+            ),
+            request_fingerprint=str(
+                lease.get("request_fingerprint") or ""
+            ),
+        )
+    )
+    detached.status_reason_details = details
+    if hasattr(detached, "updated_at"):
+        detached.updated_at = time.time()
+    get_repository_registry().task_repo.save(detached)
 
 
 def normalize_forwarded_artifacts(*, task_id: str, artifacts: list[dict] | None) -> list[dict] | None:
@@ -619,3 +892,30 @@ def normalize_forwarded_artifacts(*, task_id: str, artifacts: list[dict] | None)
         row.setdefault("task_id", task_id)
         normalized.append(row)
     return normalized
+
+
+def normalize_recovery_forwarded_artifacts(
+    *,
+    task_id: str,
+    artifacts: object,
+) -> list[dict] | None:
+    """Reject unbounded or open Worker artifact claims before any Hub write."""
+
+    if artifacts is None:
+        return None
+    from ananta_contracts.recovery_artifact_ingress import (
+        RecoveryArtifactIngressContractError,
+        validate_recovery_artifact_receipt_list,
+    )
+
+    try:
+        receipts = validate_recovery_artifact_receipt_list(
+            artifacts,
+            task_id=task_id,
+        )
+    except RecoveryArtifactIngressContractError as exc:
+        raise ValueError(exc.reason_code) from exc
+    return normalize_forwarded_artifacts(
+        task_id=task_id,
+        artifacts=receipts,
+    )

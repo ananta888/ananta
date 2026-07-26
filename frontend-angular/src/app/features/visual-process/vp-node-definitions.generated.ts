@@ -1167,10 +1167,7 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
     "contract_version": "ananta.visual_process.node_definition.v1",
     "defaults": {
       "metadata": {
-        "allowed_tools": [],
-        "model_routing": {
-          "allow_cloud": false
-        }
+        "allowed_tools": []
       }
     },
     "examples": [
@@ -1335,13 +1332,55 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
         "resource_type": "fallback_group"
       },
       {
-        "default": false,
         "deprecated": false,
         "essential": false,
         "field_type": "boolean",
         "help_text": "Erlaubt Cloud-Kandidaten nur innerhalb der Hub-Policy.",
         "label": "Cloud erlauben",
         "path": "/metadata/model_routing/allow_cloud",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "effect": "Der Hub darf nach terminaler Modell-Erschöpfung einen begrenzten Planentwurf erzeugen; die Reihenfolge wird als Policy transportiert.",
+        "essential": false,
+        "field_type": "multi_select",
+        "help_text": "Geordnete Hub-Strategien nach erschöpfter Modellkette; Worker dürfen daraus keine Tasks selbst erzeugen.",
+        "label": "Kontext-Notfallkette",
+        "options": [
+          {
+            "label": "Kontext verdichten",
+            "value": "compact_context"
+          },
+          {
+            "label": "In Abschnitte planen",
+            "value": "segment_planning"
+          },
+          {
+            "label": "Task-Plan vorschlagen",
+            "value": "propose_task_plan"
+          },
+          {
+            "label": "Freigabe anfordern",
+            "value": "require_approval"
+          },
+          {
+            "label": "Danach stoppen",
+            "value": "stop"
+          }
+        ],
+        "path": "/metadata/model_routing/context_recovery_strategies",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "essential": false,
+        "field_type": "boolean",
+        "help_text": "Bindet die Task-Materialisierung an eine exakte, Hub-seitige Freigabe des gespeicherten Plan-Digests.",
+        "label": "Generierten Task-Plan freigeben",
+        "path": "/metadata/model_routing/require_approval_for_generated_plan",
         "read_only": false,
         "required": false
       }
@@ -1378,11 +1417,7 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
     "category": "worker",
     "contract_version": "ananta.visual_process.node_definition.v1",
     "defaults": {
-      "metadata": {
-        "model_routing": {
-          "allow_cloud": false
-        }
-      }
+      "metadata": {}
     },
     "examples": [
       {
@@ -1535,13 +1570,55 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
         "resource_type": "fallback_group"
       },
       {
-        "default": false,
         "deprecated": false,
         "essential": false,
         "field_type": "boolean",
         "help_text": "Erlaubt Cloud-Kandidaten nur innerhalb der Hub-Policy.",
         "label": "Cloud erlauben",
         "path": "/metadata/model_routing/allow_cloud",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "effect": "Der Hub darf nach terminaler Modell-Erschöpfung einen begrenzten Planentwurf erzeugen; die Reihenfolge wird als Policy transportiert.",
+        "essential": false,
+        "field_type": "multi_select",
+        "help_text": "Geordnete Hub-Strategien nach erschöpfter Modellkette; Worker dürfen daraus keine Tasks selbst erzeugen.",
+        "label": "Kontext-Notfallkette",
+        "options": [
+          {
+            "label": "Kontext verdichten",
+            "value": "compact_context"
+          },
+          {
+            "label": "In Abschnitte planen",
+            "value": "segment_planning"
+          },
+          {
+            "label": "Task-Plan vorschlagen",
+            "value": "propose_task_plan"
+          },
+          {
+            "label": "Freigabe anfordern",
+            "value": "require_approval"
+          },
+          {
+            "label": "Danach stoppen",
+            "value": "stop"
+          }
+        ],
+        "path": "/metadata/model_routing/context_recovery_strategies",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "essential": false,
+        "field_type": "boolean",
+        "help_text": "Bindet die Task-Materialisierung an eine exakte, Hub-seitige Freigabe des gespeicherten Plan-Digests.",
+        "label": "Generierten Task-Plan freigeben",
+        "path": "/metadata/model_routing/require_approval_for_generated_plan",
         "read_only": false,
         "required": false
       }
@@ -1752,11 +1829,7 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
     "category": "worker",
     "contract_version": "ananta.visual_process.node_definition.v1",
     "defaults": {
-      "metadata": {
-        "model_routing": {
-          "allow_cloud": false
-        }
-      }
+      "metadata": {}
     },
     "examples": [
       {
@@ -1909,13 +1982,55 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
         "resource_type": "fallback_group"
       },
       {
-        "default": false,
         "deprecated": false,
         "essential": false,
         "field_type": "boolean",
         "help_text": "Erlaubt Cloud-Kandidaten nur innerhalb der Hub-Policy.",
         "label": "Cloud erlauben",
         "path": "/metadata/model_routing/allow_cloud",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "effect": "Der Hub darf nach terminaler Modell-Erschöpfung einen begrenzten Planentwurf erzeugen; die Reihenfolge wird als Policy transportiert.",
+        "essential": false,
+        "field_type": "multi_select",
+        "help_text": "Geordnete Hub-Strategien nach erschöpfter Modellkette; Worker dürfen daraus keine Tasks selbst erzeugen.",
+        "label": "Kontext-Notfallkette",
+        "options": [
+          {
+            "label": "Kontext verdichten",
+            "value": "compact_context"
+          },
+          {
+            "label": "In Abschnitte planen",
+            "value": "segment_planning"
+          },
+          {
+            "label": "Task-Plan vorschlagen",
+            "value": "propose_task_plan"
+          },
+          {
+            "label": "Freigabe anfordern",
+            "value": "require_approval"
+          },
+          {
+            "label": "Danach stoppen",
+            "value": "stop"
+          }
+        ],
+        "path": "/metadata/model_routing/context_recovery_strategies",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "essential": false,
+        "field_type": "boolean",
+        "help_text": "Bindet die Task-Materialisierung an eine exakte, Hub-seitige Freigabe des gespeicherten Plan-Digests.",
+        "label": "Generierten Task-Plan freigeben",
+        "path": "/metadata/model_routing/require_approval_for_generated_plan",
         "read_only": false,
         "required": false
       }
@@ -1952,11 +2067,7 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
     "category": "worker",
     "contract_version": "ananta.visual_process.node_definition.v1",
     "defaults": {
-      "metadata": {
-        "model_routing": {
-          "allow_cloud": false
-        }
-      }
+      "metadata": {}
     },
     "examples": [
       {
@@ -2110,13 +2221,55 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
         "resource_type": "fallback_group"
       },
       {
-        "default": false,
         "deprecated": false,
         "essential": false,
         "field_type": "boolean",
         "help_text": "Erlaubt Cloud-Kandidaten nur innerhalb der Hub-Policy.",
         "label": "Cloud erlauben",
         "path": "/metadata/model_routing/allow_cloud",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "effect": "Der Hub darf nach terminaler Modell-Erschöpfung einen begrenzten Planentwurf erzeugen; die Reihenfolge wird als Policy transportiert.",
+        "essential": false,
+        "field_type": "multi_select",
+        "help_text": "Geordnete Hub-Strategien nach erschöpfter Modellkette; Worker dürfen daraus keine Tasks selbst erzeugen.",
+        "label": "Kontext-Notfallkette",
+        "options": [
+          {
+            "label": "Kontext verdichten",
+            "value": "compact_context"
+          },
+          {
+            "label": "In Abschnitte planen",
+            "value": "segment_planning"
+          },
+          {
+            "label": "Task-Plan vorschlagen",
+            "value": "propose_task_plan"
+          },
+          {
+            "label": "Freigabe anfordern",
+            "value": "require_approval"
+          },
+          {
+            "label": "Danach stoppen",
+            "value": "stop"
+          }
+        ],
+        "path": "/metadata/model_routing/context_recovery_strategies",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "essential": false,
+        "field_type": "boolean",
+        "help_text": "Bindet die Task-Materialisierung an eine exakte, Hub-seitige Freigabe des gespeicherten Plan-Digests.",
+        "label": "Generierten Task-Plan freigeben",
+        "path": "/metadata/model_routing/require_approval_for_generated_plan",
         "read_only": false,
         "required": false
       }
@@ -2654,11 +2807,7 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
     "category": "worker",
     "contract_version": "ananta.visual_process.node_definition.v1",
     "defaults": {
-      "metadata": {
-        "model_routing": {
-          "allow_cloud": false
-        }
-      }
+      "metadata": {}
     },
     "examples": [
       {
@@ -2811,13 +2960,55 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
         "resource_type": "fallback_group"
       },
       {
-        "default": false,
         "deprecated": false,
         "essential": false,
         "field_type": "boolean",
         "help_text": "Erlaubt Cloud-Kandidaten nur innerhalb der Hub-Policy.",
         "label": "Cloud erlauben",
         "path": "/metadata/model_routing/allow_cloud",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "effect": "Der Hub darf nach terminaler Modell-Erschöpfung einen begrenzten Planentwurf erzeugen; die Reihenfolge wird als Policy transportiert.",
+        "essential": false,
+        "field_type": "multi_select",
+        "help_text": "Geordnete Hub-Strategien nach erschöpfter Modellkette; Worker dürfen daraus keine Tasks selbst erzeugen.",
+        "label": "Kontext-Notfallkette",
+        "options": [
+          {
+            "label": "Kontext verdichten",
+            "value": "compact_context"
+          },
+          {
+            "label": "In Abschnitte planen",
+            "value": "segment_planning"
+          },
+          {
+            "label": "Task-Plan vorschlagen",
+            "value": "propose_task_plan"
+          },
+          {
+            "label": "Freigabe anfordern",
+            "value": "require_approval"
+          },
+          {
+            "label": "Danach stoppen",
+            "value": "stop"
+          }
+        ],
+        "path": "/metadata/model_routing/context_recovery_strategies",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "essential": false,
+        "field_type": "boolean",
+        "help_text": "Bindet die Task-Materialisierung an eine exakte, Hub-seitige Freigabe des gespeicherten Plan-Digests.",
+        "label": "Generierten Task-Plan freigeben",
+        "path": "/metadata/model_routing/require_approval_for_generated_plan",
         "read_only": false,
         "required": false
       }
@@ -4688,9 +4879,6 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
     "defaults": {
       "metadata": {
         "analyze_only": true,
-        "model_routing": {
-          "allow_cloud": false
-        },
         "trigger_type": "manual"
       }
     },
@@ -4882,13 +5070,55 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
         "resource_type": "fallback_group"
       },
       {
-        "default": false,
         "deprecated": false,
         "essential": false,
         "field_type": "boolean",
         "help_text": "Erlaubt Cloud-Kandidaten nur innerhalb der Hub-Policy.",
         "label": "Cloud erlauben",
         "path": "/metadata/model_routing/allow_cloud",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "effect": "Der Hub darf nach terminaler Modell-Erschöpfung einen begrenzten Planentwurf erzeugen; die Reihenfolge wird als Policy transportiert.",
+        "essential": false,
+        "field_type": "multi_select",
+        "help_text": "Geordnete Hub-Strategien nach erschöpfter Modellkette; Worker dürfen daraus keine Tasks selbst erzeugen.",
+        "label": "Kontext-Notfallkette",
+        "options": [
+          {
+            "label": "Kontext verdichten",
+            "value": "compact_context"
+          },
+          {
+            "label": "In Abschnitte planen",
+            "value": "segment_planning"
+          },
+          {
+            "label": "Task-Plan vorschlagen",
+            "value": "propose_task_plan"
+          },
+          {
+            "label": "Freigabe anfordern",
+            "value": "require_approval"
+          },
+          {
+            "label": "Danach stoppen",
+            "value": "stop"
+          }
+        ],
+        "path": "/metadata/model_routing/context_recovery_strategies",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "essential": false,
+        "field_type": "boolean",
+        "help_text": "Bindet die Task-Materialisierung an eine exakte, Hub-seitige Freigabe des gespeicherten Plan-Digests.",
+        "label": "Generierten Task-Plan freigeben",
+        "path": "/metadata/model_routing/require_approval_for_generated_plan",
         "read_only": false,
         "required": false
       }
@@ -4926,10 +5156,7 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
     "contract_version": "ananta.visual_process.node_definition.v1",
     "defaults": {
       "metadata": {
-        "apply_allowed": false,
-        "model_routing": {
-          "allow_cloud": false
-        }
+        "apply_allowed": false
       }
     },
     "examples": [
@@ -5107,13 +5334,55 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
         "resource_type": "fallback_group"
       },
       {
-        "default": false,
         "deprecated": false,
         "essential": false,
         "field_type": "boolean",
         "help_text": "Erlaubt Cloud-Kandidaten nur innerhalb der Hub-Policy.",
         "label": "Cloud erlauben",
         "path": "/metadata/model_routing/allow_cloud",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "effect": "Der Hub darf nach terminaler Modell-Erschöpfung einen begrenzten Planentwurf erzeugen; die Reihenfolge wird als Policy transportiert.",
+        "essential": false,
+        "field_type": "multi_select",
+        "help_text": "Geordnete Hub-Strategien nach erschöpfter Modellkette; Worker dürfen daraus keine Tasks selbst erzeugen.",
+        "label": "Kontext-Notfallkette",
+        "options": [
+          {
+            "label": "Kontext verdichten",
+            "value": "compact_context"
+          },
+          {
+            "label": "In Abschnitte planen",
+            "value": "segment_planning"
+          },
+          {
+            "label": "Task-Plan vorschlagen",
+            "value": "propose_task_plan"
+          },
+          {
+            "label": "Freigabe anfordern",
+            "value": "require_approval"
+          },
+          {
+            "label": "Danach stoppen",
+            "value": "stop"
+          }
+        ],
+        "path": "/metadata/model_routing/context_recovery_strategies",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "essential": false,
+        "field_type": "boolean",
+        "help_text": "Bindet die Task-Materialisierung an eine exakte, Hub-seitige Freigabe des gespeicherten Plan-Digests.",
+        "label": "Generierten Task-Plan freigeben",
+        "path": "/metadata/model_routing/require_approval_for_generated_plan",
         "read_only": false,
         "required": false
       }
@@ -5324,10 +5593,7 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
     "contract_version": "ananta.visual_process.node_definition.v1",
     "defaults": {
       "metadata": {
-        "apply_allowed": false,
-        "model_routing": {
-          "allow_cloud": false
-        }
+        "apply_allowed": false
       }
     },
     "examples": [
@@ -5494,13 +5760,55 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
         "resource_type": "fallback_group"
       },
       {
-        "default": false,
         "deprecated": false,
         "essential": false,
         "field_type": "boolean",
         "help_text": "Erlaubt Cloud-Kandidaten nur innerhalb der Hub-Policy.",
         "label": "Cloud erlauben",
         "path": "/metadata/model_routing/allow_cloud",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "effect": "Der Hub darf nach terminaler Modell-Erschöpfung einen begrenzten Planentwurf erzeugen; die Reihenfolge wird als Policy transportiert.",
+        "essential": false,
+        "field_type": "multi_select",
+        "help_text": "Geordnete Hub-Strategien nach erschöpfter Modellkette; Worker dürfen daraus keine Tasks selbst erzeugen.",
+        "label": "Kontext-Notfallkette",
+        "options": [
+          {
+            "label": "Kontext verdichten",
+            "value": "compact_context"
+          },
+          {
+            "label": "In Abschnitte planen",
+            "value": "segment_planning"
+          },
+          {
+            "label": "Task-Plan vorschlagen",
+            "value": "propose_task_plan"
+          },
+          {
+            "label": "Freigabe anfordern",
+            "value": "require_approval"
+          },
+          {
+            "label": "Danach stoppen",
+            "value": "stop"
+          }
+        ],
+        "path": "/metadata/model_routing/context_recovery_strategies",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "essential": false,
+        "field_type": "boolean",
+        "help_text": "Bindet die Task-Materialisierung an eine exakte, Hub-seitige Freigabe des gespeicherten Plan-Digests.",
+        "label": "Generierten Task-Plan freigeben",
+        "path": "/metadata/model_routing/require_approval_for_generated_plan",
         "read_only": false,
         "required": false
       }
@@ -5538,11 +5846,7 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
     "category": "ml",
     "contract_version": "ananta.visual_process.node_definition.v1",
     "defaults": {
-      "metadata": {
-        "model_routing": {
-          "allow_cloud": false
-        }
-      }
+      "metadata": {}
     },
     "examples": [
       {
@@ -5706,13 +6010,55 @@ export const GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS = [
         "resource_type": "fallback_group"
       },
       {
-        "default": false,
         "deprecated": false,
         "essential": false,
         "field_type": "boolean",
         "help_text": "Erlaubt Cloud-Kandidaten nur innerhalb der Hub-Policy.",
         "label": "Cloud erlauben",
         "path": "/metadata/model_routing/allow_cloud",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "effect": "Der Hub darf nach terminaler Modell-Erschöpfung einen begrenzten Planentwurf erzeugen; die Reihenfolge wird als Policy transportiert.",
+        "essential": false,
+        "field_type": "multi_select",
+        "help_text": "Geordnete Hub-Strategien nach erschöpfter Modellkette; Worker dürfen daraus keine Tasks selbst erzeugen.",
+        "label": "Kontext-Notfallkette",
+        "options": [
+          {
+            "label": "Kontext verdichten",
+            "value": "compact_context"
+          },
+          {
+            "label": "In Abschnitte planen",
+            "value": "segment_planning"
+          },
+          {
+            "label": "Task-Plan vorschlagen",
+            "value": "propose_task_plan"
+          },
+          {
+            "label": "Freigabe anfordern",
+            "value": "require_approval"
+          },
+          {
+            "label": "Danach stoppen",
+            "value": "stop"
+          }
+        ],
+        "path": "/metadata/model_routing/context_recovery_strategies",
+        "read_only": false,
+        "required": false
+      },
+      {
+        "deprecated": false,
+        "essential": false,
+        "field_type": "boolean",
+        "help_text": "Bindet die Task-Materialisierung an eine exakte, Hub-seitige Freigabe des gespeicherten Plan-Digests.",
+        "label": "Generierten Task-Plan freigeben",
+        "path": "/metadata/model_routing/require_approval_for_generated_plan",
         "read_only": false,
         "required": false
       }

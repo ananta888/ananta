@@ -86,11 +86,16 @@ class TaskQueryService:
         }
 
     def delete_archived_task(self, *, task_id: str) -> dict | None:
-        repos = get_repository_registry()
-        archived = repos.archived_task_repo.get_by_id(task_id)
-        if not archived:
+        # Compatibility adapter: writes belong to TaskAdminService, which
+        # applies the Recovery-lineage fence before a permanent purge.
+        from agent.services.task_admin_service import (
+            get_task_admin_service,
+        )
+
+        if not get_task_admin_service().delete_archived_task(
+            task_id=task_id
+        ):
             return None
-        repos.archived_task_repo.delete(task_id)
         return {"deleted_count": 1, "deleted_ids": [task_id]}
 
     def task_workspace_files(

@@ -387,6 +387,13 @@ class HubProviderBudgetAdapter:
                 reserved_cost_micros=reserved_cost,
                 attempt_id=context.attempt_id,
                 fencing_token=context.fencing_token,
+                provider_profile_id=context.provider_profile_id,
+                provider_binding_id=context.provider_binding_id,
+                provider_id=context.selected_provider_id,
+                model_id=context.selected_model_id,
+                provider_endpoint_identity=(
+                    context.provider_endpoint_identity
+                ),
             )
             receipt = ProviderBudgetReceipt.from_mapping(response)
         except (WorkflowHubDecisionError, WorkflowWorkerContractError) as exc:
@@ -424,6 +431,13 @@ class HubProviderBudgetAdapter:
                 actual_total_tokens=int(actual_total_tokens),
                 attempt_id=context.attempt_id,
                 fencing_token=context.fencing_token,
+                provider_profile_id=context.provider_profile_id,
+                provider_binding_id=context.provider_binding_id,
+                provider_id=context.selected_provider_id,
+                model_id=context.selected_model_id,
+                provider_endpoint_identity=(
+                    context.provider_endpoint_identity
+                ),
             )
             ProviderBudgetReceipt.from_mapping(response)
         except (WorkflowHubDecisionError, WorkflowWorkerContractError) as exc:

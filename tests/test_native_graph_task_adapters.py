@@ -10,7 +10,10 @@ from agent.services.workflow_runtime.execution_plan import ExecutionNode
 from agent.services.workflow_runtime.ports import DelegatedExecutionRequest
 from ananta_contracts.provider_execution import ProviderExecutionBinding
 from worker.runtime.native_graph import NativeNodeCommand, NativeNodeResult
-from worker.runtime.native_graph.composition import TaskScopedNativeWorkerExecutor
+from worker.runtime.native_graph.composition import (
+    NativeTaskScopedNodeHandler,
+    TaskScopedNativeWorkerExecutor,
+)
 from worker.runtime.native_graph.execution_adapter import NativeExecutionRuntimeAdapter
 from worker.runtime.native_graph.task_adapter import NativeGraphWorkerTaskAdapter
 
@@ -199,6 +202,143 @@ def test_native_adapter_implements_shared_execution_runtime_port_fail_closed() -
     assert completed.status == "completed"
     assert invalid.status == "failed"
     assert "step_binding_mismatch" in invalid.reason_code
+
+
+def _command_with_declared_output() -> NativeNodeCommand:
+    value = command()
+    return NativeNodeCommand(
+        **{
+            **value.__dict__,
+            "node": ExecutionNode(
+                node_id=value.node.node_id,
+                output_artifacts=("declared-output",),
+            ),
+            "input_data": {"command": "true"},
+        }
+    )
+
+
+@pytest.mark.parametrize("runtime_status", ["failed", "degraded"])
+def test_native_handler_never_publishes_declared_outputs_on_failure(
+    runtime_status: str,
+) -> None:
+    value = _command_with_declared_output()
+
+    class Executor:
+        @staticmethod
+        def execute(**_values):
+            return {
+                "status": runtime_status,
+                "failure_type": "runtime_failure",
+                "artifact_refs": {
+                    "declared-output": (
+                        "artifact://materialized/declared-output"
+                    )
+                },
+            }
+
+    handler = NativeTaskScopedNodeHandler(
+        agent_config={},
+        task_snapshots=SimpleNamespace(
+            task_snapshot=lambda **_values: {
+                "id": "hub-task-a"
+            }
+        ),
+        executor=Executor(),
+    )
+
+    actual = handler.execute(
+        value,
+        hub_task_id="hub-task-a",
+    )
+
+    assert actual.status == "failed"
+    assert actual.artifact_refs == {}
+
+
+def test_native_handler_passes_only_exact_materialized_outputs() -> None:
+    value = _command_with_declared_output()
+    expected_ref = "artifact://materialized/declared-output"
+
+    class Executor:
+        @staticmethod
+        def execute(**_values):
+            return {
+                "status": "completed",
+                "artifact_refs": {
+                    "declared-output": expected_ref,
+                },
+            }
+
+    actual = NativeTaskScopedNodeHandler(
+        agent_config={},
+        task_snapshots=SimpleNamespace(
+            task_snapshot=lambda **_values: {
+                "id": "hub-task-a"
+            }
+        ),
+        executor=Executor(),
+    ).execute(
+        value,
+        hub_task_id="hub-task-a",
+    )
+
+    assert actual.status == "completed"
+    assert actual.artifact_refs == {
+        "declared-output": expected_ref
+    }
+
+
+def test_native_execution_adapter_drops_failed_result_artifacts() -> None:
+    value = _command_with_declared_output()
+
+    class Runtime:
+        @staticmethod
+        def execute(received, *, hub_task_id):
+            return NativeNodeResult(
+                result_id="failed-result",
+                command_id=received.command_id,
+                hub_task_id=hub_task_id,
+                tenant_id=received.tenant_id,
+                workflow_id=received.workflow_id,
+                run_id=received.run_id,
+                node_id=received.node.node_id,
+                attempt_id=received.attempt_id,
+                fencing_token=received.fencing_token,
+                status="failed",
+                artifact_refs={
+                    "declared-output": (
+                        "artifact://untrusted/failed-output"
+                    )
+                },
+                reason_code="runtime_failure",
+            )
+
+    delegated = DelegatedExecutionRequest(
+        tenant_id=value.tenant_id,
+        workflow_id=value.workflow_id,
+        run_id=value.run_id,
+        step_id=value.node.node_id,
+        attempt_id=value.attempt_id,
+        fencing_token=value.fencing_token,
+        plan_hash=value.plan_hash,
+        policy_version=value.policy_version,
+        authorization_envelope=value.authorization.to_dict(),
+        parameters={
+            "command_id": value.command_id,
+            "control_task_id": value.control_task_id,
+            "hub_task_id": "hub-task-a",
+            "node": value.node.to_dict(),
+            "input_data": value.input_data,
+        },
+    )
+
+    actual = NativeExecutionRuntimeAdapter(Runtime()).execute(
+        delegated
+    )
+
+    assert actual.status == "failed"
+    assert actual.artifact_refs == ()
 
 
 def test_provider_needing_native_node_requires_and_round_trips_hub_binding() -> None:

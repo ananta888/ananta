@@ -1,22 +1,57 @@
 from __future__ import annotations
 
+import contextlib
+import logging
 import time
 from typing import Any
 
 from agent.db_models import GoalDB
 from agent.repository import goal_repo, task_repo
-from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
+from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
 from agent.services.goal_planning_recovery_service import get_goal_planning_recovery_service
 from agent.services.request_cancellation_service import get_request_cancellation_service
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.task_runtime_service import update_local_task_status
 
 
-def _merge_rag_sources(goal_sources: dict, task_kind: str) -> dict:
+def goal_mutation_lock_id(goal_id: str) -> str:
+    """Canonical advisory-lock key for Goal/task materialization races."""
+
+    return f"goal-task-materialization:{str(goal_id or '').strip()}"
+
+
+@contextlib.contextmanager
+def _mutation_locks(lock_port: Any, lock_ids: list[str]):
+    multi = getattr(lock_port, "mutation_locks", None)
+    if callable(multi):
+        with multi(lock_ids) as acquired:
+            yield bool(acquired)
+        return
+    with contextlib.ExitStack() as stack:
+        for lock_id in sorted(set(lock_ids)):
+            acquired = stack.enter_context(
+                lock_port.mutation_lock(lock_id)
+            )
+            if not acquired:
+                yield False
+                return
+        yield True
+
+
+def _merge_rag_sources(
+    goal_sources: dict,
+    task_kind: str,
+    *,
+    include_global_defaults: bool = True,
+) -> dict:
     try:
         from flask import current_app, has_app_context
-        agent_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
+        agent_cfg = (
+            current_app.config.get("AGENT_CONFIG", {}) or {}
+            if include_global_defaults and has_app_context()
+            else {}
+        )
     except Exception:
         agent_cfg = {}
     kc_cfg = dict((agent_cfg.get("knowledge_context") or {}).get("auto_include") or {})
@@ -63,6 +98,8 @@ class TaskLifecycleService:
         derivation_reason: str,
         derivation_depth: int,
         depends_on: list[str] | None,
+        source_task_id: str | None = None,
+        initial_status: str = "todo",
     ) -> None:
         rationale = dict(node.rationale or {})
         blueprint_provenance = {
@@ -110,7 +147,10 @@ class TaskLifecycleService:
                 pass
             try:
                 from flask import current_app, has_app_context
-                if has_app_context():
+                if (
+                    derivation_reason != "goal_task_recovery"
+                    and has_app_context()
+                ):
                     agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
                     global_git_ws = dict((agent_cfg.get("workspace") or {}).get("git_workspace") or {})
                     if global_git_ws.get("enabled"):
@@ -125,7 +165,13 @@ class TaskLifecycleService:
                         }
             except Exception:
                 pass
-        research_context_input = _merge_rag_sources(goal_rag_sources, task_kind)
+        research_context_input = _merge_rag_sources(
+            goal_rag_sources,
+            task_kind,
+            include_global_defaults=(
+                derivation_reason != "goal_task_recovery"
+            ),
+        )
         verification_spec = dict(node.verification_spec or {})
 
         deterministic_repair_foundation = goal_mode_data.get("deterministic_repair_foundation")
@@ -168,19 +214,64 @@ class TaskLifecycleService:
             plan_node_id=node.id,
             expected_artifacts=list(verification_spec.get("expected_artifacts") or []),
         )
-        get_task_queue_service().ingest_task(
-            task_id=task_id,
-            status="todo",
-            title=node.title,
-            description=node.description,
-            priority=node.priority,
-            created_by="planning_service",
-            source="goal_plan",
-            team_id=team_id,
-            event_type="task_materialized_from_plan",
-            event_channel="planning_service",
-            event_details={"plan_id": plan_id, "plan_node_id": node.id, "goal_id": goal_id},
-            extra_fields={
+        worker_execution_context["worker_execution_contract"] = dict(
+            worker_execution_contract or {}
+        )
+        worker_execution_context["expected_artifacts"] = list(
+            verification_spec.get("expected_artifacts") or []
+        )
+        from agent.services.task_mutation_lock_service import (
+            get_task_mutation_lock_port,
+        )
+
+        lock_ids = {str(task_id)}
+        if goal_id:
+            lock_ids.add(goal_mutation_lock_id(goal_id))
+        if source_task_id or parent_task_id:
+            lock_ids.add(
+                str(source_task_id or parent_task_id)
+            )
+        with get_task_mutation_lock_port().mutation_locks(
+            lock_ids
+        ) as acquired:
+            if not acquired:
+                raise RuntimeError(
+                    f"task_materialization_fence_unavailable:{task_id}"
+                )
+            if goal_id:
+                authoritative_goal = goal_repo.get_by_id(
+                    str(goal_id)
+                )
+                if (
+                    authoritative_goal is None
+                    or str(
+                        getattr(
+                            authoritative_goal,
+                            "status",
+                            "",
+                        )
+                        or ""
+                    )
+                    .strip()
+                    .lower()
+                    in GoalLifecycleService._TERMINAL_GOAL_STATUSES
+                ):
+                    raise RuntimeError(
+                        f"goal_terminal_task_materialization_denied:{goal_id}"
+                    )
+            get_task_queue_service().ingest_task(
+                task_id=task_id,
+                status=str(initial_status or "todo"),
+                title=node.title,
+                description=node.description,
+                priority=node.priority,
+                created_by="planning_service",
+                source="goal_plan",
+                team_id=team_id,
+                event_type="task_materialized_from_plan",
+                event_channel="planning_service",
+                event_details={"plan_id": plan_id, "plan_node_id": node.id, "goal_id": goal_id},
+                extra_fields={
                 "goal_id": goal_id,
                 "goal_trace_id": goal_trace_id,
                 "plan_id": plan_id,
@@ -209,12 +300,16 @@ class TaskLifecycleService:
                     },
                 },
                 "parent_task_id": parent_task_id,
-                "source_task_id": parent_task_id,
+                "source_task_id": (
+                    source_task_id
+                    if source_task_id is not None
+                    else parent_task_id
+                ),
                 "derivation_reason": derivation_reason,
                 "derivation_depth": derivation_depth,
                 "depends_on": depends_on if depends_on else None,
-            },
-        )
+                },
+            )
 
     def attach_verification_result(
         self,
@@ -241,6 +336,90 @@ class TaskLifecycleService:
 class GoalLifecycleService:
     """Explicit goal lifecycle transitions with consistent metadata updates."""
 
+    _TERMINAL_GOAL_STATUSES = {
+        "completed",
+        "failed",
+        "cancelled",
+        "aborted",
+        "timeout",
+        "archived",
+    }
+    _TERMINAL_TASK_STATUSES = {
+        "completed",
+        "failed",
+        "cancelled",
+        "verification_failed",
+        "skipped",
+        "aborted",
+        "timeout",
+        "archived",
+    }
+
+    @staticmethod
+    def _recovery_source_ids(tasks: list[Any]) -> list[str]:
+        source_ids: set[str] = set()
+        for task in tasks:
+            if (
+                str(
+                    getattr(task, "derivation_reason", "") or ""
+                )
+                == "goal_task_recovery"
+            ):
+                source_task_id = str(
+                    getattr(task, "source_task_id", "") or ""
+                ).strip()
+                if source_task_id:
+                    source_ids.add(source_task_id)
+            recovery = dict(
+                dict(
+                    getattr(
+                        task,
+                        "status_reason_details",
+                        None,
+                    )
+                    or {}
+                ).get("model_recovery")
+                or {}
+            )
+            if str(recovery.get("plan_id") or "").strip():
+                task_id = str(
+                    getattr(task, "id", "") or ""
+                ).strip()
+                if task_id:
+                    source_ids.add(task_id)
+        return sorted(source_ids)
+
+    @classmethod
+    def _recovery_lock_ids(
+        cls,
+        tasks: list[Any],
+        *,
+        goal_id: str | None = None,
+    ) -> list[str]:
+        # Lock every current Goal task.  Any of them can become a recovery
+        # source while the terminal transition is racing.
+        lock_ids = {
+            str(getattr(task, "id", "") or "").strip()
+            for task in tasks
+            if str(getattr(task, "id", "") or "").strip()
+        }
+        lock_ids.update(cls._recovery_source_ids(tasks))
+        for task in tasks:
+            if (
+                str(
+                    getattr(task, "derivation_reason", "") or ""
+                )
+                == "goal_task_recovery"
+            ):
+                task_id = str(
+                    getattr(task, "id", "") or ""
+                ).strip()
+                if task_id:
+                    lock_ids.add(task_id)
+        if goal_id:
+            lock_ids.add(goal_mutation_lock_id(goal_id))
+        return sorted(lock_ids)
+
     def _save_goal_recovery_status(self, goal: GoalDB, *, target_status: str, reason: str) -> GoalDB:
         goal.status = str(target_status)
         goal.updated_at = time.time()
@@ -265,6 +444,117 @@ class GoalLifecycleService:
         readiness: dict[str, Any] | None = None,
     ) -> GoalDB:
         normalized_target = str(target_status or goal.status)
+        goal_id = str(
+            getattr(goal, "id", "") or ""
+        ).strip()
+        goal_tasks = (
+            [
+                task
+                for task in task_repo.get_all()
+                if str(
+                    getattr(task, "goal_id", "") or ""
+                ).strip()
+                == goal_id
+            ]
+            if goal_id
+            else []
+        )
+        terminal_transition = bool(
+            normalized_target in self._TERMINAL_GOAL_STATUSES
+            and goal_id
+        )
+        if not terminal_transition:
+            return self._transition_goal_under_recovery_fence(
+                goal,
+                normalized_target=normalized_target,
+                reason=reason,
+                readiness=readiness,
+                goal_tasks=goal_tasks,
+            )
+
+        from agent.services.task_mutation_lock_service import (
+            get_task_mutation_lock_port,
+        )
+
+        lock_port = get_task_mutation_lock_port()
+        lock_ids = self._recovery_lock_ids(
+            goal_tasks,
+            goal_id=goal_id,
+        )
+        saved_goal: GoalDB | None = None
+        # A task that committed just before the Goal fence can be absent from
+        # the initial snapshot.  Release and reacquire the complete canonical
+        # set until the snapshot is stable; never acquire a newly discovered
+        # child while holding only its lexically later source.
+        for _attempt in range(8):
+            retry_with_ids: list[str] | None = None
+            with _mutation_locks(
+                lock_port,
+                lock_ids,
+            ) as acquired:
+                if not acquired:
+                    raise RuntimeError(
+                        "goal_recovery_fence_unavailable:" + goal_id
+                    )
+                fenced_goal_tasks = [
+                    task
+                    for task in task_repo.get_all()
+                    if str(
+                        getattr(task, "goal_id", "") or ""
+                    ).strip()
+                    == goal_id
+                ]
+                required_ids = self._recovery_lock_ids(
+                    fenced_goal_tasks,
+                    goal_id=goal_id,
+                )
+                if not set(required_ids).issubset(lock_ids):
+                    retry_with_ids = sorted(
+                        set(lock_ids).union(required_ids)
+                    )
+                else:
+                    saved_goal = (
+                        self._transition_goal_under_recovery_fence(
+                            goal,
+                            normalized_target=normalized_target,
+                            reason=reason,
+                            readiness=readiness,
+                            goal_tasks=fenced_goal_tasks,
+                        )
+                    )
+            if retry_with_ids is not None:
+                lock_ids = retry_with_ids
+                continue
+            break
+        if saved_goal is None:
+            raise RuntimeError(
+                "goal_recovery_fence_snapshot_unstable:" + goal_id
+            )
+
+        if terminal_transition:
+            try:
+                get_request_cancellation_service().cancel_goal_requests(
+                    goal_id=goal_id,
+                    include_workers=True,
+                )
+            except Exception:
+                logging.exception(
+                    "Goal %s Worker cancellation failed",
+                    goal_id,
+                )
+        return saved_goal
+
+    def _transition_goal_under_recovery_fence(
+        self,
+        goal: GoalDB,
+        *,
+        normalized_target: str,
+        reason: str | None,
+        readiness: dict[str, Any] | None,
+        goal_tasks: list[Any],
+    ) -> GoalDB:
+        """Commit terminal Goal state before invalidating queued work."""
+
         goal.status = normalized_target
         goal.updated_at = time.time()
         if readiness is not None:
@@ -275,28 +565,149 @@ class GoalLifecycleService:
             scoped = get_goal_config_runtime_service().get_effective_config(goal_id=str(getattr(goal, "id", "") or "").strip() or None)
             current["goal_config_source"] = str(scoped.source or "global_fallback")
             goal.execution_preferences = current
-        if normalized_target in {"failed", "completed"} and str(getattr(goal, "id", "") or "").strip():
+        saved_goal = goal_repo.save(goal)
+        if (
+            normalized_target in self._TERMINAL_GOAL_STATUSES
+            and str(getattr(goal, "id", "") or "").strip()
+        ):
             goal_id = str(goal.id)
-            for task in task_repo.get_all():
-                if str(getattr(task, "goal_id", "") or "").strip() != goal_id:
-                    continue
+            sweep_status = (
+                "failed"
+                if normalized_target in {"failed", "completed"}
+                else "cancelled"
+            )
+            for task in goal_tasks:
                 task_status = str(getattr(task, "status", "") or "").strip().lower()
-                if task_status in {"completed", "failed"}:
+                if task_status in self._TERMINAL_TASK_STATUSES:
                     continue
-                update_local_task_status(
-                    str(task.id),
-                    "failed",
-                    error=f"goal_terminal:{normalized_target}",
-                    event_type="goal_terminal_task_sweep",
-                    event_actor="goal_lifecycle_service",
-                    event_details={"goal_id": goal_id, "target_status": normalized_target},
-                )
-            if normalized_target in {"failed", "cancelled"}:
                 try:
-                    get_request_cancellation_service().cancel_goal_requests(goal_id=goal_id, include_workers=True)
+                    from agent.services.recovery_task_mutation_policy import (
+                        recovery_task_role,
+                    )
+
+                    task_id = str(task.id)
+                    event_details = {
+                        "goal_id": goal_id,
+                        "target_status": normalized_target,
+                    }
+                    if recovery_task_role(task) not in {
+                        "source",
+                        "child",
+                    }:
+                        update_local_task_status(
+                            task_id,
+                            sweep_status,
+                            error=(
+                                f"goal_terminal:{normalized_target}"
+                            ),
+                            event_type=(
+                                "goal_terminal_task_sweep"
+                            ),
+                            event_actor=(
+                                "goal_lifecycle_service"
+                            ),
+                            event_details=event_details,
+                            force=True,
+                        )
+                        continue
+
+                    invalidated_at = time.time()
+                    reason_code = (
+                        f"goal_terminal:{normalized_target}"
+                    )
+                    details = dict(
+                        getattr(
+                            task,
+                            "status_reason_details",
+                            None,
+                        )
+                        or {}
+                    )
+                    lease = details.get(
+                        "recovery_dispatch_lease"
+                    )
+                    previous_lease = None
+                    invalidated_lease = None
+                    if isinstance(lease, dict) and str(
+                        lease.get("state") or ""
+                    ) in {"active", "worker_admitted"}:
+                        previous_lease = dict(lease)
+                        invalidated_lease = {
+                            **lease,
+                            "state": "revoked",
+                            "revision": int(
+                                lease.get("revision") or 0
+                            )
+                            + 1,
+                            "revoked_at": invalidated_at,
+                            "revocation_reason": reason_code,
+                        }
+                        details[
+                            "recovery_dispatch_lease"
+                        ] = invalidated_lease
+                    marker = {
+                        "schema": (
+                            "ananta.recovery_owner_terminal_"
+                            "invalidation.v1"
+                        ),
+                        "task_id": task_id,
+                        "goal_id": goal_id,
+                        "goal_status": normalized_target,
+                        "previous_status": task_status,
+                        "target_status": sweep_status,
+                        "reason_code": reason_code,
+                        "invalidated_at": invalidated_at,
+                    }
+                    details[
+                        "recovery_owner_terminal_invalidation"
+                    ] = marker
+                    from agent.common.recovery_owner_terminal_write_boundary import (
+                        authorize_recovery_owner_terminal_write,
+                    )
+
+                    with contextlib.ExitStack() as authority_stack:
+                        authority_stack.enter_context(
+                            authorize_recovery_owner_terminal_write(
+                                task_id=task_id,
+                                marker=marker,
+                            )
+                        )
+                        if (
+                            previous_lease is not None
+                            and invalidated_lease is not None
+                        ):
+                            from agent.common.recovery_dispatch_invalidation_write_boundary import (
+                                authorize_recovery_dispatch_invalidation_write,
+                            )
+
+                            authority_stack.enter_context(
+                                authorize_recovery_dispatch_invalidation_write(
+                                    task_id=task_id,
+                                    current_lease=previous_lease,
+                                    proposed_lease=invalidated_lease,
+                                )
+                            )
+                        update_local_task_status(
+                            task_id,
+                            sweep_status,
+                            status_reason_details=details,
+                            error=reason_code,
+                            event_type=(
+                                "goal_terminal_task_sweep"
+                            ),
+                            event_actor=(
+                                "goal_lifecycle_service"
+                            ),
+                            event_details=event_details,
+                            force=True,
+                        )
                 except Exception:
-                    pass
-        return goal_repo.save(goal)
+                    logging.exception(
+                        "Goal %s terminal sweep failed for task %s",
+                        goal_id,
+                        getattr(task, "id", ""),
+                    )
+        return saved_goal
 
 
     def recover_stalled_planning_goal(self, goal: GoalDB) -> GoalDB:

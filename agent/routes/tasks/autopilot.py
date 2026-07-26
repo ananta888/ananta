@@ -547,13 +547,23 @@ class AutonomousLoopManager:
         resolved_token = token
         hub_url = str(getattr(settings, "hub_url", "") or "").strip().rstrip("/")
         is_step_endpoint = endpoint.startswith("/tasks/") and "/step/" in endpoint
+        recovery_fenced = bool(
+            str(
+                (payload or {}).get("dispatch_lease_token") or ""
+            ).strip()
+        )
         with contextlib.suppress(Exception):
             agent = get_repository_registry(self._app).agent_repo.get_by_url(worker_url)
             current_token = str(getattr(agent, "token", "") or "").strip()
             if current_token:
                 resolved_token = current_token
         target_url = worker_url
-        if settings.role == "hub" and is_step_endpoint and hub_url:
+        if (
+            settings.role == "hub"
+            and is_step_endpoint
+            and hub_url
+            and not recovery_fenced
+        ):
             # Task-scoped step endpoints are hub-owned (task state + routing context).
             # Hub may delegate internals further, but the API contract lives here.
             target_url = hub_url
@@ -580,6 +590,7 @@ class AutonomousLoopManager:
                         http_status == 404
                         and is_step_endpoint
                         and hub_url
+                        and not recovery_fenced
                         and worker_url.rstrip("/") != hub_url
                     ):
                         res = _forward_to_worker(hub_url, endpoint, payload, token=None)
@@ -590,7 +601,11 @@ class AutonomousLoopManager:
                                 raise RuntimeError(f"worker_empty_payload:{hub_url}:{endpoint}")
                             return normalized
                     # Retry tokenless only on explicit auth failures.
-                    if resolved_token and http_status == 401:
+                    if (
+                        resolved_token
+                        and http_status == 401
+                        and not recovery_fenced
+                    ):
                         res = _forward_to_worker(worker_url, endpoint, payload, token=None)
                         if isinstance(res, dict) and str(res.get("status") or "").strip().lower() == "error":
                             raise RuntimeError(
@@ -612,7 +627,7 @@ class AutonomousLoopManager:
                 # Worker tokens can drift across container restarts; for internal
                 # hub->worker calls we degrade gracefully and retry once without
                 # bearer token on explicit auth failures.
-                if resolved_token and (
+                if resolved_token and not recovery_fenced and (
                     "401" in err_lc
                     or "unauthorized" in err_lc
                     or "invalid or missing registration token" in err_lc
@@ -677,7 +692,16 @@ class AutonomousLoopManager:
                     if _tid:
                         with contextlib.suppress(Exception):
                             _t = get_repository_registry(self._app).task_repo.get_by_id(_tid)
-                            if _t and str(getattr(_t, "status", "") or "") in {"completed", "failed", "cancelled", "skipped"}:
+                            if _t and str(getattr(_t, "status", "") or "") in {
+                                "completed",
+                                "failed",
+                                "cancelled",
+                                "verification_failed",
+                                "skipped",
+                                "aborted",
+                                "timeout",
+                                "archived",
+                            }:
                                 last_exc = RuntimeError(f"task_terminal_during_retry:{_tid}:{_t.status}")
                                 break
         raise RuntimeError(f"worker_forward_failed:{worker_url}:{endpoint}:{last_exc}")

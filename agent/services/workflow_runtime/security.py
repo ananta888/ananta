@@ -13,6 +13,11 @@ from typing import Any, Protocol
 
 from agent.services.workflow_runtime._serialization import canonical_json, contains_sensitive_keys, redact_json
 from agent.services.workflow_runtime.errors import ContractValidationError, SignatureValidationError
+from ananta_contracts.provider_execution import (
+    ProviderBindingAuthorization,
+    ProviderExecutionBindingError,
+    ProviderProfileAttemptPlanEntry,
+)
 from ananta_contracts.runtime_authorization_crypto import (
     RuntimeAuthorizationCryptoError,
 )
@@ -167,6 +172,8 @@ class RuntimeAuthorizationEnvelope:
     nonce: str
     key_id: str
     signature: str
+    allowed_provider_bindings: tuple[ProviderBindingAuthorization, ...] = ()
+    provider_attempt_plan: tuple[ProviderProfileAttemptPlanEntry, ...] = ()
     schema: str = AUTHORIZATION_ENVELOPE_SCHEMA
 
     @classmethod
@@ -182,6 +189,14 @@ class RuntimeAuthorizationEnvelope:
         policy_version: str,
         allowed_tools: tuple[str, ...] | list[str] = (),
         allowed_artifacts: tuple[str, ...] | list[str] = (),
+        allowed_provider_bindings: (
+            tuple[ProviderBindingAuthorization | Mapping[str, Any], ...]
+            | list[ProviderBindingAuthorization | Mapping[str, Any]]
+        ) = (),
+        provider_attempt_plan: (
+            tuple[ProviderProfileAttemptPlanEntry | Mapping[str, Any], ...]
+            | list[ProviderProfileAttemptPlanEntry | Mapping[str, Any]]
+        ) = (),
         budgets: dict[str, int | float] | None = None,
         ttl_seconds: float = 300.0,
         now: float | None = None,
@@ -207,6 +222,12 @@ class RuntimeAuthorizationEnvelope:
             nonce=str(nonce or uuid.uuid4().hex),
             key_id="",
             signature="",
+            allowed_provider_bindings=_normalize_provider_bindings(
+                allowed_provider_bindings
+            ),
+            provider_attempt_plan=_normalize_provider_attempt_plan(
+                provider_attempt_plan
+            ),
         )
         unsigned._assert_structure()
         key_id = key_ring.active_key_id
@@ -244,6 +265,12 @@ class RuntimeAuthorizationEnvelope:
             nonce=str(raw.get("nonce") or ""),
             key_id=str(raw.get("key_id") or ""),
             signature=str(raw.get("signature") or ""),
+            allowed_provider_bindings=_normalize_provider_bindings(
+                raw.get("allowed_provider_bindings") or ()
+            ),
+            provider_attempt_plan=_normalize_provider_attempt_plan(
+                raw.get("provider_attempt_plan") or ()
+            ),
             schema=str(raw.get("schema") or AUTHORIZATION_ENVELOPE_SCHEMA),
         )
 
@@ -304,6 +331,53 @@ class RuntimeAuthorizationEnvelope:
             raise ContractValidationError("authorization_expiry_invalid")
         if any(value < 0 for value in self.budgets.values()):
             raise ContractValidationError("authorization_budget_invalid")
+        if len(self.allowed_provider_bindings) > 8:
+            raise ContractValidationError(
+                "authorization_provider_binding_limit_exceeded"
+            )
+        if len(self.provider_attempt_plan) > 8:
+            raise ContractValidationError(
+                "authorization_provider_attempt_plan_limit_exceeded"
+            )
+        try:
+            for item in self.allowed_provider_bindings:
+                item.validate()
+            for item in self.provider_attempt_plan:
+                item.validate()
+        except (AttributeError, ProviderExecutionBindingError) as exc:
+            raise ContractValidationError(
+                "authorization_provider_binding_invalid"
+            ) from exc
+        if self.provider_attempt_plan:
+            allowed = {
+                item.binding_id: item
+                for item in self.allowed_provider_bindings
+            }
+            planned = {
+                item.binding_id: item.binding_authorization
+                for item in self.provider_attempt_plan
+            }
+            if (
+                not allowed
+                or set(planned) != set(allowed)
+                or any(planned[key] != allowed[key] for key in planned)
+            ):
+                raise ContractValidationError(
+                    "authorization_provider_attempt_plan_binding_mismatch"
+                )
+            raw_maximum = self.budgets.get("provider_attempts")
+            if (
+                raw_maximum is None
+                or isinstance(raw_maximum, bool)
+                or int(raw_maximum)
+                != sum(
+                    item.maximum_attempts
+                    for item in self.provider_attempt_plan
+                )
+            ):
+                raise ContractValidationError(
+                    "authorization_provider_attempt_plan_budget_mismatch"
+                )
 
     def _signing_payload(self) -> dict[str, Any]:
         payload = self.to_dict()
@@ -329,10 +403,94 @@ class RuntimeAuthorizationEnvelope:
             "key_id": self.key_id,
             "signature": self.signature,
         }
+        if self.allowed_provider_bindings:
+            payload["allowed_provider_bindings"] = [
+                item.to_dict()
+                for item in self.allowed_provider_bindings
+            ]
+        if self.provider_attempt_plan:
+            payload["provider_attempt_plan"] = [
+                item.to_dict()
+                for item in self.provider_attempt_plan
+            ]
         if redacted:
             payload["nonce"] = "[REDACTED]"
             payload["signature"] = "[REDACTED]"
         return payload
+
+
+def _normalize_provider_bindings(
+    raw: object,
+) -> tuple[ProviderBindingAuthorization, ...]:
+    if raw is None:
+        return ()
+    if isinstance(raw, (str, bytes)) or not isinstance(raw, (list, tuple)):
+        raise ContractValidationError(
+            "authorization_provider_bindings_invalid"
+        )
+    values: list[ProviderBindingAuthorization] = []
+    seen_ids: set[str] = set()
+    try:
+        for item in raw:
+            value = (
+                item
+                if isinstance(item, ProviderBindingAuthorization)
+                else ProviderBindingAuthorization.from_mapping(item)
+            )
+            value.validate()
+            if value.binding_id in seen_ids:
+                raise ContractValidationError(
+                    "authorization_provider_binding_duplicate"
+                )
+            seen_ids.add(value.binding_id)
+            values.append(value)
+    except ProviderExecutionBindingError as exc:
+        raise ContractValidationError(exc.reason_code) from exc
+    return tuple(
+        sorted(
+            values,
+            key=lambda item: (
+                item.binding_id,
+                item.provider_id,
+                item.model_id,
+            ),
+        )
+    )
+
+
+def _normalize_provider_attempt_plan(
+    raw: object,
+) -> tuple[ProviderProfileAttemptPlanEntry, ...]:
+    if raw is None:
+        return ()
+    if isinstance(raw, (str, bytes)) or not isinstance(raw, (list, tuple)):
+        raise ContractValidationError(
+            "authorization_provider_attempt_plan_invalid"
+        )
+    values: list[ProviderProfileAttemptPlanEntry] = []
+    seen_profiles: set[str] = set()
+    seen_bindings: set[str] = set()
+    try:
+        for item in raw:
+            value = (
+                item
+                if isinstance(item, ProviderProfileAttemptPlanEntry)
+                else ProviderProfileAttemptPlanEntry.from_mapping(item)
+            )
+            value.validate()
+            if (
+                value.profile_id in seen_profiles
+                or value.binding_id in seen_bindings
+            ):
+                raise ContractValidationError(
+                    "authorization_provider_attempt_plan_duplicate"
+                )
+            seen_profiles.add(value.profile_id)
+            seen_bindings.add(value.binding_id)
+            values.append(value)
+    except ProviderExecutionBindingError as exc:
+        raise ContractValidationError(exc.reason_code) from exc
+    return tuple(values)
 
 
 class AuthorizationVerifier:

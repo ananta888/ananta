@@ -228,10 +228,17 @@ class TaskScopedExecutionService:
         return build_source_catalog_from_execution_context(tid=tid, task=task, llm_scope=llm_scope)
 
     @staticmethod
-    def _render_citation_contract_prompt(source_catalog: dict | None) -> str:
+    def _render_citation_contract_prompt(
+        source_catalog: dict | None,
+        *,
+        run_evidence_context: dict | None = None,
+    ) -> str:
         # SPLIT-001j: delegating wrapper.
         from agent.services._task_scoped_citation import render_citation_contract_prompt
-        return render_citation_contract_prompt(source_catalog)
+        return render_citation_contract_prompt(
+            source_catalog,
+            run_evidence_context=run_evidence_context,
+        )
 
     @staticmethod
     def _extract_grounded_answer_payload(output: str | None) -> dict | None:

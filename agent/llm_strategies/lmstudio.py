@@ -282,7 +282,13 @@ class LMStudioStrategy(LLMStrategy):
             headers: dict = {}
             if idempotency_key:
                 headers["Idempotency-Key"] = idempotency_key
-            resp = session.post(url, json=payload, headers=headers, timeout=timeout)
+            resp = session.post(
+                url,
+                json=payload,
+                headers=headers,
+                timeout=timeout,
+                allow_redirects=False,
+            )
         except _requests.exceptions.ConnectionError:
             error_code = "connection_aborted_or_closed"
             logging.warning(
@@ -322,6 +328,13 @@ class LMStudioStrategy(LLMStrategy):
                 pass
 
         if resp is not None and hasattr(resp, "status_code"):
+            if 300 <= resp.status_code < 400:
+                logging.warning(
+                    "LMStudio redirect denied status=%s url=%s",
+                    resp.status_code,
+                    url,
+                )
+                return None
             if resp.status_code < 400:
                 try:
                     json_resp = resp.json()

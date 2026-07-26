@@ -13,6 +13,9 @@ from agent.services.execution_audit_service import get_execution_audit_service
 from agent.services.request_cancellation_service import get_request_cancellation_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
+from agent.services.task_admin_service import (
+    RecoveryChildAdminMutationConflict,
+)
 from agent.common.logging import get_correlation_id
 from agent.utils import rate_limit, validate_request
 
@@ -155,7 +158,19 @@ def archive_task_route(tid):
     """
     Task archivieren
     """
-    if not get_core_services().task_admin_service.archive_task(task_id=tid):
+    try:
+        archived = (
+            get_core_services()
+            .task_admin_service.archive_task(task_id=tid)
+        )
+    except RecoveryChildAdminMutationConflict as exc:
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            data=exc.as_data(),
+            code=409,
+        )
+    if not archived:
         return api_response(status="error", message="not_found", code=404)
     return api_response(status="archived", data={"id": tid})
 
@@ -173,12 +188,23 @@ def archive_tasks_batch_route():
     if not (statuses or team_id or task_ids or before_ts is not None):
         return api_response(status="error", message="archive_filter_required", code=400)
 
-    archived_ids = get_core_services().task_admin_service.archive_tasks(
-        statuses=statuses,
-        team_id=team_id,
-        before_ts=before_ts,
-        task_ids=task_ids,
-    )
+    try:
+        archived_ids = (
+            get_core_services()
+            .task_admin_service.archive_tasks(
+                statuses=statuses,
+                team_id=team_id,
+                before_ts=before_ts,
+                task_ids=task_ids,
+            )
+        )
+    except RecoveryChildAdminMutationConflict as exc:
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            data=exc.as_data(),
+            code=409,
+        )
     return api_response(data={"archived_count": len(archived_ids), "archived_ids": archived_ids})
 
 
@@ -188,7 +214,19 @@ def restore_task_route(tid):
     """
     Archivierten Task wiederherstellen
     """
-    if not get_core_services().task_admin_service.restore_task(task_id=tid):
+    try:
+        restored = (
+            get_core_services()
+            .task_admin_service.restore_task(task_id=tid)
+        )
+    except RecoveryChildAdminMutationConflict as exc:
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            data=exc.as_data(),
+            code=409,
+        )
+    if not restored:
         return api_response(status="error", message="not_found", code=404)
     return api_response(status="restored", data={"id": tid})
 
@@ -196,10 +234,23 @@ def restore_task_route(tid):
 @management_bp.route("/tasks/archived/<tid>", methods=["DELETE"])
 @check_auth
 def delete_archived_task_route(tid):
-    result = get_core_services().task_query_service.delete_archived_task(task_id=tid)
-    if not result:
+    try:
+        deleted = (
+            get_core_services()
+            .task_admin_service.delete_archived_task(task_id=tid)
+        )
+    except RecoveryChildAdminMutationConflict as exc:
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            data=exc.as_data(),
+            code=409,
+        )
+    if not deleted:
         return api_response(status="error", message="not_found", code=404)
-    return api_response(data=result)
+    return api_response(
+        data={"deleted_count": 1, "deleted_ids": [tid]}
+    )
 
 
 @management_bp.route("/tasks/archived/restore/batch", methods=["POST"])
@@ -215,12 +266,23 @@ def restore_tasks_batch_route():
     if not (statuses or team_id or task_ids or before_ts is not None):
         return api_response(status="error", message="restore_filter_required", code=400)
 
-    restored_ids = get_core_services().task_admin_service.restore_tasks(
-        statuses=statuses,
-        team_id=team_id,
-        before_ts=before_ts,
-        task_ids=task_ids,
-    )
+    try:
+        restored_ids = (
+            get_core_services()
+            .task_admin_service.restore_tasks(
+                statuses=statuses,
+                team_id=team_id,
+                before_ts=before_ts,
+                task_ids=task_ids,
+            )
+        )
+    except RecoveryChildAdminMutationConflict as exc:
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            data=exc.as_data(),
+            code=409,
+        )
     return api_response(data={"restored_count": len(restored_ids), "restored_ids": restored_ids})
 
 
@@ -255,7 +317,32 @@ def cleanup_archived_tasks_route():
         task_ids=task_ids,
     )
 
-    return api_response(data={"matched_count": len(deleted_ids) + len(errors), "deleted_count": len(deleted_ids), "deleted_ids": deleted_ids, "errors": errors})
+    response_data = {
+        "matched_count": len(deleted_ids) + len(errors),
+        "deleted_count": len(deleted_ids),
+        "deleted_ids": deleted_ids,
+        "errors": errors,
+    }
+    conflict_errors = [
+        item
+        for item in errors
+        if int(item.get("http_status") or 0) == 409
+    ]
+    if (
+        conflict_errors
+        and len(conflict_errors) == len(errors)
+        and not deleted_ids
+    ):
+        return api_response(
+            status="error",
+            message=str(
+                conflict_errors[0].get("reason_code")
+                or "task_admin_conflict"
+            ),
+            data=response_data,
+            code=409,
+        )
+    return api_response(data=response_data)
 
 
 @management_bp.route("/tasks/archive/retention/apply", methods=["POST"])
@@ -269,12 +356,22 @@ def archive_retention_apply_route():
     if retain_seconds <= 0:
         return api_response(status="error", message="retain_seconds_required", code=400)
     cutoff = now - retain_seconds
-    deleted_ids = get_core_services().task_admin_service.apply_archive_retention(
-        team_id=team_id,
-        statuses=statuses,
-        cutoff=cutoff,
+    deleted_ids, errors = (
+        get_core_services()
+        .task_admin_service.apply_archive_retention_with_errors(
+            team_id=team_id,
+            statuses=statuses,
+            cutoff=cutoff,
+        )
     )
-    return api_response(data={"deleted_count": len(deleted_ids), "deleted_ids": deleted_ids, "cutoff": cutoff})
+    return api_response(
+        data={
+            "deleted_count": len(deleted_ids),
+            "deleted_ids": deleted_ids,
+            "errors": errors,
+            "cutoff": cutoff,
+        }
+    )
 
 
 @management_bp.route("/tasks/cleanup", methods=["POST"])
@@ -315,17 +412,36 @@ def cleanup_tasks_route():
         task_ids=task_ids,
     )
 
-    return api_response(
-        data={
-            "mode": mode,
-            "matched_count": len(matched),
-            "archived_count": len(archived_ids),
-            "deleted_count": len(deleted_ids),
-            "archived_ids": archived_ids,
-            "deleted_ids": deleted_ids,
-            "errors": errors,
-        }
-    )
+    response_data = {
+        "mode": mode,
+        "matched_count": len(matched),
+        "archived_count": len(archived_ids),
+        "deleted_count": len(deleted_ids),
+        "archived_ids": archived_ids,
+        "deleted_ids": deleted_ids,
+        "errors": errors,
+    }
+    conflict_errors = [
+        item
+        for item in errors
+        if int(item.get("http_status") or 0) == 409
+    ]
+    if (
+        conflict_errors
+        and len(conflict_errors) == len(errors)
+        and not archived_ids
+        and not deleted_ids
+    ):
+        return api_response(
+            status="error",
+            message=str(
+                conflict_errors[0].get("reason_code")
+                or "task_admin_conflict"
+            ),
+            data=response_data,
+            code=409,
+        )
+    return api_response(data=response_data)
 
 
 @management_bp.route("/tasks/<tid>/tree", methods=["GET"])
@@ -406,7 +522,12 @@ def create_task():
         })
     result = get_core_services().task_management_service.create_task(data=data, source=source, created_by=created_by)
     if result.get("error"):
-        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result.get("data"),
+            code=result.get("code", 400),
+        )
     return api_response(data=result["data"], code=result.get("code", 201))
 
 
@@ -481,7 +602,12 @@ def patch_task(tid):
     data: TaskUpdateRequest = g.validated_data
     result = get_core_services().task_management_service.patch_task(task_id=tid, data=data)
     if result.get("error"):
-        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result.get("data"),
+            code=result.get("code", 400),
+        )
     return api_response(data=result["data"])
 
 
@@ -496,7 +622,12 @@ def review_task_proposal(tid):
 
     result = get_core_services().task_management_service.review_task_proposal(task_id=tid, action=action, comment=comment)
     if result.get("error"):
-        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result.get("data"),
+            code=result.get("code", 400),
+        )
     data = dict(result.get("data") or {})
     get_execution_audit_service().emit_approval_event(
         trace_id=get_correlation_id() or None,
@@ -576,7 +707,12 @@ def unassign_task(tid):
     """
     result = get_core_services().task_management_service.unassign_task(task_id=tid)
     if result.get("error"):
-        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result.get("data"),
+            code=result.get("code", 400),
+        )
     return api_response(data=result["data"])
 
 
@@ -585,7 +721,11 @@ def unassign_task(tid):
 def pause_task(tid):
     ok, msg, data = _intervene_task(tid, "pause")
     if not ok:
-        code = 404 if msg == "not_found" else 400
+        code = (
+            404
+            if msg == "not_found"
+            else int((data or {}).get("http_status") or 400)
+        )
         return api_response(status="error", message=msg, data=data or None, code=code)
     return api_response(data=data)
 
@@ -595,7 +735,11 @@ def pause_task(tid):
 def resume_task(tid):
     ok, msg, data = _intervene_task(tid, "resume")
     if not ok:
-        code = 404 if msg == "not_found" else 400
+        code = (
+            404
+            if msg == "not_found"
+            else int((data or {}).get("http_status") or 400)
+        )
         return api_response(status="error", message=msg, data=data or None, code=code)
     return api_response(data=data)
 
@@ -605,7 +749,11 @@ def resume_task(tid):
 def cancel_task(tid):
     ok, msg, data = _intervene_task(tid, "cancel")
     if not ok:
-        code = 404 if msg == "not_found" else 400
+        code = (
+            404
+            if msg == "not_found"
+            else int((data or {}).get("http_status") or 400)
+        )
         return api_response(status="error", message=msg, data=data or None, code=code)
     return api_response(data=data)
 
@@ -615,7 +763,11 @@ def cancel_task(tid):
 def retry_task(tid):
     ok, msg, data = _intervene_task(tid, "retry")
     if not ok:
-        code = 404 if msg == "not_found" else 400
+        code = (
+            404
+            if msg == "not_found"
+            else int((data or {}).get("http_status") or 400)
+        )
         return api_response(status="error", message=msg, data=data or None, code=code)
     return api_response(data=data)
 
@@ -642,12 +794,87 @@ def kill_task_requests_internal(tid):
     return api_response(data=result)
 
 
+@management_bp.route(
+    "/internal/tasks/<tid>/recovery-dispatch-admission",
+    methods=["POST"],
+)
+@rate_limit(
+    limit=240,
+    window=60,
+    namespace="recovery_dispatch_admission",
+)
+def recovery_dispatch_admission(tid):
+    """Validate the opaque, task-scoped capability sent to one Worker.
+
+    The lease itself is the credential for this narrow endpoint.  The Hub
+    stores only its digest, so neither a Worker database nor logs contain a
+    reusable Hub service credential.
+    """
+
+    from agent.services.recovery_dispatch_gate_service import (
+        get_recovery_dispatch_gate_service,
+    )
+
+    token = str(
+        request.headers.get(
+            "X-Ananta-Recovery-Dispatch-Lease"
+        )
+        or ""
+    ).strip()
+    auth_header = str(
+        request.headers.get("Authorization") or ""
+    ).strip()
+    worker_token = (
+        auth_header.removeprefix("Bearer ").strip()
+        if auth_header.startswith("Bearer ")
+        else ""
+    )
+    worker_url = str(
+        request.headers.get("X-Ananta-Worker-Url") or ""
+    ).strip()
+    payload = request.get_json(silent=True) or {}
+    phase = str(payload.get("phase") or "").strip().lower()
+    request_fingerprint = str(
+        payload.get("request_fingerprint") or ""
+    ).strip()
+    decision = (
+        get_recovery_dispatch_gate_service().admit_dispatch_lease(
+            str(tid or ""),
+            token=token,
+            phase=phase,
+            worker_url=worker_url,
+            worker_token=worker_token,
+            request_fingerprint=request_fingerprint,
+        )
+    )
+    data = {
+        "allowed": bool(decision.allowed),
+        "reason_code": decision.reason_code,
+        "source_task_id": decision.source_task_id,
+        "plan_id": decision.plan_id,
+        "release_epoch": decision.release_epoch,
+    }
+    if not decision.allowed:
+        return api_response(
+            status="error",
+            message="recovery dispatch denied",
+            data=data,
+            code=409,
+        )
+    return api_response(data=data)
+
+
 @management_bp.route("/tasks/<tid>/subtask-callback", methods=["POST"])
 @check_auth
 def subtask_callback(tid):
     result = get_core_services().task_management_service.subtask_callback(task_id=tid, payload=request.get_json() or {})
     if result.get("error"):
-        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result.get("data"),
+            code=result.get("code", 400),
+        )
     return api_response(data=result["data"])
 
 
@@ -663,5 +890,10 @@ def create_followups(tid):
     data: FollowupTaskCreateRequest = g.validated_data
     result = get_core_services().task_management_service.create_followups(task_id=tid, data=data)
     if result.get("error"):
-        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result.get("data"),
+            code=result.get("code", 400),
+        )
     return api_response(data=result["data"])

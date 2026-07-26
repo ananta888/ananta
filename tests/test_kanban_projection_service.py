@@ -1,3 +1,4 @@
+import contextlib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -100,3 +101,57 @@ def test_revision_check_is_atomic(tmp_path: Path) -> None:
         results = list(pool.map(apply, ("one", "two")))
     assert sorted(results) == ["kanban_revision_conflict", "ok"]
 
+
+def test_status_postcommit_runs_after_kanban_mutation_lock_release(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'postcommit-lock.db'}",
+        poolclass=NullPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    service = _service(engine)
+    card = service.create_card(
+        "hub",
+        CreateCardCommand(
+            title="Fence",
+            idempotency_key="create-fence",
+        ),
+        ADMIN,
+    )
+    lock_state = {"held": False}
+    postcommit_states: list[bool] = []
+
+    class LockPort:
+        @contextlib.contextmanager
+        def mutation_locks(self, _task_ids):
+            assert lock_state["held"] is False
+            lock_state["held"] = True
+            try:
+                yield True
+            finally:
+                lock_state["held"] = False
+
+    monkeypatch.setattr(
+        "agent.services.task_mutation_lock_service.get_task_mutation_lock_port",
+        lambda: LockPort(),
+    )
+    monkeypatch.setattr(
+        "agent.services.task_runtime_service.run_external_task_status_post_commit",
+        lambda *_args, **_kwargs: postcommit_states.append(
+            lock_state["held"]
+        ),
+    )
+    service.move_card(
+        card.id,
+        MoveCardCommand(
+            board_id="hub",
+            expected_revision=card.revision,
+            idempotency_key="move-fence",
+            column_id="completed",
+            position=0,
+        ),
+        ADMIN,
+    )
+    assert postcommit_states == [False]

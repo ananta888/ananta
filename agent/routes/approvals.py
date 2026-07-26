@@ -25,7 +25,47 @@ from agent.services.approval_request_service import (
 
 approvals_bp = Blueprint("approvals", __name__)
 
-_SCOPE_SUMMARY_KEYS = {"approval_class", "pre_approval", "goal_id", "source", "reason_code"}
+_SCOPE_SUMMARY_KEYS = {
+    "approval_class",
+    "pre_approval",
+    "goal_id",
+    "source",
+    "reason_code",
+    "plan_id",
+    "source_task_id",
+    "recovery_key",
+    "decision_outcome",
+}
+
+
+def _can_view_approval(row: Any) -> bool:
+    if bool(getattr(g, "is_admin", False)):
+        return True
+    from agent.services.task_recovery_planning_service import (
+        RECOVERY_MATERIALIZE_TOOL,
+    )
+
+    if str(getattr(row, "tool_name", "") or "") != (
+        RECOVERY_MATERIALIZE_TOOL
+    ):
+        return True
+    goal_id = str(getattr(row, "goal_id", "") or "").strip()
+    if not goal_id:
+        return False
+    try:
+        from agent.services.goal_service import get_goal_service
+        from agent.services.repository_registry import (
+            get_repository_registry,
+        )
+
+        goal = get_repository_registry().goal_repo.get_by_id(goal_id)
+        return get_goal_service().can_access_goal(
+            goal,
+            getattr(g, "user", {}) or {},
+            False,
+        )
+    except Exception:
+        return False
 
 
 def _request_to_payload(row) -> dict[str, Any]:
@@ -61,14 +101,22 @@ def list_approvals():
     task_id = str(request.args.get("task_id") or "").strip() or None
     goal_id = str(request.args.get("goal_id") or "").strip() or None
     rows = svc.list_requests(status=status, task_id=task_id, goal_id=goal_id)
-    return jsonify({"requests": [_request_to_payload(row) for row in rows]})
+    return jsonify(
+        {
+            "requests": [
+                _request_to_payload(row)
+                for row in rows
+                if _can_view_approval(row)
+            ]
+        }
+    )
 
 
 @approvals_bp.get("/api/approvals/<request_id>")
 @check_auth
 def get_approval(request_id: str):
     row = get_approval_request_service().get_request(request_id)
-    if row is None:
+    if row is None or not _can_view_approval(row):
         return jsonify({"error": "request_not_found"}), 404
     return jsonify(_request_to_payload(row))
 
@@ -80,9 +128,24 @@ def decide_approval(request_id: str):
     decision = str(body.get("decision") or "").strip().lower()
     reason = str(body.get("reason") or "").strip() or None
     expires_at = body.get("expires_at")
-    decided_by = str((getattr(g, "user", {}) or {}).get("sub") or (getattr(g, "user", {}) or {}).get("username") or "operator")
+    user = getattr(g, "user", {}) or {}
+    decided_by = str(
+        user.get("sub") or user.get("username") or "operator"
+    )
+    service = get_approval_request_service()
+    pending_request = service.get_request(request_id)
+    if pending_request is not None:
+        from agent.services.task_recovery_planning_service import (
+            RECOVERY_MATERIALIZE_TOOL,
+        )
+
+        if (
+            str(pending_request.tool_name or "") == RECOVERY_MATERIALIZE_TOOL
+            and not bool(getattr(g, "is_admin", False))
+        ):
+            return jsonify({"error": "forbidden"}), 403
     try:
-        row = get_approval_request_service().decide_request(
+        row = service.decide_request(
             request_id,
             decision=decision,
             decided_by=decided_by,

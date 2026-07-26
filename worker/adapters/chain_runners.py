@@ -137,6 +137,10 @@ class SimplexRunner:
                 model=model,
                 timeout=30,
                 provider_context=payload.get("provider_context"),
+                provider_contexts_by_profile_id=payload.get(
+                    "provider_contexts_by_profile_id"
+                ),
+                model_routing=payload.get("model_routing"),
             )
         except Exception as exc:
             raise WorkerError(
@@ -209,6 +213,18 @@ class LangChainRunnableRunner:
                 timeout=30,
                 provider_context=(
                     input_dict.get("payload", {}).get("provider_context")
+                    if isinstance(input_dict.get("payload"), dict)
+                    else None
+                ),
+                provider_contexts_by_profile_id=(
+                    input_dict.get("payload", {}).get(
+                        "provider_contexts_by_profile_id"
+                    )
+                    if isinstance(input_dict.get("payload"), dict)
+                    else None
+                ),
+                model_routing=(
+                    input_dict.get("payload", {}).get("model_routing")
                     if isinstance(input_dict.get("payload"), dict)
                     else None
                 ),

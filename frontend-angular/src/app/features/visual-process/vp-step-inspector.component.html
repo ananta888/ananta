@@ -118,6 +118,22 @@
                [ngModel]="stepRouting().max_estimated_cost ?? null"
                (ngModelChange)="setStepRoutingField('max_estimated_cost', $event === null ? undefined : +$event)" />
       </label>
+      <div class="vpe-label">Kontext-Notfallkette
+        @for (strategy of recoveryStrategyOptions; track strategy) {
+          <label class="vpe-label vpe-checkbox">
+            <input type="checkbox" [ngModel]="recoveryStrategyEnabled(strategy)"
+                   (ngModelChange)="toggleRecoveryStrategy(strategy, $event)" />
+            {{ strategy }}
+          </label>
+        }
+        <small>Feste sichere Reihenfolge. Der Hub führt aus; ein Worker erzeugt keine Aufgaben selbst.</small>
+      </div>
+      <label class="vpe-label vpe-checkbox">
+        <input type="checkbox" [ngModel]="stepRouting().require_approval_for_generated_plan !== false"
+               [disabled]="recoveryStrategyEnabled('segment_planning') || recoveryStrategyEnabled('propose_task_plan')"
+               (ngModelChange)="setStepRoutingField('require_approval_for_generated_plan', $event)" />
+        LLM-Teilplan vor Übernahme freigeben
+      </label>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="vpe-btn-xs" (click)="clearStepRouting()">vom Graph übernehmen</button>
         <button class="vpe-btn-xs" (click)="applyModelRoutingPreset('local')">billig lokal</button>
@@ -126,6 +142,9 @@
       </div>
       @if (stepRouting().allow_cloud) {
         <div class="vpe-warn-note">Cloud-Override aktiv; Secret-Kontext wird weiterhin backendseitig blockiert.</div>
+      }
+      @if (stepRouting().context_recovery_strategies?.length) {
+        <div class="vpe-warn-note">Kontext-Notfallkette ist Hub-gesteuert und wird mit jedem Schritt auditiert.</div>
       }
     </div>
     }

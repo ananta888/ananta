@@ -11,6 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from agent.common.audit import log_audit
+from agent.services.recovery_task_mutation_policy import (
+    ensure_external_recovery_mutation_allowed,
+)
+from agent.services.repository_registry import get_repository_registry
 from agent.services.task_artifact_completion_gate_service import get_task_artifact_completion_gate_service
 from agent.services.worker_output_collector_service import get_worker_output_collector_service
 
@@ -90,6 +94,12 @@ class ArtifactReconciliationService:
             raise ValueError("actor is required for artifact reconciliation")
         if not str(reason or "").strip():
             raise ValueError("reason is required for artifact reconciliation")
+        task = get_repository_registry().task_repo.get_by_id(task_id)
+        if task is not None:
+            ensure_external_recovery_mutation_allowed(
+                task,
+                action="artifact_reconciliation",
+            )
 
         # Refuse invalid paths
         try:

@@ -245,6 +245,43 @@ describe('VpStepInspectorComponent LoRA integration', () => {
     expect(component.fieldValue(weight)).toBe(0.6);
   });
 
+  it('keeps recovery overrides canonical, approval-gated and removable for graph inheritance', () => {
+    const value = graph();
+    value.metadata = {
+      model_routing: {
+        context_recovery_strategies: ['compact_context', 'stop'],
+        require_approval_for_generated_plan: true,
+      },
+    };
+    value.steps[0].metadata = {
+      ...(value.steps[0].metadata ?? {}),
+      model_routing: {
+        context_recovery_strategies: ['compact_context', 'stop'],
+        require_approval_for_generated_plan: false,
+      },
+    };
+    const component = create(null, value).componentInstance;
+
+    component.toggleRecoveryStrategy('segment_planning', true);
+    component.toggleRecoveryStrategy('propose_task_plan', true);
+
+    expect(component.stepRouting().context_recovery_strategies).toEqual([
+      'compact_context', 'segment_planning', 'propose_task_plan',
+      'require_approval', 'stop',
+    ]);
+    expect(component.stepRouting().require_approval_for_generated_plan).toBe(true);
+
+    component.toggleRecoveryStrategy('require_approval', false);
+    expect(component.stepRouting().context_recovery_strategies).toEqual(['compact_context', 'stop']);
+
+    component.clearStepRouting();
+    expect(component.graph().steps[0].metadata?.['model_routing']).toBeUndefined();
+    expect(component.graph().metadata?.['model_routing']).toEqual({
+      context_recovery_strategies: ['compact_context', 'stop'],
+      require_approval_for_generated_plan: true,
+    });
+  });
+
   it('contains no direct node-kind branch in the inspector shell', async () => {
     const template = await readFile('src/app/features/visual-process/vp-step-inspector.component.html', 'utf8');
     expect(template).not.toMatch(/(?:selectedStep\(\)!|step)\.kind\s*===/);

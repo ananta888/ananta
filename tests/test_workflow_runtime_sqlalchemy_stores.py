@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 
@@ -22,17 +23,26 @@ from agent.db_models.workflow_runtime import (
     WorkflowSideEffectLedgerDB,
 )
 from agent.services.identity_validation import IdentityValidationError
+from agent.services.workflow_authorization_grant_service import (
+    InMemoryWorkflowAuthorizationGrantService,
+)
 from agent.services.workflow_runtime import (
+    AuthorizationVerifier,
     CanonicalWorkflowEvent,
     ContractValidationError,
     FencingTokenError,
     HmacKeyRing,
     InMemoryEventStore,
+    InMemorySideEffectLedger,
     InvalidTransitionError,
     LegacyWorkflowBackendEventAdapter,
     OptimisticConcurrencyError,
+    ProviderAttemptScope,
     ProviderBudgetError,
     ProviderBudgetLimits,
+    ProviderProfileAttemptReservation,
+    ProviderScopedBudgetReservation,
+    RuntimeAuthorizationEnvelope,
     SignedCheckpoint,
     SQLAlchemyCheckpointStore,
     SQLAlchemyEventStore,
@@ -48,6 +58,18 @@ from agent.services.workflow_runtime_read_model_persistence import (
 )
 from agent.services.workflow_runtime_read_model_service import (
     InMemoryWorkflowRuntimeReadModelRepository,
+)
+from agent.services.workflow_worker_gateway_service import (
+    WorkflowWorkerGatewayError,
+    WorkflowWorkerGatewayService,
+)
+from ananta_contracts.provider_execution import (
+    ProviderExecutionBinding,
+    ProviderProfileAttemptPlanEntry,
+    ProviderProfileExecutionBinding,
+)
+from ananta_contracts.workflow_worker_gateway import (
+    WORKFLOW_WORKER_COMMAND_SCHEMA,
 )
 
 _TABLES = [
@@ -554,3 +576,541 @@ def test_provider_budget_is_persistent_idempotent_reconciled_and_fail_closed(run
             reserved_tokens=41,
             reserved_cost_micros=300,
         )
+
+
+def test_provider_budget_rejects_oversized_first_reservation_without_poisoning_run(
+    runtime_engine,
+) -> None:
+    store = SQLAlchemyProviderBudgetStore(runtime_engine)
+    limits = ProviderBudgetLimits(
+        maximum_attempts=2,
+        maximum_tokens=100,
+        maximum_cost_micros=1_000,
+    )
+
+    with pytest.raises(
+        ProviderBudgetError,
+        match="provider_token_budget_exceeded",
+    ):
+        store.reserve(
+            tenant_id="tenant-a",
+            run_id="oversized-first-run",
+            policy_version="policy-v1",
+            reservation_id="oversized-first",
+            limits=limits,
+            reserved_tokens=101,
+            reserved_cost_micros=100,
+        )
+
+    valid = SQLAlchemyProviderBudgetStore(runtime_engine).reserve(
+        tenant_id="tenant-a",
+        run_id="oversized-first-run",
+        policy_version="policy-v1",
+        reservation_id="valid-after-denial",
+        limits=limits,
+        reserved_tokens=100,
+        reserved_cost_micros=100,
+    )
+    assert valid.attempts == 1
+    assert valid.tokens == 100
+
+
+def test_sql_profile_attempt_and_aggregate_reservation_commit_atomically(
+    runtime_engine,
+) -> None:
+    store = SQLAlchemyProviderBudgetStore(runtime_engine)
+    limits = ProviderBudgetLimits(
+        maximum_attempts=0,
+        maximum_tokens=2,
+        maximum_cost_micros=1_000,
+    )
+    phi_scope = ProviderAttemptScope(
+        scope_id="profile-scope-phi",
+        maximum_attempts=1,
+    )
+    failed_phi = ProviderProfileAttemptReservation(
+        current=phi_scope,
+        reservation_id="phi-aggregate-denied",
+    )
+
+    with pytest.raises(
+        ProviderBudgetError,
+        match="provider_token_budget_exceeded",
+    ):
+        store.reserve(
+            tenant_id="tenant-a",
+            run_id="atomic-profile-run",
+            policy_version="policy-v1",
+            reservation_id="aggregate-phi-denied",
+            limits=limits,
+            reserved_tokens=3,
+            reserved_cost_micros=0,
+            profile_attempt=failed_phi,
+        )
+
+    locked_gemma = ProviderProfileAttemptReservation(
+        current=ProviderAttemptScope(
+            scope_id="profile-scope-gemma",
+            maximum_attempts=1,
+        ),
+        reservation_id="gemma-still-locked",
+        predecessors=(phi_scope,),
+    )
+    with pytest.raises(
+        ProviderBudgetError,
+        match="provider_attempt_plan_sequence_denied",
+    ):
+        store.reserve(
+            tenant_id="tenant-a",
+            run_id="atomic-profile-run",
+            policy_version="policy-v1",
+            reservation_id="aggregate-gemma-locked",
+            limits=limits,
+            reserved_tokens=1,
+            reserved_cost_micros=0,
+            profile_attempt=locked_gemma,
+        )
+
+    valid_phi = ProviderProfileAttemptReservation(
+        current=phi_scope,
+        reservation_id="phi-valid",
+    )
+    first = store.reserve(
+        tenant_id="tenant-a",
+        run_id="atomic-profile-run",
+        policy_version="policy-v1",
+        reservation_id="aggregate-phi-valid",
+        limits=limits,
+        reserved_tokens=1,
+        reserved_cost_micros=0,
+        profile_attempt=valid_phi,
+    )
+    replay = SQLAlchemyProviderBudgetStore(runtime_engine).reserve(
+        tenant_id="tenant-a",
+        run_id="atomic-profile-run",
+        policy_version="policy-v1",
+        reservation_id="aggregate-phi-valid",
+        limits=limits,
+        reserved_tokens=1,
+        reserved_cost_micros=0,
+        profile_attempt=valid_phi,
+    )
+    assert first == replay
+    assert replay.profile_attempts == 1
+    assert replay.attempts == 1
+    assert replay.tokens == 1
+
+    valid_gemma = replace(
+        locked_gemma,
+        reservation_id="gemma-after-valid-phi",
+    )
+    fallback = store.reserve(
+        tenant_id="tenant-a",
+        run_id="atomic-profile-run",
+        policy_version="policy-v1",
+        reservation_id="aggregate-gemma-valid",
+        limits=limits,
+        reserved_tokens=1,
+        reserved_cost_micros=0,
+        profile_attempt=valid_gemma,
+    )
+    assert fallback.profile_attempts == 1
+    assert fallback.attempts == 2
+    assert fallback.tokens == 2
+
+
+def test_sql_concurrent_profile_reservations_consume_exactly_one_slot(
+    runtime_engine,
+) -> None:
+    limits = ProviderBudgetLimits(
+        maximum_attempts=0,
+        maximum_tokens=10,
+        maximum_cost_micros=1_000,
+    )
+    scope = ProviderAttemptScope(
+        scope_id="concurrent-profile-scope",
+        maximum_attempts=1,
+    )
+
+    def reserve(index: int):
+        profile_attempt = ProviderProfileAttemptReservation(
+            current=scope,
+            reservation_id=f"concurrent-profile-{index}",
+        )
+        try:
+            snapshot = SQLAlchemyProviderBudgetStore(runtime_engine).reserve(
+                tenant_id="tenant-a",
+                run_id="concurrent-profile-run",
+                policy_version="policy-v1",
+                reservation_id=f"concurrent-aggregate-{index}",
+                limits=limits,
+                reserved_tokens=1,
+                reserved_cost_micros=0,
+                profile_attempt=profile_attempt,
+            )
+            return index, snapshot
+        except ProviderBudgetError as exc:
+            return index, exc
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(reserve, range(2)))
+
+    successes = [
+        (index, value)
+        for index, value in results
+        if not isinstance(value, ProviderBudgetError)
+    ]
+    failures = [
+        value
+        for _index, value in results
+        if isinstance(value, ProviderBudgetError)
+    ]
+    assert len(successes) == 1
+    assert len(failures) == 1
+    assert failures[0].reason_code in {
+        "provider_retry_budget_exceeded",
+        "provider_budget_concurrent_update",
+    }
+    winner_index, winner = successes[0]
+    assert winner.profile_attempts == 1
+    assert winner.attempts == 1
+    assert winner.tokens == 1
+
+    winner_attempt = ProviderProfileAttemptReservation(
+        current=scope,
+        reservation_id=f"concurrent-profile-{winner_index}",
+    )
+    replay = SQLAlchemyProviderBudgetStore(runtime_engine).reserve(
+        tenant_id="tenant-a",
+        run_id="concurrent-profile-run",
+        policy_version="policy-v1",
+        reservation_id=f"concurrent-aggregate-{winner_index}",
+        limits=limits,
+        reserved_tokens=1,
+        reserved_cost_micros=0,
+        profile_attempt=winner_attempt,
+    )
+    assert replay.attempts == 1
+    assert replay.tokens == 1
+    assert replay.profile_attempts == 1
+
+
+def test_sql_scoped_node_budget_is_atomic_concurrent_and_replay_safe(
+    runtime_engine,
+) -> None:
+    run_limits = ProviderBudgetLimits(
+        maximum_attempts=0,
+        maximum_tokens=100,
+        maximum_cost_micros=1_000,
+    )
+    node_budget = ProviderScopedBudgetReservation(
+        scope_id="provider-node-scope",
+        limits=ProviderBudgetLimits(
+            maximum_attempts=0,
+            maximum_tokens=30,
+            maximum_cost_micros=300,
+        ),
+    )
+
+    def reserve(index: int):
+        try:
+            snapshot = SQLAlchemyProviderBudgetStore(
+                runtime_engine
+            ).reserve(
+                tenant_id="tenant-a",
+                run_id="scoped-provider-run",
+                policy_version="policy-v1",
+                reservation_id=f"scoped-call-{index}",
+                limits=run_limits,
+                reserved_tokens=20,
+                reserved_cost_micros=150,
+                scoped_budget=node_budget,
+            )
+            return index, snapshot
+        except ProviderBudgetError as exc:
+            return index, exc
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(reserve, range(2)))
+
+    successes = [
+        (index, value)
+        for index, value in results
+        if not isinstance(value, ProviderBudgetError)
+    ]
+    failures = [
+        value
+        for _index, value in results
+        if isinstance(value, ProviderBudgetError)
+    ]
+    assert len(successes) == 1
+    assert len(failures) == 1
+    assert failures[0].reason_code in {
+        "provider_token_budget_exceeded",
+        "provider_budget_concurrent_update",
+    }
+
+    winner_index, winner = successes[0]
+    replay = SQLAlchemyProviderBudgetStore(runtime_engine).reserve(
+        tenant_id="tenant-a",
+        run_id="scoped-provider-run",
+        policy_version="policy-v1",
+        reservation_id=f"scoped-call-{winner_index}",
+        limits=run_limits,
+        reserved_tokens=20,
+        reserved_cost_micros=150,
+        scoped_budget=node_budget,
+    )
+    assert replay == winner
+    assert replay.attempts == 1
+    assert replay.tokens == 20
+
+    final = SQLAlchemyProviderBudgetStore(runtime_engine).reserve(
+        tenant_id="tenant-a",
+        run_id="scoped-provider-run",
+        policy_version="policy-v1",
+        reservation_id="scoped-call-final",
+        limits=run_limits,
+        reserved_tokens=10,
+        reserved_cost_micros=150,
+        scoped_budget=node_budget,
+    )
+    assert final.attempts == 2
+    assert final.tokens == 30
+    assert final.cost_micros == 300
+
+
+def test_sql_legacy_run_only_reservation_requires_a_drain_before_scoped_rollout(
+    runtime_engine,
+) -> None:
+    store = SQLAlchemyProviderBudgetStore(runtime_engine)
+    run_limits = ProviderBudgetLimits(
+        maximum_attempts=0,
+        maximum_tokens=100,
+        maximum_cost_micros=1_000,
+    )
+    store.reserve(
+        tenant_id="tenant-a",
+        run_id="legacy-in-flight-run",
+        policy_version="policy-v1",
+        reservation_id="legacy-in-flight-call",
+        limits=run_limits,
+        reserved_tokens=20,
+        reserved_cost_micros=100,
+    )
+    node_budget = ProviderScopedBudgetReservation(
+        scope_id="legacy-missing-node-scope",
+        limits=ProviderBudgetLimits(
+            maximum_attempts=0,
+            maximum_tokens=30,
+            maximum_cost_micros=300,
+        ),
+    )
+
+    with pytest.raises(
+        ProviderBudgetError,
+        match="provider_scoped_budget_migration_required",
+    ):
+        store.reserve(
+            tenant_id="tenant-a",
+            run_id="legacy-in-flight-run",
+            policy_version="policy-v1",
+            reservation_id="legacy-in-flight-call",
+            limits=run_limits,
+            reserved_tokens=20,
+            reserved_cost_micros=100,
+            scoped_budget=node_budget,
+        )
+    with pytest.raises(
+        ProviderBudgetError,
+        match="provider_scoped_budget_migration_required",
+    ):
+        store.reconcile(
+            tenant_id="tenant-a",
+            run_id="legacy-in-flight-run",
+            policy_version="policy-v1",
+            reservation_id="legacy-in-flight-call",
+            actual_total_tokens=15,
+            scoped_budget=node_budget,
+        )
+
+
+def test_provider_budget_persists_token_cost_aggregate_with_attempts_neutral(
+    runtime_engine,
+) -> None:
+    """Profile attempts live in scoped ownership ledgers, not this aggregate."""
+
+    limits = ProviderBudgetLimits(
+        maximum_attempts=0,
+        maximum_tokens=100,
+        maximum_cost_micros=1_000,
+    )
+    first = SQLAlchemyProviderBudgetStore(runtime_engine).reserve(
+        tenant_id="tenant-a",
+        run_id="shared-provider-run",
+        policy_version="policy-v1",
+        reservation_id="step-a-phi-1",
+        limits=limits,
+        reserved_tokens=20,
+        reserved_cost_micros=100,
+    )
+    second_store = SQLAlchemyProviderBudgetStore(runtime_engine)
+    second = second_store.reserve(
+        tenant_id="tenant-a",
+        run_id="shared-provider-run",
+        policy_version="policy-v1",
+        reservation_id="step-b-gemma-1",
+        limits=limits,
+        reserved_tokens=30,
+        reserved_cost_micros=200,
+    )
+    duplicate = SQLAlchemyProviderBudgetStore(runtime_engine).reserve(
+        tenant_id="tenant-a",
+        run_id="shared-provider-run",
+        policy_version="policy-v1",
+        reservation_id="step-b-gemma-1",
+        limits=limits,
+        reserved_tokens=30,
+        reserved_cost_micros=200,
+    )
+
+    assert first.attempts == 1
+    assert second == duplicate
+    assert second.attempts == 2
+    assert second.tokens == 50
+    assert second.cost_micros == 300
+    assert second.limits.maximum_attempts == 0
+
+
+def test_gateway_profile_sequence_persists_across_sql_store_instances(
+    runtime_engine,
+) -> None:
+    now = time.time()
+    key_ring = HmacKeyRing(
+        {"key-1": b"x" * 32},
+        active_key_id="key-1",
+    )
+    profile_bindings = tuple(
+        ProviderProfileExecutionBinding(
+            profile_id=profile_id,
+            binding=ProviderExecutionBinding(
+                provider_id="ollama",
+                model_id=model_id,
+                source="hub_model_profile_routing",
+                reason_code="hub_provider_profile_selected",
+            ),
+        )
+        for profile_id, model_id in (
+            ("phi-primary", "phi4-mini:latest"),
+            ("gemma-fallback", "gemma4:e4b-it-qat"),
+        )
+    )
+    plan = tuple(
+        ProviderProfileAttemptPlanEntry.from_profile_binding(
+            binding,
+            maximum_attempts=maximum,
+        )
+        for binding, maximum in zip(
+            profile_bindings,
+            (2, 1),
+            strict=True,
+        )
+    )
+    envelope = RuntimeAuthorizationEnvelope.issue(
+        key_ring=key_ring,
+        tenant_id="tenant-a",
+        workflow_id="workflow-1",
+        run_id="sequence-run",
+        step_id="step-1",
+        plan_hash="a" * 64,
+        policy_version="policy-v1",
+        allowed_provider_bindings=tuple(
+            entry.binding_authorization for entry in plan
+        ),
+        provider_attempt_plan=plan,
+        budgets={
+            "attempts": 1,
+            "provider_attempts": 3,
+            "tokens": 100,
+            "cost_micros": 1_000,
+        },
+        now=now,
+        ttl_seconds=600,
+    )
+    grants = InMemoryWorkflowAuthorizationGrantService(clock=lambda: now + 1)
+    grants.grant(envelope)
+    ownership = SQLAlchemyExecutionOwnershipStore(runtime_engine)
+    claim = ownership.claim(
+        tenant_id="tenant-a",
+        workflow_id="workflow-1",
+        run_id="sequence-run",
+        step_id="step-1",
+        owner_id="hub-native:sequence-run:step-1",
+        lease_seconds=300,
+        maximum_retries=0,
+        now=now,
+    )
+    base = {
+        "schema": WORKFLOW_WORKER_COMMAND_SCHEMA,
+        "binding": {
+            "tenant_id": "tenant-a",
+            "workflow_id": "workflow-1",
+            "run_id": "sequence-run",
+            "step_id": "step-1",
+            "plan_hash": "a" * 64,
+            "policy_version": "policy-v1",
+            "authorization_envelope": envelope.to_dict(),
+        },
+        "attempt_id": claim.ownership.attempt_id,
+        "fencing_token": claim.ownership.fencing_token,
+    }
+
+    def gateway() -> WorkflowWorkerGatewayService:
+        return WorkflowWorkerGatewayService(
+            authorization=AuthorizationVerifier(key_ring),
+            ownership=SQLAlchemyExecutionOwnershipStore(runtime_engine),
+            ledger=InMemorySideEffectLedger(),
+            events=InMemoryEventStore(),
+            provider_budgets=SQLAlchemyProviderBudgetStore(runtime_engine),
+            authorization_revalidator=grants,
+            clock=lambda: now + 1,
+        )
+
+    def reserve(
+        entry: ProviderProfileAttemptPlanEntry,
+        reservation_id: str,
+    ) -> dict:
+        return {
+            **base,
+            "command": "provider_budget_reserve",
+            "reservation_id": reservation_id,
+            "maximum_attempts": 3,
+            "maximum_tokens": 100,
+            "maximum_cost_micros": 1_000,
+            "reserved_tokens": 1,
+            "reserved_cost_micros": 0,
+            "provider_profile_id": entry.profile_id,
+            "provider_binding_id": entry.binding_id,
+            "provider_id": entry.provider_id,
+            "model_id": entry.model_id,
+        }
+
+    phi, gemma = plan
+    with pytest.raises(
+        WorkflowWorkerGatewayError,
+        match="provider_attempt_plan_sequence_denied",
+    ):
+        gateway().execute(reserve(gemma, "gemma-first"))
+
+    gateway().execute(reserve(phi, "phi-1"))
+    with pytest.raises(
+        WorkflowWorkerGatewayError,
+        match="provider_attempt_plan_sequence_denied",
+    ):
+        gateway().execute(reserve(gemma, "gemma-interleaved"))
+
+    gateway().execute(reserve(phi, "phi-2"))
+    fallback = gateway().execute(reserve(gemma, "gemma-after-phi"))
+
+    assert fallback["attempts"] == 1
+    assert fallback["maximum_attempts"] == 1

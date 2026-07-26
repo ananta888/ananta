@@ -156,13 +156,29 @@ def send_runtime_operation_command(run_id: str):
         return jsonify({"status": "error", "reason_code": exc.reason_code}), exc.http_status
     command_status = str(command.get("status") or "")
     if command_status == "rejected_by_policy":
+        result = command.get("result")
+        try:
+            policy_status = int(
+                (
+                    result.get("http_status")
+                    if isinstance(result, dict)
+                    else None
+                )
+                or 422
+            )
+        except (TypeError, ValueError):
+            policy_status = 422
         return jsonify(
             {
                 "status": "error",
                 "reason_code": "runtime_command_rejected_by_hub_policy",
                 "command": command,
             }
-        ), 422
+        ), (
+            policy_status
+            if 400 <= policy_status < 500
+            else 422
+        )
     if command_status == "failed":
         return jsonify(
             {

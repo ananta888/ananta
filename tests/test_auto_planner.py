@@ -515,6 +515,155 @@ class TestAutoPlanner:
         assert staged[1]["depends_on"] == [staged[0]["task_id"]]
         assert staged[2]["depends_on"] == [staged[1]["task_id"]]
 
+    @pytest.mark.parametrize(
+        ("nodes", "reason_code"),
+        [
+            (
+                [
+                    PlanNodeDB(
+                        id="plan-node-1",
+                        plan_id="plan-1",
+                        node_key="duplicate",
+                        title="Step 1",
+                    ),
+                    PlanNodeDB(
+                        id="plan-node-2",
+                        plan_id="plan-1",
+                        node_key="duplicate",
+                        title="Step 2",
+                    ),
+                ],
+                "plan_node_key_duplicate",
+            ),
+            (
+                [
+                    PlanNodeDB(
+                        id="plan-node-1",
+                        plan_id="plan-1",
+                        node_key="node-1",
+                        title="Step 1",
+                        depends_on=["missing-node"],
+                    ),
+                ],
+                "plan_dependency_unknown",
+            ),
+            (
+                [
+                    PlanNodeDB(
+                        id="plan-node-1",
+                        plan_id="plan-1",
+                        node_key="node-1",
+                        title="Step 1",
+                        depends_on=["node-1"],
+                    ),
+                ],
+                "plan_dependency_self_reference",
+            ),
+            (
+                [
+                    PlanNodeDB(
+                        id="plan-node-1",
+                        plan_id="plan-1",
+                        node_key="node-1",
+                        title="Step 1",
+                    ),
+                    PlanNodeDB(
+                        id="plan-node-2",
+                        plan_id="plan-1",
+                        node_key="node-2",
+                        title="Step 2",
+                        depends_on=["node-1", "node-1"],
+                    ),
+                ],
+                "plan_dependency_duplicate",
+            ),
+        ],
+    )
+    def test_materialization_rejects_invalid_dependency_contracts(
+        self,
+        nodes,
+        reason_code,
+    ):
+        service = get_planning_service()
+
+        assert service._dependency_contract_error(nodes) == reason_code
+        assert (
+            service._prepare_materialization(
+                nodes,
+                deterministic_seed="plan-1",
+            )
+            is None
+        )
+
+    def test_materialization_rejects_dependency_cycle(self):
+        service = get_planning_service()
+        nodes = [
+            PlanNodeDB(
+                id="plan-node-1",
+                plan_id="plan-1",
+                node_key="node-1",
+                title="Step 1",
+                depends_on=["node-2"],
+            ),
+            PlanNodeDB(
+                id="plan-node-2",
+                plan_id="plan-1",
+                node_key="node-2",
+                title="Step 2",
+                depends_on=["node-1"],
+            ),
+        ]
+
+        assert service._dependency_contract_error(nodes) is None
+        assert (
+            service._prepare_materialization(
+                nodes,
+                deterministic_seed="plan-1",
+            )
+            is None
+        )
+
+    def test_recovery_materialization_child_ids_are_deterministic_per_plan(self):
+        service = get_planning_service()
+        nodes = [
+            PlanNodeDB(
+                id="plan-node-1",
+                plan_id="plan-1",
+                node_key="node-1",
+                title="Step 1",
+                depends_on=[],
+            ),
+            PlanNodeDB(
+                id="plan-node-2",
+                plan_id="plan-1",
+                node_key="node-2",
+                title="Step 2",
+                depends_on=["node-1"],
+            ),
+        ]
+
+        first = service._prepare_materialization(
+            nodes,
+            deterministic_seed="plan-1",
+        )
+        replay = service._prepare_materialization(
+            nodes,
+            deterministic_seed="plan-1",
+        )
+        other_plan = service._prepare_materialization(
+            nodes,
+            deterministic_seed="plan-2",
+        )
+
+        assert first is not None
+        assert replay is not None
+        assert other_plan is not None
+        first_ids = [entry["task_id"] for entry in first]
+        assert first_ids == [entry["task_id"] for entry in replay]
+        assert first_ids != [entry["task_id"] for entry in other_plan]
+        assert all(task_id.startswith("goal-") for task_id in first_ids)
+        assert first[1]["depends_on"] == [first[0]["task_id"]]
+
 
 class TestTriggerEngine:
     def test_enable_disable_source(self):
