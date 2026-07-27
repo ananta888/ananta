@@ -58,6 +58,7 @@ class TestWorkerRoutingAPI:
                 worker_roles=["planner"],
                 capabilities=["planning"],
                 status="online",
+                token="planner-service-token",
             )
         )
         task_repo.save(TaskDB(id="parent-1", title="Create plan", description="Plan work", status="todo"))

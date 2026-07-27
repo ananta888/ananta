@@ -15,6 +15,7 @@ class TestWorkerJobFlow:
                 worker_roles=["planner"],
                 capabilities=["planning"],
                 status="online",
+                token="planner-service-token",
             )
         )
         task_repo.save(
