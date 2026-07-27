@@ -118,6 +118,7 @@ export class SecureTokenStorage {
   }
 
   async isAvailable(): Promise<boolean> {
+    if (!globalThis.crypto?.subtle) return false;
     try {
       await this.openDb();
       return true;
@@ -128,7 +129,7 @@ export class SecureTokenStorage {
 
   async getFallbackReason(): Promise<string | null> {
     if (await this.isAvailable()) return null;
-    return 'IndexedDB nicht verfügbar — vermutlich Browser-Privacy-Mode oder InPrivate-Modus. Token-Encryption kann nicht aktiviert werden; Refresh-Tokens werden dann im Klartext in localStorage gespeichert.';
+    return 'Sichere Browser-Kryptografie oder IndexedDB ist nicht verfügbar. Refresh-Tokens werden deshalb nicht gespeichert; nach Ablauf des Zugriffstokens ist eine erneute Anmeldung erforderlich.';
   }
 
   /** Clears the in-memory key cache. Test-helper only. */

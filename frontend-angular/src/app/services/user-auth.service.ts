@@ -78,8 +78,16 @@ export class UserAuthService {
     expectedGeneration: number,
   ): Promise<boolean> {
     let encryptedRefreshToken: string | null = null;
+    let retainedRefreshToken = refreshToken;
     if (refreshToken) {
-      encryptedRefreshToken = await this.secureStorage.encrypt(refreshToken, HUB_RT_STORAGE_KEY);
+      try {
+        encryptedRefreshToken = await this.secureStorage.encrypt(refreshToken, HUB_RT_STORAGE_KEY);
+      } catch {
+        // Plain HTTP on a non-loopback host is not a secure browser context,
+        // so Web Crypto may be unavailable. Keep the short-lived access token
+        // usable, but never downgrade refresh-token storage to plaintext.
+        retainedRefreshToken = null;
+      }
     }
     // Encryption is asynchronous. Logout or a newer login during that await
     // owns the session and fences this stale write before any storage changes.
@@ -91,16 +99,16 @@ export class UserAuthService {
       localStorage.removeItem('ananta.user.token');
     }
 
-    if (refreshToken) {
-      localStorage.setItem(HUB_RT_STORAGE_KEY, encryptedRefreshToken!);
+    if (refreshToken && encryptedRefreshToken) {
+      localStorage.setItem(HUB_RT_STORAGE_KEY, encryptedRefreshToken);
       localStorage.removeItem(LEGACY_HUB_RT_KEY);
-    } else if (refreshToken === null && token === null) {
+    } else if (refreshToken !== undefined) {
       localStorage.removeItem(HUB_RT_STORAGE_KEY);
       localStorage.removeItem(LEGACY_HUB_RT_KEY);
     }
 
     this._token.next(token);
-    if (refreshToken !== undefined) this._refreshToken.next(refreshToken);
+    if (refreshToken !== undefined) this._refreshToken.next(retainedRefreshToken ?? null);
     this._user.next(this.decodeTokenPayload(token));
     this.refreshUserFromHub();
     return true;

@@ -111,6 +111,17 @@ describe('UserAuthService — setTokens encrypts hub RT (Task 0.3)', () => {
     await service.setTokens('hub-access-cleartext', 'hub-rt');
     expect(localStorage.getItem('ananta.user.token')).toBe('hub-access-cleartext');
   });
+
+  it('keeps the access-token session when secure refresh-token storage is unavailable', async () => {
+    vi.spyOn(secureStorage, 'encrypt').mockRejectedValueOnce(new Error('Web Crypto unavailable'));
+
+    await expect(service.setTokens('hub-access-over-http', 'hub-rt')).resolves.toBeUndefined();
+
+    expect(localStorage.getItem('ananta.user.token')).toBe('hub-access-over-http');
+    expect(localStorage.getItem('ananta.hub.refresh_token')).toBeNull();
+    expect(localStorage.getItem('ananta.user.refresh_token')).toBeNull();
+    expect(service.refreshTokenValue).toBeNull();
+  });
 });
 
 describe('UserAuthService — OIDC RT encryption (Task 0.4)', () => {

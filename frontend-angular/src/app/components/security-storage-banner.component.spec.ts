@@ -34,6 +34,7 @@ describe('SecurityStorageBannerComponent', () => {
     await component.ngOnInit();
     expect(component.showBanner()).toBe(true);
     expect(component.bannerMessage()).toContain('IndexedDB');
+    expect(component.bannerMessage()).toContain('nicht gespeichert');
     globalThis.indexedDB = original;
   });
 
