@@ -170,6 +170,7 @@ def test_strict_checkpoint_route_passes_authenticated_worker_identity(
                     url="http://langgraph-worker:5000",
                     token=worker_token,
                     role="worker",
+                    status="online",
                     capabilities=["workflow.adapter.langgraph"],
                     authorized_capabilities=["workflow.adapter.langgraph"],
                     registration_validated=True,
