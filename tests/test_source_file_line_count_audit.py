@@ -32,7 +32,14 @@ def test_fail_on_source_over_threshold_respects_allowlist(tmp_path, capsys):
     _write(tmp_path / "agent" / "big.py", 5)
     allowlist = tmp_path / "allow.json"
     allowlist.write_text(
-        json.dumps({"allowlist": [{"path": "agent/big.py", "reason": "legacy", "expires": "2026-12-31"}]}),
+        json.dumps({
+            "allowlist": [{
+                "path": "agent/big.py",
+                "line_count": 5,
+                "reason": "legacy",
+                "expires": "2099-12-31",
+            }]
+        }),
         encoding="utf-8",
     )
 
@@ -52,6 +59,39 @@ def test_fail_on_source_over_threshold_respects_allowlist(tmp_path, capsys):
     payload = json.loads(capsys.readouterr().out)
     by_path = {row["path"]: row for row in payload["files"]}
     assert by_path["agent/big.py"]["allowlisted"] is True
+    assert by_path["agent/big.py"]["allowlist_status"] == "legacy_baseline"
+
+
+def test_allowlist_rejects_source_growth_beyond_recorded_baseline(tmp_path, capsys):
+    _write(tmp_path / "agent" / "big.py", 6)
+    allowlist = tmp_path / "allow.json"
+    allowlist.write_text(
+        json.dumps({
+            "allowlist": [{
+                "path": "agent/big.py",
+                "line_count": 5,
+                "reason": "legacy",
+                "expires": "2099-12-31",
+            }]
+        }),
+        encoding="utf-8",
+    )
+
+    assert main(
+        [
+            "--root",
+            str(tmp_path),
+            "--threshold",
+            "3",
+            "--allowlist",
+            str(allowlist),
+            "--fail-on-source-over-threshold",
+        ]
+    ) == 1
+    payload = json.loads(capsys.readouterr().out)
+    row = next(item for item in payload["files"] if item["path"] == "agent/big.py")
+    assert row["allowlisted"] is False
+    assert row["allowlist_status"] == "baseline_line_count_exceeded"
 
 
 def test_over_threshold_only_outputs_only_large_files(tmp_path, capsys):

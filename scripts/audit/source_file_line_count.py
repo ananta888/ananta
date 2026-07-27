@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +67,30 @@ def load_allowlist(path: Path | None) -> dict[str, dict[str, Any]]:
     return result
 
 
+def _allowlist_decision(
+    entry: dict[str, Any] | None,
+    *,
+    line_count: int,
+    today: date | None = None,
+) -> tuple[bool, str]:
+    if not entry:
+        return False, "not_listed"
+    try:
+        baseline_lines = int(entry.get("line_count"))
+    except (TypeError, ValueError):
+        return False, "baseline_line_count_invalid"
+    if baseline_lines < line_count:
+        return False, "baseline_line_count_exceeded"
+    expires = str(entry.get("expires") or "").strip()
+    try:
+        expiry_date = date.fromisoformat(expires)
+    except ValueError:
+        return False, "expiry_invalid"
+    if expiry_date < (today or date.today()):
+        return False, "baseline_expired"
+    return True, "legacy_baseline"
+
+
 def audit(
     *,
     root: Path,
@@ -112,15 +137,20 @@ def audit(
             if classification["category"] == CATEGORY_EXCLUDED and classification["reason"] == "extension_not_counted":
                 continue
             line_count = count_lines(path)
-            allowed = allow.get(rel)
+            allowlist_entry = allow.get(rel)
+            allowlisted, allowlist_status = _allowlist_decision(
+                allowlist_entry,
+                line_count=line_count,
+            )
             rows.append(
                 {
                     **classification,
                     "line_count": line_count,
                     "over_threshold": line_count > threshold,
-                    "allowlisted": bool(allowed),
-                    "allowlist_reason": str((allowed or {}).get("reason") or ""),
-                    "allowlist_expires": str((allowed or {}).get("expires") or ""),
+                    "allowlisted": allowlisted,
+                    "allowlist_status": allowlist_status,
+                    "allowlist_reason": str((allowlist_entry or {}).get("reason") or ""),
+                    "allowlist_expires": str((allowlist_entry or {}).get("expires") or ""),
                 }
             )
     over_threshold = [row for row in rows if row["over_threshold"]]
