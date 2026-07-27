@@ -37,6 +37,14 @@ def _index(table: str, name: str, columns: list[str]) -> None:
         op.create_index(name, table, columns, unique=False)
 
 
+def _drop_index(table: str, name: str) -> None:
+    if table not in _tables():
+        return
+    names = {item["name"] for item in sa.inspect(op.get_bind()).get_indexes(table)}
+    if name in names:
+        op.drop_index(name, table_name=table)
+
+
 def upgrade() -> None:
     ttl_tables = (
         "turn_observer_identity_mutations",
@@ -92,6 +100,26 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    for table, index_name in (
+        ("sfu_command_idempotency_ledger", "ix_sfu_command_delivery"),
+        ("sfu_broadcast_group_key_packages", "ix_sfu_group_packages_recipient_key"),
+        ("sfu_broadcast_vendor_identities", "ix_sfu_vendor_identity_membership_key"),
+        (
+            "turn_observer_identity_mutations",
+            "ix_turn_observer_identity_mutations_expires_at",
+        ),
+        (
+            "turn_observer_enrollment_rate_limits",
+            "ix_turn_observer_enrollment_rate_limits_expires_at",
+        ),
+        ("turn_pool_node_mutations", "ix_turn_pool_node_mutations_expires_at"),
+        (
+            "sfu_capacity_reservation_mutations",
+            "ix_sfu_capacity_reservation_mutations_expires_at",
+        ),
+    ):
+        _drop_index(table, index_name)
+
     drops = {
         "sfu_command_idempotency_ledger": (
             "result_version", "result_code", "delivery_attempts",

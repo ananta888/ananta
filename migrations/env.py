@@ -66,8 +66,27 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _connect_with_retry(connectable):
+    """Open a database connection without retrying partially applied migrations."""
+    max_retries = 5
+    retry_delay = 5
+
+    for attempt in range(max_retries):
+        try:
+            return connectable.connect()
+        except OperationalError as exc:
+            if attempt == max_retries - 1:
+                print("Max retries reached. Could not connect to database.")
+                raise
+            print(
+                f"Database connection failed: {exc}. "
+                f"Retrying in {retry_delay}s... ({attempt + 1}/{max_retries})"
+            )
+            time.sleep(retry_delay)
+
+
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
+    """Run migrations once after establishing a retryable connection."""
     # Wir überschreiben die sqlalchemy.url in der config mit der aus DATABASE_URL
     configuration = config.get_section(config.config_ini_section, {})
     configuration["sqlalchemy.url"] = DATABASE_URL
@@ -78,37 +97,15 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
 
-    # Retry-Logik für Datenbankverbindung (hilfreich in Docker-Umgebungen)
-    max_retries = 5
-    retry_delay = 5
-    last_exception = None
+    with _connect_with_retry(connectable) as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            render_as_batch=True,
+        )
 
-    for i in range(max_retries):
-        try:
-            with connectable.connect() as connection:
-                context.configure(
-                    connection=connection, 
-                    target_metadata=target_metadata,
-                    render_as_batch=True
-                )
-
-                with context.begin_transaction():
-                    try:
-                        context.run_migrations()
-                    except Exception as e:
-                        if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
-                            print(f"Migration error ignored (likely duplicate table/index): {e}")
-                        else:
-                            raise e
-            return
-        except OperationalError as e:
-            last_exception = e
-            if i < max_retries - 1:
-                print(f"Database connection failed: {e}. Retrying in {retry_delay}s... ({i+1}/{max_retries})")
-                time.sleep(retry_delay)
-            else:
-                print(f"Max retries reached. Could not connect to database.")
-                raise last_exception
+        with context.begin_transaction():
+            context.run_migrations()
 
 
 if context.is_offline_mode():
