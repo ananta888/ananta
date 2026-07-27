@@ -1,6 +1,11 @@
 # Semantic media/speech TODO migration
 
-The four legacy planning tracks were consolidated into `todos/todo.ai-snake-semantic-media-speech-program.json`. Its `legacy_task_coverage` object is the canonical static migration matrix. It contains exactly the frozen 66 legacy IDs: `semrtc-001..020`, `speechslow-001..010`, `peerspeechsync-001..012` and `semspeech-001..024`. Every value is a non-empty list of new `ASMP-*` task IDs.
+The four legacy planning tracks were consolidated into
+`todos/archiv/todo.ai-snake-semantic-media-speech-program.json`. Its
+`legacy_task_coverage` object is the canonical static migration matrix. It
+contains exactly the frozen 66 legacy IDs: `semrtc-001..020`,
+`speechslow-001..010`, `peerspeechsync-001..012` and `semspeech-001..024`.
+Every value is a non-empty list of new `ASMP-*` task IDs.
 
 Multiple targets are intentional decomposition, not duplicate ownership. The new programme assigns one authoritative layer per concern:
 

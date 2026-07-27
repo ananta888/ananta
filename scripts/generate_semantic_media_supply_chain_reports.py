@@ -50,7 +50,6 @@ SOURCE_BINDINGS = (
     "requirements.lock",
     "frontend-angular/package-lock.json",
     "frontend-angular/Dockerfile",
-    "models/voice/manifests/voice-models.json",
     "scripts/build_semantic_media_containers.py",
     "scripts/generate_semantic_media_supply_chain_reports.py",
     "docker-compose.semantic-media.yml",

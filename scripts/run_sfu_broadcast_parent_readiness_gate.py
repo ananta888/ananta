@@ -22,8 +22,8 @@ from agent.services.semantic_media_program_evidence import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CHILD_TODO = ROOT / "todos/todo.webrtc-sfu-broadcast-fanout.json"
-DEFAULT_PARENT_TODO = ROOT / "todos/todo.ai-snake-semantic-media-speech-program.json"
+DEFAULT_CHILD_TODO = ROOT / "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
+DEFAULT_PARENT_TODO = ROOT / "todos/archiv/todo.ai-snake-semantic-media-speech-program.json"
 DEFAULT_PARENT_EVIDENCE = ROOT / "artifacts/test-gates/semantic-media-program-evidence.json"
 DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/sfu-broadcast-parent-readiness.json"
 ACTIVE_STAGES = frozenset({"single_pair_opt_in", "trusted_small_group", "bounded_pilot", "general_opt_in"})
@@ -191,8 +191,8 @@ def evaluate_parent_readiness(
     source_digest = source_hash(
         ROOT,
         (
-            "todos/todo.webrtc-sfu-broadcast-fanout.json",
-            "todos/todo.ai-snake-semantic-media-speech-program.json",
+            "todos/active/todo.webrtc-sfu-broadcast-fanout.json",
+            "todos/archiv/todo.ai-snake-semantic-media-speech-program.json",
             "artifacts/test-gates/semantic-media-program-evidence.json",
             "scripts/run_sfu_broadcast_parent_readiness_gate.py",
             "agent/services/semantic_media_program_evidence.py",

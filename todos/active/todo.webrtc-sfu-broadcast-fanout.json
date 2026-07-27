@@ -9,7 +9,7 @@
   "created_at": "2026-07-18",
   "updated_at": "2026-07-23",
   "parents": [
-    "todos/todo.ai-snake-semantic-media-speech-program.json"
+    "todos/archiv/todo.ai-snake-semantic-media-speech-program.json"
   ],
   "purpose": "Ein ausfuehrbarer, feingranularer Folgetrack fuer fortgeschrittenen Broadcast und grosse Empfaengergruppen auf der vorhandenen WebRTC-, LiveKit-, E2EE-, Admission- und Transportbasis. Der Track beginnt mit einem verbindlichen Machbarkeitsentscheid fuer die reale LiveKit-Control-/Data-Plane-Grenze, migriert vorhandene 7-/8-Teilnehmerlimits, optimiert Audience-Projektion, Receiver Groups, Layerwahl, begrenzten verschluesselten Datenfanout, Fleet-/TURN-Betrieb, inhaltsfreie Observability und evidenzbasierte Kapazitaetsfreigaben, ohne gemeinsame Sicherheits- oder Medienvertraege neu zu definieren.",
   "goal": "Der Hub bleibt alleinige fachliche Autoritaet und projiziert autorisierte Broadcast-Audiences ueber belegte oeffentliche LiveKit-Server-/Client-APIs oder eine explizit deployte, authentifizierte Runtime-Erweiterung. Publisher laden gemeinsame E2EE-Layer einmal hoch, Receiver erhalten unabhaengige Qualitaet und private Korrekturpfade, langsame oder TURN-abhaengige Receiver bleiben isoliert, und jeder freigegebene topology-spezifische Cap wird ausschliesslich aus reproduzierbaren Security-, Browser-, Chaos-, Soak- und Lastmessungen abgeleitet.",

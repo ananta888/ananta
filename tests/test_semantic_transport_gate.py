@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from scripts.run_semantic_transport_gate import ARTIFACT, FORBIDDEN_KEYS, _verify_persisted, expected_document
 
 
+@pytest.mark.integration
 def test_semantic_transport_gate_is_current_measured_and_green() -> None:
     artifact = json.loads(ARTIFACT.read_text())
     assert _verify_persisted(artifact)
@@ -14,6 +17,7 @@ def test_semantic_transport_gate_is_current_measured_and_green() -> None:
     assert artifact["test_suites"] == {"python_exit_code": 0, "angular_exit_code": 0}
 
 
+@pytest.mark.integration
 def test_live_product_queue_saturation_probe_meets_priority_budgets() -> None:
     measured = expected_document()
     assert measured["passed"] is True

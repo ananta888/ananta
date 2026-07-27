@@ -397,7 +397,10 @@ def _secret_boundaries_present(
 
 
 def _model_manifest_declared() -> bool:
-    manifest = json.loads((ROOT / "models/voice/manifests/voice-models.json").read_text(encoding="utf-8"))
+    manifest_path = ROOT / "models/voice/manifests/voice-models.json"
+    if not manifest_path.is_file():
+        return False
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     models = manifest.get("models")
     if manifest.get("schema_version") != "ananta.voice-model-catalog.v1" or not isinstance(models, list) or not models:
         return False

@@ -15,7 +15,7 @@ from jsonschema import Draft202012Validator
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-DEFAULT_TRACK = ROOT / "todos/todo.ai-snake-semantic-media-speech-program.json"
+DEFAULT_TRACK = ROOT / "todos/archiv/todo.ai-snake-semantic-media-speech-program.json"
 SCHEMA = ROOT / "todos/todo.track.schema.json"
 
 

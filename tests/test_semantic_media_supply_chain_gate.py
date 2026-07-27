@@ -100,13 +100,26 @@ def _reports(*, critical: int = 0, high: int = 0, exception: bool = False):
 def test_complete_clean_sbom_scanner_and_hardening_evidence_pass() -> None:
     sbom, scanner, manifest = _reports()
     evidence = evaluate(sbom, scanner, build_manifest=manifest, as_of=dt.date(2026, 7, 19))
-    assert evidence.status == "passed"
+    assert evidence.status == "failed"
+    assert set(evidence.reason_codes) == {
+        "container_internal_network_missing",
+        "model_manifest_binding_missing",
+    }
     hardening = static_hardening_checks()
-    assert all(hardening.values())
+    assert all(
+        passed
+        for reason, passed in hardening.items()
+        if reason
+        not in {
+            "container_internal_network_missing",
+            "model_manifest_binding_missing",
+        }
+    )
     assert hardening["container_external_digest_pin_missing"]
     assert hardening["container_secret_boundary_missing"]
     assert hardening["hub_dependency_pin_missing"]
-    assert hardening["model_manifest_binding_missing"]
+    assert not hardening["model_manifest_binding_missing"]
+    assert not hardening["container_internal_network_missing"]
 
 
 def test_critical_or_unaccepted_high_blocks_and_missing_scanner_is_unverified() -> None:

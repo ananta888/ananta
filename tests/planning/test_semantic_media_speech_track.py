@@ -11,7 +11,7 @@ import pytest
 from scripts.validate_semantic_media_speech_track import validate_track
 
 ROOT = Path(__file__).resolve().parents[2]
-TRACK = ROOT / "todos/todo.ai-snake-semantic-media-speech-program.json"
+TRACK = ROOT / "todos/archiv/todo.ai-snake-semantic-media-speech-program.json"
 
 
 def _payload() -> dict:

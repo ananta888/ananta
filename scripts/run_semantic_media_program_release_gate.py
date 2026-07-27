@@ -115,7 +115,7 @@ except ModuleNotFoundError:  # Direct execution sets scripts/ as sys.path[0].
     from run_semantic_visual_gate import evaluate_visual_gate
 
 ROOT = _PROJECT_ROOT
-TODO = ROOT / "todos/todo.ai-snake-semantic-media-speech-program.json"
+TODO = ROOT / "todos/archiv/todo.ai-snake-semantic-media-speech-program.json"
 SCHEMA = ROOT / "schemas/release/semantic_media_program_evidence.v1.json"
 OUTPUT = ROOT / "artifacts/test-gates/semantic-media-program-evidence.json"
 
@@ -125,7 +125,7 @@ _RELEASE_CORE_SOURCE_PATHS = (
     "docs/operations/semantic-media-rollout.md",
     "schemas/release/semantic_media_program_evidence.v1.json",
     "scripts/run_semantic_media_program_release_gate.py",
-    "todos/todo.ai-snake-semantic-media-speech-program.json",
+    "todos/archiv/todo.ai-snake-semantic-media-speech-program.json",
 )
 _CONFIG_PREFIXES = (".github/workflows/", "config/", "docker/", "schemas/")
 _CONFIG_NAMES = frozenset({".env.example", "pyproject.toml", "playwright.config.ts"})

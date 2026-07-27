@@ -3,8 +3,12 @@ from __future__ import annotations
 from copy import deepcopy
 from functools import lru_cache
 
+import pytest
+
 from scripts.benchmark.semantic_media_program import evaluate
 from scripts.benchmark.semantic_media_program_executor import METRIC_FIELDS, run_benchmark
+
+pytestmark = pytest.mark.integration
 
 
 @lru_cache(maxsize=1)

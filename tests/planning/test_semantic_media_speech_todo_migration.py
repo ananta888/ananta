@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-PROGRAM = ROOT / "todos/todo.ai-snake-semantic-media-speech-program.json"
+PROGRAM = ROOT / "todos/archiv/todo.ai-snake-semantic-media-speech-program.json"
 FROZEN_LEGACY_IDS = frozenset(
     [*(f"semrtc-{index:03d}" for index in range(1, 21))]
     + [*(f"speechslow-{index:03d}" for index in range(1, 11))]

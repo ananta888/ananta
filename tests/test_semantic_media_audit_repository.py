@@ -161,4 +161,8 @@ def test_hub_composition_wires_persistent_read_only_audit(monkeypatch) -> None:
         "speech_reconciliation": False,
         "speech_adaptation_training": False,
         "speech_adapter_routing": False,
+        "semantic_media_broadcast": False,
+        "semantic_media_receiver_groups": False,
+        "semantic_media_fleet_admission": False,
+        "semantic_media_turn_cost_controls": False,
     }

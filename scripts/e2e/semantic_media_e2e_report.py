@@ -168,7 +168,6 @@ _PAIR_HUB_SOURCE_PATHS = (
     "voice_runtime/resources.py",
     "voice_runtime/routes.py",
     "voice_runtime/streaming.py",
-    "models/voice/manifests/voice-models.json",
 )
 
 _PAIR_CONTRACT_AND_SCHEMA_SOURCE_PATHS = (

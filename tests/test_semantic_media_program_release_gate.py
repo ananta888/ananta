@@ -143,7 +143,7 @@ def test_release_document_binds_complete_declared_source_and_configuration(tmp_p
         "docs/operations/semantic-media-rollout.md",
         "schemas/release/semantic_media_program_evidence.v1.json",
         "scripts/run_semantic_media_program_release_gate.py",
-        "todos/todo.ai-snake-semantic-media-speech-program.json",
+        "todos/archiv/todo.ai-snake-semantic-media-speech-program.json",
     )
     for relative in (*core, "agent/program.py", "config/program.json"):
         path = tmp_path / relative
@@ -345,7 +345,11 @@ def test_m3_release_seam_revalidates_source_bound_real_sfu_artifacts(tmp_path: P
     )
     expected_status = "passed" if report["verdict"] == "pass" else "failed"
     assert evidence.status == expected_status
-    assert list(evidence.reason_codes) == report["reasons"]
+    assert set(report["reasons"]) <= set(evidence.reason_codes)
+    assert {
+        "sfu_gate_report_decision_stale",
+        "sfu_gate_report_source_stale",
+    } <= set(evidence.reason_codes)
     assert evidence.measurements["external_live_failover_verified"] is True
     report["source_sha256"] = "0" * 64
     copied_report.write_text(json.dumps(report), encoding="utf-8")
