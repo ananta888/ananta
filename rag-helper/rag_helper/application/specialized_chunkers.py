@@ -15,16 +15,64 @@ def build_specialized_chunks(
     if mode != "basic":
         return [], [], None
 
+    valid_index_records = [
+        record for record in index_records if isinstance(record, dict)
+    ]
+    valid_detail_records = [
+        record for record in detail_records if isinstance(record, dict)
+    ]
     extra_details: list[dict] = []
     extra_relations: list[dict] = []
     stats = defaultdict(int)
 
-    extra_details.extend(_build_spring_xml_chunks(detail_records, extra_relations, stats, embedding_text_mode))
-    extra_details.extend(_build_maven_pom_chunks(detail_records, extra_relations, stats, embedding_text_mode))
-    extra_details.extend(_build_xsd_schema_chunks(index_records, extra_relations, stats, embedding_text_mode))
-    extra_details.extend(_build_adoc_architecture_chunks(index_records, extra_relations, stats, embedding_text_mode))
-    extra_details.extend(_build_jpa_entity_chunks(index_records, extra_relations, stats, embedding_text_mode))
-    extra_details.extend(_build_type_member_chunks(index_records, extra_relations, stats, embedding_text_mode))
+    extra_details.extend(
+        _build_spring_xml_chunks(
+            valid_detail_records,
+            extra_relations,
+            stats,
+            embedding_text_mode,
+        )
+    )
+    extra_details.extend(
+        _build_maven_pom_chunks(
+            valid_detail_records,
+            extra_relations,
+            stats,
+            embedding_text_mode,
+        )
+    )
+    extra_details.extend(
+        _build_xsd_schema_chunks(
+            valid_index_records,
+            extra_relations,
+            stats,
+            embedding_text_mode,
+        )
+    )
+    extra_details.extend(
+        _build_adoc_architecture_chunks(
+            valid_index_records,
+            extra_relations,
+            stats,
+            embedding_text_mode,
+        )
+    )
+    extra_details.extend(
+        _build_jpa_entity_chunks(
+            valid_index_records,
+            extra_relations,
+            stats,
+            embedding_text_mode,
+        )
+    )
+    extra_details.extend(
+        _build_type_member_chunks(
+            valid_index_records,
+            extra_relations,
+            stats,
+            embedding_text_mode,
+        )
+    )
 
     return extra_details, extra_relations, dict(stats)
 
@@ -35,6 +83,8 @@ def _build_spring_xml_chunks(detail_records, extra_relations, stats, embedding_t
         if record.get("kind") != "xml_node_detail" or record.get("tag") != "bean":
             continue
         attrs = record.get("attributes", {})
+        if not isinstance(attrs, dict):
+            continue
         bean_name = attrs.get("id") or attrs.get("name") or attrs.get("class")
         if not bean_name:
             continue
@@ -213,7 +263,9 @@ def _build_jpa_entity_chunks(index_records, extra_relations, stats, embedding_te
         annotations = set(record.get("annotations", []))
         if "entity" not in role_labels and "@Entity" not in annotations:
             continue
-        fields = record.get("fields", [])
+        fields = [
+            field for field in record.get("fields", []) if isinstance(field, dict)
+        ]
         field_names = [field.get("name") for field in fields if field.get("name")]
         association_fields = [
             field.get("name")
@@ -258,6 +310,8 @@ def _build_type_member_chunks(index_records, extra_relations, stats, embedding_t
 
         members = []
         for field in record.get("fields", []):
+            if not isinstance(field, dict):
+                continue
             name = str(field.get("name") or "").strip()
             if not name:
                 continue
@@ -270,6 +324,8 @@ def _build_type_member_chunks(index_records, extra_relations, stats, embedding_t
                 }
             )
         for method in record.get("methods", []):
+            if not isinstance(method, dict):
+                continue
             name = str(method.get("name") or "").strip()
             if not name:
                 continue

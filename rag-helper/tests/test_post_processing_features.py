@@ -7,6 +7,7 @@ from pathlib import Path
 
 from rag_helper.application.processing_limits import ProcessingLimits
 from rag_helper.application.project_processor import process_project
+from rag_helper.application.specialized_chunkers import build_specialized_chunks
 
 
 class _DuplicateJavaExtractor:
@@ -32,6 +33,20 @@ class _DuplicateJavaExtractor:
             "annotations": [],
             "embedding_text": "dto",
         }], [], [], {"kind": "java", "file": rel_path}
+
+
+class SpecializedChunkBoundaryTests(unittest.TestCase):
+    def test_ignores_non_record_values_at_the_post_processing_boundary(self) -> None:
+        details, relations, stats = build_specialized_chunks(
+            [{"kind": "java_type", "id": "safe", "name": "Safe"}, "invalid"],
+            ["invalid"],
+            "basic",
+            "compact",
+        )
+
+        self.assertEqual(details, [])
+        self.assertEqual(relations, [])
+        self.assertEqual(stats, {})
 
 
 class _JpaJavaExtractor(_DuplicateJavaExtractor):
