@@ -529,8 +529,13 @@ class MailApplicationService:
             )
 
     def delete_account(self, account_id: str) -> dict[str, Any]:
-        if self._accounts.get_account(account_id) is not None:
-            raise MailApplicationError("mail_account_v2_disable_required")
+        account = self._accounts.get_account(account_id)
+        if account is not None:
+            if account.enabled:
+                raise MailApplicationError("mail_account_v2_disable_required")
+            return _public_mapping(
+                self._accounts.delete_account(account_id).to_dict()
+            )
         return _public_mapping(_mapping(self._legacy.delete_account(account_id)))
 
     def list_message_metadata(

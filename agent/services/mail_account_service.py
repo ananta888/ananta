@@ -117,3 +117,19 @@ class MailAccountService:
             provider_config=account.provider_config,
         )
         return self.upsert_account(disabled)
+
+    @_locked
+    def delete_account(self, account_id: str) -> MailAccountV2:
+        account = self.get_account(account_id)
+        if account is None:
+            raise ValueError("mail_account_not_found")
+        if account.enabled:
+            raise ValueError("mail_account_disable_required")
+        self._save(
+            [
+                candidate
+                for candidate in self.list_accounts()
+                if candidate.account_id != account.account_id
+            ]
+        )
+        return account

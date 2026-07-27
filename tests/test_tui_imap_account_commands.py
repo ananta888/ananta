@@ -15,7 +15,7 @@ def test_tui_mail_account_create_list_status_disable_delete(monkeypatch, tmp_pat
     monkeypatch.chdir(tmp_path)
     state = _state()
     created = execute_command(
-        ":mail account create --display-name Work --host imap.example.com --port 993 --username user://alice --credential-ref secret://imap/alice",
+        ":mail account create --display-name Work --host imap.example.com --port 993 --username user://alice --credential-ref secret://imap/alice --confirm",
         state,
     )
     assert created.handled is True
