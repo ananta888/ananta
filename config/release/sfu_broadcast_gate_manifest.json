@@ -275,7 +275,7 @@
       "tests/test_sfu_broadcast_gate_common.py",
       "scripts/validate_sfu_broadcast_nightly_evidence.py",
       "tests/contracts/sfu_broadcast/corpus.v1.json",
-      "todos/todo.webrtc-sfu-broadcast-fanout.json"
+      "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
     ],
     "stages": {
       "pr": {"retention_days": 14, "operator_approval_required": false},
