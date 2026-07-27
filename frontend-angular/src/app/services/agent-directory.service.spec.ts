@@ -1,9 +1,21 @@
 import {
   androidRuntimeAgents,
   composeRuntimeAgents,
+  hostBasedAgentOrigin,
   normalizeHubOrigin,
   usesEmbeddedAndroidHub,
 } from './agent-directory.service';
+
+describe('hostBasedAgentOrigin', () => {
+  it('keeps browser HTTPS when resolving LAN agent ports', () => {
+    expect(hostBasedAgentOrigin('https:', '192.168.178.103', 5000))
+      .toBe('https://192.168.178.103:5000');
+  });
+
+  it('defaults unknown protocols to HTTP and brackets IPv6 hosts', () => {
+    expect(hostBasedAgentOrigin('file:', '::1', 5000)).toBe('http://[::1]:5000');
+  });
+});
 
 describe('normalizeHubOrigin', () => {
   it('normalizes valid HTTP(S) origins and removes the trailing slash', () => {

@@ -1,0 +1,31 @@
+services:
+  lan-tls-proxy:
+    image: caddy:2.10.2-alpine@sha256:d8c17a862962def15cde69863a3a463f25a2664942eafd7bdbf050e9c3116b83
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      ANANTA_LAN_HOST: "${ANANTA_LAN_HOST:?Set ANANTA_LAN_HOST to the Windows LAN IPv4 address}"
+    ports:
+      - "${ANANTA_LAN_FRONTEND_TLS_TARGET_PORT:-8443}:4200"
+      - "${ANANTA_LAN_HUB_TLS_TARGET_PORT:-5443}:5000"
+    volumes:
+      - ./Caddyfile.lan-https:/etc/caddy/Caddyfile:ro
+      - lan-caddy-data:/data
+      - lan-caddy-config:/config
+    tmpfs:
+      - /tmp
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      angular-frontend:
+        condition: service_started
+
+volumes:
+  lan-caddy-data:
+  lan-caddy-config:

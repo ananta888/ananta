@@ -1,0 +1,15 @@
+{
+	admin off
+	auto_https disable_redirects
+	default_sni {$ANANTA_LAN_HOST}
+}
+
+https://{$ANANTA_LAN_HOST}:4200 {
+	tls internal
+	reverse_proxy angular-frontend:4200
+}
+
+https://{$ANANTA_LAN_HOST}:5000 {
+	tls internal
+	reverse_proxy ai-agent-hub:5000
+}

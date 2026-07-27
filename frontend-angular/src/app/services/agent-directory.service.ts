@@ -11,6 +11,20 @@ export interface AgentEntry {
 
 const LS_KEY = 'ananta.agents.v1';
 
+export function hostBasedAgentOrigin(
+  protocol: string,
+  hostname: string,
+  port: number,
+): string {
+  const safeProtocol = protocol === 'https:' ? 'https:' : 'http:';
+  const normalizedHostname = String(hostname || '').trim() || '127.0.0.1';
+  const safeHostname = normalizedHostname.includes(':')
+    && !normalizedHostname.startsWith('[')
+    ? `[${normalizedHostname}]`
+    : normalizedHostname;
+  return `${safeProtocol}//${safeHostname}:${port}`;
+}
+
 /**
  * Accepts only an HTTP(S) origin suitable as a Hub trust boundary.
  *
@@ -170,9 +184,11 @@ export class AgentDirectoryService {
   }
 
   private hostBasedUrl(port: number): string {
-    const host = this.currentHostname();
-    const safeHost = host || '127.0.0.1';
-    return `http://${safeHost}:${port}`;
+    let protocol = 'http:';
+    try {
+      protocol = globalThis?.location?.protocol || protocol;
+    } catch {}
+    return hostBasedAgentOrigin(protocol, this.currentHostname(), port);
   }
 
   private defaultAgentsForCurrentHost(): AgentEntry[] {
