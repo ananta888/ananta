@@ -3,8 +3,11 @@ from types import SimpleNamespace
 from flask import Flask
 
 from agent.metrics import TASK_SUCCESS_RATE, WORKER_BUSY_SECONDS, WORKER_PROPOSE_DURATION_SECONDS
+from agent.db_models import TaskDB
+from agent.repository import task_repo
 from agent.routes.tasks.autopilot_tick_engine import _dispatch_one_task
 from agent.routes.tasks import autopilot_task_dispatcher
+from agent.routes.tasks.auto_planner import auto_planner
 
 
 def _sample_value(metric, sample_name: str) -> float:
@@ -68,8 +71,26 @@ def test_dispatch_populates_core_bottleneck_metrics(monkeypatch):
         "_proposal_strategy_candidates",
         lambda **kwargs: [{"model": "m1", "source": "test", "temperature": None}],
     )
+    monkeypatch.setattr(auto_planner, "auto_followup_enabled", False)
 
-    task = SimpleNamespace(id="t-metrics", title="t", description="d", status="todo", verification_status={})
+    task = task_repo.save(
+        TaskDB(
+            id="t-metrics",
+            title="t",
+            description="d",
+            status="todo",
+        )
+    )
+    runtime_status = {"value": "todo"}
+    monkeypatch.setattr(
+        autopilot_task_dispatcher,
+        "_current_task_status",
+        lambda *_args, **_kwargs: runtime_status["value"],
+    )
+
+    def update_task_status(_task_id, status, **_kwargs):
+        runtime_status["value"] = status
+
     worker = SimpleNamespace(url="http://worker", token="token")
 
     before_propose = _sample_value(WORKER_PROPOSE_DURATION_SECONDS, "worker_propose_duration_seconds_sum")
@@ -89,7 +110,7 @@ def test_dispatch_populates_core_bottleneck_metrics(monkeypatch):
         local_worker_url="http://local",
         app=app,
         append_trace_event=lambda *a, **k: None,
-        update_local_task_status=lambda *a, **k: None,
+        update_local_task_status=update_task_status,
     )
 
     after_propose = _sample_value(WORKER_PROPOSE_DURATION_SECONDS, "worker_propose_duration_seconds_sum")
