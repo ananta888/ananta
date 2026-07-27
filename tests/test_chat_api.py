@@ -138,7 +138,10 @@ def test_create_session_duplicate_id(client):
     with sessions_ctx([existing]):
         r = client.post("/api/chat/sessions", json={"id": "existing", "name": "Neu"})
     assert r.status_code == 409
-    assert "already exists" in r.json["error"]
+    assert r.json == {
+        "error": "resource_id_unavailable",
+        "error_code": "resource_id_unavailable",
+    }
 
 
 # ── GET /api/chat/sessions/<id> ───────────────────────────────────────────
@@ -299,7 +302,10 @@ def test_cross_tenant_session_id_reservation_is_fail_closed(client):
             headers=_auth_headers("intruder"),
         )
     assert response.status_code == 409
-    assert response.json == {"error": "Session with ID 'reserved' already exists"}
+    assert response.json == {
+        "error": "resource_id_unavailable",
+        "error_code": "resource_id_unavailable",
+    }
 
 
 def test_session_owner_metadata_is_never_returned(client):

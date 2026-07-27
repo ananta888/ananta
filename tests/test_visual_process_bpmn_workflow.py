@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 
+class _AdmittedTestReleaseEvidence:
+    def evaluate(self, **_values):
+        return True, "runtime_release_test_evidence_verified"
+
+
 def _simple_bpmn() -> str:
     return """<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
@@ -142,6 +147,10 @@ def test_visual_process_bpmn_and_workflow_routes(
     monkeypatch.setattr(
         "agent.services.workflow_control_composition._production_rollout_policies",
         lambda: None,
+    )
+    monkeypatch.setattr(
+        "agent.services.workflow_control_composition._production_release_admission",
+        lambda _backend: _AdmittedTestReleaseEvidence(),
     )
     reset_workflow_backend_control_facade()
     workflow_route_authorization_service.clear()

@@ -213,6 +213,7 @@ def test_remaining_worker_agent_imports_are_explicit_contract_facades() -> None:
     allowed_facades = frozenset(
         {
             "agent.providers.lc_lg",
+            "agent.services.model_routing_contract",
             "agent.services.workflow_runtime.components",
             "agent.services.workflow_runtime.condition_evaluator",
             "agent.services.workflow_runtime.execution_plan",

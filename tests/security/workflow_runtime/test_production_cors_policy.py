@@ -3,11 +3,26 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from agent.config import Settings
+
+ROOT = Path(__file__).resolve().parents[3]
+
+
+def _subprocess_environment(**overrides: str) -> dict[str, str]:
+    environment = os.environ.copy()
+    existing_pythonpath = environment.get("PYTHONPATH")
+    environment["PYTHONPATH"] = (
+        f"{ROOT}{os.pathsep}{existing_pythonpath}"
+        if existing_pythonpath
+        else str(ROOT)
+    )
+    environment.update(overrides)
+    return environment
 
 
 def _strict_settings(cors_origins: str) -> Settings:
@@ -61,13 +76,10 @@ def test_development_mode_retains_backwards_compatible_wildcard_default() -> Non
 def test_real_application_import_fails_closed_for_strict_wildcard_cors(
     tmp_path,
 ) -> None:
-    environment = os.environ.copy()
-    environment.update(
-        {
-            "ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH": "1",
-            "CORS_ORIGINS": "*",
-            "SECRET_KEY": "strict-cors-import-test-key-0123456789",
-        }
+    environment = _subprocess_environment(
+        ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH="1",
+        CORS_ORIGINS="*",
+        SECRET_KEY="strict-cors-import-test-key-0123456789",
     )
 
     completed = subprocess.run(
@@ -89,13 +101,10 @@ def test_real_application_import_fails_closed_for_broken_settings_source(
     tmp_path,
 ) -> None:
     (tmp_path / "config.json").write_text("{broken-json", encoding="utf-8")
-    environment = os.environ.copy()
-    environment.update(
-        {
-            "ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH": "1",
-            "CORS_ORIGINS": "https://console.example.test",
-            "SECRET_KEY": "strict-source-import-test-key-0123456789",
-        }
+    environment = _subprocess_environment(
+        ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH="1",
+        CORS_ORIGINS="https://console.example.test",
+        SECRET_KEY="strict-source-import-test-key-0123456789",
     )
 
     completed = subprocess.run(

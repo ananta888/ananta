@@ -15,7 +15,7 @@ def _worker_jwt() -> str:
 def test_endpoint_role_matrix_for_protected_and_admin_routes(client, user_auth_header):
     cases = [
         ("anonymous", "/tasks", None, 401),
-        ("anonymous", "/config", None, 403),
+        ("anonymous", "/config", None, 401),
         ("user", "/tasks", user_auth_header, 200),
         ("user", "/config", user_auth_header, 403),
         ("worker", "/tasks", {"Authorization": f"Bearer {_worker_jwt()}"}, 200),

@@ -142,8 +142,11 @@ def _registered_worker_adapter_kinds(path: Path) -> set[str]:
     return kinds
 
 
-def _active_task_ids(root: Path) -> set[str]:
-    todo = _load_json(root, "todos/todo.production-ai-workflow-runtime-ananta-native-langchain-langgraph-temporal.json")
+def _workflow_runtime_task_ids(root: Path) -> set[str]:
+    todo = _load_json(
+        root,
+        "todos/archiv/todo.production-ai-workflow-runtime-ananta-native-langchain-langgraph-temporal.json",
+    )
     return {str(item.get("id") or "") for item in todo.get("tasks") or ()}
 
 
@@ -177,7 +180,7 @@ def _validate_inventory(root: Path, inventory: dict[str, Any]) -> list[str]:
     if documented_targets != RUNTIME_TARGETS:
         errors.append("runtime_inventory_production_targets_incomplete")
 
-    task_ids = _active_task_ids(root)
+    task_ids = _workflow_runtime_task_ids(root)
     for path_entry in inventory.get("paths") or ():
         if not isinstance(path_entry, dict):
             errors.append("runtime_inventory_path_not_object")

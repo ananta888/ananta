@@ -18,6 +18,11 @@ from agent.services.workflow_runtime.streaming import (
 )
 
 
+class _AdmittedTestReleaseEvidence:
+    def evaluate(self, **_values):
+        return True, "runtime_release_test_evidence_verified"
+
+
 class _History:
     def __init__(self, events: list[dict]) -> None:
         self.events = events
@@ -171,6 +176,10 @@ def test_authenticated_hub_stream_uses_post_body_and_returns_resume_cursor(
     monkeypatch.setattr(
         "agent.services.workflow_control_composition._production_rollout_policies",
         lambda: None,
+    )
+    monkeypatch.setattr(
+        "agent.services.workflow_control_composition._production_release_admission",
+        lambda _backend: _AdmittedTestReleaseEvidence(),
     )
     from agent.services.workflow_control_composition import (
         reset_workflow_backend_control_facade,
