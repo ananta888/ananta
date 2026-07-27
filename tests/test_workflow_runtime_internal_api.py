@@ -308,6 +308,7 @@ def test_strict_worker_route_passes_authenticated_identity_to_gateway(
                     url="http://worker-1:5000",
                     token=worker_token,
                     role="worker",
+                    status="online",
                     capabilities=["workflow.adapter.native"],
                     authorized_capabilities=["workflow.adapter.native"],
                     registration_validated=True,
