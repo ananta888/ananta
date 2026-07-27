@@ -32,3 +32,8 @@ Caddy uses its local certificate authority. Copy
 `/data/caddy/pki/authorities/local/root.crt` from the `lan-tls-proxy`
 container and trust only that public root certificate on each client device.
 Never export or distribute the CA private key from the Caddy data volume.
+
+Firefox must either import that root certificate directly or trust the
+operating-system certificate store. On Windows, set
+`security.enterprise_roots.enabled` to `true` in `about:config` and restart
+Firefox completely after installing the certificate.
