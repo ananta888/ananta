@@ -25,14 +25,26 @@ def _sha256(text: str) -> str:
 
 def run() -> dict:
     readme = (FIXTURE_DIR / "README.md").read_text(encoding="utf-8")
-    script_text = (FIXTURE_DIR / "mining_demo.py").read_text(encoding="utf-8")
 
     retrieval_payload = {
-        "retrieval_trace_id": "rt-btc-1",
-        "retrieval_context_hash": "ctx-btc-1",
-        "retrieval_manifest_hash": "mh-btc-1",
+        "retrieval_trace": {
+            "trace_id": "rt-btc-1",
+            "context_hash": "ctx-btc-1",
+            "manifest_hash": "mh-btc-1",
+            "tenant_id": "bitcoin-mining-fixture",
+            "scope": "repository",
+        },
         "selected": [
             {
+                "source_id": "SRC_0001",
+                "source_version": "mh-btc-1",
+                "tenant_id": "bitcoin-mining-fixture",
+                "scope": "repository",
+                "provenance": {
+                    "fixture": "bitcoin_mining_demo",
+                    "source_id": "SRC_0001",
+                    "source_version": "mh-btc-1",
+                },
                 "path": "tests/fixtures/bitcoin_mining_demo/README.md",
                 "record_id": "btc-readme-1",
                 "line_start": 1,
@@ -43,21 +55,20 @@ def run() -> dict:
                 "allowed_for_llm_scope": True,
                 "source_type": "repo_file",
             },
-            {
-                "path": "tests/fixtures/bitcoin_mining_demo/mining_demo.py",
-                "record_id": "btc-script-1",
-                "line_start": 1,
-                "line_end": 200,
-                "content_hash": _sha256(script_text),
-                "manifest_hash": "mh-btc-1",
-                "sensitivity": "internal",
-                "allowed_for_llm_scope": True,
-                "source_type": "repo_file",
-            },
         ],
         "provenance": [],
     }
     source_catalog = SourceCatalogService().build_catalog(task_id="btc-task-e2e", retrieval_payload=retrieval_payload)
+    source_ids_by_path = {
+        str(source.get("path") or ""): str(source.get("source_id") or "")
+        for source in source_catalog.get("sources", [])
+    }
+    readme_source_id = source_ids_by_path.get(
+        "tests/fixtures/bitcoin_mining_demo/README.md",
+        "",
+    )
+    if not readme_source_id:
+        raise RuntimeError("bitcoin_mining_readme_source_unverified")
 
     proc = subprocess.run(
         [sys.executable, str(FIXTURE_DIR / "mining_demo.py")],
@@ -90,7 +101,7 @@ def run() -> dict:
                 "claim_id": "CLM_0001",
                 "text": "Der Demo-Miner verwendet double_sha256 ueber einen vereinfachten Header.",
                 "claim_type": "source_fact",
-                "citation_refs": ["SRC_0001"],
+                "citation_refs": [readme_source_id],
                 "confidence": "verified",
             },
             {

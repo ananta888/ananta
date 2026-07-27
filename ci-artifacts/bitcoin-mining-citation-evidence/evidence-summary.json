@@ -2,8 +2,8 @@
   "citation_verification_status": "verified",
   "run_id": "RUN_0001",
   "run_stdout_hash": "2aee0b3085f1f4cd0b3dcf15328ec4dc",
-  "source_catalog_hash": "61b86b5c60f8208645c1156ba284fcd8",
-  "source_catalog_id": "catalog-f8a136fe1d419ce6",
+  "source_catalog_hash": "f5ad343e1892823b3637a1642e84ca8f01e9468f987f713501832d2ba34f7fd4",
+  "source_catalog_id": "catalog-f5ad343e1892823b",
   "task_id": "btc-task-e2e",
   "unverified_claim_count": 0,
   "verified_claim_count": 2
