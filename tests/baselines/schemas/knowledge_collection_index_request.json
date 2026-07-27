@@ -1,9 +1,46 @@
 {
+  "$defs": {
+    "GraphVisualMetricsRequest": {
+      "description": "Bounded worker-side graph metric materialization options.",
+      "properties": {
+        "blast_radius_seeds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Blast Radius Seeds",
+          "type": "array"
+        },
+        "include_advanced_metrics": {
+          "default": true,
+          "title": "Include Advanced Metrics",
+          "type": "boolean"
+        },
+        "schema": {
+          "default": "codecompass_graph_visual_options.v1",
+          "title": "Schema",
+          "type": "string"
+        }
+      },
+      "title": "GraphVisualMetricsRequest",
+      "type": "object"
+    }
+  },
   "properties": {
     "async": {
       "default": false,
       "title": "Async",
       "type": "boolean"
+    },
+    "graph_visual_metrics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GraphVisualMetricsRequest"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "profile_name": {
       "anyOf": [

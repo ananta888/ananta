@@ -12,6 +12,56 @@
       "default": null,
       "title": "Command"
     },
+    "dispatch_lease_phase": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dispatch Lease Phase"
+    },
+    "dispatch_lease_token": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dispatch Lease Token"
+    },
+    "recovery_proposal_context": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recovery Proposal Context"
+    },
+    "recovery_run_evidence_context": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recovery Run Evidence Context"
+    },
     "retries": {
       "anyOf": [
         {
