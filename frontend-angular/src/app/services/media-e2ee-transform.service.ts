@@ -75,10 +75,11 @@ export class MediaE2eeTransformService {
     this.sendCounters.set(binding, counter);
     const prefix = this.noncePrefixes.get(binding) ?? crypto.getRandomValues(new Uint8Array(4));
     this.noncePrefixes.set(binding, prefix);
-    const nonce = new Uint8Array(12); nonce.set(prefix); writeUint64(nonce, 4, counter);
+    const nonce = new Uint8Array(new ArrayBuffer(12)); nonce.set(prefix); writeUint64(nonce, 4, counter);
+    const additionalData = arrayBufferBackedBytes(aad(context, counter, frameType));
     const header = headerFor(context.keyEpoch, counter, nonce);
     const ciphertext = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: nonce, additionalData: aad(context, counter, frameType), tagLength: 128 },
+      { name: 'AES-GCM', iv: nonce, additionalData, tagLength: 128 },
       key,
       plaintext,
     );
@@ -105,14 +106,15 @@ export class MediaE2eeTransformService {
     const epoch = view.getUint32(8);
     const counter = view.getBigUint64(12);
     if (epoch !== context.keyEpoch || counter < 1n) throw new Error('media_e2ee_epoch_stale');
-    const nonce = frame.slice(20, 32);
+    const nonce = arrayBufferBackedBytes(frame.slice(20, 32));
     if (readUint64(nonce, 4) !== counter) throw new Error('media_e2ee_nonce_binding_invalid');
     const binding = contextKey(context);
     const seen = this.received.get(binding) ?? new Set<bigint>();
     if (seen.has(counter)) throw new Error('media_e2ee_replay');
     try {
+      const additionalData = arrayBufferBackedBytes(aad(context, counter, frameType));
       const plaintext = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: nonce, additionalData: aad(context, counter, frameType), tagLength: 128 },
+        { name: 'AES-GCM', iv: nonce, additionalData, tagLength: 128 },
         key,
         frame.slice(HEADER_BYTES),
       );
@@ -130,6 +132,10 @@ export class MediaE2eeTransformService {
     const binding = contextKey(context);
     this.sendCounters.delete(binding); this.noncePrefixes.delete(binding); this.received.delete(binding);
   }
+}
+
+function arrayBufferBackedBytes(value: Uint8Array): Uint8Array<ArrayBuffer> {
+  return new Uint8Array(value);
 }
 
 function headerFor(epoch: number, counter: bigint, nonce: Uint8Array): Uint8Array {

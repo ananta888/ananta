@@ -238,7 +238,13 @@ function createCanvas(width: number, height: number): OffscreenCanvas | HTMLCanv
 }
 
 function sourceDimensions(source: unknown): { width: number; height: number } | null {
-  if (isImageData(source) || isImageBitmap(source) || isCanvas(source) || isVideoFrame(source)) {
+  if (isVideoFrame(source)) {
+    return {
+      width: source.displayWidth || source.codedWidth,
+      height: source.displayHeight || source.codedHeight,
+    };
+  }
+  if (isImageData(source) || isImageBitmap(source) || isCanvas(source)) {
     return { width: source.width, height: source.height };
   }
   if (isVideoElement(source)) {
