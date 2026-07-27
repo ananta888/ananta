@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ChatProcessRunSummary, ChatSessionsService, EffectiveChatProcess } from '../services/chat-sessions.service';
 import { VisualProcessCanvasComponent } from '../features/visual-process/visual-process-canvas.component';
@@ -56,6 +56,7 @@ import { OidcAuthService } from '../services/oidc-auth.service';
 })
 export class AiSnakeProcessPanelComponent implements OnInit, OnDestroy {
   private readonly sessions = inject(ChatSessionsService);
+  private readonly changeDetector = inject(ChangeDetectorRef);
   readonly navigation=inject(VpNavigationService);
   readonly oidc=inject(OidcAuthService);
   private readonly subscriptions = new Subscription();
@@ -70,8 +71,18 @@ export class AiSnakeProcessPanelComponent implements OnInit, OnDestroy {
   reload(): void {
     if (!this.sessionId) return;
     this.subscriptions.add(this.sessions.getEffectiveProcess(this.sessionId).subscribe({
-      next: result => { this.effective = result; if(result.graph)this.graphSignal.set(this.asGraph(result.graph)); this.error = ''; this.loadRuns(); },
-      error: error => { this.effective = null; this.error = error?.error?.error || 'Prozess konnte nicht geladen werden'; },
+      next: result => {
+        this.effective = result;
+        if (result.graph) this.graphSignal.set(this.asGraph(result.graph));
+        this.error = '';
+        this.loadRuns();
+        this.changeDetector.markForCheck();
+      },
+      error: error => {
+        this.effective = null;
+        this.error = error?.error?.error || 'Prozess konnte nicht geladen werden';
+        this.changeDetector.markForCheck();
+      },
     }));
   }
   clone(): void { if (this.sessionId) this.subscriptions.add(this.sessions.cloneEffectiveProcess(this.sessionId).subscribe({ next: result => this.effective = result, error: error => this.error = error?.error?.error || 'Klonen fehlgeschlagen' })); }

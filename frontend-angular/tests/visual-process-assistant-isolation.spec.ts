@@ -248,6 +248,9 @@ test('zwei Tabs bleiben zustandsisoliert; die AI-Snake-Prozessansicht mutiert im
   const secondPage = await context.newPage();
   await installEditorMocks(secondPage, 'B');
   await installReadOnlyProcessMocks(secondPage);
+  await secondPage.addInitScript(sessionId => {
+    localStorage.setItem('ananta.snake.session', sessionId);
+  }, 'session-readonly-e2e');
   await loadIsolationGraph(secondPage);
 
   const firstNode = page.locator(`[data-semantic-kind="node"][data-entity-id="${STEP_ID}"]`);
@@ -279,8 +282,6 @@ test('zwei Tabs bleiben zustandsisoliert; die AI-Snake-Prozessansicht mutiert im
       forbiddenMutations.push(`${current.method()} ${path}`);
     }
   });
-  await secondPage.evaluate(() => localStorage.setItem('ananta.snake.session', 'session-readonly-e2e'));
-
   const openAssistant = secondPage.getByRole('button', { name: 'Assistant oeffnen' });
   if (await openAssistant.isVisible().catch(() => false)) await openAssistant.click();
   const processTab = secondPage.locator('[data-waypoint="snake.tab-process"]');
