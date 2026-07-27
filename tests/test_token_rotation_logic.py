@@ -22,6 +22,8 @@ def test_check_token_rotation_triggers(tmp_path):
     with patch("agent.auth.rotate_token") as mock_rotate:
         with patch("agent.ai_agent.settings") as mock_settings:
             mock_settings.token_rotation_days = 7
+            mock_settings.agent_token_file = ""
+            mock_settings.token_path = ""
             # Mocking read_json because it's used in _check_token_rotation
             with patch("agent.ai_agent.read_json", return_value=token_data):
                 _check_token_rotation(app)
@@ -45,6 +47,8 @@ def test_check_token_rotation_not_triggers_early(tmp_path):
     with patch("agent.auth.rotate_token") as mock_rotate:
         with patch("agent.ai_agent.settings") as mock_settings:
             mock_settings.token_rotation_days = 7
+            mock_settings.agent_token_file = ""
+            mock_settings.token_path = ""
             with patch("agent.ai_agent.read_json", return_value=token_data):
                 _check_token_rotation(app)
                 assert not mock_rotate.called
