@@ -47,12 +47,14 @@ def _is_sensitive_key(key: str, markers: set[str]) -> bool:
     return any(marker in normalized for marker in markers)
 
 
-def _is_safe_numeric_token_field(key: str, value: Any) -> bool:
+def _is_safe_protocol_token_field(key: str, value: Any) -> bool:
     normalized = str(key or "").strip().lower()
     return (
         normalized in SAFE_NUMERIC_TOKEN_KEYS
-        and not isinstance(value, bool)
-        and isinstance(value, (int, float))
+        and (
+            value is None
+            or (not isinstance(value, bool) and isinstance(value, (int, float)))
+        )
     )
 
 
@@ -78,7 +80,7 @@ def redact_provider_payload(
             key = str(raw_key)
             if (
                 _is_sensitive_key(key, markers)
-                and not _is_safe_numeric_token_field(key, raw_value)
+                and not _is_safe_protocol_token_field(key, raw_value)
             ):
                 redacted[key] = replacement
             else:
