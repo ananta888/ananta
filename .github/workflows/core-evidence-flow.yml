@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      DATABASE_URL: sqlite:///:memory:
+      DATABASE_URL: "sqlite:///:memory:"
       CONTROLLER_URL: http://mock-controller
       AGENT_NAME: evidence-agent
       INITIAL_ADMIN_USER: admin

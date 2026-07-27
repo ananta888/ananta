@@ -55,6 +55,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.lock
           pip install -r requirements-dev.lock
+          pip install -r docker/compose-next/requirements.langgraph-worker.lock
+          pip install temporalio==1.30.0
+          pip check
       - name: Validate runtime inventory, threat gate and example docs
         run: python scripts/validate_workflow_runtime_docs.py
       - name: Run mandatory workflow-runtime security regressions

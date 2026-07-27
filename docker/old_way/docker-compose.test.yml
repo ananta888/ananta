@@ -235,6 +235,8 @@ services:
     image: ananta-frontend-compose-test:local
     volumes:
       - ../../frontend-angular:/app
+      - ../../schemas:/schemas:ro
+      - ../../config/sfu_broadcast_data_limits.json:/config/sfu_broadcast_data_limits.json:ro
       - /app/node_modules
       - /ms-playwright
     ports:

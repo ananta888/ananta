@@ -123,6 +123,15 @@ def test_supported_stack_entrypoint_renders_hardened_real_compose_profiles(tmp_p
     environment = dict(os.environ)
     environment.update(
         {
+            "POSTGRES_PASSWORD": "test-postgres-password",
+            "INITIAL_ADMIN_PASSWORD": "test123",
+            "SECRET_KEY": "test-secret-key-with-at-least-thirty-two-chars",
+            "AGENT_TOKEN_HUB": "hub-token",
+            "AGENT_TOKEN_ALPHA": "alpha-token",
+            "AGENT_TOKEN_BETA": "beta-token",
+            "AGENT_TOKEN_GAMMA": "gamma-token",
+            "AGENT_TOKEN_DELTA": "delta-token",
+            "GRAFANA_PASSWORD": "test-grafana-password",
             "ANANTA_LORA_TRAINING_INTERNAL_TOKEN": "test-only-token-0123456789abcdef",
             "ANANTA_LORA_TRAINING_MODEL_CATALOG_JSON": json.dumps(
                 {

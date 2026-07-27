@@ -1,6 +1,9 @@
 FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba
 
 ARG TEMPORALIO_VERSION=1.30.0
+ARG CRYPTOGRAPHY_VERSION=46.0.7
+ARG JSONSCHEMA_VERSION=4.26.0
+ARG PYDANTIC_VERSION=2.13.2
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -13,7 +16,11 @@ RUN groupadd --gid 10001 ananta \
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir "temporalio==${TEMPORALIO_VERSION}"
+RUN pip install --no-cache-dir \
+    "temporalio==${TEMPORALIO_VERSION}" \
+    "cryptography==${CRYPTOGRAPHY_VERSION}" \
+    "jsonschema==${JSONSCHEMA_VERSION}" \
+    "pydantic==${PYDANTIC_VERSION}"
 
 COPY ananta_contracts/ /app/ananta_contracts/
 COPY worker/__init__.py /app/worker/__init__.py

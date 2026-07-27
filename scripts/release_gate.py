@@ -483,7 +483,15 @@ def check_image_builds() -> CheckResult:
             "ananta-backend:release-gate",
             ".",
         ],
-        ["docker", "build", "-t", "ananta-frontend:release-gate", "frontend-angular"],
+        [
+            "docker",
+            "build",
+            "-f",
+            "frontend-angular/Dockerfile",
+            "-t",
+            "ananta-frontend:release-gate",
+            ".",
+        ],
         [
             "docker",
             "build",

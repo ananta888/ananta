@@ -78,6 +78,8 @@ services:
       E2E_SCRUM_SEED_TEAM_NAME: "E2E Seed Scrum Team"
     volumes:
       - ../../frontend-angular:/app
+      - ../../schemas:/schemas:ro
+      - ../../config/sfu_broadcast_data_limits.json:/config/sfu_broadcast_data_limits.json:ro
       - /app/node_modules
     working_dir: /app
     depends_on:

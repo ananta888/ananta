@@ -47,7 +47,11 @@ jobs:
           -t "ananta-backend:${{ steps.image-tag.outputs.tag }}"
           .
       - name: Build frontend image
-        run: docker build -t "ananta-frontend:${{ steps.image-tag.outputs.tag }}" frontend-angular
+        run: >
+          docker build
+          -f frontend-angular/Dockerfile
+          -t "ananta-frontend:${{ steps.image-tag.outputs.tag }}"
+          .
       - name: Build single-image quickstart (no ollama)
         run: |
           docker build \

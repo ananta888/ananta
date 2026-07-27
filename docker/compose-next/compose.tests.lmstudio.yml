@@ -224,7 +224,8 @@ services:
 
   angular-frontend:
     build:
-      context: ../../frontend-angular
+      context: ../..
+      dockerfile: frontend-angular/Dockerfile
     image: ananta-frontend-tests:local
     working_dir: /app
     extra_hosts:
@@ -236,6 +237,8 @@ services:
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     volumes:
       - ../../frontend-angular:/app
+      - ../../schemas:/schemas:ro
+      - ../../config/sfu_broadcast_data_limits.json:/config/sfu_broadcast_data_limits.json:ro
       - /app/node_modules
       - /ms-playwright
     ports:

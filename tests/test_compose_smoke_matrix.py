@@ -4,7 +4,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_docker_layout_keeps_active_and_legacy_sources_separate():
-    assert list(ROOT.glob("docker-compose*.yml")) == []
+    root_compose_files = {
+        path.name for path in ROOT.glob("docker-compose*.yml")
+    }
+    assert root_compose_files == {
+        "docker-compose.semantic-media.yml",
+        "docker-compose.sfu-broadcast-turn.yml",
+        "docker-compose.sfu-broadcast.yml",
+    }
     assert not (ROOT / "Dockerfile.quickstart-no-ollama").exists()
 
     active_base = (ROOT / "docker" / "compose-next" / "compose.base.yml").read_text(encoding="utf-8")

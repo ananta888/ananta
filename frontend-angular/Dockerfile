@@ -3,13 +3,15 @@ FROM node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a728
 WORKDIR /app
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Dependencies kopieren und installieren (Caching nutzen)
-COPY package*.json ./
+# The repository root is the build context because Angular imports shared,
+# versioned contracts from /schemas and /config.
+COPY frontend-angular/package*.json ./
 RUN npm ci --no-audit --no-fund
 RUN npx playwright install --with-deps chromium
 
-# Der Rest wird via Volume gemountet, aber wir kopieren ihn für das Image-Building
-COPY . .
+COPY frontend-angular/ ./
+COPY schemas/ /schemas/
+COPY config/sfu_broadcast_data_limits.json /config/sfu_broadcast_data_limits.json
 
 EXPOSE 4200
 

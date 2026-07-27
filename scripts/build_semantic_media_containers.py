@@ -33,7 +33,6 @@ BUILD_SOURCE_DIRECTORIES = (
     "worker",
     "frontend-angular/src",
     "docker/compose-next",
-    "models/voice/manifests",
     "services/evolver_bridge",
 )
 BUILD_SOURCE_FILES = (
@@ -91,7 +90,7 @@ BUILDS = (
             "frontend-angular/Dockerfile",
             "--tag",
             "ananta-frontend-tests:local",
-            "frontend-angular",
+            ".",
         ),
     ),
     ImageBuild(

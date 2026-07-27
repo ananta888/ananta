@@ -43,7 +43,7 @@ and `docker/compose-next/Dockerfile.quickstart-no-ollama`.
 Build the release candidate images with explicit candidate tags:
 
 ```bash
-docker build -t ananta-frontend:v1.0.0-rc frontend-angular
+docker build -f frontend-angular/Dockerfile -t ananta-frontend:v1.0.0-rc .
 docker build -f docker/compose-next/Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:v1.0.0-rc .
 ```
 

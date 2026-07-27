@@ -9,6 +9,7 @@
 .cache/
 frontend-angular/dist
 frontend-angular/.angular
+frontend-angular/test-results*/
 
 # Secrets bleiben auch in verschachtelten Compose-Verzeichnissen außerhalb
 **/.env
@@ -46,6 +47,7 @@ data_test_e2e/
 .ruff_cache/
 .mypy_cache/
 rag-helper/.venv/
+rag-helper/out/
 .git/
 .github/
 .vscode/
