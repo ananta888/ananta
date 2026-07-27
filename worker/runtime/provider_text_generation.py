@@ -527,11 +527,9 @@ class HubProfileRoutedWorkerTextGeneration:
                 )
         routing = self._model_routing
         if routing is None:
-            from agent.services.model_invocation_service import (
-                ModelInvocationService,
+            raise ProviderInvocationBlocked(
+                "worker_model_routing_unavailable"
             )
-
-            routing = ModelInvocationService
         routing_context = None
         raw_model_routing = values.get("model_routing")
         if raw_model_routing is not None:

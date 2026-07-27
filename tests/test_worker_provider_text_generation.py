@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -517,3 +518,44 @@ def test_production_builder_reserves_and_reconciles_budget_only_via_hub() -> Non
     assert reserve_values["provider_id"] == "lmstudio"
     assert reserve_values["model_id"] == "model-1"
     assert reserve_values["provider_profile_id"] == ""
+
+
+def test_profile_routing_fails_closed_without_injected_worker_port(
+    monkeypatch,
+) -> None:
+    from agent.services.workflow_runtime.security import (
+        RuntimeAuthorizationEnvelope,
+    )
+    from worker.runtime.provider_text_generation import (
+        HubProfileRoutedWorkerTextGeneration,
+    )
+
+    monkeypatch.setattr(
+        RuntimeAuthorizationEnvelope,
+        "from_mapping",
+        lambda _value: SimpleNamespace(provider_attempt_plan=()),
+    )
+    provider = HubProfileRoutedWorkerTextGeneration(
+        direct=SimpleNamespace(
+            generate_text=lambda **values: pytest.fail(
+                "profile routing must not fall back to direct generation"
+            )
+        )
+    )
+
+    with pytest.raises(
+        ProviderInvocationBlocked,
+        match="worker_model_routing_unavailable",
+    ):
+        provider.generate_text(
+            prompt="hello",
+            provider="lmstudio",
+            model="model-1",
+            provider_context=_context(),
+            provider_contexts_by_profile_id={
+                "profile-1": {
+                    **_context(),
+                    "provider_profile_id": "profile-1",
+                }
+            },
+        )
