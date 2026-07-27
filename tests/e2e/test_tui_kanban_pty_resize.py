@@ -15,6 +15,7 @@ from scripts.e2e.tui_kanban_pty_resize import (
     not sys.platform.startswith("linux"),
     reason="requires Linux PTY and /proc",
 )
+@pytest.mark.integration
 def test_real_tui_process_redraws_at_required_terminal_sizes() -> None:
     report = run_pty_resize_diagnostic(
         card_count=1000,

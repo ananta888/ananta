@@ -6,7 +6,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-_SCHEMA_DIR = Path("schemas/tui")
+_SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schemas" / "tui"
 PROFILE_SCHEMA_FILE = "ai_snake_prediction_profile.v1.json"
 BEHAVIOR_EVENT_SCHEMA_FILE = "ai_snake_behavior_event.v1.json"
 LEARNED_PATTERN_SCHEMA_FILE = "ai_snake_learned_pattern.v1.json"

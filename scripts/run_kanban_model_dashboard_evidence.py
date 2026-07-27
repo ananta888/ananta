@@ -249,6 +249,7 @@ SUITE_SPECS: Mapping[str, SuiteSpec] = {
                     "test_kanban_windowing.py",
                     "tests/e2e/test_tui_kanban_pty_resize.py",
                 ),
+                env=(("RUN_INTEGRATION_TESTS", "1"),),
                 timeout_seconds=900,
                 minimum_passed=10,
             ),

@@ -237,13 +237,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             _play_splash_to_terminal(state)
         from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
 
-    return InteractiveOperatorTui(
-        state,
-        registry,
-        splash=None,
-        dashboard_controller=dashboard_controller,
-        dashboard_live_token=hub_token,
-    ).run()
+        return InteractiveOperatorTui(
+            state,
+            registry,
+            splash=None,
+            dashboard_controller=dashboard_controller,
+            dashboard_live_token=hub_token,
+        ).run()
     if splash is not None:
         splash.tick()
     print(render_operator_shell(state, width=args.width, height=args.height, splash=splash))
