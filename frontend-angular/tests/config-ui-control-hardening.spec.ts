@@ -67,10 +67,9 @@ test.describe('Config + UI Control Hardening', () => {
     });
     expect(seed.ok()).toBeTruthy();
 
-    await page.goto('/settings');
-    const systemTab = page.locator('button.button-outline', { hasText: /^System$/i });
-    const qualityTab = page.locator('button.button-outline', { hasText: /^Qualitaetsregeln$/i });
-    await systemTab.click();
+    await page.goto('/settings?section=system');
+    const qualityTab = page.getByTestId('settings-section-quality');
+    await expect(page.getByRole('heading', { name: /System Parameter/i })).toBeVisible();
 
     const systemCard = page.locator('.card', { has: page.getByRole('heading', { name: /System Parameter/i }) });
     const systemSave = systemCard.getByRole('button', { name: /^Speichern$/i });

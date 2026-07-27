@@ -64,8 +64,8 @@ test.describe('Settings Config', () => {
     });
     expect(seedRes.ok()).toBeTruthy();
 
-    await page.goto('/settings');
-    await page.locator('button.button-outline', { hasText: /^System$/i }).click();
+    await page.goto('/settings?section=system');
+    await expect(page.getByRole('heading', { name: /System Parameter/i })).toBeVisible();
 
     const rawCard = page.locator('.card', { has: page.getByRole('heading', { name: /Roh-Konfiguration/i }) });
     const rawArea = rawCard.locator('textarea');
@@ -132,12 +132,12 @@ test.describe('Settings Config', () => {
     });
     expect(seedRes.ok()).toBeTruthy();
 
-    await page.goto('/settings');
+    await page.goto('/settings?section=llm');
 
-    const accountTab = page.locator('button.button-outline', { hasText: /^Account$/i });
-    const llmTab = page.locator('button.button-outline', { hasText: /LLM/i });
-    const qualityTab = page.locator('button.button-outline', { hasText: /^Qualitaetsregeln$/i });
-    const systemTab = page.locator('button.button-outline', { hasText: /^System$/i });
+    const accountTab = page.getByTestId('settings-section-account');
+    const llmTab = page.getByTestId('settings-section-llm');
+    const qualityTab = page.getByTestId('settings-section-quality');
+    const systemTab = page.getByTestId('settings-section-system');
 
     await expect(llmTab).toBeVisible();
     await expect(page.getByRole('heading', { name: /Hub LLM Defaults/i })).toBeVisible();
@@ -216,10 +216,10 @@ test.describe('Settings Config', () => {
       15000
     );
 
-    await page.goto('/settings');
-    const systemTab = page.locator('button.button-outline', { hasText: /^System$/i });
-    const qualityTab = page.locator('button.button-outline', { hasText: /^Qualitaetsregeln$/i });
-    await systemTab.click();
+    await page.goto('/settings?section=system');
+    const systemTab = page.getByTestId('settings-section-system');
+    const qualityTab = page.getByTestId('settings-section-quality');
+    await expect(page.getByRole('heading', { name: /System Parameter/i })).toBeVisible();
 
     const httpTimeout = page.locator('label:has-text("HTTP Timeout (s)") input[type="number"]');
     const commandTimeout = page.locator('label:has-text("Command Timeout (s)") input[type="number"]');
@@ -253,8 +253,8 @@ test.describe('Settings Config', () => {
     );
 
     await page.reload();
-    const reloadedSystemTab = page.locator('button.button-outline', { hasText: /^System$/i });
-    await reloadedSystemTab.click();
+    const reloadedSystemTab = page.getByTestId('settings-section-system');
+    await expect(reloadedSystemTab).toHaveClass(/active-toggle/);
     const reloadedSystemCard = page.locator('.card', { has: page.getByRole('heading', { name: /System Parameter/i }) }).first();
     const reloadedHttpTimeout = reloadedSystemCard.locator('label:has-text("HTTP Timeout (s)") input[type="number"]').first();
     const reloadedCommandTimeout = reloadedSystemCard.locator('label:has-text("Command Timeout (s)") input[type="number"]').first();

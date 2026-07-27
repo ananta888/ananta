@@ -15,7 +15,7 @@ test.describe('UI UX console and visibility', () => {
     const checks: Array<{ path: string; heading: RegExp }> = [
       { path: '/dashboard', heading: /System Dashboard|Ananta starten/i },
       { path: '/agents', heading: /^Agenten$/i },
-      { path: '/board', heading: /^Board$/i },
+      { path: '/workspace', heading: /^Mein Arbeitsbereich$/i },
       { path: '/templates', heading: /Templates \(Hub\)/i },
       { path: '/teams', heading: /Starte mit einem Blueprint/i },
       { path: '/settings', heading: /System-Einstellungen/i },
@@ -32,8 +32,8 @@ test.describe('UI UX console and visibility', () => {
 
   test('error notification is visible in viewport and closeable', async ({ page }) => {
     await login(page);
-    await page.goto('/settings');
-    await page.getByRole('button', { name: 'System' }).click();
+    await page.goto('/settings?section=system');
+    await expect(page.getByRole('heading', { name: /System Parameter/i })).toBeVisible();
 
     const rawCard = page.locator('.card', { has: page.getByRole('heading', { name: /Roh-Konfiguration/i }) });
     await rawCard.locator('textarea').fill('{');

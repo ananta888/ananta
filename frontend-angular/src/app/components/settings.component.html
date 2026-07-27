@@ -10,14 +10,14 @@
     <p class="muted">Konfiguration des Hub-Agenten und globale Parameter.</p>
 
     <div class="row gap-sm flex-wrap mb-md">
-      <button class="button-outline" [class.active-toggle]="selectedSection==='account'" (click)="setSection('account')">Account</button>
-      <button class="button-outline" [class.active-toggle]="selectedSection==='llm'" (click)="setSection('llm')">LLM und KI</button>
+      <button data-testid="settings-section-account" class="button-outline" [class.active-toggle]="selectedSection==='account'" (click)="setSection('account')">Account</button>
+      <button data-testid="settings-section-llm" class="button-outline" [class.active-toggle]="selectedSection==='llm'" (click)="setSection('llm')">LLM und KI</button>
       @if (dashboardFeatures.angularModelDashboard()) {
         <button class="button-outline" [class.active-toggle]="selectedSection==='models'" (click)="setSection('models')">Modelle</button>
       }
-      <button class="button-outline" [class.active-toggle]="selectedSection==='quality'" (click)="setSection('quality')">Qualitaetsregeln</button>
+      <button data-testid="settings-section-quality" class="button-outline" [class.active-toggle]="selectedSection==='quality'" (click)="setSection('quality')">Qualitaetsregeln</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='voice'" (click)="setSection('voice')" data-testid="settings-section-voice">Voice &amp; Fusion</button>
-      <button class="button-outline" [class.active-toggle]="selectedSection==='system'" (click)="setSection('system')">System</button>
+      <button data-testid="settings-section-system" class="button-outline" [class.active-toggle]="selectedSection==='system'" (click)="setSection('system')">System</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='erweitert'" (click)="setSection('erweitert')">Erweitert</button>
     </div>
 

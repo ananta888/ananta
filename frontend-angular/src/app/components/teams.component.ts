@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 
@@ -48,6 +48,7 @@ export class TeamsComponent implements OnInit {
   private ns = inject(NotificationService);
   private userAuth = inject(UserAuthService);
   private shellState = inject(AppShellStateService);
+  private changeDetector = inject(ChangeDetectorRef);
 
   currentTab: 'blueprints' | 'teams' | 'advanced' = 'blueprints';
   viewMode: 'standard' | 'admin' = 'standard';
@@ -135,6 +136,7 @@ export class TeamsComponent implements OnInit {
       this.loading = false;
       this.refreshSafetyTimer = undefined;
       this.ns.info('Teams-Ansicht wurde mit Safe-Timeout entsperrt. Sie koennen weiterarbeiten.');
+      this.changeDetector?.markForCheck();
     }, 20000);
     let pending = 7;
     const done = () => {
@@ -146,6 +148,7 @@ export class TeamsComponent implements OnInit {
           this.refreshSafetyTimer = undefined;
         }
       }
+      this.changeDetector?.markForCheck();
     };
 
     this.hubApi.listBlueprints(this.hub.url).pipe(finalize(done)).subscribe({

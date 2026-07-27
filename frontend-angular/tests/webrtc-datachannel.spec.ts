@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { dcMake, dcEncode, dcDecode, dcEncodeChunked, dcTryReassembleChunk } from '../src/app/services/webrtc-datachannel.service';
+import {
+  DcLegacyChunkReassembler,
+  dcMake,
+  dcEncode,
+  dcDecode,
+  dcEncodeChunked,
+  dcTryReassembleChunk,
+} from '../src/app/services/webrtc-datachannel.service';
 
 test.describe('WebRTC DataChannel Protocol', () => {
   test('encodes/decodes standard messages', async () => {
@@ -16,9 +23,10 @@ test.describe('WebRTC DataChannel Protocol', () => {
     const chunks = dcEncodeChunked(base);
     expect(chunks.length).toBeGreaterThan(1);
 
+    const reassembler = new DcLegacyChunkReassembler();
     let out: any = null;
     for (const chunk of chunks) {
-      out = dcTryReassembleChunk(chunk);
+      out = dcTryReassembleChunk(chunk, reassembler);
       if (out) break;
     }
 

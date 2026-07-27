@@ -6,9 +6,8 @@ test.describe('LLM Config', () => {
 
   async function openLlmSettings(page: any) {
     await login(page);
-    await page.goto('/settings');
+    await page.goto('/settings?section=llm');
     await expect(page.getByRole('heading', { name: /System-Einstellungen/i })).toBeVisible();
-    await page.getByRole('button', { name: /LLM und KI/i }).click();
     await expect(page.getByText(/Hub LLM Defaults/i)).toBeVisible();
   }
 
@@ -43,11 +42,25 @@ test.describe('LLM Config', () => {
 
   test('saves per-agent context_limit and shows catalog context lengths', async ({ page }) => {
     let postedContextLimit: number | null = null;
+    const corsHeaders = {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET, POST, OPTIONS',
+      'access-control-allow-headers': 'authorization, content-type, x-agent-token',
+    };
     await page.route('**/config', async (route) => {
+      if (new URL(route.request().url()).pathname !== '/config') {
+        await route.continue();
+        return;
+      }
+      if (route.request().method() === 'OPTIONS') {
+        await route.fulfill({ status: 204, headers: corsHeaders });
+        return;
+      }
       if (route.request().method() === 'GET') {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
+          headers: corsHeaders,
           body: JSON.stringify({
             status: 'success',
             data: {
@@ -80,14 +93,20 @@ test.describe('LLM Config', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: corsHeaders,
         body: JSON.stringify({ status: 'success', data: {} }),
       });
     });
 
     await page.route('**/providers/catalog*', async (route) => {
+      if (route.request().method() === 'OPTIONS') {
+        await route.fulfill({ status: 204, headers: corsHeaders });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: corsHeaders,
         body: JSON.stringify({
           status: 'success',
           data: {
@@ -115,6 +134,7 @@ test.describe('LLM Config', () => {
 
     // 1) Catalog context length is visible in model select
     const modelSelect = page.getByTestId('settings-default-model');
+    await expect(modelSelect).toBeVisible();
     await expect.poll(async () => {
       const options = await modelSelect.locator('option').allTextContents();
       return options.join(' | ');

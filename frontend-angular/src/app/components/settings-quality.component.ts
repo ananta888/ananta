@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SettingsState } from './settings-state.service';
 import { TooltipDirective } from '../directives/tooltip.directive';
@@ -7,7 +7,6 @@ import { TooltipDirective } from '../directives/tooltip.directive';
   selector: 'app-settings-quality',
   standalone: true,
   imports: [FormsModule, TooltipDirective],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './settings-quality.component.html',
 })
 export class SettingsQualityComponent {

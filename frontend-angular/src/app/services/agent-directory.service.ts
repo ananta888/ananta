@@ -56,6 +56,34 @@ export function androidRuntimeAgents(agents: readonly AgentEntry[]): AgentEntry[
   ];
 }
 
+/**
+ * Rewrites stale loopback entries for the Docker-internal frontend.
+ *
+ * Credentials already bound to the canonical compose service URL remain
+ * intact. A credential is cleared only when its origin is rewritten, because
+ * carrying it to a different trust boundary would be unsafe.
+ */
+export function composeRuntimeAgents(agents: readonly AgentEntry[]): AgentEntry[] {
+  const composeUrls: Readonly<Record<string, string>> = Object.freeze({
+    hub: 'http://ai-agent-hub:5000',
+    alpha: 'http://ai-agent-alpha:5000',
+    beta: 'http://ai-agent-beta:5000',
+  });
+  return agents.map((agent) => {
+    const expectedUrl = composeUrls[agent.name || ''];
+    if (!expectedUrl) return { ...agent };
+    try {
+      const hostname = new URL(String(agent.url || '')).hostname.toLowerCase();
+      if (hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '::1') {
+        return { ...agent };
+      }
+    } catch {
+      return { ...agent };
+    }
+    return { ...agent, url: expectedUrl, token: '' };
+  });
+}
+
 /** Whether the configured Android Hub is the embedded loopback control plane. */
 export function usesEmbeddedAndroidHub(url: string): boolean {
   try {
@@ -192,26 +220,11 @@ export class AgentDirectoryService {
 
     if (!this.isComposeInternalFrontendHost() || this.agents.length === 0) return;
 
-    let changed = false;
-    const byName: Record<string, string> = {
-      hub: 'http://ai-agent-hub:5000',
-      alpha: 'http://ai-agent-alpha:5000',
-      beta: 'http://ai-agent-beta:5000',
-    };
-
-    this.agents = this.agents.map((a) => {
-      const expectedUrl = byName[a.name || ''];
-      if (!expectedUrl) return a;
-      const current = (a.url || '').toLowerCase();
-      const mustResetToken = Boolean(a.token);
-      if (current.includes('localhost') || current.includes('127.0.0.1') || mustResetToken) {
-        changed = true;
-        return { ...a, url: expectedUrl, token: '' };
-      }
-      return a;
-    });
-
-    if (changed) this.save();
+    const normalized = composeRuntimeAgents(this.agents);
+    if (JSON.stringify(normalized) !== JSON.stringify(this.agents)) {
+      this.agents = normalized;
+      this.save();
+    }
   }
 
   private normalizeLoopbackUrls() {

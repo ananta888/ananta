@@ -1,4 +1,4 @@
-import { Directive, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Directive, OnInit, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
@@ -31,6 +31,7 @@ export class SettingsState implements OnInit {
   private ns = inject(NotificationService);
   private auth = inject(UserAuthService);
   private route = inject(ActivatedRoute);
+  private changeDetector = inject(ChangeDetectorRef);
   hub = this.system.resolveHubAgent();
   allAgents = this.system.listConfiguredAgents();
   config: any = createDefaultSettingsConfig();
@@ -171,6 +172,7 @@ export class SettingsState implements OnInit {
         this.loadProviderCatalog();
         this.loadResearchBackendStatus();
         this.loadEvolutionProviderStatus();
+        this.changeDetector?.markForCheck();
       },
       error: () => this.ns.error('Einstellungen konnten nicht geladen werden')
     });
@@ -284,6 +286,7 @@ export class SettingsState implements OnInit {
             context_limit: Number.isFinite(contextLimit) ? contextLimit : 4096,
             api_key_profile: String(llm.api_key_profile || '')
           };
+          this.changeDetector?.markForCheck();
         },
         error: () => {}
       });
@@ -331,9 +334,11 @@ export class SettingsState implements OnInit {
       next: (catalog) => {
         this.providerCatalog = catalog || null;
         this.ensureProviderModelConsistency();
+        this.changeDetector?.markForCheck();
       },
       error: () => {
         this.providerCatalog = null;
+        this.changeDetector?.markForCheck();
       }
     });
   }
@@ -460,24 +465,19 @@ export class SettingsState implements OnInit {
   getEffectiveProvider(): string {
     return (this.config?.default_provider || 'ollama').toLowerCase();
   }
-
   getEffectiveModel(): string {
     const model = this.config?.default_model;
     return model && String(model).trim().length ? model : '(auto)';
   }
-
   getEffectiveBaseUrl(): string {
     return this.getBaseUrlForProvider(this.getEffectiveProvider());
   }
-
   getHubCopilotProvider(): string {
     return resolveHubCopilotProviderValue(this.config, this.getEffectiveProvider());
   }
-
   getHubCopilotModel(): string {
     return resolveHubCopilotModelValue(this.config, this.getEffectiveModel());
   }
-
   getHubCopilotBaseUrl(): string {
     const explicit = String(this.config?.hub_copilot?.base_url || '').trim();
     if (explicit) return normalizeOpenAICompatibleBaseUrlValue(explicit);

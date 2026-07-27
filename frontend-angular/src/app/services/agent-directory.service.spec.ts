@@ -1,5 +1,6 @@
 import {
   androidRuntimeAgents,
+  composeRuntimeAgents,
   normalizeHubOrigin,
   usesEmbeddedAndroidHub,
 } from './agent-directory.service';
@@ -46,6 +47,26 @@ describe('androidRuntimeAgents', () => {
 
   it('uses the embedded Hub when no Hub has been configured', () => {
     expect(androidRuntimeAgents([])[0]?.url).toBe('http://127.0.0.1:5000');
+  });
+});
+
+describe('composeRuntimeAgents', () => {
+  it('preserves credentials already bound to canonical compose service URLs', () => {
+    expect(composeRuntimeAgents([
+      { name: 'hub', role: 'hub', url: 'http://ai-agent-hub:5000', token: 'hub-secret' },
+      { name: 'alpha', role: 'worker', url: 'http://ai-agent-alpha:5000', token: 'alpha-secret' },
+    ])).toEqual([
+      { name: 'hub', role: 'hub', url: 'http://ai-agent-hub:5000', token: 'hub-secret' },
+      { name: 'alpha', role: 'worker', url: 'http://ai-agent-alpha:5000', token: 'alpha-secret' },
+    ]);
+  });
+
+  it('clears credentials when moving a loopback entry to a compose trust boundary', () => {
+    expect(composeRuntimeAgents([
+      { name: 'hub', role: 'hub', url: 'http://127.0.0.1:5000', token: 'local-secret' },
+    ])).toEqual([
+      { name: 'hub', role: 'hub', url: 'http://ai-agent-hub:5000', token: '' },
+    ]);
   });
 });
 

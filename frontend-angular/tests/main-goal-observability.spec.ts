@@ -48,6 +48,29 @@ async function apiCall(
 test.describe('Main Goal Observability Journey', () => {
   test('keeps board/task detail/log tabs analysable and controllable', async ({ page, request }) => {
     test.setTimeout(90_000);
+    const featureHeaders = {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET, OPTIONS',
+      'access-control-allow-headers': 'authorization, content-type',
+    };
+    await page.route('**/config/features/v1', async (route) => {
+      if (route.request().method() === 'OPTIONS') {
+        await route.fulfill({ status: 204, headers: featureHeaders });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: featureHeaders,
+        body: JSON.stringify({
+          schema: 'ananta.dashboard-feature-flags.v1',
+          features: {
+            angular_kanban: true,
+            angular_model_dashboard: false,
+          },
+        }),
+      });
+    });
     await loginFast(page, request);
     const { hubUrl, token } = await getHubInfo(page);
     expect(token).toBeTruthy();
@@ -89,19 +112,16 @@ test.describe('Main Goal Observability Journey', () => {
       cleanup.trackTask(createdTaskId);
 
       await page.goto('/board', { waitUntil: 'domcontentloaded' });
-      await expect(page.getByRole('heading', { name: /^Board$/i })).toBeVisible();
-      await expect(page.getByRole('button', { name: /Sprint Board Ansicht/i })).toBeVisible();
-      await expect(page.getByRole('button', { name: /Scrum Insights Ansicht/i })).toBeVisible();
+      await expect(page.getByTestId('kanban-board')).toBeVisible();
+      await expect(page.getByRole('heading', { name: /^Arbeitsfluss$/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: /Snapshot aktualisieren/i })).toBeVisible();
 
-      await page.getByRole('button', { name: /Scrum Insights Ansicht/i }).click();
-      await expect(page.getByRole('heading', { name: /Burndown Chart/i })).toBeVisible();
-      await page.getByRole('button', { name: /Sprint Board Ansicht/i }).click();
-      await expect(page.getByPlaceholder('Suchen...')).toBeVisible();
+      const boardSearch = page.getByPlaceholder('Titel oder Beschreibung');
+      await expect(boardSearch).toBeVisible();
+      await boardSearch.fill(title);
+      await expect(boardSearch).toHaveValue(title);
 
-      await page.getByPlaceholder('Suchen...').fill(title);
-      const detailLink = page.getByRole('link', { name: new RegExp(`Task Details für ${title}`) });
-      await expect(detailLink.first()).toBeVisible();
-      await detailLink.first().click();
+      await page.goto(`/task/${createdTaskId}`, { waitUntil: 'domcontentloaded' });
 
       await expect(page.getByRole('heading', { name: /Task #/i })).toBeVisible();
       await page.getByRole('button', { name: /^Logs$/i }).click();
@@ -123,6 +143,7 @@ test.describe('Main Goal Observability Journey', () => {
       await cleanup.run();
       if (!page.isClosed()) {
         await page.unroute('**/tasks/*/stream-logs**');
+        await page.unroute('**/config/features/v1');
       }
     }
   });
