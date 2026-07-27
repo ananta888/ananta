@@ -11,8 +11,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from pathlib import Path
 from typing import Any, Mapping
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from agent.services.semantic_media_program_evidence import (
     ProgramEvidenceError,
@@ -26,7 +31,6 @@ try:
 except ModuleNotFoundError:  # Direct execution sets scripts as sys.path[0].
     from e2e.semantic_media_e2e_report import playwright_gate_config
 
-ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SPIKE = ROOT / "artifacts/domain/semantic-visual-feasibility.json"
 DEFAULT_BENCHMARK = ROOT / "artifacts/domain/semantic-visual-benchmark.json"
 DEFAULT_LIFECYCLE_E2E = ROOT / "artifacts/e2e/semantic-visual-lifecycle-report.json"
