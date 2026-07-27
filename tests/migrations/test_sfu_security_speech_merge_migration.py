@@ -17,8 +17,10 @@ LINEAR_SUCCESSORS = {
     "c46bf2a3d5e7": MERGE_REVISION,
     "d57cf3b4e6f8": "c46bf2a3d5e7",
     "e68df4c5b7a9": "d57cf3b4e6f8",
+    "a7c9e1f3b5d7": "e68df4c5b7a9",
+    "b8d0f2a4c6e8": "a7c9e1f3b5d7",
 }
-HEAD_REVISION = "e68df4c5b7a9"
+HEAD_REVISION = "b8d0f2a4c6e8"
 
 
 def test_migration_graph_has_one_merge_head_with_both_independent_parents() -> None:
