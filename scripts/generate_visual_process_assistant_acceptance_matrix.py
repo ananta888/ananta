@@ -15,7 +15,7 @@ FUNCTIONAL_INPUT = ROOT / "artifacts/test-gates/visual-process-assistant.json"
 PERFORMANCE_INPUT = ROOT / "artifacts/test-gates/visual-process-assistant-performance.json"
 OUTPUT = ROOT / "artifacts/test-gates/visual-process-assistant-acceptance-matrix.json"
 SOURCE_PROJECTION = (
-    "todos/todo.visual-process-contextual-node-configuration-ai-snake-codecompass.json",
+    "todos/active/todo.visual-process-contextual-node-configuration-ai-snake-codecompass.json",
     "docs/architecture/visual-process-assistant.md",
     "scripts/generate_visual_process_assistant_acceptance_matrix.py",
     "artifacts/test-gates/visual-process-assistant.json",

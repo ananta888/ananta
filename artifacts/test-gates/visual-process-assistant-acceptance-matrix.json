@@ -8,7 +8,7 @@
   ],
   "release_allowed": false,
   "schema": "ananta.visual-process-assistant-acceptance-matrix.v1",
-  "source_revision": "worktree-sha256:734e3dd16062a74220564822fbfe8bfefb4356d5a810265857330e36f0a4d919",
+  "source_revision": "worktree-sha256:3335be6cadd4bfc95cd732a9a945b4a4316a4b3cc35b419815c79eb8592dc7db",
   "status": "blocked",
   "tasks": [
     {
