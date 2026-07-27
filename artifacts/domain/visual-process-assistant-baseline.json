@@ -277,6 +277,14 @@
       "consumers": [
         "node_definition"
       ],
+      "path": "/metadata/model_routing/context_recovery_strategies"
+    },
+    {
+      "canonical_kind": "evolution_analyze",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
       "path": "/metadata/model_routing/fallback_group_id"
     },
     {
@@ -286,6 +294,14 @@
         "node_definition"
       ],
       "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "evolution_analyze",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/require_approval_for_generated_plan"
     },
     {
       "canonical_kind": "evolution_analyze",
@@ -333,6 +349,14 @@
       "consumers": [
         "node_definition"
       ],
+      "path": "/metadata/model_routing/context_recovery_strategies"
+    },
+    {
+      "canonical_kind": "evolution_apply",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
       "path": "/metadata/model_routing/fallback_group_id"
     },
     {
@@ -342,6 +366,14 @@
         "node_definition"
       ],
       "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "evolution_apply",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/require_approval_for_generated_plan"
     },
     {
       "canonical_kind": "evolution_apply",
@@ -413,6 +445,14 @@
       "consumers": [
         "node_definition"
       ],
+      "path": "/metadata/model_routing/context_recovery_strategies"
+    },
+    {
+      "canonical_kind": "evolve_project",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
       "path": "/metadata/model_routing/fallback_group_id"
     },
     {
@@ -422,6 +462,14 @@
         "node_definition"
       ],
       "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "evolve_project",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/require_approval_for_generated_plan"
     },
     {
       "canonical_kind": "evolve_project",
@@ -453,6 +501,14 @@
       "consumers": [
         "node_definition"
       ],
+      "path": "/metadata/model_routing/context_recovery_strategies"
+    },
+    {
+      "canonical_kind": "evolve_prompt",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
       "path": "/metadata/model_routing/fallback_group_id"
     },
     {
@@ -462,6 +518,14 @@
         "node_definition"
       ],
       "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "evolve_prompt",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/require_approval_for_generated_plan"
     },
     {
       "canonical_kind": "evolve_prompt",
@@ -1238,6 +1302,14 @@
       "consumers": [
         "node_definition"
       ],
+      "path": "/metadata/model_routing/context_recovery_strategies"
+    },
+    {
+      "canonical_kind": "patch_propose",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
       "path": "/metadata/model_routing/fallback_group_id"
     },
     {
@@ -1247,6 +1319,14 @@
         "node_definition"
       ],
       "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "patch_propose",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/require_approval_for_generated_plan"
     },
     {
       "canonical_kind": "plan_only",
@@ -1278,6 +1358,14 @@
       "consumers": [
         "node_definition"
       ],
+      "path": "/metadata/model_routing/context_recovery_strategies"
+    },
+    {
+      "canonical_kind": "plan_only",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
       "path": "/metadata/model_routing/fallback_group_id"
     },
     {
@@ -1287,6 +1375,14 @@
         "node_definition"
       ],
       "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "plan_only",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/require_approval_for_generated_plan"
     },
     {
       "canonical_kind": "query_rewrite",
@@ -1450,6 +1546,14 @@
       "consumers": [
         "node_definition"
       ],
+      "path": "/metadata/model_routing/context_recovery_strategies"
+    },
+    {
+      "canonical_kind": "research_limited",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
       "path": "/metadata/model_routing/fallback_group_id"
     },
     {
@@ -1459,6 +1563,14 @@
         "node_definition"
       ],
       "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "research_limited",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/require_approval_for_generated_plan"
     },
     {
       "canonical_kind": "research_limited",
@@ -1490,6 +1602,14 @@
       "consumers": [
         "node_definition"
       ],
+      "path": "/metadata/model_routing/context_recovery_strategies"
+    },
+    {
+      "canonical_kind": "review",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
       "path": "/metadata/model_routing/fallback_group_id"
     },
     {
@@ -1499,6 +1619,14 @@
         "node_definition"
       ],
       "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "review",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/require_approval_for_generated_plan"
     },
     {
       "canonical_kind": "review",
@@ -1619,6 +1747,14 @@
       "consumers": [
         "node_definition"
       ],
+      "path": "/metadata/model_routing/context_recovery_strategies"
+    },
+    {
+      "canonical_kind": "summarize",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
       "path": "/metadata/model_routing/fallback_group_id"
     },
     {
@@ -1628,6 +1764,14 @@
         "node_definition"
       ],
       "path": "/metadata/model_routing/preferred_profile_id"
+    },
+    {
+      "canonical_kind": "summarize",
+      "classification": "canonical",
+      "consumers": [
+        "node_definition"
+      ],
+      "path": "/metadata/model_routing/require_approval_for_generated_plan"
     },
     {
       "canonical_kind": "turboquant_mse",
@@ -1820,8 +1964,8 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 169,
-          "line_start": 169,
+          "line_end": 199,
+          "line_start": 199,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "_KIND_FIELDS.rerank",
           "verification_status": "verified"
@@ -1847,8 +1991,8 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 363,
-          "line_start": 363,
+          "line_end": 393,
+          "line_start": 393,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "_KIND_FIELDS.embed_api",
           "verification_status": "verified"
@@ -1951,7 +2095,7 @@
   "summary": {
     "adapter_count": 9,
     "canonical_kind_count": 37,
-    "consumed_field_count": 221,
+    "consumed_field_count": 239,
     "contract_finding_count": 5,
     "frontend_fallback_count": 37,
     "legacy_alias_count": 24,
@@ -2016,15 +2160,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7397,
-          "line_start": 7397,
+          "line_end": 7743,
+          "line_start": 7743,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.approval",
           "verification_status": "verified"
@@ -2197,15 +2341,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7758,
-          "line_start": 7758,
+          "line_end": 8104,
+          "line_start": 8104,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.codecompass_fts_search",
           "verification_status": "verified"
@@ -2266,15 +2410,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7775,
-          "line_start": 7775,
+          "line_end": 8121,
+          "line_start": 8121,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.codecompass_graph_expand",
           "verification_status": "verified"
@@ -2335,15 +2479,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7792,
-          "line_start": 7792,
+          "line_end": 8138,
+          "line_start": 8138,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.codecompass_index_build",
           "verification_status": "verified"
@@ -2404,15 +2548,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7811,
-          "line_start": 7811,
+          "line_end": 8157,
+          "line_start": 8157,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.codecompass_vector_search",
           "verification_status": "verified"
@@ -2500,15 +2644,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7450,
-          "line_start": 7450,
+          "line_end": 7796,
+          "line_start": 7796,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.command_execute",
           "verification_status": "verified"
@@ -2596,15 +2740,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7828,
-          "line_start": 7828,
+          "line_end": 8174,
+          "line_start": 8174,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.domain_cluster",
           "verification_status": "verified"
@@ -2671,15 +2815,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7847,
-          "line_start": 7847,
+          "line_end": 8193,
+          "line_start": 8193,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.embed_api",
           "verification_status": "verified"
@@ -2740,15 +2884,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7868,
-          "line_start": 7868,
+          "line_end": 8214,
+          "line_start": 8214,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.embed_chunk",
           "verification_status": "verified"
@@ -2790,8 +2934,10 @@
         "/metadata/analyze_only",
         "/metadata/description",
         "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/context_recovery_strategies",
         "/metadata/model_routing/fallback_group_id",
         "/metadata/model_routing/preferred_profile_id",
+        "/metadata/model_routing/require_approval_for_generated_plan",
         "/metadata/provider_name",
         "/metadata/trigger_type",
         "/policy_hints",
@@ -2813,15 +2959,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7888,
-          "line_start": 7888,
+          "line_end": 8234,
+          "line_start": 8234,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.evolution_analyze",
           "verification_status": "verified"
@@ -2863,8 +3009,10 @@
         "/metadata/apply_allowed",
         "/metadata/description",
         "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/context_recovery_strategies",
         "/metadata/model_routing/fallback_group_id",
         "/metadata/model_routing/preferred_profile_id",
+        "/metadata/model_routing/require_approval_for_generated_plan",
         "/metadata/proposal_id",
         "/metadata/provider_name",
         "/policy_hints",
@@ -2886,15 +3034,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7907,
-          "line_start": 7907,
+          "line_end": 8253,
+          "line_start": 8253,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.evolution_apply",
           "verification_status": "verified"
@@ -2955,15 +3103,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7927,
-          "line_start": 7927,
+          "line_end": 8273,
+          "line_start": 8273,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.evolution_validate",
           "verification_status": "verified"
@@ -3005,8 +3153,10 @@
         "/metadata/apply_allowed",
         "/metadata/description",
         "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/context_recovery_strategies",
         "/metadata/model_routing/fallback_group_id",
         "/metadata/model_routing/preferred_profile_id",
+        "/metadata/model_routing/require_approval_for_generated_plan",
         "/metadata/project_ref",
         "/policy_hints",
         "/role"
@@ -3027,15 +3177,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7944,
-          "line_start": 7944,
+          "line_end": 8290,
+          "line_start": 8290,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.evolve_project",
           "verification_status": "verified"
@@ -3076,8 +3226,10 @@
         "/label",
         "/metadata/description",
         "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/context_recovery_strategies",
         "/metadata/model_routing/fallback_group_id",
         "/metadata/model_routing/preferred_profile_id",
+        "/metadata/model_routing/require_approval_for_generated_plan",
         "/metadata/prompt_template_ref",
         "/metadata/target_model_family",
         "/policy_hints",
@@ -3099,15 +3251,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7964,
-          "line_start": 7964,
+          "line_end": 8310,
+          "line_start": 8310,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.evolve_prompt",
           "verification_status": "verified"
@@ -3167,15 +3319,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7469,
-          "line_start": 7469,
+          "line_end": 7815,
+          "line_start": 7815,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.file_check",
           "verification_status": "verified"
@@ -3235,15 +3387,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7414,
-          "line_start": 7414,
+          "line_end": 7760,
+          "line_start": 7760,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.fork",
           "verification_status": "verified"
@@ -3331,15 +3483,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7491,
-          "line_start": 7491,
+          "line_end": 7837,
+          "line_start": 7837,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.git_op",
           "verification_status": "verified"
@@ -3538,15 +3690,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7433,
-          "line_start": 7433,
+          "line_end": 7779,
+          "line_start": 7779,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.join",
           "verification_status": "verified"
@@ -3690,15 +3842,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7983,
-          "line_start": 7983,
+          "line_end": 8329,
+          "line_start": 8329,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.ml_intern_build_lora_dataset",
           "verification_status": "verified"
@@ -3805,15 +3957,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 8004,
-          "line_start": 8004,
+          "line_end": 8350,
+          "line_start": 8350,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.ml_intern_train_lora",
           "verification_status": "verified"
@@ -3901,15 +4053,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7513,
-          "line_start": 7513,
+          "line_end": 7859,
+          "line_start": 7859,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.patch_apply",
           "verification_status": "verified"
@@ -3952,8 +4104,10 @@
         "/metadata/description",
         "/metadata/instructions",
         "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/context_recovery_strategies",
         "/metadata/model_routing/fallback_group_id",
         "/metadata/model_routing/preferred_profile_id",
+        "/metadata/model_routing/require_approval_for_generated_plan",
         "/policy_hints",
         "/role"
       ],
@@ -3973,15 +4127,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7536,
-          "line_start": 7536,
+          "line_end": 7882,
+          "line_start": 7882,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.patch_propose",
           "verification_status": "verified"
@@ -4023,8 +4177,10 @@
         "/metadata/description",
         "/metadata/instructions",
         "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/context_recovery_strategies",
         "/metadata/model_routing/fallback_group_id",
         "/metadata/model_routing/preferred_profile_id",
+        "/metadata/model_routing/require_approval_for_generated_plan",
         "/policy_hints",
         "/role"
       ],
@@ -4044,15 +4200,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7555,
-          "line_start": 7555,
+          "line_end": 7901,
+          "line_start": 7901,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.plan_only",
           "verification_status": "verified"
@@ -4113,15 +4269,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 8025,
-          "line_start": 8025,
+          "line_end": 8371,
+          "line_start": 8371,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.query_rewrite",
           "verification_status": "verified"
@@ -4183,15 +4339,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 8042,
-          "line_start": 8042,
+          "line_end": 8388,
+          "line_start": 8388,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.rag_retrieve",
           "verification_status": "verified"
@@ -4308,15 +4464,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7575,
-          "line_start": 7575,
+          "line_end": 7921,
+          "line_start": 7921,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.regex_check",
           "verification_status": "verified"
@@ -4381,15 +4537,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 8059,
-          "line_start": 8059,
+          "line_end": 8405,
+          "line_start": 8405,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.rerank",
           "verification_status": "verified"
@@ -4458,8 +4614,10 @@
         "/label",
         "/metadata/description",
         "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/context_recovery_strategies",
         "/metadata/model_routing/fallback_group_id",
         "/metadata/model_routing/preferred_profile_id",
+        "/metadata/model_routing/require_approval_for_generated_plan",
         "/metadata/question",
         "/policy_hints",
         "/role"
@@ -4480,15 +4638,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7594,
-          "line_start": 7594,
+          "line_end": 7940,
+          "line_start": 7940,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.research_limited",
           "verification_status": "verified"
@@ -4529,8 +4687,10 @@
         "/label",
         "/metadata/description",
         "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/context_recovery_strategies",
         "/metadata/model_routing/fallback_group_id",
         "/metadata/model_routing/preferred_profile_id",
+        "/metadata/model_routing/require_approval_for_generated_plan",
         "/metadata/review_focus",
         "/policy_hints",
         "/role"
@@ -4551,15 +4711,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7613,
-          "line_start": 7613,
+          "line_end": 7959,
+          "line_start": 7959,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.review",
           "verification_status": "verified"
@@ -4619,15 +4779,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7633,
-          "line_start": 7633,
+          "line_end": 7979,
+          "line_start": 7979,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.run_tests",
           "verification_status": "verified"
@@ -4687,15 +4847,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7656,
-          "line_start": 7656,
+          "line_end": 8002,
+          "line_start": 8002,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.script",
           "verification_status": "verified"
@@ -4755,15 +4915,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7677,
-          "line_start": 7677,
+          "line_end": 8023,
+          "line_start": 8023,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.shell_execute",
           "verification_status": "verified"
@@ -4853,15 +5013,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 8076,
-          "line_start": 8076,
+          "line_end": 8422,
+          "line_start": 8422,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.sign_rotation",
           "verification_status": "verified"
@@ -4903,8 +5063,10 @@
         "/metadata/description",
         "/metadata/instructions",
         "/metadata/model_routing/allow_cloud",
+        "/metadata/model_routing/context_recovery_strategies",
         "/metadata/model_routing/fallback_group_id",
         "/metadata/model_routing/preferred_profile_id",
+        "/metadata/model_routing/require_approval_for_generated_plan",
         "/policy_hints",
         "/role"
       ],
@@ -4924,15 +5086,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7700,
-          "line_start": 7700,
+          "line_end": 8046,
+          "line_start": 8046,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.summarize",
           "verification_status": "verified"
@@ -5051,15 +5213,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 8093,
-          "line_start": 8093,
+          "line_end": 8439,
+          "line_start": 8439,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.turboquant_mse",
           "verification_status": "verified"
@@ -5157,15 +5319,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7719,
-          "line_start": 7719,
+          "line_end": 8065,
+          "line_start": 8065,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.workspace_diff",
           "verification_status": "verified"
@@ -5227,15 +5389,15 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 777,
-          "line_start": 777,
+          "line_end": 807,
+          "line_start": 807,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
         },
         {
-          "line_end": 7739,
-          "line_start": 7739,
+          "line_end": 8085,
+          "line_start": 8085,
           "path": "frontend-angular/src/app/features/visual-process/vp-node-definitions.generated.ts",
           "symbol": "GENERATED_VISUAL_PROCESS_TASK_KINDS.workspace_snapshot",
           "verification_status": "verified"
