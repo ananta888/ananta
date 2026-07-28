@@ -226,6 +226,12 @@ export class CliBackendAccountLoginComponent implements OnChanges, OnDestroy {
     this.state.requiresInput = !!result?.requires_input;
     this.state.running = this.state.status === 'pending';
     this.state.error = '';
+    if (!this.state.running) {
+      this.state.verificationUrl = '';
+      this.state.userCode = '';
+      this.state.requiresInput = false;
+      this.state.input = '';
+    }
     this.cdr.detectChanges();
     if (this.state.running) {
       this.schedulePoll();

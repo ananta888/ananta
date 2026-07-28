@@ -605,6 +605,7 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
             log.info(f"Zentraler Codex-Aufruf: {args}")
             result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
                 args,
+                stdin=subprocess.DEVNULL,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",

@@ -195,6 +195,8 @@ def test_run_codex_command_api_key_remote_requires_key():
 def test_run_codex_command_chatgpt_login_skips_api_key_for_remote():
     """CCA-002 acceptance: chatgpt_login mode runs codex without
     OPENAI_API_KEY being set, even for a remote base_url."""
+    import subprocess as subprocess_module
+
     from agent.cli_backends import opencode as opencode_mod
     from agent.cli_backends import sgpt as sgpt_mod
 
@@ -227,6 +229,7 @@ def test_run_codex_command_chatgpt_login_skips_api_key_for_remote():
     # configured remote.
     assert env_passed.get("OPENAI_BASE_URL") == "https://api.openai.com/v1"
     assert env_passed.get("OPENAI_API_BASE") == "https://api.openai.com/v1"
+    assert call_kwargs.get("stdin") is subprocess_module.DEVNULL
 
 
 def test_run_codex_command_chatgpt_login_local_works_without_any_key():

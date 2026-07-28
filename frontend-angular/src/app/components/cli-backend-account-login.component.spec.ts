@@ -84,4 +84,22 @@ describe('CliBackendAccountLoginComponent', () => {
     );
     expect(component.state.input).toBe('');
   });
+
+  it('clears temporary authorization data after authentication', () => {
+    const component = createComponent();
+    component.state.verificationUrl = 'https://auth.openai.com/codex/device';
+    component.state.userCode = 'ABCD-EFGHI';
+
+    component.applyResult({
+      session_id: 'opaque-session',
+      status: 'authenticated',
+      authenticated: true,
+      verification_url: 'https://auth.openai.com/codex/device',
+      user_code: 'ABCD-EFGHI',
+    });
+
+    expect(component.state.verificationUrl).toBe('');
+    expect(component.state.userCode).toBe('');
+    expect(component.state.authenticated).toBe(true);
+  });
 });
