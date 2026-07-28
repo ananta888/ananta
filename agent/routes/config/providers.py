@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from agent.auth import check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
+from agent.config import settings as runtime_settings
 from agent.config_defaults import sync_runtime_state
 from agent.repositories.model_default_selection import (
     SqlModelDefaultSelectionRepository,
@@ -240,12 +241,14 @@ def _catalog_query(*, force_refresh: bool | None = None) -> CatalogQuery:
 def _model_catalog_feature_enabled() -> bool:
     app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
     defaults = {
-        "feature_angular_model_dashboard_enabled": current_app.config.get(
-            "FEATURE_ANGULAR_MODEL_DASHBOARD_ENABLED",
+        "feature_angular_model_dashboard_enabled": getattr(
+            runtime_settings,
+            "feature_angular_model_dashboard_enabled",
             False,
         ),
-        "feature_tui_model_menu_enabled": current_app.config.get(
-            "FEATURE_TUI_MODEL_MENU_ENABLED",
+        "feature_tui_model_menu_enabled": getattr(
+            runtime_settings,
+            "feature_tui_model_menu_enabled",
             False,
         ),
     }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from agent.routes.config import providers
 from agent.services.model_catalog_service import CatalogQuery
 from ananta_contracts.model_catalog import (
     MODEL_DEFAULT_SELECTION_COMMAND_SCHEMA,
@@ -86,6 +87,18 @@ def test_versioned_catalog_is_fail_closed_until_feature_enabled(
 
     assert response.status_code == 404
     assert response.json["message"] == "model_catalog_feature_disabled"
+
+
+def test_model_catalog_uses_runtime_feature_flag_default(app, monkeypatch):
+    app.config["AGENT_CONFIG"] = {}
+    monkeypatch.setattr(
+        providers.runtime_settings,
+        "feature_angular_model_dashboard_enabled",
+        True,
+    )
+
+    with app.app_context():
+        assert providers._model_catalog_feature_enabled() is True
 
 
 def test_versioned_catalog_and_refresh_use_safe_dedicated_contract(
