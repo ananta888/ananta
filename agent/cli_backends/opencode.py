@@ -569,10 +569,6 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
         return -1, "", (f"Codex binary '{codex_bin}' not found. Install with: npm i -g @openai/codex")
 
     args = [codex_resolved, "exec", "--skip-git-repo-check"]
-    selected_model = model or settings.codex_default_model
-    if selected_model:
-        args.extend(["--model", selected_model])
-    args.append(prompt)
 
     with _acquire_backend_permit("codex", timeout=timeout) as ticket:
         if not ticket.acquired:
@@ -584,6 +580,14 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
         diagnostics = list(runtime_cfg.get("diagnostics") or [])
         # CCA-002: chatgpt_login mode skips the api_key requirement.
         auth_mode = str(runtime_cfg.get("auth_mode") or "api_key").strip().lower()
+        selected_model = (
+            model
+            if auth_mode == "chatgpt_login"
+            else model or settings.codex_default_model
+        )
+        if selected_model:
+            args.extend(["--model", selected_model])
+        args.append(prompt)
         if not base_url:
             return -1, "", "Codex runtime target is not configured: missing OpenAI-compatible base_url"
         if not api_key and not bool(runtime_cfg.get("is_local")) and auth_mode != "chatgpt_login":

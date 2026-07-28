@@ -230,6 +230,9 @@ def test_run_codex_command_chatgpt_login_skips_api_key_for_remote():
     assert env_passed.get("OPENAI_BASE_URL") == "https://api.openai.com/v1"
     assert env_passed.get("OPENAI_API_BASE") == "https://api.openai.com/v1"
     assert call_kwargs.get("stdin") is subprocess_module.DEVNULL
+    command = mock_run.call_args.args[0]
+    assert "--model" not in command
+    assert command[-1] == "hi"
 
 
 def test_run_codex_command_chatgpt_login_local_works_without_any_key():
