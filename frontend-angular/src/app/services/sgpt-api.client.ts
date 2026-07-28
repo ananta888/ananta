@@ -96,6 +96,30 @@ export class SgptApiClient {
     );
   }
 
+  /** Hub-routed diagnose/test action on one selected Worker. */
+  backendWorkerAction(
+    baseUrl: string,
+    backendId: string,
+    body: {
+      worker_name: string;
+      action: 'diagnose' | 'test_run';
+      prompt?: string;
+      model?: string;
+      timeout?: number;
+    },
+    token?: string,
+  ): Observable<any> {
+    return this.transport.unwrap(
+      this.transport.http
+        .post(
+          `${baseUrl}/api/sgpt/backends/${encodeURIComponent(backendId)}/worker-action`,
+          body,
+          this.transport.getHeaders(baseUrl, token),
+        )
+        .pipe(timeout(body.action === 'test_run' ? 320000 : 60000)),
+    );
+  }
+
   /** write_armed: schreibender Claude-Run im isolierten Workspace, liefert Diff-Artefakt. */
   claudeWriteArmedRun(baseUrl: string, body: { prompt: string; workdir: string; model?: string; timeout?: number }, token?: string): Observable<any> {
     return this.transport.unwrap(

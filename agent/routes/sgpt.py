@@ -765,13 +765,21 @@ def cli_backend_test_run(backend_id: str):
     )
 
 
-def _registered_worker(worker_url: str):
+def _registered_worker(worker_url: str = "", *, worker_name: str = ""):
     normalized_url = str(worker_url or "").strip().rstrip("/")
-    if not normalized_url:
+    normalized_name = str(worker_name or "").strip().lower()
+    if not normalized_url and not normalized_name:
         return None
     for agent in get_repository_registry().agent_repo.get_all() or ():
+        identity_matches = (
+            bool(normalized_url)
+            and str(agent.url or "").strip().rstrip("/") == normalized_url
+        ) or (
+            bool(normalized_name)
+            and str(agent.name or "").strip().lower() == normalized_name
+        )
         if (
-            str(agent.url or "").strip().rstrip("/") == normalized_url
+            identity_matches
             and str(agent.role or "").strip().lower() == "worker"
             and bool(agent.registration_validated)
         ):
@@ -889,6 +897,77 @@ def cli_backend_provision(backend_id: str):
         },
     )
     return api_response(data={**result, "action": action})
+
+
+@sgpt_bp.route("/backends/<backend_id>/worker-action", methods=["POST"])
+@admin_required
+def cli_backend_worker_action(backend_id: str):
+    """Run a bounded CLI diagnostic action on one registered Worker."""
+
+    backend = str(backend_id or "").strip().lower()
+    if backend not in {"codex", "claude_code"}:
+        return api_response(status="error", message="backend_not_provisionable", code=404)
+    if settings.role != "hub":
+        return api_response(status="error", message="hub_role_required", code=409)
+
+    body = request.get_json(silent=True) or {}
+    action = str(body.get("action") or "").strip().lower()
+    worker = _registered_worker(worker_name=str(body.get("worker_name") or ""))
+    if worker is None:
+        return api_response(status="error", message="registered_worker_required", code=404)
+
+    if action == "diagnose":
+        endpoint = f"/api/sgpt/backends/{backend}/diagnose"
+        forwarded_body = {}
+        timeout = 60
+    elif action == "test_run":
+        try:
+            requested_timeout = int(body.get("timeout") or 120)
+        except (TypeError, ValueError):
+            requested_timeout = 120
+        endpoint = f"/api/sgpt/backends/{backend}/test-run"
+        forwarded_body = {
+            "prompt": str(body.get("prompt") or "Antworte nur mit dem Wort: OK")[:2000],
+            "model": str(body.get("model") or "")[:200] or None,
+            "timeout": max(10, min(requested_timeout, 300)),
+        }
+        timeout = 320
+    else:
+        return api_response(status="error", message="invalid_worker_action", code=400)
+
+    token = str(worker.token or "").strip() or resolve_configured_agent_token(
+        current_app.config
+    )
+    if not token:
+        return api_response(
+            status="error",
+            message="worker_service_token_unavailable",
+            code=503,
+        )
+    result = get_worker_gateway().forward_task(
+        str(worker.url),
+        endpoint,
+        forwarded_body,
+        token=token,
+        timeout=timeout,
+    )
+    if not isinstance(result, dict) or result.get("status") == "error":
+        return api_response(
+            status="error",
+            message="worker_cli_action_failed",
+            data={
+                "worker": {"name": worker.name, "url": worker.url},
+                "worker_response": result,
+            },
+            code=502,
+        )
+    data = result.get("data") if isinstance(result.get("data"), dict) else result
+    return api_response(
+        data={
+            **dict(data),
+            "worker": {"name": worker.name, "url": worker.url},
+        }
+    )
 
 
 @sgpt_bp.route("/backends/claude_code/write-armed-run", methods=["POST"])

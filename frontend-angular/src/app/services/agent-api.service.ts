@@ -109,6 +109,20 @@ export class AgentApiService {
   ): Observable<any> {
     return this.sgpt.backendProvision(baseUrl, backendId, body, token);
   }
+  sgptBackendWorkerAction(
+    baseUrl: string,
+    backendId: string,
+    body: {
+      worker_name: string;
+      action: 'diagnose' | 'test_run';
+      prompt?: string;
+      model?: string;
+      timeout?: number;
+    },
+    token?: string,
+  ): Observable<any> {
+    return this.sgpt.backendWorkerAction(baseUrl, backendId, body, token);
+  }
   sgptBackendTestRun(baseUrl: string, backendId: string, body: { prompt?: string; model?: string; timeout?: number } = {}, token?: string): Observable<any> {
     return this.sgpt.backendTestRun(baseUrl, backendId, body, token);
   }

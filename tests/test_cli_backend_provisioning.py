@@ -124,6 +124,53 @@ def test_hub_provision_route_rejects_unknown_worker(
     assert response.json["message"] == "registered_worker_required"
 
 
+def test_hub_routes_cli_diagnose_to_selected_worker(
+    client, admin_auth_header, monkeypatch
+):
+    worker = SimpleNamespace(
+        name="ananta-worker-1",
+        url="http://worker-alpha:5000",
+        role="worker",
+        token="w" * 32,
+        registration_validated=True,
+    )
+    gateway = MagicMock()
+    gateway.forward_task.return_value = {
+        "status": "success",
+        "data": {
+            "backend": "codex",
+            "status": "ready",
+            "binary_available": True,
+            "binary_path": "/data/codex",
+        },
+    }
+    monkeypatch.setattr("agent.routes.sgpt.settings.role", "hub")
+    monkeypatch.setattr(
+        "agent.routes.sgpt._registered_worker",
+        lambda *args, **kwargs: (
+            worker if kwargs.get("worker_name") == worker.name else None
+        ),
+    )
+    monkeypatch.setattr("agent.routes.sgpt.get_worker_gateway", lambda: gateway)
+
+    response = client.post(
+        "/api/sgpt/backends/codex/worker-action",
+        json={"worker_name": worker.name, "action": "diagnose"},
+        headers=admin_auth_header,
+    )
+
+    assert response.status_code == 200
+    assert response.json["data"]["worker"]["name"] == worker.name
+    assert response.json["data"]["binary_available"] is True
+    gateway.forward_task.assert_called_once_with(
+        worker.url,
+        "/api/sgpt/backends/codex/diagnose",
+        {},
+        token=worker.token,
+        timeout=60,
+    )
+
+
 def test_quickstart_image_uses_worker_persistent_cli_backend_directory():
     dockerfile = (
         ROOT / "docker" / "compose-next" / "Dockerfile.quickstart-no-ollama"

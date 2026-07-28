@@ -60,9 +60,9 @@ function emptyCard(): BackendCardState {
         <div class="backend-card" data-testid="codex-card">
           <div class="row flex-between">
             <strong>OpenAI Codex CLI</strong>
-            <span class="status-chip" [class]="'chip-' + codex.status">{{ statusLabel(codex.status) }}</span>
+            <span class="status-chip" [class]="'chip-' + executionStatus('codex')">{{ statusLabel(executionStatus('codex')) }}</span>
           </div>
-          @if (codex.preflight?.install_hint && codex.status === 'not_installed') {
+          @if (codex.preflight?.install_hint && executionStatus('codex') === 'not_installed') {
             <p class="hint">Installieren: <code>{{ codex.preflight.install_hint }}</code></p>
           }
           <div class="worker-picker" data-testid="codex-worker-picker">
@@ -88,6 +88,14 @@ function emptyCard(): BackendCardState {
             >⬇ Auf Auswahl installieren</button>
           </div>
           <label class="label-block">
+            Ausführungs-Worker
+            <select [(ngModel)]="codexWorkerName" (ngModelChange)="executionWorkerChanged(codex)">
+              @for (worker of workers; track worker.url) {
+                <option [value]="worker.name">{{ worker.name }}</option>
+              }
+            </select>
+          </label>
+          <label class="label-block">
             Auth-Modus
             <select [(ngModel)]="codexAuthMode">
               <option value="api_key">API-Key</option>
@@ -101,16 +109,17 @@ function emptyCard(): BackendCardState {
             </label>
           } @else {
             <p class="hint">
-              Kein API-Key nötig. Einmalig lokal anmelden:
-              <code>{{ codex.provider?.login_command || 'codex login' }}</code>
+              Kein API-Key nötig. Einmalig im Terminal von
+              {{ codexWorkerName || 'dem ausgewählten Worker' }} anmelden:
+              <code>{{ workerLoginCommand('codex') }}</code>
             </p>
           }
           <div class="row btn-row">
             <button class="button-outline" (click)="saveCodex()">💾 Speichern</button>
-            <button class="button-outline" [disabled]="codex.diagnosing" (click)="diagnose('codex', codex)">
+            <button class="button-outline" [disabled]="codex.diagnosing || !codexWorkerName" (click)="diagnose('codex', codex)">
               {{ codex.diagnosing ? '⏳' : '🩺' }} Diagnose
             </button>
-            <button class="button-outline" [disabled]="codex.testRunning" (click)="testRun('codex', codex)">
+            <button class="button-outline" [disabled]="codex.testRunning || executionStatus('codex') !== 'ready'" (click)="testRun('codex', codex)">
               {{ codex.testRunning ? '⏳' : '▶' }} Test-Run (read-only)
             </button>
           </div>
@@ -126,9 +135,9 @@ function emptyCard(): BackendCardState {
         <div class="backend-card" data-testid="claude-card">
           <div class="row flex-between">
             <strong>Claude Code CLI</strong>
-            <span class="status-chip" [class]="'chip-' + claude.status">{{ statusLabel(claude.status) }}</span>
+            <span class="status-chip" [class]="'chip-' + executionStatus('claude_code')">{{ statusLabel(executionStatus('claude_code')) }}</span>
           </div>
-          @if (claude.provider?.install_hint && claude.status === 'not_installed') {
+          @if (claude.provider?.install_hint && executionStatus('claude_code') === 'not_installed') {
             <p class="hint">Installieren: <code>{{ claude.provider.install_hint }}</code></p>
           }
           <div class="worker-picker" data-testid="claude-worker-picker">
@@ -153,6 +162,14 @@ function emptyCard(): BackendCardState {
               (click)="installOnSelectedWorkers('claude_code')"
             >⬇ Auf Auswahl installieren</button>
           </div>
+          <label class="label-block">
+            Ausführungs-Worker
+            <select [(ngModel)]="claudeWorkerName" (ngModelChange)="executionWorkerChanged(claude)">
+              @for (worker of workers; track worker.url) {
+                <option [value]="worker.name">{{ worker.name }}</option>
+              }
+            </select>
+          </label>
           <label class="check-block">
             <input type="checkbox" [(ngModel)]="claudeEnabled" /> Aktiviert (opt-in)
           </label>
@@ -165,8 +182,9 @@ function emptyCard(): BackendCardState {
           </label>
           @if (claudeAuthMode === 'claude_login') {
             <p class="hint">
-              Kein Token-Feld: einmalig lokal anmelden mit
-              <code>{{ claude.provider?.login_command || 'claude login' }}</code>
+              Kein Token-Feld: einmalig im Terminal von
+              {{ claudeWorkerName || 'dem ausgewählten Worker' }} anmelden mit
+              <code>{{ workerLoginCommand('claude_code') }}</code>
             </p>
           }
           <label class="label-block">
@@ -186,10 +204,10 @@ function emptyCard(): BackendCardState {
           </label>
           <div class="row btn-row">
             <button class="button-outline" (click)="saveClaude()">💾 Speichern</button>
-            <button class="button-outline" [disabled]="claude.diagnosing" (click)="diagnose('claude_code', claude)">
+            <button class="button-outline" [disabled]="claude.diagnosing || !claudeWorkerName" (click)="diagnose('claude_code', claude)">
               {{ claude.diagnosing ? '⏳' : '🩺' }} Diagnose
             </button>
-            <button class="button-outline" [disabled]="claude.testRunning || !claudeEnabled" (click)="testRun('claude_code', claude)">
+            <button class="button-outline" [disabled]="claude.testRunning || !claudeEnabled || executionStatus('claude_code') !== 'ready'" (click)="testRun('claude_code', claude)">
               {{ claude.testRunning ? '⏳' : '▶' }} Test-Run (read-only)
             </button>
           </div>
@@ -233,6 +251,9 @@ export class CliBackendSetupComponent implements OnInit {
   workers: WorkerTarget[] = [];
   selectedWorkers: Record<string, boolean> = {};
   provisioningState: Record<string, 'loading' | 'ready' | 'not_installed' | 'error'> = {};
+  provisioningDetails: Record<string, any> = {};
+  codexWorkerName = '';
+  claudeWorkerName = '';
 
   codexAuthMode: 'api_key' | 'chatgpt_login' = 'api_key';
   codexApiKeyProfile = '';
@@ -290,6 +311,8 @@ export class CliBackendSetupComponent implements OnInit {
             url: String(item.url),
             status: String(item.status || 'unknown').toLowerCase(),
           }));
+        this.codexWorkerName ||= this.workers[0]?.name || '';
+        this.claudeWorkerName ||= this.workers[0]?.name || '';
         for (const worker of this.workers) {
           if (worker.status === 'online') {
             this.loadProvisioningStatus(url, 'codex', worker);
@@ -311,6 +334,10 @@ export class CliBackendSetupComponent implements OnInit {
     this.agentApi.sgptBackendProvision(url, backendId, { worker_url: worker.url, action: 'status' }).subscribe({
       next: (result: any) => {
         this.provisioningState[key] = result?.installed ? 'ready' : 'not_installed';
+        this.provisioningDetails[key] = result;
+        if (result?.installed && this.executionStatus(backendId) !== 'ready') {
+          this.setExecutionWorkerName(backendId, worker.name);
+        }
         this.cdr.detectChanges();
       },
       error: () => {
@@ -330,6 +357,7 @@ export class CliBackendSetupComponent implements OnInit {
       this.agentApi.sgptBackendProvision(url, backendId, { worker_url: worker.url, action: 'install' }).subscribe({
         next: (result: any) => {
           this.provisioningState[key] = result?.installed ? 'ready' : 'error';
+          this.provisioningDetails[key] = result;
           this.selectedWorkers[key] = false;
           this.ns.success(`${backendId === 'codex' ? 'Codex' : 'Claude'} auf ${worker.name} installiert`);
           this.cdr.detectChanges();
@@ -371,6 +399,42 @@ export class CliBackendSetupComponent implements OnInit {
     if (state === 'not_installed') return 'nicht installiert';
     if (state === 'error') return 'nicht erreichbar';
     return 'unbekannt';
+  }
+
+  executionStatus(backendId: string): BackendCardState['status'] {
+    const workerName = this.executionWorkerName(backendId);
+    const worker = this.workers.find((item) => item.name === workerName);
+    if (!worker) return 'unknown';
+    const state = this.provisioningState[this.selectionKey(backendId, worker)];
+    return state === 'loading' ? 'unknown' : state || 'unknown';
+  }
+
+  executionWorkerChanged(card: BackendCardState) {
+    card.diagnose = null;
+    card.testResult = null;
+  }
+
+  workerLoginCommand(backendId: string): string {
+    const workerName = this.executionWorkerName(backendId);
+    const worker = this.workers.find((item) => item.name === workerName);
+    const detail = worker
+      ? this.provisioningDetails[this.selectionKey(backendId, worker)]
+      : null;
+    const binary = String(
+      detail?.binary_path || (backendId === 'codex' ? 'codex' : 'claude'),
+    );
+    return backendId === 'codex'
+      ? `${binary} login --device-auth`
+      : `${binary} login`;
+  }
+
+  private executionWorkerName(backendId: string): string {
+    return backendId === 'codex' ? this.codexWorkerName : this.claudeWorkerName;
+  }
+
+  private setExecutionWorkerName(backendId: string, workerName: string) {
+    if (backendId === 'codex') this.codexWorkerName = workerName;
+    else this.claudeWorkerName = workerName;
   }
 
   private selectionKey(backendId: string, worker: WorkerTarget): string {
@@ -428,9 +492,13 @@ export class CliBackendSetupComponent implements OnInit {
 
   diagnose(backendId: string, card: BackendCardState) {
     const url = this.hubUrl();
-    if (!url) return;
+    const workerName = this.executionWorkerName(backendId);
+    if (!url || !workerName) return;
     card.diagnosing = true;
-    this.agentApi.sgptBackendDiagnose(url, backendId).subscribe({
+    this.agentApi.sgptBackendWorkerAction(url, backendId, {
+      worker_name: workerName,
+      action: 'diagnose',
+    }).subscribe({
       next: (data: any) => {
         card.diagnosing = false;
         card.diagnose = data;
@@ -446,10 +514,16 @@ export class CliBackendSetupComponent implements OnInit {
 
   testRun(backendId: string, card: BackendCardState) {
     const url = this.hubUrl();
-    if (!url) return;
+    const workerName = this.executionWorkerName(backendId);
+    if (!url || !workerName) return;
     card.testRunning = true;
     card.testResult = null;
-    this.agentApi.sgptBackendTestRun(url, backendId, { prompt: 'Antworte nur mit dem Wort: OK', timeout: 120 }).subscribe({
+    this.agentApi.sgptBackendWorkerAction(url, backendId, {
+      worker_name: workerName,
+      action: 'test_run',
+      prompt: 'Antworte nur mit dem Wort: OK',
+      timeout: 120,
+    }).subscribe({
       next: (data: any) => {
         card.testRunning = false;
         card.testResult = {
@@ -478,7 +552,11 @@ export class CliBackendSetupComponent implements OnInit {
 
   probeSummary(diag: any): string {
     const probe = diag?.version_probe;
-    const lines = [`Status: ${diag?.status}`, `Binary: ${diag?.binary_path || '-'}`];
+    const lines = [
+      `Worker: ${diag?.worker?.name || '-'}`,
+      `Status: ${diag?.status}`,
+      `Binary: ${diag?.binary_path || '-'}`,
+    ];
     if (probe) lines.push(`Version-Probe rc=${probe.rc}: ${(probe.stdout || probe.stderr || '').trim()}`);
     if (!diag?.binary_available && diag?.install_hint) lines.push(`Install: ${diag.install_hint}`);
     return lines.join('\n');
