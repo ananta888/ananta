@@ -103,6 +103,7 @@ export interface VpEdge {
 export interface VpGraph {
   id: string; name: string; description: string; version: string;
   steps: VpStep[]; edges: VpEdge[]; tags: string[]; metadata?: Record<string, unknown>;
+  extensions?: Record<string, unknown>;
   graph_schema_version?: string; node_registry_version?: string;
   definition_revision?: number; base_graph_hash?: string;
 }

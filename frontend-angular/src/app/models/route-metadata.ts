@@ -23,7 +23,7 @@ export interface AppNavGroup {
 export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   workspace: { label: 'Arbeitsbereich', area: 'Operate', navGroup: 'Arbeiten', navOrder: 10, simpleNav: true },
   chats: { label: 'AI Chats', area: 'Operate', navGroup: 'Arbeiten', navOrder: 12, simpleNav: true },
-  classroom: { label: 'Classroom', area: 'Operate', navGroup: 'Arbeiten', navOrder: 13, simpleNav: true },
+  caseflow: { label: 'CaseFlow', area: 'Operate', navGroup: 'Arbeiten', navOrder: 13, simpleNav: true },
   dashboard: { label: 'Dashboard', area: 'Operate', navGroup: 'Betrieb', navOrder: 15, expertOnly: true },
   help: { label: 'Hilfe', area: 'General', navGroup: 'Arbeiten', navOrder: 50, simpleNav: true },
   agents: { label: 'Agenten', area: 'Operate', navGroup: 'Betrieb', navOrder: 20, expertOnly: true },
@@ -68,7 +68,6 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   'blueprint-config': { label: 'Blueprint-Konfig', area: 'Configure', navGroup: 'Konfiguration', navOrder: 37.5, expertOnly: true },
   codehug: { label: 'CodeHug', area: 'Operate', navGroup: 'Arbeiten', navOrder: 5, simpleNav: true },
   diff3: { label: 'Three-Way Diff', area: 'Operate', navGroup: 'Betrieb', navOrder: 73, expertOnly: true },
-  'caseflow/jobs': { label: 'Bewerbungen', area: 'Operate', navGroup: 'CaseFlow', navOrder: 10, simpleNav: true },
 };
 
 export function routeDataFor(path: keyof typeof APP_ROUTE_META): { breadcrumb: string; area: AppRouteArea } {

@@ -49,4 +49,21 @@ describe('app routes', () => {
     expect(route.canActivate).toEqual([adminGuard]);
     expect(route.data).toEqual({ breadcrumb: 'Modelltraining', area: 'Configure' });
   });
+
+  it('groups application scenarios below CaseFlow and keeps the classroom link compatible', () => {
+    const flat = flattenRoutes(routes);
+    const caseFlow = flat.find((item: any) => item.path === 'caseflow');
+    const classroomRedirect = flat.find((item: any) => item.path === 'classroom');
+
+    expect(caseFlow).toBeTruthy();
+    expect(typeof caseFlow.loadComponent).toBe('function');
+    expect(caseFlow.children.map((item: any) => item.path)).toEqual([
+      '',
+      'studio',
+      'classroom',
+      'jobs',
+      'scenario/:scenarioId',
+    ]);
+    expect(classroomRedirect.redirectTo).toBe('caseflow/classroom');
+  });
 });

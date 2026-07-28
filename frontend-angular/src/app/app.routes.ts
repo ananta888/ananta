@@ -12,7 +12,7 @@ import { contextAccessPolicyRoutes } from './features/context-access-policy/cont
 import { visualProcessRoutes } from './features/visual-process/visual-process.routes';
 import { diff3Routes } from './features/diff3/diff3.routes';
 import { codeHugRoutes } from './features/codehug/codehug.routes';
-import { JOB_APPLICATION_ROUTES } from './features/caseflow/job-application/job-application.routes';
+import { caseFlowRoutes } from './features/caseflow/caseflow.routes';
 import { modelTrainingRoutes } from './features/model-training/model-training.routes';
 
 export const routes: Routes = [
@@ -25,7 +25,7 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'workspace' },
       { path: 'workspace', data: { breadcrumb: 'Arbeitsbereich', area: 'Operate' }, loadComponent: () => import('./components/personal-workspace.component').then(m => m.PersonalWorkspaceComponent) },
       { path: 'chats', data: { breadcrumb: 'AI Chats', area: 'Operate' }, loadComponent: () => import('./features/chat/chat-page.component').then(m => m.ChatPageComponent) },
-      { path: 'classroom', data: { breadcrumb: 'Classroom', area: 'Operate' }, loadComponent: () => import('./components/classroom-assistant.component').then(m => m.ClassroomAssistantComponent) },
+      { path: 'classroom', pathMatch: 'full', redirectTo: 'caseflow/classroom' },
       { path: 'help', data: { breadcrumb: 'Hilfe', area: 'General' }, loadComponent: () => import('./components/help.component').then(m => m.HelpComponent) },
       { path: 'effective-workflow', data: { breadcrumb: 'Effective Workflow', area: 'Configure' }, loadComponent: () => import('./components/effective-workflow-explorer.component').then(m => m.EffectiveWorkflowExplorerComponent) },
       { path: 'config-graph', data: { breadcrumb: 'Konfig-Graph', area: 'Configure' }, loadComponent: () => import('./components/config-graph-editor.component').then(m => m.ConfigGraphEditorComponent) },
@@ -43,12 +43,7 @@ export const routes: Routes = [
       ...visualProcessRoutes,
       ...diff3Routes,
       ...codeHugRoutes,
-      {
-        path: 'caseflow/jobs',
-        data: { breadcrumb: 'Job-Bewerbungen', area: 'Operate' },
-        loadComponent: () => import('./features/caseflow/caseflow-shell.component').then(m => m.CaseflowShellComponent),
-        children: JOB_APPLICATION_ROUTES,
-      },
+      ...caseFlowRoutes,
     ]
   },
   { path: '**', component: NotFoundComponent }

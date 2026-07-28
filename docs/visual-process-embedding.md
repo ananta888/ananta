@@ -24,3 +24,32 @@ Gate decisions travel only through the hub. They require an idempotency key and 
 Use `VisualProcessCanvasComponent` for rendering. Supply `graph`, optional `runtimeOverlay`, `selectedId`, `readOnly`, and one of `compact-readonly`, `embedded-edit`, or `full-editor`. Mutations are outputs. Use `VpStepInspectorComponent` with `mode="runtime-readonly"` for live inspection. The full editor remains the shell for persistence, validation, dry-run, import/export and editing.
 
 AI-Snake resolves the active conversation automatically, lists its runs, keeps the selected historical snapshot, and stops polling on session/component teardown. Sessions without a reference render an explicit empty state.
+
+## CaseFlow application projection
+
+CaseFlow reuses the visual-process definition as its source of truth. A published
+scenario stores the versioned manifest `ananta.caseflow.ui/v1` under the
+`ananta.caseflow.ui` graph extension and adds the `caseflow` tag. There is no
+second workflow store and no browser-side orchestration path.
+
+The CaseFlow Studio embeds `VisualProcessEditorComponent` in `embedded-edit`
+mode. Before generating or publishing a manifest it reloads the latest graph
+revision, so the manifest is derived from the saved workflow rather than stale
+editor state. Runtime views use `compact-readonly`; execution and gate decisions
+continue to travel through the hub.
+
+The manifest is deliberately declarative. It may select only these generic,
+reviewed Angular blocks:
+
+- `summary`
+- `metrics`
+- `case-list`
+- `actions`
+- `artifacts`
+- `workflow`
+
+Unknown block kinds make a manifest invalid. AI assistance therefore edits the
+workflow and bounded metadata instead of generating arbitrary Angular classes or
+template expressions. Specialized existing applications such as Bewerbungen
+remain supported alongside generated views; shared routes are additive and
+legacy `/classroom` links redirect to `/caseflow/classroom`.
