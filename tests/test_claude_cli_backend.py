@@ -144,6 +144,42 @@ def test_resolve_claude_runtime_config_rejects_bypass_permissions():
     assert res["permission_mode"] == "plan"
 
 
+@pytest.mark.parametrize(
+    "permission_mode",
+    ["plan", "manual", "acceptEdits", "dontAsk", "auto"],
+)
+def test_resolve_claude_runtime_config_accepts_supported_permission_modes(
+    permission_mode,
+):
+    from agent.cli_backends.opencode import resolve_claude_runtime_config
+
+    app = _fake_app(
+        {"claude_cli": {"enabled": True, "permission_mode": permission_mode}}
+    )
+    settings = _fake_settings()
+    with app.app_context(), patch(
+        "agent.cli_backends.opencode.settings", settings
+    ):
+        result = resolve_claude_runtime_config()
+
+    assert result["permission_mode"] == permission_mode
+
+
+def test_resolve_claude_runtime_config_maps_legacy_default_to_manual():
+    from agent.cli_backends.opencode import resolve_claude_runtime_config
+
+    app = _fake_app(
+        {"claude_cli": {"enabled": True, "permission_mode": "default"}}
+    )
+    settings = _fake_settings()
+    with app.app_context(), patch(
+        "agent.cli_backends.opencode.settings", settings
+    ):
+        result = resolve_claude_runtime_config()
+
+    assert result["permission_mode"] == "manual"
+
+
 def test_resolve_claude_runtime_config_bounds_timeout_and_concurrency():
     from agent.cli_backends.opencode import resolve_claude_runtime_config
 

@@ -112,7 +112,7 @@ export class CliBackendAccountLoginComponent implements OnChanges, OnDestroy {
   @Input() workerName = '';
   @Input() ready = false;
   @Input() claudeEnabled = false;
-  @Input() claudePermissionMode: 'plan' | 'default' = 'plan';
+  @Input() claudePermissionMode: 'plan' | 'manual' | 'acceptEdits' | 'dontAsk' | 'auto' = 'plan';
   @Input() claudeTimeoutSeconds = 1800;
 
   state = emptyState();

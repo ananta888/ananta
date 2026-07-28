@@ -172,7 +172,7 @@ def test_hub_routes_cli_diagnose_to_selected_worker(
 
 
 def test_hub_routes_account_login_start_to_selected_worker(
-    client, admin_auth_header, monkeypatch
+    app, client, admin_auth_header, monkeypatch
 ):
     worker = SimpleNamespace(
         name="ananta-worker-1",
@@ -195,6 +195,7 @@ def test_hub_routes_account_login_start_to_selected_worker(
             },
         },
     ]
+    app.config["AGENT_CONFIG"] = {"codex_cli": {}}
     monkeypatch.setattr("agent.routes.sgpt.settings.role", "hub")
     monkeypatch.setattr(
         "agent.routes.sgpt._registered_worker",
@@ -226,6 +227,76 @@ def test_hub_routes_account_login_start_to_selected_worker(
             {"token": worker.token, "timeout": 65},
         ),
     ]
+
+
+def test_hub_syncs_allowlisted_claude_config_before_worker_test(
+    app, client, admin_auth_header, monkeypatch
+):
+    worker = SimpleNamespace(
+        name="ananta-worker-2",
+        url="http://worker-beta:5000",
+        role="worker",
+        token="w" * 32,
+        registration_validated=True,
+    )
+    gateway = MagicMock()
+    gateway.forward_task.side_effect = [
+        {"status": "success", "data": {"claude_cli": {"enabled": True}}},
+        {
+            "status": "success",
+            "data": {
+                "backend": "claude_code",
+                "ok": True,
+                "rc": 0,
+                "stdout": "OK",
+                "stderr": "",
+                "duration_ms": 10,
+            },
+        },
+    ]
+    app.config["AGENT_CONFIG"] = {
+        "claude_cli": {
+            "enabled": True,
+            "auth_mode": "claude_login",
+            "permission_mode": "plan",
+            "default_model": None,
+            "timeout_seconds": 120,
+            "command": "/untrusted/custom-command",
+        }
+    }
+    monkeypatch.setattr("agent.routes.sgpt.settings.role", "hub")
+    monkeypatch.setattr(
+        "agent.routes.sgpt._registered_worker",
+        lambda *args, **kwargs: (
+            worker if kwargs.get("worker_name") == worker.name else None
+        ),
+    )
+    monkeypatch.setattr("agent.routes.sgpt.get_worker_gateway", lambda: gateway)
+
+    response = client.post(
+        "/api/sgpt/backends/claude_code/worker-action",
+        json={"worker_name": worker.name, "action": "test_run", "timeout": 120},
+        headers=admin_auth_header,
+    )
+
+    assert response.status_code == 200
+    assert response.json["data"]["ok"] is True
+    assert gateway.forward_task.call_args_list[0] == (
+        (
+            worker.url,
+            "/config",
+            {
+                "claude_cli": {
+                    "enabled": True,
+                    "auth_mode": "claude_login",
+                    "permission_mode": "plan",
+                    "default_model": None,
+                    "timeout_seconds": 120,
+                }
+            },
+        ),
+        {"token": worker.token, "timeout": 60},
+    )
 
 
 def test_worker_starts_account_login_session(

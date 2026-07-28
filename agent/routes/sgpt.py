@@ -787,6 +787,45 @@ def _registered_worker(worker_url: str = "", *, worker_name: str = ""):
     return None
 
 
+_WORKER_CLI_CONFIG_FIELDS = {
+    "codex": frozenset(
+        {
+            "auth_mode",
+            "base_url",
+            "prefer_lmstudio",
+            "target_provider",
+            "sandbox_mode",
+        }
+    ),
+    "claude_code": frozenset(
+        {
+            "enabled",
+            "auth_mode",
+            "permission_mode",
+            "default_model",
+            "timeout_seconds",
+        }
+    ),
+}
+
+
+def _worker_cli_config_payload(backend: str, *, action: str) -> dict:
+    config_key = "codex_cli" if backend == "codex" else "claude_cli"
+    agent_config = current_app.config.get("AGENT_CONFIG", {}) or {}
+    source = agent_config.get(config_key) or {}
+    if not isinstance(source, dict):
+        source = {}
+    allowed_fields = _WORKER_CLI_CONFIG_FIELDS[backend]
+    filtered = {
+        key: value for key, value in source.items() if key in allowed_fields
+    }
+    if action == "login_start":
+        filtered["auth_mode"] = (
+            "chatgpt_login" if backend == "codex" else "claude_login"
+        )
+    return {config_key: filtered}
+
+
 @sgpt_bp.route("/backends/<backend_id>/provision", methods=["POST"])
 @admin_required
 def cli_backend_provision(backend_id: str):
@@ -958,13 +997,11 @@ def cli_backend_worker_action(backend_id: str):
             message="worker_service_token_unavailable",
             code=503,
         )
-    if action == "login_start":
-        config_key = "codex_cli" if backend == "codex" else "claude_cli"
-        auth_mode = "chatgpt_login" if backend == "codex" else "claude_login"
+    if action in {"login_start", "test_run"}:
         config_result = get_worker_gateway().forward_task(
             str(worker.url),
             "/config",
-            {config_key: {"auth_mode": auth_mode}},
+            _worker_cli_config_payload(backend, action=action),
             token=token,
             timeout=60,
         )

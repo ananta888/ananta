@@ -232,6 +232,7 @@ def test_run_codex_command_chatgpt_login_skips_api_key_for_remote():
     assert call_kwargs.get("stdin") is subprocess_module.DEVNULL
     command = mock_run.call_args.args[0]
     assert "--model" not in command
+    assert command[command.index("--sandbox") + 1] == "read-only"
     assert command[-1] == "hi"
 
 

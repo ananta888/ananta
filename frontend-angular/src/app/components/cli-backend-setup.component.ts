@@ -113,6 +113,17 @@ function emptyCard(): BackendCardState {
               [ready]="executionStatus('codex') === 'ready'"
             />
           }
+          <label class="label-block">
+            Permission-/Sandbox-Modus
+            <select [(ngModel)]="codexPermissionMode">
+              <option value="read-only">read-only (nur lesen)</option>
+              <option value="workspace-write">workspace-write (im Workspace schreiben)</option>
+              <option value="danger-full-access">danger-full-access (kein Dateisystem-Sandbox)</option>
+            </select>
+          </label>
+          @if (codexPermissionMode === 'danger-full-access') {
+            <p class="danger-hint">⚠ Vollzugriff innerhalb des Worker-Containers. Nur bewusst und kurzzeitig verwenden.</p>
+          }
           <div class="row btn-row">
             <button class="button-outline" (click)="saveCodex()">💾 Speichern</button>
             <button class="button-outline" [disabled]="codex.diagnosing || !codexWorkerName" (click)="diagnose('codex', codex)">
@@ -193,9 +204,15 @@ function emptyCard(): BackendCardState {
             Permission-Modus
             <select [(ngModel)]="claudePermissionMode">
               <option value="plan">plan (read-only Analyse)</option>
-              <option value="default">default</option>
+              <option value="manual">manual (vor Aktionen nachfragen)</option>
+              <option value="acceptEdits">acceptEdits (Dateiänderungen erlauben)</option>
+              <option value="dontAsk">dontAsk (nicht fragen, gesperrte Aktionen ablehnen)</option>
+              <option value="auto">auto (Claude entscheidet risikobasiert)</option>
             </select>
           </label>
+          @if (claudePermissionMode === 'acceptEdits' || claudePermissionMode === 'auto') {
+            <p class="danger-hint">⚠ Dieser Modus kann Änderungen im freigegebenen Worker-Workspace ausführen.</p>
+          }
           <label class="label-block">
             Default-Modell (leer = CLI-Default)
             <input [(ngModel)]="claudeDefaultModel" placeholder="claude-code-default" />
@@ -210,7 +227,7 @@ function emptyCard(): BackendCardState {
               {{ claude.diagnosing ? '⏳' : '🩺' }} Diagnose
             </button>
             <button class="button-outline" [disabled]="claude.testRunning || !claudeEnabled || executionStatus('claude_code') !== 'ready'" (click)="testRun('claude_code', claude)">
-              {{ claude.testRunning ? '⏳' : '▶' }} Test-Run (read-only)
+              {{ claude.testRunning ? '⏳' : '▶' }} Test-Run (harmloser Prompt)
             </button>
           </div>
           @if (claude.diagnose) {
@@ -240,6 +257,7 @@ function emptyCard(): BackendCardState {
     .picker-title { font-size: 12px; font-weight: 600; }
     .worker-row { display: grid; grid-template-columns: auto minmax(80px, 1fr) auto; gap: 7px; align-items: center; font-size: 12px; }
     .worker-row small { opacity: 0.72; text-align: right; }
+    .danger-hint { color: #b56b00; font-size: 12px; margin: 0; }
   `]
 })
 export class CliBackendSetupComponent implements OnInit {
@@ -259,10 +277,11 @@ export class CliBackendSetupComponent implements OnInit {
 
   codexAuthMode: 'api_key' | 'chatgpt_login' = 'api_key';
   codexApiKeyProfile = '';
+  codexPermissionMode: 'read-only' | 'workspace-write' | 'danger-full-access' = 'read-only';
 
   claudeEnabled = false;
   claudeAuthMode: 'claude_login' | 'api_key' = 'claude_login';
-  claudePermissionMode: 'plan' | 'default' = 'plan';
+  claudePermissionMode: 'plan' | 'manual' | 'acceptEdits' | 'dontAsk' | 'auto' = 'plan';
   claudeDefaultModel = '';
   claudeTimeoutSeconds = 1800;
 
@@ -290,10 +309,22 @@ export class CliBackendSetupComponent implements OnInit {
         const codexCli = cfg?.codex_cli || {};
         this.codexAuthMode = codexCli.auth_mode === 'chatgpt_login' ? 'chatgpt_login' : 'api_key';
         this.codexApiKeyProfile = codexCli.api_key_profile || '';
+        this.codexPermissionMode = (
+          ['read-only', 'workspace-write', 'danger-full-access'].includes(codexCli.sandbox_mode)
+            ? codexCli.sandbox_mode
+            : 'read-only'
+        );
         const claudeCli = cfg?.claude_cli || {};
         this.claudeEnabled = !!claudeCli.enabled;
         this.claudeAuthMode = claudeCli.auth_mode === 'api_key' ? 'api_key' : 'claude_login';
-        this.claudePermissionMode = claudeCli.permission_mode === 'default' ? 'default' : 'plan';
+        const claudePermissionMode = claudeCli.permission_mode === 'default'
+          ? 'manual'
+          : claudeCli.permission_mode;
+        this.claudePermissionMode = (
+          ['plan', 'manual', 'acceptEdits', 'dontAsk', 'auto'].includes(claudePermissionMode)
+            ? claudePermissionMode
+            : 'plan'
+        );
         this.claudeDefaultModel = claudeCli.default_model || '';
         this.claudeTimeoutSeconds = Number(claudeCli.timeout_seconds) || 1800;
         this.cdr.detectChanges();
@@ -450,33 +481,42 @@ export class CliBackendSetupComponent implements OnInit {
   saveCodex() {
     const url = this.hubUrl();
     if (!url) return;
-    const codexCli: any = { auth_mode: this.codexAuthMode };
-    if (this.codexAuthMode === 'api_key' && this.codexApiKeyProfile.trim()) {
-      codexCli.api_key_profile = this.codexApiKeyProfile.trim();
-    }
-    this.agentApi.setConfig(url, { codex_cli: codexCli }).subscribe({
+    this.agentApi.setConfig(url, { codex_cli: this.codexConfig() }).subscribe({
       next: () => { this.ns.success('Codex-Konfiguration gespeichert'); this.reload(); },
       error: (e: any) => this.ns.error('Speichern fehlgeschlagen: ' + (e?.message || e)),
     });
+  }
+
+  private codexConfig(): Record<string, unknown> {
+    return {
+      auth_mode: this.codexAuthMode,
+      api_key_profile: (
+        this.codexAuthMode === 'api_key'
+          ? this.codexApiKeyProfile.trim() || null
+          : null
+      ),
+      sandbox_mode: this.codexPermissionMode,
+    };
   }
 
 
   saveClaude() {
     const url = this.hubUrl();
     if (!url) return;
-    const claudeCli: any = {
+    this.agentApi.setConfig(url, { claude_cli: this.claudeConfig() }).subscribe({
+      next: () => { this.ns.success('Claude-Konfiguration gespeichert'); this.reload(); },
+      error: (e: any) => this.ns.error('Speichern fehlgeschlagen: ' + (e?.message || e)),
+    });
+  }
+
+  private claudeConfig(): Record<string, unknown> {
+    return {
       enabled: this.claudeEnabled,
       auth_mode: this.claudeAuthMode,
       permission_mode: this.claudePermissionMode,
       timeout_seconds: this.claudeTimeoutSeconds,
+      default_model: this.claudeDefaultModel.trim() || null,
     };
-    if (this.claudeDefaultModel.trim()) {
-      claudeCli.default_model = this.claudeDefaultModel.trim();
-    }
-    this.agentApi.setConfig(url, { claude_cli: claudeCli }).subscribe({
-      next: () => { this.ns.success('Claude-Konfiguration gespeichert'); this.reload(); },
-      error: (e: any) => this.ns.error('Speichern fehlgeschlagen: ' + (e?.message || e)),
-    });
   }
 
   diagnose(backendId: string, card: BackendCardState) {
@@ -507,6 +547,29 @@ export class CliBackendSetupComponent implements OnInit {
     if (!url || !workerName) return;
     card.testRunning = true;
     card.testResult = null;
+    if (backendId === 'claude_code' || backendId === 'codex') {
+      const config = backendId === 'claude_code'
+        ? { claude_cli: this.claudeConfig() }
+        : { codex_cli: this.codexConfig() };
+      this.agentApi.setConfig(url, config).subscribe({
+        next: () => this.executeTestRun(url, workerName, backendId, card),
+        error: (e: any) => {
+          card.testRunning = false;
+          card.testResult = { ok: false, stdout: '', stderr: String(e?.message || e), duration_ms: 0 };
+          this.cdr.detectChanges();
+        },
+      });
+      return;
+    }
+    this.executeTestRun(url, workerName, backendId, card);
+  }
+
+  private executeTestRun(
+    url: string,
+    workerName: string,
+    backendId: string,
+    card: BackendCardState,
+  ) {
     this.agentApi.sgptBackendWorkerAction(url, backendId, {
       worker_name: workerName,
       action: 'test_run',

@@ -524,6 +524,9 @@ def resolve_codex_runtime_config() -> dict:
         auth_mode = str(getattr(settings, "codex_auth_mode", "api_key") or "api_key").strip().lower() or "api_key"
     if auth_mode not in ("api_key", "chatgpt_login"):
         auth_mode = "api_key"
+    sandbox_mode = str(codex_cfg.get("sandbox_mode") or "read-only").strip()
+    if sandbox_mode not in {"read-only", "workspace-write", "danger-full-access"}:
+        sandbox_mode = "read-only"
     # api_key_required: if explicitly set, honour it; else derive
     # from auth_mode (chatgpt_login -> not required).
     if "api_key_required" in codex_cli_cfg and isinstance(
@@ -551,6 +554,7 @@ def resolve_codex_runtime_config() -> dict:
         # CCA-002 fields
         "auth_mode": auth_mode,
         "api_key_required": api_key_required,
+        "sandbox_mode": sandbox_mode,
     }
 
 
@@ -587,6 +591,7 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
         )
         if selected_model:
             args.extend(["--model", selected_model])
+        args.extend(["--sandbox", str(runtime_cfg["sandbox_mode"])])
         args.append(prompt)
         if not base_url:
             return -1, "", "Codex runtime target is not configured: missing OpenAI-compatible base_url"
@@ -655,10 +660,15 @@ def resolve_claude_runtime_config() -> dict:
     default_model = str(claude_cfg.get("default_model") or getattr(settings, "claude_default_model", "") or "").strip() or None
 
     raw_permission_mode = str(claude_cfg.get("permission_mode") or getattr(settings, "claude_permission_mode", "plan") or "plan").strip()
-    # Fail-safe: nur read-only-taugliche Modi. bypassPermissions wird
-    # bewusst nicht akzeptiert; write-Laeufe gehoeren hinter das
-    # write_armed/Diff-Review-Konzept (COMMON-001 Follow-up).
-    if raw_permission_mode not in ("plan", "default"):
+    if raw_permission_mode == "default":
+        raw_permission_mode = "manual"
+    if raw_permission_mode not in {
+        "plan",
+        "manual",
+        "acceptEdits",
+        "dontAsk",
+        "auto",
+    }:
         raw_permission_mode = "plan"
 
     def _bounded(value: object, *, default: int, minimum: int, maximum: int) -> int:
