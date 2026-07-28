@@ -97,6 +97,7 @@ describe('CaseFlowScenarioRegistryService', () => {
     expect(saved.extensions?.['vendor.feature']).toEqual({ enabled: true });
     expect(saved.extensions?.[CASEFLOW_UI_EXTENSION]).toEqual(scenario);
     expect(saved.tags).toEqual(['crm', 'caseflow']);
+    expect(registry.scenarios().at(-1)).toEqual(scenario);
   });
 
   it('rejects component kinds outside the renderer allowlist', () => {

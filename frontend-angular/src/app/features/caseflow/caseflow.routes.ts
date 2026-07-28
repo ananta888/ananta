@@ -5,8 +5,6 @@ export const caseFlowRoutes: Routes = [
   {
     path: 'caseflow',
     data: { breadcrumb: 'CaseFlow', area: 'Operate' },
-    loadComponent: () =>
-      import('./caseflow-hub-shell.component').then(m => m.CaseFlowHubShellComponent),
     children: [
       {
         path: '',

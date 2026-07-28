@@ -4,7 +4,13 @@ describe('route metadata', () => {
   it('drives nav groups from declared route metadata', () => {
     const adminGroups = buildNavGroups('admin', 'advanced');
 
-    expect(adminGroups.map(group => group.label)).toEqual(['Arbeiten', 'Betrieb', 'Automatisierung', 'Konfiguration']);
+    expect(adminGroups.map(group => group.label)).toEqual([
+      'Arbeiten',
+      'CaseFlow',
+      'Betrieb',
+      'Automatisierung',
+      'Konfiguration',
+    ]);
     expect(adminGroups.flatMap(group => group.items).map(item => item.path)).toContain('/audit-log');
     expect(APP_ROUTE_META.dashboard.area).toBe('Operate');
   });
@@ -16,7 +22,6 @@ describe('route metadata', () => {
       '/codehug',
       '/workspace',
       '/chats',
-      '/caseflow',
       '/board',
       '/artifacts',
       '/markdown-slides',
@@ -25,9 +30,23 @@ describe('route metadata', () => {
       '/voxtral-offline',
       '/llama-runtime',
       '/help',
+      '/caseflow/studio',
     ]);
     expect(simplePaths).not.toContain('/agents');
     expect(simplePaths).not.toContain('/audit-log');
+  });
+
+  it('places CaseFlow Studio first in its own main group with a separator', () => {
+    const caseFlowGroup = buildNavGroups('admin', 'simple')
+      .find(group => group.label === 'CaseFlow');
+
+    expect(caseFlowGroup?.items).toEqual([
+      expect.objectContaining({
+        label: 'CaseFlow Studio',
+        path: '/caseflow/studio',
+        separatorAfter: true,
+      }),
+    ]);
   });
 
   it('hides admin-only navigation for non-admin users', () => {

@@ -56,7 +56,7 @@ describe('app routes', () => {
     const classroomRedirect = flat.find((item: any) => item.path === 'classroom');
 
     expect(caseFlow).toBeTruthy();
-    expect(typeof caseFlow.loadComponent).toBe('function');
+    expect(caseFlow.loadComponent).toBeUndefined();
     expect(caseFlow.children.map((item: any) => item.path)).toEqual([
       '',
       'studio',

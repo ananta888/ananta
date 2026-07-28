@@ -1,5 +1,5 @@
-import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
+import { Injectable, inject, signal } from '@angular/core';
+import { Observable, catchError, forkJoin, map, of, switchMap, tap } from 'rxjs';
 import {
   VisualProcessApiService,
   VpGraph,
@@ -43,6 +43,7 @@ const BUILT_IN_SCENARIOS: readonly CaseFlowScenarioDefinition[] = [
 @Injectable({ providedIn: 'root' })
 export class CaseFlowScenarioRegistryService {
   private readonly visualProcessApi = inject(VisualProcessApiService);
+  readonly scenarios = signal<CaseFlowScenarioDefinition[]>([...BUILT_IN_SCENARIOS]);
 
   listScenarios(): Observable<CaseFlowScenarioDefinition[]> {
     return this.visualProcessApi.listSavedGraphs().pipe(
@@ -64,6 +65,7 @@ export class CaseFlowScenarioRegistryService {
         ];
       }),
       catchError(() => of([...BUILT_IN_SCENARIOS])),
+      tap(scenarios => this.scenarios.set(scenarios)),
     );
   }
 
@@ -115,7 +117,12 @@ export class CaseFlowScenarioRegistryService {
   publish(graph: VpGraph, scenario: CaseFlowScenarioDefinition) {
     const extensions = { ...(graph.extensions || {}), [CASEFLOW_UI_EXTENSION]: scenario };
     const tags = [...new Set([...(graph.tags || []), 'caseflow'])];
-    return this.visualProcessApi.saveGraph({ ...graph, extensions, tags });
+    return this.visualProcessApi.saveGraph({ ...graph, extensions, tags }).pipe(
+      tap(() => this.scenarios.update(items => [
+        ...items.filter(item => item.id !== scenario.id),
+        scenario,
+      ])),
+    );
   }
 
   fromGraph(graph: VpGraph): CaseFlowScenarioDefinition | null {

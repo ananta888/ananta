@@ -69,6 +69,9 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
                           <span class="nav-expert-label">Experte</span>
                         }
                       </a>
+                      @if (item.separatorAfter) {
+                        <div class="nav-menu-separator" role="separator"></div>
+                      }
                     }
                   </div>
                 </details>
@@ -124,6 +127,9 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
                     <span class="nav-expert-label">Experte</span>
                   }
                 </a>
+                @if (item.separatorAfter) {
+                  <div class="nav-menu-separator" role="separator"></div>
+                }
               }
             </div>
           </details>
@@ -219,6 +225,7 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
       text-decoration: none; font-size: 12px;
     }
     .nav-menu-panel a:hover, .nav-menu-panel a.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+    .nav-menu-separator { height: 1px; margin: 4px 6px; background: var(--border); }
     .nav-expert-label { flex: 0 0 auto; font-size: 9px; color: var(--muted); }
 
     /* ── Android nav (unchanged) ── */

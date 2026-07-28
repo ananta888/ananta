@@ -5,6 +5,8 @@ import { filter } from 'rxjs';
 import { AppNavGroup, AppRouteArea, AppShellMode, buildNavGroups } from '../models/route-metadata';
 import { MobileRuntimeService } from './mobile-runtime.service';
 import { DashboardFeatureFlagStore } from '../features/dashboard-foundation/dashboard-feature-flags';
+import { CaseFlowScenarioRegistryService } from '../features/caseflow/scenario/caseflow-scenario-registry.service';
+import { withCaseFlowScenarios } from '../features/caseflow/scenario/caseflow-navigation';
 
 @Injectable({ providedIn: 'root' })
 export class AppShellStateService {
@@ -12,6 +14,7 @@ export class AppShellStateService {
   private activatedRoute = inject(ActivatedRoute);
   private mobile = inject(MobileRuntimeService);
   private dashboardFeatures = inject(DashboardFeatureFlagStore);
+  private caseFlowScenarios = inject(CaseFlowScenarioRegistryService);
 
   readonly mobileNavOpen = signal(false);
   readonly darkMode = signal(false);
@@ -21,6 +24,7 @@ export class AppShellStateService {
 
   init(): void {
     this.dashboardFeatures.ensureLoaded().subscribe();
+    this.caseFlowScenarios.listScenarios().subscribe();
     this.mobile.init();
     this.darkMode.set(this.applyStoredTheme());
     this.mode.set(this.applyStoredMode());
@@ -30,12 +34,13 @@ export class AppShellStateService {
   }
 
   navGroups(role?: string | null): AppNavGroup[] {
-    return buildNavGroups(role, this.mode()).map(group => ({
+    const groups = buildNavGroups(role, this.mode()).map(group => ({
       ...group,
       items: group.items.filter(item =>
         item.path !== '/board' || this.dashboardFeatures.angularKanban()
       ),
     })).filter(group => group.items.length > 0);
+    return withCaseFlowScenarios(groups, this.caseFlowScenarios.scenarios());
   }
 
   toggleMobileNav(): void {

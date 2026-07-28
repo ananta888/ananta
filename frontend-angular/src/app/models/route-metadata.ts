@@ -9,6 +9,7 @@ export interface AppRouteMeta {
   simpleNav?: boolean;
   expertOnly?: boolean;
   roles?: readonly string[];
+  separatorAfter?: boolean;
 }
 
 export interface AppNavItem extends AppRouteMeta {
@@ -23,7 +24,14 @@ export interface AppNavGroup {
 export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   workspace: { label: 'Arbeitsbereich', area: 'Operate', navGroup: 'Arbeiten', navOrder: 10, simpleNav: true },
   chats: { label: 'AI Chats', area: 'Operate', navGroup: 'Arbeiten', navOrder: 12, simpleNav: true },
-  caseflow: { label: 'CaseFlow', area: 'Operate', navGroup: 'Arbeiten', navOrder: 13, simpleNav: true },
+  'caseflow/studio': {
+    label: 'CaseFlow Studio',
+    area: 'Configure',
+    navGroup: 'CaseFlow',
+    navOrder: 0,
+    simpleNav: true,
+    separatorAfter: true,
+  },
   dashboard: { label: 'Dashboard', area: 'Operate', navGroup: 'Betrieb', navOrder: 15, expertOnly: true },
   help: { label: 'Hilfe', area: 'General', navGroup: 'Arbeiten', navOrder: 50, simpleNav: true },
   agents: { label: 'Agenten', area: 'Operate', navGroup: 'Betrieb', navOrder: 20, expertOnly: true },
