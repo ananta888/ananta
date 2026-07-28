@@ -362,6 +362,31 @@ def readiness_check():
         if not url:
             return "llm", None
 
+        if provider == "ollama":
+            from agent.llm_integration import probe_ollama_runtime
+
+            probe = probe_ollama_runtime(url, timeout=readiness_timeout)
+            if probe["ok"]:
+                return "llm", {
+                    "provider": provider,
+                    "status": (
+                        "ok" if probe["candidate_count"] > 0 else "unstable"
+                    ),
+                    "latency": None,
+                    "code": 200,
+                    "tags_url": probe.get("tags_url"),
+                    "candidate_count": probe["candidate_count"],
+                    "probe_status": probe.get("status"),
+                }
+            return "llm", {
+                "provider": provider,
+                "status": "error",
+                "message": f"No response from Ollama tags endpoint {probe.get('tags_url')}",
+                "tags_url": probe.get("tags_url"),
+                "candidate_count": int(probe.get("candidate_count") or 0),
+                "probe_status": probe.get("status"),
+            }
+
         if provider == "lmstudio":
             from agent.llm_integration import probe_lmstudio_runtime
 
@@ -572,6 +597,99 @@ def list_agents():
     except Exception as e:
         _log().error("Fehler beim Laden der Agenten (Fallback): %s", e)
         return api_response(status="error", message="could not load agents", code=500)
+
+
+@system_bp.route("/agents/probe", methods=["POST"])
+@check_auth
+def probe_registered_agent():
+    """Probe one registered Worker through the Hub network boundary."""
+
+    if settings.role != "hub":
+        return api_response(status="error", message="hub_role_required", code=409)
+
+    payload = request.get_json(silent=True) or {}
+    requested_url = str(payload.get("worker_url") or "").strip().rstrip("/")
+    worker = next(
+        (
+            agent
+            for agent in (agent_repo.get_all() or ())
+            if str(agent.url or "").strip().rstrip("/") == requested_url
+            and str(agent.role or "").strip().lower() == "worker"
+            and bool(agent.registration_validated)
+        ),
+        None,
+    )
+    if worker is None:
+        return api_response(status="error", message="registered_worker_required", code=404)
+
+    headers = {"Authorization": f"Bearer {worker.token}"} if worker.token else {}
+    health_response = http_client.get(
+        f"{requested_url}/health?basic=1",
+        headers=headers,
+        timeout=10,
+        return_response=True,
+        silent=True,
+    )
+    ready_response = http_client.get(
+        f"{requested_url}/ready",
+        headers=headers,
+        timeout=10,
+        return_response=True,
+        silent=True,
+    )
+
+    health_status = "offline"
+    if health_response is not None and health_response.status_code < 500:
+        health_status = "online"
+        try:
+            health_payload = health_response.json() or {}
+            candidate = str(
+                ((health_payload.get("data") or {}).get("status") or "")
+            ).strip().lower()
+            if candidate in {"ok", "online", "busy", "degraded"}:
+                health_status = candidate
+        except (TypeError, ValueError):
+            pass
+
+    ready = False
+    readiness_checks = {}
+    if ready_response is not None:
+        try:
+            ready_payload = ready_response.json() or {}
+            ready_data = ready_payload.get("data") or {}
+            ready = bool(ready_data.get("ready"))
+            readiness_checks = {
+                str(name): str(
+                    (check.get("status") if isinstance(check, dict) else check)
+                    or "unknown"
+                )
+                for name, check in dict(ready_data.get("checks") or {}).items()
+            }
+        except (TypeError, ValueError):
+            pass
+
+    return api_response(
+        data={
+            "worker": {"name": worker.name, "url": worker.url},
+            "health": {
+                "reachable": health_response is not None
+                and health_response.status_code < 500,
+                "status": health_status,
+                "http_status": (
+                    health_response.status_code
+                    if health_response is not None
+                    else None
+                ),
+            },
+            "readiness": {
+                "ready": ready,
+                "http_status": (
+                    ready_response.status_code if ready_response is not None else None
+                ),
+                "checks": readiness_checks,
+            },
+        }
+    )
 
 
 @system_bp.route("/terminal/restart-session", methods=["POST"])

@@ -37,6 +37,9 @@ export class AgentApiService {
   listAgents(baseUrl: string, token?: string): Observable<any> {
     return this.system.listAgents(baseUrl, token);
   }
+  probeAgent(baseUrl: string, workerUrl: string, token?: string): Observable<any> {
+    return this.system.probeAgent(baseUrl, workerUrl, token);
+  }
   setConfig(baseUrl: string, cfg: any, token?: string): Observable<any> {
     return this.system.setConfig(baseUrl, cfg, token);
   }

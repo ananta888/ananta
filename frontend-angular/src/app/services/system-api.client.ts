@@ -50,6 +50,18 @@ export class SystemApiClient {
     );
   }
 
+  probeAgent(baseUrl: string, workerUrl: string, token?: string): Observable<any> {
+    return this.transport.unwrap(
+      this.transport.http
+        .post(
+          `${baseUrl}/api/system/agents/probe`,
+          { worker_url: workerUrl },
+          this.transport.getHeaders(baseUrl, token),
+        )
+        .pipe(timeout(30000)),
+    );
+  }
+
   setConfig(baseUrl: string, cfg: unknown, token?: string): Observable<any> {
     return this.transport.unwrap(
       this.transport.http

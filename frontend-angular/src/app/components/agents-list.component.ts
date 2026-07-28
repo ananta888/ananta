@@ -59,8 +59,15 @@ import { SystemFacade } from '../features/system/system.facade';
             </select>
             <button class="button-outline" (click)="openTerminal(a)">Terminal oeffnen</button>
             @if (!loading()) {
-              <span [class.success]="a['_health']==='ok'" [class.danger]="a['_health'] && a['_health']!=='ok'">{{a['_health']||''}}</span>
-              <span style="margin-left:8px" [class.success]="a['_db']==='DB OK'" [class.danger]="a['_db'] && a['_db']!=='DB OK'">{{a['_db']||''}}</span>
+              <span
+                [class.success]="a['_health']==='ok' || a['_health']==='online'"
+                [class.danger]="a['_health']==='error' || a['_health']==='offline'"
+              >{{a['_health']||''}}</span>
+              <span
+                style="margin-left:8px"
+                [class.success]="a['_db']==='Ready'"
+                [class.danger]="a['_db']==='Not Ready' || a['_db']==='DB Offline'"
+              >{{a['_db']||''}}</span>
             } @else {
               <app-ui-skeleton [count]="2" [columns]="2" [lineCount]="1" [card]="false" lineClass="skeleton pill"></app-ui-skeleton>
             }
@@ -168,6 +175,34 @@ export class AgentsListComponent implements OnInit, OnDestroy {
     return `2-${name}`;
   }
   ping(a: any) {
+    if (a?.role === 'worker' && this.hub?.url) {
+      this.system.probeAgent(this.hub.url, a.url).subscribe({
+        next: (result: any) => {
+          const healthStatus = String(result?.health?.status || 'offline');
+          const reachable = !!result?.health?.reachable;
+          a._health = reachable ? healthStatus : 'error';
+          a._db = result?.readiness?.ready ? 'Ready' : 'Not Ready';
+          if (reachable) {
+            this.ns.success(`${a.name} ist erreichbar (Health ${healthStatus})`);
+          } else {
+            this.ns.error(`Health-Check fehlgeschlagen fuer ${a.name}`);
+          }
+          if (!result?.readiness?.ready) {
+            const failedChecks = Object.entries(result?.readiness?.checks || {})
+              .filter(([, status]) => status !== 'ok')
+              .map(([name]) => name)
+              .join(', ');
+            this.ns.error(`${a.name} ist nicht bereit${failedChecks ? ` (${failedChecks})` : ''}`);
+          }
+        },
+        error: () => {
+          a._health = 'error';
+          a._db = 'DB Offline';
+          this.ns.error(`Health-Check fehlgeschlagen fuer ${a.name}`);
+        },
+      });
+      return;
+    }
     this.system.health(a.url).subscribe({ 
       next: () => {
         a._health = 'ok';

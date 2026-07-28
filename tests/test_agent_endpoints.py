@@ -77,6 +77,44 @@ def test_ready_endpoint_uses_runtime_default_provider_from_app_config(client, ap
     assert llm["probe_status"] == "ok"
 
 
+def test_ready_endpoint_probes_ollama_tags_instead_of_generate_get(client, app):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "default_provider": "ollama",
+    }
+    app.config["PROVIDER_URLS"] = {
+        **(app.config.get("PROVIDER_URLS") or {}),
+        "ollama": "http://ollama:11434/api/generate",
+    }
+
+    with patch("agent.common.http.HttpClient.get") as mock_get, patch(
+        "agent.llm_integration.probe_ollama_runtime",
+        return_value={
+            "ok": True,
+            "status": "ok",
+            "tags_url": "http://ollama:11434/api/tags",
+            "candidate_count": 2,
+            "models": [{"name": "model-a"}, {"name": "model-b"}],
+        },
+    ) as probe:
+        hub_response = MagicMock()
+        hub_response.status_code = 200
+        mock_get.return_value = hub_response
+
+        response = client.get("/ready")
+
+    assert response.status_code == 200
+    assert response.json["data"]["ready"] is True
+    llm = response.json["data"]["checks"]["llm"]
+    assert llm["status"] == "ok"
+    assert llm["tags_url"] == "http://ollama:11434/api/tags"
+    assert llm["candidate_count"] == 2
+    probe.assert_called_once_with(
+        "http://ollama:11434/api/generate",
+        timeout=5,
+    )
+
+
 def test_health_endpoint_marks_lmstudio_unstable_when_reachable_without_models(client, app):
     app.config["AGENT_CONFIG"] = {
         **(app.config.get("AGENT_CONFIG") or {}),

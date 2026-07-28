@@ -96,6 +96,10 @@ export class SystemFacade {
     return this.agentApi.ready(baseUrl, token);
   }
 
+  probeAgent(baseUrl: string, workerUrl: string, token?: string) {
+    return this.agentApi.probeAgent(baseUrl, workerUrl, token);
+  }
+
   getConfig(baseUrl: string, token?: string) {
     return this.agentApi.getConfig(baseUrl, token);
   }
