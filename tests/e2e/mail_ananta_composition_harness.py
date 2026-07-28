@@ -445,13 +445,39 @@ class AnantaMailCompositionHarness:
         *,
         data_root: Path,
         secret_root: Path,
-        password_file: Path,
+        password_file: Path | None,
         intent_hub: InProcessIntentHub,
         session_url: str = "http://127.0.0.1:18080/.well-known/jmap",
+        account_id: str = "jmap-fixture-alice",
+        display_name: str = "JMAP Fixture Alice",
+        username_ref: str = "env://ANANTA_JMAP_FIXTURE_ALICE_USER",
+        credential_ref: str | None = None,
+        auth_mode: str = "basic",
+        provider_account_id: str | None = None,
+        runtime_environment: Mapping[str, str] | None = None,
+        external_network_enabled: bool = False,
+        local_endpoints_enabled: bool = True,
+        workspace_id: str = "jmap-contract-e2e",
+        actor: str = "jmap-contract-e2e",
         sync_fault_injector: Callable[[str], None] | None = None,
     ) -> None:
         self.data_root = data_root.resolve()
         self.data_root.mkdir(parents=True, exist_ok=True)
+        resolved_credential_ref = credential_ref
+        if resolved_credential_ref is None:
+            if password_file is None:
+                raise ValueError("mail_harness_credential_ref_required")
+            resolved_credential_ref = password_file.resolve().as_uri()
+        provider_config: dict[str, Any] = {
+            "session_url": session_url,
+            "auth_mode": auth_mode,
+        }
+        if provider_account_id:
+            provider_config["provider_account_id"] = provider_account_id
+        self.account_id = str(account_id)
+        self._username_ref = str(username_ref)
+        self._workspace_id = str(workspace_id)
+        self._actor = str(actor)
         self._counter = 0
         self._repository = _Repository()
         queue = _Queue(self._repository)
@@ -474,37 +500,49 @@ class AnantaMailCompositionHarness:
         )
         self.accounts.upsert_account(
             MailAccountV2(
-                account_id="stalwart-alice",
-                display_name="Stalwart Alice",
+                account_id=self.account_id,
+                display_name=display_name,
                 requested_protocol="jmap",
                 resolved_protocol="jmap",
-                username_ref="env://ANANTA_STALWART_ALICE_USER",
-                credential_ref=password_file.resolve().as_uri(),
+                username_ref=self._username_ref,
+                credential_ref=resolved_credential_ref,
                 sync_policy="headers_only",
                 enabled=True,
-                provider_config={
-                    "session_url": session_url,
-                    "auth_mode": "basic",
-                },
+                provider_config=provider_config,
             )
         )
         self.intent_hub = intent_hub
-        self.execution = build_production_mail_task_execution(
-            environ={
+        execution_environment = {
+            str(key): str(value)
+            for key, value in dict(runtime_environment or {}).items()
+        }
+        execution_environment.update(
+            {
                 "ANANTA_REPO_ROOT": str(self.data_root.parent),
                 "ANANTA_MAIL_DATA_ROOT": str(self.data_root),
                 "ANANTA_MAIL_ENABLED": "1",
                 "ANANTA_MAIL_JMAP_ENABLED": "1",
                 "ANANTA_MAIL_IMAP_FALLBACK_ENABLED": "1",
-                "ANANTA_MAIL_EXTERNAL_NETWORK_ENABLED": "0",
-                "ANANTA_MAIL_LOCAL_ENDPOINTS_ENABLED": "1",
-                "ANANTA_MAIL_ALLOWED_LOCAL_HOSTS": "127.0.0.1,localhost",
-                "ANANTA_MAIL_ALLOWED_LOCAL_CIDRS": "127.0.0.0/8",
+                "ANANTA_MAIL_EXTERNAL_NETWORK_ENABLED": (
+                    "1" if external_network_enabled else "0"
+                ),
+                "ANANTA_MAIL_LOCAL_ENDPOINTS_ENABLED": (
+                    "1" if local_endpoints_enabled else "0"
+                ),
+                "ANANTA_MAIL_ALLOWED_LOCAL_HOSTS": (
+                    "127.0.0.1,localhost" if local_endpoints_enabled else ""
+                ),
+                "ANANTA_MAIL_ALLOWED_LOCAL_CIDRS": (
+                    "127.0.0.0/8" if local_endpoints_enabled else ""
+                ),
                 "ANANTA_MAIL_SECRET_ROOTS": str(secret_root.resolve()),
-                "ANANTA_STALWART_ALICE_USER": "alice@example.test",
+                "ANANTA_JMAP_FIXTURE_ALICE_USER": "alice@example.test",
                 "ANANTA_MAIL_HUB_URL": intent_hub.url,
                 "ANANTA_MAIL_HUB_TOKEN": intent_hub.token,
-            },
+            }
+        )
+        self.execution = build_production_mail_task_execution(
+            environ=execution_environment,
             runtime_availability=MailRuntimeAvailabilityPolicy(
                 runtime_policy=MailRuntimePolicy.from_environment(
                     {"ANANTA_MAIL_ROLLOUT_PHASE": "operator_opt_in"}
@@ -531,8 +569,8 @@ class AnantaMailCompositionHarness:
                 display_name="Auto protocol",
                 requested_protocol="auto",
                 resolved_protocol=resolved_protocol,
-                username_ref="env://ANANTA_STALWART_ALICE_USER",
-                credential_ref="env://ANANTA_STALWART_ALICE_USER",
+                username_ref=self._username_ref,
+                credential_ref=self._username_ref,
                 sync_policy="manual",
                 enabled=True,
                 provider_config={
@@ -549,10 +587,11 @@ class AnantaMailCompositionHarness:
         self,
         operation: str,
         *,
-        account_id: str = "stalwart-alice",
+        account_id: str | None = None,
         intent_payload: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         self._counter += 1
+        selected_account_id = str(account_id or self.account_id)
         operation_refs: dict[str, str] = {}
         if intent_payload is not None:
             intent_ref = f"intent-{operation}-{self._counter}"
@@ -564,17 +603,19 @@ class AnantaMailCompositionHarness:
             operation_refs["intent_ref"] = intent_ref
         queued = self.hub.submit(
             operation=operation,
-            account_ref=f"mail-account:{account_id}",
-            workspace_scope=MailWorkspaceScope("stalwart-e2e"),
-            idempotency_key=f"mail-{operation}-{account_id}-{self._counter}",
+            account_ref=f"mail-account:{selected_account_id}",
+            workspace_scope=MailWorkspaceScope(self._workspace_id),
+            idempotency_key=(
+                f"mail-{operation}-{selected_account_id}-{self._counter}"
+            ),
             policy_refs={
                 f"{operation}_policy_ref": f"policy:mail:{operation}:v1"
             },
             operation_refs=operation_refs,
-            actor="stalwart-e2e",
+            actor=self._actor,
         )
         job_id = str(queued["job_id"])
-        owner = "hub-worker:stalwart-e2e"
+        owner = f"hub-worker:{self._actor}"
         lease = self.hub.claim_for_delegation(
             job_id=job_id,
             owner_ref=owner,
@@ -596,16 +637,30 @@ class AnantaMailCompositionHarness:
     def message_ref(self, *, subject: str) -> MailMessageRefV2:
         matches = [
             row
-            for row in self.metadata.list_messages(account_id="stalwart-alice")
+            for row in self.metadata.list_messages(account_id=self.account_id)
             if str(dict(row.get("metadata") or {}).get("subject") or "") == subject
         ]
         if len(matches) != 1:
             raise AssertionError("expected exactly one fixture message")
         return MailMessageRefV2.from_mapping(matches[0]["message_ref"])
 
+    def first_message(
+        self,
+    ) -> tuple[MailMessageRefV2, Mapping[str, Any]]:
+        rows = sorted(
+            self.metadata.list_messages(account_id=self.account_id),
+            key=lambda row: json.dumps(row.get("message_ref") or {}, sort_keys=True),
+        )
+        if not rows:
+            raise AssertionError("expected at least one synced message")
+        return (
+            MailMessageRefV2.from_mapping(rows[0]["message_ref"]),
+            dict(rows[0].get("metadata") or {}),
+        )
+
     def email_state(self) -> str:
         cursor = self.metadata.get_sync_cursor(
-            account_id="stalwart-alice",
+            account_id=self.account_id,
             protocol="jmap",
             scope="default",
         )
@@ -626,12 +681,12 @@ def run_fixture_migration_and_restore(root: Path) -> dict[str, str]:
                 "schema": "imap_accounts.v1",
                 "accounts": [
                     {
-                        "account_id": "legacy-stalwart",
+                        "account_id": "legacy-jmap-fixture",
                         "display_name": "Legacy fixture",
                         "host": "imap.example.test",
                         "port": 993,
-                        "username_ref": "env://ANANTA_STALWART_ALICE_USER",
-                        "credential_ref": "secret://fixture/stalwart",
+                        "username_ref": "env://ANANTA_JMAP_FIXTURE_ALICE_USER",
+                        "credential_ref": "secret://fixture/jmap",
                         "auth_mode": "password_app_token",
                         "tls_mode": "require_tls",
                         "sync_policy": "headers_only",
@@ -650,7 +705,7 @@ def run_fixture_migration_and_restore(root: Path) -> dict[str, str]:
                 "messages": [
                     {
                         "message_ref": {
-                            "account_id": "legacy-stalwart",
+                            "account_id": "legacy-jmap-fixture",
                             "mailbox": "INBOX",
                             "uid": 1,
                             "message_id": "<lighthouse-1@example.test>",
@@ -668,7 +723,7 @@ def run_fixture_migration_and_restore(root: Path) -> dict[str, str]:
         encoding="utf-8",
     )
     command = MailMigrationCommand(
-        command_id="stalwart-fixture-migration",
+        command_id="jmap-fixture-migration",
         legacy_accounts_path=accounts,
         legacy_metadata_path=metadata,
         target_accounts_path=target_root / "accounts.json",
@@ -681,7 +736,7 @@ def run_fixture_migration_and_restore(root: Path) -> dict[str, str]:
     restored = service.restore(
         command,
         migration_id=applied.migration_id,
-        approval_ref="approval-stalwart-fixture-restore",
+        approval_ref="approval-jmap-fixture-restore",
     )
     if applied.status != "complete" or restored.status != "restored":
         raise AssertionError("fixture migration or restore failed")

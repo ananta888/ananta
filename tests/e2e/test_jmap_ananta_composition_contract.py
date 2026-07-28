@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# Uses only the repository-owned, provider-neutral JMAP contract adapter.
+
 from pathlib import Path
 
 import pytest

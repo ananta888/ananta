@@ -183,11 +183,11 @@ Details zu Bestandskonten und Rückkehr zu IMAP stehen im
 
 ## Evidenzgrenze
 
-Die JSON-Dateien unter `tests/fixtures/jmap/` sind deterministische
-Mock-Vertragsdaten. Das Compose-Profil
-`docker/compose-next/compose.jmap-test.yml` stellt nur einen isolierten,
-ungefüllten Stalwart-Prozess bereit. Weder Fixture-Parsing noch
-`/healthz/live` belegen ein authentifiziertes, geseedetes Live-E2E.
+Die JSON-Dateien unter `tests/fixtures/jmap/` und der repository-eigene
+`ContractJmapAdapter` sind deterministische Vertragsdaten. Der lokale
+Composition-Test belegt Hub-, Worker-, Provider- und Grant-Verhalten, aber
+keine Interoperabilität mit einem extern betriebenen JMAP-Provider. Dieser
+Nachweis bleibt ein separates Deployment-Gate.
 
 ## Troubleshooting
 

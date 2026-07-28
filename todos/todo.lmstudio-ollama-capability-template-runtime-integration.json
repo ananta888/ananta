@@ -1,0 +1,1102 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "lmstudio-ollama-capability-template-runtime-integration",
+  "created_at": "2026-07-28",
+  "updated_at": "2026-07-28",
+  "status": "partial",
+  "implementation_status": "source_aligned_planning_complete",
+  "evidence_status": "locally_inspected_unverified_missing_SRC_RUN_ids",
+  "purpose": "LM Studio und Ollama erhalten eine gemeinsame, hub-kontrollierte Sicht auf installierte Modelle, sichere Runtime-Capabilities, Kontextgrenzen, Templates und Laufzeitzustand. Bestehende OpenAI-kompatible Pfade bleiben kompatibel; provider-native Ollama-Funktionen werden hinter kleinen Adaptern ergaenzt.",
+  "goal": "Routing, Tool-Calling, Embeddings, Vision, Thinking, API, Angular und TUI verwenden denselben versionierten Capability-Snapshot. Unsichere oder veraltete Daten loesen keine stille Capability-Eskalation aus. Der Hub bleibt Eigentuemer von Refresh, Routing, Approval und Tool-Loop-Zustand; Worker fuehren nur delegierte Schritte aus.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "architecture_invariants": [
+    "Der Hub besitzt Refresh-, Routing-, Approval-, Lifecycle- und Tool-Loop-Entscheidungen.",
+    "Worker fuehren nur delegierte Runtime- oder Tool-Schritte aus und erzeugen keine Folgetasks.",
+    "Routing-Hotpaths fuehren bei gueltigem Snapshot keine Runtime-Netzwerkabfragen aus.",
+    "Provideradapter haengen an kleinen Ports; ModelInvocationService bleibt eine Orchestrierungsfassade.",
+    "Capability-Daten sind untrusted metadata und koennen keine Policy oder Tool-Berechtigung aktivieren.",
+    "Keine automatische Modellinstallation, kein Download und keine Templateaenderung."
+  ],
+  "non_goals": [
+    "Keine Abschaffung der OpenAI-kompatiblen LM-Studio- und Ollama-Pfade.",
+    "Keine serverseitige Ausfuehrung von Ananta-Tools durch native Runtime-MCP-Integrationen.",
+    "Keine automatische Installation, Loeschung, Load-, Unload- oder Kontextaenderung von Modellen.",
+    "Keine Speicherung vollstaendiger Templates, Modelfiles, Bilder, Toolargumente oder Secrets in Logs, Traces oder Telemetrie.",
+    "Keine routbare Audio-, Stateful-Chat-, MCP- oder Lifecycle-Capability im Snapshot-v1.",
+    "Keine Live-Runtime- oder GPU-Pflicht fuer die lokale Code-Abnahme."
+  ],
+  "source_alignment": {
+    "status": "locally_inspected_unverified_missing_SRC_RUN_ids",
+    "repository": "ananta888/ananta",
+    "branch": null,
+    "commit_sha": null,
+    "source_ids": [],
+    "run_ids": [],
+    "rule": "Inspektierte Pfade sind keine grounded Evidence. Nur bereitgestellte SRC_* und RUN_* IDs sind fuer Source- oder Run-Claims zulaessig; fehlende IDs bleiben unverified.",
+    "existing_foundations": [
+      "ananta_contracts/model_capability.py",
+      "ananta_contracts/model_catalog.py",
+      "agent/services/model_catalog_service.py",
+      "agent/services/ollama_model_discovery_service.py",
+      "agent/llm_integration_lmstudio.py",
+      "agent/services/model_invocation_service.py",
+      "agent/services/model_profile_loader.py",
+      "agent/services/model_profile_resolver.py",
+      "agent/services/tool_calling_mode_service.py",
+      "agent/services/provider_invocation_middleware.py",
+      "agent/routes/config/providers.py",
+      "frontend-angular/src/app/features/system/model-dashboard",
+      "client_surfaces/operator_tui"
+    ],
+    "observed_gaps": [
+      "Ollama-Discovery verwendet /api/tags, aber keinen zentralen digestgebundenen /api/show-Inspector.",
+      "LM-Studio-Discovery verwendet /v1/models, aber keinen validierten /api/v1/models-Detailpfad.",
+      "Capability-Quelle, Confidence, Freshness, Template-Hash und Runtime-Widerspruch fehlen im gemeinsamen Vertrag.",
+      "Mehrere Tool-Loops und LM-Studio-Aufrufpfade normalisieren strukturierte Tool-Calls uneinheitlich.",
+      "API, Angular und TUI projizieren den bestehenden ModelCatalog-v1, aber keine Capability-Provenienz oder Template-Diagnose.",
+      "Es existiert kein persistenter digestgebundener Capability-Snapshot-Cache."
+    ]
+  },
+  "capability_contract_v1": {
+    "routable_capabilities": [
+      "chat",
+      "completion",
+      "tools",
+      "vision",
+      "thinking",
+      "embedding",
+      "streaming"
+    ],
+    "sources": [
+      "runtime_reported",
+      "profile_declared",
+      "observed_success",
+      "observed_failure",
+      "heuristic"
+    ],
+    "safe_positive_sources": [
+      "runtime_reported",
+      "profile_declared",
+      "observed_success"
+    ],
+    "rules": [
+      "heuristic ist niemals allein routbar.",
+      "observed_failure ist zeitlich begrenzt und kann eine positive Quelle voruebergehend sperren.",
+      "Ein digest- oder Runtimeversionswechsel invalidiert beobachtete und runtimebezogene Aussagen.",
+      "Ein expliziter Runtime-Negativbefund darf nicht durch einen stillen Profil-Override in eine native Faehigkeit umgewandelt werden.",
+      "Unbekannte Capabilities bleiben als nicht routbare Erweiterungen abwaertskompatibel erhalten."
+    ]
+  },
+  "deferred_follow_up_tracks": [
+    {
+      "track": "lmstudio-responses-and-stateful-native-api",
+      "reason": "OpenAI Responses und /api/v1/chat mit previous_response_id sind optional und fuer Discovery sowie portable Custom-Tools nicht erforderlich."
+    },
+    {
+      "track": "lmstudio-mcp-policy-integration",
+      "reason": "Native MCP-Ausfuehrung benoetigt ein separates Security- und Governance-Modell vor jeder serverseitigen Aktion."
+    },
+    {
+      "track": "local-model-lifecycle-control",
+      "reason": "Load, Unload, Download und Kontextaenderungen sind disruptive hub-eigene Aktionen mit separatem Approval-, Lease- und Audit-Vertrag."
+    }
+  ],
+  "milestones": [
+    {
+      "id": "LMR-M1",
+      "title": "Grounded contracts, security and hub refresh boundary",
+      "task_ids": [
+        "LMR-000",
+        "LMR-001",
+        "LMR-002",
+        "LMR-003"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "LMR-M2",
+      "title": "Provider discovery, normalization and snapshots",
+      "task_ids": [
+        "LMR-004",
+        "LMR-005",
+        "LMR-006",
+        "LMR-007",
+        "LMR-008"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "LMR-M3",
+      "title": "Capability routing and provider invocation",
+      "task_ids": [
+        "LMR-009",
+        "LMR-010",
+        "LMR-011",
+        "LMR-012",
+        "LMR-013",
+        "LMR-014",
+        "LMR-015"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "LMR-M4",
+      "title": "API, surfaces, diagnostics and compatibility",
+      "task_ids": [
+        "LMR-016",
+        "LMR-017",
+        "LMR-018",
+        "LMR-019"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "LMR-M5",
+      "title": "Deterministic acceptance and rollout",
+      "task_ids": [
+        "LMR-020",
+        "LMR-021"
+      ],
+      "status": "in_progress"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "LMR-000",
+      "title": "Unveraenderliche Source-Baseline und Evidence-Modell festlegen",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 10,
+      "type": "governance",
+      "milestone_id": "LMR-M1",
+      "depends_on": [],
+      "affected_files": [
+        "todos/todo.lmstudio-ollama-capability-template-runtime-integration.json",
+        "artifacts/domain/local-model-runtime-source-baseline.json"
+      ],
+      "details": [
+        "Commit-SHA, bereitgestellte SRC_* IDs und zulaessige RUN_* IDs getrennt erfassen.",
+        "Lokale Inspektion, lokale Testbeobachtung und grounded Evidence sichtbar unterscheiden.",
+        "Keine Source- oder Run-ID selbst erzeugen oder aus Pfaden ableiten."
+      ],
+      "acceptance_criteria": [
+        "Baseline enthaelt einen unveraenderlichen Commit-SHA oder bleibt explizit unverified.",
+        "Source-Claims referenzieren ausschliesslich bereitgestellte SRC_* IDs.",
+        "Test- und Live-Claims referenzieren ausschliesslich bereitgestellte RUN_* IDs.",
+        "Fehlende oder unbekannte IDs werden als unverified beziehungsweise failed behandelt."
+      ]
+    },
+    {
+      "id": "LMR-001",
+      "title": "Versionierten Capability- und Runtime-Snapshot-Vertrag erweitern",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 35,
+      "type": "architecture",
+      "milestone_id": "LMR-M1",
+      "depends_on": [
+        "LMR-000"
+      ],
+      "affected_files": [
+        "ananta_contracts/model_capability.py",
+        "ananta_contracts/model_catalog.py",
+        "config/schemas/local_model_snapshot.schema.json",
+        "tests/contracts/test_local_model_capabilities.py"
+      ],
+      "details": [
+        "Bestehende ModelCapability- und ModelCatalog-Vertraege additiv erweitern.",
+        "Runtime-, Modell-, Digest-, Capability-, Provenienz-, Confidence-, Freshness- und Template-Diagnosefelder definieren.",
+        "Provider-Rohdaten nur unter einem begrenzten namespaced metadata-Feld zulassen."
+      ],
+      "acceptance_criteria": [
+        "Schema validiert deterministische LM-Studio- und Ollama-Fixtures.",
+        "Jede Capability traegt source, confidence, discovered_at und optional expires_at.",
+        "Unbekannte Capability-Erweiterungen brechen bestehende Reader nicht und sind nicht routbar.",
+        "Digest- oder Runtimeversionswechsel invalidiert runtimebezogene und beobachtete Aussagen.",
+        "base_url wird in externen API- und UI-Projektionen redigiert."
+      ]
+    },
+    {
+      "id": "LMR-002",
+      "title": "Gemeinsame Runtime-Endpoint- und Metadata-Security vorziehen",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 40,
+      "type": "security",
+      "milestone_id": "LMR-M1",
+      "depends_on": [
+        "LMR-000",
+        "LMR-001"
+      ],
+      "affected_files": [
+        "agent/services/provider_invocation_middleware.py",
+        "agent/services/local_runtime_endpoint_policy.py",
+        "tests/security/test_local_runtime_security.py"
+      ],
+      "details": [
+        "Bestehende Egress-, Allowlist- und Redaction-Grenzen fuer alle Runtime-Discovery- und Invocation-Pfade vereinheitlichen.",
+        "Hosts, Ports, DNS-Ergebnisse, Redirects, Auth-Header, Responsegroesse und Timeouts fail-closed pruefen.",
+        "Template, model_info, parameters und Lizenztexte als untrusted metadata behandeln."
+      ],
+      "acceptance_criteria": [
+        "Redirect zu einem nicht erlaubten Host oder Port endet mit stablem Reason-Code vor einem zweiten Request.",
+        "Private, Loopback- und Link-local-Ziele sind nur durch explizite lokale Runtime-Policy zulaessig.",
+        "Authorization wird bei Originwechsel niemals weitergegeben.",
+        "Response- und Metadata-Groessenlimits werden vor Persistenz und Logging angewendet.",
+        "Secrets, Raw-Templates, Toolargumente und Bilder erscheinen nicht in Standardlogs."
+      ]
+    },
+    {
+      "id": "LMR-003",
+      "title": "Kleine Discovery-Ports und hub-eigenen Refresh-Coordinator einfuehren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 35,
+      "type": "architecture",
+      "milestone_id": "LMR-M1",
+      "depends_on": [
+        "LMR-001",
+        "LMR-002"
+      ],
+      "affected_files": [
+        "agent/services/model_catalog_service.py",
+        "agent/services/runtime_discovery_ports.py",
+        "agent/services/local_model_refresh_coordinator.py",
+        "tests/services/test_local_model_refresh_coordinator.py"
+      ],
+      "details": [
+        "RuntimeDiscoveryPort, ModelInspectorPort und CapabilitySnapshotRepository trennen.",
+        "Bestehenden ModelCatalogService als Projektion und nicht als God-Registry weiterentwickeln.",
+        "Refresh als hub-eigenen, rate-limited und koaleszierten Task modellieren.",
+        "Worker fuehren nur delegierte Providerabfragen aus."
+      ],
+      "acceptance_criteria": [
+        "LM Studio und Ollama koennen gleichzeitig registriert und unabhaengig aktualisiert werden.",
+        "Fehler einer Runtime blockiert die andere nicht.",
+        "Parallele Refresh-Trigger werden hubseitig koalesziert.",
+        "Worker erzeugen keine Refresh- oder Folgetasks.",
+        "Ein Routing-Hotpath verwendet bei gueltigem Snapshot keine Netzwerkabfrage."
+      ]
+    },
+    {
+      "id": "LMR-004",
+      "title": "Ollama-Discovery digestgebunden um /api/show erweitern",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 25,
+      "type": "provider",
+      "milestone_id": "LMR-M2",
+      "depends_on": [
+        "LMR-003"
+      ],
+      "affected_files": [
+        "agent/services/ollama_model_discovery_service.py",
+        "agent/services/ollama_model_inspector.py",
+        "tests/services/test_ollama_model_discovery_service.py",
+        "tests/fixtures/ollama"
+      ],
+      "details": [
+        "Modelle aus /api/tags mit POST /api/show-Details anreichern.",
+        "template, capabilities, parameters, details und model_info begrenzt auswerten.",
+        "Parallelitaet, Timeout und Teilfehler pro Modell begrenzen.",
+        "Vollstaendige Templates und Lizenztexte nicht standardmaessig persistieren."
+      ],
+      "acceptance_criteria": [
+        "/api/show wird je Provider, Modell und Digest hoechstens einmal pro Detail-Refresh aufgerufen.",
+        "Maximal vier Detailabfragen laufen parallel; Timeout ist pro Modell begrenzt.",
+        "Eine fehlgeschlagene Detailabfrage entfernt das /api/tags-Modell nicht.",
+        "Capabilities werden nur aus tatsaechlich vorhandenen Antwortfeldern als runtime_reported markiert.",
+        "Template wird standardmaessig nur klassifiziert und mit SHA-256 gehasht."
+      ]
+    },
+    {
+      "id": "LMR-005",
+      "title": "LM-Studio-Discovery um validierte native v1-Modelldaten erweitern",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 30,
+      "type": "provider",
+      "milestone_id": "LMR-M2",
+      "depends_on": [
+        "LMR-003"
+      ],
+      "affected_files": [
+        "agent/llm_integration_lmstudio.py",
+        "agent/services/lmstudio_model_inspector.py",
+        "tests/test_llm_integration_lmstudio.py",
+        "tests/fixtures/lmstudio"
+      ],
+      "details": [
+        "Bestehendes /v1/models-Verhalten erhalten.",
+        "Wenn verfuegbar, GET /api/v1/models fuer type, architecture, quantization, size und Load-State validieren.",
+        "Fehlende native API kontrolliert auf den bestehenden OpenAI-kompatiblen Pfad zurueckfallen lassen.",
+        "Nicht von LM Studio bereitgestellte Templateinformationen als unknown statt heuristisch sicher markieren."
+      ],
+      "acceptance_criteria": [
+        "OpenAI-kompatible /v1/models-Discovery bleibt ohne Konfigurationsaenderung funktionsfaehig.",
+        "Native v1-Felder werden nur nach Schema-, Typ- und Groessenpruefung uebernommen.",
+        "LLM- und Embedding-Modelle werden anhand Runtimefeldern statt Namenssubstring getrennt.",
+        "Nicht verfuegbares /api/v1/models erzeugt einen kontrollierten Fallback ohne Startfehler.",
+        "Keine native LM-Studio-API ist Voraussetzung fuer den Standardstart."
+      ]
+    },
+    {
+      "id": "LMR-006",
+      "title": "Providerdaten in eine begrenzte Capability-Normalform ueberfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "normalization",
+      "milestone_id": "LMR-M2",
+      "depends_on": [
+        "LMR-004",
+        "LMR-005"
+      ],
+      "affected_files": [
+        "agent/services/model_capability_normalizer_service.py",
+        "tests/services/test_model_capability_normalizer_service.py"
+      ],
+      "details": [
+        "Ollama- und LM-Studio-Felder auf CapabilityContract-v1 abbilden.",
+        "Chat, Completion, Tools, Vision, Thinking, Embedding und Streaming abdecken.",
+        "Kontext- und Embedding-Dimensionen mit Quelle und Grenze speichern.",
+        "Heuristiken nur als nicht routbare Fallbackquelle ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Runtimegemeldete Ollama-Tools werden als tools/runtime_reported normalisiert.",
+        "Vision- und Thinking-Felder werden nur bei positiver Quelle gesetzt.",
+        "Embedding-Modelle sind nicht als Chatkandidaten routbar.",
+        "Fehlende Capability-Felder erzeugen kein erfundenes runtime_reported=true.",
+        "Unbekannte Providerwerte bleiben begrenzt und nicht routbar."
+      ]
+    },
+    {
+      "id": "LMR-007",
+      "title": "Pluggable Template-Inspector und Konfliktdiagnose implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "type": "normalization",
+      "milestone_id": "LMR-M2",
+      "depends_on": [
+        "LMR-004",
+        "LMR-005"
+      ],
+      "affected_files": [
+        "agent/services/chat_template_inspector_service.py",
+        "tests/services/test_chat_template_inspector_service.py"
+      ],
+      "details": [
+        "Template-Recognizer als kleine Strategien fuer ChatML, Llama-3, Mistral, Gemma, Hermes und Phi implementieren.",
+        "Ollama-Raw-Template nur im Requestspeicher klassifizieren und hashen.",
+        "LM-Studio-Template ohne autoritative Runtimequelle als unknown oder profile_declared markieren.",
+        "Capability- und Templatekonflikte mit stablem Diagnosecode ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Deterministische ChatML-, Llama-3-, Mistral-, Gemma-, Hermes- und Phi-Fixtures liefern die erwartete Familie.",
+        "Gemischte inkompatible Kontrolltokens liefern template_conflict.",
+        "Unknown blockiert normale Textgenerierung nicht.",
+        "Native Tools koennen bei template_conflict per Policy fail-closed gesperrt werden.",
+        "Raw-Template erscheint weder im Snapshot noch in Standardlogs."
+      ]
+    },
+    {
+      "id": "LMR-008",
+      "title": "Atomaren digestgebundenen Capability-Snapshot-Cache bereitstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "persistence",
+      "milestone_id": "LMR-M2",
+      "depends_on": [
+        "LMR-001",
+        "LMR-003"
+      ],
+      "affected_files": [
+        "agent/services/local_model_capability_cache_service.py",
+        "tests/services/test_local_model_capability_cache_service.py"
+      ],
+      "details": [
+        "Cache-Key aus Provider, Runtime-ID, Modell-ID, Digest und Schemasicht bilden.",
+        "TTL, stale-while-revalidate, atomare Writes und File-Lock definieren.",
+        "Cacheanzahl, Dateigroesse und Metadata-Groesse begrenzen.",
+        "Raw-Templates nicht persistieren."
+      ],
+      "acceptance_criteria": [
+        "Digestwechsel erzeugt einen neuen Snapshot und erzwingt Detail-Refresh.",
+        "Defekter oder unbekannter Cache startet mit leerem sicheren Zustand.",
+        "Concurrent Reader und Writer erzeugen keine partielle JSON-Datei.",
+        "Stale-Snapshots sind maschinenlesbar stale und werden nicht als frisch ausgegeben.",
+        "Konfigurierbare harte Grenzen verhindern unbegrenztes Cachewachstum."
+      ]
+    },
+    {
+      "id": "LMR-009",
+      "title": "Capability-Vertrauen mit Profilen und Routing zusammenfuehren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 30,
+      "type": "routing",
+      "milestone_id": "LMR-M3",
+      "depends_on": [
+        "LMR-006",
+        "LMR-007",
+        "LMR-008"
+      ],
+      "affected_files": [
+        "agent/services/model_profile_loader.py",
+        "agent/services/model_profile_resolver.py",
+        "agent/services/tool_calling_mode_service.py",
+        "tests/test_model_profile_resolver.py",
+        "tests/services/test_tool_calling_mode_service.py"
+      ],
+      "details": [
+        "Explizite Policy, sichere Runtimequelle, beobachtete Ergebnisse und Heuristik nach einer Truth-Table aufloesen.",
+        "Tools, Vision, Thinking und Embedding als getrennte Anforderungen behandeln.",
+        "Konflikte und zeitlich begrenzte observed_failure-Circuit-Breaker sichtbar machen.",
+        "Automatische Felder nicht still in Nutzerprofile schreiben."
+      ],
+      "acceptance_criteria": [
+        "requires_tools schliesst Modelle ohne sichere positive Toolquelle aus.",
+        "requires_vision und requires_embedding verwenden dieselbe Provenienzlogik.",
+        "Ein Runtime-Negativbefund kann nicht still durch ein Profil zu runtime_reported positiv werden.",
+        "Heuristik allein loest kein natives Routing aus.",
+        "Observed failure laeuft nach konfigurierter TTL ab und deaktiviert ein Modell nicht dauerhaft."
+      ]
+    },
+    {
+      "id": "LMR-010",
+      "title": "Kontext-, Payload-, Streaming- und Cancellation-Grenzen vereinheitlichen",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 30,
+      "type": "runtime",
+      "milestone_id": "LMR-M3",
+      "depends_on": [
+        "LMR-002",
+        "LMR-006"
+      ],
+      "affected_files": [
+        "agent/services/local_model_runtime_limits.py",
+        "agent/services/model_invocation_service.py",
+        "tests/services/test_local_model_runtime_limits.py"
+      ],
+      "details": [
+        "Runtime- und lokale Grenzen fuer Kontext, Requests, Responses, Bilder, Tool-Calls, Streaming und Deadlines kombinieren.",
+        "Cancellation und Backpressure als providerunabhaengigen Port definieren.",
+        "Kontext-Overflow vor dem Provideraufruf mit stablem Reason-Code ablehnen oder explizit begrenzt kuerzen."
+      ],
+      "acceptance_criteria": [
+        "Kleinere verifizierte Grenze aus Runtime und lokaler Policy gewinnt.",
+        "Context Overflow liefert context_limit_exceeded oder dokumentierte bounded truncation.",
+        "Cancellation beendet Stream und Tool-Loop ohne verwaiste Folgetasks.",
+        "Bilder, Tooldefinitionen und Toolresultate werden in Requestgroessen eingerechnet.",
+        "Keine Providerantwort kann das lokale Response-Limit ueberschreiten."
+      ]
+    },
+    {
+      "id": "LMR-011",
+      "title": "Ollama-native Chat- und Generate-Antworten normalisieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "provider",
+      "milestone_id": "LMR-M3",
+      "depends_on": [
+        "LMR-006",
+        "LMR-010"
+      ],
+      "affected_files": [
+        "agent/services/ollama_request_adapter.py",
+        "agent/services/ollama_response_adapter.py",
+        "agent/services/model_invocation_service.py",
+        "tests/providers/test_ollama_response_adapter.py"
+      ],
+      "details": [
+        "/api/chat und /api/generate hinter getrennten Request-/Response-Adaptern kapseln.",
+        "Chat-tool_calls, thinking, content, done_reason und Usage normalisieren.",
+        "Generate-thinking und response normalisieren, aber keine undokumentierten Generate-tool_calls erfinden.",
+        "Boolesche und unterstuetzte abgestufte think-Modi capabilitygebunden senden."
+      ],
+      "acceptance_criteria": [
+        "Native /api/chat-Tool-Calls bleiben strukturiert erhalten.",
+        "thinking und finaler content bleiben getrennt.",
+        "Nicht bestaetigte Modelle erhalten kein think-Feld.",
+        "/api/generate erzeugt ohne dokumentiertes Feld keine erfundene tool_calls-Liste mit positiver Capabilityaussage.",
+        "done_reason und Usage bleiben in Streaming- und Non-Streaming-Fixtures konsistent."
+      ]
+    },
+    {
+      "id": "LMR-012",
+      "title": "Ollama-Vision ueber einen policygeschuetzten Image-Adapter integrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "provider",
+      "milestone_id": "LMR-M3",
+      "depends_on": [
+        "LMR-006",
+        "LMR-010",
+        "LMR-011"
+      ],
+      "affected_files": [
+        "agent/services/ollama_vision_adapter.py",
+        "tests/providers/test_ollama_vision_adapter.py"
+      ],
+      "details": [
+        "Freigegebene Artefaktreferenzen in das Ollama-Imageformat ueberfuehren.",
+        "MIME, Dateigroesse, Pixelgrenze, Anzahl und Workspace-Grant vor dem Request pruefen.",
+        "Bildbytes nur im Requestspeicher halten."
+      ],
+      "acceptance_criteria": [
+        "Ein Modell ohne sichere vision-Capability erhaelt niemals images.",
+        "Ein freigegebenes Vision-Fixture verarbeitet Text plus ein Bild.",
+        "Unerlaubte Referenz, MIME oder Groesse wird vor dem Provideraufruf abgelehnt.",
+        "Bildbytes erscheinen nicht in Logs, Traces, Tasks oder Snapshots."
+      ]
+    },
+    {
+      "id": "LMR-013",
+      "title": "Ollama-native Embeddings erkennen und strikt getrennt routen",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 20,
+      "type": "provider",
+      "milestone_id": "LMR-M3",
+      "depends_on": [
+        "LMR-006",
+        "LMR-010"
+      ],
+      "affected_files": [
+        "worker/retrieval/embedding_provider.py",
+        "agent/services/embedding_provider_config_service.py",
+        "agent/services/ollama_embedding_adapter.py",
+        "tests/services/test_embedding_provider_service.py"
+      ],
+      "details": [
+        "Bestehende OpenAI-kompatible Embedding-Konfiguration erhalten.",
+        "Native /api/embed-Unterstuetzung mit Dimension und Kontextgrenze ergaenzen.",
+        "Embedding- und Chatkandidaten strikt trennen."
+      ],
+      "acceptance_criteria": [
+        "Ein runtimegemeldetes Embedding-Modell ist kein Chatkandidat.",
+        "Native /api/embed-Antwort wird in das bestehende Embeddingformat normalisiert.",
+        "Dimension-Mismatch liefert embedding_dimension_mismatch.",
+        "truncate=false wird fuer strikte Indexkonsistenz unterstuetzt.",
+        "Bestehende OpenAI-kompatible Konfiguration bleibt unveraendert funktionsfaehig."
+      ]
+    },
+    {
+      "id": "LMR-014",
+      "title": "LM-Studio-OpenAI-Aufrufpfade ohne Tool-Call-Textverlust vereinheitlichen",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 45,
+      "type": "provider",
+      "milestone_id": "LMR-M3",
+      "depends_on": [
+        "LMR-001",
+        "LMR-002",
+        "LMR-010"
+      ],
+      "affected_files": [
+        "agent/llm_integration_lmstudio.py",
+        "agent/llm_strategies/lmstudio.py",
+        "agent/services/model_invocation_service.py",
+        "tests/test_lmstudio_strategy.py"
+      ],
+      "details": [
+        "Bestehende Aufrufsignaturen ueber Kompatibilitaetswrapper erhalten.",
+        "Gemeinsame OpenAI-kompatible Request-/Response-Adapter fuer /v1/chat/completions und Completion-Fallback verwenden.",
+        "Strukturierte Tool-Calls, finish_reason, Usage und Reasoning-Metadaten als First-Class-Ergebnis erhalten.",
+        "Vollstaendige Rohantworten aus Standardlogs entfernen."
+      ],
+      "acceptance_criteria": [
+        "Kein produktiver LM-Studio-Pfad serialisiert strukturierte Tool-Calls ausschliesslich als Text.",
+        "Explizit gewaehltes Modell wird nicht still ersetzt.",
+        "finish_reason und Usage besitzen in beiden Kompatibilitaetspfaden dieselbe Normalform.",
+        "Legacy-Aufrufer erhalten dokumentiert kompatible Resultate.",
+        "Rohantwort, Toolargumente und Credentials erscheinen nicht in Standardlogs."
+      ]
+    },
+    {
+      "id": "LMR-015",
+      "title": "Hub-eigenen providerneutralen Tool-Result-Loop konsolidieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 35,
+      "type": "orchestration",
+      "milestone_id": "LMR-M3",
+      "depends_on": [
+        "LMR-009",
+        "LMR-011",
+        "LMR-014"
+      ],
+      "affected_files": [
+        "agent/services/provider_tool_loop_service.py",
+        "agent/services/unified_tool_execution_service.py",
+        "worker/core/tool_calling_llm_strategy.py",
+        "tests/services/test_provider_tool_loop_service.py"
+      ],
+      "details": [
+        "Bestehende duplizierte Loops auf eine hub-eigene begrenzte State Machine abbilden.",
+        "Policy, Approval und Toolausfuehrung ueber bestehende schmale Services injizieren.",
+        "Assistant-Tool-Call und Provider-spezifisches Toolresultat verlustfrei in den Folgerequest abbilden.",
+        "Worker fuehren delegierte Invocation- oder Toolschritte aus und orchestrieren keine weiteren Worker."
+      ],
+      "acceptance_criteria": [
+        "Deterministische Fake-Provider bestehen jeweils zwei aufeinanderfolgende Tool-Runden.",
+        "Jedes Toolresultat wird einer stabilen normalisierten Call-ID zugeordnet und providerkorrekt serialisiert.",
+        "Nicht allowlistetes oder nicht genehmigtes Tool wird nicht ausgefuehrt.",
+        "Iterations-, Gesamt-Call-, Payload-, Deadline- und Cancellation-Grenzen beenden den Loop deterministisch.",
+        "LM Studio und Ollama verwenden denselben Hub-Policy- und Execution-Pfad.",
+        "Kein Worker erzeugt einen Folgetask oder delegiert an einen anderen Worker."
+      ]
+    },
+    {
+      "id": "LMR-016",
+      "title": "Bestehende ModelCatalog-API um Runtime-Snapshots und sicheren Refresh erweitern",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 50,
+      "type": "api",
+      "milestone_id": "LMR-M4",
+      "depends_on": [
+        "LMR-003",
+        "LMR-008",
+        "LMR-009"
+      ],
+      "affected_files": [
+        "agent/routes/config/providers.py",
+        "agent/routes/local_model_runtime.py",
+        "tests/test_model_catalog_api.py",
+        "tests/routes/test_local_model_runtime.py"
+      ],
+      "details": [
+        "Bestehende /models/catalog/v1-Projektion additiv erweitern.",
+        "Runtime, Capability, Quelle, Confidence, Template-Diagnose, Stale- und Fehlerzustand ausgeben.",
+        "Refresh nur als authentifizierten, rate-limited Hub-Task annehmen.",
+        "Provider- und Capability-Filter anbieten."
+      ],
+      "acceptance_criteria": [
+        "LM Studio und Ollama verwenden dasselbe versionierte Antwortschema.",
+        "API gibt keine Raw-Templates, Secrets oder unredigierte interne base_url aus.",
+        "Stale- und Teilfehlerzustand sind maschinenlesbar.",
+        "Refresh ist authentifiziert, rate-limited und liefert eine Taskreferenz statt synchroner Workerorchestrierung.",
+        "Bestehende Catalog-v1-Reader bleiben kompatibel."
+      ]
+    },
+    {
+      "id": "LMR-017",
+      "title": "Angular und TUI auf dieselbe Capability-Projektion umstellen",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 35,
+      "type": "frontend",
+      "milestone_id": "LMR-M4",
+      "depends_on": [
+        "LMR-016"
+      ],
+      "affected_files": [
+        "frontend-angular/src/app/features/system/model-dashboard",
+        "frontend-angular/src/app/core/services/local-model-runtime-api.service.ts",
+        "client_surfaces/operator_tui",
+        "tests/client_surfaces/operator_tui/test_dashboard_http_adapter.py"
+      ],
+      "details": [
+        "Bestehendes Model-Dashboard und TUI-Projektion additiv erweitern.",
+        "Capability, Quelle, Confidence, Kontext, Template-Diagnose, Load-State und Stale-Status darstellen.",
+        "Provider- und Capability-Filter in UI und JSON-Modus anbieten.",
+        "Keine Lifecycle-Schreibaktionen in diesem Track anbieten."
+      ],
+      "acceptance_criteria": [
+        "Angular und TUI rendern dieselbe API-Normalform.",
+        "Runtime-, Profil- und Heuristikquelle sind unterscheidbar.",
+        "Tools, Vision, Thinking und Embedding sind filterbar.",
+        "Teilweiser Runtimeausfall laesst andere Runtimekarten und Modelle sichtbar.",
+        "JSON-Modus enthaelt keine ANSI-Sequenzen oder redigierte Geheimwerte."
+      ]
+    },
+    {
+      "id": "LMR-018",
+      "title": "Diagnostik, Health, Tracing und read-only Probe ergaenzen",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 30,
+      "type": "operations",
+      "milestone_id": "LMR-M4",
+      "depends_on": [
+        "LMR-008",
+        "LMR-009",
+        "LMR-015",
+        "LMR-016"
+      ],
+      "affected_files": [
+        "agent/services/system_health_service.py",
+        "agent/services/prompt_trace_service.py",
+        "scripts/probe_local_model_runtimes.py",
+        "tests/scripts/test_probe_local_model_runtimes.py"
+      ],
+      "details": [
+        "Health um Runtimeerreichbarkeit, Discovery, Detailvollstaendigkeit, Cachealter und Teilfehler erweitern.",
+        "Traces um endpoint_kind, Snapshot-ID, Tool-Modus und Fallback-Reason-Code ergaenzen.",
+        "Read-only Probe mit JSON-Ausgabe und stabilen Exitcodes anbieten.",
+        "Optionalen No-op-Tooltest nur gegen ein internes side-effect-freies Testtool zulassen."
+      ],
+      "acceptance_criteria": [
+        "Health trennt Runtime-, Discovery-, Detail-, Cache- und Routingzustand.",
+        "Fallback nennt einen stablem maschinenlesbaren Reason-Code.",
+        "Probe veraendert standardmaessig keine Runtime und startet kein Modell.",
+        "Exitcodes unterscheiden Erfolg, Warnung und harten Fehler.",
+        "Support-JSON enthaelt keine Raw-Templates, Toolargumente, Bilder oder Secrets."
+      ]
+    },
+    {
+      "id": "LMR-019",
+      "title": "Rueckwaertskompatibilitaet und sensibles Logging haerten",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 30,
+      "type": "migration",
+      "milestone_id": "LMR-M4",
+      "depends_on": [
+        "LMR-009",
+        "LMR-011",
+        "LMR-014"
+      ],
+      "affected_files": [
+        "agent/config.py",
+        "agent/config_defaults.py",
+        ".env.template",
+        "agent/llm_integration_lmstudio.py",
+        "docs/setup/runtime_profiles.md",
+        "tests/test_local_model_runtime_compatibility.py"
+      ],
+      "details": [
+        "LMSTUDIO_API_MODE, OLLAMA_BASE_URL und bestehende Profilkonfiguration weiter unterstuetzen.",
+        "Discovery zunaechst read-only und Routingwirkung featuregeflaggt einfuehren.",
+        "Textifizierenden LM-Studio-Tool-Extractor mit Entfernungspfad deprecaten.",
+        "Rohe Providerantworten und Toolargumente aus Standardlogs entfernen."
+      ],
+      "acceptance_criteria": [
+        "Bestehende Installation startet ohne neue Pflichtvariable.",
+        "Ohne Routing-Featureflag aendert Discovery keine Modellauswahl.",
+        "Kein Modell wird automatisch geladen, entladen, heruntergeladen oder veraendert.",
+        "Legacy-Aufrufe besitzen explizite Kompatibilitaetstests statt pauschal angepasster Assertions.",
+        "Deprecation dokumentiert Ersatz, Warnung und fruehestes Entfernungsfenster."
+      ]
+    },
+    {
+      "id": "LMR-020",
+      "title": "Provider-, Security- und Regression-Gatematrix liefern",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 20,
+      "type": "testing",
+      "milestone_id": "LMR-M5",
+      "depends_on": [
+        "LMR-002",
+        "LMR-004",
+        "LMR-005",
+        "LMR-006",
+        "LMR-007",
+        "LMR-008",
+        "LMR-009",
+        "LMR-010",
+        "LMR-011",
+        "LMR-012",
+        "LMR-013",
+        "LMR-014",
+        "LMR-015",
+        "LMR-016",
+        "LMR-018",
+        "LMR-019"
+      ],
+      "affected_files": [
+        "tests/providers",
+        "tests/fixtures/lmstudio",
+        "tests/fixtures/ollama",
+        "docs/testing-local-model-runtimes.md"
+      ],
+      "details": [
+        "Deterministische Fixture-Matrix fuer alte und aktuelle API-Antwortformen erstellen.",
+        "Positive und negative Capabilities, Templates, Cache, Limits, Security und Fallback abdecken.",
+        "Zwei-Runden-Tool-Loop je Provider ohne GPU ausfuehren.",
+        "Live-Tests optional und standardmaessig deaktiviert halten."
+      ],
+      "acceptance_criteria": [
+        "Jede routbare Capability besitzt positive, negative, stale und Konflikt-Fixtures.",
+        "Ollama-Fixtures decken /api/tags, /api/show, Chat, Generate, Thinking, Vision, Tools und Embed ab.",
+        "LM-Studio-Fixtures decken /v1/models, /api/v1/models und strukturierte OpenAI-kompatible Tool-Calls ab.",
+        "Ein vollstaendiger Zwei-Runden-Tool-Result-Loop besteht fuer beide Provider ohne GPU.",
+        "Security-Matrix deckt SSRF, Redirect, Auth-Leak, Groessenlimits und Log-Redaction ab.",
+        "Bestehende ModelCatalog-, Profil-, Embedding-, Angular-, TUI- und Worker-Tests bleiben gruen."
+      ]
+    },
+    {
+      "id": "LMR-021",
+      "title": "Operator-Dokumentation, Rollout und Rollback abschliessen",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 20,
+      "type": "documentation",
+      "milestone_id": "LMR-M5",
+      "depends_on": [
+        "LMR-017",
+        "LMR-018",
+        "LMR-019",
+        "LMR-020"
+      ],
+      "affected_files": [
+        "docs/operator/lmstudio-integration.md",
+        "docs/operator/ollama-integration.md",
+        "docs/operator/local-model-capabilities.md",
+        "docs/operator/tool-calling.md",
+        "docs/release-checklist.md"
+      ],
+      "details": [
+        "Provider-APIs, Capability-Quellen, Templategrenzen, Tool-Loop und Troubleshooting dokumentieren.",
+        "Rollout in Observe-only Discovery, capability-aware Routing und vereinheitlichten Tool-Loop staffeln.",
+        "Jede Phase unabhaengig rollbackfaehig halten.",
+        "Optionale Native-, MCP- und Lifecycle-Follow-ups klar abgrenzen."
+      ],
+      "acceptance_criteria": [
+        "Dokumentation enthaelt deterministische LM-Studio- und Ollama-Beispiele.",
+        "Phase 1 sammelt read-only Snapshots ohne Routingaenderung.",
+        "Phase 2 aktiviert capability-aware Routing nur fuer sichere Quellen.",
+        "Phase 3 aktiviert den vereinheitlichten Tool-Loop hinter separatem Featureflag.",
+        "Jede Phase besitzt Trigger, Metriken, Rollbackschritte und verantwortlichen Operator.",
+        "Probe-Kommando, bekannte Grenzen und externe Live-Gates sind verlinkt."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "LMR-000",
+    "LMR-001",
+    "LMR-002",
+    "LMR-003",
+    "LMR-004",
+    "LMR-005",
+    "LMR-006",
+    "LMR-008",
+    "LMR-009",
+    "LMR-010",
+    "LMR-014",
+    "LMR-015",
+    "LMR-020",
+    "LMR-021"
+  ],
+  "verification_gates": [
+    {
+      "id": "LMR-VG-01",
+      "name": "Capability contract, normalization and cache",
+      "status": "not_run",
+      "command": "python -m pytest -q -W error tests/contracts/test_local_model_capabilities.py tests/services/test_model_capability_normalizer_service.py tests/services/test_chat_template_inspector_service.py tests/services/test_local_model_capability_cache_service.py"
+    },
+    {
+      "id": "LMR-VG-02",
+      "name": "Provider fixture matrix",
+      "status": "not_run",
+      "command": "python -m pytest -q -W error tests/providers tests/services/test_ollama_model_discovery_service.py tests/test_llm_integration_lmstudio.py"
+    },
+    {
+      "id": "LMR-VG-03",
+      "name": "Routing, tool loop and compatibility",
+      "status": "not_run",
+      "command": "python -m pytest -q -W error tests/test_model_profile_resolver.py tests/services/test_tool_calling_mode_service.py tests/services/test_provider_tool_loop_service.py tests/test_local_model_runtime_compatibility.py"
+    },
+    {
+      "id": "LMR-VG-04",
+      "name": "API, Angular, TUI and security regressions",
+      "status": "not_run",
+      "command": "python -m pytest -q -W error tests/test_model_catalog_service.py tests/test_model_catalog_api.py tests/security/test_local_runtime_security.py tests/client_surfaces/operator_tui/test_dashboard_http_adapter.py"
+    }
+  ],
+  "external_release_gates": [
+    {
+      "id": "LMR-ERG-01",
+      "title": "Grounded Source- und Run-Evidence",
+      "status": "pending_external",
+      "required_for": "grounded_track_completion",
+      "rule": "Commit-SHA sowie bereitgestellte SRC_* und RUN_* IDs muessen vor grounded Claims erfasst werden."
+    },
+    {
+      "id": "LMR-ERG-02",
+      "title": "LM-Studio-Live-Kompatibilitaet",
+      "status": "pending_external",
+      "required_for": "production_rollout",
+      "rule": "Ein Operator prueft mindestens den unterstuetzten OpenAI-kompatiblen Pfad und eine aktuelle native v1-Modellliste mit temporaeren Credentials und redigierter RUN_* Evidenz."
+    },
+    {
+      "id": "LMR-ERG-03",
+      "title": "Ollama-Live-Kompatibilitaet",
+      "status": "pending_external",
+      "required_for": "production_rollout",
+      "rule": "Ein Operator prueft reale, bereitgestellte Modelle fuer Tools, Thinking, Vision und Embeddings; Modellnamen und Digests werden nicht erfunden."
+    },
+    {
+      "id": "LMR-ERG-04",
+      "title": "Capability-aware Production-Rollout",
+      "status": "pending_external",
+      "required_for": "enable_capability_routing_by_default",
+      "rule": "Operator und Governance bestaetigen Metriken, Fehlroutinggrenzen, Incident-Rollback und Supportdokumentation."
+    }
+  ],
+  "evidence_policy": {
+    "source_claims": "Nur bereitgestellte SRC_* IDs sind grounded.",
+    "run_claims": "Nur bereitgestellte RUN_* IDs sind grounded.",
+    "missing_ids": "Missing oder unknown IDs bleiben unverified oder failed und werden niemals erfunden.",
+    "local_observations": "Lokale Pfadinspektion und spaetere Testausgaben duerfen als unverified observation dokumentiert werden.",
+    "sensitive_data": "Raw-Templates, Bilder, Toolargumente, Providerantworten und Secrets sind keine zulaessigen Evidence-Inhalte."
+  },
+  "solid_review": {
+    "protected_principles": [
+      "SRP: Discovery, providerbezogene Inspektion, Normalisierung, Persistenz, Routing, Orchestrierung und Projektion bleiben getrennt.",
+      "OCP: Neue Runtimes und Template-Recognizer werden ueber Ports und Strategien ergaenzt.",
+      "LSP: Provideradapter liefern denselben versionierten Snapshot- und Invocation-Vertrag.",
+      "ISP: Discovery-, Inspection-, Snapshot-, Tool-Execution- und UI-Ports bleiben klein.",
+      "DIP: Hub-Services haengen an Ports statt an LM-Studio- oder Ollama-HTTP-Implementierungen."
+    ],
+    "preserved_debt": [
+      "ModelInvocationService und bestehende LM-Studio-Strategien enthalten ueberlappende Request-/Response-Logik.",
+      "Mehrere bestehende Tool-Loops besitzen noch keine gemeinsame hub-eigene State Machine."
+    ],
+    "forbidden_regressions": [
+      "Keine neue God-Registry fuer Discovery, Cache, Refresh und Routing.",
+      "Keine wiederholte providerbezogene Verzweigung im ModelInvocationService.",
+      "Keine Worker-zu-Worker-Orchestrierung.",
+      "Keine Capability-Eskalation aus Heuristik, Templateinhalt oder LLM-Ausgabe."
+    ]
+  },
+  "tasks_status_summary": {
+    "total": 22,
+    "by_status": {
+      "todo": 5,
+      "in_progress": 0,
+      "partial": 17,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 14,
+      "P1": 8,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 5,
+      "high": 13,
+      "critical": 4
+    },
+    "critical_path": {
+      "total": 14,
+      "done": 0,
+      "remaining": 14
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 0,
+      "in_progress": 5,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 22,
+    "by_type": {
+      "governance": 1,
+      "architecture": 2,
+      "security": 1,
+      "provider": 6,
+      "normalization": 2,
+      "persistence": 1,
+      "routing": 1,
+      "runtime": 1,
+      "orchestration": 1,
+      "api": 1,
+      "frontend": 1,
+      "operations": 1,
+      "migration": 1,
+      "testing": 1,
+      "documentation": 1
+    }
+  },
+  "progress_summary": {
+    "state": "in_progress",
+    "todo_remaining": 5,
+    "in_progress": 0,
+    "partial": 17,
+    "blocked": 0,
+    "done": 0
+  },
+  "weighted_progress_summary": {
+    "method": "arithmetic_mean_of_task_progress_percent",
+    "progress_percent": 23.64,
+    "unverified": true
+  },
+  "execution_stage_summary": {
+    "local_code_and_test": "planned_from_source_alignment",
+    "grounded_evidence": "pending_external",
+    "live_compatibility": "pending_external",
+    "production_default": "disabled"
+  },
+  "summary_notes": [
+    "Tasks sind die Single Source of Truth; Summary-Felder sind abgeleitete Caches.",
+    "Partial-Status basiert auf lokaler Source-Inspektion und ist ohne SRC_* IDs nicht grounded.",
+    "Optionales LM-Studio Responses, native Stateful Chat, MCP und Lifecycle sind bewusst aus dem Kerntrack entfernt.",
+    "Alle lokalen Protokoll-, Security- und Tool-Loop-Kriterien sind ohne GPU durch Fixtures testbar."
+  ],
+  "definition_of_done": [
+    "Alle 22 Track-Tasks sind done und die abgeleiteten Summaries stimmen mit tasks[] ueberein.",
+    "Alle vier lokalen Verification Gates sind warnings-strikt gruen.",
+    "Hub-Ownership, Worker-Isolation, Capability-Vertrauen, Secretfreiheit und Limits sind durch negative Tests belegt.",
+    "Bestehende OpenAI-kompatible LM-Studio-, Ollama-, Profil-, Embedding-, API-, Angular- und TUI-Pfade bleiben kompatibel.",
+    "Observe-only Discovery, capability-aware Routing und Tool-Loop koennen getrennt aktiviert und zurueckgerollt werden.",
+    "Grounded Source- und Run-Claims verwenden ausschliesslich bereitgestellte SRC_* und RUN_* IDs.",
+    "Externe Live-Gates und Production-Freigabe bleiben getrennt von der lokal reproduzierbaren Implementierungsabnahme."
+  ]
+}

@@ -60,7 +60,7 @@ Passwort oder Token muss vor der Anwendung bereinigt und auf eine
 | `jmap` | Erzwungener JMAP-Modus. Ein IMAP-Fallback ist nicht zulässig. |
 
 Ein Bestandskonto wechselt nicht allein deshalb zu JMAP, weil JMAP-Code oder
-das Stalwart-Testprofil vorhanden ist. Für einen späteren JMAP-Cutover muss die
+der lokale JMAP-Contract vorhanden ist. Für einen späteren JMAP-Cutover muss die
 Account-Absicht explizit von erzwungenem `imap` auf `auto` umgestellt werden.
 Diese Änderung erfolgt Hub-seitig und auditierbar. Erst danach kann der
 Cutover-Service `resolved_protocol` unter seinen Gates auf `jmap` setzen.
@@ -207,8 +207,8 @@ erteilt keine neuen Body- oder Attachment-Rechte.
 
 ## Erforderliche Live-Evidenz
 
-Mock-Fixtures und Stalwart-Liveness reichen nicht aus. Ein realer
-Bestands-Cutover benötigt mindestens:
+Repository-eigene Contract-Fixtures reichen nicht als Nachweis für einen realen
+Bestands-Cutover. Dieser benötigt mindestens:
 
 - reproduzierbaren, nicht interaktiven Server-Bootstrap,
 - kurzlebigen Testaccount und SecretStore-Referenz,

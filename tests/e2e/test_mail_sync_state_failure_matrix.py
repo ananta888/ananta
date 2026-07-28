@@ -228,7 +228,7 @@ def _checkpoint(database_path: Path) -> dict[str, Any]:
             """
             SELECT mailbox_state, email_state, query_state, revision
               FROM mail_sync_checkpoints
-             WHERE account_id = 'stalwart-alice'
+             WHERE account_id = 'jmap-fixture-alice'
                AND provider_account_id = 'A1'
             """
         ).fetchone()
@@ -247,7 +247,7 @@ def _checkpoint(database_path: Path) -> dict[str, Any]:
 def _provider_ids(harness: AnantaMailCompositionHarness) -> list[str]:
     return sorted(
         str(dict(row["message_ref"]["protocol_locator"]).get("email_id") or "")
-        for row in harness.metadata.list_messages(account_id="stalwart-alice")
+        for row in harness.metadata.list_messages(account_id="jmap-fixture-alice")
     )
 
 
@@ -407,7 +407,7 @@ def test_cas_conflict_fails_without_partial_metadata_and_rolls_back(
                     """
                     UPDATE mail_sync_checkpoints
                        SET revision = revision + 1
-                     WHERE account_id = 'stalwart-alice'
+                     WHERE account_id = 'jmap-fixture-alice'
                        AND provider_account_id = 'A1'
                     """
                 )

@@ -1,10 +1,11 @@
 {
   "$schema": "./todo.track.schema.json",
-  "version": "1.0",
+  "version": "2.0",
+  "last_updated": "2026-07-28",
   "owner": "Peter Stuiber / Ananta",
   "track": "unsloth-full-platform-integration",
-  "purpose": "Unsloth als sichere, optionale und austauschbare Trainings-, Export- und lokale Inferenzplattform in die bestehende Ananta-ML-Intern-Architektur integrieren, ohne den bereits implementierten isolierten Training-Worker oder den kanonischen Dataset-, Registry- und Audit-Layer zu duplizieren.",
-  "goal": "Ananta soll Unsloth Core und optional Unsloth Studio über klar getrennte Provider-Verträge verwenden können: für LoRA/QLoRA und weitere unterstützte Modellarten, Data Recipes, Observability, reproduzierbare Exporte, lokale OpenAI-/Anthropic-kompatible Inferenz und optional streng policy-gesteuerte MCP-Kontrolle.",
+  "purpose": "Unsloth Core als austauschbare Worker-Strategie und Unsloth Studio als strikt optionales externes Ausführungsziel in Ananta integrieren, ohne Hub-Worker-Grenzen, bestehende Dataset-, Registry-, Runtime-, Audit- oder Provider-Schichten zu duplizieren.",
+  "goal": "Ein Core-first-Pfad für reproduzierbares Text-LoRA/QLoRA-Training, Evaluation, Export und providerneutrale Runtime-Übergabe sowie getrennt freigebbare Profile für Studio, weitere Modalitäten und MCP.",
   "status_scale": [
     "todo",
     "in_progress",
@@ -24,165 +25,240 @@
     "high",
     "critical"
   ],
-  "source_repository": {
-    "name": "unslothai/unsloth",
-    "url": "https://github.com/unslothai/unsloth",
-    "integration_date": "2026-07-24"
+  "evidence_policy": {
+    "state": "unverified_pending_provided_ids",
+    "rules": [
+      "Nur bereitgestellte SRC_* und RUN_* IDs gelten als Evidenz.",
+      "Fehlende, unbekannte oder selbst erzeugte Source- oder Run-IDs gelten als unverifiziert beziehungsweise fehlgeschlagen.",
+      "Die aktuellen partial-Statuswerte bilden beobachtete Quellcode-Teilimplementierungen ab, sind aber bis zur Verknüpfung mit bereitgestellter Evidenz nicht acceptance-verifiziert.",
+      "Kein Release-Profil darf ohne gültige Source- und Run-Evidenz als done gelten."
+    ]
   },
-  "current_code_findings": [
-    "Ananta besitzt bereits worker/training/backends/unsloth.py als optionale Strategie auf Basis des bestehenden PEFT/TRL-Backends.",
-    "Der Backend-Adapter prüft derzeit nur PEFT/TRL plus importierbares unsloth-Paket und lädt lokale Modelle über FastLanguageModel.",
-    "Der bestehende Hub-/Worker-Vertrag, Dataset-Katalog, Job-Ledger, Evaluation, Adapter-Registry und Runtime-Routing bleiben die kanonische Ananta-Schicht.",
-    "Die vorhandene Integration deckt noch nicht Unsloth Studio, dessen API/MCP, Modellkatalog, Data Recipes, GGUF-/Safetensors-Export, lokalen Providerbetrieb oder ein vollständiges Control Center ab.",
-    "Der Browser darf weiterhin niemals direkt auf den Training-Worker oder eine unkontrollierte Studio-Instanz zugreifen."
+  "release_profiles": [
+    {
+      "id": "core_text",
+      "required_for_initial_release": true,
+      "description": "Text-LoRA/QLoRA, Evaluation, Export und providerneutrale Runtime-Übergabe ohne Studio oder MCP."
+    },
+    {
+      "id": "studio",
+      "required_for_initial_release": false,
+      "description": "Versionierter Studio-Transport und isoliertes Containerprofil; darf core_text nicht blockieren."
+    },
+    {
+      "id": "modalities",
+      "required_for_initial_release": false,
+      "description": "Vision-, Audio- und Embedding-Unterstützung über getrennte Worker-Strategien."
+    },
+    {
+      "id": "mcp",
+      "required_for_initial_release": false,
+      "description": "Strikt policy-gesteuerte MCP-Anbindung; darf core_text und studio nicht blockieren."
+    }
+  ],
+  "support_matrix": [
+    {
+      "environment": "Linux-Container mit NVIDIA-GPU",
+      "profile": "core_text",
+      "target_state": "supported_after_release_gate"
+    },
+    {
+      "environment": "Windows oder WSL als Docker-Host",
+      "profile": "core_text/studio",
+      "target_state": "documented_operator_host"
+    },
+    {
+      "environment": "Windows-native, macOS, AMD, Vulkan oder CPU-Training",
+      "profile": "all",
+      "target_state": "out_of_scope_until_separately_evidenced"
+    }
   ],
   "architecture_decisions": [
-    "Kein Fork und keine Kopie von Unsloth-Code in Ananta; Integration über optionale Dependency, Prozess-, HTTP- und Provider-Verträge.",
-    "Unsloth Core bleibt bevorzugter deterministischer Worker-Pfad; Studio ist ein optionaler Komfort- und Management-Pfad.",
-    "Ananta bleibt Source of Truth für Benutzer, Tenant, Datasets, Freigaben, Registry, Audit und Routing.",
-    "Modell- oder Dataset-Downloads, Remote-Tunnel, MCP und Code-Ausführung sind getrennte Opt-ins.",
-    "Training, Export und Deployment sind idempotente Jobs mit Artefaktmanifesten und Hash-Fencing.",
-    "CI muss vollständig ohne GPU und ohne installierte Unsloth-Abhängigkeit laufen."
+    "Der Hub bleibt Control Plane und Eigentümer aller zustandsändernden Tasks; Training, Import, Export, Deployment und MCP-Mutationen werden an Worker oder dedizierte Ausführungsadapter delegiert.",
+    "Kein Hub-Service startet oder überwacht Unsloth-Hostprozesse und kein Ananta-Container erhält einen Docker-Socket.",
+    "Container tauschen Artefakte über tenantgebundene, inhaltsadressierte Manifeste oder explizite Blob-Transfers aus, niemals über angenommene gemeinsame Hostpfade.",
+    "Unsloth Core bleibt der initiale Produktpfad; Studio, zusätzliche Modalitäten und MCP besitzen unabhängige Feature- und Release-Gates.",
+    "Ananta bleibt Source of Truth für Benutzer, Tenant, Sources, Runs, Datasets, Freigaben, Registry, Audit, Routing und Retention.",
+    "Ollama-, LM-Studio- und llama.cpp-Lifecycle sowie Provider-Routing bleiben im bestehenden LM-Studio-/Ollama-Runtime-Track.",
+    "Öffentliche Tunnel und Upstream-Servertools für Webzugriff, Python, Terminal oder Code-Ausführung sind in diesem Track out of scope und werden fail-closed abgelehnt.",
+    "CI bleibt GPU-frei ausführbar; ein Profil darf dennoch erst nach einem separaten verpflichtenden Pre-Release-Run als produktionsbereit gelten."
+  ],
+  "non_goals": [
+    "Kein Fork oder Kopieren von Unsloth-Code in Ananta.",
+    "Keine Hub-seitige Hostprozessverwaltung für Unsloth Studio.",
+    "Keine zweite generische Model-, Provider-, Deployment-, MCP-Policy- oder Audit-Registry.",
+    "Keine TUI-Erweiterung in diesem Track; eine spätere Oberfläche konsumiert ausschließlich die stabilisierte Hub-API.",
+    "Keine direkte Browser-, Worker-zu-Worker- oder externe MCP-Steuerung von Training-Workern.",
+    "Keine Behauptung nativer Plattform- oder Hardwareunterstützung ohne bereitgestellte Source- und Run-Evidenz."
+  ],
+  "removed_or_rehomed_scope": [
+    {
+      "former_task_id": "UNSLOTH-005",
+      "action": "removed",
+      "reason": "Hostprozessverwaltung im Hub widerspricht Hub-Worker- und Containerarchitektur; Lifecycle bleibt operator- oder containerverwaltet."
+    },
+    {
+      "former_task_id": "UNSLOTH-015",
+      "action": "folded_into_UNSLOTH-014",
+      "reason": "OpenAI-/Anthropic-kompatible Inferenz wird über bestehende Registry- und Invocation-Ports statt über eine neue Unsloth-Provider-Registry integriert."
+    },
+    {
+      "former_task_id": "UNSLOTH-018",
+      "action": "removed_from_track",
+      "reason": "Die TUI ist keine Voraussetzung für die Plattformintegration und würde die Angular-Oberfläche vor Stabilisierung der Hub-API duplizieren."
+    }
+  ],
+  "cross_track_dependencies": [
+    {
+      "track_file": "todos/todo.lmstudio-ollama-capability-template-runtime-integration.json",
+      "ownership": "Runtime-Discovery, Ollama-/LM-Studio-/llama.cpp-Adapter, Lifecycle, Capability-Routing, Tool-Loops und Provider-API",
+      "unsloth_boundary": "Freigegebenes Exportartefakt, unveränderliches Deployment-Request-Manifest und optionaler kompatibler Endpoint-Descriptor"
+    }
   ],
   "milestones": [
     {
       "id": "M1",
-      "title": "Architektur, Capability und Sicherheitsgrenzen",
+      "title": "Evidenz, Architektur, Security und Grenzen",
       "task_ids": [
         "UNSLOTH-001",
         "UNSLOTH-002",
-        "UNSLOTH-003"
+        "UNSLOTH-003",
+        "UNSLOTH-019",
+        "UNSLOTH-021"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M2",
-      "title": "Studio-, Prozess- und Container-Anbindung",
+      "title": "Core-Texttraining und Datenpfad",
+      "task_ids": [
+        "UNSLOTH-007",
+        "UNSLOTH-008",
+        "UNSLOTH-009",
+        "UNSLOTH-010",
+        "UNSLOTH-011",
+        "UNSLOTH-012"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M3",
+      "title": "Export, Evaluation und Runtime-Übergabe",
+      "task_ids": [
+        "UNSLOTH-013",
+        "UNSLOTH-022",
+        "UNSLOTH-014"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M4",
+      "title": "Optionales Studio-Profil",
       "task_ids": [
         "UNSLOTH-004",
-        "UNSLOTH-005",
         "UNSLOTH-006"
       ],
       "status": "todo"
     },
     {
-      "id": "M3",
-      "title": "Modelle und Data Recipes",
-      "task_ids": [
-        "UNSLOTH-007",
-        "UNSLOTH-008",
-        "UNSLOTH-009"
-      ],
-      "status": "todo"
-    },
-    {
-      "id": "M4",
-      "title": "Training, Hardware und Observability",
-      "task_ids": [
-        "UNSLOTH-010",
-        "UNSLOTH-011",
-        "UNSLOTH-012"
-      ],
-      "status": "todo"
-    },
-    {
       "id": "M5",
-      "title": "Export, Deployment und Inferenz",
+      "title": "Optionale Modellmodalitäten",
       "task_ids": [
-        "UNSLOTH-013",
-        "UNSLOTH-014",
-        "UNSLOTH-015"
+        "UNSLOTH-023"
       ],
       "status": "todo"
     },
     {
       "id": "M6",
-      "title": "MCP, Angular und TUI",
+      "title": "Optionales MCP und Angular",
       "task_ids": [
         "UNSLOTH-016",
-        "UNSLOTH-017",
-        "UNSLOTH-018"
+        "UNSLOTH-017"
       ],
-      "status": "todo"
+      "status": "partial"
     },
     {
       "id": "M7",
-      "title": "Audit, Supply Chain und CI",
+      "title": "Attestierung und Release-Gates",
       "task_ids": [
-        "UNSLOTH-019",
+        "UNSLOTH-024",
         "UNSLOTH-020"
       ],
-      "status": "todo"
+      "status": "partial"
     }
   ],
   "tasks": [
     {
       "id": "UNSLOTH-001",
-      "title": "Bestehende Unsloth-Integration inventarisieren",
+      "title": "Unveränderliche Upstream-, Lizenz- und Evidenzbaseline herstellen",
       "type": "analysis",
-      "milestone": "M1",
+      "milestone_id": "M1",
       "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
       "priority": "P0",
-      "risk": "low",
-      "progress_percent": 0,
-      "dependencies": [],
+      "risk": "high",
+      "depends_on": [],
       "target_files": [
-        "worker/training/backends/unsloth.py",
-        "worker/training/job_process.py",
-        "worker/training/runtime.py",
-        "agent/services/ml_intern_training_config_service.py",
-        "docs/ml-intern-lora-finetuning.md"
+        "todos/todo.unsloth-full-platform-integration.json",
+        "docs/ml-intern-lora-finetuning.md",
+        "docs/security/third-party-components.md"
       ],
       "acceptance_criteria": [
-        "Ist-Zustand von Backend, Worker-Vertrag, Konfiguration, Artefakten, Evaluation und Runtime-Routing ist dokumentiert.",
-        "Bestehende Implementierung wird als Erweiterungsbasis verwendet und nicht parallel neu aufgebaut.",
-        "Abgrenzung zwischen Unsloth Core, Unsloth Studio, lokaler Inferenz und MCP ist dokumentiert.",
-        "Bekannte Lücken sind mit konkreten Zielmodulen verknüpft."
+        "Upstream-Repository, exakter Commit oder Tag, Studio-Artefakt beziehungsweise Image-Digest und API-Schemaversion sind ausschließlich über bereitgestellte SRC_* IDs referenziert.",
+        "Core, Studio, Containerartefakte und transitive Laufzeitkomponenten besitzen ein prüfbares Component-to-License-Mapping; bis zur Freigabe bleibt Studio-Packaging blockiert.",
+        "Versionierte Fixtures dokumentieren Health-, Capability-, Inference- und MCP-Verträge des freigegebenen Upstream-Stands.",
+        "Support-Matrix unterscheidet supported, experimental und out_of_scope für Plattform, Hardware und Release-Profil.",
+        "Ist-Zustand der bestehenden Core-Integration ist mit Zielmodulen und bereitgestellter Evidenz verknüpft; unbekannte IDs werden nicht akzeptiert."
       ],
       "test_expectations": [
-        "Keine Produktivlogik wird verändert.",
-        "Dokumentations- und Architekturtests bleiben grün."
+        "Schema-Test lehnt fehlende oder unbekannte Source-IDs für verifizierte Claims ab.",
+        "Lizenz- und Upstream-Pin-Check läuft ohne Import von Torch, CUDA oder Unsloth."
       ]
     },
     {
       "id": "UNSLOTH-002",
-      "title": "Provider- und Capability-Vertrag erweitern",
+      "title": "Getrennte Capability-Facets und Snapshot-Vertrag ergänzen",
       "type": "architecture",
-      "milestone": "M1",
-      "status": "todo",
+      "milestone_id": "M1",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
+      "depends_on": [
         "UNSLOTH-001"
       ],
       "target_files": [
         "agent/services/ml_intern_training_contract.py",
-        "agent/services/ml_intern_training_config_service.py",
+        "agent/services/ml_intern_training_control_service.py",
         "worker/training/backends/base.py",
         "worker/training/backends/unsloth.py"
       ],
       "acceptance_criteria": [
-        "Ein kanonischer UnslothCapability-Vertrag beschreibt Training, Inferenz, Export, Studio, MCP, Hardware und unterstützte Modellarten.",
-        "Capabilities stammen aus Backend-Probing und nicht aus UI-Annahmen.",
-        "Nicht verfügbare Funktionen liefern stabile reason_code-Werte.",
-        "Version und erkannte Unsloth-Variante werden ohne Import schwerer GPU-Module im Hub bereitgestellt."
+        "Training, Export, Inferenz, Studio, MCP und Hardware verwenden kleine getrennte Capability-Facets, die in einen versionierten Snapshot komponiert werden.",
+        "Jede Facet besitzt eine endliche Feldliste, Schema-Version und stabile reason_code-Enumeration einschließlich unknown und unavailable.",
+        "Capabilities stammen aus Worker- oder Transport-Probing und niemals aus UI-Annahmen oder pauschaler Modellkompatibilität.",
+        "Der Hub kann Paketversion und Variante ermitteln, ohne Torch, CUDA oder Unsloth zu importieren.",
+        "Bestehende Backend- und API-Felder bleiben abwärtskompatibel; neue Felder sind optional."
       ],
       "test_expectations": [
-        "Unit-Tests decken vollständige, partielle und fehlende Installation ab.",
-        "Hub-Tests laufen ohne CUDA und ohne installierte Unsloth-Abhängigkeit."
+        "Unit-Tests decken vollständige, partielle, unbekannte und fehlende Capabilities ab.",
+        "Hub-Importtests laufen ohne GPU-Module und ohne installierte Unsloth-Abhängigkeit."
       ]
     },
     {
       "id": "UNSLOTH-003",
-      "title": "Sichere Betriebsmodi und Konfigurationsschema definieren",
+      "title": "Fail-closed Konfiguration und Sicherheitsprofil definieren",
       "type": "security",
-      "milestone": "M1",
-      "status": "todo",
+      "milestone_id": "M1",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
-      "dependencies": [
+      "depends_on": [
+        "UNSLOTH-001",
         "UNSLOTH-002"
       ],
       "target_files": [
@@ -191,208 +267,201 @@
         "docs/ml-intern-lora-finetuning.md"
       ],
       "acceptance_criteria": [
-        "Betriebsmodi core_worker, studio_managed und external_api sind explizit und gegenseitig eindeutig.",
-        "Default bleibt disabled und dry_run-first.",
-        "Netzwerkzugriff, Modell-Downloads, Remote-Tunnel, Code-Ausführung und MCP sind getrennte Opt-ins.",
-        "API-Schlüssel und Zugangsdaten werden ausschließlich als Secret-Referenzen gespeichert.",
-        "Remote Studio darf nicht ohne Authentisierung, TLS-Policy und Host-Allowlist aktiviert werden."
+        "Core-Training, Studio-Transport, Modell-Download und MCP sind orthogonale Feature-Flags; Core und Studio dürfen bei expliziter Konfiguration koexistieren.",
+        "Default bleibt disabled und dry_run-first; Netzwerk, Download und MCP bleiben einzeln aus.",
+        "Ungültige oder widersprüchliche Sicherheitskonfiguration wird mit stabilen Fehlercodes abgelehnt und niemals still normalisiert.",
+        "Secrets werden ausschließlich über Secret-Referenzen aufgelöst und weder persistiert noch geloggt.",
+        "HTTP-Defaults sind Connect-Timeout 2 Sekunden, Gesamt-Timeout 10 Sekunden, maximal zwei Retries nur für idempotente Requests, null Redirects und maximal 1 MiB dekomprimierte Response.",
+        "Remote Studio erfordert Authentisierung, TLS-Verifikation und kanonische Host-Allowlist mit DNS- und IPv4-/IPv6-Prüfung.",
+        "Öffentliche Tunnel, öffentliche Reachability-Checks und Upstream-Servertools werden von diesem Profil explizit abgelehnt."
       ],
       "test_expectations": [
-        "Negative Tests verhindern implizite Aktivierung riskanter Optionen.",
-        "Konfiguration wird bei widersprüchlichen Modi mit stabilem Fehlercode abgelehnt."
+        "Negative Tests prüfen jede implizite Aktivierung, Secret-Leakage und widersprüchliche Kombination.",
+        "SSRF-Tests decken Redirects, DNS-Rebinding, IPv4-, IPv6- und Credential-Forwarding-Bypasses ab."
       ]
     },
     {
-      "id": "UNSLOTH-004",
-      "title": "Unsloth-Studio-Client und Health-Probe implementieren",
-      "type": "backend",
-      "milestone": "M2",
-      "status": "todo",
+      "id": "UNSLOTH-019",
+      "title": "Kanonischen Provenance-, Audit- und Source-Bindungsvertrag schließen",
+      "type": "security",
+      "milestone_id": "M1",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
       "priority": "P0",
-      "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
+      "risk": "critical",
+      "depends_on": [
+        "UNSLOTH-001",
+        "UNSLOTH-002",
         "UNSLOTH-003"
       ],
       "target_files": [
-        "agent/services/unsloth_studio_client.py",
-        "agent/services/unsloth_studio_config_service.py",
-        "tests/test_unsloth_studio_client.py"
+        "agent/common/audit.py",
+        "agent/services/ml_intern_adapter_registry_service.py",
+        "agent/services/ml_intern_training_result_publisher.py",
+        "worker/training/runtime.py"
       ],
       "acceptance_criteria": [
-        "Client kapselt Health, Version, Capabilities und authentisierte Requests.",
-        "Timeouts, Retry-Budget, TLS-Prüfung und Response-Limits sind bounded.",
-        "Private/Loopback-Adressen werden entsprechend Deployment-Policy erlaubt; SSRF auf nicht erlaubte Ziele wird blockiert.",
-        "Fehler werden auf stabile Ananta-Fehlercodes abgebildet.",
-        "Studio-Ausfall beeinflusst den bestehenden Core-Worker nicht."
+        "Ein versionierter Provenance-Vertrag verbindet bereitgestellte Source- und Run-IDs, Tenant, Dataset-Hash, Basismodell-Hash, Job, Attempt, Konfiguration, Adapter, Export und Freigabe.",
+        "Fehlende oder unbekannte SRC_* beziehungsweise RUN_* IDs werden als unverifiziert abgelehnt und niemals synthetisch erzeugt.",
+        "Der Result-Publisher persistiert den kanonischen dataset_hash im dafür vorgesehenen Registry-Feld und nicht nur als Hash einer Dataset-ID in Freitext-Notizen.",
+        "Audit verwendet ausschließlich agent.common.audit und enthält Akteur, Tenant, Aktion, Ergebnis, reason_code und Korrelations-ID ohne Trainingsinhalte.",
+        "Hash- oder Tenant-Mismatch blockiert Evaluation, Export, Promotion und Deployment fail-closed."
       ],
       "test_expectations": [
-        "Contract-Tests verwenden einen lokalen Fake-Server.",
-        "Tests decken Timeout, 401, ungültiges JSON, zu große Antwort und nicht erlaubte Hosts ab."
+        "Tests decken fehlende Source-IDs, Dataset-Hash-Mismatch, Cross-Tenant-Zugriff und Audit-Redaction ab.",
+        "Regressionstest bestätigt die dataset_hash-Weitergabe vom Trainingsergebnis bis zum AdapterRecord."
       ]
     },
     {
-      "id": "UNSLOTH-005",
-      "title": "Unsloth-Prozessverwaltung für lokale Installationen",
-      "type": "backend",
-      "milestone": "M2",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
-        "UNSLOTH-003"
+      "id": "UNSLOTH-021",
+      "title": "Container-, Artefakt-, Tenant- und Ressourcenvertrag festlegen",
+      "type": "architecture",
+      "milestone_id": "M1",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "UNSLOTH-003",
+        "UNSLOTH-019"
       ],
       "target_files": [
-        "agent/services/unsloth_process_service.py",
-        "scripts/run-unsloth-studio.sh",
-        "scripts/run-unsloth-studio.ps1",
-        "tests/test_unsloth_process_service.py"
+        "agent/services/ml_intern_training_worker_port.py",
+        "agent/services/ml_intern_artifact_security_service.py",
+        "docker/compose-next/compose.lora-training.yml",
+        "docs/ml-intern-lora-finetuning.md"
       ],
       "acceptance_criteria": [
-        "Start, Stop, Status und Log-Tail erfolgen über einen bounded Prozessvertrag.",
-        "Keine Shell-String-Konkatenation; Argumente werden als Liste übergeben.",
-        "Port, Bind-Host und Workspace liegen innerhalb konfigurierter Grenzen.",
-        "Ananta erkennt fremde Prozesse und beendet sie nicht.",
-        "Windows, WSL und Linux werden dokumentiert; Docker bleibt eigener Modus."
+        "Jede zustandsändernde Operation entsteht als Hub-Task und wird über einen expliziten Worker- oder Deployment-Port ausgeführt.",
+        "Artefakte werden über tenantgebundene inhaltsadressierte Manifeste oder bounded Blob-Transfers übergeben; absolute Worker- oder Hostpfade verlassen den Container nicht.",
+        "Workspace, Modellcache, Checkpoints und Exporte sind tenant- und jobgebunden; Cross-Tenant-Referenzen werden abgelehnt.",
+        "Konfiguration definiert endliche Disk-, Upload-, Download-, VRAM- und globale GPU-Concurrency-Limits sowie Retention und referenzsichere Löschung.",
+        "Kein Container benötigt privileged, Host-PID, Host-Netzwerk, Docker-Socket oder implizit geteilten Zustand."
       ],
       "test_expectations": [
-        "Prozesstests verwenden Dummy-Prozesse ohne Unsloth.",
-        "Tests decken Doppelstart, verwaiste PID, Portkonflikt und kontrollierten Shutdown ab."
-      ]
-    },
-    {
-      "id": "UNSLOTH-006",
-      "title": "Docker-Compose-Profil für Unsloth Studio ergänzen",
-      "type": "devops",
-      "milestone": "M2",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
-        "UNSLOTH-003"
-      ],
-      "target_files": [
-        "docker/compose-next/compose.unsloth.yml",
-        "docker/compose-next/requirements.lora-training-nvidia.txt",
-        ".env.example",
-        "scripts/run-lora-training-stack.sh"
-      ],
-      "acceptance_criteria": [
-        "Eigenes opt-in Compose-Profil startet Unsloth mit GPU, persistentem Modellcache und getrenntem Workspace.",
-        "Ports werden standardmäßig nur an localhost gebunden.",
-        "Container läuft ohne unnötige Privilegien und ohne Docker-Socket.",
-        "Healthcheck prüft den tatsächlich verwendeten API-/Studio-Endpunkt.",
-        "Bestehender LoRA-Training-Stack bleibt unabhängig startbar."
-      ],
-      "test_expectations": [
-        "docker compose config ist valide.",
-        "CI prüft Compose-Struktur ohne GPU-Start.",
-        "Dokumentierter lokaler Smoke-Test prüft Health und GPU-Erkennung."
+        "Contract-Tests prüfen Task-Ownership, Artefakttransfer, Quoten, Retention und Cross-Tenant-Isolation ohne GPU.",
+        "Compose-Strukturtest verbietet Docker-Socket, privileged und unerlaubte Host-Mounts."
       ]
     },
     {
       "id": "UNSLOTH-007",
-      "title": "Modellkatalog und lokale Modellquellen integrieren",
+      "title": "Unsloth-Quellen in bestehende Modell- und Adapterkataloge integrieren",
       "type": "backend",
-      "milestone": "M3",
-      "status": "todo",
+      "milestone_id": "M2",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
+      "depends_on": [
         "UNSLOTH-002",
-        "UNSLOTH-004"
+        "UNSLOTH-003",
+        "UNSLOTH-021"
       ],
       "target_files": [
-        "agent/services/unsloth_model_catalog_service.py",
-        "agent/routes/ml_intern_training.py",
-        "frontend-angular/src/app/features/model-training"
+        "agent/services/model_catalog_service.py",
+        "agent/services/ml_intern_adapter_registry_service.py",
+        "agent/services/ml_intern_training_control_service.py",
+        "agent/routes/ml_intern_training.py"
       ],
       "acceptance_criteria": [
-        "Katalog vereinheitlicht bestehende lokale Basismodelle, GGUF, Safetensors und LoRA-Adapter.",
-        "Jeder Eintrag enthält unveränderliche ID, Quelle, Format, Größe, Hash, Architektur, Quantisierung und Capability-Matrix.",
-        "Pfade werden serverseitig auf erlaubte Roots begrenzt.",
-        "Modelldownload ist standardmäßig aus und nur über explizite Policy möglich.",
-        "UI kann filtern, ohne lokale absolute Pfade offenzulegen."
+        "Bestehende Modell- und Adapterkataloge bleiben Source of Truth; es entsteht kein separater Unsloth-Gesamtkatalog.",
+        "Katalogeinträge besitzen unveränderliche ID, Tenant, Quelle, Format, Größe, SHA-256, Architektur, Quantisierung und Capability-Facets.",
+        "Lokale Pfade werden serverseitig auf erlaubte Roots begrenzt und niemals an Browser oder fremde Tenants ausgegeben.",
+        "GGUF, Safetensors und LoRA-Adapter werden formatgerecht unterschieden statt als austauschbare Artefakte behandelt.",
+        "Geänderte Inhalte erzeugen eine neue Version und überschreiben niemals eine bereits freigegebene Identität."
       ],
       "test_expectations": [
-        "Tests decken Duplikate, manipulierte Pfade, fehlende Dateien und Hash-Änderungen ab.",
-        "API-Snapshots enthalten keine Host-Pfade."
+        "Tests decken Duplikate, Hash-Änderungen, manipulierte Pfade, fehlende Dateien und Tenant-Grenzen ab.",
+        "API-Snapshots enthalten keine Host- oder Worker-Pfade."
       ]
     },
     {
       "id": "UNSLOTH-008",
-      "title": "Modellimport und Download-Policy umsetzen",
+      "title": "Sicheren workerseitigen Modellimport und optionalen Download umsetzen",
       "type": "security",
-      "milestone": "M3",
-      "status": "todo",
-      "priority": "P1",
+      "milestone_id": "M2",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
+      "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
-      "dependencies": [
-        "UNSLOTH-007"
+      "depends_on": [
+        "UNSLOTH-003",
+        "UNSLOTH-007",
+        "UNSLOTH-019",
+        "UNSLOTH-021"
       ],
       "target_files": [
-        "agent/services/unsloth_model_import_service.py",
-        "agent/routes/ml_intern_training.py",
-        "docs/ml-intern-lora-finetuning.md"
+        "agent/services/ml_intern_adapter_import_service.py",
+        "agent/services/ml_intern_artifact_security_service.py",
+        "worker/training",
+        "agent/routes/ml_intern_training.py"
       ],
       "acceptance_criteria": [
-        "Import lokaler Dateien unterstützt erlaubte Formate mit Hash- und Größenprüfung.",
-        "Optionaler Download nutzt Allowlist für Hosts und Repositories, Größenlimit, Quarantäne und Content-Hash.",
-        "Lizenzerklärung und Modellherkunft sind Pflichtmetadaten.",
-        "Symlinks, Archive Traversal und unvollständige Downloads werden blockiert.",
-        "Import ist idempotent und atomar."
+        "Hub validiert und plant Import oder Download; Netzwerk- und Dateiarbeit erfolgt ausschließlich in einem delegierten Worker-Task.",
+        "Erlaubte Formate besitzen explizite Parser und Größenlimits; Pickle, implizites trust_remote_code und unbekannte ausführbare Modellartefakte bleiben verboten.",
+        "Download verwendet Repository- und Host-Allowlist, DNS-Rebinding-Schutz, dekomprimiertes Größenlimit, Quarantäne, SHA-256 und atomare Promotion.",
+        "Lizenzdeklaration, Modellherkunft und bereitgestellte Source-ID sind Pflichtmetadaten.",
+        "Symlink-Escape, Archive Traversal, Redirect-Bypass, Hash-Mismatch und unvollständige Downloads hinterlassen keinen Registry-Eintrag."
       ],
       "test_expectations": [
-        "Security-Tests decken Zip-Slip, Symlink-Escape, Host-Bypass und Hash-Mismatch ab.",
-        "Integrationstest prüft abgebrochenen Download ohne halbfertigen Registry-Eintrag."
+        "Security-Tests decken Zip-Slip, Symlink-Escape, Redirect-, DNS-, IPv4-/IPv6-Bypass, Response-Bomb und Hash-Mismatch ab.",
+        "Integrationstest prüft Abbruch und Retry ohne halbfertiges Artefakt oder doppelte Promotion."
       ]
     },
     {
       "id": "UNSLOTH-009",
-      "title": "Data-Recipe-Adapter für Ananta-Datasets",
+      "title": "Deterministischen Data-Recipe-Adapter auf dem bestehenden Dataset-Layer ergänzen",
       "type": "backend",
-      "milestone": "M3",
-      "status": "todo",
+      "milestone_id": "M2",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
-        "UNSLOTH-004",
-        "UNSLOTH-007"
+      "depends_on": [
+        "UNSLOTH-003",
+        "UNSLOTH-008",
+        "UNSLOTH-019",
+        "UNSLOTH-021"
       ],
       "target_files": [
-        "agent/services/unsloth_data_recipe_service.py",
-        "agent/services/ml_intern_dataset_validation_service.py",
-        "frontend-angular/src/app/features/model-training"
+        "agent/services/ml_intern_dataset_catalog_service.py",
+        "agent/services/ml_intern_lora_dataset_build_service.py",
+        "agent/services/ml_intern_dataset_validation_service.py"
       ],
       "acceptance_criteria": [
-        "Bestehender Dataset-Katalog bleibt Source of Truth.",
-        "Data Recipes importieren nur materialisierte, redigierte und freigegebene Dataset-Versionen.",
-        "Recipe-Definitionen werden versioniert und referenzieren Dataset-Hashes.",
-        "PDF, CSV und DOCX werden über bestehende Ananta-Extraktions-/Validierungsschichten geführt.",
-        "Keine Recipe-Ausführung darf Trainingsdaten ohne Secret-Scan erzeugen."
+        "Der bestehende Dataset-Katalog und seine unveränderlichen Versionen bleiben Source of Truth.",
+        "Recipes konsumieren nur materialisierte, redigierte, Secret- und PII-geprüfte sowie tenantgebundene Dataset-Versionen.",
+        "PDF, CSV und DOCX werden ausschließlich über vorhandene Ananta-Extraktionsschichten in den kanonischen Dataset-Ingress überführt; der Unsloth-Adapter implementiert keine zweite Extraktion.",
+        "Recipe-Versionen sind deterministisch aus normalisierter Definition, Dataset-Hash und bereitgestellten Source-/Run-IDs abgeleitet.",
+        "Unbekannte Source-/Run-IDs, veränderte Eingaben und nicht freigegebene Datasets blockieren Materialisierung."
       ],
       "test_expectations": [
-        "Tests prüfen deterministische Recipe-Versionen und unveränderte Eingabedaten.",
-        "PII-/Secret-Funde blockieren Freigabe."
+        "Tests prüfen deterministische Recipe-Versionen, unveränderte Eingaben, Source-ID-Fencing und PII-/Secret-Blockade.",
+        "Contract-Test bestätigt, dass der Adapter keine Quelldatei direkt aus einem Hostpfad liest."
       ]
     },
     {
       "id": "UNSLOTH-010",
-      "title": "Unsloth-Trainingbackend funktional vervollständigen",
+      "title": "Unsloth-Core-Backend für Text-LoRA/QLoRA vervollständigen",
       "type": "backend",
-      "milestone": "M4",
-      "status": "todo",
+      "milestone_id": "M2",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
-      "dependencies": [
+      "depends_on": [
         "UNSLOTH-002",
-        "UNSLOTH-007"
+        "UNSLOTH-003",
+        "UNSLOTH-007",
+        "UNSLOTH-009",
+        "UNSLOTH-019",
+        "UNSLOTH-021"
       ],
       "target_files": [
         "worker/training/backends/unsloth.py",
@@ -401,29 +470,32 @@
         "tests/worker/test_lora_training_backends.py"
       ],
       "acceptance_criteria": [
-        "Backend unterstützt definierte Text-, Vision-, Audio- und Embedding-Jobtypen nur bei erkannter Capability.",
-        "Trainingseinstellungen werden vollständig in den bestehenden bounded TrainingContext übersetzt.",
-        "Unsupported Kombinationen werden vor Modellladung abgelehnt.",
-        "OOM, ungültige Modelle und Kernel-/Treiberfehler erhalten stabile Fehlercodes und Retry-Einstufung.",
-        "Keine doppelte PEFT-Adapter-Anbringung.",
-        "Checkpoints und Resume verwenden Job-, Attempt- und Dataset-Hash-Fencing."
+        "Dieses Backend unterstützt ausschließlich die explizit freigegebene Text-Causal-LM-LoRA/QLoRA-Matrix; andere Modalitäten werden vor Modellladung mit stabilem reason_code abgelehnt.",
+        "Trainingseinstellungen werden vollständig und bounded in den bestehenden TrainingContext übersetzt.",
+        "Keine doppelte PEFT-Adapter-Anbringung oder stärkere versteckte Vorbedingung verletzt den TrainingBackend-Vertrag.",
+        "OOM, ungültiges Modell, Dependency-, Kernel- und Treiberfehler besitzen stabile Codes und dokumentierte Retry-Einstufung.",
+        "Checkpoints und Resume verwenden Job-, Attempt-, Tenant-, Dataset- und Modellhash-Fencing.",
+        "Der bestehende PEFT/TRL-Pfad bleibt substituierbar und unverändert nutzbar."
       ],
       "test_expectations": [
-        "CPU-Mocktests decken Mapping und Fehlerpfade ab.",
-        "Optionaler GPU-Smoke-Test läuft mit kleinem freigegebenem Modell.",
-        "Regressionstest bestätigt bestehendes PEFT/TRL-Backend."
+        "CPU-Mocktests decken Mapping, Unsupported-Matrix, doppelte PEFT-Verhinderung und Fehlerklassifikation ab.",
+        "Regressionstests bestätigen den bestehenden PEFT/TRL-Vertrag.",
+        "Realer Unsloth-Lauf wird erst durch den profilgebundenen Release-Gate nachgewiesen."
       ]
     },
     {
       "id": "UNSLOTH-011",
-      "title": "RTX-3080-sichere Profile und VRAM-Admission",
+      "title": "Messbares 10-GB-VRAM-Profil und Admission implementieren",
       "type": "backend",
-      "milestone": "M4",
-      "status": "todo",
+      "milestone_id": "M2",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
+      "depends_on": [
+        "UNSLOTH-002",
+        "UNSLOTH-003",
         "UNSLOTH-010"
       ],
       "target_files": [
@@ -432,353 +504,491 @@
         "worker/training/job_process.py"
       ],
       "acceptance_criteria": [
-        "Ein rtx3080-safe Profil besitzt konservative Defaults für 10 GB VRAM.",
-        "Admission berücksichtigt Modellgröße, Quantisierung, Sequenzlänge, Batch, Gradient Accumulation und Adapterparameter.",
-        "Schätzung wird als Näherung gekennzeichnet und vor Live-Start angezeigt.",
-        "Jobs oberhalb des Profils benötigen explizite Override-Begründung oder werden abgelehnt.",
-        "OOM-Retry reduziert nur erlaubte Parameter und verändert niemals Dataset oder Modell."
+        "Das rtx3080-safe Profil reserviert mindestens 1 GiB einer 10-GiB-Karte und besitzt explizite Grenzen für Modellklasse, Quantisierung, Sequenzlänge, Micro-Batch, Gradient Accumulation und Adapterparameter.",
+        "Admission liefert Schätzung, Sicherheitsreserve, verwendete Annahmen und reason_code vor jedem Live-Start.",
+        "Ein bereitgestelltes und gehashtes Modell-/Dataset-Fixture läuft in drei aufeinanderfolgenden Release-Runs ohne OOM und mit maximal 9 GiB gemessenem Peak-VRAM.",
+        "Jobs außerhalb der Matrix werden abgelehnt oder benötigen eine auditierte Override-Begründung.",
+        "OOM-Retry verändert ausschließlich allowlistete Ressourcenparameter und niemals Dataset, Modell, Seed oder Adapterziel."
       ],
       "test_expectations": [
-        "Unit-Tests prüfen Grenzwerte und deterministische Profilauflösung.",
-        "GPU-Smoke-Test protokolliert Peak-VRAM ohne Trainingsdateninhalte."
+        "Unit-Tests prüfen Grenzwerte, deterministische Profilauflösung und erlaubte Retry-Transformationen.",
+        "GPU-Gate protokolliert Peak-VRAM und Fixture-Hashes ohne Trainingsdateninhalte."
       ]
     },
     {
       "id": "UNSLOTH-012",
-      "title": "Training-Observability und Metrikvertrag erweitern",
+      "title": "Versionierten Training-Event- und Metrikvertrag vervollständigen",
       "type": "observability",
-      "milestone": "M4",
-      "status": "todo",
+      "milestone_id": "M2",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
-      "dependencies": [
-        "UNSLOTH-010"
+      "depends_on": [
+        "UNSLOTH-002",
+        "UNSLOTH-010",
+        "UNSLOTH-019"
       ],
       "target_files": [
         "worker/training/runtime.py",
         "worker/training/job_process.py",
-        "agent/services/ml_intern_training_control_service.py",
-        "frontend-angular/src/app/features/model-training"
+        "agent/services/ml_intern_training_read_model_service.py",
+        "frontend-angular/src/app/features/model-training/model-training-job-monitor.service.ts"
       ],
       "acceptance_criteria": [
-        "Events umfassen Phase, Step, Epoch, Loss, Eval-Loss, Learning Rate, Tokens/s, GPU-Auslastung und VRAM.",
-        "Eventdaten enthalten keine Trainingsbeispiele oder Prompts.",
-        "SSE und Polling verwenden denselben sequenzierten Eventvertrag.",
-        "Metriken sind attempt-gebunden und nach Retry nicht vermischt.",
-        "UI kann Verlauf, aktuelle Phase und Ressourcenverbrauch anzeigen."
+        "Event-Schema v1 definiert Phase, Step, Epoch, Loss, Eval-Loss, Learning Rate, Tokens pro Sekunde, GPU-Auslastung und belegtes VRAM mit Typen und Einheiten.",
+        "Sequenzen sind pro Job und Attempt streng monoton; Retry-Ereignisse werden niemals vermischt.",
+        "SSE und Polling projizieren denselben Vertrag und unterstützen einen bounded Resume-Cursor.",
+        "Trainingsbeispiele, Prompts, Secrets und lokale Pfade sind im Eventvertrag verboten.",
+        "Unbekannte oder nicht verfügbare Hardwaremetriken werden explizit als unavailable statt als nullbedeutende Messwerte dargestellt."
       ],
       "test_expectations": [
-        "Tests prüfen Event-Reihenfolge, Redaction und Resume-Cursor.",
-        "Frontend-Tests prüfen SSE-Fallback auf Polling."
+        "Tests prüfen Reihenfolge, Attempt-Fencing, Redaction, Cursor-Resume und SSE-zu-Polling-Fallback.",
+        "Frontend-Tests prüfen Einheiten, unavailable-Zustände und lange Eventfolgen."
       ]
     },
     {
       "id": "UNSLOTH-013",
-      "title": "Export-Pipeline für LoRA, Safetensors und GGUF",
+      "title": "Explizite Exportjobs für Adapter, Safetensors und GGUF ergänzen",
       "type": "backend",
-      "milestone": "M5",
-      "status": "todo",
+      "milestone_id": "M3",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
-      "dependencies": [
-        "UNSLOTH-010"
+      "depends_on": [
+        "UNSLOTH-010",
+        "UNSLOTH-019",
+        "UNSLOTH-021"
       ],
       "target_files": [
-        "worker/training/export.py",
         "worker/training/backends/unsloth.py",
+        "worker/training/backends/peft_trl.py",
+        "agent/services/ml_intern_adapter_export_service.py",
         "agent/services/ml_intern_adapter_registry_service.py"
       ],
       "acceptance_criteria": [
-        "Export unterstützt Adapter-only, 16-bit Safetensors und konfigurierte GGUF-Quantisierungen.",
-        "Merge ist ein separater expliziter Job und niemals Nebenwirkung des Exports.",
-        "Artefakte erhalten SHA-256, Manifest, Basismodell-Hash, Adapter-ID, Toolversion und Konfiguration.",
-        "Unvollständige Exporte werden atomar verworfen.",
-        "Zielpfade bleiben innerhalb des Artefakt-Roots."
+        "Adapter-only, gemergte 16-bit-Safetensors und eine versionierte Allowlist von GGUF-Quantisierungen sind getrennte idempotente Jobtypen.",
+        "Merge ist immer ein expliziter Job und niemals Nebenwirkung eines Downloads, Trainings oder Adapterexports.",
+        "Manifest enthält SHA-256, Tenant, Source-/Run-IDs, Basismodell-Hash, Dataset-Hash, Adapter-ID, Toolversionen und normalisierte Konfiguration.",
+        "Export schreibt in einen temporären jobgebundenen Bereich und promoted erst nach vollständiger Hashprüfung atomar.",
+        "Zielpfade und Blob-Referenzen bleiben innerhalb des tenantgebundenen Artefaktvertrags."
       ],
       "test_expectations": [
-        "Tests prüfen Manifest, Hashes, atomaren Fehlerfall und Pfadgrenzen.",
-        "Optionaler Smoke-Test lädt exportiertes GGUF mit lokalem Runtime-Adapter."
+        "Tests prüfen Manifest, Hashes, Merge-Trennung, atomaren Fehlerfall, Pfadgrenzen und Wiederholung mit gleichem Idempotency-Key.",
+        "Profilgebundener Smoke lädt mindestens eine freigegebene GGUF-Quantisierung über den Runtime-Adapter."
+      ]
+    },
+    {
+      "id": "UNSLOTH-022",
+      "title": "Evaluation, Promotion und Deployment-Freigabe verbindlich verketten",
+      "type": "governance",
+      "milestone_id": "M3",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "UNSLOTH-012",
+        "UNSLOTH-013",
+        "UNSLOTH-019"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_adapter_registry_service.py",
+        "agent/services/ml_intern_training_control_service.py",
+        "agent/services/ml_intern_lora_runtime_management_service.py",
+        "agent/routes/ml_intern_training.py"
+      ],
+      "acceptance_criteria": [
+        "Evaluation referenziert exakt Job, Attempt, Dataset-, Modell-, Adapter- und Exporthash.",
+        "Promotion benötigt versionierte Qualitäts- und Sicherheitsgates sowie einen tenantgebundenen berechtigten Akteur.",
+        "Nur ein unverändertes promoted Artefakt darf einen Deployment-Request oder eine Inferenzroute erhalten.",
+        "Ablehnung, Widerruf und Rollback sind idempotent, auditiert und verändern keine historische Evidenz.",
+        "Hash-, Source-, Run-, Tenant- oder Policy-Mismatch blockiert Promotion und Deployment mit stabilem reason_code."
+      ],
+      "test_expectations": [
+        "Tests prüfen positive Promotion, jedes Mismatch, Widerruf, Rollback und unveränderte Historie.",
+        "E2E-Test führt Dataset über Training, Evaluation und Promotion bis zum freigegebenen Exportmanifest."
       ]
     },
     {
       "id": "UNSLOTH-014",
-      "title": "Deployment zu Ollama, LM Studio und llama.cpp abstrahieren",
+      "title": "Providerneutrale Runtime-Übergabe und Endpoint-Descriptor integrieren",
       "type": "integration",
-      "milestone": "M5",
-      "status": "todo",
+      "milestone_id": "M3",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
-        "UNSLOTH-013"
+      "depends_on": [
+        "UNSLOTH-013",
+        "UNSLOTH-022"
       ],
       "target_files": [
-        "agent/services/model_deployment_service.py",
-        "worker/training/deployment.py",
-        "frontend-angular/src/app/features/model-training"
+        "agent/services/integration_registry_service.py",
+        "agent/services/model_catalog_service.py",
+        "agent/services/model_invocation_service.py",
+        "agent/services/ml_intern_lora_runtime_management_service.py",
+        "todos/todo.lmstudio-ollama-capability-template-runtime-integration.json"
       ],
       "acceptance_criteria": [
-        "Deployment nutzt provider-spezifische Adapter hinter einem gemeinsamen Vertrag.",
-        "Nur freigegebene Artefakte dürfen deployed werden.",
-        "Dry-run zeigt Ziel, Dateien, Ports und geplante Änderungen.",
-        "Rollback stellt vorherige Route und Artefaktversion wieder her.",
-        "Provider-Ausfall verändert Registry-Freigabe nicht."
+        "Der Unsloth-Track erzeugt ausschließlich ein unveränderliches Deployment-Request-Manifest für ein promoted Exportartefakt; Runtime-Lifecycle und providerbezogener Deploy bleiben im LM-Studio-/Ollama-Track.",
+        "Ein optionaler Studio-Inference-Endpoint wird über vorhandene Registry-, Katalog- und Invocation-Ports beschrieben und erzeugt keine neue provider_registry.py.",
+        "OpenAI-Chat, Responses, Anthropic-Messages, Streaming, Tools und strukturierte Ausgabe werden einzeln capability-gated und gegen die gepinnte Contract-Fixture geprüft.",
+        "Timeout, Kontextlimit, Ausgabegrenze und Stream-Abbruch sind bounded; Abbruch gibt Ressourcen deterministisch frei.",
+        "Es gibt keinen impliziten Fallback; Routing auf ein anderes Modell benötigt eine explizite Hub-Policy.",
+        "Provider-Ausfall oder Rollback verändert niemals Registry-Promotion oder Provenance."
       ],
       "test_expectations": [
-        "Fake-Provider-Tests prüfen Deploy, Rollback, Timeout und Teilfehler.",
-        "Keine Tests benötigen installierte Drittanbieter-Runtimes."
+        "Fake-Provider-Tests prüfen Manifestübergabe, Capability-Projektion, Timeout, Stream-Abbruch, Teilfehler und Rollback.",
+        "Contract-Tests benötigen weder Ollama noch LM Studio noch llama.cpp noch Unsloth."
       ]
     },
     {
-      "id": "UNSLOTH-015",
-      "title": "OpenAI-/Anthropic-kompatible Inferenzroute integrieren",
-      "type": "integration",
-      "milestone": "M5",
+      "id": "UNSLOTH-004",
+      "title": "Versionierten Unsloth-Studio-Transport und Capability-Probe implementieren",
+      "type": "backend",
+      "milestone_id": "M4",
       "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
       "progress_percent": 0,
-      "dependencies": [
-        "UNSLOTH-007",
-        "UNSLOTH-013"
+      "status_basis": "not_implemented_unverified",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "UNSLOTH-001",
+        "UNSLOTH-002",
+        "UNSLOTH-003",
+        "UNSLOTH-019",
+        "UNSLOTH-021"
       ],
       "target_files": [
-        "agent/services/unsloth_inference_provider.py",
-        "agent/services/provider_registry.py",
-        "agent/routes",
-        "tests/test_unsloth_inference_provider.py"
+        "agent/services/unsloth_studio_transport.py",
+        "agent/services/unsloth_studio_worker_adapter.py",
+        "tests/test_unsloth_studio_transport.py"
       ],
       "acceptance_criteria": [
-        "Lokale Unsloth-Endpunkte werden als normaler Ananta-Provider registriert.",
-        "Unterstützt werden nur erkannte kompatible Endpunkte und Capability-Felder.",
-        "Streaming, Tool-Calling und strukturierte Ausgabe werden capability-gated.",
-        "Timeouts, Kontextlimit und maximale Ausgabe sind bounded.",
-        "Fallback auf ein anderes Modell erfolgt nur nach expliziter Routing-Policy.",
-        "API-Zugangsdaten werden nicht geloggt."
+        "Transport kapselt authentisierte Health-, Version- und Capability-Abfragen gegen den gepinnten Studio-Vertrag.",
+        "Zustandsändernde Studio-Aufrufe erfolgen nur innerhalb eines vom Hub erzeugten Worker-Tasks und niemals als eigenständige Hub-Ausführungsschleife.",
+        "Timeouts, Retry-Budget, Redirect-Verbot, TLS, Hostprüfung sowie komprimierte und dekomprimierte Response-Limits stammen aus UNSLOTH-003.",
+        "API- oder Schema-Mismatch liefert einen stabilen incompatible_upstream_contract-Code und deaktiviert nur das Studio-Profil.",
+        "Studio-Ausfall beeinflusst weder Core-Training noch Core-Export oder bestehende Provider."
       ],
       "test_expectations": [
-        "Contract-Tests prüfen Chat, Responses, Messages, Streaming-Abbruch und Fehlerübersetzung.",
-        "Provider bleibt unsichtbar, wenn Capability-Probe fehlschlägt."
+        "Contract-Tests verwenden einen lokalen Fake-Server und versionierte Fixtures.",
+        "Tests decken Timeout, 401, TLS-, Schema-, Redirect-, DNS-, Response-Bomb- und Stream-Cleanup-Fehler ab."
+      ]
+    },
+    {
+      "id": "UNSLOTH-006",
+      "title": "Isoliertes opt-in Containerprofil für Unsloth Studio ergänzen",
+      "type": "devops",
+      "milestone_id": "M4",
+      "status": "todo",
+      "progress_percent": 0,
+      "status_basis": "not_implemented_unverified",
+      "priority": "P2",
+      "risk": "high",
+      "depends_on": [
+        "UNSLOTH-001",
+        "UNSLOTH-003",
+        "UNSLOTH-004",
+        "UNSLOTH-021"
+      ],
+      "target_files": [
+        "docker/compose-next/compose.unsloth.yml",
+        ".env.example",
+        "docs/ml-intern-lora-finetuning.md"
+      ],
+      "acceptance_criteria": [
+        "Studio verwendet ein exakt gepinntes und lizenzfreigegebenes Image oder reproduzierbares Build-Artefakt mit Digest.",
+        "Der Dienst ist nur im dedizierten internen Netzwerk für den Hub-Transport erreichbar; standardmäßig wird kein Hostport veröffentlicht.",
+        "Upstream-Servertools, öffentliche Tunnel, öffentliche Reachability-Checks, Jupyter und SSH sind deaktiviert oder nicht enthalten.",
+        "Container läuft ohne privileged, Docker-Socket, Host-Netzwerk, Host-PID oder unnötige Capabilities und mit tenantgebundenen Cache-/Workspace-Verträgen.",
+        "Healthcheck prüft den gepinnten API-Endpunkt mit Authentisierung; der bestehende Core-Worker bleibt unabhängig startbar."
+      ],
+      "test_expectations": [
+        "CI validiert Compose-Struktur, Image-Pin, Netzwerk, Mounts und verbotene Privilegien ohne GPU-Start.",
+        "Profilgebundener Smoke prüft Auth, Health, deaktivierte Tools und GPU-Erkennung."
+      ]
+    },
+    {
+      "id": "UNSLOTH-023",
+      "title": "Vision-, Audio- und Embedding-Unterstützung als getrennte Strategien ergänzen",
+      "type": "backend",
+      "milestone_id": "M5",
+      "status": "todo",
+      "progress_percent": 0,
+      "status_basis": "not_implemented_unverified",
+      "priority": "P2",
+      "risk": "high",
+      "depends_on": [
+        "UNSLOTH-002",
+        "UNSLOTH-003",
+        "UNSLOTH-007",
+        "UNSLOTH-009",
+        "UNSLOTH-010",
+        "UNSLOTH-019",
+        "UNSLOTH-021"
+      ],
+      "target_files": [
+        "worker/training/backends/unsloth_vision.py",
+        "worker/training/backends/unsloth_audio.py",
+        "worker/training/backends/unsloth_embedding.py",
+        "tests/worker"
+      ],
+      "acceptance_criteria": [
+        "Vision, Audio und Embedding besitzen getrennte Backend-Strategien und Capability-Facets statt Sonderfälle im Text-Backend.",
+        "Jede Strategie implementiert nur den schmalen gemeinsamen Worker-Vertrag und darf keine stärkeren versteckten Vorbedingungen einführen.",
+        "Modell-, Dataset-, Processor-, Metrik- und Exportmatrix ist je Modalität versioniert und standardmäßig unavailable.",
+        "Unsupported Kombinationen werden vor schwerem Import oder Modellladung abgelehnt.",
+        "Eine Modalität kann unabhängig freigegeben, deaktiviert oder zurückgerollt werden."
+      ],
+      "test_expectations": [
+        "CPU-Contract-Tests prüfen Substituierbarkeit, Capability-Gates und Fehlerpfade pro Strategie.",
+        "Jede produktiv beanspruchte Modalität benötigt einen eigenen verpflichtenden GPU-Release-Run mit bereitgestellter Evidenz."
       ]
     },
     {
       "id": "UNSLOTH-016",
-      "title": "MCP-Control-Endpunkt sicher anbinden",
+      "title": "Optionalen Studio-MCP-Adapter durch bestehende Hub-Policy absichern",
       "type": "security",
-      "milestone": "M6",
-      "status": "todo",
-      "priority": "P1",
+      "milestone_id": "M6",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
+      "priority": "P2",
       "risk": "critical",
-      "progress_percent": 0,
-      "dependencies": [
+      "depends_on": [
         "UNSLOTH-003",
-        "UNSLOTH-004"
+        "UNSLOTH-004",
+        "UNSLOTH-009",
+        "UNSLOTH-010",
+        "UNSLOTH-013",
+        "UNSLOTH-019",
+        "UNSLOTH-021",
+        "UNSLOTH-022"
       ],
       "target_files": [
-        "agent/services/unsloth_mcp_client.py",
-        "agent/services/mcp_policy_service.py",
-        "frontend-angular/src/app/features/model-training"
+        "agent/routes/mcp.py",
+        "agent/services/mcp_tool_registry.py",
+        "agent/services/mcp_readonly_adapter.py",
+        "agent/services/unsloth_mcp_adapter.py"
       ],
       "acceptance_criteria": [
-        "MCP ist separat aktivierbar und default aus.",
-        "Tool-Allowlist trennt read-only Modellstatus von Training, Export, Löschen und Code-Ausführung.",
-        "Riskante Tools benötigen Adminrolle, Bestätigung, Idempotency-Key und Audit-Eintrag.",
-        "Ananta übergibt keine uneingeschränkten Dateisystempfade oder Shell-Befehle.",
-        "MCP-Ausgaben werden größenbegrenzt und redigiert.",
-        "Direkte Worker-Steuerung durch Browser oder externe Clients wird verhindert."
+        "MCP ist ein separates Release-Profil, default aus und nur über das interne Netzwerk erreichbar.",
+        "Ein eigener Secret-referenzierter Bearer-Token ist zwingend; lokaler oder containerinterner Zugriff ohne Token wird abgelehnt.",
+        "Read-only-Tools und Mutationen besitzen getrennte Allowlists; jede Mutation erzeugt einen Hub-Task statt Studio oder Worker direkt zu steuern.",
+        "Training, Stop, Checkpoint, Export und Löschen benötigen Rolle, explizite Bestätigung, Idempotency-Key, Replay-Schutz und Audit-Korrelation.",
+        "Dateisystempfade, Shell-Befehle und ungeprüfte Toolargumente werden nicht weitergereicht; Outputs sind auf 1 MiB begrenzt und redigiert.",
+        "Browser, externe Clients und andere Worker können den Studio-MCP-Endpunkt nicht umgehen oder direkt erreichen."
       ],
       "test_expectations": [
-        "Security-Tests prüfen Tool-Denylist, Rollen, Prompt-Injection-unabhängige Policy und Output-Limits.",
-        "Audit-Test korreliert MCP-Aufruf mit Benutzer und Job."
+        "Security-Tests prüfen fehlenden Token, Rollen, Denylist, Replay, Confused Deputy, Prompt-Injection-unabhängige Policy und Output-Limits.",
+        "E2E-Test korreliert MCP-Aufruf, Hub-Task, Benutzer, Tenant, Job und Audit ohne Direktsteuerung."
       ]
     },
     {
       "id": "UNSLOTH-017",
-      "title": "Angular-Unsloth-Control-Center ergänzen",
+      "title": "Bestehendes Angular-Control-Center profilgesteuert erweitern",
       "type": "frontend",
-      "milestone": "M6",
-      "status": "todo",
-      "priority": "P1",
+      "milestone_id": "M6",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
+      "priority": "P2",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
+      "depends_on": [
+        "UNSLOTH-002",
+        "UNSLOTH-004",
         "UNSLOTH-007",
         "UNSLOTH-009",
         "UNSLOTH-012",
         "UNSLOTH-013",
-        "UNSLOTH-015"
+        "UNSLOTH-014",
+        "UNSLOTH-016",
+        "UNSLOTH-022"
       ],
       "target_files": [
         "frontend-angular/src/app/features/model-training",
         "frontend-angular/src/app/core/services"
       ],
       "acceptance_criteria": [
-        "Bestehender /model-training-Bereich erhält keine zweite konkurrierende Oberfläche.",
-        "Tabs zeigen Installation/Health, Modelle, Data Recipes, Training, Exporte, Deployment und Inferenz.",
-        "Riskante Aktionen besitzen Dry-run, Zusammenfassung und explizite Bestätigung.",
-        "Capability-Gates deaktivieren nicht verfügbare Funktionen mit serverseitigem reason_code.",
-        "Keine Worker- oder Host-Pfade werden im Browser offengelegt.",
-        "UI bleibt mit Core-Worker ohne Studio vollständig nutzbar."
+        "Der bestehende model-training-Bereich wird erweitert; es entsteht keine zweite konkurrierende Unsloth-Oberfläche.",
+        "Core bleibt ohne Studio und MCP vollständig für Dataset, Training, Evaluation, Promotion und Export nutzbar.",
+        "Optionale Bereiche für Studio-Health, Recipes, Runtime-Übergabe und MCP werden ausschließlich durch serverseitige Capability-Facets aktiviert.",
+        "Riskante Aktionen zeigen Dry-run, unveränderliche Ziel- und Hash-Zusammenfassung sowie explizite Bestätigung.",
+        "Browser erhält keine Worker-, Studio-, Host- oder Secret-Pfade und spricht ausschließlich mit dem Hub.",
+        "reason_code und unavailable-Zustände werden konsistent und barrierefrei dargestellt."
       ],
       "test_expectations": [
-        "Angular-Tests decken Capability-Gates, Formulargrenzen, Polling/SSE und Bestätigungen ab.",
-        "E2E-Test verwendet Fake-Hub und Fake-Studio."
+        "Angular-Tests decken Release-Profile, Capability-Gates, Formulargrenzen, Bestätigungen und Polling/SSE ab.",
+        "E2E-Test verwendet Fake-Hub und optional Fake-Studio; Netzwerkassertionen verbieten Browserzugriffe auf Worker oder Studio."
       ]
     },
     {
-      "id": "UNSLOTH-018",
-      "title": "TUI-Menü für Status, Jobs und sichere Aktionen",
-      "type": "frontend",
-      "milestone": "M6",
-      "status": "todo",
-      "priority": "P2",
-      "risk": "medium",
-      "progress_percent": 0,
-      "dependencies": [
-        "UNSLOTH-007",
-        "UNSLOTH-012",
-        "UNSLOTH-013"
-      ],
-      "target_files": [
-        "agent/tui",
-        "tests"
-      ],
-      "acceptance_criteria": [
-        "TUI bietet Status, Modellliste, Jobfortschritt, Cancel, Exportstatus und Deployment-Dry-run.",
-        "Maus- und Tastaturbedienung folgen bestehenden TUI-Konventionen.",
-        "Riskante Aktionen verlangen dieselben Bestätigungen und Rollen wie Angular.",
-        "TUI spricht nur mit dem Hub und niemals direkt mit Worker oder Studio."
-      ],
-      "test_expectations": [
-        "TUI-Tests prüfen Navigation, Capability-Gates und Bestätigungsdialoge.",
-        "Snapshot-Tests enthalten keine Secrets oder lokale Pfade."
-      ]
-    },
-    {
-      "id": "UNSLOTH-019",
-      "title": "Audit, Provenance und Supply-Chain-Nachweise",
+      "id": "UNSLOTH-024",
+      "title": "Profilgebundene Supply-Chain- und Laufzeitattestierung vervollständigen",
       "type": "security",
-      "milestone": "M7",
-      "status": "todo",
+      "milestone_id": "M7",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
-      "dependencies": [
+      "depends_on": [
+        "UNSLOTH-001",
+        "UNSLOTH-006",
         "UNSLOTH-008",
         "UNSLOTH-013",
-        "UNSLOTH-016"
+        "UNSLOTH-014",
+        "UNSLOTH-016",
+        "UNSLOTH-019",
+        "UNSLOTH-021",
+        "UNSLOTH-022",
+        "UNSLOTH-023"
       ],
       "target_files": [
-        "agent/services/audit_service.py",
-        "agent/services/ml_intern_adapter_registry_service.py",
-        "docs/security"
+        "worker/training/runtime.py",
+        "scripts/run_lora_training_smoke.py",
+        "artifacts/test-gates",
+        "docs/ml-intern-lora-finetuning.md"
       ],
       "acceptance_criteria": [
-        "Dataset, Basismodell, Adapter, Export und Deployment sind über Hashes und IDs lückenlos verknüpft.",
-        "Unsloth-, Torch-, Transformers-, CUDA- und Treiberversionen werden im Artefaktmanifest erfasst.",
-        "Dependency-Lock und Container-Image-Digest sind reproduzierbar dokumentiert.",
-        "Audit enthält Benutzer, Tenant, Aktion, Ergebnis und reason_code, aber keine Trainingsinhalte.",
-        "Manipulierte Artefakte werden vor Evaluation, Export und Deployment blockiert."
+        "Jedes Release-Profil besitzt getrennte Attestierung für Dependency-Lock, Container-Image-Digest, Unsloth, Torch, Transformers, CUDA-Runtime, Treiber und Modellformate.",
+        "Build-Input-Digest und tatsächlich gestarteter Image-Digest werden getrennt ausgewiesen und niemals gleichgesetzt.",
+        "Dataset, Modell, Adapter, Export, Evaluation, Promotion und Runtime-Request sind über unveränderliche IDs und SHA-256 lückenlos verknüpft.",
+        "Manipulierte Artefakte oder Attestate blockieren Evaluation, Export, Promotion und Deployment.",
+        "Ein optionales Profil kann unverified bleiben, ohne core_text zu blockieren; es darf dann aber nicht als supported oder done ausgewiesen werden."
       ],
       "test_expectations": [
-        "Tests verändern Artefakte absichtlich und erwarten Hash-Mismatch.",
-        "Audit-Redaction wird automatisiert geprüft."
+        "Tests manipulieren Manifest, Artefakt, Image- und Dependency-Digest und erwarten eindeutige Mismatch-Codes.",
+        "Audit- und Attestierungsartefakte enthalten keine Trainingsinhalte, Secrets, volatile Hostpfade oder erfundene Source-/Run-IDs."
       ]
     },
     {
       "id": "UNSLOTH-020",
-      "title": "CI-Matrix, GPU-Smokes und Upgrade-Strategie",
+      "title": "Verbindliche CPU-CI und profilgebundene GPU-Release-Gates etablieren",
       "type": "testing",
-      "milestone": "M7",
-      "status": "todo",
+      "milestone_id": "M7",
+      "status": "partial",
+      "progress_percent": 30,
+      "status_basis": "repository_observed_unverified",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
+      "depends_on": [
+        "UNSLOTH-002",
+        "UNSLOTH-003",
+        "UNSLOTH-004",
+        "UNSLOTH-006",
         "UNSLOTH-010",
         "UNSLOTH-013",
-        "UNSLOTH-015",
-        "UNSLOTH-019"
+        "UNSLOTH-014",
+        "UNSLOTH-016",
+        "UNSLOTH-017",
+        "UNSLOTH-019",
+        "UNSLOTH-021",
+        "UNSLOTH-022",
+        "UNSLOTH-023",
+        "UNSLOTH-024"
       ],
       "target_files": [
         ".github/workflows",
+        "scripts/run_lora_training_smoke.py",
         "tests/worker",
+        "docker/compose-next/requirements.lora-training-nvidia.txt",
         "docs/ml-intern-lora-finetuning.md"
       ],
       "acceptance_criteria": [
-        "CPU-CI testet Verträge, Mocks, Security und Frontend ohne Unsloth/GPU.",
-        "Optionaler selbstgehosteter GPU-Job testet Installation, Mini-Training, Export und Inferenz.",
-        "Unsloth-Version ist gepinnt oder über getestete Constraints begrenzt.",
-        "Upgrade-Runbook nennt Kompatibilitätsprüfung für Torch, CUDA, Transformers und Modellformate.",
-        "Fehlender GPU-Runner blockiert normale PR-CI nicht, wird aber sichtbar berichtet."
+        "Normale PR-CI führt Schema-, Contract-, Security-, Worker-, Angular- und Fake-E2E-Tests ohne Unsloth und ohne GPU aus.",
+        "Der NVIDIA-Smoke verwendet für das Unsloth-Profil tatsächlich backend=unsloth und prüft Installation, Mini-Training, Evaluation, Export und Inferenz beziehungsweise Runtime-Load.",
+        "Ein fehlender GPU-Runner blockiert normale PR-CI nicht, wird aber als unverified profile sichtbar und kann keinen verpflichtenden Pre-Release-Gate erfüllen.",
+        "Jedes als supported beanspruchte Release-Profil benötigt einen erfolgreichen, bereitgestellten RUN_* Nachweis mit ausschließlich synthetischen oder explizit freigegebenen Fixtures.",
+        "Dependency- und API-Upgrades laufen gegen eine versionierte Kompatibilitätsmatrix für Unsloth, Torch, CUDA, Transformers und Exportformate.",
+        "Rollback auf die letzte attestierte Dependency-, Image- und Contract-Matrix ist dokumentiert und testbar."
       ],
       "test_expectations": [
-        "Schema- und JSON-Validierung laufen in CI.",
-        "GPU-Smoke-Artefakte enthalten nur synthetische Daten.",
-        "Rollback auf letzte freigegebene Dependency-Matrix ist dokumentiert."
+        "LoRA-/Unsloth-Worker-Tests und model-training-E2E sind explizite CI-Gates statt nur optionale Coverage-Ziele.",
+        "GPU-Artefakte enthalten Peak-VRAM, Versionen, Digests und bereitgestellte Source-/Run-IDs, aber keine Trainingsdateninhalte.",
+        "Kein Profil wird allein durch Mocks oder einen PEFT/TRL-Smoke als Unsloth-verifiziert markiert."
       ]
     }
   ],
   "critical_path_tasks": [
+    "UNSLOTH-001",
     "UNSLOTH-002",
     "UNSLOTH-003",
-    "UNSLOTH-004",
+    "UNSLOTH-019",
+    "UNSLOTH-021",
     "UNSLOTH-007",
+    "UNSLOTH-008",
+    "UNSLOTH-009",
     "UNSLOTH-010",
     "UNSLOTH-013",
-    "UNSLOTH-015",
-    "UNSLOTH-019",
+    "UNSLOTH-022",
+    "UNSLOTH-014",
+    "UNSLOTH-016",
+    "UNSLOTH-024",
     "UNSLOTH-020"
   ],
   "tasks_status_summary": {
-    "total": 20,
+    "total": 21,
     "by_status": {
-      "todo": 19,
+      "todo": 3,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 18,
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 1.5,
+    "progress_percent_done": 25.71,
     "by_priority": {
-      "P0": 11,
-      "P1": 8,
-      "P2": 1,
+      "P0": 13,
+      "P1": 4,
+      "P2": 4,
       "P3": 0
     },
     "by_risk": {
-      "low": 1,
-      "medium": 2,
-      "high": 10,
-      "critical": 7
+      "low": 0,
+      "medium": 1,
+      "high": 11,
+      "critical": 9
     },
     "critical_path": {
-      "total": 9,
+      "total": 15,
       "done": 0,
-      "remaining": 9
+      "remaining": 15
     },
     "milestones": {
       "total": 7,
-      "todo": 6,
-      "in_progress": 1,
+      "todo": 2,
+      "in_progress": 0,
+      "partial": 5,
       "blocked": 0,
       "done": 0
     }
   },
   "progress_summary": {
-    "state": "planned_from_existing_partial_backend",
-    "todo_remaining": 19,
+    "state": "corrected_source_mapped_but_evidence_unverified",
+    "todo_remaining": 3,
     "in_progress": 0,
-    "partial": 1,
+    "partial": 18,
     "blocked": 0,
-    "done": 0
+    "done": 0,
+    "initial_release_profile": "core_text",
+    "optional_profiles": [
+      "studio",
+      "modalities",
+      "mcp"
+    ]
   },
   "summary_notes": [
-    "Der vorhandene UnslothTrainingBackend ist kein Neubaugrund, sondern der Startpunkt für die Erweiterung.",
-    "Für die RTX 3080 ist ein konservatives 10-GB-VRAM-Profil ausdrücklich Teil des Tracks.",
-    "Unsloth Studio darf die bestehende Ananta-Governance nicht umgehen.",
-    "Die erste produktive Stufe sollte Core-Training plus Export und lokaler Provider sein; MCP und Remote Studio folgen erst nach Policy- und Audit-Härtung."
+    "Die Statuskorrektur bildet vorhandene Teilimplementierungen ab, ist ohne bereitgestellte SRC_* und RUN_* IDs aber noch keine Acceptance-Evidenz.",
+    "Core-Texttraining, Evaluation, Export und Runtime-Übergabe sind unabhängig von Studio und MCP abschließbar.",
+    "UNSLOTH-005, UNSLOTH-015 und UNSLOTH-018 wurden als eigenständige Tasks entfernt oder in kanonische Ownership zurückgeführt.",
+    "Unsloth Studio darf erst nach Lizenzfreigabe, unveränderlichem Upstream-Pin und isoliertem Container-Gate paketiert werden.",
+    "Ein Profil kann nur durch einen echten profilgebundenen Release-Run und niemals allein durch Mocks als supported gelten."
   ]
 }

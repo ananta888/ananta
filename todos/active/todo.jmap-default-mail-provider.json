@@ -1,5 +1,5 @@
 {
-  "version": "1.5",
+  "version": "1.6",
   "updated_at": "2026-07-25",
   "owner": "Peter Stuiber",
   "track": "jmap-default-mail-provider",
@@ -16,12 +16,14 @@
     "done_task_percent": 91.3,
     "weighted_percent_complete": null,
     "weighted_percent_reason": "Ohne bereitgestellte SRC_*/RUN_*-Evidenz und Taskgewichte wird kein belastbarer gewichteter Fortschritt behauptet.",
-    "local_code_acceptance_complete": true,
-    "warnings_strict_tests_passed": 149,
-    "expected_live_tests_skipped": 1,
-    "ananta_production_composition_contract_complete": true,
-    "seeded_live_jmap_e2e_complete": false,
-    "production_default_rollout_approved": false
+    "local_code_acceptance_complete": null,
+    "warnings_strict_tests_passed": null,
+    "ananta_production_composition_contract_complete": null,
+    "production_default_rollout_approved": false,
+    "current_gate_execution": "passed_locally_unverified_missing_RUN_ids",
+    "repository_owned_jmap_contract_complete": null,
+    "external_provider_jmap_e2e_complete": false,
+    "repository_implementation_status": "complete_locally_unverified_missing_SRC_RUN_ids"
   },
   "non_goals": [
     "Kein Entfernen der bestehenden IMAP-Unterstuetzung.",
@@ -35,7 +37,7 @@
     "Kein automatischer Wechsel bestehender IMAP-Konten zu JMAP ohne separaten Dry Run, explizite Freigabe und Rollbackpfad."
   ],
   "source_alignment": {
-    "status": "locally_inspected_unverified_missing_source_ids",
+    "status": "locally_inspected_unverified_missing_source_and_run_ids",
     "repository": "ananta888/ananta",
     "branch": "main",
     "commit_sha": null,
@@ -43,87 +45,88 @@
     "run_ids": [],
     "rule": "Inspektierte Pfade sind keine grounded Evidence. Nur bereitgestellte SRC_* und RUN_* duerfen spaeter als Evidenz referenziert werden; fehlende IDs bleiben unverified.",
     "inspected_paths": [
-      "agent/services/imap_contract_service.py",
+      "agent/lifecycle.py",
+      "agent/routes/mail_control.py",
+      "agent/services/background/mail_polling_scheduler.py",
       "agent/services/imap_account_service.py",
+      "agent/services/imap_attachment_service.py",
       "agent/services/imap_connector_service.py",
-      "agent/services/imap_sync_policy_service.py",
+      "agent/services/imap_contract_service.py",
+      "agent/services/imap_feature_flag_service.py",
+      "agent/services/imap_mail_artifact_service.py",
       "agent/services/imap_metadata_store_service.py",
+      "agent/services/imap_provider_adapter.py",
+      "agent/services/imap_redaction_pipeline_service.py",
       "agent/services/imap_search_service.py",
       "agent/services/imap_secret_store_service.py",
-      "agent/services/imap_attachment_service.py",
+      "agent/services/imap_sync_policy_service.py",
       "agent/services/imap_threading_service.py",
-      "agent/services/imap_mail_artifact_service.py",
-      "agent/services/imap_redaction_pipeline_service.py",
-      "agent/services/imap_feature_flag_service.py",
-      "client_surfaces/operator_tui/commands_mail.py",
-      "tests/test_imap_connector_service.py",
-      "tests/test_imap_mock_integration_flow.py",
-      "tests/test_imap_artifact_worker_security.py",
-      "docs/operator-tui-imap-mail-client.md",
-      "todos/archiv/todo.operator-tui-imap-email-client.json",
-      "agent/services/mail_contract_service.py",
-      "agent/services/mail_provider_ports.py",
-      "agent/services/mail_provider_router.py",
-      "agent/services/imap_provider_adapter.py",
-      "agent/services/mail_account_service.py",
-      "agent/services/mail_metadata_store_service.py",
-      "agent/services/mail_feature_policy.py",
-      "agent/services/mail_secret_resolver.py",
+      "agent/services/jmap_auth_service.py",
+      "agent/services/jmap_blob_service.py",
+      "agent/services/jmap_client_service.py",
+      "agent/services/jmap_contract_service.py",
+      "agent/services/jmap_discovery_service.py",
       "agent/services/jmap_endpoint_policy.py",
       "agent/services/jmap_http_transport.py",
-      "agent/services/jmap_discovery_service.py",
-      "agent/services/jmap_client_service.py",
-      "agent/services/jmap_mail_read_provider.py",
-      "agent/services/mail_body_service.py",
-      "agent/services/jmap_blob_service.py",
-      "agent/services/jmap_sync_service.py",
-      "agent/services/mail_sync_state_store.py",
       "agent/services/jmap_mail_mutation_provider.py",
-      "agent/services/mail_task_service.py",
-      "agent/services/mail_operation_intent_service.py",
-      "agent/services/mail_runtime_policy.py",
-      "agent/services/mail_application_service.py",
-      "agent/routes/mail_control.py",
-      "worker/mail_task_composition.py",
-      "worker/mail_provider_task_execution.py",
-      "worker/mail_task_execution.py",
-      "docker/compose-next/compose.jmap-test.yml",
-      "tests/e2e/test_mail_hub_worker_provider_parity.py",
-      "agent/services/jmap_request_scheduler.py",
+      "agent/services/jmap_mail_read_provider.py",
       "agent/services/jmap_mutation_reconciliation.py",
-      "agent/services/mail_sync_transaction_service.py",
+      "agent/services/jmap_request_scheduler.py",
+      "agent/services/jmap_sync_service.py",
+      "agent/services/mail_account_service.py",
+      "agent/services/mail_application_service.py",
+      "agent/services/mail_body_service.py",
+      "agent/services/mail_contract_service.py",
+      "agent/services/mail_feature_policy.py",
+      "agent/services/mail_metadata_store_service.py",
       "agent/services/mail_migration_journal.py",
-      "agent/services/mail_polling_scheduler.py",
-      "agent/services/background/mail_polling_scheduler.py",
-      "agent/services/jmap_auth_service.py",
       "agent/services/mail_migration_service.py",
+      "agent/services/mail_operation_intent_service.py",
+      "agent/services/mail_polling_scheduler.py",
       "agent/services/mail_protocol_cutover_service.py",
-      "agent/lifecycle.py",
-      "scripts/stalwart_jmap_test_stack.py",
-      "docker/compose-next/compose.jmap-seed.yml",
-      "tests/test_mail_foundation_acceptance_round2.py",
+      "agent/services/mail_provider_ports.py",
+      "agent/services/mail_provider_router.py",
+      "agent/services/mail_runtime_policy.py",
+      "agent/services/mail_secret_resolver.py",
+      "agent/services/mail_sync_state_store.py",
+      "agent/services/mail_sync_transaction_service.py",
+      "agent/services/mail_task_service.py",
+      "client_surfaces/operator_tui/commands_mail.py",
+      "docs/jmap-test-stack.md",
+      "docs/operator-tui-imap-mail-client.md",
+      "tests/e2e/jmap_live_provider_support.py",
+      "tests/e2e/mail_ananta_composition_harness.py",
+      "tests/e2e/test_jmap_ananta_composition_contract.py",
+      "tests/e2e/test_jmap_fixture_contract.py",
+      "tests/e2e/test_jmap_live_provider.py",
+      "tests/e2e/test_jmap_live_provider_contract.py",
+      "tests/e2e/test_mail_hub_worker_provider_parity.py",
+      "tests/e2e/test_mail_sync_state_failure_matrix.py",
+      "tests/test_imap_artifact_worker_security.py",
+      "tests/test_imap_connector_service.py",
+      "tests/test_imap_mock_integration_flow.py",
+      "tests/test_jmap_failure_matrix.py",
+      "tests/test_jmap_result_reference.py",
       "tests/test_jmap_scheduler_and_limits.py",
       "tests/test_jmap_transport_binding_and_oauth.py",
-      "tests/test_mail_sync_transaction_and_reconciliation.py",
-      "tests/test_mail_polling_scheduler.py",
+      "tests/test_mail_foundation_acceptance_round2.py",
       "tests/test_mail_operational_negative_gates.py",
-      "tests/e2e/test_stalwart_jmap_fixture_contract.py",
-      "tests/e2e/test_stalwart_live_jmap.py",
-      "docs/jmap-test-stack.md",
-      "agent/services/jmap_contract_service.py",
-      "worker/mail_sync_transaction_adapter.py",
-      "tests/test_jmap_result_reference.py",
+      "tests/test_mail_polling_scheduler.py",
+      "tests/test_mail_sync_transaction_and_reconciliation.py",
       "tests/test_mail_transactional_runtime_composition.py",
-      "tests/e2e/mail_ananta_composition_harness.py",
-      "tests/e2e/test_stalwart_ananta_composition_contract.py",
-      "tests/test_jmap_failure_matrix.py",
-      "tests/e2e/test_mail_sync_state_failure_matrix.py"
+      "todos/archiv/todo.operator-tui-imap-email-client.json",
+      "worker/mail_provider_task_execution.py",
+      "worker/mail_sync_transaction_adapter.py",
+      "worker/mail_task_composition.py",
+      "worker/mail_task_execution.py"
     ],
     "unverified_observations": [
       "Alle geplanten lokalen Schema-, Provider-, Security-, Hub/Worker-, Polling-, Sync-Transaction-, Mutation-, Migration/Restore-, Cutover-, TUI-, Betriebs- und Testbausteine sind vorhanden.",
-      "Die warnings-strikte lokale Gesamtabnahme einschliesslich produktiver Failure-Matrix und Ananta-Composition-Contract ist gruen.",
-      "Der Live-Stalwart-Pfad ist implementiert, wurde ohne explizites Lizenz-Acknowledgement nicht gestartet.",
-      "Alle lokalen Beobachtungen bleiben ohne bereitgestellte SRC_* IDs unverified und sind keine grounded Claims."
+      "Alle lokalen Beobachtungen bleiben ohne bereitgestellte SRC_* IDs unverified und sind keine grounded Claims.",
+      "Der externe vendorneutrale Provider-Smoke wurde ohne bereitgestellte Session, Credentials und RUN_* IDs nicht ausgefuehrt.",
+      "Der vendorneutrale externe Provider-Smoke ist implementiert und ohne Opt-in erwartungsgemaess inaktiv; eine reale Session, kurzlebige Credentials und RUN_* Evidenz wurden nicht bereitgestellt.",
+      "Die aktuelle providerneutrale warnings-strikte Matrix wurde lokal mit 148 bestandenen Tests ohne Fehler, Skips oder Warnungen beobachtet; ohne RUN_* ID ist dies keine grounded Evidence.",
+      "Die warnings-strikte lokale Gesamtabnahme einschliesslich produktiver Failure-Matrix und Ananta-Composition-Contract ist gruen."
     ]
   },
   "architecture_decisions": [
@@ -918,19 +921,19 @@
         "T16",
         "T18"
       ],
-      "progress_note": "Die vollstaendige warnings-strikte Matrix ist lokal gruen: Transport/Auth/Retry/Groessenlimits, unbekannte/partielle Responses, Set-Teilfehler, Reconciliation, paginierte Changes, cannotCalculateChanges, produktiver SQLite-Crash/Resume/CAS-Rollback sowie breite Legacy-/TUI-/Hub-/Composition-Regressionen.",
+      "progress_note": "Das aktualisierte providerneutrale warnings-strikte Gesamtgate wurde lokal mit 148 bestandenen Tests, 0 Fehlern, 0 Skips und 0 Warnungen beobachtet. Mangels bereitgestellter RUN_* ID bleibt diese Beobachtung ungegrounded.",
       "affected_files": [
-        "tests/test_jmap_failure_matrix.py",
+        "tests/e2e/test_jmap_ananta_composition_contract.py",
+        "tests/e2e/test_jmap_fixture_contract.py",
         "tests/e2e/test_mail_sync_state_failure_matrix.py",
+        "tests/test_jmap_failure_matrix.py",
         "tests/test_jmap_result_reference.py",
         "tests/test_jmap_scheduler_and_limits.py",
         "tests/test_jmap_transport_binding_and_oauth.py",
-        "tests/test_mail_sync_transaction_and_reconciliation.py",
-        "tests/test_mail_transactional_runtime_composition.py",
-        "tests/test_mail_polling_scheduler.py",
         "tests/test_mail_operational_negative_gates.py",
-        "tests/e2e/test_stalwart_jmap_fixture_contract.py",
-        "tests/e2e/test_stalwart_ananta_composition_contract.py"
+        "tests/test_mail_polling_scheduler.py",
+        "tests/test_mail_sync_transaction_and_reconciliation.py",
+        "tests/test_mail_transactional_runtime_composition.py"
       ],
       "acceptance_criteria": [
         "Jeder Implementierungstask besitzt fokussierte Unit-/Contracttests; T19 aggregiert nur das Cross-Provider- und Regression-Gate.",
@@ -944,13 +947,13 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "passed_locally_unverified_missing_RUN_id",
         "remaining": []
       }
     },
     {
       "id": "T20",
-      "title": "Gepinnte lokale JMAP-E2E-Testumgebung bereitstellen",
+      "title": "Repository-eigenen lokalen JMAP-E2E-Contract bereitstellen",
       "status": "done",
       "priority": "P1",
       "risk": "high",
@@ -962,30 +965,24 @@
         "T08"
       ],
       "affected_files": [
-        "docker/compose-next/compose.jmap-test.yml",
-        "docker/compose-next/compose.jmap-seed.yml",
-        "scripts/stalwart_jmap_test_stack.py",
-        "tests/fixtures/jmap/stalwart-seed.json",
-        "tests/fixtures/jmap/messages/alice-thread-1.eml",
-        "tests/fixtures/jmap/messages/alice-thread-2.eml",
-        "tests/fixtures/jmap/messages/bob-attachment.eml",
-        "tests/fixtures/jmap/secrets/admin-password",
+        "tests/e2e/mail_ananta_composition_harness.py",
+        "tests/e2e/test_jmap_fixture_contract.py",
+        "tests/e2e/test_jmap_ananta_composition_contract.py",
         "tests/fixtures/jmap/secrets/alice-password",
-        "tests/fixtures/jmap/secrets/bob-password",
         "docs/jmap-test-stack.md"
       ],
       "acceptance_criteria": [
-        "Kompatibler JMAP-Testserver ist mit verifiziertem Image-Digest und dokumentierter Lizenz gepinnt.",
-        "Compose verwendet isoliertes internes Netzwerk, Loopback-Hostbindung, Healthcheck, Ressourcenlimits, reproduzierbare Volumes und explizites Testprofil.",
-        "Testcredentials kommen aus temporaeren Secretfiles und erscheinen weder in YAML, Prozessargumenten, Artefakten noch Logs.",
-        "Deterministische Seed-Daten enthalten mehrere Mailboxen, Threads, Keywords, Attachments und zwei isolierte Accounts.",
-        "Reset und Cleanup entfernen Testkonten, Container, Netzwerke, Volumes und temporaere Secrets auch nach Fehlern.",
-        "Umgebung benoetigt keine externe Cloud und unterstuetzt reproduzierbare Offline-/Restart-Szenarien."
+        "Der Contract verwendet nur repository-eigenen Code und standardisierte JMAP-Core-/Mail-Methoden; fremde Server, Images und vendorspezifische Management-APIs sind ausgeschlossen.",
+        "Der JMAP-Adapter wird ueber den schmalen produktiven Transport-Port injiziert und ersetzt weder Hub-Policy noch Worker- oder Provider-Businesslogik.",
+        "Das feste Testcredential erscheint weder in Tasks, Resultaten, Artefakten noch Logs.",
+        "Deterministischer State enthaelt einen persoenlichen Account, mehrere Mailboxen, einen Zwei-Nachrichten-Thread, Bodies und Keywords.",
+        "Jede Adapterinstanz besitzt isolierten State; temporaere Stores und Intent-Endpunkte werden durch den Testprozess aufgeraeumt.",
+        "Die lokale Umgebung benoetigt weder externe Cloud noch Netzwerkzugriff und startet oder laedt keinen Drittanbieter-Server."
       ],
-      "progress_note": "Digest-gepinntes isoliertes Stalwart-Profil, Seed-Overlay, deterministischer Bootstrap mit zwei Accounts/Mailboxen/Thread/Keywords/Attachment, Secretfiles, Reset/Teardown und Zero-Resource-Contract sind implementiert; Compose und In-process-Contract sind gruen.",
+      "progress_note": "Der repository-eigene Fixture-, Live-Konfigurations- und produktionsnahe Hub-Worker-Composition-Contract wurde im fokussierten Gate mit insgesamt 9 bestandenen Tests ohne Fehler, Skips oder Warnungen beobachtet. Es wird kein Drittanbieter-Server geladen oder gestartet.",
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "passed_locally_unverified_missing_RUN_id",
         "remaining": []
       }
     },
@@ -1004,10 +1001,14 @@
         "T20"
       ],
       "affected_files": [
+        "artifacts/e2e/jmap-mail-gate.json",
+        "tests/e2e/jmap_live_provider_support.py",
         "tests/e2e/mail_ananta_composition_harness.py",
-        "tests/e2e/test_stalwart_ananta_composition_contract.py",
-        "tests/e2e/test_stalwart_live_jmap.py",
-        "artifacts/e2e/jmap-mail-gate.json"
+        "tests/e2e/test_jmap_ananta_composition_contract.py",
+        "tests/e2e/test_jmap_fixture_contract.py",
+        "tests/e2e/test_jmap_live_provider.py",
+        "tests/e2e/test_jmap_live_provider_contract.py",
+        "tests/e2e/test_mail_sync_state_failure_matrix.py"
       ],
       "acceptance_criteria": [
         "E2E deckt Accountanlage, Discovery, Provider-Account-Auswahl, Mailboxliste, Metadatensync, Suche, explizites Bodyladen, Keywords, Verschieben und governanciertes Loeschen ab.",
@@ -1015,17 +1016,17 @@
         "Serverausfall, 401, 403, 429, 503, malformed JSON, Restart und cannotCalculateChanges erzeugen kontrollierte terminale Resultate und beschaedigen den Store nicht.",
         "Separater IMAP-E2E-Pfad beweist Fallback nur bei erlaubter auto-Entscheidung und verhindert Protokollwechsel im laufenden Sync.",
         "Migration-E2E verwendet eine deterministische Kopie eines Legacy-Stores und beweist Dry Run, Commit, Resume, Restore und optionalen Cutover-Rollback.",
-        "Cleanup weist null verbleibende Testcontainer, Netzwerke, Volumes und Secretfiles nach.",
+        "Cleanup beendet In-process-Endpunkte und entfernt temporaere Stores; es existieren keine Testcontainer, Netzwerke, Volumes oder heruntergeladenen Serverartefakte.",
         "Strukturiertes Evidenzartefakt ist redigiert und referenziert nur tatsaechlich bereitgestellte RUN_* IDs."
       ],
-      "progress_note": "Der reproduzierbare Contract fuehrt Hub-Submission, Lease/Fencing, Production-Worker, JMAP Discovery/Sync/Body/Mutation, IMAP-Fallback sowie Migration/Restore in-process erfolgreich aus. Der identische Live-Pfad ist implementiert, wurde ohne explizites Lizenz-Acknowledgement aber korrekt nicht gestartet.",
+      "progress_note": "Alle lokal reproduzierbaren JMAP-, IMAP-Fallback-, Migration-, Failure- und Composition-Gates sind warnings-strikt gruen. Der echte HTTP-Smoke gegen eine operatorseitig bereitgestellte JMAP-Session ist implementiert, bleibt aber ohne Session, kurzlebige Credentials, Dedicated-Account-Acknowledgement und RUN_* ID unausgefuehrt.",
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "local_pass_external_run_unverified_missing_RUN_id",
         "remaining": [
-          "Live-Stalwart nur nach externer Lizenzfreigabe mit ANANTA_STALWART_TEST_LICENSE_ACK=1 ausfuehren.",
-          "Das redigierte Live-Evidenzartefakt erst mit tatsaechlich bereitgestellten RUN_* IDs erzeugen.",
-          "Governance-Freigabe fuer Production-Default-Rollout nach Auswertung des Live-Laufs einholen."
+          "Vendorneutralen externen Provider-Smoke mit einer vom Operator bereitgestellten JMAP-Session, einem dedizierten Testkonto und kurzlebigen Credentials ausfuehren.",
+          "Eine tatsaechlich bereitgestellte RUN_* ID verwenden und das redigierte Provider-Evidenzartefakt erzeugen.",
+          "Governance-Freigabe fuer Production-Default-Rollout nach Auswertung des Provider-Smokes einholen."
         ]
       }
     },
@@ -1041,7 +1042,7 @@
         "T18",
         "T21"
       ],
-      "progress_note": "Provider-neutrale TUI-, JMAP-, Migration-, Rollout-, Betriebs- und Stalwart-Teststack-Dokumentation ist vorhanden und trennt verschobene Features, Lizenz und Live-Evidenz klar.",
+      "progress_note": "Provider-neutrale TUI-, JMAP-, Migration-, Rollout-, Betriebs- und Contract-Testdokumentation ist vorhanden und trennt lokale Abnahme von externer Provider-Evidenz klar.",
       "affected_files": [
         "docs/operator-tui-mail-client.md",
         "docs/jmap-provider.md",
@@ -1082,34 +1083,32 @@
     {
       "id": "VG-01",
       "name": "Finale warnings-strikte Mail/JMAP/IMAP-Gesamtabnahme",
-      "command": "python -m pytest -q -W error tests/test_mail_* tests/test_jmap_* tests/test_imap_* tests/test_tui_imap_mail_integration_commands.py tests/test_tui_imap_mail_view_commands.py tests/e2e/test_mail_hub_worker_provider_parity.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_stalwart_jmap_fixture_contract.py tests/e2e/test_stalwart_ananta_composition_contract.py tests/e2e/test_stalwart_live_jmap.py",
+      "command": "python -m pytest -q -W error tests/test_mail_* tests/test_jmap_* tests/test_imap_* tests/test_tui_imap_mail_integration_commands.py tests/test_tui_imap_mail_view_commands.py tests/e2e/test_mail_hub_worker_provider_parity.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_jmap_fixture_contract.py tests/e2e/test_jmap_ananta_composition_contract.py tests/e2e/test_jmap_live_provider_contract.py",
       "required_for": "local_code_acceptance",
-      "last_local_status": "passed_with_expected_live_skip_unverified_missing_RUN_id",
-      "last_local_count": "149 passed, 1 skipped"
+      "last_local_status": "passed_unverified_missing_RUN_id",
+      "last_local_count": "148 passed, 0 failed, 0 skipped, 0 warnings",
+      "run_ids": [],
+      "grounded": false
     },
     {
       "id": "VG-02",
-      "name": "Deterministischer Stalwart Fixture Contract",
-      "command": "python scripts/stalwart_jmap_test_stack.py contract",
+      "name": "Providerneutraler JMAP Contract und Failure E2E",
+      "command": "python -m pytest -q -W error tests/e2e/test_jmap_fixture_contract.py tests/e2e/test_jmap_live_provider_contract.py tests/e2e/test_jmap_ananta_composition_contract.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_mail_hub_worker_provider_parity.py",
       "required_for": "local_code_acceptance",
       "last_local_status": "passed_unverified_missing_RUN_id",
-      "last_local_count": "2 accounts, 3 messages, 1 attachment"
+      "last_local_count": "9 passed, 0 failed, 0 skipped, 0 warnings",
+      "run_ids": [],
+      "grounded": false
     },
     {
       "id": "VG-03",
-      "name": "Base- und Seed-Compose-Contract",
-      "command": "docker compose -f docker/compose-next/compose.jmap-test.yml --profile jmap-test config --quiet && STALWART_TEST_ADMIN_PASSWORD=<redacted> docker compose -f docker/compose-next/compose.jmap-test.yml -f docker/compose-next/compose.jmap-seed.yml --profile jmap-test config --quiet",
-      "required_for": "local_code_acceptance",
-      "last_local_status": "passed_unverified_missing_RUN_id",
-      "last_local_count": "both exit 0"
-    },
-    {
-      "id": "VG-04",
-      "name": "Seeded Live-Stalwart mit echtem Ananta-Mailflow",
-      "command": "ANANTA_STALWART_TEST_LICENSE_ACK=1 RUN_STALWART_LIVE_E2E=1 python -m pytest -q -W error tests/e2e/test_stalwart_live_jmap.py",
+      "name": "Externer vendorneutraler JMAP Provider-Smoke",
+      "command": "RUN_JMAP_LIVE_PROVIDER_E2E=1 ANANTA_JMAP_LIVE_DEDICATED_ACCOUNT_ACK=1 ANANTA_JMAP_LIVE_SESSION_URL=<provided> ANANTA_JMAP_LIVE_USERNAME=<provided> ANANTA_JMAP_LIVE_CREDENTIAL=<provided> ANANTA_JMAP_LIVE_RUN_ID=<provided-RUN_id> python -m pytest -q -W error tests/e2e/test_jmap_live_provider.py",
       "required_for": "production_default_rollout",
-      "last_local_status": "not_run",
-      "reason": "Explizites Lizenz-Acknowledgement fehlte; der identische In-process-Production-Composition-Contract ist gruen."
+      "last_local_status": "not_run_missing_external_configuration",
+      "last_local_count": null,
+      "run_ids": [],
+      "grounded": false
     }
   ],
   "evidence_policy": {
@@ -1124,7 +1123,7 @@
       "title": "Realer Provider-Smoke",
       "status": "pending_external",
       "required_for": "production_default_rollout",
-      "rule": "Ein Operator verbindet eine reale kompatible JMAP-Session mit temporaeren Credentials und redigierter RUN_*-Evidenz. Dieses Gate blockiert nicht die lokal reproduzierbare Implementierungsabnahme."
+      "rule": "Ein Operator verbindet ueber tests/e2e/test_jmap_live_provider.py eine reale kompatible JMAP-Session mit dediziertem Testkonto, temporaeren Credentials, reversibler Keyword-Mutation und redigierter RUN_*-Evidenz. Dieses Gate blockiert nicht die lokal reproduzierbare Implementierungsabnahme."
     },
     {
       "id": "ERG-02",
@@ -1132,13 +1131,6 @@
       "status": "pending_external",
       "required_for": "enable_jmap_preferred_by_default",
       "rule": "Operator/Governance bestaetigt Metriken, Incident-Rollback, Supportdoku und die Rolloutphase. Ohne Freigabe bleibt JMAP Opt-in."
-    },
-    {
-      "id": "ERG-03",
-      "title": "Stalwart Lizenz- und Seed-Harness-Freigabe",
-      "status": "pending_external",
-      "required_for": "seeded_jmap_server_e2e",
-      "rule": "Legal/Operator waehlen und dokumentieren den zulaessigen Lizenzpfad fuer den exakten Digest. Erst danach darf das reproduzierbare Bootstrap-/Seed-/Teardown-Harness gegen das Image ausgefuehrt werden."
     }
   ],
   "known_solid_debt": [
@@ -1169,67 +1161,55 @@
   ],
   "definition_of_done": [
     "Alle 23 Track-Tasks sind done; verschobene Push-, Submission-, Mailbox-CRUD- und Upload-Arbeit ist nicht Teil dieser Definition.",
-    "Alle verpflichtenden Unit-, Contract-, Security-, Failure-, Regression-, Compose- und E2E-Gates sind gruen.",
-    "Die lokale gepinnte JMAP-Umgebung und eine Legacy-Store-Kopie belegen Sync, Mutation, Migration, Restore, Cutover und Rollback reproduzierbar.",
+    "Alle verpflichtenden Unit-, Contract-, Security-, Failure-, Regression- und E2E-Gates sind gruen.",
+    "Der repository-eigene JMAP-Contract und eine Legacy-Store-Kopie belegen Sync, Mutation, Migration, Restore, Cutover und Rollback reproduzierbar.",
     "Hub-Ownership, Worker-Isolation, Secretfreiheit, No-Body-by-default und Grant-Grenzen sind durch negative Tests belegt.",
     "Dokumentation und TUI beschreiben die aktive Rolloutphase korrekt; kein Upgrade startet still neue Verbindungen oder migriert Bestandskonten.",
     "Source- und Run-Behauptungen verwenden ausschliesslich bereitgestellte SRC_*-/RUN_*-IDs; fehlende externe Gates bleiben pending_external.",
-    "Der reale Provider-Smoke und die Default-Rollout-Freigabe sind fuer Production-Aktivierung erforderlich, aber klar von der lokal reproduzierbaren Code-Abnahme getrennt."
+    "Der reale vendorneutrale Provider-Smoke und die Default-Rollout-Freigabe sind fuer Production-Aktivierung erforderlich, aber klar von der lokal reproduzierbaren Code-Abnahme getrennt."
   ],
   "local_verification": {
     "evidence_status": "observed_locally_unverified_missing_RUN_ids",
-    "rule": "Diese Ergebnisse dokumentieren den lokalen Arbeitslauf, sind ohne bereitgestellte RUN_* IDs aber keine grounded Ausfuehrungsevidenz.",
+    "rule": "Diese Resultate wurden lokal beobachtet, sind ohne bereitgestellte RUN_* IDs aber keine grounded Ausfuehrungsevidenz.",
     "gates": [
       {
-        "id": "LV-16",
-        "command": "python -m pytest -q -W error tests/test_mail_* tests/test_jmap_* tests/test_imap_* tests/test_tui_imap_mail_integration_commands.py tests/test_tui_imap_mail_view_commands.py tests/e2e/test_mail_hub_worker_provider_parity.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_stalwart_jmap_fixture_contract.py tests/e2e/test_stalwart_ananta_composition_contract.py tests/e2e/test_stalwart_live_jmap.py",
-        "result": "passed_with_expected_live_skip",
-        "passed": 149,
+        "id": "LV-21",
+        "command": "python -m pytest -q -W error tests/e2e/test_jmap_fixture_contract.py tests/e2e/test_jmap_live_provider_contract.py tests/e2e/test_jmap_ananta_composition_contract.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_mail_hub_worker_provider_parity.py",
+        "result": "passed_unverified_missing_RUN_id",
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0,
+        "warnings": 0,
+        "duration_seconds": 12.44
+      },
+      {
+        "id": "LV-22",
+        "command": "python -m pytest -q -W error tests/test_mail_* tests/test_jmap_* tests/test_imap_* tests/test_tui_imap_mail_integration_commands.py tests/test_tui_imap_mail_view_commands.py tests/e2e/test_mail_hub_worker_provider_parity.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_jmap_fixture_contract.py tests/e2e/test_jmap_ananta_composition_contract.py tests/e2e/test_jmap_live_provider_contract.py",
+        "result": "passed_unverified_missing_RUN_id",
+        "passed": 148,
+        "failed": 0,
+        "skipped": 0,
+        "warnings": 0,
+        "duration_seconds": 101.37
+      },
+      {
+        "id": "LV-23",
+        "command": "python -m pytest -q -W error tests/e2e/test_jmap_live_provider.py",
+        "result": "expected_skip_without_external_opt_in",
+        "passed": 0,
         "failed": 0,
         "skipped": 1,
-        "warnings": 0
-      },
-      {
-        "id": "LV-17",
-        "command": "python scripts/stalwart_jmap_test_stack.py contract",
-        "result": "passed",
-        "summary": {
-          "version": 1,
-          "account_count": 2,
-          "mailbox_count": 2,
-          "message_count": 3,
-          "attachment_count": 1,
-          "thread_groups": {
-            "lighthouse": 2
-          }
-        }
-      },
-      {
-        "id": "LV-18",
-        "command": "docker compose -f docker/compose-next/compose.jmap-test.yml --profile jmap-test config --quiet",
-        "result": "passed",
-        "exit_code": 0
-      },
-      {
-        "id": "LV-19",
-        "command": "STALWART_TEST_ADMIN_PASSWORD=<redacted-contract-value> docker compose -f docker/compose-next/compose.jmap-test.yml -f docker/compose-next/compose.jmap-seed.yml --profile jmap-test config --quiet",
-        "result": "passed",
-        "exit_code": 0
-      },
-      {
-        "id": "LV-20",
-        "command": "ANANTA_STALWART_TEST_LICENSE_ACK=1 RUN_STALWART_LIVE_E2E=1 python -m pytest -q -W error tests/e2e/test_stalwart_live_jmap.py",
-        "result": "not_run",
-        "reason": "ANANTA_STALWART_TEST_LICENSE_ACK=1 war nicht vorhanden; keine organisatorische Freigabe wurde unterstellt."
+        "warnings": 0,
+        "duration_seconds": 0.33
       }
     ]
   },
   "remaining_work": {
     "code_and_test": [],
     "external_or_organizational": [
-      "T00: bereitgestellte SRC_*-/RUN_* IDs und unveraenderliche Source-Baseline.",
-      "T21: explizite Stalwart-Lizenzfreigabe, Live-Lauf und echte RUN_*-Evidenz.",
-      "Realer Provider-Smoke und Governance-Freigabe fuer JMAP-preferred als Produktionsdefault."
+      "T00: unveraenderlichen Commit-SHA sowie bereitgestellte SRC_*-/RUN_* IDs erfassen.",
+      "T21/ERG-01: vendorneutralen externen Provider-Smoke mit bereitgestellter JMAP-Session, dediziertem Testkonto, kurzlebigen Credentials und echter RUN_*-Evidenz ausfuehren.",
+      "ERG-02: Governance-Freigabe fuer JMAP-preferred als Produktionsdefault."
     ]
   },
   "solid_review": {
@@ -1249,5 +1229,7 @@
         "better_structure": "Bei der naechsten Infrastrukturpflege in MailMigrationJournal, MailFileLock und MailMultiFileTransaction-Module aufteilen; Vertraege und Verhalten unveraendert lassen."
       }
     ]
-  }
+  },
+  "implementation_status": "complete_locally_unverified",
+  "release_status": "pending_external"
 }

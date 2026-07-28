@@ -1,6 +1,6 @@
 """Deterministic Hub-to-worker mail contract E2E.
 
-This deliberately does not claim live Stalwart evidence. It verifies the
+This deliberately does not claim external-provider evidence. It verifies the
 cross-provider orchestration boundary with injected provider executions.
 """
 
