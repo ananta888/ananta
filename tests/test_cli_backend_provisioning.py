@@ -171,6 +171,91 @@ def test_hub_routes_cli_diagnose_to_selected_worker(
     )
 
 
+def test_hub_routes_account_login_start_to_selected_worker(
+    client, admin_auth_header, monkeypatch
+):
+    worker = SimpleNamespace(
+        name="ananta-worker-1",
+        url="http://worker-alpha:5000",
+        role="worker",
+        token="w" * 32,
+        registration_validated=True,
+    )
+    gateway = MagicMock()
+    gateway.forward_task.side_effect = [
+        {"status": "success", "data": {"codex_cli": {"auth_mode": "chatgpt_login"}}},
+        {
+            "status": "success",
+            "data": {
+                "backend": "codex",
+                "session_id": "opaque-session",
+                "status": "pending",
+                "verification_url": "https://auth.openai.com/codex/device",
+                "user_code": "ABCD-EFGHI",
+            },
+        },
+    ]
+    monkeypatch.setattr("agent.routes.sgpt.settings.role", "hub")
+    monkeypatch.setattr(
+        "agent.routes.sgpt._registered_worker",
+        lambda *args, **kwargs: (
+            worker if kwargs.get("worker_name") == worker.name else None
+        ),
+    )
+    monkeypatch.setattr("agent.routes.sgpt.get_worker_gateway", lambda: gateway)
+
+    response = client.post(
+        "/api/sgpt/backends/codex/worker-action",
+        json={"worker_name": worker.name, "action": "login_start"},
+        headers=admin_auth_header,
+    )
+
+    assert response.status_code == 200
+    assert response.json["data"]["session_id"] == "opaque-session"
+    assert gateway.forward_task.call_args_list == [
+        (
+            (worker.url, "/config", {"codex_cli": {"auth_mode": "chatgpt_login"}}),
+            {"token": worker.token, "timeout": 60},
+        ),
+        (
+            (
+                worker.url,
+                "/api/sgpt/backends/codex/account-login",
+                {"action": "login_start"},
+            ),
+            {"token": worker.token, "timeout": 65},
+        ),
+    ]
+
+
+def test_worker_starts_account_login_session(
+    client, admin_auth_header, monkeypatch
+):
+    service = MagicMock()
+    service.start.return_value = {
+        "backend": "claude_code",
+        "session_id": "opaque-session",
+        "status": "pending",
+        "verification_url": "https://claude.com/cai/oauth/authorize?state=opaque",
+        "requires_input": True,
+    }
+    monkeypatch.setattr("agent.routes.sgpt.settings.role", "worker")
+    monkeypatch.setattr(
+        "agent.cli_backends.account_login.get_cli_backend_account_login_service",
+        lambda: service,
+    )
+
+    response = client.post(
+        "/api/sgpt/backends/claude_code/account-login",
+        json={"action": "login_start"},
+        headers=admin_auth_header,
+    )
+
+    assert response.status_code == 200
+    assert response.json["data"]["status"] == "pending"
+    service.start.assert_called_once_with("claude_code")
+
+
 def test_quickstart_image_uses_worker_persistent_cli_backend_directory():
     dockerfile = (
         ROOT / "docker" / "compose-next" / "Dockerfile.quickstart-no-ollama"

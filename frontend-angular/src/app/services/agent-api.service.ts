@@ -114,10 +114,19 @@ export class AgentApiService {
     backendId: string,
     body: {
       worker_name: string;
-      action: 'diagnose' | 'test_run';
+      action:
+        | 'diagnose'
+        | 'test_run'
+        | 'account_status'
+        | 'login_start'
+        | 'login_status'
+        | 'login_input'
+        | 'login_cancel';
       prompt?: string;
       model?: string;
       timeout?: number;
+      session_id?: string;
+      value?: string;
     },
     token?: string,
   ): Observable<any> {

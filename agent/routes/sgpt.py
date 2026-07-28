@@ -902,7 +902,7 @@ def cli_backend_provision(backend_id: str):
 @sgpt_bp.route("/backends/<backend_id>/worker-action", methods=["POST"])
 @admin_required
 def cli_backend_worker_action(backend_id: str):
-    """Run a bounded CLI diagnostic action on one registered Worker."""
+    """Run a bounded CLI management action on one registered Worker."""
 
     backend = str(backend_id or "").strip().lower()
     if backend not in {"codex", "claude_code"}:
@@ -932,6 +932,20 @@ def cli_backend_worker_action(backend_id: str):
             "timeout": max(10, min(requested_timeout, 300)),
         }
         timeout = 320
+    elif action in {
+        "account_status",
+        "login_start",
+        "login_status",
+        "login_input",
+        "login_cancel",
+    }:
+        endpoint = f"/api/sgpt/backends/{backend}/account-login"
+        forwarded_body = {"action": action}
+        if action in {"login_status", "login_input", "login_cancel"}:
+            forwarded_body["session_id"] = str(body.get("session_id") or "")[:200]
+        if action == "login_input":
+            forwarded_body["value"] = str(body.get("value") or "")[:4096]
+        timeout = 65
     else:
         return api_response(status="error", message="invalid_worker_action", code=400)
 
@@ -944,6 +958,26 @@ def cli_backend_worker_action(backend_id: str):
             message="worker_service_token_unavailable",
             code=503,
         )
+    if action == "login_start":
+        config_key = "codex_cli" if backend == "codex" else "claude_cli"
+        auth_mode = "chatgpt_login" if backend == "codex" else "claude_login"
+        config_result = get_worker_gateway().forward_task(
+            str(worker.url),
+            "/config",
+            {config_key: {"auth_mode": auth_mode}},
+            token=token,
+            timeout=60,
+        )
+        if (
+            not isinstance(config_result, dict)
+            or config_result.get("status") == "error"
+        ):
+            return api_response(
+                status="error",
+                message="worker_cli_auth_config_failed",
+                data={"worker": {"name": worker.name, "url": worker.url}},
+                code=502,
+            )
     result = get_worker_gateway().forward_task(
         str(worker.url),
         endpoint,
@@ -968,6 +1002,79 @@ def cli_backend_worker_action(backend_id: str):
             "worker": {"name": worker.name, "url": worker.url},
         }
     )
+
+
+@sgpt_bp.route("/backends/<backend_id>/account-login", methods=["POST"])
+@admin_required
+def cli_backend_account_login(backend_id: str):
+    """Manage a browser-assisted account login inside one Worker."""
+
+    from agent.cli_backends.account_login import (
+        SUPPORTED_ACCOUNT_LOGIN_BACKENDS,
+        CliBackendAccountLoginError,
+        get_cli_backend_account_login_service,
+    )
+
+    backend = str(backend_id or "").strip().lower()
+    if backend not in SUPPORTED_ACCOUNT_LOGIN_BACKENDS:
+        return api_response(
+            status="error", message="account_login_backend_unsupported", code=404
+        )
+    if settings.role != "worker":
+        return api_response(status="error", message="worker_role_required", code=409)
+
+    body = request.get_json(silent=True) or {}
+    action = str(body.get("action") or "").strip().lower()
+    service = get_cli_backend_account_login_service()
+    try:
+        if action == "account_status":
+            result = service.account_status(backend)
+        elif action == "login_start":
+            result = service.start(backend)
+        elif action == "login_status":
+            result = service.status(backend, str(body.get("session_id") or ""))
+        elif action == "login_input":
+            result = service.submit_input(
+                backend,
+                str(body.get("session_id") or ""),
+                str(body.get("value") or ""),
+            )
+        elif action == "login_cancel":
+            result = service.cancel(
+                backend, str(body.get("session_id") or "")
+            )
+        else:
+            return api_response(
+                status="error", message="invalid_account_login_action", code=400
+            )
+    except CliBackendAccountLoginError as exc:
+        reason_code = str(exc)
+        response_code = (
+            404
+            if reason_code
+            in {"backend_not_installed", "account_login_session_not_found"}
+            else 400
+        )
+        log_audit(
+            "cli_backend_account_login_failed",
+            {"backend": backend, "action": action, "reason_code": reason_code},
+        )
+        return api_response(
+            status="error",
+            message=reason_code,
+            data={"backend": backend, "action": action},
+            code=response_code,
+        )
+
+    log_audit(
+        "cli_backend_account_login_action",
+        {
+            "backend": backend,
+            "action": action,
+            "login_status": result.get("status"),
+        },
+    )
+    return api_response(data=result)
 
 
 @sgpt_bp.route("/backends/claude_code/write-armed-run", methods=["POST"])

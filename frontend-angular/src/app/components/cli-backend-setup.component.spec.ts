@@ -59,12 +59,4 @@ describe('CliBackendSetupComponent', () => {
     );
     expect(card.diagnose.worker.name).toBe('ananta-worker-1');
   });
-
-  it('shows a Worker-local device login command', () => {
-    const component = componentWithWorker();
-
-    expect(component.workerLoginCommand('codex')).toBe(
-      '/data/codex login --device-auth',
-    );
-  });
 });

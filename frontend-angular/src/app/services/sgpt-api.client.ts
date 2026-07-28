@@ -96,16 +96,25 @@ export class SgptApiClient {
     );
   }
 
-  /** Hub-routed diagnose/test action on one selected Worker. */
+  /** Hub-routed management action on one selected Worker. */
   backendWorkerAction(
     baseUrl: string,
     backendId: string,
     body: {
       worker_name: string;
-      action: 'diagnose' | 'test_run';
+      action:
+        | 'diagnose'
+        | 'test_run'
+        | 'account_status'
+        | 'login_start'
+        | 'login_status'
+        | 'login_input'
+        | 'login_cancel';
       prompt?: string;
       model?: string;
       timeout?: number;
+      session_id?: string;
+      value?: string;
     },
     token?: string,
   ): Observable<any> {
@@ -116,7 +125,7 @@ export class SgptApiClient {
           body,
           this.transport.getHeaders(baseUrl, token),
         )
-        .pipe(timeout(body.action === 'test_run' ? 320000 : 60000)),
+        .pipe(timeout(body.action === 'test_run' ? 320000 : 65000)),
     );
   }
 

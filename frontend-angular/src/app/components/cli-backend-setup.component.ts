@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
 import { SystemFacade } from '../features/system/system.facade';
+import { CliBackendAccountLoginComponent } from './cli-backend-account-login.component';
 
 interface BackendCardState {
   loading: boolean;
@@ -31,15 +32,13 @@ function emptyCard(): BackendCardState {
  * CCA-003 + CLA-003: Setup-/Diagnose-Karten fuer die
  * Subscription-CLI-Backends (OpenAI Codex CLI, Claude Code CLI).
  *
- * Sicherheitskontrakt: keine Token-/OAuth-Eingabefelder fuer die
- * Login-Modi (chatgpt_login/claude_login) — der Login passiert lokal
- * im Terminal des Nutzers (login_command-Hinweis), Ananta liest keine
- * Credential-Dateien.
+ * Sicherheitskontrakt: Der Hub routet ausschließlich kurzlebige
+ * Login-Sitzungen. Credential-Dateien bleiben im persistenten Worker-Home.
  */
 @Component({
   standalone: true,
   selector: 'app-cli-backend-setup',
-  imports: [FormsModule],
+  imports: [FormsModule, CliBackendAccountLoginComponent],
   template: `
     <div class="card">
       <div class="row flex-between">
@@ -47,8 +46,8 @@ function emptyCard(): BackendCardState {
         <button class="button-outline" (click)="reload()">🔄 Aktualisieren</button>
       </div>
       <p class="muted">
-        Worker-Agent-CLIs mit Account-Login oder API-Key. Logins laufen lokal im Terminal —
-        Ananta speichert keine OAuth-Tokens.
+        Worker-Agent-CLIs mit Account-Login oder API-Key. Der Browser-Login wird hier gestartet;
+        OAuth-Tokens bleiben ausschließlich im persistenten Home des ausgewählten Workers.
       </p>
       <p class="muted">
         Installationen werden vom Hub freigegeben und versioniert im persistenten Home des
@@ -108,11 +107,11 @@ function emptyCard(): BackendCardState {
               <input [(ngModel)]="codexApiKeyProfile" placeholder="z.B. codex-prod" />
             </label>
           } @else {
-            <p class="hint">
-              Kein API-Key nötig. Einmalig im Terminal von
-              {{ codexWorkerName || 'dem ausgewählten Worker' }} anmelden:
-              <code>{{ workerLoginCommand('codex') }}</code>
-            </p>
+            <app-cli-backend-account-login
+              backendId="codex"
+              [workerName]="codexWorkerName"
+              [ready]="executionStatus('codex') === 'ready'"
+            />
           }
           <div class="row btn-row">
             <button class="button-outline" (click)="saveCodex()">💾 Speichern</button>
@@ -181,11 +180,14 @@ function emptyCard(): BackendCardState {
             </select>
           </label>
           @if (claudeAuthMode === 'claude_login') {
-            <p class="hint">
-              Kein Token-Feld: einmalig im Terminal von
-              {{ claudeWorkerName || 'dem ausgewählten Worker' }} anmelden mit
-              <code>{{ workerLoginCommand('claude_code') }}</code>
-            </p>
+            <app-cli-backend-account-login
+              backendId="claude_code"
+              [workerName]="claudeWorkerName"
+              [ready]="executionStatus('claude_code') === 'ready'"
+              [claudeEnabled]="claudeEnabled"
+              [claudePermissionMode]="claudePermissionMode"
+              [claudeTimeoutSeconds]="claudeTimeoutSeconds"
+            />
           }
           <label class="label-block">
             Permission-Modus
@@ -414,20 +416,6 @@ export class CliBackendSetupComponent implements OnInit {
     card.testResult = null;
   }
 
-  workerLoginCommand(backendId: string): string {
-    const workerName = this.executionWorkerName(backendId);
-    const worker = this.workers.find((item) => item.name === workerName);
-    const detail = worker
-      ? this.provisioningDetails[this.selectionKey(backendId, worker)]
-      : null;
-    const binary = String(
-      detail?.binary_path || (backendId === 'codex' ? 'codex' : 'claude'),
-    );
-    return backendId === 'codex'
-      ? `${binary} login --device-auth`
-      : `${binary} login`;
-  }
-
   private executionWorkerName(backendId: string): string {
     return backendId === 'codex' ? this.codexWorkerName : this.claudeWorkerName;
   }
@@ -471,6 +459,7 @@ export class CliBackendSetupComponent implements OnInit {
       error: (e: any) => this.ns.error('Speichern fehlgeschlagen: ' + (e?.message || e)),
     });
   }
+
 
   saveClaude() {
     const url = this.hubUrl();
