@@ -142,16 +142,20 @@ _BACKEND_RUNTIME: dict[str, dict] = {
 
 
 def _resolve_backend_binary(backend: str) -> str | None:
+    from agent.cli_backends.provisioning import resolve_provisioned_backend_binary
+
     if is_research_backend(backend):
         return resolve_research_backend_config(provider_override=backend).get("binary_path")
     if backend in {"sgpt", "ananta-worker"}:
         return sys.executable if sys.executable else None
     if backend == "codex":
-        return shutil.which(settings.codex_path or "codex")
+        return shutil.which(settings.codex_path or "codex") or resolve_provisioned_backend_binary(backend)
     if backend == "opencode":
         return shutil.which(settings.opencode_path or "opencode")
     if backend == "claude_code":
-        return shutil.which(getattr(settings, "claude_path", "claude") or "claude")
+        return shutil.which(
+            getattr(settings, "claude_path", "claude") or "claude"
+        ) or resolve_provisioned_backend_binary(backend)
     if backend == "aider":
         return shutil.which(settings.aider_path or "aider")
     if backend == "mistral_code":

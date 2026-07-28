@@ -114,6 +114,7 @@ EXPOSE 5000 5001 4200 8080
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
     FLASK_DEBUG=0 \
+    ANANTA_CLI_BACKENDS_DIR=/app/data/home/.local/share/ananta/cli-backends \
     ANANTA_QUICKSTART_MODE=role \
     ANANTA_QUICKSTART_ROLE=hub \
     DEFAULT_PROVIDER=lmstudio \

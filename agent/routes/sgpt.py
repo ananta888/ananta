@@ -5,7 +5,7 @@ from pathlib import Path
 
 from flask import Blueprint, current_app, g, request
 
-from agent.auth import check_auth
+from agent.auth import admin_required, check_auth, resolve_configured_agent_token
 from agent.cli_backends.sgpt import (
     SUPPORTED_CLI_BACKENDS,
     get_cli_backend_capabilities,
@@ -13,7 +13,9 @@ from agent.cli_backends.sgpt import (
     resolve_codex_runtime_config,
     run_llm_cli_command,
 )
+from agent.common.audit import log_audit
 from agent.common.errors import api_response
+from agent.common.gateways.worker_gateway import get_worker_gateway
 from agent.config import settings
 from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL_DURATION
 from agent.models import (
@@ -41,6 +43,7 @@ from agent.services.ml_intern_lora_inference_service import (
     LoraInferenceResult,
     get_lora_inference_service,
 )
+from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
 
@@ -760,6 +763,132 @@ def cli_backend_test_run(backend_id: str):
             "duration_ms": duration_ms,
         }
     )
+
+
+def _registered_worker(worker_url: str):
+    normalized_url = str(worker_url or "").strip().rstrip("/")
+    if not normalized_url:
+        return None
+    for agent in get_repository_registry().agent_repo.get_all() or ():
+        if (
+            str(agent.url or "").strip().rstrip("/") == normalized_url
+            and str(agent.role or "").strip().lower() == "worker"
+            and bool(agent.registration_validated)
+        ):
+            return agent
+    return None
+
+
+@sgpt_bp.route("/backends/<backend_id>/provision", methods=["POST"])
+@admin_required
+def cli_backend_provision(backend_id: str):
+    """Provision a pinned, allowlisted CLI package on one registered Worker."""
+
+    from agent.cli_backends.provisioning import (
+        PROVISIONABLE_CLI_BACKENDS,
+        CliBackendProvisioningError,
+        get_cli_backend_provisioner,
+    )
+
+    backend = str(backend_id or "").strip().lower()
+    if backend not in PROVISIONABLE_CLI_BACKENDS:
+        return api_response(
+            status="error",
+            message="backend_not_provisionable",
+            data={"allowed_backends": sorted(PROVISIONABLE_CLI_BACKENDS)},
+            code=404,
+        )
+
+    body = request.get_json(silent=True) or {}
+    action = str(body.get("action") or "status").strip().lower()
+    if action not in {"status", "install"}:
+        return api_response(status="error", message="invalid_provisioning_action", code=400)
+
+    if settings.role == "hub":
+        worker = _registered_worker(str(body.get("worker_url") or ""))
+        if worker is None:
+            return api_response(
+                status="error", message="registered_worker_required", code=404
+            )
+        token = str(worker.token or "").strip() or resolve_configured_agent_token(
+            current_app.config
+        )
+        if not token:
+            return api_response(
+                status="error",
+                message="worker_service_token_unavailable",
+                code=503,
+            )
+        result = get_worker_gateway().forward_task(
+            str(worker.url),
+            f"/api/sgpt/backends/{backend}/provision",
+            {"action": action},
+            token=token,
+            timeout=620 if action == "install" else 60,
+        )
+        if not isinstance(result, dict) or result.get("status") == "error":
+            return api_response(
+                status="error",
+                message="worker_provisioning_failed",
+                data={
+                    "worker": {"name": worker.name, "url": worker.url},
+                    "worker_response": result,
+                },
+                code=502,
+            )
+        data = (
+            result.get("data")
+            if isinstance(result.get("data"), dict)
+            else result
+        )
+        return api_response(
+            data={
+                **dict(data),
+                "worker": {"name": worker.name, "url": worker.url},
+            }
+        )
+
+    if settings.role != "worker":
+        return api_response(status="error", message="worker_role_required", code=409)
+
+    provisioner = get_cli_backend_provisioner()
+    try:
+        result = (
+            provisioner.install(backend)
+            if action == "install"
+            else provisioner.status(backend)
+        )
+    except CliBackendProvisioningError as exc:
+        reason_code = str(exc)
+        if reason_code not in {
+            "npm_not_available",
+            "npm_install_failed",
+            "installed_binary_verification_failed",
+            "backend_not_provisionable",
+            "TimeoutExpired",
+        }:
+            reason_code = "cli_backend_provisioning_internal_error"
+        log_audit(
+            "cli_backend_provisioning_failed",
+            {"backend": backend, "action": action, "reason_code": reason_code},
+        )
+        return api_response(
+            status="error",
+            message="cli_backend_provisioning_failed",
+            data={"backend": backend, "action": action, "reason_code": reason_code},
+            code=500,
+        )
+
+    log_audit(
+        "cli_backend_provisioned" if action == "install" else "cli_backend_provisioning_inspected",
+        {
+            "backend": backend,
+            "action": action,
+            "version": result.get("version"),
+            "status": result.get("status"),
+        },
+    )
+    return api_response(data={**result, "action": action})
 
 
 @sgpt_bp.route("/backends/claude_code/write-armed-run", methods=["POST"])

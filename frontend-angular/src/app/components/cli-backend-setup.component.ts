@@ -17,6 +17,12 @@ interface BackendCardState {
   testResult: { ok: boolean; stdout: string; stderr: string; duration_ms: number } | null;
 }
 
+interface WorkerTarget {
+  name: string;
+  url: string;
+  status: string;
+}
+
 function emptyCard(): BackendCardState {
   return { loading: false, status: 'unknown', provider: null, preflight: null, diagnose: null, diagnosing: false, testRunning: false, testResult: null };
 }
@@ -44,6 +50,10 @@ function emptyCard(): BackendCardState {
         Worker-Agent-CLIs mit Account-Login oder API-Key. Logins laufen lokal im Terminal —
         Ananta speichert keine OAuth-Tokens.
       </p>
+      <p class="muted">
+        Installationen werden vom Hub freigegeben und versioniert im persistenten Home des
+        ausgewählten Workers abgelegt.
+      </p>
 
       <div class="cards">
         <!-- Codex Card (CCA-003) -->
@@ -55,6 +65,28 @@ function emptyCard(): BackendCardState {
           @if (codex.preflight?.install_hint && codex.status === 'not_installed') {
             <p class="hint">Installieren: <code>{{ codex.preflight.install_hint }}</code></p>
           }
+          <div class="worker-picker" data-testid="codex-worker-picker">
+            <span class="picker-title">Auf Workern bereitstellen</span>
+            @for (worker of workers; track worker.url) {
+              <label class="worker-row">
+                <input
+                  type="checkbox"
+                  [disabled]="worker.status !== 'online' || isProvisioning('codex', worker)"
+                  [ngModel]="isWorkerSelected('codex', worker)"
+                  (ngModelChange)="setWorkerSelected('codex', worker, $event)"
+                />
+                <span>{{ worker.name }}</span>
+                <small>{{ provisioningLabel('codex', worker) }}</small>
+              </label>
+            } @empty {
+              <span class="hint">Keine registrierten Worker gefunden.</span>
+            }
+            <button
+              class="button-outline"
+              [disabled]="!hasSelectedWorkers('codex') || isBackendProvisioning('codex')"
+              (click)="installOnSelectedWorkers('codex')"
+            >⬇ Auf Auswahl installieren</button>
+          </div>
           <label class="label-block">
             Auth-Modus
             <select [(ngModel)]="codexAuthMode">
@@ -99,6 +131,28 @@ function emptyCard(): BackendCardState {
           @if (claude.provider?.install_hint && claude.status === 'not_installed') {
             <p class="hint">Installieren: <code>{{ claude.provider.install_hint }}</code></p>
           }
+          <div class="worker-picker" data-testid="claude-worker-picker">
+            <span class="picker-title">Auf Workern bereitstellen</span>
+            @for (worker of workers; track worker.url) {
+              <label class="worker-row">
+                <input
+                  type="checkbox"
+                  [disabled]="worker.status !== 'online' || isProvisioning('claude_code', worker)"
+                  [ngModel]="isWorkerSelected('claude_code', worker)"
+                  (ngModelChange)="setWorkerSelected('claude_code', worker, $event)"
+                />
+                <span>{{ worker.name }}</span>
+                <small>{{ provisioningLabel('claude_code', worker) }}</small>
+              </label>
+            } @empty {
+              <span class="hint">Keine registrierten Worker gefunden.</span>
+            }
+            <button
+              class="button-outline"
+              [disabled]="!hasSelectedWorkers('claude_code') || isBackendProvisioning('claude_code')"
+              (click)="installOnSelectedWorkers('claude_code')"
+            >⬇ Auf Auswahl installieren</button>
+          </div>
           <label class="check-block">
             <input type="checkbox" [(ngModel)]="claudeEnabled" /> Aktiviert (opt-in)
           </label>
@@ -162,6 +216,10 @@ function emptyCard(): BackendCardState {
     .btn-row { gap: 6px; flex-wrap: wrap; }
     .probe-out { font-size: 11px; max-height: 160px; overflow: auto; background: var(--bg-subtle, rgba(127,127,127,0.08)); padding: 6px; border-radius: 6px; white-space: pre-wrap; }
     .probe-err { border: 1px solid #dc3545; }
+    .worker-picker { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
+    .picker-title { font-size: 12px; font-weight: 600; }
+    .worker-row { display: grid; grid-template-columns: auto minmax(80px, 1fr) auto; gap: 7px; align-items: center; font-size: 12px; }
+    .worker-row small { opacity: 0.72; text-align: right; }
   `]
 })
 export class CliBackendSetupComponent implements OnInit {
@@ -172,6 +230,9 @@ export class CliBackendSetupComponent implements OnInit {
 
   codex: BackendCardState = emptyCard();
   claude: BackendCardState = emptyCard();
+  workers: WorkerTarget[] = [];
+  selectedWorkers: Record<string, boolean> = {};
+  provisioningState: Record<string, 'loading' | 'ready' | 'not_installed' | 'error'> = {};
 
   codexAuthMode: 'api_key' | 'chatgpt_login' = 'api_key';
   codexApiKeyProfile = '';
@@ -200,6 +261,7 @@ export class CliBackendSetupComponent implements OnInit {
     if (!url) return;
     this.loadHealth(url, 'codex', this.codex);
     this.loadHealth(url, 'claude_code', this.claude);
+    this.loadWorkers(url);
     this.agentApi.getConfig(url).subscribe({
       next: (cfg: any) => {
         const codexCli = cfg?.codex_cli || {};
@@ -215,6 +277,104 @@ export class CliBackendSetupComponent implements OnInit {
       },
       error: () => {},
     });
+  }
+
+  private loadWorkers(url: string) {
+    this.agentApi.listAgents(url).subscribe({
+      next: (items: any) => {
+        const values = Array.isArray(items) ? items : Object.values(items || {});
+        this.workers = values
+          .filter((item: any) => String(item?.role || '').toLowerCase() === 'worker' && !!item?.url)
+          .map((item: any) => ({
+            name: String(item.name || item.url),
+            url: String(item.url),
+            status: String(item.status || 'unknown').toLowerCase(),
+          }));
+        for (const worker of this.workers) {
+          if (worker.status === 'online') {
+            this.loadProvisioningStatus(url, 'codex', worker);
+            this.loadProvisioningStatus(url, 'claude_code', worker);
+          }
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.workers = [];
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  private loadProvisioningStatus(url: string, backendId: string, worker: WorkerTarget) {
+    const key = this.selectionKey(backendId, worker);
+    this.provisioningState[key] = 'loading';
+    this.agentApi.sgptBackendProvision(url, backendId, { worker_url: worker.url, action: 'status' }).subscribe({
+      next: (result: any) => {
+        this.provisioningState[key] = result?.installed ? 'ready' : 'not_installed';
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.provisioningState[key] = 'error';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  installOnSelectedWorkers(backendId: 'codex' | 'claude_code') {
+    const url = this.hubUrl();
+    if (!url) return;
+    const selected = this.workers.filter((worker) => this.isWorkerSelected(backendId, worker));
+    for (const worker of selected) {
+      const key = this.selectionKey(backendId, worker);
+      this.provisioningState[key] = 'loading';
+      this.agentApi.sgptBackendProvision(url, backendId, { worker_url: worker.url, action: 'install' }).subscribe({
+        next: (result: any) => {
+          this.provisioningState[key] = result?.installed ? 'ready' : 'error';
+          this.selectedWorkers[key] = false;
+          this.ns.success(`${backendId === 'codex' ? 'Codex' : 'Claude'} auf ${worker.name} installiert`);
+          this.cdr.detectChanges();
+        },
+        error: (error: any) => {
+          this.provisioningState[key] = 'error';
+          this.ns.error(`Installation auf ${worker.name} fehlgeschlagen: ${error?.message || error}`);
+          this.cdr.detectChanges();
+        },
+      });
+    }
+  }
+
+  setWorkerSelected(backendId: string, worker: WorkerTarget, selected: boolean) {
+    this.selectedWorkers[this.selectionKey(backendId, worker)] = !!selected;
+  }
+
+  isWorkerSelected(backendId: string, worker: WorkerTarget): boolean {
+    return !!this.selectedWorkers[this.selectionKey(backendId, worker)];
+  }
+
+  hasSelectedWorkers(backendId: string): boolean {
+    return this.workers.some((worker) => this.isWorkerSelected(backendId, worker));
+  }
+
+  isProvisioning(backendId: string, worker: WorkerTarget): boolean {
+    return this.provisioningState[this.selectionKey(backendId, worker)] === 'loading';
+  }
+
+  isBackendProvisioning(backendId: string): boolean {
+    return this.workers.some((worker) => this.isProvisioning(backendId, worker));
+  }
+
+  provisioningLabel(backendId: string, worker: WorkerTarget): string {
+    if (worker.status !== 'online') return 'offline';
+    const state = this.provisioningState[this.selectionKey(backendId, worker)];
+    if (state === 'loading') return 'wird geprüft …';
+    if (state === 'ready') return 'installiert';
+    if (state === 'not_installed') return 'nicht installiert';
+    if (state === 'error') return 'nicht erreichbar';
+    return 'unbekannt';
+  }
+
+  private selectionKey(backendId: string, worker: WorkerTarget): string {
+    return `${backendId}|${worker.url}`;
   }
 
   private loadHealth(url: string, backendId: string, card: BackendCardState) {

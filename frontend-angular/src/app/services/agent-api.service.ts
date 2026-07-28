@@ -34,6 +34,9 @@ export class AgentApiService {
   getEvolutionProviders(baseUrl: string, token?: string): Observable<any> {
     return this.system.getEvolutionProviders(baseUrl, token);
   }
+  listAgents(baseUrl: string, token?: string): Observable<any> {
+    return this.system.listAgents(baseUrl, token);
+  }
   setConfig(baseUrl: string, cfg: any, token?: string): Observable<any> {
     return this.system.setConfig(baseUrl, cfg, token);
   }
@@ -94,6 +97,14 @@ export class AgentApiService {
   }
   sgptBackendDiagnose(baseUrl: string, backendId: string, token?: string): Observable<any> {
     return this.sgpt.backendDiagnose(baseUrl, backendId, token);
+  }
+  sgptBackendProvision(
+    baseUrl: string,
+    backendId: string,
+    body: { worker_url: string; action: 'status' | 'install' },
+    token?: string,
+  ): Observable<any> {
+    return this.sgpt.backendProvision(baseUrl, backendId, body, token);
   }
   sgptBackendTestRun(baseUrl: string, backendId: string, body: { prompt?: string; model?: string; timeout?: number } = {}, token?: string): Observable<any> {
     return this.sgpt.backendTestRun(baseUrl, backendId, body, token);

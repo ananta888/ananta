@@ -11,18 +11,8 @@ import tempfile
 
 from flask import current_app, has_app_context
 
-from agent.config import settings
 from agent.cli_backends.budget import check_prompt_budget
 from agent.cli_backends.context import default_context as _ctx
-from agent.llm_integration import (
-    _find_matching_lmstudio_candidate,
-    _find_matching_ollama_candidate,
-    probe_lmstudio_runtime,
-    probe_ollama_runtime,
-    resolve_ollama_model,
-)
-from agent.local_llm_backends import resolve_local_openai_backend
-from agent.model_selection import normalize_legacy_model_name
 from agent.cli_backends.helpers import (
     _classify_runtime_target,
     _get_agent_config,
@@ -34,7 +24,18 @@ from agent.cli_backends.helpers import (
     _resolve_openai_compatible_base_url,
     _resolve_profile_api_key,
 )
+from agent.cli_backends.provisioning import resolve_provisioned_backend_binary
 from agent.cli_backends.semaphore import _acquire_backend_permit
+from agent.config import settings
+from agent.llm_integration import (
+    _find_matching_lmstudio_candidate,
+    _find_matching_ollama_candidate,
+    probe_lmstudio_runtime,
+    probe_ollama_runtime,
+    resolve_ollama_model,
+)
+from agent.local_llm_backends import resolve_local_openai_backend
+from agent.model_selection import normalize_legacy_model_name
 
 log = logging.getLogger(__name__)
 
@@ -563,7 +564,7 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
         return budget_error
 
     codex_bin = settings.codex_path or "codex"
-    codex_resolved = shutil.which(codex_bin)
+    codex_resolved = shutil.which(codex_bin) or resolve_provisioned_backend_binary("codex")
     if codex_resolved is None:
         return -1, "", (f"Codex binary '{codex_bin}' not found. Install with: npm i -g @openai/codex")
 
@@ -722,7 +723,7 @@ def run_claude_command(
         )
 
     claude_bin = runtime_cfg["command"]
-    claude_resolved = shutil.which(claude_bin)
+    claude_resolved = shutil.which(claude_bin) or resolve_provisioned_backend_binary("claude_code")
     if claude_resolved is None:
         return -1, "", (f"Claude binary '{claude_bin}' not found. Install with: npm i -g @anthropic-ai/claude-code")
 
@@ -859,7 +860,7 @@ def run_claude_write_armed(
         return result
 
     claude_bin = runtime_cfg["command"]
-    claude_resolved = shutil.which(claude_bin)
+    claude_resolved = shutil.which(claude_bin) or resolve_provisioned_backend_binary("claude_code")
     if claude_resolved is None:
         result["stderr"] = f"Claude binary '{claude_bin}' not found. Install with: npm i -g @anthropic-ai/claude-code"
         return result

@@ -24,6 +24,7 @@ Production code imports from this namespace. The detector
 | `helpers.py` | backend config/runtime helpers | Source-of-truth |
 | `semaphore.py` | backend concurrency limits | Source-of-truth |
 | `routing.py` | backend capability/routing tables | Source-of-truth |
+| `provisioning.py` | pinned, Worker-local Codex/Claude provisioning | Source-of-truth |
 | `sgpt.py` | sgpt command integration | Source-of-truth |
 | `tool_loop.py` | hub-controlled worker tool loop | Source-of-truth |
 | `opencode.py` | opencode/codex/aider/mistral runners | Source-of-truth |
@@ -60,6 +61,24 @@ The remaining orchestrator is intentionally isolated behind the package
 API. Further decomposition should keep hub ownership intact: the hub
 validates workspace writes, policy checks and tool execution; workers
 only request delegated actions.
+
+### 1.4 Worker-spezifische Bereitstellung
+
+Codex und Claude Code können durch einen Administrator gezielt auf
+registrierten Workern bereitgestellt werden. Der Browser sendet dabei nur
+Backend-ID, Worker-URL und die Aktion `status` oder `install` an den Hub.
+
+- Der Hub gleicht die URL exakt mit seinem validierten Worker-Verzeichnis ab.
+- Nur der Hub leitet die freigegebene Operation an den ausgewählten Worker
+  weiter; Worker orchestrieren keine weiteren Worker.
+- Paketname, Version, Binary und npm-Argumente stammen ausschließlich aus
+  `agent.cli_backends.provisioning`. Freie Paketnamen oder Shell-Befehle sind
+  nicht Teil des API-Vertrags.
+- Installationen liegen versioniert unter
+  `$ANANTA_CLI_BACKENDS_DIR` beziehungsweise im persistenten Worker-Home unter
+  `~/.local/share/ananta/cli-backends`.
+- Account-Logins bleiben eine lokale, interaktive Aktion. Ananta liest weder
+  Codex- noch Claude-Credential-Dateien.
 
 ## 2. Cross-Cutting Decision (SGDEC-D5)
 
