@@ -64,3 +64,47 @@ def test_hub_probe_rejects_unregistered_url(client, admin_auth_header, monkeypat
 
     assert response.status_code == 404
     assert response.json["message"] == "registered_worker_required"
+
+
+def test_hub_resolves_lan_display_name_from_registered_container_hostname(
+    client, admin_auth_header, monkeypatch
+):
+    worker = SimpleNamespace(
+        name="ananta-worker-2",
+        url="http://ai-agent-beta:5000",
+        role="worker",
+        token=None,
+        registration_validated=True,
+    )
+    repository = MagicMock()
+    repository.get_all.return_value = [worker]
+    health_response = MagicMock(status_code=200)
+    health_response.json.return_value = {
+        "status": "success",
+        "data": {"status": "ok"},
+    }
+    ready_response = MagicMock(status_code=200)
+    ready_response.json.return_value = {
+        "status": "success",
+        "data": {"ready": True, "checks": {}},
+    }
+    http = MagicMock()
+    http.get.side_effect = [health_response, ready_response]
+    monkeypatch.setattr("agent.routes.system.settings.role", "hub")
+    monkeypatch.setattr("agent.routes.system.agent_repo", repository)
+    monkeypatch.setattr("agent.routes.system.http_client", http)
+
+    response = client.post(
+        "/api/system/agents/probe",
+        json={
+            "worker_name": "beta",
+            "worker_url": "https://192.168.178.103:5002",
+        },
+        headers=admin_auth_header,
+    )
+
+    assert response.status_code == 200
+    assert response.json["data"]["worker"]["name"] == "ananta-worker-2"
+    assert http.get.call_args_list[0].args[0] == (
+        "http://ai-agent-beta:5000/health?basic=1"
+    )

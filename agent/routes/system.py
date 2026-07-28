@@ -3,6 +3,7 @@ import os
 import threading
 import time
 from queue import Empty, Queue
+from urllib.parse import urlparse
 
 import psutil
 from flask import Blueprint, Response, current_app, g, jsonify, request
@@ -608,30 +609,42 @@ def probe_registered_agent():
         return api_response(status="error", message="hub_role_required", code=409)
 
     payload = request.get_json(silent=True) or {}
+    requested_name = str(payload.get("worker_name") or "").strip().lower()
     requested_url = str(payload.get("worker_url") or "").strip().rstrip("/")
-    worker = next(
-        (
-            agent
-            for agent in (agent_repo.get_all() or ())
-            if str(agent.url or "").strip().rstrip("/") == requested_url
-            and str(agent.role or "").strip().lower() == "worker"
-            and bool(agent.registration_validated)
-        ),
-        None,
-    )
-    if worker is None:
+    candidates = []
+    for agent in agent_repo.get_all() or ():
+        if (
+            str(agent.role or "").strip().lower() != "worker"
+            or not bool(agent.registration_validated)
+        ):
+            continue
+        registered_url = str(agent.url or "").strip().rstrip("/")
+        registered_name = str(agent.name or "").strip().lower()
+        hostname = str(urlparse(registered_url).hostname or "").strip().lower()
+        aliases = {registered_name, hostname}
+        for prefix in ("ai-agent-", "ananta-worker-", "worker-"):
+            if hostname.startswith(prefix):
+                aliases.add(hostname.removeprefix(prefix))
+        if (requested_name and requested_name in aliases) or (
+            requested_url and requested_url == registered_url
+        ):
+            candidates.append(agent)
+
+    if len(candidates) != 1:
         return api_response(status="error", message="registered_worker_required", code=404)
+    worker = candidates[0]
+    worker_url = str(worker.url or "").strip().rstrip("/")
 
     headers = {"Authorization": f"Bearer {worker.token}"} if worker.token else {}
     health_response = http_client.get(
-        f"{requested_url}/health?basic=1",
+        f"{worker_url}/health?basic=1",
         headers=headers,
         timeout=10,
         return_response=True,
         silent=True,
     )
     ready_response = http_client.get(
-        f"{requested_url}/ready",
+        f"{worker_url}/ready",
         headers=headers,
         timeout=10,
         return_response=True,

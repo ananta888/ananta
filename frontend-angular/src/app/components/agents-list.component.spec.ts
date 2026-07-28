@@ -27,7 +27,7 @@ describe('AgentsListComponent', () => {
 
     expect(system.probeAgent).toHaveBeenCalledWith(
       'https://hub.example',
-      'http://ai-agent-alpha:5000',
+      'alpha',
     );
     expect(system.health).not.toHaveBeenCalled();
     expect(worker._health).toBe('degraded');

@@ -176,7 +176,7 @@ export class AgentsListComponent implements OnInit, OnDestroy {
   }
   ping(a: any) {
     if (a?.role === 'worker' && this.hub?.url) {
-      this.system.probeAgent(this.hub.url, a.url).subscribe({
+      this.system.probeAgent(this.hub.url, a.name).subscribe({
         next: (result: any) => {
           const healthStatus = String(result?.health?.status || 'offline');
           const reachable = !!result?.health?.reachable;
