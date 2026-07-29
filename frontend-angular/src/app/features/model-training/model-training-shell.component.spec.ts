@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, ParamMap } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
@@ -7,6 +7,20 @@ import { ModelTrainingFacade } from './model-training.facade';
 import { ModelTrainingJobMonitorService } from './model-training-job-monitor.service';
 import { TrainingCapabilities } from './model-training.models';
 import { ModelTrainingShellComponent } from './model-training-shell.component';
+import { UnslothCapabilityPanelComponent } from './unsloth/unsloth-capability-panel.component';
+
+@Component({
+  selector: 'app-unsloth-capability-panel',
+  standalone: true,
+  template: '',
+})
+class UnslothCapabilityPanelStubComponent {
+  @Input() capabilities: TrainingCapabilities | null = null;
+  @Input() hubUrl = '';
+  @Input() storage: unknown | null = null;
+  @Input() storageLoading = false;
+  @Output() readonly storageRefresh = new EventEmitter<void>();
+}
 
 describe('ModelTrainingShellComponent', () => {
   let queryParamMap: BehaviorSubject<ParamMap>;
@@ -53,7 +67,12 @@ describe('ModelTrainingShellComponent', () => {
       providers: [{ provide: ActivatedRoute, useValue: { queryParamMap } }],
     });
     TestBed.overrideComponent(ModelTrainingShellComponent, {
-      set: {
+      remove: {
+        imports: [UnslothCapabilityPanelComponent],
+        providers: [ModelTrainingFacade, ModelTrainingJobMonitorService],
+      },
+      add: {
+        imports: [UnslothCapabilityPanelStubComponent],
         providers: [
           { provide: ModelTrainingFacade, useValue: facade },
           { provide: ModelTrainingJobMonitorService, useValue: monitor },
