@@ -9,6 +9,10 @@ from pathlib import Path
 from typing import Any, Mapping, Protocol
 
 from agent.db_models import MlInternTrainingJobDB
+from agent.repositories.ml_intern_training import (
+    MlInternTrainingRepository,
+    get_ml_intern_training_repository,
+)
 from agent.services.ml_intern_adapter_registry_service import (
     MlInternAdapterRegistryService,
     make_config_hash,
@@ -16,26 +20,25 @@ from agent.services.ml_intern_adapter_registry_service import (
 from agent.services.ml_intern_artifact_security_service import MlInternArtifactSecurityService
 from agent.services.ml_intern_evaluation_decision_service import evaluate_adapter_metrics
 from agent.services.ml_intern_evaluation_store_service import MlInternEvaluationStoreService
-from agent.services.unsloth_storage_governance_service import (
-    SqliteUnslothStorageCatalog,
-    storage_catalog_from_config,
+from agent.services.ml_intern_training_artifact_binding import (
+    MlInternTrainingArtifactBinding,
 )
-from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
-from agent.repositories.ml_intern_training import (
-    MlInternTrainingRepository,
-    get_ml_intern_training_repository,
+from agent.services.ml_intern_training_config_service import (
+    normalize_ml_intern_training_config,
 )
 from agent.services.ml_intern_training_contract import (
     UNSLOTH_BACKENDS,
     normalize_run_ids,
     normalize_source_ids,
 )
-from agent.services.ml_intern_training_config_service import (
-    normalize_ml_intern_training_config,
-)
+from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
 from agent.services.unsloth_evidence import (
     EvidenceVerificationError,
     ProvidedEvidenceRegistry,
+)
+from agent.services.unsloth_storage_governance_service import (
+    SqliteUnslothStorageCatalog,
+    storage_catalog_from_config,
 )
 
 
@@ -84,41 +87,37 @@ class RegistryTrainingResultPublisher:
 
     def publish(self, job: MlInternTrainingJobDB, result: Mapping[str, Any]) -> str:
         adapter_id = str(result.get("adapter_id") or f"adapter-{job.id}")
-        attempt_id = str(getattr(job, "active_attempt_id", None) or "")
         tenant_scope = _tenant_scope_digest(job.tenant_id, job.owner_subject)
-        relative_adapter_dir = (
-            f"tenants/{tenant_scope}/jobs/{job.id}/attempts/{attempt_id}/adapter"
+        binding = _validated_artifact_binding(
+            job,
+            result,
+            expected_tenant_scope=tenant_scope,
         )
-        adapter_candidate = self._security.resolve_relative(
-            relative_adapter_dir,
-            must_exist=False,
-        )
-        if adapter_candidate.exists():
+        attempt_id = str(getattr(job, "active_attempt_id", None) or "")
+        if binding is not None:
+            relative_adapter_dir = binding.relative_directory("adapter")
             adapter_dir = self._security.resolve_relative(
                 relative_adapter_dir,
                 must_exist=True,
             )
+            attempt_id = binding.attempt_id
         else:
+            relative_adapter_dir = f"jobs/{job.id}/adapter"
             adapter_dir = self._security.resolve_relative(
-                f"jobs/{job.id}/adapter",
+                relative_adapter_dir,
                 must_exist=True,
             )
-            relative_adapter_dir = f"jobs/{job.id}/adapter"
         inspected = self._security.validate_adapter_tree(adapter_dir)
         request_spec = dict(job.request_spec or {})
         dataset_hash = str(request_spec.get("dataset_hash") or "").strip().lower() or None
         if dataset_hash is not None and (
-            len(dataset_hash) != 64
-            or any(character not in "0123456789abcdef" for character in dataset_hash)
+            len(dataset_hash) != 64 or any(character not in "0123456789abcdef" for character in dataset_hash)
         ):
             raise ValueError("training job contains an invalid canonical dataset_hash")
         source_ids = normalize_source_ids(request_spec.get("source_ids"))
         run_ids = normalize_run_ids(request_spec.get("run_ids"))
         provenance_verified = request_spec.get("provenance_status") == "verified"
-        if (
-            self._storage_catalog is not None
-            and relative_adapter_dir.startswith("tenants/")
-        ):
+        if self._storage_catalog is not None and relative_adapter_dir.startswith("tenants/"):
             self._storage_catalog.register(
                 tenant_id=job.tenant_id,
                 owner_scope_digest=tenant_scope,
@@ -136,7 +135,14 @@ class RegistryTrainingResultPublisher:
             version="1",
             base_model=str(job.base_model or ""),
             method=str(job.request_spec.get("method") or "qlora"),
-            artifact_paths={"adapter_dir": relative_adapter_dir},
+            artifact_paths={
+                # Preserve the established registry/runtime contract: callers
+                # receive an immediately usable, verified path.
+                "adapter_dir": str(adapter_dir),
+                # Keep the portable Hub-owned reference for storage
+                # governance, cleanup and container-to-container transport.
+                "adapter_storage_ref": relative_adapter_dir,
+            },
             config_hash=make_config_hash(dict(job.request_spec or {})),
             artifact_sha256=str(inspected["tree_sha256"]),
             dataset_hash=dataset_hash,
@@ -154,16 +160,14 @@ class RegistryTrainingResultPublisher:
         adapter_id = str(job.request_spec.get("adapter_id") or result.get("adapter_id") or "")
         if not adapter_id:
             raise ValueError("evaluation result has no adapter correlation")
-        attempt_id = str(job.active_attempt_id or "")
         tenant_scope = _tenant_scope_digest(job.tenant_id, job.owner_subject)
-        result_relative = (
-            f"tenants/{tenant_scope}/jobs/{job.id}/attempts/{attempt_id}/artifacts"
+        binding = _validated_artifact_binding(
+            job,
+            result,
+            expected_tenant_scope=tenant_scope,
         )
-        result_candidate = self._security.resolve_relative(
-            result_relative,
-            must_exist=False,
-        )
-        if result_candidate.exists():
+        if binding is not None:
+            result_relative = binding.relative_directory("artifacts")
             result_dir = self._security.resolve_relative(
                 result_relative,
                 must_exist=True,
@@ -231,8 +235,7 @@ class RegistryTrainingResultPublisher:
         manifest_path: Path,
     ) -> dict[str, Any]:
         if (
-            manifest.get("schema_version")
-            != "ananta.adapter-evaluation-manifest.v1"
+            manifest.get("schema_version") != "ananta.adapter-evaluation-manifest.v1"
             or manifest.get("contract_version") != "ananta.lora-training.v1"
             or manifest.get("backend") != job.backend
         ):
@@ -250,10 +253,7 @@ class RegistryTrainingResultPublisher:
         fencing_token = hub_evidence.get("fencing_token")
         tenant_scope_digest = str(hub_evidence.get("tenant_scope_digest") or "")
         expected_scope = hashlib.sha256(
-            (
-                "ananta.ml-intern-training.scope.v1\x00"
-                f"{job.tenant_id}\x00{job.owner_subject}"
-            ).encode("utf-8")
+            (f"ananta.ml-intern-training.scope.v1\x00{job.tenant_id}\x00{job.owner_subject}").encode("utf-8")
         ).hexdigest()
         if (
             not attempt_id
@@ -277,15 +277,10 @@ class RegistryTrainingResultPublisher:
                 "evaluation_dataset_evidence_missing",
                 "Evaluation dataset evidence is unavailable",
             )
-        canonical_dataset_hash = str(
-            (job.request_spec or {}).get("dataset_hash") or ""
-        ).strip().lower()
-        if (
-            not _is_sha256(canonical_dataset_hash)
-            or not secrets.compare_digest(
-                canonical_dataset_hash,
-                str(dataset.content_sha256 or "").strip().lower(),
-            )
+        canonical_dataset_hash = str((job.request_spec or {}).get("dataset_hash") or "").strip().lower()
+        if not _is_sha256(canonical_dataset_hash) or not secrets.compare_digest(
+            canonical_dataset_hash,
+            str(dataset.content_sha256 or "").strip().lower(),
         ):
             raise EvaluationProvenanceError(
                 "evaluation_dataset_hash_mismatch",
@@ -336,9 +331,7 @@ class RegistryTrainingResultPublisher:
 
         manifest_model = manifest.get("base_model")
         catalog_entry = self._base_model_catalog.get(str(job.base_model or ""))
-        if not isinstance(manifest_model, Mapping) or not isinstance(
-            catalog_entry, Mapping
-        ):
+        if not isinstance(manifest_model, Mapping) or not isinstance(catalog_entry, Mapping):
             raise EvaluationProvenanceError(
                 "evaluation_base_model_evidence_missing",
                 "Pinned base-model evidence is unavailable",
@@ -366,17 +359,16 @@ class RegistryTrainingResultPublisher:
         if (
             registry_record is None
             or not isinstance(manifest_adapter, Mapping)
-            or str(manifest_adapter.get("adapter_id") or "")
-            != registry_record.adapter_id
+            or str(manifest_adapter.get("adapter_id") or "") != registry_record.adapter_id
             or not registry_record.artifact_sha256
         ):
             raise EvaluationProvenanceError(
                 "evaluation_adapter_evidence_missing",
                 "Tenant-bound adapter evidence is unavailable",
             )
-        raw_adapter_path = registry_record.artifact_paths.get(
-            "adapter_dir"
-        ) or registry_record.artifact_paths.get("adapter_path")
+        raw_adapter_path = registry_record.artifact_paths.get("adapter_dir") or registry_record.artifact_paths.get(
+            "adapter_path"
+        )
         raw_adapter_ref = str(raw_adapter_path or "")
         adapter_path = (
             self._security.ensure_internal_path(raw_adapter_ref, must_exist=True)
@@ -403,19 +395,16 @@ class RegistryTrainingResultPublisher:
             )
 
         artifacts = result.get("artifacts")
-        artifact_rows = {
-            str(item.get("name") or ""): item
-            for item in artifacts
-            if isinstance(item, Mapping)
-        } if isinstance(artifacts, list) else {}
+        artifact_rows = (
+            {str(item.get("name") or ""): item for item in artifacts if isinstance(item, Mapping)}
+            if isinstance(artifacts, list)
+            else {}
+        )
         export_sha256 = _file_sha256(manifest_path)
         manifest_artifact = artifact_rows.get("evaluation_manifest.json")
-        if (
-            not isinstance(manifest_artifact, Mapping)
-            or not secrets.compare_digest(
-                str(manifest_artifact.get("sha256") or ""),
-                export_sha256,
-            )
+        if not isinstance(manifest_artifact, Mapping) or not secrets.compare_digest(
+            str(manifest_artifact.get("sha256") or ""),
+            export_sha256,
         ):
             raise EvaluationProvenanceError(
                 "evaluation_export_hash_mismatch",
@@ -423,9 +412,7 @@ class RegistryTrainingResultPublisher:
             )
 
         try:
-            job_sources = normalize_source_ids(
-                (job.request_spec or {}).get("source_ids")
-            )
+            job_sources = normalize_source_ids((job.request_spec or {}).get("source_ids"))
             job_runs = normalize_run_ids((job.request_spec or {}).get("run_ids"))
             record_sources = normalize_source_ids(registry_record.source_ids)
             record_runs = normalize_run_ids(registry_record.run_ids)
@@ -456,6 +443,36 @@ class RegistryTrainingResultPublisher:
         }
 
 
+def _validated_artifact_binding(
+    job: MlInternTrainingJobDB,
+    result: Mapping[str, Any],
+    *,
+    expected_tenant_scope: str,
+) -> MlInternTrainingArtifactBinding | None:
+    """Resolve an exact Hub-owned attempt binding without trusting a path."""
+
+    raw = result.get("_artifact_storage_binding")
+    active_attempt_id = str(getattr(job, "active_attempt_id", None) or "")
+    if raw is None:
+        if not active_attempt_id:
+            return None
+        return MlInternTrainingArtifactBinding(
+            tenant_scope_digest=expected_tenant_scope,
+            job_id=job.id,
+            attempt_id=active_attempt_id,
+        )
+    if not isinstance(raw, Mapping):
+        raise ValueError("artifact storage binding must be an object")
+    if not active_attempt_id:
+        raise ValueError("artifact storage binding requires an authoritative active Hub attempt")
+    binding = MlInternTrainingArtifactBinding.from_mapping(raw)
+    if binding.tenant_scope_digest != expected_tenant_scope or binding.job_id != job.id:
+        raise ValueError("artifact storage binding does not match the Hub job")
+    if binding.attempt_id != active_attempt_id:
+        raise ValueError("artifact storage binding does not match the active Hub attempt")
+    return binding
+
+
 def _has_base_adapter_metrics(metrics: Mapping[str, Any]) -> bool:
     return isinstance(metrics.get("base"), Mapping) and isinstance(metrics.get("adapter"), Mapping)
 
@@ -464,22 +481,14 @@ def build_result_publisher(config: Mapping[str, Any]) -> RegistryTrainingResultP
     artifact_root = str(config.get("artifact_root") or "artifacts/lora")
     runtime = config.get("lora_runtime") if isinstance(config.get("lora_runtime"), Mapping) else {}
     registry_path = str(runtime.get("adapter_registry_path") or f"{artifact_root}/adapter_registry.json")
-    security = (
-        config.get("unsloth_security")
-        if isinstance(config.get("unsloth_security"), Mapping)
-        else {}
-    )
-    storage_catalog = storage_catalog_from_config(
-        normalize_ml_intern_training_config(config)
-    )
+    security = config.get("unsloth_security") if isinstance(config.get("unsloth_security"), Mapping) else {}
+    storage_catalog = storage_catalog_from_config(normalize_ml_intern_training_config(config))
     return RegistryTrainingResultPublisher(
         artifact_root=artifact_root,
         registry_path=registry_path,
         minimum_eval_score=float(config.get("minimum_eval_score") or 0.0),
         base_model_catalog=(
-            config.get("base_model_catalog")
-            if isinstance(config.get("base_model_catalog"), Mapping)
-            else {}
+            config.get("base_model_catalog") if isinstance(config.get("base_model_catalog"), Mapping) else {}
         ),
         trusted_source_ids=tuple(security.get("trusted_source_ids") or ()),
         trusted_run_ids=tuple(security.get("trusted_run_ids") or ()),
@@ -528,15 +537,10 @@ def _jsonl_records(path: Path) -> int:
 
 
 def _is_sha256(value: object) -> bool:
-    return isinstance(value, str) and len(value) == 64 and all(
-        character in "0123456789abcdef" for character in value
-    )
+    return isinstance(value, str) and len(value) == 64 and all(character in "0123456789abcdef" for character in value)
 
 
 def _tenant_scope_digest(tenant_id: str, owner_subject: str) -> str:
     return hashlib.sha256(
-        (
-            "ananta.ml-intern-training.scope.v1\x00"
-            f"{tenant_id}\x00{owner_subject}"
-        ).encode("utf-8")
+        (f"ananta.ml-intern-training.scope.v1\x00{tenant_id}\x00{owner_subject}").encode("utf-8")
     ).hexdigest()

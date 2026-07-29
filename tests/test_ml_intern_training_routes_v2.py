@@ -218,9 +218,7 @@ def test_dataset_validation_override_is_strict_boolean_and_closed_world(
             json={"allow_sensitive_override": value},
         )
         assert rejected.status_code == 422
-        assert rejected.get_json()["data"]["error"]["code"] == (
-            "allow_sensitive_override_invalid"
-        )
+        assert rejected.get_json()["data"]["error"]["code"] == ("allow_sensitive_override_invalid")
 
     unknown = client.post(
         f"/api/ml-intern-training/datasets/{dataset_id}/validate",
@@ -228,9 +226,7 @@ def test_dataset_validation_override_is_strict_boolean_and_closed_world(
         json={"trust_me": True},
     )
     assert unknown.status_code == 422
-    assert unknown.get_json()["data"]["error"]["code"] == (
-        "dataset_validation_unknown_fields"
-    )
+    assert unknown.get_json()["data"]["error"]["code"] == ("dataset_validation_unknown_fields")
 
 
 def test_live_evaluation_requires_confirmation_and_propagates_reason(
@@ -306,6 +302,7 @@ def test_live_evaluation_requires_confirmation_and_propagates_reason(
     assert captured["mode"] == "live"
     assert captured["live_confirmed"] is True
     assert captured["risk_reason"] == "controlled local adapter evaluation"
+
 
 def test_model_training_routes_are_admin_only(app, client, user_auth_header, tmp_path: Path) -> None:
     _configure(app, tmp_path)
@@ -402,10 +399,13 @@ def test_dataset_delete_restores_sql_projection_when_catalog_delete_fails(
     )
 
     assert deleted.status_code == 422
-    assert MlInternTrainingRepository().get_dataset(
-        MlInternTrainingPrincipal("admin", "admin"),
-        dataset_id,
-    ) is not None
+    assert (
+        MlInternTrainingRepository().get_dataset(
+            MlInternTrainingPrincipal("admin", "admin"),
+            dataset_id,
+        )
+        is not None
+    )
 
 
 def test_job_history_filters_and_exact_cursor_use_filtered_total(
@@ -424,9 +424,7 @@ def test_job_history_filters_and_exact_cursor_use_filtered_total(
     dataset_id = created.get_json()["data"]["id"]
     repository = MlInternTrainingRepository()
     nonce = uuid.uuid4().hex
-    for index, (backend, status) in enumerate(
-        (("unsloth", "failed"), ("unsloth", "failed"), ("mock", "completed"))
-    ):
+    for index, (backend, status) in enumerate((("unsloth", "failed"), ("unsloth", "failed"), ("mock", "completed"))):
         repository.create_job(
             MlInternTrainingJobDB(
                 tenant_id="admin",
@@ -530,7 +528,16 @@ def test_adapter_import_approval_export_and_rollback_are_hash_bound(
     client,
     admin_auth_header,
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
+    from agent.routes import ml_intern_training as training_routes
+
+    audit_events: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        training_routes,
+        "log_audit",
+        lambda action, details=None: audit_events.append((action, dict(details or {}))),
+    )
     artifact_root = _configure(app, tmp_path)
     imported = client.post(
         "/api/ml-intern-training/adapters/import",
@@ -558,9 +565,7 @@ def test_adapter_import_approval_export_and_rollback_are_hash_bound(
         json={"confirmed": True, "reason": "approve only after evaluation"},
     )
     assert premature.status_code == 409
-    assert premature.get_json()["data"]["error"]["code"] == (
-        "adapter_evaluation_binding_mismatch"
-    )
+    assert premature.get_json()["data"]["error"]["code"] == ("adapter_evaluation_binding_mismatch")
 
     registry = MlInternAdapterRegistryService(artifact_root / "adapter_registry.json")
     evaluation_job, replayed = MlInternTrainingRepository().create_job(
@@ -614,11 +619,14 @@ def test_adapter_import_approval_export_and_rollback_are_hash_bound(
     )
     assert stale.status_code == 409
     assert stale.get_json()["data"]["error"]["code"] == "adapter_version_conflict"
-    assert registry.get(
-        "route-adapter-v1",
-        tenant_id="admin",
-        owner_subject="admin",
-    ).status == "approved"
+    assert (
+        registry.get(
+            "route-adapter-v1",
+            tenant_id="admin",
+            owner_subject="admin",
+        ).status
+        == "approved"
+    )
 
     exported = client.post(
         "/api/ml-intern-training/adapters/route-adapter-v1/export",
@@ -649,6 +657,10 @@ def test_adapter_import_approval_export_and_rollback_are_hash_bound(
     assert rollback["rollback_target"] == {
         "type": "base_model_only",
         "base_model_id": "local/base",
+    }
+    assert {action for action, _details in audit_events} >= {
+        "ml_intern_adapter_imported",
+        "ml_intern_adapter_decision",
     }
 
 
@@ -687,11 +699,14 @@ def test_adapter_routes_hide_foreign_tenant_and_owner_records(
     )
     assert decision.status_code == 404
     assert decision.get_json()["data"]["error"]["code"] == "adapter_not_found"
-    assert registry.get(
-        "foreign-adapter",
-        tenant_id="tenant-foreign",
-        owner_subject="alice",
-    ).status == "created"
+    assert (
+        registry.get(
+            "foreign-adapter",
+            tenant_id="tenant-foreign",
+            owner_subject="alice",
+        ).status
+        == "created"
+    )
 
     exported = client.post(
         "/api/ml-intern-training/adapters/foreign-adapter/export",
@@ -833,9 +848,9 @@ def test_atomic_import_publication_resumes_hash_bound_legacy_partial_record(
         adapter_id="transition-recovery-adapter",
         version="1",
     )
-    artifact_sha256 = MlInternArtifactSecurityService(storage_root=artifact_root).validate_adapter_tree(
-        artifact_path
-    )["tree_sha256"]
+    artifact_sha256 = MlInternArtifactSecurityService(storage_root=artifact_root).validate_adapter_tree(artifact_path)[
+        "tree_sha256"
+    ]
     MlInternAdapterRegistryService(artifact_root / "adapter_registry.json").register(
         adapter_id="transition-recovery-adapter",
         display_name="Interrupted adapter",

@@ -11,17 +11,40 @@ import os
 import secrets
 import tempfile
 import threading
-from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from agent.services.interprocess_file_transaction import InterProcessFileTransaction
-from agent.services.ml_intern_training_contract import (
-    MlInternTrainingContractError,
-    normalize_run_ids,
-    normalize_source_ids,
+from agent.services.ml_intern_adapter_registry_contract import (
+    AdapterRecord,
+    RegistryError,
+    RegistryIdempotencyConflict,
+    RegistryNotFoundError,
+    RegistryVersionConflict,
+    _assert_expected_version,
+    _assert_record_expected_version,
+    _bump_version,
+    _is_sha256,
+    _matches_scope,
+    _optional_text,
+    _promotion_evidence,
+    _provenance_binding,
+    _scope_key,
+    _stored_version,
+    _tenant_scope_digest,
 )
+
+__all__ = [
+    "AdapterRecord",
+    "MlInternAdapterRegistryService",
+    "RegistryError",
+    "RegistryIdempotencyConflict",
+    "RegistryNotFoundError",
+    "RegistryVersionConflict",
+    "get_adapter_registry_service",
+    "make_config_hash",
+]
 
 _VALID_TRANSITIONS: dict[str, set[str]] = {
     "created": {"training", "failed"},
@@ -49,65 +72,6 @@ def _synchronized(method):
     return wrapped
 
 
-class RegistryError(ValueError):
-    """Fehler in der Adapter-Registry."""
-
-
-class RegistryNotFoundError(RegistryError):
-    """The adapter does not exist inside the caller's exact ownership scope."""
-
-
-class RegistryVersionConflict(RegistryError):
-    """A lifecycle mutation used a stale optimistic-lock version."""
-
-    reason_code = "adapter_version_conflict"
-
-
-class RegistryIdempotencyConflict(RegistryError):
-    """A promotion idempotency key was reused for different evidence."""
-
-    reason_code = "adapter_promotion_idempotency_conflict"
-
-
-@dataclass
-class AdapterRecord:
-    adapter_id: str
-    display_name: str
-    version: str
-    base_model: str
-    method: str
-    status: str
-    created_at: str
-    registry_version: int = 1
-    tenant_id: str | None = None
-    owner_subject: str | None = None
-    artifact_paths: dict[str, str] = field(default_factory=dict)
-    dataset_hash: str | None = None
-    source_ids: list[str] = field(default_factory=list)
-    run_ids: list[str] = field(default_factory=list)
-    provenance_verified: bool = False
-    config_hash: str | None = None
-    artifact_sha256: str | None = None
-    eval_report_ref: str | None = None
-    eval_score: float | None = None
-    approved_by: str | None = None
-    approved_at: str | None = None
-    approval_reason: str | None = None
-    rejected_reason: str | None = None
-    task_kinds: list[str] = field(default_factory=list)
-    updated_at: str | None = None
-    notes: str | None = None
-    promotion_history: list[dict[str, Any]] = field(default_factory=list)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            k: v
-            for k, v in asdict(self).items()
-            if v is not None
-            or k in ("adapter_id", "display_name", "version", "base_model", "method", "status", "created_at")
-        }
-
-
 class MlInternAdapterRegistryService:
     """Lokal-JSON-basierte Adapter-Registry mit Status-Gate."""
 
@@ -116,9 +80,7 @@ class MlInternAdapterRegistryService:
         key = str(self._path.resolve())
         with _REGISTRY_LOCKS_GUARD:
             self._lock = _REGISTRY_LOCKS.setdefault(key, threading.RLock())
-        self._transaction = InterProcessFileTransaction(
-            self._path.with_name(f"{self._path.name}.lock")
-        )
+        self._transaction = InterProcessFileTransaction(self._path.with_name(f"{self._path.name}.lock"))
 
     # --- Load / Save -------------------------------------------------------
 
@@ -189,11 +151,7 @@ class MlInternAdapterRegistryService:
     ) -> AdapterRecord | None:
         scope = _scope_key(tenant_id, owner_subject)
         for r in self._load():
-            if (
-                isinstance(r, dict)
-                and r.get("adapter_id") == adapter_id
-                and _matches_scope(r, scope)
-            ):
+            if isinstance(r, dict) and r.get("adapter_id") == adapter_id and _matches_scope(r, scope):
                 return self._from_dict(r)
         return None
 
@@ -312,9 +270,13 @@ class MlInternAdapterRegistryService:
             raise RegistryError("config_hash must be a lowercase SHA-256 digest")
         if not _is_sha256(artifact_sha256):
             raise RegistryError("artifact_sha256 must be a lowercase SHA-256 digest")
-        if not isinstance(artifact_paths, dict) or not artifact_paths or not all(
-            isinstance(key, str) and key and isinstance(value, str) and value
-            for key, value in artifact_paths.items()
+        if (
+            not isinstance(artifact_paths, dict)
+            or not artifact_paths
+            or not all(
+                isinstance(key, str) and key and isinstance(value, str) and value
+                for key, value in artifact_paths.items()
+            )
         ):
             raise RegistryError("artifact_paths must contain non-empty string bindings")
         normalized_dataset_hash, normalized_source_ids, normalized_run_ids = _provenance_binding(
@@ -327,11 +289,7 @@ class MlInternAdapterRegistryService:
         scope = _scope_key(tenant_id, owner_subject)
         records = self._load()
         for index, raw in enumerate(records):
-            if (
-                not isinstance(raw, dict)
-                or raw.get("adapter_id") != adapter_id
-                or not _matches_scope(raw, scope)
-            ):
+            if not isinstance(raw, dict) or raw.get("adapter_id") != adapter_id or not _matches_scope(raw, scope):
                 continue
             existing = self._from_dict(raw)
             immutable_bindings = {
@@ -345,19 +303,11 @@ class MlInternAdapterRegistryService:
                 "config_hash": (existing.config_hash, config_hash),
                 "artifact_sha256": (existing.artifact_sha256, artifact_sha256),
             }
-            mismatches = [
-                name
-                for name, (actual, expected) in immutable_bindings.items()
-                if actual != expected
-            ]
+            mismatches = [name for name, (actual, expected) in immutable_bindings.items() if actual != expected]
             if mismatches:
-                raise RegistryError(
-                    "adapter ID is already bound to different " + ", ".join(sorted(mismatches))
-                )
+                raise RegistryError("adapter ID is already bound to different " + ", ".join(sorted(mismatches)))
             if existing.status not in {"created", "training", "trained", "evaluated", "approved"}:
-                raise RegistryError(
-                    f"existing adapter status {existing.status!r} cannot resume secure import"
-                )
+                raise RegistryError(f"existing adapter status {existing.status!r} cannot resume secure import")
 
             changed = False
             if existing.status in {"created", "training"}:
@@ -418,11 +368,7 @@ class MlInternAdapterRegistryService:
         scope = _scope_key(tenant_id, owner_subject)
         records = self._load()
         for i, r in enumerate(records):
-            if (
-                not isinstance(r, dict)
-                or r.get("adapter_id") != adapter_id
-                or not _matches_scope(r, scope)
-            ):
+            if not isinstance(r, dict) or r.get("adapter_id") != adapter_id or not _matches_scope(r, scope):
                 continue
             _assert_expected_version(r, expected_version)
             current = str(r.get("status") or "")
@@ -457,28 +403,19 @@ class MlInternAdapterRegistryService:
         scope = _scope_key(tenant_id, owner_subject)
         records = self._load()
         for i, r in enumerate(records):
-            if (
-                isinstance(r, dict)
-                and r.get("adapter_id") == adapter_id
-                and _matches_scope(r, scope)
-            ):
+            if isinstance(r, dict) and r.get("adapter_id") == adapter_id and _matches_scope(r, scope):
                 _assert_expected_version(r, expected_version)
                 record = self._from_dict(r)
                 if record.status != "evaluated":
-                    raise RegistryError(
-                        f"can only approve from 'evaluated' status, current: {record.status!r}"
-                    )
+                    raise RegistryError(f"can only approve from 'evaluated' status, current: {record.status!r}")
                 if require_eval_report and not record.eval_report_ref:
                     raise RegistryError(
                         f"adapter {adapter_id!r} has no eval_report_ref; cannot approve without evaluation"
                     )
                 if minimum_eval_score is not None and (
-                    record.eval_score is None
-                    or float(record.eval_score) < float(minimum_eval_score)
+                    record.eval_score is None or float(record.eval_score) < float(minimum_eval_score)
                 ):
-                    raise RegistryError(
-                        f"adapter {adapter_id!r} evaluation score does not meet the approval threshold"
-                    )
+                    raise RegistryError(f"adapter {adapter_id!r} evaluation score does not meet the approval threshold")
                 r["status"] = "approved"
                 r["approved_by"] = approved_by
                 r["approved_at"] = datetime.now(timezone.utc).isoformat()
@@ -511,17 +448,13 @@ class MlInternAdapterRegistryService:
         scope = _scope_key(tenant_id, owner_subject)
         normalized_evidence = _promotion_evidence(evidence)
         normalized_key = str(idempotency_key or "").strip()
-        if (
-            not 8 <= len(normalized_key) <= 256
-            or any(character.isspace() for character in normalized_key)
-        ):
+        if not 8 <= len(normalized_key) <= 256 or any(character.isspace() for character in normalized_key):
             raise RegistryIdempotencyConflict("promotion idempotency key is invalid")
         reason_digest = hashlib.sha256(str(reason).encode("utf-8")).hexdigest()
         key_digest = hashlib.sha256(
-            (
-                "ananta.adapter-promotion.idempotency.v1\0"
-                f"{scope[0]}\0{scope[1]}\0{adapter_id}\0{normalized_key}"
-            ).encode("utf-8")
+            (f"ananta.adapter-promotion.idempotency.v1\0{scope[0]}\0{scope[1]}\0{adapter_id}\0{normalized_key}").encode(
+                "utf-8"
+            )
         ).hexdigest()
         request_payload = {
             "adapter_id": adapter_id,
@@ -541,16 +474,10 @@ class MlInternAdapterRegistryService:
         ).hexdigest()
         records = self._load()
         for index, raw in enumerate(records):
-            if (
-                not isinstance(raw, dict)
-                or raw.get("adapter_id") != adapter_id
-                or not _matches_scope(raw, scope)
-            ):
+            if not isinstance(raw, dict) or raw.get("adapter_id") != adapter_id or not _matches_scope(raw, scope):
                 continue
             history = raw.get("promotion_history") or []
-            if not isinstance(history, list) or any(
-                not isinstance(item, dict) for item in history
-            ):
+            if not isinstance(history, list) or any(not isinstance(item, dict) for item in history):
                 raise RegistryError("adapter promotion history is corrupt")
             for item in history:
                 if secrets.compare_digest(
@@ -561,26 +488,18 @@ class MlInternAdapterRegistryService:
                         str(item.get("request_digest") or ""),
                         request_digest,
                     ):
-                        raise RegistryIdempotencyConflict(
-                            "promotion idempotency key conflicts with prior evidence"
-                        )
+                        raise RegistryIdempotencyConflict("promotion idempotency key conflicts with prior evidence")
                     return self._from_dict(raw), True
             _assert_expected_version(raw, expected_version)
             record = self._from_dict(raw)
             if record.status != "evaluated":
-                raise RegistryError(
-                    f"can only promote from 'evaluated' status, current: {record.status!r}"
-                )
-            if (
-                not record.artifact_sha256
-                or not secrets.compare_digest(record.artifact_sha256, artifact_sha256)
-            ):
+                raise RegistryError(f"can only promote from 'evaluated' status, current: {record.status!r}")
+            if not record.artifact_sha256 or not secrets.compare_digest(record.artifact_sha256, artifact_sha256):
                 raise RegistryError("promotion artifact hash does not match registry")
             if record.eval_report_ref != evaluation_id:
                 raise RegistryError("promotion evaluation does not match registry")
             if minimum_eval_score is not None and (
-                record.eval_score is None
-                or float(record.eval_score) < float(minimum_eval_score)
+                record.eval_score is None or float(record.eval_score) < float(minimum_eval_score)
             ):
                 raise RegistryError("promotion evaluation score does not meet policy")
             now = datetime.now(timezone.utc).isoformat()
@@ -591,10 +510,7 @@ class MlInternAdapterRegistryService:
             promotion_id = (
                 "promotion-"
                 + hashlib.sha256(
-                    (
-                        "ananta.adapter-promotion.v1\0"
-                        f"{scope[0]}\0{scope[1]}\0{request_digest}"
-                    ).encode("utf-8")
+                    (f"ananta.adapter-promotion.v1\0{scope[0]}\0{scope[1]}\0{request_digest}").encode("utf-8")
                 ).hexdigest()[:32]
             )
             history.append(
@@ -637,17 +553,11 @@ class MlInternAdapterRegistryService:
         scope = _scope_key(tenant_id, owner_subject)
         records = self._load()
         for i, r in enumerate(records):
-            if (
-                isinstance(r, dict)
-                and r.get("adapter_id") == adapter_id
-                and _matches_scope(r, scope)
-            ):
+            if isinstance(r, dict) and r.get("adapter_id") == adapter_id and _matches_scope(r, scope):
                 _assert_expected_version(r, expected_version)
                 record = self._from_dict(r)
                 if record.status != "evaluated":
-                    raise RegistryError(
-                        f"can only reject from 'evaluated', current: {record.status!r}"
-                    )
+                    raise RegistryError(f"can only reject from 'evaluated', current: {record.status!r}")
                 r["status"] = "rejected"
                 r["rejected_reason"] = reason
                 r["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -688,17 +598,12 @@ class MlInternAdapterRegistryService:
         scope = _scope_key(tenant_id, owner_subject)
         records = self._load()
         for i, r in enumerate(records):
-            if (
-                isinstance(r, dict)
-                and r.get("adapter_id") == adapter_id
-                and _matches_scope(r, scope)
-            ):
+            if isinstance(r, dict) and r.get("adapter_id") == adapter_id and _matches_scope(r, scope):
                 _assert_expected_version(r, expected_version)
                 record = self._from_dict(r)
                 if record.status not in {"trained", "evaluated"}:
                     raise RegistryError(
-                        "eval can only be set from 'trained' or 'evaluated', "
-                        f"current: {record.status!r}"
+                        f"eval can only be set from 'trained' or 'evaluated', current: {record.status!r}"
                     )
                 r["eval_report_ref"] = eval_report_ref
                 if eval_score is not None:
@@ -742,14 +647,10 @@ class MlInternAdapterRegistryService:
             _assert_record_expected_version(selected, expected_version)
             deprecated = selected
         else:
-            raise RegistryError(
-                f"rollback requires an approved or deprecated adapter, current: {selected.status!r}"
-            )
+            raise RegistryError(f"rollback requires an approved or deprecated adapter, current: {selected.status!r}")
         candidates = [
             record
-            for record in self.list_adapters(
-                status="approved", tenant_id=scope[0], owner_subject=scope[1]
-            )
+            for record in self.list_adapters(status="approved", tenant_id=scope[0], owner_subject=scope[1])
             if record.adapter_id != adapter_id and record.base_model == selected.base_model
         ]
         target = (
@@ -863,182 +764,8 @@ class MlInternAdapterRegistryService:
             task_kinds=list(r.get("task_kinds") or []),
             updated_at=r.get("updated_at"),
             notes=r.get("notes"),
-            promotion_history=[
-                dict(item)
-                for item in list(r.get("promotion_history") or [])
-                if isinstance(item, dict)
-            ],
+            promotion_history=[dict(item) for item in list(r.get("promotion_history") or []) if isinstance(item, dict)],
         )
-
-
-def _is_sha256(value: object) -> bool:
-    return isinstance(value, str) and len(value) == 64 and all(
-        character in "0123456789abcdef" for character in value
-    )
-
-
-def _provenance_binding(
-    *,
-    dataset_hash: str | None,
-    source_ids: list[str] | tuple[str, ...] | None,
-    run_ids: list[str] | tuple[str, ...] | None,
-    provenance_verified: bool,
-) -> tuple[str | None, list[str], list[str]]:
-    normalized_hash = str(dataset_hash or "").strip().lower() or None
-    if normalized_hash is not None and not _is_sha256(normalized_hash):
-        raise RegistryError("dataset_hash must be a lowercase SHA-256 digest")
-    try:
-        normalized_source_ids = list(normalize_source_ids(source_ids))
-        normalized_run_ids = list(normalize_run_ids(run_ids))
-    except MlInternTrainingContractError as exc:
-        raise RegistryError(f"{exc.reason_code}: {exc}") from exc
-    if provenance_verified and (
-        normalized_hash is None
-        or not normalized_source_ids
-        or not normalized_run_ids
-    ):
-        raise RegistryError(
-            "verified provenance requires dataset_hash plus provided source_ids and run_ids"
-        )
-    return normalized_hash, normalized_source_ids, normalized_run_ids
-
-
-def _promotion_evidence(value: dict[str, Any]) -> dict[str, Any]:
-    required = {
-        "dataset_hash",
-        "source_ids",
-        "run_ids",
-        "metrics",
-        "job_id",
-        "attempt_id",
-        "fencing_token_digest",
-        "base_model_id",
-        "base_model_sha256",
-        "adapter_id",
-        "adapter_sha256",
-        "export_sha256",
-    }
-    if not isinstance(value, dict) or set(value) != required:
-        raise RegistryError("promotion evidence contract is incomplete")
-    for key in (
-        "dataset_hash",
-        "fencing_token_digest",
-        "base_model_sha256",
-        "adapter_sha256",
-        "export_sha256",
-    ):
-        if not _is_sha256(value.get(key)):
-            raise RegistryError(f"promotion evidence {key} is invalid")
-    identifiers = {}
-    for key in ("job_id", "attempt_id", "base_model_id", "adapter_id"):
-        normalized = str(value.get(key) or "").strip()
-        if not normalized or len(normalized) > 256:
-            raise RegistryError(f"promotion evidence {key} is invalid")
-        identifiers[key] = normalized
-    try:
-        source_ids = list(normalize_source_ids(value.get("source_ids")))
-        run_ids = list(normalize_run_ids(value.get("run_ids")))
-    except MlInternTrainingContractError as exc:
-        raise RegistryError(f"{exc.reason_code}: {exc}") from exc
-    if not source_ids or not run_ids:
-        raise RegistryError("promotion evidence requires trusted source and run IDs")
-    metrics = value.get("metrics")
-    if not isinstance(metrics, dict) or not metrics:
-        raise RegistryError("promotion evidence metrics are missing")
-    try:
-        encoded_metrics = json.dumps(
-            metrics,
-            sort_keys=True,
-            separators=(",", ":"),
-            allow_nan=False,
-        )
-    except (TypeError, ValueError) as exc:
-        raise RegistryError("promotion evidence metrics are invalid") from exc
-    if len(encoded_metrics.encode("utf-8")) > 32 * 1024:
-        raise RegistryError("promotion evidence metrics exceed their bound")
-    return {
-        "dataset_hash": str(value["dataset_hash"]),
-        "source_ids": source_ids,
-        "run_ids": run_ids,
-        "metrics": json.loads(encoded_metrics),
-        **identifiers,
-        "fencing_token_digest": str(value["fencing_token_digest"]),
-        "base_model_sha256": str(value["base_model_sha256"]),
-        "adapter_sha256": str(value["adapter_sha256"]),
-        "export_sha256": str(value["export_sha256"]),
-    }
-
-
-def _optional_text(value: object) -> str | None:
-    normalized = str(value or "").strip()
-    return normalized or None
-
-
-def _scope_key(
-    tenant_id: str | None,
-    owner_subject: str | None,
-) -> tuple[str | None, str | None]:
-    tenant = _optional_text(tenant_id)
-    owner = _optional_text(owner_subject)
-    if (tenant is None) != (owner is None):
-        raise RegistryError("tenant_id and owner_subject must be provided together")
-    if tenant is not None and (len(tenant) > 192 or len(owner or "") > 192):
-        raise RegistryError("adapter ownership scope exceeds its supported bounds")
-    return tenant, owner
-
-
-def _tenant_scope_digest(tenant_id: str, owner_subject: str) -> str:
-    material = (
-        "ananta.ml-intern-training.scope.v1\x00"
-        f"{tenant_id}\x00{owner_subject}"
-    ).encode("utf-8")
-    return hashlib.sha256(material).hexdigest()
-
-
-def _matches_scope(
-    raw: dict[str, Any],
-    scope: tuple[str | None, str | None],
-) -> bool:
-    return (_optional_text(raw.get("tenant_id")), _optional_text(raw.get("owner_subject"))) == scope
-
-
-def _stored_version(raw: dict[str, Any]) -> int:
-    value = raw.get("registry_version", 1)
-    if isinstance(value, bool):
-        return 1
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return 1
-    return min(max(1, parsed), 2_147_483_647)
-
-
-def _bump_version(raw: dict[str, Any]) -> int:
-    current = _stored_version(raw)
-    if current >= 2_147_483_647:
-        raise RegistryError("adapter registry version is exhausted")
-    next_version = current + 1
-    raw["registry_version"] = next_version
-    return next_version
-
-
-def _assert_expected_version(raw: dict[str, Any], expected_version: int | None) -> None:
-    if expected_version is None:
-        return
-    if isinstance(expected_version, bool) or not isinstance(expected_version, int) or expected_version < 1:
-        raise RegistryVersionConflict("expected_version must be a positive integer")
-    actual = _stored_version(raw)
-    if actual != expected_version:
-        raise RegistryVersionConflict(
-            f"stale adapter registry version: expected {expected_version}, current {actual}"
-        )
-
-
-def _assert_record_expected_version(
-    record: AdapterRecord,
-    expected_version: int | None,
-) -> None:
-    _assert_expected_version({"registry_version": record.registry_version}, expected_version)
 
 
 def make_config_hash(training_config: dict) -> str:

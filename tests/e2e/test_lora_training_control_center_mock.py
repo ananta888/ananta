@@ -94,9 +94,7 @@ def test_mock_training_and_existing_adapter_evaluation_cross_the_real_http_contr
     registry_path = artifacts / "adapter_registry.json"
     registry = MlInternAdapterRegistryService(registry_path)
     registry_scope = {"tenant_id": "tenant-e2e", "owner_subject": "admin-e2e"}
-    scope_digest = hashlib.sha256(
-        b"ananta.ml-intern-training.scope.v1\x00tenant-e2e\x00admin-e2e"
-    ).hexdigest()
+    scope_digest = hashlib.sha256(b"ananta.ml-intern-training.scope.v1\x00tenant-e2e\x00admin-e2e").hexdigest()
 
     def resolve_adapter(adapter_id: str, tenant_scope_digest: str) -> Path:
         assert tenant_scope_digest == scope_digest
@@ -169,6 +167,7 @@ def test_mock_training_and_existing_adapter_evaluation_cross_the_real_http_contr
             idempotency_key_digest="a" * 64,
             request_digest="b" * 64,
             request_spec=training_spec,
+            active_attempt_id="lora-attempt-e2e-train",
         )
         adapter_id = publisher.publish(training_job, training)
         trained_record = registry.get(adapter_id, **registry_scope)
@@ -214,6 +213,7 @@ def test_mock_training_and_existing_adapter_evaluation_cross_the_real_http_contr
             idempotency_key_digest="c" * 64,
             request_digest="d" * 64,
             request_spec=evaluation_spec,
+            active_attempt_id="lora-attempt-e2e-eval",
         )
         publisher.publish_evaluation(evaluation_job, evaluation)
         evaluated_record = registry.get(adapter_id, **registry_scope)
@@ -223,6 +223,18 @@ def test_mock_training_and_existing_adapter_evaluation_cross_the_real_http_contr
         assert evaluated_record is not None
         assert evaluated_record.eval_report_ref == "lora-job-e2e-eval"
         assert evaluated_record.eval_score == 0.25
-        assert (artifacts / "jobs/lora-job-e2e-eval/evaluation_manifest.json").is_file()
+        evaluation_manifest = (
+            artifacts
+            / "tenants"
+            / scope_digest
+            / "jobs"
+            / "lora-job-e2e-eval"
+            / "attempts"
+            / "lora-attempt-e2e-eval"
+            / "artifacts"
+            / "evaluation_manifest.json"
+        )
+        assert evaluation_manifest.is_file()
+        assert not (artifacts / "jobs/lora-job-e2e-eval").exists()
     finally:
         runtime.close()
