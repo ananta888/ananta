@@ -15,6 +15,8 @@ CONTRACT_VERSION = "ananta.lora-training.v1"
 TRAIN_JOB_TYPE = "train_lora"
 EVALUATION_JOB_TYPE = "evaluate_existing_adapter"
 SUPPORTED_JOB_TYPE = TRAIN_JOB_TYPE
+SUPPORTED_EXPORT_FORMATS = frozenset({"adapter", "merged_16bit", "gguf"})
+SUPPORTED_GGUF_QUANTIZATION_METHODS = frozenset({"q4_k_m", "q5_k_m", "q8_0"})
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
 _RELATIVE_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_./-]{0,511}$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -492,6 +494,62 @@ class ResumeCheckpoint:
 
 
 @dataclass(frozen=True)
+class TrainingExportSpec:
+    format: str
+    quantization_method: str | None = None
+
+    @classmethod
+    def from_mapping(cls, value: Any) -> "TrainingExportSpec":
+        data = _closed_mapping(
+            value,
+            "exports item",
+            frozenset({"format", "quantization_method"}),
+        )
+        export_format = _text(data.get("format"), "exports.format", maximum=32).lower()
+        if export_format not in SUPPORTED_EXPORT_FORMATS:
+            raise TrainingContractError(
+                "unsupported_export_format",
+                "exports.format must be adapter, merged_16bit, or gguf",
+            )
+        raw_quantization = data.get("quantization_method")
+        quantization = (
+            _text(raw_quantization, "exports.quantization_method", maximum=32).lower()
+            if raw_quantization is not None
+            else None
+        )
+        if export_format == "gguf":
+            if quantization not in SUPPORTED_GGUF_QUANTIZATION_METHODS:
+                raise TrainingContractError(
+                    "unsupported_quantization",
+                    "GGUF exports require q4_k_m, q5_k_m, or q8_0",
+                )
+        elif quantization is not None:
+            raise TrainingContractError(
+                "unexpected_quantization",
+                "quantization_method is only valid for GGUF exports",
+            )
+        return cls(format=export_format, quantization_method=quantization)
+
+
+def _training_exports(value: Any) -> tuple[TrainingExportSpec, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, (list, tuple)) or not 1 <= len(value) <= 8:
+        raise TrainingContractError(
+            "invalid_export_plan",
+            "exports must be a non-empty array with at most eight entries",
+        )
+    exports = tuple(TrainingExportSpec.from_mapping(item) for item in value)
+    identities = {(item.format, item.quantization_method) for item in exports}
+    if len(identities) != len(exports):
+        raise TrainingContractError(
+            "duplicate_export",
+            "exports must not contain duplicate format and quantization pairs",
+        )
+    return exports
+
+
+@dataclass(frozen=True)
 class TrainingJobRequest:
     contract_version: str
     job_id: str
@@ -507,7 +565,9 @@ class TrainingJobRequest:
     base_model: BaseModelSpec
     dataset: DatasetManifest
     configuration: TrainingConfiguration
+    exports: tuple[TrainingExportSpec, ...] = ()
     resume_checkpoint: ResumeCheckpoint | None = None
+    tenant_storage_key: str | None = None
 
     @classmethod
     def from_mapping(cls, value: Any) -> "TrainingJobRequest":
@@ -527,7 +587,9 @@ class TrainingJobRequest:
             "base_model",
             "dataset",
             "configuration",
+            "exports",
             "resume_checkpoint",
+            "tenant_storage_key",
         }
         data = _closed_mapping(data, "training request", frozenset(allowed))
         version = _text(data.get("contract_version"), "contract_version", maximum=64)
@@ -557,7 +619,13 @@ class TrainingJobRequest:
             base_model=BaseModelSpec.from_mapping(data.get("base_model")),
             dataset=DatasetManifest.from_mapping(data.get("dataset")),
             configuration=TrainingConfiguration.from_mapping(data.get("configuration")),
+            exports=_training_exports(data.get("exports")),
             resume_checkpoint=ResumeCheckpoint.from_mapping(resume_value) if resume_value is not None else None,
+            tenant_storage_key=_sha256(
+                data.get("tenant_storage_key")
+                or data.get("tenant_scope_digest"),
+                "tenant_storage_key",
+            ),
         )
 
     @property
@@ -605,6 +673,7 @@ class AdapterEvaluationJobRequest:
     adapter: AdapterSpec
     validation_dataset: ValidationDatasetManifest
     configuration: AdapterEvaluationConfiguration
+    tenant_storage_key: str | None = None
 
     @classmethod
     def from_mapping(cls, value: Any) -> "AdapterEvaluationJobRequest":
@@ -625,6 +694,7 @@ class AdapterEvaluationJobRequest:
             "adapter",
             "validation_dataset",
             "configuration",
+            "tenant_storage_key",
         }
         data = _closed_mapping(data, "evaluation request", frozenset(allowed))
         version = _text(data.get("contract_version"), "contract_version", maximum=64)
@@ -654,6 +724,11 @@ class AdapterEvaluationJobRequest:
             adapter=AdapterSpec.from_mapping(data.get("adapter")),
             validation_dataset=ValidationDatasetManifest.from_mapping(data.get("validation_dataset")),
             configuration=AdapterEvaluationConfiguration.from_mapping(data.get("configuration")),
+            tenant_storage_key=_sha256(
+                data.get("tenant_storage_key")
+                or data.get("tenant_scope_digest"),
+                "tenant_storage_key",
+            ),
         )
 
     @property

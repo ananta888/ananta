@@ -10,7 +10,15 @@ from typing import Any, Callable, Mapping, NoReturn, Protocol
 from flask import Flask, jsonify, request, send_file
 from werkzeug.exceptions import RequestEntityTooLarge
 
-from worker.training.backends import MockTrainingBackend, PeftTrlTrainingBackend, UnslothTrainingBackend
+from ananta_contracts.unsloth_capability import unavailable_worker_capability_probe
+from worker.training.backends import (
+    MockTrainingBackend,
+    PeftTrlTrainingBackend,
+    UnslothAudioTrainingBackend,
+    UnslothEmbeddingTrainingBackend,
+    UnslothTrainingBackend,
+    UnslothVisionTrainingBackend,
+)
 from worker.training.backends.base import TrainingBackend
 from worker.training.contracts import CONTRACT_VERSION, EVALUATION_JOB_TYPE, TrainingContractError
 from worker.training.inference import (
@@ -22,11 +30,14 @@ from worker.training.inference import (
     LoraInferenceWorkerRuntime,
 )
 from worker.training.runtime import RuntimeConfiguration, TrainingRuntimeError, TrainingWorkerRuntime
+from worker.training.storage_cleanup import WorkerStorageCleanupError
 
 DEFAULT_PORT = 8095
 MIN_BEARER_TOKEN_LENGTH = 24
 JOBS_ENDPOINT = "/internal/v1/lora-training/jobs"
 EVALUATIONS_ENDPOINT = "/internal/v1/lora-training/evaluations"
+CAPABILITIES_ENDPOINT = "/internal/v1/lora-training/capabilities"
+CLEANUP_ENDPOINT = "/internal/v1/lora-training/cleanup"
 INFERENCE_CAPABILITIES_ENDPOINT = "/internal/v1/lora-training/inference/capabilities"
 INFERENCE_GENERATE_ENDPOINT = "/internal/v1/lora-training/inference/generate"
 INFERENCE_UNLOAD_ENDPOINT = "/internal/v1/lora-training/inference/adapters/<adapter_id>/<adapter_version>/unload"
@@ -36,7 +47,11 @@ _DEFAULT_MAX_REQUEST_BYTES = 1024 * 1024
 class RuntimePort(Protocol):
     def health(self) -> dict[str, Any]: ...
 
+    def capability_probe(self) -> dict[str, Any]: ...
+
     def submit(self, envelope: Mapping[str, Any]) -> dict[str, Any]: ...
+
+    def cleanup(self, envelope: Mapping[str, Any]) -> dict[str, Any]: ...
 
     def status(self, job_id: str) -> dict[str, Any]: ...
 
@@ -70,12 +85,21 @@ class _UnavailableRuntime:
             "errors": [self._reason],
         }
 
+    def capability_probe(self) -> dict[str, Any]:
+        return unavailable_worker_capability_probe(
+            contract_version=CONTRACT_VERSION,
+            reason_code="runtime_not_configured",
+        )
+
     def _reject(self) -> NoReturn:
         raise TrainingRuntimeError(
             "worker_degraded", "training runtime is not configured", http_status=503, retryable=True
         )
 
     def submit(self, envelope: Mapping[str, Any]) -> dict[str, Any]:
+        self._reject()
+
+    def cleanup(self, envelope: Mapping[str, Any]) -> dict[str, Any]:
         self._reject()
 
     def status(self, job_id: str) -> dict[str, Any]:
@@ -111,6 +135,9 @@ def _runtime_from_environment() -> RuntimePort:
         "mock": MockTrainingBackend,
         "peft_trl": PeftTrlTrainingBackend,
         "unsloth": UnslothTrainingBackend,
+        "unsloth_audio": UnslothAudioTrainingBackend,
+        "unsloth_embedding": UnslothEmbeddingTrainingBackend,
+        "unsloth_vision": UnslothVisionTrainingBackend,
     }
     unknown = sorted(enabled.difference(factories))
     if unknown:
@@ -135,6 +162,30 @@ def _runtime_from_environment() -> RuntimePort:
             10_000_000,
             minimum=1,
             maximum=100_000_000,
+        ),
+        max_model_bytes=_env_int(
+            "ANANTA_LORA_TRAINING_MAX_MODEL_BYTES",
+            32 * 1024**3,
+            minimum=1,
+            maximum=1024**5,
+        ),
+        max_checkpoint_bytes=_env_int(
+            "ANANTA_LORA_TRAINING_MAX_CHECKPOINT_BYTES",
+            16 * 1024**3,
+            minimum=1,
+            maximum=1024**5,
+        ),
+        max_export_bytes=_env_int(
+            "ANANTA_LORA_TRAINING_MAX_EXPORT_BYTES",
+            16 * 1024**3,
+            minimum=1,
+            maximum=1024**5,
+        ),
+        max_tenant_storage_bytes=_env_int(
+            "ANANTA_LORA_TRAINING_MAX_TENANT_STORAGE_BYTES",
+            64 * 1024**3,
+            minimum=1,
+            maximum=1024**5,
         ),
         isolate_processes=_env_bool("ANANTA_LORA_TRAINING_ISOLATE_PROCESSES", True),
         termination_grace_seconds=float(
@@ -268,6 +319,21 @@ def create_app(  # noqa: C901 - additive Flask route composition remains explici
             payload["status"] = "degraded"
         return jsonify(payload), 200
 
+    @app.get(CAPABILITIES_ENDPOINT)
+    def capabilities() -> tuple[Any, int]:
+        rejection = _authorization(configured_token, token_ready)
+        if rejection:
+            return rejection
+        probe = getattr(worker_runtime, "capability_probe", None)
+        if not callable(probe):
+            return jsonify(
+                unavailable_worker_capability_probe(
+                    contract_version=CONTRACT_VERSION,
+                    reason_code="runtime_not_configured",
+                )
+            ), 200
+        return jsonify(probe()), 200
+
     @app.post(JOBS_ENDPOINT)
     def submit_job() -> tuple[Any, int]:
         rejection = _authorization(configured_token, token_ready)
@@ -281,6 +347,30 @@ def create_app(  # noqa: C901 - additive Flask route composition remains explici
             return jsonify(worker_runtime.submit(payload)), 202
         except (TrainingRuntimeError, TrainingContractError) as exc:
             return _domain_error(exc)
+
+    @app.post(CLEANUP_ENDPOINT)
+    def cleanup_storage() -> tuple[Any, int]:
+        rejection = _authorization(configured_token, token_ready)
+        if rejection:
+            return rejection
+        payload, invalid = _request_mapping()
+        if invalid:
+            return invalid
+        assert payload is not None
+        try:
+            return jsonify(worker_runtime.cleanup(payload)), 200
+        except WorkerStorageCleanupError as exc:
+            return _error(
+                str(
+                    getattr(
+                        exc,
+                        "reason_code",
+                        "storage_cleanup_rejected",
+                    )
+                ),
+                str(exc),
+                int(getattr(exc, "http_status", 422)),
+            )
 
     @app.get(INFERENCE_CAPABILITIES_ENDPOINT)
     def inference_capabilities() -> tuple[Any, int]:

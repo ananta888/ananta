@@ -28,7 +28,7 @@ case "$profile" in
   lora-training-nvidia)
     mode=live
     default_backend=peft_trl
-    worker_backends=peft_trl,unsloth
+    worker_backends=peft_trl,unsloth,unsloth_vision,unsloth_audio,unsloth_embedding
     resource_profile=nvidia
     gpu_profile=rtx3080-safe
     ;;

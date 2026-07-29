@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import math
+import time
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -247,10 +248,14 @@ class PeftTrlTrainingBackend:
 
     @staticmethod
     def _trainer_callback(context: TrainingContext, base: type[Any]) -> Any:
+        sample = {"time": time.monotonic(), "tokens": 0}
+
         class WorkerCallback(base):
             def on_log(self, args: Any, state: Any, control: Any, logs: Any = None, **kwargs: Any) -> Any:
                 context.cancel.raise_if_cancelled()
                 values = logs or {}
+                now = time.monotonic()
+                observed_tokens = getattr(state, "num_input_tokens_seen", 0)
                 payload = {
                     "step": int(state.global_step),
                     "max_steps": int(state.max_steps),
@@ -259,6 +264,27 @@ class PeftTrlTrainingBackend:
                     "eval_loss": values.get("eval_loss"),
                     "learning_rate": values.get("learning_rate"),
                 }
+                if (
+                    isinstance(observed_tokens, int)
+                    and observed_tokens >= sample["tokens"]
+                    and now > sample["time"]
+                ):
+                    payload["tokens_per_second"] = (observed_tokens - sample["tokens"]) / (now - sample["time"])
+                    sample["tokens"] = observed_tokens
+                    sample["time"] = now
+                try:
+                    import torch
+
+                    cuda = getattr(torch, "cuda", None)
+                    if cuda is not None and callable(getattr(cuda, "is_available", None)) and cuda.is_available():
+                        payload["vram_used_bytes"] = int(
+                            cuda.memory_allocated()
+                        )
+                        utilization = getattr(cuda, "utilization", None)
+                        if callable(utilization):
+                            payload["gpu_utilization_percent"] = float(utilization())
+                except (ImportError, RuntimeError, TypeError, ValueError):
+                    pass
                 context.emit("progress", {key: value for key, value in payload.items() if value is not None})
                 return control
 

@@ -148,10 +148,28 @@ class DatasetValidator:
             and isinstance(record.get("output"), str)
             and bool(record["output"].strip())
         )
-        if not (has_messages or has_text or has_pair):
+        embedding_label = record.get("label")
+        has_embedding_pair = (
+            isinstance(record.get("sentence_A"), str)
+            and bool(record["sentence_A"].strip())
+            and isinstance(record.get("sentence_B"), str)
+            and bool(record["sentence_B"].strip())
+            and not isinstance(embedding_label, bool)
+            and isinstance(embedding_label, (int, float))
+            and 0.0 <= float(embedding_label) <= 1.0
+        )
+        if not (
+            has_messages
+            or has_text
+            or has_pair
+            or has_embedding_pair
+        ):
             raise TrainingContractError(
                 "invalid_dataset_record",
-                f"{split} line {line_number} requires messages, text, or instruction/output",
+                (
+                    f"{split} line {line_number} requires messages, "
+                    "text, instruction/output, or a sentence pair"
+                ),
             )
         if has_messages:
             for message in record["messages"]:

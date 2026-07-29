@@ -7,6 +7,8 @@ import importlib.metadata
 import json
 import os
 import platform
+import subprocess
+import sys
 import threading
 import time
 import uuid
@@ -15,6 +17,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
+from ananta_contracts.unsloth_capability import (
+    compose_worker_capability_probe,
+    progress_telemetry,
+)
 from worker.training.backends.base import (
     TrainingBackend,
     TrainingBackendError,
@@ -41,13 +47,40 @@ from worker.training.subprocess_executor import IsolatedBackendExecutor
 
 TERMINAL_STATUSES = frozenset({"succeeded", "failed", "cancelled"})
 ACTIVE_STATUSES = frozenset({"queued", "running", "cancel_requested"})
+_EVENT_MODALITIES = frozenset({"text", "vision", "audio", "embedding"})
+_RESOURCE_ADMISSION_PAYLOAD_KEYS = frozenset(
+    {
+        "profile",
+        "admitted",
+        "estimated_peak_bytes",
+        "usable_bytes",
+        "reserve_bytes",
+        "assumptions",
+        "estimate_only",
+        "reason_code",
+    }
+)
 _EVENT_PAYLOAD_KEYS = {
     "accepted": frozenset({"backend"}),
     "status": frozenset({"status", "reason_code", "retryable"}),
-    "phase": frozenset({"phase", "step"}),
-    "progress": frozenset({"step", "max_steps", "epoch", "loss", "eval_loss", "learning_rate"}),
+    "phase": frozenset({"phase", "step", "modality"}),
+    "progress": frozenset(
+        {
+            "step",
+            "max_steps",
+            "epoch",
+            "loss",
+            "eval_loss",
+            "learning_rate",
+            "tokens_per_second",
+            "gpu_utilization_percent",
+            "vram_used_bytes",
+            "telemetry",
+        }
+    ),
     "checkpoint": frozenset({"step", "name", "sha256"}),
     "artifact": frozenset({"name", "sha256", "size_bytes", "media_type"}),
+    "resource_admission": _RESOURCE_ADMISSION_PAYLOAD_KEYS,
 }
 
 
@@ -82,6 +115,10 @@ class RuntimeConfiguration:
     max_queue: int = 2
     max_dataset_bytes: int = 4 * 1024**3
     max_dataset_records: int = 10_000_000
+    max_model_bytes: int = 20 * 1024**3
+    max_checkpoint_bytes: int = 8 * 1024**3
+    max_export_bytes: int = 20 * 1024**3
+    max_tenant_bytes: int = 64 * 1024**3
     isolate_processes: bool = True
     termination_grace_seconds: float = 15.0
 
@@ -121,6 +158,7 @@ class TrainingWorkerRuntime:
         )
         self._worker_instance_id = str(uuid.uuid4())
         self._configuration_errors = self._configuration_failures()
+        self._capability_cache: tuple[float, dict[str, Any]] | None = None
         if not self._configuration_errors:
             self._load_persisted_jobs()
 
@@ -151,6 +189,37 @@ class TrainingWorkerRuntime:
                 },
                 "errors": errors,
             }
+
+    def capability_probe(self) -> dict[str, Any]:
+        """Return a cached, bounded, Worker-owned dependency/hardware probe."""
+
+        with self._lock:
+            if self._capability_cache is not None:
+                cached_at, cached = self._capability_cache
+                if time.monotonic() - cached_at < 30.0:
+                    return json.loads(json.dumps(cached))
+            backend_availability = {
+                name: backend.availability()
+                for name, backend in self._backends.items()
+            }
+            default_gpu_profile = (
+                "none" if self._config.resource_profile in {"mock", "cpu"} else "generic-safe"
+            )
+            active_gpu_profile = str(
+                os.getenv("ANANTA_LORA_TRAINING_GPU_PROFILE", default_gpu_profile)
+            ).strip().lower()
+            probe = compose_worker_capability_probe(
+                contract_version=CONTRACT_VERSION,
+                resource_profile=self._config.resource_profile,
+                active_gpu_profile=active_gpu_profile,
+                backend_availability=backend_availability,
+                package_versions=self._package_versions(),
+                hardware=self._bounded_torch_hardware_probe(),
+                runtime_ready=not self._configuration_errors,
+                runtime_reason_code="configuration_invalid",
+            )
+            self._capability_cache = (time.monotonic(), probe)
+            return json.loads(json.dumps(probe))
 
     def submit(self, envelope: Mapping[str, Any]) -> dict[str, Any]:
         self._ensure_ready()
@@ -279,6 +348,16 @@ class TrainingWorkerRuntime:
                 )
             return candidate, dict(metadata)
 
+    def cleanup(self, envelope: Mapping[str, Any]) -> dict[str, Any]:
+        from worker.training.storage_cleanup import (
+            WorkerStorageCleanupExecutor,
+        )
+
+        return WorkerStorageCleanupExecutor(
+            state_root=self._config.state_root,
+            workspace_root=self._config.workspace_root,
+        ).execute(envelope)
+
     def close(self) -> None:
         with self._lock:
             for job in self._jobs.values():
@@ -305,6 +384,15 @@ class TrainingWorkerRuntime:
             workspace = self._resolve_within(
                 self._config.workspace_root, job.request.workspace_ref, "workspace_missing"
             )
+            expected_workspace = self._workspace_relative(job)
+            if (
+                job.request.workspace_ref.startswith("tenants/")
+                and job.request.workspace_ref != expected_workspace
+            ):
+                raise TrainingContractError(
+                    "workspace_scope_binding_mismatch",
+                    "workspace_ref is not bound to the current tenant and attempt",
+                )
             if not workspace.is_dir():
                 raise TrainingContractError(
                     "workspace_missing", "workspace_ref does not identify an admitted workspace"
@@ -314,11 +402,18 @@ class TrainingWorkerRuntime:
             )
             if not model_path.exists():
                 raise TrainingContractError("model_missing", "base model snapshot is unavailable")
+            self._enforce_path_quota(
+                model_path,
+                self._config.max_model_bytes,
+                "model_quota_exceeded",
+            )
             if _path_sha256(model_path) != job.request.base_model.snapshot_hash:
                 raise TrainingContractError(
                     "base_model_hash_mismatch",
                     "base model snapshot does not match the admitted catalog hash",
                 )
+            self._write_model_binding(job)
+            self._enforce_dataset_scope_and_quota(job)
             validator = DatasetValidator(
                 self._config.dataset_root,
                 max_split_bytes=self._config.max_dataset_bytes,
@@ -359,6 +454,7 @@ class TrainingWorkerRuntime:
                     assert isinstance(outcome, AdapterEvaluationOutcome)
                     manifest = self._write_evaluation_manifest(job, dataset, outcome, artifacts)
                 artifacts.append(self._artifact_metadata(job, manifest))
+                self._enforce_storage_quotas(job)
                 job.artifacts = artifacts
                 job.metrics = dict(outcome.metrics)
                 if (
@@ -434,6 +530,7 @@ class TrainingWorkerRuntime:
                 event_type,
                 payload,
             ),
+            checkpoint_state_root=self._config.state_root,
         )
         backend = self._backends[request.backend]
         if self._config.isolate_processes:
@@ -499,7 +596,24 @@ class TrainingWorkerRuntime:
             allowed = _EVENT_PAYLOAD_KEYS.get(event_type)
             if allowed is None or not set(payload).issubset(allowed):
                 raise TrainingBackendError("invalid_backend_event", "backend event contains unsupported fields")
-            clean = {key: _safe_scalar(value) for key, value in payload.items()}
+            if event_type == "resource_admission":
+                clean = _safe_resource_admission_payload(payload)
+            elif event_type == "progress":
+                clean = {
+                    key: _safe_scalar(value)
+                    for key, value in payload.items()
+                    if key != "telemetry"
+                }
+                clean["telemetry"] = progress_telemetry(clean)
+            else:
+                clean = {key: _safe_scalar(value) for key, value in payload.items()}
+            if event_type == "phase":
+                modality = clean.get("modality")
+                if modality is not None and modality not in _EVENT_MODALITIES:
+                    raise TrainingBackendError(
+                        "invalid_backend_event",
+                        "backend phase event contains an unsupported modality",
+                    )
             if event_type == "progress":
                 if not isinstance(job.request, TrainingJobRequest):
                     raise TrainingBackendError("invalid_progress", "evaluation jobs cannot emit training progress")
@@ -602,10 +716,15 @@ class TrainingWorkerRuntime:
 
     def _load_persisted_jobs(self) -> None:
         jobs_root = self._config.state_root / "jobs"
-        if not jobs_root.exists():
+        tenants_root = self._config.state_root / "tenants"
+        if not jobs_root.exists() and not tenants_root.exists():
             return
         loaded: list[_Job] = []
-        for status_path in sorted(jobs_root.glob("*/attempts/*/status.json")):
+        status_paths = (
+            *jobs_root.glob("*/attempts/*/status.json"),
+            *tenants_root.glob("*/jobs/*/attempts/*/status.json"),
+        )
+        for status_path in sorted(status_paths):
             try:
                 payload = json.loads(status_path.read_text(encoding="utf-8"))
                 request = parse_job_request(payload["request"])
@@ -653,9 +772,9 @@ class TrainingWorkerRuntime:
             raise TrainingRuntimeError(
                 "stale_fence", "retry attempt must advance attempt_id and fencing_token", http_status=409
             )
-        immutable_fields = ["job_type", "backend", "workspace_ref", "base_model", "configuration"]
+        immutable_fields = ["job_type", "backend", "base_model", "configuration"]
         if isinstance(request, TrainingJobRequest) and isinstance(existing.request, TrainingJobRequest):
-            immutable_fields.append("dataset")
+            immutable_fields.extend(("dataset", "exports"))
         elif isinstance(request, AdapterEvaluationJobRequest) and isinstance(
             existing.request, AdapterEvaluationJobRequest
         ):
@@ -693,6 +812,24 @@ class TrainingWorkerRuntime:
             errors.append("resource profile must be mock, cpu, or nvidia")
         if self._config.max_workers < 1 or self._config.max_queue < 0:
             errors.append("worker and queue capacity are invalid")
+        if any(
+            value < 1
+            for value in (
+                self._config.max_dataset_bytes,
+                self._config.max_dataset_records,
+                self._config.max_model_bytes,
+                self._config.max_checkpoint_bytes,
+                self._config.max_export_bytes,
+                self._config.max_tenant_bytes,
+            )
+        ):
+            errors.append("worker storage quotas are invalid")
+        if self._config.max_tenant_bytes < max(
+            self._config.max_model_bytes,
+            self._config.max_checkpoint_bytes,
+            self._config.max_export_bytes,
+        ):
+            errors.append("worker tenant quota is smaller than an artifact quota")
         if not self._backends:
             errors.append("no training backend is enabled")
         for name, root, writable in (
@@ -758,6 +895,7 @@ class TrainingWorkerRuntime:
             "metrics": dict(job.metrics),
             "artifacts": [dict(item) for item in job.artifacts],
             "resume_checkpoint": dict(job.resume_checkpoint) if job.resume_checkpoint else None,
+            "storage_usage": self._storage_usage(job),
             "cancel_mode": job.cancel_mode,
             "error": dict(job.error) if job.error else None,
         }
@@ -904,19 +1042,32 @@ class TrainingWorkerRuntime:
         if resume is None:
             return None
         path_parts = Path(resume.relative_path).parts
-        expected_prefix = ("jobs", resume.binding.job_id, "attempts", resume.binding.source_attempt_id)
-        if len(path_parts) < 6 or path_parts[:4] != expected_prefix:
+        legacy_prefix = (
+            "jobs",
+            resume.binding.job_id,
+            "attempts",
+            resume.binding.source_attempt_id,
+        )
+        scoped_prefix = (
+            "tenants",
+            job.request.tenant_scope_digest,
+            "jobs",
+            resume.binding.job_id,
+            "attempts",
+            resume.binding.source_attempt_id,
+        )
+        if path_parts[: len(scoped_prefix)] == scoped_prefix:
+            source_prefix = scoped_prefix
+        elif path_parts[: len(legacy_prefix)] == legacy_prefix:
+            source_prefix = legacy_prefix
+        else:
             raise TrainingContractError(
                 "checkpoint_binding_mismatch",
                 "resume checkpoint path is not bound to its source job",
             )
-        source_status_path = (
-            self._config.state_root
-            / "jobs"
-            / resume.binding.job_id
-            / "attempts"
-            / resume.binding.source_attempt_id
-            / "status.json"
+        source_status_path = self._config.state_root.joinpath(
+            *source_prefix,
+            "status.json",
         )
         try:
             source_status = json.loads(source_status_path.read_text(encoding="utf-8"))
@@ -929,6 +1080,9 @@ class TrainingWorkerRuntime:
         if (
             source_request.job_id != resume.binding.job_id
             or source_request.attempt_id != resume.binding.source_attempt_id
+            or source_request.tenant_scope_digest
+            != job.request.tenant_scope_digest
+            or source_request.backend != job.request.backend
             or source_request.base_model.snapshot_hash != resume.binding.base_model_hash
             or source_request.dataset.identity_hash != resume.binding.dataset_hash
             or source_request.configuration.identity_hash != resume.binding.configuration_hash
@@ -963,7 +1117,15 @@ class TrainingWorkerRuntime:
         return candidate
 
     def _job_root(self, job: _Job) -> Path:
-        return self._config.state_root / "jobs" / job.request.job_id / "attempts" / job.request.attempt_id
+        return (
+            self._config.state_root
+            / "tenants"
+            / job.request.tenant_scope_digest
+            / "jobs"
+            / job.request.job_id
+            / "attempts"
+            / job.request.attempt_id
+        )
 
     def _artifact_root(self, job: _Job) -> Path:
         return self._job_root(job) / "artifacts"
@@ -977,15 +1139,176 @@ class TrainingWorkerRuntime:
     def _status_path(self, job: _Job) -> Path:
         return self._job_root(job) / "status.json"
 
+    def _workspace_relative(self, job: _Job) -> str:
+        return (
+            f"tenants/{job.request.tenant_scope_digest}/jobs/"
+            f"{job.request.job_id}/attempts/{job.request.attempt_id}/workspace"
+        )
+
+    def _write_model_binding(self, job: _Job) -> None:
+        binding = self._job_root(job) / "model-binding.json"
+        binding.write_text(
+            json.dumps(
+                {
+                    "schema": "ananta.lora-model-binding.v1",
+                    "tenant_scope_digest": job.request.tenant_scope_digest,
+                    "job_id": job.request.job_id,
+                    "attempt_id": job.request.attempt_id,
+                    "model_id": job.request.base_model.model_id,
+                    "snapshot_hash": job.request.base_model.snapshot_hash,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            encoding="utf-8",
+        )
+
+    def _enforce_dataset_scope_and_quota(self, job: _Job) -> None:
+        request = job.request
+        if isinstance(request, TrainingJobRequest):
+            manifests = (request.dataset.train, request.dataset.validation)
+        else:
+            manifests = (request.validation_dataset.validation,)
+        total = 0
+        for manifest in manifests:
+            relative = str(manifest.relative_path)
+            parts = Path(relative).parts
+            if parts[:1] == ("tenants",) and (
+                len(parts) < 3
+                or parts[1] != str(request.tenant_storage_key)
+                or parts[2] != "datasets"
+            ):
+                raise TrainingContractError(
+                    "dataset_tenant_binding_mismatch",
+                    "dataset path belongs to another tenant",
+                )
+            path = self._resolve_within(
+                self._config.dataset_root,
+                relative,
+                "dataset_missing",
+            )
+            if path.is_symlink() or not path.is_file():
+                raise TrainingContractError(
+                    "dataset_missing",
+                    "dataset split is not a regular file",
+                )
+            total += path.stat().st_size
+        if total > self._config.max_dataset_bytes:
+            raise TrainingContractError(
+                "dataset_quota_exceeded",
+                "combined dataset splits exceed the configured quota",
+            )
+
+    def _enforce_storage_quotas(self, job: _Job) -> None:
+        self._enforce_path_quota(
+            self._checkpoint_root(job),
+            self._config.max_checkpoint_bytes,
+            "checkpoint_quota_exceeded",
+        )
+        self._enforce_path_quota(
+            self._artifact_root(job),
+            self._config.max_export_bytes,
+            "export_quota_exceeded",
+        )
+        tenant_state = (
+            self._config.state_root
+            / "tenants"
+            / job.request.tenant_scope_digest
+        )
+        tenant_workspace = (
+            self._config.workspace_root
+            / "tenants"
+            / job.request.tenant_scope_digest
+        )
+        if (
+            _path_size(tenant_state)
+            + _path_size(tenant_workspace)
+            > self._config.max_tenant_bytes
+        ):
+            raise TrainingContractError(
+                "tenant_storage_quota_exceeded",
+                "worker tenant storage exceeds the configured quota",
+            )
+
+    @staticmethod
+    def _enforce_path_quota(
+        path: Path,
+        maximum: int,
+        reason_code: str,
+    ) -> None:
+        if _path_size(path) > maximum:
+            raise TrainingContractError(
+                reason_code,
+                "worker storage exceeds the configured quota",
+            )
+
+    def _storage_usage(self, job: _Job) -> dict[str, Any]:
+        checkpoint_bytes = _path_size(self._checkpoint_root(job))
+        export_bytes = _path_size(self._artifact_root(job))
+        workspace = self._resolve_within(
+            self._config.workspace_root,
+            job.request.workspace_ref,
+            "workspace_missing",
+        )
+        return {
+            "workspace_bytes": _path_size(workspace),
+            "checkpoint_bytes": checkpoint_bytes,
+            "export_bytes": export_bytes,
+            "attempt_bytes": checkpoint_bytes + export_bytes,
+            "quotas": {
+                "dataset_bytes": self._config.max_dataset_bytes,
+                "model_bytes": self._config.max_model_bytes,
+                "checkpoint_bytes": self._config.max_checkpoint_bytes,
+                "export_bytes": self._config.max_export_bytes,
+                "tenant_total_bytes": self._config.max_tenant_bytes,
+            },
+        }
+
     @staticmethod
     def _package_versions() -> dict[str, str]:
         versions: dict[str, str] = {}
-        for package in ("torch", "transformers", "datasets", "peft", "trl", "safetensors", "unsloth"):
+        for package in (
+            "torch",
+            "transformers",
+            "datasets",
+            "peft",
+            "trl",
+            "safetensors",
+            "unsloth",
+            "unsloth_zoo",
+        ):
             try:
                 versions[package] = importlib.metadata.version(package)
             except importlib.metadata.PackageNotFoundError:
                 continue
         return versions
+
+    @staticmethod
+    def _bounded_torch_hardware_probe() -> dict[str, Any]:
+        script = (
+            "import json, torch\n"
+            "available=bool(torch.cuda.is_available())\n"
+            "count=int(torch.cuda.device_count()) if available else 0\n"
+            "props=torch.cuda.get_device_properties(0) if count else None\n"
+            "print(json.dumps({'cuda_available':available,'torch_version':str(torch.__version__),"
+            "'cuda_version':str(torch.version.cuda) if torch.version.cuda else None,"
+            "'device_count':count,'device_name':str(props.name) if props else None,"
+            "'total_vram_bytes':int(props.total_memory) if props else None}))\n"
+        )
+        try:
+            completed = subprocess.run(
+                [sys.executable, "-I", "-c", script],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=3.0,
+            )
+            if completed.returncode != 0 or len(completed.stdout) > 16_384:
+                return {}
+            payload = json.loads(completed.stdout)
+            return dict(payload) if isinstance(payload, Mapping) else {}
+        except (OSError, subprocess.SubprocessError, ValueError):
+            return {}
 
     def _hardware_manifest(self) -> dict[str, Any]:
         return {
@@ -997,6 +1320,55 @@ class TrainingWorkerRuntime:
         }
 
 
+def _safe_resource_admission_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    required_fields = _RESOURCE_ADMISSION_PAYLOAD_KEYS.difference({"reason_code"})
+    if not required_fields.issubset(payload) or not set(payload).issubset(_RESOURCE_ADMISSION_PAYLOAD_KEYS):
+        raise TrainingBackendError(
+            "invalid_backend_event",
+            "resource admission event must contain the declared fields",
+        )
+    profile = payload.get("profile")
+    if not isinstance(profile, str) or not profile or len(profile) > 64:
+        raise TrainingBackendError("invalid_backend_event", "resource admission profile is invalid")
+    admitted = payload.get("admitted")
+    estimate_only = payload.get("estimate_only")
+    if not isinstance(admitted, bool) or not isinstance(estimate_only, bool):
+        raise TrainingBackendError("invalid_backend_event", "resource admission flags are invalid")
+    if payload.get("reason_code") not in {None, "vram_admission_admitted"}:
+        raise TrainingBackendError("invalid_backend_event", "resource admission reason is invalid")
+    clean: dict[str, Any] = {
+        "profile": profile,
+        "admitted": admitted,
+        "estimate_only": estimate_only,
+        "reason_code": str(payload.get("reason_code") or "vram_admission_admitted"),
+    }
+    for field_name in ("estimated_peak_bytes", "reserve_bytes"):
+        value = payload.get(field_name)
+        if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 2**63 - 1:
+            raise TrainingBackendError(
+                "invalid_backend_event",
+                f"resource admission {field_name} is invalid",
+            )
+        clean[field_name] = value
+    usable_bytes = payload.get("usable_bytes")
+    if usable_bytes is not None and (
+        isinstance(usable_bytes, bool)
+        or not isinstance(usable_bytes, int)
+        or not 0 <= usable_bytes <= 2**63 - 1
+    ):
+        raise TrainingBackendError("invalid_backend_event", "resource admission usable_bytes is invalid")
+    clean["usable_bytes"] = usable_bytes
+    assumptions = payload.get("assumptions")
+    if (
+        not isinstance(assumptions, (list, tuple))
+        or not 1 <= len(assumptions) <= 16
+        or any(not isinstance(item, str) or not item or len(item) > 256 for item in assumptions)
+    ):
+        raise TrainingBackendError("invalid_backend_event", "resource admission assumptions are invalid")
+    clean["assumptions"] = list(assumptions)
+    return clean
+
+
 def _safe_scalar(value: Any) -> Any:
     if value is None or isinstance(value, (str, bool, int)):
         return value
@@ -1005,6 +1377,18 @@ def _safe_scalar(value: Any) -> Any:
             raise TrainingBackendError("invalid_backend_event", "backend event contains a non-finite number")
         return value
     raise TrainingBackendError("invalid_backend_event", "backend event values must be scalar")
+
+
+def _path_size(path: Path) -> int:
+    if not path.exists():
+        return 0
+    if path.is_file():
+        return path.stat().st_size
+    return sum(
+        item.stat().st_size
+        for item in path.rglob("*")
+        if item.is_file() and not item.is_symlink()
+    )
 
 
 def _file_sha256(path: Path) -> str:

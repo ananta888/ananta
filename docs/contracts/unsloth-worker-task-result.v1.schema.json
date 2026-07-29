@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/contracts/unsloth-worker-task-result.v1.schema.json",
+  "title": "Ananta Unsloth Worker Task Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "task_id",
+    "task_type",
+    "tenant_id",
+    "payload_sha256",
+    "status",
+    "reason_code",
+    "result"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.unsloth-worker-task-result.v1"},
+    "task_id": {"$ref": "#/$defs/identifier"},
+    "task_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 192
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 192
+    },
+    "payload_sha256": {"$ref": "#/$defs/sha256"},
+    "status": {"enum": ["completed", "failed"]},
+    "reason_code": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 192
+    },
+    "result": {
+      "oneOf": [
+        {"type": "object"},
+        {"type": "null"}
+      ]
+    },
+    "handler_contract": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 192
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"status": {"const": "completed"}},
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "reason_code": {"type": "null"},
+          "result": {"type": "object"}
+        }
+      },
+      "else": {
+        "properties": {
+          "reason_code": {"type": "string"},
+          "result": {"type": "null"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 192,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

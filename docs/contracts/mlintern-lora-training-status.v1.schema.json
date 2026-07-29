@@ -35,7 +35,16 @@
     },
     "correlation_id": {"$ref": "#/$defs/identifier"},
     "job_type": {"enum": ["train_lora", "evaluate_existing_adapter"]},
-    "backend": {"enum": ["mock", "peft_trl", "unsloth"]},
+    "backend": {
+      "enum": [
+        "mock",
+        "peft_trl",
+        "unsloth",
+        "unsloth_vision",
+        "unsloth_audio",
+        "unsloth_embedding"
+      ]
+    },
     "status": {"enum": ["queued", "running", "cancel_requested", "succeeded", "failed", "cancelled"]},
     "created_at": {"type": "number", "minimum": 0},
     "updated_at": {"type": "number", "minimum": 0},
@@ -77,7 +86,17 @@
         "epoch": {"type": ["number", "null"]},
         "loss": {"type": ["number", "null"]},
         "eval_loss": {"type": ["number", "null"]},
-        "learning_rate": {"type": ["number", "null"]}
+        "learning_rate": {"type": ["number", "null"]},
+        "tokens_per_second": {"type": "number", "minimum": 0},
+        "gpu_utilization_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "vram_used_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "error": {

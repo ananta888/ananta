@@ -1,0 +1,5 @@
+# Network-enabled model-import profile only. The base lock already supplies
+# requests, fsspec, packaging, pyyaml, tqdm and typing-extensions.
+filelock==3.29.7
+hf-xet==1.5.1
+huggingface-hub==0.36.2

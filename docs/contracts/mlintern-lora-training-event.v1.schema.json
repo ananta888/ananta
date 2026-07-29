@@ -28,7 +28,17 @@
       "maximum": 57896044618658097711785492504343953926634992332820282019728792003956564819967
     },
     "correlation_id": {"$ref": "#/$defs/identifier"},
-    "type": {"enum": ["accepted", "status", "phase", "progress", "checkpoint", "artifact"]},
+    "type": {
+      "enum": [
+        "accepted",
+        "status",
+        "phase",
+        "progress",
+        "checkpoint",
+        "artifact",
+        "resource_admission"
+      ]
+    },
     "payload": {"type": "object"}
   },
   "allOf": [
@@ -55,6 +65,10 @@
     {
       "if": {"properties": {"type": {"const": "artifact"}}, "required": ["type"]},
       "then": {"properties": {"payload": {"$ref": "mlintern-lora-training-artifact.v1.schema.json"}}}
+    },
+    {
+      "if": {"properties": {"type": {"const": "resource_admission"}}, "required": ["type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/resourceAdmissionPayload"}}}
     }
   ],
   "$defs": {
@@ -86,7 +100,39 @@
       "required": ["phase"],
       "properties": {
         "phase": {"type": "string", "minLength": 1, "maxLength": 64},
-        "step": {"type": "integer", "minimum": 0, "maximum": 10000000}
+        "step": {"type": "integer", "minimum": 0, "maximum": 10000000},
+        "modality": {"enum": ["text", "vision", "audio", "embedding"]}
+      }
+    },
+    "resourceAdmissionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "admitted",
+        "estimated_peak_bytes",
+        "usable_bytes",
+        "reserve_bytes",
+        "assumptions",
+        "estimate_only"
+      ],
+      "properties": {
+        "profile": {"type": "string", "minLength": 1, "maxLength": 64},
+        "admitted": {"type": "boolean"},
+        "estimated_peak_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+        "usable_bytes": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "reserve_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+        "assumptions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {"type": "string", "minLength": 1, "maxLength": 256}
+        },
+        "estimate_only": {"type": "boolean"}
       }
     },
     "progressPayload": {

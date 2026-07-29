@@ -50,7 +50,30 @@
         {"$ref": "#/$defs/evaluationConfiguration"}
       ]
     },
-    "resume_checkpoint": {"$ref": "#/$defs/resumeCheckpoint"}
+    "resume_checkpoint": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/resumeCheckpoint"}
+      ]
+    },
+    "exports": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/exportSpec"}
+        }
+      ]
+    },
+    "tenant_storage_key": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/sha256"}
+      ]
+    }
   },
   "oneOf": [
     {
@@ -67,7 +90,13 @@
         "configuration": {"$ref": "#/$defs/evaluationConfiguration"}
       },
       "required": ["adapter", "validation_dataset"],
-      "not": {"anyOf": [{"required": ["dataset"]}, {"required": ["resume_checkpoint"]}]}
+      "not": {
+        "anyOf": [
+          {"required": ["dataset"]},
+          {"required": ["resume_checkpoint"]},
+          {"required": ["exports"]}
+        ]
+      }
     }
   ],
   "$defs": {
@@ -233,6 +262,25 @@
         "relative_path": {"$ref": "#/$defs/relativeRef"},
         "binding": {"$ref": "#/$defs/checkpointBinding"}
       }
+    },
+    "exportSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format"],
+      "properties": {
+        "format": {"enum": ["adapter", "merged_16bit", "gguf"]},
+        "quantization_method": {"enum": ["q4_k_m", "q5_k_m", "q8_0"]}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"format": {"const": "gguf"}},
+            "required": ["format"]
+          },
+          "then": {"required": ["quantization_method"]},
+          "else": {"not": {"required": ["quantization_method"]}}
+        }
+      ]
     }
   }
 }

@@ -66,6 +66,11 @@ class IsolatedBackendExecutor:
                 "artifact_root": str(context.artifact_root),
                 "checkpoint_root": str(context.checkpoint_root),
                 "resume_path": str(context.resume_path) if context.resume_path else None,
+                "checkpoint_state_root": (
+                    str(context.checkpoint_state_root)
+                    if context.checkpoint_state_root
+                    else None
+                ),
             }
         else:
             payload = {

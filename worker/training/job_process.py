@@ -96,7 +96,14 @@ def _run_training(
     result_path: Path,
     cancel: CancellationToken,
 ) -> int:
-    from worker.training.backends import MockTrainingBackend, PeftTrlTrainingBackend, UnslothTrainingBackend
+    from worker.training.backends import (
+        MockTrainingBackend,
+        PeftTrlTrainingBackend,
+        UnslothAudioTrainingBackend,
+        UnslothEmbeddingTrainingBackend,
+        UnslothTrainingBackend,
+        UnslothVisionTrainingBackend,
+    )
     from worker.training.backends.base import TrainingBackend, TrainingBackendError, TrainingContext, run_backend
 
     dataset_data = _mapping(payload.get("dataset"), "dataset")
@@ -111,6 +118,9 @@ def _run_training(
         "mock": MockTrainingBackend,
         "peft_trl": PeftTrlTrainingBackend,
         "unsloth": UnslothTrainingBackend,
+        "unsloth_audio": UnslothAudioTrainingBackend,
+        "unsloth_embedding": UnslothEmbeddingTrainingBackend,
+        "unsloth_vision": UnslothVisionTrainingBackend,
     }
     factory = factories.get(request.backend)
     if factory is None:
@@ -125,6 +135,11 @@ def _run_training(
         resume_path=Path(str(payload["resume_path"])) if payload.get("resume_path") else None,
         cancel=cancel,
         emit=_emit,
+        checkpoint_state_root=(
+            Path(str(payload["checkpoint_state_root"]))
+            if payload.get("checkpoint_state_root")
+            else None
+        ),
     )
     outcome = run_backend(backend, context)
     _write_result(

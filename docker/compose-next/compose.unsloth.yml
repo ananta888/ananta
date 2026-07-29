@@ -1,0 +1,409 @@
+name: ananta-unsloth
+
+x-unsloth-hardening: &unsloth-hardening
+  init: true
+  read_only: true
+  privileged: false
+  user: "10005:10005"
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 256
+  stop_grace_period: 20s
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-file: "3"
+      max-size: 10m
+
+x-unsloth-worker-environment: &unsloth-worker-environment
+  ANANTA_QUICKSTART_MODE: role
+  ANANTA_QUICKSTART_ROLE: worker
+  ROLE: worker
+  PYTHONPATH: /app
+  PYTHONUNBUFFERED: "1"
+  FLASK_DEBUG: "0"
+  DISABLE_INITIAL_ADMIN: "1"
+  HUB_URL: http://ai-agent-hub:5000
+  AGENT_TOKEN_FILE: /run/secrets/unsloth_worker_service_token
+  REGISTRATION_TOKEN_FILE: /run/secrets/unsloth_worker_registration_token
+  SECRET_KEY_FILE: /run/secrets/unsloth_worker_session_key
+  ANANTA_RUNTIME_PROFILE: compose-safe
+
+x-unsloth-worker-healthcheck: &unsloth-worker-healthcheck
+  test:
+    - CMD
+    - python
+    - -c
+    - >-
+      import json,urllib.request;
+      p=json.load(urllib.request.urlopen("http://127.0.0.1:5000/health?basic=1",timeout=3))["data"];
+      u=p["checks"].get("unsloth_worker",{});
+      raise SystemExit(0 if p.get("status")=="ok" and u.get("status")=="ready" and u.get("capabilities") else 1)
+  interval: 15s
+  timeout: 4s
+  retries: 8
+  start_period: 30s
+
+services:
+  ai-agent-hub:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-hub-base
+    profiles:
+      - unsloth-data-recipe
+      - unsloth-model-import-network
+      - unsloth-studio
+    environment:
+      ROLE: hub
+      ANANTA_QUICKSTART_ROLE: hub
+      AGENT_NAME: ${ANANTA_UNSLOTH_HUB_ID:-ananta-unsloth-hub}
+      AGENT_URL: http://ai-agent-hub:5000
+      AGENT_TOKEN_FILE: /run/secrets/unsloth_hub_service_token
+      SECRET_KEY: ""
+      SECRET_KEY_FILE: /run/secrets/unsloth_hub_session_key
+      HUB_CAN_BE_WORKER: "0"
+      ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH: "1"
+      ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE: /run/secrets/unsloth_worker_registration_keyring
+      ANANTA_LORA_TRAINING_DATASET_ROOT: /project-workspaces
+      ANANTA_LORA_TRAINING_ARTIFACT_ROOT: /app/data/lora-artifacts
+      ANANTA_UNSLOTH_MODEL_CATALOG_PATH: /app/data/unsloth-control/model-catalog.sqlite3
+      ANANTA_UNSLOTH_STUDIO_ENABLED: "1"
+      ANANTA_UNSLOTH_STUDIO_URL: http://unsloth-studio:8888
+      ANANTA_UNSLOTH_STUDIO_ALLOWED_HOSTS: unsloth-studio
+      ANANTA_UNSLOTH_STUDIO_ALLOWED_IP_CIDRS: 172.31.250.0/24
+      ANANTA_UNSLOTH_STUDIO_EXPECTED_VERSION: ${ANANTA_UNSLOTH_STUDIO_EXPECTED_VERSION:?set the pinned Studio version}
+      ANANTA_UNSLOTH_STUDIO_PASSWORD: ${ANANTA_UNSLOTH_STUDIO_PASSWORD:?set the initial Studio password}
+      ANANTA_UNSLOTH_STUDIO_MCP_ENABLED: "1"
+      ANANTA_UNSLOTH_STUDIO_MCP_TOKEN: ${ANANTA_UNSLOTH_STUDIO_MCP_TOKEN:?set the Studio MCP bearer token}
+    volumes:
+      - type: bind
+        source: ${ANANTA_UNSLOTH_RECIPE_DATASET_DIR:-../../project-workspaces}
+        target: /project-workspaces
+        bind:
+          create_host_path: false
+      - type: volume
+        source: unsloth-hub-data
+        target: /app/data
+        volume:
+          nocopy: true
+    secrets:
+      - source: unsloth_hub_service_token
+        target: unsloth_hub_service_token
+        uid: "10005"
+        gid: "10005"
+        mode: 0400
+      - source: unsloth_hub_session_key
+        target: unsloth_hub_session_key
+        uid: "10005"
+        gid: "10005"
+        mode: 0400
+      - source: unsloth_worker_registration_keyring
+        target: unsloth_worker_registration_keyring
+        uid: "10005"
+        gid: "10005"
+        mode: 0400
+    networks:
+      unsloth-import-control: {}
+      unsloth-recipe-control: {}
+      unsloth-studio-control: {}
+
+  unsloth-data-recipe-worker:
+    <<: *unsloth-hardening
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.unsloth-task-worker
+      target: recipe
+    image: ${ANANTA_UNSLOTH_TASK_WORKER_IMAGE:-ananta-unsloth-task-worker}:${ANANTA_UNSLOTH_TASK_WORKER_TAG:-local}-recipe
+    profiles:
+      - unsloth-data-recipe
+    expose:
+      - "5000"
+    environment:
+      <<: *unsloth-worker-environment
+      AGENT_NAME: ${ANANTA_UNSLOTH_RECIPE_WORKER_ID:-ananta-unsloth-recipe-worker}
+      AGENT_URL: http://unsloth-data-recipe-worker:5000
+      ANANTA_UNSLOTH_WORKER_MODE: data_recipe
+      ANANTA_UNSLOTH_RECIPE_DATASET_ROOT: /datasets
+      ANANTA_UNSLOTH_RECIPE_ATTEMPT_OUTPUT_ROOT: /attempt-output
+      ANANTA_UNSLOTH_RECIPE_MAX_DATASET_BYTES: ${ANANTA_UNSLOTH_RECIPE_MAX_DATASET_BYTES:-4294967296}
+      ANANTA_UNSLOTH_RECIPE_MAX_OUTPUT_BYTES: ${ANANTA_UNSLOTH_RECIPE_MAX_OUTPUT_BYTES:-8589934592}
+      ANANTA_UNSLOTH_RECIPE_MAX_RECORDS: ${ANANTA_UNSLOTH_RECIPE_MAX_RECORDS:-10000000}
+      HF_DATASETS_OFFLINE: "1"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    volumes:
+      - type: bind
+        source: ${ANANTA_UNSLOTH_RECIPE_DATASET_DIR:-../../project-workspaces}
+        target: /datasets
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${ANANTA_UNSLOTH_RECIPE_ATTEMPT_OUTPUT_DIR:-../../project-workspaces/unsloth-recipe-attempt-output}
+        target: /attempt-output
+        bind:
+          create_host_path: false
+      - type: volume
+        source: unsloth-recipe-worker-data
+        target: /app/data
+        volume:
+          nocopy: true
+    tmpfs:
+      - /tmp:size=536870912,mode=1770,uid=10005,gid=10005,noexec,nosuid,nodev
+      - /run:size=16777216,mode=0750,uid=10005,gid=10005,noexec,nosuid,nodev
+    secrets:
+      - source: unsloth_recipe_worker_service_token
+        target: unsloth_worker_service_token
+        uid: "10005"
+        gid: "10005"
+        mode: 0400
+      - source: unsloth_recipe_worker_registration_token
+        target: unsloth_worker_registration_token
+        uid: "10005"
+        gid: "10005"
+        mode: 0400
+      - source: unsloth_recipe_worker_session_key
+        target: unsloth_worker_session_key
+        uid: "10005"
+        gid: "10005"
+        mode: 0400
+    healthcheck: *unsloth-worker-healthcheck
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+    networks:
+      unsloth-recipe-control:
+        aliases:
+          - unsloth-data-recipe-worker
+
+  unsloth-model-import-worker:
+    <<: *unsloth-hardening
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.unsloth-task-worker
+      target: model-import
+    image: ${ANANTA_UNSLOTH_TASK_WORKER_IMAGE:-ananta-unsloth-task-worker}:${ANANTA_UNSLOTH_TASK_WORKER_TAG:-local}-model-import
+    profiles:
+      - unsloth-model-import-network
+    expose:
+      - "5000"
+    environment:
+      <<: *unsloth-worker-environment
+      AGENT_NAME: ${ANANTA_UNSLOTH_MODEL_IMPORT_WORKER_ID:-ananta-unsloth-model-import-worker}
+      AGENT_URL: http://unsloth-model-import-worker:5000
+      ANANTA_UNSLOTH_WORKER_MODE: model_import_network
+      ANANTA_UNSLOTH_MODEL_NETWORK_ENABLED: "true"
+      ANANTA_UNSLOTH_MODEL_CACHE_ROOT: /model-cache
+      ANANTA_UNSLOTH_MODEL_ARTIFACT_ROOT: /model-artifacts
+      HF_HUB_DISABLE_TELEMETRY: "1"
+    volumes:
+      - type: bind
+        source: ${ANANTA_UNSLOTH_MODEL_CACHE_DIR:-../../project-workspaces/unsloth-model-cache}
+        target: /model-cache
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${ANANTA_UNSLOTH_MODEL_ARTIFACT_DIR:-../../project-workspaces/unsloth-model-artifacts}
+        target: /model-artifacts
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: volume
+        source: unsloth-model-import-worker-data
+        target: /app/data
+        volume:
+          nocopy: true
+    tmpfs:
+      - /tmp:size=2147483648,mode=1770,uid=10005,gid=10005,noexec,nosuid,nodev
+      - /run:size=16777216,mode=0750,uid=10005,gid=10005,noexec,nosuid,nodev
+    secrets:
+      - source: unsloth_model_import_worker_service_token
+        target: unsloth_worker_service_token
+        uid: "10005"
+        gid: "10005"
+        mode: 0400
+      - source: unsloth_model_import_worker_registration_token
+        target: unsloth_worker_registration_token
+        uid: "10005"
+        gid: "10005"
+        mode: 0400
+      - source: unsloth_model_import_worker_session_key
+        target: unsloth_worker_session_key
+        uid: "10005"
+        gid: "10005"
+        mode: 0400
+    healthcheck: *unsloth-worker-healthcheck
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+    networks:
+      unsloth-import-control:
+        aliases:
+          - unsloth-model-import-worker
+      unsloth-model-download-egress: {}
+
+  unsloth-studio:
+    <<: *unsloth-hardening
+    image: "${ANANTA_UNSLOTH_STUDIO_IMAGE:?set an immutable Unsloth Studio image repository}@${ANANTA_UNSLOTH_STUDIO_IMAGE_DIGEST:?set its sha256 image digest}"
+    pull_policy: always
+    profiles:
+      - unsloth-studio
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        if [ -f /var/lib/unsloth-studio/auth/auth.db ]; then
+          unset UNSLOTH_STUDIO_PASSWORD
+        fi
+        exec unsloth studio -H 0.0.0.0 -p 8888 --disable-tools
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import json,urllib.request;
+          p=json.load(urllib.request.urlopen("http://127.0.0.1:8888/api/health",timeout=5));
+          raise SystemExit(0 if p.get("status")=="healthy" else 1)
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    expose:
+      - "8888"
+    environment:
+      UNSLOTH_STUDIO_HOME: /var/lib/unsloth-studio
+      UNSLOTH_STUDIO_PASSWORD: ${ANANTA_UNSLOTH_STUDIO_PASSWORD:?set the initial Studio password}
+      UNSLOTH_STUDIO_ENABLE_MCP: "1"
+      UNSLOTH_STUDIO_MCP_TOKEN: ${ANANTA_UNSLOTH_STUDIO_MCP_TOKEN:?set the Studio MCP bearer token}
+      UNSLOTH_STUDIO_DISABLE_PUBLIC_CHECK: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      JUPYTER_CONFIG_DIR: /nonexistent
+      SSH_AUTH_SOCK: ""
+    volumes:
+      - type: volume
+        source: unsloth-studio-state
+        target: /var/lib/unsloth-studio
+      - type: volume
+        source: unsloth-studio-cache
+        target: /var/cache/unsloth
+    tmpfs:
+      - /tmp:size=2147483648,mode=1770,uid=10005,gid=10005,noexec,nosuid,nodev
+      - /run:size=16777216,mode=0750,uid=10005,gid=10005,noexec,nosuid,nodev
+    cpus: ${ANANTA_UNSLOTH_STUDIO_CPUS:-8.0}
+    mem_limit: ${ANANTA_UNSLOTH_STUDIO_MEMORY:-32g}
+    deploy:
+      resources:
+        limits:
+          cpus: ${ANANTA_UNSLOTH_STUDIO_CPUS:-8.0}
+          memory: ${ANANTA_UNSLOTH_STUDIO_MEMORY:-32g}
+          pids: 256
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${ANANTA_UNSLOTH_STUDIO_GPU_COUNT:-1}
+              capabilities:
+                - gpu
+    networks:
+      unsloth-studio-control:
+        aliases:
+          - unsloth-studio
+
+  unsloth-mcp-control-worker:
+    <<: *unsloth-hardening
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.unsloth-task-worker
+      target: recipe
+    image: ${ANANTA_UNSLOTH_TASK_WORKER_IMAGE:-ananta-unsloth-task-worker}:${ANANTA_UNSLOTH_TASK_WORKER_TAG:-local}-recipe
+    profiles:
+      - unsloth-studio
+    expose:
+      - "5000"
+    environment:
+      <<: *unsloth-worker-environment
+      AGENT_NAME: ${ANANTA_UNSLOTH_MCP_WORKER_ID:-ananta-unsloth-mcp-control-worker}
+      AGENT_URL: http://unsloth-mcp-control-worker:5000
+      ANANTA_UNSLOTH_WORKER_MODE: studio_mcp_control
+      ANANTA_UNSLOTH_STUDIO_URL: http://unsloth-studio:8888
+      ANANTA_UNSLOTH_STUDIO_ALLOWED_HOSTS: unsloth-studio
+      ANANTA_UNSLOTH_STUDIO_ALLOWED_IP_CIDRS: 172.31.250.0/24
+      ANANTA_UNSLOTH_STUDIO_EXPECTED_VERSION: ${ANANTA_UNSLOTH_STUDIO_EXPECTED_VERSION:?set the pinned Studio version}
+      ANANTA_UNSLOTH_STUDIO_MCP_TOKEN: ${ANANTA_UNSLOTH_STUDIO_MCP_TOKEN:?set the Studio MCP bearer token}
+    tmpfs:
+      - /tmp:size=67108864,mode=1770,uid=10005,gid=10005,noexec,nosuid,nodev
+      - /run:size=16777216,mode=0750,uid=10005,gid=10005,noexec,nosuid,nodev
+    secrets:
+      - source: unsloth_mcp_worker_service_token
+        target: unsloth_worker_service_token
+        uid: "10005"
+        gid: "10005"
+        mode: 0400
+      - source: unsloth_mcp_worker_registration_token
+        target: unsloth_worker_registration_token
+        uid: "10005"
+        gid: "10005"
+        mode: 0400
+      - source: unsloth_mcp_worker_session_key
+        target: unsloth_worker_session_key
+        uid: "10005"
+        gid: "10005"
+        mode: 0400
+    healthcheck: *unsloth-worker-healthcheck
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      unsloth-studio:
+        condition: service_healthy
+    networks:
+      unsloth-studio-control:
+        aliases:
+          - unsloth-mcp-control-worker
+
+secrets:
+  unsloth_hub_service_token:
+    file: ${ANANTA_UNSLOTH_HUB_SERVICE_TOKEN_FILE:-./secrets/unsloth-hub-service-token}
+  unsloth_hub_session_key:
+    file: ${ANANTA_UNSLOTH_HUB_SESSION_KEY_FILE:-./secrets/unsloth-hub-session-key}
+  unsloth_worker_registration_keyring:
+    file: ${ANANTA_UNSLOTH_WORKER_REGISTRATION_KEYRING_FILE:-./secrets/unsloth-worker-registration-keyring.json}
+  unsloth_recipe_worker_service_token:
+    file: ${ANANTA_UNSLOTH_RECIPE_WORKER_SERVICE_TOKEN_FILE:-./secrets/unsloth-recipe-worker-service-token}
+  unsloth_recipe_worker_registration_token:
+    file: ${ANANTA_UNSLOTH_RECIPE_WORKER_REGISTRATION_TOKEN_FILE:-./secrets/unsloth-recipe-worker-registration-token}
+  unsloth_recipe_worker_session_key:
+    file: ${ANANTA_UNSLOTH_RECIPE_WORKER_SESSION_KEY_FILE:-./secrets/unsloth-recipe-worker-session-key}
+  unsloth_model_import_worker_service_token:
+    file: ${ANANTA_UNSLOTH_MODEL_IMPORT_WORKER_SERVICE_TOKEN_FILE:-./secrets/unsloth-model-import-worker-service-token}
+  unsloth_model_import_worker_registration_token:
+    file: ${ANANTA_UNSLOTH_MODEL_IMPORT_WORKER_REGISTRATION_TOKEN_FILE:-./secrets/unsloth-model-import-worker-registration-token}
+  unsloth_model_import_worker_session_key:
+    file: ${ANANTA_UNSLOTH_MODEL_IMPORT_WORKER_SESSION_KEY_FILE:-./secrets/unsloth-model-import-worker-session-key}
+  unsloth_mcp_worker_service_token:
+    file: ${ANANTA_UNSLOTH_MCP_WORKER_SERVICE_TOKEN_FILE:-./secrets/unsloth-mcp-worker-service-token}
+  unsloth_mcp_worker_registration_token:
+    file: ${ANANTA_UNSLOTH_MCP_WORKER_REGISTRATION_TOKEN_FILE:-./secrets/unsloth-mcp-worker-registration-token}
+  unsloth_mcp_worker_session_key:
+    file: ${ANANTA_UNSLOTH_MCP_WORKER_SESSION_KEY_FILE:-./secrets/unsloth-mcp-worker-session-key}
+
+networks:
+  unsloth-import-control:
+    internal: true
+  unsloth-recipe-control:
+    internal: true
+  unsloth-model-download-egress: {}
+  unsloth-studio-control:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24
+
+volumes:
+  unsloth-hub-data: {}
+  unsloth-model-import-worker-data: {}
+  unsloth-recipe-worker-data: {}
+  unsloth-studio-cache: {}
+  unsloth-studio-state: {}

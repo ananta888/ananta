@@ -164,8 +164,9 @@ services:
       - lora-training-nvidia
     environment:
       <<: *lora-training-environment
-      ANANTA_LORA_TRAINING_BACKENDS: peft_trl,unsloth
+      ANANTA_LORA_TRAINING_BACKENDS: peft_trl,unsloth,unsloth_vision,unsloth_audio,unsloth_embedding
       ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION: ${ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION:-0.90}
+      ANANTA_LORA_TRAINING_GPU_PROFILE: ${ANANTA_LORA_TRAINING_GPU_PROFILE:-rtx3080-safe}
       ANANTA_LORA_TRAINING_RESOURCE_PROFILE: nvidia
     cpus: ${ANANTA_LORA_TRAINING_NVIDIA_CPUS:-8.0}
     mem_limit: ${ANANTA_LORA_TRAINING_NVIDIA_MEMORY:-48g}

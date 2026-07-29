@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/contracts/unsloth-storage-cleanup-result.v1.schema.json",
+  "title": "Ananta Unsloth Storage Cleanup Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "task_id",
+    "tenant_scope_digest",
+    "plan_sha256",
+    "status",
+    "deleted_count",
+    "artifacts",
+    "paths_exposed",
+    "replayed"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ananta.unsloth-storage-cleanup-result.v1"
+    },
+    "task_id": {"$ref": "#/$defs/identifier"},
+    "tenant_scope_digest": {"$ref": "#/$defs/sha256"},
+    "plan_sha256": {"$ref": "#/$defs/sha256"},
+    "status": {"const": "completed"},
+    "deleted_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 128
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {"$ref": "#/$defs/artifact"}
+    },
+    "paths_exposed": {"const": false},
+    "replayed": {"type": "boolean"}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 192,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "kind", "status", "sha256"],
+      "properties": {
+        "artifact_id": {"$ref": "#/$defs/identifier"},
+        "kind": {"enum": ["workspace", "checkpoint", "export"]},
+        "status": {"enum": ["deleted", "already_absent"]},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

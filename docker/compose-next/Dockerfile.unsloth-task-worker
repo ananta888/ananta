@@ -1,0 +1,51 @@
+FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba AS base
+
+ARG ANANTA_RUNTIME_UID=10005
+ARG ANANTA_RUNTIME_GID=10005
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+RUN groupadd --gid "${ANANTA_RUNTIME_GID}" ananta-unsloth \
+    && useradd --uid "${ANANTA_RUNTIME_UID}" \
+        --gid "${ANANTA_RUNTIME_GID}" \
+        --no-create-home \
+        --home-dir /nonexistent \
+        --shell /usr/sbin/nologin \
+        ananta-unsloth \
+    && install -d -o "${ANANTA_RUNTIME_UID}" -g "${ANANTA_RUNTIME_GID}" -m 0750 \
+        /app/data /attempt-output /datasets /model-artifacts /model-cache
+
+WORKDIR /app
+
+COPY requirements.lock /tmp/requirements.lock
+RUN pip install --no-cache-dir --requirement /tmp/requirements.lock \
+    && rm /tmp/requirements.lock
+
+COPY . /app
+RUN chown -R "${ANANTA_RUNTIME_UID}:${ANANTA_RUNTIME_GID}" /app
+
+USER ${ANANTA_RUNTIME_UID}:${ANANTA_RUNTIME_GID}
+EXPOSE 5000
+CMD ["python", "-m", "agent.ai_agent"]
+
+
+FROM base AS recipe
+
+ENV HF_DATASETS_OFFLINE=1 \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
+
+
+FROM base AS model-import
+
+USER root
+COPY docker/compose-next/requirements.unsloth-model-import.txt /tmp/requirements.unsloth-model-import.txt
+RUN pip install --no-cache-dir --no-deps \
+        --requirement /tmp/requirements.unsloth-model-import.txt \
+    && rm /tmp/requirements.unsloth-model-import.txt \
+    && pip check
+USER ${ANANTA_RUNTIME_UID}:${ANANTA_RUNTIME_GID}

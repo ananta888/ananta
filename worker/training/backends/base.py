@@ -31,6 +31,7 @@ class TrainingContext:
     resume_path: Path | None
     cancel: CancellationToken
     emit: ProgressCallback
+    checkpoint_state_root: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -62,10 +63,19 @@ class TrainingBackend(Protocol):
 
 def run_backend(backend: TrainingBackend, context: TrainingContext) -> TrainingOutcome:
     context.cancel.raise_if_cancelled()
+    checkpoint_session = None
+    checkpoint_lifecycle = getattr(backend, "checkpoint_lifecycle", None)
+    if checkpoint_lifecycle is not None:
+        checkpoint_session = checkpoint_lifecycle.bind(context)
+        context = checkpoint_session.context
+        context.cancel.raise_if_cancelled()
     prepared = backend.prepare(context)
     context.cancel.raise_if_cancelled()
     trained = backend.train(context, prepared)
     context.cancel.raise_if_cancelled()
     metrics = backend.evaluate(context, prepared, trained)
     context.cancel.raise_if_cancelled()
-    return backend.save(context, prepared, trained, metrics)
+    outcome = backend.save(context, prepared, trained, metrics)
+    if checkpoint_session is not None:
+        return checkpoint_session.finalize(outcome)
+    return outcome
