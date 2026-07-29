@@ -188,6 +188,12 @@ def test_optional_live_provider_overlay_is_secret_ref_only_and_not_control_plane
 
 def test_ci_executes_full_compose_crash_resume_drill_with_always_teardown() -> None:
     workflow = (ROOT / ".github/workflows/quality-and-docs.yml").read_text(encoding="utf-8")
+    job_start = workflow.index("\n  workflow-runtime-example-compose:")
+    job_end = workflow.index(
+        "\n  workflow-runtime-postgres-contract:",
+        job_start,
+    )
+    example_job = workflow[job_start:job_end]
     ordered = [
         "--mode prepare",
         "kill -s SIGKILL workflow-runtime-example-temporal-worker",
@@ -196,10 +202,10 @@ def test_ci_executes_full_compose_crash_resume_drill_with_always_teardown() -> N
         "down --volumes --remove-orphans",
     ]
 
-    offsets = [workflow.index(marker) for marker in ordered]
+    offsets = [example_job.index(marker) for marker in ordered]
     assert offsets == sorted(offsets)
-    assert workflow.count("if: always()") >= 3
-    assert "timeout-minutes: 30" in workflow
-    assert "timeout 240s" in workflow
-    assert "State.ExitCode" in workflow
-    assert '"137"' in workflow
+    assert example_job.count("if: always()") >= 3
+    assert "timeout-minutes: 30" in example_job
+    assert "timeout 240s" in example_job
+    assert "State.ExitCode" in example_job
+    assert '"137"' in example_job
