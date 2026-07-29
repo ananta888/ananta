@@ -77,6 +77,8 @@ def _create_dataset(
     repository: MlInternTrainingRepository,
     principal: MlInternTrainingPrincipal,
     path: Path,
+    *,
+    metadata: dict | None = None,
 ) -> MlInternDatasetDB:
     path.write_text('{"instruction":"hello","output":"world"}\n', encoding="utf-8")
     dataset, _ = repository.create_dataset(
@@ -92,6 +94,7 @@ def _create_dataset(
             storage_ref=str(path),
             train_storage_ref=str(path),
             validation_report={"ok": True, "accepted_record_count": 1},
+            dataset_metadata=dict(metadata or {}),
         )
     )
     return dataset
@@ -467,3 +470,98 @@ def test_two_hub_replicas_share_one_execution_slot_for_different_jobs(
     callback(*args)
     assert repository.get_job(principal, first_job["id"]).status == "completed"
     assert repository.get_job(principal, second_job["id"]).status == "completed"
+
+
+def test_capabilities_compose_optional_unsloth_facets_unavailable_by_default() -> None:
+    service = MlInternTrainingControlService({"enabled": True})
+    capabilities = service.capabilities()
+    backend_status = {item["id"]: item for item in capabilities["backends"]}
+    facets = {
+        item["id"]: item
+        for item in capabilities["unsloth_capabilities"]["facets"]
+    }
+
+    for backend in ("unsloth_vision", "unsloth_audio", "unsloth_embedding"):
+        assert backend_status[backend]["available"] is False
+    assert facets["training.vision"]["available"] is False
+    assert facets["training.audio"]["available"] is False
+    assert facets["training.embedding"]["available"] is False
+    assert len(capabilities["unsloth_capabilities"]["snapshot_id"]) == 64
+
+
+def test_create_job_binds_canonical_dataset_and_verified_source_run_provenance(
+    app, tmp_path, monkeypatch
+) -> None:
+    del app
+    repository = MlInternTrainingRepository()
+    principal = _principal()
+    source_id = "SRC_training-corpus"
+    run_id = "RUN_materialization-1"
+    dataset = _create_dataset(
+        repository,
+        principal,
+        tmp_path / "grounded.jsonl",
+        metadata={
+            "source_ids": [source_id],
+            "run_ids": [run_id],
+            "provenance_verified": True,
+        },
+    )
+    monkeypatch.setattr(
+        "agent.services.ml_intern_training_control_service.get_task_queue_service",
+        lambda: FakeTaskQueue(),
+    )
+    service = MlInternTrainingControlService(
+        {
+            "enabled": True,
+            "unsloth_security": {
+                "require_grounded_provenance": True,
+                "trusted_source_ids": [source_id],
+                "trusted_run_ids": [run_id],
+            },
+        },
+        repository=repository,
+        executor=HoldingExecutor(),
+    )
+    accepted, _ = service.create_job(
+        principal,
+        {
+            **_payload(dataset.id),
+            "source_ids": [source_id],
+            "run_ids": [run_id],
+        },
+        idempotency_key="grounded-provenance",
+    )
+    persisted = repository.get_job(principal, accepted["id"])
+    assert persisted.request_spec["dataset_hash"] == dataset.content_sha256
+    assert persisted.request_spec["source_ids"] == [source_id]
+    assert persisted.request_spec["run_ids"] == [run_id]
+    assert persisted.request_spec["provenance_status"] == "verified"
+
+
+def test_create_job_rejects_source_id_not_bound_to_dataset(app, tmp_path) -> None:
+    del app
+    repository = MlInternTrainingRepository()
+    principal = _principal()
+    dataset = _create_dataset(
+        repository,
+        principal,
+        tmp_path / "unverified-source.jsonl",
+        metadata={
+            "source_ids": ["SRC_bound"],
+            "run_ids": ["RUN_bound"],
+            "provenance_verified": True,
+        },
+    )
+    service = MlInternTrainingControlService({"enabled": True}, repository=repository)
+    with pytest.raises(MlInternTrainingContractError) as error:
+        service.create_job(
+            principal,
+            {
+                **_payload(dataset.id),
+                "source_ids": ["SRC_unknown"],
+                "run_ids": ["RUN_bound"],
+            },
+            idempotency_key="unknown-source",
+        )
+    assert error.value.reason_code == "source_id_unverified"

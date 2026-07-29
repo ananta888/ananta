@@ -53,6 +53,38 @@ def test_validator_rejects_cross_split_leakage(tmp_path: Path) -> None:
     assert error.value.code == "cross_split_leakage"
 
 
+def test_validator_admits_embedding_sentence_pairs(
+    tmp_path: Path,
+) -> None:
+    train = _write(
+        tmp_path / "train.jsonl",
+        [
+            {
+                "sentence_A": "left",
+                "sentence_B": "right",
+                "label": 0.5,
+            }
+        ],
+    )
+    validation = _write(
+        tmp_path / "validation.jsonl",
+        [
+            {
+                "sentence_A": "alpha",
+                "sentence_B": "beta",
+                "label": 1.0,
+            }
+        ],
+    )
+
+    verified = DatasetValidator(tmp_path).validate(
+        _manifest(train, validation)
+    )
+
+    assert verified.train_records == 1
+    assert verified.validation_records == 1
+
+
 @pytest.mark.parametrize(
     ("mutation", "reason_code"),
     [

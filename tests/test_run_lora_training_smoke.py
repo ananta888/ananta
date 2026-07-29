@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import scripts.run_lora_training_smoke as smoke_gate
+
 import json
 import os
 import subprocess
@@ -31,8 +33,12 @@ def test_gate_records_mock_success_and_never_copies_process_output() -> None:
         "evaluation",
         "events",
         "export",
+        "mcp_contract",
+        "modalities",
         "registry",
+        "runtime_handoff",
         "split",
+        "studio_contract",
         "upload",
         "validation",
     }
@@ -143,3 +149,150 @@ def test_worker_image_fingerprint_covers_every_docker_source_input() -> None:
         if path.is_file() and "__pycache__" not in path.parts and path.suffix not in {".pyc", ".pyo"}
     } <= input_set
     assert not any("__pycache__" in Path(path).parts for path in inputs)
+
+
+def _passed_unsloth_smoke_run(index: int) -> dict[str, object]:
+    stages = {
+        stage: {"status": "passed"}
+        for stage in (
+            "training",
+            "export",
+            "training_evaluation",
+            "adapter_evaluation",
+            "promotion",
+            "runtime_load",
+            "rollback",
+            "tamper_negative_paths",
+        )
+    }
+    stages["chain_sha256"] = f"{index:x}".rjust(64, "0")
+    return {
+        "status": "passed",
+        "dataset_sha256": "d" * 64,
+        "base_model_sha256": "b" * 64,
+        "platform_stage_coverage": stages,
+    }
+
+
+def test_unsloth_compatibility_profile_is_not_run_when_not_configured() -> None:
+    selection = smoke_gate._compatibility_matrix_entry(None, None)
+
+    assert selection == {
+        "status": "not_run",
+        "reason_code": "compatibility_matrix_entry_not_configured",
+    }
+
+
+def test_unsloth_compatibility_profile_attests_exact_environment() -> None:
+    packages = {
+        "bitsandbytes": "0.45.5",
+        "peft": "0.18.0",
+        "safetensors": "0.6.2",
+        "torch": "2.6.0+cu124",
+        "transformers": "4.57.3",
+        "trl": "0.24.0",
+        "unsloth": "2026.7.5",
+        "unsloth-zoo": "2026.7.6",
+    }
+    selection = {
+        "status": "selected",
+        "entry_id": "release-profile",
+        "matrix_sha256": "a" * 64,
+        "entry": {
+            "python": "3.11.15",
+            "cuda_runtime": "12.4",
+            "minimum_nvidia_driver": "550.54.14",
+            "approved_model_basenames": ["tiny-causal-lm"],
+            "packages": packages,
+            "required_deterministic_runs": 3,
+        },
+    }
+
+    attestation = smoke_gate._compatibility_attestation(
+        selection,
+        probe={
+            "cuda_runtime": "12.4",
+            "model_basename": "tiny-causal-lm",
+            "gpu": [{"driver": "550.54.14"}],
+        },
+        versions={"python": "3.11.15", "packages": packages},
+        image_attestation={"runtime_image_digest_supplied": True},
+        required_runs=3,
+        completed_runs=3,
+    )
+
+    assert attestation["status"] == "passed"
+    assert attestation["entry_id"] == "release-profile"
+
+
+def test_unsloth_release_requires_three_independent_passed_runs() -> None:
+    attestation = {"status": "passed", "entry_id": "release-profile"}
+
+    incomplete = smoke_gate._aggregate_nvidia_runs(
+        [_passed_unsloth_smoke_run(1), _passed_unsloth_smoke_run(2)],
+        compatibility_attestation=attestation,
+    )
+    complete = smoke_gate._aggregate_nvidia_runs(
+        [_passed_unsloth_smoke_run(1), _passed_unsloth_smoke_run(2), _passed_unsloth_smoke_run(3)],
+        compatibility_attestation=attestation,
+    )
+
+    assert incomplete["status"] == "not_run"
+    assert incomplete["reason_code"] == "deterministic_run_count_incomplete"
+    assert complete["status"] == "passed"
+    assert complete["deterministic_run_count"] == 3
+    assert len(complete["runs"]) == 3
+    assert all(run["attestation_sha256"] for run in complete["runs"])
+
+
+def test_every_release_transition_has_a_tamper_denial() -> None:
+    transitions = {
+        "dataset_to_training": "1" * 64,
+        "model_to_training": "2" * 64,
+        "adapter_to_export": "3" * 64,
+        "export_to_evaluation": "4" * 64,
+        "evaluation_to_promotion": "5" * 64,
+        "promotion_to_runtime": "6" * 64,
+        "runtime_to_rollback": "7" * 64,
+    }
+
+    expected_rejections = {
+        "dataset_to_training": "dataset_hash_mismatch",
+        "model_to_training": "base_model_hash_mismatch",
+        "adapter_to_export": "adapter_hash_mismatch",
+        "export_to_evaluation": "promotion_execution_hash_mismatch",
+        "evaluation_to_promotion": "promotion_provenance_mismatch",
+        "promotion_to_runtime": "runtime_handoff_promotion_binding_mismatch",
+        "runtime_to_rollback": "runtime_endpoint_revision_conflict",
+    }
+    result = smoke_gate._transition_tamper_checks(
+        transitions,
+        observed_rejections=expected_rejections,
+    )
+
+    wrong_rejections = dict(expected_rejections)
+    wrong_rejections["promotion_to_runtime"] = "wrong_rejection_code"
+    wrong_result = smoke_gate._transition_tamper_checks(
+        transitions,
+        observed_rejections=wrong_rejections,
+    )
+    missing_rejections = dict(expected_rejections)
+    missing_rejections.pop("runtime_to_rollback")
+    missing_result = smoke_gate._transition_tamper_checks(
+        transitions,
+        observed_rejections=missing_rejections,
+    )
+
+    assert wrong_result["promotion_to_runtime"]["status"] == "failed"
+    assert missing_result["runtime_to_rollback"]["status"] == "not_run"
+    assert set(result) == set(transitions)
+    assert all(item["status"] == "passed" for item in result.values())
+    assert {item["reason_code"] for item in result.values()} == {
+        "dataset_hash_mismatch",
+        "base_model_hash_mismatch",
+        "adapter_hash_mismatch",
+        "export_hash_mismatch",
+        "evaluation_hash_mismatch",
+        "promotion_hash_mismatch",
+        "endpoint_revision_mismatch",
+    }

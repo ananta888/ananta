@@ -5,7 +5,11 @@ import pytest
 from agent.services.ml_intern_training_contract import (
     CreateTrainingJobCommand,
     MlInternTrainingContractError,
+    UnslothCapabilityFacet,
+    UnslothCapabilitySnapshot,
     assert_job_transition,
+    normalize_run_ids,
+    normalize_source_ids,
     sanitize_event_payload,
 )
 from agent.services.ml_intern_training_control_service import MlInternTrainingControlService
@@ -29,6 +33,50 @@ def test_create_command_normalizes_bounded_training_request() -> None:
     assert command.dataset_id == "lora-dataset-one"
     assert command.backend == "mock"
     assert command.request_spec["hyperparameters"]["max_steps"] == 2
+    assert "source_ids" not in command.request_spec
+    assert "run_ids" not in command.request_spec
+
+
+@pytest.mark.parametrize("backend", ["unsloth_vision", "unsloth_audio", "unsloth_embedding"])
+def test_optional_unsloth_backends_are_additive_contract_values(backend: str) -> None:
+    command = CreateTrainingJobCommand.from_mapping({**_payload(), "backend": backend})
+    assert command.backend == backend
+
+
+def test_source_and_run_ids_are_only_normalized_when_provided() -> None:
+    assert normalize_source_ids(["SRC_repo:7"]) == ("SRC_repo:7",)
+    assert normalize_run_ids(["RUN_training:9"]) == ("RUN_training:9",)
+    for field, value, reason_code in (
+        ("source_ids", ["invented"], "source_ids_invalid"),
+        ("run_ids", ["SRC_wrong-prefix"], "run_ids_invalid"),
+    ):
+        with pytest.raises(MlInternTrainingContractError) as error:
+            CreateTrainingJobCommand.from_mapping({**_payload(), field: value})
+        assert error.value.reason_code == reason_code
+
+
+def test_composed_unsloth_capability_snapshot_is_deterministic_and_sourced() -> None:
+    facet = UnslothCapabilityFacet(
+        facet_id="training.text",
+        available=False,
+        reason_code="worker_capability_unavailable",
+        source="worker_probe",
+        operations=("train_lora",),
+        model_kinds=("text",),
+    )
+    first = UnslothCapabilitySnapshot(
+        operating_mode="core_worker",
+        detected_variant="core_worker",
+        facets=(facet,),
+    ).to_mapping()
+    second = UnslothCapabilitySnapshot(
+        operating_mode="core_worker",
+        detected_variant="core_worker",
+        facets=(facet,),
+    ).to_mapping()
+    assert first == second
+    assert first["facets"][0]["source"] == "worker_probe"
+    assert len(first["snapshot_id"]) == 64
 
 
 @pytest.mark.parametrize(
@@ -142,6 +190,24 @@ def test_event_payload_is_content_free_and_finite() -> None:
         }
     )
     assert safe == {"phase": "training", "current_step": 2, "train_loss": 0.3}
+
+
+def test_event_payload_admits_bounded_resource_metrics_without_content() -> None:
+    safe = sanitize_event_payload(
+        {
+            "tokens_per_second": 17.5,
+            "gpu_utilization_percent": 82.0,
+            "vram_allocated_bytes": 1024,
+            "vram_peak_bytes": 2048,
+            "prompt": "must never pass",
+        }
+    )
+    assert safe == {
+        "vram_allocated_bytes": 1024,
+        "vram_peak_bytes": 2048,
+        "tokens_per_second": 17.5,
+        "gpu_utilization_percent": 82.0,
+    }
 
 
 def test_event_payload_rejects_typed_field_injection_and_out_of_bounds_values() -> None:

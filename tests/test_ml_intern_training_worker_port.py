@@ -10,6 +10,7 @@ from typing import Any, Mapping
 
 import pytest
 
+from ananta_contracts.unsloth_capability import compose_worker_capability_probe
 from agent.services.ml_intern_training_worker_port import (
     WORKER_CONTRACT_VERSION,
     HttpMlInternTrainingWorkerPort,
@@ -107,6 +108,39 @@ class _EvaluationOpener:
         self.requests.append(request)
         parsed = urllib.parse.urlsplit(request.full_url)
         path = parsed.path
+        if request.method == "GET" and path.endswith("/capabilities"):
+            return _Response.json(
+                compose_worker_capability_probe(
+                    contract_version=WORKER_CONTRACT_VERSION,
+                    resource_profile="nvidia",
+                    active_gpu_profile="rtx3080-safe",
+                    backend_availability={
+                        backend: (True, None)
+                        for backend in (
+                            "mock",
+                            "peft_trl",
+                            "unsloth",
+                            "unsloth_vision",
+                            "unsloth_audio",
+                            "unsloth_embedding",
+                        )
+                    },
+                    package_versions={
+                        "torch": "2.7.0",
+                        "unsloth": "2026.7",
+                        "unsloth_zoo": "2026.7",
+                    },
+                    hardware={
+                        "cuda_available": True,
+                        "torch_version": "2.7.0",
+                        "cuda_version": "12.8",
+                        "device_count": 1,
+                        "device_name": "RTX 3080",
+                        "total_vram_bytes": 10 * 1024**3,
+                    },
+                    runtime_ready=True,
+                )
+            )
         if request.method == "POST" and path.endswith("/evaluations"):
             self.envelope = json.loads(request.data)
             return _Response.json(self._status("queued"))
@@ -252,6 +286,22 @@ def test_worker_capability_requires_matching_resource_profile(tmp_path: Path) ->
     port, _train, _validation = _port(tmp_path, _EvaluationOpener())
     assert port.supports(job_type="train_lora", backend="peft_trl", gpu_profile="rtx3080-safe") is True
     assert port.supports(job_type="train_lora", backend="peft_trl", gpu_profile="none") is False
+
+
+def test_worker_capability_probe_fails_closed_on_missing_schema_fields(tmp_path: Path) -> None:
+    class _InvalidProbeOpener(_EvaluationOpener):
+        def open(self, request, timeout: float):
+            if urllib.parse.urlsplit(request.full_url).path.endswith("/capabilities"):
+                return _Response.json({"schema_version": "ananta.unsloth-worker-capabilities.v1"})
+            return super().open(request, timeout)
+
+    port, _train, _validation = _port(tmp_path, _InvalidProbeOpener())
+
+    assert port.supports(
+        job_type="train_lora",
+        backend="unsloth",
+        gpu_profile="rtx3080-safe",
+    ) is False
 
 
 def test_worker_delegation_requires_opaque_tenant_scope_binding(tmp_path: Path) -> None:

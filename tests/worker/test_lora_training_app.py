@@ -5,9 +5,17 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping
 
-from worker.runtime.lora_training_app import EVALUATIONS_ENDPOINT, JOBS_ENDPOINT, create_app
+from ananta_contracts.unsloth_capability import compose_worker_capability_probe
+from worker.runtime.lora_training_app import (
+    CAPABILITIES_ENDPOINT,
+    CLEANUP_ENDPOINT,
+    EVALUATIONS_ENDPOINT,
+    JOBS_ENDPOINT,
+    create_app,
+)
 from worker.training.contracts import CONTRACT_VERSION
 from worker.training.runtime import TrainingRuntimeError
+from worker.training.storage_cleanup import WorkerStorageCleanupError
 
 TEST_TOKEN = "lora-training-test-token-123456"
 
@@ -20,9 +28,54 @@ class _Runtime:
     def health(self) -> dict[str, Any]:
         return {"contract_version": CONTRACT_VERSION, "status": "ready", "runtime_configured": True}
 
+    def capability_probe(self) -> dict[str, Any]:
+        return compose_worker_capability_probe(
+            contract_version=CONTRACT_VERSION,
+            resource_profile="nvidia",
+            active_gpu_profile="rtx3080-safe",
+            backend_availability={
+                backend: (True, None)
+                for backend in (
+                    "mock",
+                    "peft_trl",
+                    "unsloth",
+                    "unsloth_vision",
+                    "unsloth_audio",
+                    "unsloth_embedding",
+                )
+            },
+            package_versions={"torch": "2.7.0", "unsloth": "2026.7", "unsloth_zoo": "2026.7"},
+            hardware={
+                "cuda_available": True,
+                "torch_version": "2.7.0",
+                "cuda_version": "12.8",
+                "device_count": 1,
+                "device_name": "RTX 3080",
+                "total_vram_bytes": 10 * 1024**3,
+            },
+            runtime_ready=True,
+        )
+
     def submit(self, envelope: Mapping[str, Any]) -> dict[str, Any]:
         self.calls.append(envelope)
         return self._status(str(envelope.get("job_id") or "job-1"))
+
+    def cleanup(
+        self,
+        envelope: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        self.calls.append(envelope)
+        return {
+            "schema": "ananta.unsloth-storage-cleanup-result.v1",
+            "task_id": str(envelope.get("task_id") or "cleanup-1"),
+            "tenant_scope_digest": "a" * 64,
+            "plan_sha256": "b" * 64,
+            "status": "completed",
+            "deleted_count": 0,
+            "artifacts": [],
+            "paths_exposed": False,
+            "replayed": False,
+        }
 
     def status(self, job_id: str) -> dict[str, Any]:
         if job_id == "missing":
@@ -91,8 +144,10 @@ def test_every_internal_endpoint_requires_bearer_authentication() -> None:
     client = create_app(runtime=_Runtime(), auth_token=TEST_TOKEN).test_client()
     requests = [
         client.get("/health"),
+        client.get(CAPABILITIES_ENDPOINT),
         client.post(JOBS_ENDPOINT, json={}),
         client.post(EVALUATIONS_ENDPOINT, json={}),
+        client.post(CLEANUP_ENDPOINT, json={}),
         client.get(f"{JOBS_ENDPOINT}/job-1"),
         client.post(f"{JOBS_ENDPOINT}/job-1/heartbeat"),
         client.get(f"{JOBS_ENDPOINT}/job-1/events"),
@@ -102,6 +157,17 @@ def test_every_internal_endpoint_requires_bearer_authentication() -> None:
 
     assert all(response.status_code == 401 for response in requests)
     assert all(response.headers["WWW-Authenticate"] == "Bearer" for response in requests)
+
+
+def test_capability_probe_is_authenticated_and_worker_owned() -> None:
+    client = create_app(runtime=_Runtime(), auth_token=TEST_TOKEN).test_client()
+
+    response = client.get(CAPABILITIES_ENDPOINT, headers=_headers())
+
+    assert response.status_code == 200
+    assert response.get_json()["schema_version"] == "ananta.unsloth-worker-capabilities.v1"
+    assert response.get_json()["hardware"]["cuda_available"] is True
+    assert response.get_json()["compositions"]["studio"]["available"] is False
 
 
 def test_submit_is_async_and_preserves_correlation_contract() -> None:
@@ -132,6 +198,33 @@ def test_adapter_evaluation_has_dedicated_async_endpoint() -> None:
     assert response.status_code == 202
     assert response.get_json()["job_id"] == "evaluation-1"
     assert wrong_type.status_code == 422
+
+
+def test_cleanup_preserves_the_worker_reason_code() -> None:
+    class RejectingRuntime(_Runtime):
+        def cleanup(
+            self,
+            envelope: Mapping[str, Any],
+        ) -> dict[str, Any]:
+            raise WorkerStorageCleanupError(
+                "cleanup_artifact_hash_mismatch",
+                "bounded cleanup rejection",
+            )
+
+    client = create_app(
+        runtime=RejectingRuntime(),
+        auth_token=TEST_TOKEN,
+    ).test_client()
+    response = client.post(
+        CLEANUP_ENDPOINT,
+        json={"task_id": "cleanup-1"},
+        headers=_headers(),
+    )
+
+    assert response.status_code == 422
+    assert response.get_json()["error"]["code"] == (
+        "cleanup_artifact_hash_mismatch"
+    )
 
 
 def test_request_size_media_type_pagination_and_not_found_are_bounded() -> None:

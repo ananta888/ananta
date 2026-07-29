@@ -438,3 +438,32 @@ def test_legacy_v1_records_remain_readable_only_in_explicit_legacy_scope(tmp_pat
     assert json.loads(registry_path.read_text(encoding="utf-8"))["schema"] == (
         "mlintern_adapter_registry.v2"
     )
+
+
+def test_register_trained_persists_and_fences_canonical_provenance(tmp_path):
+    svc = _svc(tmp_path)
+    binding = {
+        "dataset_hash": "c" * 64,
+        "source_ids": ["SRC_training-corpus"],
+        "run_ids": ["RUN_materialization-1"],
+        "provenance_verified": True,
+    }
+    created = _register_trained(svc, **binding)
+
+    assert created.dataset_hash == "c" * 64
+    assert created.source_ids == ["SRC_training-corpus"]
+    assert created.run_ids == ["RUN_materialization-1"]
+    assert created.provenance_verified is True
+    with pytest.raises(RegistryError, match="dataset_hash"):
+        _register_trained(svc, **{**binding, "dataset_hash": "d" * 64})
+
+
+def test_registry_never_marks_incomplete_provenance_verified(tmp_path):
+    svc = _svc(tmp_path)
+    with pytest.raises(RegistryError, match="verified provenance requires"):
+        _register_trained(
+            svc,
+            dataset_hash="c" * 64,
+            source_ids=["SRC_training-corpus"],
+            provenance_verified=True,
+        )

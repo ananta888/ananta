@@ -1,0 +1,19 @@
+{
+  "chat_only": false,
+  "chat_only_reason": null,
+  "cloudflare_url": null,
+  "desktop_manageability_version": 2,
+  "desktop_protocol_version": 1,
+  "device_type": "linux",
+  "native_path_leases_supported": true,
+  "secure": false,
+  "server_url": "http://unsloth-studio:8888",
+  "service": "Unsloth UI Backend",
+  "status": "healthy",
+  "studio_root_id": "",
+  "studio_version": "2026.7.0",
+  "supports_desktop_auth": true,
+  "supports_desktop_backend_ownership": true,
+  "timestamp": "2026-07-28T00:00:00+00:00",
+  "version": "2026.7.5"
+}

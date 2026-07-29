@@ -88,6 +88,14 @@ def _request() -> dict[str, Any]:
             "gradient_checkpointing": True,
             "target_modules": ["q_proj", "v_proj"],
         },
+        "exports": [
+            {"format": "adapter"},
+            {
+                "format": "gguf",
+                "quantization_method": "q4_k_m",
+            },
+        ],
+        "tenant_storage_key": "e" * 64,
     }
 
 
@@ -173,6 +181,30 @@ def test_request_schema_closes_nested_objects() -> None:
 
     with pytest.raises(ValidationError):
         _validator(SCHEMA_NAMES[0]).validate(request)
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        "unsloth_vision",
+        "unsloth_audio",
+        "unsloth_embedding",
+    ],
+)
+def test_status_schema_accepts_composed_unsloth_backends(
+    backend: str,
+) -> None:
+    status = _status()
+    status["backend"] = backend
+    status["progress"].update(
+        {
+            "tokens_per_second": 42.0,
+            "gpu_utilization_percent": 50.0,
+            "vram_used_bytes": 1024,
+        }
+    )
+
+    _validator(SCHEMA_NAMES[1]).validate(status)
 
 
 @pytest.mark.parametrize("unsafe_ref", ["a/../b", "a//b"])

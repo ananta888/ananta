@@ -1,0 +1,6 @@
+{
+  "access_token": "fixture-access-token-000000000000",
+  "must_change_password": false,
+  "refresh_token": "fixture-refresh-token-0000000000",
+  "token_type": "bearer"
+}

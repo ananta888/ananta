@@ -1,10 +1,13 @@
 """Tests fuer ml_intern_training_config_service (MLLORA-004/023)."""
 
 from agent.services.ml_intern_training_config_service import (
+    MlInternTrainingConfigError,
     get_gpu_profile_defaults,
     normalize_lora_runtime_config,
     normalize_ml_intern_training_config,
+    normalize_unsloth_security_config,
 )
+import pytest
 
 
 def test_defaults_are_safe():
@@ -16,9 +19,15 @@ def test_defaults_are_safe():
     assert cfg["require_secret_scan"] is True
     assert cfg["require_eval_before_approval"] is True
     assert cfg["external_network_allowed"] is False
+    assert cfg["unsloth_integration_enabled"] is False
     assert cfg["max_concurrent_jobs"] == 1
     assert cfg["max_queued_jobs"] == 32
     assert "merge_adapter_optional" not in cfg["allowed_job_types"]
+    assert cfg["unsloth_security"]["operating_mode"] == "core_worker"
+    assert cfg["unsloth_security"]["model_downloads_enabled"] is False
+    assert cfg["unsloth_security"]["remote_tunnel_enabled"] is False
+    assert cfg["unsloth_security"]["code_execution_enabled"] is False
+    assert cfg["unsloth_security"]["mcp_enabled"] is False
 
 
 def test_queue_capacity_is_bounded():
@@ -103,3 +112,89 @@ def test_get_gpu_profile_defaults_returns_dict():
     p = get_gpu_profile_defaults("rtx3080-safe")
     assert isinstance(p, dict)
     assert "max_seq_length_hard_limit" in p
+
+
+def test_unsloth_network_opt_in_does_not_enable_independent_risk_flags():
+    cfg = normalize_ml_intern_training_config({"external_network_allowed": True})
+    security = cfg["unsloth_security"]
+    assert security["model_downloads_enabled"] is False
+    assert security["remote_tunnel_enabled"] is False
+    assert security["code_execution_enabled"] is False
+    assert security["mcp_enabled"] is False
+
+
+@pytest.mark.parametrize(
+    ("security", "reason_code"),
+    [
+        ({"operating_mode": "unknown"}, "unsloth_operating_mode_invalid"),
+        ({"model_downloads_enabled": True}, "unsloth_network_opt_in_required"),
+        ({"mcp_enabled": True}, "unsloth_mode_conflict"),
+        ({"model_downloads_enabled": "yes"}, "unsloth_security_flag_invalid"),
+        ({"auth_secret_ref": "plaintext-secret"}, "unsloth_secret_reference_invalid"),
+    ],
+)
+def test_unsloth_security_configuration_fails_closed_with_stable_reason(
+    security, reason_code
+):
+    with pytest.raises(MlInternTrainingConfigError) as error:
+        normalize_ml_intern_training_config(
+            {"enabled": True, "unsloth_security": security}
+        )
+    assert error.value.reason_code == reason_code
+
+
+def test_remote_unsloth_mode_requires_network_tls_host_and_secret_reference():
+    security = normalize_unsloth_security_config(
+        {
+            "operating_mode": "external_api",
+            "studio_url": "https://studio.internal.example/v1",
+            "allowed_hosts": ["studio.internal.example"],
+            "allowed_ip_cidrs": ["203.0.113.0/24"],
+            "auth_secret_ref": "env://ANANTA_UNSLOTH_API_KEY",
+            "expected_studio_version": "2026.7.0",
+            "tls_required": True,
+        },
+        integration_enabled=True,
+        external_network_allowed=True,
+    )
+    assert security["operating_mode"] == "external_api"
+    assert security["auth_secret_ref"] == "env://ANANTA_UNSLOTH_API_KEY"
+
+
+def test_local_studio_mode_requires_private_cidr_and_pinned_version():
+    security = normalize_unsloth_security_config(
+        {
+            "operating_mode": "studio_managed",
+            "studio_url": "http://unsloth-studio:8888",
+            "allowed_hosts": ["unsloth-studio"],
+            "allowed_ip_cidrs": ["172.31.250.0/24"],
+            "auth_secret_ref": "env://ANANTA_UNSLOTH_STUDIO_PASSWORD",
+            "expected_studio_version": "2026.7.0",
+            "tls_required": False,
+            "local_network_enabled": True,
+        },
+        integration_enabled=True,
+        external_network_allowed=False,
+    )
+    assert security["operating_mode"] == "studio_managed"
+    assert security["local_network_enabled"] is True
+    assert security["allowed_ip_cidrs"] == ["172.31.250.0/24"]
+
+
+def test_mcp_enabled_requires_a_separate_secret_reference():
+    with pytest.raises(MlInternTrainingConfigError):
+        normalize_unsloth_security_config(
+            {
+                "operating_mode": "studio_managed",
+                "studio_url": "http://unsloth-studio:8888",
+                "allowed_hosts": ["unsloth-studio"],
+                "allowed_ip_cidrs": ["172.31.250.0/24"],
+                "auth_secret_ref": "env://ANANTA_UNSLOTH_STUDIO_PASSWORD",
+                "expected_studio_version": "2026.7.0",
+                "tls_required": False,
+                "local_network_enabled": True,
+                "mcp_enabled": True,
+            },
+            integration_enabled=True,
+            external_network_allowed=False,
+        )

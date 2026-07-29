@@ -73,7 +73,7 @@ def test_supported_stack_entrypoint_binds_hub_and_worker_profiles() -> None:
         "lora-training-nvidia": (
             "live",
             "peft_trl",
-            "peft_trl,unsloth",
+            "peft_trl,unsloth,unsloth_vision,unsloth_audio,unsloth_embedding",
             "nvidia",
             "rtx3080-safe",
         ),
@@ -114,7 +114,7 @@ def test_supported_stack_entrypoint_renders_hardened_real_compose_profiles(tmp_p
         "lora-training-nvidia": (
             "lora-training-worker-nvidia",
             "live",
-            "peft_trl,unsloth",
+            "peft_trl,unsloth,unsloth_vision,unsloth_audio,unsloth_embedding",
             "nvidia",
             "rtx3080-safe",
         ),
@@ -169,6 +169,10 @@ def test_supported_stack_entrypoint_renders_hardened_real_compose_profiles(tmp_p
         assert "no-new-privileges:true" in worker["security_opt"]
         assert worker["environment"]["HF_HUB_OFFLINE"] == "1"
         assert worker["environment"]["TRANSFORMERS_OFFLINE"] == "1"
+        if resource_profile == "nvidia":
+            assert worker["environment"][
+                "ANANTA_LORA_TRAINING_GPU_PROFILE"
+            ] == "rtx3080-safe"
         assert "Authorization" in " ".join(worker["healthcheck"]["test"])
         assert payload["networks"]["lora-training-control"]["internal"] is True
         assert not any(volume.get("target") == "/models/base" for volume in hub.get("volumes", []))
