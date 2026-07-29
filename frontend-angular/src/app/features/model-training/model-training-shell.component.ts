@@ -19,6 +19,7 @@ import { ModelTrainingFacade } from './model-training.facade';
 import { ModelTrainingJobMonitorService } from './model-training-job-monitor.service';
 import { ModelTrainingTab, TrainingJobAcceptance } from './model-training.models';
 import { TrainingWizardComponent } from './training-wizard/training-wizard.component';
+import { UnslothCapabilityPanelComponent } from './unsloth/unsloth-capability-panel.component';
 
 @Component({
   selector: 'app-model-training-shell',
@@ -41,6 +42,7 @@ import { TrainingWizardComponent } from './training-wizard/training-wizard.compo
     TrainingJobDetailComponent,
     TrainingJobListComponent,
     TrainingWizardComponent,
+    UnslothCapabilityPanelComponent,
   ],
   providers: [ModelTrainingFacade, ModelTrainingJobMonitorService],
   template: `
@@ -94,6 +96,14 @@ import { TrainingWizardComponent } from './training-wizard/training-wizard.compo
           title="Governance bleibt beim Hub"
           message="Uploads, Queueing, Training, Evaluation, Lifecycle-Aktionen und Exporte laufen ausschließlich über die Hub-API. Live-Training und Adapter-Freigaben benötigen explizite Bestätigungen."
           tone="info" />
+
+        <app-unsloth-capability-panel
+          [capabilities]="facade.capabilities()"
+          [hubUrl]="facade.hubUrl()"
+          [storage]="facade.unslothStorage()"
+          [storageLoading]="facade.loadingUnslothStorage()"
+          (storageRefresh)="facade.loadUnslothStorage()"
+        />
 
         <nav class="training-tabs" aria-label="Bereiche des Modelltrainings" role="tablist">
           @for (tab of tabs; track tab.id) {
@@ -179,7 +189,8 @@ export class ModelTrainingShellComponent implements OnInit, OnDestroy {
     this.facade.loadingCapabilities()
     || this.facade.loadingDatasets()
     || this.facade.loadingJobs()
-    || this.facade.loadingAdapters(),
+    || this.facade.loadingAdapters()
+    || this.facade.loadingUnslothStorage(),
   );
   readonly initialLoading = computed(() => this.loading() && !this.facade.capabilities());
   readonly summaryMetrics = computed<SummaryMetric[]>(() => {

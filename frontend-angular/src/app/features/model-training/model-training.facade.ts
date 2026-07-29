@@ -15,6 +15,7 @@ import {
   normalizePage,
   normalizeTrainingJob,
   normalizeTrainingJobAcceptance,
+  normalizeUnslothStorage,
   normalizeValidationReport,
 } from './model-training-normalizers';
 import {
@@ -40,6 +41,7 @@ import {
   TrainingJobDetail,
   TrainingJobListFilters,
   TrainingJobSummary,
+  UnslothStorageReadModel,
 } from './model-training.models';
 
 @Injectable()
@@ -63,6 +65,7 @@ export class ModelTrainingFacade implements OnDestroy {
   readonly adapters = signal<AdapterSummary[]>([]);
   readonly selectedAdapter = signal<AdapterSummary | null>(null);
   readonly selectedEvaluation = signal<EvaluationReport | null>(null);
+  readonly unslothStorage = signal<UnslothStorageReadModel | null>(null);
 
   readonly loadingCapabilities = signal(false);
   readonly loadingDatasets = signal(false);
@@ -70,6 +73,7 @@ export class ModelTrainingFacade implements OnDestroy {
   readonly loadingRecords = signal(false);
   readonly loadingJobs = signal(false);
   readonly loadingAdapters = signal(false);
+  readonly loadingUnslothStorage = signal(false);
   readonly error = signal('');
 
   private recordCursors: string[] = [''];
@@ -90,6 +94,7 @@ export class ModelTrainingFacade implements OnDestroy {
     this.loadDatasets();
     this.loadJobs();
     this.loadAdapters();
+    this.loadUnslothStorage();
   }
 
   loadCapabilities(): void {
@@ -100,6 +105,18 @@ export class ModelTrainingFacade implements OnDestroy {
       next: value => this.capabilities.set(entityFrom(value, 'capabilities') as TrainingCapabilities),
       error: error => this.captureError(error, 'Training-Capabilities konnten nicht geladen werden'),
     });
+  }
+
+  loadUnslothStorage(): void {
+    const hubUrl = this.hubUrl() || this.resolveHub();
+    if (!hubUrl) return;
+    this.loadingUnslothStorage.set(true);
+    this.api.unslothStorage(hubUrl)
+      .pipe(finalize(() => this.loadingUnslothStorage.set(false)))
+      .subscribe({
+        next: value => this.unslothStorage.set(normalizeUnslothStorage(value)),
+        error: error => this.captureError(error, 'Unsloth-Storage-Status konnte nicht geladen werden'),
+      });
   }
 
   loadDatasets(filters: DatasetListFilters = {}): void {

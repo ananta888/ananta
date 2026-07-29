@@ -150,6 +150,7 @@ export interface TrainingCapabilities {
   backends: TrainingBackendCapability[];
   gpu_profiles: TrainingGpuProfile[];
   base_models: TrainingBaseModel[];
+  unsloth?: UnslothCapabilities;
   limits: {
     max_dataset_bytes?: number;
     max_adapter_bytes?: number;
@@ -163,6 +164,12 @@ export interface TrainingCapabilities {
     min_sequence_length?: number;
     max_sequence_length?: number;
     max_steps?: number;
+    max_model_bytes?: number;
+    max_checkpoint_bytes?: number;
+    max_export_bytes?: number;
+    max_tenant_storage_bytes?: number;
+    storage_retention_seconds?: number;
+    max_cleanup_items?: number;
   };
 }
 
@@ -405,6 +412,158 @@ export interface AdapterRuntimeRollbackResult {
     reason_code?: string;
     unapproved_fallback_allowed?: boolean;
   };
+}
+
+export type UnslothModality = 'text' | 'vision' | 'audio' | 'embedding';
+
+export type UnslothMutationOperation = 'export' | 'runtime_handoff' | 'mcp' | 'cleanup';
+
+export interface UnslothCapabilityFacet {
+  available?: boolean;
+  executable?: boolean;
+  reason_code?: string;
+  version?: string;
+}
+
+export interface UnslothReleaseProfileCapability extends UnslothCapabilityFacet {
+  name?: string;
+}
+
+export interface UnslothCapabilities {
+  status?: string;
+  core?: UnslothCapabilityFacet;
+  studio?: UnslothCapabilityFacet;
+  modalities?: Partial<Record<UnslothModality, UnslothCapabilityFacet>>;
+  mcp?: UnslothCapabilityFacet;
+  release_profile?: UnslothReleaseProfileCapability;
+  operations?: Partial<Record<
+    UnslothMutationOperation | 'studio' | 'multimodal',
+    UnslothCapabilityFacet
+  >>;
+}
+
+export interface UnslothStorageKindUsage {
+  bytes: number;
+  artifacts: number;
+}
+
+export interface UnslothStorageQuotas {
+  dataset_bytes: number;
+  model_bytes: number;
+  checkpoint_bytes: number;
+  export_bytes: number;
+  tenant_total_bytes: number;
+  retention_seconds: number;
+  max_cleanup_items: number;
+}
+
+export interface UnslothStorageUsage {
+  schema: string;
+  catalog_revision: number;
+  usage: Record<string, UnslothStorageKindUsage>;
+  tenant_total_bytes: number;
+  quotas: UnslothStorageQuotas;
+  paths_exposed: false;
+}
+
+export interface UnslothStorageArtifact {
+  artifact_id: string;
+  storage_ref?: string;
+  kind: string;
+  job_id: string;
+  attempt_id: string;
+  sha256: string;
+  size_bytes: number;
+  created_at?: number;
+  retention_until?: number;
+  state: string;
+  reference_kinds: string[];
+  referenced: boolean;
+  cleanup_task_id?: string;
+}
+
+export interface UnslothStorageReadModel {
+  usage: UnslothStorageUsage;
+  items: UnslothStorageArtifact[];
+  count: number;
+}
+
+export interface UnslothStorageCleanupFields {
+  artifact_ids: string[];
+  expected_catalog_revision: number;
+  retention_before?: number;
+}
+
+export interface UnslothRuntimeApiCapabilities {
+  openai_chat: boolean;
+  openai_responses: boolean;
+  anthropic_messages: boolean;
+  streaming: boolean;
+  tools: boolean;
+  structured_output: boolean;
+}
+
+export interface UnslothRuntimeLimits {
+  timeout_seconds: number;
+  context_tokens: number;
+  max_output_tokens: number;
+  stream_idle_timeout_seconds: number;
+}
+
+export interface UnslothRuntimeProviderDescriptor {
+  provider_id: string;
+  provider_type: string;
+  model_id: string;
+  provider_revision: string;
+  capabilities: UnslothRuntimeApiCapabilities;
+  limits: UnslothRuntimeLimits;
+}
+
+export interface UnslothRuntimeEndpointDescriptor {
+  endpoint_id: string;
+  display_name: string;
+  routing_key: string;
+}
+
+export interface UnslothRuntimeHandoffCommandFields {
+  promoted_artifact_id: string;
+  promoted_artifact_sha256: string;
+  provider_descriptor: UnslothRuntimeProviderDescriptor;
+  endpoint_descriptor: UnslothRuntimeEndpointDescriptor;
+  expected_endpoint_revision: number;
+  source_ids: string[];
+  run_ids: string[];
+}
+
+export interface UnslothMutationCommand {
+  operation: UnslothMutationOperation;
+  resource_id: string;
+  reason: string;
+  dry_run: boolean;
+  confirmed: boolean;
+  confirmation_id?: string;
+  promoted_artifact_id?: string;
+  promoted_artifact_sha256?: string;
+  provider_descriptor?: UnslothRuntimeProviderDescriptor;
+  endpoint_descriptor?: UnslothRuntimeEndpointDescriptor;
+  expected_endpoint_revision?: number;
+  source_ids?: string[];
+  run_ids?: string[];
+  artifact_ids?: string[];
+  expected_catalog_revision?: number;
+  retention_before?: number;
+}
+
+export interface UnslothMutationResult {
+  accepted: boolean;
+  operation: UnslothMutationOperation;
+  resource_id?: string;
+  dry_run?: boolean;
+  reason_code?: string;
+  message?: string;
+  confirmation_id?: string;
+  replayed?: boolean;
+  summary?: Record<string, unknown>;
 }
 
 export type ModelTrainingTab = 'datasets' | 'training' | 'jobs' | 'adapters';

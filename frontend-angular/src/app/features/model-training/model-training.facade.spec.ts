@@ -13,6 +13,35 @@ describe('ModelTrainingFacade', () => {
   beforeEach(() => {
     api = {
       capabilities: vi.fn(() => of({ available: true, backends: [], gpu_profiles: [], base_models: [], limits: {} })),
+      unslothStorage: vi.fn(() => of({
+        usage: {
+          schema: 'ananta.unsloth-storage-usage.v1',
+          catalog_revision: 2,
+          usage: { export: { bytes: 32, artifacts: 1 } },
+          tenant_total_bytes: 32,
+          quotas: {
+            dataset_bytes: 100,
+            model_bytes: 100,
+            checkpoint_bytes: 100,
+            export_bytes: 100,
+            tenant_total_bytes: 400,
+            retention_seconds: 3600,
+            max_cleanup_items: 10,
+          },
+          paths_exposed: false,
+        },
+        items: [{
+          artifact_id: 'artifact-storage-1',
+          kind: 'export',
+          job_id: 'job-1',
+          attempt_id: 'attempt-1',
+          sha256: 'a'.repeat(64),
+          size_bytes: 32,
+          state: 'active',
+          reference_kinds: [],
+          referenced: false,
+        }],
+      })),
       listDatasets: vi.fn(() => of({ items: [{
         id: 'dataset-1', name: 'Dataset', format: 'instruction', status: 'valid', size_bytes: 10,
         record_count: 10, train_record_count: 8, validation_record_count: 2,
@@ -53,6 +82,8 @@ describe('ModelTrainingFacade', () => {
     expect(facade.jobCount()).toBe(1);
     expect(facade.adapters()[0].id).toBe('adapter-1');
     expect(api.capabilities).toHaveBeenCalledWith('http://hub.test');
+    expect(api.unslothStorage).toHaveBeenCalledWith('http://hub.test');
+    expect(facade.unslothStorage()?.usage.catalog_revision).toBe(2);
     expect(api.listDatasets).toHaveBeenCalledWith('http://hub.test', {});
   });
 

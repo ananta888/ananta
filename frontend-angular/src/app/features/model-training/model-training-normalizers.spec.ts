@@ -6,6 +6,7 @@ import {
   normalizeTrainingEventPage,
   normalizeTrainingJob,
   normalizeTrainingJobAcceptance,
+  normalizeUnslothStorage,
 } from './model-training-normalizers';
 
 describe('model training backend-v2 read-model normalization', () => {
@@ -120,5 +121,49 @@ describe('model training backend-v2 read-model normalization', () => {
       job_id: 'job-v2', task_id: 'task-v2', status: 'queued', poll_url: undefined,
       events_url: undefined, idempotent_replay: undefined,
     });
+  });
+
+  it('allowlists the public Unsloth storage readmodel without retaining path fields', () => {
+    const storage = normalizeUnslothStorage({
+      usage: {
+        schema: 'ananta.unsloth-storage-usage.v1',
+        catalog_revision: 4,
+        usage: { export: { bytes: 512, artifacts: 1 } },
+        tenant_total_bytes: 512,
+        quotas: {
+          dataset_bytes: 1024,
+          model_bytes: 1024,
+          checkpoint_bytes: 1024,
+          export_bytes: 1024,
+          tenant_total_bytes: 4096,
+          retention_seconds: 3600,
+          max_cleanup_items: 10,
+        },
+        paths_exposed: false,
+        filesystem_path: '/srv/private/tenant',
+      },
+      items: [{
+        artifact_id: 'artifact-storage-1',
+        storage_ref: 'unsloth-storage:artifact-storage-1',
+        kind: 'export',
+        job_id: 'job-1',
+        attempt_id: 'attempt-1',
+        sha256: 'a'.repeat(64),
+        size_bytes: 512,
+        state: 'active',
+        reference_kinds: [],
+        referenced: false,
+        relative_ref: 'tenants/private/jobs/job-1',
+      }],
+    });
+
+    expect(storage.usage.catalog_revision).toBe(4);
+    expect(storage.items[0]).toMatchObject({
+      artifact_id: 'artifact-storage-1',
+      kind: 'export',
+      size_bytes: 512,
+    });
+    expect(JSON.stringify(storage)).not.toContain('/srv/private');
+    expect(JSON.stringify(storage)).not.toContain('relative_ref');
   });
 });

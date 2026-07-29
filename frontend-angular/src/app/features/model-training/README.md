@@ -15,6 +15,8 @@ Aufteilung:
   monotone Events, Polling/SSE-Fallback, Metriken und Cancel-Zustände
 - `evaluation/`: Base-vs-Adapter-Report und bounded Samples
 - `adapters/`: sicherer Import, Registry-Lifecycle, Export, Unload und Rollback
+- `unsloth/`: Capability-Matrix, pfadfreies Tenant-Storage-Readmodel und
+  revisionsgefenceter Cleanup mit Dry-run/Confirm
 - `model-training-api.service.ts`: typisierte Hub-API
 - `model-training.facade.ts`: Featurezustand und Orchestrierung der UI
 

@@ -14,6 +14,9 @@ import {
   TrainingJobEvent,
   TrainingMetric,
   TrainingPage,
+  UnslothStorageArtifact,
+  UnslothStorageKindUsage,
+  UnslothStorageReadModel,
 } from './model-training.models';
 
 type JsonObject = Record<string, unknown>;
@@ -372,6 +375,50 @@ export function normalizeEvaluation(value: unknown): EvaluationReport {
   };
 }
 
+export function normalizeUnslothStorage(value: unknown): UnslothStorageReadModel {
+  const envelope = objectOf(value);
+  const data = objectOf(envelope.data);
+  const root = Object.keys(data).length ? data : objectOf(entityFrom(value, 'storage'));
+  const usage = objectOf(root.usage);
+  if (firstBoolean(usage.paths_exposed) !== false) {
+    throw new Error('unsloth_storage_paths_exposed');
+  }
+  const quotas = objectOf(usage.quotas);
+  const rawKindUsage = objectOf(usage.usage);
+  const kindUsage: Record<string, UnslothStorageKindUsage> = {};
+  for (const [kind, raw] of Object.entries(rawKindUsage)) {
+    if (!/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(kind)) continue;
+    const item = objectOf(raw);
+    kindUsage[kind] = {
+      bytes: Math.max(0, firstNumber(0, item.bytes)),
+      artifacts: Math.max(0, firstNumber(0, item.artifacts)),
+    };
+  }
+  const items = arrayOf(root.items)
+    .map(normalizeUnslothStorageArtifact)
+    .filter((item): item is UnslothStorageArtifact => item !== null);
+  return {
+    usage: {
+      schema: storageOpaque(usage.schema, 127) || 'ananta.unsloth-storage-usage.v1',
+      catalog_revision: Math.max(0, firstNumber(0, usage.catalog_revision)),
+      usage: kindUsage,
+      tenant_total_bytes: Math.max(0, firstNumber(0, usage.tenant_total_bytes)),
+      quotas: {
+        dataset_bytes: Math.max(0, firstNumber(0, quotas.dataset_bytes)),
+        model_bytes: Math.max(0, firstNumber(0, quotas.model_bytes)),
+        checkpoint_bytes: Math.max(0, firstNumber(0, quotas.checkpoint_bytes)),
+        export_bytes: Math.max(0, firstNumber(0, quotas.export_bytes)),
+        tenant_total_bytes: Math.max(0, firstNumber(0, quotas.tenant_total_bytes)),
+        retention_seconds: Math.max(0, firstNumber(0, quotas.retention_seconds)),
+        max_cleanup_items: Math.max(0, firstNumber(0, quotas.max_cleanup_items)),
+      },
+      paths_exposed: false,
+    },
+    items,
+    count: items.length,
+  };
+}
+
 function summaryValidationReport(
   summary: JsonObject,
   datasetId: string,
@@ -447,6 +494,40 @@ function normalizeTrainingMetric(value: unknown): TrainingMetric {
     gpu_memory_bytes: optionalNumber(metric.gpu_memory_bytes),
     recorded_at: numericTimestamp(metric.recorded_at ?? metric.timestamp),
   };
+}
+
+function normalizeUnslothStorageArtifact(value: unknown): UnslothStorageArtifact | null {
+  const source = objectOf(value);
+  const artifactId = storageOpaque(source.artifact_id);
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$/.test(artifactId)) return null;
+  const storageRef = storageOpaque(source.storage_ref, 255);
+  return {
+    artifact_id: artifactId,
+    storage_ref: /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/.test(storageRef)
+      ? storageRef
+      : undefined,
+    kind: storageOpaque(source.kind, 63) || 'unknown',
+    job_id: storageOpaque(source.job_id),
+    attempt_id: storageOpaque(source.attempt_id),
+    sha256: /^[0-9a-f]{64}$/.test(firstString(source.sha256))
+      ? firstString(source.sha256)
+      : '',
+    size_bytes: Math.max(0, firstNumber(0, source.size_bytes)),
+    created_at: numericTimestamp(source.created_at),
+    retention_until: numericTimestamp(source.retention_until),
+    state: storageOpaque(source.state, 63) || 'active',
+    reference_kinds: stringArray(source.reference_kinds)
+      .map((item) => storageOpaque(item, 63))
+      .filter(Boolean),
+    referenced: firstBoolean(source.referenced) ?? false,
+    cleanup_task_id: storageOpaque(source.cleanup_task_id) || undefined,
+  };
+}
+
+function storageOpaque(value: unknown, maxLength = 191): string {
+  const candidate = firstString(value);
+  if (candidate.length > maxLength) return '';
+  return /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(candidate) ? candidate : '';
 }
 
 function optionalNumber(value: unknown): number | undefined {

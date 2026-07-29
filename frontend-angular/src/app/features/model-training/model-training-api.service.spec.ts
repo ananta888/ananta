@@ -47,6 +47,19 @@ describe('ModelTrainingApiService', () => {
     expect(String(core.get.mock.calls.flatMap(call => call))).not.toContain('worker');
   });
 
+  it('reads the path-free Unsloth storage model only through the Hub API', () => {
+    const service = TestBed.inject(ModelTrainingApiService);
+
+    service.unslothStorage('http://hub.test/').subscribe();
+
+    expect(core.get).toHaveBeenCalledWith(
+      'http://hub.test/api/ml-intern-training/unsloth/storage',
+      'http://hub.test/',
+      undefined,
+      false,
+    );
+  });
+
   it('uploads dataset metadata as FormData with a bounded Hub request and idempotency key', () => {
     const service = TestBed.inject(ModelTrainingApiService);
     const file = new File(['{"instruction":"x","output":"y"}'], 'training.jsonl', { type: 'application/x-ndjson' });

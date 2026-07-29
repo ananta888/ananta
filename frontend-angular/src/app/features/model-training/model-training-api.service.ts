@@ -31,6 +31,7 @@ import {
   TrainingJobListFilters,
   TrainingJobSummary,
   TrainingPage,
+  UnslothStorageReadModel,
 } from './model-training.models';
 
 function queryString(values: Record<string, unknown>): string {
@@ -67,6 +68,12 @@ export class ModelTrainingApiService extends ApiBaseService {
 
   capabilities(hubUrl: string): Observable<TrainingCapabilities> {
     return this.core.get<TrainingCapabilities>(this.endpoint(hubUrl, '/capabilities'), hubUrl, undefined, false);
+  }
+
+  unslothStorage(hubUrl: string): Observable<UnslothStorageReadModel> {
+    return this.core.get<UnslothStorageReadModel>(
+      this.endpoint(hubUrl, '/unsloth/storage'), hubUrl, undefined, false,
+    );
   }
 
   listDatasets(hubUrl: string, filters: DatasetListFilters = {}): Observable<TrainingPage<DatasetSummary> | DatasetSummary[]> {
