@@ -13,12 +13,8 @@ def test_fake_hub_job_installs_backend_runtime_before_playwright() -> None:
     fake_hub_job = workflow[job_start:job_end]
 
     setup_python = fake_hub_job.index("actions/setup-python@")
-    install_backend = fake_hub_job.index(
-        "pip install -r ../requirements.lock -r ../requirements-dev.lock"
-    )
-    run_playwright = fake_hub_job.index(
-        "npx playwright test tests/unsloth-model-training-fake-hub.spec.ts"
-    )
+    install_backend = fake_hub_job.index("pip install -r ../requirements.lock -r ../requirements-dev.lock")
+    run_playwright = fake_hub_job.index("npx playwright test tests/unsloth-model-training-fake-hub.spec.ts")
 
     assert setup_python < install_backend < run_playwright
 
@@ -29,3 +25,4 @@ def test_extracted_smoke_helpers_trigger_pull_request_and_push_gates() -> None:
     triggers = workflow[:jobs_start]
 
     assert triggers.count('"scripts/lora_training_smoke_*.py"') == 2
+    assert triggers.count('"agent/routes/ml_intern_training*.py"') == 2
