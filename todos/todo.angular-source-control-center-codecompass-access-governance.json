@@ -1,0 +1,1726 @@
+{
+  "schema": "ananta.todo.v1",
+  "id": "ANANTA-SOURCE-CONTROL-CENTER-2026-07-29",
+  "title": "Einheitliches Angular Source Control Center mit CodeCompass-Lifecycle und Worker-/Modellfreigaben",
+  "created_at": "2026-07-29",
+  "language": "de",
+  "status": "open",
+  "priority": "P0",
+  "repository": {
+    "full_name": "ananta888/ananta",
+    "branch": "main",
+    "verified_commit": "5e24e95771cd675178696986374883c4b5e0e9af",
+    "verification_method": "GitHub code search and targeted source-file reads",
+    "scope": [
+      "frontend-angular",
+      "agent/routes",
+      "agent/services",
+      "agent/sources",
+      "agent/db_models",
+      "agent/repositories",
+      "worker/core",
+      "worker/retrieval",
+      "schemas",
+      "tests",
+      "docs"
+    ]
+  },
+  "goal": "Quellen sollen in Ananta ohne technisches Vorwissen auswählbar, sicher verbunden, CodeCompass-fähig indiziert, übersichtlich verwaltet und explizit für bestimmte Worker, Runtimes, Anbieter und Modelle freigegeben werden können. Die Angular-App wird dafür zur autoritativen Bedienoberfläche, während alle Entscheidungen serverseitig, versioniert, auditierbar und fail-closed bleiben.",
+  "definition_of_done": [
+    "Ein Nutzer kann lokale Verzeichnisse, registrierte Workspaces, einzelne Dateien, Git-Repositories und GitHub-Repositories über einen einheitlichen Assistenten hinzufügen.",
+    "Jede Quelle besitzt einen klaren Zustand von Verbindung über Prüfung und Indexierung bis zur einsatzbereiten CodeCompass-Version.",
+    "Für jede Quelle ist sichtbar und konfigurierbar, welche Worker, Runtime-Ziele, Provider, konkreten Modelle, Modellklassen und Operationen Zugriff erhalten.",
+    "Claude beziehungsweise Anthropic wird als konkreter Provider mit konkretem Modell behandelt und nicht nur pauschal als Cloud-Ziel.",
+    "Die effektive Berechtigung wird vor dem Speichern und vor jeder Ausführung verständlich simuliert und anschließend serverseitig erzwungen.",
+    "CodeCompass-Artefakte, Runs, Manifeste, Coverage, Aktualität, Fehler und Speicherverbrauch sind vollständig verwaltbar.",
+    "Angular, Backend, Worker und gespeicherte Verträge verwenden dieselben versionierten Source-, Index-, Destination- und Policy-IDs.",
+    "Alle Schreib- und Löschaktionen besitzen RBAC, Audit, Konfliktschutz und erforderlichenfalls eine Sicherheitsfreigabe.",
+    "Unit-, Contract-, Integration-, E2E-, Security-, Accessibility- und Migrationstests bestehen.",
+    "Die bisherige Sources-, Knowledge-, CodeHug- und Context-Policy-Funktionalität bleibt kompatibel oder wird kontrolliert migriert."
+  ],
+  "source_code_findings": [
+    {
+      "id": "FIND-001",
+      "severity": "high",
+      "finding": "Die Angular-Seite zeigt Sources und Source Packs als technische Karten mit Source-ID, Source-Type, Snapshot und Citation. Eine geführte Auswahl nach Verzeichnis, Workspace, Git oder GitHub fehlt.",
+      "evidence": [
+        "frontend-angular/src/app/components/sources.component.ts",
+        "frontend-angular/src/app/features/system/system.routes.ts"
+      ]
+    },
+    {
+      "id": "FIND-002",
+      "severity": "high",
+      "finding": "Der Importdialog unterstützt nur Open-Notebook-Export oder direkt eingegebenen Text. Lokale Verzeichnisse, Dateiauswahl, registrierte Workspaces und GitHub-Repositories sind dort nicht vorhanden.",
+      "evidence": [
+        "frontend-angular/src/app/features/sources/source-import-dialog.component.ts",
+        "frontend-angular/src/app/services/sources.service.ts"
+      ]
+    },
+    {
+      "id": "FIND-003",
+      "severity": "high",
+      "finding": "Die Sources-API bietet Listen, Source Packs, Open-Notebook-Import, Refresh, Snapshots, Citation, Chat und Cache. Allgemeine Create-, Update-, Disable-, Delete-, Directory-, Git- und GitHub-Verträge fehlen.",
+      "evidence": [
+        "agent/routes/sources.py"
+      ]
+    },
+    {
+      "id": "FIND-004",
+      "severity": "high",
+      "finding": "Der Refresh-Service verarbeitet derzeit konkret Keycloak-Dokumentation und Wikimedia-Dumps; andere Source-Typen enden als unsupported_source_type.",
+      "evidence": [
+        "agent/sources/source_refresh_service.py",
+        "agent/routes/sources.py"
+      ]
+    },
+    {
+      "id": "FIND-005",
+      "severity": "high",
+      "finding": "Source-Deskriptoren werden als JSON-Dateien unter data/sources verwaltet. Das Modell besitzt keinen durchgehenden tenant-, projekt- und versionsgebundenen Connection-Lifecycle mit Optimistic Concurrency.",
+      "evidence": [
+        "agent/sources/source_registry.py"
+      ]
+    },
+    {
+      "id": "FIND-006",
+      "severity": "critical",
+      "finding": "Es existieren mehrere Source-Verträge mit nicht deckungsgleichen Typen und IDs: SourceDescriptor, source_catalog.v2, source_ref.v2 und Context-Access-SourceType.",
+      "evidence": [
+        "agent/sources/source_registry.py",
+        "schemas/source/source_catalog.v2.json",
+        "schemas/source/source_ref.v2.json",
+        "worker/core/context_access_policy.py",
+        "frontend-angular/src/app/models/context-access-policy.model.ts"
+      ]
+    },
+    {
+      "id": "FIND-007",
+      "severity": "medium",
+      "finding": "KnowledgeIndexDB und KnowledgeIndexRunDB speichern Status, Output-Verzeichnis, Manifest, Laufzeit und Metadaten. Eine source-zentrierte Angular-Verwaltung dieser Informationen fehlt.",
+      "evidence": [
+        "agent/db_models/knowledge.py",
+        "agent/routes/knowledge.py"
+      ]
+    },
+    {
+      "id": "FIND-008",
+      "severity": "high",
+      "finding": "Die tatsächlichen CodeCompass-Graph-Endpunkte arbeiten mit knowledge_index_id. Der Angular-CodeHug-Service erwartet zusätzlich Projekt-, Reindex- und Health-Endpunkte, die im geprüften Backend nicht als gleichwertige Route gefunden wurden.",
+      "evidence": [
+        "agent/routes/codecompass_graph.py",
+        "frontend-angular/src/app/features/codehug/services/code-compass.service.ts",
+        "frontend-angular/src/app/features/codehug/README.md"
+      ]
+    },
+    {
+      "id": "FIND-009",
+      "severity": "high",
+      "finding": "CodeCompass-Ausgaben sind teilweise über Knowledge- und Wiki-Endpunkte sichtbar, aber allgemeine Run-Historie, aktiver Index, Coverage, Artefaktdateien, Aktualität, Vergleich und sichere Bereinigung sind nicht als einheitlicher Vertrag vorhanden.",
+      "evidence": [
+        "agent/routes/knowledge.py",
+        "agent/services/codecompass_graph_artifact_resolver.py",
+        "worker/retrieval/codecompass_graph_store.py",
+        "docs/codecompass.md"
+      ]
+    },
+    {
+      "id": "FIND-010",
+      "severity": "critical",
+      "finding": "Die Context-Policy-Domain kann Worker-Kind, Runtime-Kind, Modell-Scope und Provider-Location prüfen. Konkrete Provider-IDs, Modell-IDs und Worker-IDs werden in den Backend-Regeln nicht vollständig als Allow-/Deny-Felder erzwungen.",
+      "evidence": [
+        "worker/core/context_access_policy.py",
+        "frontend-angular/src/app/models/context-access-policy.model.ts"
+      ]
+    },
+    {
+      "id": "FIND-011",
+      "severity": "critical",
+      "finding": "Bei der Worker-Auswahl wird die Context-Policy mit synthetischem provider_id=worker_runtime_selection und model_id=worker-selection geprüft. Dadurch kann die Entscheidung nicht zuverlässig unterscheiden, ob der spätere Empfänger beispielsweise ein lokales Modell oder Anthropic Claude ist.",
+      "evidence": [
+        "agent/services/worker_runtime_selection_service.py"
+      ]
+    },
+    {
+      "id": "FIND-012",
+      "severity": "critical",
+      "finding": "Ein Approval-Override bindet derzeit unter anderem Block-Hash, Operation, Worker-Kind, Runtime-Kind und Provider-Location, aber nicht vollständig an Worker-ID, Runtime-ID, Provider-ID und Modell-ID.",
+      "evidence": [
+        "worker/core/context_access_policy.py"
+      ]
+    },
+    {
+      "id": "FIND-013",
+      "severity": "high",
+      "finding": "Die Angular Context-Policy-Übersicht verwendet default-project als Platzhalter. Draft bearbeiten und Lint sind nur console.log-Aufrufe; dadurch ist die vorhandene Policy-Domain nicht verständlich administrierbar.",
+      "evidence": [
+        "frontend-angular/src/app/features/context-access-policy/policy-overview.component.ts"
+      ]
+    },
+    {
+      "id": "FIND-014",
+      "severity": "high",
+      "finding": "Angular erwartet /api/context-access-policy-Verträge, während der geprüfte Backend-Blueprint /api/context-policy verwendet. Der Vertrag muss auf eine kanonische Route konsolidiert werden.",
+      "evidence": [
+        "frontend-angular/src/app/services/context-access-policy-api.service.ts",
+        "agent/routes/context_policy.py"
+      ]
+    },
+    {
+      "id": "FIND-015",
+      "severity": "high",
+      "finding": "CodeHug dokumentiert einen frontendseitigen Write-Modus und ein lokales In-Memory-Audit. Sicherheitsentscheidungen dürfen jedoch nicht von einem Browserzustand abhängen und müssen über die zentrale Backend-Policy laufen.",
+      "evidence": [
+        "frontend-angular/src/app/features/codehug/README.md",
+        "agent/services/context_access_policy_service.py"
+      ]
+    },
+    {
+      "id": "FIND-016",
+      "severity": "high",
+      "finding": "Vorhandene Workspace-Pfadprüfung und Git-Ops liefern wichtige Sicherheitsbausteine, sind aber noch nicht mit dem Source-Onboarding und dem CodeCompass-Lifecycle verbunden.",
+      "evidence": [
+        "agent/services/workspace_path_validator.py",
+        "agent/services/worker_workspace_service.py",
+        "agent/services/git_ops_service.py"
+      ]
+    }
+  ],
+  "target_architecture": {
+    "principles": [
+      "Eine Quelle ist eine versionierte SourceConnection; ihr Inhalt, ihr Materialisierungsstand und ihre CodeCompass-Indizes sind getrennte, verknüpfte Objekte.",
+      "SourceConnection ist autoritativ für Identität, Tenant, Projekt, Besitzer, Connector, Credential-Referenz und Aktualisierungsstrategie.",
+      "SourceRevision beschreibt einen unveränderlichen Stand wie Git-Commit, Verzeichnis-Snapshot oder Import-Hash.",
+      "KnowledgeIndex und KnowledgeIndexRun bleiben die autoritativen CodeCompass-Lifecycle-Objekte und werden nicht durch parallele Angular-Projektzustände ersetzt.",
+      "AccessGrantPolicy bindet Source oder Source-Gruppe an exakte Destinations und Operationen.",
+      "DestinationDescriptor enthält reale worker_id, worker_kind, runtime_target_id, runtime_kind, provider_id, provider_location, model_id, model_scope und capabilities.",
+      "Angular liest ausschließlich serverseitige Read-Models und speichert keine sicherheitswirksame Policy nur lokal.",
+      "Alle unbekannten Source-, Connector-, Provider-, Modell-, Worker- oder Operationswerte werden fail-closed behandelt."
+    ],
+    "entities": [
+      "SourceConnection",
+      "SourceRevision",
+      "SourceScanReport",
+      "SourceSelection",
+      "KnowledgeIndex",
+      "KnowledgeIndexRun",
+      "CodeCompassArtifactManifest",
+      "DestinationDescriptor",
+      "SourceAccessGrant",
+      "EffectiveAccessDecision",
+      "ApprovalGrant",
+      "AuditEvent"
+    ],
+    "source_kinds": [
+      "local_directory",
+      "local_file_set",
+      "registered_workspace",
+      "local_git_repository",
+      "github_repository",
+      "generic_git_repository",
+      "uploaded_archive",
+      "open_notebook",
+      "direct_text",
+      "keycloak_docs",
+      "wikimedia_dump",
+      "wiki_corpus",
+      "artifact_collection"
+    ],
+    "lifecycle": [
+      "draft",
+      "validating",
+      "authorization_required",
+      "scanning",
+      "ready_to_index",
+      "index_queued",
+      "indexing",
+      "ready",
+      "stale",
+      "degraded",
+      "blocked",
+      "failed",
+      "disabled",
+      "archived"
+    ]
+  },
+  "api_contracts": [
+    {
+      "method": "GET",
+      "path": "/api/sources",
+      "purpose": "Projekt- und tenantgefiltertes Source-Control-Center-Read-Model mit Status, Revision, aktivem Index, Berechtigungszusammenfassung und Health."
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources",
+      "purpose": "SourceConnection zunächst als validierten Draft anlegen; Credentials werden nur als Vault-Referenz akzeptiert."
+    },
+    {
+      "method": "GET",
+      "path": "/api/sources/connectors",
+      "purpose": "Verfügbare Connectoren, Fähigkeiten, Anforderungen, erlaubte Auth-Verfahren und Health auflisten."
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/validate",
+      "purpose": "Pfad, Repository, Branch, Credential, Limits, Dateitypen und Sicherheitsrisiken ohne Persistenz prüfen."
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/{source_id}/scan",
+      "purpose": "Metadaten-, Secret-, Symlink-, Submodule-, LFS-, Dateityp- und Budgetscan starten."
+    },
+    {
+      "method": "GET",
+      "path": "/api/sources/{source_id}/revisions",
+      "purpose": "Unveränderliche Source-Stände und deren Indexstatus anzeigen."
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/{source_id}/refresh",
+      "purpose": "Neue Revision ermitteln oder materialisieren; bisherige Route kompatibel weiterführen."
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/{source_id}/index-runs",
+      "purpose": "CodeCompass-Indexlauf mit Source-Revision, Profil, Budgets und Policy-Snapshot starten."
+    },
+    {
+      "method": "GET",
+      "path": "/api/sources/{source_id}/index-runs",
+      "purpose": "Run-Historie einschließlich Status, Phase, Fortschritt, Coverage, Fehlern und Artefakten liefern."
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/{source_id}/active-index",
+      "purpose": "Einen erfolgreich validierten KnowledgeIndex atomar aktivieren oder auf einen vorherigen Stand zurückrollen."
+    },
+    {
+      "method": "GET",
+      "path": "/api/knowledge/indices/{knowledge_index_id}/artifacts",
+      "purpose": "CodeCompass-Dateien als typisierte, sichere Metadatenansicht mit Hash, Größe, Schema und Downloadberechtigung auflisten."
+    },
+    {
+      "method": "POST",
+      "path": "/api/access-policies/preview",
+      "purpose": "Effektive Source-zu-Destination-Entscheidung mit Regelpfad, Transformation und erforderlicher Freigabe simulieren."
+    },
+    {
+      "method": "PUT",
+      "path": "/api/projects/{project_id}/source-access-policy",
+      "purpose": "Versionierte Grants mit ETag beziehungsweise expected_version atomar speichern."
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/{project_id}/source-access-matrix",
+      "purpose": "Quellen gegen reale Worker, Runtime-Ziele, Provider und Modelle als effektive Matrix projizieren."
+    },
+    {
+      "method": "GET",
+      "path": "/api/destinations",
+      "purpose": "Kanonische DestinationDescriptor-Liste aus Worker-, Runtime- und Provider-/Modellregistries liefern."
+    }
+  ],
+  "categories": [
+    {
+      "name": "architecture_and_contracts",
+      "label": "Architektur und kanonische Verträge",
+      "items": [
+        {
+          "id": "SRCCTRL-ARCH-001",
+          "title": "ADR für SourceConnection, Revision, Index und AccessGrant erstellen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "architecture",
+          "depends_on": [],
+          "paths": [
+            "docs/decisions/",
+            "docs/codecompass.md",
+            "docs/context_access_policy_backend.md"
+          ],
+          "acceptance_criteria": [
+            "Das ADR trennt Connector-Konfiguration, unveränderliche SourceRevision, KnowledgeIndex, KnowledgeIndexRun und aktiven Index eindeutig.",
+            "Das ADR legt Besitzer, Tenant-, Projekt- und Task-Grenzen sowie Lösch- und Aufbewahrungsregeln fest.",
+            "Es dokumentiert die kanonische Beziehung SourceConnection 1:n SourceRevision 1:n KnowledgeIndexRun und SourceAccessGrant n:m DestinationDescriptor.",
+            "Parallele Browser-, Worker- oder dateibasierte Schattenzustände werden ausdrücklich ausgeschlossen."
+          ]
+        },
+        {
+          "id": "SRCCTRL-ARCH-002",
+          "title": "Source-Typen und IDs über alle bestehenden Verträge vereinheitlichen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "contract",
+          "depends_on": [
+            "SRCCTRL-ARCH-001"
+          ],
+          "paths": [
+            "schemas/sources/source_descriptor.v1.json",
+            "schemas/source/source_catalog.v2.json",
+            "schemas/source/source_ref.v2.json",
+            "worker/core/context_access_policy.py",
+            "frontend-angular/src/app/models/context-access-policy.model.ts"
+          ],
+          "acceptance_criteria": [
+            "Ein versionierter SourceKind-/SourceContentType-Vertrag unterscheidet Connector-Art von ausgeliefertem Kontexttyp.",
+            "Legacy-IDs und Source-Typen besitzen eine explizite, getestete Migrations- und Kompatibilitätsabbildung.",
+            "SourceRef bleibt unveränderlich und tenantgebunden; UI-IDs oder Dateipfade werden niemals als Ersatzidentität verwendet.",
+            "Unbekannte Typen werden als unsupported oder denied behandelt und nicht still normalisiert."
+          ]
+        },
+        {
+          "id": "SRCCTRL-ARCH-003",
+          "title": "DestinationDescriptor und reale Empfängeridentität kanonisieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "contract",
+          "depends_on": [
+            "SRCCTRL-ARCH-001"
+          ],
+          "paths": [
+            "worker/core/context_access_policy.py",
+            "worker/core/runtime_target.py",
+            "agent/services/worker_runtime_selection_service.py",
+            "agent/routes/config/providers.py",
+            "agent/routes/config/read_models.py"
+          ],
+          "acceptance_criteria": [
+            "DestinationDescriptor enthält reale IDs für Worker, Runtime, Provider und Modell sowie Standort, Modell-Scope und Fähigkeiten.",
+            "Anthropic und ein konkretes Claude-Modell sind separat adressierbar; dasselbe gilt für OpenAI, lokale Provider, Ollama, LM Studio und CLI-Backends.",
+            "Die Descriptor-ID ist stabil, versioniert und verändert sich bei sicherheitsrelevanten Destination-Eigenschaften.",
+            "Worker-Auswahl und Context-Policy erhalten denselben Descriptor ohne synthetische Ersatzwerte."
+          ]
+        },
+        {
+          "id": "SRCCTRL-ARCH-004",
+          "title": "API-Namensräume für Sources, Knowledge, CodeCompass und Context Policy konsolidieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "contract",
+          "depends_on": [
+            "SRCCTRL-ARCH-001",
+            "SRCCTRL-ARCH-002",
+            "SRCCTRL-ARCH-003"
+          ],
+          "paths": [
+            "agent/routes/sources.py",
+            "agent/routes/knowledge.py",
+            "agent/routes/codecompass_graph.py",
+            "agent/routes/context_policy.py",
+            "frontend-angular/src/app/services/sources.service.ts",
+            "frontend-angular/src/app/services/context-access-policy-api.service.ts",
+            "frontend-angular/src/app/features/codehug/services/code-compass.service.ts"
+          ],
+          "acceptance_criteria": [
+            "Eine OpenAPI- oder JSON-Schema-Quelle beschreibt alle neuen und kompatiblen Endpunkte.",
+            "Die Abweichung /api/context-policy zu /api/context-access-policy ist durch eine kanonische Route und zeitlich begrenzte Aliasroute aufgelöst.",
+            "CodeHug verwendet reale KnowledgeIndex-IDs oder ein serverseitig klar definiertes Projekt-Read-Model; nicht vorhandene API-Erwartungen werden entfernt.",
+            "Contract-Tests verhindern erneute Drift zwischen Angular und Flask."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "persistence_and_migration",
+      "label": "Persistenz, Versionierung und Migration",
+      "items": [
+        {
+          "id": "SRCCTRL-DATA-001",
+          "title": "Persistente SourceConnection- und SourceRevision-Modelle hinzufügen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-ARCH-002"
+          ],
+          "paths": [
+            "agent/db_models/knowledge.py",
+            "agent/repositories/",
+            "agent/sources/source_registry.py",
+            "agent/database.py"
+          ],
+          "acceptance_criteria": [
+            "SourceConnection speichert Projekt, Tenant, Besitzer, Connector, Anzeige, Credential-Referenz, Status, Refresh-Strategie, Sicherheitsklasse und Versionsnummer.",
+            "SourceRevision speichert unveränderliche Revisionsidentität, Content-/Manifest-Hash, Branch oder Commit, Scan-Status und Zeitstempel.",
+            "Secrets, Tokens und private Schlüssel werden nicht im JSON-Feld oder in Logs gespeichert.",
+            "Unique Constraints verhindern doppelte Verbindungen derselben externen Quelle im gleichen Scope, sofern nicht ausdrücklich als getrennte Kopie angelegt."
+          ]
+        },
+        {
+          "id": "SRCCTRL-DATA-002",
+          "title": "KnowledgeIndex und Runs direkt an SourceRevision anbinden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-DATA-001"
+          ],
+          "paths": [
+            "agent/db_models/knowledge.py",
+            "agent/services/knowledge_index_job_service.py",
+            "agent/services/knowledge_index_worker_artifact_service.py",
+            "agent/repositories/artifacts.py"
+          ],
+          "acceptance_criteria": [
+            "KnowledgeIndexDB und KnowledgeIndexRunDB referenzieren SourceConnection und SourceRevision ohne bestehende Artifact- und Collection-Flows zu brechen.",
+            "Genau ein erfolgreicher Index kann pro SourceConnection und Profil als aktiv markiert werden.",
+            "Aktivierung erfolgt atomar und nur nach Schema-, Manifest-, Coverage- und Sicherheitsvalidierung.",
+            "Stale wird deterministisch aus aktiver Revision gegen aktuelle SourceRevision ermittelt."
+          ]
+        },
+        {
+          "id": "SRCCTRL-DATA-003",
+          "title": "Dateibasierte SourceRegistry kontrolliert in die persistente Registry migrieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "migration",
+          "depends_on": [
+            "SRCCTRL-DATA-001"
+          ],
+          "paths": [
+            "agent/sources/source_registry.py",
+            "agent/sources/builtin_sources.py",
+            "agent/routes/sources.py",
+            "scripts/",
+            "tests/"
+          ],
+          "acceptance_criteria": [
+            "Ein idempotenter Import übernimmt vorhandene data/sources/descriptors und Source Packs mit stabilen Legacy-Referenzen.",
+            "Ungültige Deskriptoren werden gemeldet und nicht teilweise aktiviert.",
+            "Built-in Sources bleiben deklarativ auslieferbar, erscheinen aber im gleichen Read-Model.",
+            "Rollback auf die vorige Version ist dokumentiert und setzt keine neue Quelle automatisch frei."
+          ]
+        },
+        {
+          "id": "SRCCTRL-DATA-004",
+          "title": "Versionierte SourceAccessGrant-Persistenz mit Konfliktschutz implementieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": [
+            "SRCCTRL-ARCH-003",
+            "SRCCTRL-DATA-001"
+          ],
+          "paths": [
+            "agent/db_models/blueprints.py",
+            "agent/repositories/context_access_policy_repo.py",
+            "agent/services/context_access_policy_service.py",
+            "schemas/context/context_access_policy.v1.json"
+          ],
+          "acceptance_criteria": [
+            "Grants können auf Projekt, Source, Source-Gruppe, Blueprint-Rolle und Task begrenzt werden.",
+            "Jede Änderung verwendet expected_version oder ETag und lehnt verlorene Updates mit 409 ab.",
+            "Aktivierung speichert Policy-Hash, Autor, Zeitpunkt, Diff-Zusammenfassung und vorherige aktive Version.",
+            "Deny-Regeln gewinnen deterministisch gegen Allow; fehlende Zielidentitäten bleiben denied."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "source_connectors",
+      "label": "Quellen verbinden",
+      "items": [
+        {
+          "id": "SRCCTRL-CONN-001",
+          "title": "ConnectorRegistry und gemeinsamen SourceConnector-Port implementieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-DATA-001",
+            "SRCCTRL-ARCH-004"
+          ],
+          "paths": [
+            "agent/sources/",
+            "agent/services/source_catalog_service.py",
+            "agent/services/service_registry.py",
+            "schemas/sources/"
+          ],
+          "acceptance_criteria": [
+            "Jeder Connector implementiert validate, inspect, materialize, refresh, revision_identity, health und redact_configuration.",
+            "Capability-Metadaten nennen Auth-Verfahren, Branch-/Pfadunterstützung, Incremental Refresh, Dateigrenzen und Netzwerkbedarf.",
+            "Connectoren werden serverseitig registriert und nicht durch vom Client gelieferte Klassen- oder Modulnamen geladen.",
+            "Unbekannte oder deaktivierte Connectoren werden fail-closed abgewiesen."
+          ]
+        },
+        {
+          "id": "SRCCTRL-CONN-002",
+          "title": "Sicheren LocalDirectoryConnector implementieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-CONN-001"
+          ],
+          "paths": [
+            "agent/services/workspace_path_validator.py",
+            "agent/services/worker_workspace_service.py",
+            "agent/sources/",
+            "worker/core/context_scanner.py"
+          ],
+          "acceptance_criteria": [
+            "Nur durch Administratoren registrierte Root-Verzeichnisse oder explizit autorisierte Workspaces sind auswählbar.",
+            "Path Traversal, Symlink Escape, Device Files, Sockets, versteckte Credential-Dateien und Pfade außerhalb des Roots werden blockiert.",
+            "Include-/Exclude-Regeln, .gitignore-Unterstützung, Größenlimits und Vorschau der erfassten Dateien sind verfügbar.",
+            "Der Snapshot enthält relative Pfade und Hashes, aber keine unnötigen absoluten Hostpfade."
+          ]
+        },
+        {
+          "id": "SRCCTRL-CONN-003",
+          "title": "RegisteredWorkspaceConnector auf bestehende Workspace-Domain aufsetzen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-CONN-002"
+          ],
+          "paths": [
+            "agent/services/worker_workspace_service.py",
+            "worker/runtime/workspace_resolver.py",
+            "agent/services/git_ops_service.py",
+            "agent/routes/"
+          ],
+          "acceptance_criteria": [
+            "Die UI kann vorhandene Workspaces nach Name und Projekt wählen, ohne freie Serverpfade einzugeben.",
+            "Workspace-ID und Workspace-Fingerprint werden gespeichert; ein Root-Wechsel erzeugt eine neue Revision oder blockiert den Refresh.",
+            "Git-Status, Branch, HEAD und Dirty-State werden vor Indexierung sichtbar gemacht.",
+            "Uncommitted Dateien sind nur nach ausdrücklicher Auswahl als eigener Snapshot zulässig."
+          ]
+        },
+        {
+          "id": "SRCCTRL-CONN-004",
+          "title": "GitHubRepositoryConnector mit GitHub-App- und OAuth-Sicherheitsmodell umsetzen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-CONN-001"
+          ],
+          "paths": [
+            "agent/sources/",
+            "agent/services/integration_registry_service.py",
+            "agent/routes/integrations.py",
+            "agent/services/secret_store.py"
+          ],
+          "acceptance_criteria": [
+            "Der Nutzer sieht ausschließlich Repositories, die die verbundene GitHub-Identität beziehungsweise Installation lesen darf.",
+            "Repository, Owner, Installation, Sichtbarkeit, Default Branch, ausgewählter Branch oder Commit und optionale Unterverzeichnisse werden gespeichert.",
+            "Private Repository-Inhalte werden nie über den Browser oder Logs geleakt; Credentials bleiben als Secret-Referenz.",
+            "Forks, archivierte Repositories, LFS, Submodule, große Repositories, Rate Limits und widerrufene Zugriffe besitzen klare Zustände und Reason-Codes.",
+            "Read-only ist Standard; Schreibrechte auf GitHub sind für reine Source-Nutzung weder angefordert noch erforderlich."
+          ]
+        },
+        {
+          "id": "SRCCTRL-CONN-005",
+          "title": "GenericGitConnector für registrierte Remote-URLs ergänzen",
+          "status": "open",
+          "priority": "P1",
+          "risk": "critical",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-CONN-001"
+          ],
+          "paths": [
+            "agent/sources/",
+            "agent/services/git_ops_service.py",
+            "agent/services/secret_store.py"
+          ],
+          "acceptance_criteria": [
+            "Nur erlaubte HTTPS- oder SSH-Hosts und serverseitig registrierte Credentials sind zulässig.",
+            "SSRF, file://, lokale Socket-Ziele, Link-Local-, Loopback- und Metadatenservice-Adressen werden blockiert.",
+            "Clone erfolgt mit begrenzter Tiefe, Zeit, Größe und Prozessrechten in einem isolierten Materialisierungsbereich.",
+            "Remote-URLs werden in Fehlern und Audit-Ereignissen credential-frei dargestellt."
+          ]
+        },
+        {
+          "id": "SRCCTRL-CONN-006",
+          "title": "OpenNotebook-, Text-, Wiki- und bestehende Source-Flows als Connectoren adaptieren",
+          "status": "open",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-CONN-001"
+          ],
+          "paths": [
+            "agent/sources/open_notebook_importer.py",
+            "agent/sources/source_refresh_service.py",
+            "agent/services/ingestion_service.py",
+            "agent/routes/sources.py",
+            "agent/routes/knowledge.py"
+          ],
+          "acceptance_criteria": [
+            "Bestehender Open-Notebook-Import und Direct Text erzeugen SourceConnection und SourceRevision.",
+            "Keycloak-, Wikimedia- und Wiki-Flows verwenden denselben Lifecycle und Statusvertrag.",
+            "Bestehende Endpunkte bleiben während der Migration kompatibel und liefern die neue Source-ID zurück.",
+            "Doppelte Importe werden per Revisionshash erkannt und nicht als unkontrollierte neue Quelle angelegt."
+          ]
+        },
+        {
+          "id": "SRCCTRL-CONN-007",
+          "title": "Source-Vorabscan für Secrets, Injection, Dateitypen und Budgets implementieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": [
+            "SRCCTRL-CONN-002",
+            "SRCCTRL-CONN-004",
+            "SRCCTRL-CONN-005"
+          ],
+          "paths": [
+            "worker/core/context_scanner.py",
+            "agent/services/source_classification_service.py",
+            "config/codecompass/file_type_support.v1.json",
+            "docs/security/"
+          ],
+          "acceptance_criteria": [
+            "Der Scan klassifiziert unterstützte, ausgeschlossene, zu große, binäre, sensible und fehlgeschlagene Dateien.",
+            "Er meldet Secret- und Credential-Kandidaten ohne deren Werte anzuzeigen.",
+            "Prompt-Injection-Risiken werden als Metadaten erfasst und können Cloud-/Agent-Freigaben blockieren.",
+            "Der Nutzer erhält vor Indexierung Anzahl, Größe, Sprachverteilung, Ausschlüsse, Warnungen und erwartete Kosten beziehungsweise Laufzeit.",
+            "Ein blockierter Scan kann nicht über einen direkten Index-Endpunkt umgangen werden."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "source_api_and_read_models",
+      "label": "Backend-API und Read-Models",
+      "items": [
+        {
+          "id": "SRCCTRL-API-001",
+          "title": "Source-Control-Center-API als dünne Route über Domain-Services bereitstellen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-CONN-001",
+            "SRCCTRL-DATA-002",
+            "SRCCTRL-DATA-004"
+          ],
+          "paths": [
+            "agent/routes/sources.py",
+            "agent/services/",
+            "agent/repositories/"
+          ],
+          "acceptance_criteria": [
+            "List, Detail, Create Draft, Validate, Update, Disable, Refresh und Scan verwenden zentrale Services statt Route-seitiger Dateischreiblogik.",
+            "Jede Route erzwingt Tenant, Projekt, Besitzer- oder Admin-Berechtigung.",
+            "Antworten liefern stabile Reason-Codes und keine absoluten Hostpfade, Credentials oder Rohinhalte.",
+            "Legacy-Routen werden über Adapter weiterbetrieben und als deprecated dokumentiert."
+          ]
+        },
+        {
+          "id": "SRCCTRL-API-002",
+          "title": "Aggregiertes Source-Read-Model erstellen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "medium",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-API-001"
+          ],
+          "paths": [
+            "agent/services/source_catalog_service.py",
+            "agent/services/config_read_model_service.py",
+            "agent/routes/sources.py"
+          ],
+          "acceptance_criteria": [
+            "Das Read-Model enthält Anzeige, Typ, Verbindung, Health, Revision, Scan, aktiven Index, Stale-Status, letzte Aktualisierung, Größe, Coverage und Grant-Zusammenfassung.",
+            "Status und Aktionen werden serverseitig abgeleitet; Angular rekonstruiert keine Lifecycle-Regeln.",
+            "Listen unterstützen Pagination, Suche, Sortierung und Filter nach Projekt, Typ, Status, Sensitivität, Providerfreigabe und Indexstand.",
+            "Ein ETag verhindert unnötige Vollabrufe und unterstützt konsistente Detailansichten."
+          ]
+        },
+        {
+          "id": "SRCCTRL-API-003",
+          "title": "Asynchrone Job-Fortschritts- und Ereignisprojektion bereitstellen",
+          "status": "open",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-API-002"
+          ],
+          "paths": [
+            "agent/routes/control_center_api.py",
+            "agent/services/knowledge_index_job_service.py",
+            "agent/services/backend_observability_service.py"
+          ],
+          "acceptance_criteria": [
+            "Scan-, Materialisierungs-, Refresh- und Index-Jobs liefern Phase, Prozent oder Einheiten, Startzeit, letzte Aktivität und terminalen Status.",
+            "SSE oder bestehender Control-Center-Stream kann nach Reconnect ab einer Sequenz fortgesetzt werden.",
+            "Events enthalten nur IDs und redigierte Metadaten, keine Source-Inhalte.",
+            "Polling bleibt als begrenzter Fallback verfügbar."
+          ]
+        },
+        {
+          "id": "SRCCTRL-API-004",
+          "title": "Bulk-Aktionen mit Dry-Run und Teilfehlerbericht implementieren",
+          "status": "open",
+          "priority": "P1",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-API-001",
+            "SRCCTRL-API-003"
+          ],
+          "paths": [
+            "agent/routes/sources.py",
+            "agent/services/"
+          ],
+          "acceptance_criteria": [
+            "Refresh, Scan, Reindex, Disable und Policy-Zuweisung unterstützen Dry-Run.",
+            "Jedes Element liefert eigenen Status und Reason-Code; ein Teilerfolg wird nicht als vollständiger Erfolg ausgegeben.",
+            "Bulk-Löschung oder Artefaktbereinigung erfordert eine separate Freigabe und exakte Zielauflistung.",
+            "Maximalgrößen und Rate Limits verhindern unbegrenzte Fan-out-Jobs."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "angular_source_experience",
+      "label": "Angular Quellen-Auswahl und Verwaltung",
+      "items": [
+        {
+          "id": "SRCCTRL-UI-001",
+          "title": "Eigene Source-Control-Center-Feature-Struktur anlegen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "medium",
+          "type": "frontend",
+          "depends_on": [
+            "SRCCTRL-API-002"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/sources/",
+            "frontend-angular/src/app/components/sources.component.ts",
+            "frontend-angular/src/app/features/system/system.routes.ts",
+            "frontend-angular/src/app/models/route-metadata.ts"
+          ],
+          "acceptance_criteria": [
+            "SourcesComponent wird zu einem dünnen Shell-Entry und enthält nicht mehr den gesamten Bildschirm als Inline-Template.",
+            "Routes für Übersicht, Hinzufügen, Detail, CodeCompass, Freigaben und Historie sind lazy-loaded.",
+            "Alle Zustände verwenden Signals oder das im Feature etablierte State-Muster und OnPush.",
+            "Direktlinks und Breadcrumbs bleiben nach Reload funktionsfähig."
+          ]
+        },
+        {
+          "id": "SRCCTRL-UI-002",
+          "title": "Geführten Quellen-Assistenten mit verständlicher Typauswahl bauen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "medium",
+          "type": "frontend",
+          "depends_on": [
+            "SRCCTRL-UI-001",
+            "SRCCTRL-CONN-001"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/sources/",
+            "frontend-angular/src/app/services/sources.service.ts"
+          ],
+          "acceptance_criteria": [
+            "Der erste Schritt bietet klar benannte Optionen: Verzeichnis, bestehender Arbeitsbereich, GitHub-Repository, anderes Git-Repository, Dateien, Open Notebook, Text und weitere Quellen.",
+            "Nur tatsächlich verfügbare Connectoren sind auswählbar; fehlende Verbindung oder Berechtigung wird direkt erklärt.",
+            "Der Assistent zeigt fortlaufend Quelle, Umfang, Aktualisierung, Sicherheit und CodeCompass als fünf verständliche Schritte.",
+            "Zurücknavigation verliert keine validierten Eingaben und erzeugt keine Quelle vor dem finalen Bestätigen."
+          ]
+        },
+        {
+          "id": "SRCCTRL-UI-003",
+          "title": "Sichere Verzeichnis- und Workspace-Auswahl umsetzen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "frontend",
+          "depends_on": [
+            "SRCCTRL-UI-002",
+            "SRCCTRL-CONN-002",
+            "SRCCTRL-CONN-003"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/sources/",
+            "frontend-angular/src/app/services/"
+          ],
+          "acceptance_criteria": [
+            "Serververzeichnisse werden als erlaubter Baum ohne freie Root-Navigation angezeigt.",
+            "Registrierte Workspaces sind nach Projekt, Name, Branch und Zustand filterbar.",
+            "Browser-/Capacitor-Dateiauswahl wird klar von einem Serverpfad unterschieden.",
+            "Include-, Exclude- und Unterverzeichnisauswahl besitzt eine sofortige Scan-Vorschau."
+          ]
+        },
+        {
+          "id": "SRCCTRL-UI-004",
+          "title": "GitHub-Repository-Browser integrieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "frontend",
+          "depends_on": [
+            "SRCCTRL-UI-002",
+            "SRCCTRL-CONN-004"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/sources/",
+            "frontend-angular/src/app/components/cli-backend-setup.component.ts",
+            "frontend-angular/src/app/services/"
+          ],
+          "acceptance_criteria": [
+            "Repository-Liste unterstützt Account beziehungsweise Organisation, Suche, Sichtbarkeit, archiviert und zuletzt aktualisiert.",
+            "Nach Auswahl sind Branch, Tag oder exakter Commit sowie optionale Unterverzeichnisse wählbar.",
+            "Private und öffentliche Quellen sind deutlich gekennzeichnet; erforderliche Verbindung kann ohne Verlust des Assistentenzustands hergestellt werden.",
+            "Vor Abschluss werden Clone-/Scan-Umfang, LFS-/Submodule-Hinweise und Zugriffsmodus angezeigt."
+          ]
+        },
+        {
+          "id": "SRCCTRL-UI-005",
+          "title": "Scan-Vorschau und CodeCompass-Konfiguration in den Assistenten integrieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "frontend",
+          "depends_on": [
+            "SRCCTRL-UI-003",
+            "SRCCTRL-UI-004",
+            "SRCCTRL-CONN-007"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/sources/",
+            "frontend-angular/src/app/features/codehug/",
+            "frontend-angular/src/app/features/codecompass-graph/"
+          ],
+          "acceptance_criteria": [
+            "Die Vorschau zeigt Dateien, Sprachen, Größe, ausgeschlossene Dateitypen, sensible Treffer, Warnungen und erwarteten Indexumfang.",
+            "Indexprofil, Embedding-Provider, Graph-/Symbol-/RAG-Kanäle und Aktualisierungsstrategie sind mit sicheren Defaults wählbar.",
+            "Technische Detailoptionen sind in einem erweiterten Bereich gruppiert; der Standardfluss bleibt mit wenigen Entscheidungen nutzbar.",
+            "Bei blockierenden Risiken kann nicht indexiert werden; eine mögliche Freigabe wird mit genauer Auswirkung erklärt."
+          ]
+        },
+        {
+          "id": "SRCCTRL-UI-006",
+          "title": "Quellenübersicht als filterbare Tabelle mit eindeutigen Zuständen neu bauen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "medium",
+          "type": "frontend",
+          "depends_on": [
+            "SRCCTRL-UI-001",
+            "SRCCTRL-API-002"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/sources/",
+            "frontend-angular/src/app/components/sources.component.ts"
+          ],
+          "acceptance_criteria": [
+            "Spalten enthalten Name, Art, Projekt, Verbindung, Revision, CodeCompass-Stand, letzte Aktualisierung, Zugriff und Aktionen.",
+            "Status nutzt Text, Symbol und Farbe; Farbe allein trägt keine Information.",
+            "Filter nach Typ, Status, Projekt, Stale, Sicherheitsklasse und Freigabe sind kombinierbar und URL-persistiert.",
+            "Leere, ladende, teilweise geladene, fehlerhafte und offline Zustände besitzen konkrete nächste Aktionen."
+          ]
+        },
+        {
+          "id": "SRCCTRL-UI-007",
+          "title": "Source-Detailseite mit verständlicher Zusammenfassung und Tabs erstellen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "medium",
+          "type": "frontend",
+          "depends_on": [
+            "SRCCTRL-UI-006"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/sources/"
+          ],
+          "acceptance_criteria": [
+            "Tabs enthalten Übersicht, Inhalt und Scan, CodeCompass, Zugriffe, Revisionen und Aktivität.",
+            "Die Kopfzeile zeigt einsatzbereit, veraltet, blockiert oder fehlerhaft mit Ursache und nächster Aktion.",
+            "Connector-Konfiguration wird redigiert dargestellt; Geheimnisse sind nie sichtbar oder zurücklesbar.",
+            "Refresh, Reindex, Deaktivieren und Entfernen sind nach Risiko getrennt und zeigen ihre Auswirkung vor Ausführung."
+          ]
+        },
+        {
+          "id": "SRCCTRL-UI-008",
+          "title": "Gemeinsamen Angular Source API Client und Fehlervertrag verwenden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "medium",
+          "type": "frontend",
+          "depends_on": [
+            "SRCCTRL-ARCH-004",
+            "SRCCTRL-API-001"
+          ],
+          "paths": [
+            "frontend-angular/src/app/services/sources.service.ts",
+            "frontend-angular/src/app/services/hub-api-core.service.ts",
+            "frontend-angular/src/app/features/sources/"
+          ],
+          "acceptance_criteria": [
+            "Sources-Service verwendet denselben Auth-, Timeout-, Retry- und Unwrap-Pfad wie andere Hub-Services.",
+            "DTO-Normalisierung ist typisiert und behandelt unbekannte neue Felder vorwärtskompatibel.",
+            "Reason-Codes werden zentral in verständliche deutsche Meldungen mit technischer Detailoption übersetzt.",
+            "Keine Komponente verwendet HttpClient direkt."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "codecompass_lifecycle",
+      "label": "CodeCompass-Index und Dateiverwaltung",
+      "items": [
+        {
+          "id": "SRCCTRL-CC-001",
+          "title": "Kanonisches CodeCompass Source- und Index-Read-Model implementieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-DATA-002",
+            "SRCCTRL-ARCH-004"
+          ],
+          "paths": [
+            "agent/routes/knowledge.py",
+            "agent/routes/codecompass_graph.py",
+            "agent/services/rag_helper_index_service.py",
+            "agent/services/codecompass_graph_artifact_resolver.py"
+          ],
+          "acceptance_criteria": [
+            "Read-Model referenziert SourceConnection, Revision, KnowledgeIndex, aktiven Run und Graph-Verfügbarkeit.",
+            "Status enthält queued, running, ready, stale, degraded, failed und blocked mit stabilen Reason-Codes.",
+            "Angular muss keine nicht existierende Projekt- oder Reindex-API simulieren.",
+            "Graph-, Symbol-, FTS- und Vector-Verfügbarkeit werden getrennt ausgewiesen."
+          ]
+        },
+        {
+          "id": "SRCCTRL-CC-002",
+          "title": "Indexlauf als revisionsgebundenen Hub-Task vervollständigen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-CC-001",
+            "SRCCTRL-CONN-007"
+          ],
+          "paths": [
+            "agent/services/knowledge_index_job_service.py",
+            "agent/services/knowledge_index_worker_artifact_service.py",
+            "worker/retrieval/knowledge_index_job_handler.py",
+            "schemas/worker/knowledge_index_job.v1.json",
+            "schemas/worker/knowledge_index_job_result.v1.json"
+          ],
+          "acceptance_criteria": [
+            "Job friert SourceRevision, Tenant, Projekt, Profil, Dateimanifest, Policy-Snapshot und Budgets ein.",
+            "Worker darf nur den materialisierten Snapshot lesen und keine andere Hostquelle nachladen.",
+            "Retry ist idempotent und publiziert Ergebnisse erst nach vollständiger Hub-Validierung.",
+            "Abbruch, Timeout, Worker-Verlust und unvollständige Artefakte erzeugen keinen aktiven Index."
+          ]
+        },
+        {
+          "id": "SRCCTRL-CC-003",
+          "title": "CodeCompass-Artefaktmanifest und Dateikatalog vollständig projizieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-CC-002"
+          ],
+          "paths": [
+            "agent/services/codecompass_graph_artifact_resolver.py",
+            "agent/services/knowledge_index_worker_artifact_service.py",
+            "worker/retrieval/codecompass_graph_store.py",
+            "schemas/worker/codecompass_snapshot_manifest.v1.json"
+          ],
+          "acceptance_criteria": [
+            "Jede erzeugte Datei besitzt Typ, Schema, SHA-256, Größe, Run-ID, Erstellzeit und Validierungsstatus.",
+            "Mindestens Manifest, Records, Graph, Relationen, Symbolindex, Vector-Metadaten, Coverage und Diagnostik sind typisiert.",
+            "Fehlende, zusätzliche, hashabweichende oder schemaungültige Dateien blockieren die Aktivierung.",
+            "Rohpfade werden nur autorisierten Administratoren und ausschließlich relativ zum Index-Root gezeigt."
+          ]
+        },
+        {
+          "id": "SRCCTRL-CC-004",
+          "title": "Index-Run-Historie, Vergleich und Rollback implementieren",
+          "status": "open",
+          "priority": "P1",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-CC-003"
+          ],
+          "paths": [
+            "agent/routes/knowledge.py",
+            "agent/repositories/artifacts.py",
+            "agent/services/"
+          ],
+          "acceptance_criteria": [
+            "Runs sind nach Revision, Profil, Status, Zeit und Worker filterbar.",
+            "Vergleich zeigt Dateianzahl, Symbole, Knoten, Kanten, Coverage, ausgeschlossene Dateien, Größe und Profiländerungen.",
+            "Rollback aktiviert atomar nur einen früheren validen Index und ändert nicht die SourceRevision.",
+            "Rollback und Aktivierung werden mit altem und neuem Manifest-Hash auditiert."
+          ]
+        },
+        {
+          "id": "SRCCTRL-CC-005",
+          "title": "Sichere Aufbewahrung und Bereinigung von CodeCompass-Daten implementieren",
+          "status": "open",
+          "priority": "P1",
+          "risk": "critical",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-CC-003",
+            "SRCCTRL-CC-004"
+          ],
+          "paths": [
+            "agent/services/knowledge_index_worker_artifact_service.py",
+            "agent/routes/knowledge.py",
+            "agent/services/terminal_cleanup_service.py"
+          ],
+          "acceptance_criteria": [
+            "Retention kann nach Anzahl, Alter und Speicherbudget definiert werden; aktiver und für Audit referenzierter Index bleibt geschützt.",
+            "Dry-Run listet exakte Runs, Dateien und Bytes vor jeder Bereinigung.",
+            "Löschen validiert, dass alle Ziele innerhalb des autorisierten KnowledgeIndex-Roots liegen und keine Symlink-Escapes enthalten.",
+            "Teilweise Löschung wird als Fehler behandelt und hinterlässt einen reparierbaren, nicht aktiven Zustand."
+          ]
+        },
+        {
+          "id": "SRCCTRL-CC-006",
+          "title": "CodeCompass-Verwaltungsansicht in Angular bauen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "medium",
+          "type": "frontend",
+          "depends_on": [
+            "SRCCTRL-CC-001",
+            "SRCCTRL-CC-003",
+            "SRCCTRL-CC-004"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/sources/",
+            "frontend-angular/src/app/features/codehug/services/code-compass.service.ts",
+            "frontend-angular/src/app/features/codecompass-graph/"
+          ],
+          "acceptance_criteria": [
+            "Die Source-Detailseite zeigt aktiven Index, Revision, Profil, Aktualität, Kanäle, Coverage, Run-Historie und Speicher.",
+            "Run-Detail zeigt Phasen, Manifestdateien, Ausschlüsse, Warnungen und Fehler ohne Rohinhalte zu leaken.",
+            "Reindex, Aktivieren, Vergleichen, Rollback und Bereinigung sind nur bei serverseitig erlaubtem Zustand verfügbar.",
+            "Von einem Index kann direkt in den bestehenden CodeCompass-Graph-Viewer navigiert werden."
+          ]
+        },
+        {
+          "id": "SRCCTRL-CC-007",
+          "title": "CodeHug und Source Control Center auf denselben CodeCompass-Vertrag migrieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "migration",
+          "depends_on": [
+            "SRCCTRL-CC-001",
+            "SRCCTRL-CC-006"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/codehug/services/code-compass.service.ts",
+            "frontend-angular/src/app/features/codehug/models/codehug.models.ts",
+            "frontend-angular/src/app/features/codehug/state/",
+            "agent/routes/codecompass_graph.py"
+          ],
+          "acceptance_criteria": [
+            "listProjects, getProject, listFiles, triggerReindex und healthCheck verwenden reale, implementierte Backend-Verträge.",
+            "knowledge_index_id wird durchgehend übergeben und nicht implizit aus projectId oder taskId ersetzt.",
+            "Bestehende CodeHug-Kontext-, Such- und Graph-Funktionen bleiben nutzbar.",
+            "Service-Contract-Tests laufen gegen dieselben Fixtures wie Backend-Route-Tests."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "access_governance",
+      "label": "Worker-, Provider-, Modell- und Sicherheitsfreigaben",
+      "items": [
+        {
+          "id": "SRCCTRL-POL-001",
+          "title": "ContextAccessRule um konkrete Destination-IDs erweitern",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": [
+            "SRCCTRL-ARCH-003",
+            "SRCCTRL-DATA-004"
+          ],
+          "paths": [
+            "worker/core/context_access_policy.py",
+            "schemas/context/context_access_policy.v1.json",
+            "frontend-angular/src/app/models/context-access-policy.model.ts"
+          ],
+          "acceptance_criteria": [
+            "Regeln unterstützen allowed und denied für worker_ids, runtime_target_ids, provider_ids und model_ids.",
+            "Deny gewinnt für jede Dimension; leere Allowlists haben dokumentierte, fail-closed Semantik.",
+            "Provider- und Modell-Muster sind nur als registrierte Gruppen oder exakte IDs erlaubt, nicht als freie Regex.",
+            "Claude-Zugriff kann je Quelle auf Anthropic, konkrete Claude-Modelle, Operationen und Transformationsart begrenzt werden."
+          ]
+        },
+        {
+          "id": "SRCCTRL-POL-002",
+          "title": "Worker-Auswahl mit realem Provider- und Modellziel auswerten",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": [
+            "SRCCTRL-POL-001"
+          ],
+          "paths": [
+            "agent/services/worker_runtime_selection_service.py",
+            "agent/services/model_inference_adapter_registry.py",
+            "worker/core/runtime_target.py"
+          ],
+          "acceptance_criteria": [
+            "WorkerRuntimeSelectionRequest enthält den realen DestinationDescriptor oder eine serverseitig auflösbare Destination-ID.",
+            "Synthetische Werte worker_runtime_selection und worker-selection werden nicht für sicherheitswirksame Entscheidungen verwendet.",
+            "Wenn Modell oder Provider erst später gewählt würde, bleibt der Kandidat bis zur finalen Policyprüfung nicht ausführbar.",
+            "Tests beweisen unterschiedliche Entscheidungen für denselben Worker mit lokalem Modell, OpenAI und Anthropic Claude."
+          ]
+        },
+        {
+          "id": "SRCCTRL-POL-003",
+          "title": "Approval-Grants an vollständigen Empfänger und Source-Stand binden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": [
+            "SRCCTRL-POL-001"
+          ],
+          "paths": [
+            "worker/core/context_access_policy.py",
+            "agent/routes/approvals.py",
+            "agent/services/ananta_tool_policy_service.py"
+          ],
+          "acceptance_criteria": [
+            "Approval-Scope enthält Source-ID, SourceRevision, Block- oder Manifest-Hash, Operation, Worker-ID, Runtime-ID, Provider-ID und Modell-ID.",
+            "Änderung einer Dimension, Ablaufzeit oder Hashabweichung macht die Freigabe ungültig.",
+            "Ein Approval ist einmalig oder explizit zeitgebunden und nicht global wiederverwendbar.",
+            "Freigabeansicht zeigt verständlich, welche Daten an welchen realen Empfänger gehen."
+          ]
+        },
+        {
+          "id": "SRCCTRL-POL-004",
+          "title": "Operationen und Transformationen in die Source-Freigabe aufnehmen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": [
+            "SRCCTRL-POL-001"
+          ],
+          "paths": [
+            "worker/core/context_access_policy.py",
+            "agent/services/context_access_policy_service.py",
+            "agent/services/retrieval_policy_filter_service.py"
+          ],
+          "acceptance_criteria": [
+            "Mindestens Index lesen, Rohdatei lesen, Snippet senden, Graph senden, Zusammenfassung senden, Tool-Read, Tool-Write und Artefakt schreiben sind getrennt.",
+            "Allow, allow_redacted, allow_summary_only, approval_required und deny werden pro Operation unterstützt.",
+            "Redaction oder Summary wird vor Transport serverseitig ausgeführt und erneut klassifiziert.",
+            "Eine Graph-Freigabe erlaubt nicht automatisch Rohcode oder Dateizugriff."
+          ]
+        },
+        {
+          "id": "SRCCTRL-POL-005",
+          "title": "Effektive Access-Matrix und Erklärungsdienst implementieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": [
+            "SRCCTRL-POL-002",
+            "SRCCTRL-POL-004"
+          ],
+          "paths": [
+            "agent/services/context_access_policy_service.py",
+            "agent/services/governance_read_model_service.py",
+            "agent/routes/context_policy.py"
+          ],
+          "acceptance_criteria": [
+            "Matrix zeigt pro Source und Destination die effektive Entscheidung, Transformation, Regel-ID, Policy-Version und Reason-Code.",
+            "Preview und Runtime verwenden dieselbe Evaluator-Funktion und denselben Descriptor.",
+            "Erklärung nennt die gewinnende Deny- oder Allow-Regel, ohne nicht autorisierte Quellen oder Credentials offenzulegen.",
+            "Massenprojektion ist paginiert und enthält keine Source-Inhalte."
+          ]
+        },
+        {
+          "id": "SRCCTRL-POL-006",
+          "title": "Angular Freigabe-Assistent pro Quelle erstellen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "frontend",
+          "depends_on": [
+            "SRCCTRL-POL-005",
+            "SRCCTRL-UI-007"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/sources/",
+            "frontend-angular/src/app/features/context-access-policy/"
+          ],
+          "acceptance_criteria": [
+            "Der Nutzer wählt zuerst sichere Presets wie Nur lokal, Lokale und private Worker, Ausgewählte Cloud-Modelle oder Benutzerdefiniert.",
+            "Benutzerdefiniert zeigt Worker, Runtime, Anbieter, konkretes Modell, Operation und Roh/Redacted/Summary getrennt.",
+            "Anthropic Claude wird namentlich und mit konkretem Modell sowie Datenstandort-/Cloud-Hinweis angezeigt.",
+            "Vor Speichern zeigt eine Zusammenfassung jede neu erlaubte Datenbewegung und jede erforderliche Freigabe.",
+            "Unsichere Kombinationen sind nicht nur farblich markiert, sondern mit Ursache und Korrekturmöglichkeit erklärt."
+          ]
+        },
+        {
+          "id": "SRCCTRL-POL-007",
+          "title": "Globale Access-Matrix in Angular bereitstellen",
+          "status": "open",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "frontend",
+          "depends_on": [
+            "SRCCTRL-POL-005",
+            "SRCCTRL-POL-006"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/context-access-policy/",
+            "frontend-angular/src/app/features/sources/"
+          ],
+          "acceptance_criteria": [
+            "Zeilen sind Quellen oder Gruppen, Spalten sind reale Destinations; Zellen zeigen Entscheidung und Transformation.",
+            "Filter nach Worker, Provider, Modell, Cloud, Operation, Sensitivität und Projekt sind verfügbar.",
+            "Ein Klick auf eine Zelle zeigt den vollständigen Regelpfad und ermöglicht eine versionierte Änderung.",
+            "Große Matrizen nutzen Virtualisierung und bleiben tastaturbedienbar."
+          ]
+        },
+        {
+          "id": "SRCCTRL-POL-008",
+          "title": "Bestehende Context-Policy-Übersicht produktionsreif vervollständigen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "frontend",
+          "depends_on": [
+            "SRCCTRL-ARCH-004",
+            "SRCCTRL-POL-005"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/context-access-policy/policy-overview.component.ts",
+            "frontend-angular/src/app/services/context-access-policy-api.service.ts",
+            "frontend-angular/src/app/features/context-access-policy/"
+          ],
+          "acceptance_criteria": [
+            "projectId wird aus Route beziehungsweise Projektkontext bezogen und nicht auf default-project gesetzt.",
+            "Draft bearbeiten, Lint, Preview, Aktivieren, Versionen und Rollback sind echte API-Flows statt console.log.",
+            "Fehler werden nicht durch scheinbar gültige Fallback-Diagnostik verdeckt.",
+            "Nur Administratoren oder explizit berechtigte Projektverantwortliche dürfen Policy mutieren."
+          ]
+        },
+        {
+          "id": "SRCCTRL-POL-009",
+          "title": "Frontendseitigen CodeHug Write-Modus auf serverseitige Policy reduzieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": [
+            "SRCCTRL-POL-004",
+            "SRCCTRL-CC-007"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/codehug/services/policy.service.ts",
+            "frontend-angular/src/app/features/codehug/guards/codehug-write-mode.guard.ts",
+            "agent/services/ananta_tool_policy_service.py",
+            "agent/routes/approvals.py"
+          ],
+          "acceptance_criteria": [
+            "Browserzustand kann ausschließlich Bedienhinweise steuern und niemals eine Backend-Autorisierung ersetzen.",
+            "Jede Mutation wird serverseitig gegen Source-, Destination-, Tool- und Approval-Policy geprüft.",
+            "Lokales In-Memory-Audit wird nicht als Sicherheitsnachweis dargestellt; serverseitiges Audit ist autoritativ.",
+            "E2E-Negativtest beweist, dass direkter API-Aufruf ohne Freigabe auch bei aktivem UI-Write-Modus scheitert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "security_and_operations",
+      "label": "Sicherheit, Audit und Betrieb",
+      "items": [
+        {
+          "id": "SRCCTRL-SEC-001",
+          "title": "Tenant-, Projekt- und Objektberechtigungen für alle Source- und Index-Routen erzwingen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": [
+            "SRCCTRL-API-001",
+            "SRCCTRL-DATA-004"
+          ],
+          "paths": [
+            "agent/routes/sources.py",
+            "agent/routes/knowledge.py",
+            "agent/routes/codecompass_graph.py",
+            "agent/auth.py"
+          ],
+          "acceptance_criteria": [
+            "check_auth allein reicht nicht; jede Objektoperation prüft Tenant, Projekt und Rolle.",
+            "Nicht autorisierte IDs liefern konsistente 404- oder 403-Semantik ohne Existenz-Leak.",
+            "Graph-, Node-, Query-, Artefakt- und Downloadzugriff verwenden dieselbe Source-Policy.",
+            "Cross-Tenant- und Cross-Project-Tests decken List, Detail, Refresh, Index, Graph, Policy und Delete ab."
+          ]
+        },
+        {
+          "id": "SRCCTRL-SEC-002",
+          "title": "Credential-Vault und Connector-Secret-Referenzen härten",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": [
+            "SRCCTRL-CONN-004",
+            "SRCCTRL-CONN-005"
+          ],
+          "paths": [
+            "agent/services/secret_store.py",
+            "agent/services/integration_registry_service.py",
+            "agent/common/audit.py",
+            ".env.example"
+          ],
+          "acceptance_criteria": [
+            "Datenbank, API und Audit enthalten nur Credential-Referenzen und redigierte Account-Metadaten.",
+            "Rotation und Widerruf setzen betroffene Sources auf authorization_required oder degraded.",
+            "Connector-Health liest niemals Secret-Werte zurück in eine Response.",
+            "Automatisierte Leak-Tests prüfen Logs, Fehler, SSE, Export und Frontend-State."
+          ]
+        },
+        {
+          "id": "SRCCTRL-SEC-003",
+          "title": "Source-, Index- und Policy-Audit vollständig und content-frei machen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "observability",
+          "depends_on": [
+            "SRCCTRL-POL-005",
+            "SRCCTRL-CC-004"
+          ],
+          "paths": [
+            "agent/common/audit.py",
+            "agent/services/execution_audit_service.py",
+            "agent/routes/"
+          ],
+          "acceptance_criteria": [
+            "Audit umfasst Create, Connect, Validate, Scan, Refresh, Index, Activate, Rollback, Grant, Deny, Approval und Cleanup.",
+            "Events enthalten Actor, Tenant, Projekt, Source-ID, Revision, Index-/Manifest-Hash, Destination-ID, Operation, Entscheidung und Trace-ID.",
+            "Dateiinhalte, Prompts, Tokens, Credentials und private Remote-URLs werden nicht protokolliert.",
+            "Audit-Ereignisse sind nach Source und Destination in Angular auffindbar."
+          ]
+        },
+        {
+          "id": "SRCCTRL-SEC-004",
+          "title": "Metriken, Health und Betriebsalarme für Connectoren und Indizes ergänzen",
+          "status": "open",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "observability",
+          "depends_on": [
+            "SRCCTRL-API-003",
+            "SRCCTRL-CC-002"
+          ],
+          "paths": [
+            "agent/services/backend_observability_service.py",
+            "agent/services/system_stats_service.py",
+            "docs/operations/"
+          ],
+          "acceptance_criteria": [
+            "Metriken umfassen Jobdauer, Queuezeit, Erfolgsrate, Stale-Alter, Coverage, Bytes, Rate Limits und Policy-Denials.",
+            "Keine Source-ID, Repository-URL oder Dateipfade werden als unbeschränkte Metrik-Labels verwendet.",
+            "Alarme existieren für dauerhaft stale Sources, wiederholte Auth-Fehler, blockierte Jobs, Hashabweichungen und Speichergrenzen.",
+            "Runbook beschreibt Diagnose und sichere Wiederherstellung."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "testing_and_release",
+      "label": "Tests, Barrierefreiheit und Release",
+      "items": [
+        {
+          "id": "SRCCTRL-TEST-001",
+          "title": "Backend Unit- und Contract-Testmatrix erstellen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "testing",
+          "depends_on": [
+            "SRCCTRL-CONN-007",
+            "SRCCTRL-API-001",
+            "SRCCTRL-POL-005",
+            "SRCCTRL-CC-003"
+          ],
+          "paths": [
+            "tests/test_source_registry.py",
+            "tests/test_source_refresh_service.py",
+            "tests/test_rag_helper_index_service.py",
+            "tests/test_codecompass_graph_api.py",
+            "tests/test_context_access_security.py",
+            "tests/contracts/"
+          ],
+          "acceptance_criteria": [
+            "Tests decken alle Connector-Lifecycles, Revisionsidentitäten, Migrationen und Fehlercodes ab.",
+            "Angular-/Backend-DTO-Fixtures werden aus denselben versionierten Schemas validiert.",
+            "Policy-Tests kombinieren Source-Typ, Sensitivität, Worker, Runtime, Provider, Modell, Operation und Transformation.",
+            "Index-Tests prüfen Manifest, Hashes, Coverage, Aktivierung, Stale, Rollback und Cleanup."
+          ]
+        },
+        {
+          "id": "SRCCTRL-TEST-002",
+          "title": "Security-Negativtests und Fuzzing ausbauen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "testing",
+          "depends_on": [
+            "SRCCTRL-SEC-001",
+            "SRCCTRL-SEC-002",
+            "SRCCTRL-POL-003"
+          ],
+          "paths": [
+            "tests/security/",
+            "tests/test_workspace_file_validation.py",
+            "tests/test_context_access_security.py"
+          ],
+          "acceptance_criteria": [
+            "Tests umfassen Path Traversal, Symlink Escape, Zip Slip, SSRF, Git-URL-Credentials, Submodule Escape, LFS-Bomben und große Dateien.",
+            "Cross-Tenant-, widerrufene Credential-, stale Approval- und Destination-Wechsel-Szenarien bleiben denied.",
+            "Direkte API-Aufrufe umgehen weder Angular-Assistent noch Scan-, Policy- oder Aktivierungsgates.",
+            "Fuzzing ungültiger IDs, Enums, Unicode-Pfade und Policy-Muster erzeugt keine Freigabe und keine 500er mit Interna."
+          ]
+        },
+        {
+          "id": "SRCCTRL-TEST-003",
+          "title": "Angular Unit-, Component- und Contract-Tests vervollständigen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "testing",
+          "depends_on": [
+            "SRCCTRL-UI-008",
+            "SRCCTRL-CC-006",
+            "SRCCTRL-POL-008"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/sources/",
+            "frontend-angular/src/app/features/codehug/",
+            "frontend-angular/src/app/features/context-access-policy/"
+          ],
+          "acceptance_criteria": [
+            "Assistent, Repository-Browser, Scan-Vorschau, Tabelle, Detail, CodeCompass und Access-Matrix besitzen Component-Tests.",
+            "Tests decken Loading, Empty, Offline, 401, 403, 404, 409, 422, 429 und 5xx ab.",
+            "Keine Sicherheitsentscheidung wird allein aus lokalem UI-State abgeleitet.",
+            "API-Mocks entsprechen den versionierten Backend-Contracts."
+          ]
+        },
+        {
+          "id": "SRCCTRL-TEST-004",
+          "title": "Vollständige E2E-Flows für lokale und GitHub-Quellen erstellen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "testing",
+          "depends_on": [
+            "SRCCTRL-TEST-001",
+            "SRCCTRL-TEST-003"
+          ],
+          "paths": [
+            "frontend-angular/tests/",
+            "scripts/e2e/",
+            "tests/fixtures/"
+          ],
+          "acceptance_criteria": [
+            "E2E lokal: Workspace wählen, Scan prüfen, indexieren, Fortschritt verfolgen, Graph öffnen und lokalen Worker erlauben.",
+            "E2E GitHub: Repository und Commit wählen, indexieren, Refresh auf neue Revision, Stale erkennen und reindexieren.",
+            "E2E Sicherheit: Quelle für lokal erlauben, für Anthropic Claude sperren, Preview und tatsächlichen Runtime-Deny prüfen.",
+            "E2E Approval: einmalige Freigabe für konkretes Modell und Revision, danach Modell- oder Revisionswechsel blockieren.",
+            "E2E Rollback: früheren validen Index aktivieren und Audit prüfen."
+          ]
+        },
+        {
+          "id": "SRCCTRL-TEST-005",
+          "title": "Accessibility- und Usability-Gates für die Angular-Oberfläche einführen",
+          "status": "open",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "testing",
+          "depends_on": [
+            "SRCCTRL-UI-007",
+            "SRCCTRL-POL-007"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/sources/",
+            "frontend-angular/tests/"
+          ],
+          "acceptance_criteria": [
+            "Assistent, Tabellen, Dialoge, Matrix und Tabs sind vollständig per Tastatur bedienbar.",
+            "Fokusführung, Dialogtitel, Labels, Fehlermeldungen und Live-Status sind für Screenreader korrekt.",
+            "WCAG-AA-Kontrast wird eingehalten und Status ist nie ausschließlich farbcodiert.",
+            "Ein Usability-Test belegt, dass ein neuer Nutzer Verzeichnis oder GitHub-Repo hinzufügen und die Claude-Freigabe korrekt erkennen kann."
+          ]
+        },
+        {
+          "id": "SRCCTRL-REL-001",
+          "title": "Kompatibilitätsmigration und gestuften Rollout umsetzen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "release",
+          "depends_on": [
+            "SRCCTRL-TEST-001",
+            "SRCCTRL-TEST-002",
+            "SRCCTRL-TEST-003",
+            "SRCCTRL-TEST-004",
+            "SRCCTRL-TEST-005"
+          ],
+          "paths": [
+            "agent/config.py",
+            ".env.example",
+            "docs/operations/",
+            "scripts/",
+            "artifacts/test-gates/"
+          ],
+          "acceptance_criteria": [
+            "Rollout-Stufen sind read-only shadow, Source-Verwaltung, lokale Indexierung, lokale Grants, Cloud-Grants und Legacy-Abschaltung.",
+            "Shadow-Modus vergleicht alte und neue Source-/Policy-Entscheidungen ohne Laufzeitfreigaben zu verändern.",
+            "Jede Stufe besitzt messbare Erfolgs-, Abbruch- und Rollback-Kriterien.",
+            "Migration alter Deskriptoren, Knowledge-Indizes und Context-Policies ist idempotent und erzeugt keine zusätzliche Cloud-Freigabe.",
+            "Ein reproduzierbares Release-Gate dokumentiert Contract-, Security-, E2E-, Migration- und Keine-Bypass-Ergebnisse."
+          ]
+        },
+        {
+          "id": "SRCCTRL-REL-002",
+          "title": "Benutzer- und Betriebsdokumentation abschließen",
+          "status": "open",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "documentation",
+          "depends_on": [
+            "SRCCTRL-REL-001"
+          ],
+          "paths": [
+            "docs/",
+            "frontend-angular/src/app/components/help.component.ts",
+            "README.md"
+          ],
+          "acceptance_criteria": [
+            "Dokumentation erklärt Quelle, Revision, CodeCompass-Index, aktiven Stand und Stale in verständlicher Sprache.",
+            "Es gibt Anleitungen für lokales Verzeichnis, Workspace, GitHub, anderes Git, Open Notebook und Wiki.",
+            "Eine eigene Seite erklärt mit Beispielen, wann Claude, andere Cloud-Modelle, lokale Modelle und externe Worker Daten erhalten.",
+            "Runbooks decken Credential-Widerruf, blockierten Scan, fehlgeschlagenen Index, Rollback, Cleanup und Policy-Fehler ab."
+          ]
+        }
+      ]
+    }
+  ],
+  "cross_cutting_acceptance_criteria": [
+    "Alle neuen JSON- und API-Verträge verwenden JSON Schema Draft 2020-12 und additionalProperties=false an sicherheitskritischen Grenzen.",
+    "Alle Source- und Destination-IDs werden serverseitig aufgelöst; der Client kann keine Provider-, Modell-, Worker- oder Source-Metadaten behaupten.",
+    "Keine Quelle wird durch Anlegen, Migration oder Upgrade automatisch für Cloud-Provider freigegeben.",
+    "Indexierung und Retrieval verwenden dieselbe SourceRevision und denselben Policy-Snapshot oder werden als stale beziehungsweise policy_changed blockiert.",
+    "Rohinhalte werden weder in Audit, Metriken, Jobevents noch Fehlerantworten aufgenommen.",
+    "Sicherheitsrelevante Mutationen unterstützen keine stillen Last-Write-Wins-Updates.",
+    "Entfernen einer Source deaktiviert zuerst neue Nutzung; physische Bereinigung erfolgt getrennt und freigabepflichtig.",
+    "Angular zeigt reale Backend-Zustände und erfindet keine erfolgreiche Fallback-Diagnostik.",
+    "Jeder neue Endpoint besitzt Auth-, Tenant-, Projekt-, Rate-Limit-, Audit- und Negativtests.",
+    "Vorhandene CodeCompass-, Knowledge-, Open-Notebook-, Wiki-, CodeHug- und Context-Policy-Flows werden in Regressionstests abgesichert."
+  ],
+  "recommended_execution_order": [
+    "SRCCTRL-ARCH-001",
+    "SRCCTRL-ARCH-002",
+    "SRCCTRL-ARCH-003",
+    "SRCCTRL-ARCH-004",
+    "SRCCTRL-DATA-001",
+    "SRCCTRL-DATA-002",
+    "SRCCTRL-DATA-003",
+    "SRCCTRL-DATA-004",
+    "SRCCTRL-CONN-001",
+    "SRCCTRL-CONN-002",
+    "SRCCTRL-CONN-003",
+    "SRCCTRL-CONN-004",
+    "SRCCTRL-CONN-005",
+    "SRCCTRL-CONN-006",
+    "SRCCTRL-CONN-007",
+    "SRCCTRL-API-001",
+    "SRCCTRL-API-002",
+    "SRCCTRL-API-003",
+    "SRCCTRL-API-004",
+    "SRCCTRL-CC-001",
+    "SRCCTRL-CC-002",
+    "SRCCTRL-CC-003",
+    "SRCCTRL-CC-004",
+    "SRCCTRL-CC-005",
+    "SRCCTRL-POL-001",
+    "SRCCTRL-POL-002",
+    "SRCCTRL-POL-003",
+    "SRCCTRL-POL-004",
+    "SRCCTRL-POL-005",
+    "SRCCTRL-SEC-001",
+    "SRCCTRL-SEC-002",
+    "SRCCTRL-SEC-003",
+    "SRCCTRL-SEC-004",
+    "SRCCTRL-UI-001",
+    "SRCCTRL-UI-002",
+    "SRCCTRL-UI-003",
+    "SRCCTRL-UI-004",
+    "SRCCTRL-UI-005",
+    "SRCCTRL-UI-006",
+    "SRCCTRL-UI-007",
+    "SRCCTRL-UI-008",
+    "SRCCTRL-CC-006",
+    "SRCCTRL-CC-007",
+    "SRCCTRL-POL-006",
+    "SRCCTRL-POL-007",
+    "SRCCTRL-POL-008",
+    "SRCCTRL-POL-009",
+    "SRCCTRL-TEST-001",
+    "SRCCTRL-TEST-002",
+    "SRCCTRL-TEST-003",
+    "SRCCTRL-TEST-004",
+    "SRCCTRL-TEST-005",
+    "SRCCTRL-REL-001",
+    "SRCCTRL-REL-002"
+  ],
+  "meta": {
+    "total_items": 54,
+    "by_priority": {
+      "P0": 44,
+      "P1": 10
+    },
+    "by_status": {
+      "open": 54
+    },
+    "notes": [
+      "Dies ist ein vollständiger Produktions-Backlog und kein Zwischenstufen-Prototyp.",
+      "Das Planungsartefakt aktiviert keine Quelle, keinen Worker, keinen Provider und kein Modell.",
+      "Cloud- und insbesondere Claude-/Anthropic-Freigaben bleiben bis zur expliziten, serverseitig gespeicherten Policy standardmäßig gesperrt.",
+      "Die vorhandene KnowledgeIndex-Domain wird erweitert und nicht durch eine zweite CodeCompass-Projektpersistenz dupliziert.",
+      "Die vorhandenen WorkspacePathValidator-, GitOps-, SourceRegistry-, KnowledgeIndex-, CodeCompass-Graph- und ContextAccessPolicy-Bausteine werden gezielt wiederverwendet."
+    ]
+  }
+}
