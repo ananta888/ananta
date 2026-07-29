@@ -84,7 +84,7 @@ class RegistryTrainingResultPublisher:
 
     def publish(self, job: MlInternTrainingJobDB, result: Mapping[str, Any]) -> str:
         adapter_id = str(result.get("adapter_id") or f"adapter-{job.id}")
-        attempt_id = str(job.active_attempt_id or "")
+        attempt_id = str(getattr(job, "active_attempt_id", None) or "")
         tenant_scope = _tenant_scope_digest(job.tenant_id, job.owner_subject)
         relative_adapter_dir = (
             f"tenants/{tenant_scope}/jobs/{job.id}/attempts/{attempt_id}/adapter"

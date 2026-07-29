@@ -237,7 +237,7 @@ def normalize_unsloth_security_config(
 
 
 def _normalize_unsloth_cidrs(value: Any) -> tuple[str, ...]:
-    if value is None:
+    if value is None or value == [] or value == ():
         return ()
     if not isinstance(value, (list, tuple)) or not 1 <= len(value) <= 32:
         raise MlInternTrainingConfigError(

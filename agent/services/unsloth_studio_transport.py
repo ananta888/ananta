@@ -577,11 +577,16 @@ class UnslothStudioTransport:
                 path="/api/auth/status",
             )
             health = self.request_json(method="GET", path="/api/health")
-            return compose_studio_probe(
+            probe = compose_studio_probe(
                 auth_status=auth_status,
                 health=health,
                 expected_studio_version=self._config.expected_studio_version,
             )
+            return {
+                **probe,
+                "available": True,
+                "reason_code": None,
+            }
         except IncompatibleUnslothStudioContract as exc:
             raise UnslothStudioTransportError(
                 "incompatible_upstream_contract"
@@ -908,6 +913,11 @@ def _set_socket_timeout(
     deadline: float,
     clock: Callable[[], float],
 ) -> None:
+    # HTTP/1.0 peers may close the connection immediately after handing a
+    # buffered response to http.client. The response file remains readable,
+    # but the original socket descriptor is then -1 and cannot be retimed.
+    if connection_socket.fileno() < 0:
+        return
     connection_socket.settimeout(_remaining(deadline, clock))
 
 

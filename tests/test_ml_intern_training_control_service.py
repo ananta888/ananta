@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from ananta_contracts.unsloth_capability import compose_worker_capability_probe
 from agent.db_models import MlInternDatasetDB
 from agent.repositories.ml_intern_training import MlInternTrainingRepository
 from agent.repository import worker_job_repo
@@ -45,6 +46,17 @@ class FailingTaskQueue:
 
 
 class ForcedCancelledExecutionPort:
+    def capability_probe(self) -> dict:
+        return compose_worker_capability_probe(
+            contract_version="lora-training.v1",
+            resource_profile="mock",
+            active_gpu_profile="none",
+            backend_availability={"mock": (True, None)},
+            package_versions={},
+            hardware={"cuda_available": False},
+            runtime_ready=True,
+        )
+
     def supports(self, **_values) -> bool:
         return True
 

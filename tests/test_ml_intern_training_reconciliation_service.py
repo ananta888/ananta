@@ -11,6 +11,7 @@ from typing import Any, Callable, Mapping
 import pytest
 from sqlmodel import Session, select
 
+from ananta_contracts.unsloth_capability import compose_worker_capability_probe
 from agent.database import engine
 from agent.db_models import (
     AuditLogDB,
@@ -112,6 +113,9 @@ class ReconcileDuringExecutionPort:
     def __init__(self) -> None:
         self.reconcile: Callable[[], None] | None = None
 
+    def capability_probe(self) -> dict[str, Any]:
+        return _nvidia_peft_capability_probe()
+
     def execute(
         self,
         *,
@@ -150,6 +154,9 @@ class CheckpointThenResumePort:
         self.specs: list[dict[str, Any]] = []
         self.fencing_tokens: list[int] = []
         self.checkpoint: dict[str, Any] | None = None
+
+    def capability_probe(self) -> dict[str, Any]:
+        return _nvidia_peft_capability_probe()
 
     def execute(
         self,
@@ -198,6 +205,21 @@ class CheckpointThenResumePort:
             "metrics": {"resumed": True},
             "artifacts": [],
         }
+
+
+def _nvidia_peft_capability_probe() -> dict[str, Any]:
+    return compose_worker_capability_probe(
+        contract_version="lora-training.v1",
+        resource_profile="nvidia",
+        active_gpu_profile="rtx3080-safe",
+        backend_availability={"peft_trl": (True, None)},
+        package_versions={},
+        hardware={
+            "cuda_available": True,
+            "total_vram_bytes": 10 * 1024**3,
+        },
+        runtime_ready=True,
+    )
 
 
 def _principal() -> MlInternTrainingPrincipal:

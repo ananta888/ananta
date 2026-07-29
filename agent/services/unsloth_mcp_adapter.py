@@ -285,6 +285,8 @@ class UnslothMcpAdapter:
         if policy is None:
             raise UnslothMcpError("unsloth_mcp_tool_not_allowlisted")
         actor_roles = frozenset(_normalize_role(value) for value in roles)
+        if policy.access_class == "mutation" and "admin" not in actor_roles:
+            raise UnslothMcpError("unsloth_mcp_admin_role_required")
         if not actor_roles.intersection(policy.allowed_roles):
             raise UnslothMcpError("unsloth_mcp_role_denied")
         normalized_arguments = _validate_arguments(
@@ -292,8 +294,6 @@ class UnslothMcpAdapter:
             arguments,
         )
         if policy.access_class == "mutation":
-            if "admin" not in actor_roles:
-                raise UnslothMcpError("unsloth_mcp_admin_role_required")
             normalized_confirmation = str(
                 confirmation_id or ""
             ).strip()

@@ -1091,7 +1091,11 @@ class MlInternTrainingControlService:
         spec = self._legacy_spec(job.request_spec, dataset_path.name)
         result = MlInternTrainingJobService(cfg).submit_job(spec)
         return {
-            "status": result.status,
+            "status": (
+                "completed"
+                if result.status == "dry_run_completed"
+                else result.status
+            ),
             "error_code": "legacy_job_failed" if result.errors else None,
             "error_message": "; ".join(result.errors)[:512],
             "result_ref": f"training-result:{job.id}",
@@ -1551,7 +1555,13 @@ class MlInternTrainingControlService:
                 f"target_modules exceeds the {gpu_profile} hard limit",
             )
         requires_4bit = profile.get("required_quantization") == "4bit"
-        requested_4bit = bool(hyperparameters.get("load_in_4bit", command.method == "qlora"))
+        requested_4bit = bool(
+            hyperparameters.get(
+                "load_in_4bit",
+                str(command.request_spec.get("method") or "").strip().lower()
+                == "qlora",
+            )
+        )
         if requires_4bit and not requested_4bit:
             raise MlInternTrainingContractError(
                 "gpu_profile_quantization_required",

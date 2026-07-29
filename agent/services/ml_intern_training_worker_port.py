@@ -310,7 +310,15 @@ class HttpMlInternTrainingWorkerPort:
         backend = str(spec.get("backend") or "mock").strip().lower()
         requested_job_type = str(spec.get("job_type") or "train_lora")
         gpu_profile = str(spec.get("gpu_profile") or "").strip().lower() or None
-        if not self.supports(job_type=requested_job_type, backend=backend, gpu_profile=gpu_profile):
+        # Preserve concrete transport and contract failures instead of reducing
+        # them to a generic capability miss. The cached follow-up keeps the
+        # existing supports() projection as the single capability decision.
+        self.capability_probe()
+        if not self.supports(
+            job_type=requested_job_type,
+            backend=backend,
+            gpu_profile=gpu_profile,
+        ):
             raise MlInternTrainingWorkerTransportError(
                 "worker_capability_unavailable",
                 "selected LoRA worker does not advertise the requested backend capability",

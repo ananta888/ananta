@@ -133,7 +133,7 @@ def test_read_tool_requires_successful_probe_and_uses_separate_mcp_bearer() -> N
         replay_expires_at=200.0,
         correlation_id="correlation-status-0001",
     )
-    assert result["content"]["content"][0]["text"] == "Bearer [REDACTED]"
+    assert result["content"]["content"][0]["text"] == "Bearer ***"
     assert [call["payload"]["method"] for call in transport.calls] == [
         "initialize",
         "notifications/initialized",

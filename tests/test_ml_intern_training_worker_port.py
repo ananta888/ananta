@@ -198,6 +198,7 @@ class _EvaluationOpener:
             "progress": {},
             "metrics": {},
             "artifacts": [],
+            "storage_usage": None,
             "resume_checkpoint": None,
             "cancel_mode": None,
             "error": None,
@@ -274,8 +275,22 @@ def test_evaluation_is_correlated_staged_and_downloaded_with_hashes(tmp_path: Pa
     assert opener.envelope["configuration"]["scorer_name"] == "ananta_todo_json"
     assert TOKEN not in json.dumps(opener.envelope)
     assert not {"authorization", "bearer_token", "worker_url"}.intersection(opener.envelope)
-    assert (tmp_path / "workspaces/evaluations/job-eval-1/adapter/adapter_model.safetensors").is_file()
-    assert (tmp_path / "artifacts/jobs/job-eval-1/evaluation_manifest.json").is_file()
+    tenant_attempt = (
+        f"tenants/{'a' * 64}/jobs/job-eval-1/"
+        "attempts/attempt-eval-1"
+    )
+    assert (
+        tmp_path
+        / "workspaces"
+        / tenant_attempt
+        / "workspace/adapter/adapter_model.safetensors"
+    ).is_file()
+    assert (
+        tmp_path
+        / "artifacts"
+        / tenant_attempt
+        / "artifacts/evaluation_manifest.json"
+    ).is_file()
     first = opener.requests[0]
     assert first.get_header("Authorization") == f"Bearer {TOKEN}"
     assert first.get_header("Host") == "lora-training-worker:8095"
@@ -383,6 +398,7 @@ def test_training_resume_checkpoint_is_forwarded_and_reported_to_hub(tmp_path: P
                 "progress": {},
                 "metrics": {},
                 "artifacts": [],
+                "storage_usage": None,
                 "resume_checkpoint": None,
                 "cancel_mode": None,
                 "error": None,
@@ -402,6 +418,7 @@ def test_training_resume_checkpoint_is_forwarded_and_reported_to_hub(tmp_path: P
             "progress": {},
             "metrics": {},
             "artifacts": [],
+            "storage_usage": None,
             "resume_checkpoint": None,
             "cancel_mode": None,
             "error": None,
@@ -422,13 +439,20 @@ def test_training_resume_checkpoint_is_forwarded_and_reported_to_hub(tmp_path: P
                 "status": "succeeded",
                 "metrics": {},
                 "artifacts": [],
+                "storage_usage": None,
                 "resume_checkpoint": checkpoint,
             }
         raise AssertionError(f"unexpected worker request: {method} {path}")
 
+    port.capability_probe()
     port._request_json = worker_response  # type: ignore[method-assign]  # noqa: SLF001
     port._download_artifacts = (  # type: ignore[method-assign]  # noqa: SLF001
-        lambda _job_id, _artifacts, *, job_type: []
+        lambda _job_id,
+        _artifacts,
+        *,
+        job_type,
+        attempt_id,
+        tenant_scope_digest: []
     )
 
     result = port.execute(
@@ -554,6 +578,7 @@ def test_transport_enforces_absolute_deadline_and_sends_bounded_cancel(tmp_path:
             "progress": {},
             "metrics": {},
             "artifacts": [],
+            "storage_usage": None,
             "resume_checkpoint": None,
             "cancel_mode": None,
             "error": None,
@@ -581,6 +606,7 @@ def test_transport_enforces_absolute_deadline_and_sends_bounded_cancel(tmp_path:
             return status("cancel_requested")
         raise AssertionError(f"unexpected request: {method} {path}")
 
+    port.capability_probe()
     port._clock = clock  # noqa: SLF001
     port._timeout_seconds = 60  # noqa: SLF001
     port._request_json = response  # type: ignore[method-assign]  # noqa: SLF001
@@ -663,6 +689,7 @@ def test_worker_result_validation_rejects_unknown_nested_and_non_finite_values()
         "progress": {},
         "metrics": {"eval_loss": float("nan")},
         "artifacts": [],
+        "storage_usage": None,
         "resume_checkpoint": None,
         "cancel_mode": None,
         "error": None,
@@ -717,6 +744,7 @@ def test_worker_cancel_mode_is_strict_and_normalized_for_hub(tmp_path: Path) -> 
         "progress": {},
         "metrics": {},
         "artifacts": [],
+        "storage_usage": None,
         "resume_checkpoint": None,
         "cancel_mode": "graceful",
         "error": None,

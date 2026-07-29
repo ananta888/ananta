@@ -42,10 +42,18 @@ def test_gate_records_mock_success_and_never_copies_process_output() -> None:
         "upload",
         "validation",
     }
-    assert report["nvidia_live_smoke"] == {
-        "status": "not_run",
-        "reason_code": "local_model_not_configured",
-    }
+    assert report["nvidia_live_smoke"]["status"] == "not_run"
+    assert (
+        report["nvidia_live_smoke"]["reason_code"]
+        == "local_model_not_configured"
+    )
+    assert report["nvidia_live_smoke"]["evidence_ids"]["complete"] is False
+    assert (
+        report["nvidia_live_smoke"]["image_attestation"][
+            "runtime_image_digest_supplied"
+        ]
+        is False
+    )
     assert report["nvidia_live_proof"] is False
     assert "private-secret-marker" not in json.dumps(report)
 
@@ -222,7 +230,7 @@ def test_unsloth_compatibility_profile_attests_exact_environment() -> None:
     )
 
     assert attestation["status"] == "passed"
-    assert attestation["entry_id"] == "release-profile"
+    assert attestation["profile_id"] == "release-profile"
 
 
 def test_unsloth_release_requires_three_independent_passed_runs() -> None:
@@ -291,8 +299,8 @@ def test_every_release_transition_has_a_tamper_denial() -> None:
         "dataset_hash_mismatch",
         "base_model_hash_mismatch",
         "adapter_hash_mismatch",
-        "export_hash_mismatch",
-        "evaluation_hash_mismatch",
-        "promotion_hash_mismatch",
-        "endpoint_revision_mismatch",
+        "promotion_execution_hash_mismatch",
+        "promotion_provenance_mismatch",
+        "runtime_handoff_promotion_binding_mismatch",
+        "runtime_endpoint_revision_conflict",
     }

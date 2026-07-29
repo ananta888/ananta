@@ -71,7 +71,7 @@ def test_gpu_profile_defaults_rtx3080():
     gp = cfg["gpu_profile_defaults"]
     assert gp["load_in_4bit"] is True
     assert gp["lora_rank"] == 16
-    assert gp["batch_size"] == 2
+    assert gp["batch_size"] == 1
     assert gp["max_seq_length"] == 2048
 
 

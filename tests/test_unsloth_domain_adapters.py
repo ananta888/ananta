@@ -126,6 +126,8 @@ def test_model_download_requires_confirmation_and_immutable_revision() -> None:
             expected_sha256=HASH_A,
             model_id="org/model",
             revision="c" * 40,
+            network_authorized=True,
+            license_status="approved",
         )
     )
 
@@ -216,6 +218,14 @@ class FakeEvaluations:
             metrics={"accuracy": 0.9},
             source_ids=(SOURCE_ID,),
             run_ids=(RUN_ID,),
+            job_id="evaluation-a",
+            attempt_id="attempt-a",
+            fencing_token_digest=HASH_C,
+            base_model_id="model-a",
+            base_model_sha256=HASH_D,
+            adapter_id="artifact-a",
+            adapter_sha256=HASH_E,
+            export_sha256=HASH_F,
         )
 
 
