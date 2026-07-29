@@ -3,7 +3,7 @@ import time
 import uuid
 from pathlib import Path
 
-from flask import Blueprint, current_app, g, request
+from flask import Blueprint, current_app, request
 
 from agent.auth import admin_required, check_auth, resolve_configured_agent_token
 from agent.cli_backends.sgpt import (
@@ -25,9 +25,7 @@ from agent.models import (
     SgptSessionTurnRequest,
     SgptSourceRequest,
 )
-from agent.pipeline_trace import append_stage, new_pipeline_trace
-from agent.research_artifact import normalize_research_artifact
-from agent.research_backend import is_research_backend
+from agent.routes import sgpt_execute as _sgpt_execute
 from agent.runtime_policy import (
     build_trace_record,
     normalize_task_kind,
@@ -38,11 +36,7 @@ from agent.runtime_policy import (
 from agent.services.cli_session_service import get_cli_session_service
 from agent.services.context_manager_service import get_context_manager_service as _get_context_manager_service
 from agent.services.ml_intern_adapter_service import get_ml_intern_adapter_service
-from agent.services.ml_intern_lora_inference_service import (
-    LoraInferenceRequest,
-    LoraInferenceResult,
-    get_lora_inference_service,
-)
+from agent.services.ml_intern_lora_inference_service import get_lora_inference_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
@@ -73,35 +67,8 @@ def get_rate_limit_service():
     return get_core_services().rate_limit_service
 
 
-def _resolve_requested_base_model(model: str | None, agent_cfg: dict) -> str:
-    return str(
-        model
-        or agent_cfg.get("sgpt_default_model")
-        or agent_cfg.get("default_model")
-        or agent_cfg.get("model")
-        or settings.sgpt_default_model
-        or ""
-    ).strip()
-
-
-def _public_lora_provenance(provenance: dict) -> dict:
-    return {k: v for k, v in dict(provenance or {}).items() if not str(k).startswith("_")}
-
-
-def _lora_registry_scope() -> dict[str, str]:
-    identity = dict(getattr(g, "user", {}) or getattr(g, "auth_payload", {}) or {})
-    subject = str(
-        identity.get("sub")
-        or identity.get("username")
-        or identity.get("agent_id")
-        or "hub-admin"
-    ).strip()
-    tenant = str(identity.get("tenant_id") or identity.get("tenant") or subject).strip()
-    return {"tenant_id": tenant, "owner_subject": subject}
-
-
-ALLOWED_BACKENDS = {*SUPPORTED_CLI_BACKENDS, "auto"}
-BACKEND_ALIASES = {"ananta_worker": "ananta-worker", "shellgpt": "sgpt"}
+ALLOWED_BACKENDS = _sgpt_execute.ALLOWED_BACKENDS
+BACKEND_ALIASES = _sgpt_execute.BACKEND_ALIASES
 
 SOURCE_ALLOWED_EXTENSIONS = {
     ".py",
@@ -122,25 +89,25 @@ SOURCE_ALLOWED_EXTENSIONS = {
 
 
 def _allowed_backends() -> set[str]:
-    allowed = set(ALLOWED_BACKENDS)
-    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-    spike_cfg = cfg.get("ml_intern_spike") if isinstance(cfg.get("ml_intern_spike"), dict) else {}
-    if bool(spike_cfg.get("enabled", False)):
-        allowed.add("ml_intern")
-    return allowed
+    return _sgpt_execute.allowed_backends(ALLOWED_BACKENDS)
 
 
 def _normalize_backend_name(value: str | None, *, default: str = "ananta-worker") -> str:
-    backend = str(value or "").strip().lower()
-    if not backend:
-        backend = default
-    return BACKEND_ALIASES.get(backend, backend)
+    return _sgpt_execute.normalize_backend_name(
+        value,
+        default=default,
+        aliases=BACKEND_ALIASES,
+    )
 
 
 def _cli_session_policy() -> dict:
     cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
     mode = cfg.get("cli_session_mode") if isinstance(cfg.get("cli_session_mode"), dict) else {}
-    backends = [str(item or "").strip().lower() for item in list(mode.get("stateful_backends") or ["opencode", "codex"]) if str(item or "").strip()]
+    backends = [
+        str(item or "").strip().lower()
+        for item in list(mode.get("stateful_backends") or ["opencode", "codex"])
+        if str(item or "").strip()
+    ]
     return {
         "enabled": bool(mode.get("enabled", False)),
         "stateful_backends": backends,
@@ -156,20 +123,6 @@ def _has_native_opencode_runtime(session: dict | None) -> bool:
     runtime_meta = metadata.get("opencode_runtime") if isinstance(metadata.get("opencode_runtime"), dict) else {}
     return str(runtime_meta.get("kind") or "").strip().lower() == "native_server"
 
-
-def _build_cli_error_details(errors: str, backend_used: str) -> dict | None:
-    msg = str(errors or "")
-    lower = msg.lower()
-    if "cannot truncate prompt with n_keep" in lower and "n_ctx" in lower:
-        return {
-            "type": "context_limit_mismatch",
-            "backend": backend_used,
-            "hint": (
-                "Model context window is too small for prompt/tool preamble. "
-                "Increase context_limit or choose a model with larger n_ctx."
-            ),
-        }
-    return None
 
 def is_rate_limited(user_id: str) -> bool:
     """Checks whether user exceeded rate limit."""
@@ -189,33 +142,8 @@ SGPT_CB_THRESHOLD = 5
 SGPT_CB_RECOVERY_TIME = 60
 
 
-def _extract_user_id() -> str:
-    user_id = request.remote_addr or "unknown"
-    if hasattr(g, "user") and isinstance(g.user, dict):
-        user_id = g.user.get("sub", g.user.get("user_id", user_id))
-    elif hasattr(g, "auth_payload") and isinstance(g.auth_payload, dict):
-        user_id = g.auth_payload.get("sub", user_id)
-    return str(user_id)
-
-
-def _parse_source_types(value) -> list[str] | None:
-    allowed = {"repo", "artifact", "task_memory", "wiki"}
-    if value is None:
-        return None
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise ValueError("source_types must be a list of strings")
-    normalized: list[str] = []
-    seen: set[str] = set()
-    for item in value:
-        source_type = str(item or "").strip().lower()
-        if not source_type:
-            continue
-        if source_type not in allowed:
-            raise ValueError(f"invalid source_types value: {source_type}")
-        if source_type not in seen:
-            seen.add(source_type)
-            normalized.append(source_type)
-    return normalized or None
+_extract_user_id = _sgpt_execute.extract_user_id
+_parse_source_types = _sgpt_execute.parse_source_types
 
 
 def _resolve_source_path(source_path: str) -> Path:
@@ -230,357 +158,37 @@ def _resolve_source_path(source_path: str) -> Path:
 @sgpt_bp.route("/execute", methods=["POST"])
 @check_auth
 @validate_request(SgptExecuteRequest)
-def execute_sgpt():  # noqa: C901 - compatibility route is migrated incrementally
-    """
-    Executes SGPT command.
-    JSON payload: {"prompt": "...", "options": ["--shell"], "use_hybrid_context": false}
-    """
-    if SGPT_CIRCUIT_BREAKER["open"]:
-        if time.time() - SGPT_CIRCUIT_BREAKER["last_failure"] > SGPT_CB_RECOVERY_TIME:
-            _log().info("SGPT circuit breaker switching to half-open.")
-            SGPT_CIRCUIT_BREAKER["open"] = False
-            SGPT_CIRCUIT_BREAKER["failures"] = 0
-        else:
-            return api_response(
-                status="error",
-                message="SGPT service is temporarily unavailable (circuit breaker open).",
-                code=503,
-            )
+def execute_sgpt():
+    """Execute SGPT through the focused route policy."""
 
-    user_id = _extract_user_id()
-    if is_rate_limited(user_id):
-        _log().warning("Rate limit exceeded for user %s", user_id)
-        return api_response(status="error", message="Rate limit exceeded. Please try again later.", code=429)
-
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return api_response(status="error", message="Invalid JSON payload", code=400)
-
-    prompt = data.get("prompt")
-    options = data.get("options", [])
-    use_hybrid_context = bool(data.get("use_hybrid_context", False))
-    backend = _normalize_backend_name(data.get("backend") or settings.sgpt_execution_backend, default="ananta-worker")
-    model = data.get("model")
-    task_kind = normalize_task_kind(data.get("task_kind"), prompt or "")
-    retrieval_intent = str(data.get("retrieval_intent") or "").strip() or None
-    try:
-        source_types = _parse_source_types(data.get("source_types"))
-    except ValueError as e:
-        return api_response(status="error", message=str(e), code=400)
-
-    if not prompt:
-        return api_response(status="error", message="Missing prompt", code=400)
-    if not isinstance(options, list):
-        return api_response(status="error", message="Options must be a list", code=400)
-    allowed_backends = _allowed_backends()
-    if backend not in allowed_backends:
-        return api_response(status="error", message=f"Invalid backend. Allowed: {sorted(allowed_backends)}", code=400)
-    if model is not None and not isinstance(model, str):
-        return api_response(status="error", message="model must be a string", code=400)
-    if not all(isinstance(opt, str) for opt in options):
-        return api_response(status="error", message="options must contain only strings", code=400)
-
-    agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-    routing_reason = ""
-    if backend == "ml_intern":
-        effective_backend = "ml_intern"
-        routing_reason = "specialized_profile_ml_intern"
-        routing_cfg = runtime_routing_config(agent_cfg)
-    else:
-        effective_backend, routing_reason, routing_cfg = resolve_cli_backend(
-            task_kind=task_kind,
-            requested_backend=backend,
-            supported_backends=SUPPORTED_CLI_BACKENDS,
-            agent_cfg=agent_cfg,
-            fallback_backend="ananta-worker",
+    return _sgpt_execute.execute_sgpt_request(
+        _sgpt_execute.SgptExecuteRuntime(
+            settings=settings,
+            policy=_sgpt_execute.SgptExecutePolicy(
+                supported_backends=SUPPORTED_CLI_BACKENDS,
+                allowed_backends=_allowed_backends,
+                normalize_backend_name=_normalize_backend_name,
+                extract_user_id=_extract_user_id,
+                parse_source_types=_parse_source_types,
+                normalize_task_kind=normalize_task_kind,
+                runtime_routing_config=runtime_routing_config,
+                resolve_cli_backend=resolve_cli_backend,
+                normalize_backend_flags=normalize_backend_flags,
+                resolve_lora_adapter_routing=resolve_lora_adapter_routing,
+                build_trace_record=build_trace_record,
+            ),
+            circuit_breaker=SGPT_CIRCUIT_BREAKER,
+            cb_threshold=SGPT_CB_THRESHOLD,
+            cb_recovery_time=SGPT_CB_RECOVERY_TIME,
+            is_rate_limited=is_rate_limited,
+            get_context_manager_service=get_context_manager_service,
+            get_lora_inference_service=get_lora_inference_service,
+            get_ml_intern_adapter_service=get_ml_intern_adapter_service,
+            run_llm_cli_command=run_llm_cli_command,
+            get_logger=_log,
+            audit_logger=audit_logger,
         )
-    if effective_backend == "ml_intern":
-        safe_options = []
-        if options:
-            return api_response(status="error", message="ml_intern backend does not accept CLI flags", code=400)
-    else:
-        safe_options, rejected = normalize_backend_flags(effective_backend, options)
-        if rejected:
-            return api_response(
-                status="error",
-                message=f"Unsupported options for backend '{effective_backend}': {rejected}",
-                code=400,
-            )
-        if effective_backend in {"sgpt", "ananta-worker"} and "--no-interaction" not in safe_options:
-            safe_options.append("--no-interaction")
-
-    try:
-        context_payload = None
-        effective_prompt = prompt
-        degraded = False
-        grounding = {"score": 0.0, "chunk_count": 0, "engine_diversity": 0}
-        pipeline = new_pipeline_trace(
-            pipeline="sgpt_execute",
-            task_kind=task_kind,
-            policy_version=routing_cfg["policy_version"],
-            metadata={"requested_backend": backend},
-        )
-        if use_hybrid_context:
-            stage_started = time.time()
-            if not settings.rag_enabled:
-                return api_response(status="error", message="Hybrid context mode is disabled", code=400)
-            RAG_REQUESTS_TOTAL.labels(mode="execute").inc()
-            with RAG_RETRIEVAL_DURATION.time():
-                context_payload, effective_prompt = get_context_manager_service().build_cli_execution_context(
-                    prompt=prompt,
-                    task_kind=task_kind,
-                    retrieval_intent=retrieval_intent,
-                    source_types=source_types,
-                )
-            chunk_count = len(context_payload.get("chunks", []))
-            RAG_CHUNKS_SELECTED.observe(chunk_count)
-            engines = {str((c or {}).get("engine") or "") for c in (context_payload.get("chunks") or [])}
-            diversity = len([e for e in engines if e])
-            score = min(1.0, (chunk_count / max(1, settings.rag_max_chunks)) * 0.7 + min(diversity, 3) / 3.0 * 0.3)
-            grounding = {"score": round(score, 3), "chunk_count": chunk_count, "engine_diversity": diversity}
-            if chunk_count == 0:
-                degraded = True
-            append_stage(
-                pipeline,
-                name="retrieve",
-                status="ok" if chunk_count > 0 else "degraded",
-                metadata={"chunk_count": chunk_count, "engine_diversity": diversity},
-                started_at=stage_started,
-            )
-        else:
-            append_stage(pipeline, name="retrieve", status="skipped", metadata={"use_hybrid_context": False})
-
-        append_stage(
-            pipeline,
-            name="route",
-            status="ok",
-            metadata={"requested_backend": backend, "effective_backend": effective_backend, "reason": routing_reason},
-        )
-
-        stage_started = time.time()
-        lora_scope = _lora_registry_scope()
-        lora_provenance = resolve_lora_adapter_routing(
-            task_kind=task_kind,
-            base_model=_resolve_requested_base_model(model, agent_cfg),
-            agent_cfg=agent_cfg,
-            **lora_scope,
-        )
-        lora_handled = False
-        if effective_backend != "ml_intern" and lora_provenance.get("adapter_used"):
-            append_stage(
-                pipeline,
-                name="lora_route",
-                status="ok",
-                metadata=_public_lora_provenance(lora_provenance),
-            )
-            try:
-                inference_result = get_lora_inference_service().generate(
-                    LoraInferenceRequest(
-                        prompt=effective_prompt,
-                        base_model=str(lora_provenance.get("base_model") or ""),
-                        adapter_id=str(lora_provenance.get("adapter_id") or ""),
-                        adapter_version=str(lora_provenance.get("adapter_version") or ""),
-                        task_kind=task_kind,
-                        task_id=str(data.get("task_id") or f"sgpt-{uuid.uuid4().hex}"),
-                    ),
-                    **lora_scope,
-                )
-                output = (
-                    inference_result.text
-                    if isinstance(inference_result, LoraInferenceResult)
-                    else str(inference_result)
-                )
-                returncode = 0
-                errors = ""
-                backend_used = "lora_adapter"
-                lora_handled = True
-                if isinstance(inference_result, LoraInferenceResult):
-                    lora_provenance["runtime"] = {
-                        "worker_id": inference_result.worker_id,
-                        "capability": inference_result.capability,
-                        "reason_code": inference_result.reason_code,
-                    }
-                append_stage(
-                    pipeline,
-                    name="lora_infer",
-                    status="ok",
-                    metadata={
-                        "adapter_id": lora_provenance.get("adapter_id"),
-                        "adapter_version": lora_provenance.get("adapter_version"),
-                        "reason_code": "approved_adapter_worker_dispatch",
-                    },
-                    started_at=stage_started,
-                )
-            except Exception as exc:
-                reason_code = str(getattr(exc, "reason_code", "adapter_inference_failed"))
-                append_stage(
-                    pipeline,
-                    name="lora_infer",
-                    status="degraded",
-                    metadata={"reason_code": reason_code, "error_type": type(exc).__name__},
-                    started_at=stage_started,
-                )
-                degraded = True
-                if not bool(lora_provenance.get("fallback_to_base_model", True)):
-                    blocked_reason = "lora_adapter_failed_no_base_fallback"
-                    lora_provenance["reason"] = blocked_reason
-                    lora_provenance["reason_code"] = blocked_reason
-                    lora_provenance["adapter_inference_error_code"] = reason_code
-                    lora_provenance["policy_decision"] = {
-                        **dict(lora_provenance.get("policy_decision") or {}),
-                        "decision": "blocked",
-                        "reason_code": blocked_reason,
-                    }
-                    return api_response(
-                        status="error",
-                        message="approved LoRA adapter inference failed and base fallback is disabled",
-                        data={"lora_provenance": _public_lora_provenance(lora_provenance)},
-                        code=503 if bool(getattr(exc, "retryable", False)) else 500,
-                    )
-                fallback_reason = "lora_adapter_failed_fell_back_to_base_model"
-                lora_provenance["reason"] = fallback_reason
-                lora_provenance["reason_code"] = fallback_reason
-                lora_provenance["adapter_inference_error_code"] = reason_code
-                lora_provenance["policy_decision"] = {
-                    **dict(lora_provenance.get("policy_decision") or {}),
-                    "decision": "base_model_fallback",
-                    "reason_code": fallback_reason,
-                }
-        else:
-            append_stage(
-                pipeline,
-                name="lora_route",
-                status="skipped",
-                metadata=_public_lora_provenance(lora_provenance),
-            )
-            if (
-                effective_backend != "ml_intern"
-                and not bool(lora_provenance.get("adapter_used"))
-                and not bool(lora_provenance.get("fallback_to_base_model", True))
-            ):
-                blocked_reason = "no_approved_adapter_and_base_fallback_disabled"
-                lora_provenance["reason"] = blocked_reason
-                lora_provenance["reason_code"] = blocked_reason
-                lora_provenance["policy_decision"] = {
-                    **dict(lora_provenance.get("policy_decision") or {}),
-                    "decision": "blocked",
-                    "reason_code": blocked_reason,
-                }
-                return api_response(
-                    status="error",
-                    message="no approved compatible LoRA adapter is available and base fallback is disabled",
-                    data={"lora_provenance": _public_lora_provenance(lora_provenance)},
-                    code=409,
-                )
-
-        if effective_backend == "ml_intern":
-            invocation = get_ml_intern_adapter_service().invoke_spike(
-                prompt=effective_prompt,
-                agent_cfg=agent_cfg,
-                model=model,
-            )
-            returncode = 0 if bool(invocation.get("ok")) else 1
-            output = str(invocation.get("stdout") or "")
-            errors = str(invocation.get("stderr") or invocation.get("error") or "")
-            backend_used = "ml_intern"
-        elif not lora_handled:
-            returncode, output, errors, backend_used = run_llm_cli_command(
-                effective_prompt,
-                safe_options,
-                backend=effective_backend,
-                model=model,
-                routing_policy={
-                    "mode": "adaptive",
-                    "task_kind": task_kind,
-                    "policy_version": routing_cfg["policy_version"],
-                },
-            )
-        append_stage(
-            pipeline,
-            name="execute",
-            status="ok" if returncode == 0 or bool(output) else "error",
-            metadata={"backend_used": backend_used, "returncode": returncode},
-            started_at=stage_started,
-        )
-        if returncode != 0 and not output:
-            _log().error("LLM CLI (%s) Return Code %s: %s", backend_used, returncode, errors)
-            SGPT_CIRCUIT_BREAKER["failures"] += 1
-            SGPT_CIRCUIT_BREAKER["last_failure"] = time.time()
-            if SGPT_CIRCUIT_BREAKER["failures"] >= SGPT_CB_THRESHOLD:
-                SGPT_CIRCUIT_BREAKER["open"] = True
-                _log().error("SGPT CIRCUIT BREAKER OPEN")
-            details = _build_cli_error_details(errors, backend_used)
-            return api_response(
-                status="error",
-                message=errors or f"LLM CLI ({backend_used}) failed with exit code {returncode}",
-                data={"diagnostics": details} if details else None,
-                code=500,
-            )
-
-        SGPT_CIRCUIT_BREAKER["failures"] = 0
-        SGPT_CIRCUIT_BREAKER["open"] = False
-        safe_output = output or ""
-        safe_errors = errors or ""
-        audit_logger.info(
-            f"SGPT Success: output_len={len(safe_output)}",
-            extra={
-                "extra_fields": {
-                    "action": "sgpt_success",
-                    "output_len": len(safe_output),
-                    "error_len": len(safe_errors),
-                }
-            },
-        )
-        trace = build_trace_record(
-            task_id=None,
-            event_type="sgpt_execute",
-            task_kind=task_kind,
-            backend=backend_used,
-            requested_backend=backend,
-            routing_reason=routing_reason,
-            policy_version=routing_cfg["policy_version"],
-            metadata={"degraded": degraded, "context_used": context_payload is not None},
-        )
-        response_data = {
-            "trace_id": trace["trace_id"],
-            "trace": trace,
-            "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
-            "output": safe_output,
-            "errors": safe_errors,
-            "backend": backend_used,
-            "routing": {
-                "policy_version": routing_cfg["policy_version"],
-                "task_kind": task_kind,
-                "requested_backend": backend,
-                "effective_backend": effective_backend,
-                "reason": routing_reason,
-                "confidence": 0.9 if backend != "auto" else 0.75,
-            },
-            "fallback": {"degraded_mode": degraded, "reason": "no_context_chunks" if degraded else None},
-            "grounding": grounding,
-        }
-        if is_research_backend(backend_used):
-            response_data["research_artifact"] = normalize_research_artifact(
-                safe_output,
-                backend=backend_used,
-                cli_result={"stderr_preview": safe_errors[:240], "returncode": returncode},
-            )
-        if lora_provenance.get("adapter_used"):
-            response_data["lora_provenance"] = _public_lora_provenance(lora_provenance)
-        else:
-            response_data["adapter_used"] = False
-        if context_payload is not None:
-            response_data["context"] = {
-                "strategy": context_payload.get("strategy", {}),
-                "policy_version": context_payload.get("policy_version", "v1"),
-                "chunk_count": len(context_payload.get("chunks", [])),
-                "token_estimate": context_payload.get("token_estimate", 0),
-            }
-        return api_response(data=response_data)
-    except Exception as e:
-        _log().exception("Error executing SGPT")
-        audit_logger.error(f"SGPT Error: {str(e)}", extra={"extra_fields": {"action": "sgpt_error", "error": str(e)}})
-        return api_response(status="error", message=str(e), code=500)
+    )
 
 
 @sgpt_bp.route("/backends", methods=["GET"])
@@ -595,7 +203,16 @@ def list_cli_backends():
     from agent.cli_backends.opencode import resolve_claude_runtime_config
 
     claude_runtime = resolve_claude_runtime_config()
-    default_provider = str((current_app.config.get("AGENT_CONFIG", {}) or {}).get("default_provider") or settings.default_provider or "").strip().lower() or None
+    default_provider = (
+        str(
+            (current_app.config.get("AGENT_CONFIG", {}) or {}).get("default_provider")
+            or settings.default_provider
+            or ""
+        )
+        .strip()
+        .lower()
+        or None
+    )
     data = {
         "configured_backend": configured_backend,
         "cli_session_mode": _cli_session_policy(),
@@ -644,9 +261,12 @@ def capability_matrix():
                 "backend": backend,
                 "available": bool(info.get("available")),
                 "supports_model_selection": bool(info.get("supports_model_selection")),
-                "risk_level": "high" if backend in {"codex", "claude_code", "aider", "opencode", "mistral_code"} else "medium",
+                "risk_level": "high"
+                if backend in {"codex", "claude_code", "aider", "opencode", "mistral_code"}
+                else "medium",
                 "task_fit": {
-                    "coding": backend in {"ananta-worker", "sgpt", "codex", "claude_code", "aider", "opencode", "mistral_code"},
+                    "coding": backend
+                    in {"ananta-worker", "sgpt", "codex", "claude_code", "aider", "opencode", "mistral_code"},
                     "analysis": backend in {"ananta-worker", "sgpt", "codex", "claude_code", "opencode"},
                     "doc": backend in {"ananta-worker", "sgpt", "codex", "claude_code", "opencode"},
                     "ops": backend in {"ananta-worker", "opencode", "sgpt", "codex"},
@@ -672,7 +292,9 @@ def cli_backend_health(backend_id: str):
     """
     backend = _normalized_supported_backend_or_none(backend_id)
     if backend is None:
-        return api_response(status="error", message=f"Unknown backend. Allowed: {sorted(SUPPORTED_CLI_BACKENDS)}", code=404)
+        return api_response(
+            status="error", message=f"Unknown backend. Allowed: {sorted(SUPPORTED_CLI_BACKENDS)}", code=404
+        )
     from agent.cli_backends.routing import get_cli_backend_preflight, get_cli_backend_runtime_status
 
     preflight = get_cli_backend_preflight(runtime_scope="worker")
@@ -707,7 +329,9 @@ def cli_backend_diagnose(backend_id: str):
     """COMMON-003: Verify-Command-Diagnose (z.B. ``claude --version``)."""
     backend = _normalized_supported_backend_or_none(backend_id)
     if backend is None:
-        return api_response(status="error", message=f"Unknown backend. Allowed: {sorted(SUPPORTED_CLI_BACKENDS)}", code=404)
+        return api_response(
+            status="error", message=f"Unknown backend. Allowed: {sorted(SUPPORTED_CLI_BACKENDS)}", code=404
+        )
     from agent.cli_backends.routing import diagnose_cli_backend
 
     result = diagnose_cli_backend(backend)
@@ -728,7 +352,9 @@ def cli_backend_test_run(backend_id: str):
     """
     backend = _normalized_supported_backend_or_none(backend_id)
     if backend is None:
-        return api_response(status="error", message=f"Unknown backend. Allowed: {sorted(SUPPORTED_CLI_BACKENDS)}", code=404)
+        return api_response(
+            status="error", message=f"Unknown backend. Allowed: {sorted(SUPPORTED_CLI_BACKENDS)}", code=404
+        )
     body = request.get_json(silent=True) or {}
     prompt = str(body.get("prompt") or "Antworte nur mit dem Wort: OK").strip()[:2000]
     model = str(body.get("model") or "").strip() or None
@@ -750,7 +376,9 @@ def cli_backend_test_run(backend_id: str):
     duration_ms = int((time.time() - started) * 1000)
     audit_logger.info(
         f"CLI backend test-run: {backend} rc={rc}",
-        extra={"extra_fields": {"action": "cli_backend_test_run", "backend": backend, "rc": rc, "duration_ms": duration_ms}},
+        extra={
+            "extra_fields": {"action": "cli_backend_test_run", "backend": backend, "rc": rc, "duration_ms": duration_ms}
+        },
     )
     return api_response(
         data={
@@ -771,12 +399,8 @@ def _registered_worker(worker_url: str = "", *, worker_name: str = ""):
     if not normalized_url and not normalized_name:
         return None
     for agent in get_repository_registry().agent_repo.get_all() or ():
-        identity_matches = (
-            bool(normalized_url)
-            and str(agent.url or "").strip().rstrip("/") == normalized_url
-        ) or (
-            bool(normalized_name)
-            and str(agent.name or "").strip().lower() == normalized_name
+        identity_matches = (bool(normalized_url) and str(agent.url or "").strip().rstrip("/") == normalized_url) or (
+            bool(normalized_name) and str(agent.name or "").strip().lower() == normalized_name
         )
         if (
             identity_matches
@@ -816,13 +440,9 @@ def _worker_cli_config_payload(backend: str, *, action: str) -> dict:
     if not isinstance(source, dict):
         source = {}
     allowed_fields = _WORKER_CLI_CONFIG_FIELDS[backend]
-    filtered = {
-        key: value for key, value in source.items() if key in allowed_fields
-    }
+    filtered = {key: value for key, value in source.items() if key in allowed_fields}
     if action == "login_start":
-        filtered["auth_mode"] = (
-            "chatgpt_login" if backend == "codex" else "claude_login"
-        )
+        filtered["auth_mode"] = "chatgpt_login" if backend == "codex" else "claude_login"
     return {config_key: filtered}
 
 
@@ -854,12 +474,8 @@ def cli_backend_provision(backend_id: str):
     if settings.role == "hub":
         worker = _registered_worker(str(body.get("worker_url") or ""))
         if worker is None:
-            return api_response(
-                status="error", message="registered_worker_required", code=404
-            )
-        token = str(worker.token or "").strip() or resolve_configured_agent_token(
-            current_app.config
-        )
+            return api_response(status="error", message="registered_worker_required", code=404)
+        token = str(worker.token or "").strip() or resolve_configured_agent_token(current_app.config)
         if not token:
             return api_response(
                 status="error",
@@ -883,11 +499,7 @@ def cli_backend_provision(backend_id: str):
                 },
                 code=502,
             )
-        data = (
-            result.get("data")
-            if isinstance(result.get("data"), dict)
-            else result
-        )
+        data = result.get("data") if isinstance(result.get("data"), dict) else result
         return api_response(
             data={
                 **dict(data),
@@ -900,11 +512,7 @@ def cli_backend_provision(backend_id: str):
 
     provisioner = get_cli_backend_provisioner()
     try:
-        result = (
-            provisioner.install(backend)
-            if action == "install"
-            else provisioner.status(backend)
-        )
+        result = provisioner.install(backend) if action == "install" else provisioner.status(backend)
     except CliBackendProvisioningError as exc:
         reason_code = str(exc)
         if reason_code not in {
@@ -988,9 +596,7 @@ def cli_backend_worker_action(backend_id: str):
     else:
         return api_response(status="error", message="invalid_worker_action", code=400)
 
-    token = str(worker.token or "").strip() or resolve_configured_agent_token(
-        current_app.config
-    )
+    token = str(worker.token or "").strip() or resolve_configured_agent_token(current_app.config)
     if not token:
         return api_response(
             status="error",
@@ -1005,10 +611,7 @@ def cli_backend_worker_action(backend_id: str):
             token=token,
             timeout=60,
         )
-        if (
-            not isinstance(config_result, dict)
-            or config_result.get("status") == "error"
-        ):
+        if not isinstance(config_result, dict) or config_result.get("status") == "error":
             return api_response(
                 status="error",
                 message="worker_cli_auth_config_failed",
@@ -1054,9 +657,7 @@ def cli_backend_account_login(backend_id: str):
 
     backend = str(backend_id or "").strip().lower()
     if backend not in SUPPORTED_ACCOUNT_LOGIN_BACKENDS:
-        return api_response(
-            status="error", message="account_login_backend_unsupported", code=404
-        )
+        return api_response(status="error", message="account_login_backend_unsupported", code=404)
     if settings.role != "worker":
         return api_response(status="error", message="worker_role_required", code=409)
 
@@ -1077,21 +678,12 @@ def cli_backend_account_login(backend_id: str):
                 str(body.get("value") or ""),
             )
         elif action == "login_cancel":
-            result = service.cancel(
-                backend, str(body.get("session_id") or "")
-            )
+            result = service.cancel(backend, str(body.get("session_id") or ""))
         else:
-            return api_response(
-                status="error", message="invalid_account_login_action", code=400
-            )
+            return api_response(status="error", message="invalid_account_login_action", code=400)
     except CliBackendAccountLoginError as exc:
         reason_code = str(exc)
-        response_code = (
-            404
-            if reason_code
-            in {"backend_not_installed", "account_login_session_not_found"}
-            else 400
-        )
+        response_code = 404 if reason_code in {"backend_not_installed", "account_login_session_not_found"} else 400
         log_audit(
             "cli_backend_account_login_failed",
             {"backend": backend, "action": action, "reason_code": reason_code},
@@ -1128,7 +720,9 @@ def claude_write_armed_run():
         return api_response(status="error", message="prompt is required", code=400)
     workdir = str(body.get("workdir") or "").strip()
     if not workdir:
-        return api_response(status="error", message="workdir is required (git repo within claude_cli.allowed_paths)", code=400)
+        return api_response(
+            status="error", message="workdir is required (git repo within claude_cli.allowed_paths)", code=400
+        )
     model = str(body.get("model") or "").strip() or None
     try:
         timeout = int(body.get("timeout") or 600)
@@ -1170,7 +764,9 @@ def claude_apply_reviewed_diff():
         return api_response(status="error", message="diff is required", code=400)
     workdir = str(body.get("workdir") or "").strip()
     if not workdir:
-        return api_response(status="error", message="workdir is required (git repo within claude_cli.allowed_paths)", code=400)
+        return api_response(
+            status="error", message="workdir is required (git repo within claude_cli.allowed_paths)", code=400
+        )
 
     from agent.cli_backends.opencode import apply_reviewed_diff
 
@@ -1202,7 +798,9 @@ def create_cli_session():
     if backend == "auto":
         backend = "ananta-worker"
     if backend not in SUPPORTED_CLI_BACKENDS:
-        return api_response(status="error", message=f"Invalid backend. Allowed: {sorted(SUPPORTED_CLI_BACKENDS)}", code=400)
+        return api_response(
+            status="error", message=f"Invalid backend. Allowed: {sorted(SUPPORTED_CLI_BACKENDS)}", code=400
+        )
     if backend not in set(policy["stateful_backends"]):
         return api_response(status="error", message="backend_not_stateful_enabled", code=400)
     session = get_cli_session_service().create_session(
@@ -1283,11 +881,14 @@ def run_cli_session_turn(session_id: str):
     policy = _cli_session_policy()
     effective_prompt = prompt
     if not _has_native_opencode_runtime(session):
-        effective_prompt = get_cli_session_service().build_prompt_with_history(
-            session_id=session_id,
-            prompt=prompt,
-            max_turns=policy["max_turns_per_session"],
-        ) or prompt
+        effective_prompt = (
+            get_cli_session_service().build_prompt_with_history(
+                session_id=session_id,
+                prompt=prompt,
+                max_turns=policy["max_turns_per_session"],
+            )
+            or prompt
+        )
     task_kind = normalize_task_kind(data.get("task_kind"), prompt)
     rc, out, err, backend_used = run_llm_cli_command(
         effective_prompt,
@@ -1298,7 +899,9 @@ def run_cli_session_turn(session_id: str):
         session=session,
     )
     if rc != 0 and not out:
-        return api_response(status="error", message=err or f"backend '{backend_used}' failed with exit code {rc}", code=500)
+        return api_response(
+            status="error", message=err or f"backend '{backend_used}' failed with exit code {rc}", code=500
+        )
     turn = get_cli_session_service().append_turn(
         session_id=session_id,
         prompt=prompt,
