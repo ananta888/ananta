@@ -1,7 +1,7 @@
 {
   "$schema": "./todo.track.schema.json",
   "version": "2.0",
-  "last_updated": "2026-07-28",
+  "last_updated": "2026-07-29",
   "owner": "Peter Stuiber / Ananta",
   "track": "unsloth-full-platform-integration",
   "purpose": "Unsloth Core als austauschbare Worker-Strategie und Unsloth Studio als strikt optionales externes Ausführungsziel in Ananta integrieren, ohne Hub-Worker-Grenzen, bestehende Dataset-, Registry-, Runtime-, Audit- oder Provider-Schichten zu duplizieren.",
@@ -26,51 +26,77 @@
     "critical"
   ],
   "evidence_policy": {
-    "state": "unverified_pending_provided_ids",
+    "state": "repository_implementation_complete_acceptance_not_run",
+    "provided_source_ids": [],
+    "provided_run_ids": [],
+    "automated_tests": "not_run",
+    "builds": "not_run",
+    "runtime_validation": "not_run",
     "rules": [
-      "Nur bereitgestellte SRC_* und RUN_* IDs gelten als Evidenz.",
+      "Nur vom Benutzer oder einer autorisierten externen Quelle bereitgestellte SRC_* und RUN_* IDs gelten als Evidenz.",
       "Fehlende, unbekannte oder selbst erzeugte Source- oder Run-IDs gelten als unverifiziert beziehungsweise fehlgeschlagen.",
-      "Die aktuellen partial-Statuswerte bilden beobachtete Quellcode-Teilimplementierungen ab, sind aber bis zur Verknüpfung mit bereitgestellter Evidenz nicht acceptance-verifiziert.",
-      "Kein Release-Profil darf ohne gültige Source- und Run-Evidenz als done gelten."
+      "Alle Repository-Implementierungen dieses Tracks sind laut Quellcode-Audit vorhanden; es wurden jedoch keine Tests, Builds, E2E-Laeufe, GPU-Runs oder Acceptance-Gates ausgefuehrt.",
+      "Der Status partial trennt deshalb code-complete von acceptance-verifiziert; kein Task und kein Release-Profil wird ohne ausgefuehrte Kriterien als done ausgewiesen.",
+      "Externe Studio-Pins, Lizenzfreigaben, Secrets, Netzwerkfreigaben, GPU-Umgebung und echte profilgebundene Runs bleiben explizite Restvoraussetzungen.",
+      "Kein Release-Profil darf ohne gueltige Source- und Run-Evidenz als supported oder done gelten."
     ]
   },
   "release_profiles": [
     {
       "id": "core_text",
       "required_for_initial_release": true,
-      "description": "Text-LoRA/QLoRA, Evaluation, Export und providerneutrale Runtime-Übergabe ohne Studio oder MCP."
+      "description": "Text-LoRA/QLoRA, Evaluation, Export und providerneutrale Runtime-Übergabe ohne Studio oder MCP.",
+      "implementation_state": "code_complete_unvalidated",
+      "verification_state": "not_run",
+      "release_state": "unverified",
+      "remaining_gate": "CPU-/E2E-Gates und dreifacher echter NVIDIA-Release-Run mit bereitgestellten SRC_*/RUN_*-IDs"
     },
     {
       "id": "studio",
       "required_for_initial_release": false,
-      "description": "Versionierter Studio-Transport und isoliertes Containerprofil; darf core_text nicht blockieren."
+      "description": "Versionierter Studio-Transport und isoliertes Containerprofil; darf core_text nicht blockieren.",
+      "implementation_state": "code_complete_external_baseline_pending",
+      "verification_state": "not_run",
+      "release_state": "unverified",
+      "remaining_gate": "Lizenzfreigegebener Studio-Build-/Image-Digest, Secrets, CIDR sowie echter Auth-/Health-/GPU-Smoke"
     },
     {
       "id": "modalities",
       "required_for_initial_release": false,
-      "description": "Vision-, Audio- und Embedding-Unterstützung über getrennte Worker-Strategien."
+      "description": "Vision-, Audio- und Embedding-Unterstützung über getrennte Worker-Strategien.",
+      "implementation_state": "code_complete_unvalidated",
+      "verification_state": "not_run",
+      "release_state": "unverified",
+      "remaining_gate": "Eigener CPU-Contract- und echter GPU-Release-Run fuer Vision, Audio und Embedding je beanspruchter Modalitaet"
     },
     {
       "id": "mcp",
       "required_for_initial_release": false,
-      "description": "Strikt policy-gesteuerte MCP-Anbindung; darf core_text und studio nicht blockieren."
+      "description": "Strikt policy-gesteuerte MCP-Anbindung; darf core_text und studio nicht blockieren.",
+      "implementation_state": "code_complete_unvalidated",
+      "verification_state": "not_run",
+      "release_state": "unverified",
+      "remaining_gate": "Security-/Contract-/E2E-Gates und realer interner MCP-Protokollnachweis gegen den freigegebenen Studio-Stand"
     }
   ],
   "support_matrix": [
     {
       "environment": "Linux-Container mit NVIDIA-GPU",
       "profile": "core_text",
-      "target_state": "supported_after_release_gate"
+      "target_state": "supported_after_release_gate",
+      "current_state": "repository_implementation_complete_gpu_release_gate_not_run"
     },
     {
       "environment": "Windows oder WSL als Docker-Host",
       "profile": "core_text/studio",
-      "target_state": "documented_operator_host"
+      "target_state": "documented_operator_host",
+      "current_state": "operator_path_documented_runtime_not_verified"
     },
     {
       "environment": "Windows-native, macOS, AMD, Vulkan oder CPU-Training",
       "profile": "all",
-      "target_state": "out_of_scope_until_separately_evidenced"
+      "target_state": "out_of_scope_until_separately_evidenced",
+      "current_state": "out_of_scope_unverified"
     }
   ],
   "architecture_decisions": [
@@ -126,7 +152,9 @@
         "UNSLOTH-019",
         "UNSLOTH-021"
       ],
-      "status": "partial"
+      "status": "partial",
+      "implementation_state": "code_complete_external_evidence_pending",
+      "verification_state": "not_run"
     },
     {
       "id": "M2",
@@ -139,7 +167,9 @@
         "UNSLOTH-011",
         "UNSLOTH-012"
       ],
-      "status": "partial"
+      "status": "partial",
+      "implementation_state": "code_complete_acceptance_not_run",
+      "verification_state": "not_run"
     },
     {
       "id": "M3",
@@ -149,7 +179,9 @@
         "UNSLOTH-022",
         "UNSLOTH-014"
       ],
-      "status": "partial"
+      "status": "partial",
+      "implementation_state": "code_complete_acceptance_not_run",
+      "verification_state": "not_run"
     },
     {
       "id": "M4",
@@ -158,7 +190,9 @@
         "UNSLOTH-004",
         "UNSLOTH-006"
       ],
-      "status": "todo"
+      "status": "partial",
+      "implementation_state": "code_complete_external_baseline_and_runtime_validation_pending",
+      "verification_state": "not_run"
     },
     {
       "id": "M5",
@@ -166,7 +200,9 @@
       "task_ids": [
         "UNSLOTH-023"
       ],
-      "status": "todo"
+      "status": "partial",
+      "implementation_state": "code_complete_per_modality_gpu_validation_pending",
+      "verification_state": "not_run"
     },
     {
       "id": "M6",
@@ -175,7 +211,9 @@
         "UNSLOTH-016",
         "UNSLOTH-017"
       ],
-      "status": "partial"
+      "status": "partial",
+      "implementation_state": "code_complete_security_and_e2e_validation_pending",
+      "verification_state": "not_run"
     },
     {
       "id": "M7",
@@ -184,7 +222,9 @@
         "UNSLOTH-024",
         "UNSLOTH-020"
       ],
-      "status": "partial"
+      "status": "partial",
+      "implementation_state": "gate_code_complete_all_runs_not_executed",
+      "verification_state": "not_run"
     }
   ],
   "tasks": [
@@ -194,15 +234,18 @@
       "type": "analysis",
       "milestone_id": "M1",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 80,
+      "status_basis": "repository_implementation_complete_external_or_runtime_verification_pending",
       "priority": "P0",
       "risk": "high",
       "depends_on": [],
       "target_files": [
         "todos/todo.unsloth-full-platform-integration.json",
-        "docs/ml-intern-lora-finetuning.md",
-        "docs/security/third-party-components.md"
+        "docs/security/third-party-components.md",
+        "docs/unsloth-platform-integration.md",
+        "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json",
+        "ananta_contracts/unsloth_studio.py",
+        "ananta_contracts/mcp_streamable_http.py"
       ],
       "acceptance_criteria": [
         "Upstream-Repository, exakter Commit oder Tag, Studio-Artefakt beziehungsweise Image-Digest und API-Schemaversion sind ausschließlich über bereitgestellte SRC_* IDs referenziert.",
@@ -214,6 +257,25 @@
       "test_expectations": [
         "Schema-Test lehnt fehlende oder unbekannte Source-IDs für verifizierte Claims ab.",
         "Lizenz- und Upstream-Pin-Check läuft ohne Import von Torch, CUDA oder Unsloth."
+      ],
+      "implementation_state": "repository_changes_complete_external_baseline_pending",
+      "implementation_notes": [
+        "Core-/Studio-Lizenzgrenzen, Sicherheitsgrenzen, Support-Matrix und versionierte Studio-/MCP-Vertraege sind im Repository dokumentiert beziehungsweise als Contracts abgebildet.",
+        "Ein freigegebener unveraenderlicher Studio-Artefakt- oder Image-Digest sowie bereitgestellte SRC_*/RUN_*-Evidenz liegen nicht vor und werden nicht erfunden."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Bereitgestellte SRC_* IDs fuer Upstream-Stand, Studio-Artefakt und Contract-Version verknuepfen.",
+        "Studio-Image oder reproduzierbares Build-Artefakt samt Digest und Lizenzfreigabe extern bestaetigen.",
+        "Dependency- und Container-Lizenzreport gegen den tatsaechlich freigegebenen Build ausfuehren."
       ]
     },
     {
@@ -222,18 +284,21 @@
       "type": "architecture",
       "milestone_id": "M1",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
         "UNSLOTH-001"
       ],
       "target_files": [
+        "ananta_contracts/unsloth_capability.py",
         "agent/services/ml_intern_training_contract.py",
-        "agent/services/ml_intern_training_control_service.py",
-        "worker/training/backends/base.py",
-        "worker/training/backends/unsloth.py"
+        "agent/services/ml_intern_training_config_service.py",
+        "agent/services/ml_intern_training_read_model_service.py",
+        "agent/routes/ml_intern_training.py",
+        "worker/training/runtime.py",
+        "worker/training/vram_admission.py"
       ],
       "acceptance_criteria": [
         "Training, Export, Inferenz, Studio, MCP und Hardware verwenden kleine getrennte Capability-Facets, die in einen versionierten Snapshot komponiert werden.",
@@ -245,6 +310,24 @@
       "test_expectations": [
         "Unit-Tests decken vollständige, partielle, unbekannte und fehlende Capabilities ab.",
         "Hub-Importtests laufen ohne GPU-Module und ohne installierte Unsloth-Abhängigkeit."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "Ein gemeinsamer versionierter Capability-Vertrag projiziert Core, Modalitaeten, Studio, MCP und Cleanup fail-closed.",
+        "Der authentisierte Worker-Probe ist zeitlich begrenzt, gecacht und meldet reale Paket-, Torch-, CUDA-, VRAM- und Metrikverfuegbarkeit."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "CPU-Contract-, Auth-, Timeout- und Cache-Tests ausfuehren.",
+        "Capability-Projektion gegen einen realen NVIDIA-Worker und optionale Profile pruefen."
       ]
     },
     {
@@ -253,8 +336,8 @@
       "type": "security",
       "milestone_id": "M1",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -263,8 +346,10 @@
       ],
       "target_files": [
         "agent/services/ml_intern_training_config_service.py",
-        ".env.example",
-        "docs/ml-intern-lora-finetuning.md"
+        "agent/services/unsloth_studio_transport.py",
+        "agent/services/unsloth_storage_governance_service.py",
+        "docker/compose-next/compose.unsloth.yml",
+        "docs/unsloth-platform-integration.md"
       ],
       "acceptance_criteria": [
         "Core-Training, Studio-Transport, Modell-Download und MCP sind orthogonale Feature-Flags; Core und Studio dürfen bei expliziter Konfiguration koexistieren.",
@@ -278,6 +363,24 @@
       "test_expectations": [
         "Negative Tests prüfen jede implizite Aktivierung, Secret-Leakage und widersprüchliche Kombination.",
         "SSRF-Tests decken Redirects, DNS-Rebinding, IPv4-, IPv6- und Credential-Forwarding-Bypasses ab."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "Security-Konfiguration, SSRF-/DNS-/TLS-/Redirect-Grenzen, Response-Limits, Netzwerkisolation und fail-closed Defaults sind implementiert.",
+        "Hub, Worker, Studio und MCP behalten getrennte Verantwortlichkeiten und Secrets; es gibt keinen Docker-Socket und keine Hub-seitige Hostprozessschleife."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Security- und Negativtests fuer DNS-Rebinding, Redirects, TLS, Response-Bombs, Secrets und Netzwerkgrenzen ausfuehren.",
+        "Produktive CIDRs, URLs und Secret-Referenzen operatorseitig bereitstellen und pruefen."
       ]
     },
     {
@@ -286,8 +389,8 @@
       "type": "security",
       "milestone_id": "M1",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 85,
+      "status_basis": "repository_implementation_complete_external_or_runtime_verification_pending",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -296,21 +399,41 @@
         "UNSLOTH-003"
       ],
       "target_files": [
-        "agent/common/audit.py",
-        "agent/services/ml_intern_adapter_registry_service.py",
+        "agent/services/ml_intern_provenance_contract.py",
+        "agent/services/unsloth_evidence.py",
         "agent/services/ml_intern_training_result_publisher.py",
-        "worker/training/runtime.py"
+        "ananta_contracts/unsloth_task.py",
+        "scripts/run_lora_training_smoke.py"
       ],
       "acceptance_criteria": [
         "Ein versionierter Provenance-Vertrag verbindet bereitgestellte Source- und Run-IDs, Tenant, Dataset-Hash, Basismodell-Hash, Job, Attempt, Konfiguration, Adapter, Export und Freigabe.",
         "Fehlende oder unbekannte SRC_* beziehungsweise RUN_* IDs werden als unverifiziert abgelehnt und niemals synthetisch erzeugt.",
         "Der Result-Publisher persistiert den kanonischen dataset_hash im dafür vorgesehenen Registry-Feld und nicht nur als Hash einer Dataset-ID in Freitext-Notizen.",
         "Audit verwendet ausschließlich agent.common.audit und enthält Akteur, Tenant, Aktion, Ergebnis, reason_code und Korrelations-ID ohne Trainingsinhalte.",
-        "Hash- oder Tenant-Mismatch blockiert Evaluation, Export, Promotion und Deployment fail-closed."
+        "Hash- oder Tenant-Mismatch blockiert Evaluation, Export, Promotion und Deployment fail-closed.",
+        "Die kanonische Source-/Run-Authority akzeptiert keine synthetisch erzeugten Kennungen; fehlende oder unbekannte IDs resultieren in unverified beziehungsweise fail-closed."
       ],
       "test_expectations": [
         "Tests decken fehlende Source-IDs, Dataset-Hash-Mismatch, Cross-Tenant-Zugriff und Audit-Redaction ab.",
         "Regressionstest bestätigt die dataset_hash-Weitergabe vom Trainingsergebnis bis zum AdapterRecord."
+      ],
+      "implementation_state": "code_complete_evidence_ids_pending",
+      "implementation_notes": [
+        "Die kanonische Provenance-Normalform bindet Tenant, Job, Attempt, Fence, Dataset, Modell, Adapter, Export, Evaluation, Promotion und Runtime ueber IDs und Hashes.",
+        "Source-/Run-Authority akzeptiert nur bereitgestellte SRC_*/RUN_*-IDs; unbekannte oder fehlende IDs bleiben unverified."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Bereitgestellte SRC_*/RUN_*-IDs in echte Acceptance-Runs einspeisen.",
+        "Provenance-, Replay- und Manipulationstests ausfuehren und unveraenderliche Gate-Artefakte erzeugen."
       ]
     },
     {
@@ -319,8 +442,8 @@
       "type": "architecture",
       "milestone_id": "M1",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -328,21 +451,47 @@
         "UNSLOTH-019"
       ],
       "target_files": [
-        "agent/services/ml_intern_training_worker_port.py",
-        "agent/services/ml_intern_artifact_security_service.py",
-        "docker/compose-next/compose.lora-training.yml",
-        "docs/ml-intern-lora-finetuning.md"
+        "agent/services/unsloth_storage_governance_service.py",
+        "agent/services/unsloth_completion_outbox_service.py",
+        "agent/services/background/ml_intern_training_reconciler.py",
+        "agent/routes/ml_intern_training.py",
+        "ananta_contracts/unsloth_task.py",
+        "worker/training/storage_cleanup.py",
+        "worker/training/unsloth_task_handlers.py",
+        "tests/test_unsloth_storage_governance.py",
+        "tests/worker/test_lora_training_storage_cleanup.py"
       ],
       "acceptance_criteria": [
         "Jede zustandsändernde Operation entsteht als Hub-Task und wird über einen expliziten Worker- oder Deployment-Port ausgeführt.",
         "Artefakte werden über tenantgebundene inhaltsadressierte Manifeste oder bounded Blob-Transfers übergeben; absolute Worker- oder Hostpfade verlassen den Container nicht.",
         "Workspace, Modellcache, Checkpoints und Exporte sind tenant- und jobgebunden; Cross-Tenant-Referenzen werden abgelehnt.",
         "Konfiguration definiert endliche Disk-, Upload-, Download-, VRAM- und globale GPU-Concurrency-Limits sowie Retention und referenzsichere Löschung.",
-        "Kein Container benötigt privileged, Host-PID, Host-Netzwerk, Docker-Socket oder implizit geteilten Zustand."
+        "Kein Container benötigt privileged, Host-PID, Host-Netzwerk, Docker-Socket oder implizit geteilten Zustand.",
+        "Eine Cleanup-Reservation ist bis zur Katalog-CAS nicht dispatchbar; ein bounded Hub-Reconciler aktiviert oder verwirft verwaiste Reservations idempotent ohne eine neue Orchestrierungsschleife."
       ],
       "test_expectations": [
         "Contract-Tests prüfen Task-Ownership, Artefakttransfer, Quoten, Retention und Cross-Tenant-Isolation ohne GPU.",
         "Compose-Strukturtest verbietet Docker-Socket, privileged und unerlaubte Host-Mounts."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "Tenant- und Artefaktquoten, revisionsgefencete Retention, geschuetzte Referenzen, pfadfreie Readmodels, Dry-run/Confirm und Worker-seitige Cleanup-Receipts sind implementiert.",
+        "Cleanup nutzt eine nicht dispatchbare reserved-Phase, CAS-Aktivierung und einen bounded Hub-owned One-shot-Reconciler im vorhandenen ML-Reconciler-Tick; ein schmaler Completion-Port entkoppelt die Persistenz.",
+        "Manipulierte oder nicht sicher rekonstruierbare Reservations bleiben absichtlich fail-closed und werden pfadfrei auditiert."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Quota-, Retention-, Containment-, Idempotenz- und Revision-Fence-Tests ausfuehren.",
+        "Crash-, Parallelitaets-, Ablauf-, Tamper- und Bounding-Specs fuer reserved->created/cancelled ausfuehren.",
+        "Cleanup-E2E ueber Hub-Task, Worker-Result und Katalogfreigabe ausfuehren."
       ]
     },
     {
@@ -351,8 +500,8 @@
       "type": "backend",
       "milestone_id": "M2",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -361,10 +510,12 @@
         "UNSLOTH-021"
       ],
       "target_files": [
-        "agent/services/model_catalog_service.py",
-        "agent/services/ml_intern_adapter_registry_service.py",
-        "agent/services/ml_intern_training_control_service.py",
-        "agent/routes/ml_intern_training.py"
+        "worker/training/backends/unsloth.py",
+        "worker/training/backends/peft_trl.py",
+        "worker/training/backends/__init__.py",
+        "worker/runtime/lora_training_app.py",
+        "worker/training/vram_admission.py",
+        "tests/worker/test_unsloth_platform_backends.py"
       ],
       "acceptance_criteria": [
         "Bestehende Modell- und Adapterkataloge bleiben Source of Truth; es entsteht kein separater Unsloth-Gesamtkatalog.",
@@ -376,6 +527,24 @@
       "test_expectations": [
         "Tests decken Duplikate, Hash-Änderungen, manipulierte Pfade, fehlende Dateien und Tenant-Grenzen ab.",
         "API-Snapshots enthalten keine Host- oder Worker-Pfade."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "Unsloth ist als austauschbare Worker-Strategie neben PEFT/TRL implementiert; der Hub orchestriert und der Worker fuehrt aus.",
+        "Admission, Backend-Auswahl und Fehlercodes sind explizit und fail-closed."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "CPU-Strategie- und Fehlerpfadtests ausfuehren.",
+        "Echtes Text-LoRA/QLoRA-Minitraining auf dem freigegebenen NVIDIA-Profil ausfuehren."
       ]
     },
     {
@@ -384,8 +553,8 @@
       "type": "security",
       "milestone_id": "M2",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -395,10 +564,11 @@
         "UNSLOTH-021"
       ],
       "target_files": [
-        "agent/services/ml_intern_adapter_import_service.py",
-        "agent/services/ml_intern_artifact_security_service.py",
-        "worker/training",
-        "agent/routes/ml_intern_training.py"
+        "docker/compose-next/requirements.lora-training-nvidia.txt",
+        "docker/compose-next/compose.lora-training.yml",
+        "worker/training/runtime.py",
+        "scripts/run_lora_training_smoke.py",
+        "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json"
       ],
       "acceptance_criteria": [
         "Hub validiert und plant Import oder Download; Netzwerk- und Dateiarbeit erfolgt ausschließlich in einem delegierten Worker-Task.",
@@ -410,6 +580,24 @@
       "test_expectations": [
         "Security-Tests decken Zip-Slip, Symlink-Escape, Redirect-, DNS-, IPv4-/IPv6-Bypass, Response-Bomb und Hash-Mismatch ab.",
         "Integrationstest prüft Abbruch und Retry ohne halbfertiges Artefakt oder doppelte Promotion."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "Unsloth, Unsloth Zoo, Torch/CUDA, Transformers, TRL, PEFT, Accelerate, BitsAndBytes und Exportabhaengigkeiten sind im NVIDIA-Profil explizit gepinnt.",
+        "Der Runtime-Probe attestiert tatsaechlich geladene Versionen und GPU-Eigenschaften statt Konfigurationswerte als Laufzeitfakten auszugeben."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Container-Build und Dependency-Aufloesung ausfuehren.",
+        "Kompatibilitaetsmatrix auf realem NVIDIA-Runner inklusive CUDA-/Treiberbindung attestieren."
       ]
     },
     {
@@ -418,8 +606,8 @@
       "type": "backend",
       "milestone_id": "M2",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -429,9 +617,12 @@
         "UNSLOTH-021"
       ],
       "target_files": [
-        "agent/services/ml_intern_dataset_catalog_service.py",
-        "agent/services/ml_intern_lora_dataset_build_service.py",
-        "agent/services/ml_intern_dataset_validation_service.py"
+        "agent/services/unsloth_data_recipe_adapter.py",
+        "ananta_contracts/unsloth_task.py",
+        "worker/training/unsloth_task_handlers.py",
+        "worker/training/unsloth_worker_runtime.py",
+        "docker/compose-next/compose.unsloth.yml",
+        "tests/test_unsloth_domain_adapters.py"
       ],
       "acceptance_criteria": [
         "Der bestehende Dataset-Katalog und seine unveränderlichen Versionen bleiben Source of Truth.",
@@ -443,6 +634,24 @@
       "test_expectations": [
         "Tests prüfen deterministische Recipe-Versionen, unveränderte Eingaben, Source-ID-Fencing und PII-/Secret-Blockade.",
         "Contract-Test bestätigt, dass der Adapter keine Quelldatei direkt aus einem Hostpfad liest."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "Data Recipe v2 bindet Source und Run, root-relative Dataset-Referenz, Partition-Hash, Owner, Validierung und Lizenzstatus.",
+        "Materialisierung bleibt ein Hub-initiierter Worker-Task in einem separaten Offline-Profil ohne Worker-Polling oder Worker-zu-Worker-Orchestrierung."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Schema-, Tenant-, Lizenz-, Hash-, Traversal- und Offline-Materialisierungstests ausfuehren.",
+        "Dataset-E2E mit bereitgestellter Source-/Run-Evidenz ausfuehren."
       ]
     },
     {
@@ -451,8 +660,8 @@
       "type": "backend",
       "milestone_id": "M2",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -464,10 +673,11 @@
         "UNSLOTH-021"
       ],
       "target_files": [
-        "worker/training/backends/unsloth.py",
-        "worker/training/backends/peft_trl.py",
-        "worker/training/job_process.py",
-        "tests/worker/test_lora_training_backends.py"
+        "agent/services/ml_intern_training_control_service.py",
+        "worker/training/backends/unsloth_checkpoint.py",
+        "worker/training/runtime.py",
+        "worker/runtime/lora_training_app.py",
+        "tests/worker/test_unsloth_checkpoint_resume.py"
       ],
       "acceptance_criteria": [
         "Dieses Backend unterstützt ausschließlich die explizit freigegebene Text-Causal-LM-LoRA/QLoRA-Matrix; andere Modalitäten werden vor Modellladung mit stabilem reason_code abgelehnt.",
@@ -481,6 +691,24 @@
         "CPU-Mocktests decken Mapping, Unsupported-Matrix, doppelte PEFT-Verhinderung und Fehlerklassifikation ab.",
         "Regressionstests bestätigen den bestehenden PEFT/TRL-Vertrag.",
         "Realer Unsloth-Lauf wird erst durch den profilgebundenen Release-Gate nachgewiesen."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "Training und Resume sind an Tenant, Job, Attempt, Backend, Dataset, Modell und Konfiguration gebunden.",
+        "Checkpoint-Publikation ist atomar, symlink-frei und lehnt veraltete oder manipulierte Resume-Zustaende fail-closed ab."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Checkpoint-, Resume-, Crash-, Cancellation-, Fence- und Manipulationstests ausfuehren.",
+        "Realen GPU-Resume-Run mit Peak-VRAM- und Versionsattestierung ausfuehren."
       ]
     },
     {
@@ -489,8 +717,8 @@
       "type": "backend",
       "milestone_id": "M2",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -499,9 +727,10 @@
         "UNSLOTH-010"
       ],
       "target_files": [
-        "agent/services/ml_intern_training_config_service.py",
-        "worker/training/hardware.py",
-        "worker/training/job_process.py"
+        "agent/services/ml_intern_training_result_publisher.py",
+        "agent/services/ml_intern_training_read_model_service.py",
+        "ananta_contracts/unsloth_capability.py",
+        "worker/training/runtime.py"
       ],
       "acceptance_criteria": [
         "Das rtx3080-safe Profil reserviert mindestens 1 GiB einer 10-GiB-Karte und besitzt explizite Grenzen für Modellklasse, Quantisierung, Sequenzlänge, Micro-Batch, Gradient Accumulation und Adapterparameter.",
@@ -513,6 +742,24 @@
       "test_expectations": [
         "Unit-Tests prüfen Grenzwerte, deterministische Profilauflösung und erlaubte Retry-Transformationen.",
         "GPU-Gate protokolliert Peak-VRAM und Fixture-Hashes ohne Trainingsdateninhalte."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "Worker-Ergebnisse und Readmodels projizieren bounded Metriken, Capability-Verfuegbarkeit und Provenance ohne Hostpfade oder Trainingsinhalte.",
+        "Nicht messbare Werte werden als unavailable mit stabilem reason_code ausgewiesen und nicht erfunden."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Metrik-, Redaction-, Payload-Limit-, Replay- und Readmodel-Tests ausfuehren.",
+        "Reale Trainingstelemetrie inklusive Peak-VRAM gegen das NVIDIA-Profil pruefen."
       ]
     },
     {
@@ -521,8 +768,8 @@
       "type": "observability",
       "milestone_id": "M2",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -531,21 +778,45 @@
         "UNSLOTH-019"
       ],
       "target_files": [
-        "worker/training/runtime.py",
-        "worker/training/job_process.py",
-        "agent/services/ml_intern_training_read_model_service.py",
-        "frontend-angular/src/app/features/model-training/model-training-job-monitor.service.ts"
+        "agent/services/unsloth_model_source_adapter.py",
+        "agent/services/unsloth_model_catalog_service.py",
+        "agent/services/unsloth_completion_outbox_service.py",
+        "ananta_contracts/unsloth_task.py",
+        "worker/training/model_imports.py",
+        "worker/training/unsloth_task_handlers.py",
+        "worker/training/unsloth_worker_runtime.py",
+        "tests/worker/test_unsloth_model_imports.py"
       ],
       "acceptance_criteria": [
         "Event-Schema v1 definiert Phase, Step, Epoch, Loss, Eval-Loss, Learning Rate, Tokens pro Sekunde, GPU-Auslastung und belegtes VRAM mit Typen und Einheiten.",
         "Sequenzen sind pro Job und Attempt streng monoton; Retry-Ereignisse werden niemals vermischt.",
         "SSE und Polling projizieren denselben Vertrag und unterstützen einen bounded Resume-Cursor.",
         "Trainingsbeispiele, Prompts, Secrets und lokale Pfade sind im Eventvertrag verboten.",
-        "Unbekannte oder nicht verfügbare Hardwaremetriken werden explizit als unavailable statt als nullbedeutende Messwerte dargestellt."
+        "Unbekannte oder nicht verfügbare Hardwaremetriken werden explizit als unavailable statt als nullbedeutende Messwerte dargestellt.",
+        "Katalogversion, pending Completion-Outbox, Task-CAS und anschliessende Sichtbarkeit sind crash- und replay-sicher komponiert; ein pending Eintrag ist nicht als freigegeben sichtbar."
       ],
       "test_expectations": [
         "Tests prüfen Reihenfolge, Attempt-Fencing, Redaction, Cursor-Resume und SSE-zu-Polling-Fallback.",
         "Frontend-Tests prüfen Einheiten, unavailable-Zustände und lange Eventfolgen."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "Modelimporte erzeugen additive unveraenderliche Katalogversionen mit Tenant, Source, Revision, Hash, Lizenz, Format, Groesse, Architektur, Quantisierung und Capability-Facets.",
+        "Netzwerkopt-in Import und Offline-Materialisierung sind getrennt; Katalogpromotion und Taskabschluss werden ueber CAS und transaktionale Outbox replay-sicher komponiert.",
+        "Der alte direkte Completion-Endpunkt ist fail-closed entfernt und antwortet mit 410."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Import-, Offline-, Lizenz-, Hash-, Quota-, Outbox-, Crash- und Replay-Tests ausfuehren.",
+        "Einen freigegebenen Modellimport mit echter Source-Evidenz attestieren."
       ]
     },
     {
@@ -554,8 +825,8 @@
       "type": "backend",
       "milestone_id": "M3",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -564,10 +835,13 @@
         "UNSLOTH-021"
       ],
       "target_files": [
+        "worker/training/exports.py",
         "worker/training/backends/unsloth.py",
-        "worker/training/backends/peft_trl.py",
-        "agent/services/ml_intern_adapter_export_service.py",
-        "agent/services/ml_intern_adapter_registry_service.py"
+        "agent/services/ml_intern_adapter_registry_service.py",
+        "agent/routes/ml_intern_training.py",
+        "tests/worker/test_unsloth_exports.py",
+        "tests/worker/test_unsloth_export_composition.py",
+        "tests/test_ml_intern_unsloth_export_contract.py"
       ],
       "acceptance_criteria": [
         "Adapter-only, gemergte 16-bit-Safetensors und eine versionierte Allowlist von GGUF-Quantisierungen sind getrennte idempotente Jobtypen.",
@@ -579,6 +853,24 @@
       "test_expectations": [
         "Tests prüfen Manifest, Hashes, Merge-Trennung, atomaren Fehlerfall, Pfadgrenzen und Wiederholung mit gleichem Idempotency-Key.",
         "Profilgebundener Smoke lädt mindestens eine freigegebene GGUF-Quantisierung über den Runtime-Adapter."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "Adapter, merged-16-bit und allowlisted GGUF-Exporte sind explizite, hashgebundene Plaene mit worker-generierten sicheren Zielen.",
+        "Merge ist opt-in; atomare Publikation, Manifestbindung, Tenantgrenzen und idempotente Hub-Mutation sind implementiert."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Export-, Hash-, Merge-, Atomicity-, Traversal- und Idempotenztests ausfuehren.",
+        "Freigegebenes GGUF im vorgesehenen Runtime-Adapter real laden."
       ]
     },
     {
@@ -587,8 +879,8 @@
       "type": "governance",
       "milestone_id": "M3",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -597,9 +889,11 @@
         "UNSLOTH-019"
       ],
       "target_files": [
+        "agent/services/unsloth_evaluation_promotion_service.py",
+        "agent/services/ml_intern_evaluation_promotion_facade.py",
         "agent/services/ml_intern_adapter_registry_service.py",
+        "agent/services/ml_intern_training_result_publisher.py",
         "agent/services/ml_intern_training_control_service.py",
-        "agent/services/ml_intern_lora_runtime_management_service.py",
         "agent/routes/ml_intern_training.py"
       ],
       "acceptance_criteria": [
@@ -612,6 +906,24 @@
       "test_expectations": [
         "Tests prüfen positive Promotion, jedes Mismatch, Widerruf, Rollback und unveränderte Historie.",
         "E2E-Test führt Dataset über Training, Evaluation und Promotion bis zum freigegebenen Exportmanifest."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "Evaluation und immutable Promotion-Historie sind an die vollstaendige Tenant-, Job-, Attempt-, Dataset-, Modell-, Adapter-, Export- und Evidenzkette gebunden.",
+        "Expected revision, Idempotenz, Widerruf, Rollback und stabile Mismatch-Codes werden ueber eine Hub-Fassade komponiert."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Positive und negative Promotion-, Revision-, Replay-, Widerruf- und Rollbacktests ausfuehren.",
+        "Dataset->Training->Export->Evaluation->Promotion als echten E2E-Lauf attestieren."
       ]
     },
     {
@@ -620,8 +932,8 @@
       "type": "integration",
       "milestone_id": "M3",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -629,11 +941,13 @@
         "UNSLOTH-022"
       ],
       "target_files": [
+        "agent/services/unsloth_runtime_handoff_service.py",
+        "agent/services/unsloth_runtime_handoff_composition.py",
+        "agent/services/unsloth_runtime_endpoint_registry_service.py",
         "agent/services/integration_registry_service.py",
-        "agent/services/model_catalog_service.py",
         "agent/services/model_invocation_service.py",
         "agent/services/ml_intern_lora_runtime_management_service.py",
-        "todos/todo.lmstudio-ollama-capability-template-runtime-integration.json"
+        "agent/routes/ml_intern_training.py"
       ],
       "acceptance_criteria": [
         "Der Unsloth-Track erzeugt ausschließlich ein unveränderliches Deployment-Request-Manifest für ein promoted Exportartefakt; Runtime-Lifecycle und providerbezogener Deploy bleiben im LM-Studio-/Ollama-Track.",
@@ -641,11 +955,30 @@
         "OpenAI-Chat, Responses, Anthropic-Messages, Streaming, Tools und strukturierte Ausgabe werden einzeln capability-gated und gegen die gepinnte Contract-Fixture geprüft.",
         "Timeout, Kontextlimit, Ausgabegrenze und Stream-Abbruch sind bounded; Abbruch gibt Ressourcen deterministisch frei.",
         "Es gibt keinen impliziten Fallback; Routing auf ein anderes Modell benötigt eine explizite Hub-Policy.",
-        "Provider-Ausfall oder Rollback verändert niemals Registry-Promotion oder Provenance."
+        "Provider-Ausfall oder Rollback verändert niemals Registry-Promotion oder Provenance.",
+        "Endpoint-Rollback erzeugt eine neue unveraenderliche Revision und ist an expected revision sowie das promoted Exportmanifest gebunden."
       ],
       "test_expectations": [
         "Fake-Provider-Tests prüfen Manifestübergabe, Capability-Projektion, Timeout, Stream-Abbruch, Teilfehler und Rollback.",
         "Contract-Tests benötigen weder Ollama noch LM Studio noch llama.cpp noch Unsloth."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "Runtime-Handoff erzeugt ein providerneutrales Manifest v2 mit Promotion-/Export-/Evidenzbindung und startet keinen Providerprozess im Hub.",
+        "Endpoint-Deskriptoren sind append-only revisioniert; Rollback erzeugt eine neue Revision und impliziter Fallback bleibt verboten."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Fake-Provider-, Capability-, Timeout-, Streaming-, Revision-, Rollback- und No-Fallback-Tests ausfuehren.",
+        "Promoted Export ueber den vorgesehenen Runtime-Adapter real laden und rollbacken."
       ]
     },
     {
@@ -653,9 +986,9 @@
       "title": "Versionierten Unsloth-Studio-Transport und Capability-Probe implementieren",
       "type": "backend",
       "milestone_id": "M4",
-      "status": "todo",
-      "progress_percent": 0,
-      "status_basis": "not_implemented_unverified",
+      "status": "partial",
+      "progress_percent": 85,
+      "status_basis": "repository_implementation_complete_external_or_runtime_verification_pending",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -666,6 +999,7 @@
         "UNSLOTH-021"
       ],
       "target_files": [
+        "ananta_contracts/unsloth_studio.py",
         "agent/services/unsloth_studio_transport.py",
         "agent/services/unsloth_studio_worker_adapter.py",
         "tests/test_unsloth_studio_transport.py"
@@ -675,11 +1009,32 @@
         "Zustandsändernde Studio-Aufrufe erfolgen nur innerhalb eines vom Hub erzeugten Worker-Tasks und niemals als eigenständige Hub-Ausführungsschleife.",
         "Timeouts, Retry-Budget, Redirect-Verbot, TLS, Hostprüfung sowie komprimierte und dekomprimierte Response-Limits stammen aus UNSLOTH-003.",
         "API- oder Schema-Mismatch liefert einen stabilen incompatible_upstream_contract-Code und deaktiviert nur das Studio-Profil.",
-        "Studio-Ausfall beeinflusst weder Core-Training noch Core-Export oder bestehende Provider."
+        "Studio-Ausfall beeinflusst weder Core-Training noch Core-Export oder bestehende Provider.",
+        "Der implementierte Contract verwendet /api/auth/login, /api/auth/refresh, /api/auth/status und /api/health; ein separates UNSLOTH_STUDIO_MCP_TOKEN wird nicht mit dem Studio-JWT-Secret vermischt."
       ],
       "test_expectations": [
         "Contract-Tests verwenden einen lokalen Fake-Server und versionierte Fixtures.",
         "Tests decken Timeout, 401, TLS-, Schema-, Redirect-, DNS-, Response-Bomb- und Stream-Cleanup-Fehler ab."
+      ],
+      "implementation_state": "code_complete_upstream_pin_and_runtime_validation_pending",
+      "implementation_notes": [
+        "Der Studio-Vertrag bildet JWT-Login, Refresh, Status, Health und einen begrenzten Versions-/Capability-Probe ab.",
+        "Transportgrenzen fuer DNS/IP, TLS, Redirects, Zeit, Antwortgroesse und inkompatible Upstream-Schemata sind fail-closed implementiert.",
+        "Der exakte freizugebende Studio-Build beziehungsweise Image-Digest und ein echter kompatibler Endpoint sind externe Inputs."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Gepinnten Studio-Build oder Image-Digest samt Lizenzfreigabe bereitstellen.",
+        "Fake-Server-Contract- und Security-Tests ausfuehren.",
+        "Auth-Rotation, Health und Capability-Probe gegen den freigegebenen Studio-Stand real ausfuehren."
       ]
     },
     {
@@ -687,9 +1042,9 @@
       "title": "Isoliertes opt-in Containerprofil für Unsloth Studio ergänzen",
       "type": "devops",
       "milestone_id": "M4",
-      "status": "todo",
-      "progress_percent": 0,
-      "status_basis": "not_implemented_unverified",
+      "status": "partial",
+      "progress_percent": 75,
+      "status_basis": "repository_implementation_complete_external_or_runtime_verification_pending",
       "priority": "P2",
       "risk": "high",
       "depends_on": [
@@ -700,19 +1055,41 @@
       ],
       "target_files": [
         "docker/compose-next/compose.unsloth.yml",
-        ".env.example",
-        "docs/ml-intern-lora-finetuning.md"
+        "docs/unsloth-platform-integration.md",
+        "docs/security/third-party-components.md",
+        "ananta_contracts/unsloth_studio.py"
       ],
       "acceptance_criteria": [
         "Studio verwendet ein exakt gepinntes und lizenzfreigegebenes Image oder reproduzierbares Build-Artefakt mit Digest.",
         "Der Dienst ist nur im dedizierten internen Netzwerk für den Hub-Transport erreichbar; standardmäßig wird kein Hostport veröffentlicht.",
         "Upstream-Servertools, öffentliche Tunnel, öffentliche Reachability-Checks, Jupyter und SSH sind deaktiviert oder nicht enthalten.",
         "Container läuft ohne privileged, Docker-Socket, Host-Netzwerk, Host-PID oder unnötige Capabilities und mit tenantgebundenen Cache-/Workspace-Verträgen.",
-        "Healthcheck prüft den gepinnten API-Endpunkt mit Authentisierung; der bestehende Core-Worker bleibt unabhängig startbar."
+        "Healthcheck prüft den gepinnten API-Endpunkt mit Authentisierung; der bestehende Core-Worker bleibt unabhängig startbar.",
+        "Fehlende produktive Secrets, ein nicht freigegebener Image-Digest oder nicht erlaubte CIDR-Erreichbarkeit deaktivieren das Studio-Profil fail-closed."
       ],
       "test_expectations": [
         "CI validiert Compose-Struktur, Image-Pin, Netzwerk, Mounts und verbotene Privilegien ohne GPU-Start.",
         "Profilgebundener Smoke prüft Auth, Health, deaktivierte Tools und GPU-Erkennung."
+      ],
+      "implementation_state": "code_complete_external_deployment_baseline_pending",
+      "implementation_notes": [
+        "Das opt-in Profil isoliert Studio, Netzwerk-Import und Offline-Recipe-Materialisierung; Hostport, Docker-Socket, privilegierter Modus und oeffentliche Tunnel sind nicht Teil des Profils.",
+        "Servertools werden deaktiviert, Secrets und CIDRs bleiben operatorbereitgestellt und leere kritische Secrets failen geschlossen.",
+        "Ein produktiv freigegebener gepinnter Studio-Digest, echte Secrets, CIDR-Erreichbarkeit und GPU-Laufzeit sind noch nicht extern bestaetigt."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Lizenzfreigegebenen Studio-Image-/Build-Digest und produktive Secret-Referenzen festlegen.",
+        "Compose-Struktur- und Security-Gate ausfuehren.",
+        "Profil-Smoke fuer Auth, Health, deaktivierte Tools, interne Reachability und GPU ausfuehren."
       ]
     },
     {
@@ -720,9 +1097,9 @@
       "title": "Vision-, Audio- und Embedding-Unterstützung als getrennte Strategien ergänzen",
       "type": "backend",
       "milestone_id": "M5",
-      "status": "todo",
-      "progress_percent": 0,
-      "status_basis": "not_implemented_unverified",
+      "status": "partial",
+      "progress_percent": 85,
+      "status_basis": "repository_implementation_complete_external_or_runtime_verification_pending",
       "priority": "P2",
       "risk": "high",
       "depends_on": [
@@ -735,10 +1112,12 @@
         "UNSLOTH-021"
       ],
       "target_files": [
+        "worker/training/backends/unsloth_multimodal.py",
         "worker/training/backends/unsloth_vision.py",
         "worker/training/backends/unsloth_audio.py",
         "worker/training/backends/unsloth_embedding.py",
-        "tests/worker"
+        "worker/training/backends/__init__.py",
+        "tests/worker/test_unsloth_platform_backends.py"
       ],
       "acceptance_criteria": [
         "Vision, Audio und Embedding besitzen getrennte Backend-Strategien und Capability-Facets statt Sonderfälle im Text-Backend.",
@@ -750,6 +1129,24 @@
       "test_expectations": [
         "CPU-Contract-Tests prüfen Substituierbarkeit, Capability-Gates und Fehlerpfade pro Strategie.",
         "Jede produktiv beanspruchte Modalität benötigt einen eigenen verpflichtenden GPU-Release-Run mit bereitgestellter Evidenz."
+      ],
+      "implementation_state": "code_complete_per_modality_gpu_evidence_pending",
+      "implementation_notes": [
+        "Vision, Audio und Embedding sind getrennte substituierbare Worker-Strategien mit eigenen Capability-Facets und fail-closed Kombinationen.",
+        "Gemeinsame Multimodal-Logik bleibt hinter einem schmalen Worker-Vertrag; Freigabe und Rollback sind pro Modalitaet moeglich."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "CPU-Contract-, Substituierbarkeits-, Import- und Unsupported-Kombinationstests ausfuehren.",
+        "Je produktiv beanspruchter Modalitaet einen eigenen echten GPU-Release-Run mit bereitgestellter Evidenz ausfuehren."
       ]
     },
     {
@@ -758,8 +1155,8 @@
       "type": "security",
       "milestone_id": "M6",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P2",
       "risk": "critical",
       "depends_on": [
@@ -773,22 +1170,43 @@
         "UNSLOTH-022"
       ],
       "target_files": [
+        "ananta_contracts/mcp_streamable_http.py",
         "agent/routes/mcp.py",
         "agent/services/mcp_tool_registry.py",
         "agent/services/mcp_readonly_adapter.py",
-        "agent/services/unsloth_mcp_adapter.py"
+        "agent/services/unsloth_mcp_adapter.py",
+        "docker/compose-next/compose.unsloth.yml"
       ],
       "acceptance_criteria": [
         "MCP ist ein separates Release-Profil, default aus und nur über das interne Netzwerk erreichbar.",
         "Ein eigener Secret-referenzierter Bearer-Token ist zwingend; lokaler oder containerinterner Zugriff ohne Token wird abgelehnt.",
         "Read-only-Tools und Mutationen besitzen getrennte Allowlists; jede Mutation erzeugt einen Hub-Task statt Studio oder Worker direkt zu steuern.",
-        "Training, Stop, Checkpoint, Export und Löschen benötigen Rolle, explizite Bestätigung, Idempotency-Key, Replay-Schutz und Audit-Korrelation.",
+        "Der produktiv freigegebene Mutationsumfang ist auf stop_training begrenzt; start_training, Checkpoint, Export und Loeschen bleiben fail-closed. stop_training benoetigt Rolle, explizite Bestaetigung, Idempotency-Key, Replay-Schutz und Audit-Korrelation.",
         "Dateisystempfade, Shell-Befehle und ungeprüfte Toolargumente werden nicht weitergereicht; Outputs sind auf 1 MiB begrenzt und redigiert.",
         "Browser, externe Clients und andere Worker können den Studio-MCP-Endpunkt nicht umgehen oder direkt erreichen."
       ],
       "test_expectations": [
         "Security-Tests prüfen fehlenden Token, Rollen, Denylist, Replay, Confused Deputy, Prompt-Injection-unabhängige Policy und Output-Limits.",
         "E2E-Test korreliert MCP-Aufruf, Hub-Task, Benutzer, Tenant, Job und Audit ohne Direktsteuerung."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "MCP Streamable HTTP implementiert initialize, Session und SSE auf dem gepinnten internen Vertrag mit separatem MCP-Token.",
+        "Produktiv freigegeben sind Status-/Read-Tools und ausschliesslich stop_training als Mutation; Start, Checkpoint, Export, Loeschen sowie Pfad-/Shellzugriffe bleiben fail-closed.",
+        "stop_training erfordert Rolle, Bestaetigung, Idempotenz, Replay-Schutz und Audit-Korrelation und wird als Hub-Task an einen passenden Worker delegiert."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "MCP-Contract-, Token-, Rollen-, Replay-, Confused-Deputy-, Schema-, Redaction- und Output-Limit-Tests ausfuehren.",
+        "MCP->Hub-Task->Worker-Result als internen E2E-Lauf gegen den freigegebenen Studio-Stand pruefen."
       ]
     },
     {
@@ -797,8 +1215,8 @@
       "type": "frontend",
       "milestone_id": "M6",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 90,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P2",
       "risk": "high",
       "depends_on": [
@@ -813,8 +1231,11 @@
         "UNSLOTH-022"
       ],
       "target_files": [
-        "frontend-angular/src/app/features/model-training",
-        "frontend-angular/src/app/core/services"
+        "frontend-angular/src/app/features/model-training/model-training.models.ts",
+        "frontend-angular/src/app/features/model-training/model-training-shell.component.ts",
+        "frontend-angular/src/app/features/model-training/unsloth/unsloth-capability-panel.component.ts",
+        "frontend-angular/src/app/features/model-training/unsloth/unsloth-hub-mutation.service.ts",
+        "frontend-angular/tests/unsloth-model-training-fake-hub.spec.ts"
       ],
       "acceptance_criteria": [
         "Der bestehende model-training-Bereich wird erweitert; es entsteht keine zweite konkurrierende Unsloth-Oberfläche.",
@@ -827,6 +1248,25 @@
       "test_expectations": [
         "Angular-Tests decken Release-Profile, Capability-Gates, Formulargrenzen, Bestätigungen und Polling/SSE ab.",
         "E2E-Test verwendet Fake-Hub und optional Fake-Studio; Netzwerkassertionen verbieten Browserzugriffe auf Worker oder Studio."
+      ],
+      "implementation_state": "code_complete_unvalidated",
+      "implementation_notes": [
+        "Der bestehende Model-Training-Bereich projiziert Core-, Studio-, MCP- und Cleanup-Capabilities ohne eine zweite Oberflaeche.",
+        "Riskante Mutationen verwenden Dry-run, signierte Bestaetigung, Idempotenz und opaque IDs; Storage-Readmodels und Browserverkehr bleiben strikt pfadfrei und Hub-only.",
+        "Cleanup Revision-Fence, Quoten, geschuetzte Auswahl, unavailable reason_codes und Fake-Hub-Fingerprints sind implementiert."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "Angular-Unit- und Accessibility-Tests ausfuehren.",
+        "Fake-Hub-E2E inklusive Netzwerkassertionen, Capability-Paritaet, Confirmation- und Idempotenzfehlern ausfuehren."
       ]
     },
     {
@@ -835,8 +1275,8 @@
       "type": "security",
       "milestone_id": "M7",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 80,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -854,19 +1294,42 @@
       "target_files": [
         "worker/training/runtime.py",
         "scripts/run_lora_training_smoke.py",
-        "artifacts/test-gates",
-        "docs/ml-intern-lora-finetuning.md"
+        ".github/workflows/unsloth-release-gate.yml",
+        "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json",
+        "docs/operations/unsloth-gpu-compatibility-and-rollback.md",
+        "docs/unsloth-release-gates.md"
       ],
       "acceptance_criteria": [
         "Jedes Release-Profil besitzt getrennte Attestierung für Dependency-Lock, Container-Image-Digest, Unsloth, Torch, Transformers, CUDA-Runtime, Treiber und Modellformate.",
         "Build-Input-Digest und tatsächlich gestarteter Image-Digest werden getrennt ausgewiesen und niemals gleichgesetzt.",
         "Dataset, Modell, Adapter, Export, Evaluation, Promotion und Runtime-Request sind über unveränderliche IDs und SHA-256 lückenlos verknüpft.",
         "Manipulierte Artefakte oder Attestate blockieren Evaluation, Export, Promotion und Deployment.",
-        "Ein optionales Profil kann unverified bleiben, ohne core_text zu blockieren; es darf dann aber nicht als supported oder done ausgewiesen werden."
+        "Ein optionales Profil kann unverified bleiben, ohne core_text zu blockieren; es darf dann aber nicht als supported oder done ausgewiesen werden.",
+        "Die Tamper-Gates verwenden die produktiven Domainvalidatoren an den Uebergaengen Export->Evaluation, Evaluation->Promotion, Promotion->Runtime und Runtime->Rollback statt synthetischer Harness-Entscheidungen."
       ],
       "test_expectations": [
         "Tests manipulieren Manifest, Artefakt, Image- und Dependency-Digest und erwarten eindeutige Mismatch-Codes.",
         "Audit- und Attestierungsartefakte enthalten keine Trainingsinhalte, Secrets, volatile Hostpfade oder erfundene Source-/Run-IDs."
+      ],
+      "implementation_state": "attestation_code_complete_runs_not_executed",
+      "implementation_notes": [
+        "Der Attestierungspfad erfasst geladene Versionen, Dependency-/Image-Digests, CUDA, VRAM und die vollstaendige Artefaktkette ohne Trainingsinhalte oder erfundene IDs.",
+        "Alle vier Tamper-Uebergaenge rufen reale Domainvalidatoren auf und erwarten strict fail-closed promotion_execution_hash_mismatch, promotion_provenance_mismatch, runtime_handoff_promotion_binding_mismatch und runtime_endpoint_revision_conflict.",
+        "Ohne bereitgestellte Source-/Run-IDs bleibt der Harness ausdruecklich not_run beziehungsweise unverified."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "CPU-Tamper- und Attestierungstests ausfuehren.",
+        "Echte profilgebundene Attestate mit bereitgestellten SRC_*/RUN_*-IDs erzeugen.",
+        "Build-Input- und gestarteten Image-Digest auf dem Release-Runner unabhaengig bestaetigen."
       ]
     },
     {
@@ -875,8 +1338,8 @@
       "type": "testing",
       "milestone_id": "M7",
       "status": "partial",
-      "progress_percent": 30,
-      "status_basis": "repository_observed_unverified",
+      "progress_percent": 80,
+      "status_basis": "repository_implementation_complete_acceptance_not_run",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -896,11 +1359,13 @@
         "UNSLOTH-024"
       ],
       "target_files": [
-        ".github/workflows",
+        ".github/workflows/unsloth-release-gate.yml",
         "scripts/run_lora_training_smoke.py",
-        "tests/worker",
         "docker/compose-next/requirements.lora-training-nvidia.txt",
-        "docs/ml-intern-lora-finetuning.md"
+        "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json",
+        "docs/operations/unsloth-gpu-compatibility-and-rollback.md",
+        "docs/unsloth-release-gates.md",
+        "frontend-angular/tests/unsloth-model-training-fake-hub.spec.ts"
       ],
       "acceptance_criteria": [
         "Normale PR-CI führt Schema-, Contract-, Security-, Worker-, Angular- und Fake-E2E-Tests ohne Unsloth und ohne GPU aus.",
@@ -914,6 +1379,26 @@
         "LoRA-/Unsloth-Worker-Tests und model-training-E2E sind explizite CI-Gates statt nur optionale Coverage-Ziele.",
         "GPU-Artefakte enthalten Peak-VRAM, Versionen, Digests und bereitgestellte Source-/Run-IDs, aber keine Trainingsdateninhalte.",
         "Kein Profil wird allein durch Mocks oder einen PEFT/TRL-Smoke als Unsloth-verifiziert markiert."
+      ],
+      "implementation_state": "release_gate_code_complete_runs_not_executed",
+      "implementation_notes": [
+        "CPU-Python-, Angular- und Fake-Hub-Gates sowie ein manuell ausgeloestes dreifaches NVIDIA-Release-Matrix-Gate sind als Workflow und Harness implementiert.",
+        "Der GPU-Smoke nutzt tatsaechlich backend=unsloth und modelliert Training, Export, Evaluation, Promotion, Runtime-Handoff und Rollback.",
+        "Kein Workflow, Build oder Release-Gate wurde in dieser Bearbeitung ausgefuehrt."
+      ],
+      "acceptance_verification": {
+        "state": "not_run",
+        "automated_tests": "not_run",
+        "builds": "not_run",
+        "runtime_checks": "not_run",
+        "verified_criteria": 0,
+        "provided_source_ids": [],
+        "provided_run_ids": []
+      },
+      "remaining_verification": [
+        "CPU-, Angular-, Fake-Hub- und Compose-Gates ausfuehren.",
+        "Drei erfolgreiche NVIDIA-Runs fuer core_text und je beanspruchtem optionalen Profil mit bereitgestellten RUN_* IDs ausfuehren.",
+        "Rollback auf die letzte attestierte Matrix praktisch ausfuehren und dokumentierte Artefakte pruefen."
       ]
     }
   ],
@@ -937,13 +1422,13 @@
   "tasks_status_summary": {
     "total": 21,
     "by_status": {
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 18,
+      "partial": 21,
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 25.71,
+    "progress_percent_done": 87.14,
     "by_priority": {
       "P0": 13,
       "P1": 4,
@@ -958,25 +1443,32 @@
     },
     "critical_path": {
       "total": 15,
+      "code_complete": 15,
+      "acceptance_verified": 0,
       "done": 0,
       "remaining": 15
     },
     "milestones": {
       "total": 7,
-      "todo": 2,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 5,
+      "partial": 7,
       "blocked": 0,
       "done": 0
     }
   },
   "progress_summary": {
-    "state": "corrected_source_mapped_but_evidence_unverified",
-    "todo_remaining": 3,
+    "state": "repository_implementation_complete_acceptance_not_run",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 18,
+    "partial": 21,
     "blocked": 0,
     "done": 0,
+    "code_complete_tasks": 21,
+    "acceptance_verified_tasks": 0,
+    "tests_executed": 0,
+    "builds_executed": 0,
+    "runtime_runs_executed": 0,
     "initial_release_profile": "core_text",
     "optional_profiles": [
       "studio",
@@ -985,10 +1477,50 @@
     ]
   },
   "summary_notes": [
-    "Die Statuskorrektur bildet vorhandene Teilimplementierungen ab, ist ohne bereitgestellte SRC_* und RUN_* IDs aber noch keine Acceptance-Evidenz.",
-    "Core-Texttraining, Evaluation, Export und Runtime-Übergabe sind unabhängig von Studio und MCP abschließbar.",
-    "UNSLOTH-005, UNSLOTH-015 und UNSLOTH-018 wurden als eigenständige Tasks entfernt oder in kanonische Ownership zurückgeführt.",
-    "Unsloth Studio darf erst nach Lizenzfreigabe, unveränderlichem Upstream-Pin und isoliertem Container-Gate paketiert werden.",
-    "Ein Profil kann nur durch einen echten profilgebundenen Release-Run und niemals allein durch Mocks als supported gelten."
-  ]
+    "Alle 21 geplanten Repository-Tasks sind laut finalem Quellcode-Audit implementiert; es besteht keine bekannte Code-Luecke im vereinbarten Umfang.",
+    "Alle Tasks bleiben partial, weil in dieser Bearbeitung keine Tests, Builds, E2E-Laeufe, GPU-Runs oder Acceptance-Gates ausgefuehrt wurden.",
+    "Es wurden keine SRC_* oder RUN_* IDs bereitgestellt oder erzeugt; Runtime-, Supply-Chain- und Release-Evidenz bleibt daher unverified.",
+    "Studio benoetigt weiterhin einen lizenzfreigegebenen unveraenderlichen Build-/Image-Digest sowie operatorverwaltete Secrets, CIDRs, DNS/TLS und reale GPU-Validierung.",
+    "core_text, Studio, Modalitaeten und MCP sind getrennt gegatet; ein optionales unverified Profil darf kein anderes Profil faelschlich als supported markieren.",
+    "Der Hub bleibt alleiniger Task- und Orchestrierungsowner; alle Trainings-, Import-, Cleanup- und MCP-Mutationen werden an Worker beziehungsweise schmale Ausfuehrungsports delegiert.",
+    "UNSLOTH-005, UNSLOTH-015 und UNSLOTH-018 bleiben entfernt beziehungsweise in kanonische Ownership zurueckgefuehrt."
+  ],
+  "execution_stage_summary": {
+    "repository_implementation": "complete",
+    "static_source_audit": "complete_no_known_code_gap_in_agreed_scope",
+    "automated_tests": "not_run",
+    "angular_and_fake_hub_tests": "not_run",
+    "container_builds": "not_run",
+    "gpu_release_runs": "not_run",
+    "external_studio_validation": "not_run",
+    "acceptance": "unverified",
+    "release_readiness": "not_established"
+  },
+  "verification_backlog": {
+    "code_gaps": [],
+    "automated_gates": [
+      "Python schema-, contract-, security-, service- und Worker-Tests ausfuehren.",
+      "Angular-Unit- und Fake-Hub-E2E-Tests ausfuehren.",
+      "Compose-Struktur-, Dependency- und Container-Build-Gates ausfuehren.",
+      "Tamper-, Crash-, Replay-, Parallelitaets-, Retention- und Cleanup-Reconciler-Specs ausfuehren."
+    ],
+    "runtime_gates": [
+      "core_text dreimal auf dem freigegebenen NVIDIA-Profil mit echtem backend=unsloth ausfuehren.",
+      "Vision, Audio und Embedding jeweils separat auf freigegebener GPU ausfuehren, bevor die Modalitaet als supported gilt.",
+      "Studio Auth, Refresh, Health, deaktivierte Tools, interne Erreichbarkeit und GPU-Erkennung gegen den freigegebenen Build pruefen.",
+      "MCP Streamable HTTP und stop_training ueber Hub-Task, Worker-Result und Audit real korrelieren.",
+      "GGUF-/Runtime-Handoff und Endpoint-Rollback gegen den vorgesehenen Runtime-Adapter ausfuehren."
+    ],
+    "external_inputs": [
+      "Bereitgestellte gueltige SRC_* IDs fuer freigegebene Upstream-, Contract-, Modell- und Dataset-Staende.",
+      "Bereitgestellte gueltige RUN_* IDs fuer jedes beanspruchte Release-Profil.",
+      "Lizenzfreigegebener und unveraenderlicher Studio-Build- oder Image-Digest.",
+      "Operatorverwaltete Studio-/JWT-/MCP-Secrets, erlaubte CIDRs, DNS-/TLS-Endpunkte und NVIDIA-Runner."
+    ],
+    "intentional_fail_closed_boundaries": [
+      "Fehlende oder unbekannte SRC_*/RUN_*-IDs bleiben unverified.",
+      "Nicht sicher rekonstruierbare manipulierte Cleanup-Reservations werden nicht automatisch dispatcht oder freigegeben.",
+      "Studio, MCP und einzelne Modalitaeten koennen unverified bleiben, ohne core_text-Codepfade zu deaktivieren; sie gelten dann nicht als supported."
+    ]
+  }
 }
