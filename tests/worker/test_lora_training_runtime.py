@@ -121,6 +121,21 @@ def _terminal(runtime: TrainingWorkerRuntime, job_id: str, timeout: float = 3.0)
     raise AssertionError(f"job did not terminate: {runtime.status(job_id)}")
 
 
+def _attempt_root(
+    state: Path,
+    request: Mapping[str, Any],
+) -> Path:
+    return (
+        state
+        / "tenants"
+        / str(request["tenant_scope_digest"])
+        / "jobs"
+        / str(request["job_id"])
+        / "attempts"
+        / str(request["attempt_id"])
+    )
+
+
 def test_worker_contract_rejects_missing_tenant_scope_binding(tmp_path: Path) -> None:
     runtime, request, _state = _setup(tmp_path)
     request.pop("tenant_scope_digest")
@@ -203,7 +218,7 @@ def test_mock_job_is_async_persistent_and_produces_verified_artifacts(tmp_path: 
         assert manifest["configuration"]["seed"] == 7
         assert manifest["dataset"]["verified_validation_records"] == 1
         assert manifest["base_model"]["snapshot_hash"] == _path_digest(tmp_path / "models" / "base-model")
-        assert (state / "jobs" / "job-1" / "attempts" / "attempt-1" / "status.json").is_file()
+        assert (_attempt_root(state, request) / "status.json").is_file()
 
         event_page = runtime.events("job-1", after_sequence=0, limit=100)
         sequences = [event["sequence"] for event in event_page["events"]]
@@ -224,7 +239,7 @@ def test_mock_job_runs_in_isolated_process_without_inheriting_worker_secret(
         result = _terminal(runtime, "job-1", timeout=10)
 
         assert result["status"] == "succeeded"
-        assert (state / "jobs" / "job-1" / "attempts" / "attempt-1" / "process" / "result.json").is_file()
+        assert (_attempt_root(state, request) / "process" / "result.json").is_file()
     finally:
         runtime.close()
 
@@ -268,7 +283,7 @@ def test_existing_adapter_evaluation_runs_in_isolated_process(tmp_path: Path) ->
         result = _terminal(runtime, "evaluation-1", timeout=10)
 
         assert result["status"] == "succeeded"
-        result_path = state / "jobs" / "evaluation-1" / "attempts" / "evaluation-attempt-1" / "process" / "result.json"
+        result_path = _attempt_root(state, evaluation) / "process" / "result.json"
         assert result_path.is_file()
     finally:
         runtime.close()
@@ -549,7 +564,11 @@ def test_higher_fence_supersedes_active_attempt_and_resumes_its_checkpoint(tmp_p
         assert result["status"] == "succeeded"
         assert result["attempt_id"] == "attempt-2"
         assert backend.contexts[1].resume_path == state / checkpoint["relative_path"]
-        old_status = json.loads((state / "jobs/job-1/attempts/attempt-1/status.json").read_text(encoding="utf-8"))
+        old_status = json.loads(
+            (_attempt_root(state, request) / "status.json").read_text(
+                encoding="utf-8"
+            )
+        )
         assert old_status["status"] == "cancelled"
         assert old_status["error"]["code"] == "superseded_by_higher_fence"
         with pytest.raises(TrainingBackendError) as stale:

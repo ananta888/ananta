@@ -19,8 +19,9 @@ RUN groupadd --gid 10005 ananta-training \
 WORKDIR /app
 
 COPY docker/compose-next/requirements.runtime-http.txt /tmp/requirements.runtime-http.txt
-RUN pip install --no-cache-dir --requirement /tmp/requirements.runtime-http.txt \
-    && rm /tmp/requirements.runtime-http.txt
+COPY docker/compose-next/requirements.lora-training-runtime.txt /tmp/requirements.lora-training-runtime.txt
+RUN pip install --no-cache-dir --requirement /tmp/requirements.lora-training-runtime.txt \
+    && rm /tmp/requirements.lora-training-runtime.txt /tmp/requirements.runtime-http.txt
 
 # This image intentionally contains no Hub package, database repository,
 # routing code, task queue, frontend, or provider credentials.

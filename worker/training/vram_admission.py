@@ -52,6 +52,7 @@ class VramAdmission:
             "reserve_bytes": self.reserve_bytes,
             "assumptions": list(self.assumptions),
             "estimate_only": True,
+            "reason_code": self.reason_code,
         }
 
 

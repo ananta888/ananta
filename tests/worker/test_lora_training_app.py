@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from ananta_contracts.unsloth_capability import compose_worker_capability_probe
+from worker.runtime import lora_training_app
 from worker.runtime.lora_training_app import (
     CAPABILITIES_ENDPOINT,
     CLEANUP_ENDPOINT,
@@ -18,6 +19,44 @@ from worker.training.runtime import TrainingRuntimeError
 from worker.training.storage_cleanup import WorkerStorageCleanupError
 
 TEST_TOKEN = "lora-training-test-token-123456"
+
+
+def test_runtime_environment_maps_tenant_storage_limit_to_runtime_configuration(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, Any] = {}
+    runtime = object()
+    tenant_storage_limit = 96 * 1024**3
+
+    def capture_runtime(*args: Any, **kwargs: Any) -> object:
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return runtime
+
+    for env_name, directory_name in (
+        ("ANANTA_LORA_TRAINING_STATE_ROOT", "state"),
+        ("ANANTA_LORA_TRAINING_WORKSPACE_ROOT", "workspaces"),
+        ("ANANTA_LORA_TRAINING_DATASET_ROOT", "datasets"),
+        ("ANANTA_LORA_TRAINING_MODEL_ROOT", "models"),
+    ):
+        root = tmp_path / directory_name
+        root.mkdir()
+        monkeypatch.setenv(env_name, str(root))
+    monkeypatch.setenv(
+        "ANANTA_LORA_TRAINING_MAX_TENANT_STORAGE_BYTES",
+        str(tenant_storage_limit),
+    )
+    monkeypatch.setattr(lora_training_app, "TrainingWorkerRuntime", capture_runtime)
+
+    assert lora_training_app._runtime_from_environment() is runtime
+    config = (
+        captured["args"][0]
+        if captured["args"]
+        else captured["kwargs"].get("config", captured["kwargs"].get("configuration"))
+    )
+    assert config is not None
+    assert config.max_tenant_bytes == tenant_storage_limit
 
 
 class _Runtime:

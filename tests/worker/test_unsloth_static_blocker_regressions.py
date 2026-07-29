@@ -40,6 +40,7 @@ def _resource_admission() -> dict[str, object]:
         "reserve_bytes": 512,
         "assumptions": ["local model metadata"],
         "estimate_only": True,
+        "reason_code": "vram_admission_admitted",
     }
 
 

@@ -114,7 +114,8 @@
         "usable_bytes",
         "reserve_bytes",
         "assumptions",
-        "estimate_only"
+        "estimate_only",
+        "reason_code"
       ],
       "properties": {
         "profile": {"type": "string", "minLength": 1, "maxLength": 64},
@@ -132,7 +133,8 @@
           "maxItems": 16,
           "items": {"type": "string", "minLength": 1, "maxLength": 256}
         },
-        "estimate_only": {"type": "boolean"}
+        "estimate_only": {"type": "boolean"},
+        "reason_code": {"const": "vram_admission_admitted"}
       }
     },
     "progressPayload": {

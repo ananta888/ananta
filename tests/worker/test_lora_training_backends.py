@@ -101,6 +101,13 @@ def _context(
     resume_path = tmp_path / "checkpoint-4" if resume else None
     if resume_path is not None:
         resume_path.mkdir()
+    model_path = tmp_path / "models" / "base-model"
+    model_path.mkdir(parents=True)
+    (model_path / "config.json").write_text(
+        '{"model_type":"llama"}',
+        encoding="utf-8",
+    )
+    (model_path / "model.safetensors").write_bytes(b"weights")
     return (
         TrainingContext(
             request=request,
@@ -111,7 +118,7 @@ def _context(
                 validation_records=1,
                 dataset_hash=dataset_manifest.identity_hash,
             ),
-            model_path=tmp_path / "models" / "base-model",
+            model_path=model_path,
             artifact_root=tmp_path / "artifacts",
             checkpoint_root=tmp_path / "checkpoints",
             resume_path=resume_path,

@@ -1,0 +1,8 @@
+# LoRA-worker contract runtime layered over the shared HTTP runtime.
+# Every direct and transitive dependency remains pinned.
+-r requirements.runtime-http.txt
+
+annotated-types==0.8.0
+pydantic==2.13.2
+pydantic-core==2.46.2
+typing-inspection==0.4.2

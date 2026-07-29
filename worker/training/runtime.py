@@ -1321,11 +1321,10 @@ class TrainingWorkerRuntime:
 
 
 def _safe_resource_admission_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
-    required_fields = _RESOURCE_ADMISSION_PAYLOAD_KEYS.difference({"reason_code"})
-    if not required_fields.issubset(payload) or not set(payload).issubset(_RESOURCE_ADMISSION_PAYLOAD_KEYS):
+    if set(payload) != _RESOURCE_ADMISSION_PAYLOAD_KEYS:
         raise TrainingBackendError(
             "invalid_backend_event",
-            "resource admission event must contain the declared fields",
+            "resource admission event must contain exactly the declared fields",
         )
     profile = payload.get("profile")
     if not isinstance(profile, str) or not profile or len(profile) > 64:
@@ -1334,13 +1333,13 @@ def _safe_resource_admission_payload(payload: Mapping[str, Any]) -> dict[str, An
     estimate_only = payload.get("estimate_only")
     if not isinstance(admitted, bool) or not isinstance(estimate_only, bool):
         raise TrainingBackendError("invalid_backend_event", "resource admission flags are invalid")
-    if payload.get("reason_code") not in {None, "vram_admission_admitted"}:
+    if payload.get("reason_code") != "vram_admission_admitted":
         raise TrainingBackendError("invalid_backend_event", "resource admission reason is invalid")
     clean: dict[str, Any] = {
         "profile": profile,
         "admitted": admitted,
         "estimate_only": estimate_only,
-        "reason_code": str(payload.get("reason_code") or "vram_admission_admitted"),
+        "reason_code": "vram_admission_admitted",
     }
     for field_name in ("estimated_peak_bytes", "reserve_bytes"):
         value = payload.get(field_name)

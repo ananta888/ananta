@@ -181,7 +181,7 @@ def _runtime_from_environment() -> RuntimePort:
             minimum=1,
             maximum=1024**5,
         ),
-        max_tenant_storage_bytes=_env_int(
+        max_tenant_bytes=_env_int(
             "ANANTA_LORA_TRAINING_MAX_TENANT_STORAGE_BYTES",
             64 * 1024**3,
             minimum=1,

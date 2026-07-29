@@ -633,7 +633,10 @@ class TrainingJobRequest:
         return canonical_sha256(self.to_dict())
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        if not self.exports:
+            payload.pop("exports")
+        return payload
 
     def validate_resume_binding(self) -> None:
         if self.resume_checkpoint is None:
