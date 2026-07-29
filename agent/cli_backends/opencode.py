@@ -11,6 +11,7 @@ import tempfile
 
 from flask import current_app, has_app_context
 
+from agent.cli_backends import simple_command_runners
 from agent.cli_backends.budget import check_prompt_budget
 from agent.cli_backends.context import default_context as _ctx
 from agent.cli_backends.helpers import (
@@ -1018,69 +1019,29 @@ def apply_reviewed_diff(diff: str, workdir: str | None = None) -> dict:
 
 def run_aider_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
     """Führt einen Aider-CLI-Aufruf aus (non-interactive)."""
-    aider_bin = settings.aider_path or "aider"
-    aider_resolved = shutil.which(aider_bin)
-    if aider_resolved is None:
-        return -1, "", (f"Aider binary '{aider_bin}' not found. Install with: pip install aider-chat")
-
-    args = [aider_resolved, "--message", prompt, "--yes-always"]
-    selected_model = model or settings.aider_default_model
-    if selected_model:
-        args.extend(["--model", selected_model])
-
-    with _acquire_backend_permit("aider", timeout=timeout) as ticket:
-        if not ticket.acquired:
-            return -1, "", "Backend 'aider' ist ausgelastet (semaphore_exhausted)"
-        env = os.environ.copy()
-        try:
-            log.info(f"Zentraler Aider-Aufruf: {args}")
-            result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
-                args, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=timeout
-            )
-            return result.returncode, result.stdout, result.stderr
-        except subprocess.TimeoutExpired:
-            log.error("Aider Timeout")
-            return -1, "", "Timeout"
-        except Exception as e:
-            log.exception(f"Aider Fehler: {e}")
-            return -1, "", str(e)
+    return simple_command_runners.run_aider_command(
+        prompt,
+        model,
+        timeout,
+        settings=settings,
+        which=shutil.which,
+        run_process=subprocess.run,
+        acquire_permit=_acquire_backend_permit,
+        logger=log,
+        environ=os.environ,
+    )
 
 
 def run_mistral_code_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
     """Führt einen Mistral-Code-CLI-Aufruf aus."""
-    mistral_bin = settings.mistral_code_path or "mistral-code"
-    mistral_resolved = shutil.which(mistral_bin)
-    if mistral_resolved is None:
-        return -1, "", (f"Mistral Code binary '{mistral_bin}' not found. Install with: npm i -g mistral-code")
-
-    args = [mistral_resolved]
-
-    with _acquire_backend_permit("mistral_code", timeout=timeout) as ticket:
-        if not ticket.acquired:
-            return -1, "", "Backend 'mistral_code' ist ausgelastet (semaphore_exhausted)"
-        env = os.environ.copy()
-        if not env.get("MISTRAL_API_KEY") and getattr(settings, "mistral_api_key", None):
-            env["MISTRAL_API_KEY"] = settings.mistral_api_key
-        try:
-            log.info(f"Zentraler Mistral-Code-Aufruf: {args}")
-            input_lines = [prompt]
-            if model or settings.mistral_code_default_model:
-                input_lines.append(f"/model {(model or settings.mistral_code_default_model)}")
-            input_lines.append("exit")
-            result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
-                args,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                env=env,
-                timeout=timeout,
-                input="\n".join(input_lines) + "\n",
-            )
-            return result.returncode, result.stdout, result.stderr
-        except subprocess.TimeoutExpired:
-            log.error("Mistral Code Timeout")
-            return -1, "", "Timeout"
-        except Exception as e:
-            log.exception(f"Mistral Code Fehler: {e}")
-            return -1, "", str(e)
+    return simple_command_runners.run_mistral_code_command(
+        prompt,
+        model,
+        timeout,
+        settings=settings,
+        which=shutil.which,
+        run_process=subprocess.run,
+        acquire_permit=_acquire_backend_permit,
+        logger=log,
+        environ=os.environ,
+    )
