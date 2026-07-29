@@ -6,9 +6,23 @@ from dataclasses import dataclass
 from typing import Any, Callable, List, Optional
 
 from sqlalchemy import or_
-from sqlmodel import Session, select
+from sqlmodel import Session, delete, select
 
-from agent.db_models import AgentSessionDB, ArchivedTaskDB, GoalDB, PolicySnapshotDB, TaskDB, ToolCallDB
+from agent.db_models import (
+    AgentSessionDB,
+    ArchivedTaskDB,
+    GoalDB,
+    PolicySnapshotDB,
+    TaskDB,
+    ToolCallDB,
+)
+from agent.repositories.task_auxiliary_repositories import (
+    AgentSessionRepositoryMixin,
+    ArchivedTaskRepositoryMixin,
+    PolicySnapshotRepositoryMixin,
+    TaskAuxiliaryRepositoryDependencies,
+    ToolCallRepositoryMixin,
+)
 
 _TERMINAL_TASK_STATUSES = frozenset(
     {
@@ -2645,107 +2659,47 @@ class TaskRepository:
             return session.exec(statement).all()
 
 
-class ArchivedTaskRepository:
-    def get_all(self, limit: int = 100, offset: int = 0):
-        with Session(_engine()) as session:
-            statement = select(ArchivedTaskDB).order_by(ArchivedTaskDB.archived_at.desc()).offset(offset).limit(limit)
-            return session.exec(statement).all()
+def _task_auxiliary_repository_dependencies() -> TaskAuxiliaryRepositoryDependencies:
+    """Resolve patchable persistence dependencies at call time."""
 
-    def get_by_id(self, task_id: str) -> Optional[ArchivedTaskDB]:
-        with Session(_engine()) as session:
-            return session.get(ArchivedTaskDB, task_id)
-
-    def save(self, task: ArchivedTaskDB):
-        with Session(_engine()) as session:
-            session.add(task)
-            session.commit()
-            session.refresh(task)
-            return task
-
-    def delete(self, task_id: str):
-        with Session(_engine()) as session:
-            task = session.get(ArchivedTaskDB, task_id)
-            if task:
-                session.delete(task)
-                session.commit()
-                return True
-            return False
-
-    def delete_old(self, cutoff: float):
-        with Session(_engine()) as session:
-            from sqlmodel import delete
-
-            statement = delete(ArchivedTaskDB).where(ArchivedTaskDB.archived_at < cutoff)
-            session.exec(statement)
-            session.commit()
+    return TaskAuxiliaryRepositoryDependencies(
+        session_factory=Session,
+        select=select,
+        delete=delete,
+        archived_task_model=ArchivedTaskDB,
+        agent_session_model=AgentSessionDB,
+        tool_call_model=ToolCallDB,
+        policy_snapshot_model=PolicySnapshotDB,
+    )
 
 
-class AgentSessionRepository:
-    def get_all(self) -> List[AgentSessionDB]:
-        with Session(_engine()) as session:
-            statement = select(AgentSessionDB).order_by(AgentSessionDB.updated_at.desc())
-            return session.exec(statement).all()
-
-    def get_by_id(self, session_id: str) -> Optional[AgentSessionDB]:
-        with Session(_engine()) as session:
-            return session.get(AgentSessionDB, session_id)
-
-    def get_by_task_id(self, task_id: str) -> List[AgentSessionDB]:
-        with Session(_engine()) as session:
-            statement = (
-                select(AgentSessionDB)
-                .where(AgentSessionDB.task_id == task_id)
-                .order_by(AgentSessionDB.updated_at.desc())
-            )
-            return session.exec(statement).all()
-
-    def save(self, agent_session: AgentSessionDB) -> AgentSessionDB:
-        with Session(_engine()) as session:
-            merged = session.merge(agent_session)
-            session.commit()
-            session.refresh(merged)
-            return merged
+class ArchivedTaskRepository(ArchivedTaskRepositoryMixin):
+    def __init__(self) -> None:
+        super().__init__(
+            lambda: _engine(),
+            _task_auxiliary_repository_dependencies,
+        )
 
 
-class ToolCallRepository:
-    def get_by_id(self, tool_call_id: str) -> Optional[ToolCallDB]:
-        with Session(_engine()) as session:
-            return session.get(ToolCallDB, tool_call_id)
-
-    def get_by_session_id(self, session_id: str) -> List[ToolCallDB]:
-        with Session(_engine()) as session:
-            statement = (
-                select(ToolCallDB)
-                .where(ToolCallDB.session_id == session_id)
-                .order_by(ToolCallDB.created_at.desc())
-            )
-            return session.exec(statement).all()
-
-    def save(self, tool_call: ToolCallDB) -> ToolCallDB:
-        with Session(_engine()) as session:
-            merged = session.merge(tool_call)
-            session.commit()
-            session.refresh(merged)
-            return merged
+class AgentSessionRepository(AgentSessionRepositoryMixin):
+    def __init__(self) -> None:
+        super().__init__(
+            lambda: _engine(),
+            _task_auxiliary_repository_dependencies,
+        )
 
 
-class PolicySnapshotRepository:
-    def get_by_id(self, snapshot_id: str) -> Optional[PolicySnapshotDB]:
-        with Session(_engine()) as session:
-            return session.get(PolicySnapshotDB, snapshot_id)
+class ToolCallRepository(ToolCallRepositoryMixin):
+    def __init__(self) -> None:
+        super().__init__(
+            lambda: _engine(),
+            _task_auxiliary_repository_dependencies,
+        )
 
-    def get_by_session_id(self, session_id: str) -> Optional[PolicySnapshotDB]:
-        with Session(_engine()) as session:
-            statement = (
-                select(PolicySnapshotDB)
-                .where(PolicySnapshotDB.session_id == session_id)
-                .order_by(PolicySnapshotDB.created_at.desc())
-            )
-            return session.exec(statement).first()
 
-    def save(self, snapshot: PolicySnapshotDB) -> PolicySnapshotDB:
-        with Session(_engine()) as session:
-            merged = session.merge(snapshot)
-            session.commit()
-            session.refresh(merged)
-            return merged
+class PolicySnapshotRepository(PolicySnapshotRepositoryMixin):
+    def __init__(self) -> None:
+        super().__init__(
+            lambda: _engine(),
+            _task_auxiliary_repository_dependencies,
+        )
