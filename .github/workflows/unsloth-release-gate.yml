@@ -114,13 +114,16 @@ jobs:
           pip install -r requirements.lock -r requirements-dev.lock
       - name: Run deterministic Unsloth contracts and security boundaries
         run: |
-          pytest -q \
-            tests/test_unsloth*.py \
-            tests/test_ml_intern_*.py \
-            tests/test_studio_*training*.py \
-            tests/test_mcp_*training*.py \
-            tests/worker/test_lora_training_*.py \
-            tests/worker/test_unsloth_*.py \
+          shopt -s nullglob
+          test_files=(
+            tests/test_unsloth*.py
+            tests/test_ml_intern_*.py
+            tests/test_studio_*training*.py
+            tests/test_mcp_*training*.py
+            tests/worker/test_lora_training_*.py
+            tests/worker/test_unsloth_*.py
+          )
+          pytest -q "${test_files[@]}" \
             --junitxml=unsloth-cpu-contract-security.xml
       - name: Record honest GPU boundary status
         if: github.event_name != 'workflow_dispatch'
