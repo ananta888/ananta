@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "scripts/run_lora_training_smoke.py"
+      - "scripts/lora_training_smoke_*.py"
       - "scripts/run-lora-training-stack.sh"
       - "ananta_contracts/**"
       - "worker/runtime/lora_training_app.py"
@@ -37,6 +38,7 @@ on:
     branches: [main]
     paths:
       - "scripts/run_lora_training_smoke.py"
+      - "scripts/lora_training_smoke_*.py"
       - "scripts/run-lora-training-stack.sh"
       - "ananta_contracts/**"
       - "worker/runtime/lora_training_app.py"

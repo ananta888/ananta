@@ -21,3 +21,11 @@ def test_fake_hub_job_installs_backend_runtime_before_playwright() -> None:
     )
 
     assert setup_python < install_backend < run_playwright
+
+
+def test_extracted_smoke_helpers_trigger_pull_request_and_push_gates() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    jobs_start = workflow.index("\njobs:")
+    triggers = workflow[:jobs_start]
+
+    assert triggers.count('"scripts/lora_training_smoke_*.py"') == 2
