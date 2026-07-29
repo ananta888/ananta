@@ -12,38 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
 
-from ananta_contracts.kanban import (
-    AssignCardCommand,
-    BlockCardCommand,
-    CommentCardCommand,
-    CompleteCardCommand,
-    CreateBoardCommand,
-    CreateCardCommand,
-    KanbanActivity,
-    KanbanActivityPage,
-    KanbanAssignee,
-    KanbanBoard,
-    KanbanBoardPage,
-    KanbanBoardSummary,
-    KanbanCapability,
-    KanbanCapabilities,
-    KanbanCard,
-    KanbanCardPage,
-    KanbanColumn,
-    KanbanColumnId,
-    KanbanComment,
-    KanbanCommentPage,
-    KanbanScopeType,
-    KanbanSnapshot,
-    MoveCardCommand,
-    SetDependenciesCommand,
-)
-from ananta_contracts.kanban_events import KanbanEvent
 from agent.common.audit import log_audit
-from agent.services.kanban_event_stream_service import (
-    build_kanban_event,
-    get_kanban_event_stream_service,
-)
 from agent.db_models.tasks import TaskDB
 from agent.repositories.kanban_projection import (
     KanbanIdempotencyConflict,
@@ -58,13 +27,48 @@ from agent.services.kanban_authorization_service import (
     KanbanAuthorizationService,
     KanbanPrincipal,
 )
+from agent.services.kanban_event_stream_service import (
+    build_kanban_event,
+    get_kanban_event_stream_service,
+)
+from agent.services.kanban_service_error import KanbanServiceError
+from agent.services.kanban_vector_task_boundary import (
+    is_kanban_rankable_task,
+    require_kanban_mutation_allowed,
+)
 from agent.services.recovery_task_mutation_policy import (
     RecoveryTaskMutationConflict,
     ensure_external_recovery_mutation_allowed,
 )
-from agent.services.task_state_machine_service import can_transition_to
 from agent.services.task_runtime_service import notify_task_update
-
+from agent.services.task_state_machine_service import can_transition_to
+from ananta_contracts.kanban import (
+    AssignCardCommand,
+    BlockCardCommand,
+    CommentCardCommand,
+    CompleteCardCommand,
+    CreateBoardCommand,
+    CreateCardCommand,
+    KanbanActivity,
+    KanbanActivityPage,
+    KanbanAssignee,
+    KanbanBoard,
+    KanbanBoardPage,
+    KanbanBoardSummary,
+    KanbanCapabilities,
+    KanbanCapability,
+    KanbanCard,
+    KanbanCardPage,
+    KanbanColumn,
+    KanbanColumnId,
+    KanbanComment,
+    KanbanCommentPage,
+    KanbanScopeType,
+    KanbanSnapshot,
+    MoveCardCommand,
+    SetDependenciesCommand,
+)
+from ananta_contracts.kanban_events import KanbanEvent
 
 STATUS_ALIASES = {
     "backlog": "todo",
@@ -98,22 +102,6 @@ COLUMN_TITLE = {
     KanbanColumnId.COMPLETED: "Completed",
 }
 COLUMN_ORDER = tuple(KanbanColumnId)
-
-
-class KanbanServiceError(RuntimeError):
-    def __init__(
-        self,
-        code: str,
-        message: str,
-        *,
-        status_code: int,
-        details: dict[str, Any] | None = None,
-    ):
-        super().__init__(message)
-        self.code = code
-        self.message = message
-        self.status_code = status_code
-        self.details = details or {}
 
 
 class KanbanEventPort(Protocol):
@@ -540,7 +528,11 @@ class KanbanProjectionService:
         source = source or cls._column(moved.status)
         for column in {source, target}:
             values = [
-                task for task in tasks if task.id != moved.id and cls._column(task.status) == column
+                task
+                for task in tasks
+                if task.id != moved.id
+                and is_kanban_rankable_task(task)
+                and cls._column(task.status) == column
             ]
             values.sort(key=cls._sort_key)
             if column == target:
@@ -764,6 +756,7 @@ class KanbanProjectionService:
                 if fenced_task is not None
                 else None
             )
+            require_kanban_mutation_allowed(fenced_task)
             try:
                 ensure_external_recovery_mutation_allowed(
                     fenced_task,
@@ -776,6 +769,14 @@ class KanbanProjectionService:
                     status_code=409,
                     details=exc.as_data(),
                 ) from exc
+
+            def apply_mutation(
+                task: TaskDB,
+                tasks: list[TaskDB],
+            ):
+                require_kanban_mutation_allowed(task)
+                return mutate(task, tasks, mutation)
+
             try:
                 result = self._store.mutate_task(
                     scope,
@@ -783,11 +784,7 @@ class KanbanProjectionService:
                     expected_revision=command.expected_revision,
                     key_hash=mutation.key_hash,
                     request_digest=mutation.digest,
-                    mutate=lambda task, tasks: mutate(
-                        task,
-                        tasks,
-                        mutation,
-                    ),
+                    mutate=apply_mutation,
                     event_factory=lambda current, sequence: build_kanban_event(
                         action=f"kanban.card.{name}",
                         task=current,

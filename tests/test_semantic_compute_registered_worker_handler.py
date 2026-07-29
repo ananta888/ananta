@@ -94,8 +94,12 @@ def test_registered_handler_stops_before_input_or_publish_after_lease_loss() -> 
 
 
 def test_worker_opt_in_registers_handler_and_advertises_hub_authorized_capabilities(monkeypatch) -> None:
+    import agent.adapters.vector_store_metrics_adapter as metrics_module
     import agent.ai_agent as app_module
     import worker.retrieval.knowledge_index_job_handler as knowledge_module
+    import worker.retrieval.vector_index_execution as vector_execution_module
+    import worker.retrieval.vector_index_job_handler as vector_handler_module
+    import worker.retrieval.vector_index_task_verification as verification_module
     import worker.semantic_media.compute_task_handler as semantic_module
 
     class _NoopHandler:
@@ -109,6 +113,40 @@ def test_worker_opt_in_registers_handler_and_advertises_hub_authorized_capabilit
     monkeypatch.setenv("ANANTA_SEMANTIC_COMPUTE_WORKER_ENABLED", "true")
     monkeypatch.setattr(knowledge_module, "build_knowledge_index_task_handler", _NoopHandler)
     monkeypatch.setattr(semantic_module, "build_semantic_compute_task_handler", _NoopHandler)
+    captured: dict[str, object] = {}
+
+    class _Observer:
+        pass
+
+    class _VectorExecution:
+        def __init__(self, *, observer=None):
+            captured["observer"] = observer
+
+    class _Verifier:
+        def verify(self, _envelope):
+            return None
+
+    def build_vector_handler(execution, *, task_verifier):
+        captured["execution"] = execution
+        captured["task_verifier"] = task_verifier
+        return _NoopHandler()
+
+    monkeypatch.setattr(metrics_module, "PrometheusVectorStoreObserver", _Observer)
+    monkeypatch.setattr(
+        vector_execution_module,
+        "ConfiguredVectorIndexExecution",
+        _VectorExecution,
+    )
+    monkeypatch.setattr(
+        vector_handler_module,
+        "build_vector_index_task_handler",
+        build_vector_handler,
+    )
+    monkeypatch.setattr(
+        verification_module,
+        "load_vector_index_task_verifier",
+        lambda: _Verifier(),
+    )
     app = Flask(__name__)
     app.extensions["workflow_adapter_worker_registration"] = {
         "capabilities": ["workflow_execute"],
@@ -130,3 +168,93 @@ def test_worker_opt_in_registers_handler_and_advertises_hub_authorized_capabilit
     assert required_capabilities.issubset(set(descriptor["capabilities"]))
     assert required_capabilities.issubset(set(app.extensions["workflow_adapter_worker_registration"]["capabilities"]))
     assert app.extensions["semantic_compute_worker_registration"]["ready"] is True
+    assert isinstance(captured["observer"], _Observer)
+    assert captured["execution"].__class__ is _VectorExecution
+    assert captured["task_verifier"].__class__ is _Verifier
+    assert not hasattr(captured["task_verifier"], "attest")
+    vector_descriptor = get_task_handler_registry(app).resolve_descriptor(
+        "vector_index_operation"
+    )
+    assert vector_descriptor is not None
+    assert "hub_attestation" in vector_descriptor["verification_hooks"]
+    assert (
+        "hub_dispatch_admission"
+        in vector_descriptor["verification_hooks"]
+    )
+    assert {
+        "retrieval",
+        "index_write",
+        "vector_index_operation",
+    }.issubset(
+        app.extensions[
+            "workflow_adapter_worker_registration"
+        ]["capabilities"]
+    )
+    assert app.extensions["vector_index_worker_registration"] == {
+        "ready": True,
+        "reason_code": None,
+    }
+
+
+def test_worker_does_not_advertise_vector_mutation_without_keyring(
+    monkeypatch,
+) -> None:
+    import agent.ai_agent as app_module
+    import worker.retrieval.knowledge_index_job_handler as knowledge_module
+    import worker.retrieval.vector_index_job_handler as vector_handler_module
+    import worker.retrieval.vector_index_task_verification as verification_module
+
+    class _NoopHandler:
+        def propose(self, **_kwargs):
+            return {}
+
+        def execute(self, **_kwargs):
+            return {}
+
+    monkeypatch.setattr(app_module.settings, "role", "worker")
+    monkeypatch.delenv(
+        "ANANTA_VECTOR_INDEX_TASK_VERIFICATION_KEYRING_FILE",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        knowledge_module,
+        "build_knowledge_index_task_handler",
+        _NoopHandler,
+    )
+    monkeypatch.setattr(
+        vector_handler_module,
+        "build_vector_index_task_handler",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError(
+                "unverified vector handler must not be built"
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        verification_module,
+        "load_vector_index_task_verifier",
+        lambda: verification_module.UnavailableVectorIndexTaskVerifier(),
+    )
+    app = Flask(__name__)
+    app.extensions["workflow_adapter_worker_registration"] = {
+        "capabilities": ["workflow_execute"],
+        "runtime_targets": [],
+    }
+
+    _register_worker_domain_handlers(app)
+
+    assert (
+        get_task_handler_registry(app).resolve_descriptor(
+            "vector_index_operation"
+        )
+        is None
+    )
+    assert "vector_index_operation" not in app.extensions[
+        "workflow_adapter_worker_registration"
+    ]["capabilities"]
+    assert app.extensions["vector_index_worker_registration"] == {
+        "ready": False,
+        "reason_code": (
+            "vector_index_task_verification_keyring_required"
+        ),
+    }

@@ -1,5 +1,15 @@
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from threading import Event
+from types import SimpleNamespace
+
 from agent.hybrid_orchestrator import ContextChunk
 from agent.services.retrieval_service import RetrievalService
+from agent.services.retrieval_vector_runtime_scope_service import (
+    HubRetrievalVectorRuntimeResolverFactory,
+    RetrievalVectorRuntimeScope,
+)
+from worker.retrieval.vector_store_contract import VectorScope
 
 
 class _FakeContextManager:
@@ -57,7 +67,9 @@ class _FakeRedactingOrchestrator(_FakeOrchestrator):
                     "metadata": {"token_hint": "sk-secret-token-1234567890"},
                 }
             ],
-            "context_text": "[repository_map] secrets/sk-secret-token-1234567890.txt\napi key sk-secret-token-1234567890",
+            "context_text": (
+                "[repository_map] secrets/sk-secret-token-1234567890.txt\napi key sk-secret-token-1234567890"
+            ),
             "token_estimate": 4,
         }
 
@@ -98,7 +110,9 @@ class _FakeMemoryEntryRepo:
 
 def test_retrieval_service_merges_knowledge_index_chunks():
     knowledge = _FakeKnowledgeIndexRetrievalService()
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service = RetrievalService(
+        knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo()
+    )
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
@@ -126,7 +140,9 @@ def test_retrieval_service_merges_knowledge_index_chunks():
 
 def test_retrieval_service_prefers_more_knowledge_context_for_doc_queries():
     knowledge = _FakeKnowledgeIndexRetrievalService()
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service = RetrievalService(
+        knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo()
+    )
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
@@ -138,7 +154,9 @@ def test_retrieval_service_prefers_more_knowledge_context_for_doc_queries():
 
 def test_retrieval_service_propagates_task_aware_hints():
     knowledge = _FakeKnowledgeIndexRetrievalService()
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service = RetrievalService(
+        knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo()
+    )
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
@@ -205,7 +223,11 @@ def test_retrieval_service_prefers_structured_result_memory_document():
                 "retrieval_tags": ["refactor", "completed"],
                 "entry_type": "worker_result",
                 "memory_metadata": {
-                    "retrieval_document": "summary: parser refactor\nchanged_files: app/parser.py\ntests: passed_signal=True; failed_signal=False",
+                    "retrieval_document": (
+                        "summary: parser refactor\n"
+                        "changed_files: app/parser.py\n"
+                        "tests: passed_signal=True; failed_signal=False"
+                    ),
                     "structured_summary": {"focus_terms": ["parser", "refactor"]},
                     "memory_format": "worker_result_compact_v2",
                 },
@@ -272,7 +294,9 @@ def test_retrieval_service_propagates_security_metadata_from_memory_entries():
 
 def test_retrieval_service_redacts_sensitive_debug_fields_in_strategy_and_sources():
     knowledge = _FakeKnowledgeIndexRetrievalService()
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service = RetrievalService(
+        knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo()
+    )
     service._orchestrator = _FakeRedactingOrchestrator()
     service._signature = service._config_signature()
 
@@ -287,7 +311,9 @@ def test_retrieval_service_redacts_sensitive_debug_fields_in_strategy_and_source
 
 def test_retrieval_service_selection_stage_trace_stays_deterministic():
     knowledge = _FakeKnowledgeIndexRetrievalService()
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service = RetrievalService(
+        knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo()
+    )
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
@@ -302,7 +328,9 @@ def test_retrieval_service_selection_stage_trace_stays_deterministic():
 
 def test_retrieval_service_supports_repo_only_source_filter():
     knowledge = _FakeKnowledgeIndexRetrievalService()
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service = RetrievalService(
+        knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo()
+    )
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
@@ -316,7 +344,9 @@ def test_retrieval_service_supports_repo_only_source_filter():
 
 def test_retrieval_service_marks_pre_catalog_source_id_as_unverified():
     knowledge = _FakeKnowledgeIndexRetrievalService()
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service = RetrievalService(
+        knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo()
+    )
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
@@ -344,7 +374,9 @@ def test_retrieval_service_marks_pre_catalog_source_id_as_unverified():
 
 def test_retrieval_service_exposes_source_type_contributions_in_fusion_trace():
     knowledge = _FakeKnowledgeIndexRetrievalService()
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service = RetrievalService(
+        knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo()
+    )
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
@@ -363,7 +395,9 @@ def test_retrieval_service_preflight_reports_source_diagnostics():
         "artifact": {"status": "degraded", "completed_indices": 0, "issues": ["no_completed_indices"]},
         "wiki": {"status": "degraded", "completed_indices": 0, "issues": ["no_completed_indices"]},
     }
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service = RetrievalService(
+        knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo()
+    )
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
@@ -404,7 +438,9 @@ def test_retrieval_service_smoke_repo_and_wiki_sources_preserve_citations(monkey
 
     monkeypatch.setattr("agent.services.retrieval_service.settings.rag_source_wiki_enabled", True)
     knowledge = _WikiKnowledge()
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service = RetrievalService(
+        knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo()
+    )
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
@@ -413,7 +449,9 @@ def test_retrieval_service_smoke_repo_and_wiki_sources_preserve_citations(monkey
     source_types = {dict(chunk.get("metadata") or {}).get("source_type") for chunk in payload["chunks"]}
     assert "repo" in source_types
     assert "wiki" in source_types
-    wiki_chunk = next(chunk for chunk in payload["chunks"] if dict(chunk.get("metadata") or {}).get("source_type") == "wiki")
+    wiki_chunk = next(
+        chunk for chunk in payload["chunks"] if dict(chunk.get("metadata") or {}).get("source_type") == "wiki"
+    )
     wiki_citation = dict((wiki_chunk.get("metadata") or {}).get("citation") or {})
     assert wiki_citation.get("article_title") == "Payment retries"
     assert wiki_citation.get("section_title") == "Timeout handling"
@@ -422,7 +460,9 @@ def test_retrieval_service_smoke_repo_and_wiki_sources_preserve_citations(monkey
 
 def test_retrieval_service_emits_codecompass_retrieval_trace_shape():
     knowledge = _FakeKnowledgeIndexRetrievalService()
-    service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
+    service = RetrievalService(
+        knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo()
+    )
     service._orchestrator = _FakeOrchestrator()
     service._signature = service._config_signature()
 
@@ -437,3 +477,521 @@ def test_retrieval_service_emits_codecompass_retrieval_trace_shape():
     assert isinstance(trace.get("degraded_channels"), list)
     strategy_trace = dict((payload.get("strategy") or {}).get("retrieval_trace") or {})
     assert strategy_trace.get("trace_id") == trace.get("trace_id")
+
+
+def test_retrieval_service_productively_wires_wiki_vector_runtime(
+    monkeypatch,
+):
+    class _WikiResolver:
+        def cache_signature(self):
+            return ("wiki-config-v1",)
+
+    class _WikiKnowledge(_FakeKnowledgeIndexRetrievalService):
+        def search(self, query, **kwargs):
+            del query, kwargs
+            return [
+                ContextChunk(
+                    engine="knowledge_index",
+                    source="wiki/a",
+                    content="first",
+                    score=2.0,
+                    metadata={"record_id": "wiki-a"},
+                ),
+                ContextChunk(
+                    engine="knowledge_index",
+                    source="wiki/b",
+                    content="second",
+                    score=1.0,
+                    metadata={"record_id": "wiki-b"},
+                ),
+            ]
+
+    class _WikiVectorRetrieval:
+        def hybrid_search(self, query, **kwargs):
+            del query, kwargs
+            return [
+                {
+                    "record_id": "wiki-b",
+                    "hybrid_score": 0.9,
+                }
+            ]
+
+    built = []
+
+    def _build(**kwargs):
+        built.append(kwargs)
+        return _WikiVectorRetrieval()
+
+    monkeypatch.setattr(
+        "agent.services.retrieval_service.build_wiki_retrieval_index_service",
+        _build,
+    )
+    service = RetrievalService(
+        knowledge_index_retrieval_service=_WikiKnowledge(),
+        memory_entry_repository=_FakeMemoryEntryRepo(),
+        wiki_vector_runtime_resolver=_WikiResolver(),
+    )
+
+    chunks = service._source_adapters["wiki"].search(
+        "query",
+        top_k=2,
+    )
+
+    assert [chunk.metadata["record_id"] for chunk in chunks] == [
+        "wiki-b",
+        "wiki-a",
+    ]
+    assert len(built) == 1
+
+
+class _CloseSpyOrchestrator(_FakeOrchestrator):
+    def __init__(self, workspace_id: str = "") -> None:
+        super().__init__()
+        self.workspace_id = workspace_id
+        self.close_calls = 0
+
+    def close(self) -> None:
+        self.close_calls += 1
+
+    def get_relevant_context(
+        self,
+        query: str,
+        *,
+        domain_scope=None,
+    ) -> dict[str, object]:
+        del domain_scope
+        source = f"{self.workspace_id}/README.md" if self.workspace_id else "README.md"
+        return {
+            "query": query,
+            "strategy": {"repository_map": 1},
+            "policy_version": "v1",
+            "chunks": [
+                {
+                    "engine": "repository_map",
+                    "source": source,
+                    "score": 1.0,
+                    "content": f"context:{self.workspace_id}",
+                    "metadata": {},
+                }
+            ],
+            "context_text": f"context:{self.workspace_id}",
+            "token_estimate": 1,
+        }
+
+
+class _ScopedRuntimeResolver:
+    def __init__(
+        self,
+        scope: RetrievalVectorRuntimeScope,
+        revisions: dict[str, int],
+    ) -> None:
+        self.scope = scope
+        self._revisions = revisions
+
+    def cache_signature(self, **_kwargs):
+        return (
+            str(self._revisions[self.scope.workspace_id]),
+            self.scope.workspace_id,
+            self.scope.profile_name,
+        )
+
+
+class _ScopedRuntimeResolverFactory:
+    def __init__(self) -> None:
+        self.revisions = {
+            "workspace-a": 1,
+            "workspace-b": 1,
+        }
+
+    def codecompass_resolver(
+        self,
+        scope: RetrievalVectorRuntimeScope,
+    ):
+        return _ScopedRuntimeResolver(scope, self.revisions)
+
+    def wiki_resolver(
+        self,
+        scope: RetrievalVectorRuntimeScope,
+    ):
+        return _ScopedRuntimeResolver(scope, self.revisions)
+
+
+def test_orchestrator_rollout_swap_closes_old_runtime_once(
+    monkeypatch,
+):
+    factory = _ScopedRuntimeResolverFactory()
+    scope = RetrievalVectorRuntimeScope(
+        workspace_id="workspace-a",
+        codecompass_repository_id="repo-a",
+    )
+    built: list[_CloseSpyOrchestrator] = []
+    service = RetrievalService(
+        knowledge_index_retrieval_service=(_FakeKnowledgeIndexRetrievalService()),
+        memory_entry_repository=_FakeMemoryEntryRepo(),
+        vector_runtime_resolver_factory=factory,
+    )
+
+    def _build(runtime_resolver):
+        runtime = _CloseSpyOrchestrator(runtime_resolver.scope.workspace_id)
+        built.append(runtime)
+        return runtime
+
+    monkeypatch.setattr(service, "_build_orchestrator", _build)
+
+    first = service.get_orchestrator(vector_runtime_scope=scope)
+    factory.revisions["workspace-a"] = 2
+    second = service.get_orchestrator(vector_runtime_scope=scope)
+    again = service.get_orchestrator(vector_runtime_scope=scope)
+
+    assert first is built[0]
+    assert second is again is built[1]
+    assert first.close_calls == 1
+    assert second.close_calls == 0
+    assert len(built) == 2
+
+
+def test_orchestrator_rollout_swap_defers_close_until_request_releases_lease(
+    monkeypatch,
+):
+    entered = Event()
+    release = Event()
+
+    class _BlockingOrchestrator(_CloseSpyOrchestrator):
+        def get_relevant_context(self, query: str, *, domain_scope=None):
+            entered.set()
+            assert release.wait(timeout=5)
+            return super().get_relevant_context(
+                query,
+                domain_scope=domain_scope,
+            )
+
+    factory = _ScopedRuntimeResolverFactory()
+    scope = RetrievalVectorRuntimeScope(
+        workspace_id="workspace-a",
+        codecompass_repository_id="repo-a",
+    )
+    built: list[_CloseSpyOrchestrator] = []
+    service = RetrievalService(
+        knowledge_index_retrieval_service=(_FakeKnowledgeIndexRetrievalService()),
+        memory_entry_repository=_FakeMemoryEntryRepo(),
+        vector_runtime_resolver_factory=factory,
+    )
+
+    def _build(runtime_resolver):
+        runtime = (
+            _BlockingOrchestrator(runtime_resolver.scope.workspace_id)
+            if not built
+            else _CloseSpyOrchestrator(runtime_resolver.scope.workspace_id)
+        )
+        built.append(runtime)
+        return runtime
+
+    monkeypatch.setattr(service, "_build_orchestrator", _build)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        request = executor.submit(
+            service.retrieve_context,
+            "scope",
+            source_types=["repo"],
+            vector_runtime_scope=scope,
+        )
+        assert entered.wait(timeout=5)
+        factory.revisions["workspace-a"] = 2
+        replacement = service.get_orchestrator(vector_runtime_scope=scope)
+
+        assert replacement is built[1]
+        assert built[0].close_calls == 0
+        release.set()
+        payload = request.result(timeout=5)
+
+    assert payload["chunks"][0]["source"].startswith("workspace-a/")
+    assert built[0].close_calls == 1
+    assert built[1].close_calls == 0
+
+
+def test_concurrent_orchestrator_cache_miss_builds_once(
+    monkeypatch,
+):
+    factory = _ScopedRuntimeResolverFactory()
+    scope = RetrievalVectorRuntimeScope(
+        workspace_id="workspace-a",
+        codecompass_repository_id="repo-a",
+    )
+    built: list[_CloseSpyOrchestrator] = []
+    service = RetrievalService(
+        knowledge_index_retrieval_service=(_FakeKnowledgeIndexRetrievalService()),
+        memory_entry_repository=_FakeMemoryEntryRepo(),
+        vector_runtime_resolver_factory=factory,
+    )
+
+    def _build(runtime_resolver):
+        runtime = _CloseSpyOrchestrator(runtime_resolver.scope.workspace_id)
+        built.append(runtime)
+        return runtime
+
+    monkeypatch.setattr(service, "_build_orchestrator", _build)
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        runtimes = list(
+            executor.map(
+                lambda _: service.get_orchestrator(vector_runtime_scope=scope),
+                range(24),
+            )
+        )
+
+    assert len(built) == 1
+    assert all(runtime is built[0] for runtime in runtimes)
+
+
+def test_request_scoped_product_retrieval_never_reuses_other_workspace(
+    monkeypatch,
+):
+    factory = _ScopedRuntimeResolverFactory()
+    scope_a = RetrievalVectorRuntimeScope(
+        workspace_id="workspace-a",
+        codecompass_repository_id="repo-a",
+    )
+    scope_b = RetrievalVectorRuntimeScope(
+        workspace_id="workspace-b",
+        codecompass_repository_id="repo-b",
+    )
+    built: list[_CloseSpyOrchestrator] = []
+    service = RetrievalService(
+        knowledge_index_retrieval_service=(_FakeKnowledgeIndexRetrievalService()),
+        memory_entry_repository=_FakeMemoryEntryRepo(),
+        vector_runtime_resolver_factory=factory,
+    )
+
+    def _build(runtime_resolver):
+        runtime = _CloseSpyOrchestrator(runtime_resolver.scope.workspace_id)
+        built.append(runtime)
+        return runtime
+
+    monkeypatch.setattr(service, "_build_orchestrator", _build)
+
+    payload_a = service.retrieve_context(
+        "scope",
+        source_types=["repo"],
+        vector_runtime_scope=scope_a,
+    )
+    payload_b = service.retrieve_context(
+        "scope",
+        source_types=["repo"],
+        vector_runtime_scope=scope_b,
+    )
+    payload_a_again = service.retrieve_context(
+        "scope",
+        source_types=["repo"],
+        vector_runtime_scope=scope_a,
+    )
+
+    assert payload_a["chunks"][0]["source"].startswith("workspace-a/")
+    assert payload_b["chunks"][0]["source"].startswith("workspace-b/")
+    assert payload_a_again["chunks"][0]["source"].startswith("workspace-a/")
+    assert len(built) == 2
+    assert all(runtime.close_calls == 0 for runtime in built)
+
+
+def test_wiki_rollout_swap_is_scoped_and_closes_only_old_generation(
+    monkeypatch,
+):
+    class _WikiRuntime:
+        def __init__(self, workspace_id: str) -> None:
+            self.workspace_id = workspace_id
+            self.close_calls = 0
+
+        def close(self) -> None:
+            self.close_calls += 1
+
+    factory = _ScopedRuntimeResolverFactory()
+    scope_a = RetrievalVectorRuntimeScope(
+        workspace_id="workspace-a",
+        wiki_source_id="wiki-a",
+    )
+    scope_b = RetrievalVectorRuntimeScope(
+        workspace_id="workspace-b",
+        wiki_source_id="wiki-b",
+    )
+    built: list[_WikiRuntime] = []
+    service = RetrievalService(
+        knowledge_index_retrieval_service=(_FakeKnowledgeIndexRetrievalService()),
+        memory_entry_repository=_FakeMemoryEntryRepo(),
+        vector_runtime_resolver_factory=factory,
+    )
+
+    def _build(**kwargs):
+        runtime = _WikiRuntime(kwargs["runtime_resolver"].scope.workspace_id)
+        built.append(runtime)
+        return runtime
+
+    monkeypatch.setattr(
+        "agent.services.retrieval_service.build_wiki_retrieval_index_service",
+        _build,
+    )
+
+    first_a = service._get_wiki_vector_retrieval(vector_runtime_scope=scope_a)
+    first_b = service._get_wiki_vector_retrieval(vector_runtime_scope=scope_b)
+    factory.revisions["workspace-a"] = 2
+    second_a = service._get_wiki_vector_retrieval(vector_runtime_scope=scope_a)
+
+    assert first_a.workspace_id == "workspace-a"
+    assert first_b.workspace_id == "workspace-b"
+    assert second_a.workspace_id == "workspace-a"
+    assert first_a.close_calls == 1
+    assert first_b.close_calls == 0
+    assert second_a.close_calls == 0
+
+
+def test_wiki_rollout_swap_defers_close_until_search_releases_lease(
+    monkeypatch,
+):
+    entered = Event()
+    release = Event()
+
+    class _WikiRuntime:
+        def __init__(self, *, blocking: bool) -> None:
+            self.blocking = blocking
+            self.close_calls = 0
+
+        def hybrid_search(self, query, *, top_k):
+            del query, top_k
+            if self.blocking:
+                entered.set()
+                assert release.wait(timeout=5)
+            return []
+
+        def close(self) -> None:
+            self.close_calls += 1
+
+    factory = _ScopedRuntimeResolverFactory()
+    scope = RetrievalVectorRuntimeScope(
+        workspace_id="workspace-a",
+        wiki_source_id="wiki-a",
+    )
+    built: list[_WikiRuntime] = []
+    service = RetrievalService(
+        knowledge_index_retrieval_service=(_FakeKnowledgeIndexRetrievalService()),
+        memory_entry_repository=_FakeMemoryEntryRepo(),
+        vector_runtime_resolver_factory=factory,
+    )
+
+    def _build(**_kwargs):
+        runtime = _WikiRuntime(blocking=not built)
+        built.append(runtime)
+        return runtime
+
+    monkeypatch.setattr(
+        "agent.services.retrieval_service.build_wiki_retrieval_index_service",
+        _build,
+    )
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        search = executor.submit(
+            service._source_adapters["wiki"].search,
+            "query",
+            top_k=1,
+            vector_runtime_scope=scope,
+        )
+        assert entered.wait(timeout=5)
+        factory.revisions["workspace-a"] = 2
+        replacement = service._get_wiki_vector_retrieval(
+            vector_runtime_scope=scope,
+        )
+
+        assert replacement is built[1]
+        assert built[0].close_calls == 0
+        release.set()
+        search.result(timeout=5)
+
+    assert built[0].close_calls == 1
+    assert built[1].close_calls == 0
+
+
+def test_hub_runtime_factory_resolves_each_request_workspace(
+    tmp_path: Path,
+):
+    class _Rollout:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, str]] = []
+
+        def resolve(self, **kwargs):
+            self.calls.append(kwargs)
+            return SimpleNamespace(
+                config={"provider": "json"},
+                config_hash=(f"{kwargs['domain']}:{kwargs['workspace_id']}"),
+            )
+
+    rollout = _Rollout()
+    factory = HubRetrievalVectorRuntimeResolverFactory(
+        rollout_service=rollout,
+    )
+    scope_a = RetrievalVectorRuntimeScope(
+        workspace_id="workspace-a",
+        codecompass_repository_id="repo-a",
+        wiki_source_id="wiki-a",
+    )
+    scope_b = RetrievalVectorRuntimeScope(
+        workspace_id="workspace-b",
+        codecompass_repository_id="repo-b",
+        wiki_source_id="wiki-b",
+    )
+
+    code_a = factory.codecompass_resolver(scope_a)
+    code_b = factory.codecompass_resolver(scope_b)
+    assert code_a is not None
+    assert code_b is not None
+
+    runtime_a = code_a.resolve(repo_root=tmp_path.resolve())
+    runtime_b = code_b.resolve(repo_root=tmp_path.resolve())
+
+    assert runtime_a.trusted_scope == VectorScope(
+        "workspace-a",
+        "repo-a",
+        "default",
+        "codecompass",
+    )
+    assert runtime_b.trusted_scope == VectorScope(
+        "workspace-b",
+        "repo-b",
+        "default",
+        "codecompass",
+    )
+    assert [call["workspace_id"] for call in rollout.calls] == [
+        "workspace-a",
+        "workspace-b",
+    ]
+
+
+def test_legacy_static_resolver_is_rejected_for_explicit_request_scope(
+    monkeypatch,
+):
+    class _LegacyResolver:
+        def cache_signature(self, **_kwargs):
+            return ("legacy-workspace-a",)
+
+    captured: list[object] = []
+    service = RetrievalService(
+        knowledge_index_retrieval_service=(_FakeKnowledgeIndexRetrievalService()),
+        memory_entry_repository=_FakeMemoryEntryRepo(),
+        codecompass_vector_runtime_resolver=_LegacyResolver(),
+    )
+
+    def _build(runtime_resolver):
+        captured.append(runtime_resolver)
+        return _CloseSpyOrchestrator()
+
+    monkeypatch.setattr(service, "_build_orchestrator", _build)
+    service.get_orchestrator(
+        vector_runtime_scope=RetrievalVectorRuntimeScope(
+            workspace_id="workspace-b",
+            codecompass_repository_id="repo-b",
+        )
+    )
+
+    assert captured
+    try:
+        captured[0].resolve()
+    except ValueError as exc:
+        assert str(exc) == ("vector_runtime_request_scope_requires_factory")
+    else:
+        raise AssertionError("legacy static resolver crossed a request scope")

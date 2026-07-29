@@ -61,8 +61,13 @@
     "reference_host_not_approved",
     "insufficient_resources",
     "container_memory_unavailable",
+    "memory_sampling_incomplete",
     "fewer_than_five_measurement_runs",
+    "source_commit_unverified",
     "qdrant_unavailable",
+    "qdrant_server_version_unverified",
+    "qdrant_server_version_mismatch",
+    "qdrant_image_digest_unverified",
     "profile_aborted"
   ]
 }

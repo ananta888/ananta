@@ -10,7 +10,7 @@
     "reviewed_at": "2026-07-29",
     "grounding_status": "unverified_without_provided_source_or_run_ids",
     "note": "Die Statuswerte beruhen auf einem lokalen Source- und Operations-Abgleich. Es wurden keine SRC_* oder RUN_* IDs bereitgestellt; deshalb sind die Beobachtungen keine source-grounded Release-Evidence und duerfen nicht als solche ausgegeben werden.",
-    "status_note": "Capability-Ports, JSON- und Qdrant-Adapter, Hub-Taskflow, Wiki-Adapter, ein digestgebundenes Compose-Overlay, Integrationstestcode und ein Benchmark-Runner sind vorhanden. Kritische Runtime-, Policy- und Hub-/Worker-Vertragsfehler sowie fehlende ausgefuehrte Qdrant- und Benchmark-Evidence verhindern weiterhin einen produktionsreifen oder release-faehigen Stand."
+    "status_note": "Der lokale Working-Tree-Abgleich bestaetigt die implementierten Vector-Store-, Attestation-, Admission-, Replay-, Autorisierungs-, Readiness-, Migrations-, Rollout- und Dokumentationspfade. Der abschliessende echte TLS-Qdrant-Lauf des aktuellen Quellstands bestand 6/6 Szenarien mit vollstaendigem Cleanup; die breite Qdrant-/Vector-/Wiki-Regression bestand mit 883 Tests und 3 erwarteten Skips. Es wurden keine SRC_* oder RUN_* IDs bereitgestellt; alle lokalen Beobachtungen bleiben deshalb unverified und sind keine Release-Evidence. Zusaetzlich fehlt ein vollstaendiges BenchmarkRunArtifact eines freigegebenen Referenzhosts."
   },
   "status_scale": [
     "todo",
@@ -34,15 +34,22 @@
   "code_analysis": {
     "verification": "unverified_without_provided_source_or_run_ids",
     "summary": [
-      "Capability-orientierte Vector-Store-Ports, ein atomarer JSON-Referenzadapter, eine Provider-Factory sowie Qdrant-Client-, Schema-, Filter-, Collection- und Store-Implementierungen sind vorhanden.",
-      "Der Qdrant-Client bleibt optional, wird aber im Compose-Worker-Image nicht installiert; das Qdrant-Overlay allein macht den Backendpfad deshalb nicht lauffaehig.",
-      "CodeCompass uebergibt bei produktiver Qdrant-Suche keinen trusted Scope und erhaelt vector_scope_required; Wiki besitzt dagegen einen separaten Payload- und Scope-Adapter.",
-      "Der Hub besitzt Queue, Taskservice und Control-Plane-Routen, aber Migrationspayload, delete_all_scope, input_ref und Worker-Idempotenz sind zwischen Hub und Worker nicht durchgaengig verdrahtet.",
-      "Ein Rebuild mit bereits vorhandener Versionscollection kann die aktive Collection direkt veraendern und bei einem Folgefehler als Staging verwerfen.",
-      "Endpoint-, TLS- und Secret-Pruefungen existieren, werden jedoch durch erweiterbare Rollout-Overrides nicht als unabhaengige Least-Privilege-Grenze erzwungen; getrennte gRPC-Hosts werden vom Client nicht korrekt verwendet.",
-      "Fallback-, Observer-, Metrics-, Benchmark- und reale Integrationstestbausteine existieren, sind aber teilweise nicht produktiv komponiert, funktional defekt oder noch nie in einem nachgewiesenen Qdrant-Lauf ausgefuehrt.",
+      "Capability-orientierte Ports, ein atomarer und exact-cosine-kompatibler JSON-Referenzadapter sowie strikt begrenzte Qdrant-Client-, Schema-, Filter-, Collection- und Store-Adapter sind implementiert.",
+      "qdrant-client bleibt aus der Standardinstallation entfernt und wird im separaten Worker-/Hub-as-worker-Image exakt als 1.18.0 installiert; der Qdrant-Server ist digestgebunden auf 1.18.2.",
+      "CodeCompass- und Wiki-Suche verwenden trusted Scope und vollstaendige Compatibility-Spezifikationen. Qdrant-Mutationen werden als Hub-owned Tasks delegiert; ein explizites Hub-as-worker-Overlay ist nur fuer synchrone read-only Suche vorgesehen.",
+      "Index, Refresh, Rebuild, Delete und Migration besitzen konsistente, immutable Task-Envelopes mit Policy-Entscheidung, Idempotenz, Scope-Serialisierung, digestgebundenem input_ref, Cancellation/Result-Race-Schutz und Worker-Executor ohne Orchestrierung.",
+      "Jeder delegierte Vector-Index-Dispatch ist asymmetrisch vom Hub signiert, an Task, Goal, Scope, Input-Digest, Worker-Audience, Attempt, Sequence und Gueltigkeitszeitraum gebunden und muss unmittelbar vor der ersten Mutation eine revocable Hub-Admission einloesen.",
+      "Ein persistenter Worker-lokaler Replay-Ledger und Hub-seitige High-Watermarks lehnen Wiederholungen, Sequenz-Rollback, manipulierte Ledger, Pfad-/Symlink-Angriffe sowie stale oder falsch adressierte Dispatches vor jeder Qdrant-Mutation fail-closed ab.",
+      "Vector-Worker werden erst nach erfolgreicher, identitaetsgebundener Hub-Registrierung der Capabilities retrieval, index_write und vector_index_operation ready. Der Hub exponiert keine Worker-Readiness.",
+      "Generische Task-, Kanban-, Control-Center-, Run-Control-, Goal-Purge-, Claim-, Archive-, Approval- und Artifact-Mutationen erkennen auch partielle reservierte Vector-Marker und erzwingen eine zentrale fail-closed Autorisierung.",
+      "Rebuilds verwenden immer eine frische inaktive Staging-Collection, pruefen Compatibility und Point-Count vor dem atomaren Alias-Swap und koennen die bisher aktive Collection bei Fehlern nicht verwerfen.",
+      "Endpoint-, TLS-, Secret- und Rollout-Policies sind fail-closed. trusted_private_origins hebt fuer exakt allowlistete Origins ausschliesslich das external_calls_allowed-Opt-in auf; jeder Nicht-Loopback-REST-/gRPC-Endpunkt benoetigt weiterhin HTTPS beziehungsweise GRPCS mit aktiver Zertifikatspruefung. Das Compose-Profil verwendet natives Qdrant-TLS und eine scoped CA-Secret-Referenz.",
+      "Read-only JSON-Fallback, bounded Observer-/Prometheus-Metriken, Migration, Benchmark-Runner, Compose-Profile und Betriebsdokumentation sind produktiv komponiert und durch fokussierte Positiv- und Negativtests abgedeckt; ihr Release-Status bleibt ohne aktuelle RUN_* Evidence unverified.",
+      "Ein lokaler echter TLS-Lauf gegen Qdrant 1.18.2 und qdrant-client 1.18.0 hat alle sechs marker-selektierten Integrations- und Transporttests ohne Skips bestanden und danach Aliase, Collections, Container, Volumes, Netzwerke, Zertifikate und temporaeren API-Key entfernt. Dieser lokale Befund besitzt keine RUN_* ID und ist deshalb keine source-grounded Release-Evidence.",
+      "Das versionierte Benchmarkprofil und seine fail-closed inconclusive-Gates sind implementiert. Der vollstaendige small/medium/large-Lauf auf einem freigegebenen Referenzhost wurde nicht ausgefuehrt.",
       "Qdrant ersetzt ausschliesslich Dense-Vector-Persistenz und -Suche. Lexical-, Symbol-, Graph-, Domain- und Ranking-Logik bleiben unveraendert.",
-      "Der vorgesehene read-only Search- und hub-owned Mutation-Schnitt ist vorhanden, wird aber durch CodeCompassVectorRetrievalService.refresh_index() weiterhin direkt umgangen."
+      "Die Struktur wahrt SRP, ISP und DIP durch getrennte Ports, Adapter, Composition Roots, Input-Loader, Observer, Command-/Query-/Dispatch-Services und Memory-Sampler; Worker-zu-Worker-Orchestrierung wurde nicht eingefuehrt.",
+      "Der track-spezifische Source-Line-Gate ist sauber. Der globale Repository-Gate meldet weiterhin 13 nicht-Qdrant-bezogene Legacy-/Concurrent-Dateien; deshalb wird kein Claim abgegeben, dass saemtliche GitHub-Workflows bereits gruen sind."
     ],
     "relevant_files": [
       "worker/retrieval/vector_store_contract.py",
@@ -53,6 +60,7 @@
       "worker/retrieval/vector_store_fallback.py",
       "worker/retrieval/vector_store_observer.py",
       "worker/retrieval/vector_store_migration.py",
+      "worker/retrieval/vector_index_input_loader.py",
       "worker/retrieval/qdrant_client_port.py",
       "worker/retrieval/qdrant_collection_schema.py",
       "worker/retrieval/qdrant_collection_manager.py",
@@ -65,21 +73,72 @@
       "worker/retrieval/codecompass_channel_providers.py",
       "worker/retrieval/wiki_vector_store.py",
       "agent/services/codecompass_vector_retrieval_service.py",
+      "agent/services/codecompass_vector_runtime_service.py",
+      "agent/services/vector_index_input_artifact_service.py",
       "agent/services/wiki_retrieval_index_service.py",
+      "agent/services/wiki_vector_index_mutation_service.py",
+      "agent/services/wiki_vector_runtime_service.py",
       "agent/services/vector_index_task_service.py",
+      "agent/services/vector_index_task_contracts.py",
+      "agent/services/vector_index_task_lifecycle_service.py",
+      "agent/services/vector_index_worker_result_boundary.py",
+      "agent/services/_vector_index_result_forwarding.py",
       "agent/services/vector_store_rollout_service.py",
       "agent/routes/vector_store_control.py",
       "agent/adapters/vector_store_metrics_adapter.py",
       "docker/compose-next/compose.qdrant.yml",
+      "docker/compose-next/compose.qdrant-workers.yml",
+      "docker/compose-next/compose.qdrant-hub-read.yml",
+      "docker/compose-next/compose.qdrant-grpc-host.yml",
+      "docker/compose-next/requirements.qdrant-worker.lock",
+      "docs/worker/qdrant-vector-store.md",
+      "docs/worker/qdrant-vector-store-error-codes.md",
+      "docs/worker/qdrant-vector-store-tls.md",
+      "docs/worker/qdrant-vector-index-taskflow.md",
       "tests/test_qdrant_vector_store_integration.py",
+      "tests/test_qdrant_compose_contract.py",
+      "tests/test_qdrant_collection_schema.py",
+      "tests/test_vector_index_input_artifact_service.py",
+      "tests/test_vector_index_input_loader.py",
+      "tests/test_vector_index_preparation.py",
+      "tests/test_wiki_retrieval_index_service.py",
+      "tests/test_qdrant_operations_docs.py",
+      "ananta_contracts/vector_index_dispatch.py",
+      "ananta_contracts/vector_index_task_attestation.py",
+      "agent/routes/tasks/vector_index_dispatch_admission.py",
+      "agent/routes/worker_vector_index_readiness.py",
+      "agent/services/vector_index_task_attestation_service.py",
+      "agent/services/vector_index_task_command_service.py",
+      "agent/services/vector_index_task_dispatch_service.py",
+      "agent/services/vector_index_task_ingress_policy.py",
+      "agent/services/vector_index_task_lifecycle_support.py",
+      "agent/services/vector_index_task_query_service.py",
+      "agent/services/vector_index_worker_identity_service.py",
+      "agent/services/vector_store_authorization_policy.py",
+      "agent/services/vector_task_admin_guard_service.py",
+      "worker/retrieval/vector_index_dispatch_admission.py",
+      "worker/retrieval/vector_index_embedding_egress_policy.py",
+      "worker/retrieval/vector_index_replay_guard.py",
+      "worker/retrieval/vector_index_task_attestation.py",
+      "worker/retrieval/vector_index_task_verification.py",
+      "worker/retrieval/vector_index_worker_readiness.py",
+      "tests/test_vector_admin_authorization.py",
+      "tests/test_vector_index_dispatch_admission.py",
+      "tests/test_vector_index_embedding_egress_policy.py",
+      "tests/test_vector_index_task_attestation.py",
+      "tests/test_vector_index_worker_readiness.py",
+      "docs/worker/qdrant-vector-store-availability.md",
+      "docs/worker/qdrant-vector-store-hub-read.md",
+      "docs/worker/qdrant-vector-worker-identity.md",
       "scripts/benchmark/qdrant_vector_store.py",
+      "scripts/benchmark/qdrant_vector_store_memory.py",
       "config/benchmarks/qdrant-vector-store.v1.json",
       ".github/workflows/quality-and-docs.yml"
     ],
-    "main_architecture_gap": "Ports und Composition Root existieren, aber produktive Consumer verwenden teilweise den breiten Composite-Port, der JSON-Fallback wird nicht komponiert, CodeCompass-Suche verliert den trusted Scope und ein direkter Hub-Refresh umgeht den Worker-Taskflow.",
-    "operations_gap": "Compose, Integrationstest und Benchmark-Runner existieren. Worker-Dependency, Backend-Konfigurationsverdrahtung, authentifizierte Readiness, echte Qdrant-CI, ausgefuehrte Benchmark-Artefakte und redigierte Release-Evidence fehlen.",
-    "security_gap": "Origin-, TLS- und Secret-Pruefungen existieren, aber Rollout-Overrides koennen Endpoint- und Secret-Policy erweitern, Config-Hashes enthalten Secret-Referenz-Locators und JSON/Qdrant besitzen unterschiedliche Rollenfilter-Semantik.",
-    "migration_gap": "Der wiederaufnehmbare Migrator existiert, ist aber wegen eines verschachtelten Hub-Payloads, ignoriertem dry_run und nicht scope-/idempotency-gebundenem Checkpoint nicht ueber den regulaeren Worker-Taskflow ausfuehrbar."
+    "main_architecture_gap": "Keine bekannte Source-Luecke im implementierten Hub-owned Mutation- und expliziten Hub-as-worker-Read-Vertrag. Formale Source-Grounding-Evidence fehlt weiterhin.",
+    "operations_gap": "Der digestgebundene, TLS-gesicherte CI-Job ist definiert und die aktuelle Suite lief lokal sechs von sechs erfolgreich. Es fehlen weiterhin konkret bereitgestellte GitHub-/RUN_* Evidence und ein vollstaendiges freigegebenes Referenzhost-BenchmarkRunArtifact.",
+    "security_gap": "Keine bekannte Source-Policy-Luecke im geprueften Stand: trusted_private_origins ist keine Klartext-HTTP-Ausnahme, sondern kann nur fuer exakt allowlistete Origins external_calls_allowed ersetzen. Jeder Nicht-Loopback-Endpunkt bleibt TLS- und zertifikatspruefungspflichtig; formale RUN_* Evidence fehlt.",
+    "migration_gap": "Keine bekannte Source-Luecke: Dry-run, digestgebundener Input, scope-/idempotency-gebundener Checkpoint, Resume, Alias-Aktivierung und Source-Erhalt sind durch lokale Tests und den realen TLS-Qdrant-Lauf abgedeckt; RUN_* Grounding fehlt."
   },
   "architecture_principles": [
     "Qdrant ist optional; Ananta bleibt ohne qdrant-client und ohne Qdrant-Service start- und testbar.",
@@ -108,15 +167,17 @@
       },
       "qdrant": {
         "endpoint": {
-          "rest_url": "http://localhost:6333",
-          "grpc_url": "grpc://localhost:6334",
-          "api_key_ref": "file:///run/secrets/qdrant-api-key",
+          "rest_url": "https://localhost:6333",
+          "grpc_url": null,
+          "api_key_ref": "secretfile:///run/secrets/qdrant-api-key",
+          "tls_ca_cert_ref": "secretfile:///run/secrets/qdrant-tls-ca.pem",
           "allowed_origins": [
-            "http://localhost:6333",
-            "grpc://localhost:6334"
+            "https://localhost:6333"
           ],
+          "trusted_private_origins": [],
           "external_calls_allowed": false,
-          "timeout_seconds": 10,
+          "connect_timeout_seconds": 3,
+          "request_timeout_seconds": 10,
           "prefer_grpc": false,
           "tls_verify": true
         },
@@ -145,18 +206,36 @@
     "worker/retrieval/vector_store_observer.py",
     "worker/retrieval/vector_store_migration.py",
     "worker/retrieval/vector_index_execution.py",
+    "worker/retrieval/vector_index_input_loader.py",
+    "worker/retrieval/vector_index_preparation.py",
     "worker/retrieval/vector_index_job_handler.py",
+    "agent/services/codecompass_vector_runtime_service.py",
+    "agent/services/vector_index_input_artifact_service.py",
     "agent/services/vector_index_task_service.py",
+    "agent/services/vector_index_task_contracts.py",
+    "agent/services/vector_index_task_lifecycle_service.py",
+    "agent/services/vector_index_worker_result_boundary.py",
+    "agent/services/_vector_index_result_forwarding.py",
     "agent/services/vector_store_rollout_service.py",
+    "agent/services/wiki_vector_index_mutation_service.py",
+    "agent/services/wiki_vector_runtime_service.py",
     "agent/routes/vector_store_control.py",
     "agent/adapters/vector_store_metrics_adapter.py",
     "config/examples/vector-store.qdrant-local.json",
     "config/examples/vector-store.qdrant-remote.json",
     "config/examples/vector-store.json-local.json",
     "docs/worker/qdrant-vector-store.md",
+    "docs/worker/qdrant-vector-store-error-codes.md",
+    "docs/worker/qdrant-vector-store-tls.md",
+    "docs/worker/qdrant-vector-index-taskflow.md",
     "docker/compose-next/compose.qdrant.yml",
+    "docker/compose-next/compose.qdrant-workers.yml",
+    "docker/compose-next/compose.qdrant-hub-read.yml",
+    "docker/compose-next/compose.qdrant-grpc-host.yml",
+    "docker/compose-next/requirements.qdrant-worker.lock",
     "config/benchmarks/qdrant-vector-store.v1.json",
     "scripts/benchmark/qdrant_vector_store.py",
+    "scripts/benchmark/qdrant_vector_store_memory.py",
     "tests/benchmarks/codecompass_worker/test_qdrant_vector_store_benchmark.py",
     "tests/test_vector_store_contract.py",
     "tests/test_vector_store_config.py",
@@ -165,6 +244,7 @@
     "tests/test_vector_store_factory.py",
     "tests/test_qdrant_client_adapter.py",
     "tests/test_qdrant_collection_manager.py",
+    "tests/test_qdrant_collection_schema.py",
     "tests/test_qdrant_query_compatibility.py",
     "tests/test_qdrant_vector_store_unit.py",
     "tests/test_qdrant_vector_store_integration.py",
@@ -172,12 +252,70 @@
     "tests/test_qdrant_vector_store_migration.py",
     "tests/test_vector_index_task_service.py",
     "tests/test_vector_index_execution.py",
+    "tests/test_vector_index_input_artifact_service.py",
+    "tests/test_vector_index_input_loader.py",
+    "tests/test_vector_index_preparation.py",
     "tests/test_vector_index_job_handler.py",
     "tests/test_vector_store_control_routes.py",
     "tests/test_vector_store_rollout_service.py",
     "tests/test_vector_store_metrics_adapter.py",
     "tests/test_qdrant_compose_contract.py",
-    "tests/test_wiki_qdrant_adapter.py"
+    "tests/test_qdrant_operations_docs.py",
+    "tests/test_wiki_qdrant_adapter.py",
+    "tests/test_wiki_retrieval_index_service.py",
+    "agent/routes/control_center_task_mutations.py",
+    "agent/routes/tasks/archive_admin.py",
+    "agent/routes/tasks/vector_admin_boundary.py",
+    "agent/routes/tasks/vector_index_dispatch_admission.py",
+    "agent/routes/worker_vector_index_readiness.py",
+    "agent/services/_task_scoped_recovery_outcome_cache.py",
+    "agent/services/_task_scoped_vector_step_policy.py",
+    "agent/services/context_bundle_ingress_policy.py",
+    "agent/services/kanban_service_error.py",
+    "agent/services/kanban_vector_task_boundary.py",
+    "agent/services/retrieval_runtime_lifecycle_service.py",
+    "agent/services/retrieval_vector_runtime_scope_service.py",
+    "agent/services/retrieval_vector_scope_binding_service.py",
+    "agent/services/retrieval_vector_scope_ingress_policy.py",
+    "agent/services/run_control_task_intervention_mixin.py",
+    "agent/services/task_archive_admin_mixin.py",
+    "agent/services/task_context_bundle_access_service.py",
+    "agent/services/task_vector_admin_mixin.py",
+    "agent/services/vector_index_preparation_policy.py",
+    "agent/services/vector_index_task_attestation_service.py",
+    "agent/services/vector_index_task_command_service.py",
+    "agent/services/vector_index_task_dispatch_service.py",
+    "agent/services/vector_index_task_ingress_policy.py",
+    "agent/services/vector_index_task_lifecycle_support.py",
+    "agent/services/vector_index_task_query_service.py",
+    "agent/services/vector_index_worker_identity_service.py",
+    "agent/services/vector_store_authorization_policy.py",
+    "agent/services/vector_task_admin_guard_service.py",
+    "ananta_contracts/vector_index_dispatch.py",
+    "ananta_contracts/vector_index_task_attestation.py",
+    "docker/compose-next/compose.qdrant-wiki-hub-read.yml",
+    "docker/compose-next/compose.workflow-runtime.dev-auth.yml",
+    "docs/worker/qdrant-vector-store-availability.md",
+    "docs/worker/qdrant-vector-store-hub-read.md",
+    "docs/worker/qdrant-vector-worker-identity.md",
+    "scripts/dev_workflow_identity_documents.py",
+    "scripts/generate_vector_index_task_keyrings.py",
+    "tests/test_context_bundle_task_boundary.py",
+    "tests/test_retrieval_vector_scope_binding.py",
+    "tests/test_task_management_vector_index_ingress.py",
+    "tests/test_vector_admin_authorization.py",
+    "tests/test_vector_index_dispatch_admission.py",
+    "tests/test_vector_index_embedding_egress_policy.py",
+    "tests/test_vector_index_task_attestation.py",
+    "tests/test_vector_index_worker_readiness.py",
+    "tests/vector_index_attestation_test_support.py",
+    "worker/retrieval/vector_index_artifact_locator.py",
+    "worker/retrieval/vector_index_dispatch_admission.py",
+    "worker/retrieval/vector_index_embedding_egress_policy.py",
+    "worker/retrieval/vector_index_replay_guard.py",
+    "worker/retrieval/vector_index_task_attestation.py",
+    "worker/retrieval/vector_index_task_verification.py",
+    "worker/retrieval/vector_index_worker_readiness.py"
   ],
   "expected_modified_files": [
     "worker/retrieval/codecompass_vector_store.py",
@@ -186,13 +324,84 @@
     "worker/retrieval/wiki_vector_store.py",
     "agent/services/codecompass_vector_retrieval_service.py",
     "agent/services/wiki_retrieval_index_service.py",
+    "agent/services/retrieval_service.py",
+    "agent/services/retrieval_source_adapters.py",
+    "agent/hybrid_orchestrator.py",
     "docs/worker/retrieval_and_indexing.md",
     "docs/worker/codecompass-vector-retrieval.md",
     "pyproject.toml",
     ".env.example",
     "README.md",
     ".github/workflows/ananta-codecompass-review.yml",
-    ".github/workflows/quality-and-docs.yml"
+    ".github/workflows/quality-and-docs.yml",
+    ".dockerignore",
+    ".gitignore",
+    "agent/ai_agent.py",
+    "agent/auth.py",
+    "agent/models/task_models.py",
+    "agent/routes/control_center_api.py",
+    "agent/routes/tasks/artifact_status.py",
+    "agent/routes/tasks/goals_query_routes.py",
+    "agent/routes/tasks/management.py",
+    "agent/routes/tasks/orchestration.py",
+    "agent/routes/tasks/orchestration_policy/read_model.py",
+    "agent/routes/tasks/orchestration_policy/routing.py",
+    "agent/routes/tasks/utils.py",
+    "agent/services/_task_execution_tracking_artifact_flow.py",
+    "agent/services/_task_scoped_forwarding.py",
+    "agent/services/_task_scoped_runtime.py",
+    "agent/services/_task_scoped_step_orchestrator.py",
+    "agent/services/artifact_reconciliation_service.py",
+    "agent/services/background/registration.py",
+    "agent/services/config_read_model_service.py",
+    "agent/services/context_manager_service.py",
+    "agent/services/embedding_provider_config_service.py",
+    "agent/services/goal_purge_service.py",
+    "agent/services/human_approval_service.py",
+    "agent/services/kanban_projection_service.py",
+    "agent/services/operations_observability_service.py",
+    "agent/services/rag_service.py",
+    "agent/services/run_control_service.py",
+    "agent/services/task_admin_service.py",
+    "agent/services/task_claim_service.py",
+    "agent/services/task_execution_metrics.py",
+    "agent/services/task_management_service.py",
+    "agent/services/task_orchestration_service.py",
+    "agent/services/worker_job_service.py",
+    "agent/services/workflow_worker_service_auth.py",
+    "ananta_contracts/file_credentials.py",
+    "ananta_contracts/runtime_authorization_crypto.py",
+    "docker/compose-next/Dockerfile.quickstart-no-ollama",
+    "docker/compose-next/README.md",
+    "scripts/bootstrap-dev-workflow-keyrings.py",
+    "tests/qdrant_test_support.py",
+    "tests/test_agent_registration.py",
+    "tests/test_artifact_reconciliation_service.py",
+    "tests/test_dev_workflow_keyring_bootstrap.py",
+    "tests/test_human_approval_service.py",
+    "tests/test_kanban_projection_service.py",
+    "tests/test_orchestration_policy.py",
+    "tests/test_security_boundary_attacks.py",
+    "tests/test_semantic_compute_registered_worker_handler.py",
+    "tests/test_task_admin_service.py",
+    "tests/test_task_endpoints.py",
+    "tests/test_task_recovery_planning_service.py",
+    "tests/test_tasks_utils_module.py",
+    "agent/routes/config/settings.py",
+    "agent/services/evolution/context_builder.py",
+    "scripts/validate_todo_consistency.py",
+    "tests/test_codecompass_retriever_providers.py",
+    "tests/test_codecompass_vector_retrieval_service.py",
+    "tests/test_codecompass_vector_store.py",
+    "tests/test_evolution_context_builder.py",
+    "tests/test_hybrid_orchestrator_codecompass_vector.py",
+    "tests/test_retrieval_service.py",
+    "tests/test_validate_todo_consistency.py",
+    "tests/test_wiki_hybrid_retrieval.py",
+    "tests/test_wiki_vector_store.py",
+    "worker/retrieval/codecompass_retriever.py",
+    "worker/retrieval/embedding_provider.py",
+    "worker/retrieval/wiki_hybrid_engine.py"
   ],
   "milestones": [
     {
@@ -205,7 +414,7 @@
         "QVS-014",
         "QVS-004"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -218,7 +427,7 @@
         "QVS-008",
         "QVS-007"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -230,7 +439,7 @@
         "QVS-024",
         "QVS-013"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -279,7 +488,7 @@
     {
       "id": "QVS-001",
       "title": "Capability-orientierte Vector-Store-Ports definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
@@ -290,7 +499,7 @@
         "tests/test_vector_store_contract.py"
       ],
       "description": "Kleine Ports fuer Search, Index-Schreibzugriffe, Lifecycle und Diagnostics definieren; ein Composite-Port bleibt optional.",
-      "status_note": "Capability-Ports, typisierte DTOs und Contracttests sind vorhanden. Breite Fake-/Substituierbarkeitstests fuer fehlende oder inkompatible Methoden sind noch unvollstaendig.",
+      "status_note": "Schmale Search-, Write-, Lifecycle- und Diagnostics-Ports, backendneutrale DTOs und der optionale Composite-Port sind implementiert. Positive und negative Contract-Fakes belegen Substituierbarkeit, fehlende Methoden und inkompatible Signaturen ohne Qdrant-Import.",
       "acceptance_criteria": [
         "VectorSearchPort exponiert ausschliesslich typisierte Dense Search mit top_k und einem trusted Scope-Objekt.",
         "VectorIndexWriter exponiert vorbereitete rebuild(), refresh(), upsert() und delete()-Operationen, erzeugt aber weder Embeddings noch Tasks.",
@@ -300,12 +509,12 @@
         "Contracttests pruefen JSON-Adapter und Fakes auf Substituierbarkeit sowie fehlende oder inkompatible Methoden.",
         "Die Portaufteilung schuetzt ISP, SRP und DIP; Store-Adapter enthalten keine Hub-, Queue- oder Embedding-Orchestrierung."
       ],
-      "progress_percent": 85.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-002",
       "title": "Bestehenden JSON-Store als kompatiblen Referenzadapter kapseln",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "refactoring",
@@ -320,7 +529,7 @@
         "tests/test_vector_store_contract.py"
       ],
       "description": "Bestehende JSON-Persistenz hinter die neuen Ports verschieben und den bisherigen Import-, Datei- und Ergebnisvertrag erhalten.",
-      "status_note": "JSON-Referenzadapter, Legacy-Lesen, atomare fsync/replace-Schreibvorgaenge und Exact-Cosine-Kompatibilitaet sind implementiert und getestet. Einzelne explizite Legacy-State- und Failure-Injection-Contractfaelle fehlen noch.",
+      "status_note": "Der kompatible JSON-Referenzadapter behaelt Imports und Ergebnisvertraege, prueft die vollstaendige Legacy-State-Matrix und schreibt flush/fsync/replace-atomar. Write-, Datei-/Verzeichnis-fsync- und Replace-Fehler lassen den Altstand unveraendert und entfernen Temporaerdateien; Exact-Cosine und fehlende Indizes sind regressionsgetestet.",
       "acceptance_criteria": [
         "Bestehende oeffentliche Imports, Konstruktoren und Return-Felder bleiben ueber einen dokumentierten Kompatibilitaetsadapter oder Alias verfuegbar.",
         "Ein expliziter Legacy-Testpfad laedt vorhandene Indexdateien und prueft bisherige Refresh-Gruende sowie Provider-, Modell-, Dimensions-, Profil-, Manifest-, Config- und Encoding-State-Felder.",
@@ -329,12 +538,12 @@
         "Dimensionskonflikte liefern den stabilen Reason-Code dimensions_mismatch; unlesbare oder unvollstaendige Indizes liefern eine redigierte Degraded-Diagnostik statt ungefangener Ausnahme.",
         "Alle bestehenden CodeCompassVectorStore-Tests und die neuen Port-Contracttests bestehen ohne Qdrant-Service und ohne installiertes qdrant-client Extra."
       ],
-      "progress_percent": 90.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-003",
       "title": "Backend-, Endpoint- und Availability-Konfiguration typisieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "configuration",
@@ -351,7 +560,7 @@
         "tests/test_vector_store_factory.py"
       ],
       "description": "BackendConfig, EndpointPolicy und AvailabilityPolicy als getrennte, secretfreie und deterministisch hashbare Konfigurationen einfuehren.",
-      "status_note": "Unveraenderliche JSON-/Qdrant-/Availability-Konfiguration und Produktionsparser existieren. Remote-Beispiel, geforderte einheitliche Errorcodes und getrennte Connect-/Request-Timeouts fehlen; der Config-Hash enthaelt noch Secret-Referenzwerte.",
+      "status_note": "Immutable Backend-, Endpoint- und Availability-Konfigurationen, ein gemeinsamer Produktionsparser, stabile Validierungsfehler und getrennte Connect-/Request-Timeouts sind implementiert. Drei Beispiele werden produktionsgleich geladen; der Config-Hash umfasst sicherheitsrelevante Nicht-Secrets, aber weder Secret-Referenzen noch aufgeloeste Secrets.",
       "acceptance_criteria": [
         "provider akzeptiert json und qdrant; fehlende Konfiguration waehlt json und benoetigt keinen externen Dienst.",
         "BackendConfig, EndpointPolicy und AvailabilityPolicy besitzen keine konkurrierenden fail_mode- oder on_unavailable-Felder.",
@@ -360,12 +569,12 @@
         "Die drei Beispielkonfigurationen werden im Test mit demselben Produktionsparser geladen; Remote-Config bleibt ohne explizite Freigabe inaktiv.",
         "Konfigurationsobjekte sind nach Validierung unveraenderlich und koennen vom Hub als aufgeloester, eingeschraenkter Taskkontext an Worker uebergeben werden."
       ],
-      "progress_percent": 65.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-014",
       "title": "Qdrant-Origins, TLS und Secret-Resolver absichern",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -382,7 +591,7 @@
         ".env.example"
       ],
       "description": "REST- und gRPC-Ziele immer allowlisten, Remote-Zugriff zusaetzlich freigeben und Secrets nur ueber enge Resolver beziehen.",
-      "status_note": "Origin-Normalisierung, Allowlist, Remote-Opt-in, TLS-Pruefung und begrenzter env/file-Secretresolver sind vorhanden. Scheme-/Errorcode-Vertrag und Redaction-Evidence sind unvollstaendig, getrennte gRPC-Hosts funktionieren nicht korrekt und Rollout-Overrides koennen Sicherheitsgrenzen erweitern.",
+      "status_note": "REST- und gRPC-Origins werden vollstaendig normalisiert, explizit allowgelistet und fuer Nicht-Loopback ausnahmslos TLS- und Zertifikatspruefungspflichtig behandelt. Der enge env-/secretfile-Resolver, Remote-Opt-in, getrennte Hosts, stabile Fehlercodes sowie Redaction-Tests fuer Hashes, Exceptions, Traces und Diagnostics sind umgesetzt.",
       "acceptance_criteria": [
         "REST- und gRPC-Ziele werden als normalisierte Origins aus Schema, Host und Port verglichen; Userinfo, Query, Fragment und nichtleere Pfade werden mit vector_store_invalid_origin abgelehnt.",
         "Auch Loopback-Ziele muessen in allowed_origins stehen; nicht lokale Origins benoetigen zusaetzlich external_calls_allowed=true.",
@@ -392,12 +601,12 @@
         "Tests pruefen, dass API-Key, Authorization-Header und Secretfile-Inhalt weder Config-Hash, Exceptions, Logs, Traces noch Diagnostics erreichen.",
         "Fake-Client-Tests decken getrennte REST-/gRPC-Origins, Unauthorized und TLS-Policy-Verletzungen ohne Netzwerkzugriff ab."
       ],
-      "progress_percent": 65.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-004",
       "title": "JSON-Composition-Root und erweiterbare Provider-Registry verdrahten",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -416,7 +625,7 @@
         "tests/test_vector_store_factory.py"
       ],
       "description": "JSON als Default im Composition Root registrieren und Consumer ausschliesslich per Constructor Injection an schmale Ports binden.",
-      "status_note": "Factory/Provider-Komposition und JSON-Default existieren. Consumer verwenden die kleinsten Ports noch nicht konsequent; CodeCompass-Qdrant-Search verliert den trusted Scope, der direkte Hub-Schreibpfad besteht fort und der Fallback ist produktiv nicht komponiert.",
+      "status_note": "Provider-Registry, JSON-Default und Composition Roots sind additiv verdrahtet. CodeCompass erhaelt getrennte Search-/Write-Capabilities per Constructor Injection, behaelt trusted Scope und Compatibility und loest durch Search weder Factory- noch Indexmutationen aus; der breite Store-Pfad bleibt nur als Rueckwaertskompatibilitaetsadapter.",
       "acceptance_criteria": [
         "Der Composition Root registriert den JSON-Adapter als Default und kann weitere Provider additiv ueber eine kleine Provider-Registry aufnehmen.",
         "CodeCompassVectorEngine, Channel-Provider und Retrieval-Service erhalten den jeweils kleinsten Port per Constructor Injection und konstruieren keinen konkreten Store selbst.",
@@ -425,12 +634,12 @@
         "Search-Aufrufe sind read-only und koennen weder Factory noch Engine zu implizitem rebuild(), refresh(), upsert(), delete() oder Migration veranlassen.",
         "Tests pruefen Registry-Erweiterung, JSON-Default, Constructor Injection und das Ausbleiben versteckter Schreiboperationen."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-005",
       "title": "Optionalen Qdrant-Client ueber einen isolierten Adapter integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "dependency",
@@ -450,7 +659,7 @@
         ".github/workflows/quality-and-docs.yml"
       ],
       "description": "qdrant-client als optionales Extra hinter einem schmalen Client-Port kapseln.",
-      "status_note": "Isolierter Qdrant-Adapter, optionales Extra, Lazy Import und Fake-Client-Tests existieren. Worker-Image und CI installieren oder testen das Extra nicht; die konfigurierte gRPC-Origin uebernimmt nur den Port und nicht den Host.",
+      "status_note": "Der begrenzte qdrant-client 1.18.0 ist ausschliesslich im lazy geladenen Adapter und im separaten Worker-/Hub-as-worker-Image enthalten; Standard-JSON bleibt qdrant-frei. REST/gRPC-Ziele und Secrets stammen nur aus der freigegebenen Policy, und die Probe-Matrix deckt ready, timeout, unauthorized, unavailable sowie Redaction ab.",
       "acceptance_criteria": [
         "Die Standardinstallation und alle JSON-Tests laufen ohne installiertes qdrant-client Paket.",
         "Ein dokumentiertes qdrant Extra installiert eine begrenzte Client-Version; die CI prueft je einen Lauf mit und ohne Extra.",
@@ -459,12 +668,12 @@
         "Der Adapter verwendet ausschliesslich die von EndpointPolicy freigegebenen REST-/gRPC-Origins und den engen Secret-Resolver.",
         "Fake-Client-Tests pruefen Ready, Timeout, Unauthorized, Unavailable und Redaction ohne echte Netzwerkaufrufe."
       ],
-      "progress_percent": 70.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-006",
       "title": "Versioniertes Qdrant-Collection- und Payload-Schema definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "schema",
@@ -480,7 +689,7 @@
         "tests/test_qdrant_collection_manager.py"
       ],
       "description": "Vektorparameter, kanonische Point-ID, trusted Scope und Payload-Schema stabil und versioniert festlegen.",
-      "status_note": "Versioniertes Collection-/Payload-Schema, trusted Scope und stabile Point-IDs sind implementiert. Feldgroessen und das konfigurierte embedding_text-Opt-in sind nicht vollstaendig nachgewiesen beziehungsweise verdrahtet.",
+      "status_note": "Das versionierte Collection-/Payload-Schema erzwingt Dimension, Distance, Pflichtfelder und trusted Scope, begrenzt optionale Felder und erzeugt kanonische kollisionsresistente Point-IDs. Volltext wird ausschliesslich ueber das standardmaessig deaktivierte embedding_text-Opt-in gespeichert; Schema- und Negativtests decken den Vertrag ab.",
       "acceptance_criteria": [
         "Collection-Definitionen enthalten explizite Dimension, Distance-Metrik und schema_version; Cosine ist der dokumentierte Default.",
         "Jeder Point enthaelt verpflichtend workspace_id, repository_id, record_id, kind, source_scope, profile_name, manifest_hash und schema_version.",
@@ -490,12 +699,12 @@
         "embedding_text oder vollstaendige Dokumentinhalte werden nur nach explizitem, standardmaessig deaktiviertem Opt-in gespeichert.",
         "Schema-Tests pruefen Pflichtfelder, Groessenlimits, kanonische IDs, Dimension und Distance ohne laufenden Qdrant-Service."
       ],
-      "progress_percent": 75.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-009",
       "title": "Collection-Kompatibilitaet vor Aktivierung und Search pruefen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "validation",
@@ -513,7 +722,7 @@
         "tests/test_vector_store_compatibility.py"
       ],
       "description": "Bestehende JSON-Kompatibilitaetssemantik in einen backendneutralen Validator ueberfuehren und vor Alias-Aktivierung sowie Search anwenden.",
-      "status_note": "Compatibility-Reports und Aktivierungspruefungen existieren. Search rekonstruiert Provider, Modell, Profil, Encoding und Hashes teilweise aus derselben Collection statt aus unabhaengigem Sollzustand; Reason-Code-Abdeckung weicht vom Vertrag ab.",
+      "status_note": "Search und Alias-Aktivierung vergleichen den unabhaengigen erwarteten Zustand mit Dimension, Distance, Provider, Modell, Profil, Encoding, Config, Manifest und Schema. Die vollstaendige Reason-Code-Matrix ist fail-closed; Legacy- oder inkompatible Collections werden weder durchsucht noch aktiviert und Diagnostics bleiben redigiert.",
       "acceptance_criteria": [
         "Dimension, Distance, Provider, Modell, embedding_text_profile, vector_encoding, Config-Hash, Manifest und schema_version werden vor Search und Alias-Aktivierung verglichen.",
         "Konflikte liefern genau einen stabilen Zustand aus dimensions_mismatch, distance_mismatch, provider_changed, model_changed, profile_changed, encoding_changed, config_changed, manifest_changed, migration_required oder rebuild_required.",
@@ -522,12 +731,12 @@
         "Compatibility-State und Diagnostics enthalten keine Secrets und zeigen erwartete sowie gefundene nicht sensible Versionen.",
         "Tests verwenden JSON-State-Faelle und Fake-Qdrant-Metadaten fuer jeden Reason-Code."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-012",
       "title": "Fail-closed Scope- und Metadatenfilter bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -544,7 +753,7 @@
         "tests/test_qdrant_vector_store_security.py"
       ],
       "description": "Trusted Workspace-/Repository-Scope und zusaetzliche Metadatenfilter vor jeder Search in einen serverseitigen Qdrant-Filter uebersetzen.",
-      "status_note": "Fail-closed trusted Scope, serverseitige Search-/Delete-Filter und Cross-Scope-Tests sind vorhanden. Die unterschiedliche Rollenfilter-Semantik von JSON und Qdrant muss noch vereinheitlicht und umfassender negativ getestet werden.",
+      "status_note": "Der gemeinsame Filter-Builder erzwingt trusted Workspace-/Repository-Scope fuer Search, Delete und Cleanup und erlaubt Caller-Filtern nur Verengungen. Rollen-, Metadaten-, manipulierte-Scope- und Cross-Workspace/-Repository-Negativtests pruefen das konkrete serverseitige Filterobjekt und verhindern Cross-Scope-Zugriffe.",
       "acceptance_criteria": [
         "Jede produktive Search benoetigt einen trusted ScopeContext mit workspace_id und repository_id; fehlender oder untrusted Scope liefert vector_scope_required.",
         "Der Filter-Builder fuegt den trusted Scope zwingend ein und schneidet source_scope, profile_name, kind, file_prefix und role_labels nur weiter ein; Caller-Filter koennen den Scope nicht lockern.",
@@ -553,12 +762,12 @@
         "Delete- und Cleanup-Filter verwenden denselben trusted Scope-Builder wie Search.",
         "Fake-Client-Tests pruefen das konkret erzeugte Qdrant-Filterobjekt sowie Ablehnung von fehlendem, manipuliertem und widerspruechlichem Scope."
       ],
-      "progress_percent": 85.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-008",
       "title": "Read-only Qdrant Dense Search implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "retrieval",
@@ -576,7 +785,7 @@
         "tests/test_qdrant_vector_store_unit.py"
       ],
       "description": "Dense Query-Vektoren serverseitig filtern und in das bestehende Candidate-Format zurueckfuehren, ohne den Index zu mutieren.",
-      "status_note": "Read-only Qdrant-Search, serverseitige Filter, Score-Mapping und Fake-Tests existieren. Der produktive CodeCompass-Aufruf uebergibt aktuell keinen verpflichtenden Scope; echte Qdrant-Evidence fehlt.",
+      "status_note": "Read-only Qdrant Dense Search ist produktiv mit verpflichtendem trusted Scope, vollstaendiger Compatibility und serverseitigem top_k-/Metadatenfilter verdrahtet. Score-Mapping, leere Collections, Dimensionskonflikte sowie Timeout, Unauthorized und collection_missing sind inklusive explizitem No-Mutation-Nachweis getestet.",
       "acceptance_criteria": [
         "search_by_vector() gibt bestehende Candidate-Felder einschliesslich vector_score und score in dokumentierter Skalierung zurueck.",
         "top_k und der verpflichtende Scope-/Metadatenfilter werden serverseitig angewendet.",
@@ -585,12 +794,12 @@
         "Qdrant-Scoresemantik wird explizit auf die vom bestehenden Ranking erwartete Semantik abgebildet und mit Exact-Cosine-Faellen getestet.",
         "Fake-Client-Tests decken Search, Filter, leere Collection, Timeout, Unauthorized, fehlende Collection und Dimensionskonflikt ab."
       ],
-      "progress_percent": 75.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-007",
       "title": "Versionierte Collections und crash-sicheren Alias-Swap implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "indexing",
@@ -607,7 +816,7 @@
         "tests/test_qdrant_vector_store_unit.py"
       ],
       "description": "Rebuilds in versionierte Collections schreiben, validieren und erst danach atomar per Alias aktivieren.",
-      "status_note": "Versionierte Collections, Manifest, Alias-Swap und Retention-Code existieren. Bei wiederverwendeter Versionscollection kann ein fehlgeschlagener Rebuild die aktive Collection loeschen; vollstaendige Failure-Injection- und Concurrency-Evidence fehlt.",
+      "status_note": "Rebuilds verwenden stets eine frische inaktive Staging-Collection und aktivieren sie erst nach Compatibility- und Point-Count-Pruefung in einer atomaren Aliasoperation. Failure-Injection an allen Phasen, Concurrent-Reader und scopegebundene Retention belegen, dass der alte Alias bei Fehlern aktiv und Cross-Scope-State unangetastet bleibt.",
       "acceptance_criteria": [
         "Ein Rebuild schreibt ausschliesslich in eine neue, inaktive Collection und veraendert die aktive Collection vor erfolgreicher Validierung nicht.",
         "Collection-Namen bestehen aus normalisiertem Prefix, kanonischem Scope und einer aus dem Index-Manifest abgeleiteten Version; ungueltige Namen liefern vector_store_invalid_collection.",
@@ -616,12 +825,12 @@
         "Ein Concurrency-Test zeigt, dass parallele Leser nur die alte oder neue vollstaendige Collection sehen.",
         "Retention-Cleanup loescht nur inaktive Collections desselben trusted Scope und wird durch Fake-Client-Tests gegen Cross-Scope-Loeschung abgesichert."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-010",
       "title": "Vorbereitete Batch-Upserts und Source-Hash-Skips implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "indexing",
@@ -637,7 +846,7 @@
         "tests/test_qdrant_vector_store_unit.py"
       ],
       "description": "Bereits eingebettete, validierte Points in begrenzten Batches upserten und unveraenderte Source-Hashes ueberspringen.",
-      "status_note": "Prepared Points, Batching, stabile IDs, Source-Hash-Skip und Zaehler sind implementiert. Vollstaendige Batchgrenz-/Teilfehler-Evidence fehlt, leere Source-Hashes koennen faelschlich als unveraendert gelten und der Hub erlaubt groessere Batches als der Store.",
+      "status_note": "Der Store akzeptiert ausschliesslich vorbereitete Points, validiert Batchgroessen 1..1000 mit Default 128 und streamt groessere Eingaben. Nichtleere Source-Hashes, stabile IDs, idempotente Wiederholung, Batchgrenzen und Teilfehler mit accepted/upserted/skipped/failed sind ohne Embedding- oder Netzwerkzugriff getestet.",
       "acceptance_criteria": [
         "Der Store akzeptiert ausschliesslich vorbereitete Points mit Vektor, trusted Scope, record_id und source_hash; er erzeugt keine Embeddings und orchestriert keine Tasks.",
         "Batch-Groesse ist von 1 bis 1000 konfigurierbar und besitzt den Default 128; groessere Eingaben werden gestreamt in Batches verarbeitet.",
@@ -646,12 +855,12 @@
         "Teilfehler liefern pro Batch redigierte Fehlercodes sowie accepted, upserted, skipped und failed; die aktive Collection bleibt konsistent.",
         "Fake-Client-Tests pruefen Batchgrenzen, Idempotenz, Source-Hash-Skip und Teilfehler ohne EmbeddingProvider oder Netzwerk."
       ],
-      "progress_percent": 75.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-011",
       "title": "Vorbereitete Loesch- und Umbenennungsplaene sicher anwenden",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "indexing",
@@ -666,7 +875,7 @@
         "tests/test_qdrant_vector_store_unit.py"
       ],
       "description": "Vom Hub-Task vorbereitete Point- und Scope-Loeschungen deterministisch und fail-closed ausfuehren.",
-      "status_note": "Scoped Point-Delete, Scope-Cleanup und Rename als Upsert-plus-Delete existieren. Teilfehler-/Retry-Abdeckung ist unvollstaendig; delete_all_scope wird im delegierten Worker-Pfad ignoriert.",
+      "status_note": "Vorbereitete Point-Deletes, Rename als Upsert-plus-Delete und vollstaendige scopegebundene Bereinigung werden im delegierten Pfad angewendet. Teilfehler, Cross-Scope-Schutz, transiente Wiederholung, Idempotenz und exakte deleted/failed-Zaehler sind mit Fake-Client-Matrizen belegt.",
       "acceptance_criteria": [
         "Der Store akzeptiert vorbereitete Point-IDs oder einen trusted Scope-Cleanup-Plan und entscheidet nicht selbst ueber Datei- oder Task-Lifecycle.",
         "Geloeschte record_id-Werte sind nach erfolgreichem Delete nicht mehr suchbar.",
@@ -675,12 +884,12 @@
         "Teilfehler liefern deleted und failed mit stabilen Reason-Codes und koennen idempotent erneut ausgefuehrt werden.",
         "Fake-Client-Tests decken Point-Delete, Datei-Umbenennung, vollstaendige Scope-Bereinigung, Wiederholung und Cross-Scope-Angriffe ab."
       ],
-      "progress_percent": 65.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-015",
       "title": "Resilience- und Fallback-Policy als Decorator implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "resilience",
@@ -697,7 +906,7 @@
         "tests/test_qdrant_vector_store_unit.py"
       ],
       "description": "AvailabilityPolicy in einem separaten Search-Decorator auswerten; Factory und Store enthalten keine versteckte Fallback-Entscheidung.",
-      "status_note": "Availability-Decorator und redigierte Fallback-Traces sind implementiert. Der Decorator ist produktiv nicht verdrahtet, getrennte Connect-/Request-Timeouts fehlen und JSON-Fallback wirkt deshalb im realen Search-Pfad nicht.",
+      "status_note": "Der produktiv komponierte Availability-Decorator unterscheidet ready, unavailable, unauthorized und incompatible_collection, verwendet getrennte Connect-/Request-Timeouts und entscheidet allein ueber fail_fast, degraded_empty oder kompatiblen read-only JSON-Fallback. Trace, abgelehnter Schreibfallback, inkompatibler State und Factory-Komposition sind getestet.",
       "acceptance_criteria": [
         "Health-State unterscheidet ready, unavailable, unauthorized und incompatible_collection mit stabilen Reason-Codes.",
         "Connect-Timeout hat Default 3 Sekunden und Request-Timeout Default 10 Sekunden; beide werden durch die Config-Grenzen validiert.",
@@ -707,12 +916,12 @@
         "Ein inkompatibler JSON-State liefert fallback_state_incompatible statt Ergebnisse.",
         "Fake-Tests pruefen Timeout, Unauthorized, Incompatible, kompatiblen Fallback, abgelehnten Fallback und Cleanup ohne Netzwerk."
       ],
-      "progress_percent": 50.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-024",
       "title": "Hub-owned Index-, Reindex- und Migration-Taskflow einfuehren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "orchestration",
@@ -732,24 +941,69 @@
         "tests/test_vector_index_task_service.py",
         "tests/test_vector_index_execution.py",
         "tests/test_vector_index_job_handler.py",
-        "tests/test_vector_store_control_routes.py"
+        "tests/test_vector_store_control_routes.py",
+        "ananta_contracts/vector_index_dispatch.py",
+        "ananta_contracts/vector_index_task_attestation.py",
+        "agent/routes/control_center_task_mutations.py",
+        "agent/routes/tasks/archive_admin.py",
+        "agent/routes/tasks/vector_admin_boundary.py",
+        "agent/routes/tasks/vector_index_dispatch_admission.py",
+        "agent/services/_task_scoped_vector_step_policy.py",
+        "agent/services/_vector_index_result_forwarding.py",
+        "agent/services/run_control_task_intervention_mixin.py",
+        "agent/services/task_archive_admin_mixin.py",
+        "agent/services/task_vector_admin_mixin.py",
+        "agent/services/vector_index_input_artifact_service.py",
+        "agent/services/vector_index_preparation_policy.py",
+        "agent/services/vector_index_task_attestation_service.py",
+        "agent/services/vector_index_task_command_service.py",
+        "agent/services/vector_index_task_contracts.py",
+        "agent/services/vector_index_task_dispatch_service.py",
+        "agent/services/vector_index_task_ingress_policy.py",
+        "agent/services/vector_index_task_lifecycle_service.py",
+        "agent/services/vector_index_task_lifecycle_support.py",
+        "agent/services/vector_index_task_query_service.py",
+        "agent/services/vector_index_worker_identity_service.py",
+        "agent/services/vector_index_worker_result_boundary.py",
+        "agent/services/vector_store_authorization_policy.py",
+        "agent/services/vector_task_admin_guard_service.py",
+        "worker/retrieval/vector_index_artifact_locator.py",
+        "worker/retrieval/vector_index_dispatch_admission.py",
+        "worker/retrieval/vector_index_embedding_egress_policy.py",
+        "worker/retrieval/vector_index_input_loader.py",
+        "worker/retrieval/vector_index_preparation.py",
+        "worker/retrieval/vector_index_replay_guard.py",
+        "worker/retrieval/vector_index_task_attestation.py",
+        "worker/retrieval/vector_index_task_verification.py",
+        "tests/test_task_management_vector_index_ingress.py",
+        "tests/test_vector_admin_authorization.py",
+        "tests/test_vector_index_dispatch_admission.py",
+        "tests/test_vector_index_embedding_egress_policy.py",
+        "tests/test_vector_index_input_artifact_service.py",
+        "tests/test_vector_index_input_loader.py",
+        "tests/test_vector_index_preparation.py",
+        "tests/test_vector_index_task_attestation.py",
+        "tests/vector_index_attestation_test_support.py"
       ],
       "description": "Index-, Reindex-, Rebuild-, Delete- und Migration-Auftraege als hub-owned Tasks routen; Worker fuehren nur den delegierten Auftrag aus.",
-      "status_note": "Hub-Service, Control-Routen, Queue-Ownership, Serialisierung, Retry/Cancel und Worker-Executor existieren. Hub-/Worker-Payloads sind nicht konsistent, input_ref, delete_all_scope und Worker-Idempotenz sind wirkungslos; der alte direkte Hub-Schreibpfad besteht fort.",
+      "status_note": "Immutable Hub-/Worker-Envelopes vereinheitlichen index, refresh, rebuild, delete und migrate mit trusted Scope, Idempotenz, Policy und digestgebundenem input_ref. Hub-signierte, worker- und versuchsgebundene Attestations, revocable Online-Admission, persistenter Replay-Schutz, exakte Result-Bindings/CAS sowie zentrale fail-closed Autorisierung sichern alle generischen Administrationspfade. Der Hub besitzt Queue, Serialisierung, Retry, Cancellation und Audit; Worker fuehren genau einen delegierten Auftrag aus und koennen weder Tasks noch Worker orchestrieren. Die abschliessenden QVS-, Security-, Standard-Pipeline-, Workflow-Gate- und echten TLS-Qdrant-Laeufe waren lokal erfolgreich.",
       "acceptance_criteria": [
         "Ausschliesslich der Hub erzeugt, besitzt, priorisiert, storniert und delegiert Vector-Index-Tasks ueber die bestehende Task Queue.",
         "Der Worker-Executor fuehrt genau einen delegierten Auftrag aus und kann weder Tasks erzeugen noch andere Worker adressieren oder orchestrieren.",
         "Search-Endpunkte und Search-Ports erzeugen keine Index-Tasks und mutieren keinen Index.",
         "Tasktypen fuer index, refresh, rebuild, delete und migrate besitzen typisierte, additive Payloads mit trusted Scope, idempotency_key und auditierbarer Policy-Entscheidung.",
         "Retry und Resume verwenden denselben idempotency_key; parallele Tasks desselben Scope werden vom Hub serialisiert oder mit vector_index_task_conflict abgelehnt.",
-        "API- und Service-Tests pruefen Autorisierung, Queue-Ownership, Delegation, Cancellation, Retry, Audit und das Verbot von Worker-Orchestrierung."
+        "API- und Service-Tests pruefen Autorisierung, Queue-Ownership, Delegation, Cancellation, Retry, Audit und das Verbot von Worker-Orchestrierung.",
+        "Jeder Dispatch ist vom Hub asymmetrisch signiert, an eine konkrete Worker-Audience, Attempt, Sequence und TTL gebunden und wird unmittelbar vor der ersten Mutation online beim Hub zugelassen.",
+        "Persistente Replay-High-Watermarks, exakte Result-Bindings und CAS verhindern Wiederholung, stale Resultate und Cancellation-/Completion-Races auch ueber Worker-Neustarts.",
+        "Generische Task- und Verwaltungsendpunkte erkennen vollstaendige sowie partielle reservierte Vector-Marker und erzwingen die zentrale fail-closed Autorisierung."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-013",
       "title": "Dedizierten JSON-zu-Qdrant-Migrator bereitstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "migration",
@@ -770,7 +1024,7 @@
         "docs/worker/qdrant-vector-store.md"
       ],
       "description": "Kompatible JSON-Vektoren ueber einen dedizierten, wiederaufnehmbaren Migrator in eine inaktive Qdrant-Collection uebertragen.",
-      "status_note": "Dry-run-, Batch-, Checkpoint-/Resume- und idempotenter JSON-zu-Qdrant-Migrator existieren. Der Hub verschachtelt Migrationsdaten anders als der Worker sie liest, wodurch regulaere migrate-Tasks derzeit scheitern; Crash-/Cross-Scope-Evidence ist unvollstaendig.",
+      "status_note": "Der Hub-delegierte Migrator fuehrt Dry-run, digestgebundene vorbereitete Eingabe, begrenzte Batches und scope-/idempotency-gebundene Checkpoints aus. Gemischte explizite Source-Scopes werden vor jedem Write abgewiesen; Resume, Idempotenz, Cross-Scope-Schutz und Alias-Aktivierungsfehler erhalten alten Alias und JSON-Quelle.",
       "acceptance_criteria": [
         "Der Migrator wird nur im Kontext eines vom Hub delegierten migrate-Tasks ausgefuehrt und erzeugt selbst weder Tasks noch Embeddings.",
         "Dry-run meldet trusted Scope, Zielcollection, Entry-Anzahl, Dimension, Distance, Compatibility-State und Konflikte, fuehrt aber keine Writes aus.",
@@ -780,12 +1034,12 @@
         "Fehler lassen die bisherige aktive Collection und den JSON-Index unveraendert; der JSON-Index wird nie automatisch geloescht.",
         "Migrationstests pruefen Dry-run, Resume, Idempotenz, Crash vor Alias-Swap und Cross-Scope-Abweisung."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-016",
       "title": "Digestgebundenes lokales Qdrant-Compose-Profil bereitstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "operations",
@@ -801,10 +1055,17 @@
         "README.md",
         ".github/workflows/ananta-codecompass-review.yml",
         ".github/workflows/quality-and-docs.yml",
-        "tests/test_qdrant_compose_contract.py"
+        "tests/test_qdrant_compose_contract.py",
+        "agent/routes/worker_vector_index_readiness.py",
+        "agent/services/background/registration.py",
+        "worker/retrieval/vector_index_worker_readiness.py",
+        "docker/compose-next/compose.qdrant-workers.yml",
+        "docker/compose-next/requirements.qdrant-worker.lock",
+        "tests/test_vector_index_worker_readiness.py",
+        "tests/test_agent_registration.py"
       ],
       "description": "Qdrant als explizites Compose-Profil mit unveraenderlichem Image, privatem Netzwerk und reproduzierbarem Snapshot-Betrieb ergaenzen.",
-      "status_note": "Digestgepinntes Qdrant-Profil, Secret, Volumes, Healthcheck, Limits und kombinierte Compose-CI-Pruefung existieren. Der geforderte Standalone-Compose-Aufruf ist nicht parsebar, das Worker-Image enthaelt den Client nicht und Snapshot-/Restore-/Reset-Gates sind nicht vollstaendig automatisiert.",
+      "status_note": "Das eigenstaendig parsebare Compose-Profil pinnt Qdrant 1.18.2 per Digest und qdrant-client 1.18.0 in einem isolierten Worker-Image, aktiviert native TLS, bindet REST lokal und gRPC nur per Opt-in, nutzt Compose-Secrets, persistente Volumes, Readiness, Restart und Ressourcenlimits. Ein Worker wird erst nach identitaetsgebundener Hub-Registrierung aller Vector-Capabilities ready; der Hub exponiert keine Worker-Readiness. Worker-Overlay, CI-Render sowie dokumentierte scope-/volumengebundene Backup-, Restore- und Reset-Gates sind vorhanden.",
       "acceptance_criteria": [
         "docker/compose-next/compose.qdrant.yml definiert ein explizites qdrant Profil und pinnt das Qdrant-Image per sha256 Digest; latest und nur ein veraenderlicher Tag sind verboten.",
         "REST bindet lokal standardmaessig an 127.0.0.1:6333; gRPC bleibt im privaten Compose-Netz oder bindet nur nach explizitem Opt-in an 127.0.0.1:6334.",
@@ -813,12 +1074,12 @@
         "docker compose -f docker/compose-next/compose.qdrant.yml --profile qdrant config wird in CI ausgefuehrt und muss ohne lokale Secretdatei parsebar bleiben.",
         "Dokumentierte Snapshot-Backup- und Restore-Kommandos schreiben ausserhalb des Datenvolumes; Reset erfordert einen expliziten Scope beziehungsweise Volume-Namen."
       ],
-      "progress_percent": 75.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-017",
       "title": "Bounded Metrics und Diagnostics ueber einen Observer-Port anbinden",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
@@ -839,7 +1100,7 @@
         "tests/test_qdrant_vector_store_unit.py"
       ],
       "description": "Vector-Store-Ereignisse ueber einen kleinen Observer-Port an bestehende Metrics und Retrieval-Traces anbinden.",
-      "status_note": "Observer-Port, Prometheus-Adapter, bounded Labels und Tests existieren. Die eigentliche Event-Emission ist wegen unerreichbarem Code wirkungslos, sodass produktive Metrics/Diagnostics nicht nachgewiesen sind.",
+      "status_note": "Der typisierte Observer-Port emittiert produktiv Search-, Index-, Delete-, Fallback- und Lifecycle-Ereignisse an No-op- oder Prometheus-Adapter. Labels und reason_enum sind begrenzt; Scope, IDs, Pfade, Vektoren, Texte und Secrets bleiben ausgeschlossen, waehrend Dauer und Zaehler als Werte erfasst werden.",
       "acceptance_criteria": [
         "Der Observer-Port empfaengt typisierte Search-, Index-, Delete-, Fallback- und Lifecycle-Ereignisse und importiert keinen konkreten Metrics- oder Qdrant-Client.",
         "Metriklabels sind auf backend, operation, outcome und einen begrenzten reason_enum beschraenkt.",
@@ -848,7 +1109,7 @@
         "Diagnostics enthalten redigierte Schema-, Dimensions-, Distance- und Compatibility-Informationen, aber keine Secrets, Vektoren oder vollstaendigen Dokumenttexte.",
         "Tests pruefen Label-Allowlist, Redaction, begrenzte reason_enum-Werte und einen No-op-Observer fuer isolierte Worker-Tests."
       ],
-      "progress_percent": 45.0
+      "progress_percent": 100.0
     },
     {
       "id": "QVS-019",
@@ -875,10 +1136,14 @@
         "tests/test_qdrant_vector_store_integration.py",
         "docker/compose-next/compose.qdrant.yml",
         ".github/workflows/ananta-codecompass-review.yml",
-        ".github/workflows/quality-and-docs.yml"
+        ".github/workflows/quality-and-docs.yml",
+        "tests/qdrant_test_support.py",
+        "tests/test_qdrant_compose_contract.py",
+        "docker/compose-next/compose.qdrant-workers.yml",
+        "docker/compose-next/requirements.qdrant-worker.lock"
       ],
       "description": "Das echte Verhalten gegen den digestgebundenen Qdrant-Service lokal und in einem expliziten CI-Job belegen.",
-      "status_note": "Opt-in-Integrationsmodul mit isoliertem Prefix und Cleanup existiert. Es wird ohne Qdrant-Extra bereits beim Import geskippt, verwendet nicht den geforderten Marker, deckt nicht alle Szenarien ab und besitzt keine ausgefuehrte CI-/Release-Evidence.",
+      "status_note": "Marker, RUN_INTEGRATION_TESTS-Opt-in, digestidentischer TLS-Service, laufisolierte Prefixe, finally-Cleanup und alle sechs geforderten CRUD-, Scope-, Alias-, Failure-, Migration-, Fallback-, Worker- und Wiki-Szenarien sind implementiert. Der abschliessende Lauf des aktuellen Working Trees gegen Qdrant 1.18.2 und qdrant-client 1.18.0 bestand lokal 6/6 ohne Skip und entfernte alle laufbezogenen Ressourcen. Eine bereitgestellte GitHub-/RUN_* Release-Evidence fehlt weiterhin.",
       "acceptance_criteria": [
         "Tests tragen den Marker qdrant_integration und laufen nur mit RUN_INTEGRATION_TESTS=1; ohne Opt-in werden sie sichtbar als skipped gemeldet.",
         "Der Testservice verwendet exakt den in docker/compose-next/compose.qdrant.yml gepinnten Image-Digest.",
@@ -888,7 +1153,7 @@
         "CI-Logs nennen Image-Digest, qdrant-client Version, Testmarker, ausgefuehrte Testzahl und Cleanup-Status, enthalten aber keine Secrets oder Tenantwerte.",
         "Release-Evidence gilt nur, wenn der Opt-in-Lauf tatsaechlich ausgefuehrt wurde; ein vollstaendig geskipptes Testmodul kann den Gate-Status nicht passed setzen."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 90.0
     },
     {
       "id": "QVS-020",
@@ -905,11 +1170,12 @@
       "files": [
         "config/benchmarks/qdrant-vector-store.v1.json",
         "scripts/benchmark/qdrant_vector_store.py",
+        "scripts/benchmark/qdrant_vector_store_memory.py",
         "tests/benchmarks/codecompass_worker/test_qdrant_vector_store_benchmark.py",
         "docs/worker/qdrant-vector-store.md"
       ],
       "description": "JSON und Qdrant mit festen Seeds, versionierten Profilen und strukturierten BenchmarkRunArtifact-Ergebnissen vergleichen.",
-      "status_note": "Versioniertes Profil, deterministischer Runner, Budgets, Recall/RSS-Auswertung und Unit-Tests existieren. Ein vollstaendig ausgefuehrtes, nicht inconclusive BenchmarkRunArtifact fehlt.",
+      "status_note": "Profil v1, Seed und exakt definierte small/medium/large-Lasten, Warmups/Messlaeufe, Build/Refresh/Search-Latenzen, gefiltertes und ungefiltertes Recall, Client-/Container-RSS, Budgets, verifizierter 40- bis 64-stelliger Hex-Source-Commit und fail-closed Artifact-Gates sind implementiert und getestet. Ein vollstaendiges nicht-inconclusive BenchmarkRunArtifact eines freigegebenen Referenzhosts fehlt.",
       "acceptance_criteria": [
         "Profil v1 verwendet Seed 424242 und deklariert exakt: small=10000 Records/100 Queries/384 Dimensionen/512 Byte Payload, medium=100000/500/768/1024 Byte und large=1000000/1000/1536/2048 Byte.",
         "Der Runner fuehrt pro Profil zwei Warmup-Laeufe und fuenf Messlaeufe aus und misst Build, Refresh sowie Search p50/p95.",
@@ -920,7 +1186,7 @@
         "Fehlende Referenzhost-Freigabe, unzureichende Ressourcen oder abgebrochene Profile ergeben inconclusive und niemals passed.",
         "Die Dokumentation leitet eine JSON-/Qdrant-Empfehlung nur aus einem vollstaendigen, nicht inconclusive Artefakt ab."
       ],
-      "progress_percent": 65.0
+      "progress_percent": 90.0
     },
     {
       "id": "QVS-021",
@@ -943,10 +1209,16 @@
         "agent/services/wiki_retrieval_index_service.py",
         "tests/test_wiki_vector_store.py",
         "tests/test_wiki_qdrant_adapter.py",
-        "tests/test_qdrant_vector_store_integration.py"
+        "tests/test_qdrant_vector_store_integration.py",
+        "agent/services/wiki_vector_index_mutation_service.py",
+        "agent/services/wiki_vector_runtime_service.py",
+        "worker/retrieval/wiki_hybrid_engine.py",
+        "docker/compose-next/compose.qdrant-wiki-hub-read.yml",
+        "tests/test_wiki_retrieval_index_service.py",
+        "tests/test_wiki_hybrid_retrieval.py"
       ],
       "description": "Wiki-Payloads ueber einen konkreten Adapter an dieselben schmalen Ports anbinden, aber Collections, Config und Schema von CodeCompass trennen.",
-      "status_note": "Separates Wiki-Schema, eigener Prefix, JSON-/Qdrant-Auswahl, Scope-Isolation und Tests existieren. Der echte Qdrant-Lauf wird nicht ausgefuehrt; produktive Integration und Rollback-Evidence sind daher unvollstaendig.",
+      "status_note": "Der getrennte Wiki-Payload-Adapter, eigenes Schema und Prefix, unabhaengige JSON-/Qdrant-Konfiguration, produktive Hybrid-Retrieval-Komposition, Hub-delegierte Mutationen, Cross-Scope-Schutz und getrennter Rollback sind lokal implementiert und getestet. Der aktuelle echte TLS-Qdrant-Lauf bestand lokal, bleibt aber ohne bereitgestellte RUN_* Evidence unverified; die formale Abhaengigkeit QVS-019 ist daher weiterhin partial.",
       "acceptance_criteria": [
         "Ein konkreter Wiki-Payload-Adapter implementiert die benoetigten Search- und Index-Portsignaturen ohne optionale, abweichende Methodenaufrufe oder Signaturfehler.",
         "Wiki verwendet einen eigenen Collection-Prefix, eine separat aktivierbare BackendConfig und ein versioniertes Wiki-Payload-Schema.",
@@ -955,7 +1227,7 @@
         "JSON bleibt fuer Wiki Default; Qdrant kann fuer Wiki unabhaengig von CodeCompass aktiviert und zurueckgerollt werden.",
         "Bestehende Wiki-Tests, Port-Contracttests und ein echter Qdrant-Integrationslauf fuer Index, Search und Delete bestehen."
       ],
-      "progress_percent": 70.0
+      "progress_percent": 95.0
     },
     {
       "id": "QVS-023",
@@ -980,10 +1252,19 @@
         "agent/routes/vector_store_control.py",
         "agent/services/vector_index_task_service.py",
         "tests/test_vector_store_rollout_service.py",
-        "tests/test_vector_store_control_routes.py"
+        "tests/test_vector_store_control_routes.py",
+        "agent/services/codecompass_vector_runtime_service.py",
+        "agent/services/retrieval_runtime_lifecycle_service.py",
+        "agent/services/retrieval_vector_runtime_scope_service.py",
+        "agent/services/retrieval_vector_scope_binding_service.py",
+        "agent/services/retrieval_vector_scope_ingress_policy.py",
+        "agent/services/vector_store_authorization_policy.py",
+        "agent/services/wiki_vector_runtime_service.py",
+        "tests/test_retrieval_vector_scope_binding.py",
+        "tests/test_vector_admin_authorization.py"
       ],
       "description": "JSON als globalen Default behalten und Qdrant additiv, autorisiert und auditierbar pro Workspace und Profil aktivieren.",
-      "status_note": "Hub-gesteuerte globale/Profile-/Workspace-Overrides, Persistenz, Audit, Autorisierung und getrenntes Wiki-Rollback existieren. Overrides werden nicht mit dem Produktionsparser validiert und koennen Endpoint-/Secret-Policies erweitern; kompatibler Rollback ist nicht vollstaendig bewiesen.",
+      "status_note": "Der Hub validiert und persistiert globale, Profil- und Workspace-Overrides in definierter Reihenfolge und kann Sicherheits- oder Capability-Policy nur verengen. Autorisierung, secretfreies Audit, zwei isolierte Workspaces, getrenntes Wiki-Rollback, produktive Factory-Komposition sowie kompatibler und fail-closed inkompatibler JSON-Rollback sind lokal implementiert und getestet. Formal bleibt der Task wegen der unvollstaendigen Evidence-Abhaengigkeiten QVS-019, QVS-020 und QVS-021 partial; ohne SRC_*/RUN_* IDs entsteht keine Release-Evidence.",
       "acceptance_criteria": [
         "Aufloesungsreihenfolge ist globaler JSON-Default, autorisierter Profil-Override und autorisierter Workspace-Override; fehlende Overrides veraendern bestehendes Verhalten nicht.",
         "Nur der Hub validiert und speichert Overrides; Worker erhalten eine unveraenderliche aufgeloeste Config und koennen Endpoint-, Secret- oder Capability-Policy nicht erweitern.",
@@ -992,7 +1273,7 @@
         "Ein inkompatibler JSON-Rollback-State liefert fallback_state_incompatible und keine scheinbar erfolgreichen Ergebnisse.",
         "Tests mit mindestens zwei Workspaces pruefen getrennte Providerwahl, Autorisierung, Audit, Policy-Verengung und Rollback ohne Cross-Scope-Leak."
       ],
-      "progress_percent": 50.0
+      "progress_percent": 95.0
     },
     {
       "id": "QVS-022",
@@ -1019,10 +1300,18 @@
         "config/examples/vector-store.json-local.json",
         "config/examples/vector-store.qdrant-local.json",
         "config/examples/vector-store.qdrant-remote.json",
-        "README.md"
+        "README.md",
+        "docker/compose-next/README.md",
+        "docs/worker/qdrant-vector-index-taskflow.md",
+        "docs/worker/qdrant-vector-store-availability.md",
+        "docs/worker/qdrant-vector-store-error-codes.md",
+        "docs/worker/qdrant-vector-store-hub-read.md",
+        "docs/worker/qdrant-vector-store-tls.md",
+        "docs/worker/qdrant-vector-worker-identity.md",
+        "tests/test_qdrant_operations_docs.py"
       ],
       "description": "Konfiguration, Betrieb, Migration, Backup, Restore, Reset, Wiki-Aktivierung und Rollback mit ausfuehrbaren Beispielen dokumentieren.",
-      "status_note": "Eine Qdrant-Betriebsdokumentation mit Start, Taskflow, Migration, Backup/Restore und Benchmark-Hinweisen existiert. Remote-Beispiel, vollstaendige Errorcode-Tabelle, parsebare Kommandos sowie reale Integration-/Benchmark-Release-Evidence fehlen.",
+      "status_note": "Lokale/Remote-/JSON-Beispiele, Compose-, Start-, Readiness-, Stop-, Snapshot-, Restore-, Reset-, Migration-, Wiki- und Rollback-Kommandos sind parsebar und CI-geprueft; die stabile Errorcode-Tabelle und gepinnte Server-/Client-Kompatibilitaet sind dokumentiert. Der Release-Abschnitt kann mangels bereitgestellter RUN_* Integrationsevidence und vollstaendigem Referenzhost-Benchmark noch keine passed-Evidence referenzieren.",
       "acceptance_criteria": [
         "Alle JSON-, lokale Qdrant- und Remote-Qdrant-Beispiele werden in CI mit dem Produktionsparser geladen; Compose-Beispiele bestehen docker compose ... --profile qdrant config.",
         "Die Dokumentation enthaelt eine Tabelle aller stabilen Config-, Endpoint-, Scope-, Compatibility-, Fallback- und Taskflow-Errorcodes mit Operatoraktion.",
@@ -1033,31 +1322,42 @@
         "Der Release-Abschnitt referenziert die tatsaechlich ausgefuehrte digestgebundene Integrationsevidence und das BenchmarkRunArtifact; skipped oder inconclusive Evidence wird nicht als passed bezeichnet.",
         "Die Dokumentation verlinkt das Open-Source-Projekt Qdrant und nennt die gepinnte, getestete Server-/Client-Kompatibilitaet."
       ],
-      "progress_percent": 45.0
+      "progress_percent": 90.0
     }
   ],
   "definition_of_done": [
     "Dense-Vector-Persistenz und -Suche fuer CodeCompass und Wiki verwenden capability-orientierte Ports; Lexical-, Symbol-, Graph-, Domain- und Ranking-Komponenten bleiben ausserhalb dieses Contracts.",
     "JSON bleibt ohne qdrant-client, ohne Qdrant-Service und ohne Konfigurationsaenderung vollstaendig funktionsfaehig; bestehende Imports, Datei- und Ergebnisvertraege sind durch Kompatibilitaetstests belegt.",
-    "Qdrant kann ueber das digestgebundene Compose-Profil gestartet und nur durch explizite, hub-validierte Config aktiviert werden.",
-    "Search ist read-only. Index, Refresh, Rebuild, Delete und Migration laufen ausschliesslich als hub-owned Tasks; Worker orchestrieren keine Worker und erzeugen keine Tasks.",
+    "Qdrant kann ueber das digestgebundene, native-TLS-gesicherte Compose-Profil gestartet und nur durch explizite, hub-validierte Config aktiviert werden.",
+    "Search ist read-only. Qdrant- und andere delegierbare Remote-Mutationen fuer Index, Refresh, Rebuild, Delete und Migration laufen als hub-owned Tasks; der lokale JSON-Kompatibilitaetsadapter bleibt ein eingegrenzter Hub-as-worker-/Offline-Pfad. Worker orchestrieren keine Worker und erzeugen keine Tasks.",
+    "Jeder delegierte Vector-Index-Dispatch ist asymmetrisch vom Hub signiert und an Task, Goal, Scope, Input-Digest, Worker-Audience, Attempt, Sequence und Gueltigkeitszeitraum gebunden; der Worker loest unmittelbar vor der ersten Mutation eine revocable Hub-Admission ein.",
+    "Ein persistenter Worker-lokaler Replay-Ledger behaelt High-Watermarks ueber Neustarts und Retention hinaus; Replay, Ledger-Manipulation, Symlink-/Pfad-Angriffe und Clock-Rollback werden vor jeder Qdrant-Mutation fail-closed abgelehnt.",
+    "Generische Task-, Kanban-, Control-Center-, Run-Control-, Goal-Purge-, Claim-, Archive-, Approval- und Artifact-Mutationen erkennen auch partielle reservierte Vector-Marker und erzwingen die zentrale Workspace-/Admin-/System-Autorisierung.",
+    "Ein Vector-Worker wird erst ready, nachdem Rolle, gebundene Identitaet und die Capabilities retrieval, index_write und vector_index_operation erfolgreich beim Hub registriert wurden; der Hub exponiert keine Worker-Readiness.",
     "Trusted Workspace-/Repository-Isolation wird serverseitig fuer Search, Delete, Cleanup, CodeCompass und Wiki durch Positiv- und Negativtests belegt.",
     "Provider-, Modell-, Dimensions-, Distance-, Profil-, Encoding-, Config-, Manifest- und Schemawechsel koennen keine inkompatiblen Suchergebnisse oder Alias-Aktivierungen erzeugen.",
     "Alias-Swap, Batch-Upsert, Delete und Migration sind durch Failure-Injection-, Crash-, Retry-, Idempotenz- und Concurrent-Reader-Tests abgesichert.",
-    "Endpoint-, TLS-, Secret- und Redaction-Policies sind fuer REST und gRPC getestet; Klartext-Secrets und nicht freigegebene Origins werden fail-closed abgelehnt.",
+    "Migrationen erfordern vor dem ersten Qdrant-Write einen nichtleeren scopegebundenen Idempotency-Key; direkte Collection-Upserts pruefen die vollstaendige Collection- und Scope-Kompatibilitaet erneut.",
+    "Endpoint-, TLS-, Secret- und Redaction-Policies sind fuer REST und gRPC getestet; nicht-loopback HTTP/gRPC, deaktivierte Zertifikatspruefung, Klartext-Secrets und nicht freigegebene Origins werden auch fuer trusted-private Ziele fail-closed abgelehnt.",
     "Fallback ist ein expliziter Policy-Decorator, nur fuer read-only Search und kompatiblen JSON-State erlaubt und in jedem Retrieval-Trace sichtbar.",
     "Der digestgebundene Qdrant-Integrationstest wurde mit RUN_INTEGRATION_TESTS=1 tatsaechlich ausgefuehrt; Image-Digest, Clientversion, Testzahl und Cleanup-Status sind als redigierte Evidence vorhanden.",
     "Das vollstaendige versionierte Benchmarkprofil erzeugt ein BenchmarkRunArtifact mit Referenzhost- und Runtime-Metadaten; inconclusive wird nicht als passed gewertet.",
+    "Ein BenchmarkRunArtifact kann nur empfehlen, wenn sein Source-Commit als 40- bis 64-stellige Hex-ID verifiziert ist und alle freigegebenen Profile vollstaendig und nicht inconclusive sind.",
+    "Release-Claims duerfen nur bereitgestellte und validierte SRC_* beziehungsweise RUN_* IDs referenzieren; lokale Testausgaben ohne solche IDs bleiben unverified.",
     "Workspace- und Wiki-Rollout bleiben opt-in, auditierbar und unabhaengig rueckrollbar; ein automatisierter kompatibler JSON-Rollbacktest besteht.",
     "Installation, Errorcodes, Betrieb, Snapshot-Backup, Restore, Reset, Migration, Wiki-Aktivierung und Rollback sind mit parsebaren Beispielen dokumentiert."
   ],
   "summary_notes": [
-    "Source-realistischer Stand 2026-07-29: Die geplanten Qdrant-, JSON-, Taskflow-, Wiki-, Rollout-, Compose- und Benchmark-Komponenten sind weitgehend implementiert.",
-    "Der Stand ist noch nicht produktions- oder releasebereit: Worker-Dependency, scoped CodeCompass-Search, Rebuild-Crash-Safety, Hub-/Worker-Migrationsvertrag, Observer-Emission, Fallback-Komposition und Override-Policy sind offen.",
-    "Reale Qdrant-Integration und Benchmark wurden nicht als Release-Evidence ausgefuehrt; ein geskipptes Integrationsmodul gilt nicht als passed.",
+    "Source-realistischer Stand 2026-07-29: Alle lokal implementierbaren Qdrant-, JSON-, Taskflow-, Wiki-, Rollout-, Compose-, Security-, Migrations-, Observer- und Dokumentationskriterien sind umgesetzt; die Qdrant-bezogenen Hub-Taskverantwortungen wurden in source-line-konforme SRP-Module getrennt.",
+    "Formal offen bleiben eine bereitgestellte GitHub-/RUN_* Evidence fuer den digestgebundenen Integrationsjob, ein vollstaendiges BenchmarkRunArtifact eines freigegebenen Referenzhosts und die davon abhaengigen Release-Gates fuer Wiki, Rollout und Dokumentation.",
+    "Der abschliessende echte TLS-Lauf des aktuellen Working Trees gegen Qdrant 1.18.2 mit qdrant-client 1.18.0 bestand lokal sechs von sechs marker-selektierte Szenarien ohne Skip und mit vollstaendigem Cleanup; ohne RUN_* ID bleibt dieser Befund unverified und nicht als Release-Evidence verwendbar.",
+    "Die breite Qdrant-/Vector-/Wiki-Regression bestand lokal mit 883 Tests und 3 erwarteten Skips; Standard-Pipeline, Workflow-Gates und fokussierte Security-/Auth-Matrizen bestanden ebenfalls.",
+    "Der globale Source-Line-Audit meldet weiterhin 13 nicht-Qdrant-bezogene Legacy-/Concurrent-Dateien. Der Qdrant-spezifische Gate-Umfang ist sauber, aber daraus folgt kein Claim, dass bereits alle Repository- oder GitHub-Workflows gruen sind.",
+    "Das Benchmarkprofil und seine fail-closed inconclusive-Gates sind implementiert; ein unvollstaendiger oder nicht freigegebener Lauf gilt weiterhin niemals als passed.",
     "Ohne bereitgestellte SRC_* oder RUN_* IDs bleiben Source- und Run-Claims unverified und sind keine Release-Evidence.",
     "QVS-018 wurde entfernt; seine Unit-Testkriterien sind tasknah in QVS-005, QVS-007, QVS-008, QVS-010, QVS-011, QVS-014 und QVS-015 enthalten.",
-    "QVS-023 und QVS-024 enthalten die vorhandene Hub-Control-Plane fuer Rollout und Mutation, bleiben wegen der dokumentierten Policy- und Payload-Gaps partial."
+    "QVS-024 ist lokal abgeschlossen: Qdrant-Mutationen bleiben Hub-owned, signiert, online zugelassen, replaygeschuetzt und zentral autorisiert; Worker fuehren nur delegierte Auftraege aus.",
+    "QVS-021 und QVS-023 sind im Source-Umfang implementiert, bleiben wegen ihrer formalen QVS-019-/QVS-020-Evidence-Abhaengigkeiten jedoch partial."
   ],
   "non_goals": [
     "Qdrant ersetzt nicht den EmbeddingProvider.",
@@ -1073,11 +1373,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 23,
+      "partial": 5,
       "blocked": 0,
-      "done": 0
+      "done": 18
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 78.3,
     "by_priority": {
       "P0": 13,
       "P1": 10,
@@ -1092,15 +1392,15 @@
     },
     "critical_path": {
       "total": 19,
-      "done": 0,
-      "remaining": 19
+      "done": 14,
+      "remaining": 5
     },
     "milestones": {
       "total": 5,
       "todo": 0,
-      "in_progress": 5,
+      "in_progress": 2,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -1111,210 +1411,210 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 2,
+          "partial": 1,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 2,
+        "done": 1,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 77.5
+        "progress_percent": 97.5
       },
       "refactoring": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 90.0
+        "progress_percent": 100.0
       },
       "configuration": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 65.0
+        "progress_percent": 100.0
       },
       "security": {
         "total": 2,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 2,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
-        "partial": 2,
+        "done": 2,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 75.0
+        "progress_percent": 100.0
       },
       "integration": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 55.0
+        "progress_percent": 100.0
       },
       "dependency": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 70.0
+        "progress_percent": 100.0
       },
       "schema": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 75.0
+        "progress_percent": 100.0
       },
       "validation": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 55.0
+        "progress_percent": 100.0
       },
       "retrieval": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 75.0
+        "progress_percent": 100.0
       },
       "indexing": {
         "total": 3,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 3,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         },
-        "done": 0,
-        "partial": 3,
+        "done": 3,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 65.0
+        "progress_percent": 100.0
       },
       "resilience": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 50.0
+        "progress_percent": 100.0
       },
       "orchestration": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 55.0
+        "progress_percent": 100.0
       },
       "migration": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 55.0
+        "progress_percent": 100.0
       },
       "operations": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 75.0
+        "progress_percent": 100.0
       },
       "observability": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 45.0
+        "progress_percent": 100.0
       },
       "testing": {
         "total": 1,
@@ -1328,7 +1628,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 25.0
+        "progress_percent": 90.0
       },
       "benchmark": {
         "total": 1,
@@ -1342,7 +1642,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 65.0
+        "progress_percent": 90.0
       },
       "rollout": {
         "total": 1,
@@ -1356,7 +1656,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 50.0
+        "progress_percent": 95.0
       },
       "documentation": {
         "total": 1,
@@ -1370,50 +1670,50 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 45.0
+        "progress_percent": 90.0
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 44.5,
-    "done_weight": 27.7,
-    "remaining_weight": 16.8,
+    "done_weight": 43.6,
+    "remaining_weight": 0.9,
     "blocked_weight": 0.0,
-    "weighted_percent": 62.2
+    "weighted_percent": 98.0
   },
   "milestone_progress_summary": {
     "milestones": {
       "M1": {
         "total_tasks": 5,
-        "done": 0,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 72.4,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M2": {
         "total_tasks": 6,
-        "done": 0,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 68.4,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M3": {
         "total_tasks": 5,
-        "done": 0,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 61.8,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M4": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 44.2,
+        "count_based_percent": 66.7,
+        "weighted_percent": 95.8,
         "status": "in_progress"
       },
       "M5": {
@@ -1421,7 +1721,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 57.8,
+        "weighted_percent": 92.8,
         "status": "in_progress"
       }
     }
@@ -1430,19 +1730,19 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 23,
+    "partial": 5,
     "blocked": 0,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 62.2
+    "done": 18,
+    "count_based_percent": 78.3,
+    "weighted_percent": 98.0
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-07-29T07:47:35.961357Z",
+    "generated_at": "2026-07-29T15:38:46.657621Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "b4d4274d7c7ce7ac2834f0fd5ca378385fcf3f9f660a5fb0530adcb7893889cf",
+    "source_hash": "19c35dc8f7134542f7079b16fd399a2eab010195445fda842685196708816831",
     "is_stale": false
   }
 }

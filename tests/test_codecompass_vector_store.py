@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
 from worker.retrieval.embedding_provider import FakeEmbeddingProvider
+from worker.retrieval.vector_store_contract import VectorScope
 
 
 def test_codecompass_vector_store_rebuild_and_search(tmp_path):
@@ -143,3 +144,38 @@ def test_codecompass_vector_store_refresh_rebuilds_when_provider_hash_changes(tm
     assert state["embedding_text_profile"] == "profile-b"
     assert "api_key" not in state
     assert "Authorization" not in state
+
+
+def test_legacy_codecompass_search_cannot_read_scoped_json_entries(
+    tmp_path,
+) -> None:
+    store = CodeCompassVectorStore(index_path=tmp_path / "mixed-index.json")
+    store.save(
+        state={
+            "schema": "codecompass_vector_index.v2",
+            "embedding_dimensions": 2,
+        },
+        entries=[
+            {
+                "record_id": "legacy",
+                "vector": [1.0, 0.0],
+            },
+            {
+                "record_id": "workspace-a",
+                "vector": [1.0, 0.0],
+                **VectorScope("workspace-a", "repository").as_dict(),
+            },
+            {
+                "record_id": "workspace-b",
+                "vector": [1.0, 0.0],
+                **VectorScope("workspace-b", "repository").as_dict(),
+            },
+        ],
+    )
+
+    results = store.search_by_vector(
+        query_vector=[1.0, 0.0],
+        top_k=10,
+    )
+
+    assert [item["record_id"] for item in results] == ["legacy"]

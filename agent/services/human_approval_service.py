@@ -51,6 +51,10 @@ from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from agent.common.audit import log_audit
+from agent.services.vector_task_admin_guard_service import (
+    generic_vector_mutation_error,
+)
 
 # Decision status values
 DECISION_PENDING = "pending_approval"
@@ -71,6 +75,10 @@ OPERATOR_DECISIONS = (DECISION_APPROVED, DECISION_REJECTED, DECISION_DEFERRED)
 
 class HumanApprovalError(ValueError):
     """Raised when an operator submission is invalid."""
+
+
+class HumanApprovalForbidden(HumanApprovalError):
+    """Raised when a task domain forbids generic gate mutation."""
 
 
 @dataclass(frozen=True)
@@ -205,8 +213,24 @@ def apply_human_decision(
         "resolved_by": str(operator).strip(),
         "resolved_at": float(timestamp if timestamp is not None else time.time()),
         "resolution_reason": str(reason or "").strip(),
-        "goal_id": str(existing.get("goal_id") or (getattr(task, "goal_id", None) if not isinstance(task, dict) else task.get("goal_id")) or ""),
-        "gate_task_id": str(existing.get("gate_task_id") or (getattr(task, "id", None) if not isinstance(task, dict) else task.get("id")) or ""),
+        "goal_id": str(
+            existing.get("goal_id")
+            or (
+                getattr(task, "goal_id", None)
+                if not isinstance(task, dict)
+                else task.get("goal_id")
+            )
+            or ""
+        ),
+        "gate_task_id": str(
+            existing.get("gate_task_id")
+            or (
+                getattr(task, "id", None)
+                if not isinstance(task, dict)
+                else task.get("id")
+            )
+            or ""
+        ),
     })
     # Persist back to the in-memory task
     if isinstance(task, dict):
@@ -259,7 +283,7 @@ def submit_human_decision_via_repo(
       - ``ValueError`` when the task cannot be loaded.
     """
     from agent.repository import task_repo
-    from agent.common.audit import log_audit
+
     try:
         task = task_repo.get_by_id(gate_task_id)
     except SQLAlchemyError as exc:
@@ -270,6 +294,9 @@ def submit_human_decision_via_repo(
         goal_id or ""
     ):
         raise HumanApprovalError("gate_task_goal_mismatch")
+    vector_error = generic_vector_mutation_error(task)
+    if vector_error is not None:
+        raise HumanApprovalForbidden(vector_error["error"])
     from agent.services.recovery_task_mutation_policy import (
         RecoveryTaskMutationConflict,
         ensure_external_recovery_mutation_allowed,

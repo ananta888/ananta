@@ -6,13 +6,14 @@ from typing import Any
 
 from worker.retrieval.json_vector_store import JsonVectorStore
 from worker.retrieval.vector_store_config import (
+    AvailabilityMode,
     VectorStoreConfig,
     VectorStoreConfigError,
     VectorStoreProvider,
 )
 from worker.retrieval.vector_store_contract import VectorStore
 from worker.retrieval.vector_store_endpoint_policy import SecretResolver
-
+from worker.retrieval.vector_store_observer import VectorStoreObserver
 
 VectorStoreBuilder = Callable[..., VectorStore]
 
@@ -42,11 +43,22 @@ class VectorStoreFactory:
         config: VectorStoreConfig,
         *,
         secret_resolver: SecretResolver | None = None,
+        observer: VectorStoreObserver | None = None,
     ) -> VectorStore:
         provider = config.provider.value
         builder = self._builders.get(provider)
         if builder is not None:
-            return builder(config, secret_resolver=secret_resolver)
+            builder_kwargs: dict[str, Any] = {
+                "secret_resolver": secret_resolver,
+            }
+            if observer is not None:
+                builder_kwargs["observer"] = observer
+            store = builder(config, **builder_kwargs)
+            return self._with_availability_policy(
+                store,
+                config=config,
+                observer=observer,
+            )
         if config.provider == VectorStoreProvider.JSON:
             return JsonVectorStore(index_path=config.json.index_path)
         if config.provider == VectorStoreProvider.QDRANT:
@@ -59,8 +71,61 @@ class VectorStoreFactory:
                 raise VectorStoreConfigError(
                     "qdrant_backend_not_installed: install the ananta[qdrant] extra"
                 ) from exc
-            return backend_type.from_config(config.qdrant, secret_resolver=secret_resolver)
+            store = backend_type.from_config(
+                config.qdrant,
+                secret_resolver=secret_resolver,
+                observer=observer,
+            )
+            return self._with_availability_policy(
+                store,
+                config=config,
+                observer=observer,
+            )
         raise VectorStoreConfigError(f"unknown_vector_store_provider:{provider}")
+
+    @staticmethod
+    def _with_availability_policy(
+        store: VectorStore,
+        *,
+        config: VectorStoreConfig,
+        observer: VectorStoreObserver | None = None,
+    ) -> VectorStore:
+        if config.provider != VectorStoreProvider.QDRANT:
+            return store
+        from worker.retrieval.vector_store_fallback import (
+            AvailabilityManagedVectorStore,
+            ClientAvailabilityProbe,
+            FallbackVectorSearch,
+        )
+
+        fallback: JsonVectorStore | None = None
+        if config.availability.on_unavailable == AvailabilityMode.EXPLICIT_JSON_FALLBACK:
+            fallback = JsonVectorStore(index_path=config.json.index_path)
+
+        def fallback_is_compatible(query: Any) -> bool:
+            compatibility = getattr(query, "compatibility", None)
+            if fallback is None or compatibility is None:
+                return False
+            try:
+                return fallback.compatibility_reason(compatibility) == "unchanged"
+            except (OSError, TypeError, ValueError):
+                return False
+
+        client = getattr(store, "_client", None)
+        probe = ClientAvailabilityProbe(client) if client is not None else None
+        search = FallbackVectorSearch(
+            primary=store,
+            fallback=fallback,
+            policy=config.availability,
+            availability_probe=probe,
+            fallback_compatibility=fallback_is_compatible,
+            observer=observer,
+        )
+        return AvailabilityManagedVectorStore(
+            primary=store,
+            search=search,
+            fallback=fallback,
+        )
 
 
 def build_vector_store(
@@ -68,9 +133,14 @@ def build_vector_store(
     *,
     factory: VectorStoreFactory | None = None,
     secret_resolver: SecretResolver | None = None,
+    observer: VectorStoreObserver | None = None,
 ) -> VectorStore:
     resolved = config if isinstance(config, VectorStoreConfig) else VectorStoreConfig.from_mapping(config)
-    return (factory or VectorStoreFactory()).create(resolved, secret_resolver=secret_resolver)
+    return (factory or VectorStoreFactory()).create(
+        resolved,
+        secret_resolver=secret_resolver,
+        observer=observer,
+    )
 
 
 __all__ = ["VectorStoreBuilder", "VectorStoreFactory", "build_vector_store"]

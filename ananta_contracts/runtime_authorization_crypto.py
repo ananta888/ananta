@@ -25,6 +25,7 @@ ED25519_SIGNING_KEYRING_SCHEMA = "ananta.workflow-auth-signing-keyring.v1"
 ED25519_VERIFICATION_KEYRING_SCHEMA = (
     "ananta.workflow-auth-verification-keyring.v1"
 )
+ED25519_PROTECTED_MESSAGE_SCHEMA = "ananta.ed25519-protected-message.v1"
 
 
 class RuntimeAuthorizationCryptoError(ValueError):
@@ -47,14 +48,7 @@ class Ed25519VerificationKeyRing:
             raise RuntimeAuthorizationCryptoError(
                 "authorization_verification_keys_required"
             )
-        self._keys = {
-            _identifier(key_id, "authorization_key_id_invalid"): (
-                Ed25519PublicKey.from_public_bytes(
-                    _decode_key(value, expected_bytes=32, private=False)
-                )
-            )
-            for key_id, value in public_keys.items()
-        }
+        self._keys = _load_public_keys(public_keys)
         self._revoked_keys = {
             _identifier(value, "authorization_revoked_key_id_invalid")
             for value in revoked_key_ids
@@ -112,6 +106,7 @@ class Ed25519VerificationKeyRing:
         key_id: str,
         signature: str,
         contract_id: str,
+        protected_header: Mapping[str, Any] | None = None,
     ) -> None:
         normalized_key_id = _identifier(key_id, "signing_key_unknown")
         if normalized_key_id in self._revoked_keys:
@@ -131,7 +126,14 @@ class Ed25519VerificationKeyRing:
         if len(raw_signature) != 64:
             raise RuntimeAuthorizationCryptoError("signature_invalid")
         try:
-            key.verify(raw_signature, _message(namespace=namespace, payload=payload))
+            key.verify(
+                raw_signature,
+                _message(
+                    namespace=namespace,
+                    payload=payload,
+                    protected_header=protected_header,
+                ),
+            )
         except InvalidSignature as exc:
             raise RuntimeAuthorizationCryptoError("signature_invalid") from exc
 
@@ -151,14 +153,7 @@ class Ed25519SigningKeyRing:
             raise RuntimeAuthorizationCryptoError(
                 "authorization_signing_keys_required"
             )
-        self._keys = {
-            _identifier(key_id, "authorization_key_id_invalid"): (
-                Ed25519PrivateKey.from_private_bytes(
-                    _decode_key(value, expected_bytes=32, private=True)
-                )
-            )
-            for key_id, value in private_keys.items()
-        }
+        self._keys = _load_private_keys(private_keys)
         self._active_key_id = _identifier(
             active_key_id,
             "active_signing_key_missing",
@@ -238,6 +233,7 @@ class Ed25519SigningKeyRing:
         namespace: str,
         payload: dict[str, Any],
         key_id: str | None = None,
+        protected_header: Mapping[str, Any] | None = None,
     ) -> tuple[str, str]:
         selected = _identifier(
             key_id or self._active_key_id,
@@ -248,7 +244,13 @@ class Ed25519SigningKeyRing:
         key = self._keys.get(selected)
         if key is None:
             raise RuntimeAuthorizationCryptoError("signing_key_unknown")
-        signature = key.sign(_message(namespace=namespace, payload=payload))
+        signature = key.sign(
+            _message(
+                namespace=namespace,
+                payload=payload,
+                protected_header=protected_header,
+            )
+        )
         return selected, base64.b64encode(signature).decode("ascii")
 
     def verify(
@@ -259,6 +261,7 @@ class Ed25519SigningKeyRing:
         key_id: str,
         signature: str,
         contract_id: str,
+        protected_header: Mapping[str, Any] | None = None,
     ) -> None:
         self.verification_key_ring().verify(
             namespace=namespace,
@@ -266,6 +269,7 @@ class Ed25519SigningKeyRing:
             key_id=key_id,
             signature=signature,
             contract_id=contract_id,
+            protected_header=protected_header,
         )
 
     def revoke_key(self, key_id: str) -> None:
@@ -368,10 +372,73 @@ def _canonical_key(
     ).decode("ascii")
 
 
-def _message(*, namespace: str, payload: dict[str, Any]) -> bytes:
+def _load_public_keys(
+    values: Mapping[str, str | bytes],
+) -> dict[str, Ed25519PublicKey]:
+    keys: dict[str, Ed25519PublicKey] = {}
+    material_owners: dict[bytes, str] = {}
+    for raw_key_id, value in values.items():
+        key_id = _identifier(raw_key_id, "authorization_key_id_invalid")
+        if key_id in keys:
+            raise RuntimeAuthorizationCryptoError(
+                "authorization_duplicate_key_id"
+            )
+        material = _decode_key(value, expected_bytes=32, private=False)
+        if material in material_owners:
+            raise RuntimeAuthorizationCryptoError(
+                "authorization_duplicate_key_material"
+            )
+        material_owners[material] = key_id
+        keys[key_id] = Ed25519PublicKey.from_public_bytes(material)
+    return keys
+
+
+def _load_private_keys(
+    values: Mapping[str, str | bytes],
+) -> dict[str, Ed25519PrivateKey]:
+    keys: dict[str, Ed25519PrivateKey] = {}
+    material_owners: dict[bytes, str] = {}
+    for raw_key_id, value in values.items():
+        key_id = _identifier(raw_key_id, "authorization_key_id_invalid")
+        if key_id in keys:
+            raise RuntimeAuthorizationCryptoError(
+                "authorization_duplicate_key_id"
+            )
+        private_key = Ed25519PrivateKey.from_private_bytes(
+            _decode_key(value, expected_bytes=32, private=True)
+        )
+        public_material = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        if public_material in material_owners:
+            raise RuntimeAuthorizationCryptoError(
+                "authorization_duplicate_key_material"
+            )
+        material_owners[public_material] = key_id
+        keys[key_id] = private_key
+    return keys
+
+
+def _message(
+    *,
+    namespace: str,
+    payload: dict[str, Any],
+    protected_header: Mapping[str, Any] | None = None,
+) -> bytes:
     try:
+        message: Any = payload
+        if protected_header is not None:
+            if not isinstance(protected_header, Mapping):
+                raise TypeError("protected header must be a mapping")
+            message = {
+                "schema": ED25519_PROTECTED_MESSAGE_SCHEMA,
+                "namespace": str(namespace),
+                "protected": dict(protected_header),
+                "payload": payload,
+            }
         canonical = json.dumps(
-            payload,
+            message,
             sort_keys=True,
             separators=(",", ":"),
             ensure_ascii=False,
@@ -381,11 +448,14 @@ def _message(*, namespace: str, payload: dict[str, Any]) -> bytes:
         raise RuntimeAuthorizationCryptoError(
             "authorization_payload_invalid"
         ) from exc
+    if protected_header is not None:
+        return canonical.encode("utf-8")
     return f"{namespace}\n{canonical}".encode("utf-8")
 
 
 __all__ = [
     "ED25519_ALGORITHM",
+    "ED25519_PROTECTED_MESSAGE_SCHEMA",
     "ED25519_SIGNING_KEYRING_SCHEMA",
     "ED25519_VERIFICATION_KEYRING_SCHEMA",
     "Ed25519SigningKeyRing",

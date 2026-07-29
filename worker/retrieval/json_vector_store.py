@@ -22,7 +22,6 @@ from worker.retrieval.vector_store_contract import (
     VectorStoreError,
 )
 
-
 _BACKEND_VERSION = "json-vector-store.v1"
 
 
@@ -38,8 +37,14 @@ def _cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
 class JsonVectorStore:
     """Deterministic reference backend over already prepared vector points."""
 
-    def __init__(self, *, index_path: str | Path) -> None:
+    def __init__(
+        self,
+        *,
+        index_path: str | Path,
+        legacy_scope: VectorScope | None = None,
+    ) -> None:
         self._index_path = Path(index_path)
+        self._legacy_scope = legacy_scope
         self._closed = False
         self._last_diagnostic = VectorStoreDiagnostic(
             status="degraded",
@@ -106,10 +111,10 @@ class JsonVectorStore:
                 suffix=".tmp",
                 delete=False,
             ) as handle:
+                temporary_path = Path(handle.name)
                 json.dump(payload, handle, ensure_ascii=False, indent=2)
                 handle.flush()
                 os.fsync(handle.fileno())
-                temporary_path = Path(handle.name)
             os.replace(temporary_path, self._index_path)
             temporary_path = None
             try:
@@ -169,6 +174,7 @@ class JsonVectorStore:
                 reason="unchanged",
                 indexed_documents=0,
                 diagnostics=self._state_diagnostics(state, entry_count=len(current.get("entries") or [])),
+                accepted=len(points),
             )
         result = self.rebuild(points, compatibility=compatibility)
         return IndexWriteResult(
@@ -181,6 +187,7 @@ class JsonVectorStore:
             deleted=result.deleted,
             skipped=result.skipped,
             failed=result.failed,
+            accepted=result.accepted,
         )
 
     def replace_prepared(
@@ -225,7 +232,10 @@ class JsonVectorStore:
             "entry_count": len(entries),
             "embedding_dimensions": expected,
             "vector_encoding_profile": encoder.profile.as_dict(),
-            "vector_encoding_config_hash": encoder.profile.config_hash(),
+            "vector_encoding_config_hash": str(
+                dict(state or {}).get("vector_encoding_config_hash")
+                or encoder.profile.config_hash()
+            ),
             "vector_encoding_compression_ratio": compression_ratio,
             "vector_encoding_max_abs_error": max_abs_error,
         }
@@ -238,6 +248,7 @@ class JsonVectorStore:
             indexed_documents=len(entries),
             diagnostics=diagnostics,
             upserted=len(entries),
+            accepted=len(point_list),
         )
 
     def upsert(
@@ -247,8 +258,12 @@ class JsonVectorStore:
         batch_size: int = 128,
     ) -> IndexWriteResult:
         self._ensure_open()
-        if int(batch_size) <= 0:
-            raise VectorStoreError("invalid_upsert_batch_size")
+        if (
+            isinstance(batch_size, bool)
+            or not isinstance(batch_size, int)
+            or not 1 <= batch_size <= 1000
+        ):
+            raise VectorStoreError("vector_batch_size_invalid")
         point_list = list(points)
         loaded = self.load()
         state = dict(loaded.get("state") or {})
@@ -283,6 +298,7 @@ class JsonVectorStore:
             diagnostics=self._state_diagnostics(next_state, entry_count=len(next_entries)),
             upserted=upserted,
             skipped=skipped,
+            accepted=len(point_list),
         )
 
     def delete(
@@ -312,6 +328,28 @@ class JsonVectorStore:
             indexed_documents=0,
             diagnostics=self._state_diagnostics(next_state, entry_count=len(kept)),
             deleted=deleted,
+            accepted=len(requested),
+        )
+
+    def delete_scope(self, scope: VectorScope) -> IndexWriteResult:
+        self._ensure_open()
+        if not isinstance(scope, VectorScope):
+            raise VectorStoreError("vector_scope_required")
+        loaded = self.load()
+        state = dict(loaded.get("state") or {})
+        entries = [dict(entry) for entry in list(loaded.get("entries") or [])]
+        kept = [entry for entry in entries if not self._scope_matches(entry, scope)]
+        deleted = len(entries) - len(kept)
+        next_state = {**state, "entry_count": len(kept)}
+        self.save(state=next_state, entries=kept)
+        return IndexWriteResult(
+            status="ok",
+            mode="delete",
+            reason="deleted" if deleted else "empty_scope",
+            indexed_documents=0,
+            diagnostics=self._state_diagnostics(next_state, entry_count=len(kept)),
+            deleted=deleted,
+            accepted=1,
         )
 
     def search_by_vector(
@@ -321,9 +359,48 @@ class JsonVectorStore:
         vector_encoder: VectorEncoder | None = None,
     ) -> VectorSearchResult:
         self._ensure_open()
+        if not isinstance(query.scope, VectorScope):
+            diagnostics = {
+                "status": "degraded",
+                "reason": "vector_scope_required",
+            }
+            return VectorSearchResult(
+                hits=(),
+                diagnostics=diagnostics,
+                requested_provider="json",
+                effective_provider="json",
+                reason="vector_scope_required",
+            )
         loaded = self.load()
         state = dict(loaded.get("state") or {})
         entries = [dict(item) for item in list(loaded.get("entries") or [])]
+        expected_compatibility = getattr(query, "compatibility", None)
+        if expected_compatibility is not None:
+            compatibility_reason = self._compatibility_reason(
+                state,
+                expected_compatibility,
+            )
+            if compatibility_reason != "unchanged":
+                reason = (
+                    "missing_index"
+                    if compatibility_reason == "missing_index"
+                    else "fallback_state_incompatible"
+                )
+                diagnostics = self._state_diagnostics(state, entry_count=len(entries))
+                diagnostics.update(
+                    {
+                        "status": "degraded",
+                        "reason": reason,
+                        "compatibility_reason": compatibility_reason,
+                    }
+                )
+                return VectorSearchResult(
+                    hits=(),
+                    diagnostics=diagnostics,
+                    requested_provider="json",
+                    effective_provider="json",
+                    reason=reason,
+                )
         expected = int(state.get("embedding_dimensions") or 0)
         if expected and len(query.query_vector) != expected:
             self._set_dimensions_mismatch(expected, len(query.query_vector))
@@ -364,6 +441,21 @@ class JsonVectorStore:
             effective_provider="json",
             reason="ok" if entries else "empty_index",
         )
+
+    def compatibility_reason(self, compatibility: CompatibilitySpec) -> str:
+        """Return the stable compatibility reason for the current persisted state."""
+
+        self._ensure_open()
+        loaded = self.load()
+        state = dict(loaded.get("state") or {})
+        if not state:
+            return "missing_index"
+        stored_distance = str(
+            state.get("distance") or "cosine"
+        ).strip().lower()
+        if compatibility.distance != "cosine" or stored_distance != "cosine":
+            return "fallback_state_incompatible"
+        return self._compatibility_reason(state, compatibility)
 
     def close(self) -> None:
         self._closed = True
@@ -414,8 +506,17 @@ class JsonVectorStore:
             str(entry.get("_point_id") or entry.get("record_id") or ""),
         )
 
-    @staticmethod
-    def _scope_matches(entry: Mapping[str, Any], scope: VectorScope) -> bool:
+    def _scope_matches(
+        self,
+        entry: Mapping[str, Any],
+        scope: VectorScope,
+    ) -> bool:
+        if (
+            self._legacy_scope == scope
+            and not str(entry.get("workspace_id") or "").strip()
+            and not str(entry.get("repository_id") or "").strip()
+        ):
+            return True
         return (
             str(entry.get("workspace_id") or "") == scope.workspace_id
             and str(entry.get("repository_id") or "") == scope.repository_id
@@ -423,9 +524,15 @@ class JsonVectorStore:
             and str(entry.get("domain") or "codecompass") == scope.domain
         )
 
-    @classmethod
-    def _matches(cls, entry: Mapping[str, Any], query: VectorSearchQuery) -> bool:
-        if query.scope is not None and not cls._scope_matches(entry, query.scope):
+    def _matches(
+        self,
+        entry: Mapping[str, Any],
+        query: VectorSearchQuery,
+    ) -> bool:
+        scope = query.scope
+        if not isinstance(scope, VectorScope):
+            return False
+        if not self._scope_matches(entry, scope):
             return False
         filters = query.filters
         if filters is None:

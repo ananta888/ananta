@@ -14,6 +14,10 @@ class VectorStoreError(RuntimeError):
         super().__init__(self.reason)
 
 
+class VectorStoreFailClosedError(VectorStoreError):
+    """A policy or trust failure that degraded consumers must not hide."""
+
+
 class VectorStoreDimensionsMismatch(VectorStoreError):
     def __init__(self, *, expected: int, actual: int) -> None:
         super().__init__(
@@ -67,6 +71,15 @@ class VectorScope:
             "profile_name": self.profile_name,
             "domain": self.domain,
         }
+
+    def fingerprint(self) -> str:
+        """Return the canonical cross-boundary identity for this scope."""
+
+        from worker.retrieval.vector_index_artifact_locator import (
+            VectorIndexArtifactLocator,
+        )
+
+        return VectorIndexArtifactLocator.scope_fingerprint(self)
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,7 +180,11 @@ class PreparedVectorPoint:
             raise ValueError("non_finite_vector_value")
         object.__setattr__(self, "vector", vector)
         object.__setattr__(self, "payload", dict(self.payload or {}))
-        object.__setattr__(self, "source_hash", str(self.source_hash or "").strip())
+        object.__setattr__(
+            self,
+            "source_hash",
+            _required_identifier(self.source_hash, "source_hash"),
+        )
         if self.point_id is not None:
             object.__setattr__(self, "point_id", _required_identifier(self.point_id, "point_id"))
 
@@ -178,6 +195,7 @@ class VectorSearchQuery:
     top_k: int = 10
     scope: VectorScope | None = None
     filters: VectorStoreFilters | None = None
+    compatibility: CompatibilitySpec | None = None
 
     def __post_init__(self) -> None:
         vector = tuple(float(value) for value in self.query_vector)
@@ -188,6 +206,11 @@ class VectorSearchQuery:
         top_k = int(self.top_k)
         if top_k <= 0:
             raise ValueError("invalid_top_k")
+        if self.compatibility is not None and not isinstance(
+            self.compatibility,
+            CompatibilitySpec,
+        ):
+            raise TypeError("invalid_vector_search_compatibility")
         object.__setattr__(self, "query_vector", vector)
         object.__setattr__(self, "top_k", top_k)
 
@@ -247,6 +270,7 @@ class IndexWriteResult:
     deleted: int = 0
     skipped: int = 0
     failed: int = 0
+    accepted: int = 0
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "diagnostics", dict(self.diagnostics or {}))
@@ -258,11 +282,26 @@ class IndexWriteResult:
             "reason": self.reason,
             "indexed_documents": int(self.indexed_documents),
             "diagnostics": dict(self.diagnostics),
+            "accepted": int(self.accepted),
             "upserted": int(self.upserted),
             "deleted": int(self.deleted),
             "skipped": int(self.skipped),
             "failed": int(self.failed),
         }
+
+
+@dataclass(frozen=True, slots=True)
+class VectorIndexWritePlan:
+    """Optional execution hints for backends that support planned bulk writes."""
+
+    batch_size: int = 128
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.batch_size) is not int
+            or not 1 <= self.batch_size <= 1000
+        ):
+            raise ValueError("vector_batch_size_invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -321,6 +360,29 @@ class VectorIndexWriter(Protocol):
         scope: VectorScope,
     ) -> IndexWriteResult: ...
 
+    def delete_scope(self, scope: VectorScope) -> IndexWriteResult: ...
+
+
+@runtime_checkable
+class PlannedVectorIndexWriter(Protocol):
+    """Narrow opt-in port for stores that consume bulk-write plans."""
+
+    def rebuild_with_plan(
+        self,
+        points: Sequence[PreparedVectorPoint],
+        *,
+        compatibility: CompatibilitySpec,
+        plan: VectorIndexWritePlan,
+    ) -> IndexWriteResult: ...
+
+    def refresh_with_plan(
+        self,
+        points: Sequence[PreparedVectorPoint],
+        *,
+        compatibility: CompatibilitySpec,
+        plan: VectorIndexWritePlan,
+    ) -> IndexWriteResult: ...
+
 
 @runtime_checkable
 class VectorStoreDiagnosticsPort(Protocol):
@@ -346,7 +408,9 @@ class VectorStore(
 __all__ = [
     "CompatibilitySpec",
     "IndexWriteResult",
+    "PlannedVectorIndexWriter",
     "PreparedVectorPoint",
+    "VectorIndexWritePlan",
     "VectorIndexWriter",
     "VectorScope",
     "VectorSearchHit",
@@ -359,6 +423,7 @@ __all__ = [
     "VectorStoreDiagnosticsPort",
     "VectorStoreDimensionsMismatch",
     "VectorStoreError",
+    "VectorStoreFailClosedError",
     "VectorStoreFilters",
     "VectorStoreLifecycle",
 ]

@@ -26,11 +26,11 @@ from agent.services.remote_federation_policy_service import get_remote_federatio
 from agent.services.repository_registry import get_repository_registry
 from agent.services.result_memory_service import normalize_result_memory_policy
 from agent.services.routing_decision_service import get_routing_decision_service
-from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 from agent.services.template_variable_registry import (
     build_template_variable_registry_payload,
     resolve_allowed_template_variables,
 )
+from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 
 from . import shared
 
@@ -97,8 +97,8 @@ def get_dashboard_feature_flags():
 def _build_lora_registry_summary(cfg: dict) -> dict:
     """Gibt lesbare Adapter-Registry-Zusammenfassung zurueck (keine sensiblen Pfade)."""
     try:
-        from agent.services.ml_intern_training_config_service import normalize_lora_runtime_config
         from agent.services.ml_intern_adapter_registry_service import MlInternAdapterRegistryService
+        from agent.services.ml_intern_training_config_service import normalize_lora_runtime_config
         lora_rt = normalize_lora_runtime_config(cfg.get("lora_runtime") or {})
         registry_path = lora_rt.get("adapter_registry_path", "artifacts/lora/adapter_registry.json")
         svc = MlInternAdapterRegistryService(registry_path)
@@ -534,6 +534,14 @@ def set_config():
             normalized_emb["allowed_base_urls"] = [str(u).strip() for u in allowed_base_urls if str(u).strip()]
         if emb_cfg.get("base_url"):
             normalized_emb["base_url"] = str(emb_cfg["base_url"]).strip()
+        if emb_cfg.get("policy_profile"):
+            normalized_emb["policy_profile"] = str(
+                emb_cfg["policy_profile"]
+            ).strip()
+        if emb_cfg.get("api_key_ref"):
+            normalized_emb["api_key_ref"] = str(
+                emb_cfg["api_key_ref"]
+            ).strip()
         if emb_cfg.get("api_key_env"):
             normalized_emb["api_key_env"] = str(emb_cfg["api_key_env"]).strip()
         if emb_cfg.get("model"):

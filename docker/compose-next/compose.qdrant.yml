@@ -1,35 +1,13 @@
 services:
-  ai-agent-alpha:
-    environment:
-      ANANTA_QDRANT_API_KEY_FILE: /run/secrets/qdrant-api-key
-    secrets:
-      - source: qdrant-api-key
-        target: qdrant-api-key
-        mode: 0400
-    networks:
-      - default
-      - qdrant-worker
-    depends_on:
-      qdrant:
-        condition: service_healthy
-
-  ai-agent-beta:
-    environment:
-      ANANTA_QDRANT_API_KEY_FILE: /run/secrets/qdrant-api-key
-    secrets:
-      - source: qdrant-api-key
-        target: qdrant-api-key
-        mode: 0400
-    networks:
-      - default
-      - qdrant-worker
-    depends_on:
-      qdrant:
-        condition: service_healthy
-
   qdrant:
     profiles: ["qdrant"]
     image: qdrant/qdrant:v1.18.2@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c
+    environment:
+      QDRANT__STORAGE__SNAPSHOTS_PATH: /qdrant/snapshots
+      QDRANT__SERVICE__ENABLE_TLS: "true"
+      QDRANT__TLS__CERT: /run/secrets/qdrant-tls-cert.pem
+      QDRANT__TLS__KEY: /run/secrets/qdrant-tls-key.pem
+      QDRANT__TLS__CA_CERT: /run/secrets/qdrant-tls-ca.pem
     entrypoint:
       - /bin/sh
       - -ec
@@ -38,11 +16,31 @@ services:
           echo "qdrant_api_key_secret_missing" >&2
           exit 78
         fi
-        export QDRANT__SERVICE__API_KEY="$(cat /run/secrets/qdrant-api-key)"
+        for tls_file in \
+          /run/secrets/qdrant-tls-ca.pem \
+          /run/secrets/qdrant-tls-cert.pem \
+          /run/secrets/qdrant-tls-key.pem
+        do
+          if [ ! -s "$${tls_file}" ]; then
+            echo "qdrant_tls_material_missing" >&2
+            exit 78
+          fi
+        done
+        if ! qdrant_api_key="$(cat /run/secrets/qdrant-api-key)"; then
+          echo "qdrant_api_key_secret_unreadable" >&2
+          exit 78
+        fi
+        if [ -z "$${qdrant_api_key}" ]; then
+          echo "qdrant_api_key_secret_empty" >&2
+          exit 78
+        fi
+        export QDRANT__SERVICE__API_KEY="$${qdrant_api_key}"
+        unset qdrant_api_key
         exec /qdrant/qdrant
     restart: unless-stopped
     read_only: true
     cap_drop: ["ALL"]
+    cap_add: ["DAC_READ_SEARCH"]
     security_opt:
       - no-new-privileges:true
     tmpfs:
@@ -51,17 +49,32 @@ services:
       - source: qdrant-api-key
         target: qdrant-api-key
         mode: 0400
+      - source: qdrant-tls-ca
+        target: qdrant-tls-ca.pem
+        mode: 0444
+      - source: qdrant-tls-cert
+        target: qdrant-tls-cert.pem
+        mode: 0444
+      - source: qdrant-tls-key
+        target: qdrant-tls-key.pem
+        mode: 0400
     volumes:
       - qdrant-data:/qdrant/storage
       - qdrant-snapshots:/qdrant/snapshots
     ports:
       - "${ANANTA_QDRANT_BIND_IP:-127.0.0.1}:${ANANTA_QDRANT_REST_PORT:-6333}:6333/tcp"
-      - "${ANANTA_QDRANT_BIND_IP:-127.0.0.1}:${ANANTA_QDRANT_GRPC_PORT:-6334}:6334/tcp"
     networks:
       - qdrant-worker
       - qdrant-edge
     healthcheck:
-      test: ["CMD-SHELL", "bash -ec ': >/dev/tcp/127.0.0.1/6333'"]
+      test:
+        - CMD-SHELL
+        - >-
+          printf "GET /healthz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+          | openssl s_client -quiet -verify_return_error -verify_hostname localhost
+          -CAfile /run/secrets/qdrant-tls-ca.pem
+          -connect 127.0.0.1:6333 -servername localhost 2>/dev/null
+          | grep -q "200 OK"
       interval: 10s
       timeout: 3s
       retries: 12
@@ -83,3 +96,9 @@ volumes:
 secrets:
   qdrant-api-key:
     file: "${ANANTA_QDRANT_API_KEY_FILE:-../../config/secrets/qdrant-api-key}"
+  qdrant-tls-ca:
+    file: "${ANANTA_QDRANT_TLS_CA_FILE:-../../config/secrets/qdrant-tls-ca.pem}"
+  qdrant-tls-cert:
+    file: "${ANANTA_QDRANT_TLS_CERT_FILE:-../../config/secrets/qdrant-tls-cert.pem}"
+  qdrant-tls-key:
+    file: "${ANANTA_QDRANT_TLS_KEY_FILE:-../../config/secrets/qdrant-tls-key.pem}"

@@ -27,6 +27,9 @@ from typing import Any, Mapping
 from agent.common.audit import log_audit
 from agent.config import settings
 from agent.services.identity_validation import require_canonical_identity
+from agent.services.run_control_task_intervention_mixin import (
+    RunControlTaskInterventionMixin,
+)
 
 
 @dataclass(frozen=True)
@@ -183,7 +186,7 @@ class RunControlAuthorizationError(RuntimeError):
     reason_code = "run_control_resource_not_found"
 
 
-class RunControlService:
+class RunControlService(RunControlTaskInterventionMixin):
     """Hub-owned run-control mutations and read models.
 
     All state-changing commands wrap existing services:
@@ -612,37 +615,6 @@ class RunControlService:
         return cmd
 
     # ── Task intervention shims ────────────────────────────────────────────────
-
-    def _task_intervene(self, cmd: RunCommand, action: str) -> None:
-        tid = str(cmd.task_id or "").strip()
-        if not tid:
-            cmd.status = "rejected_by_policy"
-            cmd.result = {"error": "task_id_required"}
-            return
-        from agent.services.service_registry import get_core_services
-        ok, msg, data = get_core_services().task_admin_service.intervene_task(
-            task_id=tid, action=action, actor=cmd.requested_by
-        )
-        if ok:
-            cmd.status = "applied"
-            cmd.result.update(data)
-            cmd.effective_at = time.time()
-        else:
-            try:
-                intervention_status = int(
-                    data.get("http_status") or 0
-                )
-            except (TypeError, ValueError):
-                intervention_status = 0
-            cmd.status = (
-                "rejected_by_policy"
-                if (
-                    msg == "invalid_transition"
-                    or 400 <= intervention_status < 500
-                )
-                else "failed"
-            )
-            cmd.result.update({"error": msg, **{k: v for k, v in data.items() if k != "error"}})
 
     def _do_pause(self, cmd: RunCommand) -> None:
         self._task_intervene(cmd, "pause")

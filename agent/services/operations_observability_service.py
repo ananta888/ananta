@@ -3,8 +3,11 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from typing import Any
 
-from agent.services.repository_registry import get_repository_registry
 from agent.services.memory_tree_store_service import get_memory_tree_store_service
+from agent.services.repository_registry import get_repository_registry
+from agent.services.task_context_bundle_access_service import (
+    get_task_context_bundle_access_service,
+)
 
 
 def _top(counter: Counter, *, limit: int = 8) -> list[dict[str, Any]]:
@@ -154,8 +157,9 @@ class OperationsObservabilityService:
 
         context_rows: list[dict[str, Any]] = []
         for task in recent_tasks:
-            bundle_id = str(task.get("context_bundle_id") or "").strip()
-            bundle = repos.context_bundle_repo.get_by_id(bundle_id) if bundle_id else None
+            bundle = get_task_context_bundle_access_service().resolve_task_reference_or_none(
+                task=task,
+            )
             if bundle is None:
                 continue
             metadata = dict(bundle.bundle_metadata or {})

@@ -22,7 +22,6 @@ from worker.retrieval.vector_encoding import (
     VectorEncodingProfile,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fake embedding provider — deterministic, no external calls
 # ---------------------------------------------------------------------------
@@ -63,6 +62,21 @@ def _minimal_documents(n: int = 2) -> list[dict[str, Any]]:
 def _write_raw_index(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _legacy_state(provider: FakeEmbeddingProvider) -> dict[str, Any]:
+    return {
+        "schema": "codecompass_vector_index.v2",
+        "retrieval_cache_state": "cache-current",
+        "manifest_hash": "manifest-current",
+        "embedding_provider": provider.provider_id,
+        "embedding_model_name": provider.model_version,
+        "embedding_dimensions": provider.dimensions,
+        "embedding_provider_config_hash": "config-current",
+        "embedding_text_profile": "profile-current",
+        "vector_encoding_config_hash": VectorEncodingProfile.disabled().config_hash(),
+        "entry_count": 1,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -255,3 +269,98 @@ def test_old_index_missing_state_field(tmp_path):
     assert isinstance(loaded["state"], dict)
     assert len(loaded["entries"]) == 1
     assert loaded["entries"][0]["record_id"] == "r1"
+
+
+@pytest.mark.parametrize(
+    ("state_field", "legacy_value", "expected_reason"),
+    [
+        ("retrieval_cache_state", "cache-legacy", "retrieval_cache_state_changed"),
+        ("manifest_hash", "manifest-legacy", "manifest_changed"),
+        ("embedding_provider", "provider-legacy", "provider_changed"),
+        ("embedding_model_name", "model-legacy", "provider_changed"),
+        ("embedding_dimensions", 7, "dimensions_changed"),
+        ("embedding_provider_config_hash", "config-legacy", "provider_config_changed"),
+        ("embedding_text_profile", "profile-legacy", "embedding_text_profile_changed"),
+        ("vector_encoding_config_hash", "encoding-legacy", "vector_encoding_changed"),
+    ],
+)
+def test_refresh_legacy_state_compatibility_matrix(
+    tmp_path,
+    state_field: str,
+    legacy_value: Any,
+    expected_reason: str,
+) -> None:
+    provider = FakeEmbeddingProvider(
+        provider_id="provider-current",
+        model_version="model-current",
+        dimensions=8,
+    )
+    state = _legacy_state(provider)
+    state[state_field] = legacy_value
+    path = tmp_path / "legacy-index.json"
+    _write_raw_index(
+        path,
+        {
+            "state": state,
+            "entries": [
+                {
+                    "record_id": "legacy",
+                    "kind": "python_function",
+                    "file": "src/legacy.py",
+                    "vector": [0.0] * provider.dimensions,
+                }
+            ],
+        },
+    )
+    store = CodeCompassVectorStore(index_path=path)
+
+    assert store.load()["state"][state_field] == legacy_value
+    result = store.refresh(
+        documents=_minimal_documents(1),
+        embedding_provider=provider,
+        retrieval_cache_state="cache-current",
+        manifest_hash="manifest-current",
+        embedding_provider_config_hash="config-current",
+        embedding_text_profile="profile-current",
+        vector_encoder=VectorEncoder(VectorEncodingProfile.disabled()),
+    )
+
+    assert result["mode"] == "rebuild"
+    assert result["reason"] == expected_reason
+
+
+def test_refresh_complete_legacy_state_matrix_is_unchanged(tmp_path) -> None:
+    provider = FakeEmbeddingProvider(
+        provider_id="provider-current",
+        model_version="model-current",
+        dimensions=8,
+    )
+    path = tmp_path / "legacy-index.json"
+    _write_raw_index(
+        path,
+        {
+            "state": _legacy_state(provider),
+            "entries": [
+                {
+                    "record_id": "legacy",
+                    "kind": "python_function",
+                    "file": "src/legacy.py",
+                    "vector": [0.0] * provider.dimensions,
+                }
+            ],
+        },
+    )
+    store = CodeCompassVectorStore(index_path=path)
+
+    result = store.refresh(
+        documents=_minimal_documents(1),
+        embedding_provider=provider,
+        retrieval_cache_state="cache-current",
+        manifest_hash="manifest-current",
+        embedding_provider_config_hash="config-current",
+        embedding_text_profile="profile-current",
+        vector_encoder=VectorEncoder(VectorEncodingProfile.disabled()),
+    )
+
+    assert result["mode"] == "unchanged"
+    assert result["reason"] == "unchanged"

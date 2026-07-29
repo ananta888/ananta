@@ -15,6 +15,8 @@ Direkt ausführbare Dev-Umgebungen:
 Deployment-Stacks:
 
 - `compose.stack.quickstart.yml` (SQLite, Hub, zwei Worker, Frontend)
+- `compose.workflow-runtime.dev-auth.yml` (Stack-Overlay mit strikten,
+  dateibasierten Dev-Identitäten für zusammengesetzte Worker-Stacks)
 - `compose.stack.full.yml` (PostgreSQL, Redis, Hub, zwei Worker, Frontend)
 - `compose.stack.distributed.yml` (PostgreSQL, Redis, Hub, vier Worker, Frontend)
 - `compose.voice-restricted.yml` (additives, intern isoliertes Voice- und
@@ -129,11 +131,12 @@ erhält ausschließlich den öffentlichen Verification-Keyring und ein eigenes,
 von allen anderen Identitäten getrenntes Service-, Registrierungs- und
 Session-Secret. Strikte registrierte Worker-Authentisierung ist im Stack
 aktiv; inline Secrets und persistierte Token-Rotation sind deaktiviert.
-Vollständige bestehende Credentials werden validiert und unverändert
-wiederverwendet. Ein alter, vollständiger Satz der drei Authorization-Keyrings
-wird transaktional um die neuen Identitätsdateien ergänzt. Jeder andere
-unvollständige Satz bricht fail-closed ab, statt aktive Signaturen oder
-Worker-Identitäten unbemerkt zu rotieren.
+Aktuelle vollständige Credentials werden validiert und unverändert
+wiederverwendet. Ein vollständig bekannter Vorgängerstand erhält nur die
+neuen Vector-Capability-Grants; Schlüssel und Tokens rotieren dabei nicht.
+Ein alter Satz nur der drei Authorization-Keyrings wird transaktional um die
+Identitätsdateien ergänzt. Jeder andere unvollständige oder veränderte Satz
+bricht fail-closed ab.
 
 Da die strikte Worker-Authentisierung aktiv ist, muss `CORS_ORIGINS` eine
 explizite, kommaseparierte Browser-Origin-Liste enthalten. Die lokalen
@@ -387,7 +390,10 @@ die vollständige Hub-Allowlist, nicht die Selbstauskunft des Workers. Alpha und
 Beta erhalten exakt `planning, analysis, research, coding, implementation,
 review, testing, verification, workflow.adapter.native, approval,
 bounded_parallel, checkpoint, deterministic_merge, resume, retrieval, stream,
-structured_output, subgraphs, tool_calling`. Der dedizierte LangGraph-Worker
+index_write, structured_output, subgraphs, tool_calling,
+vector_index_operation`. `vector_index_operation` wird vom Worker nur
+angemeldet, wenn der öffentliche Attestierungs-Keyring und die
+Hub-Dispatch-Zulassung erfolgreich zusammengesetzt wurden. Der dedizierte LangGraph-Worker
 erhält nur die ersten acht Basis-Capabilities plus
 `workflow.adapter.langgraph`. Erfolgreiche strikte Registrierung wird als
 `strict_registration_keyring_v1` persistiert. Legacy-/Default-Datenbankzeilen

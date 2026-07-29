@@ -22,6 +22,7 @@ _registration_state = {
     "last_error": None,
     "next_retry_at": None,
     "registered_as": None,
+    "registered_capabilities": [],
 }
 
 
@@ -47,6 +48,7 @@ def reset_registration_state() -> None:
         last_error=None,
         next_retry_at=None,
         registered_as=None,
+        registered_capabilities=[],
     )
 
 
@@ -136,6 +138,18 @@ def start_registration_thread(app):
                     last_success_at=time.time(),
                     next_retry_at=time.time() + refresh_interval,
                     last_error=None,
+                    registered_capabilities=sorted(
+                        {
+                            str(value).strip()
+                            for value in (
+                                workflow_registration.get(
+                                    "capabilities"
+                                )
+                                or []
+                            )
+                            if str(value).strip()
+                        }
+                    ),
                 )
                 if not _sleep_with_shutdown(refresh_interval):
                     break

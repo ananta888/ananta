@@ -2613,6 +2613,103 @@ def test_task_scoped_recovery_forward_never_retries_without_worker_token(
     ]
 
 
+@pytest.mark.parametrize(
+    "failure_mode",
+    ["empty", "unauthorized_response", "not_found", "unauthorized_exception"],
+)
+def test_vector_index_forward_never_retries_anonymously_or_falls_back_locally(
+    app,
+    monkeypatch,
+    failure_mode,
+):
+    from agent.common.errors import WorkerForwardingError
+    from agent.config import settings
+    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services import (
+        recovery_dispatch_gate_service,
+        vector_index_task_service,
+    )
+
+    class Gate:
+        @staticmethod
+        def is_recovery_child(_task):
+            return False
+
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
+    monkeypatch.setattr(
+        recovery_dispatch_gate_service,
+        "get_recovery_dispatch_gate_service",
+        lambda: Gate(),
+    )
+    monkeypatch.setattr(
+        forwarding,
+        "get_repository_registry",
+        lambda: Record(
+            agent_repo=Record(
+                get_by_url=lambda _url: Record(
+                    token="current-vector-worker-token"
+                )
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        vector_index_task_service,
+        "get_vector_index_task_service",
+        lambda: Record(
+            issue_dispatch_attempt=lambda **_values: {
+                "schema": "ananta.vector_index_task.v1",
+                "job_id": "vector-forward-fenced",
+            }
+        ),
+    )
+    calls: list[str | None] = []
+
+    def forwarder(_url, _endpoint, _payload, *, token):
+        calls.append(token)
+        if failure_mode == "empty":
+            return None
+        if failure_mode == "unauthorized_response":
+            return {
+                "status": "error",
+                "http_status": 401,
+                "message": "unauthorized",
+            }
+        if failure_mode == "not_found":
+            return {
+                "status": "error",
+                "http_status": 404,
+                "message": "task not found",
+            }
+        raise RuntimeError("401 unauthorized")
+
+    with app.app_context(), pytest.raises(WorkerForwardingError):
+        forwarding.forward_task_request_if_remote(
+            tid="vector-forward-fenced",
+            task={
+                "id": "vector-forward-fenced",
+                "task_kind": "vector_index_operation",
+                "assigned_agent_url": "http://worker:5001",
+                "assigned_agent_token": "stale-vector-worker-token",
+                "worker_execution_context": {
+                    "vector_index_task": {
+                        "schema": "ananta.vector_index_task.v1",
+                    }
+                },
+            },
+            endpoint=(
+                "/tasks/vector-forward-fenced/step/execute"
+            ),
+            payload={"task_id": "vector-forward-fenced"},
+            forwarder=forwarder,
+            on_success=lambda *_args: (_ for _ in ()).throw(
+                ValueError("vector result schema required")
+            ),
+        )
+
+    assert calls == ["current-vector-worker-token"]
+
+
 def test_task_repository_rejects_stale_recovery_save_after_owner_terminal(
     monkeypatch,
 ):

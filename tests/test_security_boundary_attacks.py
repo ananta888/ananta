@@ -2,9 +2,18 @@ from __future__ import annotations
 
 from io import BytesIO
 
-from agent.routes.tasks.utils import _get_local_task_status
+import pytest
+
+from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+from agent.services.vector_index_task_ingress_policy import (
+    RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON,
+)
 from agent.services.workspace_scope_builder import build_worker_workspace, derive_workspace_scope, safe_scope_segment
-from agent.tool_capabilities import build_capability_contract, resolve_allowed_tools, validate_tool_calls_against_contract
+from agent.tool_capabilities import (
+    build_capability_contract,
+    resolve_allowed_tools,
+    validate_tool_calls_against_contract,
+)
 
 
 def test_multihop_subtask_cannot_expand_tool_scope_or_admin_capabilities():
@@ -58,6 +67,126 @@ def test_boundary_auth_rejects_missing_invalid_and_non_admin_requests(client, us
     assert missing.status_code == 401
     assert invalid.status_code == 401
     assert non_admin.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/tasks",
+        "/tasks/orchestration/ingest",
+    ],
+)
+@pytest.mark.parametrize(
+    ("reserved_payload", "reserved_field"),
+    [
+        ({"source": "vector_index"}, "source"),
+        ({"task_kind": "vector_index_operation"}, "task_kind"),
+        (
+            {"worker_execution_context": {"vector_index_task": {}}},
+            "worker_execution_context.vector_index_task",
+        ),
+    ],
+)
+def test_generic_task_create_and_ingest_reject_reserved_vector_index_markers(
+    client,
+    auth_header,
+    path,
+    reserved_payload,
+    reserved_field,
+):
+    response = client.post(
+        path,
+        headers=auth_header,
+        json={
+            "description": "attempt to bypass the Vector-Index control plane",
+            **reserved_payload,
+        },
+    )
+
+    assert response.status_code == 403
+    body = response.get_json()
+    assert body["message"] == RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON
+    assert body["data"]["reason_code"] == RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON
+    assert body["data"]["reserved_field"] == reserved_field
+
+
+@pytest.mark.parametrize(
+    ("reserved_payload", "reserved_field"),
+    [
+        ({"source": "vector_index"}, "source"),
+        ({"task_kind": "vector_index_operation"}, "task_kind"),
+        (
+            {"worker_execution_context": {"vector_index_task": {}}},
+            "worker_execution_context.vector_index_task",
+        ),
+    ],
+)
+def test_generic_task_patch_rejects_reserved_vector_index_markers_in_raw_payload(
+    client,
+    auth_header,
+    reserved_payload,
+    reserved_field,
+):
+    task_id = f"SEC-PATCH-RAW-{reserved_field.replace('.', '-')}"
+    created = client.post(
+        "/tasks",
+        headers=auth_header,
+        json={"id": task_id, "description": "ordinary task"},
+    )
+    assert created.status_code == 201
+
+    response = client.patch(
+        f"/tasks/{task_id}",
+        headers=auth_header,
+        json={"title": "forged mutation", **reserved_payload},
+    )
+
+    assert response.status_code == 403
+    body = response.get_json()
+    assert body["message"] == RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON
+    assert body["data"]["reserved_field"] == reserved_field
+
+
+@pytest.mark.parametrize(
+    ("existing_fields", "reserved_field"),
+    [
+        ({"source": "vector_index"}, "source"),
+        ({"task_kind": "vector_index_operation"}, "task_kind"),
+        (
+            {"worker_execution_context": {"vector_index_task": {}}},
+            "worker_execution_context.vector_index_task",
+        ),
+    ],
+)
+def test_generic_task_patch_rejects_existing_internal_vector_index_tasks(
+    client,
+    app,
+    auth_header,
+    existing_fields,
+    reserved_field,
+):
+    task_id = f"SEC-PATCH-INTERNAL-{reserved_field.replace('.', '-')}"
+    with app.app_context():
+        if reserved_field == "source":
+            _update_local_task_status(
+                task_id,
+                "todo",
+                event_type="task_ingested",
+                event_details={"source": existing_fields["source"]},
+            )
+        else:
+            _update_local_task_status(task_id, "todo", **existing_fields)
+
+    response = client.patch(
+        f"/tasks/{task_id}",
+        headers=auth_header,
+        json={"title": "generic mutation attempt"},
+    )
+
+    assert response.status_code == 403
+    body = response.get_json()
+    assert body["message"] == RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON
+    assert body["data"]["reserved_field"] == reserved_field
 
 
 def test_boundary_remote_artifact_access_rejects_forbidden_federation_headers(client, admin_auth_header, app):

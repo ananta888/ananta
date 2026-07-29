@@ -11,8 +11,20 @@ from agent.models import TaskClaimRequest, TaskCreateRequest, TaskDelegationRequ
 from agent.routes.tasks.orchestration_policy import (
     DelegationPolicy,
 )
+from agent.services.context_bundle_ingress_policy import (
+    find_reserved_context_bundle_marker,
+    reserved_context_bundle_ingress_error,
+)
+from agent.services.retrieval_vector_scope_ingress_policy import (
+    find_reserved_retrieval_vector_scope_marker,
+    reserved_retrieval_vector_scope_ingress_error,
+)
 from agent.services.service_registry import get_core_services
 from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
+from agent.services.vector_index_task_ingress_policy import (
+    find_reserved_vector_index_marker,
+    reserved_vector_index_ingress_error,
+)
 
 orchestration_bp = Blueprint("tasks_orchestration", __name__)
 
@@ -67,6 +79,37 @@ def delegate_task(tid):
 @check_auth
 def ingest_task():
     payload = request.get_json(silent=True) or {}
+    reserved_marker = find_reserved_vector_index_marker(payload)
+    if reserved_marker:
+        result = reserved_vector_index_ingress_error(reserved_marker)
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result["data"],
+            code=result["code"],
+        )
+    reserved_scope_marker = (
+        find_reserved_retrieval_vector_scope_marker(payload)
+    )
+    if reserved_scope_marker:
+        result = reserved_retrieval_vector_scope_ingress_error(
+            reserved_scope_marker
+        )
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result["data"],
+            code=result["code"],
+        )
+    reserved_context_marker = find_reserved_context_bundle_marker(payload)
+    if reserved_context_marker:
+        result = reserved_context_bundle_ingress_error(reserved_context_marker)
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result["data"],
+            code=result["code"],
+        )
     description = str(payload.get("description") or "").strip()
     if not description:
         return api_response(status="error", message="description_required", code=400)
@@ -93,7 +136,6 @@ def ingest_task():
             "required_capabilities": payload.get("required_capabilities")
             if isinstance(payload.get("required_capabilities"), list)
             else None,
-            "context_bundle_id": payload.get("context_bundle_id"),
             "worker_execution_context": payload.get("worker_execution_context")
             if isinstance(payload.get("worker_execution_context"), dict)
             else None,
@@ -107,7 +149,12 @@ def ingest_task():
         created_by=created_by,
     )
     if result.get("error"):
-        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result.get("data"),
+            code=result.get("code", 400),
+        )
     return api_response(data={**result.get("data", {}), "ingested": True, "source": source})
 
 

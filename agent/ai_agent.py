@@ -146,6 +146,32 @@ def _register_template_propose_handler(app: Flask) -> None:
         )
 
 
+def _advertise_worker_capabilities(
+    app: Flask,
+    capabilities: list[str],
+) -> None:
+    """Add only capabilities backed by a successfully composed handler."""
+
+    registration = dict(
+        app.extensions.get(
+            "workflow_adapter_worker_registration"
+        )
+        or {}
+    )
+    registration["capabilities"] = sorted(
+        {
+            *(
+                registration.get("capabilities")
+                or []
+            ),
+            *capabilities,
+        }
+    )
+    app.extensions[
+        "workflow_adapter_worker_registration"
+    ] = registration
+
+
 def _register_worker_domain_handlers(app: Flask) -> None:
     """Compose worker-only execution adapters behind the shared task registry."""
 
@@ -156,14 +182,24 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         }
         return
 
+    from agent.adapters.vector_store_metrics_adapter import (
+        PrometheusVectorStoreObserver,
+    )
     from worker.core.model_provider import build_model_provider
+    from worker.mail_task_execution import build_mail_task_handler
     from worker.retrieval.knowledge_index_job_handler import (
         build_knowledge_index_task_handler,
+    )
+    from worker.retrieval.vector_index_execution import (
+        ConfiguredVectorIndexExecution,
     )
     from worker.retrieval.vector_index_job_handler import (
         build_vector_index_task_handler,
     )
-    from worker.mail_task_execution import build_mail_task_handler
+    from worker.retrieval.vector_index_task_verification import (
+        UnavailableVectorIndexTaskVerifier,
+        load_vector_index_task_verifier,
+    )
     from worker.semantic_media.compute_task_handler import (
         SemanticComputeWorkerConfigurationError,
         build_semantic_compute_task_handler,
@@ -189,24 +225,73 @@ def _register_worker_domain_handlers(app: Flask) -> None:
             "artifact_first",
         ],
     )
-    register_task_handler(
-        "vector_index_operation",
-        build_vector_index_task_handler(),
-        app=app,
-        capabilities=["retrieval", "index_write"],
-        safety_flags={
-            "requires_review": False,
-            "worker_only": True,
-            "search_forbidden": True,
-            "worker_orchestration_forbidden": True,
-            "network_access": "configured_vector_store_only",
-        },
-        verification_hooks=[
-            "vector_index_task_result_schema",
-            "idempotency_key",
-            "trusted_scope",
-        ],
+    _advertise_worker_capabilities(
+        app,
+        ["retrieval", "index_write"],
     )
+    vector_registered = False
+    try:
+        vector_verifier = load_vector_index_task_verifier()
+        if isinstance(
+            vector_verifier,
+            UnavailableVectorIndexTaskVerifier,
+        ):
+            raise ValueError(
+                "vector_index_task_verification_keyring_required"
+            )
+        vector_handler = build_vector_index_task_handler(
+            ConfiguredVectorIndexExecution(
+                observer=PrometheusVectorStoreObserver(),
+            ),
+            task_verifier=vector_verifier,
+        )
+    except (RuntimeError, ValueError) as exc:
+        reason = str(exc).strip()
+        if not reason.startswith("vector_index_"):
+            reason = "vector_index_worker_composition_invalid"
+        app.extensions["vector_index_worker_registration"] = {
+            "ready": False,
+            "reason_code": reason,
+        }
+    else:
+        vector_capabilities = [
+            "retrieval",
+            "index_write",
+            "vector_index_operation",
+        ]
+        register_task_handler(
+            "vector_index_operation",
+            vector_handler,
+            app=app,
+            capabilities=vector_capabilities,
+            safety_flags={
+                "requires_review": False,
+                "worker_only": True,
+                "search_forbidden": True,
+                "worker_orchestration_forbidden": True,
+                "network_access": "configured_vector_store_only",
+            },
+            verification_hooks=[
+                "vector_index_task_result_schema",
+                "hub_attestation",
+                "hub_dispatch_admission",
+                "worker_audience",
+                "dispatch_expiry",
+                "durable_replay_guard",
+                "dispatch_attempt_result_fence",
+                "idempotency_key",
+                "trusted_scope",
+            ],
+        )
+        _advertise_worker_capabilities(
+            app,
+            vector_capabilities,
+        )
+        app.extensions["vector_index_worker_registration"] = {
+            "ready": True,
+            "reason_code": None,
+        }
+        vector_registered = True
     register_task_handler(
         "mail_operation",
         build_mail_task_handler(),
@@ -247,7 +332,11 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     )
     registered = [
         "codecompass_index_build",
-        "vector_index_operation",
+        *(
+            ["vector_index_operation"]
+            if vector_registered
+            else []
+        ),
         "mail_operation",
         "visual_process_assistant_retrieval",
         "visual_process_assistant_inference",
@@ -365,6 +454,11 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         )
         app.extensions["workflow_adapter_worker_registration"] = workflow_registration
     app.extensions["worker_domain_handler_registration"] = {"registered": registered}
+    from agent.routes.worker_vector_index_readiness import (
+        worker_vector_index_readiness_bp,
+    )
+
+    app.register_blueprint(worker_vector_index_readiness_bp)
 
 
 def _check_token_rotation(app: Flask) -> None:

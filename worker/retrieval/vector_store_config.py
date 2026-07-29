@@ -12,14 +12,21 @@ from worker.retrieval.vector_store_endpoint_policy import (
     SecretReference,
     VectorStoreEndpointPolicyError,
     normalize_allowed_origins,
+    normalize_trusted_private_origins,
     validate_endpoint_access,
 )
 
 
 class VectorStoreConfigError(ValueError):
-    def __init__(self, reason: str) -> None:
+    def __init__(self, reason: str, *, cause_reason: str | None = None) -> None:
         self.reason = str(reason or "invalid_vector_store_config")
-        super().__init__(self.reason)
+        self.cause_reason = str(cause_reason or "").strip() or None
+        message = (
+            f"{self.reason}:{self.cause_reason}"
+            if self.cause_reason and self.cause_reason != self.reason
+            else self.reason
+        )
+        super().__init__(message)
 
 
 class VectorStoreProvider(str, Enum):
@@ -39,17 +46,68 @@ class AvailabilityMode(str, Enum):
     EXPLICIT_JSON_FALLBACK = "explicit_json_fallback"
 
 
-def _enum_value(enum_type: type[Enum], value: object, reason: str) -> Any:
+def _enum_value(
+    enum_type: type[Enum],
+    value: object,
+    reason: str,
+    *,
+    cause_reason: str | None = None,
+) -> Any:
     try:
         return enum_type(str(value).strip().lower())
     except ValueError as exc:
-        raise VectorStoreConfigError(reason) from exc
+        raise VectorStoreConfigError(reason, cause_reason=cause_reason) from exc
 
 
 def _reject_unknown(mapping: Mapping[str, Any], allowed: set[str], reason: str) -> None:
     unknown = sorted(set(mapping) - allowed)
     if unknown:
         raise VectorStoreConfigError(f"{reason}:{','.join(unknown)}")
+
+
+def _strict_bool(value: Any, *, cause_reason: str) -> bool:
+    if type(value) is not bool:
+        raise VectorStoreConfigError(
+            "vector_store_invalid_boolean",
+            cause_reason=cause_reason,
+        )
+    return value
+
+
+def _strict_timeout(value: Any) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise VectorStoreConfigError(
+            "vector_store_invalid_timeout",
+            cause_reason="invalid_qdrant_timeout_type",
+        )
+    return float(value)
+
+
+def _origin_sequence(
+    value: Any,
+    *,
+    allow_empty: bool,
+    cause_reason: str,
+) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        raise VectorStoreConfigError(
+            "vector_store_invalid_origin",
+            cause_reason=cause_reason,
+        )
+    if not value and not allow_empty:
+        raise VectorStoreConfigError(
+            "vector_store_invalid_origin",
+            cause_reason="vector_store_allowed_origins_required",
+        )
+    origins: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            raise VectorStoreConfigError(
+                "vector_store_invalid_origin",
+                cause_reason=cause_reason,
+            )
+        origins.append(item)
+    return tuple(origins)
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,13 +119,26 @@ class AvailabilityPolicy:
         mode = (
             self.on_unavailable
             if isinstance(self.on_unavailable, AvailabilityMode)
-            else _enum_value(AvailabilityMode, self.on_unavailable, "invalid_vector_store_availability_mode")
+            else _enum_value(
+                AvailabilityMode,
+                self.on_unavailable,
+                "vector_store_invalid_availability_policy",
+                cause_reason="invalid_vector_store_availability_mode",
+            )
         )
         fallback = self.fallback_provider
         if fallback is not None and not isinstance(fallback, VectorStoreProvider):
-            fallback = _enum_value(VectorStoreProvider, fallback, "unknown_vector_store_fallback_provider")
+            fallback = _enum_value(
+                VectorStoreProvider,
+                fallback,
+                "vector_store_invalid_availability_policy",
+                cause_reason="unknown_vector_store_fallback_provider",
+            )
         if mode == AvailabilityMode.EXPLICIT_JSON_FALLBACK and fallback not in {None, VectorStoreProvider.JSON}:
-            raise VectorStoreConfigError("explicit_fallback_requires_json_provider")
+            raise VectorStoreConfigError(
+                "vector_store_invalid_availability_policy",
+                cause_reason="explicit_fallback_requires_json_provider",
+            )
         if mode == AvailabilityMode.EXPLICIT_JSON_FALLBACK:
             fallback = VectorStoreProvider.JSON
         object.__setattr__(self, "on_unavailable", mode)
@@ -99,25 +170,62 @@ class QdrantEndpointConfig:
     rest_url: str = "http://localhost:6333"
     grpc_url: str | None = None
     api_key_ref: str | None = None
+    tls_ca_cert_ref: str | None = None
     allowed_origins: tuple[str, ...] = ("http://localhost:6333",)
+    trusted_private_origins: tuple[str, ...] = ()
     external_calls_allowed: bool = False
+    connect_timeout_seconds: float = 3.0
     timeout_seconds: float = 10.0
     prefer_grpc: bool = False
     tls_verify: bool = True
 
     def __post_init__(self) -> None:
-        timeout = float(self.timeout_seconds)
-        if not 0.05 <= timeout <= 300.0:
-            raise VectorStoreConfigError("invalid_qdrant_timeout_seconds")
-        if not bool(self.tls_verify):
-            raise VectorStoreConfigError("qdrant_tls_verification_cannot_be_disabled")
+        external_calls_allowed = _strict_bool(
+            self.external_calls_allowed,
+            cause_reason="invalid_qdrant_external_calls_allowed",
+        )
+        prefer_grpc = _strict_bool(
+            self.prefer_grpc,
+            cause_reason="invalid_qdrant_prefer_grpc",
+        )
+        tls_verify = _strict_bool(
+            self.tls_verify,
+            cause_reason="invalid_qdrant_tls_verify",
+        )
+        connect_timeout = _strict_timeout(self.connect_timeout_seconds)
+        timeout = _strict_timeout(self.timeout_seconds)
+        if not 0.05 <= connect_timeout <= 300.0 or not 0.05 <= timeout <= 300.0:
+            raise VectorStoreConfigError(
+                "vector_store_invalid_timeout",
+                cause_reason="invalid_qdrant_timeout_seconds",
+            )
+        if not tls_verify:
+            raise VectorStoreConfigError(
+                "vector_store_tls_policy_violation",
+                cause_reason="qdrant_tls_verification_cannot_be_disabled",
+            )
+        allowed_values = _origin_sequence(
+            self.allowed_origins,
+            allow_empty=False,
+            cause_reason="invalid_qdrant_allowed_origins",
+        )
+        trusted_private_values = _origin_sequence(
+            self.trusted_private_origins,
+            allow_empty=True,
+            cause_reason="invalid_qdrant_trusted_private_origins",
+        )
         try:
-            allowed = normalize_allowed_origins(self.allowed_origins)
+            allowed = normalize_allowed_origins(allowed_values)
+            trusted_private = normalize_trusted_private_origins(
+                trusted_private_values,
+                allowed_origins=allowed,
+            )
             rest = validate_endpoint_access(
                 self.rest_url,
                 transport="rest",
                 allowed_origins=allowed,
-                external_calls_allowed=bool(self.external_calls_allowed),
+                external_calls_allowed=external_calls_allowed,
+                trusted_private_origins=trusted_private,
             )
             grpc = None
             if self.grpc_url:
@@ -125,25 +233,69 @@ class QdrantEndpointConfig:
                     self.grpc_url,
                     transport="grpc",
                     allowed_origins=allowed,
-                    external_calls_allowed=bool(self.external_calls_allowed),
+                    external_calls_allowed=external_calls_allowed,
+                    trusted_private_origins=trusted_private,
                 )
         except VectorStoreEndpointPolicyError as exc:
-            raise VectorStoreConfigError(exc.reason) from exc
-        if bool(self.prefer_grpc) and grpc is None:
-            raise VectorStoreConfigError("qdrant_grpc_url_required")
+            if exc.reason in {
+                "vector_store_remote_rest_tls_required",
+                "vector_store_remote_grpc_tls_required",
+            }:
+                raise VectorStoreConfigError(
+                    "vector_store_tls_policy_violation",
+                    cause_reason=exc.reason,
+                ) from exc
+            raise VectorStoreConfigError(
+                "vector_store_invalid_origin",
+                cause_reason=exc.reason,
+            ) from exc
+        if prefer_grpc and grpc is None:
+            raise VectorStoreConfigError(
+                "vector_store_invalid_origin",
+                cause_reason="qdrant_grpc_url_required",
+            )
         secret_ref = None
         if self.api_key_ref:
             try:
                 secret_ref = SecretReference.parse(self.api_key_ref).as_uri()
             except VectorStoreEndpointPolicyError as exc:
-                raise VectorStoreConfigError(exc.reason) from exc
+                raise VectorStoreConfigError(
+                    "vector_store_secret_scheme_rejected",
+                    cause_reason=exc.reason,
+                ) from exc
+        tls_ca_cert_ref = None
+        if self.tls_ca_cert_ref:
+            try:
+                parsed_ca_ref = SecretReference.parse(self.tls_ca_cert_ref)
+                if parsed_ca_ref.scheme != "secretfile":
+                    raise VectorStoreEndpointPolicyError(
+                        "qdrant_tls_ca_cert_ref_must_be_secretfile"
+                    )
+                tls_ca_cert_ref = parsed_ca_ref.as_uri()
+            except VectorStoreEndpointPolicyError as exc:
+                raise VectorStoreConfigError(
+                    "vector_store_tls_policy_violation",
+                    cause_reason=exc.reason,
+                ) from exc
+            if not rest.secure and not (grpc and grpc.secure):
+                raise VectorStoreConfigError(
+                    "vector_store_tls_policy_violation",
+                    cause_reason="qdrant_tls_ca_requires_secure_endpoint",
+                )
         object.__setattr__(self, "rest_url", rest.origin)
         object.__setattr__(self, "grpc_url", grpc.origin if grpc else None)
         object.__setattr__(self, "api_key_ref", secret_ref)
+        object.__setattr__(self, "tls_ca_cert_ref", tls_ca_cert_ref)
         object.__setattr__(self, "allowed_origins", allowed)
-        object.__setattr__(self, "external_calls_allowed", bool(self.external_calls_allowed))
+        object.__setattr__(
+            self,
+            "trusted_private_origins",
+            trusted_private,
+        )
+        object.__setattr__(self, "external_calls_allowed", external_calls_allowed)
+        object.__setattr__(self, "connect_timeout_seconds", connect_timeout)
         object.__setattr__(self, "timeout_seconds", timeout)
-        object.__setattr__(self, "prefer_grpc", bool(self.prefer_grpc))
+        object.__setattr__(self, "prefer_grpc", prefer_grpc)
         object.__setattr__(self, "tls_verify", True)
 
     def as_dict(self) -> dict[str, Any]:
@@ -151,18 +303,30 @@ class QdrantEndpointConfig:
             "rest_url": self.rest_url,
             "grpc_url": self.grpc_url,
             "api_key_ref": self.api_key_ref,
+            "tls_ca_cert_ref": self.tls_ca_cert_ref,
             "allowed_origins": list(self.allowed_origins),
+            "trusted_private_origins": list(self.trusted_private_origins),
             "external_calls_allowed": self.external_calls_allowed,
-            "timeout_seconds": self.timeout_seconds,
+            "connect_timeout_seconds": self.connect_timeout_seconds,
+            "request_timeout_seconds": self.request_timeout_seconds,
             "prefer_grpc": self.prefer_grpc,
             "tls_verify": self.tls_verify,
         }
+
+    @property
+    def request_timeout_seconds(self) -> float:
+        """Canonical request timeout; ``timeout_seconds`` remains a read-compatible alias."""
+
+        return self.timeout_seconds
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "QdrantEndpointConfig":
         payload = dict(value or {})
         if "api_key" in payload:
-            raise VectorStoreConfigError("plaintext_qdrant_api_key_forbidden")
+            raise VectorStoreConfigError(
+                "vector_store_plaintext_secret_rejected",
+                cause_reason="plaintext_qdrant_api_key_forbidden",
+            )
         _reject_unknown(
             payload,
             {
@@ -171,9 +335,13 @@ class QdrantEndpointConfig:
                 "grpc_url",
                 "api_key_ref",
                 "api_key_env",
+                "tls_ca_cert_ref",
                 "allowed_origins",
                 "allowed_base_urls",
+                "trusted_private_origins",
                 "external_calls_allowed",
+                "connect_timeout_seconds",
+                "request_timeout_seconds",
                 "timeout_seconds",
                 "prefer_grpc",
                 "tls_verify",
@@ -183,26 +351,67 @@ class QdrantEndpointConfig:
         api_key_ref = payload.get("api_key_ref")
         if not api_key_ref and payload.get("api_key_env"):
             api_key_ref = f"env://{str(payload['api_key_env']).strip()}"
+        request_timeout = payload.get("request_timeout_seconds")
+        legacy_timeout = payload.get("timeout_seconds")
+        if request_timeout is not None:
+            request_timeout = _strict_timeout(request_timeout)
+        if legacy_timeout is not None:
+            legacy_timeout = _strict_timeout(legacy_timeout)
+        if (
+            request_timeout is not None
+            and legacy_timeout is not None
+            and request_timeout != legacy_timeout
+        ):
+            raise VectorStoreConfigError(
+                "vector_store_invalid_timeout",
+                cause_reason="conflicting_qdrant_request_timeout",
+            )
+        if "allowed_origins" in payload:
+            allowed_origins = _origin_sequence(
+                payload["allowed_origins"],
+                allow_empty=False,
+                cause_reason="invalid_qdrant_allowed_origins",
+            )
+        elif "allowed_base_urls" in payload:
+            allowed_origins = _origin_sequence(
+                payload["allowed_base_urls"],
+                allow_empty=False,
+                cause_reason="invalid_qdrant_allowed_origins",
+            )
+        else:
+            allowed_origins = ("http://localhost:6333",)
+        trusted_private_origins = _origin_sequence(
+            payload.get("trusted_private_origins", ()),
+            allow_empty=True,
+            cause_reason="invalid_qdrant_trusted_private_origins",
+        )
         return cls(
             rest_url=str(payload.get("rest_url") or payload.get("url") or "http://localhost:6333"),
             grpc_url=str(payload["grpc_url"]) if payload.get("grpc_url") else None,
             api_key_ref=str(api_key_ref) if api_key_ref else None,
-            allowed_origins=tuple(
-                str(item)
-                for item in (
-                    payload.get("allowed_origins")
-                    or payload.get("allowed_base_urls")
-                    or ("http://localhost:6333",)
-                )
+            tls_ca_cert_ref=(
+                str(payload["tls_ca_cert_ref"])
+                if payload.get("tls_ca_cert_ref")
+                else None
             ),
-            external_calls_allowed=bool(payload.get("external_calls_allowed", False)),
-            timeout_seconds=float(payload.get("timeout_seconds", 10.0)),
-            prefer_grpc=bool(payload.get("prefer_grpc", False)),
-            tls_verify=bool(payload.get("tls_verify", True)),
+            allowed_origins=allowed_origins,
+            trusted_private_origins=trusted_private_origins,
+            external_calls_allowed=payload.get("external_calls_allowed", False),
+            connect_timeout_seconds=payload.get("connect_timeout_seconds", 3.0),
+            timeout_seconds=(
+                request_timeout
+                if request_timeout is not None
+                else legacy_timeout
+                if legacy_timeout is not None
+                else 10.0
+            ),
+            prefer_grpc=payload.get("prefer_grpc", False),
+            tls_verify=payload.get("tls_verify", True),
         )
 
 
 _COLLECTION_PREFIX = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$")
+_SCHEMA_VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,23 +428,62 @@ class QdrantVectorStoreConfig:
     def __post_init__(self) -> None:
         prefix = str(self.collection_prefix or "").strip()
         if not _COLLECTION_PREFIX.fullmatch(prefix):
-            raise VectorStoreConfigError("invalid_qdrant_collection_prefix")
+            raise VectorStoreConfigError(
+                "vector_store_invalid_collection",
+                cause_reason="invalid_qdrant_collection_prefix",
+            )
         if self.collection_strategy != "workspace_repository_profile":
-            raise VectorStoreConfigError("unsupported_qdrant_collection_strategy")
+            raise VectorStoreConfigError(
+                "vector_store_invalid_collection",
+                cause_reason="unsupported_qdrant_collection_strategy",
+            )
         distance = (
             self.distance
             if isinstance(self.distance, VectorStoreDistance)
-            else _enum_value(VectorStoreDistance, self.distance, "unsupported_qdrant_distance")
+            else _enum_value(
+                VectorStoreDistance,
+                self.distance,
+                "vector_store_invalid_distance",
+                cause_reason="unsupported_qdrant_distance",
+            )
         )
         if self.rebuild_strategy != "versioned_collection_alias_swap":
-            raise VectorStoreConfigError("unsupported_qdrant_rebuild_strategy")
-        retention = int(self.retention_collections)
+            raise VectorStoreConfigError(
+                "vector_store_invalid_collection",
+                cause_reason="unsupported_qdrant_rebuild_strategy",
+            )
+        if not isinstance(self.schema_version, str) or not _SCHEMA_VERSION.fullmatch(
+            self.schema_version
+        ):
+            raise VectorStoreConfigError(
+                "vector_store_invalid_collection",
+                cause_reason="invalid_qdrant_schema_version",
+            )
+        if isinstance(self.retention_collections, bool) or not isinstance(
+            self.retention_collections,
+            int,
+        ):
+            raise VectorStoreConfigError(
+                "vector_store_invalid_collection",
+                cause_reason="invalid_qdrant_retention_collections",
+            )
+        retention = self.retention_collections
         if not 1 <= retention <= 32:
-            raise VectorStoreConfigError("invalid_qdrant_retention_collections")
+            raise VectorStoreConfigError(
+                "vector_store_invalid_collection",
+                cause_reason="invalid_qdrant_retention_collections",
+            )
         object.__setattr__(self, "collection_prefix", prefix)
         object.__setattr__(self, "distance", distance)
         object.__setattr__(self, "retention_collections", retention)
-        object.__setattr__(self, "store_embedding_text", bool(self.store_embedding_text))
+        object.__setattr__(
+            self,
+            "store_embedding_text",
+            _strict_bool(
+                self.store_embedding_text,
+                cause_reason="invalid_qdrant_store_embedding_text",
+            ),
+        )
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -259,9 +507,13 @@ class QdrantVectorStoreConfig:
             "api_key_ref",
             "api_key_env",
             "api_key",
+            "tls_ca_cert_ref",
             "allowed_origins",
             "allowed_base_urls",
+            "trusted_private_origins",
             "external_calls_allowed",
+            "connect_timeout_seconds",
+            "request_timeout_seconds",
             "timeout_seconds",
             "prefer_grpc",
             "tls_verify",
@@ -291,12 +543,16 @@ class QdrantVectorStoreConfig:
             distance=_enum_value(
                 VectorStoreDistance,
                 payload.get("distance", "cosine"),
-                "unsupported_qdrant_distance",
+                "vector_store_invalid_distance",
+                cause_reason="unsupported_qdrant_distance",
             ),
             rebuild_strategy=str(payload.get("rebuild_strategy") or "versioned_collection_alias_swap"),
-            schema_version=str(payload.get("schema_version") or "qdrant_vector_store.v1"),
-            retention_collections=int(payload.get("retention_collections", 2)),
-            store_embedding_text=bool(payload.get("store_embedding_text", False)),
+            schema_version=payload.get(
+                "schema_version",
+                "qdrant_vector_store.v1",
+            ),
+            retention_collections=payload.get("retention_collections", 2),
+            store_embedding_text=payload.get("store_embedding_text", False),
         )
 
 
@@ -311,10 +567,18 @@ class VectorStoreConfig:
         provider = (
             self.provider
             if isinstance(self.provider, VectorStoreProvider)
-            else _enum_value(VectorStoreProvider, self.provider, "unknown_vector_store_provider")
+            else _enum_value(
+                VectorStoreProvider,
+                self.provider,
+                "vector_store_invalid_provider",
+                cause_reason="unknown_vector_store_provider",
+            )
         )
         if provider == VectorStoreProvider.QDRANT and self.qdrant is None:
-            raise VectorStoreConfigError("missing_qdrant_vector_store_config")
+            raise VectorStoreConfigError(
+                "vector_store_invalid_provider",
+                cause_reason="missing_qdrant_vector_store_config",
+            )
         object.__setattr__(self, "provider", provider)
 
     @classmethod
@@ -325,33 +589,46 @@ class VectorStoreConfig:
     def from_mapping(cls, value: Mapping[str, Any] | None) -> "VectorStoreConfig":
         outer = dict(value or {})
         payload = dict(outer.get("vector_store") or outer)
+        if {"fail_mode", "fallback_provider"} & set(payload):
+            raise VectorStoreConfigError(
+                "vector_store_invalid_availability_policy",
+                cause_reason="legacy_availability_fields_not_supported",
+            )
         _reject_unknown(
             payload,
-            {"provider", "availability", "fail_mode", "fallback_provider", "json", "qdrant"},
+            {"provider", "availability", "json", "qdrant"},
             "unknown_vector_store_config_fields",
         )
         provider = _enum_value(
             VectorStoreProvider,
             payload.get("provider", "json"),
-            "unknown_vector_store_provider",
+            "vector_store_invalid_provider",
+            cause_reason="unknown_vector_store_provider",
         )
         availability_payload = dict(payload.get("availability") or {})
+        _reject_unknown(
+            availability_payload,
+            {"on_unavailable", "fallback_provider"},
+            "vector_store_invalid_availability_policy",
+        )
         on_unavailable = availability_payload.get(
             "on_unavailable",
-            payload.get("fail_mode", "degraded_empty"),
+            "degraded_empty",
         )
-        fallback = availability_payload.get("fallback_provider", payload.get("fallback_provider"))
+        fallback = availability_payload.get("fallback_provider")
         availability = AvailabilityPolicy(
             on_unavailable=_enum_value(
                 AvailabilityMode,
                 on_unavailable,
-                "invalid_vector_store_availability_mode",
+                "vector_store_invalid_availability_policy",
+                cause_reason="invalid_vector_store_availability_mode",
             ),
             fallback_provider=(
                 _enum_value(
                     VectorStoreProvider,
                     fallback,
-                    "unknown_vector_store_fallback_provider",
+                    "vector_store_invalid_availability_policy",
+                    cause_reason="unknown_vector_store_fallback_provider",
                 )
                 if fallback
                 else None
@@ -383,7 +660,14 @@ class VectorStoreConfig:
         }
 
     def config_hash(self) -> str:
-        canonical = json.dumps(self.as_dict(), sort_keys=True, separators=(",", ":"))
+        hashable = self.as_dict()
+        qdrant = hashable.get("qdrant")
+        if isinstance(qdrant, dict):
+            endpoint = qdrant.get("endpoint")
+            if isinstance(endpoint, dict):
+                endpoint.pop("api_key_ref", None)
+                endpoint.pop("tls_ca_cert_ref", None)
+        canonical = json.dumps(hashable, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
 
 

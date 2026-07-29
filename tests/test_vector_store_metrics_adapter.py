@@ -38,7 +38,7 @@ def test_vector_store_observer_emits_only_bounded_labels_and_numeric_counts() ->
             operation="search",
             outcome="success",
             duration_seconds=0.25,
-            counts={"hits": 4},
+            counts={"top_k": 10, "hits": 4},
         )
     )
 
@@ -51,6 +51,8 @@ def test_vector_store_observer_emits_only_bounded_labels_and_numeric_counts() ->
         ("observe", 0.25),
     ]
     assert metrics[2].calls == [
+        ("labels", ("qdrant", "search", "success", "top_k")),
+        ("inc", 10),
         ("labels", ("qdrant", "search", "success", "hits")),
         ("inc", 4),
     ]
@@ -105,3 +107,31 @@ def test_unknown_reason_is_collapsed_to_other() -> None:
     )
 
     assert observation.reason_code == "other"
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "distance_mismatch",
+        "provider_changed",
+        "model_changed",
+        "profile_changed",
+        "encoding_changed",
+        "config_changed",
+        "manifest_changed",
+        "migration_required",
+        "rebuild_required",
+        "vector_payload_invalid",
+        "vector_payload_too_large",
+    ],
+)
+def test_contract_reason_codes_remain_bounded_without_collapsing(reason: str) -> None:
+    observation = VectorStoreOperationObservation(
+        backend="qdrant",
+        operation="rebuild",
+        outcome="failed",
+        reason_code=reason,
+        counts={"accepted": 1, "failed": 1},
+    )
+
+    assert observation.reason_code == reason

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from hashlib import sha256
-import json
 from typing import Any, Protocol
 from urllib import error, request
 from urllib.parse import urlparse
@@ -26,6 +26,15 @@ class EmbeddingProviderUnavailable(EmbeddingProviderError):
 
 class EmbeddingProviderRequestFailed(EmbeddingProviderError):
     """Raised when a remote provider request fails."""
+
+
+class _EmbeddingNoRedirectHandler(request.HTTPRedirectHandler):
+    """Prevent credentials from following an embedding HTTP redirect."""
+
+    def redirect_request(self, *_args: Any, **_kwargs: Any):
+        raise EmbeddingProviderRequestFailed(
+            "embedding_provider_redirect_forbidden"
+        )
 
 
 def _hash_vector(value: str, *, dimensions: int) -> list[float]:
@@ -100,6 +109,7 @@ class OpenAICompatibleEmbeddingProvider:
     model_version: str = "text-embedding-3-small"
     dimensions: int = 1536
     timeout_seconds: int = 20
+    follow_redirects: bool = True
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if not str(self.base_url or "").strip():
@@ -118,7 +128,14 @@ class OpenAICompatibleEmbeddingProvider:
             },
         )
         try:
-            with request.urlopen(req, timeout=max(1, int(self.timeout_seconds))) as response:
+            opener = (
+                request.urlopen
+                if self.follow_redirects
+                else request.build_opener(
+                    _EmbeddingNoRedirectHandler()
+                ).open
+            )
+            with opener(req, timeout=max(1, int(self.timeout_seconds))) as response:
                 raw = response.read().decode("utf-8")
         except error.URLError as exc:
             raise EmbeddingProviderRequestFailed(f"embedding_provider_request_failed:{exc}") from exc
@@ -142,7 +159,9 @@ def build_embedding_provider(config: dict[str, Any] | None = None) -> EmbeddingP
     is_external = provider in {"openai", "openai_compatible"}
     if is_external and not payload.get("external_calls_allowed", False):
         raise ValueError(
-            "embedding_provider_external_calls_not_allowed: set external_calls_allowed=True to use OpenAI-compatible providers"
+            "embedding_provider_external_calls_not_allowed: "
+            "set external_calls_allowed=True to use "
+            "OpenAI-compatible providers"
         )
     if is_external and payload.get("allowed_base_urls"):
         base_url = str(payload.get("base_url") or "").rstrip("/")
@@ -174,5 +193,8 @@ def build_embedding_provider(config: dict[str, Any] | None = None) -> EmbeddingP
             model_version=str(payload.get("model_version") or model),
             dimensions=max(1, int(payload.get("dimensions") or 1536)),
             timeout_seconds=max(1, int(payload.get("timeout_seconds") or 20)),
+            follow_redirects=bool(
+                payload.get("follow_redirects", True)
+            ),
         )
     raise ValueError(f"unknown_embedding_provider:{provider}")

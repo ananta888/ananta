@@ -3,9 +3,10 @@
 
 This bootstrap is intentionally limited to development.  It creates a private
 Hub directory, one public verification directory, and a private identity
-directory for each Worker.  Existing complete credentials are validated and
-reused; an incomplete set fails closed instead of rotating keys behind active
-workflow runs.
+directory for each Worker. Existing complete credentials are validated and
+reused; the one known capability-only legacy document is upgraded without
+rotating credentials. An incomplete set fails closed instead of rotating keys
+behind active workflow runs.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any
 
 # The bootstrap is also invoked directly from a source checkout.  In that
 # mode Python adds ``scripts/`` rather than the repository root to sys.path,
@@ -43,6 +44,13 @@ from ananta_contracts.runtime_authorization_crypto import (  # noqa: E402
     Ed25519SigningKeyRing,
     Ed25519VerificationKeyRing,
 )
+from scripts import dev_workflow_identity_documents as _identity_documents  # noqa: E402
+
+_WORKER_CAPABILITIES = _identity_documents.WORKER_CAPABILITIES
+_LEGACY_WORKER_CAPABILITIES = _identity_documents.LEGACY_WORKER_CAPABILITIES
+WorkerRegistrationSpec = _identity_documents.WorkerRegistrationSpec
+_registration_document = _identity_documents.registration_document
+_sha256_text = _identity_documents._sha256_text
 
 _AUTH_KEY_ID = "dev-workflow-auth-v1"
 _DISPATCH_KEY_ID = "dev-workflow-dispatch-v1"
@@ -59,27 +67,6 @@ _TRANSACTION_FILENAME = ".bootstrap-transaction.json"
 _TRANSACTION_SCHEMA = "ananta.dev-workflow-bootstrap-transaction.v1"
 _STAGING_PREFIX = ".bootstrap-staging-"
 _MAX_KEYRING_BYTES = 65_536
-_WORKER_CAPABILITIES = [
-    "planning",
-    "analysis",
-    "research",
-    "coding",
-    "implementation",
-    "review",
-    "testing",
-    "verification",
-    "workflow.adapter.native",
-    "approval",
-    "bounded_parallel",
-    "checkpoint",
-    "deterministic_merge",
-    "resume",
-    "retrieval",
-    "stream",
-    "structured_output",
-    "subgraphs",
-    "tool_calling",
-]
 _AUTHORIZATION_DOCUMENTS = frozenset(
     {"signing", "verification", "dispatch"}
 )
@@ -97,12 +84,6 @@ _IDENTITY_DOCUMENTS = frozenset(
     }
 )
 _ALL_DOCUMENTS = _AUTHORIZATION_DOCUMENTS | _IDENTITY_DOCUMENTS
-
-
-class WorkerRegistrationSpec(NamedTuple):
-    logical_name: str
-    worker_id: str
-    worker_url: str
 
 
 class DevWorkflowKeyringBootstrapError(RuntimeError):
@@ -134,7 +115,23 @@ def bootstrap(
     }
 
     if existing == _ALL_DOCUMENTS:
-        _validate(paths, worker_specs=worker_specs)
+        registration_upgrade_required = _validate(
+            paths,
+            worker_specs=worker_specs,
+            allow_legacy_registration=True,
+        )
+        if registration_upgrade_required:
+            secrets_by_name = _read_identity_secrets(paths)
+            _atomic_write_json(
+                paths["registration_keyring"],
+                _registration_document(
+                    secrets_by_name,
+                    worker_specs=worker_specs,
+                ),
+                mode=0o600,
+            )
+            _validate(paths, worker_specs=worker_specs)
+            return "upgraded"
         return "reused"
     if existing == _AUTHORIZATION_DOCUMENTS:
         documents = _generate_worker_identity_documents(
@@ -569,7 +566,8 @@ def _validate(
     paths: dict[str, Path],
     *,
     worker_specs: tuple[WorkerRegistrationSpec, ...],
-) -> None:
+    allow_legacy_registration: bool = False,
+) -> bool:
     _assert_credential_modes(paths)
     signing = _read_json(paths["signing"], description="development signing keyring")
     verification = _read_json(
@@ -603,6 +601,35 @@ def _validate(
             "development workflow dispatch keyring is invalid"
         ) from exc
 
+    secrets_by_name = _read_identity_secrets(paths)
+    if len(set(secrets_by_name.values())) != len(secrets_by_name):
+        raise DevWorkflowKeyringBootstrapError(
+            "development workflow credentials must be disjoint"
+        )
+    registration = _read_json(
+        paths["registration_keyring"],
+        description="development Worker registration keyring",
+    )
+    expected_registration = _registration_document(
+        secrets_by_name,
+        worker_specs=worker_specs,
+    )
+    if registration == expected_registration:
+        return False
+    if allow_legacy_registration and registration == _registration_document(
+        secrets_by_name,
+        worker_specs=worker_specs,
+        capabilities=_LEGACY_WORKER_CAPABILITIES,
+    ):
+        return True
+    raise DevWorkflowKeyringBootstrapError(
+        "development Worker registration keyring does not match credentials"
+    )
+
+
+def _read_identity_secrets(
+    paths: dict[str, Path],
+) -> dict[str, str]:
     secrets_by_name = {
         name: _read_secret(paths[name], description=name)
         for name in (
@@ -616,22 +643,7 @@ def _validate(
             "beta_session_key",
         )
     }
-    if len(set(secrets_by_name.values())) != len(secrets_by_name):
-        raise DevWorkflowKeyringBootstrapError(
-            "development workflow credentials must be disjoint"
-        )
-    registration = _read_json(
-        paths["registration_keyring"],
-        description="development Worker registration keyring",
-    )
-    expected_registration = _registration_document(
-        secrets_by_name,
-        worker_specs=worker_specs,
-    )
-    if registration != expected_registration:
-        raise DevWorkflowKeyringBootstrapError(
-            "development Worker registration keyring does not match credentials"
-        )
+    return secrets_by_name
 
 
 def _assert_credential_modes(paths: dict[str, Path]) -> None:
@@ -760,10 +772,6 @@ def _encode_base64(value: bytes) -> str:
     return base64.b64encode(value).decode("ascii")
 
 
-def _sha256_text(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
 def _sha256_path(path: Path) -> str:
     digest = hashlib.sha256()
     try:
@@ -799,49 +807,6 @@ def _read_secret(path: Path, *, description: str) -> str:
             f"{description} value is invalid"
         )
     return value
-
-
-def _registration_document(
-    values: dict[str, str],
-    *,
-    worker_specs: tuple[WorkerRegistrationSpec, ...],
-) -> dict[str, Any]:
-    specs_by_name = {
-        spec.logical_name: spec for spec in worker_specs
-    }
-    alpha = specs_by_name["alpha"]
-    beta = specs_by_name["beta"]
-    return {
-        "schema": "ananta.workflow-worker-registration-keyring.v1",
-        "workers": {
-            alpha.worker_id: {
-                "worker_url": alpha.worker_url,
-                "registration_token": values[
-                    "alpha_registration_token"
-                ],
-                "service_token_sha256": _sha256_text(
-                    values["alpha_service_token"]
-                ),
-                "session_signing_key_sha256": _sha256_text(
-                    values["alpha_session_key"]
-                ),
-                "allowed_capabilities": list(_WORKER_CAPABILITIES),
-            },
-            beta.worker_id: {
-                "worker_url": beta.worker_url,
-                "registration_token": values[
-                    "beta_registration_token"
-                ],
-                "service_token_sha256": _sha256_text(
-                    values["beta_service_token"]
-                ),
-                "session_signing_key_sha256": _sha256_text(
-                    values["beta_session_key"]
-                ),
-                "allowed_capabilities": list(_WORKER_CAPABILITIES),
-            },
-        },
-    }
 
 
 def _worker_specs(

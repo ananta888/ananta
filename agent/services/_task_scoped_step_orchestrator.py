@@ -1,136 +1,54 @@
-"""Step-level propose/execute orchestration for task-scoped execution.
+"""Task-scoped propose/execute routing, forwarding, and response assembly.
 
-Extracted from ``agent.services.task_scoped_execution_service`` as sub-split
-SPLIT-113. Owns the routing logic for ``propose_task_step`` and
-``execute_task_step``: task lookup, forwarding guard, config resolution,
-strategy dispatch, and response assembly.
-
-Backwards compatibility preserved via thin delegating wrappers in
-:class:`TaskScopedExecutionService` (12-month deprecation window).
+Compatibility remains in thin :class:`TaskScopedExecutionService` wrappers.
 """
 
 from __future__ import annotations
 
 import contextlib
-import hashlib
-import threading
-import time
 from typing import Any, Callable
 
 from flask import current_app, has_app_context
 
 from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS
-from agent.services.worker_routing_policy_utils import derive_required_capabilities
 from agent.runtime_policy import normalize_task_kind
-from agent.services.worker_execution_profile_service import (
-    normalize_worker_execution_profile,
-    resolve_worker_execution_profile,
-)
-from agent.services.propose_policy import get_task_kind_preset
-from agent.services._task_scoped_propose_single import propose_single_task_step
-from agent.services._task_scoped_domain_action import (
-    propose_task_with_comparisons,
-    execute_domain_action,
-    finalize_interactive_terminal_execution,
-    execute_research_artifact,
-    register_goal_artifact_outputs,
-)
+from agent.services import _task_scoped_recovery_outcome_cache, _task_scoped_vector_step_policy
 from agent.services._task_scoped_adapters import (
-    try_handler_propose,
     try_handler_execute,
+    try_handler_propose,
 )
-from agent.services._task_scoped_propose_orch import run_propose_orchestrator_path
+from agent.services._task_scoped_domain_action import (
+    execute_domain_action,
+    execute_research_artifact,
+    finalize_interactive_terminal_execution,
+    propose_task_with_comparisons,
+)
 from agent.services._task_scoped_execute_workspace import run_execute_workspace_path
+from agent.services._task_scoped_propose_orch import run_propose_orchestrator_path
+from agent.services._task_scoped_propose_single import propose_single_task_step
+from agent.services.propose_policy import get_task_kind_preset
 
 # Import service getters through task_scoped_execution_service to preserve
 # monkeypatch compatibility for tests that patch names on that module.
 from agent.services.task_scoped_execution_service import (
+    get_core_services,
     get_goal_config_runtime_service,
     get_research_context_bridge_service,
-    get_core_services,
 )
+from agent.services.worker_execution_profile_service import (
+    normalize_worker_execution_profile,
+    resolve_worker_execution_profile,
+)
+from agent.services.worker_routing_policy_utils import derive_required_capabilities
 
-
+_RECOVERY_OUTCOME_CACHE = _task_scoped_recovery_outcome_cache.RECOVERY_OUTCOME_CACHE
+_RECOVERY_OUTCOME_CACHE_LOCK = _task_scoped_recovery_outcome_cache.RECOVERY_OUTCOME_CACHE_LOCK
+_cache_recovery_outcome = _task_scoped_recovery_outcome_cache.cache_recovery_outcome
+_cached_recovery_outcome = _task_scoped_recovery_outcome_cache.cached_recovery_outcome
+_recovery_cache_key = _task_scoped_recovery_outcome_cache.recovery_cache_key
+_vector_index_domain_binding_error = _task_scoped_vector_step_policy.vector_index_domain_binding_error
+_vector_index_handler_unavailable = _task_scoped_vector_step_policy.vector_index_handler_unavailable
 _INTERACTIVE_TERMINAL_FINALIZE_COMMAND = "__ANANTA_FINALIZE_INTERACTIVE_OPENCODE__"
-_RECOVERY_OUTCOME_CACHE_LOCK = threading.Lock()
-_RECOVERY_OUTCOME_CACHE: dict[str, tuple[float, Any]] = {}
-
-
-def _recovery_cache_key(
-    token: str | None,
-    *,
-    task_id: str,
-    phase: str,
-    request_fingerprint: str,
-) -> str:
-    return hashlib.sha256(
-        (
-            f"{str(task_id or '').strip()}\0"
-            f"{str(phase or '').strip().lower()}\0"
-            f"{str(request_fingerprint or '').strip()}\0"
-            f"{str(token or '')}"
-        ).encode("utf-8")
-    ).hexdigest()
-
-
-def _cache_recovery_outcome(
-    token: str | None,
-    outcome: Any,
-    *,
-    task_id: str,
-    phase: str,
-    request_fingerprint: str,
-) -> None:
-    if not token:
-        return
-    now = time.time()
-    with _RECOVERY_OUTCOME_CACHE_LOCK:
-        expired = [
-            key
-            for key, (stored_at, _value) in (
-                _RECOVERY_OUTCOME_CACHE.items()
-            )
-            if now - stored_at > 1800.0
-        ]
-        for key in expired:
-            _RECOVERY_OUTCOME_CACHE.pop(key, None)
-        while len(_RECOVERY_OUTCOME_CACHE) >= 256:
-            oldest = min(
-                _RECOVERY_OUTCOME_CACHE,
-                key=lambda key: _RECOVERY_OUTCOME_CACHE[key][0],
-            )
-            _RECOVERY_OUTCOME_CACHE.pop(oldest, None)
-        _RECOVERY_OUTCOME_CACHE[
-            _recovery_cache_key(
-                token,
-                task_id=task_id,
-                phase=phase,
-                request_fingerprint=request_fingerprint,
-            )
-        ] = (now, outcome)
-
-
-def _cached_recovery_outcome(
-    token: str | None,
-    *,
-    task_id: str,
-    phase: str,
-    request_fingerprint: str,
-) -> Any | None:
-    if not token:
-        return None
-    with _RECOVERY_OUTCOME_CACHE_LOCK:
-        cached = _RECOVERY_OUTCOME_CACHE.get(
-            _recovery_cache_key(
-                token,
-                task_id=task_id,
-                phase=phase,
-                request_fingerprint=request_fingerprint,
-            )
-        )
-    if cached is None or time.time() - cached[0] > 1800.0:
-        return None
-    return cached[1]
 
 
 def _publish_recovery_artifact_receipts(
@@ -532,6 +450,10 @@ def run_propose_step(
 ):
     """Route a propose request to the appropriate strategy."""
     task = service._require_task(tid)
+    if (
+        vector_binding_error := _vector_index_domain_binding_error(task)
+    ) is not None:
+        return vector_binding_error
     admission = _admit_task_scoped_dispatch(
         tid=tid,
         task=task,
@@ -657,9 +579,12 @@ def _run_propose_step_admitted(
     tool_definitions_resolver: Callable,
 ):
     """Execute an already admitted propose request."""
-    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
     task = service._require_task(tid)
+    if (
+        vector_binding_error := _vector_index_domain_binding_error(task)
+    ) is not None:
+        return vector_binding_error
     _apply_request_run_evidence_context(
         task=task,
         request_data=request_data,
@@ -727,6 +652,25 @@ def _run_propose_step_admitted(
         research_context=rc_input,
         query=base_prompt,
     )
+    if task_kind == "vector_index_operation":
+        handler_response = try_handler_propose(
+            tid=tid,
+            task=task,
+            task_kind=task_kind,
+            request_data=request_data,
+            base_prompt=base_prompt,
+            cli_runner=cli_runner,
+            forwarder=forwarder,
+            tool_definitions_resolver=tool_definitions_resolver,
+            service=service,
+            build_review_state=service._build_review_state,
+        )
+        if handler_response is not None:
+            return handler_response
+        return _vector_index_handler_unavailable(
+            task=task,
+            phase="propose",
+        )
     if task_kind == "research" and not str(getattr(request_data, "strategy_mode", "") or "").strip():
         return propose_single_task_step(
             tid=tid,
@@ -757,7 +701,13 @@ def _run_propose_step_admitted(
         "doc",
         "review",
     }
-    if explicit_task_kind and task_kind in legacy_cli_task_kinds and not str(getattr(request_data, "strategy_mode", "") or "").strip():
+    if (
+        explicit_task_kind
+        and task_kind in legacy_cli_task_kinds
+        and not str(
+            getattr(request_data, "strategy_mode", "") or ""
+        ).strip()
+    ):
         routed_backend, _routing_reason = service._resolve_cli_backend(
             task_kind,
             requested_backend="auto",
@@ -868,6 +818,10 @@ def run_execute_step(
 ):
     """Route an execute request to the appropriate strategy."""
     task = service._require_task(tid)
+    if (
+        vector_binding_error := _vector_index_domain_binding_error(task)
+    ) is not None:
+        return vector_binding_error
     from agent.services.recovery_dispatch_gate_service import (
         get_recovery_dispatch_gate_service,
     )
@@ -1056,15 +1010,19 @@ def _run_execute_step_admitted(
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
     task = service._require_task(tid)
+    if (
+        vector_binding_error := _vector_index_domain_binding_error(task)
+    ) is not None:
+        return vector_binding_error
     _apply_request_run_evidence_context(
         task=task,
         request_data=request_data,
     )
-    from agent.services.recovery_worker_result_service import (
-        get_recovery_worker_result_service,
-    )
     from agent.services.recovery_dispatch_gate_service import (
         get_recovery_dispatch_gate_service,
+    )
+    from agent.services.recovery_worker_result_service import (
+        get_recovery_worker_result_service,
     )
 
     proposal_context = getattr(
@@ -1114,12 +1072,46 @@ def _run_execute_step_admitted(
         if delegated_workflow_result is not None:
             return TaskScopedRouteResponse(data=delegated_workflow_result)
 
-    explicit_task_kind = str(
-        getattr(request_data, "task_kind", None)
-        or ((task.get("last_proposal", {}) or {}).get("routing") or {}).get("task_kind")
-        or task.get("task_kind")
+    authoritative_task_kind = str(
+        task.get("task_kind") or ""
+    ).strip().lower()
+    requested_task_kind = str(
+        getattr(request_data, "task_kind", None) or ""
+    ).strip().lower()
+    routed_task_kind = str(
+        (
+            (task.get("last_proposal", {}) or {}).get(
+                "routing"
+            )
+            or {}
+        ).get("task_kind")
         or ""
     ).strip().lower()
+    if authoritative_task_kind == "vector_index_operation":
+        for candidate in (
+            requested_task_kind,
+            routed_task_kind,
+        ):
+            if candidate and candidate != authoritative_task_kind:
+                return TaskScopedRouteResponse(
+                    data={
+                        "status": "denied",
+                        "reason_code": (
+                            "vector_index_task_kind_override_forbidden"
+                        ),
+                        "task_id": tid,
+                    },
+                    status="denied",
+                    message=(
+                        "Vector index task kind is Hub-authoritative"
+                    ),
+                    code=403,
+                )
+    explicit_task_kind = (
+        authoritative_task_kind
+        or requested_task_kind
+        or routed_task_kind
+    )
     task_kind = explicit_task_kind or normalize_task_kind(
         None,
         request_data.command or task.get("description") or task.get("prompt") or "",
@@ -1134,6 +1126,11 @@ def _run_execute_step_admitted(
     )
     if handler_response is not None:
         return handler_response
+    if authoritative_task_kind == "vector_index_operation":
+        return _vector_index_handler_unavailable(
+            task=task,
+            phase="execute",
+        )
 
     requested_backend = str(getattr(request_data, "requested_backend", None) or "").strip().lower()
     if requested_backend == "hermes":

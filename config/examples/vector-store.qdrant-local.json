@@ -10,15 +10,15 @@
     },
     "qdrant": {
       "endpoint": {
-        "rest_url": "http://localhost:6333",
-        "grpc_url": "grpc://localhost:6334",
-        "api_key_ref": null,
+        "rest_url": "https://localhost:6333",
+        "api_key_ref": "env://ANANTA_QDRANT_API_KEY",
+        "tls_ca_cert_ref": "secretfile:///run/secrets/qdrant-tls-ca.pem",
         "allowed_origins": [
-          "http://localhost:6333",
-          "grpc://localhost:6334"
+          "https://localhost:6333"
         ],
         "external_calls_allowed": false,
-        "timeout_seconds": 10,
+        "connect_timeout_seconds": 3,
+        "request_timeout_seconds": 10,
         "prefer_grpc": false,
         "tls_verify": true
       },
@@ -31,5 +31,5 @@
       "store_embedding_text": false
     }
   },
-  "_note": "Local Qdrant remains opt-in. Both REST and gRPC origins are explicitly allowlisted."
+  "_note": "Local Qdrant remains opt-in, TLS-verified and REST-only by default. Host gRPC requires the explicit Compose gRPC overlay plus an explicitly allowlisted grpcs_url."
 }

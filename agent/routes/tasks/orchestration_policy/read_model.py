@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import time
 
-from .leasing import extract_active_lease
-from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
+from agent.services.task_context_bundle_access_service import (
+    get_task_context_bundle_access_service,
+)
+
+from .leasing import extract_active_lease
 
 
 def _services():
@@ -45,10 +48,9 @@ def _fallback_queue_stats(tasks: list[dict]) -> dict:
 
 
 def _context_bundle_summary(task: dict) -> dict | None:
-    bundle_id = str(task.get("context_bundle_id") or "").strip()
-    if not bundle_id:
-        return None
-    bundle = get_repository_registry().context_bundle_repo.get_by_id(bundle_id)
+    bundle = get_task_context_bundle_access_service().resolve_task_reference_or_none(
+        task=task,
+    )
     if bundle is None:
         return None
     metadata = dict(bundle.bundle_metadata or {})

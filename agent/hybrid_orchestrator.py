@@ -2,19 +2,25 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from agent.config import settings
+from agent import semantic_search_engine as _semantic_search
+from agent.agentic_search_engine import AgenticSearchEngine, SearchSkill
 from agent.cli_backends.sgpt import run_llm_cli_command
+from agent.config import settings
+from agent.context_manager import ContextManager
 from agent.hybrid_context_orchestration import collect_context_chunks, serialize_context_result
 from agent.hybrid_context_support import redact_sensitive_text
 from agent.rag_query_normalizer import normalize_query_from_settings
+from agent.repository_map_engine import ContextChunk, RepositoryMapEngine
+from agent.semantic_search_engine import SemanticSearchEngine
 
 # Re-exports für Rückwärtskompatibilität
-from agent.repository_map_engine import ContextChunk, RepositoryMapEngine
-from agent.agentic_search_engine import AgenticSearchEngine, SearchSkill
-from agent import semantic_search_engine as _semantic_search
-from agent.semantic_search_engine import SemanticSearchEngine
-from agent.context_manager import ContextManager
+
+if TYPE_CHECKING:
+    from agent.services.codecompass_vector_runtime_service import (
+        CodeCompassVectorRuntimeResolver,
+    )
 
 # Compatibility aliases for callers that replace optional semantic-search
 # dependencies through the historical facade.
@@ -32,6 +38,41 @@ __all__ = [
     "ContextManager",
     "HybridOrchestrator",
 ]
+
+
+def _safe_vector_runtime_reason(
+    exc: Exception,
+    *,
+    fallback: str,
+) -> str:
+    explicit_reason = str(getattr(exc, "reason", "") or "").split(":", 1)[0]
+    if re.fullmatch(r"[A-Za-z0-9._-]{1,128}", explicit_reason):
+        return explicit_reason
+    candidate = str(exc).split(":", 1)[0]
+    if candidate.startswith(("vector_", "codecompass_")) and re.fullmatch(r"[A-Za-z0-9._-]{1,128}", candidate):
+        return candidate
+    return fallback
+
+
+def _must_propagate_vector_runtime_error(
+    runtime_config: object,
+    exc: Exception,
+) -> bool:
+    """Keep typed Qdrant fail-fast authoritative across composition."""
+
+    from worker.retrieval.vector_store_config import (
+        AvailabilityMode,
+        VectorStoreConfig,
+        VectorStoreProvider,
+    )
+    from worker.retrieval.vector_store_contract import VectorStoreError
+
+    return (
+        isinstance(exc, VectorStoreError)
+        and isinstance(runtime_config, VectorStoreConfig)
+        and runtime_config.provider == VectorStoreProvider.QDRANT
+        and runtime_config.availability.on_unavailable == AvailabilityMode.FAIL_FAST
+    )
 
 
 class HybridOrchestrator:
@@ -60,6 +101,7 @@ class HybridOrchestrator:
         codecompass_vector_enabled: bool | None = None,
         codecompass_vector_service: object | None = None,
         global_config: dict | None = None,
+        codecompass_vector_runtime_resolver: ("CodeCompassVectorRuntimeResolver | None") = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.data_roots = data_roots or [self.repo_root / "docs", self.repo_root / "data"]
@@ -81,6 +123,8 @@ class HybridOrchestrator:
         _semantic_search.SimpleDirectoryReader = SimpleDirectoryReader
         self.semantic_engine = SemanticSearchEngine(self.data_roots, persist_dir=persist_dir)
         self.codecompass_vector_service = codecompass_vector_service
+        self._closed = False
+        self._codecompass_vector_runtime_diagnostic: dict[str, str] | None = None
         self._global_config: dict = dict(global_config or {})
         vector_enabled = (
             bool(settings.codecompass_vector_enabled)
@@ -88,11 +132,11 @@ class HybridOrchestrator:
             else bool(codecompass_vector_enabled)
         )
         if self.codecompass_vector_service is None and vector_enabled:
-            from agent.services.codecompass_vector_retrieval_service import (
-                CodeCompassVectorRetrievalService,
-            )
             from agent.services.codecompass_ranking_config_service import (
                 CodeCompassRankingConfigService,
+            )
+            from agent.services.codecompass_vector_retrieval_service import (
+                CodeCompassVectorRetrievalService,
             )
 
             ranking_cfg = CodeCompassRankingConfigService(
@@ -107,6 +151,7 @@ class HybridOrchestrator:
                     from agent.services.restricted_model_inference_service import (
                         RestrictedModelInferenceService,
                     )
+
                     restricted_inference = RestrictedModelInferenceService()
                 except Exception:
                     pass  # degrade gracefully — prefilter skipped if unavailable
@@ -118,21 +163,142 @@ class HybridOrchestrator:
                 "block_size": getattr(settings, "codecompass_vector_encoding_block_size", 0),
                 "store_original": getattr(settings, "codecompass_vector_encoding_store_original", False),
             }
-            self.codecompass_vector_service = CodeCompassVectorRetrievalService(
-                repo_root=self.repo_root,
-                embedding_records_path=settings.codecompass_vector_embedding_records_path,
-                manifest_path=settings.codecompass_vector_manifest_path,
-                index_path=settings.codecompass_vector_index_path,
-                provider_config={"provider": "local_hash", "model_version": "hash-v1", "dimensions": 12},
-                embedding_text_profile=settings.codecompass_vector_embedding_text_profile,
-                fail_mode=settings.codecompass_vector_fail_mode,
-                restricted_inference_service=restricted_inference,
-                strategy_config=strategy_cfg,
-                vector_encoding_config=vector_encoding_config,
-                vector_encoding_fallback_policy=getattr(
-                    settings, "codecompass_vector_encoding_fallback_policy", "fallback_float32"
-                ),
-            )
+            runtime_kwargs: dict[str, object] = {}
+            runtime_blocked = False
+            if codecompass_vector_runtime_resolver is not None:
+                try:
+                    from agent.services.codecompass_vector_runtime_service import (
+                        HUB_DIRECT_QDRANT_READ_EXECUTION,
+                    )
+                    from worker.retrieval.vector_store_config import (
+                        VectorStoreConfig,
+                        VectorStoreProvider,
+                    )
+                    from worker.retrieval.vector_store_contract import (
+                        VectorScope,
+                    )
+
+                    runtime = codecompass_vector_runtime_resolver.resolve(
+                        repo_root=self.repo_root,
+                    )
+                    runtime_config = runtime.vector_store_config
+                    if not isinstance(runtime_config, VectorStoreConfig):
+                        runtime_config = VectorStoreConfig.from_mapping(runtime_config)
+                    runtime_scope = runtime.trusted_scope
+                    if runtime_config.provider == VectorStoreProvider.QDRANT and not isinstance(
+                        runtime_scope, VectorScope
+                    ):
+                        raise ValueError("vector_scope_required")
+                    if runtime_config.provider == VectorStoreProvider.QDRANT and runtime.index_task_service is None:
+                        raise ValueError("vector_index_delegation_required")
+                    if (
+                        runtime_config.provider == VectorStoreProvider.QDRANT
+                        and getattr(runtime, "read_execution", None) != HUB_DIRECT_QDRANT_READ_EXECUTION
+                    ):
+                        raise ValueError("vector_store_qdrant_read_execution_not_configured")
+                    if runtime_config.provider == VectorStoreProvider.QDRANT and runtime.secret_resolver is None:
+                        raise ValueError("vector_store_secret_resolver_required")
+                    if (
+                        runtime_config.provider == VectorStoreProvider.QDRANT
+                        and getattr(runtime, "observer", None) is None
+                    ):
+                        raise ValueError("vector_store_observer_required")
+                    runtime_kwargs = {
+                        "vector_store_config": runtime_config,
+                        "trusted_scope": runtime_scope,
+                        "index_task_service": runtime.index_task_service,
+                        "secret_resolver": runtime.secret_resolver,
+                        "vector_store_factory": getattr(
+                            runtime,
+                            "vector_store_factory",
+                            None,
+                        ),
+                        "vector_store_observer": getattr(
+                            runtime,
+                            "observer",
+                            None,
+                        ),
+                        "index_input_publisher": getattr(
+                            runtime,
+                            "index_input_publisher",
+                            None,
+                        ),
+                    }
+                except (
+                    AttributeError,
+                    ImportError,
+                    OSError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ) as exc:
+                    runtime_blocked = True
+                    self._codecompass_vector_runtime_diagnostic = {
+                        "status": "degraded",
+                        "reason": _safe_vector_runtime_reason(
+                            exc,
+                            fallback="vector_runtime_resolution_failed",
+                        ),
+                    }
+            if not runtime_blocked:
+                try:
+                    from worker.retrieval.vector_store_config import (
+                        VectorStoreConfig,
+                    )
+                    from worker.retrieval.vector_store_factory import (
+                        VectorStoreFactory,
+                    )
+
+                    runtime_config = runtime_kwargs.get("vector_store_config")
+                    if not isinstance(
+                        runtime_config,
+                        VectorStoreConfig,
+                    ):
+                        index_path = Path(settings.codecompass_vector_index_path)
+                        if not index_path.is_absolute():
+                            index_path = self.repo_root / index_path
+                        runtime_config = VectorStoreConfig.for_json(index_path)
+                        runtime_kwargs["vector_store_config"] = runtime_config
+                    runtime_factory = runtime_kwargs.get("vector_store_factory")
+                    if runtime_factory is None:
+                        runtime_factory = VectorStoreFactory()
+                    vector_store = runtime_factory.create(
+                        runtime_config,
+                        secret_resolver=runtime_kwargs.get("secret_resolver"),
+                        observer=runtime_kwargs.get("vector_store_observer"),
+                    )
+                    runtime_kwargs["vector_search_port"] = vector_store
+                    runtime_kwargs["vector_index_writer"] = vector_store
+                    self.codecompass_vector_service = CodeCompassVectorRetrievalService(
+                        repo_root=self.repo_root,
+                        embedding_records_path=settings.codecompass_vector_embedding_records_path,
+                        manifest_path=settings.codecompass_vector_manifest_path,
+                        index_path=settings.codecompass_vector_index_path,
+                        provider_config={"provider": "local_hash", "model_version": "hash-v1", "dimensions": 12},
+                        embedding_text_profile=settings.codecompass_vector_embedding_text_profile,
+                        fail_mode=settings.codecompass_vector_fail_mode,
+                        restricted_inference_service=restricted_inference,
+                        strategy_config=strategy_cfg,
+                        vector_encoding_config=vector_encoding_config,
+                        vector_encoding_fallback_policy=getattr(
+                            settings, "codecompass_vector_encoding_fallback_policy", "fallback_float32"
+                        ),
+                        **runtime_kwargs,
+                    )
+                except Exception as exc:
+                    if _must_propagate_vector_runtime_error(
+                        runtime_kwargs.get("vector_store_config"),
+                        exc,
+                    ):
+                        raise
+                    self.codecompass_vector_service = None
+                    self._codecompass_vector_runtime_diagnostic = {
+                        "status": "degraded",
+                        "reason": _safe_vector_runtime_reason(
+                            exc,
+                            fallback="vector_runtime_initialization_failed",
+                        ),
+                    }
         self.context_manager = ContextManager(policy_version="v1")
 
         # HCCA-009: optional context compression adapter
@@ -141,21 +307,35 @@ class HybridOrchestrator:
         if compression_cfg.get("enabled"):
             try:
                 from agent.services.context_compression import build_compression_adapter
+
                 self._compression_adapter = build_compression_adapter(compression_cfg)
             except Exception:
                 pass  # compression is always optional, degrade gracefully
 
-    def _compress_context_text(
-        self, content: str, content_type: str = "rag_results", task_intent: str = ""
-    ) -> str:
+    def close(self) -> None:
+        """Delegate cleanup through the optional narrow lifecycle port."""
+
+        if self._closed:
+            return
+        self._closed = True
+        from agent.services.retrieval_vector_runtime_scope_service import (
+            RetrievalLifecycle,
+        )
+
+        if isinstance(
+            self.codecompass_vector_service,
+            RetrievalLifecycle,
+        ):
+            self.codecompass_vector_service.close()
+
+    def _compress_context_text(self, content: str, content_type: str = "rag_results", task_intent: str = "") -> str:
         """HCCA-010/011: Apply optional context compression to assembled context text."""
         if self._compression_adapter is None or not self._compression_adapter.is_enabled():
             return content
         try:
             from agent.services.context_compression import CompressionRequest
-            req = CompressionRequest(
-                content=content, content_type=content_type, task_intent=task_intent
-            )
+
+            req = CompressionRequest(content=content, content_type=content_type, task_intent=task_intent)
             result = self._compression_adapter.compress(req)
             return result.content
         except Exception:
@@ -171,10 +351,12 @@ class HybridOrchestrator:
         if domain_scope is None:
             return None
         from agent.codecompass.domain_scope import DomainScope, ResolvedDomainScope
+
         if isinstance(domain_scope, ResolvedDomainScope):
             return domain_scope
         if isinstance(domain_scope, DomainScope):
             from agent.codecompass.domain_scope_resolver import DomainScopeResolver
+
             resolver = DomainScopeResolver(
                 repo_root=self.repo_root,
                 artifact_path=str(getattr(settings, "codecompass_domain_artifact_path", "") or "") or None,
@@ -191,6 +373,7 @@ class HybridOrchestrator:
             # CCRDS-DD-003: strict resolution failure fails closed — no
             # global fallback, no context, explicit error for the caller.
             from agent.codecompass.domain_scope_filter import build_no_match_guidance
+
             return {
                 "query": query,
                 "error": "domain_scope_violation",
@@ -232,9 +415,8 @@ class HybridOrchestrator:
         filter_stats = None
         if scope_active:
             from agent.codecompass.domain_scope_filter import filter_chunks
-            all_chunks, filter_stats = filter_chunks(
-                all_chunks, resolved_scope, repo_root=self.repo_root
-            )
+
+            all_chunks, filter_stats = filter_chunks(all_chunks, resolved_scope, repo_root=self.repo_root)
 
         # Re-score alias anchor chunks using the global max score (across all engines).
         # Alias anchors are injected during repo_engine.search() using only the repo-local
@@ -272,6 +454,7 @@ class HybridOrchestrator:
                 build_no_match_guidance,
                 build_scope_banner,
             )
+
             result["domain_scope"] = {
                 **resolved_scope.as_dict(),
                 "active_domain_ids": list(resolved_scope.selected_domain_ids),
@@ -280,13 +463,9 @@ class HybridOrchestrator:
             if not best:
                 # CCRDS-014: empty in-scope result — explain instead of
                 # silently widening the search.
-                result["domain_scope"]["guidance"] = build_no_match_guidance(
-                    resolved_scope, filter_stats
-                )
+                result["domain_scope"]["guidance"] = build_no_match_guidance(resolved_scope, filter_stats)
             banner = build_scope_banner(resolved_scope, filter_stats)
-            result["context_text"] = (
-                f"{banner}\n\n{result['context_text']}" if result["context_text"] else banner
-            )
+            result["context_text"] = f"{banner}\n\n{result['context_text']}" if result["context_text"] else banner
         # HCCA-011: apply optional compression to the final assembled context text
         result["context_text"] = self._compress_context_text(
             result["context_text"], content_type="rag_results", task_intent=""
@@ -297,6 +476,8 @@ class HybridOrchestrator:
         diagnostics: dict[str, object] = {}
         if self.codecompass_vector_service is not None and hasattr(self.codecompass_vector_service, "last_diagnostic"):
             diagnostics["codecompass_vector"] = self.codecompass_vector_service.last_diagnostic()
+        elif self._codecompass_vector_runtime_diagnostic is not None:
+            diagnostics["codecompass_vector"] = dict(self._codecompass_vector_runtime_diagnostic)
         elif bool(getattr(settings, "codecompass_vector_enabled", False)):
             diagnostics["codecompass_vector"] = {"status": "degraded", "reason": "not_configured"}
         else:

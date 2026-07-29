@@ -1,0 +1,5 @@
+# Explicit operator overlay. The default Qdrant profile keeps gRPC private.
+services:
+  qdrant:
+    ports:
+      - "${ANANTA_QDRANT_GRPC_BIND_IP:-127.0.0.1}:${ANANTA_QDRANT_GRPC_PORT:-6334}:6334/tcp"

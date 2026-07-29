@@ -58,6 +58,31 @@ def test_wiki_adapter_enforces_trusted_scope_and_server_filters() -> None:
     assert capture.query.scope == config.vector_scope()
     assert capture.query.filters.source_scope == "wiki"
     assert capture.query.filters.profile_name == "semantic"
+    assert capture.query.compatibility is not None
+    assert capture.query.compatibility.dimensions == 8
+
+
+def test_wiki_adapter_reconstructs_search_compatibility_after_restart() -> None:
+    config = WikiVectorStoreConfig(
+        workspace_id="trusted-workspace",
+        source_id="trusted-source",
+        profile_name="semantic",
+        retrieval_cache_state="cache-v1",
+        manifest_hash="manifest-v1",
+    )
+    capture = _CaptureStore()
+    backend = WikiPreparedVectorBackend(capture, config)
+    provider = FakeEmbeddingProvider(
+        provider_id="wiki-provider",
+        model_version="wiki-model-v1",
+        dimensions=8,
+    )
+
+    backend.search("retry", provider, 5)
+
+    assert capture.query.compatibility.provider == "wiki-provider"
+    assert capture.query.compatibility.model == "wiki-model-v1"
+    assert capture.query.compatibility.manifest_hash == "manifest-v1"
 
 
 def test_wiki_payload_ignores_untrusted_scope_fields() -> None:

@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import importlib
 import ipaddress
+import math
+import ssl
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol, Sequence, runtime_checkable
 from urllib.parse import urlsplit
 
+from worker.retrieval.vector_store_endpoint_policy import (
+    VectorStoreEndpointPolicyError,
+    normalize_trusted_private_origins,
+)
 
 QDRANT_EXTRA_REQUIRED = "qdrant_extra_required"
 QDRANT_UNAVAILABLE = "qdrant_unavailable"
@@ -27,6 +33,10 @@ class QdrantClientError(RuntimeError):
 class QdrantExtraRequiredError(QdrantClientError):
     def __init__(self) -> None:
         super().__init__(QDRANT_EXTRA_REQUIRED, operation="load_client")
+        self.install_hint = "pip install 'ananta[qdrant]'"
+        self.args = (
+            f"{self.operation} failed ({self.reason}); install with {self.install_hint}",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,12 +170,31 @@ def validate_endpoint_policy(endpoint: Any) -> tuple[str, str | None]:
         normalise_origin(str(item))
         for item in tuple(getattr(endpoint, "allowed_origins", ()) or ())
     }
+    try:
+        trusted_private = frozenset(
+            normalize_trusted_private_origins(
+                tuple(
+                    getattr(endpoint, "trusted_private_origins", ()) or ()
+                ),
+                allowed_origins=tuple(allowed),
+            )
+        )
+    except VectorStoreEndpointPolicyError as exc:
+        raise QdrantClientError(
+            INVALID_ORIGIN,
+            operation="validate_endpoint",
+        ) from exc
     for origin in (rest_origin, grpc_origin):
         if origin is None:
             continue
         if origin not in allowed:
             raise QdrantClientError(INVALID_ORIGIN, operation="validate_endpoint")
-        if not _is_loopback(origin) and not bool(getattr(endpoint, "external_calls_allowed", False)):
+        trusted = origin in trusted_private
+        if (
+            not _is_loopback(origin)
+            and not trusted
+            and not bool(getattr(endpoint, "external_calls_allowed", False))
+        ):
             raise QdrantClientError(INVALID_ORIGIN, operation="validate_endpoint")
         secure = origin.startswith("https://") or origin.startswith("grpcs://")
         if not _is_loopback(origin) and (
@@ -196,6 +225,109 @@ def _load_qdrant_modules() -> tuple[Any, Any]:
     return client_module, models_module
 
 
+def _configure_distinct_grpc_origin(
+    raw_client: Any,
+    *,
+    rest_origin: str,
+    grpc_origin: str | None,
+) -> None:
+    """Bind qdrant-client 1.18's gRPC channel to its independently approved origin.
+
+    The pinned client exposes one public host argument for both transports. Its
+    REST client is already fully constructed at this point, so changing the
+    remote's gRPC channel fields before a channel exists leaves REST bound to
+    ``rest_origin`` while honoring the separately allowlisted gRPC host.
+    """
+
+    if grpc_origin is None:
+        return
+    grpc = urlsplit(grpc_origin)
+    remote = getattr(raw_client, "_client", None)
+    required = ("_host", "_grpc_port", "_https", "_grpc_channel_pool")
+    if remote is None or any(not hasattr(remote, name) for name in required):
+        raise QdrantClientError(
+            "qdrant_distinct_grpc_origin_unsupported",
+            operation="configure_client",
+        )
+    if tuple(getattr(remote, "_grpc_channel_pool", ()) or ()):
+        raise QdrantClientError(
+            "qdrant_grpc_channel_already_initialized",
+            operation="configure_client",
+        )
+    if grpc.hostname is None or grpc.port is None:
+        raise QdrantClientError(INVALID_ORIGIN, operation="configure_client")
+    remote._host = grpc.hostname
+    remote._grpc_port = int(grpc.port)
+    remote._https = grpc.scheme == "grpcs"
+    # Keep an explicit audit-friendly transport record without exposing keys.
+    remote._ananta_rest_origin = rest_origin
+    remote._ananta_grpc_origin = grpc_origin
+
+
+def _grpc_connect_timeout_options(
+    connect_timeout_seconds: float,
+    *,
+    root_certificates: bytes | None = None,
+) -> dict[str, Any]:
+    """Bound gRPC reconnect backoff by the configured connection budget."""
+
+    connect_timeout_ms = max(1, math.ceil(connect_timeout_seconds * 1000.0))
+    initial_backoff_ms = min(1000, connect_timeout_ms)
+    options: dict[str, Any] = {
+        "grpc.initial_reconnect_backoff_ms": initial_backoff_ms,
+        "grpc.min_reconnect_backoff_ms": initial_backoff_ms,
+        "grpc.max_reconnect_backoff_ms": connect_timeout_ms,
+    }
+    if root_certificates is not None:
+        options["root_certificates"] = root_certificates
+    return options
+
+
+def _configure_pinned_transport_timeouts(
+    raw_client: Any,
+    *,
+    connect_timeout_seconds: float,
+    request_timeout_seconds: float,
+) -> None:
+    """Apply split timeouts to qdrant-client 1.18's constructed transports."""
+
+    remote = getattr(raw_client, "_client", None)
+    openapi_client = getattr(remote, "openapi_client", None)
+    api_client = getattr(openapi_client, "client", None)
+    rest_client = getattr(api_client, "_client", None)
+    if (
+        remote is None
+        or rest_client is None
+        or not hasattr(rest_client, "timeout")
+        or not hasattr(remote, "_timeout")
+        or not hasattr(remote, "_rest_args")
+    ):
+        raise QdrantClientError(
+            "qdrant_transport_timeout_unsupported",
+            operation="configure_client",
+        )
+    try:
+        httpx_module = importlib.import_module("httpx")
+        rest_timeout = httpx_module.Timeout(
+            connect=connect_timeout_seconds,
+            read=request_timeout_seconds,
+            write=request_timeout_seconds,
+            pool=request_timeout_seconds,
+        )
+        rest_client.timeout = rest_timeout
+    except (ImportError, ModuleNotFoundError, TypeError, ValueError) as exc:
+        raise QdrantClientError(
+            "qdrant_transport_timeout_unsupported",
+            operation="configure_client",
+        ) from exc
+    remote._rest_args["timeout"] = rest_timeout
+    # qdrant-client uses this value as the default deadline for gRPC RPCs.
+    remote._timeout = request_timeout_seconds
+    remote._ananta_rest_connect_timeout_seconds = connect_timeout_seconds
+    remote._ananta_grpc_connect_timeout_seconds = connect_timeout_seconds
+    remote._ananta_request_timeout_seconds = request_timeout_seconds
+
+
 class QdrantClientAdapter:
     """The only production boundary that knows qdrant-client's API."""
 
@@ -205,27 +337,81 @@ class QdrantClientAdapter:
         rest_origin: str,
         grpc_origin: str | None = None,
         api_key: str | None = None,
+        tls_ca_cert_pem: str | None = None,
+        connect_timeout_seconds: float = 3.0,
         timeout_seconds: float = 10.0,
         prefer_grpc: bool = False,
         raw_client: Any | None = None,
         models_module: Any | None = None,
     ):
+        connect_timeout = float(connect_timeout_seconds)
         timeout = float(timeout_seconds)
-        if not 0.05 <= timeout <= 300.0:
+        if not 0.05 <= connect_timeout <= 300.0 or not 0.05 <= timeout <= 300.0:
             raise QdrantClientError("vector_store_invalid_timeout", operation="configure_client")
         self._rest_origin = normalise_origin(rest_origin)
         self._grpc_origin = normalise_origin(grpc_origin) if grpc_origin else None
+        self._connect_timeout_seconds = connect_timeout
         self._timeout_seconds = timeout
+        tls_ca_bytes: bytes | None = None
+        rest_verify: ssl.SSLContext | bool = True
+        if tls_ca_cert_pem:
+            try:
+                tls_ca_bytes = str(tls_ca_cert_pem).encode("utf-8")
+                rest_verify = ssl.create_default_context()
+                rest_verify.load_verify_locations(
+                    cadata=str(tls_ca_cert_pem),
+                )
+            except (OSError, UnicodeError, ValueError, ssl.SSLError):
+                raise QdrantClientError(
+                    "vector_store_tls_ca_cert_invalid",
+                    operation="configure_client",
+                ) from None
         if raw_client is None:
             client_module, loaded_models = _load_qdrant_modules()
             grpc_port = urlsplit(self._grpc_origin).port if self._grpc_origin else None
-            raw_client = client_module.QdrantClient(
-                url=self._rest_origin,
-                grpc_port=grpc_port,
-                api_key=api_key or None,
-                timeout=timeout,
-                prefer_grpc=bool(prefer_grpc),
-            )
+            try:
+                raw_client = client_module.QdrantClient(
+                    url=self._rest_origin,
+                    grpc_port=grpc_port,
+                    api_key=api_key or None,
+                    timeout=timeout,
+                    prefer_grpc=bool(prefer_grpc),
+                    verify=rest_verify,
+                    grpc_options=_grpc_connect_timeout_options(
+                        connect_timeout,
+                        root_certificates=tls_ca_bytes,
+                    ),
+                    check_compatibility=False,
+                )
+                _configure_distinct_grpc_origin(
+                    raw_client,
+                    rest_origin=self._rest_origin,
+                    grpc_origin=self._grpc_origin,
+                )
+                _configure_pinned_transport_timeouts(
+                    raw_client,
+                    connect_timeout_seconds=connect_timeout,
+                    request_timeout_seconds=timeout,
+                )
+            except QdrantClientError:
+                close = getattr(raw_client, "close", None)
+                if callable(close):
+                    try:
+                        close()
+                    except Exception:
+                        pass
+                raise
+            except Exception as exc:
+                close = getattr(raw_client, "close", None)
+                if callable(close):
+                    try:
+                        close()
+                    except Exception:
+                        pass
+                raise _classify_error(
+                    exc,
+                    operation="configure_client",
+                ) from None
             models_module = loaded_models
         if models_module is None:
             raise TypeError("models_module is required with an injected raw_client")
@@ -238,6 +424,7 @@ class QdrantClientAdapter:
         endpoint: Any,
         *,
         api_key: str | None = None,
+        tls_ca_cert_pem: str | None = None,
         raw_client: Any | None = None,
         models_module: Any | None = None,
     ) -> "QdrantClientAdapter":
@@ -246,7 +433,17 @@ class QdrantClientAdapter:
             rest_origin=rest_origin,
             grpc_origin=grpc_origin,
             api_key=api_key,
-            timeout_seconds=float(getattr(endpoint, "timeout_seconds", 10.0)),
+            tls_ca_cert_pem=tls_ca_cert_pem,
+            connect_timeout_seconds=float(
+                getattr(endpoint, "connect_timeout_seconds", 3.0)
+            ),
+            timeout_seconds=float(
+                getattr(
+                    endpoint,
+                    "request_timeout_seconds",
+                    getattr(endpoint, "timeout_seconds", 10.0),
+                )
+            ),
             prefer_grpc=bool(getattr(endpoint, "prefer_grpc", False)),
             raw_client=raw_client,
             models_module=models_module,
@@ -264,7 +461,8 @@ class QdrantClientAdapter:
         try:
             self._invoke("health", self._client.get_collections)
         except QdrantClientError as exc:
-            return ClientAvailability(status="unavailable", reason=exc.reason)
+            status = "unauthorized" if exc.reason == QDRANT_UNAUTHORIZED else "unavailable"
+            return ClientAvailability(status=status, reason=exc.reason)
         return ClientAvailability(status="ready", reason="ok")
 
     @staticmethod

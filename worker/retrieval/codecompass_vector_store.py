@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import json
 import math
 from pathlib import Path
 from typing import Any
 
-from worker.retrieval.json_vector_store import JsonVectorStore
 from worker.retrieval.embedding_provider import EmbeddingProvider
 from worker.retrieval.embedding_text_builder import (
     CODECOMPASS_EMBEDDING_TEXT_PROFILE,
     build_embedding_texts_batch,
     build_query_embedding_text,
 )
+from worker.retrieval.json_vector_store import JsonVectorStore
 from worker.retrieval.vector_encoding import (
     VectorEncoder,
     VectorEncodingProfile,
@@ -21,6 +20,11 @@ from worker.retrieval.vector_store_contract import (
     VectorSearchQuery,
     VectorSearchResult,
     VectorStoreFilters,
+)
+
+_LEGACY_CODECOMPASS_SCOPE = VectorScope(
+    workspace_id="legacy-local",
+    repository_id="legacy-codecompass",
 )
 
 
@@ -40,9 +44,23 @@ def _cosine_similarity(left: list[float], right: list[float]) -> float:
 class CodeCompassVectorStore:
     """Backward-compatible CodeCompass adapter around the prepared-vector JSON backend."""
 
-    def __init__(self, *, index_path: str | Path):
+    def __init__(
+        self,
+        *,
+        index_path: str | Path,
+        scope: VectorScope | None = None,
+    ):
         self._index_path = Path(index_path)
-        self._backend = JsonVectorStore(index_path=self._index_path)
+        self._scope = scope or _LEGACY_CODECOMPASS_SCOPE
+        self._uses_legacy_scope = scope is None
+        self._backend = JsonVectorStore(
+            index_path=self._index_path,
+            legacy_scope=(
+                _LEGACY_CODECOMPASS_SCOPE
+                if self._uses_legacy_scope
+                else None
+            ),
+        )
 
     @property
     def index_path(self) -> Path:
@@ -55,7 +73,16 @@ class CodeCompassVectorStore:
         return self._backend.load()
 
     def save(self, *, state: dict[str, Any], entries: list[dict[str, Any]]) -> None:
-        self._backend.save(state=state, entries=entries)
+        normalized_entries = list(entries)
+        if not self._uses_legacy_scope:
+            normalized_entries = [
+                {
+                    **dict(entry),
+                    **self._scope.as_dict(),
+                }
+                for entry in entries
+            ]
+        self._backend.save(state=state, entries=normalized_entries)
 
     def rebuild(
         self,
@@ -188,6 +215,10 @@ class CodeCompassVectorStore:
             return "retrieval_cache_state_changed"
         if str(state.get("manifest_hash") or "") != str(manifest_hash or ""):
             return "manifest_changed"
+        if str(state.get("embedding_provider") or "") != str(
+            getattr(embedding_provider, "provider_id", "unknown") or ""
+        ):
+            return "provider_changed"
         if str(state.get("embedding_model_name") or "") != str(
             getattr(embedding_provider, "model_version", "unknown") or ""
         ):
@@ -200,7 +231,10 @@ class CodeCompassVectorStore:
             embedding_text_profile or CODECOMPASS_EMBEDDING_TEXT_PROFILE
         ):
             return "embedding_text_profile_changed"
-        stored_encoding = str(state.get("vector_encoding_config_hash") or VectorEncodingProfile.disabled().config_hash())
+        stored_encoding = str(
+            state.get("vector_encoding_config_hash")
+            or VectorEncodingProfile.disabled().config_hash()
+        )
         if stored_encoding != str(vector_encoding_config_hash or VectorEncodingProfile.disabled().config_hash()):
             return "vector_encoding_changed"
         return "unchanged"
@@ -247,17 +281,44 @@ class CodeCompassVectorStore:
         filters: VectorStoreFilters | None = None,
     ) -> VectorSearchResult | list[dict[str, Any]]:
         if query is not None:
-            return self._backend.search_by_vector(query, vector_encoder=vector_encoder)
+            if query.scope not in {None, self._scope}:
+                return self._scope_conflict_result()
+            effective_query = VectorSearchQuery(
+                query_vector=query.query_vector,
+                top_k=query.top_k,
+                scope=self._scope,
+                filters=query.filters,
+                compatibility=query.compatibility,
+            )
+            return self._backend.search_by_vector(
+                effective_query,
+                vector_encoder=vector_encoder,
+            )
+        if scope not in {None, self._scope}:
+            return []
         contract_result = self._backend.search_by_vector(
             VectorSearchQuery(
                 query_vector=tuple(float(item) for item in list(query_vector or [])),
                 top_k=top_k,
-                scope=scope,
+                scope=self._scope,
                 filters=filters,
             ),
             vector_encoder=vector_encoder,
         )
         return [hit.as_dict() for hit in contract_result.hits]
+
+    @staticmethod
+    def _scope_conflict_result() -> VectorSearchResult:
+        return VectorSearchResult(
+            hits=(),
+            diagnostics={
+                "status": "degraded",
+                "reason": "vector_scope_conflict",
+            },
+            requested_provider="json",
+            effective_provider="json",
+            reason="vector_scope_conflict",
+        )
 
     def search(
         self,

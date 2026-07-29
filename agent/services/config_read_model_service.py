@@ -3,18 +3,21 @@ from __future__ import annotations
 import time
 
 from agent.cli_backends.sgpt import resolve_codex_runtime_config
-from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
-from agent.runtime_profiles import resolve_runtime_profile
 from agent.governance_modes import resolve_governance_mode
+from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
 from agent.runtime_policy import review_policy
+from agent.runtime_profiles import resolve_runtime_profile
 from agent.services.cli_session_service import get_cli_session_service
+from agent.services.critical_workflow_state_service import get_critical_workflow_state_service
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.governance_profile_service import build_effective_policy_profile
 from agent.services.integration_registry_service import get_integration_registry_service
 from agent.services.operations_observability_service import get_operations_observability_service
-from agent.services.critical_workflow_state_service import get_critical_workflow_state_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.routing_decision_service import get_routing_decision_service
+from agent.services.task_context_bundle_access_service import (
+    get_task_context_bundle_access_service,
+)
 from agent.services.task_state_machine_service import build_task_state_machine_contract, build_task_status_contract
 
 
@@ -116,7 +119,6 @@ class ConfigReadModelService:
         }
 
     def _build_retrieval_bundle_telemetry(self, tasks: list[dict], *, max_tasks: int = 200) -> dict:
-        repos = get_repository_registry()
         recent_tasks = sorted(
             [item for item in tasks if str(item.get("context_bundle_id") or "").strip()],
             key=lambda task: float(task.get("updated_at") or task.get("created_at") or 0.0),
@@ -131,8 +133,9 @@ class ConfigReadModelService:
 
         entries: list[dict] = []
         for task in recent_tasks:
-            bundle_id = str(task.get("context_bundle_id") or "").strip()
-            bundle = repos.context_bundle_repo.get_by_id(bundle_id) if bundle_id else None
+            bundle = get_task_context_bundle_access_service().resolve_task_reference_or_none(
+                task=task,
+            )
             if bundle is None:
                 continue
             metadata = dict(bundle.bundle_metadata or {})

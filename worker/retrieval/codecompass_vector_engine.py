@@ -9,10 +9,12 @@ from worker.retrieval.embedding_provider import (
 )
 from worker.retrieval.embedding_text_builder import build_query_embedding_text
 from worker.retrieval.vector_store_contract import (
+    CompatibilitySpec,
     VectorScope,
     VectorSearchPort,
     VectorSearchQuery,
     VectorStoreError,
+    VectorStoreFailClosedError,
     VectorStoreFilters,
 )
 
@@ -37,9 +39,11 @@ class CodeCompassVectorEngine:
         store: VectorSearchPort,
         embedding_provider: EmbeddingProvider | None,
         degraded_reason: str | None = None,
+        propagate_vector_store_errors: bool = False,
     ):
         self._store = store
         self._embedding_provider = embedding_provider
+        self._propagate_vector_store_errors = bool(propagate_vector_store_errors)
         self._last_diagnostic: dict[str, Any] = (
             {"status": "degraded", "reason": degraded_reason}
             if degraded_reason
@@ -58,6 +62,7 @@ class CodeCompassVectorEngine:
         retrieval_intent: str | None = None,
         scope: VectorScope | None = None,
         filters: VectorStoreFilters | None = None,
+        compatibility: CompatibilitySpec | None = None,
     ) -> list[dict[str, Any]]:
         if self._embedding_provider is None:
             self._last_diagnostic = {"status": "degraded", "reason": "provider_resolution_failed"}
@@ -65,9 +70,7 @@ class CodeCompassVectorEngine:
         task_weight = float(_TASK_KIND_WEIGHT.get(str(task_kind or "").strip().lower(), 1.0))
         intent_weight = float(_INTENT_WEIGHT.get(str(retrieval_intent or "").strip().lower(), 1.0))
         try:
-            vectors = self._embedding_provider.embed_texts(
-                [build_query_embedding_text(str(query or ""))]
-            )
+            vectors = self._embedding_provider.embed_texts([build_query_embedding_text(str(query or ""))])
             query_vector = tuple(float(item) for item in list(vectors[0] if vectors else []))
             result = self._store.search_by_vector(
                 VectorSearchQuery(
@@ -75,6 +78,7 @@ class CodeCompassVectorEngine:
                     top_k=max(1, int(top_k)),
                     scope=scope,
                     filters=filters,
+                    compatibility=compatibility,
                 )
             )
             rows = [hit.as_dict() for hit in result.hits]
@@ -88,16 +92,19 @@ class CodeCompassVectorEngine:
         except EmbeddingProviderError as exc:
             self._last_diagnostic = {"status": "degraded", "reason": "embedding_provider_failure", "error": str(exc)}
             return []
+        except VectorStoreFailClosedError:
+            raise
         except VectorStoreError as exc:
             self._last_diagnostic = {
                 "status": "degraded",
                 "reason": exc.reason,
                 **dict(exc.details),
             }
+            if self._propagate_vector_store_errors:
+                raise
             return []
         model_name = str(
-            result.diagnostics.get("model")
-            or getattr(self._embedding_provider, "model_version", "unknown")
+            result.diagnostics.get("model") or getattr(self._embedding_provider, "model_version", "unknown")
         )
         manifest_hash = str(result.diagnostics.get("manifest_hash") or "")
         weighted: list[dict[str, Any]] = []

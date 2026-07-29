@@ -8,7 +8,13 @@ def merge_wiki_hybrid_results(*, fts: list[dict[str, Any]], vector: list[dict[st
     merged: dict[str, dict[str, Any]] = {}
     for channel, rows, weight in (("fts", fts, 1.0), ("vector", vector, 0.9), ("graph", graph, 0.4)):
         for row in rows:
-            key = str(row.get("chunk_id") or row.get("source") or row.get("id") or "")
+            key = str(
+                row.get("record_id")
+                or row.get("chunk_id")
+                or row.get("source")
+                or row.get("id")
+                or ""
+            )
             if not key:
                 continue
             current = merged.get(key, {"hybrid_score": 0.0, "score_components": {}, **row})

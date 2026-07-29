@@ -176,6 +176,84 @@ class TestWorkerCapabilitySelection:
         assert selection.worker_url == "http://tester:5000"
         assert selection.strategy in {"capability_match", "capability_quality_load_match"}
 
+    def test_vector_index_worker_requires_complete_capability_set(
+        self,
+    ):
+        workers = [
+            {
+                "url": "http://partial:5000",
+                "status": "online",
+                "worker_roles": [],
+                "capabilities": [
+                    "retrieval",
+                    "vector_index_operation",
+                ],
+                "quality_score": 1.0,
+            },
+            {
+                "url": "http://complete:5000",
+                "status": "online",
+                "worker_roles": [],
+                "capabilities": [
+                    "retrieval",
+                    "index_write",
+                    "vector_index_operation",
+                ],
+            },
+        ]
+
+        selection = choose_worker_for_task(
+            {
+                "title": "Index trusted scope",
+                "task_kind": "vector_index_operation",
+                "required_capabilities": [
+                    "retrieval",
+                    "index_write",
+                    "vector_index_operation",
+                ],
+            },
+            workers,
+            task_kind="vector_index_operation",
+        )
+
+        assert selection.worker_url == "http://complete:5000"
+        assert selection.matched_capabilities == [
+            "retrieval",
+            "index_write",
+            "vector_index_operation",
+        ]
+
+    def test_vector_index_worker_never_uses_incomplete_fallback(
+        self,
+    ):
+        selection = choose_worker_for_task(
+            {
+                "title": "Index trusted scope",
+                "task_kind": "vector_index_operation",
+                "required_capabilities": [
+                    "retrieval",
+                    "index_write",
+                    "vector_index_operation",
+                ],
+            },
+            [
+                {
+                    "url": "http://partial:5000",
+                    "status": "online",
+                    "worker_roles": [],
+                    "capabilities": ["retrieval", "index_write"],
+                }
+            ],
+            task_kind="vector_index_operation",
+        )
+
+        assert selection.worker_url is None
+        assert selection.strategy == "capability_blocked"
+        assert (
+            "required_capability_set_not_satisfied"
+            in selection.reasons
+        )
+
     def test_choose_worker_falls_back_to_online_worker(self):
         workers = [
             {"url": "http://generic:5000", "status": "online", "worker_roles": [], "capabilities": []},

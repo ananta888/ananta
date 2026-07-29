@@ -35,6 +35,11 @@ from agent.services.cli_session_service import get_cli_session_service
 from agent.services.context_manager_service import get_context_manager_service
 from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.repository_registry import get_repository_registry
+from agent.services.task_context_bundle_access_service import (
+    CONTEXT_BUNDLE_NOT_FOUND,
+    ContextBundleTaskAccessError,
+    get_task_context_bundle_access_service,
+)
 from agent.services.task_execution_policy_service import normalize_allowed_tools
 from agent.services.task_runtime_service import update_local_task_status
 from agent.services.task_template_resolution import resolve_task_role_template
@@ -167,8 +172,32 @@ def get_worker_execution_context(
 
     agent_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
     semantic_policy = resolve_worker_semantic_output_correction_policy(agent_cfg)
-    execution_context = dict((task or {}).get("worker_execution_context") or {})
+    task_payload = dict(task or {})
+    execution_context = dict(task_payload.get("worker_execution_context") or {})
+    try:
+        bundle = get_task_context_bundle_access_service().resolve_task_reference(
+            task=task_payload,
+            task_id=tid,
+        )
+    except ContextBundleTaskAccessError as exc:
+        if (
+            exc.reason_code != CONTEXT_BUNDLE_NOT_FOUND
+            or not isinstance(execution_context.get("context"), dict)
+        ):
+            raise
+        # Legacy Hub tasks may carry an embedded context with a synthetic
+        # bundle reference that was never persisted. Generic task ingress
+        # cannot create this shape anymore; preserve it without a DB reuse.
+        bundle = None
     if execution_context:
+        if bundle is not None:
+            execution_context["context_bundle_id"] = bundle.id
+            execution_context["context"] = {
+                "context_text": bundle.context_text,
+                "chunks": list(bundle.chunks or []),
+                "token_estimate": int(bundle.token_estimate or 0),
+                "bundle_metadata": dict(bundle.bundle_metadata or {}),
+            }
         execution_context["allowed_tools"] = normalize_allowed_tools(execution_context.get("allowed_tools"))
         if semantic_policy and not isinstance(execution_context.get("semantic_output_correction"), dict):
             execution_context["semantic_output_correction"] = semantic_policy
@@ -214,13 +243,9 @@ def get_worker_execution_context(
                 except Exception:
                     pass
         return execution_context
-    bundle_id = str((task or {}).get("context_bundle_id") or "").strip()
-    bundle = None
-    if bundle_id:
-        bundle = get_repository_registry().context_bundle_repo.get_by_id(bundle_id)
     if bundle is None and (tid or (task or {})):
         resolved = get_context_manager_service().ensure_task_context_bundle(
-            task=dict(task or {}),
+            task=task_payload,
             task_id=tid,
             query=base_prompt,
         )

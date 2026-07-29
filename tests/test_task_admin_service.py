@@ -14,6 +14,12 @@ from agent.services.task_admin_service import (
     RecoveryChildAdminMutationConflict,
     TaskAdminService,
 )
+from agent.services.vector_index_task_contracts import (
+    VectorIndexTrustedScope,
+)
+from agent.services.vector_store_authorization_policy import (
+    get_vector_store_authorization_policy,
+)
 
 
 def _persist_recovery_lineage(
@@ -241,6 +247,205 @@ def test_cancel_forwards_to_assigned_worker(monkeypatch):
     forward = data.get("worker_cancel_forward") or {}
     assert forward.get("attempted") is True
     assert forward.get("status") == "ok"
+
+
+def _vector_task_row(*, status: str = "todo") -> SimpleNamespace:
+    task_id = "vector-index-" + ("a" * 32)
+    scope = VectorIndexTrustedScope(
+        workspace_id="workspace-a",
+        repository_id="repo-a",
+        profile_name="default",
+        domain="codecompass",
+    )
+    return SimpleNamespace(
+        id=task_id,
+        status=status,
+        task_kind="vector_index_operation",
+        assigned_agent_url="http://worker-a:5000",
+        source_task_id=None,
+        goal_id=None,
+        plan_id=None,
+        derivation_reason=None,
+        status_reason_details={},
+        worker_execution_context={
+            "vector_index_task": {
+                "schema": "ananta.vector_index_task.v1",
+                "job_id": task_id,
+                "scope": scope.to_dict(),
+                "scope_fingerprint": scope.fingerprint(),
+            }
+        },
+    )
+
+
+def _vector_workspace_authorization():
+    return get_vector_store_authorization_policy().from_identity(
+        {
+            "sub": "admin-a",
+            "role": "admin",
+            "workspace_id": "workspace-a",
+        }
+    )
+
+
+def test_vector_intervention_uses_dedicated_hub_lifecycle(
+    monkeypatch,
+) -> None:
+    task = _vector_task_row()
+    lifecycle_calls: list[dict] = []
+    cancellation_calls: list[dict] = []
+    monkeypatch.setattr(
+        "agent.services.task_admin_service.get_repository_registry",
+        lambda: SimpleNamespace(
+            task_repo=SimpleNamespace(
+                get_by_id=lambda _task_id: task
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        (
+            "agent.services.vector_index_task_service."
+            "get_vector_index_task_service"
+        ),
+        lambda: SimpleNamespace(
+            cancel=lambda **kwargs: (
+                lifecycle_calls.append(kwargs)
+                or {"status": "cancelled"}
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        (
+            "agent.services.request_cancellation_service."
+            "get_request_cancellation_service"
+        ),
+        lambda: SimpleNamespace(
+            cancel_task_requests=lambda **kwargs: (
+                cancellation_calls.append(kwargs)
+                or {"status": "ok"}
+            )
+        ),
+    )
+
+    ok, reason, data = TaskAdminService().intervene_task(
+        task_id=task.id,
+        action="cancel",
+        actor="admin-a",
+        vector_authorization=_vector_workspace_authorization(),
+    )
+
+    assert (ok, reason, data["status"]) == (
+        True,
+        "ok",
+        "cancelled",
+    )
+    assert lifecycle_calls == [
+        {"job_id": task.id, "actor": "admin-a"}
+    ]
+    assert cancellation_calls == [
+        {"task_id": task.id, "include_workers": True}
+    ]
+
+
+def test_vector_intervention_fails_closed_for_generic_or_partial_domain(
+    monkeypatch,
+) -> None:
+    task = _vector_task_row()
+    monkeypatch.setattr(
+        "agent.services.task_admin_service.get_repository_registry",
+        lambda: SimpleNamespace(
+            task_repo=SimpleNamespace(
+                get_by_id=lambda _task_id: task
+            )
+        ),
+    )
+
+    ok, reason, data = TaskAdminService().intervene_task(
+        task_id=task.id,
+        action="pause",
+        actor="admin-a",
+        vector_authorization=_vector_workspace_authorization(),
+    )
+    assert ok is False
+    assert reason == "vector_index_task_intervention_forbidden"
+    assert data["http_status"] == 409
+
+    task.worker_execution_context = {}
+    ok, reason, data = TaskAdminService().intervene_task(
+        task_id=task.id,
+        action="cancel",
+        actor="admin-a",
+        vector_authorization=(
+            get_vector_store_authorization_policy()
+            .system_context(
+                actor="run-control",
+                purpose="run_control",
+            )
+        ),
+    )
+    assert ok is False
+    assert reason == "vector_index_task_domain_binding_invalid"
+    assert data["http_status"] == 409
+
+
+def test_vector_intervention_direct_service_bypass_is_denied(
+    monkeypatch,
+) -> None:
+    task = _vector_task_row()
+    lifecycle_calls: list[dict] = []
+    monkeypatch.setattr(
+        "agent.services.task_admin_service.get_repository_registry",
+        lambda: SimpleNamespace(
+            task_repo=SimpleNamespace(
+                get_by_id=lambda _task_id: task
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        (
+            "agent.services.vector_index_task_service."
+            "get_vector_index_task_service"
+        ),
+        lambda: SimpleNamespace(
+            cancel=lambda **kwargs: lifecycle_calls.append(
+                kwargs
+            )
+        ),
+    )
+
+    ok, reason, data = TaskAdminService().intervene_task(
+        task_id=task.id,
+        action="cancel",
+        actor="forged-caller",
+    )
+
+    assert ok is False
+    assert reason == "vector_store_admin_required"
+    assert data == {
+        "reason_code": "vector_store_admin_required",
+        "http_status": 403,
+    }
+    assert lifecycle_calls == []
+
+
+def test_vector_cleanup_direct_service_bypass_is_denied(
+    monkeypatch,
+) -> None:
+    task = _vector_task_row()
+    monkeypatch.setattr(
+        "agent.services.task_admin_service.get_repository_registry",
+        lambda: SimpleNamespace(
+            task_repo=SimpleNamespace(
+                get_by_id=lambda _task_id: task
+            )
+        ),
+    )
+
+    with pytest.raises(
+        PermissionError,
+        match="vector_store_admin_required",
+    ):
+        TaskAdminService().archive_task(task_id=task.id)
 
 
 def test_intervention_reports_authoritative_commit_conflict(

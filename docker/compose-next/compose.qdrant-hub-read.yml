@@ -1,0 +1,39 @@
+# Explicit Hub-as-worker capability for synchronous CodeCompass Qdrant reads.
+# Never include this overlay unless the Hub is intentionally granted the
+# Qdrant runtime, internal network and secret mount.
+services:
+  ai-agent-hub:
+    image: ${ANANTA_QDRANT_HUB_IMAGE:-ananta-quickstart-no-ollama-qdrant-hub:local}
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+      args:
+        ANANTA_RUNTIME_UID: ${ANANTA_HOST_UID:-1000}
+        ANANTA_RUNTIME_GID: ${ANANTA_HOST_GID:-1000}
+        INSTALL_QDRANT_RUNTIME: "1"
+    environment:
+      HUB_CAN_BE_WORKER: "1"
+      CODECOMPASS_VECTOR_ENABLED: "1"
+      ANANTA_CODECOMPASS_VECTOR_WORKSPACE_ID: ${ANANTA_CODECOMPASS_VECTOR_WORKSPACE_ID:?Set an explicit CodeCompass workspace ID}
+      ANANTA_CODECOMPASS_VECTOR_REPOSITORY_ID: ${ANANTA_CODECOMPASS_VECTOR_REPOSITORY_ID:?Set an explicit CodeCompass repository ID}
+      ANANTA_CODECOMPASS_VECTOR_PROFILE_NAME: ${ANANTA_CODECOMPASS_VECTOR_PROFILE_NAME:-default}
+      ANANTA_CODECOMPASS_VECTOR_HUB_QDRANT_READ_ENABLED: "true"
+      ANANTA_QDRANT_REST_URL: https://qdrant:6333
+      ANANTA_QDRANT_ALLOWED_ORIGINS: https://qdrant:6333
+      ANANTA_QDRANT_TRUSTED_PRIVATE_ORIGINS: https://qdrant:6333
+      ANANTA_QDRANT_EXTERNAL_CALLS_ALLOWED: "false"
+      ANANTA_QDRANT_API_KEY_REF: secretfile:///run/secrets/qdrant-api-key
+      ANANTA_QDRANT_TLS_CA_CERT_REF: secretfile:///run/secrets/qdrant-tls-ca.pem
+    secrets:
+      - source: qdrant-api-key
+        target: qdrant-api-key
+        mode: 0400
+      - source: qdrant-tls-ca
+        target: qdrant-tls-ca.pem
+        mode: 0444
+    networks:
+      - default
+      - qdrant-worker
+    depends_on:
+      qdrant:
+        condition: service_healthy

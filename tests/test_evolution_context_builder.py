@@ -87,6 +87,7 @@ class FakeRepos:
             **{
                 "bundle-1": SimpleNamespace(
                     id="bundle-1",
+                    task_id="T-1",
                     bundle_type="worker_execution_context",
                     chunks=[{"metadata": {"artifact_id": "art-3"}}],
                     token_estimate=42,

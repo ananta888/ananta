@@ -62,6 +62,11 @@ SECURITY_LEVEL_RANK = {
     "critical": 4,
 }
 
+_ALL_REQUIRED_CAPABILITY_TASK_KINDS = frozenset(
+    {"vector_index_operation"}
+)
+
+
 def normalize_capabilities(capabilities: list[str] | None) -> list[str]:
     return _normalize_capabilities(capabilities)
 
@@ -144,6 +149,9 @@ def choose_worker_for_task(
             if role not in preferred_roles:
                 preferred_roles.append(role)
     required_security = _security_level(task or {})
+    require_complete_capability_set = (
+        kind in _ALL_REQUIRED_CAPABILITY_TASK_KINDS
+    )
 
     ranked: list[tuple[float, dict, list[str], list[str], float, float, str]] = []
     for worker in workers:
@@ -174,8 +182,12 @@ def choose_worker_for_task(
 
         matched_caps = [cap for cap in normalized_required if cap in expanded_caps]
         matched_roles = [role for role in worker_roles if role in preferred_roles]
-        if normalized_required and not matched_caps:
-            continue
+        if normalized_required:
+            if require_complete_capability_set:
+                if len(matched_caps) != len(normalized_required):
+                    continue
+            elif not matched_caps:
+                continue
 
         load_penalty = _load_ratio(current_load, max_parallel)
         success_signal, quality_signal = _quality_signals(worker)
@@ -253,6 +265,22 @@ def choose_worker_for_task(
             workflow_step_role=workflow_role or None,
             workflow_task_kind=kind or None,
             routing_origin="workflow_blocked",
+        )
+
+    if require_complete_capability_set and normalized_required:
+        return WorkerSelection(
+            worker_url=None,
+            reasons=[
+                "required_capability_set_not_satisfied",
+                f"task_kind:{kind}",
+                (
+                    "required_capabilities:"
+                    + ",".join(normalized_required)
+                ),
+            ],
+            matched_capabilities=[],
+            matched_roles=[],
+            strategy="capability_blocked",
         )
 
     fallback = _pick_fallback_worker(workers, min_security=required_security)

@@ -39,6 +39,7 @@ class EmbeddingProviderConfig:
     Matches the proposed_config_shape in the EPC todo.
     """
     provider: str = "local_hash"
+    policy_profile: str | None = None
     model: str | None = None
     model_version: str = "hash-v1"
     dimensions: int = 12
@@ -57,6 +58,7 @@ class EmbeddingProviderConfig:
     def as_dict(self, *, redact_secrets: bool = True) -> dict[str, Any]:
         return {
             "provider": self.provider,
+            "policy_profile": self.policy_profile,
             "model": self.model,
             "model_version": self.model_version,
             "dimensions": self.dimensions,
@@ -75,6 +77,7 @@ class EmbeddingProviderConfig:
         """Stable hash of provider identity — excludes secrets. Used for rebuild detection."""
         identity = json.dumps({
             "provider": self.provider,
+            "policy_profile": self.policy_profile,
             "model": self.model,
             "model_version": self.model_version,
             "dimensions": self.dimensions,
@@ -199,6 +202,9 @@ class EmbeddingProviderConfigService:
 
         cfg = EmbeddingProviderConfig(
             provider=provider,
+            policy_profile=(
+                str(raw.get("policy_profile") or "").strip() or None
+            ),
             model=str(raw["model"]).strip() or None if raw.get("model") else None,
             model_version=str(raw.get("model_version") or "hash-v1"),
             dimensions=dims,
@@ -282,10 +288,7 @@ def build_embedding_provider_from_config(
     Enforces the external_calls_allowed policy before constructing external providers.
     Raises ValueError for policy violations so callers can degrade gracefully.
     """
-    from worker.retrieval.embedding_provider import (
-        build_embedding_provider,
-        EmbeddingProviderError,
-    )
+    from worker.retrieval.embedding_provider import build_embedding_provider
 
     status, reason = EmbeddingProviderConfigService._check_security(config)
     if status == "blocked":

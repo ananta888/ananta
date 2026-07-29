@@ -13,10 +13,10 @@ from agent.db_models import (
     GoalDB,
     MemoryEntryDB,
     PlanDB,
-    PlanNodeDB,
     PlanningEvaluationDB,
     PlanningReviewItemDB,
     PlanningRunDB,
+    PlanNodeDB,
     PolicyDecisionDB,
     RepairExecutionRecordDB,
     RetrievalRunDB,
@@ -31,6 +31,14 @@ from agent.services.recovery_task_mutation_policy import (
     is_active_recovery_task,
 )
 from agent.services.task_admin_service import get_task_admin_service
+from agent.services.vector_store_authorization_policy import (
+    get_vector_store_authorization_policy,
+    has_reserved_vector_index_marker,
+)
+
+VECTOR_INDEX_GOAL_PURGE_CANCEL_REQUIRED = (
+    "vector_index_goal_purge_cancel_required"
+)
 
 
 def _engine():
@@ -60,6 +68,35 @@ class GoalPurgeResult:
             "task_cancel_summary": dict(self.task_cancel_summary or {}),
             "worker_cancel_failures": list(self.worker_cancel_failures or []),
             "deleted_total": int(self.deleted_total),
+        }
+
+
+@dataclass
+class VectorIndexGoalPurgeCancelRequired(RuntimeError):
+    """Abort destructive purge when the Vector lifecycle did not cancel."""
+
+    goal_id: str
+    task_id: str
+    lifecycle_reason: str
+    reason_code: str = (
+        VECTOR_INDEX_GOAL_PURGE_CANCEL_REQUIRED
+    )
+
+    def __post_init__(self) -> None:
+        RuntimeError.__init__(
+            self,
+            f"{self.reason_code}:{self.task_id}",
+        )
+
+    def as_data(self) -> dict[str, object]:
+        return {
+            "reason_code": self.reason_code,
+            "goal_id": self.goal_id,
+            "task_id": self.task_id,
+            "lifecycle_reason": (
+                self.lifecycle_reason or "vector_index_cancel_failed"
+            ),
+            "http_status": 409,
         }
 
 
@@ -116,16 +153,29 @@ class GoalPurgeService:
                 for task in goal_tasks
                 if str(task.id or "").strip()
             ]
+            tasks_by_id = {
+                str(task.id): task
+                for task in goal_tasks
+                if str(task.id or "").strip()
+            }
             cancel_attempted = 0
             cancel_ok = 0
             cancel_failed = 0
             worker_cancel_failures: list[dict] = []
+            vector_authorization = (
+                get_vector_store_authorization_policy()
+                .system_context(
+                    actor="goal_purge",
+                    purpose="goal_purge",
+                )
+            )
             for task_id in task_ids:
                 cancel_attempted += 1
-                ok, _msg, data = get_task_admin_service().intervene_task(
+                ok, message, data = get_task_admin_service().intervene_task(
                     task_id=str(task_id),
                     action="cancel",
                     actor="goal_purge",
+                    vector_authorization=vector_authorization,
                 )
                 if ok:
                     cancel_ok += 1
@@ -142,6 +192,17 @@ class GoalPurgeService:
                         )
                 else:
                     cancel_failed += 1
+                    if has_reserved_vector_index_marker(
+                        tasks_by_id.get(task_id)
+                    ):
+                        raise VectorIndexGoalPurgeCancelRequired(
+                            goal_id=goal_id_norm,
+                            task_id=task_id,
+                            lifecycle_reason=str(
+                                message
+                                or "vector_index_cancel_failed"
+                            ),
+                        )
             plan_ids = self._collect_ids(session.exec(select(PlanDB.id).where(PlanDB.goal_id == goal_id_norm)).all())
             planning_run_ids = self._collect_ids(
                 session.exec(select(PlanningRunDB.id).where(PlanningRunDB.goal_id == goal_id_norm)).all()
@@ -261,3 +322,12 @@ def get_goal_purge_service() -> GoalPurgeService:
     if _SERVICE is None:
         _SERVICE = GoalPurgeService()
     return _SERVICE
+
+
+__all__ = [
+    "GoalPurgeResult",
+    "GoalPurgeService",
+    "VECTOR_INDEX_GOAL_PURGE_CANCEL_REQUIRED",
+    "VectorIndexGoalPurgeCancelRequired",
+    "get_goal_purge_service",
+]

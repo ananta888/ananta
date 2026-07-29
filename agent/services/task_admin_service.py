@@ -1,18 +1,25 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
 from typing import Any
 
 from agent.common.audit import log_audit
 from agent.db_models import ArchivedTaskDB, TaskDB
-from agent.services.repository_registry import get_repository_registry
 from agent.services.recovery_task_mutation_policy import (
     recovery_task_role,
 )
+from agent.services.repository_registry import get_repository_registry
+from agent.services.task_archive_admin_mixin import (
+    RecoveryChildAdminMutationConflict,
+    TaskArchiveAdminMixin,
+)
+from agent.services.task_runtime_service import update_local_task_status
 from agent.services.task_state_machine_service import can_transition, resolve_next_status
 from agent.services.task_status_service import normalize_task_status
-from agent.services.task_runtime_service import update_local_task_status
+from agent.services.task_vector_admin_mixin import TaskVectorAdminMixin
+from agent.services.vector_store_authorization_policy import (
+    VectorAdminAuthorizationContext,
+)
 
 
 class _RetryTaskAdminFence(RuntimeError):
@@ -44,33 +51,6 @@ _TERMINAL_GOAL_STATUSES = frozenset(
 _INFLIGHT_RECOVERY_LEASE_STATES = frozenset(
     {"active", "worker_admitted"}
 )
-
-
-@dataclass
-class RecoveryChildAdminMutationConflict(RuntimeError):
-    """Structured 409 conflict for an isolated Recovery-lineage mutation."""
-
-    reason_code: str
-    task_id: str
-    source_task_id: str | None
-    plan_id: str | None
-    action: str
-
-    def __post_init__(self) -> None:
-        RuntimeError.__init__(
-            self,
-            f"{self.reason_code}:{self.task_id}",
-        )
-
-    def as_data(self) -> dict[str, Any]:
-        return {
-            "reason_code": self.reason_code,
-            "task_id": self.task_id,
-            "source_task_id": self.source_task_id,
-            "plan_id": self.plan_id,
-            "action": self.action,
-            "http_status": 409,
-        }
 
 
 class _RecoveryChildAdminMutationPolicy:
@@ -352,8 +332,17 @@ class _RecoveryChildAdminMutationPolicy:
             )
 
 
-class TaskAdminService:
+class TaskAdminService(
+    TaskVectorAdminMixin,
+    TaskArchiveAdminMixin,
+):
     """Hub-owned task administration use-cases for archive, restore, hierarchy, and interventions."""
+
+    @staticmethod
+    def _task_admin_repositories():
+        """Repository seam consumed by archive coordination mixins."""
+
+        return get_repository_registry()
 
     def parse_status_filters(self, raw: object) -> set[str]:
         if raw is None:
@@ -438,184 +427,6 @@ class TaskAdminService:
 
         return _node(root_id, 0, {root_id})
 
-    def archive_task(self, *, task_id: str) -> bool:
-        removed, _snapshot = self._remove_active_task(
-            task_id=task_id,
-            archive=True,
-        )
-        return removed
-
-    def archive_tasks(
-        self,
-        *,
-        statuses: set[str],
-        team_id: str,
-        before_ts: float | None,
-        task_ids: set[str],
-    ) -> list[str]:
-        archived_ids: list[str] = []
-        for task in get_repository_registry().task_repo.get_all():
-            item = task.model_dump()
-            if not self.task_matches_filters(item, statuses=statuses, team_id=team_id, before_ts=before_ts, task_ids=task_ids):
-                continue
-            removed, _snapshot = self._remove_active_task(
-                task_id=item["id"],
-                archive=True,
-            )
-            if removed:
-                archived_ids.append(item["id"])
-        return archived_ids
-
-    def restore_task(self, *, task_id: str) -> bool:
-        return self._mutate_archived_task(
-            task_id=task_id,
-            action="restore",
-        )
-
-    def restore_tasks(
-        self,
-        *,
-        statuses: set[str],
-        team_id: str,
-        before_ts: float | None,
-        task_ids: set[str],
-    ) -> list[str]:
-        restored_ids: list[str] = []
-        for archived in self.load_all_archived_tasks():
-            if not self.task_matches_filters(archived, statuses=statuses, team_id=team_id, before_ts=before_ts, task_ids=task_ids):
-                continue
-            task_id = str(archived.get("id") or "")
-            if self.restore_task(task_id=task_id):
-                restored_ids.append(task_id)
-        return restored_ids
-
-    def delete_archived_task(self, *, task_id: str) -> bool:
-        return self._mutate_archived_task(
-            task_id=task_id,
-            action="delete",
-        )
-
-    def cleanup_archived_tasks(
-        self,
-        *,
-        statuses: set[str],
-        team_id: str,
-        before_ts: float | None,
-        task_ids: set[str],
-    ) -> tuple[list[str], list[dict]]:
-        deleted_ids: list[str] = []
-        errors: list[dict] = []
-        for item in self.load_all_archived_tasks():
-            if not self.task_matches_filters(item, statuses=statuses, team_id=team_id, before_ts=before_ts, task_ids=task_ids):
-                continue
-            tid = item.get("id")
-            try:
-                if self.delete_archived_task(task_id=str(tid or "")):
-                    deleted_ids.append(tid)
-            except RecoveryChildAdminMutationConflict as exc:
-                errors.append(
-                    {
-                        "id": tid,
-                        "error": exc.reason_code,
-                        **exc.as_data(),
-                    }
-                )
-            except Exception as exc:
-                errors.append({"id": tid, "error": str(exc)})
-        return deleted_ids, errors
-
-    def apply_archive_retention(self, *, team_id: str, statuses: set[str], cutoff: float) -> list[str]:
-        deleted_ids, _errors = (
-            self.apply_archive_retention_with_errors(
-                team_id=team_id,
-                statuses=statuses,
-                cutoff=cutoff,
-            )
-        )
-        return deleted_ids
-
-    def apply_archive_retention_with_errors(
-        self,
-        *,
-        team_id: str,
-        statuses: set[str],
-        cutoff: float,
-    ) -> tuple[list[str], list[dict[str, Any]]]:
-        deleted_ids: list[str] = []
-        errors: list[dict[str, Any]] = []
-        for item in self.load_all_archived_tasks():
-            archived_at = float(item.get("archived_at") or item.get("updated_at") or 0)
-            if archived_at >= cutoff:
-                continue
-            if team_id and (item.get("team_id") or "") != team_id:
-                continue
-            if statuses and normalize_task_status(item.get("status"), default="") not in statuses:
-                continue
-            task_id = str(item.get("id") or "")
-            try:
-                if self._mutate_archived_task(
-                    task_id=task_id,
-                    action="retention",
-                ):
-                    deleted_ids.append(task_id)
-            except RecoveryChildAdminMutationConflict as exc:
-                errors.append(
-                    {
-                        "id": task_id,
-                        "error": exc.reason_code,
-                        **exc.as_data(),
-                    }
-                )
-            except Exception as exc:
-                errors.append(
-                    {"id": task_id, "error": str(exc)}
-                )
-        return deleted_ids, errors
-
-    def cleanup_active_tasks(
-        self,
-        *,
-        mode: str,
-        statuses: set[str],
-        team_id: str,
-        before_ts: float | None,
-        task_ids: set[str],
-    ) -> tuple[list[dict], list[str], list[str], list[dict]]:
-        repos = get_repository_registry()
-        matched = [
-            item
-            for task in repos.task_repo.get_all()
-            for item in [task.model_dump()]
-            if self.task_matches_filters(item, statuses=statuses, team_id=team_id, before_ts=before_ts, task_ids=task_ids)
-        ]
-        archived_ids: list[str] = []
-        deleted_ids: list[str] = []
-        errors: list[dict] = []
-        for item in matched:
-            tid = item.get("id")
-            try:
-                removed, _snapshot = self._remove_active_task(
-                    task_id=str(tid or ""),
-                    archive=mode == "archive",
-                )
-                if not removed:
-                    continue
-                if mode == "archive":
-                    archived_ids.append(tid)
-                else:
-                    deleted_ids.append(tid)
-            except RecoveryChildAdminMutationConflict as exc:
-                errors.append(
-                    {
-                        "id": tid,
-                        "error": exc.reason_code,
-                        **exc.as_data(),
-                    }
-                )
-            except Exception as exc:
-                errors.append({"id": tid, "error": str(exc)})
-        return matched, archived_ids, deleted_ids, errors
-
     @staticmethod
     def _admin_mutation_lock_ids(task: Any) -> set[str]:
         from agent.services.lifecycle_service import (
@@ -651,6 +462,11 @@ class TaskAdminService:
         )
         if current_status in _TERMINAL_TASK_STATUSES:
             return
+        if TaskAdminService._vector_index_task_marker(task):
+            # The caller must cancel this domain through its lifecycle service
+            # before entering the generic task mutation fence.  Retrying
+            # outside the fence avoids a task-lock/lifecycle-lock inversion.
+            raise _RetryTaskAdminFence()
         action = "archive" if archive else "delete"
         event_kwargs = {
             "force": True,
@@ -708,6 +524,9 @@ class TaskAdminService:
         *,
         task_id: str,
         action: str,
+        vector_authorization: (
+            VectorAdminAuthorizationContext | None
+        ) = None,
     ) -> bool:
         """Restore or purge one archived row under its lineage fences."""
 
@@ -723,6 +542,10 @@ class TaskAdminService:
             initial = repos.archived_task_repo.get_by_id(task_id)
             if initial is None:
                 return False
+            self._require_authorized_vector_index_task(
+                initial,
+                authorization=vector_authorization,
+            )
             lock_ids = self._admin_mutation_lock_ids(initial)
             retry_fence = False
             with get_task_mutation_lock_port().mutation_locks(
@@ -738,6 +561,10 @@ class TaskAdminService:
                 )
                 if archived is None:
                     return False
+                self._require_authorized_vector_index_task(
+                    archived,
+                    authorization=vector_authorization,
+                )
                 authoritative_lock_ids = (
                     self._admin_mutation_lock_ids(archived)
                 )
@@ -771,6 +598,9 @@ class TaskAdminService:
         *,
         task_id: str,
         archive: bool,
+        vector_authorization: (
+            VectorAdminAuthorizationContext | None
+        ) = None,
         _fence_attempt: int = 0,
     ) -> tuple[bool, dict[str, Any] | None]:
         """Terminalize, cascade, and cancel before archive/delete."""
@@ -789,6 +619,31 @@ class TaskAdminService:
         initial = repos.task_repo.get_by_id(task_id)
         if initial is None:
             return False, None
+        is_vector_index_task = (
+            self._require_authorized_vector_index_task(
+                initial,
+                authorization=vector_authorization,
+            )
+        )
+        if (
+            is_vector_index_task
+            and normalize_task_status(
+                getattr(initial, "status", None),
+                default="todo",
+            )
+            not in _TERMINAL_TASK_STATUSES
+        ):
+            from agent.services.vector_index_task_service import (
+                get_vector_index_task_service,
+            )
+
+            get_vector_index_task_service().cancel(
+                job_id=task_id,
+                actor="task-admin-cleanup",
+            )
+            initial = repos.task_repo.get_by_id(task_id)
+            if initial is None:
+                return False, None
         lock_ids = self._admin_mutation_lock_ids(initial)
         initial_children = [
             child
@@ -818,6 +673,10 @@ class TaskAdminService:
                 task = repos.task_repo.get_by_id(task_id)
                 if task is None:
                     return False, None
+                self._require_authorized_vector_index_task(
+                    task,
+                    authorization=vector_authorization,
+                )
                 authoritative_lock_ids = (
                     self._admin_mutation_lock_ids(task)
                 )
@@ -876,6 +735,7 @@ class TaskAdminService:
             return self._remove_active_task(
                 task_id=task_id,
                 archive=archive,
+                vector_authorization=vector_authorization,
                 _fence_attempt=_fence_attempt + 1,
             )
 
@@ -899,7 +759,16 @@ class TaskAdminService:
                 )
         return True, snapshot
 
-    def intervene_task(self, *, task_id: str, action: str, actor: str) -> tuple[bool, str, dict]:
+    def intervene_task(
+        self,
+        *,
+        task_id: str,
+        action: str,
+        actor: str,
+        vector_authorization: (
+            VectorAdminAuthorizationContext | None
+        ) = None,
+    ) -> tuple[bool, str, dict]:
         from agent.services.recovery_dispatch_gate_service import (
             get_recovery_dispatch_gate_service,
         )
@@ -914,6 +783,16 @@ class TaskAdminService:
             initial = repos.task_repo.get_by_id(task_id)
             if not initial:
                 return False, "not_found", {}
+            vector_intervention = (
+                self._intervene_vector_index_task(
+                    task=initial,
+                    action=action,
+                    actor=actor,
+                    authorization=vector_authorization,
+                )
+            )
+            if vector_intervention is not None:
+                return vector_intervention
             lock_ids = self._admin_mutation_lock_ids(initial)
             retry_fence = False
             with get_task_mutation_lock_port().mutation_locks(
@@ -930,6 +809,10 @@ class TaskAdminService:
                     self._admin_mutation_lock_ids(task)
                 )
                 if not authoritative_lock_ids.issubset(lock_ids):
+                    retry_fence = True
+                elif self._vector_index_task_marker(task):
+                    # Release the generic mutation fence and let the next
+                    # iteration enter the dedicated lifecycle adapter.
                     retry_fence = True
                 else:
                     try:

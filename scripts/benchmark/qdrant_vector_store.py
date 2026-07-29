@@ -8,13 +8,12 @@ import json
 import math
 import os
 import platform
+import shlex
 import shutil
 import statistics
 import subprocess
-import sys
 import tempfile
 import time
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
@@ -23,6 +22,7 @@ from uuid import uuid4
 import numpy as np
 import psutil
 
+from scripts.benchmark.qdrant_vector_store_memory import MemoryRecorder
 from worker.retrieval.json_vector_store import JsonVectorStore
 from worker.retrieval.vector_store_config import (
     QdrantEndpointConfig,
@@ -35,14 +35,19 @@ from worker.retrieval.vector_store_contract import (
     VectorSearchQuery,
     VectorStoreFilters,
 )
-from worker.retrieval.vector_store_endpoint_policy import EnvFileSecretResolver
-
+from worker.retrieval.vector_store_endpoint_policy import (
+    EnvFileSecretResolver,
+    VectorStoreEndpointPolicyError,
+    normalize_endpoint,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = ROOT / "config/benchmarks/qdrant-vector-store.v1.json"
 QDRANT_IMAGE_DIGEST = (
     "sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c"
 )
+QDRANT_SERVER_VERSION = "1.18.2"
+QDRANT_IMAGE_REFERENCE = f"qdrant/qdrant:v{QDRANT_SERVER_VERSION}@{QDRANT_IMAGE_DIGEST}"
 
 
 def _utc_now() -> str:
@@ -78,9 +83,14 @@ def _profile_hash(config: Mapping[str, Any], profile_name: str) -> str:
             "schema": config["schema"],
             "profile_version": config["profile_version"],
             "seed": config["seed"],
+            "distance": config["distance"],
             "warmup_runs": config["warmup_runs"],
             "measurement_runs": config["measurement_runs"],
             "top_k": config["top_k"],
+            "reference_host_approval_required": config[
+                "reference_host_approval_required"
+            ],
+            "inconclusive_when": config["inconclusive_when"],
             "profile_name": profile_name,
             "profile": config["profiles"][profile_name],
         },
@@ -105,6 +115,14 @@ def _source_commit() -> str:
         return "unknown"
 
 
+def _source_commit_verified(value: object) -> bool:
+    candidate = str(value or "").strip().lower()
+    return (
+        40 <= len(candidate) <= 64
+        and all(character in "0123456789abcdef" for character in candidate)
+    )
+
+
 def _dataset(
     *,
     seed: int,
@@ -117,7 +135,11 @@ def _dataset(
     matrix = generator.standard_normal((count, dimensions), dtype=np.float32)
     norms = np.linalg.norm(matrix, axis=1, keepdims=True)
     matrix = matrix / np.maximum(norms, np.float32(1e-12))
-    blob = "x" * int(payload_bytes)
+    payload_size = max(0, int(payload_bytes))
+    bounded_blob_chunks = [
+        "x" * min(1024, payload_size - offset)
+        for offset in range(0, payload_size, 1024)
+    ]
     return tuple(
         PreparedVectorPoint(
             record_id=f"record-{index:08d}",
@@ -128,7 +150,9 @@ def _dataset(
                 "file": f"src/shard-{index % 32:02d}/record-{index:08d}.txt",
                 "source_scope": "benchmark",
                 "role_labels": ["benchmark"],
-                "metadata": {"benchmark_payload": blob},
+                "metadata": {
+                    "benchmark_payload_chunks": bounded_blob_chunks,
+                },
             },
             source_hash=f"fixed-{index:08d}",
         )
@@ -246,6 +270,7 @@ def _measure_search(
     warmup_runs: int,
     measurement_runs: int,
     filtered: bool,
+    compatibility: CompatibilitySpec,
 ) -> dict[str, Any]:
     filters = VectorStoreFilters(kinds=("even",)) if filtered else None
     for _ in range(warmup_runs):
@@ -256,6 +281,7 @@ def _measure_search(
                     top_k=top_k,
                     scope=scope,
                     filters=filters,
+                    compatibility=compatibility,
                 )
             )
     latencies: list[float] = []
@@ -269,8 +295,11 @@ def _measure_search(
                     top_k=top_k,
                     scope=scope,
                     filters=filters,
+                    compatibility=compatibility,
                 )
             )
+            if result.reason != "ok":
+                raise RuntimeError("benchmark_search_failed")
             latencies.append((time.perf_counter() - started) * 1000.0)
             recalls.append(
                 _recall(
@@ -289,121 +318,6 @@ def _measure_search(
         }
     )
     return distribution
-
-
-def _memory_bytes(value: str) -> int | None:
-    number = ""
-    unit = ""
-    for char in value.strip():
-        if char.isdigit() or char == ".":
-            number += char
-        elif number and not char.isspace():
-            unit += char
-    factors = {
-        "B": 1,
-        "KB": 1000,
-        "KIB": 1024,
-        "MB": 1000**2,
-        "MIB": 1024**2,
-        "GB": 1000**3,
-        "GIB": 1024**3,
-    }
-    try:
-        return int(float(number) * factors[unit.upper()])
-    except (KeyError, ValueError):
-        return None
-
-
-def _container_memory(container: str | None) -> dict[str, Any]:
-    if not container or shutil.which("docker") is None:
-        return {"available": False, "reason": "container_memory_unavailable"}
-    completed = subprocess.run(
-        ["docker", "stats", "--no-stream", "--format", "{{.MemUsage}}", container],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=20,
-    )
-    raw = completed.stdout.strip().split("/", 1)[0].strip()
-    measured = _memory_bytes(raw) if completed.returncode == 0 else None
-    return {
-        "available": measured is not None,
-        "bytes": measured,
-        "raw": raw,
-        "reason": "ok" if measured is not None else "container_memory_unavailable",
-    }
-
-
-@dataclass(frozen=True, slots=True)
-class _MemorySample:
-    phase: str
-    observed_at: str
-    client_rss_bytes: int
-    qdrant_container_rss_bytes: int | None
-
-
-class _MemoryRecorder:
-    def __init__(self, container: str | None) -> None:
-        self._container = container
-        self._process = psutil.Process()
-        self._samples: list[_MemorySample] = []
-
-    def sample(self, phase: str) -> None:
-        container = _container_memory(self._container)
-        self._samples.append(
-            _MemorySample(
-                phase=phase,
-                observed_at=_utc_now(),
-                client_rss_bytes=int(self._process.memory_info().rss),
-                qdrant_container_rss_bytes=(
-                    int(container["bytes"]) if container.get("available") else None
-                ),
-            )
-        )
-
-    def report(self) -> dict[str, Any]:
-        client_peak = max(self._samples, key=lambda item: item.client_rss_bytes)
-        container_samples = [
-            item
-            for item in self._samples
-            if item.qdrant_container_rss_bytes is not None
-        ]
-        container_peak = (
-            max(
-                container_samples,
-                key=lambda item: int(item.qdrant_container_rss_bytes or 0),
-            )
-            if container_samples
-            else None
-        )
-        return {
-            "client": {
-                "method": "psutil.Process.memory_info().rss",
-                "peak_bytes": client_peak.client_rss_bytes,
-                "peak_phase": client_peak.phase,
-                "observed_at": client_peak.observed_at,
-            },
-            "qdrant_container": {
-                "method": "docker stats --no-stream MemUsage",
-                "available": container_peak is not None,
-                "peak_bytes": (
-                    container_peak.qdrant_container_rss_bytes
-                    if container_peak
-                    else None
-                ),
-                "peak_phase": container_peak.phase if container_peak else None,
-                "observed_at": container_peak.observed_at if container_peak else None,
-            },
-            "samples": [
-                {
-                    "phase": item.phase,
-                    "observed_at": item.observed_at,
-                    "client_rss_bytes": item.client_rss_bytes,
-                    "qdrant_container_rss_bytes": item.qdrant_container_rss_bytes,
-                }
-                for item in self._samples
-            ],
-        }
 
 
 def _cleanup(client: object, prefix: str) -> None:
@@ -435,19 +349,53 @@ def _hardware_fingerprint() -> dict[str, Any]:
     }
 
 
-def _software_fingerprint() -> dict[str, Any]:
+def _software_fingerprint(args: argparse.Namespace | None = None) -> dict[str, Any]:
     try:
         client_version = importlib.metadata.version("qdrant-client")
     except importlib.metadata.PackageNotFoundError:
         client_version = "not-installed"
     return {
         "commit": _source_commit(),
-        "qdrant_server": "1.18.2",
-        "qdrant_image_digest": QDRANT_IMAGE_DIGEST,
+        "qdrant_server": str(
+            getattr(args, "_observed_qdrant_server", "") or "unverified"
+        ),
+        "qdrant_image_digest": str(
+            getattr(args, "_observed_qdrant_digest", "") or "unverified"
+        ),
         "qdrant_client": client_version,
         "python": platform.python_version(),
         "os": platform.platform(),
     }
+
+
+def _sanitized_qdrant_origin(value: str) -> str:
+    try:
+        return normalize_endpoint(value, transport="rest").origin
+    except VectorStoreEndpointPolicyError:
+        return "[REDACTED_INVALID_ORIGIN]"
+
+
+def _sanitized_command(args: argparse.Namespace) -> str:
+    tokens = [
+        "python",
+        "scripts/benchmark/qdrant_vector_store.py",
+        "--config",
+        "[REDACTED_PATH]",
+        "--profile",
+        str(args.profile),
+        "--qdrant-url",
+        _sanitized_qdrant_origin(str(args.qdrant_url)),
+    ]
+    if bool(getattr(args, "allow_remote", False)):
+        tokens.append("--allow-remote")
+    if bool(getattr(args, "reference_host_approved", False)):
+        tokens.append("--reference-host-approved")
+    if getattr(args, "container", None):
+        tokens.extend(("--container", "[REDACTED_CONTAINER]"))
+    if getattr(args, "tls_ca_cert_file", None):
+        tokens.extend(("--tls-ca-cert-file", "[REDACTED_PATH]"))
+    tokens.extend(("--output", "[REDACTED_PATH]"))
+    return shlex.join(tokens)
 
 
 def _artifact(
@@ -462,7 +410,16 @@ def _artifact(
     profile_hash: str = "unknown",
 ) -> dict[str, Any]:
     hardware = _hardware_fingerprint()
-    software = _software_fingerprint()
+    software = _software_fingerprint(args)
+    warning_values = list(warnings)
+    if (
+        status == "completed"
+        and not _source_commit_verified(software["commit"])
+    ):
+        status = "inconclusive"
+        reason_code = "source_commit_unverified"
+        warning_values.append("source_commit_unverified")
+    exit_code = 0 if status == "completed" else 2 if status == "inconclusive" else 1
     return {
         "schema": "benchmark_run_artifact.v1",
         "run_id": f"qdrant-{args.profile}-{uuid4().hex}",
@@ -470,16 +427,23 @@ def _artifact(
         "profile_id": args.profile,
         "profile_hash": profile_hash,
         "commit": software["commit"],
-        "qdrant_image_digest": QDRANT_IMAGE_DIGEST,
-        "command": " ".join(sys.argv),
+        "qdrant_image_digest": software["qdrant_image_digest"],
+        "command": _sanitized_command(args),
         "cwd": str(ROOT),
         "env_sanitized": {
-            "ANANTA_QDRANT_URL": args.qdrant_url,
+            "ANANTA_QDRANT_URL": _sanitized_qdrant_origin(
+                str(args.qdrant_url)
+            ),
             "ANANTA_QDRANT_API_KEY": "[REDACTED]",
+            "ANANTA_QDRANT_TLS_CA_FILE": (
+                "[CONFIGURED]"
+                if getattr(args, "tls_ca_cert_file", None)
+                else "[NOT_CONFIGURED]"
+            ),
         },
         "started_at": started_at,
         "duration_seconds": duration_seconds,
-        "exit_code": 0 if status in {"completed", "inconclusive"} else 1,
+        "exit_code": exit_code,
         "status": status,
         "reason_code": reason_code,
         "metrics": dict(metrics),
@@ -488,7 +452,7 @@ def _artifact(
         "artifacts": [],
         "hardware_fingerprint": hardware,
         "software_fingerprint": software,
-        "warnings": list(warnings),
+        "warnings": list(dict.fromkeys(warning_values)),
     }
 
 
@@ -524,6 +488,31 @@ def _preflight(
     ):
         return "insufficient_resources", observation
     return None, observation
+
+
+def _container_image_reference(container: str | None) -> str | None:
+    if not container or shutil.which("docker") is None:
+        return None
+    completed = subprocess.run(
+        ["docker", "inspect", "--format", "{{.Config.Image}}", container],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    if completed.returncode != 0:
+        return None
+    return completed.stdout.strip() or None
+
+
+def _verified_image_digest(image_reference: str | None) -> str:
+    """Return the pinned digest only for the exact tested image reference."""
+
+    return (
+        QDRANT_IMAGE_DIGEST
+        if str(image_reference or "").strip() == QDRANT_IMAGE_REFERENCE
+        else ""
+    )
 
 
 def _evaluation(
@@ -592,7 +581,7 @@ def _evaluate_metrics(
                 direction="maximum",
             )
             evaluations[f"qdrant_{mode}_recall_at_{top_k}"] = _evaluation(
-                result["mean_recall_at_k"],
+                result["minimum_recall_at_k"],
                 budgets["minimum_recall_at_k"],
                 direction="minimum",
             )
@@ -672,20 +661,42 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "schema_version": "qdrant_benchmark_payload.v1",
     }
     prefix = f"ananta-bench-{uuid4().hex[:12]}"
-    resolver = EnvFileSecretResolver(environ={"ANANTA_QDRANT_API_KEY": api_key})
+    tls_ca_path = (
+        Path(args.tls_ca_cert_file).resolve(strict=True)
+        if getattr(args, "tls_ca_cert_file", None)
+        else None
+    )
+    resolver = EnvFileSecretResolver(
+        environ={"ANANTA_QDRANT_API_KEY": api_key},
+        allowed_file_roots=(
+            (tls_ca_path.parent,)
+            if tls_ca_path is not None
+            else (Path("/run/secrets"),)
+        ),
+    )
     qdrant_config = QdrantVectorStoreConfig(
         endpoint=QdrantEndpointConfig(
             rest_url=args.qdrant_url,
             api_key_ref="env://ANANTA_QDRANT_API_KEY",
+            tls_ca_cert_ref=(
+                f"secretfile://{tls_ca_path}"
+                if tls_ca_path is not None
+                else None
+            ),
             allowed_origins=(args.qdrant_url,),
             external_calls_allowed=bool(args.allow_remote),
         ),
         collection_prefix=prefix,
     )
     from qdrant_client import QdrantClient
+
     from worker.retrieval.qdrant_vector_store import QdrantVectorStore
 
-    raw_client = QdrantClient(url=args.qdrant_url, api_key=api_key)
+    raw_client = QdrantClient(
+        url=args.qdrant_url,
+        api_key=api_key,
+        verify=str(tls_ca_path) if tls_ca_path is not None else True,
+    )
     try:
         raw_client.get_collections()
     except Exception:
@@ -700,8 +711,61 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             warnings=("qdrant_unavailable",),
             profile_hash=profile_hash,
         )
+    try:
+        server_info = raw_client.info()
+        observed_server = str(getattr(server_info, "version", "") or "").strip()
+    except Exception:
+        raw_client.close()
+        return _artifact(
+            args=args,
+            started_at=started_at,
+            duration_seconds=time.perf_counter() - started,
+            metrics={"custom": {"preflight": preflight}},
+            status="inconclusive",
+            reason_code="qdrant_server_version_unverified",
+            warnings=("qdrant_server_version_unverified",),
+            profile_hash=profile_hash,
+        )
+    image_reference = _container_image_reference(args.container)
+    observed_digest = _verified_image_digest(image_reference)
+    setattr(args, "_observed_qdrant_server", observed_server)
+    setattr(args, "_observed_qdrant_digest", observed_digest)
+    if observed_server != QDRANT_SERVER_VERSION:
+        raw_client.close()
+        return _artifact(
+            args=args,
+            started_at=started_at,
+            duration_seconds=time.perf_counter() - started,
+            metrics={
+                "custom": {
+                    "preflight": preflight,
+                    "observed_qdrant_server": observed_server,
+                }
+            },
+            status="inconclusive",
+            reason_code="qdrant_server_version_mismatch",
+            warnings=("qdrant_server_version_mismatch",),
+            profile_hash=profile_hash,
+        )
+    if not observed_digest:
+        raw_client.close()
+        return _artifact(
+            args=args,
+            started_at=started_at,
+            duration_seconds=time.perf_counter() - started,
+            metrics={
+                "custom": {
+                    "preflight": preflight,
+                    "container_image_reference_verified": False,
+                }
+            },
+            status="inconclusive",
+            reason_code="qdrant_image_digest_unverified",
+            warnings=("qdrant_image_digest_unverified",),
+            profile_hash=profile_hash,
+        )
     qdrant = QdrantVectorStore.from_config(qdrant_config, secret_resolver=resolver)
-    memory = _MemoryRecorder(args.container)
+    memory = MemoryRecorder(args.container)
     warnings: list[str] = []
     with tempfile.TemporaryDirectory(prefix="ananta-qdrant-benchmark-") as temporary:
         json_store = JsonVectorStore(index_path=Path(temporary) / "index.json")
@@ -717,45 +781,48 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     final_compatibility[name] = compatibility
                     return target.rebuild(points, compatibility=compatibility)
 
-                latency[backend_name]["build"] = _timed_operation_runs(
-                    build,
-                    warmup_runs=warmup_runs,
-                    measurement_runs=measurement_runs,
-                )
-                memory.sample(f"{backend_name}_build")
-                compatibility = final_compatibility[backend_name]
-                latency[backend_name]["refresh"] = _timed_operation_runs(
-                    lambda run_index, target=store, spec=compatibility: target.refresh(
-                        points,
-                        compatibility=spec,
-                    ),
-                    warmup_runs=warmup_runs,
-                    measurement_runs=measurement_runs,
-                )
-                memory.sample(f"{backend_name}_refresh")
-                latency[backend_name]["search"] = {
-                    mode: {
-                        str(top_k): _measure_search(
-                            store,
-                            queries,
-                            expected[filtered][top_k],
-                            scope=scope,
-                            top_k=top_k,
-                            warmup_runs=warmup_runs,
-                            measurement_runs=measurement_runs,
-                            filtered=filtered,
-                        )
-                        for top_k in top_k_values
-                    }
-                    for mode, filtered in (
-                        ("unfiltered", False),
-                        ("filtered", True),
+                with memory.phase(f"{backend_name}_build"):
+                    latency[backend_name]["build"] = _timed_operation_runs(
+                        build,
+                        warmup_runs=warmup_runs,
+                        measurement_runs=measurement_runs,
                     )
-                }
-                memory.sample(f"{backend_name}_search")
+                compatibility = final_compatibility[backend_name]
+                with memory.phase(f"{backend_name}_refresh"):
+                    latency[backend_name]["refresh"] = _timed_operation_runs(
+                        lambda run_index, target=store, spec=compatibility: target.refresh(
+                            points,
+                            compatibility=spec,
+                        ),
+                        warmup_runs=warmup_runs,
+                        measurement_runs=measurement_runs,
+                    )
+                with memory.phase(f"{backend_name}_search"):
+                    latency[backend_name]["search"] = {
+                        mode: {
+                            str(top_k): _measure_search(
+                                store,
+                                queries,
+                                expected[filtered][top_k],
+                                scope=scope,
+                                top_k=top_k,
+                                warmup_runs=warmup_runs,
+                                measurement_runs=measurement_runs,
+                                filtered=filtered,
+                                compatibility=compatibility,
+                            )
+                            for top_k in top_k_values
+                        }
+                        for mode, filtered in (
+                            ("unfiltered", False),
+                            ("filtered", True),
+                        )
+                    }
             memory_report = memory.report()
             if not memory_report["qdrant_container"]["available"]:
                 warnings.append("container_memory_unavailable")
+            if not memory_report["sampling_complete"]:
+                warnings.append("memory_sampling_incomplete")
             metrics: dict[str, Any] = {
                 "latency": latency,
                 "memory": memory_report,
@@ -826,7 +893,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--qdrant-url",
-        default=os.environ.get("ANANTA_QDRANT_URL", "http://127.0.0.1:6333"),
+        default=os.environ.get("ANANTA_QDRANT_URL", "https://localhost:6333"),
+    )
+    parser.add_argument(
+        "--tls-ca-cert-file",
+        default=os.environ.get("ANANTA_QDRANT_TLS_CA_FILE") or None,
     )
     parser.add_argument("--allow-remote", action="store_true")
     parser.add_argument("--reference-host-approved", action="store_true")
@@ -849,6 +920,16 @@ def main() -> int:
             reason_code="profile_aborted",
             warnings=("profile_aborted",),
         )
+    except Exception:
+        artifact = _artifact(
+            args=args,
+            started_at=_utc_now(),
+            duration_seconds=0.0,
+            metrics={"custom": {"backend_recommendation": None}},
+            status="failed",
+            reason_code="benchmark_runtime_failed",
+            warnings=("benchmark_runtime_failed",),
+        )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(artifact, indent=2, sort_keys=True) + "\n",
@@ -862,7 +943,7 @@ def main() -> int:
             }
         )
     )
-    return 1 if artifact["status"] == "failed" else 0
+    return int(artifact["exit_code"])
 
 
 if __name__ == "__main__":

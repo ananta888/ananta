@@ -107,6 +107,15 @@ class StreamingResponse:
         self.closed = True
 
 
+def _vector_dispatch() -> dict:
+    return {
+        "schema": "ananta.vector_index_task.v1",
+        "dispatch": {
+            "schema": "ananta.vector_index_task_dispatch.v1",
+        },
+    }
+
+
 def test_recovery_forward_streams_and_bounds_body_before_json_parse(
     monkeypatch,
 ):
@@ -148,6 +157,124 @@ def test_recovery_forward_streams_and_bounds_body_before_json_parse(
     assert calls[0]["return_response"] is True
     assert response.json_calls == 0
     assert response.closed is True
+
+
+def test_vector_forward_streams_and_bounds_body_before_json_parse(
+    monkeypatch,
+):
+    payload = {
+        "status": "success",
+        "data": {
+            "schema": "ananta.vector_index_task_result.v1",
+            "status": "completed",
+        },
+    }
+    encoded = json.dumps(payload).encode("utf-8")
+    response = StreamingResponse([encoded[:9], encoded[9:]])
+    calls = []
+
+    def fake_http_post(url, **kwargs):
+        calls.append({"url": url, **kwargs})
+        return response
+
+    monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
+
+    result = task_utils._forward_to_worker(
+        "http://worker.local",
+        "/tasks/vector-index/step/execute",
+        {"vector_index_dispatch": _vector_dispatch()},
+        token="worker-token",
+    )
+
+    assert result == payload
+    assert calls[0]["stream"] is True
+    assert calls[0]["allow_redirects"] is False
+    assert response.json_calls == 0
+    assert response.closed is True
+
+
+def test_vector_forward_rejects_oversized_and_malformed_streams(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        task_utils,
+        "MAX_VECTOR_INDEX_WORKER_RESULT_BYTES",
+        8,
+    )
+    oversized = StreamingResponse(
+        [b'{"data"', b':"oversized"}']
+    )
+    monkeypatch.setattr(
+        task_utils,
+        "_http_post",
+        lambda _url, **_kwargs: oversized,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="vector_index_worker_response_too_large",
+    ):
+        task_utils._forward_to_worker(
+            "http://worker.local",
+            "/tasks/vector-index/step/execute",
+            {"vector_index_dispatch": _vector_dispatch()},
+            token="worker-token",
+        )
+
+    assert oversized.json_calls == 0
+    assert oversized.closed is True
+
+    monkeypatch.setattr(
+        task_utils,
+        "MAX_VECTOR_INDEX_WORKER_RESULT_BYTES",
+        65_536,
+    )
+    malformed = StreamingResponse([b"{not-json"])
+    monkeypatch.setattr(
+        task_utils,
+        "_http_post",
+        lambda _url, **_kwargs: malformed,
+    )
+    with pytest.raises(
+        ValueError,
+        match="vector_index_worker_response_json_invalid",
+    ):
+        task_utils._forward_to_worker(
+            "http://worker.local",
+            "/tasks/vector-index/step/execute",
+            {"vector_index_dispatch": _vector_dispatch()},
+            token="worker-token",
+        )
+
+
+def test_worker_forward_rejects_redirect_without_following_it(
+    monkeypatch,
+):
+    redirect = StreamingResponse([])
+    redirect.status_code = 307
+    redirect.headers = {"Location": "http://attacker.test/capture"}
+    calls = []
+
+    def fake_http_post(url, **kwargs):
+        calls.append((url, kwargs))
+        return redirect
+
+    monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
+
+    with pytest.raises(
+        ValueError,
+        match="worker_forward_redirect_forbidden",
+    ):
+        task_utils._forward_to_worker(
+            "http://worker.local",
+            "/tasks/vector-index/step/execute",
+            {"vector_index_dispatch": _vector_dispatch()},
+            token="worker-token",
+        )
+
+    assert len(calls) == 1
+    assert calls[0][1]["allow_redirects"] is False
+    assert redirect.closed is True
 
 
 def test_recovery_forward_rejects_oversized_stream_before_json_parse(

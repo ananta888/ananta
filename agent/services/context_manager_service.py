@@ -8,7 +8,14 @@ from agent.repository import context_bundle_repo, retrieval_run_repo
 from agent.runtime_policy import normalize_task_kind
 from agent.services.context_bundle_service import get_context_bundle_service
 from agent.services.rag_service import get_rag_service
-from agent.services.repository_registry import get_repository_registry
+from agent.services.retrieval_vector_scope_binding_service import (
+    RetrievalVectorScopeBinderPort,
+    get_retrieval_vector_scope_binder,
+)
+from agent.services.task_context_bundle_access_service import (
+    TaskContextBundleAccessPort,
+    get_task_context_bundle_access_service,
+)
 from agent.services.task_context_policy_service import get_task_context_policy_service
 
 
@@ -22,6 +29,17 @@ class _ContextHintData:
 class ContextManagerService:
     """Shared hub-owned context manager contract for retrieval, budgeting and execution context assembly."""
 
+    def __init__(
+        self,
+        *,
+        retrieval_vector_scope_binder: (RetrievalVectorScopeBinderPort | None) = None,
+        task_context_bundle_access: (TaskContextBundleAccessPort | None) = None,
+    ) -> None:
+        self._retrieval_vector_scope_binder = retrieval_vector_scope_binder or get_retrieval_vector_scope_binder()
+        self._task_context_bundle_access = (
+            task_context_bundle_access or get_task_context_bundle_access_service()
+        )
+
     def create_context_bundle(
         self,
         *,
@@ -31,6 +49,11 @@ class ContextManagerService:
         context_policy: dict | None = None,
     ) -> ContextBundleDB:
         policy = dict(context_policy or {})
+        vector_runtime_scope = (
+            self._retrieval_vector_scope_binder.bind_task_scope(parent_task_id)
+            if str(parent_task_id or "").strip()
+            else None
+        )
         task_kind = str(policy.get("task_kind") or "").strip() or None
         retrieval_intent = str(policy.get("retrieval_intent") or "").strip() or None
         required_context_scope = str(policy.get("required_context_scope") or "").strip() or None
@@ -39,10 +62,11 @@ class ContextManagerService:
         budget_tokens_by_mode = dict(policy.get("budget_tokens_by_mode") or {})
         window_profile = str(policy.get("window_profile") or "").strip() or None
         neighbor_task_ids = [
-            str(value).strip()
-            for value in list(policy.get("neighbor_task_ids") or [])
-            if str(value).strip()
+            str(value).strip() for value in list(policy.get("neighbor_task_ids") or []) if str(value).strip()
         ]
+        source_types = [
+            str(value).strip() for value in list(policy.get("source_types") or []) if str(value).strip()
+        ] or None
         bundle = get_rag_service().retrieve_context_bundle(
             query,
             include_context_text=bool(policy.get("include_context_text", True)),
@@ -58,6 +82,8 @@ class ContextManagerService:
             task_id=parent_task_id,
             goal_id=goal_id,
             neighbor_task_ids=neighbor_task_ids,
+            source_types=source_types,
+            vector_runtime_scope=vector_runtime_scope,
         )
         retrieval_run = retrieval_run_repo.save(
             RetrievalRunDB(
@@ -133,24 +159,23 @@ class ContextManagerService:
     ) -> dict[str, Any]:
         payload = dict(task or {})
         effective_task_id = str(task_id or payload.get("id") or "").strip() or None
-        existing_bundle_id = str(payload.get("context_bundle_id") or "").strip()
-        if existing_bundle_id:
-            existing = get_repository_registry().context_bundle_repo.get_by_id(existing_bundle_id)
-            if existing is not None:
-                return {
-                    "created": False,
-                    "context_bundle": existing,
-                    "context_policy": dict((existing.bundle_metadata or {}).get("context_policy") or {}),
-                    "retrieval_hints": dict((existing.bundle_metadata or {}).get("retrieval_hints") or {}),
-                    "task_neighborhood": {
-                        "neighbor_task_ids": list(
-                            (
-                                (existing.bundle_metadata or {}).get("retrieval_hints") or {}
-                            ).get("neighbor_task_ids")
-                            or []
-                        ),
-                    },
-                }
+        existing = self._task_context_bundle_access.resolve_task_reference(
+            task=payload,
+            task_id=effective_task_id,
+        )
+        if existing is not None:
+            return {
+                "created": False,
+                "context_bundle": existing,
+                "context_policy": dict((existing.bundle_metadata or {}).get("context_policy") or {}),
+                "retrieval_hints": dict((existing.bundle_metadata or {}).get("retrieval_hints") or {}),
+                "task_neighborhood": {
+                    "neighbor_task_ids": list(
+                        ((existing.bundle_metadata or {}).get("retrieval_hints") or {}).get("neighbor_task_ids")
+                        or []
+                    ),
+                },
+            }
 
         context_query = self._default_query(task=payload, query=query)
         task_kind = normalize_task_kind(payload.get("task_kind"), context_query)

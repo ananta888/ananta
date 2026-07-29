@@ -1,0 +1,124 @@
+# Stack-only development identity overlay. The host secret root must already
+# exist with mode 0700 and be owned by ANANTA_HOST_UID:ANANTA_HOST_GID.
+# The bootstrap generates disjoint Hub/Worker credentials without network
+# access; runtime services receive only their own read-only subtree.
+services:
+  ai-agent-hub:
+    environment:
+      SECRET_KEY: ""
+      ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE: /run/ananta-dev-workflow/workflow-auth-signing-keyring.json
+      ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE: /run/ananta-dev-workflow/workflow-dispatch-keyring.json
+      ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH: "1"
+      ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE: /run/ananta-dev-workflow/worker-registration-keyring.json
+      AGENT_TOKEN_FILE: /run/ananta-dev-workflow/hub-service-token
+      SECRET_KEY_FILE: /run/ananta-dev-workflow/hub-session-signing-key
+      AGENT_TOKEN_PERSISTENCE: "0"
+    volumes:
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}/hub
+        target: /run/ananta-dev-workflow
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      workflow-keyring-bootstrap:
+        condition: service_completed_successfully
+
+  ai-agent-alpha:
+    environment:
+      SECRET_KEY: ""
+      ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE: /run/ananta-dev-workflow/public/workflow-auth-verification-keyring.json
+      ANANTA_WORKFLOW_HUB_URL: http://ai-agent-hub:5000
+      ANANTA_WORKFLOW_HUB_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
+      AGENT_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
+      SECRET_KEY_FILE: /run/ananta-dev-workflow/private/worker-session-signing-key
+      REGISTRATION_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-registration-token
+      AGENT_TOKEN_PERSISTENCE: "0"
+      DISABLE_INITIAL_ADMIN: "1"
+      INITIAL_ADMIN_USER: ""
+      INITIAL_ADMIN_PASSWORD: ""
+    volumes:
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}/worker
+        target: /run/ananta-dev-workflow/public
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}/alpha
+        target: /run/ananta-dev-workflow/private
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      workflow-keyring-bootstrap:
+        condition: service_completed_successfully
+
+  ai-agent-beta:
+    environment:
+      SECRET_KEY: ""
+      ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE: /run/ananta-dev-workflow/public/workflow-auth-verification-keyring.json
+      ANANTA_WORKFLOW_HUB_URL: http://ai-agent-hub:5000
+      ANANTA_WORKFLOW_HUB_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
+      AGENT_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
+      SECRET_KEY_FILE: /run/ananta-dev-workflow/private/worker-session-signing-key
+      REGISTRATION_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-registration-token
+      AGENT_TOKEN_PERSISTENCE: "0"
+      DISABLE_INITIAL_ADMIN: "1"
+      INITIAL_ADMIN_USER: ""
+      INITIAL_ADMIN_PASSWORD: ""
+    volumes:
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}/worker
+        target: /run/ananta-dev-workflow/public
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}/beta
+        target: /run/ananta-dev-workflow/private
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      workflow-keyring-bootstrap:
+        condition: service_completed_successfully
+
+  workflow-keyring-bootstrap:
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+      args:
+        ANANTA_RUNTIME_UID: ${ANANTA_HOST_UID:-1000}
+        ANANTA_RUNTIME_GID: ${ANANTA_HOST_GID:-1000}
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
+    restart: "no"
+    user: "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
+    network_mode: "none"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    working_dir: /app
+    entrypoint:
+      - python
+      - /app/scripts/bootstrap-dev-workflow-keyrings.py
+    command:
+      - --root
+      - /run/ananta-dev-workflow
+      - --alpha-worker-id
+      - ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
+      - --beta-worker-id
+      - ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
+      - --owner-uid
+      - ${ANANTA_HOST_UID:-1000}
+      - --owner-gid
+      - ${ANANTA_HOST_GID:-1000}
+    volumes:
+      - ../../scripts/bootstrap-dev-workflow-keyrings.py:/app/scripts/bootstrap-dev-workflow-keyrings.py:ro
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}
+        target: /run/ananta-dev-workflow
+        bind:
+          create_host_path: false

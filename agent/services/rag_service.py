@@ -5,14 +5,47 @@ import re
 from agent.config import settings
 from agent.services.context_bundle_service import get_context_bundle_service
 from agent.services.retrieval_service import get_retrieval_service
+from agent.services.retrieval_vector_runtime_scope_service import (
+    RetrievalVectorRuntimeScope,
+)
+from agent.services.retrieval_vector_scope_binding_service import (
+    RetrievalVectorScopeResolverPort,
+    get_retrieval_vector_scope_resolver,
+)
 
 
 class RagService:
     """Central RAG facade for routes that need retrieval and grounded prompts."""
 
-    def __init__(self, retrieval_service=None, context_bundle_service=None) -> None:
+    def __init__(
+        self,
+        retrieval_service=None,
+        context_bundle_service=None,
+        vector_scope_resolver: (RetrievalVectorScopeResolverPort | None) = None,
+    ) -> None:
         self._retrieval_service = retrieval_service or get_retrieval_service()
         self._context_bundle_service = context_bundle_service or get_context_bundle_service()
+        self._vector_scope_resolver = vector_scope_resolver or get_retrieval_vector_scope_resolver()
+
+    def _resolve_vector_runtime_scope(
+        self,
+        *,
+        task_id: str | None,
+        supplied_scope: RetrievalVectorRuntimeScope | None,
+    ) -> RetrievalVectorRuntimeScope | None:
+        normalized_task_id = str(task_id or "").strip()
+        if not normalized_task_id:
+            if supplied_scope is not None:
+                raise ValueError("retrieval_vector_scope_task_id_required")
+            return None
+        trusted_scope = self._vector_scope_resolver.resolve_task_scope(normalized_task_id)
+        if supplied_scope is None:
+            return trusted_scope
+        if trusted_scope is None:
+            raise ValueError("retrieval_vector_scope_task_unbound")
+        if supplied_scope != trusted_scope:
+            raise ValueError("retrieval_vector_scope_task_mismatch")
+        return trusted_scope
 
     @staticmethod
     def _redact_sensitive(value):
@@ -47,18 +80,28 @@ class RagService:
         retrieval_profile: dict | None = None,
         domain_scope: object | None = None,
         source_constraints: dict[str, str] | None = None,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None = None,
     ) -> dict[str, object]:
+        retrieval_kwargs = {
+            "task_kind": task_kind,
+            "retrieval_intent": retrieval_intent,
+            "task_id": task_id,
+            "goal_id": goal_id,
+            "neighbor_task_ids": neighbor_task_ids,
+            "source_types": source_types,
+            "retrieval_profile": retrieval_profile,
+            "domain_scope": domain_scope,
+            "source_constraints": source_constraints,
+        }
+        effective_vector_runtime_scope = self._resolve_vector_runtime_scope(
+            task_id=task_id,
+            supplied_scope=vector_runtime_scope,
+        )
+        if effective_vector_runtime_scope is not None:
+            retrieval_kwargs["vector_runtime_scope"] = effective_vector_runtime_scope
         context_payload = self._retrieval_service.retrieve_context(
             query,
-            task_kind=task_kind,
-            retrieval_intent=retrieval_intent,
-            task_id=task_id,
-            goal_id=goal_id,
-            neighbor_task_ids=neighbor_task_ids,
-            source_types=source_types,
-            retrieval_profile=retrieval_profile,
-            domain_scope=domain_scope,
-            source_constraints=source_constraints,
+            **retrieval_kwargs,
         )
         bundle = self._context_bundle_service.build_bundle(
             query=query,
@@ -237,6 +280,9 @@ class RagService:
         max_chunks: int | None = None,
         retrieval_profile: dict | None = None,
         domain_scope: object | None = None,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None = None,
+        task_id: str | None = None,
+        goal_id: str | None = None,
     ) -> tuple[dict[str, object], str]:
         # CRPS-006: if retrieval_profile provided, derive source_types and retrieval_intent from it
         effective_source_types = source_types
@@ -258,6 +304,9 @@ class RagService:
             source_types=effective_source_types,
             retrieval_profile=retrieval_profile,
             domain_scope=domain_scope,
+            vector_runtime_scope=vector_runtime_scope,
+            task_id=task_id,
+            goal_id=goal_id,
         )
         grounded_prompt = self._context_bundle_service.build_grounded_prompt(
             prompt=prompt,

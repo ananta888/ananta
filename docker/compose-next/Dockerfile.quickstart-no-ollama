@@ -8,6 +8,7 @@ FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a7
 
 ARG DEBIAN_SNAPSHOT=20260715T000000Z
 ARG INSTALL_LANGGRAPH_RUNTIME=0
+ARG INSTALL_QDRANT_RUNTIME=0
 ARG ANANTA_RUNTIME_UID=1000
 ARG ANANTA_RUNTIME_GID=1000
 
@@ -87,6 +88,7 @@ RUN git config --system --add safe.directory /app
 COPY requirements.lock .
 COPY requirements-dev.lock .
 COPY docker/compose-next/requirements.langgraph-worker.lock /tmp/requirements.langgraph-worker.lock
+COPY docker/compose-next/requirements.qdrant-worker.lock /tmp/requirements.qdrant-worker.lock
 RUN pip install --no-cache-dir -r requirements.lock \
     && pip install --no-cache-dir -c requirements-dev.lock "pytest==9.0.3" \
     && case "${INSTALL_LANGGRAPH_RUNTIME}" in \
@@ -95,6 +97,13 @@ RUN pip install --no-cache-dir -r requirements.lock \
             && python -c "from importlib.metadata import version; import langgraph; assert version('langgraph') == '0.2.76'; assert version('langchain-core') == '0.3.86'" \
             && pip check ;; \
         *) echo "INSTALL_LANGGRAPH_RUNTIME must be 0 or 1" >&2; exit 64 ;; \
+    esac \
+    && case "${INSTALL_QDRANT_RUNTIME}" in \
+        0) ;; \
+        1) pip install --no-cache-dir -r /tmp/requirements.qdrant-worker.lock \
+            && python -c "from importlib.metadata import version; import qdrant_client; assert version('qdrant-client') == '1.18.0'" \
+            && pip check ;; \
+        *) echo "INSTALL_QDRANT_RUNTIME must be 0 or 1" >&2; exit 64 ;; \
     esac
 
 # Frontend-Abhaengigkeiten im selben Image vorinstallieren.

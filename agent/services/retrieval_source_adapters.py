@@ -4,6 +4,7 @@ from typing import Any, Callable
 
 from agent.hybrid_orchestrator import ContextChunk, HybridOrchestrator
 from agent.services.retrieval_source_contract import RetrievalSourceAdapter, normalize_chunk_metadata
+from worker.retrieval.vector_store_contract import VectorStoreError
 
 
 class RepoRetrievalSourceAdapter(RetrievalSourceAdapter):
@@ -12,14 +13,24 @@ class RepoRetrievalSourceAdapter(RetrievalSourceAdapter):
     def __init__(
         self,
         *,
-        orchestrator_provider: Callable[[], HybridOrchestrator],
+        orchestrator_provider: Callable[..., HybridOrchestrator],
         chunk_deserializer: Callable[[dict[str, object]], ContextChunk],
     ) -> None:
         self._orchestrator_provider = orchestrator_provider
         self._chunk_deserializer = chunk_deserializer
 
-    def load_context(self, query: str, *, domain_scope: object | None = None) -> dict[str, object]:
-        return self._orchestrator_provider().get_relevant_context(query, domain_scope=domain_scope)
+    def load_context(
+        self,
+        query: str,
+        *,
+        domain_scope: object | None = None,
+        orchestrator: HybridOrchestrator | None = None,
+    ) -> dict[str, object]:
+        effective_orchestrator = orchestrator or self._orchestrator_provider()
+        return effective_orchestrator.get_relevant_context(
+            query,
+            domain_scope=domain_scope,
+        )
 
     def search(
         self,
@@ -67,8 +78,14 @@ class ArtifactKnowledgeSourceAdapter(RetrievalSourceAdapter):
 class WikiKnowledgeSourceAdapter(RetrievalSourceAdapter):
     source_type = "wiki"
 
-    def __init__(self, knowledge_index_retrieval_service) -> None:
+    def __init__(
+        self,
+        knowledge_index_retrieval_service,
+        *,
+        hybrid_retrieval_provider: Callable[..., object] | None = None,
+    ) -> None:
         self._knowledge_index_retrieval_service = knowledge_index_retrieval_service
+        self._hybrid_retrieval_provider = hybrid_retrieval_provider
 
     def search(
         self,
@@ -79,13 +96,84 @@ class WikiKnowledgeSourceAdapter(RetrievalSourceAdapter):
         retrieval_intent: str | None = None,
         **kwargs: Any,
     ) -> list[ContextChunk]:
-        return self._knowledge_index_retrieval_service.search(
+        requested = max(1, int(top_k or 1))
+        candidate_limit = requested * 3 if self._hybrid_retrieval_provider is not None else requested
+        chunks = self._knowledge_index_retrieval_service.search(
             query,
-            top_k=top_k,
+            top_k=candidate_limit,
             task_kind=task_kind,
             retrieval_intent=retrieval_intent,
             source_scopes={"wiki"},
         )
+        if self._hybrid_retrieval_provider is None or not chunks:
+            return chunks[:requested]
+        try:
+            vector_runtime_scope = kwargs.get("vector_runtime_scope")
+            retrieval = (
+                self._hybrid_retrieval_provider(vector_runtime_scope=vector_runtime_scope)
+                if vector_runtime_scope is not None
+                else self._hybrid_retrieval_provider()
+            )
+            rows = retrieval.hybrid_search(
+                query,
+                top_k=candidate_limit,
+            )
+        except VectorStoreError:
+            # The vector-store availability decorator is the policy owner.
+            # A propagated VectorStoreError therefore represents fail_fast
+            # (degraded/fallback modes return a VectorSearchResult instead).
+            raise
+        except Exception:
+            return chunks[:requested]
+        rank_by_record_id = {
+            str(row.get("record_id") or row.get("chunk_id") or row.get("id") or ""): rank
+            for rank, row in enumerate(rows, start=1)
+            if isinstance(row, dict) and str(row.get("record_id") or row.get("chunk_id") or row.get("id") or "")
+        }
+        score_by_record_id = {
+            str(row.get("record_id") or row.get("chunk_id") or row.get("id") or ""): float(
+                row.get("hybrid_score") or row.get("score") or 0.0
+            )
+            for row in rows
+            if isinstance(row, dict)
+        }
+        reranked: list[ContextChunk] = []
+        for chunk in chunks:
+            metadata = dict(chunk.metadata or {})
+            record_id = str(metadata.get("record_id") or metadata.get("chunk_id") or "")
+            vector_rank = rank_by_record_id.get(record_id)
+            if vector_rank is not None:
+                metadata["wiki_vector_rank"] = vector_rank
+                metadata["wiki_vector_score"] = score_by_record_id.get(
+                    record_id,
+                    0.0,
+                )
+            reranked.append(
+                ContextChunk(
+                    engine=chunk.engine,
+                    source=chunk.source,
+                    content=chunk.content,
+                    score=float(chunk.score or 0.0),
+                    metadata=metadata,
+                )
+            )
+        reranked.sort(
+            key=lambda item: (
+                (
+                    int(
+                        dict(item.metadata or {}).get(
+                            "wiki_vector_rank",
+                            candidate_limit + 1,
+                        )
+                    )
+                ),
+                -float(item.score or 0.0),
+                item.engine,
+                item.source,
+                item.content[:80],
+            )
+        )
+        return reranked[:requested]
 
 
 class OpenNotebookKnowledgeSourceAdapter(RetrievalSourceAdapter):

@@ -6,6 +6,10 @@ from agent.db_models import ContextBundleDB, RetrievalRunDB, WorkerJobDB, Worker
 from agent.repository import context_bundle_repo, retrieval_run_repo, worker_job_repo, worker_result_repo
 from agent.services.context_manager_service import get_context_manager_service
 from agent.services.rag_service import get_rag_service
+from agent.services.retrieval_vector_scope_binding_service import (
+    RetrievalVectorScopeBinderPort,
+    get_retrieval_vector_scope_binder,
+)
 from agent.services.worker_capability_service import get_worker_capability_service
 from agent.services.worker_pool_scheduler_service import get_worker_pool_scheduler_service
 
@@ -13,9 +17,15 @@ from agent.services.worker_pool_scheduler_service import get_worker_pool_schedul
 class WorkerJobService:
     """Hub-owned worker-job lifecycle and selective context packaging."""
 
-    def __init__(self, rag_service=None, context_manager_service=None) -> None:
+    def __init__(
+        self,
+        rag_service=None,
+        context_manager_service=None,
+        retrieval_vector_scope_binder: (RetrievalVectorScopeBinderPort | None) = None,
+    ) -> None:
         self._rag_service = rag_service
         self._context_manager_service = context_manager_service or get_context_manager_service()
+        self._retrieval_vector_scope_binder = retrieval_vector_scope_binder or get_retrieval_vector_scope_binder()
         self._worker_capability_service = get_worker_capability_service()
         self._worker_pool_scheduler_service = get_worker_pool_scheduler_service()
 
@@ -28,6 +38,13 @@ class WorkerJobService:
         context_policy: dict | None = None,
     ) -> ContextBundleDB:
         if self._rag_service is not None:
+            vector_runtime_scope = (
+                self._retrieval_vector_scope_binder.bind_task_scope(
+                    parent_task_id
+                )
+                if str(parent_task_id or "").strip()
+                else None
+            )
             policy = dict(context_policy or {})
             task_kind = str(policy.get("task_kind") or "").strip() or None
             retrieval_intent = str(policy.get("retrieval_intent") or "").strip() or None
@@ -37,10 +54,11 @@ class WorkerJobService:
             budget_tokens_by_mode = dict(policy.get("budget_tokens_by_mode") or {})
             window_profile = str(policy.get("window_profile") or "").strip() or None
             neighbor_task_ids = [
-                str(value).strip()
-                for value in list(policy.get("neighbor_task_ids") or [])
-                if str(value).strip()
+                str(value).strip() for value in list(policy.get("neighbor_task_ids") or []) if str(value).strip()
             ]
+            source_types = [
+                str(value).strip() for value in list(policy.get("source_types") or []) if str(value).strip()
+            ] or None
             rag_service = self._rag_service or get_rag_service()
             bundle = rag_service.retrieve_context_bundle(
                 query,
@@ -57,6 +75,8 @@ class WorkerJobService:
                 task_id=parent_task_id,
                 goal_id=goal_id,
                 neighbor_task_ids=neighbor_task_ids,
+                source_types=source_types,
+                vector_runtime_scope=vector_runtime_scope,
             )
             retrieval_run = retrieval_run_repo.save(
                 RetrievalRunDB(

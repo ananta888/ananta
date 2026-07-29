@@ -1,50 +1,73 @@
 from __future__ import annotations
 
+import threading
 import time
 import uuid
 from dataclasses import replace
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from worker.retrieval.qdrant_client_port import (
     COLLECTION_MISSING,
-    QDRANT_UNAVAILABLE,
     QdrantClientAdapter,
     QdrantClientError,
     QdrantClientPort,
 )
 from worker.retrieval.qdrant_collection_manager import QdrantCollectionManager
 from worker.retrieval.qdrant_collection_schema import (
-    VECTOR_POINT_SCHEMA_VERSION,
+    QDRANT_BACKEND_SCHEMA_VERSION,
     QdrantSchemaError,
+    canonical_scope,
+    compatibility_diagnostics,
     compatibility_fingerprint,
     deterministic_point_id,
+    normalise_embedding_text,
+    sanitise_payload_metadata,
     scope_matches_payload,
     to_client_point,
     unique_point_count,
 )
 from worker.retrieval.qdrant_filter_builder import QdrantFilterBuilder
+from worker.retrieval.vector_store_config import QdrantVectorStoreConfig
 from worker.retrieval.vector_store_contract import (
     CompatibilitySpec,
     IndexWriteResult,
     PreparedVectorPoint,
+    VectorIndexWritePlan,
     VectorScope,
     VectorSearchHit,
     VectorSearchQuery,
     VectorSearchResult,
     VectorStoreDiagnostic,
-    VectorStoreFilters,
 )
-from worker.retrieval.vector_store_config import QdrantVectorStoreConfig
 from worker.retrieval.vector_store_endpoint_policy import SecretReference
+from worker.retrieval.vector_store_observer import (
+    bounded_vector_store_reason,
+    emit_operation_observation,
+    observation_outcome,
+)
 
 
-def _public_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
-    return {
-        str(key): value
-        for key, value in dict(payload or {}).items()
-        if not str(key).startswith("_")
-        and str(key) not in {"source_hash", "config_hash", "embedding_text", "vector"}
-    }
+def _public_payload(
+    payload: Mapping[str, Any],
+    *,
+    include_embedding_text: bool = False,
+) -> dict[str, Any]:
+    public: dict[str, Any] = {}
+    for raw_key, value in dict(payload or {}).items():
+        key = str(raw_key)
+        if key.startswith("_") or key in {"source_hash", "config_hash", "vector"}:
+            continue
+        if key == "embedding_text":
+            if include_embedding_text:
+                embedding_text = normalise_embedding_text(value)
+                if embedding_text:
+                    public[key] = embedding_text
+            continue
+        if key == "metadata":
+            public[key] = sanitise_payload_metadata(value)
+            continue
+        public[key] = value
+    return public
 
 
 def _resolve_secret(secret_resolver: Any, reference: Any) -> str | None:
@@ -67,51 +90,6 @@ def _resolve_secret(secret_resolver: Any, reference: Any) -> str | None:
     return str(value or "") or None
 
 
-def emit_operation_observation(
-    observer: Any,
-    *,
-    operation: str,
-    outcome: str,
-    reason: str,
-    duration_seconds: float,
-    counts: Mapping[str, int] | None = None,
-    requested_backend: str | None = None,
-    effective_backend: str | None = None,
-    provider_fallback: bool = False,
-) -> None:
-    if observer is None:
-        return
-
-
-def observation_outcome(status: str) -> str:
-    return {
-        "ok": "success",
-        "success": "success",
-        "partial": "degraded",
-        "degraded": "degraded",
-        "failed": "failed",
-        "skipped": "skipped",
-    }.get(str(status or "").lower(), "failed")
-    try:
-        from worker.retrieval.vector_store_observer import VectorStoreOperationObservation
-
-        observation = VectorStoreOperationObservation(
-            backend="qdrant",
-            operation=operation,
-            outcome=outcome,
-            reason_code=reason,
-            duration_seconds=max(0.0, float(duration_seconds)),
-            counts=dict(counts or {}),
-            requested_backend=requested_backend,
-            effective_backend=effective_backend,
-            provider_fallback=provider_fallback,
-        )
-        observer.observe(observation)
-    except (ImportError, TypeError, ValueError):
-        # Observability is optional and must never alter retrieval behavior.
-        return
-
-
 class QdrantVectorStore:
     backend_version = "qdrant-1.18"
 
@@ -121,18 +99,26 @@ class QdrantVectorStore:
         client: QdrantClientPort,
         collection_manager: QdrantCollectionManager,
         distance: str = "cosine",
-        schema_version: str = VECTOR_POINT_SCHEMA_VERSION,
+        schema_version: str = QDRANT_BACKEND_SCHEMA_VERSION,
         retention_collections: int = 2,
         filter_builder: QdrantFilterBuilder | None = None,
         observer: Any = None,
+        store_embedding_text: bool = False,
+        compatibility_resolver: Callable[[VectorScope], CompatibilitySpec | None] | None = None,
     ):
         self._client = client
         self._manager = collection_manager
         self._distance = str(distance or "cosine").lower()
-        self._schema_version = str(schema_version or VECTOR_POINT_SCHEMA_VERSION)
+        self._schema_version = str(schema_version or QDRANT_BACKEND_SCHEMA_VERSION)
+        if self._schema_version != collection_manager.backend_schema_version:
+            raise QdrantSchemaError("vector_store_backend_schema_conflict")
         self._retention_collections = max(1, int(retention_collections))
         self._filters = filter_builder or QdrantFilterBuilder()
         self._observer = observer
+        self._store_embedding_text = bool(store_embedding_text)
+        self._compatibility_resolver = compatibility_resolver
+        self._known_compatibilities: dict[str, CompatibilitySpec] = {}
+        self._compatibility_lock = threading.RLock()
 
     @classmethod
     def from_config(
@@ -144,10 +130,19 @@ class QdrantVectorStore:
     ) -> "QdrantVectorStore":
         endpoint = config.endpoint
         api_key = _resolve_secret(secret_resolver, getattr(endpoint, "api_key_ref", None))
-        client = QdrantClientAdapter.from_endpoint(endpoint, api_key=api_key)
+        tls_ca_cert_pem = _resolve_secret(
+            secret_resolver,
+            getattr(endpoint, "tls_ca_cert_ref", None),
+        )
+        client = QdrantClientAdapter.from_endpoint(
+            endpoint,
+            api_key=api_key,
+            tls_ca_cert_pem=tls_ca_cert_pem,
+        )
         manager = QdrantCollectionManager(
             client,
             collection_prefix=str(config.collection_prefix),
+            backend_schema_version=str(config.schema_version),
         )
         return cls(
             client=client,
@@ -156,11 +151,41 @@ class QdrantVectorStore:
             schema_version=str(config.schema_version),
             retention_collections=int(config.retention_collections),
             observer=observer,
+            store_embedding_text=bool(config.store_embedding_text),
         )
 
     @property
     def collection_manager(self) -> QdrantCollectionManager:
         return self._manager
+
+    def _remember_compatibility(
+        self,
+        scope: VectorScope,
+        compatibility: CompatibilitySpec,
+    ) -> None:
+        with self._compatibility_lock:
+            self._known_compatibilities[canonical_scope(scope)] = compatibility
+
+    def _query_compatibility(
+        self,
+        query: VectorSearchQuery,
+    ) -> CompatibilitySpec | None:
+        if query.compatibility is not None:
+            return query.compatibility
+        if query.scope is None:
+            return None
+        key = canonical_scope(query.scope)
+        with self._compatibility_lock:
+            known = self._known_compatibilities.get(key)
+        if known is not None:
+            return known
+        if self._compatibility_resolver is None:
+            return None
+        try:
+            resolved = self._compatibility_resolver(query.scope)
+        except Exception:
+            return None
+        return resolved if isinstance(resolved, CompatibilitySpec) else None
 
     def diagnostics(self) -> VectorStoreDiagnostic:
         started = time.monotonic()
@@ -188,10 +213,10 @@ class QdrantVectorStore:
         outcome = "success"
         hits: tuple[VectorSearchHit, ...] = ()
         diagnostics: dict[str, Any] = {}
+        top_k = int(query.top_k)
         try:
             if query.scope is None:
                 raise QdrantSchemaError("vector_scope_required")
-            top_k = int(query.top_k)
             if not 1 <= top_k <= 1000:
                 raise QdrantSchemaError("vector_top_k_invalid")
             vector = tuple(float(value) for value in query.query_vector)
@@ -205,13 +230,18 @@ class QdrantVectorStore:
                 report = self._manager.query_compatibility(
                     collection,
                     scope=query.scope,
+                    expected=self._query_compatibility(query),
                     dimensions=len(vector),
                     distance=self._distance,
                 )
                 if not report.compatible:
                     reason = report.reason
                     outcome = "degraded"
-                    diagnostics = {"status": "degraded", "reason": reason}
+                    diagnostics = {
+                        "status": "degraded",
+                        "reason": reason,
+                        "compatibility": compatibility_diagnostics(report),
+                    }
                 else:
                     server_filter = self._filters.build(
                         scope=query.scope,
@@ -227,7 +257,10 @@ class QdrantVectorStore:
                         VectorSearchHit(
                             record_id=str(point.payload.get("record_id") or point.point_id),
                             score=float(point.score),
-                            payload=_public_payload(point.payload),
+                            payload=_public_payload(
+                                point.payload,
+                                include_embedding_text=self._store_embedding_text,
+                            ),
                         )
                         for point in scored
                     )
@@ -255,7 +288,7 @@ class QdrantVectorStore:
             outcome=outcome,
             reason=reason,
             duration_seconds=time.monotonic() - started,
-            counts={"hits": len(hits)},
+            counts={"top_k": top_k, "hits": len(hits)},
         )
         return result
 
@@ -277,8 +310,11 @@ class QdrantVectorStore:
         *,
         batch_size: int,
     ) -> IndexWriteResult:
-        size = int(batch_size)
-        if not 1 <= size <= 1000:
+        if (
+            isinstance(batch_size, bool)
+            or not isinstance(batch_size, int)
+            or not 1 <= batch_size <= 1000
+        ):
             return IndexWriteResult(
                 status="failed",
                 mode="upsert",
@@ -286,13 +322,49 @@ class QdrantVectorStore:
                 indexed_documents=0,
                 diagnostics={"status": "failed", "reason": "vector_batch_size_invalid"},
                 failed=len(points),
+                accepted=0,
+            )
+        size = batch_size
+        try:
+            scope = self._one_scope(points)
+            compatibility_report = self._manager.query_compatibility(
+                collection_name,
+                scope=scope,
+                expected=compatibility,
+                dimensions=len(points[0].vector),
+                distance=self._distance,
+            )
+            if not compatibility_report.compatible:
+                raise QdrantSchemaError(
+                    compatibility_report.reason
+                )
+            unique_point_count(points)
+        except (QdrantClientError, QdrantSchemaError) as exc:
+            return IndexWriteResult(
+                status="failed",
+                mode="upsert",
+                reason=exc.reason,
+                indexed_documents=0,
+                diagnostics={"status": "failed", "reason": exc.reason},
+                failed=len(points),
+                accepted=0,
             )
         upserted = skipped = failed = 0
         reasons: list[str] = []
-        for offset in range(0, len(points), size):
+        failure_batches: list[dict[str, int | str]] = []
+        total_failure_batches = 0
+        max_failure_diagnostics = 32
+        for batch_index, offset in enumerate(range(0, len(points), size)):
             batch = list(points[offset : offset + size])
             try:
-                client_points = [to_client_point(point, compatibility) for point in batch]
+                client_points = [
+                    to_client_point(
+                        point,
+                        compatibility,
+                        store_embedding_text=self._store_embedding_text,
+                    )
+                    for point in batch
+                ]
                 existing = {
                     point.point_id: point
                     for point in self._client.retrieve(
@@ -303,17 +375,44 @@ class QdrantVectorStore:
                 changed = []
                 for point in client_points:
                     current = existing.get(point.point_id)
-                    if current and str(current.payload.get("source_hash") or "") == str(
+                    incoming_source_hash = str(
                         point.payload.get("source_hash") or ""
+                    ).strip()
+                    if not incoming_source_hash:
+                        raise QdrantSchemaError("missing_source_hash")
+                    current_source_hash = (
+                        str(current.payload.get("source_hash") or "").strip()
+                        if current is not None
+                        else ""
+                    )
+                    current_embedding_text = (
+                        current.payload.get("embedding_text")
+                        if current is not None
+                        else None
+                    )
+                    incoming_embedding_text = point.payload.get("embedding_text")
+                    if current and current_source_hash and (
+                        current_source_hash == incoming_source_hash
+                        and current_embedding_text == incoming_embedding_text
                     ):
                         skipped += 1
                     else:
                         changed.append(point)
-                self._client.upsert(collection_name, changed)
+                if changed:
+                    self._client.upsert(collection_name, changed)
                 upserted += len(changed)
             except (QdrantSchemaError, QdrantClientError) as exc:
                 failed += len(batch)
-                reasons.append(exc.reason)
+                reason_code = bounded_vector_store_reason(exc.reason)
+                reasons.append(reason_code)
+                total_failure_batches += 1
+                if len(failure_batches) < max_failure_diagnostics:
+                    failure_batches.append(
+                        {
+                            "batch_index": batch_index,
+                            "reason_code": reason_code,
+                        }
+                    )
         status = "ok" if failed == 0 else ("partial" if upserted or skipped else "failed")
         reason = "upserted" if failed == 0 else reasons[0]
         return IndexWriteResult(
@@ -326,10 +425,16 @@ class QdrantVectorStore:
                 "reason": reason,
                 "batch_size": size,
                 "errors": tuple(sorted(set(reasons))),
+                "failure_batches": tuple(failure_batches),
+                "total_failure_batches": total_failure_batches,
+                "failure_batches_truncated": (
+                    total_failure_batches > len(failure_batches)
+                ),
             },
             upserted=upserted,
             skipped=skipped,
             failed=failed,
+            accepted=len(points),
         )
 
     def upsert(
@@ -342,12 +447,14 @@ class QdrantVectorStore:
         point_list = list(points)
         try:
             scope = self._one_scope(point_list)
+            unique_point_count(point_list)
             collection = self._manager.active_collection(scope)
             if collection is None:
                 raise QdrantSchemaError(COLLECTION_MISSING)
             manifest = self._manager._manifest_payload(collection)
             compatibility_data = dict(manifest.get("compatibility") or {})
             compatibility = CompatibilitySpec(**compatibility_data)
+            self._remember_compatibility(scope, compatibility)
             result = self._upsert_to_collection(
                 collection,
                 point_list,
@@ -363,6 +470,11 @@ class QdrantVectorStore:
                 indexed_documents=0,
                 diagnostics={"status": "failed", "reason": reason},
                 failed=len(point_list),
+                accepted=(
+                    0
+                    if reason == "vector_point_id_mismatch"
+                    else len(point_list)
+                ),
             )
         emit_operation_observation(
             self._observer,
@@ -371,6 +483,7 @@ class QdrantVectorStore:
             reason=result.reason,
             duration_seconds=time.monotonic() - started,
             counts={
+                "accepted": result.accepted,
                 "upserted": result.upserted,
                 "skipped": result.skipped,
                 "failed": result.failed,
@@ -384,15 +497,30 @@ class QdrantVectorStore:
         *,
         compatibility: CompatibilitySpec,
     ) -> IndexWriteResult:
+        return self.rebuild_with_plan(
+            points,
+            compatibility=compatibility,
+            plan=VectorIndexWritePlan(),
+        )
+
+    def rebuild_with_plan(
+        self,
+        points: Sequence[PreparedVectorPoint],
+        *,
+        compatibility: CompatibilitySpec,
+        plan: VectorIndexWritePlan,
+    ) -> IndexWriteResult:
         started = time.monotonic()
         point_list = list(points)
         staging: str | None = None
+        activated = False
         try:
             scope = self._one_scope(point_list)
+            expected_point_count = unique_point_count(point_list)
             index_version = str(
                 compatibility.manifest_hash or compatibility_fingerprint(compatibility)
             )
-            staging = self._manager.create_versioned(
+            staging = self._manager.create_staging(
                 scope,
                 compatibility,
                 index_version=index_version,
@@ -401,17 +529,23 @@ class QdrantVectorStore:
                 staging,
                 point_list,
                 compatibility,
-                batch_size=128,
+                batch_size=plan.batch_size,
             )
             if write.failed:
                 raise QdrantSchemaError(write.reason)
-            if self._manager.record_count(staging) != unique_point_count(point_list):
+            if self._manager.record_count(staging) != expected_point_count:
                 raise QdrantSchemaError("point_count_mismatch")
             activation = self._manager.activate(scope, staging, compatibility)
-            self._manager.cleanup_inactive(
-                scope,
-                retain=self._retention_collections,
-            )
+            activated = True
+            self._remember_compatibility(scope, compatibility)
+            cleanup_reason: str | None = None
+            try:
+                self._manager.cleanup_inactive(
+                    scope,
+                    retain=self._retention_collections,
+                )
+            except QdrantClientError as exc:
+                cleanup_reason = exc.reason
             result = replace(
                 write,
                 mode="rebuild",
@@ -419,11 +553,12 @@ class QdrantVectorStore:
                 diagnostics={
                     **dict(write.diagnostics),
                     "alias_changed": activation.previous_collection != activation.active_collection,
+                    "cleanup_reason": cleanup_reason,
                 },
             )
         except (QdrantSchemaError, QdrantClientError) as exc:
-            if staging is not None:
-                self._manager.discard_staging(staging)
+            if staging is not None and not activated:
+                self._manager.discard_staging(staging, scope=scope)
             result = IndexWriteResult(
                 status="failed",
                 mode="rebuild",
@@ -431,6 +566,11 @@ class QdrantVectorStore:
                 indexed_documents=0,
                 diagnostics={"status": "failed", "reason": exc.reason},
                 failed=len(point_list),
+                accepted=(
+                    0
+                    if exc.reason == "vector_point_id_mismatch"
+                    else len(point_list)
+                ),
             )
         emit_operation_observation(
             self._observer,
@@ -438,7 +578,11 @@ class QdrantVectorStore:
             outcome="success" if result.status == "ok" else "failed",
             reason=result.reason,
             duration_seconds=time.monotonic() - started,
-            counts={"upserted": result.upserted, "failed": result.failed},
+            counts={
+                "accepted": result.accepted,
+                "upserted": result.upserted,
+                "failed": result.failed,
+            },
         )
         return result
 
@@ -448,23 +592,45 @@ class QdrantVectorStore:
         *,
         compatibility: CompatibilitySpec,
     ) -> IndexWriteResult:
+        return self.refresh_with_plan(
+            points,
+            compatibility=compatibility,
+            plan=VectorIndexWritePlan(),
+        )
+
+    def refresh_with_plan(
+        self,
+        points: Sequence[PreparedVectorPoint],
+        *,
+        compatibility: CompatibilitySpec,
+        plan: VectorIndexWritePlan,
+    ) -> IndexWriteResult:
         started = time.monotonic()
         point_list = list(points)
         try:
             scope = self._one_scope(point_list)
+            unique_point_count(point_list)
             collection = self._manager.active_collection(scope)
             if collection is None:
-                result = self.rebuild(point_list, compatibility=compatibility)
+                result = self.rebuild_with_plan(
+                    point_list,
+                    compatibility=compatibility,
+                    plan=plan,
+                )
             else:
                 report = self._manager.compatibility(collection, compatibility)
                 if not report.compatible:
-                    result = self.rebuild(point_list, compatibility=compatibility)
+                    result = self.rebuild_with_plan(
+                        point_list,
+                        compatibility=compatibility,
+                        plan=plan,
+                    )
                 else:
                     write = self._upsert_to_collection(
                         collection,
                         point_list,
                         compatibility,
-                        batch_size=128,
+                        batch_size=plan.batch_size,
                     )
                     result = replace(
                         write,
@@ -475,6 +641,8 @@ class QdrantVectorStore:
                             else "refreshed"
                         ),
                     )
+                    if result.status in {"ok", "partial"}:
+                        self._remember_compatibility(scope, compatibility)
         except (QdrantSchemaError, QdrantClientError) as exc:
             result = IndexWriteResult(
                 status="failed",
@@ -483,6 +651,11 @@ class QdrantVectorStore:
                 indexed_documents=0,
                 diagnostics={"status": "failed", "reason": exc.reason},
                 failed=len(point_list),
+                accepted=(
+                    0
+                    if exc.reason == "vector_point_id_mismatch"
+                    else len(point_list)
+                ),
             )
         emit_operation_observation(
             self._observer,
@@ -491,6 +664,7 @@ class QdrantVectorStore:
             reason=result.reason,
             duration_seconds=time.monotonic() - started,
             counts={
+                "accepted": result.accepted,
                 "upserted": result.upserted,
                 "skipped": result.skipped,
                 "failed": result.failed,
@@ -527,6 +701,7 @@ class QdrantVectorStore:
                 diagnostics={"status": "ok" if rejected == 0 else "partial"},
                 deleted=len(safe),
                 failed=rejected,
+                accepted=len(requested),
             )
         except (QdrantSchemaError, QdrantClientError) as exc:
             result = IndexWriteResult(
@@ -536,6 +711,7 @@ class QdrantVectorStore:
                 indexed_documents=0,
                 diagnostics={"status": "failed", "reason": exc.reason},
                 failed=len(requested),
+                accepted=len(requested),
             )
         emit_operation_observation(
             self._observer,
@@ -543,30 +719,67 @@ class QdrantVectorStore:
             outcome=observation_outcome(result.status),
             reason=result.reason,
             duration_seconds=time.monotonic() - started,
-            counts={"deleted": result.deleted, "failed": result.failed},
+            counts={
+                "accepted": result.accepted,
+                "deleted": result.deleted,
+                "failed": result.failed,
+            },
         )
         return result
 
     def delete_scope(self, scope: VectorScope) -> IndexWriteResult:
-        collection = self._manager.active_collection(scope)
-        if collection is None:
-            return IndexWriteResult(
-                status="ok",
+        started = time.monotonic()
+        try:
+            canonical_scope(scope)
+            collection = self._manager.active_collection(scope)
+            if collection is None:
+                result = IndexWriteResult(
+                    status="ok",
+                    mode="delete",
+                    reason="empty_collection",
+                    indexed_documents=0,
+                    diagnostics={"status": "ready", "reason": "empty_collection"},
+                    accepted=1,
+                )
+            else:
+                before = self._manager.record_count(collection)
+                self._client.delete_by_filter(
+                    collection,
+                    self._filters.scope_only(scope),
+                )
+                after = self._manager.record_count(collection)
+                result = IndexWriteResult(
+                    status="ok",
+                    mode="delete",
+                    reason="deleted",
+                    indexed_documents=0,
+                    diagnostics={"status": "ok"},
+                    deleted=max(0, before - after),
+                    accepted=1,
+                )
+        except (QdrantSchemaError, QdrantClientError) as exc:
+            result = IndexWriteResult(
+                status="failed",
                 mode="delete",
-                reason="empty_collection",
+                reason=exc.reason,
                 indexed_documents=0,
-                diagnostics={"status": "ready", "reason": "empty_collection"},
+                diagnostics={"status": "failed", "reason": exc.reason},
+                failed=1,
+                accepted=1,
             )
-        before = self._manager.record_count(collection)
-        self._client.delete_by_filter(collection, self._filters.scope_only(scope))
-        return IndexWriteResult(
-            status="ok",
-            mode="delete",
-            reason="deleted",
-            indexed_documents=0,
-            diagnostics={"status": "ok"},
-            deleted=before,
+        emit_operation_observation(
+            self._observer,
+            operation="delete",
+            outcome=observation_outcome(result.status),
+            reason=result.reason,
+            duration_seconds=time.monotonic() - started,
+            counts={
+                "accepted": result.accepted,
+                "deleted": result.deleted,
+                "failed": result.failed,
+            },
         )
+        return result
 
     def rename(
         self,
@@ -592,6 +805,7 @@ class QdrantVectorStore:
             deleted=deleted.deleted,
             skipped=write.skipped,
             failed=write.failed + deleted.failed,
+            accepted=write.accepted + deleted.accepted,
         )
 
     def prepare_collection(
@@ -629,6 +843,7 @@ class QdrantVectorStore:
         compatibility: CompatibilitySpec,
     ) -> None:
         self._manager.activate(scope, collection_name, compatibility)
+        self._remember_compatibility(scope, compatibility)
 
     def close(self) -> None:
         started = time.monotonic()

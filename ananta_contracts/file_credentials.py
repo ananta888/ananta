@@ -16,6 +16,7 @@ def read_file_managed_bytes(
     *,
     description: str,
     max_bytes: int,
+    require_owner_only: bool = False,
 ) -> bytes:
     """Read a bounded regular file without following links or accepting races."""
 
@@ -39,7 +40,12 @@ def read_file_managed_bytes(
     try:
         try:
             before = os.fstat(descriptor)
-            _validate_metadata(before, description=description, max_bytes=max_bytes)
+            _validate_metadata(
+                before,
+                description=description,
+                max_bytes=max_bytes,
+                require_owner_only=require_owner_only,
+            )
             raw = _bounded_read(descriptor, max_bytes=max_bytes)
             after = os.fstat(descriptor)
         except FileCredentialConfigurationError:
@@ -99,6 +105,7 @@ def _validate_metadata(
     *,
     description: str,
     max_bytes: int,
+    require_owner_only: bool,
 ) -> None:
     if not stat.S_ISREG(metadata.st_mode):
         raise FileCredentialConfigurationError(f"{description} must be a regular file")
@@ -114,6 +121,13 @@ def _validate_metadata(
     if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
         raise FileCredentialConfigurationError(
             f"{description} permissions are unsafe"
+        )
+    if require_owner_only and (
+        metadata.st_mode & (stat.S_IRWXG | stat.S_IRWXO | stat.S_IXUSR)
+        or not metadata.st_mode & stat.S_IRUSR
+    ):
+        raise FileCredentialConfigurationError(
+            f"{description} private permissions are unsafe"
         )
     if metadata.st_size < 1 or metadata.st_size > max_bytes:
         raise FileCredentialConfigurationError(f"{description} size is invalid")

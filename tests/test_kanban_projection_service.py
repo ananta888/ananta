@@ -7,11 +7,14 @@ from sqlalchemy.pool import NullPool
 from sqlmodel import Session, SQLModel, create_engine
 
 import agent.db_models  # noqa: F401
-from ananta_contracts.kanban import CommentCardCommand, CreateCardCommand, MoveCardCommand
 from agent.db_models.tasks import TaskDB
 from agent.repositories.kanban_projection import SqlKanbanProjectionStore
 from agent.services.kanban_authorization_service import KanbanPrincipal
 from agent.services.kanban_projection_service import KanbanProjectionService, KanbanServiceError
+from agent.services.vector_index_task_ingress_policy import (
+    RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON,
+)
+from ananta_contracts.kanban import CommentCardCommand, CreateCardCommand, MoveCardCommand
 
 
 class _NoopEvents:
@@ -155,3 +158,58 @@ def test_status_postcommit_runs_after_kanban_mutation_lock_release(
         ADMIN,
     )
     assert postcommit_states == [False]
+
+
+def test_kanban_mutations_never_touch_reserved_vector_tasks(
+    tmp_path: Path,
+) -> None:
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'vector-boundary.db'}",
+        poolclass=NullPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        session.add(
+            TaskDB(
+                id="vector-card",
+                title="Reserved",
+                status="todo",
+                task_kind="vector_index_operation",
+                kanban_position=1024,
+            )
+        )
+        session.commit()
+
+    service = _service(engine)
+    with pytest.raises(KanbanServiceError) as denied:
+        service.move_card(
+            "vector-card",
+            MoveCardCommand(
+                board_id="hub",
+                expected_revision=0,
+                idempotency_key="move-vector",
+                column_id="in_progress",
+                position=0,
+            ),
+            ADMIN,
+        )
+    assert denied.value.code == (
+        RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON
+    )
+    assert denied.value.status_code == 403
+
+    service.create_card(
+        "hub",
+        CreateCardCommand(
+            title="Ordinary",
+            position=0,
+            idempotency_key="create-ordinary",
+        ),
+        ADMIN,
+    )
+    with Session(engine) as session:
+        vector = session.get(TaskDB, "vector-card")
+        assert vector is not None
+        assert vector.status == "todo"
+        assert vector.kanban_position == 1024
+        assert vector.kanban_revision == 0

@@ -1,0 +1,123 @@
+# Stack-only overlay. Pair with compose.stack.quickstart.yml and
+# compose.qdrant.yml; compose.qdrant.yml remains standalone-renderable.
+x-vector-index-worker-healthcheck: &vector-index-worker-healthcheck
+  test:
+    - CMD
+    - python
+    - -c
+    - >-
+      import json,urllib.request;
+      payload=json.load(urllib.request.urlopen("http://127.0.0.1:5000/internal/worker/vector-index-readiness",timeout=3));
+      required={"retrieval","index_write","vector_index_operation"};
+      vector=payload.get("vector_index_worker_registration") or {};
+      hub=payload.get("hub_registration") or {};
+      raise SystemExit(0 if payload.get("ready") is True and vector.get("ready") is True and hub.get("ready") is True and required.issubset(set(payload.get("registered_capabilities") or [])) else 1)
+  interval: 5s
+  timeout: 5s
+  retries: 24
+  start_period: 10s
+
+services:
+  ai-agent-hub:
+    environment:
+      ANANTA_QDRANT_REST_URL: https://qdrant:6333
+      ANANTA_QDRANT_ALLOWED_ORIGINS: https://qdrant:6333
+      ANANTA_QDRANT_TRUSTED_PRIVATE_ORIGINS: https://qdrant:6333
+      ANANTA_QDRANT_EXTERNAL_CALLS_ALLOWED: "false"
+      ANANTA_QDRANT_API_KEY_REF: secretfile:///run/secrets/qdrant-api-key
+      ANANTA_QDRANT_TLS_CA_CERT_REF: secretfile:///run/secrets/qdrant-tls-ca.pem
+      ANANTA_VECTOR_INDEX_INPUT_PUBLISH_ROOT: /var/lib/ananta/vector-index-inputs
+      ANANTA_VECTOR_INDEX_EMBEDDING_PROFILES_JSON: "${ANANTA_VECTOR_INDEX_EMBEDDING_PROFILES_JSON:-}"
+      ANANTA_VECTOR_INDEX_TASK_SIGNING_KEYRING_FILE: /run/secrets/vector-index-task-signing-keyring.json
+      ANANTA_VECTOR_INDEX_TASK_DISPATCH_TTL_SECONDS: "${ANANTA_VECTOR_INDEX_TASK_DISPATCH_TTL_SECONDS:-300}"
+    secrets:
+      - source: vector-index-task-signing-keyring
+        target: vector-index-task-signing-keyring.json
+        mode: 0400
+    volumes:
+      - qdrant-vector-index-inputs:/var/lib/ananta/vector-index-inputs:rw
+
+  ai-agent-alpha:
+    image: ${ANANTA_QDRANT_WORKER_IMAGE:-ananta-quickstart-no-ollama-qdrant:local}
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+      args:
+        ANANTA_RUNTIME_UID: ${ANANTA_HOST_UID:-1000}
+        ANANTA_RUNTIME_GID: ${ANANTA_HOST_GID:-1000}
+        INSTALL_QDRANT_RUNTIME: "1"
+    environment:
+      ANANTA_QDRANT_API_KEY_REF: secretfile:///run/secrets/qdrant-api-key
+      ANANTA_VECTOR_INDEX_INPUT_ROOTS: /var/lib/ananta/vector-index-inputs
+      ANANTA_VECTOR_INDEX_EMBEDDING_EGRESS_ALLOWLIST_JSON: "${ANANTA_VECTOR_INDEX_EMBEDDING_EGRESS_ALLOWLIST_JSON:-}"
+      ANANTA_VECTOR_INDEX_TASK_VERIFICATION_KEYRING_FILE: /run/secrets/vector-index-task-verification-keyring.json
+      ANANTA_VECTOR_INDEX_TASK_AUDIENCE: http://ai-agent-alpha:5000
+      ANANTA_VECTOR_INDEX_TASK_REPLAY_LEDGER_FILE: /app/data/vector-index-replay/vector-index-task-replay.sqlite3
+      ANANTA_VECTOR_INDEX_TASK_REPLAY_RECEIPT_RETENTION_SECONDS: "${ANANTA_VECTOR_INDEX_TASK_REPLAY_RECEIPT_RETENTION_SECONDS:-86400}"
+      ANANTA_QDRANT_TLS_CA_CERT_REF: secretfile:///run/secrets/qdrant-tls-ca.pem
+    secrets:
+      - source: qdrant-api-key
+        target: qdrant-api-key
+        mode: 0400
+      - source: qdrant-tls-ca
+        target: qdrant-tls-ca.pem
+        mode: 0444
+      - source: vector-index-task-verification-keyring
+        target: vector-index-task-verification-keyring.json
+        mode: 0444
+    networks:
+      - default
+      - qdrant-worker
+    volumes:
+      - qdrant-vector-index-inputs:/var/lib/ananta/vector-index-inputs:ro
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    healthcheck: *vector-index-worker-healthcheck
+
+  ai-agent-beta:
+    image: ${ANANTA_QDRANT_WORKER_IMAGE:-ananta-quickstart-no-ollama-qdrant:local}
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+      args:
+        ANANTA_RUNTIME_UID: ${ANANTA_HOST_UID:-1000}
+        ANANTA_RUNTIME_GID: ${ANANTA_HOST_GID:-1000}
+        INSTALL_QDRANT_RUNTIME: "1"
+    environment:
+      ANANTA_QDRANT_API_KEY_REF: secretfile:///run/secrets/qdrant-api-key
+      ANANTA_VECTOR_INDEX_INPUT_ROOTS: /var/lib/ananta/vector-index-inputs
+      ANANTA_VECTOR_INDEX_EMBEDDING_EGRESS_ALLOWLIST_JSON: "${ANANTA_VECTOR_INDEX_EMBEDDING_EGRESS_ALLOWLIST_JSON:-}"
+      ANANTA_VECTOR_INDEX_TASK_VERIFICATION_KEYRING_FILE: /run/secrets/vector-index-task-verification-keyring.json
+      ANANTA_VECTOR_INDEX_TASK_AUDIENCE: http://ai-agent-beta:5000
+      ANANTA_VECTOR_INDEX_TASK_REPLAY_LEDGER_FILE: /app/data/vector-index-replay/vector-index-task-replay.sqlite3
+      ANANTA_VECTOR_INDEX_TASK_REPLAY_RECEIPT_RETENTION_SECONDS: "${ANANTA_VECTOR_INDEX_TASK_REPLAY_RECEIPT_RETENTION_SECONDS:-86400}"
+      ANANTA_QDRANT_TLS_CA_CERT_REF: secretfile:///run/secrets/qdrant-tls-ca.pem
+    secrets:
+      - source: qdrant-api-key
+        target: qdrant-api-key
+        mode: 0400
+      - source: qdrant-tls-ca
+        target: qdrant-tls-ca.pem
+        mode: 0444
+      - source: vector-index-task-verification-keyring
+        target: vector-index-task-verification-keyring.json
+        mode: 0444
+    networks:
+      - default
+      - qdrant-worker
+    volumes:
+      - qdrant-vector-index-inputs:/var/lib/ananta/vector-index-inputs:ro
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    healthcheck: *vector-index-worker-healthcheck
+
+volumes:
+  qdrant-vector-index-inputs:
+
+secrets:
+  vector-index-task-signing-keyring:
+    file: "${ANANTA_VECTOR_INDEX_TASK_SIGNING_KEYRING_SECRET_FILE:-../../../ananta-secrets/vector-index/vector-index-task-signing-keyring.json}"
+  vector-index-task-verification-keyring:
+    file: "${ANANTA_VECTOR_INDEX_TASK_VERIFICATION_KEYRING_SECRET_FILE:-../../../ananta-secrets/vector-index/vector-index-task-verification-keyring.json}"

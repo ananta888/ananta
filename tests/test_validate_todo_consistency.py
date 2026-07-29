@@ -49,6 +49,30 @@ def test_validate_todo_payload_returns_no_problems_when_consistent() -> None:
     assert validate_todo_payload(_build_payload()) == []
 
 
+def test_validate_todo_payload_uses_canonical_one_decimal_progress() -> None:
+    payload = _build_payload()
+    payload["tasks"].append(
+        {
+            "id": "A-3",
+            "status": "done",
+            "priority": "P0",
+            "risk": "critical",
+        }
+    )
+    summary = payload["tasks_status_summary"]
+    summary["total"] = 3
+    summary["by_status"]["done"] = 2
+    summary["progress_percent_done"] = 66.7
+    summary["by_priority"]["P0"] = 2
+    summary["by_risk"]["critical"] = 2
+    stage = payload["execution_stage_summary"]["stages"]["M1"]
+    stage["scope_task_ids"].append("A-3")
+    stage["total"] = 3
+    stage["done"] = 2
+
+    assert validate_todo_payload(payload) == []
+
+
 def test_validate_todo_payload_reports_summary_and_stage_drift() -> None:
     payload = _build_payload()
     payload["tasks_status_summary"]["by_status"]["done"] = 0

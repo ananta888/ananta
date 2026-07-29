@@ -10,8 +10,10 @@ from agent.llm_benchmarks import record_benchmark_sample as persist_benchmark_sa
 from agent.llm_benchmarks import resolve_benchmark_identity as shared_resolve_benchmark_identity
 from agent.runtime_policy import normalize_task_kind
 from agent.services.repository_registry import get_repository_registry
+from agent.services.task_context_bundle_access_service import (
+    get_task_context_bundle_access_service,
+)
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens
-
 
 # HDE-021: in-process counters for hub-direct execution and tool reuse.
 # Only reason codes and tool names are recorded — never raw prompts or
@@ -295,11 +297,12 @@ def build_control_layer_observability_snapshot(*, max_tasks: int = 80) -> dict:
         loop_state = _resolve_loop_state(task)
         loop_counts[loop_state] = int(loop_counts.get(loop_state) or 0) + 1
 
-        bundle_id = str(task.get("context_bundle_id") or "").strip()
-        if not bundle_id:
+        if not str(task.get("context_bundle_id") or "").strip():
             context_counts["without_bundle"] += 1
             continue
-        bundle = repos.context_bundle_repo.get_by_id(bundle_id)
+        bundle = get_task_context_bundle_access_service().resolve_task_reference_or_none(
+            task=task,
+        )
         if bundle is None:
             context_counts["without_bundle"] += 1
             continue

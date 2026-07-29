@@ -318,6 +318,7 @@ def test_registration_runtime_state_retries_after_successful_registration(monkey
     assert state["running"] is False
     assert int(state["attempts"]) == 3
     assert state["last_success_at"] is not None
+    assert state["registered_capabilities"] == []
     assert sleep_calls == [60, 2, 60]
 
 
@@ -378,6 +379,9 @@ def test_registration_uses_file_managed_service_token_and_runtime_metadata(
     assert captured["registration_token"] != captured["token"]
     assert captured["capabilities"] == ["workflow.adapter.langgraph"]
     assert captured["runtime_targets"] == [{"runtime_id": "langgraph"}]
+    assert registration_mod.get_registration_state()[
+        "registered_capabilities"
+    ] == ["workflow.adapter.langgraph"]
 
 
 def test_strict_registration_route_binds_keyring_identity_and_service_token(

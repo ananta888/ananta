@@ -22,6 +22,7 @@ class TaskStepProposeRequest(SQLModel):
     recovery_run_evidence_context: Optional[dict] = None
     dispatch_lease_token: Optional[str] = None
     dispatch_lease_phase: Optional[str] = None
+    vector_index_dispatch: Optional[dict] = None
 
 
 class TaskStepProposeResponse(SQLModel):
@@ -45,6 +46,7 @@ class TaskStepExecuteRequest(SQLModel):
     recovery_run_evidence_context: Optional[dict] = None
     dispatch_lease_token: Optional[str] = None
     dispatch_lease_phase: Optional[str] = None
+    vector_index_dispatch: Optional[dict] = None
 
 
 class TaskStepExecuteResponse(SQLModel):

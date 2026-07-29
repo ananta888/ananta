@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import hashlib
-import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -100,3 +100,44 @@ class TestArtifactReconciliationService:
         )
         assert result["applied"] is False
         assert "escapes_workspace" in result.get("error", "")
+
+    def test_apply_rejects_reserved_vector_task_before_collection(
+        self,
+        workspace: Path,
+        monkeypatch,
+    ) -> None:
+        task = SimpleNamespace(
+            id="vector-artifact-reconcile",
+            task_kind="vector_index_operation",
+            history=[],
+            worker_execution_context={},
+        )
+        monkeypatch.setattr(
+            (
+                "agent.services.artifact_reconciliation_service."
+                "get_repository_registry"
+            ),
+            lambda: SimpleNamespace(
+                task_repo=SimpleNamespace(
+                    get_by_id=lambda _task_id: task
+                )
+            ),
+        )
+
+        with pytest.raises(
+            PermissionError,
+            match="vector_index_reserved_task_ingress_forbidden",
+        ):
+            get_artifact_reconciliation_service().apply(
+                task_id=task.id,
+                goal_id="g1",
+                execution_id="exec-vector",
+                trace_id="trace-vector",
+                workspace_root=workspace,
+                manifest_relative_path=(
+                    ".ananta/handoff/exec-vector/"
+                    "artifact_manifest.v1.json"
+                ),
+                actor="admin",
+                reason="generic reconciliation attempt",
+            )

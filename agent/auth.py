@@ -290,7 +290,11 @@ def _is_valid_file_managed_stream_query_token(token: str) -> bool:
 
 
 def _set_agent_admin_context(payload: dict | None = None) -> None:
-    g.auth_payload = payload or {}
+    g.auth_payload = payload or {
+        "sub": "agent_token",
+        "role": "admin",
+        "auth_mode": "agent_static_token",
+    }
     g.user = {}
     g.is_admin = True
 
@@ -366,7 +370,15 @@ def _authenticate_request(
             if payload:
                 if is_control_center_stream_token(payload):
                     return False, "user_token_scope_forbidden"
-                _set_agent_admin_context(payload)
+                _set_agent_admin_context(
+                    {
+                        **payload,
+                        "auth_mode": str(
+                            payload.get("auth_mode")
+                            or "agent_jwt"
+                        ),
+                    }
+                )
                 return True, "agent_jwt"
         elif secrets.compare_digest(provided_token.encode("utf-8"), agent_token.encode("utf-8")):
             _set_agent_admin_context()

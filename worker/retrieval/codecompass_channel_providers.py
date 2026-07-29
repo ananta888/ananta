@@ -19,6 +19,11 @@ from worker.retrieval.vector_store_config import (
     VectorStoreConfigError,
     VectorStoreProvider,
 )
+from worker.retrieval.vector_store_contract import (
+    CompatibilitySpec,
+    VectorScope,
+)
+from worker.retrieval.vector_store_endpoint_policy import SecretResolver
 from worker.retrieval.vector_store_factory import VectorStoreFactory
 
 
@@ -31,6 +36,60 @@ class CodeCompassChannelProvider(Protocol):
         task_kind: str | None = None,
         retrieval_intent: str | None = None,
     ) -> list[dict[str, Any]]: ...
+
+
+class BoundCodeCompassVectorProvider:
+    """Bind worker-local vector search to Hub-approved immutable context."""
+
+    _REQUIRED_COMPATIBILITY_FIELDS = (
+        "provider",
+        "model",
+        "profile",
+        "encoding",
+        "config_hash",
+        "schema_version",
+        "manifest_hash",
+    )
+
+    def __init__(
+        self,
+        *,
+        engine: CodeCompassVectorEngine,
+        trusted_scope: VectorScope,
+        compatibility: CompatibilitySpec,
+    ) -> None:
+        if not isinstance(trusted_scope, VectorScope):
+            raise TypeError("vector_scope_required")
+        if trusted_scope.domain != "codecompass":
+            raise ValueError("codecompass_vector_scope_domain_invalid")
+        if not isinstance(compatibility, CompatibilitySpec):
+            raise TypeError("vector_store_compatibility_required")
+        payload = compatibility.as_dict()
+        if any(
+            not str(payload.get(field) or "").strip()
+            for field in self._REQUIRED_COMPATIBILITY_FIELDS
+        ):
+            raise ValueError("vector_store_compatibility_required")
+        self._engine = engine
+        self._trusted_scope = trusted_scope
+        self._compatibility = compatibility
+
+    def search(
+        self,
+        *,
+        query: str,
+        top_k: int,
+        task_kind: str | None = None,
+        retrieval_intent: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._engine.search(
+            query=query,
+            top_k=top_k,
+            task_kind=task_kind,
+            retrieval_intent=retrieval_intent,
+            scope=self._trusted_scope,
+            compatibility=self._compatibility,
+        )
 
 
 class JsonlSymbolProvider:
@@ -165,6 +224,9 @@ def providers_from_environment(
     provider_config: Mapping[str, Any] | None = None,
     vector_store_config: Mapping[str, Any] | VectorStoreConfig | None = None,
     vector_store_factory: VectorStoreFactory | None = None,
+    trusted_vector_scope: VectorScope | None = None,
+    vector_compatibility: CompatibilitySpec | None = None,
+    secret_resolver: SecretResolver | None = None,
 ) -> tuple[dict[str, CodeCompassChannelProvider], CodeCompassGraphStore | None, dict[str, str]]:
     """Compose only explicitly mounted worker indexes; never read Hub paths."""
 
@@ -201,12 +263,44 @@ def providers_from_environment(
             )
     if configured is None:
         diagnostics["codecompass_vector"] = "vector_index_not_mounted"
+    elif (
+        configured.provider == VectorStoreProvider.QDRANT
+        and trusted_vector_scope is None
+    ):
+        diagnostics["codecompass_vector"] = "vector_scope_required"
+    elif (
+        configured.provider == VectorStoreProvider.QDRANT
+        and vector_compatibility is None
+    ):
+        diagnostics["codecompass_vector"] = (
+            "vector_store_compatibility_required"
+        )
     else:
         try:
-            store = (vector_store_factory or VectorStoreFactory()).create(configured)
-            providers["codecompass_vector"] = CodeCompassVectorEngine.build_from_config(
+            factory = vector_store_factory or VectorStoreFactory()
+            store = (
+                factory.create(
+                    configured,
+                    secret_resolver=secret_resolver,
+                )
+                if secret_resolver is not None
+                else factory.create(configured)
+            )
+            engine = CodeCompassVectorEngine.build_from_config(
                 store,
                 provider_config=dict(provider_config or {}),
+            )
+            providers["codecompass_vector"] = (
+                BoundCodeCompassVectorProvider(
+                    engine=engine,
+                    trusted_scope=trusted_vector_scope,
+                    compatibility=vector_compatibility,
+                )
+                if (
+                    trusted_vector_scope is not None
+                    and vector_compatibility is not None
+                )
+                else engine
             )
         except VectorStoreConfigError as exc:
             diagnostics["codecompass_vector"] = exc.reason
@@ -240,6 +334,7 @@ def _existing_file(environment_name: str) -> Path | None:
 
 
 __all__ = [
+    "BoundCodeCompassVectorProvider",
     "CodeCompassChannelProvider",
     "JsonlSymbolProvider",
     "providers_from_environment",

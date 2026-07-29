@@ -1,52 +1,72 @@
-import time
-
 from flask import Blueprint, g, request
 
-from agent.auth import admin_required, check_auth
-from agent.common.errors import api_response
-from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
-from agent.routes.tasks.status import normalize_task_status
-from agent.services.commit_metadata_inferrer import get_commit_metadata_inferrer
-from agent.services.instruction_layer_service import get_instruction_layer_service
-from agent.services.governance_read_model_service import get_governance_read_model_service
-from agent.services.execution_audit_service import get_execution_audit_service
-from agent.services.request_cancellation_service import get_request_cancellation_service
-from agent.services.repository_registry import get_repository_registry
-from agent.services.service_registry import get_core_services
-from agent.services.task_admin_service import (
-    RecoveryChildAdminMutationConflict,
+import agent.routes.tasks.archive_admin as _archive_admin_routes
+import agent.routes.tasks.vector_index_dispatch_admission as _vector_admission_route
+from agent.auth import (
+    admin_required,
+    check_auth,
+    check_strict_auth,
 )
+from agent.common.errors import api_response
 from agent.common.logging import get_correlation_id
+from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
+from agent.routes.tasks.vector_admin_boundary import (
+    guard_vector_control_mutation,
+)
+from agent.routes.tasks.vector_admin_boundary import (
+    request_vector_authorization as _vector_authorization,
+)
+from agent.services.commit_metadata_inferrer import get_commit_metadata_inferrer
+from agent.services.context_bundle_ingress_policy import (
+    find_reserved_context_bundle_marker,
+    reserved_context_bundle_ingress_error,
+)
+from agent.services.execution_audit_service import get_execution_audit_service
+from agent.services.governance_read_model_service import get_governance_read_model_service
+from agent.services.instruction_layer_service import get_instruction_layer_service
+from agent.services.repository_registry import get_repository_registry
+from agent.services.request_cancellation_service import get_request_cancellation_service
+from agent.services.retrieval_vector_scope_ingress_policy import (
+    find_reserved_retrieval_vector_scope_marker,
+    reserved_retrieval_vector_scope_ingress_error,
+)
+from agent.services.service_registry import get_core_services
+from agent.services.vector_index_task_ingress_policy import (
+    find_reserved_vector_index_marker,
+    reserved_vector_index_ingress_error,
+)
 from agent.utils import rate_limit, validate_request
 
 management_bp = Blueprint("tasks_management", __name__)
+_archive_admin_routes.register_archive_admin_routes(management_bp)
+_vector_admission_route.register_vector_index_dispatch_admission_route(
+    management_bp
+)
+
+# Preserve names exported by the original monolithic route module.
+list_archived_tasks = _archive_admin_routes.list_archived_tasks
+archive_task_route = _archive_admin_routes.archive_task_route
+archive_tasks_batch_route = (
+    _archive_admin_routes.archive_tasks_batch_route
+)
+restore_task_route = _archive_admin_routes.restore_task_route
+delete_archived_task_route = (
+    _archive_admin_routes.delete_archived_task_route
+)
+restore_tasks_batch_route = (
+    _archive_admin_routes.restore_tasks_batch_route
+)
+cleanup_archived_tasks_route = (
+    _archive_admin_routes.cleanup_archived_tasks_route
+)
+archive_retention_apply_route = (
+    _archive_admin_routes.archive_retention_apply_route
+)
+cleanup_tasks_route = _archive_admin_routes.cleanup_tasks_route
+vector_index_dispatch_admission = (
+    _vector_admission_route.vector_index_dispatch_admission
+)
 task_repo = get_repository_registry().task_repo
-
-
-def _parse_status_filters(raw: object) -> set[str]:
-    return get_core_services().task_admin_service.parse_status_filters(raw)
-
-
-def _task_matches_filters(task: dict, statuses: set[str], team_id: str, before_ts: float | None, task_ids: set[str]) -> bool:
-    return get_core_services().task_admin_service.task_matches_filters(
-        task,
-        statuses=statuses,
-        team_id=team_id,
-        before_ts=before_ts,
-        task_ids=task_ids,
-    )
-
-
-def _load_all_archived_tasks() -> list[dict]:
-    return get_core_services().task_admin_service.load_all_archived_tasks()
-
-
-def _build_task_tree(root_id: str, include_archived: bool, max_depth: int) -> dict | None:
-    return get_core_services().task_admin_service.build_task_tree(
-        root_id=root_id,
-        include_archived=include_archived,
-        max_depth=max_depth,
-    )
 
 
 def _actor_username() -> str:
@@ -55,7 +75,12 @@ def _actor_username() -> str:
 
 
 def _intervene_task(tid: str, action: str) -> tuple[bool, str, dict]:
-    return get_core_services().task_admin_service.intervene_task(task_id=tid, action=action, actor=_actor_username())
+    return get_core_services().task_admin_service.intervene_task(
+        task_id=tid,
+        action=action,
+        actor=_actor_username(),
+        vector_authorization=_vector_authorization(),
+    )
 
 
 def _parse_bool_query(value: str | None, *, default: bool) -> bool:
@@ -141,309 +166,6 @@ def tasks_timeline():
     )
 
 
-@management_bp.route("/tasks/archived", methods=["GET"])
-@check_auth
-def list_archived_tasks():
-    """
-    Archivierte Tasks auflisten
-    """
-    limit = request.args.get("limit", 100, type=int)
-    offset = request.args.get("offset", 0, type=int)
-    return api_response(data=get_core_services().task_query_service.list_archived_tasks(limit=limit, offset=offset))
-
-
-@management_bp.route("/tasks/<tid>/archive", methods=["POST"])
-@check_auth
-def archive_task_route(tid):
-    """
-    Task archivieren
-    """
-    try:
-        archived = (
-            get_core_services()
-            .task_admin_service.archive_task(task_id=tid)
-        )
-    except RecoveryChildAdminMutationConflict as exc:
-        return api_response(
-            status="error",
-            message=exc.reason_code,
-            data=exc.as_data(),
-            code=409,
-        )
-    if not archived:
-        return api_response(status="error", message="not_found", code=404)
-    return api_response(status="archived", data={"id": tid})
-
-
-@management_bp.route("/tasks/archive/batch", methods=["POST"])
-@check_auth
-def archive_tasks_batch_route():
-    data = request.get_json(silent=True) or {}
-    statuses = _parse_status_filters(data.get("statuses"))
-    team_id = str(data.get("team_id") or "").strip()
-    raw_ids = data.get("task_ids") or []
-    task_ids = {str(item).strip() for item in raw_ids if str(item).strip()}
-    before_ts = data.get("before_timestamp")
-    before_ts = float(before_ts) if before_ts is not None else None
-    if not (statuses or team_id or task_ids or before_ts is not None):
-        return api_response(status="error", message="archive_filter_required", code=400)
-
-    try:
-        archived_ids = (
-            get_core_services()
-            .task_admin_service.archive_tasks(
-                statuses=statuses,
-                team_id=team_id,
-                before_ts=before_ts,
-                task_ids=task_ids,
-            )
-        )
-    except RecoveryChildAdminMutationConflict as exc:
-        return api_response(
-            status="error",
-            message=exc.reason_code,
-            data=exc.as_data(),
-            code=409,
-        )
-    return api_response(data={"archived_count": len(archived_ids), "archived_ids": archived_ids})
-
-
-@management_bp.route("/tasks/archived/<tid>/restore", methods=["POST"])
-@check_auth
-def restore_task_route(tid):
-    """
-    Archivierten Task wiederherstellen
-    """
-    try:
-        restored = (
-            get_core_services()
-            .task_admin_service.restore_task(task_id=tid)
-        )
-    except RecoveryChildAdminMutationConflict as exc:
-        return api_response(
-            status="error",
-            message=exc.reason_code,
-            data=exc.as_data(),
-            code=409,
-        )
-    if not restored:
-        return api_response(status="error", message="not_found", code=404)
-    return api_response(status="restored", data={"id": tid})
-
-
-@management_bp.route("/tasks/archived/<tid>", methods=["DELETE"])
-@check_auth
-def delete_archived_task_route(tid):
-    try:
-        deleted = (
-            get_core_services()
-            .task_admin_service.delete_archived_task(task_id=tid)
-        )
-    except RecoveryChildAdminMutationConflict as exc:
-        return api_response(
-            status="error",
-            message=exc.reason_code,
-            data=exc.as_data(),
-            code=409,
-        )
-    if not deleted:
-        return api_response(status="error", message="not_found", code=404)
-    return api_response(
-        data={"deleted_count": 1, "deleted_ids": [tid]}
-    )
-
-
-@management_bp.route("/tasks/archived/restore/batch", methods=["POST"])
-@check_auth
-def restore_tasks_batch_route():
-    data = request.get_json(silent=True) or {}
-    statuses = _parse_status_filters(data.get("statuses"))
-    team_id = str(data.get("team_id") or "").strip()
-    raw_ids = data.get("task_ids") or []
-    task_ids = {str(item).strip() for item in raw_ids if str(item).strip()}
-    before_ts = data.get("before_timestamp")
-    before_ts = float(before_ts) if before_ts is not None else None
-    if not (statuses or team_id or task_ids or before_ts is not None):
-        return api_response(status="error", message="restore_filter_required", code=400)
-
-    try:
-        restored_ids = (
-            get_core_services()
-            .task_admin_service.restore_tasks(
-                statuses=statuses,
-                team_id=team_id,
-                before_ts=before_ts,
-                task_ids=task_ids,
-            )
-        )
-    except RecoveryChildAdminMutationConflict as exc:
-        return api_response(
-            status="error",
-            message=exc.reason_code,
-            data=exc.as_data(),
-            code=409,
-        )
-    return api_response(data={"restored_count": len(restored_ids), "restored_ids": restored_ids})
-
-
-@management_bp.route("/tasks/archived/cleanup", methods=["POST"])
-@check_auth
-def cleanup_archived_tasks_route():
-    """
-    Batch-Cleanup fuer archivierte Tasks (hart loeschen).
-    Filter: statuses, team_id, before_timestamp, older_than_seconds, task_ids
-    """
-    data = request.get_json(silent=True) or {}
-    statuses = _parse_status_filters(data.get("statuses"))
-    team_id = str(data.get("team_id") or "").strip()
-    older_than_seconds = data.get("older_than_seconds")
-    before_timestamp = data.get("before_timestamp")
-    before_ts = None
-    if before_timestamp is not None:
-        before_ts = float(before_timestamp)
-    elif older_than_seconds is not None:
-        before_ts = time.time() - float(older_than_seconds)
-
-    raw_ids = data.get("task_ids") or []
-    task_ids = {str(item).strip() for item in raw_ids if str(item).strip()}
-
-    if not (statuses or team_id or before_ts is not None or task_ids):
-        return api_response(status="error", message="cleanup_filter_required", code=400)
-
-    deleted_ids, errors = get_core_services().task_admin_service.cleanup_archived_tasks(
-        statuses=statuses,
-        team_id=team_id,
-        before_ts=before_ts,
-        task_ids=task_ids,
-    )
-
-    response_data = {
-        "matched_count": len(deleted_ids) + len(errors),
-        "deleted_count": len(deleted_ids),
-        "deleted_ids": deleted_ids,
-        "errors": errors,
-    }
-    conflict_errors = [
-        item
-        for item in errors
-        if int(item.get("http_status") or 0) == 409
-    ]
-    if (
-        conflict_errors
-        and len(conflict_errors) == len(errors)
-        and not deleted_ids
-    ):
-        return api_response(
-            status="error",
-            message=str(
-                conflict_errors[0].get("reason_code")
-                or "task_admin_conflict"
-            ),
-            data=response_data,
-            code=409,
-        )
-    return api_response(data=response_data)
-
-
-@management_bp.route("/tasks/archive/retention/apply", methods=["POST"])
-@check_auth
-def archive_retention_apply_route():
-    data = request.get_json(silent=True) or {}
-    team_id = str(data.get("team_id") or "").strip()
-    statuses = _parse_status_filters(data.get("statuses"))
-    retain_seconds = float(data.get("retain_seconds") or 0)
-    now = time.time()
-    if retain_seconds <= 0:
-        return api_response(status="error", message="retain_seconds_required", code=400)
-    cutoff = now - retain_seconds
-    deleted_ids, errors = (
-        get_core_services()
-        .task_admin_service.apply_archive_retention_with_errors(
-            team_id=team_id,
-            statuses=statuses,
-            cutoff=cutoff,
-        )
-    )
-    return api_response(
-        data={
-            "deleted_count": len(deleted_ids),
-            "deleted_ids": deleted_ids,
-            "errors": errors,
-            "cutoff": cutoff,
-        }
-    )
-
-
-@management_bp.route("/tasks/cleanup", methods=["POST"])
-@check_auth
-def cleanup_tasks_route():
-    """
-    Batch-Cleanup fuer aktive Tasks:
-    - mode=archive: passende Tasks ins Archiv verschieben
-    - mode=delete: passende Tasks hart loeschen
-    Filter: statuses, team_id, before_timestamp, older_than_seconds, task_ids
-    """
-    data = request.get_json(silent=True) or {}
-    mode = str(data.get("mode") or "archive").strip().lower()
-    if mode not in {"archive", "delete"}:
-        return api_response(status="error", message="invalid_mode", code=400)
-
-    statuses = _parse_status_filters(data.get("statuses"))
-    team_id = str(data.get("team_id") or "").strip()
-    older_than_seconds = data.get("older_than_seconds")
-    before_timestamp = data.get("before_timestamp")
-    before_ts = None
-    if before_timestamp is not None:
-        before_ts = float(before_timestamp)
-    elif older_than_seconds is not None:
-        before_ts = time.time() - float(older_than_seconds)
-
-    raw_ids = data.get("task_ids") or []
-    task_ids = {str(item).strip() for item in raw_ids if str(item).strip()}
-
-    if not (statuses or team_id or before_ts is not None or task_ids):
-        return api_response(status="error", message="cleanup_filter_required", code=400)
-
-    matched, archived_ids, deleted_ids, errors = get_core_services().task_admin_service.cleanup_active_tasks(
-        mode=mode,
-        statuses=statuses,
-        team_id=team_id,
-        before_ts=before_ts,
-        task_ids=task_ids,
-    )
-
-    response_data = {
-        "mode": mode,
-        "matched_count": len(matched),
-        "archived_count": len(archived_ids),
-        "deleted_count": len(deleted_ids),
-        "archived_ids": archived_ids,
-        "deleted_ids": deleted_ids,
-        "errors": errors,
-    }
-    conflict_errors = [
-        item
-        for item in errors
-        if int(item.get("http_status") or 0) == 409
-    ]
-    if (
-        conflict_errors
-        and len(conflict_errors) == len(errors)
-        and not archived_ids
-        and not deleted_ids
-    ):
-        return api_response(
-            status="error",
-            message=str(
-                conflict_errors[0].get("reason_code")
-                or "task_admin_conflict"
-            ),
-            data=response_data,
-            code=409,
-        )
-    return api_response(data=response_data)
-
-
 @management_bp.route("/tasks/<tid>/tree", methods=["GET"])
 @check_auth
 def task_tree_route(tid):
@@ -509,9 +231,41 @@ def create_task():
       201:
         description: Task erstellt
     """
+    payload = request.get_json(silent=True) or {}
+    reserved_marker = find_reserved_vector_index_marker(payload)
+    if reserved_marker:
+        result = reserved_vector_index_ingress_error(reserved_marker)
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result["data"],
+            code=result["code"],
+        )
+    reserved_scope_marker = (
+        find_reserved_retrieval_vector_scope_marker(payload)
+    )
+    if reserved_scope_marker:
+        result = reserved_retrieval_vector_scope_ingress_error(
+            reserved_scope_marker
+        )
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result["data"],
+            code=result["code"],
+        )
+    reserved_context_marker = find_reserved_context_bundle_marker(payload)
+    if reserved_context_marker:
+        result = reserved_context_bundle_ingress_error(reserved_context_marker)
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result["data"],
+            code=result["code"],
+        )
     data: TaskCreateRequest = g.validated_data
-    source = str((request.get_json(silent=True) or {}).get("source") or "ui").strip().lower()
-    created_by = str((request.get_json(silent=True) or {}).get("created_by") or "unknown").strip()
+    source = str(payload.get("source") or "ui").strip().lower()
+    created_by = str(payload.get("created_by") or "unknown").strip()
     if data.commit_metadata is None and str(data.task_kind or "").strip().lower() in ("coding", "ops", ""):
         data = data.model_copy(update={
             "commit_metadata": get_commit_metadata_inferrer().infer(
@@ -599,6 +353,38 @@ def patch_task(tid):
       200:
         description: Task aktualisiert
     """
+    payload = request.get_json(silent=True) or {}
+    reserved_marker = find_reserved_vector_index_marker(payload)
+    if reserved_marker:
+        result = reserved_vector_index_ingress_error(reserved_marker)
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result["data"],
+            code=result["code"],
+        )
+    reserved_scope_marker = (
+        find_reserved_retrieval_vector_scope_marker(payload)
+    )
+    if reserved_scope_marker:
+        result = reserved_retrieval_vector_scope_ingress_error(
+            reserved_scope_marker
+        )
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result["data"],
+            code=result["code"],
+        )
+    reserved_context_marker = find_reserved_context_bundle_marker(payload)
+    if reserved_context_marker:
+        result = reserved_context_bundle_ingress_error(reserved_context_marker)
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result["data"],
+            code=result["code"],
+        )
     data: TaskUpdateRequest = g.validated_data
     result = get_core_services().task_management_service.patch_task(task_id=tid, data=data)
     if result.get("error"):
@@ -620,7 +406,12 @@ def review_task_proposal(tid):
     if action not in {"approve", "reject"}:
         return api_response(status="error", message="invalid_review_action", code=400)
 
-    result = get_core_services().task_management_service.review_task_proposal(task_id=tid, action=action, comment=comment)
+    result = get_core_services().task_management_service.review_task_proposal(
+        task_id=tid,
+        action=action,
+        comment=comment,
+        vector_authorization=_vector_authorization(),
+    )
     if result.get("error"):
         return api_response(
             status="error",
@@ -669,9 +460,18 @@ def assign_task(tid):
     data: TaskAssignmentRequest = g.validated_data
     if not data.agent_url:
         return api_response(status="error", message="agent_url_required", code=400)
-    result = get_core_services().task_management_service.assign_task(task_id=tid, data=data)
+    result = get_core_services().task_management_service.assign_task(
+        task_id=tid,
+        data=data,
+        vector_authorization=_vector_authorization(),
+    )
     if result.get("error"):
-        return api_response(status="error", message=result["error"], data=result.get("data"), code=result.get("code", 400))
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result.get("data"),
+            code=result.get("code", 400),
+        )
     return api_response(data=result["data"])
 
 
@@ -684,9 +484,15 @@ def auto_assign_task(tid):
         payload=payload,
         agent_registry_service=get_core_services().agent_registry_service,
         worker_contract_service=get_core_services().worker_contract_service,
+        vector_authorization=_vector_authorization(),
     )
     if result.get("error"):
-        return api_response(status="error", message=result["error"], data=result.get("data"), code=result.get("code", 400))
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result.get("data"),
+            code=result.get("code", 400),
+        )
     return api_response(data=result["data"])
 
 
@@ -705,7 +511,10 @@ def unassign_task(tid):
       200:
         description: Zuweisung aufgehoben
     """
-    result = get_core_services().task_management_service.unassign_task(task_id=tid)
+    result = get_core_services().task_management_service.unassign_task(
+        task_id=tid,
+        vector_authorization=_vector_authorization(),
+    )
     if result.get("error"):
         return api_response(
             status="error",
@@ -745,7 +554,7 @@ def resume_task(tid):
 
 
 @management_bp.route("/tasks/<tid>/cancel", methods=["POST"])
-@check_auth
+@check_strict_auth
 def cancel_task(tid):
     ok, msg, data = _intervene_task(tid, "cancel")
     if not ok:
@@ -759,7 +568,7 @@ def cancel_task(tid):
 
 
 @management_bp.route("/tasks/<tid>/retry", methods=["POST"])
-@check_auth
+@check_strict_auth
 def retry_task(tid):
     ok, msg, data = _intervene_task(tid, "retry")
     if not ok:
@@ -779,17 +588,23 @@ def kill_task_requests(tid):
     task_id = str(tid or "").strip()
     if not task_id:
         return api_response(status="error", message="task_id required", code=400)
+    vector_error = guard_vector_control_mutation(task_id)
+    if vector_error is not None:
+        return vector_error
     result = get_request_cancellation_service().cancel_task_requests(task_id=task_id, include_workers=True)
     return api_response(data=result)
 
 
 @management_bp.route("/internal/tasks/<tid>/kill-requests", methods=["POST"])
-@check_auth
+@check_strict_auth
 def kill_task_requests_internal(tid):
     """Internal fanout endpoint: abort in-flight provider requests for one task locally."""
     task_id = str(tid or "").strip()
     if not task_id:
         return api_response(status="error", message="task_id required", code=400)
+    vector_error = guard_vector_control_mutation(task_id)
+    if vector_error is not None:
+        return vector_error
     result = get_request_cancellation_service().cancel_task_requests(task_id=task_id, include_workers=False)
     return api_response(data=result)
 
@@ -867,7 +682,11 @@ def recovery_dispatch_admission(tid):
 @management_bp.route("/tasks/<tid>/subtask-callback", methods=["POST"])
 @check_auth
 def subtask_callback(tid):
-    result = get_core_services().task_management_service.subtask_callback(task_id=tid, payload=request.get_json() or {})
+    result = get_core_services().task_management_service.subtask_callback(
+        task_id=tid,
+        payload=request.get_json() or {},
+        vector_authorization=_vector_authorization(),
+    )
     if result.get("error"):
         return api_response(
             status="error",
@@ -888,7 +707,11 @@ def create_followups(tid):
     sobald der Parent auf completed wechselt.
     """
     data: FollowupTaskCreateRequest = g.validated_data
-    result = get_core_services().task_management_service.create_followups(task_id=tid, data=data)
+    result = get_core_services().task_management_service.create_followups(
+        task_id=tid,
+        data=data,
+        vector_authorization=_vector_authorization(),
+    )
     if result.get("error"):
         return api_response(
             status="error",

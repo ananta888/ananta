@@ -17,6 +17,9 @@ from agent.services.task_runtime_service import (
     update_local_task_status,
 )
 from agent.services.task_status_service import normalize_task_status
+from agent.services.vector_index_worker_result_boundary import (
+    MAX_VECTOR_INDEX_WORKER_RESULT_BYTES,
+)
 from agent.utils import _http_post
 from ananta_contracts.recovery_artifact_ingress import (
     MAX_RECOVERY_FORWARD_RESPONSE_BYTES,
@@ -84,18 +87,28 @@ def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = 
     recovery_forward = bool(
         str(data.get("dispatch_lease_token") or "").strip()
     )
+    vector_forward = isinstance(
+        data.get("vector_index_dispatch"),
+        Mapping,
+    )
+    secure_forward = recovery_forward or vector_forward
     request_options: dict[str, Any] = {
         "data": data,
         "headers": headers,
         "timeout": timeout,
         "return_response": True,
         "silent": True,
+        "allow_redirects": False,
     }
-    if recovery_forward:
+    if secure_forward:
         request_options["stream"] = True
     try:
         response = _http_post(url, **request_options)
     except TypeError:
+        if secure_forward:
+            raise RuntimeError(
+                "worker_forward_secure_transport_unsupported"
+            )
         # Backward-compatible path for callsites/tests that monkeypatch _http_post
         # without newer keyword arguments.
         response = _http_post(url, data=data, headers=headers, timeout=timeout)
@@ -104,8 +117,23 @@ def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = 
     if isinstance(response, dict):
         return response
     code = int(getattr(response, "status_code", 500) or 500)
+    if 300 <= code < 400:
+        close = getattr(response, "close", None)
+        if callable(close):
+            close()
+        raise ValueError("worker_forward_redirect_forbidden")
     if recovery_forward:
         body = _parse_bounded_recovery_worker_response(response)
+        if code < 400:
+            return body
+        return _worker_error_payload(
+            body=body,
+            code=code,
+            worker_url=worker_url,
+            endpoint=endpoint,
+        )
+    if vector_forward:
+        body = _parse_bounded_vector_worker_response(response)
         if code < 400:
             return body
         return _worker_error_payload(
@@ -137,7 +165,29 @@ def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = 
 def _parse_bounded_recovery_worker_response(response: Any) -> Any:
     """Stream and parse one Recovery response only after enforcing its cap."""
 
-    maximum_bytes = MAX_RECOVERY_FORWARD_RESPONSE_BYTES
+    return _parse_bounded_worker_response(
+        response,
+        maximum_bytes=MAX_RECOVERY_FORWARD_RESPONSE_BYTES,
+        reason_prefix="recovery_worker_response",
+    )
+
+
+def _parse_bounded_vector_worker_response(response: Any) -> Any:
+    """Stream and parse a Vector result before Hub materialization."""
+
+    return _parse_bounded_worker_response(
+        response,
+        maximum_bytes=MAX_VECTOR_INDEX_WORKER_RESULT_BYTES,
+        reason_prefix="vector_index_worker_response",
+    )
+
+
+def _parse_bounded_worker_response(
+    response: Any,
+    *,
+    maximum_bytes: int,
+    reason_prefix: str,
+) -> Any:
     headers = getattr(response, "headers", None)
     content_length = (
         headers.get("Content-Length")
@@ -153,7 +203,7 @@ def _parse_bounded_recovery_worker_response(response: Any) -> Any:
             declared_bytes is not None
             and declared_bytes > maximum_bytes
         ):
-            raise ValueError("recovery_worker_response_too_large")
+            raise ValueError(f"{reason_prefix}_too_large")
         chunks: list[bytes] = []
         total_bytes = 0
         iter_content = getattr(response, "iter_content", None)
@@ -171,12 +221,12 @@ def _parse_bounded_recovery_worker_response(response: Any) -> Any:
                 continue
             if not isinstance(chunk, bytes):
                 raise ValueError(
-                    "recovery_worker_response_bytes_invalid"
+                    f"{reason_prefix}_bytes_invalid"
                 )
             total_bytes += len(chunk)
             if total_bytes > maximum_bytes:
                 raise ValueError(
-                    "recovery_worker_response_too_large"
+                    f"{reason_prefix}_too_large"
                 )
             chunks.append(chunk)
         try:
@@ -188,7 +238,7 @@ def _parse_bounded_recovery_worker_response(response: Any) -> Any:
             ValueError,
         ) as exc:
             raise ValueError(
-                "recovery_worker_response_json_invalid"
+                f"{reason_prefix}_json_invalid"
             ) from exc
     finally:
         close = getattr(response, "close", None)

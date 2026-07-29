@@ -7,6 +7,7 @@ from typing import Any
 from agent.common.audit import SENSITIVE_FIELDS
 from agent.services.evolution.models import EvolutionContext
 from agent.services.repository_registry import get_repository_registry
+from agent.services.task_context_bundle_access_service import TaskContextBundleAccessService
 
 
 @dataclass(frozen=True)
@@ -88,7 +89,9 @@ class EvolutionContextBuilder:
         bundle_id = str(task.get("context_bundle_id") or "").strip()
         if not bundle_id:
             return {}
-        bundle = repos.context_bundle_repo.get_by_id(bundle_id)
+        bundle = TaskContextBundleAccessService(
+            repos.context_bundle_repo
+        ).resolve_task_reference_or_none(task=task)
         return self._dump(bundle) if bundle is not None else {"id": bundle_id, "status": "missing"}
 
     def _task_signal(self, task: dict[str, Any]) -> dict[str, Any]:

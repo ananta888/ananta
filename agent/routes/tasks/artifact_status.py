@@ -1,16 +1,23 @@
 """Artifact-first task status endpoints. AFH-T021/T022."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-from flask import Blueprint, jsonify, request
+from flask import (
+    Blueprint,
+    current_app,
+    g,
+    has_app_context,
+    jsonify,
+    request,
+)
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
+from agent.services.artifact_reconciliation_service import (
+    get_artifact_reconciliation_service,
+)
 from agent.services.repository_registry import get_repository_registry
-from agent.services.worker_output_collector_service import get_worker_output_collector_service
-from agent.services.task_completion_policy_service import get_task_completion_policy_service
 
 artifact_status_bp = Blueprint("artifact_status", __name__)
 
@@ -107,8 +114,6 @@ def get_task_artifact_preview(tid: str):
                 "description": str(a.get("description") or ""),
             })
 
-    from agent.services.worker_todo_planner_service import _DEFAULT_CONFIG as planner_defaults
-    from flask import current_app, has_app_context
     agent_cfg = current_app.config.get("AGENT_CONFIG", {}) if has_app_context() else {}
     runtime_cfg = (agent_cfg or {}).get("worker_runtime") or {}
     todo_cfg = (runtime_cfg.get("todo_contract") or {}) if isinstance(runtime_cfg, dict) else {}
@@ -117,7 +122,7 @@ def get_task_artifact_preview(tid: str):
     response = {
         "task_id": tid,
         "expected_artifacts": expected_artifacts,
-        "manifest_output_path": f".ananta/handoff/<execution_id>/artifact_manifest.v1.json",
+        "manifest_output_path": ".ananta/handoff/<execution_id>/artifact_manifest.v1.json",
         "completion_policy_summary": {
             "completion_on_valid_manifest": True,
             "verification_required": bool(task_dict.get("verification_spec", {}) or {}),
@@ -139,9 +144,6 @@ def get_task_artifact_preview(tid: str):
 @check_auth
 def reconcile_task_from_artifacts(tid: str):
     """Reconcile task state from artifacts. Requires actor and reason. AFH-T016."""
-    from agent.services.artifact_reconciliation_service import get_artifact_reconciliation_service
-    from flask import g
-
     body = request.get_json(force=True, silent=True) or {}
     actor = str(body.get("actor") or "") or str((getattr(g, "user", {}) or {}).get("sub") or "unknown")
     reason = str(body.get("reason") or "").strip()
@@ -159,7 +161,13 @@ def reconcile_task_from_artifacts(tid: str):
         return api_response({"error": "workspace_dir_not_set"}, code=400)
 
     execution_id = str(body.get("execution_id") or task_dict.get("current_worker_job_id") or tid)
-    manifest_path = str(body.get("manifest_relative_path") or f".ananta/handoff/{execution_id}/artifact_manifest.v1.json")
+    manifest_path = str(
+        body.get("manifest_relative_path")
+        or (
+            f".ananta/handoff/{execution_id}/"
+            "artifact_manifest.v1.json"
+        )
+    )
 
     dry_run = bool(body.get("dry_run", False))
     svc = get_artifact_reconciliation_service()
@@ -183,6 +191,14 @@ def reconcile_task_from_artifacts(tid: str):
 
         try:
             result = svc.apply(actor=actor, reason=reason, **kwargs)
+        except PermissionError as exc:
+            reason_code = str(exc)
+            return api_response(
+                status="error",
+                message=reason_code,
+                data={"reason_code": reason_code},
+                code=403,
+            )
         except RecoveryTaskMutationConflict as exc:
             return api_response(
                 status="error",

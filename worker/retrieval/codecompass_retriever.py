@@ -27,6 +27,10 @@ from worker.retrieval.codecompass_channel_providers import (
     CodeCompassChannelProvider,
     providers_from_environment,
 )
+from worker.retrieval.vector_store_config import VectorStoreConfig
+from worker.retrieval.vector_store_contract import CompatibilitySpec, VectorScope
+from worker.retrieval.vector_store_endpoint_policy import SecretResolver
+from worker.retrieval.vector_store_factory import VectorStoreFactory
 
 if TYPE_CHECKING:
     from agent.services.embedding_provider_config_service import (
@@ -60,6 +64,11 @@ class CodeCompassRetriever:
         scope: str = "worker_retrieval",
         channel_providers: Mapping[str, CodeCompassChannelProvider] | None = None,
         graph_store: Any | None = None,
+        vector_store_config: Mapping[str, Any] | VectorStoreConfig | None = None,
+        vector_store_factory: VectorStoreFactory | None = None,
+        trusted_vector_scope: VectorScope | None = None,
+        vector_compatibility: CompatibilitySpec | None = None,
+        secret_resolver: SecretResolver | None = None,
     ) -> None:
         self._provider_config = provider_config
         self._scope = scope
@@ -68,6 +77,11 @@ class CodeCompassRetriever:
         if channel_providers is None:
             providers, environment_graph_store, diagnostics = providers_from_environment(
                 provider_config=provider_config,
+                vector_store_config=vector_store_config,
+                vector_store_factory=vector_store_factory,
+                trusted_vector_scope=trusted_vector_scope,
+                vector_compatibility=vector_compatibility,
+                secret_resolver=secret_resolver,
             )
             self._channel_providers = providers
             self._graph_store = graph_store or environment_graph_store

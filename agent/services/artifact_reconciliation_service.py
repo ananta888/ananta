@@ -6,7 +6,6 @@ Requires audit and permission; never exposes a blind mark-completed shortcut.
 from __future__ import annotations
 
 import logging
-import time
 from pathlib import Path
 from typing import Any
 
@@ -15,8 +14,15 @@ from agent.services.recovery_task_mutation_policy import (
     ensure_external_recovery_mutation_allowed,
 )
 from agent.services.repository_registry import get_repository_registry
-from agent.services.task_artifact_completion_gate_service import get_task_artifact_completion_gate_service
-from agent.services.worker_output_collector_service import get_worker_output_collector_service
+from agent.services.task_artifact_completion_gate_service import (
+    get_task_artifact_completion_gate_service,
+)
+from agent.services.vector_task_admin_guard_service import (
+    generic_vector_mutation_error,
+)
+from agent.services.worker_output_collector_service import (
+    get_worker_output_collector_service,
+)
 
 log = logging.getLogger(__name__)
 
@@ -96,6 +102,9 @@ class ArtifactReconciliationService:
             raise ValueError("reason is required for artifact reconciliation")
         task = get_repository_registry().task_repo.get_by_id(task_id)
         if task is not None:
+            vector_error = generic_vector_mutation_error(task)
+            if vector_error is not None:
+                raise PermissionError(vector_error["error"])
             ensure_external_recovery_mutation_allowed(
                 task,
                 action="artifact_reconciliation",

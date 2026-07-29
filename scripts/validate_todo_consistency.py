@@ -157,7 +157,9 @@ def validate_todo_payload(todo_payload: dict[str, Any]) -> list[str]:
         )
 
     done_count = status_counts.get("done", 0)
-    expected_progress = round((done_count / len(tasks)) * 100, 2) if tasks else 0.0
+    # Keep this legacy validator aligned with the canonical planning summary
+    # engine, which renders count-based percentages to one decimal place.
+    expected_progress = round((done_count / len(tasks)) * 100, 1) if tasks else 0.0
     actual_progress = float(summary.get("progress_percent_done", 0.0))
     if not math.isclose(actual_progress, expected_progress, rel_tol=0.0, abs_tol=0.01):
         problems.append(f"progress_percent_done: expected={expected_progress!r} actual={actual_progress!r}")

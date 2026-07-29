@@ -14,15 +14,15 @@ from agent.services.human_approval_service import (  # noqa: E402
     DECISION_DEFERRED,
     DECISION_PENDING,
     DECISION_REJECTED,
-    HumanApprovalError,
     OPERATOR_DECISIONS,
+    HumanApprovalError,
+    HumanApprovalForbidden,
     apply_human_decision,
     build_pending_approval_record,
     current_decision,
     is_pending_approval,
     submit_human_decision_via_repo,
 )
-
 
 # ---------------------------------------------------------------------------
 # build_pending_approval_record
@@ -214,6 +214,46 @@ class TestSubmitViaRepo:
                 operator="alice", outcome="bogus"
             )
         assert called["n"] == 0
+
+    def test_reserved_vector_gate_is_never_mutated(
+        self,
+        monkeypatch,
+    ):
+        from types import SimpleNamespace
+
+        from agent.repository import task_repo
+
+        task = SimpleNamespace(
+            id="vector-gate",
+            goal_id="g",
+            task_kind="vector_index_operation",
+            history=[],
+            worker_execution_context={},
+        )
+        saves = []
+        monkeypatch.setattr(
+            task_repo,
+            "get_by_id",
+            lambda _task_id: task,
+        )
+        monkeypatch.setattr(
+            task_repo,
+            "save",
+            lambda value: saves.append(value),
+        )
+
+        with pytest.raises(
+            HumanApprovalForbidden,
+            match="vector_index_reserved_task_ingress_forbidden",
+        ):
+            submit_human_decision_via_repo(
+                goal_id="g",
+                gate_task_id=task.id,
+                operator="alice",
+                outcome=DECISION_APPROVED,
+            )
+
+        assert saves == []
 
 
 # ---------------------------------------------------------------------------

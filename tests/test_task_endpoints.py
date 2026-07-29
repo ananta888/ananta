@@ -905,6 +905,172 @@ def test_task_execute_forwarding_failure_uses_retryable_domain_error(client, app
     assert res.json["data"]["details"]["worker_url"] == "http://worker-z:5001"
 
 
+def test_vector_task_kind_cannot_be_overridden_into_generic_execution(
+    client,
+    app,
+    admin_auth_header,
+    monkeypatch,
+):
+    from agent.config import settings
+
+    task_id = "vector-index-" + "d" * 32
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status(
+            task_id,
+            "proposing",
+            task_kind="vector_index_operation",
+            description="reserved vector mutation",
+            worker_execution_context={
+                "vector_index_task": {
+                    "schema": "ananta.vector_index_task.v1",
+                }
+            },
+        )
+    monkeypatch.setattr(settings, "role", "worker")
+    shell_calls: list[object] = []
+    monkeypatch.setattr(
+        "agent.shell.PersistentShell.execute",
+        lambda *_args, **_kwargs: shell_calls.append(True),
+    )
+
+    response = client.post(
+        f"/tasks/{task_id}/step/execute",
+        json={
+            "task_kind": "coding",
+            "command": "echo bypass",
+            "tool_calls": [
+                {
+                    "name": "shell_execute",
+                    "arguments": {"command": "echo bypass"},
+                }
+            ],
+        },
+        headers=admin_auth_header,
+    )
+
+    assert response.status_code >= 400
+    assert "vector_index_task_kind_override_forbidden" in str(
+        response.get_json()
+    )
+    assert shell_calls == []
+
+
+@pytest.mark.parametrize(
+    ("task_kind", "worker_execution_context"),
+    [
+        ("vector_index_operation", {}),
+        (
+            "coding",
+            {
+                "vector_index_task": {
+                    "schema": "ananta.vector_index_task.v1",
+                }
+            },
+        ),
+    ],
+)
+def test_partial_vector_domain_marker_cannot_reach_generic_execution(
+    client,
+    app,
+    admin_auth_header,
+    monkeypatch,
+    task_kind,
+    worker_execution_context,
+):
+    from agent.config import settings
+
+    task_id = "vector-domain-mismatch-" + task_kind
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status(
+            task_id,
+            "proposing",
+            task_kind=task_kind,
+            description="reserved vector mutation",
+            worker_execution_context=worker_execution_context,
+        )
+    monkeypatch.setattr(settings, "role", "worker")
+    shell_calls: list[object] = []
+    monkeypatch.setattr(
+        "agent.shell.PersistentShell.execute",
+        lambda *_args, **_kwargs: shell_calls.append(True),
+    )
+
+    response = client.post(
+        f"/tasks/{task_id}/step/execute",
+        json={"command": "echo bypass"},
+        headers=admin_auth_header,
+    )
+
+    assert response.status_code == 409
+    assert (
+        response.get_json()["data"]["reason_code"]
+        == "vector_index_task_domain_binding_invalid"
+    )
+    assert shell_calls == []
+
+
+@pytest.mark.parametrize(
+    ("phase", "request_body"),
+    [
+        ("propose", {"prompt": "attempt generic proposal"}),
+        ("execute", {"command": "echo bypass"}),
+    ],
+)
+def test_authoritative_vector_task_without_handler_fails_closed(
+    client,
+    app,
+    admin_auth_header,
+    monkeypatch,
+    phase,
+    request_body,
+):
+    from agent.config import settings
+
+    task_id = f"vector-handler-missing-{phase}"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status(
+            task_id,
+            "proposing",
+            task_kind="vector_index_operation",
+            description="reserved vector mutation",
+            worker_execution_context={
+                "vector_index_task": {
+                    "schema": "ananta.vector_index_task.v1",
+                }
+            },
+        )
+    monkeypatch.setattr(settings, "role", "worker")
+    monkeypatch.setattr(
+        "agent.services._task_scoped_adapters.get_task_handler_registry",
+        lambda: types.SimpleNamespace(resolve=lambda _kind: None),
+    )
+    shell_calls: list[object] = []
+    monkeypatch.setattr(
+        "agent.shell.PersistentShell.execute",
+        lambda *_args, **_kwargs: shell_calls.append(True),
+    )
+
+    response = client.post(
+        f"/tasks/{task_id}/step/{phase}",
+        json=request_body,
+        headers=admin_auth_header,
+    )
+
+    assert response.status_code == 503
+    assert (
+        response.get_json()["data"]["reason_code"]
+        == "vector_index_worker_handler_unavailable"
+    )
+    assert response.get_json()["data"]["phase"] == phase
+    assert shell_calls == []
+
+
 def test_task_execute_retries_retryable_exit_codes_and_reports_failure_type(client, app, admin_auth_header):
     tid = "T-EXEC-RETRY"
     with app.app_context():

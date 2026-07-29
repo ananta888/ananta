@@ -11,8 +11,12 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from worker.retrieval.embedding_provider import EmbeddingProvider
-from worker.retrieval.json_vector_store import JsonVectorStore
-from worker.retrieval.vector_store_config import QdrantVectorStoreConfig
+from worker.retrieval.vector_store_config import (
+    AvailabilityPolicy,
+    JsonVectorStoreConfig,
+    QdrantVectorStoreConfig,
+    VectorStoreConfig,
+)
 from worker.retrieval.vector_store_contract import (
     CompatibilitySpec,
     IndexWriteResult,
@@ -23,7 +27,6 @@ from worker.retrieval.vector_store_contract import (
     VectorStore,
     VectorStoreFilters,
 )
-
 
 WIKI_VECTOR_PAYLOAD_SCHEMA = "ananta.wiki_vector_payload.v1"
 WIKI_VECTOR_DOMAIN = "wiki"
@@ -53,10 +56,23 @@ class WikiVectorStoreConfig:
     workspace_id: str = "wiki-local"
     source_id: str = "wiki"
     profile_name: str = "default"
+    retrieval_cache_state: str = ""
+    manifest_hash: str = ""
     qdrant: QdrantVectorStoreConfig | None = None
+    availability: AvailabilityPolicy = field(
+        default_factory=AvailabilityPolicy
+    )
+    json: JsonVectorStoreConfig = field(
+        default_factory=lambda: JsonVectorStoreConfig(
+            index_path=Path(".rag/wiki/vector_index.json")
+        )
+    )
+    expected_compatibility: CompatibilitySpec | None = None
 
     def __post_init__(self) -> None:
         provider = str(self.provider or "").strip().lower()
+        if type(self.qdrant_enabled) is not bool:
+            raise ValueError("wiki_qdrant_enabled_invalid")
         if provider not in {"json", "qdrant"}:
             raise ValueError("wiki_vector_provider_invalid")
         if provider == "qdrant" and not self.qdrant_enabled:
@@ -78,11 +94,52 @@ class WikiVectorStoreConfig:
                 raise ValueError("wiki_qdrant_collection_prefix_must_be_separate")
             if self.qdrant.collection_prefix != self.collection_prefix:
                 raise ValueError("wiki_qdrant_collection_prefix_mismatch")
+        if not isinstance(self.availability, AvailabilityPolicy):
+            raise ValueError("wiki_vector_availability_policy_invalid")
+        if not isinstance(self.json, JsonVectorStoreConfig):
+            raise ValueError("wiki_vector_json_config_invalid")
+        if (
+            self.expected_compatibility is not None
+            and not isinstance(
+                self.expected_compatibility,
+                CompatibilitySpec,
+            )
+        ):
+            raise ValueError("wiki_vector_compatibility_invalid")
         object.__setattr__(self, "provider", provider)
+        object.__setattr__(
+            self,
+            "retrieval_cache_state",
+            str(self.retrieval_cache_state or "").strip(),
+        )
+        object.__setattr__(
+            self,
+            "manifest_hash",
+            str(self.manifest_hash or "").strip(),
+        )
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any] | None) -> "WikiVectorStoreConfig":
         payload = dict(value or {})
+        allowed_fields = {
+            "provider",
+            "qdrant_enabled",
+            "collection_prefix",
+            "workspace_id",
+            "source_id",
+            "profile_name",
+            "retrieval_cache_state",
+            "manifest_hash",
+            "expected_compatibility",
+            "qdrant",
+            "availability",
+            "json",
+        }
+        unknown_fields = sorted(set(payload) - allowed_fields)
+        if unknown_fields:
+            raise ValueError(
+                f"wiki_vector_config_fields_unknown:{','.join(unknown_fields)}"
+            )
         qdrant_payload = payload.get("qdrant")
         qdrant = (
             qdrant_payload
@@ -93,9 +150,46 @@ class WikiVectorStoreConfig:
                 else None
             )
         )
+        compatibility_payload = payload.get(
+            "expected_compatibility"
+        )
+        expected_compatibility = (
+            compatibility_payload
+            if isinstance(
+                compatibility_payload,
+                CompatibilitySpec,
+            )
+            else (
+                CompatibilitySpec(**dict(compatibility_payload))
+                if isinstance(compatibility_payload, Mapping)
+                else None
+            )
+        )
+        availability_payload = payload.get("availability")
+        availability = (
+            availability_payload
+            if isinstance(availability_payload, AvailabilityPolicy)
+            else VectorStoreConfig.from_mapping(
+                {
+                    "provider": "json",
+                    "availability": dict(availability_payload or {}),
+                }
+            ).availability
+        )
+        json_payload = payload.get("json")
+        json_config = (
+            json_payload
+            if isinstance(json_payload, JsonVectorStoreConfig)
+            else JsonVectorStoreConfig(
+                index_path=Path(
+                    dict(json_payload or {}).get("index_path")
+                    or ".rag/wiki/vector_index.json"
+                )
+            )
+        )
         return cls(
             provider=str(payload.get("provider") or "json"),
-            qdrant_enabled=bool(payload.get("qdrant_enabled", False)),
+            qdrant_enabled=payload.get("qdrant_enabled", False),
             collection_prefix=str(
                 payload.get("collection_prefix")
                 or (qdrant.collection_prefix if qdrant else "ananta-wiki")
@@ -103,7 +197,12 @@ class WikiVectorStoreConfig:
             workspace_id=str(payload.get("workspace_id") or "wiki-local"),
             source_id=str(payload.get("source_id") or "wiki"),
             profile_name=str(payload.get("profile_name") or "default"),
+            retrieval_cache_state=str(payload.get("retrieval_cache_state") or ""),
+            manifest_hash=str(payload.get("manifest_hash") or ""),
+            expected_compatibility=expected_compatibility,
             qdrant=qdrant,
+            availability=availability,
+            json=json_config,
         )
 
     def vector_scope(self) -> VectorScope:
@@ -253,6 +352,16 @@ class WikiVectorBackend(Protocol):
     def close(self) -> None: ...
 
 
+class WikiVectorStoreFactory(Protocol):
+    def create(
+        self,
+        config: VectorStoreConfig,
+        *,
+        secret_resolver: Any = None,
+        observer: Any = None,
+    ) -> VectorStore: ...
+
+
 class WikiPreparedVectorBackend:
     """Wiki-specific embedding/payload adapter over a shared VectorStore."""
 
@@ -260,6 +369,7 @@ class WikiPreparedVectorBackend:
         self._store = store
         self._config = config
         self._scope = config.vector_scope()
+        self._last_compatibility: CompatibilitySpec | None = None
 
     def rebuild(
         self,
@@ -274,6 +384,7 @@ class WikiPreparedVectorBackend:
             retrieval_cache_state,
             manifest_hash,
         )
+        self._last_compatibility = compatibility
         return self._store.rebuild(points, compatibility=compatibility)
 
     def refresh(
@@ -289,6 +400,7 @@ class WikiPreparedVectorBackend:
             retrieval_cache_state,
             manifest_hash,
         )
+        self._last_compatibility = compatibility
         return self._store.refresh(points, compatibility=compatibility)
 
     def search(
@@ -300,6 +412,7 @@ class WikiPreparedVectorBackend:
         vectors = embedding_provider.embed_texts([str(query or "")])
         if len(vectors) != 1:
             raise ValueError("wiki_embedding_response_size_mismatch")
+        compatibility = self._search_compatibility(embedding_provider)
         return self._store.search_by_vector(
             VectorSearchQuery(
                 query_vector=tuple(float(item) for item in vectors[0]),
@@ -309,6 +422,7 @@ class WikiPreparedVectorBackend:
                     source_scope=WIKI_VECTOR_DOMAIN,
                     profile_name=self._config.profile_name,
                 ),
+                compatibility=compatibility,
             )
         )
 
@@ -344,7 +458,23 @@ class WikiPreparedVectorBackend:
         )
         if any(len(point.vector) != dimensions for point in points):
             raise ValueError("wiki_embedding_dimensions_mismatch")
-        return points, CompatibilitySpec(
+        return points, self._compatibility(
+            embedding_provider,
+            retrieval_cache_state=retrieval_cache_state,
+            manifest_hash=manifest_hash,
+        )
+
+    @staticmethod
+    def _compatibility(
+        embedding_provider: EmbeddingProvider,
+        *,
+        retrieval_cache_state: str,
+        manifest_hash: str,
+    ) -> CompatibilitySpec:
+        dimensions = int(getattr(embedding_provider, "dimensions", 0) or 0)
+        if dimensions <= 0:
+            raise ValueError("wiki_embedding_dimensions_invalid")
+        return CompatibilitySpec(
             dimensions=dimensions,
             distance="cosine",
             provider=str(getattr(embedding_provider, "provider_id", "unknown")),
@@ -356,6 +486,68 @@ class WikiPreparedVectorBackend:
             ).hexdigest()[:24],
             schema_version=WIKI_VECTOR_PAYLOAD_SCHEMA,
             manifest_hash=str(manifest_hash or ""),
+        )
+
+    def _search_compatibility(
+        self,
+        embedding_provider: EmbeddingProvider,
+    ) -> CompatibilitySpec:
+        expected = self._config.expected_compatibility
+        if expected is not None:
+            current_dimensions = int(
+                getattr(embedding_provider, "dimensions", 0) or 0
+            )
+            current_provider = str(
+                getattr(embedding_provider, "provider_id", "unknown")
+            )
+            current_model = str(
+                getattr(
+                    embedding_provider,
+                    "model_version",
+                    "unknown",
+                )
+            )
+            if expected.dimensions != current_dimensions:
+                raise ValueError("dimensions_mismatch")
+            if expected.provider != current_provider:
+                raise ValueError("provider_changed")
+            if expected.model != current_model:
+                raise ValueError("model_changed")
+            if expected.profile != WIKI_EMBEDDING_PROFILE:
+                raise ValueError("profile_changed")
+            if expected.schema_version != WIKI_VECTOR_PAYLOAD_SCHEMA:
+                raise ValueError("migration_required")
+            return expected
+        configured = bool(
+            self._config.retrieval_cache_state and self._config.manifest_hash
+        )
+        if configured:
+            return self._compatibility(
+                embedding_provider,
+                retrieval_cache_state=self._config.retrieval_cache_state,
+                manifest_hash=self._config.manifest_hash,
+            )
+        current_dimensions = int(
+            getattr(embedding_provider, "dimensions", 0) or 0
+        )
+        current_provider = str(
+            getattr(embedding_provider, "provider_id", "unknown")
+        )
+        current_model = str(
+            getattr(embedding_provider, "model_version", "unknown")
+        )
+        known = self._last_compatibility
+        if (
+            known is not None
+            and known.dimensions == current_dimensions
+            and known.provider == current_provider
+            and known.model == current_model
+        ):
+            return known
+        return self._compatibility(
+            embedding_provider,
+            retrieval_cache_state=self._config.retrieval_cache_state,
+            manifest_hash=self._config.manifest_hash,
         )
 
 
@@ -370,8 +562,16 @@ class WikiVectorStore:
         config: WikiVectorStoreConfig | None = None,
         secret_resolver: Any = None,
         observer: Any = None,
+        store_factory: WikiVectorStoreFactory | None = None,
     ) -> None:
         self.config = config or WikiVectorStoreConfig()
+        if store_factory is None:
+            from worker.retrieval.vector_store_factory import (
+                VectorStoreFactory,
+            )
+
+            store_factory = VectorStoreFactory()
+        self._store_factory = store_factory
         if backend is None:
             backend = WikiPreparedVectorBackend(
                 self._build_store(
@@ -461,13 +661,26 @@ class WikiVectorStore:
         if self.config.provider == "json":
             if index_path is None:
                 raise ValueError("wiki_vector_index_path_required")
-            return JsonVectorStore(index_path=Path(index_path))
+            json_config = JsonVectorStoreConfig(
+                index_path=Path(index_path)
+            )
+        else:
+            json_config = (
+                JsonVectorStoreConfig(index_path=Path(index_path))
+                if index_path is not None
+                else self.config.json
+            )
         if self.config.qdrant is None:
-            raise ValueError("wiki_qdrant_config_required")
-        from worker.retrieval.qdrant_vector_store import QdrantVectorStore
-
-        return QdrantVectorStore.from_config(
-            self.config.qdrant,
+            if self.config.provider == "qdrant":
+                raise ValueError("wiki_qdrant_config_required")
+        common = VectorStoreConfig(
+            provider=self.config.provider,
+            availability=self.config.availability,
+            json=json_config,
+            qdrant=self.config.qdrant,
+        )
+        return self._store_factory.create(
+            common,
             secret_resolver=secret_resolver,
             observer=observer,
         )
@@ -483,4 +696,5 @@ __all__ = [
     "WikiVectorPayloadAdapter",
     "WikiVectorStore",
     "WikiVectorStoreConfig",
+    "WikiVectorStoreFactory",
 ]

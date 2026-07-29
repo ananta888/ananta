@@ -91,19 +91,53 @@ def normalize_allowed_origins(values: Sequence[str]) -> tuple[str, ...]:
     return tuple(sorted(normalized))
 
 
+def normalize_trusted_private_origins(
+    values: Sequence[str],
+    *,
+    allowed_origins: Sequence[str],
+) -> tuple[str, ...]:
+    """Normalize explicit internal origins without inferring network trust."""
+
+    normalized_allowed = frozenset(normalize_allowed_origins(allowed_origins))
+    normalized = tuple(
+        sorted({normalize_endpoint(value).origin for value in values})
+    )
+    if not set(normalized).issubset(normalized_allowed):
+        raise VectorStoreEndpointPolicyError(
+            "vector_store_trusted_private_origin_not_allowlisted"
+        )
+    return normalized
+
+
 def validate_endpoint_access(
     value: str,
     *,
     transport: str,
     allowed_origins: Sequence[str],
     external_calls_allowed: bool,
+    trusted_private_origins: Sequence[str] = (),
 ) -> NormalizedEndpoint:
     endpoint = normalize_endpoint(value, transport=transport)
     normalized_allowed = normalize_allowed_origins(allowed_origins)
+    normalized_trusted = normalize_trusted_private_origins(
+        trusted_private_origins,
+        allowed_origins=normalized_allowed,
+    )
     if endpoint.origin not in normalized_allowed:
         raise VectorStoreEndpointPolicyError("vector_store_endpoint_not_allowlisted")
-    if not endpoint.local and not bool(external_calls_allowed):
+    if (
+        not endpoint.local
+        and endpoint.origin not in normalized_trusted
+        and not bool(external_calls_allowed)
+    ):
         raise VectorStoreEndpointPolicyError("vector_store_external_calls_not_allowed")
+    if not endpoint.local and not endpoint.secure:
+        reason = (
+            "vector_store_remote_rest_tls_required"
+            if transport == "rest"
+            else "vector_store_remote_grpc_tls_required"
+        )
+        raise VectorStoreEndpointPolicyError(reason)
     return endpoint
 
 
@@ -126,19 +160,19 @@ class SecretReference:
             if parsed.path or not _ENV_NAME.fullmatch(name):
                 raise VectorStoreEndpointPolicyError("invalid_vector_store_env_secret_ref")
             return cls(scheme="env", locator=name)
-        if parsed.scheme == "file":
+        if parsed.scheme == "secretfile":
             if parsed.netloc not in {"", "localhost"}:
                 raise VectorStoreEndpointPolicyError("invalid_vector_store_file_secret_ref")
             path = Path(unquote(parsed.path))
             if not path.is_absolute():
                 raise VectorStoreEndpointPolicyError("vector_store_secret_path_must_be_absolute")
-            return cls(scheme="file", locator=str(path))
+            return cls(scheme="secretfile", locator=str(path))
         raise VectorStoreEndpointPolicyError("unsupported_vector_store_secret_ref")
 
     def as_uri(self) -> str:
         if self.scheme == "env":
             return f"env://{self.locator}"
-        return f"file://{self.locator}"
+        return f"secretfile://{self.locator}"
 
 
 @runtime_checkable
@@ -154,21 +188,29 @@ class EnvFileSecretResolver:
         *,
         environ: Mapping[str, str] | None = None,
         allowed_file_roots: Sequence[str | Path] = (Path("/run/secrets"),),
+        allowed_env_names: Sequence[str] = ("ANANTA_QDRANT_API_KEY",),
         maximum_bytes: int = 16 * 1024,
     ) -> None:
         self._environ = environ if environ is not None else os.environ
         self._allowed_roots = tuple(Path(root).resolve(strict=False) for root in allowed_file_roots)
+        self._allowed_env_names = frozenset(str(name).strip() for name in allowed_env_names)
         self._maximum_bytes = max(1, int(maximum_bytes))
         if not self._allowed_roots:
             raise ValueError("vector_store_secret_roots_required")
+        if not self._allowed_env_names or any(
+            not _ENV_NAME.fullmatch(name) for name in self._allowed_env_names
+        ):
+            raise ValueError("vector_store_secret_env_names_required")
 
     def resolve(self, reference: SecretReference) -> str:
         if reference.scheme == "env":
+            if reference.locator not in self._allowed_env_names:
+                raise VectorStoreSecretError("vector_store_secret_env_not_allowed")
             value = str(self._environ.get(reference.locator) or "").strip()
             if not value:
                 raise VectorStoreSecretError("vector_store_secret_not_found")
             return value
-        if reference.scheme != "file":
+        if reference.scheme != "secretfile":
             raise VectorStoreSecretError("unsupported_vector_store_secret_ref")
         source = Path(reference.locator)
         if source.is_symlink():
@@ -213,6 +255,7 @@ __all__ = [
     "VectorStoreSecretError",
     "normalize_allowed_origins",
     "normalize_endpoint",
+    "normalize_trusted_private_origins",
     "redact_sensitive_text",
     "validate_endpoint_access",
 ]

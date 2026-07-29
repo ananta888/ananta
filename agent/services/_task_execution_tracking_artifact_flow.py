@@ -5,6 +5,9 @@ from urllib.parse import urlparse
 from flask import current_app
 
 from agent.services.repository_registry import get_repository_registry
+from agent.services.task_context_bundle_access_service import (
+    get_task_context_bundle_access_service,
+)
 
 
 def _display_agent_name(*, url: str | None, agent_name: str | None = None) -> str | None:
@@ -218,6 +221,7 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
 
     worker_groups: dict[str, dict] = {}
     assignment_groups: dict[str, dict] = {}
+    bundle_access = get_task_context_bundle_access_service()
 
     for task in sorted_tasks:
         task_id = str(task.get("id") or "").strip()
@@ -229,14 +233,19 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
         payload["counts"]["memory_entries"] += len(task_memory_entries)
 
         task_bundle_id = str(task.get("context_bundle_id") or "").strip() or None
-        task_bundle = repos.context_bundle_repo.get_by_id(task_bundle_id) if task_bundle_id else None
+        task_bundle = bundle_access.resolve_task_reference_or_none(task=task)
         sent_artifact_ids = _extract_artifact_ids_from_chunks((task_bundle.chunks if task_bundle else None) or [])
         assignment_summary = _resolve_assignment_summary(task=task, repos=repos)
 
         flow_jobs: list[dict] = []
         aggregate_returned_artifact_ids: set[str] = set()
         for job in worker_jobs:
-            bundle = repos.context_bundle_repo.get_by_id(job.context_bundle_id) if getattr(job, "context_bundle_id", None) else None
+            bundle = bundle_access.resolve_task_reference_or_none(
+                task={
+                    "id": task_id,
+                    "context_bundle_id": getattr(job, "context_bundle_id", None),
+                },
+            )
             job_sent_artifact_ids = _extract_artifact_ids_from_chunks((bundle.chunks if bundle else None) or [])
             for artifact_id in job_sent_artifact_ids:
                 sent_artifact_ids.append(artifact_id)

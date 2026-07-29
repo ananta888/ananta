@@ -1,22 +1,20 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
+import pytest
+
+from tests.qdrant_test_support import FakeQdrantClient
 from worker.retrieval.qdrant_collection_manager import QdrantCollectionManager
-from worker.retrieval.qdrant_collection_schema import manifest_client_point
 from worker.retrieval.vector_store_contract import CompatibilitySpec, VectorScope
 
 
-class _ManifestClient:
-    def __init__(self, manifest: object) -> None:
-        self._manifest = manifest
-
-    def retrieve(self, collection_name: str, point_ids: object) -> tuple[object, ...]:
-        del collection_name, point_ids
-        return (self._manifest,)
+def _scope(workspace: str = "workspace") -> VectorScope:
+    return VectorScope(workspace, "repository", "runtime-profile")
 
 
-def test_query_compatibility_reuses_non_queryable_manifest_fields() -> None:
-    scope = VectorScope("workspace", "repository", "runtime-profile")
-    stored = CompatibilitySpec(
+def _compatibility() -> CompatibilitySpec:
+    return CompatibilitySpec(
         dimensions=3,
         distance="cosine",
         provider="embedding-provider",
@@ -27,37 +25,99 @@ def test_query_compatibility_reuses_non_queryable_manifest_fields() -> None:
         schema_version="stored-schema.v1",
         manifest_hash="manifest",
     )
-    collection = "ananta-codecompass-version"
-    manager = QdrantCollectionManager(
-        _ManifestClient(
-            manifest_client_point(
-                collection,
-                scope,
-                stored,
-                created_at_epoch=1.0,
-            )
-        )
-    )
 
-    compatible = manager.query_compatibility(
+
+def _manager() -> tuple[FakeQdrantClient, QdrantCollectionManager, str]:
+    client = FakeQdrantClient()
+    manager = QdrantCollectionManager(client)
+    collection = manager.create_versioned(
+        _scope(),
+        _compatibility(),
+        index_version="one",
+    )
+    return client, manager, collection
+
+
+def test_query_compatibility_requires_an_independent_complete_expected_state() -> None:
+    _, manager, collection = _manager()
+
+    missing = manager.query_compatibility(
         collection,
-        scope=scope,
+        scope=_scope(),
         dimensions=3,
         distance="cosine",
     )
-    dimensions_mismatch = manager.query_compatibility(
+    incomplete = manager.query_compatibility(
         collection,
-        scope=scope,
-        dimensions=4,
+        scope=_scope(),
+        expected=CompatibilitySpec(dimensions=3),
+        dimensions=3,
+        distance="cosine",
+    )
+
+    assert missing.reason == "vector_store_compatibility_required"
+    assert incomplete.reason == "vector_store_compatibility_required"
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "reason"),
+    [
+        ("dimensions", 4, "dimensions_mismatch"),
+        ("distance", "dot", "distance_mismatch"),
+        ("provider", "other-provider", "provider_changed"),
+        ("model", "other-model", "model_changed"),
+        ("profile", "other-profile", "profile_changed"),
+        ("encoding", "int8", "encoding_changed"),
+        ("config_hash", "other-config", "config_changed"),
+        ("schema_version", "stored-schema.v2", "migration_required"),
+        ("manifest_hash", "other-manifest", "manifest_changed"),
+    ],
+)
+def test_query_compatibility_compares_every_expected_field(
+    field: str,
+    value: object,
+    reason: str,
+) -> None:
+    _, manager, collection = _manager()
+
+    report = manager.query_compatibility(
+        collection,
+        scope=_scope(),
+        expected=replace(_compatibility(), **{field: value}),
+        dimensions=4 if field == "dimensions" else 3,
+        distance="dot" if field == "distance" else "cosine",
+    )
+
+    assert report.compatible is False
+    assert report.reason == reason
+
+
+def test_query_compatibility_checks_scope_and_physical_collection_shape() -> None:
+    client, manager, collection = _manager()
+
+    compatible = manager.query_compatibility(
+        collection,
+        scope=_scope(),
+        expected=_compatibility(),
+        dimensions=3,
         distance="cosine",
     )
     scope_mismatch = manager.query_compatibility(
         collection,
-        scope=VectorScope("other", "repository", "runtime-profile"),
+        scope=_scope("other"),
+        expected=_compatibility(),
+        dimensions=3,
+        distance="cosine",
+    )
+    client.collections[collection]["dimensions"] = 4
+    physical_mismatch = manager.query_compatibility(
+        collection,
+        scope=_scope(),
+        expected=_compatibility(),
         dimensions=3,
         distance="cosine",
     )
 
     assert compatible.compatible is True
-    assert dimensions_mismatch.reason == "dimensions_mismatch"
     assert scope_mismatch.reason == "vector_scope_conflict"
+    assert physical_mismatch.reason == "dimensions_mismatch"

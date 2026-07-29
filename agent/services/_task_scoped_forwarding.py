@@ -26,6 +26,15 @@ from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.errors import WorkerForwardingError
 from agent.config import settings
 from agent.llm_integration import normalize_llm_call_profile_entry
+from agent.services._vector_index_result_forwarding import (
+    accept_bound_forwarded_vector_index_result,
+    accept_forwarded_vector_index_result,
+    is_authoritative_vector_index_task,
+    vector_index_result_candidate,
+)
+from agent.services._vector_index_result_forwarding import (
+    persist_forwarded_execution_status as _persist_forwarded_execution_status,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.task_runtime_service import update_local_task_status
@@ -184,6 +193,28 @@ def forward_task_request_if_remote(
             return None
     except Exception:
         pass
+    payload = dict(payload)
+    is_vector_index_task = is_authoritative_vector_index_task(
+        task
+    )
+    if is_vector_index_task:
+        dispatch_phase = (
+            "propose"
+            if endpoint.rstrip("/").endswith("/step/propose")
+            else "execute"
+        )
+        from agent.services.vector_index_task_service import (
+            get_vector_index_task_service,
+        )
+
+        payload["vector_index_dispatch"] = (
+            get_vector_index_task_service().issue_dispatch_attempt(
+                job_id=tid,
+                worker_audience=str(worker_url),
+                phase=dispatch_phase,
+                actor="hub-worker-forwarder",
+            )
+        )
     assigned_token = task.get("assigned_agent_token")
     resolved_token = assigned_token
     dispatch_lease_token = str(
@@ -254,11 +285,13 @@ def forward_task_request_if_remote(
             response is None
             and resolved_token
             and not recovery_fenced
+            and not is_vector_index_task
         ):
             response = forwarder(worker_url, endpoint, payload, token=None)
         if (
             resolved_token
             and not recovery_fenced
+            and not is_vector_index_task
             and isinstance(response, dict)
             and str(response.get("status") or "").strip().lower() == "error"
             and (
@@ -274,6 +307,7 @@ def forward_task_request_if_remote(
             and str(response.get("status") or "").strip().lower() == "error"
             and int(response.get("http_status") or 0) == 404
             and not recovery_fenced
+            and not is_vector_index_task
         ):
             _fallback_policy = {}
             try:
@@ -341,6 +375,7 @@ def forward_task_request_if_remote(
         if (
             assigned_token
             and not recovery_fenced
+            and not is_vector_index_task
             and ("401" in err_lc or "unauthorized" in err_lc)
         ):
             try:
@@ -562,6 +597,17 @@ def persist_forwarded_execution(
     request_data,
     last_proposal: dict | None = None,
 ) -> None:
+    if accept_bound_forwarded_vector_index_result(
+        job_id=tid,
+        response=response,
+        task=task,
+        load_task=get_repository_registry().task_repo.get_by_id,
+        classify_task=is_authoritative_vector_index_task,
+        extract_result=vector_index_result_candidate,
+        accept_result=accept_forwarded_vector_index_result,
+    ):
+        return
+    vector_index_result = None
     if "status" not in response:
         return
     from agent.services.recovery_task_mutation_policy import (
@@ -696,32 +742,6 @@ def persist_forwarded_execution(
             .materialize_worker_result(job_id=tid, result=candidate, task=task)
         )
         verification_status["knowledge_index_job_result"] = normalized_result
-    if str(response.get("schema") or "") == "ananta.vector_index_task_result.v1":
-        result_fields = {
-            "schema",
-            "job_id",
-            "idempotency_key",
-            "operation",
-            "status",
-            "reason_code",
-            "diagnostics",
-            "result",
-            "error",
-        }
-        framework_fields = {"handler_contract"}
-        unknown_fields = set(response) - result_fields - framework_fields
-        if unknown_fields:
-            raise ValueError("vector_index_result_forwarding_fields_unknown")
-        candidate = {field: response.get(field) for field in result_fields}
-        from agent.services.vector_index_task_service import (
-            get_vector_index_task_service,
-        )
-
-        normalized_result = get_vector_index_task_service().validate_worker_result(
-            job_id=tid,
-            result=candidate,
-        )
-        verification_status["vector_index_task_result"] = normalized_result
     if str(response.get("schema") or "") == "ananta.mail_task_result.v1":
         result_fields = {
             "schema",
@@ -809,37 +829,16 @@ def persist_forwarded_execution(
     }
     if isinstance(last_proposal, dict):
         update_values["last_proposal"] = dict(last_proposal)
-    if recovery_child:
-        current_status = str(
-            getattr(authoritative_recovery_task, "status", "") or ""
-        ).strip().lower()
-        if current_status in {
-            "completed",
-            "failed",
-            "cancelled",
-            "verification_failed",
-            "skipped",
-            "aborted",
-            "timeout",
-            "archived",
-        }:
-            raise RuntimeError(
-                "recovery_result_terminal_before_commit"
-            )
-        # Persist output/evidence while the Task remains non-terminal.  The
-        # result guard publishes the final status together with lease
-        # acceptance after Hub verification succeeds.
-        update_local_task_status(
-            tid,
-            current_status or "in_progress",
-            **update_values,
-        )
-    else:
-        update_local_task_status(
-            tid,
-            response["status"],
-            **update_values,
-        )
+    _persist_forwarded_execution_status(
+        job_id=tid,
+        response=response,
+        status_values=update_values,
+        recovery_child=recovery_child,
+        authoritative_recovery_task=authoritative_recovery_task,
+        vector_index_result=vector_index_result,
+        accept_vector_result=accept_forwarded_vector_index_result,
+        update_task_status=update_local_task_status,
+    )
     if unsloth_completion_outbox_task_id is not None:
         from agent.services.unsloth_completion_outbox_service import (
             get_unsloth_completion_outbox_reconciler,

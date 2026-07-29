@@ -1,8 +1,6 @@
-from typing import Any
-
 from flask import g, request
 
-from agent.auth import check_auth
+from agent.auth import check_auth, check_strict_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.models import GoalPlanNodePatchRequest
@@ -15,6 +13,13 @@ from agent.routes.tasks.goals_helpers import (
     _maybe_recover_stalled_planning_goal,
     _repos,
     _services,
+)
+from agent.routes.tasks.vector_admin_boundary import (
+    request_vector_authorization,
+    vector_permission_error,
+)
+from agent.services.vector_task_admin_guard_service import (
+    get_vector_task_admin_guard_service,
 )
 from agent.utils import validate_request
 
@@ -34,7 +39,13 @@ def list_goal_modes():
 @goals_bp.route("/goals", methods=["GET"])
 @check_auth
 def list_goals():
-    return api_response(data=[_goal_service().serialize_goal(goal) for goal in _repos().goal_repo.get_all() if _can_access_goal(goal)])
+    return api_response(
+        data=[
+            _goal_service().serialize_goal(goal)
+            for goal in _repos().goal_repo.get_all()
+            if _can_access_goal(goal)
+        ]
+    )
 
 
 @goals_bp.route("/goals/<goal_id>", methods=["GET"])
@@ -68,7 +79,13 @@ def get_goal_effective_config(goal_id: str):
         data={
             "goal_id": str(getattr(goal, "id", "") or ""),
             "config_snapshot": snapshot,
-            "provenance": dict(execution_preferences.get("config_snapshot_provenance") or snapshot.get("provenance") or {}),
+            "provenance": dict(
+                execution_preferences.get(
+                    "config_snapshot_provenance"
+                )
+                or snapshot.get("provenance")
+                or {}
+            ),
             "config_checksum": str(execution_preferences.get("config_snapshot_checksum") or "").strip() or None,
             "config_snapshot_hash": str(execution_preferences.get("config_snapshot_hash") or "").strip() or None,
             "redaction_summary": dict(execution_preferences.get("config_redaction_summary") or {}),
@@ -202,6 +219,7 @@ def goal_gate_human_decision(goal_id: str, gate_task_id: str):
     reason = str(body.get("reason") or "").strip()
     from agent.services.human_approval_service import (
         HumanApprovalError,
+        HumanApprovalForbidden,
         submit_human_decision_via_repo,
     )
     try:
@@ -211,6 +229,14 @@ def goal_gate_human_decision(goal_id: str, gate_task_id: str):
             operator=operator,
             outcome=outcome,
             reason=reason,
+        )
+    except HumanApprovalForbidden as exc:
+        reason_code = str(exc)
+        return api_response(
+            status="error",
+            message=reason_code,
+            data={"reason_code": reason_code},
+            code=403,
         )
     except HumanApprovalError as exc:
         return api_response(status="error", message=str(exc), code=400)
@@ -223,10 +249,12 @@ def goal_workflow_status(goal_id: str):
     goal = _repos().goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
-    from agent.services.workflow_status_service import (
-        build_workflow_status, debug_workflow_status,
-    )
     from agent.repository import task_repo
+    from agent.services.workflow_status_service import (
+        build_workflow_status,
+        debug_workflow_status,
+    )
+
     try:
         tasks = list(task_repo.list_by_goal(goal_id) or [])
     except Exception:
@@ -276,9 +304,12 @@ def goal_workflow_status(goal_id: str):
 
 
 @goals_bp.route("/goals/<goal_id>/purge", methods=["DELETE"])
-@check_auth
+@check_strict_auth
 def purge_goal(goal_id: str):
-    from agent.services.goal_purge_service import get_goal_purge_service
+    from agent.services.goal_purge_service import (
+        VectorIndexGoalPurgeCancelRequired,
+        get_goal_purge_service,
+    )
     from agent.services.recovery_task_mutation_policy import (
         RecoveryTaskMutationConflict,
     )
@@ -289,13 +320,27 @@ def purge_goal(goal_id: str):
         return api_response(status="error", message="not_found", code=404)
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
-    include_prompt_traces = str(request.args.get("include_prompt_traces", "1")).strip().lower() not in {"0", "false", "no"}
+    include_prompt_traces = (
+        str(
+            request.args.get("include_prompt_traces", "1")
+        )
+        .strip()
+        .lower()
+        not in {"0", "false", "no"}
+    )
     try:
         result = get_goal_purge_service().purge_goal(
             goal_id,
             include_prompt_traces=include_prompt_traces,
         )
     except RecoveryTaskMutationConflict as exc:
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            data=exc.as_data(),
+            code=409,
+        )
+    except VectorIndexGoalPurgeCancelRequired as exc:
         return api_response(
             status="error",
             message=exc.reason_code,
@@ -316,8 +361,37 @@ def purge_goal(goal_id: str):
     return api_response(data=result.to_dict())
 
 
+def _guard_vector_request_kill(
+    *,
+    goal_id: str | None = None,
+    global_scope: bool,
+):
+    tasks = (
+        _repos().task_repo.get_all()
+        if global_scope
+        else _repos().task_repo.get_by_goal_id(str(goal_id or ""))
+    )
+    try:
+        get_vector_task_admin_guard_service().require_authorized_tasks_if_vector(
+            tasks=tasks,
+            authorization=request_vector_authorization(),
+            global_scope=global_scope,
+        )
+    except PermissionError as exc:
+        return vector_permission_error(exc)
+    except ValueError as exc:
+        reason = str(exc)
+        return api_response(
+            status="error",
+            message=reason,
+            data={"reason_code": reason},
+            code=409,
+        )
+    return None
+
+
 @goals_bp.route("/goals/<goal_id>/kill-requests", methods=["POST"])
-@check_auth
+@check_strict_auth
 def kill_goal_requests(goal_id: str):
     from agent.services.request_cancellation_service import get_request_cancellation_service
     if not _is_admin_request():
@@ -325,34 +399,56 @@ def kill_goal_requests(goal_id: str):
     goal_id_norm = str(goal_id or "").strip()
     if not goal_id_norm:
         return api_response(status="error", message="goal_id required", code=400)
+    vector_error = _guard_vector_request_kill(
+        goal_id=goal_id_norm,
+        global_scope=False,
+    )
+    if vector_error is not None:
+        return vector_error
     result = get_request_cancellation_service().cancel_goal_requests(goal_id=goal_id_norm, include_workers=True)
     return api_response(data=result)
 
 
 @goals_bp.route("/internal/goals/<goal_id>/kill-requests", methods=["POST"])
-@check_auth
+@check_strict_auth
 def kill_goal_requests_internal(goal_id: str):
     from agent.services.request_cancellation_service import get_request_cancellation_service
     goal_id_norm = str(goal_id or "").strip()
     if not goal_id_norm:
         return api_response(status="error", message="goal_id required", code=400)
+    vector_error = _guard_vector_request_kill(
+        goal_id=goal_id_norm,
+        global_scope=False,
+    )
+    if vector_error is not None:
+        return vector_error
     result = get_request_cancellation_service().cancel_goal_requests(goal_id=goal_id_norm, include_workers=False)
     return api_response(data=result)
 
 
 @goals_bp.route("/goals/kill-all-requests", methods=["POST"])
-@check_auth
+@check_strict_auth
 def kill_all_requests():
     from agent.services.request_cancellation_service import get_request_cancellation_service
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
+    vector_error = _guard_vector_request_kill(
+        global_scope=True,
+    )
+    if vector_error is not None:
+        return vector_error
     result = get_request_cancellation_service().cancel_all_requests(include_workers=True)
     return api_response(data=result)
 
 
 @goals_bp.route("/internal/goals/kill-all-requests", methods=["POST"])
-@check_auth
+@check_strict_auth
 def kill_all_requests_internal():
     from agent.services.request_cancellation_service import get_request_cancellation_service
+    vector_error = _guard_vector_request_kill(
+        global_scope=True,
+    )
+    if vector_error is not None:
+        return vector_error
     result = get_request_cancellation_service().cancel_all_requests(include_workers=False)
     return api_response(data=result)

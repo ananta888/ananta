@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Mapping, Protocol
+from typing import Any, Mapping, Protocol
 
 VECTOR_STORE_BACKENDS = frozenset({"json", "qdrant"})
 VECTOR_STORE_OPERATIONS = frozenset(
@@ -29,17 +29,57 @@ VECTOR_STORE_OPERATIONS = frozenset(
 )
 VECTOR_STORE_OUTCOMES = frozenset({"success", "degraded", "failed", "skipped"})
 VECTOR_STORE_COUNT_KEYS = frozenset(
-    {"embedded", "upserted", "deleted", "skipped", "failed", "hits"}
+    {
+        "accepted",
+        "deleted",
+        "embedded",
+        "failed",
+        "hits",
+        "skipped",
+        "top_k",
+        "upserted",
+    }
 )
 VECTOR_STORE_REASON_CODES = frozenset(
     {
         "ok",
+        "deleted",
+        "empty_collection",
+        "empty_scope",
+        "fallback_not_configured",
+        "migrated",
+        "migration_checkpoint_invalid",
+        "migration_paused",
+        "migration_ready",
+        "missing_source_hash",
+        "point_count_mismatch",
+        "qdrant_timeout",
+        "qdrant_unauthorized",
+        "qdrant_unavailable",
+        "rebuild",
+        "refreshed",
+        "unchanged",
+        "upserted",
         "unavailable",
         "unauthorized",
         "incompatible_collection",
         "timeout",
         "dimensions_mismatch",
+        "distance_mismatch",
+        "provider_changed",
+        "model_changed",
+        "profile_changed",
+        "encoding_changed",
+        "config_changed",
+        "manifest_changed",
+        "vector_batch_size_invalid",
+        "vector_scope_conflict",
         "vector_scope_required",
+        "vector_store_compatibility_required",
+        "vector_top_k_invalid",
+        "vector_payload_invalid",
+        "vector_payload_too_large",
+        "vector_point_id_mismatch",
         "fallback_state_incompatible",
         "qdrant_extra_required",
         "collection_missing",
@@ -55,6 +95,17 @@ VECTOR_STORE_REASON_CODES = frozenset(
 def bounded_vector_store_reason(value: str | None) -> str:
     candidate = str(value or "other").strip().lower()
     return candidate if candidate in VECTOR_STORE_REASON_CODES else "other"
+
+
+def observation_outcome(status: str) -> str:
+    return {
+        "ok": "success",
+        "success": "success",
+        "partial": "degraded",
+        "degraded": "degraded",
+        "failed": "failed",
+        "skipped": "skipped",
+    }.get(str(status or "").lower(), "failed")
 
 
 @dataclass(frozen=True)
@@ -126,6 +177,41 @@ class NullVectorStoreObserver:
         del observation
 
 
+def emit_operation_observation(
+    observer: Any,
+    *,
+    backend: str = "qdrant",
+    operation: str,
+    outcome: str,
+    reason: str,
+    duration_seconds: float,
+    counts: Mapping[str, int] | None = None,
+    requested_backend: str | None = None,
+    effective_backend: str | None = None,
+    provider_fallback: bool = False,
+) -> None:
+    """Emit a bounded observation without changing vector-store behavior."""
+
+    if observer is None:
+        return
+    try:
+        observation = VectorStoreOperationObservation(
+            backend=backend,
+            operation=operation,
+            outcome=outcome,
+            reason_code=reason,
+            duration_seconds=max(0.0, float(duration_seconds)),
+            counts=dict(counts or {}),
+            requested_backend=requested_backend,
+            effective_backend=effective_backend,
+            provider_fallback=provider_fallback,
+        )
+        observer.observe(observation)
+    except Exception:
+        # Observability is optional and must never alter retrieval behavior.
+        return
+
+
 __all__ = [
     "NullVectorStoreObserver",
     "VECTOR_STORE_BACKENDS",
@@ -136,4 +222,6 @@ __all__ = [
     "VectorStoreObserver",
     "VectorStoreOperationObservation",
     "bounded_vector_store_reason",
+    "emit_operation_observation",
+    "observation_outcome",
 ]

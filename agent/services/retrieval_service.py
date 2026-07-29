@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import logging
+import threading
 from pathlib import Path
 
 from agent.config import settings
 from agent.hybrid_orchestrator import ContextChunk, HybridOrchestrator
-from agent.services.user_config_service import get_user_config_service
 from agent.metrics import KNOWLEDGE_RETRIEVAL_CHUNKS, RAG_RETRIEVAL_TASK_KIND_TOTAL
 from agent.repository import memory_entry_repo as default_memory_entry_repo
 from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
@@ -27,6 +28,9 @@ from agent.services.retrieval_query_builder import (
     source_type_contributions,
     task_profile_for_fusion,
 )
+from agent.services.retrieval_runtime_lifecycle_service import (
+    RetrievalRuntimeLeaseRegistry,
+)
 from agent.services.retrieval_source_adapters import (
     ArtifactKnowledgeSourceAdapter,
     OpenNotebookKnowledgeSourceAdapter,
@@ -35,16 +39,91 @@ from agent.services.retrieval_source_adapters import (
     WikiKnowledgeSourceAdapter,
 )
 from agent.services.retrieval_source_contract import normalize_chunk_metadata
+from agent.services.retrieval_vector_runtime_scope_service import (
+    RetrievalLifecycle,
+    RetrievalVectorRuntimeResolverFactory,
+    RetrievalVectorRuntimeScope,
+    build_default_retrieval_vector_runtime_resolver_factory,
+)
+from agent.services.user_config_service import get_user_config_service
+from agent.services.wiki_vector_runtime_service import (
+    build_wiki_retrieval_index_service,
+)
+
+log = logging.getLogger(__name__)
+
+
+class _RejectedVectorRuntimeResolver:
+    """Fail-closed resolver used when a trusted request scope is missing."""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = str(reason)
+
+    def cache_signature(self, **_kwargs: object) -> tuple[str, ...]:
+        return ("rejected", self.reason)
+
+    def resolve(self, **_kwargs: object):
+        raise ValueError(self.reason)
+
+
+class _LeasedWikiVectorRetrieval:
+    """Expose one search while keeping runtime ownership in RetrievalService."""
+
+    def __init__(
+        self,
+        service: "RetrievalService",
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None,
+    ) -> None:
+        self._service = service
+        self._vector_runtime_scope = vector_runtime_scope
+
+    def hybrid_search(
+        self,
+        query: str,
+        *,
+        top_k: int,
+    ):
+        return self._service._search_wiki_vector(
+            query,
+            top_k=top_k,
+            vector_runtime_scope=self._vector_runtime_scope,
+        )
 
 
 class RetrievalService:
     """Owns retrieval-engine lifecycle and exposes a stable retrieval seam."""
 
-    def __init__(self, knowledge_index_retrieval_service=None, memory_entry_repository=None) -> None:
+    def __init__(
+        self,
+        knowledge_index_retrieval_service=None,
+        memory_entry_repository=None,
+        codecompass_vector_runtime_resolver=None,
+        wiki_vector_runtime_resolver=None,
+        vector_runtime_resolver_factory: (RetrievalVectorRuntimeResolverFactory | None) = None,
+    ) -> None:
         self._orchestrator: HybridOrchestrator | None = None
         self._signature: tuple | None = None
-        self._knowledge_index_retrieval_service = knowledge_index_retrieval_service or get_knowledge_index_retrieval_service()
+        self._orchestrator_cache: dict[
+            tuple[str, ...],
+            tuple[tuple, HybridOrchestrator],
+        ] = {}
+        self._orchestrator_lock = threading.RLock()
+        self._orchestrator_leases = RetrievalRuntimeLeaseRegistry()
+        self._knowledge_index_retrieval_service = (
+            knowledge_index_retrieval_service or get_knowledge_index_retrieval_service()
+        )
         self._memory_entry_repository = memory_entry_repository or default_memory_entry_repo
+        self._codecompass_vector_runtime_resolver = codecompass_vector_runtime_resolver
+        self._wiki_vector_runtime_resolver = wiki_vector_runtime_resolver
+        self._vector_runtime_resolver_factory = vector_runtime_resolver_factory
+        self._wiki_vector_retrieval = None
+        self._wiki_vector_signature: tuple[str, ...] | None = None
+        self._wiki_vector_cache: dict[
+            tuple[str, ...],
+            tuple[tuple[str, ...], object],
+        ] = {}
+        self._wiki_vector_lock = threading.RLock()
+        self._wiki_vector_leases = RetrievalRuntimeLeaseRegistry()
         self._source_adapters = self._build_source_adapters()
 
     def _build_source_adapters(self) -> dict[str, object]:
@@ -54,7 +133,17 @@ class RetrievalService:
                 chunk_deserializer=self._deserialize_chunk,
             ),
             "artifact": ArtifactKnowledgeSourceAdapter(self._knowledge_index_retrieval_service),
-            "wiki": WikiKnowledgeSourceAdapter(self._knowledge_index_retrieval_service),
+            "wiki": WikiKnowledgeSourceAdapter(
+                self._knowledge_index_retrieval_service,
+                hybrid_retrieval_provider=(
+                    self._wiki_vector_retrieval_provider
+                    if (
+                        self._wiki_vector_runtime_resolver is not None
+                        or self._vector_runtime_resolver_factory is not None
+                    )
+                    else None
+                ),
+            ),
             "open_notebook": OpenNotebookKnowledgeSourceAdapter(self._knowledge_index_retrieval_service),
             "task_memory": TaskMemorySourceAdapter(
                 memory_search=lambda *, query, task_id, goal_id, neighbor_task_ids, top_k: memory_candidates(
@@ -68,7 +157,195 @@ class RetrievalService:
             ),
         }
 
-    def _config_signature(self) -> tuple:
+    def _wiki_vector_retrieval_provider(
+        self,
+        *,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None = None,
+    ) -> _LeasedWikiVectorRetrieval:
+        return _LeasedWikiVectorRetrieval(
+            self,
+            vector_runtime_scope,
+        )
+
+    @staticmethod
+    def _close_lifecycle(value: object | None) -> None:
+        if value is None or not isinstance(value, RetrievalLifecycle):
+            return
+        try:
+            value.close()
+        except Exception:
+            log.warning(
+                "retrieval_runtime_close_failed",
+                exc_info=False,
+            )
+
+    @staticmethod
+    def _runtime_cache_key(
+        domain: str,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None,
+    ) -> tuple[str, ...]:
+        if vector_runtime_scope is None:
+            return (domain, "legacy-single-scope")
+        try:
+            return vector_runtime_scope.cache_key(domain)
+        except ValueError:
+            return (
+                domain,
+                vector_runtime_scope.workspace_id,
+                "scope-incomplete",
+                vector_runtime_scope.profile_name,
+            )
+
+    def _resolve_codecompass_runtime(
+        self,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None,
+    ) -> object | None:
+        if self._vector_runtime_resolver_factory is not None:
+            if vector_runtime_scope is None:
+                return _RejectedVectorRuntimeResolver("vector_runtime_request_scope_required")
+            if not vector_runtime_scope.codecompass_repository_id:
+                return _RejectedVectorRuntimeResolver("codecompass_vector_request_scope_incomplete")
+            resolver = self._vector_runtime_resolver_factory.codecompass_resolver(vector_runtime_scope)
+            return resolver or _RejectedVectorRuntimeResolver("codecompass_vector_runtime_not_configured")
+        if vector_runtime_scope is not None:
+            return _RejectedVectorRuntimeResolver("vector_runtime_request_scope_requires_factory")
+        return self._codecompass_vector_runtime_resolver
+
+    def _resolve_wiki_runtime(
+        self,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None,
+    ) -> object | None:
+        if self._vector_runtime_resolver_factory is not None:
+            if vector_runtime_scope is None:
+                return _RejectedVectorRuntimeResolver("vector_runtime_request_scope_required")
+            if not vector_runtime_scope.wiki_source_id:
+                return _RejectedVectorRuntimeResolver("wiki_vector_request_scope_incomplete")
+            resolver = self._vector_runtime_resolver_factory.wiki_resolver(vector_runtime_scope)
+            return resolver or _RejectedVectorRuntimeResolver("wiki_vector_runtime_not_configured")
+        if vector_runtime_scope is not None:
+            return _RejectedVectorRuntimeResolver("vector_runtime_request_scope_requires_factory")
+        return self._wiki_vector_runtime_resolver
+
+    def _get_wiki_vector_retrieval(
+        self,
+        *,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None = None,
+    ):
+        ready_to_close: object | None
+        with self._wiki_vector_lock:
+            retrieval, ready_to_close = self._select_wiki_vector_retrieval_locked(
+                vector_runtime_scope=vector_runtime_scope,
+            )
+        self._close_lifecycle(ready_to_close)
+        return retrieval
+
+    def _select_wiki_vector_retrieval_locked(
+        self,
+        *,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None,
+    ) -> tuple[object, object | None]:
+        cache_key = self._runtime_cache_key(
+            "wiki",
+            vector_runtime_scope,
+        )
+        runtime_resolver = self._resolve_wiki_runtime(vector_runtime_scope)
+        if runtime_resolver is None:
+            raise RuntimeError("wiki_vector_runtime_not_configured")
+        signature = tuple(runtime_resolver.cache_signature())
+        cached = self._wiki_vector_cache.get(cache_key)
+        if cached is not None and cached[0] == signature:
+            self._wiki_vector_signature = signature
+            self._wiki_vector_retrieval = cached[1]
+            return cached[1], None
+        data_root = Path(settings.data_dir) / "retrieval"
+        retrieval = build_wiki_retrieval_index_service(
+            fts_db_path=data_root / "wiki-fts.sqlite3",
+            vector_index_path=data_root / "wiki-vectors.json",
+            runtime_resolver=runtime_resolver,
+        )
+        ready_to_close = (
+            self._wiki_vector_leases.retire(cached[1])
+            if cached is not None and cached[1] is not retrieval
+            else None
+        )
+        self._wiki_vector_cache[cache_key] = (
+            signature,
+            retrieval,
+        )
+        self._wiki_vector_signature = signature
+        self._wiki_vector_retrieval = retrieval
+        return retrieval, ready_to_close
+
+    def _acquire_wiki_vector_retrieval(
+        self,
+        *,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None,
+    ) -> object:
+        with self._wiki_vector_lock:
+            retrieval, ready_to_close = self._select_wiki_vector_retrieval_locked(
+                vector_runtime_scope=vector_runtime_scope,
+            )
+            self._wiki_vector_leases.acquire(retrieval)
+        self._close_lifecycle(ready_to_close)
+        return retrieval
+
+    def _release_wiki_vector_retrieval(self, retrieval: object) -> None:
+        with self._wiki_vector_lock:
+            ready_to_close = self._wiki_vector_leases.release(retrieval)
+        self._close_lifecycle(ready_to_close)
+
+    def _search_wiki_vector(
+        self,
+        query: str,
+        *,
+        top_k: int,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None,
+    ):
+        retrieval = self._acquire_wiki_vector_retrieval(
+            vector_runtime_scope=vector_runtime_scope,
+        )
+        try:
+            return retrieval.hybrid_search(
+                query,
+                top_k=top_k,
+            )
+        finally:
+            self._release_wiki_vector_retrieval(retrieval)
+
+    def _config_signature(
+        self,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None = None,
+        *,
+        runtime_resolver: object | None = None,
+    ) -> tuple:
+        repo_root = Path(settings.rag_repo_root).resolve()
+        runtime_signature: object = None
+        effective_resolver = (
+            runtime_resolver
+            if runtime_resolver is not None
+            else self._resolve_codecompass_runtime(vector_runtime_scope)
+        )
+        if effective_resolver is not None:
+            signature_builder = getattr(
+                effective_resolver,
+                "cache_signature",
+                None,
+            )
+            if callable(signature_builder):
+                try:
+                    runtime_signature = signature_builder(
+                        repo_root=repo_root,
+                    )
+                except Exception as exc:
+                    runtime_signature = (
+                        "runtime_error",
+                        str(getattr(exc, "reason", "") or type(exc).__name__),
+                    )
+            else:
+                runtime_signature = (
+                    "static_runtime_resolver",
+                    id(effective_resolver),
+                )
         return (
             settings.rag_enabled,
             settings.rag_repo_root,
@@ -85,9 +362,17 @@ class RetrievalService:
             settings.rag_source_task_memory_enabled,
             settings.rag_source_wiki_enabled,
             settings.rag_source_open_notebook_enabled,
+            self._runtime_cache_key(
+                "codecompass",
+                vector_runtime_scope,
+            ),
+            runtime_signature,
         )
 
-    def _build_orchestrator(self) -> HybridOrchestrator:
+    def _build_orchestrator(
+        self,
+        runtime_resolver: object | None = None,
+    ) -> HybridOrchestrator:
         repo_root = Path(settings.rag_repo_root).resolve()
         data_roots = [repo_root / p.strip() for p in settings.rag_data_roots.split(",") if p.strip()]
         persist_dir = repo_root / settings.rag_semantic_persist_dir
@@ -103,6 +388,7 @@ class RetrievalService:
             semantic_persist_dir=persist_dir,
             redact_sensitive=settings.rag_redact_sensitive,
             global_config=global_config,
+            codecompass_vector_runtime_resolver=(runtime_resolver),
         )
 
     def get_source_preflight(self) -> dict[str, object]:
@@ -175,10 +461,16 @@ class RetrievalService:
                 "enabled": "open_notebook" in effective,
                 "status": str((knowledge_preflight.get("open_notebook") or {}).get("status") or "unknown"),
                 "issues": list((knowledge_preflight.get("open_notebook") or {}).get("issues") or []),
-                "completed_indices": int((knowledge_preflight.get("open_notebook") or {}).get("completed_indices") or 0),
+                "completed_indices": int(
+                    (knowledge_preflight.get("open_notebook") or {}).get("completed_indices") or 0
+                ),
             },
         }
-        source_statuses = [str((item or {}).get("status") or "unknown") for item in sources.values() if bool((item or {}).get("enabled"))]
+        source_statuses = [
+            str((item or {}).get("status") or "unknown")
+            for item in sources.values()
+            if bool((item or {}).get("enabled"))
+        ]
         global_status = "ok"
         if any(status == "error" for status in source_statuses):
             global_status = "error"
@@ -190,12 +482,110 @@ class RetrievalService:
             "sources": sources,
         }
 
-    def get_orchestrator(self) -> HybridOrchestrator:
-        signature = self._config_signature()
-        if self._orchestrator is None or self._signature != signature:
-            self._orchestrator = self._build_orchestrator()
+    def get_orchestrator(
+        self,
+        *,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None = None,
+    ) -> HybridOrchestrator:
+        ready_to_close: object | None
+        with self._orchestrator_lock:
+            orchestrator, ready_to_close = self._select_orchestrator_locked(
+                vector_runtime_scope=vector_runtime_scope,
+            )
+        self._close_lifecycle(ready_to_close)
+        return orchestrator
+
+    def _select_orchestrator_locked(
+        self,
+        *,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None,
+    ) -> tuple[HybridOrchestrator, object | None]:
+        cache_key = self._runtime_cache_key(
+            "codecompass",
+            vector_runtime_scope,
+        )
+        runtime_resolver = self._resolve_codecompass_runtime(vector_runtime_scope)
+        signature = self._config_signature(
+            vector_runtime_scope,
+            runtime_resolver=runtime_resolver,
+        )
+        cached = self._orchestrator_cache.get(cache_key)
+        if cached is None and (
+            vector_runtime_scope is None and self._orchestrator is not None and self._signature == signature
+        ):
+            cached = (signature, self._orchestrator)
+            self._orchestrator_cache[cache_key] = cached
+        if cached is not None and cached[0] == signature:
+            self._orchestrator = cached[1]
             self._signature = signature
-        return self._orchestrator
+            return cached[1], None
+        orchestrator = self._build_orchestrator(runtime_resolver)
+        ready_to_close = (
+            self._orchestrator_leases.retire(cached[1])
+            if cached is not None and cached[1] is not orchestrator
+            else None
+        )
+        self._orchestrator_cache[cache_key] = (
+            signature,
+            orchestrator,
+        )
+        self._orchestrator = orchestrator
+        self._signature = signature
+        return orchestrator, ready_to_close
+
+    def _acquire_orchestrator(
+        self,
+        *,
+        vector_runtime_scope: RetrievalVectorRuntimeScope | None,
+    ) -> HybridOrchestrator:
+        with self._orchestrator_lock:
+            orchestrator, ready_to_close = self._select_orchestrator_locked(
+                vector_runtime_scope=vector_runtime_scope,
+            )
+            self._orchestrator_leases.acquire(orchestrator)
+        self._close_lifecycle(ready_to_close)
+        return orchestrator
+
+    def _release_orchestrator(self, orchestrator: HybridOrchestrator) -> None:
+        with self._orchestrator_lock:
+            ready_to_close = self._orchestrator_leases.release(
+                orchestrator,
+            )
+        self._close_lifecycle(ready_to_close)
+
+    def close(self) -> None:
+        """Close all cached runtimes exactly once and clear cache state."""
+
+        with self._orchestrator_lock:
+            orchestrators = {id(orchestrator): orchestrator for _, orchestrator in self._orchestrator_cache.values()}
+            if self._orchestrator is not None:
+                orchestrators.setdefault(
+                    id(self._orchestrator),
+                    self._orchestrator,
+                )
+            self._orchestrator_cache.clear()
+            self._orchestrator = None
+            self._signature = None
+            ready_orchestrators = self._orchestrator_leases.retire_all(
+                orchestrators.values(),
+            )
+        with self._wiki_vector_lock:
+            wiki_services = {id(retrieval): retrieval for _, retrieval in self._wiki_vector_cache.values()}
+            if self._wiki_vector_retrieval is not None:
+                wiki_services.setdefault(
+                    id(self._wiki_vector_retrieval),
+                    self._wiki_vector_retrieval,
+                )
+            self._wiki_vector_cache.clear()
+            self._wiki_vector_retrieval = None
+            self._wiki_vector_signature = None
+            ready_wiki_services = self._wiki_vector_leases.retire_all(
+                wiki_services.values(),
+            )
+        for orchestrator in ready_orchestrators:
+            self._close_lifecycle(orchestrator)
+        for wiki_service in ready_wiki_services:
+            self._close_lifecycle(wiki_service)
 
     def _deserialize_chunk(self, payload: dict[str, object]) -> ContextChunk:
         engine = str(payload.get("engine") or "")
@@ -229,6 +619,44 @@ class RetrievalService:
         retrieval_profile: dict | None = None,
         domain_scope: object | None = None,
         source_constraints: dict[str, str] | None = None,
+        vector_runtime_scope: (RetrievalVectorRuntimeScope | None) = None,
+    ) -> dict[str, object]:
+        orchestrator = self._acquire_orchestrator(
+            vector_runtime_scope=vector_runtime_scope,
+        )
+        try:
+            return self._retrieve_context_with_orchestrator(
+                query,
+                orchestrator=orchestrator,
+                task_kind=task_kind,
+                retrieval_intent=retrieval_intent,
+                task_id=task_id,
+                goal_id=goal_id,
+                neighbor_task_ids=neighbor_task_ids,
+                source_types=source_types,
+                retrieval_profile=retrieval_profile,
+                domain_scope=domain_scope,
+                source_constraints=source_constraints,
+                vector_runtime_scope=vector_runtime_scope,
+            )
+        finally:
+            self._release_orchestrator(orchestrator)
+
+    def _retrieve_context_with_orchestrator(
+        self,
+        query: str,
+        *,
+        orchestrator: HybridOrchestrator,
+        task_kind: str | None = None,
+        retrieval_intent: str | None = None,
+        task_id: str | None = None,
+        goal_id: str | None = None,
+        neighbor_task_ids: list[str] | None = None,
+        source_types: list[str] | None = None,
+        retrieval_profile: dict | None = None,
+        domain_scope: object | None = None,
+        source_constraints: dict[str, str] | None = None,
+        vector_runtime_scope: (RetrievalVectorRuntimeScope | None) = None,
     ) -> dict[str, object]:
         # CRPS-008: extract profile source_types if not explicitly provided
         effective_source_types_override: list[str] | None = source_types
@@ -239,7 +667,6 @@ class RetrievalService:
         if effective_source_types_override is None:
             effective_source_types_override = ["repo", "artifact", "task_memory"]
 
-        orchestrator = self.get_orchestrator()
         source_policy = source_selection_policy(effective_source_types_override)
         effective_source_types = set(source_policy.get("effective") or [])
         context_payload: dict[str, object] = {
@@ -248,7 +675,11 @@ class RetrievalService:
             "policy_version": orchestrator.context_manager.policy_version,
             "chunks": [],
         }
-        knowledge_top_k, knowledge_reason = knowledge_index_plan(query, task_kind=task_kind, retrieval_intent=retrieval_intent)
+        knowledge_top_k, knowledge_reason = knowledge_index_plan(
+            query,
+            task_kind=task_kind,
+            retrieval_intent=retrieval_intent,
+        )
         fusion_profile = task_profile_for_fusion(task_kind, retrieval_intent)
 
         # CRPS-008: merge profile source_type_weights into fusion_profile (profile wins for explicitly set keys)
@@ -282,10 +713,14 @@ class RetrievalService:
                     top_k=knowledge_top_k,
                     task_kind=task_kind,
                     retrieval_intent=retrieval_intent,
+                    vector_runtime_scope=vector_runtime_scope,
                 )
             )
         open_notebook_adapter = self._source_adapters.get("open_notebook")
-        if "open_notebook" in effective_source_types and isinstance(open_notebook_adapter, OpenNotebookKnowledgeSourceAdapter):
+        if "open_notebook" in effective_source_types and isinstance(
+            open_notebook_adapter,
+            OpenNotebookKnowledgeSourceAdapter,
+        ):
             knowledge_chunks.extend(
                 open_notebook_adapter.search(
                     query,
@@ -314,7 +749,11 @@ class RetrievalService:
         context_payload: dict[str, object] = {}
         repo_adapter = self._source_adapters.get("repo")
         if "repo" in effective_source_types and isinstance(repo_adapter, RepoRetrievalSourceAdapter):
-            context_payload = repo_adapter.load_context(query, domain_scope=domain_scope)
+            context_payload = repo_adapter.load_context(
+                query,
+                domain_scope=domain_scope,
+                orchestrator=orchestrator,
+            )
             orchestrator_chunks = repo_adapter.search(
                 query,
                 top_k=max(settings.rag_max_chunks * 2, 8),
@@ -331,7 +770,11 @@ class RetrievalService:
         # CRPS-009: apply negative source pattern filter after dedup
         profile_constraints: dict = {"removed": 0, "patterns": [], "insufficient_positive_sources": False}
         if retrieval_profile and isinstance(retrieval_profile, dict):
-            neg_patterns = [str(p).lower() for p in list(retrieval_profile.get("negative_source_patterns") or []) if str(p).strip()]
+            neg_patterns = [
+                str(pattern).lower()
+                for pattern in list(retrieval_profile.get("negative_source_patterns") or [])
+                if str(pattern).strip()
+            ]
             if neg_patterns:
                 filtered: list = []
                 removed_count = 0
@@ -449,7 +892,9 @@ class RetrievalService:
         return result
 
 
-retrieval_service = RetrievalService()
+retrieval_service = RetrievalService(
+    vector_runtime_resolver_factory=(build_default_retrieval_vector_runtime_resolver_factory()),
+)
 
 
 def get_retrieval_service() -> RetrievalService:

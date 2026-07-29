@@ -68,12 +68,16 @@ real embedding model.
 Ollama and LM Studio are supported through the OpenAI-compatible provider only
 when explicitly enabled:
 
-- `external_calls_allowed=true`
-- `allowed_base_urls` contains the local endpoint origin
+- the task names an immutable `embedding.policy_profile`;
+- the full embedding mapping exactly matches that Hub deployment profile;
+- the Worker has the same canonical HTTPS origin in its separate immutable
+  egress allowlist;
 - no plaintext API key is written to index state or diagnostics
 
 External providers may receive repository or documentation text. Keep cloud
 providers default-deny unless data egress is explicitly approved.
+See the [task and egress boundary](qdrant-vector-index-taskflow.md) for the
+complete profile, secret-reference and pre-I/O validation contract.
 
 ## Hybrid Ranking
 
@@ -89,6 +93,11 @@ Domain scope applies to vector retrieval. Active `allowed_read_paths` are passed
 to the CodeCompass vector service before searching and are enforced again by the
 domain-scope filter before prompt construction. Empty or invalid scope must not
 fall back to global vector search.
+
+Productive Qdrant reads additionally require the Hub-authoritative,
+task-bound runtime scope described in the
+[Hub read-capability runbook](qdrant-vector-store-hub-read.md). Request fields
+cannot create or widen this capability.
 
 ## Diagnostics
 

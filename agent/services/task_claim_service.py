@@ -3,6 +3,9 @@ from __future__ import annotations
 from agent.routes.tasks.orchestration_policy import compute_lease_expiry, extract_active_lease, persist_policy_decision
 from agent.routes.tasks.orchestration_policy.read_model import build_orchestration_read_model
 from agent.services.repository_registry import get_repository_registry
+from agent.services.vector_task_admin_guard_service import (
+    generic_vector_mutation_error,
+)
 
 
 class TaskClaimService:
@@ -22,6 +25,9 @@ class TaskClaimService:
         task = repos.task_repo.get_by_id(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        vector_error = generic_vector_mutation_error(task)
+        if vector_error is not None:
+            return vector_error
 
         lease_seconds = policy.validate_lease_duration(requested_lease)
         lease_until = compute_lease_expiry(lease_seconds)
@@ -30,6 +36,12 @@ class TaskClaimService:
         def validate_authoritative(
             task_payload: dict,
         ) -> tuple[bool, str | None]:
+            vector_denial = generic_vector_mutation_error(
+                task_payload
+            )
+            if vector_denial is not None:
+                claim_decision["vector_denial"] = vector_denial
+                return False, str(vector_denial["error"])
             can_claim, error_msg = policy.can_claim_task(
                 task_payload,
                 agent_url,
@@ -46,6 +58,11 @@ class TaskClaimService:
             claim_validator=validate_authoritative,
         )
         if claimed is False:
+            vector_denial = claim_decision.get(
+                "vector_denial"
+            )
+            if isinstance(vector_denial, dict):
+                return vector_denial
             authoritative_payload = claim_decision.get(
                 "task_payload"
             )

@@ -1,0 +1,3 @@
+# Optional worker runtime for the Qdrant vector-store profile.
+# Keep this exact pin aligned with pyproject.toml's bounded ``qdrant`` extra.
+qdrant-client==1.18.0

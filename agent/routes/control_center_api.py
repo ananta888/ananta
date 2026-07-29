@@ -20,16 +20,15 @@ from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import AgentSessionDB, PolicySnapshotDB, TaskDB, ToolCallDB
+from agent.routes.control_center_task_mutations import (
+    ControlCenterTaskMutationRoutes,
+)
 from agent.routes.tasks.status import normalize_task_status
-from agent.services.recovery_task_mutation_policy import (
-    RecoveryTaskMutationConflict,
-    ensure_external_recovery_mutation_allowed,
+from agent.routes.tasks.vector_admin_boundary import (
+    reserved_vector_mutation_response,
 )
 from agent.services.repository_registry import get_repository_registry
 from agent.services.share_session_service import get_share_session_service
-from agent.services.task_runtime_service import (
-    update_local_task_status,
-)
 from agent.services.user_token_scope import (
     CONTROL_CENTER_STREAM_TOKEN_USE,
     control_center_stream_identity_is_bound,
@@ -114,7 +113,13 @@ def _normalize_agent_session_status(raw: str | None) -> str:
 
 
 def _agent_session_item(session: AgentSessionDB) -> dict[str, Any]:
-    snapshot = _repos().policy_snapshot_repo.get_by_id(str(session.policy_snapshot_id or "")) if session.policy_snapshot_id else None
+    snapshot = (
+        _repos().policy_snapshot_repo.get_by_id(
+            str(session.policy_snapshot_id or "")
+        )
+        if session.policy_snapshot_id
+        else None
+    )
     return {
         "id": str(session.id or ""),
         "task_id": str(session.task_id or "") or None,
@@ -398,87 +403,14 @@ def get_task_detail(task_id: str):
     )
 
 
-@control_center_api_bp.route("/tasks", methods=["POST"])
-@check_auth
-def create_task():
-    """B04: POST /api/tasks"""
-    body = request.get_json(silent=True) or {}
-    title = str(body.get("title") or "").strip()
-    if not title:
-        return api_response(status="error", message="title_required", code=400)
-
-    task = TaskDB(
-        id=str(uuid.uuid4()),
-        title=title,
-        description=str(body.get("description") or ""),
-        status=normalize_task_status(str(body.get("status") or "backlog")),
-        priority=str(body.get("priority") or "Medium"),
-        team_id=(str(body.get("project_id") or "").strip() or None),
-        task_kind=(str(body.get("task_kind") or "").strip() or None),
-    )
-    saved = _repos().task_repo.save(task)
-    log_audit("control_center_task_created", {"task_id": saved.id, "actor": _user_id()})
-    return api_response(data={"task": _task_item(saved)}, code=201)
-
-
-@control_center_api_bp.route("/tasks/<task_id>", methods=["PATCH"])
-@check_auth
-def patch_task(task_id: str):
-    """B05: PATCH /api/tasks/{taskId}"""
-    task = _repos().task_repo.get_by_id(task_id)
-    if task is None:
-        return api_response(status="error", message="not_found", code=404)
-    try:
-        ensure_external_recovery_mutation_allowed(
-            task,
-            action="control_center_patch",
-        )
-    except RecoveryTaskMutationConflict as exc:
-        return api_response(
-            status="error",
-            message=exc.reason_code,
-            data=exc.as_data(),
-            code=409,
-        )
-
-    body = request.get_json(silent=True) or {}
-    values: dict[str, Any] = {}
-    if "title" in body:
-        values["title"] = (
-            str(body.get("title") or "").strip() or task.title
-        )
-    if "description" in body:
-        values["description"] = str(
-            body.get("description") or ""
-        )
-    if "priority" in body:
-        values["priority"] = str(
-            body.get("priority") or task.priority
-        )
-    target_status = normalize_task_status(
-        str(body.get("status") or task.status)
-    )
-    update_local_task_status(
-        task_id,
-        target_status,
-        event_type="control_center_task_updated",
-        event_actor=_user_id() or "control_center",
-        event_details={
-            "status_requested": "status" in body,
-            "fields": sorted(values),
-        },
-        force=True,
-        **values,
-    )
-    saved = _repos().task_repo.get_by_id(task_id)
-    if saved is None:
-        return api_response(
-            status="error",
-            message="not_found",
-            code=404,
-        )
-    log_audit("control_center_task_updated", {"task_id": saved.id, "actor": _user_id(), "status": saved.status})
-    return api_response(data={"task": _task_item(saved)})
+_task_mutation_routes = ControlCenterTaskMutationRoutes(
+    repository_provider=lambda: _repos(),
+    task_serializer=lambda task: _task_item(task),
+    user_id_provider=lambda: _user_id(),
+)
+_task_mutation_routes.register(control_center_api_bp)
+create_task = _task_mutation_routes.create_task
+patch_task = _task_mutation_routes.patch_task
 
 
 @control_center_api_bp.route("/sessions", methods=["GET"])
@@ -522,8 +454,20 @@ def get_session(session_id: str):
         if str((getattr(p, "details", None) or {}).get("session_id") or "") == session_id
     ]
 
-    tool_calls = [_tool_call_item(item) for item in _repos().tool_call_repo.get_by_session_id(session_id)]
-    return api_response(data={"session": _agent_session_item(persisted), "participants": participants, "policy_decisions": decisions, "tool_calls": tool_calls})
+    tool_calls = [
+        _tool_call_item(item)
+        for item in _repos().tool_call_repo.get_by_session_id(
+            session_id
+        )
+    ]
+    return api_response(
+        data={
+            "session": _agent_session_item(persisted),
+            "participants": participants,
+            "policy_decisions": decisions,
+            "tool_calls": tool_calls,
+        }
+    )
 
 
 @control_center_api_bp.route("/sessions/<session_id>/tool-calls", methods=["GET"])
@@ -545,13 +489,20 @@ def create_task_session(task_id: str):
     task = _repos().task_repo.get_by_id(task_id)
     if task is None:
         return api_response(status="error", message="task_not_found", code=404)
+    vector_error = reserved_vector_mutation_response(task)
+    if vector_error is not None:
+        return vector_error
 
     user_id = _user_id()
     if not user_id:
         return api_response(status="error", message="not_authenticated", code=401)
 
     body = request.get_json(silent=True) or {}
-    device_id = str(body.get("owner_device_id") or request.headers.get("X-Ananta-Device-Id") or "web-control-center").strip()
+    device_id = str(
+        body.get("owner_device_id")
+        or request.headers.get("X-Ananta-Device-Id")
+        or "web-control-center"
+    ).strip()
     permissions = (
         dict(body.get("permissions"))
         if isinstance(body.get("permissions"), dict)
@@ -643,7 +594,10 @@ def cancel_session(session_id: str):
         return api_response(status="error", message="forbidden", code=403)
 
     if persisted.share_session_id:
-        ok, reason = get_share_session_service().revoke_session(session_id=str(persisted.share_session_id), actor_user_id=user_id)
+        ok, reason = get_share_session_service().revoke_session(
+            session_id=str(persisted.share_session_id),
+            actor_user_id=user_id,
+        )
         if not ok and reason not in {"session_not_found"}:
             return api_response(status="error", message=reason or "cancel_failed", code=400)
 
@@ -685,7 +639,15 @@ def list_session_policy_decisions(session_id: str):
         items.append(
             {
                 "id": str(getattr(tc, "id", "") or ""),
-                "decision": "require_approval" if status == "require_approval" else ("deny" if status == "denied" else "allow"),
+                "decision": (
+                    "require_approval"
+                    if status == "require_approval"
+                    else (
+                        "deny"
+                        if status == "denied"
+                        else "allow"
+                    )
+                ),
                 "decision_type": "tool_call_gate",
                 "reason": f"tool_call:{getattr(tc, 'tool_name', '')}",
                 "matched_rule_ids": [],
@@ -816,9 +778,24 @@ def list_policies():
 def list_context_scopes():
     """B15: GET /api/codecompass/context-scopes"""
     defaults = [
-        {"id": "repo_all", "label": "Repository (alles)", "include": ["/"], "exclude": []},
-        {"id": "source_only", "label": "Nur Source", "include": ["/agent/**", "/frontend-angular/**"], "exclude": ["/tests/**"]},
-        {"id": "safe_local", "label": "Safe Local", "include": ["/agent/**", "/frontend-angular/**"], "exclude": ["/.env", "/secrets/**", "/data/**"]},
+        {
+            "id": "repo_all",
+            "label": "Repository (alles)",
+            "include": ["/"],
+            "exclude": [],
+        },
+        {
+            "id": "source_only",
+            "label": "Nur Source",
+            "include": ["/agent/**", "/frontend-angular/**"],
+            "exclude": ["/tests/**"],
+        },
+        {
+            "id": "safe_local",
+            "label": "Safe Local",
+            "include": ["/agent/**", "/frontend-angular/**"],
+            "exclude": ["/.env", "/secrets/**", "/data/**"],
+        },
     ]
     return api_response(data={"items": defaults, "count": len(defaults)})
 
@@ -993,7 +970,14 @@ def stream_control_center_events():
                 }
                 yield f"id: {public_event['id']}\n"
                 yield f"data: {json.dumps(public_event)}\n\n"
-            yield f"data: {json.dumps({'id': _next_event_id(), 'channel': 'system', 'type': 'heartbeat', 'timestamp': now, 'payload': {}})}\n\n"
+            heartbeat = {
+                "id": _next_event_id(),
+                "channel": "system",
+                "type": "heartbeat",
+                "timestamp": now,
+                "payload": {},
+            }
+            yield f"data: {json.dumps(heartbeat)}\n\n"
 
     return Response(generate(), mimetype="text/event-stream")
 

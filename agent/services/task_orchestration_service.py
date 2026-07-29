@@ -13,11 +13,12 @@ from agent.services.copilot_routing_advisor import (
     extract_copilot_routing_hint,
     get_copilot_routing_advisor,
 )
-from agent.services.repository_registry import get_repository_registry
 from agent.services.recovery_task_mutation_policy import (
     RecoveryTaskMutationConflict,
     ensure_external_recovery_mutation_allowed,
 )
+from agent.services.repository_registry import get_repository_registry
+from agent.services.task_context_policy_service import get_task_context_policy_service
 from agent.services.task_delegation_services import (
     DelegationRequest,
     TaskDelegationPlan,
@@ -25,9 +26,11 @@ from agent.services.task_delegation_services import (
     TaskDelegationResultWriter,
     WorkerExecutionContextFactory,
 )
-from agent.services.task_context_policy_service import get_task_context_policy_service
 from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.services.task_runtime_service import forward_to_worker, get_local_task_status, update_local_task_status
+from agent.services.vector_task_admin_guard_service import (
+    generic_vector_mutation_error,
+)
 
 __all__ = [
     "TaskOrchestrationDependencies",
@@ -122,6 +125,9 @@ class TaskOrchestrationService:
         parent_task = self.dependencies.get_task_status(task_id)
         if not parent_task:
             return {"error": "parent_task_not_found", "code": 404}
+        vector_error = generic_vector_mutation_error(parent_task)
+        if vector_error is not None:
+            return vector_error
         recovery_conflict = self._recovery_conflict(
             parent_task,
             action="delegate_task",
@@ -172,6 +178,9 @@ class TaskOrchestrationService:
         task = self.dependencies.get_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        vector_error = generic_vector_mutation_error(task)
+        if vector_error is not None:
+            return vector_error
         recovery_conflict = self._recovery_conflict(
             task,
             action="orchestration_complete",

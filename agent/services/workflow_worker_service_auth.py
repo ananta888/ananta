@@ -32,6 +32,9 @@ SPEECH_EVIDENCE_CURATION_WORKER_SCOPE = "speech.evidence.curate"
 RECOVERY_TASK_DISPATCH_SCOPE = "task.recovery.dispatch"
 RECOVERY_TASK_MANIFEST_SCOPE = "task.recovery.manifest.read"
 RECOVERY_ARTIFACT_INGRESS_SCOPE = "task.recovery.artifacts.publish"
+VECTOR_INDEX_DISPATCH_ADMISSION_SCOPE = (
+    "task.vector_index.dispatch.admit"
+)
 
 _STRICT_ENV = "ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH"
 _KEYRING_FILE_ENV = "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE"
@@ -68,6 +71,9 @@ _SCOPE_CAPABILITIES = {
     # dispatch lease and authoritative task assignment.  This scope grants no
     # generic Artifact create/read capability.
     RECOVERY_ARTIFACT_INGRESS_SCOPE: frozenset(),
+    VECTOR_INDEX_DISPATCH_ADMISSION_SCOPE: frozenset(
+        {"vector_index_operation"}
+    ),
 }
 _RUNTIME_SERVICE_SCOPES = frozenset({WORKFLOW_TEMPORAL_TASK_SCOPE})
 
@@ -792,6 +798,7 @@ __all__ = [
     "SPEECH_EVIDENCE_CURATION_WORKER_SCOPE",
     "WORKFLOW_TEMPORAL_TASK_SCOPE",
     "WORKFLOW_WORKER_COMMAND_SCOPE",
+    "VECTOR_INDEX_DISPATCH_ADMISSION_SCOPE",
     "WorkflowWorkerAuthConfigurationError",
     "WorkflowWorkerAuthDenied",
     "authenticate_registered_workflow_worker",

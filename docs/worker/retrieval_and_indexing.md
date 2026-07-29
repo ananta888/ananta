@@ -43,8 +43,9 @@ Der kanonische Provider-Contract ist in
 dokumentiert. Kurzfassung:
 
 - Default ist `local_hash`, offline und deterministisch.
-- Externe/OpenAI-kompatible Embeddings benötigen `external_calls_allowed=true`.
-- `allowed_base_urls` wird gegen Scheme, Host, Port und Pfadgrenze geprüft.
+- Externe/OpenAI-kompatible Embeddings benötigen ein exaktes,
+  unveränderliches Hub-Deploymentprofil und eine getrennte Worker-Egress-
+  Allowlist; Request-Flags können diese Freigabe nicht erteilen.
 - Provider-, Modell- oder Dimensionswechsel invalidieren alte Vektoren oder
   erzeugen einen degraded Status.
 - API-Key-Werte dürfen nicht in Index-State, Diagnostik oder Logs landen.
@@ -57,3 +58,18 @@ The important boundary is that `embedding.json` is a model-neutral input with
 `embedding_text`; numeric vectors are built by the active VectorStore/provider
 pair. Rebuild triggers include manifest hash, provider config hash, model
 version, dimensions and `embedding_text_profile`.
+Mutation, Egress und Artefakttransport sind im
+[Vector-Index-Taskflow](qdrant-vector-index-taskflow.md) beschrieben;
+produktive Qdrant-Lesezugriffe benötigen zusätzlich den
+[taskgebundenen Hub-Scope](qdrant-vector-store-hub-read.md).
+
+## Taskgebundene Context-Bundles
+
+Persistierter Retrieval-Kontext gehört genau einer Hub-Task. Generische
+Create-, Orchestration-Ingest- und Patch-APIs dürfen weder
+`context_bundle_id` noch eingebettete `worker_execution_context.context`-
+Payloads setzen. Vor der Worker-Übergabe lädt der Hub das Bundle erneut aus
+der kanonischen Persistenz und prüft `bundle.task_id == task.id`; fremde,
+ungebundene, fehlende oder widersprüchliche Referenzen bleiben fail-closed.
+Dadurch können gecachte Chunks einer Task nicht durch eine andere Task
+wiederverwendet oder durch Request-Daten überschrieben werden.

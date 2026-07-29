@@ -16,6 +16,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+from worker.retrieval.vector_store_config import (
+    VectorStoreConfig,
+    VectorStoreConfigError,
+    VectorStoreProvider,
+)
+
 ROLLOUT_STATE_SCHEMA = "ananta.vector_store_rollout_state.v1"
 RESOLVED_CONFIG_SCHEMA = "ananta.vector_store_resolved_config.v1"
 _DOMAINS = frozenset({"codecompass", "wiki"})
@@ -27,6 +33,21 @@ _ALLOWED_OVERRIDE_FIELDS = frozenset(
 _SAFE_SECRET_REFERENCE_SUFFIXES = ("_ref", "_file", "_env")
 _SECRET_MARKERS = ("api_key", "password", "secret", "token", "authorization")
 _SCOPE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+_IMMUTABLE_QDRANT_ENDPOINT_FIELDS = frozenset(
+    {
+        "allowed_origins",
+        "allowed_base_urls",
+        "trusted_private_origins",
+        "external_calls_allowed",
+        "tls_verify",
+        "api_key_ref",
+        "api_key_env",
+        "api_key",
+        "tls_ca_cert_ref",
+    }
+)
+_ENV_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+_ENV_FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 
 
 def _canonical_json(value: Any) -> bytes:
@@ -81,6 +102,51 @@ def _contains_plaintext_secret(value: Any, *, key: str = "") -> bool:
     return False
 
 
+def _without_secret_references(value: Any, *, key: str = "") -> Any:
+    normalized_key = str(key or "").strip().lower()
+    if normalized_key in {
+        "api_key_ref",
+        "api_key_env",
+        "tls_ca_cert_ref",
+    }:
+        return None
+    if isinstance(value, Mapping):
+        return {
+            str(item_key): _without_secret_references(
+                item,
+                key=str(item_key),
+            )
+            for item_key, item in value.items()
+            if str(item_key).strip().lower()
+            not in {
+                "api_key_ref",
+                "api_key_env",
+                "tls_ca_cert_ref",
+            }
+        }
+    if isinstance(value, list):
+        return [_without_secret_references(item) for item in value]
+    return value
+
+
+def _reject_security_policy_override(override: Mapping[str, Any]) -> None:
+    json_config = override.get("json")
+    if isinstance(json_config, Mapping) and "index_path" in json_config:
+        raise ValueError("vector_store_json_index_path_override_forbidden")
+    qdrant = override.get("qdrant")
+    if not isinstance(qdrant, Mapping):
+        return
+    if set(qdrant) & _IMMUTABLE_QDRANT_ENDPOINT_FIELDS:
+        raise ValueError("vector_store_security_policy_override_forbidden")
+    endpoint = qdrant.get("endpoint")
+    if endpoint is not None and not isinstance(endpoint, Mapping):
+        raise ValueError("vector_store_qdrant_endpoint_mapping_required")
+    if isinstance(endpoint, Mapping) and (
+        set(endpoint) & _IMMUTABLE_QDRANT_ENDPOINT_FIELDS
+    ):
+        raise ValueError("vector_store_security_policy_override_forbidden")
+
+
 def validate_vector_store_override(raw: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(raw, Mapping):
         raise ValueError("vector_store_override_mapping_required")
@@ -99,7 +165,106 @@ def validate_vector_store_override(raw: Mapping[str, Any]) -> dict[str, Any]:
     for field in ("availability", "json", "qdrant"):
         if field in override and not isinstance(override[field], Mapping):
             raise ValueError(f"vector_store_{field}_mapping_required")
+    _reject_security_policy_override(override)
     return override
+
+
+class VectorStoreGlobalEnvConfigLoader:
+    """Build the immutable Hub policy without resolving worker secrets."""
+
+    def __init__(self, environ: Mapping[str, str] | None = None) -> None:
+        self._environ = environ if environ is not None else os.environ
+
+    def load(self) -> dict[str, Any]:
+        rest_url = self._text(
+            "ANANTA_QDRANT_REST_URL",
+            default="http://localhost:6333",
+        )
+        grpc_url = self._text("ANANTA_QDRANT_GRPC_URL")
+        allowed_origins = self._origins(
+            "ANANTA_QDRANT_ALLOWED_ORIGINS",
+            default=(rest_url, *((grpc_url,) if grpc_url else ())),
+        )
+        trusted_private_origins = self._origins(
+            "ANANTA_QDRANT_TRUSTED_PRIVATE_ORIGINS",
+            default=(),
+        )
+        endpoint: dict[str, Any] = {
+            "rest_url": rest_url,
+            "allowed_origins": allowed_origins,
+            "trusted_private_origins": trusted_private_origins,
+            "external_calls_allowed": self._boolean(
+                "ANANTA_QDRANT_EXTERNAL_CALLS_ALLOWED",
+                default=False,
+            ),
+            "connect_timeout_seconds": self._number(
+                "ANANTA_QDRANT_CONNECT_TIMEOUT_SECONDS",
+                default=3.0,
+            ),
+            "request_timeout_seconds": self._number(
+                "ANANTA_QDRANT_REQUEST_TIMEOUT_SECONDS",
+                default=10.0,
+            ),
+            "prefer_grpc": self._boolean(
+                "ANANTA_QDRANT_PREFER_GRPC",
+                default=False,
+            ),
+            "tls_verify": True,
+        }
+        if grpc_url:
+            endpoint["grpc_url"] = grpc_url
+        api_key_ref = self._text("ANANTA_QDRANT_API_KEY_REF")
+        if api_key_ref:
+            endpoint["api_key_ref"] = api_key_ref
+        tls_ca_cert_ref = self._text("ANANTA_QDRANT_TLS_CA_CERT_REF")
+        if tls_ca_cert_ref:
+            endpoint["tls_ca_cert_ref"] = tls_ca_cert_ref
+        return {
+            "provider": "json",
+            "availability": {
+                "on_unavailable": "degraded_empty",
+                "fallback_provider": None,
+            },
+            "json": {},
+            "qdrant": {"endpoint": endpoint},
+        }
+
+    def _text(self, name: str, *, default: str = "") -> str:
+        return str(self._environ.get(name, default) or "").strip()
+
+    def _origins(
+        self,
+        name: str,
+        *,
+        default: tuple[str, ...],
+    ) -> list[str]:
+        raw = self._text(name)
+        if not raw:
+            return [item for item in default if item]
+        values = [item.strip() for item in raw.split(",") if item.strip()]
+        if not values:
+            raise ValueError("vector_store_environment_origins_invalid")
+        return values
+
+    def _boolean(self, name: str, *, default: bool) -> bool:
+        raw = self._text(name)
+        if not raw:
+            return default
+        normalized = raw.lower()
+        if normalized in _ENV_TRUE_VALUES:
+            return True
+        if normalized in _ENV_FALSE_VALUES:
+            return False
+        raise ValueError("vector_store_environment_boolean_invalid")
+
+    def _number(self, name: str, *, default: float) -> float:
+        raw = self._text(name)
+        if not raw:
+            return default
+        try:
+            return float(raw)
+        except ValueError as exc:
+            raise ValueError("vector_store_environment_number_invalid") from exc
 
 
 @dataclass(frozen=True)
@@ -144,6 +309,13 @@ class VectorStoreOverrideRecord:
 class VectorStoreRolloutStore(Protocol):
     def get(self, key: str) -> VectorStoreOverrideRecord | None: ...
 
+    def list_records(
+        self,
+        *,
+        layer: str,
+        domain: str,
+    ) -> tuple[VectorStoreOverrideRecord, ...]: ...
+
     def put(self, record: VectorStoreOverrideRecord) -> None: ...
 
     def delete(self, key: str) -> None: ...
@@ -161,6 +333,19 @@ class InMemoryVectorStoreRolloutStore:
                 VectorStoreOverrideRecord.from_mapping(record.to_dict())
                 if record is not None
                 else None
+            )
+
+    def list_records(
+        self,
+        *,
+        layer: str,
+        domain: str,
+    ) -> tuple[VectorStoreOverrideRecord, ...]:
+        with self._lock:
+            return tuple(
+                VectorStoreOverrideRecord.from_mapping(record.to_dict())
+                for _, record in sorted(self._records.items())
+                if record.layer == layer and record.domain == domain
             )
 
     def put(self, record: VectorStoreOverrideRecord) -> None:
@@ -190,6 +375,24 @@ class JsonVectorStoreRolloutStore:
                 if isinstance(raw, Mapping)
                 else None
             )
+
+    def list_records(
+        self,
+        *,
+        layer: str,
+        domain: str,
+    ) -> tuple[VectorStoreOverrideRecord, ...]:
+        with self._lock:
+            payload = self._read()
+            records = dict(payload.get("records") or {})
+            selected = []
+            for key, raw in sorted(records.items()):
+                if not isinstance(raw, Mapping):
+                    continue
+                record = VectorStoreOverrideRecord.from_mapping(raw)
+                if record.layer == layer and record.domain == domain:
+                    selected.append(record)
+            return tuple(selected)
 
     def put(self, record: VectorStoreOverrideRecord) -> None:
         with self._lock:
@@ -277,7 +480,10 @@ class VectorStoreRolloutService:
             raise ValueError("vector_store_global_default_must_be_json")
         if _contains_plaintext_secret(candidate):
             raise ValueError("vector_store_plaintext_secret_forbidden")
-        self._global_config = candidate
+        parsed_global = self._parse_production_config(candidate)
+        if parsed_global.provider != VectorStoreProvider.JSON:
+            raise ValueError("vector_store_global_default_must_be_json")
+        self._global_config = parsed_global.as_dict()
         self._audit = audit or self._default_audit
         if clock is None:
             import time
@@ -367,7 +573,18 @@ class VectorStoreRolloutService:
                 raise ValueError("vector_store_override_not_found")
             if record.revision != int(expected_revision):
                 raise RuntimeError("vector_store_override_revision_conflict")
+            previous_provider = self._effective_provider_for_audit(
+                layer=record.layer,
+                domain=record.domain,
+                target_override=record.override,
+            )
+            new_provider = self._effective_provider_for_audit(
+                layer=record.layer,
+                domain=record.domain,
+                target_override=None,
+            )
             self._store.delete(record.key)
+            occurred_at = float(self._clock())
             self._audit(
                 "vector_store_override_rolled_back",
                 {
@@ -378,7 +595,11 @@ class VectorStoreRolloutService:
                         record.scope_name.encode("utf-8")
                     ).hexdigest(),
                     "previous_revision": record.revision,
-                    "provider": str(record.override.get("provider") or "inherited"),
+                    "provider": new_provider,
+                    "previous_provider": previous_provider,
+                    "new_provider": new_provider,
+                    "policy_decision": "rollback_allowed",
+                    "occurred_at": occurred_at,
                 },
             )
             return {
@@ -412,21 +633,27 @@ class VectorStoreRolloutService:
         if workspace_record is not None:
             config = _deep_merge(config, workspace_record.override)
             source_layers.append("workspace_override")
-        provider = str(config.get("provider") or "json").strip().lower()
-        if provider not in _PROVIDERS:
-            raise ValueError("vector_store_provider_invalid")
+        config = self._apply_domain_config(
+            normalized_domain,
+            config,
+        )
+        parsed = self._parse_production_config(config)
+        provider = parsed.provider.value
         if provider == "qdrant" and len(source_layers) == 1:
             raise ValueError("vector_store_qdrant_opt_in_required")
-        if _contains_plaintext_secret(config):
-            raise ValueError("vector_store_plaintext_secret_forbidden")
-        config_hash = hashlib.sha256(_canonical_json(config)).hexdigest()
+        normalized_config = parsed.as_dict()
+        config_hash = hashlib.sha256(
+            _canonical_json(
+                _without_secret_references(normalized_config)
+            )
+        ).hexdigest()
         return ResolvedVectorStoreConfig(
             domain=normalized_domain,
             workspace_id=workspace,
             profile_name=profile,
             provider=provider,
             config_hash=config_hash,
-            config=config,
+            config=normalized_config,
             source_layers=tuple(source_layers),
         )
 
@@ -459,6 +686,23 @@ class VectorStoreRolloutService:
             revision = current.revision if current is not None else 0
             if revision != int(expected_revision):
                 raise RuntimeError("vector_store_override_revision_conflict")
+            self._validate_candidate_override(
+                normalized_override,
+                layer=normalized_layer,
+                domain=normalized_domain,
+            )
+            previous_provider = self._effective_provider_for_audit(
+                layer=normalized_layer,
+                domain=normalized_domain,
+                target_override=(
+                    current.override if current is not None else None
+                ),
+            )
+            new_provider = self._effective_provider_for_audit(
+                layer=normalized_layer,
+                domain=normalized_domain,
+                target_override=normalized_override,
+            )
             record = VectorStoreOverrideRecord(
                 key=key,
                 layer=normalized_layer,
@@ -480,9 +724,11 @@ class VectorStoreRolloutService:
                         record.scope_name.encode("utf-8")
                     ).hexdigest(),
                     "revision": record.revision,
-                    "provider": str(
-                        record.override.get("provider") or "inherited"
-                    ),
+                    "provider": new_provider,
+                    "previous_provider": previous_provider,
+                    "new_provider": new_provider,
+                    "policy_decision": "override_allowed",
+                    "occurred_at": record.updated_at,
                     "override_hash": hashlib.sha256(
                         _canonical_json(record.override)
                     ).hexdigest(),
@@ -490,8 +736,114 @@ class VectorStoreRolloutService:
             )
             return record
 
+    def _effective_provider_for_audit(
+        self,
+        *,
+        layer: str,
+        domain: str,
+        target_override: Mapping[str, Any] | None,
+    ) -> str:
+        providers = {
+            self._parse_production_config(candidate).provider.value
+            for candidate in self._candidate_layer_configs(
+                layer=layer,
+                domain=domain,
+                target_override=target_override,
+            )
+        }
+        if len(providers) == 1:
+            return next(iter(providers))
+        return "mixed"
 
-vector_store_rollout_service = VectorStoreRolloutService()
+    @staticmethod
+    def _parse_production_config(
+        value: Mapping[str, Any],
+    ) -> VectorStoreConfig:
+        try:
+            return VectorStoreConfig.from_mapping(value)
+        except VectorStoreConfigError as exc:
+            raise ValueError(exc.reason) from exc
+
+    def _validate_candidate_override(
+        self,
+        override: Mapping[str, Any],
+        *,
+        layer: str,
+        domain: str,
+    ) -> None:
+        for candidate in self._candidate_layer_configs(
+            layer=layer,
+            domain=domain,
+            target_override=override,
+        ):
+            self._parse_production_config(candidate)
+
+    def _candidate_layer_configs(
+        self,
+        *,
+        layer: str,
+        domain: str,
+        target_override: Mapping[str, Any] | None,
+    ) -> tuple[dict[str, Any], ...]:
+        opposite_layer = (
+            "workspace" if layer == "profile" else "profile"
+        )
+        opposite_records = self._store.list_records(
+            layer=opposite_layer,
+            domain=domain,
+        )
+        combinations: list[tuple[Mapping[str, Any] | None, Mapping[str, Any] | None]]
+        if layer == "profile":
+            combinations = [(target_override, None)]
+            combinations.extend(
+                (target_override, record.override)
+                for record in opposite_records
+            )
+        else:
+            combinations = [(None, target_override)]
+            combinations.extend(
+                (record.override, target_override)
+                for record in opposite_records
+            )
+        candidates: list[dict[str, Any]] = []
+        for profile_override, workspace_override in combinations:
+            config = _clone(self._global_config)
+            if profile_override is not None:
+                config = _deep_merge(config, profile_override)
+            if workspace_override is not None:
+                config = _deep_merge(config, workspace_override)
+            candidates.append(
+                self._apply_domain_config(domain, config)
+            )
+        return tuple(candidates)
+
+    @staticmethod
+    def _apply_domain_config(
+        domain: str,
+        value: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Keep Wiki collections physically distinct from other domains."""
+
+        config = _clone(dict(value))
+        if domain != "wiki":
+            return config
+        qdrant = dict(config.get("qdrant") or {})
+        prefix = str(
+            qdrant.get("collection_prefix") or "ananta"
+        ).strip()
+        if prefix == "ananta":
+            qdrant["collection_prefix"] = "ananta-wiki"
+        elif not prefix.startswith("ananta-wiki"):
+            raise ValueError(
+                "wiki_qdrant_collection_prefix_must_be_separate"
+            )
+        config["qdrant"] = qdrant
+        return config
+
+
+vector_store_rollout_service = VectorStoreRolloutService(
+    global_config=VectorStoreGlobalEnvConfigLoader().load()
+)
 
 
 def get_vector_store_rollout_service() -> VectorStoreRolloutService:
@@ -505,6 +857,7 @@ __all__ = [
     "ROLLOUT_STATE_SCHEMA",
     "ResolvedVectorStoreConfig",
     "VectorStoreOverrideRecord",
+    "VectorStoreGlobalEnvConfigLoader",
     "VectorStoreRolloutService",
     "get_vector_store_rollout_service",
     "validate_vector_store_override",

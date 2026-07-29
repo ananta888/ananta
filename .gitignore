@@ -110,6 +110,7 @@ __pycache__/
 /data/archive/stats_history.json
 !secrets/
 !secrets/.gitkeep
+/config/secrets/
 
 /.gitleaks.toml
 /.venv

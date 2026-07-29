@@ -20,13 +20,26 @@ class FakeQdrantClient:
         self.aliases: dict[str, str] = {}
         self.calls: dict[str, int] = defaultdict(int)
         self.failures: dict[str, list[str]] = defaultdict(list)
+        self.scheduled_failures: dict[str, dict[int, str]] = defaultdict(dict)
         self.availability = ClientAvailability("ready", "ok")
 
     def fail_next(self, operation: str, reason: str) -> None:
         self.failures[operation].append(reason)
 
+    def fail_on_nth_next(self, operation: str, call_number: int, reason: str) -> None:
+        if int(call_number) <= 0:
+            raise ValueError("call_number must be positive")
+        target = self.calls[operation] + int(call_number)
+        self.scheduled_failures[operation][target] = reason
+
     def _call(self, operation: str) -> None:
         self.calls[operation] += 1
+        scheduled = self.scheduled_failures[operation].pop(
+            self.calls[operation],
+            None,
+        )
+        if scheduled is not None:
+            raise QdrantClientError(scheduled, operation=operation)
         if self.failures[operation]:
             raise QdrantClientError(self.failures[operation].pop(0), operation=operation)
 

@@ -14,6 +14,7 @@ frontend-angular/test-results*/
 # Secrets bleiben auch in verschachtelten Compose-Verzeichnissen außerhalb
 **/.env
 **/.env.*
+/config/secrets/
 
 # IDE/Tooling
 .idea/
