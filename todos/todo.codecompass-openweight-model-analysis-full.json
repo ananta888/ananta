@@ -1,0 +1,815 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "codecompass-openweight-model-analysis-full",
+  "created": "2026-07-29",
+  "status": "planned",
+  "priority": "P0",
+  "target_release": "production-full",
+  "purpose": "CodeCompass zu einer produktiv nutzbaren, lokalen und evidence-basierten Analyseplattform fuer Open-Weight-Modelle ausbauen. Die Plattform analysiert Modellartefakte, Architektur, Tensoren, Quantisierung, Adapter, Tokenizer, Forward-Passes, Hidden States, Aktivierungen, Logits, Attention, Ablationen, Verhalten, Sicherheit, Bias, Robustheit und Ressourcenbedarf und verbindet alle Ergebnisse in einem revisionsfesten Model-Intelligence-Graphen.",
+  "goal": "Ein vollstaendiger End-to-End-Workflow von sicherem Modellimport ueber statische und dynamische Analyse bis zu reproduzierbaren Vergleichen, Berichten, Angular-/TUI-Bedienung, API, CLI, Automatisierung und Release-Gates. Kein Mock, keine reine Demo und kein nur dokumentierter Adapter gilt als Fertigstellung.",
+  "scope": {
+    "included": [
+      "Hugging-Face-Snapshots mit Safetensors, Config und Tokenizer",
+      "Safetensors-State-Dicts mit explizit erlaubter, codeeigener Modellfactory",
+      "GGUF-Dateien und llama.cpp-kompatible Metadaten/Tensoren",
+      "ONNX-Modelle einschliesslich externer Tensor-Dateien",
+      "PEFT-/LoRA-/QLoRA-Adapter und Base-Model-Beziehungen",
+      "lokale Modellverzeichnisse sowie revision- und hashgebundene importierte Snapshots",
+      "Decoder-only, Encoder-only, Encoder-Decoder, Mixture-of-Experts und multimodale Modellfamilien, soweit ein Capability-Adapter vorhanden ist",
+      "statische, dynamische, vergleichende, verhaltensbezogene und sicherheitsbezogene Analyse",
+      "CPU, CUDA und MPS mit expliziter Capability-Erkennung und reproduzierbarem Fallback",
+      "Angular UI, TUI, REST API, CLI, Worker-Jobs, Exporte und CI-Automatisierung"
+    ],
+    "explicit_limits": [
+      "Ollama-, LM-Studio- und generische OpenAI-kompatible Server liefern ohne spezielle Erweiterung keine vollstaendigen Hidden States oder Attention-Tensoren; fehlende Capabilities muessen als unsupported sichtbar bleiben.",
+      "GGUF-Tiefenanalyse darf nur Funktionen behaupten, die der verwendete Parser oder llama.cpp-Build wirklich bereitstellt.",
+      "Interpretierbarkeitsresultate sind Evidence und Hypothesen, kein Beweis fuer menschlich lesbare Gedanken, Ziele oder Bewusstsein.",
+      "Ein fehlender Befund bedeutet nicht, dass eine Eigenschaft nicht existiert.",
+      "Nicht vertrauenswuerdiger Remote-Code, Pickle-Artefakte und ungepruefte Plugins bleiben verboten."
+    ]
+  },
+  "definition_of_done": [
+    "Ein Benutzer kann ein unterstuetztes lokales Open-Weight-Modell sicher importieren, ohne Python-Remote-Code oder Pickle auszufuehren.",
+    "CodeCompass erzeugt fuer jedes Modell ein revisionsfestes Manifest, einen Model-Intelligence-Graphen, statische Tensorstatistiken und einen Capability-Bericht.",
+    "Unterstuetzte Transformers-/PyTorch-Modelle koennen instrumentierte Forward-Passes mit begrenzten Hidden-State-, Attention-, Aktivierungs- und Logit-Artefakten ausfuehren.",
+    "Base-, Instruct-, Fine-Tune-, LoRA-, quantisierte und konvertierte Varianten koennen reproduzierbar verglichen werden.",
+    "Ablations-, Robustheits-, Bias-, Sicherheits- und Benchmark-Suites sind ueber UI, TUI, CLI und API voll nutzbar.",
+    "Alle Aussagen besitzen Source-, Modell-, Revision-, Dataset-, Prompt-, Seed-, Runtime- und Tool-Provenance.",
+    "Budgets, Isolation, Datenschutz, Lizenzregeln, Tenant-Trennung und Auditierung sind technisch erzwungen.",
+    "Angular UI und TUI zeigen dieselben autoritativen Analyseobjekte und keine clientseitig erfundenen Ergebnisse.",
+    "E2E-Tests mit realen kleinen Offline-Modellen sowie negative Security-Tests laufen in CI.",
+    "Dokumentation, Runbooks, Migration, Backup, Retention, Export und reproduzierbare Beispielanalysen sind abgeschlossen."
+  ],
+  "architecture_principles": [
+    "Hub besitzt Identitaet, Policy, Jobstatus, Idempotenz und atomare Publikation; Worker verarbeitet nur explizit materialisierte Artefakte.",
+    "Modelldateien sind untrusted input und werden nie als Anweisungen behandelt.",
+    "Statische Analyse ist strikt von Inferenz und generativer Verhaltensanalyse getrennt.",
+    "Capability-Erkennung basiert auf nachgewiesenen Adapterfunktionen, nicht auf Modellnamen.",
+    "Roh-Tensoren und Aktivierungen werden nicht ungegrenzt in JSON oder Graphdatenbanken gespeichert; grosse Daten bleiben content-addressed artifacts.",
+    "Jeder Graphknoten und jede Kante verweist auf Evidence, Hash, Toolversion und Analysejob.",
+    "Alle Berechnungen sind budgetiert, abbrechbar, wiederaufnehmbar und deterministisch, soweit Backend und Hardware dies erlauben.",
+    "Vergleiche duerfen nur kompatible Tensoren, Tokenizer, Prompts und Messbedingungen direkt gegeneinander auswerten.",
+    "Heuristische und kausale Aussagen werden klar getrennt.",
+    "Sichere Defaults: local-only, offline, keine Generierung, keine Downloads, keine Artefaktausfuehrung."
+  ],
+  "canonical_capabilities": [
+    "artifact_inventory",
+    "architecture_parse",
+    "tokenizer_analysis",
+    "tensor_statistics",
+    "tensor_similarity",
+    "quantization_analysis",
+    "adapter_analysis",
+    "model_diff",
+    "forward_inference",
+    "hidden_states",
+    "activations",
+    "attention",
+    "logits",
+    "logprobs",
+    "choice_scoring",
+    "embedding",
+    "classification",
+    "reranking",
+    "activation_patching",
+    "head_ablation",
+    "layer_ablation",
+    "neuron_ablation",
+    "causal_tracing",
+    "probe_training",
+    "behavior_evaluation",
+    "bias_evaluation",
+    "security_evaluation",
+    "robustness_evaluation",
+    "performance_benchmark",
+    "energy_measurement",
+    "report_export"
+  ],
+  "deliverables": [
+    "Versionierte JSON-Schemas und Python-/TypeScript-Vertragstypen",
+    "Sicherer ModelArtifactImporter und ModelManifestService",
+    "Adapter fuer Safetensors/Hugging Face, PyTorch-safe, ONNX, GGUF und PEFT",
+    "Model-Intelligence-Graph mit JSON-/SQLite-Store und optionalem skalierbaren Backend-Port",
+    "Statische Tensor-, Architektur-, Tokenizer-, Quantisierungs- und Lizenzanalyse",
+    "Instrumentierte Inferenzengine mit Hooks und Artifact-Budgeting",
+    "Vergleichs-, Ablations-, Interpretierbarkeits-, Verhaltens- und Security-Engines",
+    "Dataset-/Prompt-Suite-Verwaltung mit reproduzierbaren Runs",
+    "Angular Model Lab und vollwertige TUI",
+    "REST API, CLI und Worker-Jobintegration",
+    "HTML-, Markdown-, JSON-, CSV- und Parquet-Exporte",
+    "Observability, Audit, Retention, Backup, Migration und Betriebsdokumentation",
+    "Vollstaendige Test-, Benchmark- und Security-Gates"
+  ],
+  "implementation_plan": [
+    {
+      "id": "OWMA-001",
+      "title": "Bestand und Integrationsgrenzen revisionsfest erfassen",
+      "priority": "P0",
+      "depends_on": [],
+      "tasks": [
+        "Vorhandene CodeCompass-, Restricted-Inference-, Ollama-, LM-Studio-, Training-, LoRA-, Unsloth-, Benchmark- und Model-Profile-Pfade mit echten Dateipfaden katalogisieren.",
+        "Deklarierte Capabilities gegen tatsaechlich implementierte Methoden und Tests pruefen; insbesondere hidden_states und attention.",
+        "Doppelte Modellmetadatenvertraege identifizieren und eine kanonische Ownership-Matrix festlegen.",
+        "Bestehende Security-Gates fuer Safetensors, Pickle, Remote-Code, lokale Pfade und Artefakthashes dokumentieren.",
+        "Kompatibilitaets- und Migrationsplan fuer bestehende Configs und APIs erstellen."
+      ],
+      "acceptance_criteria": [
+        "Maschinenlesbarer Ist-Bericht nennt Implementierungsdatei, Status, Owner, Tests und bekannte Luecke je Capability.",
+        "Keine Capability gilt aufgrund einer Konstante oder Dokumentation als implementiert.",
+        "Alle nachfolgenden Tasks referenzieren kanonische Erweiterungspunkte statt parallele Zweitimplementierungen.",
+        "Backward-Compatibility-Matrix fuer vorhandene Nutzerkonfigurationen ist versioniert."
+      ]
+    },
+    {
+      "id": "OWMA-002",
+      "title": "Kanonische Model-Intelligence-Vertraege definieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-001"],
+      "tasks": [
+        "Schemas model_artifact_manifest.v1, model_capability_report.v1, model_graph.v1, model_analysis_job.v1, model_analysis_result.v1 und model_evidence.v1 erstellen.",
+        "Schemas fuer tensor_statistics, forward_trace, attention_summary, activation_summary, logit_trace, model_comparison, ablation_run, evaluation_run und model_report erstellen.",
+        "Stable IDs fuer Modell, Revision, Artefakt, Tensor, Modul, Layer, Head, Neuron, Adapter, Tokenizer, Run, Probe, Dataset und Evidence definieren.",
+        "Reason-Codes fuer unsupported, degraded, partial, budget_exceeded, incompatible, unsafe, cancelled und failed festlegen.",
+        "JSON-Schema, Python-Dataclasses/Pydantic und TypeScript-Typen aus einer autoritativen Quelle synchronisieren.",
+        "Schema-Migrationen und Versionskompatibilitaet implementieren."
+      ],
+      "acceptance_criteria": [
+        "Alle Schemas validieren positive und negative Fixtures.",
+        "IDs bleiben bei identischem Artefakt und identischer Revision stabil.",
+        "Partial Coverage kann nicht als vollstaendige Analyse serialisiert werden.",
+        "Python und TypeScript bestehen Contract-Drift-Tests.",
+        "Alte gespeicherte Resultate koennen gelesen oder mit klarer Fehlermeldung migriert werden."
+      ]
+    },
+    {
+      "id": "OWMA-003",
+      "title": "Sicheren Modellimport und Artefaktinventar vollstaendig implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-002"],
+      "tasks": [
+        "Import fuer lokale Verzeichnisse, einzelne Dateien und explizit materialisierte Snapshots implementieren.",
+        "Dateien streamend hashen, Groessen-, Anzahl-, Pfad-, Symlink-, Sparse-File- und Archive-Bomb-Limits erzwingen.",
+        "Safetensors, GGUF, ONNX, external_data, JSON, YAML, tokenizer.json, tokenizer.model, vocab, merges und PEFT-Configs klassifizieren.",
+        "Pickle-, PT-, PTH-, BIN-, CKPT-, Joblib- und unbekannte ausfuehrbare Artefakte standardmaessig blockieren.",
+        "Keinen trust_remote_code-Pfad zulassen; benoetigte Custom-Architekturen nur ueber versionierte allowlisted Factories.",
+        "Lizenzdateien, Model Card, Herkunft, Upstream-Revision und bekannte Nutzungseinschraenkungen erfassen.",
+        "Content-addressed Speicherung, Deduplizierung, Quarantaene und atomare Publikation integrieren.",
+        "Importer muss offline arbeiten und darf keine impliziten Downloads ausloesen."
+      ],
+      "acceptance_criteria": [
+        "Manipulierte Pfade, Symlinks ausserhalb des Snapshots, Pickle-Artefakte und uebergrosse Manifeste werden fail-closed blockiert.",
+        "Jede akzeptierte Datei besitzt SHA-256, Groesse, Medientyp, Rolle und Source-Provenance.",
+        "Identischer Import ist idempotent und erzeugt kein Duplikat.",
+        "Unvollstaendige Shards oder fehlende ONNX-external-data-Dateien werden erkannt.",
+        "Security-Fixtures laufen ohne Netzwerk und ohne Ausfuehrung von Modellcode."
+      ]
+    },
+    {
+      "id": "OWMA-004",
+      "title": "Capability Discovery und Adapter Registry produktionsreif machen",
+      "priority": "P0",
+      "depends_on": ["OWMA-002", "OWMA-003"],
+      "tasks": [
+        "Capability-Discovery pro Artefaktformat, Architektur, Backend, Device und Adapterversion implementieren.",
+        "Registry um statische Parser, dynamische Inferenzadapter und optionale Analyseplugins erweitern.",
+        "HuggingFace-/Safetensors-, Safe-PyTorch-, ONNX-, GGUF-/llama.cpp- und PEFT-Adapter produktionsreif implementieren.",
+        "Ollama und LM Studio als Remote-Runtime-Adapter mit ehrlicher begrenzter Capability-Matrix integrieren.",
+        "Runtime-Selbsttests fuer Hidden States, Attention, Logits, Logprobs und Hookbarkeit ausfuehren.",
+        "Device-, dtype-, Quantisierungs-, Architektur- und Multimodal-Capabilities getrennt melden.",
+        "Adapter-Lifecycle, Cleanup, GPU-Speicherfreigabe, Timeout und Crash-Isolation vereinheitlichen."
+      ],
+      "acceptance_criteria": [
+        "Capability-Bericht unterscheidet declared, probed, ready, degraded und unsupported.",
+        "Ollama/LM Studio behaupten keine nicht nachgewiesenen Interna.",
+        "Adapterfehler lassen Hub und andere Jobs weiterlaufen.",
+        "Jeder Adapter hat Contract-, Offline-, Cleanup- und Negative-Security-Tests.",
+        "Ein Capability-Probe veraendert das Modellartefakt nicht."
+      ]
+    },
+    {
+      "id": "OWMA-005",
+      "title": "Model-Intelligence-Graph und Storage implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-002", "OWMA-003"],
+      "tasks": [
+        "Knoten fuer Model, Revision, Artifact, Architecture, Module, Layer, AttentionHead, MLP, Expert, Router, Tensor, Tokenizer, Adapter, Quantization, Dataset, Run, Finding und Evidence implementieren.",
+        "Kanten fuer contains, loads, tied_to, consumes, produces, routes_to, adapted_by, quantized_from, converted_from, fine_tuned_from, compared_with und supported_by definieren.",
+        "Graphbuilder fuer Transformers-Config, Safetensors-Index, ONNX-Graph, GGUF-Metadaten und PEFT-Config implementieren.",
+        "JSON- und SQLite-Store mit gleichem Vertrag bereitstellen; grosse Tensorartefakte nur referenzieren.",
+        "Evidence-Pfade, Confidence, Coverage und Heuristikmarker in jede abgeleitete Kante integrieren.",
+        "Whitelisted Query Engine fuer Architektur-, Tensor-, Adapter-, Quantisierungs- und Provenance-Fragen erweitern.",
+        "Optionalen skalierbaren Graph-Backend-Port ohne Pflichtabhaengigkeit definieren."
+      ],
+      "acceptance_criteria": [
+        "Ein reales Testmodell erzeugt einen navigierbaren Graphen bis auf Tensor- und Head-Ebene.",
+        "Weight Tying, Shards, MoE-Experten und LoRA-Zielmodule werden korrekt dargestellt.",
+        "Graphqueries sind hart begrenzt und besitzen Evidence-Pfade.",
+        "JSON- und SQLite-Store bestehen dieselben Contract-Tests.",
+        "Millionen Tensorwerte werden nicht als einzelne Graphknoten gespeichert."
+      ]
+    },
+    {
+      "id": "OWMA-006",
+      "title": "Statische Architektur- und Tensoranalyse vollstaendig implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-003", "OWMA-005"],
+      "tasks": [
+        "Parameterzahl, trainierbare Parameter, Speicherbedarf je dtype, Layer-/Modulstruktur und Tensor-Shapes berechnen.",
+        "Streaming-Statistiken je Tensor und Gruppe berechnen: min, max, mean, variance, std, RMS, L1/L2, Quantile, NaN, Inf, zero, near-zero, sparsity, entropy und outlier rate.",
+        "Norm-, Spektral-, Rang- und Konditionsanalysen mit budgetierten approximativen Verfahren implementieren.",
+        "Anomalien wie unerwartete Shapes, fehlende Tensoren, ungenutzte Gewichte, extreme Outlier und fehlerhaftes Weight Tying erkennen.",
+        "Layerweise Heatmaps und Verteilungen als aggregierte Artefakte erzeugen.",
+        "Architecture Fingerprint fuer revisionsuebergreifende Vergleiche erzeugen.",
+        "Multimodale Encoder, Projector, Vision-Tower und Audio-Komponenten separat erfassen."
+      ],
+      "acceptance_criteria": [
+        "Analyse arbeitet shard- und mmap-faehig ohne komplettes Modell im RAM zu duplizieren.",
+        "Referenzwerte fuer kleine Testmodelle stimmen innerhalb definierter Toleranz.",
+        "NaN/Inf und Shape-Mismatch werden als blockierende Findings ausgegeben.",
+        "Approximationen nennen Methode, Seed, Stichprobe und Fehlergrenze.",
+        "Bericht zeigt Coverage fuer jeden Tensor."
+      ]
+    },
+    {
+      "id": "OWMA-007",
+      "title": "Tokenizer- und Prompt-Template-Analyse implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-003", "OWMA-005"],
+      "tasks": [
+        "Tokenizer-Typ, Vokabular, Special Tokens, Added Tokens, Normalizer, PreTokenizer, PostProcessor und Decoder analysieren.",
+        "Chat-Templates statisch erfassen, parsen, hashbinden und auf Rollen-, Tool-, Thinking- und BOS/EOS-Konflikte pruefen.",
+        "Roundtrip-, Unicode-, Whitespace-, Control-Character-, Mehrsprachigkeits- und Code-Tokenisierungstests implementieren.",
+        "Token-Fertility, Byte-Fallback, unbekannte Tokens und Kontextverbrauch fuer Referenzkorpora messen.",
+        "Tokenizer-Diffs zwischen Base, Fine-Tune, GGUF, Ollama und LM-Studio-Artefakten erkennen.",
+        "Prompt-Render-Vorschau mit exakten Token-IDs und Grenzen bereitstellen."
+      ],
+      "acceptance_criteria": [
+        "ChatML-/Llama-/Gemma-/Qwen-Template-Konflikte werden mit konkreter Evidence angezeigt.",
+        "Modell und Tokenizer mit inkompatiblen Vocabulary-Shapes werden blockiert.",
+        "Keine Template-Ausfuehrung darf beliebigen Code ausfuehren.",
+        "UI und TUI zeigen exakt denselben gerenderten Prompt und dieselben Token-IDs.",
+        "Tests decken Unicode, Injection-Delimiter und Tool-Call-Templates ab."
+      ]
+    },
+    {
+      "id": "OWMA-008",
+      "title": "Quantisierungs- und Konvertierungsanalyse implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-004", "OWMA-006"],
+      "tasks": [
+        "GGUF-Quantisierungstypen, Blockgroessen, Tensor-Dtypes und Metadaten vollstaendig inventarisieren.",
+        "GPTQ, AWQ, bitsandbytes/NF4, ONNX-Quantisierung und native dtype-Reduktionen erkennen.",
+        "Dequantisierte Stichproben und kompatible Referenztensoren vergleichen.",
+        "Fehlerkennzahlen je Tensor/Layer berechnen: MAE, RMSE, cosine similarity, relative error, SQNR und Outlier-Verlust.",
+        "Perplexity-, Logit-, Choice-Score- und Task-Delta gegen Referenzmodell messen.",
+        "Speicher-, Latenz-, Durchsatz- und Qualitaets-Pareto-Analyse erzeugen.",
+        "Konvertierungskette und nicht beweisbare Herkunft deutlich markieren."
+      ],
+      "acceptance_criteria": [
+        "Quantisierte Varianten koennen gegen ein explizit ausgewaehltes Referenzmodell verglichen werden.",
+        "Inkompatible Tokenizer oder Architekturen verhindern irrefuehrende Direktvergleiche.",
+        "GGUF ohne Referenzmodell erhaelt eine statische Analyse, aber keine erfundene Quantisierungsqualitaet.",
+        "Messungen nennen Backend, Build, Hardware, Threads, Batch, Context und Seed.",
+        "Pareto-Bericht ist als JSON, CSV und UI-Ansicht verfuegbar."
+      ]
+    },
+    {
+      "id": "OWMA-009",
+      "title": "LoRA-, QLoRA- und Fine-Tune-Diff-Analyse implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-003", "OWMA-005", "OWMA-006"],
+      "tasks": [
+        "PEFT-Config, Rank, Alpha, Dropout, Zielmodule, Modules-to-save und Base-Model-Referenz erfassen.",
+        "Adapter-Tensoren sicher laden und Shape-/Target-Kompatibilitaet validieren.",
+        "Effektive Delta-Werte streamingfaehig berechnen, ohne zwingend ein vollstaendiges Merge-Artefakt zu schreiben.",
+        "Delta-Normen, Rang, Spektrum, Cosine, Layerverteilung und relative Aenderung analysieren.",
+        "Mehrere Adapter untereinander sowie Adapter gegen gemergtes Modell vergleichen.",
+        "Base-Model-Mismatch, falsche Revision und Tokenizer-Aenderung erkennen.",
+        "Verhaltens- und Aktivierungsdeltas des Adapters auf Referenzsuiten messen."
+      ],
+      "acceptance_criteria": [
+        "Jedes LoRA-Target ist einem realen Basismodul oder einem klaren unresolved Finding zugeordnet.",
+        "Effektive Delta-Statistiken stimmen mit kontrolliertem Merge innerhalb Toleranz ueberein.",
+        "Base-Revision ist hashgebunden; Namensgleichheit reicht nicht.",
+        "QLoRA-Vergleiche dokumentieren Dequantisierungs- und Rechenpfad.",
+        "UI zeigt, welche Layer und Module am staerksten veraendert wurden."
+      ]
+    },
+    {
+      "id": "OWMA-010",
+      "title": "Instrumentierte Forward-Inference-Engine implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-004", "OWMA-007"],
+      "tasks": [
+        "Separaten Worker-Executor fuer instrumentierte Forward-Passes implementieren.",
+        "Hook-Registry fuer Modulinput, Moduloutput, Hidden States, Attention, Logits, Router-Logits und ausgewaehlte Aktivierungen erstellen.",
+        "Capture-Plan mit Layer-, Modul-, Token-, Head-, dtype-, Aggregations- und Speicherlimits definieren.",
+        "Streaming, Online-Aggregation, Chunking und content-addressed Artifact-Ausgabe implementieren.",
+        "Deterministische Seeds, eval mode, inference_mode, Backend-Flags und reproduzierbare Generationseinstellungen erzwingen.",
+        "Nicht-generative Forward-Passes und explizit erlaubte Generation strikt trennen.",
+        "OOM-Prognose, Admission Control, automatische sichere Batchreduktion und Cleanup integrieren.",
+        "Abbruch, Timeout, Heartbeat, Retry und Resume fuer lange Runs implementieren."
+      ],
+      "acceptance_criteria": [
+        "Ein realer kleiner Decoder und Encoder laufen offline auf CPU; CUDA-Test ist optional-hardware-gated.",
+        "Capture ohne angeforderte Rohdaten speichert nur Aggregate.",
+        "OOM hinterlaesst keinen blockierten GPU-Speicher und keinen falschen completed-Status.",
+        "Gleiche deterministische Konfiguration liefert innerhalb Backend-Toleranz gleiche Ergebnisse.",
+        "Jeder Trace enthaelt Modellhash, Tokenizerhash, Inputhash, Hookplan, Backend, Hardware und Toolversion."
+      ]
+    },
+    {
+      "id": "OWMA-011",
+      "title": "Hidden-State-, Aktivierungs- und Logit-Analyse implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-010"],
+      "tasks": [
+        "Hidden-State-Normen, Cosine-Drift, Anisotropie, Intrinsic Dimension und Token-/Layer-Aehnlichkeit berechnen.",
+        "Aktivierungsverteilungen, Sättigung, Dead/Always-on Units, Sparsity, Outlier und Expert-Routing analysieren.",
+        "Logit-Lens und Tuned-Lens-Port definieren; untrainierte Projektionen klar kennzeichnen.",
+        "Top-k-Logits, Entropie, Margin, Kalibrierung, Tokenwahrscheinlichkeiten und feste Choice-Scores auswerten.",
+        "Representation-Similarity mit CKA, SVCCA oder budgetierter Alternative implementieren.",
+        "Base/Fine-Tune/Quantisierung/LoRA-Deltas token- und layergenau vergleichen.",
+        "Aggregate, Heatmaps und Drill-down-Artefakte erzeugen."
+      ],
+      "acceptance_criteria": [
+        "Berechnungen sind maskenbewusst und schliessen Padding korrekt aus.",
+        "Vergleiche blockieren unvereinbare Tokenpositionen oder verwenden explizit dokumentiertes Alignment.",
+        "Rohaktivierungen werden nur bei expliziter Policy gespeichert und unterliegen Retention.",
+        "Numerische Tests vergleichen gegen kleine Referenztensoren.",
+        "Alle Visualisierungen lassen sich auf Evidence und Runparameter zurueckfuehren."
+      ]
+    },
+    {
+      "id": "OWMA-012",
+      "title": "Attention- und Routing-Analyse implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-010"],
+      "tasks": [
+        "Attention-Capture fuer Modelle mit tatsaechlich verfuegbaren Attention-Outputs implementieren.",
+        "Head-Entropie, Konzentration, Distanz, BOS-/Delimiter-/Copy-/Induction-nahe Muster und Head-Redundanz messen.",
+        "Attention-Rollout und Attention-Flow als klar gekennzeichnete Heuristiken implementieren.",
+        "GQA, MQA, Sliding Window, RoPE, ALiBi, Sparse Attention und multimodale Cross-Attention beruecksichtigen.",
+        "MoE-Routerverteilung, Expert Load, Top-k-Auswahl, Capacity und Routing-Stabilitaet analysieren.",
+        "Attention-Diffs zwischen Modellvarianten und Prompts berechnen.",
+        "Memory-sichere Sparse-/Top-k-Darstellung fuer lange Sequenzen implementieren."
+      ],
+      "acceptance_criteria": [
+        "Flash-/SDPA-Backends ohne Attention-Ausgabe werden automatisch auf kompatiblen Analysemodus umgestellt oder als unsupported gemeldet.",
+        "Attention wird nie als alleinige kausale Erklaerung bezeichnet.",
+        "GQA-/MQA-Dimensionen werden korrekt auf Query-Heads abgebildet.",
+        "Lange Kontexte ueberschreiten keine konfigurierten Artifact-Budgets.",
+        "Head- und Router-Ergebnisse sind in Graph, UI, TUI und Export vorhanden."
+      ]
+    },
+    {
+      "id": "OWMA-013",
+      "title": "Kausale Ablations- und Patching-Engine implementieren",
+      "priority": "P1",
+      "depends_on": ["OWMA-010", "OWMA-011", "OWMA-012"],
+      "tasks": [
+        "Layer-, Head-, Neuron-, MLP-, Expert- und Modulablation mit zero, mean, resample und patch modes implementieren.",
+        "Activation Patching zwischen clean und corrupted Runs implementieren.",
+        "Causal Tracing mit kontrollierter Intervention und definierten Zielmetriken implementieren.",
+        "Path Patching und schrittweise Komponenten-Suche als budgetierten Modus bereitstellen.",
+        "Matched Controls, Baselines, Mehrfachwiederholungen und Effektgroessen integrieren.",
+        "Konfidenzintervalle und Korrektur fuer multiples Testen implementieren.",
+        "Ablationsplan vor Ausfuehrung validieren und Kosten prognostizieren."
+      ],
+      "acceptance_criteria": [
+        "Ablationsresultate enthalten Baseline, Intervention, Zielmetrik, Effekt, Unsicherheit und Wiederholungen.",
+        "Keine Intervention veraendert persistente Modellgewichte.",
+        "Unsupported Module werden vor Jobstart erkannt.",
+        "Kontrollierte synthetische Modelle bestaetigen erwartete kausale Effekte.",
+        "UI trennt Korrelation, Intervention und kausale Evidenz sichtbar."
+      ]
+    },
+    {
+      "id": "OWMA-014",
+      "title": "Probe-, Feature- und Circuit-Analyse implementieren",
+      "priority": "P1",
+      "depends_on": ["OWMA-011", "OWMA-013"],
+      "tasks": [
+        "Lineare Probes mit train/validation/test-Split, Regularisierung und Leakage-Schutz implementieren.",
+        "Selectivity Controls, Random-Label-Baselines und Minimum Description Length optional integrieren.",
+        "Sparse Autoencoder als optionales, versioniertes Analyseplugin mit explizitem Trainingsergebnis integrieren.",
+        "Feature-Aktivierungen ueber Korpora suchen, clustern und mit Evidence-Beispielen darstellen.",
+        "Circuit-Kandidaten aus Aktivierung, Attention und Ablation erzeugen, aber nicht als bewiesene Semantik ausgeben.",
+        "Probe-/SAE-Artefakte mit Dataset-, Modell-, Hyperparameter- und Codehash binden.",
+        "Cross-Model Feature Alignment nur mit dokumentierter Alignment-Methode erlauben."
+      ],
+      "acceptance_criteria": [
+        "Probe-Qualitaet ohne Baseline und Holdout kann nicht als Finding publiziert werden.",
+        "Datasetsplits sind reproduzierbar und hashgebunden.",
+        "SAE-/Probe-Training laeuft isoliert und unter Resource Budgets.",
+        "Feature-Namen werden als Benutzerlabel oder Hypothese markiert.",
+        "Mindestens ein kontrolliertes E2E-Beispiel belegt den Workflow."
+      ]
+    },
+    {
+      "id": "OWMA-015",
+      "title": "Verhaltens- und Kompetenzanalyse als reproduzierbare Eval-Plattform implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-004", "OWMA-007", "OWMA-010"],
+      "tasks": [
+        "Versionierte Dataset-, Prompt-, Scorer-, Judge- und Run-Manifeste erstellen.",
+        "Deterministische, regelbasierte, testbasierte und modellbasierte Scorer getrennt implementieren.",
+        "Code-, Reasoning-, Tool-Calling-, Structured-Output-, RAG-, Long-Context- und Mehrsprachigkeits-Suites bereitstellen.",
+        "Pass@k, Accuracy, F1, Calibration, Exact Match, Schema Validity, Tool Success und Regression Delta berechnen.",
+        "Kontamination, Prompt-Leakage, Sample-Duplizierung und ungültige Aufgaben erkennen.",
+        "Generative Judge nur opt-in, mit Judge-Bias-Kontrollen und Roh-Evidence verwenden.",
+        "Ergebnisse mit bestehenden Ollama-/Bayes-Benchmarks konsolidieren."
+      ],
+      "acceptance_criteria": [
+        "Jeder Score ist auf Samples, Scorer-Version und Rohresultat zurueckfuehrbar.",
+        "Fehlende oder geaenderte Prompt-Templates erzeugen keinen stillen Vergleich.",
+        "Confidence Intervals und Mindeststichproben werden ausgewiesen.",
+        "Ein Run kann offline reproduziert und als Bundle exportiert werden.",
+        "Regression Gates koennen pro Modellrolle und Tasktyp konfiguriert werden."
+      ]
+    },
+    {
+      "id": "OWMA-016",
+      "title": "Bias-, Fairness- und Datenschutzanalyse implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-015"],
+      "tasks": [
+        "Konfigurierbare Counterfactual-, Stereotype-, Toxicity-, Allocation- und Representation-Suites integrieren.",
+        "Gruppenmetriken, Fehlerraten, Calibration, Disparate Impact und Unsicherheit berechnen.",
+        "Mehrsprachige und intersektionale Auswertung mit Mindeststichproben und Warnungen implementieren.",
+        "PII-/Memorization-Probes nur mit freigegebenen kontrollierten Datensaetzen ausfuehren.",
+        "Dataset Cards, Rechtsgrundlage, Sensitivitaet, Retention und erlaubte Zwecke erfassen.",
+        "Keine geschuetzten Attribute oder sensible Rohtexte unnoetig in Logs speichern.",
+        "Fairness-Findings als messwertgebundene Beobachtung statt pauschales Urteil darstellen."
+      ],
+      "acceptance_criteria": [
+        "Gruppenvergleich ohne ausreichende Stichprobe wird blockiert oder als low confidence markiert.",
+        "Counterfactual-Paare unterscheiden sich nur in definierten Attributen.",
+        "Rohdatenzugriff ist tenant- und policygebunden.",
+        "Export kann sensible Samples redigieren, ohne Metriken zu verfaelschen.",
+        "Bericht nennt Dataset-Limits und alternative Fairnessdefinitionen."
+      ]
+    },
+    {
+      "id": "OWMA-017",
+      "title": "Security-, Safety- und Robustheitsanalyse implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-015"],
+      "tasks": [
+        "Prompt-Injection-, Jailbreak-, System-Prompt-Leak-, Tool-Misuse- und Structured-Output-Angriffssuiten integrieren.",
+        "Backdoor-/Trigger-Screening ueber kontrollierte Inputmutationen, Aktivierungsdeltas und Verhaltensdeltas implementieren.",
+        "Adversarial Robustness fuer Unicode, Homoglyphen, Whitespace, Truncation, Context Overflow und Role Delimiter testen.",
+        "Supply-Chain-Findings aus Artefakten, Lizenzen, Remote-Code-Hinweisen, unsicheren Formaten und Herkunft erzeugen.",
+        "Model Extraction, Membership Inference und Memorization nur in rechtlich und technisch freigegebenem Modus bereitstellen.",
+        "Tool-Calling-Faehigkeit, Argumentvalidierung, finish_reason und kompletter Tool-Loop testen.",
+        "Findings nach Severity, Confidence, Exploitability, Scope und Evidence klassifizieren."
+      ],
+      "acceptance_criteria": [
+        "Security-Suite kann keine realen externen Systeme oder Tools ohne Sandbox/Allowlist aufrufen.",
+        "Angriffsprompts werden als untrusted Testdaten behandelt.",
+        "False-Positive-Kontrollen und Baselines sind vorhanden.",
+        "Kritische Findings besitzen reproduzierbaren Testfall und genaue Modellrevision.",
+        "CI kann definierte kritische Regressionen blockieren."
+      ]
+    },
+    {
+      "id": "OWMA-018",
+      "title": "Performance-, Speicher-, Energie- und Skalierungsbenchmarks implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-004", "OWMA-010"],
+      "tasks": [
+        "Load-Zeit, Peak RAM, Peak VRAM, Prefill, Decode, Tokens/s, Time-to-first-token und Latenzquantile messen.",
+        "Batch-, Kontext-, Thread-, Offload-, Cache-, dtype- und Quantisierungs-Sweeps implementieren.",
+        "KV-Cache-Groesse theoretisch und gemessen erfassen.",
+        "Warmup, Synchronisation, Wiederholungen, thermische Drift und Background Load kontrollieren.",
+        "Energie-/Leistungsmessung ueber verfuegbare Plattformadapter optional integrieren.",
+        "Hardware-Fingerprint ohne unnoetige personenbezogene Details erzeugen.",
+        "RTX-3080-taugliche sichere Presets sowie CPU-Fallback bereitstellen.",
+        "Pareto-Front fuer Qualitaet, Speicher, Geschwindigkeit und Energie berechnen."
+      ],
+      "acceptance_criteria": [
+        "Benchmark nennt alle wesentlichen Runtimeparameter und Wiederholungen.",
+        "CUDA-Zeiten werden korrekt synchronisiert.",
+        "OOM- und Throttling-Runs werden nicht als normale Messpunkte gewertet.",
+        "Ergebnisse verschiedener Hardware werden nicht ohne sichtbare Normalisierung vermischt.",
+        "CSV-/Parquet-Export und Angular-Vergleichsansicht sind vorhanden."
+      ]
+    },
+    {
+      "id": "OWMA-019",
+      "title": "Vergleichs- und Regression-Engine implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-006", "OWMA-008", "OWMA-009", "OWMA-011", "OWMA-015", "OWMA-018"],
+      "tasks": [
+        "Beliebige kompatible Modellrevisionen als Vergleichsset verwalten.",
+        "Architektur-, Tensor-, Tokenizer-, Aktivierungs-, Attention-, Logit-, Eval-, Security- und Performance-Deltas konsolidieren.",
+        "Kompatibilitaetsmatrix und automatisches Alignment fuer Layer, Module, Tensoren und Tokens implementieren.",
+        "Statistische Signifikanz, Effektgroesse, Confidence und Multiple-Comparison-Korrektur integrieren.",
+        "Regression Budgets und rollenbezogene Akzeptanzschwellen definieren.",
+        "Drill-down vom Gesamtfinding bis zu Sample, Token, Layer, Tensor und Evidence ermoeglichen.",
+        "Keine Gesamtpunktzahl ohne sichtbare Gewichtung und Teilmetriken erzeugen."
+      ],
+      "acceptance_criteria": [
+        "Base vs Instruct, Base vs LoRA, FP16 vs GGUF und zwei Revisionen sind als getrennte Vergleichstypen abgedeckt.",
+        "Inkompatible Vergleiche erzeugen konkrete Reason-Codes.",
+        "Aggregation kann jeden Teilscore erklaeren.",
+        "Regressionen lassen sich in CI maschinenlesbar bewerten.",
+        "Bericht unterscheidet statistisch unklar, praktisch relevant und blockierend."
+      ]
+    },
+    {
+      "id": "OWMA-020",
+      "title": "Hub-, Worker-, Queue- und Scheduling-Integration produktionsreif machen",
+      "priority": "P0",
+      "depends_on": ["OWMA-002", "OWMA-003", "OWMA-010"],
+      "tasks": [
+        "Hub-owned Jobs fuer Import, statische Analyse, Trace, Eval, Ablation, Vergleich und Report implementieren.",
+        "Idempotency Keys, Prioritaet, Cancellation, Retry Policy, Checkpoints und atomare Publikation integrieren.",
+        "CPU-, RAM-, VRAM-, Disk-, Laufzeit- und Artifact-Budgets vor Scheduling pruefen.",
+        "Worker-Capabilities und Hardware dynamisch matchen.",
+        "Keine gemeinsam beschreibbaren Dateisystemannahmen zwischen Hub und Worker verwenden.",
+        "Tenant-, Principal-, Workspace-, Modell- und Dataset-Scope in jedem Job erzwingen.",
+        "Progress Events auf fachlich stabile Phasen normieren."
+      ],
+      "acceptance_criteria": [
+        "Hub-Neustart verliert keine autoritative Jobkontrolle.",
+        "Worker-Crash erzeugt keinen teilweise publizierten completed Run.",
+        "Cancellation beendet Subprozesse und gibt GPU/RAM frei.",
+        "Zwei Tenants koennen keine Modell-, Dataset- oder Trace-Artefakte gegenseitig lesen.",
+        "E2E-Test deckt Queue, Worker, Retry, Cancel und Publish ab."
+      ]
+    },
+    {
+      "id": "OWMA-021",
+      "title": "REST API, CLI und Python-SDK vollstaendig bereitstellen",
+      "priority": "P0",
+      "depends_on": ["OWMA-020"],
+      "tasks": [
+        "Versionierte REST-Endpunkte fuer Modelle, Manifeste, Capabilities, Jobs, Graphqueries, Runs, Vergleiche, Findings und Reports implementieren.",
+        "Cursor-Pagination, Filter, Sortierung, ETags, Idempotency und konsistente Fehlerobjekte bereitstellen.",
+        "Upload/Materialize getrennt von Import und Analyse halten.",
+        "CLI fuer import, inspect, analyze, trace, compare, eval, ablate, report, export, cancel und status implementieren.",
+        "Python-SDK mit typisierten Requests/Responses und Streaming-Progress bereitstellen.",
+        "OpenAPI-Spezifikation und generierte Clients im CI auf Drift pruefen.",
+        "RBAC und Rate Limits pro Endpoint integrieren."
+      ],
+      "acceptance_criteria": [
+        "Jeder UI-/TUI-Workflow ist auch ueber API und CLI moeglich.",
+        "API gibt nie lokale interne Pfade oder Secrets aus.",
+        "Grossartefakte werden nicht ungebremst als JSON geliefert.",
+        "Contract- und Auth-Tests decken alle Endpunkte ab.",
+        "CLI liefert maschinenlesbaren JSON-Modus und stabile Exit-Codes."
+      ]
+    },
+    {
+      "id": "OWMA-022",
+      "title": "Angular Model Lab vollwertig implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-005", "OWMA-019", "OWMA-021"],
+      "tasks": [
+        "Modellkatalog mit Importstatus, Revision, Format, Architektur, Groesse, Lizenz, Capabilities und Findings erstellen.",
+        "Model-Graph-Explorer fuer Module, Layer, Heads, Experten, Tensoren, Adapter und Provenance implementieren.",
+        "Analyse-Wizard fuer statisch, Trace, Eval, Ablation, Vergleich und Report mit Kosten-/Ressourcenvorschau bereitstellen.",
+        "Heatmaps fuer Tensoren, Aktivierungen, Attention, LoRA-Deltas und Quantisierungsfehler implementieren.",
+        "Token-/Prompt-Inspector mit Chat-Template, Token-IDs, Logits und Layer-Drill-down erstellen.",
+        "Vergleichsansicht mit synchronisierten Achsen, Filtern und Evidence-Drill-down implementieren.",
+        "Jobmonitor mit Progress, Logs ohne sensitive Inhalte, Cancel, Retry und Resume bereitstellen.",
+        "Barrierefreiheit, Keyboard Navigation, responsive Layouts, Dark Mode und grosse Datenmengen beruecksichtigen.",
+        "Keine Analysewerte clientseitig neu berechnen, wenn der Server autoritative Werte liefert."
+      ],
+      "acceptance_criteria": [
+        "Ein Benutzer kann den kompletten E2E-Workflow ohne CLI ausfuehren.",
+        "Unsupported und partial Capabilities sind klar sichtbar.",
+        "Visualisierungen zeigen Einheiten, Skalen, Stichprobe, Run und Evidence.",
+        "10000 Graphknoten und grosse Tabellen bleiben durch Virtualisierung bedienbar.",
+        "Accessibility- und Komponenten-Tests sowie visuelle Regressionstests bestehen."
+      ]
+    },
+    {
+      "id": "OWMA-023",
+      "title": "TUI als vollwertige alternative Bedienoberflaeche implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-021"],
+      "tasks": [
+        "Modelle, Jobs, Capabilities, Findings, Vergleiche und Reports als navigierbare Menues darstellen.",
+        "Maus-, Tastatur-, Such-, Filter-, Sortier- und Paging-Unterstuetzung integrieren.",
+        "Analyse- und Vergleichsformulare mit Validierung und Ressourcenvorschau implementieren.",
+        "Heatmaps und Graphen terminalgerecht aggregiert, aber numerisch korrekt anzeigen.",
+        "Live-Progress, Cancel, Retry, Export und Evidence-Drill-down implementieren.",
+        "Narrow-Terminal-, Screenreader-nahe und No-Color-Modi beruecksichtigen."
+      ],
+      "acceptance_criteria": [
+        "Kernworkflow Import bis Report ist vollstaendig in der TUI nutzbar.",
+        "TUI und Angular verwenden dieselben API-Vertraege.",
+        "Keine wichtige Warnung ist ausschliesslich farbcodiert.",
+        "Snapshot-/Interaction-Tests decken Navigation, Fehler und Cancellation ab.",
+        "Terminal-Resize zerstoert keinen laufenden Job oder Formularzustand."
+      ]
+    },
+    {
+      "id": "OWMA-024",
+      "title": "Reporting, Export und reproduzierbare Analysebundles implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-019", "OWMA-021"],
+      "tasks": [
+        "Kompakten Executive Report und vollstaendigen Technical Report erzeugen.",
+        "JSON, Markdown, HTML, CSV und Parquet exportieren; PDF optional aus verifiziertem HTML generieren.",
+        "Reproduzierbares Bundle mit Manifesten, Schemas, Konfiguration, Hashes, Metriken, Findings und erlaubter Evidence erstellen.",
+        "SBOM-/Model-BOM-aehnlichen Artefaktbericht fuer Dateien, Lizenzen, Abhaengigkeiten und Herkunft integrieren.",
+        "Redaction-Profile fuer sensible Prompts, Outputs, PII und proprietaere Modellpfade implementieren.",
+        "Reportsignatur bzw. Digest und Integritaetspruefung bereitstellen.",
+        "Vergleichsreports enthalten klare Baseline und keine versteckte Aggregation."
+      ],
+      "acceptance_criteria": [
+        "Ein exportiertes Bundle kann offline validiert werden.",
+        "Jede Tabelle und Grafik referenziert Run und Evidence.",
+        "Redigierter Export enthaelt keine verbotenen Rohdaten.",
+        "JSON-Export validiert gegen versionierte Schemas.",
+        "HTML-Report funktioniert ohne externes CDN."
+      ]
+    },
+    {
+      "id": "OWMA-025",
+      "title": "Security, Isolation, Datenschutz und Lizenzdurchsetzung abschliessen",
+      "priority": "P0",
+      "depends_on": ["OWMA-003", "OWMA-020", "OWMA-021"],
+      "tasks": [
+        "Analyseworker mit minimalen Rechten, read-only Modellmount, no-network Default, seccomp/AppArmor-Optionen und Resource Limits betreiben.",
+        "Path Traversal, Symlink, Archive Bomb, Deserialization, Remote Code, Malicious Tokenizer und Parser-Fuzzing absichern.",
+        "Secretscan und Content-Redaction vor Logs, Traces, Reports und externen Judges erzwingen.",
+        "RBAC, Tenant Isolation, Audit Trail, Retention, Delete und Legal Hold integrieren.",
+        "Lizenz- und Acceptable-Use-Policy-Gates pro Modell und Dataset konfigurierbar machen.",
+        "Threat Model fuer Import, Storage, Inferenz, Hooks, Plugins, UI, Export und Supply Chain pflegen.",
+        "Dependency-, Container-, SBOM- und Signaturpruefungen in Release-Gates integrieren."
+      ],
+      "acceptance_criteria": [
+        "Security-Tests belegen, dass Modellartefakte keinen Code ausfuehren oder Netzwerkzugriff initiieren koennen.",
+        "Tenant-Escape-, IDOR-, Path-Traversal- und Zip-Bomb-Tests schlagen fehl-geschlossen fehl.",
+        "Loeschung entfernt alle nicht legal gehaltenen abgeleiteten Rohartefakte gemaess Retention.",
+        "Auditlog ist manipulationserschwerend und enthaelt keine sensiblen Payloads.",
+        "Kritische Dependency- oder Containerfindings blockieren Release."
+      ]
+    },
+    {
+      "id": "OWMA-026",
+      "title": "Observability, Kostenkontrolle und Betrieb implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-020"],
+      "tasks": [
+        "Metriken fuer Queue, Laufzeit, CPU, RAM, VRAM, Disk, Artifact Bytes, Cache, OOM, Fehler und Cancellation bereitstellen.",
+        "Strukturierte Logs und Traces mit Job-, Run-, Modell- und Tenant-Korrelation ohne Rohinhalte implementieren.",
+        "Dashboards und Alerts fuer Worker-Ausfall, GPU-Leak, Queue-Stau, Diskdruck, Parserfehler und Security-Blockierungen erstellen.",
+        "Quota-, Budget- und Admission-Control pro Tenant und Jobtyp integrieren.",
+        "Cache-Strategie fuer Manifeste, statische Analysen und reproduzierbare Runs implementieren.",
+        "Backup, Restore, Disaster Recovery, Storage Migration und Retention Runbooks erstellen.",
+        "Health-, Readiness- und Capability-Endpunkte bereitstellen."
+      ],
+      "acceptance_criteria": [
+        "Operator kann einen fehlgeschlagenen Run ohne Zugriff auf sensible Payloads diagnostizieren.",
+        "GPU-/RAM-Leaks werden durch Soak Tests erkannt.",
+        "Diskdruck stoppt neue grosse Jobs kontrolliert statt Storage zu korrumpieren.",
+        "Restore stellt Graph, Manifeste, Runs und Evidence-Beziehungen konsistent wieder her.",
+        "SLOs und Alarmgrenzen sind dokumentiert und getestet."
+      ]
+    },
+    {
+      "id": "OWMA-027",
+      "title": "Vollstaendige Teststrategie und reale Offline-Fixtures umsetzen",
+      "priority": "P0",
+      "depends_on": ["OWMA-006", "OWMA-007", "OWMA-008", "OWMA-009", "OWMA-010", "OWMA-019", "OWMA-025"],
+      "tasks": [
+        "Kleine lizenzkompatible Offline-Fixtures fuer Encoder, Decoder, Encoder-Decoder, MoE, GGUF, ONNX und LoRA bereitstellen.",
+        "Unit-, Contract-, Property-, Fuzz-, Integration-, E2E-, Performance-, Soak- und Security-Tests implementieren.",
+        "Numerische Golden Fixtures mit Backend-/dtype-spezifischen Toleranzen definieren.",
+        "Metamorphic Tests fuer Permutation, Batchgroesse, Padding, Seed und Quantisierung integrieren.",
+        "Cross-Backend-Vergleiche nur fuer semantisch gleiche Operationen testen.",
+        "Fehlerpfade fuer corrupt shards, unvollstaendige Tokenizer, OOM, Cancel, Timeout und Worker Crash abdecken.",
+        "Angular-, TUI-, CLI- und API-E2E-Tests gegen denselben Testlauf ausfuehren."
+      ],
+      "acceptance_criteria": [
+        "CI benoetigt kein Internet fuer Kern- und E2E-Tests.",
+        "Mindestens ein echtes Modell durchlaeuft Import, Graph, statische Analyse, Forward Trace, Eval, Vergleich und Report.",
+        "Fuzzing findet keine ungefangenen Parser-Crashes im definierten Budget.",
+        "Numerische Flakiness ist durch dokumentierte Toleranzen begrenzt.",
+        "Alle P0-Capabilities besitzen mindestens einen positiven und einen negativen E2E-Test."
+      ]
+    },
+    {
+      "id": "OWMA-028",
+      "title": "CI/CD und Release-Gates fuer produktive Freigabe implementieren",
+      "priority": "P0",
+      "depends_on": ["OWMA-027"],
+      "tasks": [
+        "Schema-, Typ-, Migration-, API-, UI-, TUI-, Security-, Offline- und Reproducibility-Gates einrichten.",
+        "CPU-Core-Suite bei jedem PR, GPU-Suite auf geeigneten Runnern und lange Soak-/Fuzz-Suites geplant ausfuehren.",
+        "Dependency Locks, Container Digests, SBOM, License Scan und Signaturpruefung erzwingen.",
+        "Benchmark-Baselines und erlaubte Regression Budgets versionieren.",
+        "Feature darf erst aktiviert werden, wenn reale Adapter statt Mock-Fallback nachgewiesen sind.",
+        "Rollback, Datenmigration und Downgrade-Grenzen vor Release testen.",
+        "Release Evidence Bundle automatisch erzeugen."
+      ],
+      "acceptance_criteria": [
+        "Release ist blockiert, wenn Security-, Contract-, Offline-, Migration- oder E2E-Gates fehlschlagen.",
+        "Mock-Erfolg kann keinen Produktionsstatus ready erzeugen.",
+        "Performance-Regressionen ausserhalb Budget sind sichtbar und genehmigungspflichtig.",
+        "Release Bundle nennt Commit, Images, Schemas, Tests, Modelle und bekannte Limits.",
+        "Rollback-Probe wurde gegen eine produktionsnahe Datenkopie erfolgreich getestet."
+      ]
+    },
+    {
+      "id": "OWMA-029",
+      "title": "Dokumentation, UX-Hilfe und Betriebsrunbooks fertigstellen",
+      "priority": "P0",
+      "depends_on": ["OWMA-022", "OWMA-023", "OWMA-024", "OWMA-026"],
+      "tasks": [
+        "Architektur, Contracts, Graphmodell, Adapter, Capability-Matrix und Security-Modell dokumentieren.",
+        "Benutzeranleitungen fuer Import, Analyse, Vergleich, LoRA, Quantisierung, Ablation und Reports schreiben.",
+        "Interpretationshilfe fuer Tensor-, Attention-, Aktivierungs-, Probe-, Bias- und Security-Ergebnisse bereitstellen.",
+        "Runbooks fuer OOM, corrupt artifact, failed worker, Diskdruck, inkompatiblen Tokenizer, Migration und Restore erstellen.",
+        "Beispielkonfigurationen fuer CPU, RTX 3080, groessere CUDA-Systeme und MPS bereitstellen.",
+        "Alle bekannten wissenschaftlichen Grenzen und Fehlinterpretationen klar benennen.",
+        "API-, CLI- und SDK-Referenz automatisch aus autoritativen Vertragen generieren."
+      ],
+      "acceptance_criteria": [
+        "Ein neuer Benutzer kann einen vollstaendigen Offline-Analyseworkflow ohne Quellcodekenntnis ausfuehren.",
+        "Jede UI-Warnung verlinkt auf konkrete Hilfe und Reason-Code.",
+        "Runbooks wurden durch kontrollierte Failure Drills validiert.",
+        "Dokumentation nennt keine Capability, die der Capability-Probe widerspricht.",
+        "RTX-3080-Preset ueberschreitet im Referenzlauf nicht das konfigurierte VRAM-Limit."
+      ]
+    },
+    {
+      "id": "OWMA-030",
+      "title": "Produktionsabnahme mit Referenzmodellen durchfuehren",
+      "priority": "P0",
+      "depends_on": ["OWMA-028", "OWMA-029"],
+      "tasks": [
+        "Abnahmematrix fuer Safetensors-Base, Instruct, LoRA, GGUF-Quantisierung, ONNX-Encoder und MoE definieren.",
+        "Jedes Referenzmodell durch Import, statische Analyse, Graph, Tokenizer, Trace, Eval, Security, Performance, Vergleich und Report fuehren.",
+        "Angular, TUI, CLI, API und SDK gegen identische autoritative Runs pruefen.",
+        "Security-, Datenschutz-, Lizenz-, Backup-, Restore-, Migration- und Rollback-Abnahme durchfuehren.",
+        "Last-, Soak-, Cancellation- und Worker-Crash-Tests unter produktionsnaher Parallelitaet ausfuehren.",
+        "Known Issues, unsupported Capabilities und Betriebsgrenzen final dokumentieren.",
+        "Release erst nach signierter technischer Abnahme aktivieren."
+      ],
+      "acceptance_criteria": [
+        "Alle Definition-of-Done-Punkte sind mit Evidence belegt.",
+        "Keine P0-Aufgabe ist offen, waived oder nur dokumentiert.",
+        "Alle Referenzmodelle erzeugen valide, reproduzierbare Analysebundles.",
+        "Kritische und hohe Security-Findings sind geschlossen.",
+        "Produktionsmodus funktioniert ohne Mock, Internet und implizite Downloads.",
+        "Feature ist standardmaessig nur fuer berechtigte Nutzer aktiv und kann sicher deaktiviert werden."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Keine Analyse behauptet Vollstaendigkeit, wenn Coverage partial, degraded oder unsupported ist.",
+    "Keine Modell-, Tokenizer- oder Datasetdatei wird als Code ausgefuehrt.",
+    "Jedes Finding ist revisions-, run- und evidencegebunden.",
+    "Alle grossen Operationen sind budgetiert, beobachtbar, abbrechbar und bereinigen Ressourcen.",
+    "Alle produktiven Oberflaechen verwenden dieselben versionierten Backend-Vertraege.",
+    "Vergleiche pruefen Kompatibilitaet, Messbedingungen und statistische Unsicherheit.",
+    "Rohaktivierungen, Prompts und Outputs werden nur nach expliziter Policy gespeichert.",
+    "Produktionsfreigabe setzt reale Offline-E2E-Modelle und negative Security-Tests voraus."
+  ],
+  "release_gates": [
+    "schema_contract_gate",
+    "artifact_import_security_gate",
+    "offline_no_download_gate",
+    "no_remote_code_no_pickle_gate",
+    "tenant_isolation_gate",
+    "real_model_e2e_gate",
+    "numerical_correctness_gate",
+    "capability_truthfulness_gate",
+    "resource_cleanup_gate",
+    "angular_tui_api_parity_gate",
+    "report_reproducibility_gate",
+    "migration_restore_rollback_gate",
+    "license_and_dataset_policy_gate",
+    "performance_regression_gate",
+    "security_fuzz_soak_gate"
+  ],
+  "recommended_repository_targets": [
+    "agent/services/model_inference_adapters/",
+    "agent/services/restricted_model_inference_service.py",
+    "agent/services/model_inference_adapter_registry.py",
+    "agent/services/restricted_inference_model_manifest.py",
+    "agent/services/ollama_model_discovery_service.py",
+    "agent/ollama_benchmark.py",
+    "agent/codecompass/",
+    "agent/routes/",
+    "worker/runtime/",
+    "worker/training/",
+    "rag-helper/",
+    "schemas/model-intelligence/",
+    "frontend-angular/src/app/features/model-analysis/",
+    "tests/model_intelligence/",
+    "tests/integration/",
+    "tests/e2e/",
+    "docs/model-intelligence/",
+    "config/models/",
+    "config/release-gates/"
+  ]
+}
