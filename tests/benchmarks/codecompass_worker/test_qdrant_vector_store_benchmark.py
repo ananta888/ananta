@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -245,6 +247,31 @@ def test_inconclusive_cli_writes_artifact_and_returns_nonzero(
     assert artifact["software_fingerprint"]["qdrant_server"] == "unverified"
     assert artifact["qdrant_image_digest"] == "unverified"
     assert artifact["metrics"]["custom"].get("backend_recommendation") is None
+
+
+def test_direct_script_entrypoint_writes_inconclusive_artifact(tmp_path) -> None:
+    output = tmp_path / "benchmark-direct-entrypoint.json"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/benchmark/qdrant_vector_store.py"),
+            "--profile",
+            "small",
+            "--output",
+            str(output),
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    artifact = json.loads(output.read_text(encoding="utf-8"))
+    assert completed.returncode == 2
+    assert artifact["status"] == "inconclusive"
+    assert artifact["exit_code"] == 2
+    assert artifact["reason_code"] == "reference_host_not_approved"
 
 
 def test_artifact_redacts_invalid_origin_and_untrusted_command_values() -> None:

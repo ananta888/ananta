@@ -12,6 +12,7 @@ import shlex
 import shutil
 import statistics
 import subprocess
+import sys
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -22,26 +23,29 @@ from uuid import uuid4
 import numpy as np
 import psutil
 
-from scripts.benchmark.qdrant_vector_store_memory import MemoryRecorder
-from worker.retrieval.json_vector_store import JsonVectorStore
-from worker.retrieval.vector_store_config import (
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.benchmark.qdrant_vector_store_memory import MemoryRecorder  # noqa: E402
+from worker.retrieval.json_vector_store import JsonVectorStore  # noqa: E402
+from worker.retrieval.vector_store_config import (  # noqa: E402
     QdrantEndpointConfig,
     QdrantVectorStoreConfig,
 )
-from worker.retrieval.vector_store_contract import (
+from worker.retrieval.vector_store_contract import (  # noqa: E402
     CompatibilitySpec,
     PreparedVectorPoint,
     VectorScope,
     VectorSearchQuery,
     VectorStoreFilters,
 )
-from worker.retrieval.vector_store_endpoint_policy import (
+from worker.retrieval.vector_store_endpoint_policy import (  # noqa: E402
     EnvFileSecretResolver,
     VectorStoreEndpointPolicyError,
     normalize_endpoint,
 )
 
-ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = ROOT / "config/benchmarks/qdrant-vector-store.v1.json"
 QDRANT_IMAGE_DIGEST = (
     "sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c"
