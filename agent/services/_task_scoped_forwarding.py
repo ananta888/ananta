@@ -645,6 +645,33 @@ def persist_forwarded_execution(
     )
     if assistant_request is not None:
         verification_status["visual_process_assistant_request"] = assistant_request
+    from agent.services.unsloth_worker_result_service import (
+        get_unsloth_worker_result_projector,
+    )
+
+    unsloth_completion_outbox_task_id = None
+    unsloth_projection = (
+        get_unsloth_worker_result_projector().project(
+            task_id=tid,
+            task=task,
+            response=response,
+        )
+    )
+    if unsloth_projection is not None:
+        unsloth_completion_outbox_task_id = (
+            str(
+                unsloth_projection.pop(
+                    (
+                        "_unsloth_completion_"
+                        "outbox_task_id"
+                    ),
+                    "",
+                )
+                or ""
+            ).strip()
+            or None
+        )
+        verification_status.update(unsloth_projection)
     if str(response.get("schema") or "") == "ananta.knowledge_index_job_result.v1":
         result_fields = {
             "schema",
@@ -813,6 +840,18 @@ def persist_forwarded_execution(
             response["status"],
             **update_values,
         )
+    if unsloth_completion_outbox_task_id is not None:
+        from agent.services.unsloth_completion_outbox_service import (
+            get_unsloth_completion_outbox_reconciler,
+        )
+
+        if not get_unsloth_completion_outbox_reconciler(
+        ).reconcile_task(
+            unsloth_completion_outbox_task_id
+        ):
+            raise RuntimeError(
+                "unsloth_completion_outbox_reconciliation_failed"
+            )
     if recovery_child:
         from agent.services.recovery_hub_run_evidence_service import (
             get_recovery_hub_run_evidence_service,

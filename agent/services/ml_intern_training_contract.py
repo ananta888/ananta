@@ -7,7 +7,18 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from ananta_contracts.unsloth_capability import (
+    UNSLOTH_FACET_REASON_CODES,
+    validate_progress_telemetry,
+)
+from agent.services.ml_intern_provenance_contract import (
+    MlInternTrainingContractError,
+    normalize_run_ids,
+    normalize_source_ids,
+)
+
 CONTRACT_VERSION = "ananta.ml-intern-training.v2"
+UNSLOTH_CAPABILITY_SCHEMA_VERSION = "ananta.unsloth-capabilities.v1"
 JOB_STATUSES = frozenset(
     {
         "queued",
@@ -31,10 +42,21 @@ JOB_TYPES = frozenset(
         "merge_adapter_optional",
     }
 )
-BACKENDS = frozenset({"mock", "peft_trl", "unsloth"})
+UNSLOTH_BACKENDS = frozenset(
+    {
+        "unsloth",
+        "unsloth_vision",
+        "unsloth_audio",
+        "unsloth_embedding",
+    }
+)
+BACKENDS = frozenset({"mock", "peft_trl", *UNSLOTH_BACKENDS})
 MODES = frozenset({"dry_run", "live"})
 GPU_PROFILES = frozenset({"rtx3080-safe", "generic-safe", "none"})
+UNSLOTH_EXPORT_FORMATS = frozenset({"adapter", "merged_16bit", "gguf"})
+UNSLOTH_GGUF_QUANTIZATION_METHODS = frozenset({"q4_k_m", "q5_k_m", "q8_0"})
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
+_CAPABILITY_ID_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,95}$")
 
 _ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
     "queued": frozenset({"claimed", "running", "cancel_requested", "failed"}),
@@ -48,11 +70,132 @@ _ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
 }
 
 
-class MlInternTrainingContractError(ValueError):
-    def __init__(self, reason_code: str, message: str, *, status_code: int = 422) -> None:
-        super().__init__(message)
-        self.reason_code = reason_code
-        self.status_code = status_code
+@dataclass(frozen=True)
+class UnslothCapabilityFacet:
+    """One small, independently sourced Unsloth capability."""
+
+    facet_id: str
+    available: bool
+    reason_code: str | None
+    source: str
+    operations: tuple[str, ...] = ()
+    model_kinds: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not _CAPABILITY_ID_RE.fullmatch(self.facet_id):
+            raise ValueError("unsloth capability facet_id is invalid")
+        if not self.available and not str(self.reason_code or "").strip():
+            raise ValueError("unavailable Unsloth capability requires a reason_code")
+        if self.available and self.reason_code is not None:
+            raise ValueError("available Unsloth capability must not carry a reason_code")
+        if self.reason_code is not None and self.reason_code not in UNSLOTH_FACET_REASON_CODES:
+            raise ValueError("unsloth capability reason_code is invalid")
+        if self.source not in {"worker_probe", "hub_policy", "configuration"}:
+            raise ValueError("unsloth capability source is invalid")
+        for value in (*self.operations, *self.model_kinds):
+            if not _CAPABILITY_ID_RE.fullmatch(value):
+                raise ValueError("unsloth capability detail is invalid")
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "id": self.facet_id,
+            "available": self.available,
+            "reason_code": self.reason_code,
+            "source": self.source,
+            "operations": list(self.operations),
+            "model_kinds": list(self.model_kinds),
+        }
+
+
+@dataclass(frozen=True)
+class UnslothCapabilitySnapshot:
+    """Composed read model; probing remains behind injected worker/provider ports."""
+
+    operating_mode: str
+    facets: tuple[UnslothCapabilityFacet, ...]
+    detected_variant: str | None = None
+    detected_version: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.operating_mode not in {"core_worker", "studio_managed", "external_api"}:
+            raise ValueError("unsloth operating mode is invalid")
+        facet_ids = [facet.facet_id for facet in self.facets]
+        if len(facet_ids) != len(set(facet_ids)):
+            raise ValueError("unsloth capability facet IDs must be unique")
+        for value in (self.detected_variant, self.detected_version):
+            if value is not None and not 1 <= len(value) <= 128:
+                raise ValueError("unsloth detected metadata exceeds its bounds")
+
+    def to_mapping(self) -> dict[str, Any]:
+        facets = [facet.to_mapping() for facet in sorted(self.facets, key=lambda item: item.facet_id)]
+        canonical = {
+            "schema_version": UNSLOTH_CAPABILITY_SCHEMA_VERSION,
+            "operating_mode": self.operating_mode,
+            "detected_variant": self.detected_variant,
+            "detected_version": self.detected_version,
+            "facets": facets,
+        }
+        encoded = json.dumps(canonical, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+        return {
+            **canonical,
+            "snapshot_id": hashlib.sha256(encoded).hexdigest(),
+        }
+
+
+def normalize_unsloth_exports(value: Any) -> tuple[dict[str, str], ...]:
+    """Normalize the bounded post-training export plan without accepting paths."""
+
+    if value is None:
+        return ()
+    if not isinstance(value, (list, tuple)) or not 1 <= len(value) <= 8:
+        raise MlInternTrainingContractError(
+            "unsloth_exports_invalid",
+            "exports must be a non-empty array with at most eight entries",
+        )
+    normalized: list[dict[str, str]] = []
+    identities: set[tuple[str, str]] = set()
+    for item in value:
+        if not isinstance(item, Mapping) or any(not isinstance(key, str) for key in item):
+            raise MlInternTrainingContractError(
+                "unsloth_exports_invalid",
+                "each export must be an object",
+            )
+        unknown = sorted(set(item) - {"format", "quantization_method"})
+        if unknown:
+            raise MlInternTrainingContractError(
+                "unsloth_exports_invalid",
+                f"export contains unknown fields: {', '.join(unknown[:10])}",
+            )
+        export_format = str(item.get("format") or "").strip().lower()
+        if export_format not in UNSLOTH_EXPORT_FORMATS:
+            raise MlInternTrainingContractError(
+                "unsloth_export_format_invalid",
+                "export format must be adapter, merged_16bit, or gguf",
+            )
+        quantization = str(item.get("quantization_method") or "").strip().lower()
+        if export_format == "gguf":
+            if quantization not in UNSLOTH_GGUF_QUANTIZATION_METHODS:
+                raise MlInternTrainingContractError(
+                    "unsloth_export_quantization_invalid",
+                    "GGUF quantization_method must be q4_k_m, q5_k_m, or q8_0",
+                )
+        elif quantization:
+            raise MlInternTrainingContractError(
+                "unsloth_export_quantization_invalid",
+                "quantization_method is only valid for GGUF exports",
+            )
+        identity = (export_format, quantization)
+        if identity in identities:
+            raise MlInternTrainingContractError(
+                "unsloth_export_duplicate",
+                "exports must not contain duplicate format and quantization pairs",
+            )
+        identities.add(identity)
+        export = {"format": export_format}
+        if quantization:
+            export["quantization_method"] = quantization
+        normalized.append(export)
+    return tuple(normalized)
 
 
 def require_identifier(name: str, value: Any) -> str:
@@ -128,6 +271,9 @@ class CreateTrainingJobCommand:
             "scorer_name",
             "risk_reason",
             "live_confirmed",
+            "source_ids",
+            "run_ids",
+            "exports",
         }
         unknown = sorted(set(value) - allowed)
         if unknown:
@@ -160,12 +306,37 @@ class CreateTrainingJobCommand:
             raise MlInternTrainingContractError("base_model_required", "base_model is required")
         if job_type == "merge_adapter_optional" and value.get("allow_merge") is not True:
             raise MlInternTrainingContractError("merge_confirmation_required", "allow_merge=true is required")
+        if "allow_merge" in value and not isinstance(value.get("allow_merge"), bool):
+            raise MlInternTrainingContractError(
+                "merge_confirmation_invalid",
+                "allow_merge must be a JSON boolean",
+            )
+        exports = normalize_unsloth_exports(value.get("exports"))
+        if exports and job_type != "train_lora":
+            raise MlInternTrainingContractError(
+                "unsloth_export_job_type_invalid",
+                "post-training exports are only valid for train_lora jobs",
+            )
+        if exports and backend != "unsloth":
+            raise MlInternTrainingContractError(
+                "unsloth_export_backend_required",
+                "post-training exports require the text Unsloth backend",
+            )
+        if any(item["format"] != "adapter" for item in exports) and value.get("allow_merge") is not True:
+            raise MlInternTrainingContractError(
+                "merge_confirmation_required",
+                "allow_merge=true is required for merged_16bit and GGUF exports",
+            )
         hyperparameters = value.get("hyperparameters") or {}
         if not isinstance(hyperparameters, Mapping):
             raise MlInternTrainingContractError("hyperparameters_invalid", "hyperparameters must be an object")
         cls._validate_hyperparameters(hyperparameters)
         request_spec = {key: child for key, child in value.items()}
         request_spec.pop("base_model_id", None)
+        if exports:
+            request_spec["exports"] = [dict(item) for item in exports]
+        else:
+            request_spec.pop("exports", None)
         if base_model is not None:
             request_spec["base_model"] = base_model
         if gpu_profile:
@@ -202,6 +373,14 @@ class CreateTrainingJobCommand:
                 raise MlInternTrainingContractError("quantization_invalid", "quantization must be none or 4bit")
             canonical_hyperparameters["load_in_4bit"] = quantization == "4bit"
         request_spec["hyperparameters"] = canonical_hyperparameters
+        for field_name, identifiers in (
+            ("source_ids", normalize_source_ids(value.get("source_ids"))),
+            ("run_ids", normalize_run_ids(value.get("run_ids"))),
+        ):
+            if identifiers:
+                request_spec[field_name] = list(identifiers)
+            else:
+                request_spec.pop(field_name, None)
         return cls(
             dataset_id=dataset_id,
             job_type=job_type,
@@ -316,6 +495,9 @@ def sanitize_event_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         "current_step": (0, 1_000_000),
         "max_steps": (1, 1_000_000),
         "queue_position": (0, 10_000),
+        "vram_allocated_bytes": (0, 2**63 - 1),
+        "vram_peak_bytes": (0, 2**63 - 1),
+        "vram_used_bytes": (0, 2**63 - 1),
     }
     for key, (minimum, maximum) in integer_bounds.items():
         value = payload.get(key)
@@ -329,6 +511,8 @@ def sanitize_event_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         "train_loss": (0.0, 1_000_000.0),
         "eval_loss": (0.0, 1_000_000.0),
         "learning_rate": (0.0, 1.0),
+        "tokens_per_second": (0.0, 1_000_000_000_000.0),
+        "gpu_utilization_percent": (0.0, 100.0),
     }
     for key, (minimum, maximum) in numeric_bounds.items():
         value = payload.get(key)
@@ -342,4 +526,10 @@ def sanitize_event_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         result["retryable"] = payload["retryable"]
     if payload.get("cancel_mode") in {"cooperative", "forced"}:
         result["cancel_mode"] = payload["cancel_mode"]
+    telemetry = payload.get("telemetry")
+    if isinstance(telemetry, Mapping):
+        try:
+            result["telemetry"] = validate_progress_telemetry(telemetry)
+        except ValueError:
+            pass
     return result

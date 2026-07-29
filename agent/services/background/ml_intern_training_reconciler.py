@@ -13,6 +13,16 @@ from agent.services.ml_intern_training_reconciliation_service import (
     MlInternTrainingReconciliationService,
     build_ml_intern_training_reconciliation_service,
 )
+from agent.services.unsloth_cleanup_reservation_reconciler import (
+    UnslothCleanupReservationPolicy,
+    UnslothCleanupReservationReconciler,
+)
+from agent.services.unsloth_storage_governance_service import (
+    storage_catalog_from_config,
+)
+from agent.services.unsloth_task_port import (
+    HubUnslothTaskSubmissionAdapter,
+)
 
 _EXTENSION_KEY = "ml_intern_training_reconciler"
 
@@ -32,6 +42,13 @@ def start_ml_intern_training_reconciler_thread(app) -> None:
 
     config = _training_config(app)
     service = build_ml_intern_training_reconciliation_service(config)
+    cleanup_reservations = UnslothCleanupReservationReconciler(
+        tasks=HubUnslothTaskSubmissionAdapter(),
+        catalog=storage_catalog_from_config(config),
+        policy=UnslothCleanupReservationPolicy.from_mapping(config),
+        audit=_audit,
+        is_hub=lambda: settings.role == "hub",
+    )
     interval = _interval_seconds(config)
 
     def run() -> None:
@@ -58,6 +75,32 @@ def start_ml_intern_training_reconciler_thread(app) -> None:
                         "ML training reconciliation unavailable: %s",
                         type(exc).__name__,
                     )
+                try:
+                    with app.app_context():
+                        cleanup_result = cleanup_reservations.run_once()
+                    if (
+                        cleanup_result["activated"]
+                        or cleanup_result["rejected"]
+                        or cleanup_result["conflicts"]
+                        or cleanup_result["invalid"]
+                        or cleanup_result["errors"]
+                    ):
+                        logging.info(
+                            "Unsloth cleanup reservation reconciliation: "
+                            "scanned=%s activated=%s rejected=%s deferred=%s "
+                            "conflicts=%s invalid=%s",
+                            cleanup_result["scanned"],
+                            cleanup_result["activated"],
+                            cleanup_result["rejected"],
+                            cleanup_result["deferred"],
+                            cleanup_result["conflicts"],
+                            cleanup_result["invalid"],
+                        )
+                except Exception as exc:
+                    logging.warning(
+                        "Unsloth cleanup reservation reconciliation unavailable: %s",
+                        type(exc).__name__,
+                    )
                 if not _wait(interval):
                     break
         finally:
@@ -69,7 +112,11 @@ def start_ml_intern_training_reconciler_thread(app) -> None:
         daemon=True,
     )
     if isinstance(extensions, dict):
-        extensions[_EXTENSION_KEY] = {"service": service, "thread": thread}
+        extensions[_EXTENSION_KEY] = {
+            "service": service,
+            "cleanup_reservation_service": cleanup_reservations,
+            "thread": thread,
+        }
     import agent.common.context
 
     agent.common.context.active_threads.append(thread)
@@ -124,6 +171,12 @@ def _wait(seconds: float) -> bool:
             return True
         time.sleep(min(0.25, remaining))
     return False
+
+
+def _audit(action: str, details: dict[str, Any]) -> None:
+    from agent.common.audit import log_audit
+
+    log_audit(action, details)
 
 
 __all__ = [

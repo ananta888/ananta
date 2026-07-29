@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from flask import Blueprint, current_app, g, request
 
 from agent.auth import admin_required, check_auth
@@ -16,6 +17,13 @@ from agent.services.ml_intern_lora_runtime_management_service import (
     LoraRuntimeManagementError,
     MlInternLoraRuntimeManagementService,
 )
+from agent.services.ml_intern_training_config_service import (
+    normalize_ml_intern_training_config,
+)
+from agent.services.unsloth_runtime_handoff_composition import (
+    runtime_endpoint_registry_from_config,
+)
+from agent.services.unsloth_storage_governance_service import storage_catalog_from_config
 
 ml_intern_lora_runtime_bp = Blueprint(
     "ml_intern_lora_runtime",
@@ -79,12 +87,52 @@ def rollback(adapter_id: str):
         return _error(exc)
 
 
+@ml_intern_lora_runtime_bp.post("/endpoints/<endpoint_id>/rollback")
+@check_auth
+@admin_required
+def rollback_endpoint(endpoint_id: str):
+    try:
+        reason, expected_version = _management_request()
+        scope = _registry_scope()
+        result = _service().rollback_endpoint(
+            endpoint_id=endpoint_id,
+            reason=reason,
+            expected_revision=expected_version,
+            **scope,
+        )
+        log_audit(
+            "ml_intern_runtime_endpoint_rollback",
+            {
+                "endpoint_id": endpoint_id,
+                "reason_sha256": hashlib.sha256(
+                    reason.encode("utf-8")
+                ).hexdigest(),
+                "endpoint_revision": result.get("endpoint_revision"),
+                "restored_from_revision": result.get(
+                    "restored_from_revision"
+                ),
+            },
+        )
+        return api_response(data=result)
+    except LoraRuntimeManagementError as exc:
+        return _error(exc)
+
+
 def _service() -> MlInternLoraRuntimeManagementService:
     agent_config = dict(current_app.config.get("AGENT_CONFIG", {}) or {})
     storage = resolve_lora_storage_config(agent_config)
+    training_config = normalize_ml_intern_training_config(
+        dict(agent_config.get("ml_intern_training") or {})
+    )
     return MlInternLoraRuntimeManagementService(
         registry=MlInternAdapterRegistryService(storage["registry_path"]),
         inference=get_lora_inference_service(),
+        endpoint_registry=runtime_endpoint_registry_from_config(
+            agent_config,
+            storage_references=storage_catalog_from_config(
+                training_config
+            ),
+        ),
     )
 
 
@@ -128,9 +176,16 @@ def _registry_scope() -> dict[str, str]:
 def _error(exc: LoraRuntimeManagementError):
     if exc.retryable:
         code = 503
-    elif exc.reason_code == "adapter_version_conflict":
+    elif exc.reason_code in {
+        "adapter_version_conflict",
+        "runtime_endpoint_revision_conflict",
+        "runtime_endpoint_rollback_target_missing",
+    }:
         code = 409
-    elif exc.reason_code == "adapter_not_found":
+    elif exc.reason_code in {
+        "adapter_not_found",
+        "runtime_endpoint_not_found",
+    }:
         code = 404
     else:
         code = 422

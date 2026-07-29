@@ -9,10 +9,14 @@ import shutil
 import tempfile
 import zipfile
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Protocol
 
 from agent.services.ml_intern_adapter_registry_service import MlInternAdapterRegistryService
 from agent.services.ml_intern_artifact_security_service import MlInternArtifactSecurityService
+
+
+class StorageCatalogPort(Protocol):
+    def register(self, **values: Any) -> Any: ...
 
 
 class AdapterExportError(ValueError):
@@ -29,10 +33,12 @@ class MlInternAdapterExportService:
         *,
         artifact_root: str | Path,
         registry: MlInternAdapterRegistryService,
+        storage_catalog: StorageCatalogPort | None = None,
     ) -> None:
         self._root = Path(artifact_root)
         self._security = MlInternArtifactSecurityService(storage_root=self._root)
         self._registry = registry
+        self._storage_catalog = storage_catalog
 
     def export(
         self,
@@ -41,6 +47,77 @@ class MlInternAdapterExportService:
         tenant_id: str | None = None,
         owner_subject: str | None = None,
     ) -> dict[str, Any]:
+        adapter_dir, manifest, artifact_id, output = self._prepare_export(
+            adapter_id,
+            tenant_id=tenant_id,
+            owner_subject=owner_subject,
+        )
+        output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # Always replace the deterministic bundle. Reusing an existing path
+        # would let out-of-band tampering become the newly announced hash.
+        self._write_zip(output, adapter_dir, manifest)
+        digest = self._validate_export_bundle(output, artifact_id)
+        if (
+            self._storage_catalog is not None
+            and tenant_id is not None
+            and owner_subject is not None
+        ):
+            relative = output.relative_to(self._root.resolve()).as_posix()
+            parts = PurePosixPath(relative).parts
+            try:
+                self._storage_catalog.register(
+                    tenant_id=tenant_id,
+                    owner_scope_digest=_tenant_scope_digest(
+                        tenant_id,
+                        owner_subject,
+                    ),
+                    artifact_id=artifact_id,
+                    kind="export",
+                    relative_ref=relative,
+                    job_id=parts[3],
+                    attempt_id=parts[5],
+                    artifact_sha256=digest,
+                    size_bytes=output.stat().st_size,
+                )
+            except Exception:
+                output.unlink(missing_ok=True)
+                raise
+        return {
+            "artifact_id": artifact_id,
+            "sha256": digest,
+            "size_bytes": output.stat().st_size,
+            "download_url": f"/api/ml-intern-training/exports/{artifact_id}",
+        }
+
+    def preview_export(
+        self,
+        adapter_id: str,
+        *,
+        tenant_id: str | None = None,
+        owner_subject: str | None = None,
+    ) -> dict[str, Any]:
+        """Validate an export without creating or replacing an artifact."""
+
+        _adapter_dir, manifest, artifact_id, _output = self._prepare_export(
+            adapter_id,
+            tenant_id=tenant_id,
+            owner_subject=owner_subject,
+        )
+        return {
+            "artifact_id": artifact_id,
+            "adapter_id": str(manifest["adapter_id"]),
+            "version": str(manifest["version"]),
+            "status": str(manifest["status"]),
+            "artifact_sha256": str(manifest["artifact_sha256"]),
+        }
+
+    def _prepare_export(
+        self,
+        adapter_id: str,
+        *,
+        tenant_id: str | None,
+        owner_subject: str | None,
+    ) -> tuple[Path, dict[str, Any], str, Path]:
         record = self._registry.get(
             adapter_id,
             tenant_id=tenant_id,
@@ -54,7 +131,11 @@ class MlInternAdapterExportService:
         if not raw_path:
             raise AdapterExportError("adapter_artifact_missing", "adapter has no registered artifact")
         try:
-            adapter_dir = self._security.ensure_internal_path(raw_path, must_exist=True)
+            adapter_dir = (
+                self._security.ensure_internal_path(raw_path, must_exist=True)
+                if Path(str(raw_path)).is_absolute()
+                else self._security.resolve_relative(str(raw_path), must_exist=True)
+            )
             inspected = self._security.validate_adapter_tree(adapter_dir)
         except Exception as exc:
             raise AdapterExportError("adapter_artifact_invalid", "adapter artifact verification failed") from exc
@@ -85,20 +166,20 @@ class MlInternAdapterExportService:
             json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
         ).hexdigest()
         artifact_id = f"lora-export-{identity[:32]}"
-        scope_directory = _scope_directory(tenant_id, owner_subject)
-        relative = f"exports/{scope_directory}/{artifact_id}.zip"
+        if tenant_id is not None and owner_subject is not None:
+            scope_directory = _tenant_scope_digest(
+                tenant_id,
+                owner_subject,
+            )
+            relative = (
+                f"tenants/{scope_directory}/jobs/{record.adapter_id}/"
+                f"attempts/registry-v{record.registry_version}/exports/{artifact_id}.zip"
+            )
+        else:
+            scope_directory = _scope_directory(tenant_id, owner_subject)
+            relative = f"exports/{scope_directory}/{artifact_id}.zip"
         output = self._security.resolve_relative(relative)
-        output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        # Always replace the deterministic bundle. Reusing an existing path
-        # would let out-of-band tampering become the newly announced hash.
-        self._write_zip(output, adapter_dir, manifest)
-        digest = self._validate_export_bundle(output, artifact_id)
-        return {
-            "artifact_id": artifact_id,
-            "sha256": digest,
-            "size_bytes": output.stat().st_size,
-            "download_url": f"/api/ml-intern-training/exports/{artifact_id}",
-        }
+        return adapter_dir, manifest, artifact_id, output
 
     def resolve_export(
         self,
@@ -109,12 +190,32 @@ class MlInternAdapterExportService:
     ) -> tuple[Path, str]:
         if not artifact_id.startswith("lora-export-") or len(artifact_id) != len("lora-export-") + 32:
             raise AdapterExportError("export_not_found", "adapter export does not exist")
-        scope_directory = _scope_directory(tenant_id, owner_subject)
         try:
-            path = self._security.resolve_relative(
-                f"exports/{scope_directory}/{artifact_id}.zip",
-                must_exist=True,
-            )
+            if tenant_id is not None and owner_subject is not None:
+                scope_directory = _tenant_scope_digest(
+                    tenant_id,
+                    owner_subject,
+                )
+                matches = tuple(
+                    self._root.glob(
+                        f"tenants/{scope_directory}/jobs/*/attempts/*/exports/{artifact_id}.zip"
+                    )
+                )
+                if len(matches) != 1:
+                    raise AdapterExportError(
+                        "export_not_found",
+                        "adapter export does not exist",
+                    )
+                path = self._security.ensure_internal_path(
+                    matches[0],
+                    must_exist=True,
+                )
+            else:
+                scope_directory = _scope_directory(tenant_id, owner_subject)
+                path = self._security.resolve_relative(
+                    f"exports/{scope_directory}/{artifact_id}.zip",
+                    must_exist=True,
+                )
         except Exception as exc:
             raise AdapterExportError("export_not_found", "adapter export does not exist") from exc
         if not path.is_file() or path.is_symlink():
@@ -257,3 +358,12 @@ def _scope_directory(tenant_id: str | None, owner_subject: str | None) -> str:
             "tenant_id and owner_subject must be provided together",
         )
     return hashlib.sha256(f"{tenant}\0{owner}".encode("utf-8")).hexdigest()[:32]
+
+
+def _tenant_scope_digest(tenant_id: str, owner_subject: str) -> str:
+    return hashlib.sha256(
+        (
+            "ananta.ml-intern-training.scope.v1\x00"
+            f"{tenant_id}\x00{owner_subject}"
+        ).encode("utf-8")
+    ).hexdigest()

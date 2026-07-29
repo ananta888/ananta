@@ -2,6 +2,7 @@ from enum import Enum
 
 class TaskStatus(str, Enum):
     TODO = "todo"
+    RESERVED = "reserved"
     CREATED = "created"
     ASSIGNED = "assigned"
     IN_PROGRESS = "in_progress"

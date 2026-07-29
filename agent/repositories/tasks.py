@@ -2346,6 +2346,26 @@ class TaskRepository:
         with Session(_engine()) as session:
             return session.get(TaskDB, task_id)
 
+    def list_stale_reserved_unsloth_cleanup(
+        self,
+        *,
+        before: float,
+        limit: int,
+    ) -> List[TaskDB]:
+        bounded = max(1, min(int(limit), 500))
+        with Session(_engine()) as session:
+            statement = (
+                select(TaskDB)
+                .where(
+                    TaskDB.status == "reserved",
+                    TaskDB.task_kind == "ml.storage.cleanup",
+                    TaskDB.created_at <= float(before),
+                )
+                .order_by(TaskDB.created_at.asc(), TaskDB.id.asc())
+                .limit(bounded)
+            )
+            return list(session.exec(statement).all())
+
     def get_by_goal_id(self, goal_id: str) -> List[TaskDB]:
         with Session(_engine()) as session:
             return session.exec(select(TaskDB).where(TaskDB.goal_id == goal_id)).all()

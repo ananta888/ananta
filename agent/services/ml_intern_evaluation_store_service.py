@@ -15,6 +15,7 @@ from agent.services.ml_intern_evaluation_decision_service import (
     evaluate_adapter_metrics,
 )
 from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
+from agent.services.unsloth_storage_governance_service import StorageReferencePort
 
 
 class EvaluationStoreError(ValueError):
@@ -26,8 +27,14 @@ class EvaluationStoreError(ValueError):
 class MlInternEvaluationStoreService:
     """Persist tenant-bound, bounded Base-vs-Adapter read models."""
 
-    def __init__(self, *, artifact_root: str | Path) -> None:
+    def __init__(
+        self,
+        *,
+        artifact_root: str | Path,
+        storage_references: StorageReferencePort | None = None,
+    ) -> None:
         self._security = MlInternArtifactSecurityService(storage_root=artifact_root)
+        self._storage_references = storage_references
 
     def save(
         self,
@@ -42,6 +49,7 @@ class MlInternEvaluationStoreService:
         evaluation_id: str | None = None,
         minimum_score: float = 0.0,
         decision: EvaluationDecision | None = None,
+        promotion_evidence: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         safe_metrics = _metric_rows(metrics)
         canonical_decision = decision or evaluate_adapter_metrics(metrics, minimum_score=minimum_score)
@@ -62,13 +70,50 @@ class MlInternEvaluationStoreService:
             "reason_code": reason_code or canonical_decision.reason_code,
             "created_at": now,
             "finished_at": now if status in {"completed", "failed", "cancelled"} else None,
+            "promotion_evidence": _promotion_evidence(promotion_evidence),
         }
         tenant_key = payload["tenant_digest"]
         owner_key = payload["owner_digest"]
         self._security.atomic_write_json(f"evaluations/{tenant_key}/{owner_key}/{identifier}.json", payload)
+        evidence = payload.get("promotion_evidence")
+        if self._storage_references is not None and isinstance(evidence, Mapping):
+            try:
+                self._storage_references.bind_reference(
+                    tenant_id=principal.tenant_id,
+                    reference_kind="evaluation",
+                    reference_id=identifier,
+                    artifact_id=str(evidence["adapter_id"]),
+                    artifact_sha256=str(evidence["artifact_sha256"]),
+                )
+            except Exception as exc:
+                raise EvaluationStoreError(
+                    "evaluation_storage_binding_failed",
+                    "evaluation artifact reference could not be bound",
+                ) from exc
         return _public(payload)
 
     def get(
+        self,
+        principal: MlInternTrainingPrincipal,
+        evaluation_id: str,
+    ) -> dict[str, Any]:
+        return _public(self._load(principal, evaluation_id))
+
+    def get_promotion_evidence(
+        self,
+        principal: MlInternTrainingPrincipal,
+        evaluation_id: str,
+    ) -> dict[str, Any]:
+        payload = self._load(principal, evaluation_id)
+        evidence = payload.get("promotion_evidence")
+        if not isinstance(evidence, Mapping):
+            raise EvaluationStoreError(
+                "evaluation_promotion_evidence_missing",
+                "evaluation has no verified promotion evidence",
+            )
+        return dict(evidence)
+
+    def _load(
         self,
         principal: MlInternTrainingPrincipal,
         evaluation_id: str,
@@ -88,7 +133,7 @@ class MlInternEvaluationStoreService:
             raise EvaluationStoreError("evaluation_corrupt", "evaluation read model is corrupt") from exc
         if not isinstance(payload, dict) or payload.get("schema") != "ananta.ml-intern-evaluation.v1":
             raise EvaluationStoreError("evaluation_corrupt", "evaluation read model has an invalid schema")
-        return _public(payload)
+        return payload
 
 
 def _metric_rows(metrics: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -186,3 +231,47 @@ def _public(payload: Mapping[str, Any]) -> dict[str, Any]:
             "finished_at",
         )
     }
+
+
+def _promotion_evidence(value: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    allowed = {
+        "job_id",
+        "attempt_id",
+        "fencing_token_digest",
+        "dataset_hash",
+        "validation_dataset_hash",
+        "base_model_id",
+        "base_model_sha256",
+        "adapter_id",
+        "adapter_sha256",
+        "artifact_sha256",
+        "export_sha256",
+        "source_ids",
+        "run_ids",
+    }
+    if not isinstance(value, Mapping) or set(value) != allowed:
+        raise EvaluationStoreError(
+            "evaluation_promotion_evidence_invalid",
+            "promotion evidence has an invalid contract",
+        )
+    result = dict(value)
+    try:
+        encoded = json.dumps(
+            result,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+    except (TypeError, ValueError) as exc:
+        raise EvaluationStoreError(
+            "evaluation_promotion_evidence_invalid",
+            "promotion evidence is not canonical JSON",
+        ) from exc
+    if len(encoded.encode("utf-8")) > 32 * 1024:
+        raise EvaluationStoreError(
+            "evaluation_promotion_evidence_invalid",
+            "promotion evidence exceeds its bound",
+        )
+    return json.loads(encoded)

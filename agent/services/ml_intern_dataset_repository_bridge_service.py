@@ -20,6 +20,10 @@ from agent.services.ml_intern_artifact_security_service import (
 from agent.services.ml_intern_dataset_catalog_service import MlInternDatasetCatalogService
 from agent.services.ml_intern_training_read_model_service import MlInternTrainingReadModelService
 from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
+from agent.services.unsloth_storage_governance_service import (
+    SqliteUnslothStorageCatalog,
+    tenant_scope_digest,
+)
 
 
 class MlInternDatasetRepositoryBridgeService:
@@ -32,6 +36,7 @@ class MlInternDatasetRepositoryBridgeService:
         catalog: MlInternDatasetCatalogService,
         repository: MlInternTrainingRepository,
         max_dataset_bytes: int,
+        storage_catalog: SqliteUnslothStorageCatalog | None = None,
     ) -> None:
         self._catalog = catalog
         self._repository = repository
@@ -46,6 +51,7 @@ class MlInternDatasetRepositoryBridgeService:
             ),
         )
         self._read_models = MlInternTrainingReadModelService()
+        self._storage_catalog = storage_catalog
 
     def sync(
         self,
@@ -110,11 +116,24 @@ class MlInternDatasetRepositoryBridgeService:
                 },
                 **{
                     key: str(metadata[key])[:512]
-                    for key in ("purpose", "license", "privacy")
+                    for key in ("purpose", "license", "license_status", "privacy")
                     if metadata is not None and metadata.get(key) is not None
                 },
             },
         }
+        if self._storage_catalog is not None:
+            self._storage_catalog.register(
+                tenant_id=principal.tenant_id,
+                owner_scope_digest=tenant_scope_digest(principal),
+                artifact_id=f"dataset:{catalog_id}:revision:{revision}",
+                kind="dataset",
+                relative_ref=base,
+                job_id=catalog_id,
+                attempt_id=f"revision-{revision}",
+                artifact_sha256=str(values["content_sha256"]),
+                size_bytes=int(train["size_bytes"])
+                + int(validation["size_bytes"] if validation else 0),
+            )
         if existing is None:
             projected, _ = self._repository.create_dataset(
                 MlInternDatasetDB(

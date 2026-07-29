@@ -53,9 +53,36 @@ def build_system_health_payload(app: Flask, *, basic_mode: bool = False, probe_p
     except Exception as exc:
         checks["shell"] = {"status": "error", "message": str(exc)}
 
+    raw_unsloth = app.extensions.get(
+        "unsloth_worker_runtime"
+    )
+    unsloth_status: str | None = None
+    unsloth_component_status: str | None = None
+    if isinstance(raw_unsloth, dict):
+        unsloth_status = str(
+            raw_unsloth.get("status") or "error"
+        )
+        unsloth_component_status = (
+            "ok"
+            if unsloth_status == "ready"
+            else (
+                None
+                if unsloth_status == "disabled"
+                else unsloth_status
+            )
+        )
+        checks["unsloth_worker"] = dict(raw_unsloth)
+
     if basic_mode:
+        component_statuses = [
+            checks["shell"].get("status")
+        ]
+        if unsloth_component_status is not None:
+            component_statuses.append(
+                unsloth_component_status
+            )
         return {
-            "status": _component_status([checks["shell"].get("status")]),
+            "status": _component_status(component_statuses),
             "agent": agent_name,
             "role": role,
             "uptime_seconds": max(0, int(time.time() - started_at)),
@@ -154,6 +181,11 @@ def build_system_health_payload(app: Flask, *, basic_mode: bool = False, probe_p
     top_level_status = _component_status(
         [
             checks.get("shell", {}).get("status"),
+            *(
+                [unsloth_component_status]
+                if unsloth_component_status is not None
+                else []
+            ),
             *(llm_checks.values() if llm_checks else []),
             checks["registration"].get("status"),
             checks["worker_execution_reconciliation"].get("status"),

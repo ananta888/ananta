@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import hashlib
 from typing import Any
 
 from agent.services.ml_intern_adapter_registry_service import (
@@ -14,6 +15,10 @@ from agent.services.ml_intern_adapter_registry_service import (
 from agent.services.ml_intern_lora_inference_service import (
     LoraInferenceError,
     MlInternLoraInferenceService,
+)
+from agent.services.unsloth_runtime_endpoint_registry_service import (
+    RuntimeEndpointRegistryError,
+    RuntimeEndpointRegistryPort,
 )
 
 
@@ -30,12 +35,80 @@ class MlInternLoraRuntimeManagementService:
         *,
         registry: MlInternAdapterRegistryService,
         inference: MlInternLoraInferenceService,
+        endpoint_registry: RuntimeEndpointRegistryPort | None = None,
     ) -> None:
         self._registry = registry
         self._inference = inference
+        self._endpoint_registry = endpoint_registry
 
     def capabilities(self) -> Mapping[str, Any]:
-        return self._inference.capabilities()
+        result = dict(self._inference.capabilities())
+        result["runtime_handoff"] = {
+            "available": self._endpoint_registry is not None,
+            "reason_code": (
+                None
+                if self._endpoint_registry is not None
+                else "runtime_endpoint_registry_unconfigured"
+            ),
+            "api_capabilities": [
+                "anthropic_messages",
+                "openai_chat",
+                "openai_responses",
+                "streaming",
+                "structured_output",
+                "tools",
+            ],
+            "implicit_fallback": False,
+        }
+        return result
+
+    def rollback_endpoint(
+        self,
+        *,
+        endpoint_id: str,
+        reason: str,
+        tenant_id: str,
+        owner_subject: str,
+        expected_revision: int | None,
+    ) -> Mapping[str, Any]:
+        normalized_reason = _reason(reason)
+        if self._endpoint_registry is None:
+            raise LoraRuntimeManagementError(
+                "runtime_endpoint_registry_unconfigured",
+                "Runtime endpoint registry is not configured.",
+            )
+        if expected_revision is None:
+            raise LoraRuntimeManagementError(
+                "runtime_endpoint_revision_required",
+                "Endpoint rollback requires expected_version.",
+            )
+        try:
+            revision = self._endpoint_registry.rollback(
+                tenant_id=tenant_id,
+                endpoint_id=endpoint_id,
+                expected_revision=expected_revision,
+                reason_sha256=hashlib.sha256(
+                    normalized_reason.encode("utf-8")
+                ).hexdigest(),
+                actor_id=owner_subject,
+            )
+        except RuntimeEndpointRegistryError as exc:
+            raise LoraRuntimeManagementError(
+                exc.reason_code,
+                str(exc),
+                retryable=exc.retryable,
+            ) from exc
+        return {
+            **revision.public_summary(),
+            "policy_decision": {
+                "policy_version": "mlintern-runtime-endpoint-v1",
+                "decision": "restore_previous_immutable_endpoint_revision",
+                "reason_code": "runtime_endpoint_rolled_back",
+                "adapter_promotion_changed": False,
+                "provenance_changed": False,
+                "implicit_fallback": False,
+            },
+        }
 
     def unload(
         self,

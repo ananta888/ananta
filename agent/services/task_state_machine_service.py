@@ -12,6 +12,7 @@ TERMINAL_TASK_STATUSES = {
 
 ACTIVE_TASK_STATUSES = {
     TaskStatus.TODO.value,
+    TaskStatus.RESERVED.value,
     TaskStatus.CREATED.value,
     TaskStatus.ASSIGNED.value,
     TaskStatus.IN_PROGRESS.value,
@@ -80,6 +81,12 @@ def can_transition_to(current_status: str | None, next_status: str | None) -> tu
     target = normalize_task_status(next_status, default=TaskStatus.TODO.value)
 
     if current == target:
+        return True, ""
+
+    if (
+        current == TaskStatus.RESERVED.value
+        and target == TaskStatus.CREATED.value
+    ):
         return True, ""
 
     # Planning-track gates used the legacy ``blocked`` value before the

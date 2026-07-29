@@ -12,6 +12,10 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol
 
+from ananta_contracts.unsloth_capability import (
+    UnslothWorkerCapabilityContractError,
+    validate_worker_capability_probe,
+)
 from agent.db_models import MlInternTrainingAttemptDB, MlInternTrainingJobDB
 from agent.repositories.ml_intern_training import (
     MlInternTrainingRepository,
@@ -20,10 +24,15 @@ from agent.repositories.ml_intern_training import (
 )
 from agent.services.ml_intern_training_config_service import get_gpu_profile_defaults
 from agent.services.ml_intern_training_contract import (
+    UNSLOTH_BACKENDS,
     CreateTrainingJobCommand,
     MlInternTrainingContractError,
+    UnslothCapabilityFacet,
+    UnslothCapabilitySnapshot,
     assert_job_transition,
     idempotency_digest,
+    normalize_run_ids,
+    normalize_source_ids,
     request_digest,
     sanitize_event_payload,
 )
@@ -52,6 +61,10 @@ def _tenant_scope_digest(principal: MlInternTrainingPrincipal) -> str:
     return hashlib.sha256(material).hexdigest()
 
 
+def _tenant_storage_key(principal: MlInternTrainingPrincipal) -> str:
+    return hashlib.sha256(principal.tenant_id.encode("utf-8")).hexdigest()
+
+
 def get_task_queue_service() -> Any:
     """Resolve the queue lazily to keep service imports cycle-free.
 
@@ -68,6 +81,8 @@ def get_task_queue_service() -> Any:
 
 class MlInternTrainingExecutionPort(Protocol):
     """Worker execution seam. Implementations may use internal HTTP or a test fake."""
+
+    def capability_probe(self) -> Mapping[str, Any]: ...
 
     def execute(
         self,
@@ -125,14 +140,19 @@ class MlInternTrainingControlService:
     def capabilities(self) -> dict[str, Any]:
         enabled = bool(self._config.get("enabled", False))
         runtime_available = self._execution_port is not None
+        worker_probe = self._worker_capability_probe()
         mode = str(self._config.get("mode") or "dry_run")
         catalog = self._config.get("base_model_catalog")
         configured_models = (
             list(catalog) if isinstance(catalog, Mapping) else list(self._config.get("base_models") or [])
         )
+        backend_ids = ("mock", "peft_trl", "unsloth", "unsloth_vision", "unsloth_audio", "unsloth_embedding")
         backends = []
-        for backend in ("mock", "peft_trl", "unsloth"):
-            worker_supports = self._worker_supports("train_lora", backend)
+        for backend in backend_ids:
+            worker_supports = (
+                worker_probe is not None
+                and self._worker_supports("train_lora", backend, probe=worker_probe)
+            )
             policy_allows = backend == "mock" or mode == "live"
             available = enabled and policy_allows and (
                 backend == "mock" or (runtime_available and worker_supports)
@@ -165,8 +185,9 @@ class MlInternTrainingControlService:
                 or (
                     runtime_available
                     and any(
-                        self._worker_supports("train_lora", backend, name)
-                        for backend in ("mock", "peft_trl", "unsloth")
+                        worker_probe is not None
+                        and self._worker_supports("train_lora", backend, name, probe=worker_probe)
+                        for backend in backend_ids
                     )
                 )
             )
@@ -185,11 +206,116 @@ class MlInternTrainingControlService:
                     ),
                 }
             )
+        backend_capabilities = {item["id"]: item for item in backends}
+        facet_specs = (
+            ("training.text", "unsloth", "text"),
+            ("training.vision", "unsloth_vision", "vision"),
+            ("training.audio", "unsloth_audio", "audio"),
+            ("training.embedding", "unsloth_embedding", "embedding"),
+        )
+        facets = [
+            UnslothCapabilityFacet(
+                facet_id=facet_id,
+                available=bool(backend_capabilities[backend]["available"]),
+                reason_code=backend_capabilities[backend]["reason_code"],
+                source="worker_probe",
+                operations=("train_lora",),
+                model_kinds=(model_kind,),
+            )
+            for facet_id, backend, model_kind in facet_specs
+        ]
+        export_available = enabled and "export_adapter" in set(self._config.get("allowed_job_types") or [])
+        facets.append(
+            UnslothCapabilityFacet(
+                facet_id="export.adapter",
+                available=export_available,
+                reason_code=None if export_available else "unsloth_export_disabled",
+                source="hub_policy",
+                operations=("export_adapter",),
+                model_kinds=("text",),
+            )
+        )
+        facets.append(
+            UnslothCapabilityFacet(
+                facet_id="inference.generation",
+                available=False,
+                reason_code="unsloth_inference_capability_unavailable",
+                source="worker_probe",
+                operations=("generate",),
+                model_kinds=("text",),
+            )
+        )
+        security = dict(self._config.get("unsloth_security") or {})
+        studio_configured = security.get("operating_mode") in {"studio_managed", "external_api"}
+        facets.append(
+            UnslothCapabilityFacet(
+                facet_id="studio.management",
+                available=False,
+                reason_code=(
+                    "unsloth_studio_client_unavailable"
+                    if studio_configured
+                    else "unsloth_studio_disabled"
+                ),
+                source="configuration",
+                operations=("health", "status"),
+            )
+        )
+        facets.append(
+            UnslothCapabilityFacet(
+                facet_id="mcp.control",
+                available=False,
+                reason_code=(
+                    "unsloth_mcp_client_unavailable"
+                    if security.get("mcp_enabled") is True
+                    else "unsloth_mcp_disabled"
+                ),
+                source="configuration",
+                operations=("status",),
+            )
+        )
+        hardware_available = any(
+            item["available"] and item["id"] != "none" for item in gpu_profiles
+        ) and any(backend_capabilities[name]["available"] for name in UNSLOTH_BACKENDS)
+        facets.append(
+            UnslothCapabilityFacet(
+                facet_id="hardware.cuda",
+                available=hardware_available,
+                reason_code=None if hardware_available else "unsloth_cuda_capability_unavailable",
+                source="worker_probe",
+                operations=("train_lora",),
+            )
+        )
+        unsloth_snapshot = UnslothCapabilitySnapshot(
+            operating_mode=str(security.get("operating_mode") or "core_worker"),
+            detected_variant=(
+                ",".join(
+                    sorted(
+                        str(state["variant"])
+                        for backend, state in worker_probe["backends"].items()
+                        if backend in UNSLOTH_BACKENDS and state["available"]
+                    )
+                )
+                if worker_probe
+                and any(
+                    state["available"]
+                    for backend, state in worker_probe["backends"].items()
+                    if backend in UNSLOTH_BACKENDS
+                )
+                else None
+            ),
+            detected_version=(
+                worker_probe["packages"]["unsloth"]["version"]
+                if worker_probe and worker_probe["packages"]["unsloth"]["available"]
+                else None
+            ),
+            facets=tuple(facets),
+        )
         return {
             "contract_version": "ananta.ml-intern-training.v2",
             "available": enabled,
             "mode": mode,
             "runtime_available": runtime_available,
+            "worker_probe_available": worker_probe is not None,
             "backends": backends,
             "gpu_profiles": gpu_profiles,
             "base_models": [
@@ -198,7 +324,7 @@ class MlInternTrainingControlService:
                     "label": str(model_id),
                     "local": True,
                     "available": enabled,
-                    "compatible_backends": ["mock", "peft_trl", "unsloth"],
+                    "compatible_backends": list(backend_ids),
                     "reason_code": None if enabled else "training_disabled",
                 }
                 for model_id in configured_models
@@ -219,6 +345,8 @@ class MlInternTrainingControlService:
                 "max_steps": 1_000_000,
                 "minimum_eval_score": float(self._config.get("minimum_eval_score") or 0.0),
             },
+            "unsloth_capabilities": unsloth_snapshot.to_mapping(),
+            "worker_capability_probe": worker_probe,
         }
 
     def create_job(
@@ -256,6 +384,7 @@ class MlInternTrainingControlService:
         dataset = self._repository.get_dataset(principal, command.dataset_id)
         if dataset is None:
             raise MlInternTrainingContractError("dataset_not_found", "dataset was not found", status_code=404)
+        self._bind_dataset_provenance(command, dataset)
         require_validation = bool(self._config.get("require_dataset_validation", True)) or bool(
             command.request_spec.get("require_dataset_validation", False)
         )
@@ -373,6 +502,10 @@ class MlInternTrainingControlService:
                             "job_id": saved.id,
                             "dataset_id": saved.dataset_id,
                             "request_digest": saved.request_digest,
+                            "dataset_hash": saved.request_spec.get("dataset_hash"),
+                            "source_ids": list(saved.request_spec.get("source_ids") or []),
+                            "run_ids": list(saved.request_spec.get("run_ids") or []),
+                            "provenance_status": saved.request_spec.get("provenance_status"),
                             "mode": saved.mode,
                             "gpu_profile": gpu_profile,
                         }
@@ -637,6 +770,7 @@ class MlInternTrainingControlService:
 
             execution_spec = copy.deepcopy(job.request_spec)
             execution_spec["_tenant_scope_digest"] = _tenant_scope_digest(principal)
+            execution_spec["_tenant_storage_key"] = _tenant_storage_key(principal)
             resume_checkpoint = self._decode_checkpoint_ref(job.checkpoint_ref)
             if resume_checkpoint is not None and job.job_type == "train_lora":
                 execution_spec["resume_checkpoint"] = resume_checkpoint
@@ -677,7 +811,19 @@ class MlInternTrainingControlService:
                 adapter_id = str(result.get("adapter_id") or current.request_spec.get("adapter_id") or "") or None
                 if self._result_publisher is not None and result.get("artifacts"):
                     if current.job_type == "evaluate_lora":
-                        adapter_id = self._result_publisher.publish_evaluation(current, result)
+                        adapter_id = self._result_publisher.publish_evaluation(
+                            current,
+                            {
+                                **dict(result),
+                                "_hub_execution_evidence": {
+                                    "attempt_id": attempt.id,
+                                    "fencing_token": fencing_token,
+                                    "tenant_scope_digest": _tenant_scope_digest(
+                                        principal
+                                    ),
+                                },
+                            },
+                        )
                     elif current.job_type == "train_lora":
                         adapter_id = self._result_publisher.publish(current, result)
                 current.adapter_id = adapter_id
@@ -1240,16 +1386,105 @@ class MlInternTrainingControlService:
             return {str(value) for value in catalog}
         return {str(value) for value in self._config.get("base_models") or []}
 
-    def _worker_supports(self, job_type: str, backend: str, gpu_profile: str | None = None) -> bool:
+    def _bind_dataset_provenance(self, command: CreateTrainingJobCommand, dataset: Any) -> None:
+        metadata = dict(dataset.dataset_metadata or {})
+        dataset_hash = str(dataset.content_sha256 or metadata.get("dataset_sha256") or "").strip().lower()
+        if len(dataset_hash) != 64 or any(character not in "0123456789abcdef" for character in dataset_hash):
+            raise MlInternTrainingContractError(
+                "dataset_hash_unverified",
+                "training requires the canonical dataset SHA-256 supplied by the dataset catalog",
+                status_code=409,
+            )
+
+        dataset_source_ids = normalize_source_ids(metadata.get("source_ids"))
+        dataset_run_ids = normalize_run_ids(metadata.get("run_ids"))
+        requested_source_ids = normalize_source_ids(command.request_spec.get("source_ids"))
+        requested_run_ids = normalize_run_ids(command.request_spec.get("run_ids"))
+        if requested_source_ids and requested_source_ids != dataset_source_ids:
+            raise MlInternTrainingContractError(
+                "source_id_unverified",
+                "provided source IDs are not bound to the canonical dataset version",
+                status_code=409,
+            )
+        if requested_run_ids and requested_run_ids != dataset_run_ids:
+            raise MlInternTrainingContractError(
+                "run_id_unverified",
+                "provided run IDs are not bound to the canonical dataset version",
+                status_code=409,
+            )
+
+        security = dict(self._config.get("unsloth_security") or {})
+        trusted_source_ids = set(normalize_source_ids(security.get("trusted_source_ids")))
+        trusted_run_ids = set(normalize_run_ids(security.get("trusted_run_ids")))
+        if trusted_source_ids and any(identifier not in trusted_source_ids for identifier in dataset_source_ids):
+            raise MlInternTrainingContractError(
+                "source_id_unverified",
+                "dataset source ID is unknown to the configured provenance authority",
+                status_code=409,
+            )
+        if trusted_run_ids and any(identifier not in trusted_run_ids for identifier in dataset_run_ids):
+            raise MlInternTrainingContractError(
+                "run_id_unverified",
+                "dataset run ID is unknown to the configured provenance authority",
+                status_code=409,
+            )
+
+        provenance_verified = (
+            metadata.get("provenance_verified") is True
+            and bool(dataset_source_ids)
+            and bool(dataset_run_ids)
+        )
+        if security.get("require_grounded_provenance") is True and not provenance_verified:
+            raise MlInternTrainingContractError(
+                "grounded_provenance_required",
+                "training policy requires verified provided SRC_* and RUN_* bindings",
+                status_code=409,
+            )
+
+        command.request_spec["dataset_hash"] = dataset_hash
+        command.request_spec["provenance_status"] = "verified" if provenance_verified else "unverified"
+        if dataset_source_ids:
+            command.request_spec["source_ids"] = list(dataset_source_ids)
+        else:
+            command.request_spec.pop("source_ids", None)
+        if dataset_run_ids:
+            command.request_spec["run_ids"] = list(dataset_run_ids)
+        else:
+            command.request_spec.pop("run_ids", None)
+
+    def _worker_capability_probe(self) -> Mapping[str, Any] | None:
         if self._execution_port is None:
-            return False
-        supports = getattr(self._execution_port, "supports", None)
-        if not callable(supports):
-            return True
+            return None
+        probe = getattr(self._execution_port, "capability_probe", None)
+        if not callable(probe):
+            return None
         try:
-            return bool(supports(job_type=job_type, backend=backend, gpu_profile=gpu_profile))
-        except TypeError:
-            return bool(supports(job_type=job_type, backend=backend))
+            return validate_worker_capability_probe(probe())
+        except (RuntimeError, TypeError, UnslothWorkerCapabilityContractError):
+            return None
+
+    def _worker_supports(
+        self,
+        job_type: str,
+        backend: str,
+        gpu_profile: str | None = None,
+        *,
+        probe: Mapping[str, Any] | None = None,
+    ) -> bool:
+        snapshot = probe if probe is not None else self._worker_capability_probe()
+        if snapshot is None:
+            return False
+        backend_state = snapshot["backends"].get(backend)
+        if (
+            not isinstance(backend_state, Mapping)
+            or backend_state.get("available") is not True
+            or job_type not in backend_state.get("operations", ())
+        ):
+            return False
+        if gpu_profile is None:
+            return True
+        profile_state = snapshot["gpu_profiles"].get(gpu_profile)
+        return isinstance(profile_state, Mapping) and profile_state.get("available") is True
 
     def _requested_gpu_profile(self, command: CreateTrainingJobCommand) -> str:
         explicit = str(command.request_spec.get("gpu_profile") or "").strip().lower()
@@ -1285,6 +1520,42 @@ class MlInternTrainingControlService:
             raise MlInternTrainingContractError(
                 "gpu_profile_sequence_length_exceeded",
                 f"max_seq_length exceeds the {gpu_profile} hard limit of {max_profile_sequence}",
+            )
+        bounded_parameters = (
+            (
+                "gradient_accumulation_steps",
+                int(profile.get("max_gradient_accumulation_steps_hard_limit") or 1),
+            ),
+            ("lora_rank", int(profile.get("max_lora_rank_hard_limit") or 1)),
+            ("lora_alpha", int(profile.get("max_lora_alpha_hard_limit") or 1)),
+        )
+        for field, maximum in bounded_parameters:
+            value = int(hyperparameters.get(field) or profile.get(field) or 1)
+            if value > maximum:
+                raise MlInternTrainingContractError(
+                    "gpu_profile_adapter_parameter_exceeded",
+                    f"{field} exceeds the {gpu_profile} hard limit of {maximum}",
+                )
+        dropout = float(hyperparameters.get("lora_dropout", profile.get("lora_dropout") or 0.0))
+        if dropout > float(profile.get("max_lora_dropout_hard_limit") or 0.0):
+            raise MlInternTrainingContractError(
+                "gpu_profile_adapter_parameter_exceeded",
+                f"lora_dropout exceeds the {gpu_profile} hard limit",
+            )
+        target_modules = hyperparameters.get("target_modules")
+        if isinstance(target_modules, list) and len(target_modules) > int(
+            profile.get("max_target_modules_hard_limit") or 1
+        ):
+            raise MlInternTrainingContractError(
+                "gpu_profile_adapter_parameter_exceeded",
+                f"target_modules exceeds the {gpu_profile} hard limit",
+            )
+        requires_4bit = profile.get("required_quantization") == "4bit"
+        requested_4bit = bool(hyperparameters.get("load_in_4bit", command.method == "qlora"))
+        if requires_4bit and not requested_4bit:
+            raise MlInternTrainingContractError(
+                "gpu_profile_quantization_required",
+                f"{gpu_profile} requires 4bit quantization",
             )
 
     @staticmethod

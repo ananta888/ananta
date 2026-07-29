@@ -34,6 +34,7 @@ from agent.services.ml_intern_adapter_registry_service import (
     AdapterRecord,
     MlInternAdapterRegistryService,
     RegistryError,
+    RegistryIdempotencyConflict,
     RegistryNotFoundError,
     RegistryVersionConflict,
 )
@@ -63,13 +64,19 @@ from agent.services.ml_intern_evaluation_store_service import (
     MlInternEvaluationStoreService,
 )
 from agent.services.ml_intern_training_config_service import (
+    MlInternTrainingConfigError,
     normalize_lora_runtime_config,
     normalize_ml_intern_training_config,
 )
 from agent.services.ml_intern_training_contract import (
     BACKENDS,
     JOB_STATUSES,
+    UNSLOTH_BACKENDS,
     MlInternTrainingContractError,
+)
+from agent.services.ml_intern_evaluation_promotion_facade import (
+    MlInternEvaluationPromotionFacade,
+    PromotionGateError,
 )
 from agent.services.ml_intern_training_control_service import (
     MlInternTrainingControlService,
@@ -78,6 +85,70 @@ from agent.services.ml_intern_training_control_service import (
 from agent.services.ml_intern_training_job_service import get_training_job_service
 from agent.services.ml_intern_training_read_model_service import MlInternTrainingReadModelService
 from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
+from agent.services.unsloth_mutation_command_service import (
+    AdapterExportMutationExecutor,
+    SqliteUnslothMutationLedger,
+    UnslothMutationCommandService,
+    UnslothMutationError,
+    UnslothMutationExecutor,
+    UnslothOperationPayloadExecutor,
+    project_unsloth_capabilities,
+)
+from agent.services.unsloth_storage_governance_service import (
+    SqliteUnslothStorageCatalog,
+    UnslothStorageCleanupMutationExecutor,
+    UnslothStorageError,
+    storage_catalog_from_config,
+    tenant_scope_digest,
+)
+from agent.services.unsloth_runtime_handoff_composition import (
+    build_runtime_handoff_mutation_executor,
+)
+from agent.services.unsloth_data_recipe_adapter import (
+    DataRecipeRequest,
+    DataRecipeValidationError,
+    UnslothDataRecipeAdapter,
+)
+from agent.services.unsloth_data_recipe_composition_service import (
+    RepositoryDatasetSnapshotAdapter,
+    UnslothDataRecipeSubmissionService,
+)
+from agent.services.unsloth_completion_outbox_service import (
+    get_unsloth_completion_outbox_reconciler,
+)
+from agent.services.unsloth_evidence import EvidenceVerificationError, ProvidedEvidenceRegistry
+from agent.services.unsloth_model_catalog_service import (
+    SqliteUnslothModelCatalogRegistry,
+    UnslothModelCatalogError,
+    UnslothModelImportResultHandler,
+    get_unsloth_model_catalog_registry,
+)
+from agent.services.unsloth_model_source_adapter import (
+    ModelSourceRequest,
+    ModelSourceValidationError,
+    UnslothModelSourceAdapter,
+)
+from agent.services.unsloth_task_port import (
+    CallableUnslothAuditAdapter,
+    HubTaskSubmissionPort,
+    HubUnslothTaskSubmissionAdapter,
+)
+from agent.services.unsloth_mcp_adapter import (
+    UnslothMcpAdapter,
+    UnslothMcpError,
+    default_unsloth_mcp_tool_policies,
+)
+from agent.services.unsloth_studio_transport import (
+    UnslothStudioTransport,
+    UnslothStudioTransportConfig,
+    UnslothStudioTransportError,
+)
+from agent.services.unsloth_studio_worker_adapter import (
+    HubTaskSubmissionCommandAdapter,
+    UnslothStudioWorkerAdapter,
+)
+from agent.services.workflow_runtime.security import InMemoryReplayNonceStore
+from ananta_contracts.model_catalog import ModelCatalog
 
 ml_intern_training_bp = Blueprint("ml_intern_training", __name__, url_prefix="/api/ml-intern-training")
 _MULTIPART_OVERHEAD_BYTES = 512 * 1024
@@ -96,6 +167,7 @@ class _TrainingServices:
     adapter_export: MlInternAdapterExportService
     evaluation_store: MlInternEvaluationStoreService
     control: MlInternTrainingControlService
+    storage: SqliteUnslothStorageCatalog
 
 
 @ml_intern_training_bp.before_request
@@ -117,6 +189,21 @@ def _request_too_large(_exc: RequestEntityTooLarge):
     return _error("upload_too_large", "training upload exceeds the configured byte limit", 413)
 
 
+@ml_intern_training_bp.errorhandler(UnslothStorageError)
+def _storage_governance_error(exc: UnslothStorageError):
+    return _error(
+        str(
+            getattr(
+                exc,
+                "reason_code",
+                getattr(exc, "code", "unsloth_storage_rejected"),
+            )
+        ),
+        str(exc),
+        int(getattr(exc, "status_code", 409)),
+    )
+
+
 @ml_intern_training_bp.errorhandler(MlInternTrainingContractError)
 def _contract_error(exc: MlInternTrainingContractError):
     return _domain_error(exc)
@@ -127,9 +214,368 @@ def _contract_error(exc: MlInternTrainingContractError):
 @admin_required
 def capabilities():
     try:
-        return api_response(data=_services().control.capabilities())
+        services = _services()
+        result = services.control.capabilities()
+        integration = _unsloth_integration_probe(services)
+        result["unsloth_integration"] = integration
+        result["unsloth_capabilities"] = _compose_unsloth_integration_facets(
+            result.get("unsloth_capabilities"),
+            integration,
+        )
+        result["unsloth"] = project_unsloth_capabilities(
+            result.get("unsloth_capabilities"),
+            executable_operations=(
+                tuple(_unsloth_mutation_executors(services))
+                if _unsloth_confirmation_secret() is not None
+                else ()
+            ),
+        )
+        return api_response(data=result)
     except (RuntimeError, ValueError) as exc:
         return _error("training_runtime_configuration_invalid", str(exc), 503, retryable=True)
+
+
+@ml_intern_training_bp.route(
+    "/unsloth/integration/capabilities",
+    methods=["GET"],
+)
+@check_auth
+@admin_required
+def unsloth_integration_capabilities():
+    try:
+        return api_response(data=_unsloth_integration_probe(_services()))
+    except (RuntimeError, ValueError) as exc:
+        return _error(
+            "training_runtime_configuration_invalid",
+            str(exc),
+            503,
+            retryable=True,
+        )
+
+
+@ml_intern_training_bp.route(
+    "/unsloth/mcp/tools/<tool_id>",
+    methods=["POST"],
+)
+@check_auth
+@admin_required
+def execute_unsloth_mcp_tool(tool_id: str):
+    try:
+        body = _json_body()
+        unknown = sorted(
+            set(body)
+            - {
+                "arguments",
+                "replay_nonce",
+                "replay_expires_at",
+                "confirmation_id",
+                "correlation_id",
+            }
+        )
+        if unknown:
+            return _error(
+                "unsloth_mcp_request_unknown_fields",
+                "MCP request contains unsupported fields",
+                422,
+            )
+        arguments = body.get("arguments", {})
+        if not isinstance(arguments, Mapping):
+            return _error(
+                "unsloth_mcp_arguments_invalid",
+                "MCP arguments must be an object",
+                422,
+            )
+        principal = _principal()
+        result = _unsloth_mcp_adapter(_services()).execute(
+            tool_id=tool_id,
+            arguments=arguments,
+            tenant_id=principal.tenant_id,
+            actor_id=principal.subject,
+            roles=("admin",),
+            replay_nonce=str(body.get("replay_nonce") or ""),
+            replay_expires_at=float(body.get("replay_expires_at") or 0),
+            correlation_id=str(body.get("correlation_id") or ""),
+            confirmation_id=(
+                str(body.get("confirmation_id") or "").strip() or None
+            ),
+            idempotency_key=(
+                str(request.headers.get("Idempotency-Key") or "").strip()
+                or None
+            ),
+        )
+        return api_response(
+            data=result,
+            code=202 if result.get("status") == "queued" else 200,
+        )
+    except MlInternTrainingConfigError as exc:
+        return _error(
+            exc.reason_code,
+            str(exc),
+            503,
+            retryable=True,
+        )
+    except (TypeError, ValueError):
+        return _error(
+            "unsloth_mcp_request_invalid",
+            "MCP request fields are invalid",
+            422,
+        )
+    except UnslothStudioTransportError as exc:
+        return (
+            jsonify(
+                _failure_envelope(
+                    request_id=request_id,
+                    reason_code=getattr(
+                        exc,
+                        "reason_code",
+                        "unsloth_studio_upstream_unavailable",
+                    ),
+                    retryable=True,
+                )
+            ),
+            503,
+        )
+    except UnslothMcpError as exc:
+        status = 503 if exc.reason_code in {
+            "incompatible_upstream_contract",
+            "unsloth_mcp_probe_unavailable",
+            "unsloth_mcp_upstream_unavailable",
+            "unsloth_mcp_bearer_secret_unavailable",
+            "unsloth_mcp_configuration_invalid",
+        } else 409
+        return _error(
+            exc.reason_code,
+            "MCP request was rejected by the Hub policy boundary",
+            status,
+            retryable=status == 503,
+        )
+
+
+@ml_intern_training_bp.route(
+    "/unsloth/mutations/<operation>",
+    methods=["POST"],
+)
+@check_auth
+@admin_required
+def apply_unsloth_mutation(operation: str):
+    principal = _principal()
+    resource_id: str | None = None
+    dry_run: bool | None = None
+    try:
+        idempotency_key = _idempotency_key()
+        body = _json_body()
+        resource_id = (
+            str(body.get("resource_id") or "").strip()[:128] or None
+        )
+        dry_run = body.get("dry_run") if isinstance(body.get("dry_run"), bool) else None
+        result = _unsloth_mutation_service(_services()).execute(
+            principal,
+            route_operation=operation,
+            payload=body,
+            idempotency_key=idempotency_key,
+        )
+        _audit_unsloth_mutation(
+            principal,
+            operation=operation,
+            resource_id=resource_id,
+            dry_run=bool(result["dry_run"]),
+            outcome="accepted",
+            reason_code=str(result["reason_code"]),
+            replayed=bool(result.get("replayed", False)),
+        )
+        code = (
+            200
+            if bool(result["dry_run"]) or bool(result.get("replayed", False))
+            else 201
+        )
+        return api_response(data=result, code=code)
+    except MlInternTrainingContractError as exc:
+        _audit_unsloth_mutation(
+            principal,
+            operation=operation,
+            resource_id=resource_id,
+            dry_run=dry_run,
+            outcome="denied",
+            reason_code=exc.reason_code,
+        )
+        return _domain_error(exc)
+    except UnslothStorageError as exc:
+        _audit_unsloth_mutation(
+            principal,
+            operation=operation,
+            resource_id=resource_id,
+            dry_run=dry_run,
+            outcome="denied",
+            reason_code=str(
+                getattr(
+                    exc,
+                    "reason_code",
+                    "unsloth_storage_rejected",
+                )
+            ),
+        )
+        return _error(
+            str(
+                getattr(
+                    exc,
+                    "reason_code",
+                    getattr(exc, "code", "unsloth_storage_rejected"),
+                )
+            ),
+            str(exc),
+            int(getattr(exc, "status_code", 409)),
+        )
+    except UnslothMutationError as exc:
+        _audit_unsloth_mutation(
+            principal,
+            operation=operation,
+            resource_id=resource_id,
+            dry_run=dry_run,
+            outcome="denied",
+            reason_code=exc.reason_code,
+        )
+        return _error(
+            exc.reason_code,
+            str(exc),
+            exc.status_code,
+            retryable=exc.retryable,
+        )
+
+
+@ml_intern_training_bp.route("/unsloth/model-imports/plan", methods=["POST"])
+@check_auth
+@admin_required
+def plan_unsloth_model_import():
+    try:
+        services = _services()
+        plan = _unsloth_model_source_adapter(services).plan(
+            _unsloth_model_source_request(services, _principal(), _json_body())
+        )
+        return api_response(
+            data={
+                "task_type": plan.task_type,
+                "confirmation_digest": plan.confirmation_digest,
+                "payload": json.loads(plan.payload_json),
+            }
+        )
+    except (ModelSourceValidationError, EvidenceVerificationError) as exc:
+        return _error(getattr(exc, "code", "model_import_invalid"), str(exc), 422)
+
+
+@ml_intern_training_bp.route("/unsloth/model-imports", methods=["POST"])
+@check_auth
+@admin_required
+def submit_unsloth_model_import():
+    try:
+        _idempotency_key()
+        services = _services()
+        body = _json_body()
+        confirmation_digest = str(body.pop("confirmation_digest", "") or "")
+        adapter = _unsloth_model_source_adapter(services)
+        plan = adapter.plan(_unsloth_model_source_request(services, _principal(), body))
+        task_id = adapter.submit(plan, confirmation_digest=confirmation_digest)
+        return api_response(data={"task_id": task_id, "status": "queued"}, code=202)
+    except (ModelSourceValidationError, EvidenceVerificationError) as exc:
+        return _error(getattr(exc, "code", "model_import_invalid"), str(exc), 422)
+    except ValueError as exc:
+        return _error(str(exc), "model import task admission failed", 409)
+
+
+@ml_intern_training_bp.route("/unsloth/model-imports/<task_id>/result", methods=["POST"])
+@check_auth
+@admin_required
+def complete_unsloth_model_import(task_id: str):
+    return _error(
+        "model_import_direct_completion_gone",
+        (
+            "Model imports complete only through the validated "
+            "Hub-to-Worker task result path."
+        ),
+        410,
+    )
+
+
+@ml_intern_training_bp.route("/unsloth/models", methods=["GET"])
+@check_auth
+@admin_required
+def list_unsloth_imported_models():
+    get_unsloth_completion_outbox_reconciler(
+    ).reconcile_pending(limit=100)
+    records = _unsloth_model_registry(_services()).list_versions(
+        tenant_id=_principal().tenant_id
+    )
+    revision = max((record.catalog_revision for record in records), default=None)
+    return api_response(
+        data=ModelCatalog(
+            catalog_revision=revision,
+            imported_models=records,
+        ).to_wire()
+    )
+
+
+@ml_intern_training_bp.route("/unsloth/data-recipes", methods=["POST"])
+@check_auth
+@admin_required
+def submit_unsloth_data_recipe():
+    try:
+        _idempotency_key()
+        services = _services()
+        principal = _principal()
+        body = _json_body()
+        allowed = {
+            "dataset_id",
+            "source_id",
+            "run_id",
+            "objective",
+            "prompt_field",
+            "response_field",
+            "validation_fraction",
+            "seed",
+            "media_field",
+        }
+        unknown = sorted(set(body) - allowed)
+        if unknown:
+            raise DataRecipeValidationError(
+                "data_recipe_unknown_fields",
+                f"Unknown data recipe fields: {', '.join(unknown[:10])}.",
+            )
+        evidence = _unsloth_evidence(services)
+        adapter = UnslothDataRecipeAdapter(
+            datasets=RepositoryDatasetSnapshotAdapter(
+                repository=get_ml_intern_training_repository(),
+                principal=principal,
+                dataset_root=services.config["dataset_root"],
+            ),
+            evidence=evidence,
+        )
+        submission = UnslothDataRecipeSubmissionService(
+            adapter=adapter,
+            tasks=_unsloth_tasks(),
+        ).submit(
+            DataRecipeRequest(
+                tenant_id=principal.tenant_id,
+                dataset_id=str(body.get("dataset_id") or ""),
+                source_id=str(body.get("source_id") or ""),
+                run_id=str(body.get("run_id") or ""),
+                objective=str(body.get("objective") or ""),
+                prompt_field=str(body.get("prompt_field") or ""),
+                response_field=str(body.get("response_field") or ""),
+                validation_fraction=body.get("validation_fraction", 0.05),
+                seed=body.get("seed", 3407),
+                media_field=body.get("media_field"),
+            )
+        )
+        return api_response(
+            data={
+                "task_id": submission.task_id,
+                "manifest": json.loads(submission.manifest.canonical_json()),
+            },
+            code=202,
+        )
+    except (DataRecipeValidationError, EvidenceVerificationError) as exc:
+        return _error(getattr(exc, "code", "data_recipe_invalid"), str(exc), 422)
+    except ValueError as exc:
+        return _error(str(exc), "data recipe task admission failed", 409)
 
 
 @ml_intern_training_bp.route("/datasets", methods=["GET"])
@@ -192,6 +638,7 @@ def upload_dataset():
             metadata = {
                 "purpose": body.get("purpose") or "",
                 "license": body.get("license") or "",
+                "license_status": body.get("license_status") or "pending",
                 "privacy": body.get("privacy") or "private",
             }
             ratio = _bounded_body_float(
@@ -225,6 +672,7 @@ def upload_dataset():
             metadata = {
                 "purpose": request.form.get("purpose") or "",
                 "license": request.form.get("license") or "",
+                "license_status": request.form.get("license_status") or "pending",
                 "privacy": request.form.get("privacy") or "private",
             }
             ratio = _form_float("validation_ratio", services.config["validation_ratio"])
@@ -976,7 +1424,7 @@ def get_evaluation(evaluation_id: str):
 @admin_required
 def decide_adapter(adapter_id: str, action: str):
     try:
-        _idempotency_key()
+        idempotency_key = _idempotency_key()
         body = _json_body()
         if body.get("confirmed") is not True:
             return _error("adapter_decision_confirmation_required", "confirmed=true is required", 422)
@@ -1002,16 +1450,42 @@ def decide_adapter(adapter_id: str, action: str):
                     binding_error,
                     409,
                 )
-            record = services.registry.approve(
-                adapter_id,
-                approved_by=actor,
-                reason=reason,
-                require_eval_report=services.config["require_eval_before_approval"],
-                minimum_eval_score=float(services.config.get("minimum_eval_score") or 0.0),
-                tenant_id=principal.tenant_id,
-                owner_subject=principal.subject,
-                expected_version=expected_version,
+            evaluation_job = get_ml_intern_training_repository().get_job(
+                principal,
+                str(record_before_approval.eval_report_ref or ""),
             )
+            if evaluation_job is not None and evaluation_job.backend in UNSLOTH_BACKENDS:
+                if expected_version is None:
+                    return _error(
+                        "promotion_revision_required",
+                        "Unsloth promotion requires expected_version",
+                        409,
+                    )
+                record, promotion_replayed = _unsloth_promotion_facade(
+                    services
+                ).promote(
+                    principal,
+                    record_before_approval,
+                    expected_revision=expected_version,
+                    idempotency_key=idempotency_key,
+                    approved_by=actor,
+                    reason=reason,
+                    minimum_score=float(
+                        services.config.get("minimum_eval_score") or 0.0
+                    ),
+                )
+            else:
+                promotion_replayed = False
+                record = services.registry.approve(
+                    adapter_id,
+                    approved_by=actor,
+                    reason=reason,
+                    require_eval_report=services.config["require_eval_before_approval"],
+                    minimum_eval_score=float(services.config.get("minimum_eval_score") or 0.0),
+                    tenant_id=principal.tenant_id,
+                    owner_subject=principal.subject,
+                    expected_version=expected_version,
+                )
         elif action == "reject":
             record = services.registry.reject(
                 adapter_id,
@@ -1038,9 +1512,16 @@ def decide_adapter(adapter_id: str, action: str):
             return _error("adapter_action_invalid", "adapter action is invalid", 404)
         log_audit(
             "ml_intern_adapter_decision",
-            {"adapter_id": adapter_id, "action": action, "actor": actor, "reason": reason[:256]},
+            {
+                "adapter_id": adapter_id,
+                "action": action,
+                "actor": actor,
+                "reason_sha256": hashlib.sha256(reason.encode("utf-8")).hexdigest(),
+            },
         )
         response = _adapter_read_model(record)
+        if action == "approve":
+            response["promotion_replayed"] = promotion_replayed
         if action == "rollback":
             response["rollback_target"] = (
                 {"type": "adapter", "adapter_id": target.adapter_id, "version": target.version}
@@ -1052,8 +1533,14 @@ def decide_adapter(adapter_id: str, action: str):
         return _error(exc.reason_code, str(exc), 409)
     except RegistryNotFoundError:
         return _error("adapter_not_found", "adapter does not exist", 404)
+    except RegistryIdempotencyConflict as exc:
+        return _error(exc.reason_code, str(exc), 409)
+    except EvaluationStoreError as exc:
+        return _error("adapter_promotion_evidence_unavailable", str(exc), 409)
     except RegistryError as exc:
         return _error("adapter_state_conflict", str(exc), 409)
+    except PromotionGateError as exc:
+        return _error(exc.code, str(exc), 409)
 
 
 @ml_intern_training_bp.route("/adapters/<adapter_id>/export", methods=["POST"])
@@ -1176,6 +1663,39 @@ def _adapter_import_publication_error(
     )
 
 
+@ml_intern_training_bp.route("/unsloth/storage", methods=["GET"])
+@check_auth
+@admin_required
+def get_unsloth_storage():
+    try:
+        services = _services()
+        principal = _principal()
+        return api_response(
+            data={
+                "usage": services.storage.usage(
+                    tenant_id=principal.tenant_id,
+                    owner_scope_digest=tenant_scope_digest(principal),
+                ),
+                "items": services.storage.list_public(
+                    tenant_id=principal.tenant_id,
+                    owner_scope_digest=tenant_scope_digest(principal),
+                ),
+            }
+        )
+    except UnslothStorageError as exc:
+        return _error(
+            str(
+                getattr(
+                    exc,
+                    "reason_code",
+                    getattr(exc, "code", "unsloth_storage_rejected"),
+                )
+            ),
+            str(exc),
+            int(getattr(exc, "status_code", 409)),
+        )
+
+
 def _services() -> _TrainingServices:
     raw_agent = dict(current_app.config.get("AGENT_CONFIG", {}) or {})
     raw_training = {
@@ -1187,6 +1707,7 @@ def _services() -> _TrainingServices:
     artifact_root = Path(config["artifact_root"])
     dataset_root.mkdir(parents=True, exist_ok=True)
     artifact_root.mkdir(parents=True, exist_ok=True)
+    storage = storage_catalog_from_config(config)
     catalog_root = Path(raw_training.get("dataset_catalog_root") or dataset_root / "catalog")
     policy = ArtifactSecurityPolicy(
         max_file_bytes=int(config["max_dataset_bytes"]),
@@ -1205,6 +1726,7 @@ def _services() -> _TrainingServices:
         catalog=catalog,
         repository=repository,
         max_dataset_bytes=int(config["max_dataset_bytes"]),
+        storage_catalog=storage,
     )
     import_root = artifact_root / "adapter-imports"
     import_policy = ArtifactSecurityPolicy(
@@ -1236,9 +1758,505 @@ def _services() -> _TrainingServices:
         bridge=bridge,
         adapter_import=adapter_import,
         registry=registry,
-        adapter_export=MlInternAdapterExportService(artifact_root=artifact_root, registry=registry),
-        evaluation_store=MlInternEvaluationStoreService(artifact_root=artifact_root),
+        adapter_export=MlInternAdapterExportService(
+            artifact_root=artifact_root,
+            registry=registry,
+            storage_catalog=storage,
+        ),
+        evaluation_store=MlInternEvaluationStoreService(
+            artifact_root=artifact_root,
+            storage_references=storage,
+        ),
         control=get_ml_intern_training_control_service(control_config),
+        storage=storage,
+    )
+
+
+def _unsloth_promotion_facade(
+    services: _TrainingServices,
+) -> MlInternEvaluationPromotionFacade:
+    security = dict(services.config.get("unsloth_security") or {})
+    return MlInternEvaluationPromotionFacade(
+        evaluations=services.evaluation_store,
+        registry=services.registry,
+        trusted_source_ids=tuple(security.get("trusted_source_ids") or ()),
+        trusted_run_ids=tuple(security.get("trusted_run_ids") or ()),
+        audit_sink=log_audit,
+        storage_references=services.storage,
+    )
+
+
+def _unsloth_tasks() -> HubTaskSubmissionPort:
+    configured = current_app.extensions.get("unsloth_task_submission_port")
+    if configured is not None:
+        return configured
+    adapter = HubUnslothTaskSubmissionAdapter()
+    current_app.extensions["unsloth_task_submission_port"] = adapter
+    return adapter
+
+
+def _unsloth_studio_transport(
+    services: _TrainingServices,
+) -> UnslothStudioTransport:
+    configured = current_app.extensions.get("unsloth_studio_transport")
+    if configured is not None:
+        return configured
+    security = dict(services.config.get("unsloth_security") or {})
+    if not services.config.get("unsloth_integration_enabled"):
+        raise RuntimeError("unsloth_studio_integration_disabled")
+    try:
+        transport = UnslothStudioTransport(
+            config=UnslothStudioTransportConfig(
+                base_url=str(security.get("studio_url") or ""),
+                credential_secret_ref=str(
+                    security.get("auth_secret_ref") or ""
+                ),
+                expected_studio_version=str(
+                    security.get("expected_studio_version") or ""
+                ),
+                allowed_hosts=tuple(security.get("allowed_hosts") or ()),
+                allowed_ip_cidrs=tuple(
+                    security.get("allowed_ip_cidrs") or ()
+                ),
+                external_network_enabled=bool(
+                    services.config.get(
+                        "external_network_allowed",
+                        False,
+                    )
+                ),
+                local_network_enabled=bool(
+                    security.get("local_network_enabled")
+                ),
+                allow_plaintext_internal=not bool(
+                    security.get("tls_required", True)
+                ),
+            )
+        )
+    except ValueError as exc:
+        raise UnslothStudioTransportError(
+            "unsloth_studio_configuration_invalid"
+        ) from exc
+    current_app.extensions["unsloth_studio_transport"] = transport
+    return transport
+
+
+def _unsloth_studio_adapter(
+    services: _TrainingServices,
+) -> UnslothStudioWorkerAdapter:
+    configured = current_app.extensions.get("unsloth_studio_worker_adapter")
+    if configured is not None:
+        return configured
+    adapter = UnslothStudioWorkerAdapter(
+        transport=_unsloth_studio_transport(services),
+        hub_task_commands=HubTaskSubmissionCommandAdapter(_unsloth_tasks()),
+        allowed_mutations=("stop_training",),
+    )
+    current_app.extensions["unsloth_studio_worker_adapter"] = adapter
+    return adapter
+
+
+def _unsloth_mcp_adapter(
+    services: _TrainingServices,
+) -> UnslothMcpAdapter:
+    configured = current_app.extensions.get("unsloth_mcp_adapter")
+    if configured is not None:
+        return configured
+    security = dict(services.config.get("unsloth_security") or {})
+    if not security.get("mcp_enabled"):
+        raise RuntimeError("unsloth_mcp_disabled")
+    replay_store = current_app.extensions.get("unsloth_mcp_replay_store")
+    if replay_store is None:
+        from agent.services.workflow_control_production_composition import (
+            production_command_replay_store,
+        )
+
+        replay_store = production_command_replay_store()
+        current_app.extensions["unsloth_mcp_replay_store"] = replay_store
+    try:
+        adapter = UnslothMcpAdapter(
+            transport=_unsloth_studio_transport(services),
+            studio_adapter=_unsloth_studio_adapter(services),
+            replay_store=replay_store,
+            mcp_bearer_secret_ref=str(
+                security.get("mcp_auth_secret_ref") or ""
+            ),
+            tool_policies=default_unsloth_mcp_tool_policies(),
+            audit_sink=log_audit,
+        )
+    except ValueError as exc:
+        raise UnslothMcpError(
+            "unsloth_mcp_configuration_invalid"
+        ) from exc
+    current_app.extensions["unsloth_mcp_adapter"] = adapter
+    return adapter
+
+
+def _unsloth_integration_probe(
+    services: _TrainingServices,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "schema_version": "ananta.unsloth-integration-capabilities.v1",
+        "studio": {
+            "available": False,
+            "reason_code": "unsloth_studio_integration_disabled",
+        },
+        "mcp": {
+            "available": False,
+            "reason_code": "unsloth_mcp_disabled",
+        },
+    }
+    if not services.config.get("unsloth_integration_enabled"):
+        return result
+    try:
+        result["studio"] = dict(_unsloth_studio_adapter(services).probe())
+    except UnslothStudioTransportError as exc:
+        result["studio"] = {
+            "available": False,
+            "reason_code": exc.reason_code,
+        }
+        result["mcp"] = {
+            "available": False,
+            "reason_code": "unsloth_studio_probe_failed",
+        }
+        return result
+    security = dict(services.config.get("unsloth_security") or {})
+    if not security.get("mcp_enabled"):
+        return result
+    try:
+        result["mcp"] = dict(_unsloth_mcp_adapter(services).probe())
+    except UnslothMcpError as exc:
+        result["mcp"] = {
+            "available": False,
+            "reason_code": exc.reason_code,
+        }
+    return result
+
+
+def _compose_unsloth_integration_facets(
+    raw_capabilities: Any,
+    integration: Mapping[str, Any],
+) -> dict[str, Any]:
+    capabilities = dict(
+        raw_capabilities if isinstance(raw_capabilities, Mapping) else {}
+    )
+    raw_facets = capabilities.get("facets")
+    facets = [
+        dict(facet)
+        for facet in raw_facets
+        if isinstance(facet, Mapping)
+    ] if isinstance(raw_facets, list) else []
+    studio = dict(
+        integration.get("studio")
+        if isinstance(integration.get("studio"), Mapping)
+        else {}
+    )
+    mcp = dict(
+        integration.get("mcp")
+        if isinstance(integration.get("mcp"), Mapping)
+        else {}
+    )
+    facets = _replace_unsloth_facet(
+        facets,
+        facet_id="studio.management",
+        available=studio.get("available") is True,
+        unavailable_reason="unsloth_studio_client_unavailable",
+        operations=("health", "status"),
+    )
+    facets = _replace_unsloth_facet(
+        facets,
+        facet_id="mcp.control",
+        available=(
+            studio.get("available") is True
+            and mcp.get("available") is True
+        ),
+        unavailable_reason="unsloth_mcp_client_unavailable",
+        operations=tuple(
+            str(tool_id)
+            for tool_id in (
+                mcp.get("tool_ids")
+                if isinstance(mcp.get("tool_ids"), list)
+                else ()
+            )
+            if str(tool_id)
+        ),
+    )
+    capabilities["facets"] = sorted(
+        facets,
+        key=lambda facet: str(facet.get("id") or ""),
+    )
+    snapshot_payload = dict(capabilities)
+    snapshot_payload.pop("snapshot_id", None)
+    capabilities["snapshot_id"] = hashlib.sha256(
+        json.dumps(
+            snapshot_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+            default=str,
+        ).encode("utf-8")
+    ).hexdigest()
+    return capabilities
+
+
+def _replace_unsloth_facet(
+    facets: list[dict[str, Any]],
+    *,
+    facet_id: str,
+    available: bool,
+    unavailable_reason: str,
+    operations: tuple[str, ...],
+) -> list[dict[str, Any]]:
+    replacement = {
+        "id": facet_id,
+        "available": available,
+        "reason_code": (
+            None if available else unavailable_reason
+        ),
+        "source": "hub_policy",
+        "operations": list(operations),
+        "model_kinds": [],
+    }
+    return [
+        *[
+            facet
+            for facet in facets
+            if facet.get("id") != facet_id
+        ],
+        replacement,
+    ]
+
+
+def _set_unsloth_facet_availability(
+    current: Any,
+    available: bool,
+    reason_code: str | None,
+) -> Any:
+    if not isinstance(current, Mapping):
+        return bool(available)
+    facet = dict(current)
+    for field in ("available", "enabled", "supported"):
+        if field in facet:
+            facet[field] = bool(available)
+            break
+    else:
+        facet["available"] = bool(available)
+    if "reason_code" in facet:
+        facet["reason_code"] = None if available else reason_code
+    return facet
+
+
+def _unsloth_evidence(services: _TrainingServices) -> ProvidedEvidenceRegistry:
+    security = dict(services.config.get("unsloth_security") or {})
+    return ProvidedEvidenceRegistry(
+        source_ids=tuple(security.get("trusted_source_ids") or ()),
+        run_ids=tuple(security.get("trusted_run_ids") or ()),
+    )
+
+
+def _unsloth_model_source_adapter(
+    services: _TrainingServices,
+) -> UnslothModelSourceAdapter:
+    return UnslothModelSourceAdapter(
+        tasks=_unsloth_tasks(),
+        audit=CallableUnslothAuditAdapter(log_audit),
+        evidence=_unsloth_evidence(services),
+    )
+
+
+def _unsloth_model_registry(
+    services: _TrainingServices,
+) -> SqliteUnslothModelCatalogRegistry:
+    return get_unsloth_model_catalog_registry(
+        artifact_root=services.config["artifact_root"],
+    )
+
+
+def _unsloth_model_import_result_handler(
+    services: _TrainingServices,
+) -> UnslothModelImportResultHandler:
+    return UnslothModelImportResultHandler(_unsloth_model_registry(services))
+
+
+def _unsloth_model_source_request(
+    services: _TrainingServices,
+    principal: MlInternTrainingPrincipal,
+    body: Mapping[str, Any],
+) -> ModelSourceRequest:
+    allowed = {
+        "project_id",
+        "source_id",
+        "kind",
+        "expected_sha256",
+        "artifact_id",
+        "model_id",
+        "revision",
+        "max_bytes",
+        "allow_patterns",
+        "trust_remote_code",
+        "network_authorized",
+        "license_status",
+        "format",
+        "architecture",
+        "quantization",
+        "capability_facets",
+    }
+    unknown = sorted(set(body) - allowed)
+    if unknown:
+        raise ModelSourceValidationError(
+            "model_import_unknown_fields",
+            f"Unknown model import fields: {', '.join(unknown[:10])}.",
+        )
+    allow_patterns = body.get("allow_patterns", [])
+    facets = body.get("capability_facets", [])
+    if not isinstance(allow_patterns, list) or not isinstance(facets, list):
+        raise ModelSourceValidationError(
+            "model_import_array_invalid",
+            "allow_patterns and capability_facets must be arrays.",
+        )
+    trust_remote_code = body.get("trust_remote_code", False)
+    network_authorized = body.get("network_authorized", False)
+    if not isinstance(trust_remote_code, bool) or not isinstance(network_authorized, bool):
+        raise ModelSourceValidationError(
+            "model_import_boolean_invalid",
+            "Network and remote-code decisions must be JSON booleans.",
+        )
+    if network_authorized and not bool(services.config.get("external_network_allowed", False)):
+        raise ModelSourceValidationError(
+            "model_import_network_policy_denied",
+            "Hub network policy does not authorize remote model downloads.",
+        )
+    max_bytes = body.get("max_bytes", 20 * 1024**3)
+    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int):
+        raise ModelSourceValidationError("model_import_size_invalid", "max_bytes must be an integer.")
+    return ModelSourceRequest(
+        tenant_id=principal.tenant_id,
+        project_id=str(body.get("project_id") or principal.subject),
+        source_id=str(body.get("source_id") or ""),
+        kind=str(body.get("kind") or ""),
+        expected_sha256=str(body.get("expected_sha256") or ""),
+        artifact_id=body.get("artifact_id"),
+        model_id=body.get("model_id"),
+        revision=body.get("revision"),
+        max_bytes=max_bytes,
+        allow_patterns=tuple(str(item) for item in allow_patterns),
+        trust_remote_code=trust_remote_code,
+        network_authorized=network_authorized,
+        license_status=str(body.get("license_status") or "pending"),
+        model_format=str(body.get("format") or "transformers"),
+        architecture=str(body.get("architecture") or "unknown"),
+        quantization=body.get("quantization"),
+        capability_facets=tuple(str(item) for item in facets),
+    )
+
+
+def _unsloth_mutation_executors(
+    services: _TrainingServices,
+) -> dict[str, UnslothMutationExecutor]:
+    configured = current_app.extensions.get("unsloth_export_mutation_executor")
+    if configured is not None:
+        if not isinstance(configured, UnslothMutationExecutor):
+            return {}
+        export_executor = configured
+    else:
+        export_executor = AdapterExportMutationExecutor(services.adapter_export)
+    configured_runtime = current_app.extensions.get(
+        "unsloth_runtime_handoff_mutation_executor"
+    )
+    if configured_runtime is not None:
+        if not (
+            isinstance(configured_runtime, UnslothMutationExecutor)
+            or isinstance(configured_runtime, UnslothOperationPayloadExecutor)
+        ):
+            return {"export": export_executor}
+        runtime_executor = configured_runtime
+    else:
+        runtime_executor = build_runtime_handoff_mutation_executor(
+            agent_config=dict(
+                current_app.config.get("AGENT_CONFIG", {}) or {}
+            ),
+            export_service=services.adapter_export,
+            adapter_registry=services.registry,
+            storage_references=services.storage,
+        )
+    configured_cleanup = current_app.extensions.get(
+        "unsloth_cleanup_mutation_executor"
+    )
+    if configured_cleanup is not None:
+        if not (
+            isinstance(configured_cleanup, UnslothMutationExecutor)
+            or isinstance(configured_cleanup, UnslothOperationPayloadExecutor)
+        ):
+            return {
+                "export": export_executor,
+                "runtime_handoff": runtime_executor,
+            }
+        cleanup_executor = configured_cleanup
+    else:
+        cleanup_executor = UnslothStorageCleanupMutationExecutor(
+            catalog=services.storage,
+            tasks=_unsloth_tasks(),
+        )
+    # MCP remains absent until its separate tool contract is composed.
+    return {
+        "export": export_executor,
+        "runtime_handoff": runtime_executor,
+        "cleanup": cleanup_executor,
+    }
+
+
+def _unsloth_confirmation_secret() -> bytes | None:
+    value = current_app.secret_key
+    if isinstance(value, bytes):
+        encoded = value
+    else:
+        encoded = str(value or "").encode("utf-8")
+    return encoded if len(encoded) >= 32 else None
+
+
+def _unsloth_mutation_service(
+    services: _TrainingServices,
+) -> UnslothMutationCommandService:
+    secret = _unsloth_confirmation_secret()
+    if secret is None:
+        raise UnslothMutationError(
+            "unsloth_confirmation_secret_unavailable",
+            "A strong Hub confirmation secret is required.",
+            status_code=503,
+        )
+    ledger_path = (
+        Path(services.config["artifact_root"])
+        / ".control"
+        / "unsloth-mutation-idempotency.sqlite3"
+    )
+    return UnslothMutationCommandService(
+        executors=_unsloth_mutation_executors(services),
+        ledger=SqliteUnslothMutationLedger(ledger_path),
+        confirmation_secret=secret,
+    )
+
+
+def _audit_unsloth_mutation(
+    principal: MlInternTrainingPrincipal,
+    *,
+    operation: str,
+    resource_id: str | None,
+    dry_run: bool | None,
+    outcome: str,
+    reason_code: str,
+    replayed: bool = False,
+) -> None:
+    log_audit(
+        "ml_intern_unsloth_mutation",
+        {
+            "tenant_id": principal.tenant_id,
+            "actor": principal.subject,
+            "operation": str(operation or "")[:64],
+            "resource_id": resource_id,
+            "dry_run": dry_run,
+            "outcome": outcome,
+            "reason_code": reason_code,
+            "replayed": replayed,
+        },
     )
 
 
@@ -1280,6 +2298,48 @@ def _environment_training_overrides() -> dict[str, Any]:
             raise RuntimeError("LoRA training model catalog must be an object")
         result["base_model_catalog"] = catalog
         result["base_models"] = [str(model_id) for model_id in catalog]
+    studio_enabled = str(
+        os.getenv("ANANTA_UNSLOTH_STUDIO_ENABLED", "")
+    ).strip().casefold() in {"1", "true", "yes", "on"}
+    if studio_enabled:
+        mcp_enabled = str(
+            os.getenv("ANANTA_UNSLOTH_STUDIO_MCP_ENABLED", "")
+        ).strip().casefold() in {"1", "true", "yes", "on"}
+        allowed_hosts = [
+            value.strip()
+            for value in str(
+                os.getenv("ANANTA_UNSLOTH_STUDIO_ALLOWED_HOSTS", "")
+            ).split(",")
+            if value.strip()
+        ]
+        allowed_ip_cidrs = [
+            value.strip()
+            for value in str(
+                os.getenv("ANANTA_UNSLOTH_STUDIO_ALLOWED_IP_CIDRS", "")
+            ).split(",")
+            if value.strip()
+        ]
+        result["unsloth_integration_enabled"] = True
+        result["unsloth_security"] = {
+            "operating_mode": "studio_managed",
+            "studio_url": str(
+                os.getenv("ANANTA_UNSLOTH_STUDIO_URL", "")
+            ).strip(),
+            "allowed_hosts": allowed_hosts,
+            "allowed_ip_cidrs": allowed_ip_cidrs,
+            "auth_secret_ref": "env://ANANTA_UNSLOTH_STUDIO_PASSWORD",
+            "expected_studio_version": str(
+                os.getenv("ANANTA_UNSLOTH_STUDIO_EXPECTED_VERSION", "")
+            ).strip(),
+            "tls_required": False,
+            "local_network_enabled": True,
+            "mcp_enabled": mcp_enabled,
+            "mcp_auth_secret_ref": (
+                "env://ANANTA_UNSLOTH_STUDIO_MCP_TOKEN"
+                if mcp_enabled
+                else None
+            ),
+        }
     return result
 
 
@@ -1526,6 +2586,19 @@ def _adapter_read_model(record: AdapterRecord | None) -> dict[str, Any]:
         "hash_verified": hash_verified,
         "artifact_exists": exists,
         "evaluation_id": record.eval_report_ref,
+        "promotion_count": len(record.promotion_history),
+        "latest_promotion": (
+            {
+                "promotion_id": record.promotion_history[-1].get("promotion_id"),
+                "evaluation_id": record.promotion_history[-1].get("evaluation_id"),
+                "registry_revision": record.promotion_history[-1].get(
+                    "revision_after"
+                ),
+                "created_at": record.promotion_history[-1].get("created_at"),
+            }
+            if record.promotion_history
+            else None
+        ),
         "created_at": record.created_at,
         "updated_at": record.updated_at,
     }

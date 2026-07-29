@@ -22,6 +22,12 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, BinaryIO
 
+from ananta_contracts.unsloth_capability import (
+    UnslothWorkerCapabilityContractError,
+    progress_telemetry,
+    validate_progress_telemetry,
+    validate_worker_capability_probe,
+)
 from agent.services.ml_intern_adapter_registry_service import MlInternAdapterRegistryService
 from agent.services.ml_intern_artifact_security_service import (
     ArtifactSecurityPolicy,
@@ -42,6 +48,29 @@ _WORKER_BASE_PATH = "/internal/v1/lora-training"
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
 _ARTIFACT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_./-]{0,511}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_TRAINING_BACKENDS = frozenset(
+    {
+        "mock",
+        "peft_trl",
+        "unsloth",
+        "unsloth_vision",
+        "unsloth_audio",
+        "unsloth_embedding",
+    }
+)
+_EVENT_MODALITIES = frozenset({"text", "vision", "audio", "embedding"})
+_RESOURCE_ADMISSION_PAYLOAD_FIELDS = frozenset(
+    {
+        "profile",
+        "admitted",
+        "estimated_peak_bytes",
+        "usable_bytes",
+        "reserve_bytes",
+        "assumptions",
+        "estimate_only",
+        "reason_code",
+    }
+)
 _WORKER_STATUS_FIELDS = frozenset(
     {
         "contract_version",
@@ -58,7 +87,8 @@ _WORKER_STATUS_FIELDS = frozenset(
         "progress",
         "metrics",
         "artifacts",
-        "resume_checkpoint",
+    "resume_checkpoint",
+    "storage_usage",
         "cancel_mode",
         "error",
     }
@@ -79,10 +109,24 @@ _WORKER_EVENT_FIELDS = frozenset(
 _WORKER_EVENT_PAYLOAD_FIELDS: dict[str, frozenset[str]] = {
     "accepted": frozenset({"backend"}),
     "status": frozenset({"status", "reason_code", "retryable"}),
-    "phase": frozenset({"phase", "step"}),
-    "progress": frozenset({"step", "max_steps", "epoch", "loss", "eval_loss", "learning_rate"}),
+    "phase": frozenset({"phase", "step", "modality"}),
+    "progress": frozenset(
+        {
+            "step",
+            "max_steps",
+            "epoch",
+            "loss",
+            "eval_loss",
+            "learning_rate",
+            "tokens_per_second",
+            "gpu_utilization_percent",
+            "vram_used_bytes",
+            "telemetry",
+        }
+    ),
     "checkpoint": frozenset({"step", "name", "sha256"}),
     "artifact": frozenset({"name", "sha256", "size_bytes", "media_type"}),
+    "resource_admission": _RESOURCE_ADMISSION_PAYLOAD_FIELDS,
 }
 
 
@@ -117,7 +161,14 @@ class HttpMlInternTrainingWorkerPort:
         artifact_root: str | Path,
         model_catalog: Mapping[str, Mapping[str, Any]],
         adapter_resolver: Callable[[str, str], str | Path] | None = None,
-        admitted_backends: Sequence[str] = ("mock", "peft_trl", "unsloth"),
+        admitted_backends: Sequence[str] = (
+            "mock",
+            "peft_trl",
+            "unsloth",
+            "unsloth_vision",
+            "unsloth_audio",
+            "unsloth_embedding",
+        ),
         resource_profile: str = "nvidia",
         timeout_seconds: int = 3600,
         connect_timeout_seconds: float = 5.0,
@@ -174,7 +225,7 @@ class HttpMlInternTrainingWorkerPort:
         self._models = _normalize_model_catalog(model_catalog)
         self._adapter_resolver = adapter_resolver
         self._admitted_backends = frozenset(str(value).strip().lower() for value in admitted_backends)
-        if not self._admitted_backends or not self._admitted_backends.issubset({"mock", "peft_trl", "unsloth"}):
+        if not self._admitted_backends or not self._admitted_backends.issubset(_TRAINING_BACKENDS):
             raise ValueError("LoRA training worker backend capabilities are invalid")
         self._resource_profile = str(resource_profile or "").strip().lower()
         if self._resource_profile not in {"mock", "cpu", "nvidia"}:
@@ -190,6 +241,7 @@ class HttpMlInternTrainingWorkerPort:
         )
         self._clock = clock
         self._sleeper = sleeper
+        self._capability_cache: tuple[float, dict[str, Any]] | None = None
 
     @property
     def worker_id(self) -> str:
@@ -200,14 +252,41 @@ class HttpMlInternTrainingWorkerPort:
         return "internal:lora-training-worker"
 
     def supports(self, *, job_type: str, backend: str, gpu_profile: str | None = None) -> bool:
-        if job_type not in {"train_lora", "evaluate_lora"} or backend not in self._admitted_backends:
+        if backend not in self._admitted_backends:
+            return False
+        try:
+            probe = self.capability_probe()
+        except MlInternTrainingWorkerTransportError:
+            return False
+        backend_state = probe["backends"].get(backend)
+        if (
+            not isinstance(backend_state, Mapping)
+            or backend_state.get("available") is not True
+            or job_type not in backend_state.get("operations", ())
+        ):
             return False
         if gpu_profile is None:
             return True
-        requested_resource = "cpu" if gpu_profile == "none" else "nvidia"
-        if backend == "mock" and gpu_profile == "none":
-            return self._resource_profile in {"mock", "cpu"}
-        return self._resource_profile == requested_resource
+        profile = probe["gpu_profiles"].get(gpu_profile)
+        return isinstance(profile, Mapping) and profile.get("available") is True
+
+    def capability_probe(self) -> Mapping[str, Any]:
+        now = self._clock()
+        if self._capability_cache is not None:
+            cached_at, cached = self._capability_cache
+            if 0 <= now - cached_at < 5.0:
+                return json.loads(json.dumps(cached))
+        payload = self._request_json("GET", "/capabilities", None)
+        try:
+            probe = validate_worker_capability_probe(payload)
+        except UnslothWorkerCapabilityContractError as exc:
+            raise MlInternTrainingWorkerTransportError(
+                "worker_capability_contract_invalid",
+                "LoRA training Worker capability response is incompatible",
+                retryable=True,
+            ) from exc
+        self._capability_cache = (now, probe)
+        return json.loads(json.dumps(probe))
 
     def execute(
         self,
@@ -258,6 +337,15 @@ class HttpMlInternTrainingWorkerPort:
                 "worker delegation requires an opaque Hub tenant-scope binding",
                 retryable=False,
             )
+        tenant_storage_key = str(
+            spec.get("_tenant_storage_key") or tenant_scope_digest
+        ).strip().lower()
+        if not _SHA256.fullmatch(tenant_storage_key):
+            raise MlInternTrainingWorkerTransportError(
+                "tenant_storage_binding_required",
+                "worker delegation requires an opaque tenant storage binding",
+                retryable=False,
+            )
         common = {
             "contract_version": WORKER_CONTRACT_VERSION,
             "job_id": job_id,
@@ -267,6 +355,7 @@ class HttpMlInternTrainingWorkerPort:
             "backend": backend,
             "resource_profile": self._resource_profile,
             "tenant_scope_digest": tenant_scope_digest,
+            "tenant_storage_key": tenant_storage_key,
             "deadline_epoch_ms": int((self._clock() + self._timeout_seconds) * 1000),
             "base_model": {
                 "model_id": base_model_id,
@@ -284,7 +373,10 @@ class HttpMlInternTrainingWorkerPort:
             )
         elif job_type == "train_lora":
             train = self._split_manifest(dataset_path, "train")
-            workspace_ref = f"jobs/{job_id}"
+            workspace_ref = (
+                f"tenants/{tenant_scope_digest}/jobs/{job_id}/"
+                f"attempts/{attempt_id}/workspace"
+            )
             self._workspace_store.resolve_relative(workspace_ref).mkdir(parents=True, exist_ok=True, mode=0o700)
             envelope = {
                 **common,
@@ -300,6 +392,9 @@ class HttpMlInternTrainingWorkerPort:
                 },
                 "configuration": _worker_configuration(spec),
             }
+            exports = _worker_exports(spec, backend=backend)
+            if exports:
+                envelope["exports"] = exports
             resume_checkpoint = spec.get("resume_checkpoint")
             if resume_checkpoint is not None:
                 if not isinstance(resume_checkpoint, Mapping):
@@ -445,7 +540,10 @@ class HttpMlInternTrainingWorkerPort:
             must_exist=True,
         )
         inspected = self._artifact_store.validate_adapter_tree(source)
-        workspace_ref = f"evaluations/{job_id}"
+        workspace_ref = (
+            f"tenants/{common['tenant_scope_digest']}/jobs/{job_id}/"
+            f"attempts/{common['attempt_id']}/workspace"
+        )
         destination_relative = f"{workspace_ref}/adapter"
         destination = self._workspace_store.resolve_relative(destination_relative)
         if destination.exists():
@@ -566,6 +664,8 @@ class HttpMlInternTrainingWorkerPort:
             job_id,
             artifacts,
             job_type=job_type,
+            attempt_id=str(status["attempt_id"]),
+            tenant_scope_digest=str(spec.get("_tenant_scope_digest") or ""),
         )
         adapter_id = (
             str(spec.get("adapter_id") or "")
@@ -587,9 +687,16 @@ class HttpMlInternTrainingWorkerPort:
         artifacts: Sequence[Any],
         *,
         job_type: str,
+        attempt_id: str,
+        tenant_scope_digest: str,
     ) -> list[dict[str, Any]]:
         admitted: list[dict[str, Any]] = []
         total = 0
+        base = (
+            f"tenants/{_identifier(tenant_scope_digest, 'tenant_scope_digest')}/"
+            f"jobs/{_identifier(job_id, 'job_id')}/attempts/"
+            f"{_identifier(attempt_id, 'attempt_id')}"
+        )
         for raw in artifacts:
             if not isinstance(raw, Mapping):
                 raise MlInternTrainingWorkerTransportError(
@@ -620,9 +727,9 @@ class HttpMlInternTrainingWorkerPort:
             stored = self._artifact_store.store_upload(
                 response,
                 destination_relative=(
-                    f"jobs/{job_id}/adapter/{name}"
+                    f"{base}/adapter/{name}"
                     if job_type == "train_lora" and name not in {"training_manifest.json", "evaluation.json"}
-                    else f"jobs/{job_id}/{name}"
+                    else f"{base}/artifacts/{name}"
                 ),
                 filename=Path(name).name,
                 media_type=declared_media,
@@ -832,7 +939,12 @@ def _registry_adapter_resolver(config: Mapping[str, Any]) -> Callable[[str, str]
             raise MlInternTrainingWorkerTransportError(
                 "adapter_artifact_missing", "registered adapter has no artifact", retryable=False
             )
-        candidate = Path(raw).resolve(strict=True)
+        unresolved = Path(raw)
+        candidate = (
+            unresolved.resolve(strict=True)
+            if unresolved.is_absolute()
+            else (artifact_root / unresolved).resolve(strict=True)
+        )
         try:
             candidate.relative_to(artifact_root)
         except ValueError as exc:
@@ -906,6 +1018,79 @@ def _worker_configuration(spec: Mapping[str, Any]) -> dict[str, Any]:
         "gradient_checkpointing": True,
         "target_modules": list(values.get("target_modules") or ["q_proj", "k_proj", "v_proj", "o_proj"]),
     }
+
+
+def _worker_exports(spec: Mapping[str, Any], *, backend: str) -> list[dict[str, str]]:
+    raw = spec.get("exports")
+    if raw is None:
+        return []
+    if backend != "unsloth":
+        raise MlInternTrainingWorkerTransportError(
+            "unsloth_export_backend_required",
+            "post-training exports require the text Unsloth backend",
+            retryable=False,
+        )
+    if not isinstance(raw, (list, tuple)) or not 1 <= len(raw) <= 8:
+        raise MlInternTrainingWorkerTransportError(
+            "unsloth_exports_invalid",
+            "exports must be a non-empty array with at most eight entries",
+            retryable=False,
+        )
+    exports: list[dict[str, str]] = []
+    identities: set[tuple[str, str]] = set()
+    for item in raw:
+        if not isinstance(item, Mapping) or any(not isinstance(key, str) for key in item):
+            raise MlInternTrainingWorkerTransportError(
+                "unsloth_exports_invalid",
+                "each export must be an object",
+                retryable=False,
+            )
+        if set(item) - {"format", "quantization_method"}:
+            raise MlInternTrainingWorkerTransportError(
+                "unsloth_exports_invalid",
+                "export contains unknown fields",
+                retryable=False,
+            )
+        export_format = str(item.get("format") or "").strip().lower()
+        quantization = str(item.get("quantization_method") or "").strip().lower()
+        if export_format not in {"adapter", "merged_16bit", "gguf"}:
+            raise MlInternTrainingWorkerTransportError(
+                "unsloth_export_format_invalid",
+                "export format is not supported",
+                retryable=False,
+            )
+        if export_format == "gguf":
+            if quantization not in {"q4_k_m", "q5_k_m", "q8_0"}:
+                raise MlInternTrainingWorkerTransportError(
+                    "unsloth_export_quantization_invalid",
+                    "GGUF quantization_method is not supported",
+                    retryable=False,
+                )
+        elif quantization:
+            raise MlInternTrainingWorkerTransportError(
+                "unsloth_export_quantization_invalid",
+                "quantization_method is only valid for GGUF exports",
+                retryable=False,
+            )
+        identity = (export_format, quantization)
+        if identity in identities:
+            raise MlInternTrainingWorkerTransportError(
+                "unsloth_export_duplicate",
+                "exports contain a duplicate format and quantization pair",
+                retryable=False,
+            )
+        identities.add(identity)
+        export = {"format": export_format}
+        if quantization:
+            export["quantization_method"] = quantization
+        exports.append(export)
+    if any(item["format"] != "adapter" for item in exports) and spec.get("allow_merge") is not True:
+        raise MlInternTrainingWorkerTransportError(
+            "merge_confirmation_required",
+            "allow_merge=true is required for merged_16bit and GGUF exports",
+            retryable=False,
+        )
+    return exports
 
 
 def _reject_non_finite_json_constant(value: str) -> None:
@@ -1215,8 +1400,45 @@ def _validate_event_payload(event_type: str, payload: Mapping[str, Any]) -> None
         if not isinstance(phase, str) or not phase or len(phase) > 64:
             raise _invalid_worker_response("worker phase event is invalid")
         step = payload.get("step")
-        if step is not None and (isinstance(step, bool) or not isinstance(step, int) or step < 0):
+        if step is not None and (
+            isinstance(step, bool)
+            or not isinstance(step, int)
+            or not 0 <= step <= 10_000_000
+        ):
             raise _invalid_worker_response("worker phase event step is invalid")
+        modality = payload.get("modality")
+        if modality is not None and modality not in _EVENT_MODALITIES:
+            raise _invalid_worker_response("worker phase event modality is invalid")
+        return
+    if event_type == "resource_admission":
+        required_fields = _RESOURCE_ADMISSION_PAYLOAD_FIELDS.difference({"reason_code"})
+        if not required_fields.issubset(payload):
+            raise _invalid_worker_response("worker resource admission event is missing required fields")
+        profile = payload.get("profile")
+        if not isinstance(profile, str) or not profile or len(profile) > 64:
+            raise _invalid_worker_response("worker resource admission profile is invalid")
+        if not isinstance(payload.get("admitted"), bool) or not isinstance(payload.get("estimate_only"), bool):
+            raise _invalid_worker_response("worker resource admission flags are invalid")
+        for field_name in ("estimated_peak_bytes", "reserve_bytes"):
+            value = payload.get(field_name)
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 2**63 - 1:
+                raise _invalid_worker_response(f"worker resource admission {field_name} is invalid")
+        usable_bytes = payload.get("usable_bytes")
+        if usable_bytes is not None and (
+            isinstance(usable_bytes, bool)
+            or not isinstance(usable_bytes, int)
+            or not 0 <= usable_bytes <= 2**63 - 1
+        ):
+            raise _invalid_worker_response("worker resource admission usable_bytes is invalid")
+        assumptions = payload.get("assumptions")
+        if (
+            not isinstance(assumptions, list)
+            or not 1 <= len(assumptions) <= 16
+            or any(not isinstance(item, str) or not item or len(item) > 256 for item in assumptions)
+        ):
+            raise _invalid_worker_response("worker resource admission assumptions are invalid")
+        if payload.get("reason_code") not in {None, "vram_admission_admitted"}:
+            raise _invalid_worker_response("worker resource admission reason is invalid")
         return
     if event_type == "checkpoint":
         step = payload.get("step")
@@ -1239,10 +1461,26 @@ def _validate_event_payload(event_type: str, payload: Mapping[str, Any]) -> None
             or max_steps < 1
         ):
             raise _invalid_worker_response("worker progress event bounds are invalid")
-        for key in ("epoch", "loss", "eval_loss", "learning_rate"):
+        for key in (
+            "epoch",
+            "loss",
+            "eval_loss",
+            "learning_rate",
+            "tokens_per_second",
+            "gpu_utilization_percent",
+            "vram_used_bytes",
+        ):
             number = payload.get(key)
             if number is not None and (isinstance(number, bool) or not isinstance(number, (int, float))):
                 raise _invalid_worker_response(f"worker progress event {key} is invalid")
+        telemetry = payload.get("telemetry")
+        if telemetry is not None:
+            if not isinstance(telemetry, Mapping):
+                raise _invalid_worker_response("worker progress telemetry is invalid")
+            try:
+                validate_progress_telemetry(telemetry)
+            except UnslothWorkerCapabilityContractError as exc:
+                raise _invalid_worker_response("worker progress telemetry is invalid") from exc
 
 
 def _project_worker_event(event: Mapping[str, Any]) -> dict[str, Any]:
@@ -1262,9 +1500,17 @@ def _project_worker_event(event: Mapping[str, Any]) -> dict[str, Any]:
                 "train_loss": payload.get("loss"),
                 "eval_loss": payload.get("eval_loss"),
                 "learning_rate": payload.get("learning_rate"),
+                "telemetry": (
+                    validate_progress_telemetry(payload["telemetry"])
+                    if isinstance(payload.get("telemetry"), Mapping)
+                    else progress_telemetry(payload)
+                ),
                 "phase": "training",
             }
         )
+        for metric_name, state in projected["telemetry"].items():
+            if state["status"] == "available":
+                projected[metric_name] = state["value"]
     elif event_type == "phase":
         projected["phase"] = payload.get("phase")
         if payload.get("step") is not None:

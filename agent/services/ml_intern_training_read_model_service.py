@@ -177,7 +177,9 @@ class MlInternTrainingReadModelService:
 
     @staticmethod
     def event(event: MlInternTrainingEventDB) -> dict[str, Any]:
-        payload = dict(event.payload or {})
+        payload = MlInternTrainingReadModelService._safe_event_payload(
+            dict(event.payload or {})
+        )
         metric = {
             "step": payload.get("current_step"),
             "max_steps": payload.get("max_steps"),
@@ -185,6 +187,10 @@ class MlInternTrainingReadModelService:
             "train_loss": payload.get("train_loss"),
             "eval_loss": payload.get("eval_loss"),
             "learning_rate": payload.get("learning_rate"),
+            "tokens_per_second": payload.get("tokens_per_second"),
+            "gpu_utilization_percent": payload.get("gpu_utilization_percent"),
+            "vram_used_bytes": payload.get("vram_used_bytes"),
+            "telemetry": payload.get("telemetry"),
             "recorded_at": event.created_at,
         }
         return {
@@ -200,6 +206,46 @@ class MlInternTrainingReadModelService:
             "created_at": event.created_at,
             "timestamp": event.created_at,
         }
+
+    @staticmethod
+    def _safe_event_payload(value: dict[str, Any]) -> dict[str, Any]:
+        def clean(child: Any, depth: int = 0) -> Any:
+            if depth > 3:
+                return None
+            if child is None or isinstance(child, (bool, int)):
+                return child
+            if isinstance(child, float):
+                return child if math.isfinite(child) else None
+            if isinstance(child, str):
+                candidate = child.strip()
+                if (
+                    candidate.startswith(("/", "file://", "\\\\"))
+                    or (
+                        len(candidate) >= 3
+                        and candidate[1:3] in {":\\", ":/"}
+                    )
+                ):
+                    return None
+                return child[:512]
+            if isinstance(child, list):
+                return [clean(item, depth + 1) for item in child[:64]]
+            if isinstance(child, dict):
+                return {
+                    str(key)[:64]: clean(item, depth + 1)
+                    for key, item in list(child.items())[:64]
+                    if not any(
+                        marker in str(key).lower()
+                        for marker in (
+                            "path",
+                            "workspace",
+                            "storage_ref",
+                            "worker_ref",
+                        )
+                    )
+                }
+            return None
+
+        return clean(value) or {}
 
     @staticmethod
     def _validation_summary(report: dict | None) -> dict[str, Any]:

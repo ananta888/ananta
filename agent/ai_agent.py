@@ -252,6 +252,64 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         "visual_process_assistant_retrieval",
         "visual_process_assistant_inference",
     ]
+    from worker.training.unsloth_worker_runtime import (
+        build_unsloth_worker_runtime,
+    )
+
+    unsloth_runtime = build_unsloth_worker_runtime()
+    app.extensions["unsloth_worker_runtime"] = (
+        unsloth_runtime.health_snapshot()
+    )
+    if unsloth_runtime.ready:
+        workflow_registration = dict(
+            app.extensions.get(
+                "workflow_adapter_worker_registration"
+            )
+            or {}
+        )
+        runtime_targets = list(
+            workflow_registration.get("runtime_targets") or []
+        )
+        runtime_targets.append(
+            {
+                "runtime_target_id": (
+                    "unsloth-"
+                    + unsloth_runtime.profile.replace("_", "-")
+                ),
+                "runtime_id": "unsloth",
+                "adapter_id": unsloth_runtime.profile,
+                "runtime_kind": "docker_container",
+                "runtime_version": "1.0.0",
+                "network_access": (
+                    unsloth_runtime.network_access
+                ),
+            }
+        )
+        advertised = set(
+            workflow_registration.get("capabilities") or []
+        )
+        for binding in unsloth_runtime.bindings:
+            register_task_handler(
+                binding.task_kind,
+                binding.handler,
+                app=app,
+                capabilities=list(binding.capabilities),
+                safety_flags=binding.safety_flags,
+                verification_hooks=list(
+                    binding.verification_hooks
+                ),
+            )
+            advertised.update(binding.capabilities)
+            registered.append(binding.task_kind)
+        workflow_registration["capabilities"] = sorted(
+            advertised
+        )
+        workflow_registration["runtime_targets"] = (
+            runtime_targets
+        )
+        app.extensions[
+            "workflow_adapter_worker_registration"
+        ] = workflow_registration
     try:
         if os.environ.get("ANANTA_SEMANTIC_COMPUTE_WORKER_ENABLED", "").strip().lower() not in {
             "1",

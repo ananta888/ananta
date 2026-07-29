@@ -162,6 +162,35 @@ class ModelInvocationService:
 
         return settings
 
+    @classmethod
+    def resolve_runtime_handoff_endpoint(
+        cls,
+        *,
+        tenant_id: str,
+        endpoint_id: str,
+        required_capability: str,
+        expected_endpoint_revision: int | None = None,
+        endpoint_registry: Any | None = None,
+    ) -> Mapping[str, Any]:
+        """Resolve one explicit endpoint revision; never select a fallback."""
+
+        if endpoint_registry is None:
+            from flask import current_app
+
+            from agent.services.unsloth_runtime_handoff_composition import (
+                runtime_endpoint_registry_from_config,
+            )
+
+            endpoint_registry = runtime_endpoint_registry_from_config(
+                dict(current_app.config.get("AGENT_CONFIG", {}) or {})
+            )
+        return endpoint_registry.resolve_for_invocation(
+            tenant_id=tenant_id,
+            endpoint_id=endpoint_id,
+            required_capability=required_capability,
+            expected_revision=expected_endpoint_revision,
+        )
+
     @staticmethod
     def _model_routing_configuration_requested() -> bool:
         import os

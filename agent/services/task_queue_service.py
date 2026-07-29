@@ -177,6 +177,135 @@ class TaskQueueService:
             **dict(extra_fields or {}),
         )
 
+    def lease_reserved_task(
+        self,
+        *,
+        task_id: str,
+        lease_owner: str,
+        now: float,
+        lease_until: float,
+    ) -> bool:
+        """Lease one stale reservation without making it dispatchable."""
+        owner = str(lease_owner or "").strip()[:160]
+        current_time = float(now)
+        expiry = float(lease_until)
+        if (
+            not owner
+            or expiry <= current_time
+            or expiry > current_time + 300.0
+        ):
+            return False
+
+        def available(task: Any) -> bool:
+            details = dict(
+                getattr(task, "status_reason_details", None) or {}
+            )
+            try:
+                existing_expiry = float(
+                    details.get(
+                        "unsloth_cleanup_reservation_lease_until",
+                        0.0,
+                    )
+                    or 0.0
+                )
+            except (TypeError, ValueError):
+                return False
+            return existing_expiry <= current_time
+
+        return compare_and_set_local_task_status(
+            task_id,
+            "reserved",
+            expected_statuses={"reserved"},
+            authoritative_predicate=available,
+            event_type="unsloth_cleanup_reservation_leased",
+            event_actor="system:unsloth-control-plane",
+            event_details={
+                "admission_state": "reserved",
+                "lease_owner": owner,
+                "lease_until": expiry,
+            },
+            status_reason_details={
+                "admission_state": "reserved",
+                "unsloth_cleanup_reservation_lease_owner": owner,
+                "unsloth_cleanup_reservation_lease_until": expiry,
+            },
+        )
+
+    def activate_reserved_task(
+        self,
+        *,
+        task_id: str,
+        lease_owner: str | None = None,
+    ) -> bool:
+        """Make one admission-fenced reservation dispatchable."""
+        owner = str(lease_owner or "").strip()
+
+        def owns_lease(task: Any) -> bool:
+            details = dict(
+                getattr(task, "status_reason_details", None) or {}
+            )
+            return (
+                not owner
+                or details.get(
+                    "unsloth_cleanup_reservation_lease_owner"
+                )
+                == owner
+            )
+
+        return compare_and_set_local_task_status(
+            task_id,
+            "created",
+            expected_statuses={"reserved"},
+            authoritative_predicate=owns_lease,
+            event_type="unsloth_task_admission_activated",
+            event_actor="system:unsloth-control-plane",
+            event_details={
+                "admission_state": "activated",
+            },
+        )
+
+    def reject_reserved_task(
+        self,
+        *,
+        task_id: str,
+        reason_code: str,
+        lease_owner: str | None = None,
+    ) -> bool:
+        """Terminally reject a reservation that failed its domain CAS."""
+        reason = str(reason_code or "unsloth_task_admission_rejected")[
+            :160
+        ]
+        owner = str(lease_owner or "").strip()
+
+        def owns_lease(task: Any) -> bool:
+            details = dict(
+                getattr(task, "status_reason_details", None) or {}
+            )
+            return (
+                not owner
+                or details.get(
+                    "unsloth_cleanup_reservation_lease_owner"
+                )
+                == owner
+            )
+
+        return compare_and_set_local_task_status(
+            task_id,
+            "cancelled",
+            expected_statuses={"reserved"},
+            authoritative_predicate=owns_lease,
+            event_type="unsloth_task_admission_rejected",
+            event_actor="system:unsloth-control-plane",
+            event_details={
+                "admission_state": "rejected",
+                "reason_code": reason,
+            },
+            status_reason_code=reason,
+            status_reason_details={
+                "admission_state": "rejected",
+            },
+        )
+
     def claim_task(
         self,
         *,
