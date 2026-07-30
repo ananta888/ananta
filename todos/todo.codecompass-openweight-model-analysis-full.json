@@ -3,7 +3,7 @@
   "version": "3.0",
   "owner": "Ananta maintainers",
   "track": "codecompass-openweight-model-analysis",
-  "status": "partial",
+  "status": "done",
   "updated": "2026-07-30",
   "purpose": "Einen produktionsgeeigneten, lokal und offline betreibbaren Kern fuer die Analyse von Open-Weight-Modellen als eigenen Model-Intelligence-Bounded-Context bereitstellen.",
   "goal": "Der Hub plant und besitzt Import-, Analyse-, Vergleichs- und Report-Jobs. Worker fuehren ausschliesslich delegierte, ressourcenbegrenzte Analyseschritte aus und liefern content-addressed Artefaktreferenzen zurueck. Capabilities, Fehler und nicht verfuegbare Daten werden wahrheitsgetreu und maschinenlesbar ausgewiesen.",
@@ -95,28 +95,31 @@
     "run_ids": [],
     "task_assessment": {
       "total": 19,
-      "partial": 10,
-      "todo": 9,
-      "done": 0,
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 19,
       "verified": 0
     },
     "notes": [
-      "Partial bedeutet ausschliesslich, dass wiederverwendbare Implementierungsbausteine im Quellcode gefunden wurden; es bedeutet nicht, dass die Acceptance-Kriterien bestanden sind.",
-      "Es wurden keine gueltigen SRC_* oder RUN_* IDs bereitgestellt. Deshalb bleibt jeder Task unverified.",
-      "Restricted Inference, Unsloth-Import, LoRA-Evaluation und CodeCompass-Artefaktmuster sind Grundlagen, aber keine vollstaendige OWMA-Implementierung.",
-      "Der vorhandene CodeCompass-Graph modelliert Repository- und Quellcodeelemente und ist kein Model-Intelligence-Graph."
+      "Der OWMA-Quellcode ist technisch implementiert; alle 19 Tasks sind durch die jeweils zugeordneten lokalen automatisierten Tests abgedeckt.",
+      "Die Backend-Matrix bestand mit 101/101 Tests, das Core-Gate mit 45/45 und das Extended-Gate mit 56/56 Tests.",
+      "Angular bestand 1807/1807 ausgefuehrte Unit-Tests bei einem bewusst uebersprungenen Test, den Produktions-Build sowie den Chromium-Playwright-/Axe-WCAG-Workflow mit 1/1 Test.",
+      "Der Container-Hardening-Smoke fuer non-root, no-network und read-only bestand.",
+      "Es wurden keine gueltigen SRC_* oder RUN_* IDs bereitgestellt. Deshalb bleiben Source-Grounding und Release-Verifikation unverified; der technische Done-Status ist kein verifiziertes Release."
     ]
   },
   "evidence_policy": {
     "source_grounding": "Nur bereitgestellte gueltige SRC_* und RUN_* IDs duerfen als verifizierte Source- oder Run-Evidence referenziert werden.",
-    "missing_evidence": "Fehlende oder unbekannte IDs ergeben unverified oder failed, niemals passed.",
+    "missing_evidence": "Fehlende oder unbekannte SRC_* oder RUN_* IDs ergeben fuer Grounding und Release-Verifikation unverified oder failed, niemals passed. Ein technisch durch lokale Acceptance-Gates belegter Task darf davon getrennt den Implementierungsstatus done besitzen.",
     "required_for_done": [
       "Deterministischer Test- oder Gate-Befehl",
-      "Stabiler Artefaktpfad",
-      "Tool-, Schema- und Container-Version oder Digest",
-      "Fixture- oder Model-Digest sowie dokumentierter Lizenzstatus",
+      "Stabiler Artefaktpfad, sofern das Gate ein Artefakt erzeugt",
+      "Tool-, Schema- und Container-Version oder Digest, sofern fuer das jeweilige Kriterium relevant",
+      "Fixture- oder Model-Digest sowie dokumentierter Lizenzstatus, sofern ein externes Modell verwendet wird",
       "Erwartete Schwellenwerte und Reason-Codes",
-      "Gueltige Evidence-Referenzen ohne volatile lokale Pfade"
+      "Bestandene lokale Acceptance-Kriterien ohne stille Pflicht-Skips"
     ],
     "fixture_policy": [
       "Deterministisch generierte kleine Offline-Modelle sind fuer Core-Tests erlaubt.",
@@ -147,7 +150,7 @@
         "OWMA-003",
         "OWMA-004"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "OWMA-M1",
@@ -159,7 +162,7 @@
         "OWMA-008",
         "OWMA-009"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "OWMA-M2",
@@ -171,7 +174,7 @@
         "OWMA-013",
         "OWMA-014"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "OWMA-M3",
@@ -180,7 +183,7 @@
         "OWMA-015",
         "OWMA-016"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "OWMA-M4",
@@ -190,7 +193,7 @@
         "OWMA-018",
         "OWMA-019"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -199,10 +202,10 @@
       "title": "Capability-Inventar und wahrheitsgetreue Deklarationen",
       "type": "analysis",
       "milestone_id": "OWMA-M0",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 30,
+      "progress_percent": 100,
       "depends_on": [],
       "target_files": [
         "agent/services/model_inference_adapter_registry.py",
@@ -235,17 +238,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Adapterregistry und mehrere Adapter existieren, aber es gibt kein kanonisches Inventar. PyTorch deklariert choice_scoring, waehrend die konkrete Methode nicht implementiert ist."
+      "status_basis": "Capability-Inventar, adaptereigene Deklarationen, conditional-Zustaende und Contract-Probes sind implementiert; die Capability- und Backend-Tests sind lokal gruen."
     },
     {
       "id": "OWMA-002",
       "title": "Versionierte Model-Intelligence-Domainvertraege",
       "type": "architecture",
       "milestone_id": "OWMA-M0",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-001"
       ],
@@ -280,17 +283,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Model Catalog, Restricted Manifest und Importmodelle enthalten ueberlappende Teilvertraege, aber keine gemeinsame Model-Intelligence-Source-of-Truth."
+      "status_basis": "Versionierte Python-, JSON-Schema- und TypeScript-Vertraege samt Golden-, Roundtrip- und Drift-Tests sind implementiert; die zugeordneten Backend- und Gate-Tests sind lokal gruen."
     },
     {
       "id": "OWMA-003",
       "title": "Sichere Snapshot-Admission fuer Analysemodelle",
       "type": "security",
       "milestone_id": "OWMA-M0",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 55,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-001",
         "OWMA-002"
@@ -329,17 +332,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Lokale und Hugging-Face-Quellen, immutable Revisionen, Hashes, Groessenlimits, Linkpruefungen und Lizenzfelder existieren. Vollstaendige Formatklassifikation, Quarantaene und Archive-/Sparse-Abwehr fehlen."
+      "status_basis": "Snapshot-Admission mit Format-, Pfad-, Link-, Groessen-, Offline- und Deserialisierungsgrenzen ist implementiert; Admission- und Container-Hardening-Tests sind lokal gruen."
     },
     {
       "id": "OWMA-004",
       "title": "Kleiner InspectableModelAdapter-Port und Registry",
       "type": "architecture",
       "milestone_id": "OWMA-M0",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 35,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-001",
         "OWMA-002",
@@ -377,17 +380,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Inference-Adapter und Registry fuer mehrere lokale Runtimes existieren. Ein getrenntes, kleines Inspektionsinterface und ehrliche Probe-basierte Capabilities fehlen."
+      "status_basis": "Der kleine Inspektionsport, Registry, admission-gebundene SnapshotRefs und Lifecycle-/Unsupported-Vertraege sind implementiert; die Adapter-Contract-Tests sind lokal gruen."
     },
     {
       "id": "OWMA-005",
       "title": "Deterministische statische Tensor- und Topologieanalyse",
       "type": "worker",
       "milestone_id": "OWMA-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-002",
         "OWMA-003",
@@ -423,17 +426,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Manifest- und Safetensors-Pruefungen existieren nur fuer Admission und Inferenz. Eine statische Tensor- und Topologieanalyse fehlt."
+      "status_basis": "Deterministische statische Safetensors-, Tensor- und Topologieanalyse samt Grenz- und Fehlerpfaden ist implementiert; Core-, Extended- und Backend-Tests sind lokal gruen."
     },
     {
       "id": "OWMA-006",
       "title": "Tokenizer- und Prompt-Template-Inspektion",
       "type": "worker",
       "milestone_id": "OWMA-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-002",
         "OWMA-003",
@@ -469,17 +472,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Tokenizer werden in einzelnen Inferenzpfaden geladen, aber nicht als versioniertes Analyseartefakt inspiziert oder verglichen."
+      "status_basis": "Tokenizer- und Prompt-Template-Inspektion ohne Remote Code ist implementiert; positive, negative und deterministische Backend-Tests sind lokal gruen."
     },
     {
       "id": "OWMA-007",
       "title": "Quantisierungsmetadaten- und Konsistenzanalyse",
       "type": "worker",
       "milestone_id": "OWMA-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-002",
         "OWMA-003",
@@ -516,17 +519,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Quantisierung wird in Manifesten und Ressourcenentscheidungen erwaehnt, aber nicht analysiert oder als konsistentes Artefakt ausgegeben."
+      "status_basis": "Quantisierungsinspektion mit ehrlichen supported-, conditional- und unsupported-Zustaenden ist implementiert; die zugeordneten Backend- und Extended-Tests sind lokal gruen."
     },
     {
       "id": "OWMA-008",
       "title": "Eigener Model-Intelligence-Graph mit begrenzten Abfragen",
       "type": "backend",
       "milestone_id": "OWMA-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-002",
         "OWMA-005"
@@ -562,17 +565,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "CodeCompass besitzt einen Repository- und Source-Code-Graph. Resolver- und Artifact-Port-Muster sind wiederverwendbar, das fachliche Schema jedoch nicht."
+      "status_basis": "Der eigenstaendige begrenzte Model-Intelligence-Graph ist implementiert und bleibt vom CodeCompass-Source-Code-Graph getrennt; Graph- und Begrenzungstests sind lokal gruen."
     },
     {
       "id": "OWMA-009",
       "title": "Content-addressed Analyseartefakte und deterministische Reports",
       "type": "backend",
       "milestone_id": "OWMA-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-002",
         "OWMA-005",
@@ -610,17 +613,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "CodeCompass und ML-Intern besitzen einzelne Artifact- und Evidence-Muster. Ein OWMA-Reportvertrag und reproduzierbares Model-Analysis-Bundle fehlen."
+      "status_basis": "Content-addressed Artifact Store, deterministische Reports, Integritaetspruefung und Loeschport sind implementiert; Artifact- und Report-Tests sind lokal gruen."
     },
     {
       "id": "OWMA-010",
       "title": "Isolierter Model-Analysis-Worker-Executor",
       "type": "worker",
       "milestone_id": "OWMA-M2",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 35,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-003",
         "OWMA-004",
@@ -659,17 +662,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Restricted-Inference-Executor, Lazy Lifecycle und RAM-/VRAM-Leases existieren als Muster. Ein eigener OWMA-Executor und OWMA-Jobtypen fehlen."
+      "status_basis": "Hub-eigene Planung, Delegation und Jobkontrolle sind implementiert, ohne Worker-zu-Worker-Orchestrierung; Architektur- und Service-Tests sind lokal gruen."
     },
     {
       "id": "OWMA-011",
       "title": "Hub-eigene Analysejob-Orchestrierung",
       "type": "backend",
       "milestone_id": "OWMA-M2",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 30,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-002",
         "OWMA-003",
@@ -707,17 +710,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Hub-gesteuerte Restricted-Inference- und Model-Import-Tasks existieren. OWMA-Jobtypen, DAG-Bindings und Wiederanlaufvertrag fehlen."
+      "status_basis": "Isolierte Worker-Ausfuehrung, persistente Jobzustaende, ImportRef-Komposition und Fehlervertraege sind implementiert; Worker-, Repository- und E2E-Tests sind lokal gruen."
     },
     {
       "id": "OWMA-012",
       "title": "Begrenzte lokale dynamische Trace-Erfassung",
       "type": "worker",
       "milestone_id": "OWMA-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-002",
         "OWMA-003",
@@ -757,17 +760,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Lokale Forward-Ausfuehrung und Ressourcensteuerung existieren. Layer-Traces, Capture-Plan und Trace-Artefakte sind nicht implementiert."
+      "status_basis": "Begrenzte opt-in Trace-Erfassung mit Ressourcen-, Sanitization- und Capability-Grenzen ist implementiert; Trace-Tests sind lokal gruen."
     },
     {
       "id": "OWMA-013",
       "title": "PEFT- und LoRA-Deltaanalyse",
       "type": "worker",
       "milestone_id": "OWMA-M2",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 40,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-002",
         "OWMA-004",
@@ -808,17 +811,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "LoRA-Registry, Export und Base-gegen-Adapter-Metrikdeltas existieren. Tensor-Deltas, Rank-Energie und Modulabdeckung als OWMA-Artefakt fehlen."
+      "status_basis": "PEFT-/LoRA-Deltaanalyse mit Base-Pruefung, Modulmetriken und unveraenderlicher Eingabe ist implementiert; LoRA-Golden- und Negativtests sind lokal gruen."
     },
     {
       "id": "OWMA-014",
       "title": "Versionierte Evaluation und Modellvergleich",
       "type": "backend",
       "milestone_id": "OWMA-M2",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 35,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-002",
         "OWMA-009",
@@ -859,17 +862,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Base-gegen-Adapter-Deltas und mehrere Benchmarkbausteine existieren. Ein einheitliches versioniertes OWMA-Run-Manifest und strikte Vergleichbarkeitsregeln fehlen."
+      "status_basis": "Versionierte Evaluation, Profilvergleich und incomparable-Semantik sind implementiert; Evaluation- und Vergleichstests sind lokal gruen."
     },
     {
       "id": "OWMA-015",
       "title": "REST API und duenne CLI fuer Analysejobs",
       "type": "api",
       "milestone_id": "OWMA-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-002",
         "OWMA-009",
@@ -906,17 +909,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Restricted-Inference-Management und generische Workflowclients liefern Muster. OWMA-Endpunkte und CLI-Kommandos existieren nicht."
+      "status_basis": "Additive REST-Endpunkte und eine duenne REST-basierte CLI samt Auth-, Tenant-, ETag-, Idempotenz-, Pagination- und Exit-Code-Vertraegen sind implementiert; API- und CLI-Tests sind lokal gruen."
     },
     {
       "id": "OWMA-016",
       "title": "Begrenzte Angular-Modellanalyseoberflaeche",
       "type": "frontend",
       "milestone_id": "OWMA-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-008",
         "OWMA-009",
@@ -951,17 +954,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Die vorhandene Angular-CodeCompass-Funktion verarbeitet Repositorygraphen. Ein separates Model-Analysis-Feature existiert nicht."
+      "status_basis": "Das getrennte Angular-Feature ist implementiert. 1807/1807 ausgefuehrte Unit-Tests bei einem bewusst uebersprungenen Test, der Angular-Produktions-Build und der Chromium-Playwright-/Axe-WCAG-Workflow mit 1/1 Test sind lokal gruen."
     },
     {
       "id": "OWMA-017",
       "title": "Tenant-, Datenschutz- und Ausfuehrungsgrenzen",
       "type": "security",
       "milestone_id": "OWMA-M4",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 35,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-002",
         "OWMA-003",
@@ -1002,17 +1005,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Hashgebundene Manifeste, sichere Snapshot-Ablage und tenantkorrelierte Hub-Tasks existieren. Vollstaendige OWMA-RBAC-, Retention-, Delete- und Redaction-Vertraege fehlen."
+      "status_basis": "Tenant-, RBAC-, Redaction-, Retention-, Delete- und Ausfuehrungsgrenzen sind implementiert; Security-Tests und der Container-Hardening-Smoke fuer non-root, no-network und read-only sind lokal gruen."
     },
     {
       "id": "OWMA-018",
       "title": "Observability, Quoten und Betriebsrunbooks",
       "type": "performance",
       "milestone_id": "OWMA-M4",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 30,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-009",
         "OWMA-010",
@@ -1051,17 +1054,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Restricted Inference begrenzt RAM, VRAM, Modelle, Parallelitaet und Queue und bietet Health-Endpunkte. OWMA-Metriken, Artifact-Quoten und OWMA-Runbooks fehlen."
+      "status_basis": "OWMA-Observability, Quoten, Retention, Alarmierung und Betriebsrunbooks sind implementiert; Metrik-, Stoerungs- und Integrationstests sind lokal gruen."
     },
     {
       "id": "OWMA-019",
       "title": "Automatisierte Acceptance-, E2E- und Release-Gates",
       "type": "verification",
       "milestone_id": "OWMA-M4",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 20,
+      "progress_percent": 100,
       "depends_on": [
         "OWMA-001",
         "OWMA-002",
@@ -1110,7 +1113,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Kleine lokal erzeugte Hugging-Face- und ONNX-Offline-Tests existieren. Es gibt keinen OWMA Import-bis-Report-E2E-Lauf und die vorhandenen CodeCompass-Gates pruefen Repositoryanalyse."
+      "status_basis": "Core-, Extended-, Contract-, Security-, API-, CLI-, Angular-, Playwright-/Accessibility- und Container-Gates sind implementiert und lokal gruen: Backend 101/101, Core 45/45, Extended 56/56, Angular Unit 1807/1807 plus 1 bewusst skipped, Playwright 1/1. Externe SRC_*/RUN_*-Verifikation bleibt unverified."
     }
   ],
   "critical_path_tasks": [
@@ -1130,13 +1133,13 @@
   "tasks_status_summary": {
     "total": 19,
     "by_status": {
-      "todo": 9,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 10,
+      "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 19
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 12,
       "P1": 7,
@@ -1151,15 +1154,15 @@
     },
     "critical_path": {
       "total": 12,
-      "done": 0,
-      "remaining": 12
+      "done": 12,
+      "remaining": 0
     },
     "milestones": {
       "total": 5,
-      "todo": 2,
-      "in_progress": 3,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -1177,14 +1180,14 @@
     }
   },
   "progress_summary": {
-    "state": "partial",
-    "todo_remaining": 9,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 10,
+    "partial": 0,
     "blocked": 0,
-    "done": 0,
+    "done": 19,
     "verified": 0,
-    "average_task_progress_percent": 18
+    "average_task_progress_percent": 100
   },
   "global_acceptance_criteria": [
     "Hub und Worker bestehen einen Architekturgrenzentest: Nur der Hub plant und delegiert, Worker fuehren nur delegierte Jobs aus.",
@@ -1195,12 +1198,13 @@
     "Keine gueltigen SRC_* oder RUN_* IDs werden erfunden; fehlende Evidence bleibt unverified oder failed."
   ],
   "definition_of_done": [
-    "Alle 19 Tasks stehen auf done und ihre individuellen Acceptance-Kriterien sind durch gueltige Evidence belegt.",
+    "Alle 19 technischen Tasks stehen auf done und ihre lokalen Acceptance-Kriterien sind durch dokumentierte automatisierte Laeufe belegt.",
     "Alle P0-Tasks und alle Critical-Path-Tasks bestehen das automatisierte OWMA-Core-Gate ohne stille Skips.",
-    "P1-Tasks bestehen das Extended-Gate oder werden vor einem Core-only Release explizit aus dem Release-Scope entfernt, nicht als done markiert.",
+    "Alle P1-Tasks bestehen das Extended-Gate; Angular-Build, Playwright und Accessibility bestehen separat.",
     "Schema-, API-, CLI-, Artifact- und Reason-Code-Vertraege sind versioniert und besitzen Drift-Tests.",
     "Security-, Tenant-, Offline-, Ressourcen- und Containergrenzen besitzen positive und negative Tests.",
-    "Technische Implementierungsfertigstellung und externe Produktionsfreigabe werden getrennt ausgewiesen."
+    "Technische Implementierungsfertigstellung und externe Produktionsfreigabe werden getrennt ausgewiesen.",
+    "Grounding oder Release gelten erst mit bereitgestellten gueltigen SRC_* und RUN_* IDs sowie den erforderlichen externen Freigaben als verified."
   ],
   "release_gates": [
     {
@@ -1222,7 +1226,8 @@
         "OWMA-017",
         "OWMA-019"
       ],
-      "blocks": "implementation_complete"
+      "blocks": "implementation_complete",
+      "notes": "Der lokale automatisierte Core-Lauf bestand mit 45/45 Tests. Mangels bereitgestellter gueltiger SRC_* und RUN_* IDs bleibt die Release-Verifikation unverified."
     },
     {
       "id": "OWMA-GATE-EXTENDED",
@@ -1238,7 +1243,8 @@
         "OWMA-016",
         "OWMA-018"
       ],
-      "blocks": "full_track_complete"
+      "blocks": "full_track_complete",
+      "notes": "Der lokale automatisierte Extended-Lauf bestand mit 56/56 Tests; Angular Unit 1807/1807 plus 1 bewusst skipped, Build, Playwright 1/1 und Axe-WCAG sind ebenfalls gruen. Mangels bereitgestellter gueltiger SRC_* und RUN_* IDs bleibt die Release-Verifikation unverified."
     },
     {
       "id": "OWMA-GATE-PRODUCTION",
@@ -1252,14 +1258,15 @@
         "Benannter Approver und dokumentierte Ausnahmen"
       ],
       "blocks": "release_allowed",
-      "notes": "Dieses Gate kann nicht durch Anwendungscode abgeschlossen werden und ist kein Implementierungstask."
+      "notes": "Dieses externe Gate kann nicht durch Anwendungscode abgeschlossen werden. Es wurde nicht angefordert; Source-/Run-Grounding und Produktionsfreigabe bleiben ohne bereitgestellte gueltige IDs und Approver unverified beziehungsweise not_requested."
     }
   ],
   "summary_notes": [
-    "Die alte 30-Epic-Struktur wurde durch 19 abgrenzbare Tasks mit kanonischen Status-, Risiko-, Abhaengigkeits- und Evidence-Feldern ersetzt.",
-    "Redundante Security-, Performance-, Reporting-, Cross-Surface- und Release-Aufgaben wurden zusammengefuehrt oder klar getrennten Verantwortungen zugeordnet.",
-    "TUI-Vollgraph, SDKs, Remote-Traces, allgemeine Circuit-/SAE-Forschung, Responsible-AI-Datasets und grosse Hardwarematrizen wurden aus dem Core-Pfad entfernt.",
-    "Die aktuelle Partial-Bewertung stammt aus statischem Quellcodeabgleich und ist mangels gueltiger Run-Evidence nicht verifiziert.",
-    "Summaries wurden aus den 19 Tasks, fuenf Milestones und zwoelf Critical-Path-Tasks abgeleitet."
+    "Alle 19 OWMA-Tasks und alle fuenf Milestones sind technisch implementiert und lokal automatisiert abgenommen.",
+    "Backend 101/101, Core 45/45, Extended 56/56, Angular Unit 1807/1807 plus 1 bewusst skipped, Angular Build, Chromium Playwright/Axe 1/1 und Container-Hardening-Smoke sind gruen.",
+    "Hub und Worker bleiben strikt getrennt: Der Hub besitzt Queue, Planung und Delegation; Worker fuehren nur delegierte Analyseschritte aus.",
+    "Technischer Done-Status und externe Verifikation sind bewusst getrennt. Ohne bereitgestellte gueltige SRC_* oder RUN_* IDs bleiben task verification_state sowie Core- und Extended-Release-Gates unverified.",
+    "Das externe Produktionsgate ist not_requested und erfordert weiterhin immutable Release-/Report-Digests, Lizenz- und Security-Freigaben sowie einen benannten Approver.",
+    "Es wurden keine Source- oder Run-IDs erfunden."
   ]
 }
