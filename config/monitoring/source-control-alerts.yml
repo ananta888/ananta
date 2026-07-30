@@ -1,0 +1,37 @@
+groups:
+  - name: ananta.source-control.operations.v1
+    interval: 30s
+    rules:
+      - alert: SourceControlOperationalAlarm
+        expr: source_control_alert_state{status="firing"} == 1
+        for: 2m
+        labels:
+          severity: critical
+          owner: source-control-platform
+          runbook_id: SRCCTRL-R6-001/RB-OPERATIONAL
+        annotations:
+          summary: "A bounded Source Control operational alarm is firing"
+          clear_condition: "The firing gauge is zero for two minutes and Hub health is healthy"
+          metric_contract: source_control_alert_state
+      - alert: SourceControlHealthDegraded
+        expr: source_control_health{status="degraded"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          owner: source-control-platform
+          runbook_id: SRCCTRL-R6-001/RB-HEALTH
+        annotations:
+          summary: "Aggregate Source Control health remains degraded"
+          clear_condition: "The degraded gauge is zero for five minutes"
+          metric_contract: source_control_health
+      - alert: SourceControlMetricPipelineMissing
+        expr: absent(source_control_health) == 1
+        for: 5m
+        labels:
+          severity: critical
+          owner: runtime-platform
+          runbook_id: SRCCTRL-R6-001/RB-METRICS
+        annotations:
+          summary: "The Source Control health metric is absent"
+          clear_condition: "The health metric is continuously present for five minutes"
+          metric_contract: source_control_health

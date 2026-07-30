@@ -196,12 +196,28 @@ services:
       - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ../../docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../../config/monitoring/source-control-alerts.yml:/etc/prometheus/rules/source-control-alerts.yml:ro
       - prometheus_data:/prometheus
+    depends_on:
+      - alertmanager
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
+    restart: unless-stopped
+    profiles: ["observability"]
+    ports:
+      - "127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093"
+    volumes:
+      - ../../docker/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
 
   certbot:
     image: certbot/certbot:v5.5.0@sha256:78a7eaa40af657301e25731297b6e73646c695370d17e9bb03189fa82966d65c
@@ -219,6 +235,8 @@ volumes:
     name: ananta_redis_data
   prometheus_data:
     name: ananta_prometheus_data
+  alertmanager_data:
+    name: ananta_alertmanager_data
   certbot-etc:
     name: ananta_certbot_etc
   certbot-var:

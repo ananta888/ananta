@@ -1,0 +1,16 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: operator-configuration-required
+  group_by:
+    - alertname
+    - reason_code
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+# The repository default deliberately has no outbound integration. Operators
+# supply a deployment-specific secret-backed receiver through an override.
+receivers:
+  - name: operator-configuration-required
