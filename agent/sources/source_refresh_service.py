@@ -1,14 +1,32 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from agent.sources.keycloak_fetcher import KeycloakDocsFetcher
+from agent.sources.source_admission_gate import (
+    SourceAdmissionGatePort,
+    SourceIndexAdmissionRequest,
+)
 from agent.sources.source_cache import SourceCache
+from agent.sources.source_connectors import (
+    ConnectorHealth,
+    ConnectorRefreshRequest,
+    ConnectorRegistry,
+    SourceConnector,
+    SourceConnectorError,
+    SourceInventory,
+    SourceRevisionResolution,
+    build_default_connector_registry,
+)
 from agent.sources.source_registry import SourceRegistry
 from agent.sources.source_snapshot_store import SourceSnapshotStore
 from agent.sources.wikimedia_downloader import WikimediaDownloader
+from agent.services.source_admission_service import (
+    SourceAdmissionDecision,
+    SourceInventoryEvidence,
+    SourceScanEvidence,
+)
 
 
 def _parse_interval(value: str) -> timedelta:
@@ -49,12 +67,28 @@ class SourceRefreshService:
         cache: SourceCache | None = None,
         keycloak_fetcher: KeycloakDocsFetcher | None = None,
         wikimedia_downloader: WikimediaDownloader | None = None,
+        connector_registry: ConnectorRegistry | None = None,
+        additional_connectors: Sequence[SourceConnector] = (),
+        admission_gate: SourceAdmissionGatePort | None = None,
     ) -> None:
         self.registry = registry or SourceRegistry()
         self.snapshots = snapshots or SourceSnapshotStore()
         self.cache = cache or SourceCache()
         self.keycloak_fetcher = keycloak_fetcher or KeycloakDocsFetcher(snapshot_store=self.snapshots)
         self.wikimedia_downloader = wikimedia_downloader or WikimediaDownloader(snapshot_store=self.snapshots)
+        if connector_registry is None:
+            self.connector_registry = build_default_connector_registry(
+                keycloak_fetcher=self.keycloak_fetcher,
+                wikimedia_downloader=self.wikimedia_downloader,
+                cache=self.cache,
+                snapshots=self.snapshots,
+                additional_connectors=additional_connectors,
+            )
+        else:
+            self.connector_registry = connector_registry
+            for connector in additional_connectors:
+                self.connector_registry.register(connector)
+        self._admission_gate = admission_gate
 
     def is_due(self, descriptor: dict[str, Any]) -> bool:
         source_id = str(descriptor.get("source_id") or "")
@@ -90,44 +124,94 @@ class SourceRefreshService:
         corpus_url: str | None = None,
         destination_name: str | None = None,
     ) -> dict[str, Any]:
-        descriptor = self.registry.get_source(source_id)
-        if descriptor is None:
-            raise ValueError("source_not_found")
+        descriptor, connector = self._resolve_connector(source_id)
         if not bool(descriptor.get("enabled", True)):
             return {"source_id": source_id, "status": "skipped", "reason_code": "source_disabled"}
-        if dry_run:
-            return {"source_id": source_id, "status": "planned", "reason_code": "dry_run"}
-        source_type = str(descriptor.get("source_type") or "")
-        descriptor_hash = str((descriptor.get("extensions") or {}).get("descriptor_hash") or "0" * 64)
-        if source_type == "keycloak_docs":
-            report = self.keycloak_fetcher.fetch(descriptor=descriptor, dry_run=False)
-            pages = list(report.get("pages") or [])
-            for page in pages:
-                self.cache.put_raw(source_id=source_id, payload=str(page.get("raw_html") or ""))
-                self.cache.put_extracted(source_id=source_id, payload=str(page.get("extracted_text") or ""))
-            self.snapshots.mark_superseded(source_id=source_id, keep_snapshot_id=str(report["snapshot"]["snapshot_id"]))
-            return {"source_id": source_id, "status": "ok", "report": report}
-        if source_type == "wikimedia_dump":
-            if not corpus_url or not destination_name:
+        try:
+            errors = connector.validator.validate(descriptor)
+            if errors:
                 return {
                     "source_id": source_id,
-                    "status": "queued",
-                    "reason_code": "download_parameters_required",
-                    "human_message": "Provide corpus_url and destination_name for dump refresh",
+                    "status": "failed",
+                    "reason_code": "descriptor_invalid",
+                    "validation_errors": list(errors),
                 }
-            destination = Path("data/wiki_corpora") / str(destination_name)
-            report = self.wikimedia_downloader.download(
-                source_id=source_id,
-                descriptor_hash=descriptor_hash,
-                url=str(corpus_url),
-                destination=destination,
-                max_parallel=1,
+            return dict(
+                connector.refresher.refresh(
+                    descriptor,
+                    ConnectorRefreshRequest(
+                        dry_run=dry_run,
+                        corpus_url=corpus_url,
+                        destination_name=destination_name,
+                    ),
+                )
             )
-            self.cache.put_raw(source_id=source_id, payload=f"url={corpus_url}")
-            self.cache.put_extracted(source_id=source_id, payload=f"destination={destination}")
-            self.snapshots.mark_superseded(source_id=source_id, keep_snapshot_id=str(report["snapshot"]["snapshot_id"]))
-            return {"source_id": source_id, "status": "ok", "report": report}
-        return {"source_id": source_id, "status": "failed", "reason_code": "unsupported_source_type"}
+        except SourceConnectorError as exc:
+            return {
+                "source_id": source_id,
+                "status": "failed",
+                "reason_code": exc.reason_code,
+            }
+
+    def resolve_revision(self, *, source_id: str) -> SourceRevisionResolution:
+        descriptor, connector = self._resolve_connector(source_id)
+        self._require_enabled(descriptor)
+        self._require_valid(connector, descriptor)
+        return connector.revision_resolver.resolve_revision(descriptor)
+
+    def inventory(self, *, source_id: str) -> SourceInventory:
+        descriptor, connector = self._resolve_connector(source_id)
+        self._require_enabled(descriptor)
+        self._require_valid(connector, descriptor)
+        return connector.inventory_provider.inventory(descriptor)
+
+    def health(self, *, source_id: str) -> ConnectorHealth:
+        descriptor, connector = self._resolve_connector(source_id)
+        if not bool(descriptor.get("enabled", True)):
+            return ConnectorHealth(
+                status="degraded",
+                reason_code="source_disabled",
+            )
+        return connector.health_provider.health(descriptor)
+
+    def authorize_index_release(
+        self,
+        *,
+        source_id: str,
+        source_revision_id: str,
+        policy_digest: str,
+        inventory_evidence: SourceInventoryEvidence,
+        scan_evidence: SourceScanEvidence,
+    ) -> SourceAdmissionDecision:
+        """Fail closed unless exact connector evidence passes the Hub gate."""
+
+        if self._admission_gate is None:
+            raise SourceConnectorError("source_admission_gate_required")
+        descriptor, connector = self._resolve_connector(source_id)
+        self._require_enabled(descriptor)
+        self._require_valid(connector, descriptor)
+        revision = connector.revision_resolver.resolve_revision(descriptor)
+        inventory = connector.inventory_provider.inventory(descriptor)
+        if (
+            inventory_evidence.revision_digest != revision.revision_digest
+            or inventory_evidence.manifest_digest != inventory.manifest_digest
+            or inventory_evidence.file_count != inventory.item_count
+            or inventory_evidence.total_bytes != inventory.total_bytes
+            or scan_evidence.revision_digest != revision.revision_digest
+            or scan_evidence.manifest_digest != inventory.manifest_digest
+        ):
+            raise SourceConnectorError("source_admission_evidence_mismatch")
+        return self._admission_gate.require_admitted(
+            SourceIndexAdmissionRequest(
+                tenant_id=str(descriptor.get("tenant_id") or "").strip(),
+                project_id=str(descriptor.get("project_id") or "").strip(),
+                source_revision_id=source_revision_id,
+                revision_digest=revision.revision_digest,
+                policy_digest=policy_digest,
+                inventory=inventory_evidence,
+                scan=scan_evidence,
+            )
+        )
 
     def refresh_due_sources(self, *, dry_run: bool = False) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
@@ -140,3 +224,29 @@ class SourceRefreshService:
             results.append(self.refresh_source(source_id=source_id, dry_run=dry_run))
         return results
 
+    def _resolve_connector(
+        self,
+        source_id: str,
+    ) -> tuple[dict[str, Any], SourceConnector]:
+        descriptor = self.registry.get_source(source_id)
+        if descriptor is None:
+            raise ValueError("source_not_found")
+        source_type = str(descriptor.get("source_type") or "")
+        return descriptor, self.connector_registry.get(source_type)
+
+    @staticmethod
+    def _require_enabled(descriptor: dict[str, Any]) -> None:
+        if not bool(descriptor.get("enabled", True)):
+            raise SourceConnectorError("source_disabled")
+
+    @staticmethod
+    def _require_valid(
+        connector: SourceConnector,
+        descriptor: dict[str, Any],
+    ) -> None:
+        errors = connector.validator.validate(descriptor)
+        if errors:
+            raise SourceConnectorError(
+                "descriptor_invalid",
+                detail=",".join(errors),
+            )

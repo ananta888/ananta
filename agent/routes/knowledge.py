@@ -28,6 +28,12 @@ from agent.services.retrieval_service import get_retrieval_service
 from agent.services.retrieval_source_contract import source_scopes_for_types
 from agent.services.service_registry import get_core_services
 from agent.services.wiki_import_job_service import get_wiki_import_job_service
+from agent.routes.source_control_access import (
+    authorize_route_request,
+    filter_visible_resources,
+)
+from agent.services.source_control_access_policy import SourceControlAction
+from agent.sources.source_registry import SourceRegistry
 
 knowledge_bp = Blueprint("knowledge", __name__)
 
@@ -340,6 +346,11 @@ def _collection_payload(collection_id: str) -> dict | None:
         knowledge_index = _knowledge_index_repo().get_by_artifact(artifact_id)
         if knowledge_index is not None:
             indices.append(knowledge_index.model_dump())
+    indices = filter_visible_resources(
+        indices,
+        resource_kind="knowledge_index",
+        object_id=lambda item: str(item.get("id") or ""),
+    )
     return {
         "collection": collection.model_dump(),
         "knowledge_links": [link.model_dump() for link in links],
@@ -360,10 +371,135 @@ def _model_status(item) -> str:
     return ""
 
 
+_KNOWLEDGE_ACTIONS = {
+    "list_knowledge_collections": SourceControlAction.list,
+    "create_knowledge_collection": SourceControlAction.index,
+    "get_knowledge_collection": SourceControlAction.detail,
+    "index_knowledge_collection": SourceControlAction.index,
+    "list_knowledge_index_profiles": SourceControlAction.list,
+    "get_knowledge_index_job": SourceControlAction.detail,
+    "list_wiki_import_jobs": SourceControlAction.list,
+    "get_wiki_import_job": SourceControlAction.detail,
+    "pause_wiki_import_job": SourceControlAction.index,
+    "resume_wiki_import_job": SourceControlAction.index,
+    "cancel_wiki_import_job": SourceControlAction.delete,
+    "retry_interrupted_wiki_import_job": SourceControlAction.index,
+    "wiki_disk_state": SourceControlAction.artifact,
+    "list_wiki_import_presets": SourceControlAction.list,
+    "index_knowledge_source_records": SourceControlAction.index,
+    "import_wiki_corpus": SourceControlAction.index,
+    "import_wiki_corpus_from_url": SourceControlAction.download,
+    "search_knowledge_collection": SourceControlAction.query,
+    "search_wiki": SourceControlAction.query,
+    "get_knowledge_retrieval_preflight": SourceControlAction.list,
+    "list_knowledge_indices": SourceControlAction.list,
+    "update_knowledge_index_security_metadata": SourceControlAction.policy,
+    "batch_update_knowledge_index_security_metadata": SourceControlAction.policy,
+    "get_knowledge_orchestration_contract": SourceControlAction.list,
+    "get_file_type_support": SourceControlAction.list,
+}
+_KNOWLEDGE_COLLECTION_ENDPOINTS = {
+    "list_knowledge_collections",
+    "create_knowledge_collection",
+    "list_knowledge_index_profiles",
+    "list_wiki_import_jobs",
+    "list_wiki_import_presets",
+    "get_knowledge_retrieval_preflight",
+    "list_knowledge_indices",
+    "batch_update_knowledge_index_security_metadata",
+    "get_knowledge_orchestration_contract",
+    "get_file_type_support",
+}
+_KNOWLEDGE_GLOBAL_ENDPOINTS = {
+    "wiki_disk_state",
+    "import_wiki_corpus",
+    "import_wiki_corpus_from_url",
+    "search_wiki",
+}
+
+
+def _knowledge_job(job_id: str):
+    job = get_wiki_import_job_service().get_job(job_id)
+    return job or get_knowledge_index_job_service().get_job(job_id)
+
+
+@knowledge_bp.before_request
+@check_auth
+def _authorize_knowledge_surface():
+    endpoint = str(request.endpoint or "").rsplit(".", 1)[-1]
+    action = _KNOWLEDGE_ACTIONS.get(endpoint)
+    if action is None:
+        return None
+    if endpoint in _KNOWLEDGE_COLLECTION_ENDPOINTS:
+        return authorize_route_request(
+            action=action,
+            resource_kind="knowledge",
+            collection=True,
+        )
+    view_args = request.view_args or {}
+    collection_id = str(view_args.get("collection_id") or "").strip()
+    if collection_id:
+        return authorize_route_request(
+            action=action,
+            resource_kind="knowledge_collection",
+            resource=_collection_repo().get_by_id(collection_id),
+            object_id=collection_id,
+        )
+    job_id = str(view_args.get("job_id") or "").strip()
+    if job_id:
+        return authorize_route_request(
+            action=action,
+            resource_kind="knowledge_job",
+            resource=_knowledge_job(job_id),
+            object_id=job_id,
+        )
+    knowledge_index_id = str(
+        view_args.get("knowledge_index_id") or ""
+    ).strip()
+    if knowledge_index_id:
+        return authorize_route_request(
+            action=action,
+            resource_kind="knowledge_index",
+            resource=_knowledge_index_repo().get_by_id(knowledge_index_id),
+            object_id=knowledge_index_id,
+        )
+    if endpoint == "index_knowledge_source_records":
+        body = request.get_json(silent=True) or {}
+        source_id = (
+            str(body.get("source_id") or "").strip()
+            if isinstance(body, dict)
+            else ""
+        )
+        if source_id:
+            return authorize_route_request(
+                action=action,
+                resource_kind="source",
+                resource=SourceRegistry().get_source(source_id),
+                object_id=source_id,
+            )
+    if endpoint in _KNOWLEDGE_GLOBAL_ENDPOINTS:
+        return authorize_route_request(
+            action=action,
+            resource_kind="knowledge_global",
+            resource={},
+            object_id=endpoint,
+        )
+    return authorize_route_request(
+        action=action,
+        resource_kind="knowledge",
+        collection=True,
+    )
+
+
 @knowledge_bp.route("/knowledge/collections", methods=["GET"])
 @check_auth
 def list_knowledge_collections():
-    return api_response(data=[item.model_dump() for item in _collection_repo().get_all()])
+    rows = filter_visible_resources(
+        _collection_repo().get_all(),
+        resource_kind="knowledge_collection",
+        object_id=lambda item: str(getattr(item, "id", "")),
+    )
+    return api_response(data=[item.model_dump() for item in rows])
 
 
 @knowledge_bp.route("/knowledge/collections", methods=["POST"])
@@ -378,7 +514,18 @@ def create_knowledge_collection():
     if existing is not None:
         raise ConflictError("collection_exists")
     collection = _collection_repo().save(
-        KnowledgeCollectionDB(name=name, description=description, created_by=_current_username())
+        KnowledgeCollectionDB(
+            name=name,
+            description=description,
+            created_by=_current_username(),
+            collection_metadata={
+                "source_control_scope": {
+                    "tenant_id": g.source_control_principal.tenant_id,
+                    "project_id": g.source_control_principal.project_id,
+                    "owner_id": g.source_control_principal.subject_id,
+                }
+            },
+        )
     )
     return api_response(data=collection.model_dump(), code=201)
 
@@ -448,7 +595,13 @@ def get_knowledge_index_job(job_id: str):
 @knowledge_bp.route("/knowledge/wiki/import-jobs", methods=["GET"])
 @check_auth
 def list_wiki_import_jobs():
-    jobs = get_wiki_import_job_service().list_jobs()
+    jobs = filter_visible_resources(
+        get_wiki_import_job_service().list_jobs(),
+        resource_kind="knowledge_job",
+        object_id=lambda item: str(
+            item.get("job_id") or item.get("id") or ""
+        ),
+    )
     return api_response(data={"jobs": jobs})
 
 
@@ -856,6 +1009,11 @@ def list_knowledge_indices():
     source_scope = str(request.args.get("source_scope") or "").strip().lower() or None
     limit = max(1, min(int(request.args.get("limit") or 100), 500))
     rows = list(_knowledge_index_repo().list_completed(source_scope=source_scope))[:limit]
+    rows = filter_visible_resources(
+        rows,
+        resource_kind="knowledge_index",
+        object_id=lambda item: str(getattr(item, "id", "")),
+    )
     return api_response(
         data={
             "items": [_index_payload(item) for item in rows],

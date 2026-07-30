@@ -1,0 +1,593 @@
+"""Composition root for the canonical source-control v1 API."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+import hashlib
+import logging
+import os
+import re
+from typing import Any
+
+from sqlmodel import Session, select
+
+from agent.database import engine
+from agent.config import settings
+from agent.db_models.source_control import SourceRevisionDB
+from agent.routes.source_control_v1 import (
+    create_source_control_legacy_alias_blueprint,
+    create_source_control_v1_blueprint,
+)
+from agent.routes.source_control_operations import (
+    create_source_control_operations_blueprint,
+)
+from agent.adapters.source_control_metrics_adapter import (
+    PrometheusSourceControlMetrics,
+)
+from agent.services.context_policy_lifecycle_composition import (
+    build_persistent_context_policy_lifecycle,
+)
+from agent.services.source_control_api_runtime import (
+    SQLSourceControlOperationStore,
+    build_source_control_api_runtime,
+)
+from agent.services.source_control_connection_intent import (
+    SourceControlConnectionIntentResolver,
+)
+from agent.services.codehug_mutation_composition import (
+    CodeHugMutationCompositionService,
+)
+from agent.services.source_control_codehug_adapters import (
+    ResolvedCodeHugDestinationCatalog,
+    SQLCodeHugApprovalStore,
+    SQLCodeHugMutationIntentCatalog,
+    SQLCodeHugRevisionCatalog,
+    build_persistent_codehug_authorization,
+)
+from agent.services.source_access_manifest_signing import (
+    SourceAccessSigningKey,
+)
+from agent.services.source_control_artifact_download import (
+    SourceControlArtifactDownloadService,
+)
+from agent.services.source_control_catalogs import (
+    SourceRegistryRegisteredWorkspaceCatalog,
+    SourceControlReadCatalogService,
+)
+from agent.services.source_control_content_admission import (
+    SourceControlContentAdmissionService,
+)
+from agent.services.source_control_grant_admin import (
+    SourceControlGrantAdminService,
+)
+from agent.services.source_control_production_adapters import (
+    ContainedArtifactDeletionService,
+    HubBoundSourceIndexSubmissionAdapter,
+    HubSourceControlOperationsAdapter,
+    ScopedWorkerModelDestinationCatalog,
+    build_scoped_effective_access_service,
+)
+from agent.services.source_control_legacy_usage import (
+    BoundedLegacySourceControlUsage,
+)
+from agent.services.source_control_observability import (
+    SourceControlAuditEvent,
+    SourceControlAuditOperation,
+    SourceControlDecision,
+    SourceControlHealthMonitor,
+    bounded_metric_labels,
+    emit_source_control_audit,
+)
+from agent.services.source_control_rollout_policy import (
+    SourceControlRolloutConfiguration,
+    SourceControlRolloutPolicy,
+    SourceControlRolloutStage,
+)
+from agent.services.source_control_runtime_observability import (
+    SourceControlRuntimeObservability,
+)
+from agent.services.codecompass_graph_artifact_resolver import (
+    get_codecompass_graph_artifact_resolver,
+)
+from agent.services.codecompass_graph_projection_service import (
+    get_codecompass_graph_projection_service,
+)
+from agent.services.model_catalog_service import CatalogQuery
+from agent.repositories.hub_git_authorization_repository import (
+    SQLHubGitAuthorizationRepository,
+)
+from agent.services.ops_registry_service import get_ops_registry_service
+from agent.services.rag_helper_index_service import (
+    get_rag_helper_index_service,
+)
+from agent.services.service_registry import get_core_services
+from agent.sources.source_refresh_service import SourceRefreshService
+from agent.sources.source_registry import SourceRegistry
+
+
+_LOG = logging.getLogger(__name__)
+_BOUNDED_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
+_BOUNDED_REASON = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,63}$")
+
+
+class _SQLContextPolicySources:
+    def __init__(self, database_engine) -> None:
+        self._engine = database_engine
+
+    def resolve(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        source_revision_id: str,
+    ) -> Mapping[str, Any] | None:
+        with Session(self._engine) as db:
+            row = db.exec(
+                select(SourceRevisionDB).where(
+                    SourceRevisionDB.source_revision_id
+                    == source_revision_id,
+                    SourceRevisionDB.tenant_id == tenant_id,
+                    SourceRevisionDB.project_id == project_id,
+                )
+            ).first()
+            if row is None:
+                return None
+            return {
+                "connector_type": row.connector_type,
+                "sensitivity": row.sensitivity,
+                "admission_state": row.admission_state,
+            }
+
+
+class _ContextPolicyDestinations:
+    def __init__(self, catalog: object) -> None:
+        self._catalog = catalog
+
+    def resolve(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        destination_id: str,
+    ) -> Mapping[str, Any] | None:
+        get = getattr(self._catalog, "get", None)
+        if not callable(get):
+            return None
+        value = get(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            destination_id=destination_id,
+        )
+        if value is None:
+            return None
+        to_wire = getattr(value, "to_wire", None)
+        if callable(to_wire):
+            return dict(to_wire())
+        if isinstance(value, Mapping):
+            return dict(value)
+        return None
+
+
+class _SourceControlRouteDenyAudit:
+    """Adapt bounded route denials to the shared content-free audit contract."""
+
+    def __init__(self, *, health: object, metrics: object) -> None:
+        self._health = health
+        self._metrics = metrics
+
+    def record_denial(self, event: Mapping[str, object]) -> None:
+        reason_code = _bounded_reason(
+            event.get("reason_code"), fallback="authorization_denied"
+        )
+        try:
+            emit_source_control_audit(
+                SourceControlAuditEvent(
+                    operation=SourceControlAuditOperation.deny,
+                    actor_id=_bounded_id(
+                        event.get("actor_id")
+                        or event.get("subject_id"),
+                        fallback="actor",
+                    ),
+                    tenant_id=_bounded_id(
+                        event.get("tenant_id"), fallback="tenant"
+                    ),
+                    project_id=_bounded_id(
+                        event.get("project_id"), fallback="project"
+                    ),
+                    resource_kind=_bounded_id(
+                        event.get("resource_kind"), fallback="resource"
+                    ),
+                    resource_id=_bounded_id(
+                        event.get("resource_id"), fallback="collection"
+                    ),
+                    trace_id=_bounded_id(
+                        event.get("trace_id"), fallback="route-deny"
+                    ),
+                    decision=SourceControlDecision.deny,
+                    reason_code=reason_code,
+                )
+            )
+            self._health.record_failure(reason_code)
+            self._metrics.increment(
+                "source_control_operations_total",
+                bounded_metric_labels(
+                    operation="deny",
+                    decision="deny",
+                    reason_code="authorization",
+                    status="failed",
+                ),
+            )
+        except Exception:
+            _LOG.error(
+                "source_control_route_deny_observability_failed",
+                exc_info=True,
+            )
+
+
+def register_source_control_api(app) -> None:
+    """Build once in the Hub process and register the versioned blueprint."""
+
+    if app.extensions.get("source_control_v1_registered") is True:
+        return
+    preconfigured_runtime = app.extensions.get("source_control_v1_runtime")
+    destination_catalog = app.extensions.get(
+        "source_control_destination_catalog"
+    )
+    if destination_catalog is None:
+        destination_catalog = ScopedWorkerModelDestinationCatalog(
+            engine=engine,
+            model_supplier=lambda: _server_models(app),
+        )
+        app.extensions[
+            "source_control_destination_catalog"
+        ] = destination_catalog
+    refresh = app.extensions.get("source_refresh_service")
+    registry = (
+        getattr(refresh, "registry", None)
+        if refresh is not None
+        else None
+    ) or SourceRegistry()
+    if refresh is None:
+        refresh = SourceRefreshService(registry=registry)
+        app.extensions["source_refresh_service"] = refresh
+    workspace_catalog = app.extensions.get(
+        "registered_workspace_catalog"
+    )
+    if workspace_catalog is None:
+        workspace_catalog = SourceRegistryRegisteredWorkspaceCatalog(
+            registry=registry,
+            registrations=get_ops_registry_service(),
+        )
+        app.extensions["registered_workspace_catalog"] = workspace_catalog
+    remote_catalog = app.extensions.get(
+        "hub_git_authorization_registry"
+    )
+    if remote_catalog is None:
+        remote_catalog = SQLHubGitAuthorizationRepository(
+            session_factory=lambda: Session(engine)
+        )
+        app.extensions["hub_git_authorization_registry"] = remote_catalog
+    connection_intents = SourceControlConnectionIntentResolver(
+        workspaces=workspace_catalog,
+        remotes=remote_catalog,
+    )
+    app.extensions[
+        "source_control_connection_intent_resolver"
+    ] = connection_intents
+    read_catalogs = SourceControlReadCatalogService(
+        workspaces=workspace_catalog,
+        remotes=remote_catalog,
+        index_profiles=get_rag_helper_index_service(),
+    )
+    app.extensions["source_control_read_catalogs"] = read_catalogs
+    content_admission = SourceControlContentAdmissionService(
+        engine=engine,
+        idempotency=SQLSourceControlOperationStore(engine),
+    )
+    app.extensions[
+        "source_control_content_admission"
+    ] = content_admission
+    context_policy = app.extensions.get(
+        "source_control_context_policy_lifecycle"
+    )
+    if context_policy is None:
+        context_policy = build_persistent_context_policy_lifecycle(
+            engine=engine,
+            sources=_SQLContextPolicySources(engine),
+            destinations=_ContextPolicyDestinations(destination_catalog),
+        )
+        app.extensions[
+            "source_control_context_policy_lifecycle"
+        ] = context_policy
+    grant_admin = app.extensions.get("source_control_grant_admin")
+    if grant_admin is None:
+        grant_admin = SourceControlGrantAdminService(
+            engine=engine,
+            destinations=destination_catalog,
+            policies=context_policy,
+        )
+        app.extensions["source_control_grant_admin"] = grant_admin
+    operations = app.extensions.get("source_control_v1_operations")
+    if operations is None:
+        index_submission = app.extensions.get(
+            "source_control_bound_index_submission_service"
+        )
+        index_planner = app.extensions.get(
+            "source_control_index_authority_planner"
+        )
+        if index_submission is None and index_planner is not None:
+            index_submission = HubBoundSourceIndexSubmissionAdapter(
+                planner=index_planner,
+                job_service=(
+                    get_core_services(app).knowledge_index_job_service
+                ),
+            )
+            app.extensions[
+                "source_control_bound_index_submission_service"
+            ] = index_submission
+        operations = HubSourceControlOperationsAdapter(
+            engine=engine,
+            registry=registry,
+            refresh=refresh,
+            index_submission=index_submission,
+            graph_resolver=get_codecompass_graph_artifact_resolver(),
+            graph_projection=get_codecompass_graph_projection_service(),
+            scanner=app.extensions.get("source_scan_service"),
+        )
+        app.extensions["source_control_v1_operations"] = operations
+    artifact_deletion = app.extensions.get(
+        "source_control_artifact_deletion"
+    )
+    if artifact_deletion is None:
+        artifact_deletion = ContainedArtifactDeletionService(
+            engine=engine,
+            artifact_root=(
+                str(settings.data_dir) + "/knowledge_indices"
+            ),
+        )
+        app.extensions[
+            "source_control_artifact_deletion"
+        ] = artifact_deletion
+    effective_access = (
+        app.extensions.get("effective_source_access_service")
+        or (
+            lambda *, tenant_id, project_id: (
+                build_scoped_effective_access_service(
+                    engine=engine,
+                    destinations=destination_catalog,
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                )
+            )
+        )
+    )
+    intents = (
+        app.extensions.get("codehug_mutation_intent_catalog")
+        or SQLCodeHugMutationIntentCatalog(engine)
+    )
+    revisions = (
+        app.extensions.get("codehug_mutation_revision_catalog")
+        or SQLCodeHugRevisionCatalog(engine)
+    )
+    codehug_destinations = (
+        app.extensions.get("codehug_mutation_destination_catalog")
+        or ResolvedCodeHugDestinationCatalog(destination_catalog)
+    )
+    approvals = (
+        app.extensions.get("codehug_mutation_approval_store")
+        or SQLCodeHugApprovalStore(engine)
+    )
+    for name, value in (
+        ("codehug_mutation_intent_catalog", intents),
+        ("codehug_mutation_revision_catalog", revisions),
+        ("codehug_mutation_destination_catalog", codehug_destinations),
+        ("codehug_mutation_approval_store", approvals),
+    ):
+        app.extensions[name] = value
+    authorization = app.extensions.get(
+        "codehug_mutation_authorization_service"
+    )
+    if authorization is None:
+        tools = app.extensions.get("codehug_mutation_tool_catalog")
+        executor = app.extensions.get("codehug_mutation_executor")
+        signing_key = app.extensions.get("source_access_signing_key")
+        if (
+            tools is not None
+            and executor is not None
+            and isinstance(signing_key, SourceAccessSigningKey)
+        ):
+            authorization = build_persistent_codehug_authorization(
+                engine=engine,
+                tools=tools,
+                executor=executor,
+                effective_access=effective_access,
+                signing_key=signing_key,
+            )
+            app.extensions[
+                "codehug_mutation_authorization_service"
+            ] = authorization
+    codehug_mutations = (
+        CodeHugMutationCompositionService(
+            intents=intents,
+            revisions=revisions,
+            destinations=codehug_destinations,
+            approvals=approvals,
+            authorization=authorization,
+        )
+        if authorization is not None
+        else None
+    )
+    app.extensions["source_control_codehug_mutations"] = codehug_mutations
+    artifact_downloads = app.extensions.get(
+        "source_control_artifact_downloads"
+    )
+    if artifact_downloads is None:
+        artifact_downloads = SourceControlArtifactDownloadService(
+            engine=engine,
+            artifact_root=(
+                str(settings.data_dir) + "/knowledge_indices"
+            ),
+            destinations=destination_catalog,
+            effective_access=effective_access,
+        )
+        app.extensions[
+            "source_control_artifact_downloads"
+        ] = artifact_downloads
+    core_runtime = (
+        preconfigured_runtime.delegate
+        if isinstance(
+            preconfigured_runtime, SourceControlRuntimeObservability
+        )
+        else preconfigured_runtime
+    )
+    if core_runtime is None:
+        core_runtime = build_source_control_api_runtime(
+            engine=engine,
+            access=(
+                effective_access
+            ),
+            operations=operations,
+            context_policy=context_policy,
+            artifact_deletion=artifact_deletion,
+            content_admission=content_admission,
+            catalogs=read_catalogs,
+            grants=grant_admin,
+            connection_intents=connection_intents,
+            codehug_mutations=codehug_mutations,
+            artifact_downloads=artifact_downloads,
+        )
+    rollout = _rollout_policy(app)
+    health = app.extensions.get("source_control_health_monitor")
+    if health is None:
+        health = SourceControlHealthMonitor()
+        app.extensions["source_control_health_monitor"] = health
+    metrics = app.extensions.get("source_control_metrics")
+    if metrics is None:
+        metrics = PrometheusSourceControlMetrics()
+        app.extensions["source_control_metrics"] = metrics
+    if app.extensions.get("source_control_route_deny_audit") is None:
+        app.extensions[
+            "source_control_route_deny_audit"
+        ] = _SourceControlRouteDenyAudit(
+            health=health,
+            metrics=metrics,
+        )
+    runtime = SourceControlRuntimeObservability(
+        core_runtime,
+        rollout=rollout,
+        metrics=metrics,
+        health=health,
+        shadow=app.extensions.get("source_control_shadow_observer"),
+    )
+    app.extensions["source_control_v1_core_runtime"] = core_runtime
+    app.extensions["source_control_rollout_policy"] = rollout
+    app.extensions["source_control_v1_runtime"] = runtime
+    app.register_blueprint(create_source_control_v1_blueprint(runtime))
+    app.register_blueprint(
+        create_source_control_operations_blueprint(health)
+    )
+    if rollout.capabilities().legacy_aliases:
+        legacy_usage = BoundedLegacySourceControlUsage()
+        app.extensions["source_control_legacy_usage"] = legacy_usage
+        app.register_blueprint(
+            create_source_control_legacy_alias_blueprint(legacy_usage)
+        )
+    app.extensions["source_control_v1_registered"] = True
+
+
+def _server_models(app):
+    """Use the existing Hub model-catalog composition, never request payloads."""
+
+    with app.app_context():
+        from agent.routes.config.providers import _model_catalog_service
+
+        config = dict(app.config.get("AGENT_CONFIG", {}) or {})
+        return _model_catalog_service().versioned_catalog(
+            CatalogQuery(
+                default_provider=str(
+                    config.get("default_provider") or ""
+                ),
+                default_model=str(config.get("default_model") or ""),
+                task_kind="code_review",
+                timeout_seconds=3,
+                cache_ttl_seconds=30,
+            )
+        ).models
+
+
+def _rollout_policy(app) -> SourceControlRolloutPolicy:
+    raw_stage = str(
+        app.config.get("SOURCE_CONTROL_ROLLOUT_STAGE")
+        or os.environ.get("SOURCE_CONTROL_ROLLOUT_STAGE")
+        or "GITHUB"
+    ).strip()
+    try:
+        stage = (
+            SourceControlRolloutStage(int(raw_stage))
+            if raw_stage.isdigit()
+            else SourceControlRolloutStage[raw_stage.upper()]
+        )
+    except (KeyError, ValueError) as exc:
+        raise RuntimeError("source_control_rollout_stage_invalid") from exc
+    shadow = _configured_bool(
+        app,
+        "SOURCE_CONTROL_SHADOW_COMPARE_ENABLED",
+        default=stage is SourceControlRolloutStage.SHADOW_READ_MODEL,
+    )
+    aliases = _configured_bool(
+        app,
+        "SOURCE_CONTROL_LEGACY_ALIASES_ENABLED",
+        default=stage is not SourceControlRolloutStage.LEGACY_DISABLED,
+    )
+    release_report = app.extensions.get(
+        "source_control_release_gate_report"
+    )
+    production_release_allowed = bool(
+        getattr(release_report, "release_allowed", False)
+    )
+    return SourceControlRolloutPolicy(
+        SourceControlRolloutConfiguration(
+            stage=stage,
+            shadow_compare_enabled=shadow,
+            legacy_aliases_enabled=aliases,
+            production_release_allowed=production_release_allowed,
+        )
+    )
+
+
+def _configured_bool(app, name: str, *, default: bool) -> bool:
+    value = app.config.get(name)
+    if value is None:
+        value = os.environ.get(name)
+    if value is None:
+        return default
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise RuntimeError(f"{name.lower()}_invalid")
+
+
+def _bounded_id(value: object, *, fallback: str) -> str:
+    text = str(value or "")
+    if _BOUNDED_ID.fullmatch(text):
+        return text
+    if not text:
+        return fallback
+    return (
+        f"{fallback}-"
+        f"{hashlib.sha256(text.encode('utf-8')).hexdigest()[:24]}"
+    )
+
+
+def _bounded_reason(value: object, *, fallback: str) -> str:
+    normalized = str(value or "").strip().lower().replace("-", "_")
+    return (
+        normalized
+        if _BOUNDED_REASON.fullmatch(normalized)
+        else fallback
+    )
+
+
+__all__ = ["register_source_control_api"]

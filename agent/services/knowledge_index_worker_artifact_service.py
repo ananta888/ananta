@@ -15,6 +15,9 @@ from typing import Any, Protocol
 
 from agent.config import settings
 from agent.db_models import KnowledgeIndexDB, KnowledgeIndexRunDB
+from agent.services.codecompass_artifact_manifest import (
+    CodeCompassArtifactManifestProjector,
+)
 
 _MAX_ARTIFACT_BYTES = 128 * 1024 * 1024
 _MAX_UNIT_ARTIFACT_BYTES = 384 * 1024 * 1024
@@ -212,6 +215,7 @@ class KnowledgeIndexWorkerArtifactService:
         knowledge_index_repository: Any | None = None,
         knowledge_index_run_repository: Any | None = None,
         output_root: str | Path | None = None,
+        manifest_projector: CodeCompassArtifactManifestProjector | None = None,
     ) -> None:
         self._downloader = downloader or HttpKnowledgeIndexWorkerArtifactDownloader()
         if knowledge_index_repository is None or knowledge_index_run_repository is None:
@@ -222,6 +226,9 @@ class KnowledgeIndexWorkerArtifactService:
         self._knowledge_index_repository = knowledge_index_repository
         self._knowledge_index_run_repository = knowledge_index_run_repository
         self._output_root = Path(output_root or Path(settings.data_dir) / "knowledge_indices").resolve()
+        self._manifest_projector = (
+            manifest_projector or CodeCompassArtifactManifestProjector()
+        )
 
     def materialize(
         self,
@@ -293,6 +300,53 @@ class KnowledgeIndexWorkerArtifactService:
                     if present_graph_roles
                     else None
                 )
+                source_revision_id = str(
+                    envelope.get("source_revision_id") or ""
+                ).strip()
+                public_artifact_manifest: dict[str, Any] | None = None
+                if source_revision_id:
+                    raw_manifest = self._strict_json_object(
+                        staged_paths["manifest"]
+                    )
+                    raw_coverage = raw_manifest.get("coverage")
+                    raw_exclusions = raw_manifest.get("exclusions")
+                    if raw_exclusions is not None and (
+                        not isinstance(raw_exclusions, list)
+                        or any(
+                            not isinstance(item, Mapping)
+                            for item in raw_exclusions
+                        )
+                    ):
+                        raise ValueError(
+                            "knowledge_index_worker_exclusions_invalid"
+                        )
+                    public_artifact_manifest = self._manifest_projector.project(
+                        knowledge_index_id=index_id,
+                        run_id=run_id,
+                        source_revision_id=source_revision_id,
+                        references=list(by_role.values()),
+                        coverage=(
+                            dict(raw_coverage)
+                            if isinstance(raw_coverage, Mapping)
+                            else {}
+                        ),
+                        exclusions=(
+                            [dict(item) for item in raw_exclusions]
+                            if isinstance(raw_exclusions, list)
+                            else ()
+                        ),
+                        graph_schema=(
+                            "codecompass_graph_index.v1"
+                            if graph_binding is not None
+                            else None
+                        ),
+                        graph_revision=(
+                            str(graph_binding.get("graph_revision") or "")
+                            if graph_binding is not None
+                            else None
+                        ),
+                        status="completed",
+                    ).to_dict()
                 self._promote_staging(
                     staging_dir=staging_dir,
                     output_dir=output_dir,
@@ -322,6 +376,11 @@ class KnowledgeIndexWorkerArtifactService:
                     **dict(index_payload.get("index_metadata") or {}),
                     "graph_artifacts": graph_binding,
                 }
+            if public_artifact_manifest is not None:
+                index_payload["index_metadata"] = {
+                    **dict(index_payload.get("index_metadata") or {}),
+                    "artifact_manifest": public_artifact_manifest,
+                }
             run_payload.update(
                 {
                     "knowledge_index_id": index_id,
@@ -334,6 +393,11 @@ class KnowledgeIndexWorkerArtifactService:
                 run_payload["run_metadata"] = {
                     **dict(run_payload.get("run_metadata") or {}),
                     "graph_artifacts": graph_binding,
+                }
+            if public_artifact_manifest is not None:
+                run_payload["run_metadata"] = {
+                    **dict(run_payload.get("run_metadata") or {}),
+                    "artifact_manifest": public_artifact_manifest,
                 }
             saved_index = self._save_index(index_payload)
             saved_run = self._save_run(run_payload)

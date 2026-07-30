@@ -19,8 +19,27 @@ from agent.common.errors import api_response
 from agent.codecompass.domain_scope import DomainScope
 from agent.codecompass.domain_scope_resolver import DomainScopeResolver
 from agent.config import settings
+from agent.routes.source_control_access import authorize_route_request
+from agent.services.source_control_access_policy import SourceControlAction
 
 codecompass_domain_scope_bp = Blueprint("codecompass_domain_scope", __name__)
+
+
+@codecompass_domain_scope_bp.before_request
+@check_auth
+def _authorize_codecompass_domain_surface():
+    endpoint = str(request.endpoint or "").rsplit(".", 1)[-1]
+    action = (
+        SourceControlAction.list
+        if endpoint == "list_codecompass_domains"
+        else SourceControlAction.graph
+    )
+    return authorize_route_request(
+        action=action,
+        resource_kind="codecompass_domain_catalog",
+        resource={},
+        object_id="ananta-domain-catalog",
+    )
 
 
 def _repo_root() -> Path:

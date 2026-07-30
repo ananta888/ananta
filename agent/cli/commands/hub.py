@@ -7,7 +7,13 @@ import os
 from collections.abc import Sequence
 from typing import Any
 
-SUBCOMMANDS = ["start", "status", "stop", "logs"]
+SUBCOMMANDS = [
+    "start",
+    "status",
+    "stop",
+    "logs",
+    "source-control-migration",
+]
 
 _DEFAULT_BASE_URL = "http://localhost:5000"
 
@@ -42,6 +48,26 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:
     log_p.add_argument("--lines", type=int, default=50, help="Number of recent log lines.")
     log_p.add_argument("--follow", "-f", action="store_true", help="Follow log output.")
 
+    migration = sub.add_parser(
+        "source-control-migration",
+        help="[MUTATING] Adopt legacy source-control metadata in the Hub.",
+    )
+    actions = migration.add_subparsers(
+        dest="migration_action",
+        metavar="<dry-run|apply|resume|rollback>",
+        required=True,
+    )
+    for action in ("dry-run", "apply", "resume", "rollback"):
+        action_parser = actions.add_parser(action)
+        action_parser.add_argument("--tenant-id", required=True)
+        action_parser.add_argument("--project-id", required=True)
+        action_parser.add_argument("--owner-id", required=True)
+        action_parser.add_argument("--json", action="store_true")
+        if action in {"apply", "resume", "rollback"}:
+            action_parser.add_argument("--idempotency-key", required=True)
+        if action == "rollback":
+            action_parser.add_argument("--migration-id", required=True)
+
 
 def dispatch(argv: Sequence[str]) -> int:
     parser = _build_parser()
@@ -56,6 +82,12 @@ def dispatch(argv: Sequence[str]) -> int:
     cmd = parsed.hub_cmd
     if cmd == "status":
         return _cmd_status(parsed)
+    if cmd == "source-control-migration":
+        from agent.services.source_control_legacy_migration_cli import (
+            run_source_control_legacy_migration_cli,
+        )
+
+        return run_source_control_legacy_migration_cli(parsed)
     if cmd in ("start", "stop", "logs"):
         return _cmd_not_implemented(f"hub {cmd}")
     parser.print_help()

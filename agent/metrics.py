@@ -239,6 +239,35 @@ CONTEXT_EFFICIENCY_BUDGET_UTILIZATION = Histogram(
     ["task_kind", "task_status"],
 )
 
+# Source-Control labels are closed and normalized by
+# agent.adapters.source_control_metrics_adapter. Object, tenant, project,
+# actor, trace, URL, path and credential values must never become labels.
+SOURCE_CONTROL_OPERATIONS_TOTAL = Counter(
+    "source_control_operations_total",
+    "Canonical Source Control Center operations by bounded outcome",
+    ["operation", "decision", "reason_code", "status"],
+)
+SOURCE_CONTROL_OPERATION_DURATION_SECONDS = Histogram(
+    "source_control_operation_duration_seconds",
+    "Canonical Source Control Center operation duration",
+    ["operation", "status"],
+)
+SOURCE_CONTROL_HEALTH = Gauge(
+    "source_control_health",
+    "Source Control Center health as a bounded one-hot gauge",
+    ["status"],
+)
+SOURCE_CONTROL_ALERT_STATE = Gauge(
+    "source_control_alert_state",
+    "Source Control Center bounded alarm state",
+    ["reason_code", "status"],
+)
+SOURCE_CONTROL_SHADOW_DIFFERENCES_TOTAL = Counter(
+    "source_control_shadow_differences_total",
+    "Content-free Source Control Center shadow comparison outcomes",
+    ["operation", "decision", "status"],
+)
+
 # Voice labels are deliberately bounded enumerations. Request IDs, tenants,
 # filenames, transcript text and model paths must never become metric labels.
 VOICE_HUB_REQUESTS_TOTAL = Counter(

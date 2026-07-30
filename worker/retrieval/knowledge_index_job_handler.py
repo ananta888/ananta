@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import urllib.parse
 import urllib.request
+import time
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Protocol
 
 JOB_SCHEMA = "ananta.knowledge_index_job.v1"
 RESULT_SCHEMA = "ananta.knowledge_index_job_result.v1"
+BOUND_JOB_SCHEMA = "ananta.knowledge_index_execution_job.v2"
+BOUND_RESULT_SCHEMA = "ananta.knowledge_index_execution_result.v2"
 PAYLOAD_MEDIA_TYPE = "application/vnd.ananta.knowledge-index-job+json"
 MAX_PAYLOAD_BYTES = 128 * 1024 * 1024
+SOURCE_ACCESS_MANIFEST_FIELD = "source_access_enforcement_manifest"
 
 
 class KnowledgeIndexExecutionPort(Protocol):
@@ -51,8 +56,24 @@ class KnowledgeIndexGraphArtifactMaterializerPort(Protocol):
 class KnowledgeIndexWorkerTaskHandler:
     """Validate one Hub envelope, execute once, and return an immutable result."""
 
-    def __init__(self, execution: KnowledgeIndexExecutionPort) -> None:
+    def __init__(
+        self,
+        execution: KnowledgeIndexExecutionPort,
+        *,
+        source_access_manifest_verifier: Any | None = None,
+        worker_id: str | None = None,
+        allow_legacy_unsigned_source_dispatch: bool = False,
+        clock_ms=lambda: int(time.time() * 1000),
+    ) -> None:
         self._execution = execution
+        self._source_access_manifest_verifier = (
+            source_access_manifest_verifier
+        )
+        self._worker_id = str(worker_id or "").strip()
+        self._allow_legacy_unsigned_source_dispatch = bool(
+            allow_legacy_unsigned_source_dispatch
+        )
+        self._clock_ms = clock_ms
 
     def propose(self, **kwargs: Any) -> dict[str, Any]:
         """Expose a non-shell executable marker for the deterministic pipeline."""
@@ -98,6 +119,22 @@ class KnowledgeIndexWorkerTaskHandler:
                 reason_code=f"worker_execution_failed:{type(exc).__name__}",
                 error=str(exc)[:1000],
             )
+        allowed_result_fields = {
+            "status",
+            "reason_code",
+            "knowledge_index",
+            "run",
+            "results",
+            "artifact_refs",
+            "error",
+        }
+        if set(raw_result) - allowed_result_fields:
+            return self._result(
+                job,
+                status="failed",
+                reason_code="worker_result_fields_unknown",
+                error="execution port returned unauthorized fields",
+            )
         status = str(raw_result.get("status") or "").strip().lower()
         if status not in {"completed", "failed"}:
             return self._result(
@@ -122,7 +159,11 @@ class KnowledgeIndexWorkerTaskHandler:
         envelope: Mapping[str, Any] | None,
         kwargs: Mapping[str, Any],
     ) -> dict[str, Any]:
-        if isinstance(envelope, Mapping) and str(envelope.get("schema") or "") == JOB_SCHEMA:
+        if (
+            isinstance(envelope, Mapping)
+            and str(envelope.get("schema") or "")
+            in {JOB_SCHEMA, BOUND_JOB_SCHEMA}
+        ):
             return dict(envelope)
         task = kwargs.get("task")
         if isinstance(task, Mapping):
@@ -133,8 +174,22 @@ class KnowledgeIndexWorkerTaskHandler:
                     return dict(job)
         raise ValueError("knowledge_index_job_envelope_missing")
 
-    @staticmethod
-    def _validate_job(job: Mapping[str, Any]) -> None:
+    def _validate_job(self, job: Mapping[str, Any]) -> None:
+        if str(job.get("schema") or "") == BOUND_JOB_SCHEMA:
+            from ananta_contracts.knowledge_index_execution import (
+                parse_execution_job,
+            )
+
+            parsed = parse_execution_job(
+                self._bound_contract_payload(job)
+            )
+            if (
+                int(self._clock_ms())
+                >= parsed.assignment.lease_expires_epoch_ms
+            ):
+                raise ValueError("knowledge_index_execution_lease_stale")
+            self._validate_source_access_manifest(job, parsed)
+            return
         if str(job.get("schema") or "") != JOB_SCHEMA:
             raise ValueError("knowledge_index_job_schema_invalid")
         if not str(job.get("job_id") or "").startswith("knowledge-index-"):
@@ -146,6 +201,86 @@ class KnowledgeIndexWorkerTaskHandler:
             raise ValueError("knowledge_index_job_type_invalid")
         if not isinstance(job.get("payload"), Mapping):
             raise ValueError("knowledge_index_job_payload_invalid")
+
+    def _validate_source_access_manifest(
+        self,
+        job: Mapping[str, Any],
+        parsed: Any,
+    ) -> None:
+        raw_manifest = job.get(SOURCE_ACCESS_MANIFEST_FIELD)
+        if raw_manifest is None:
+            if self._allow_legacy_unsigned_source_dispatch:
+                return
+            raise ValueError(
+                "knowledge_index_source_access_manifest_missing"
+            )
+        if not isinstance(raw_manifest, Mapping):
+            raise ValueError(
+                "knowledge_index_source_access_manifest_invalid"
+            )
+        if not self._worker_id:
+            raise ValueError(
+                "knowledge_index_authenticated_worker_missing"
+            )
+        if not hmac.compare_digest(
+            self._worker_id,
+            parsed.assignment.worker_id,
+        ):
+            raise ValueError(
+                "knowledge_index_assignment_worker_mismatch"
+            )
+        verifier = self._source_access_manifest_verifier
+        if verifier is None or not verifier.verify_manifest(raw_manifest):
+            raise ValueError(
+                "knowledge_index_source_access_signature_invalid"
+            )
+        if int(self._clock_ms()) >= int(
+            raw_manifest["grant_expires_at_epoch_ms"]
+        ):
+            raise ValueError(
+                "knowledge_index_source_access_grant_expired"
+            )
+        authority = parsed.authority_binding
+        expected = {
+            "tenant_id": authority.tenant_id,
+            "project_id": authority.project_id,
+            "source_revision_id": authority.source_revision_id,
+            "source_revision_digest": (
+                authority.source_revision_digest
+            ),
+            "destination_id": authority.destination_id,
+            "destination_digest": authority.destination_digest,
+            "source_access_grant_id": (
+                authority.source_access_grant_id
+            ),
+            "source_access_grant_digest": (
+                authority.source_access_grant_digest
+            ),
+            "policy_digest": authority.policy_snapshot_digest,
+            "content_manifest_digest": (
+                parsed.file_manifest.manifest_digest
+            ),
+            "assignment_id": parsed.assignment.assignment_id,
+            "lease_id": parsed.assignment.lease_id,
+        }
+        for field, expected_value in expected.items():
+            if not hmac.compare_digest(
+                str(raw_manifest.get(field) or ""),
+                str(expected_value),
+            ):
+                raise ValueError(
+                    f"knowledge_index_source_access_{field}_mismatch"
+                )
+
+    @staticmethod
+    def _bound_contract_payload(
+        job: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            key: value
+            for key, value in job.items()
+            if key != SOURCE_ACCESS_MANIFEST_FIELD
+        }
 
     @staticmethod
     def _result(
@@ -159,6 +294,41 @@ class KnowledgeIndexWorkerTaskHandler:
         artifact_refs: list[dict[str, Any]] | None = None,
         error: str | None = None,
     ) -> dict[str, Any]:
+        if str(job.get("schema") or "") == BOUND_JOB_SCHEMA:
+            from ananta_contracts.knowledge_index_execution import (
+                KnowledgeIndexExecutionResult,
+                parse_execution_job,
+            )
+
+            return KnowledgeIndexExecutionResult.create(
+                parse_execution_job(
+                    KnowledgeIndexWorkerTaskHandler._bound_contract_payload(
+                        job
+                    )
+                ),
+                status=status,
+                reason_code=reason_code,
+                knowledge_index=(
+                    knowledge_index
+                    if isinstance(knowledge_index, Mapping)
+                    else None
+                ),
+                run=run if isinstance(run, Mapping) else None,
+                results=(
+                    [
+                        item
+                        for item in list(results or [])
+                        if isinstance(item, Mapping)
+                    ]
+                    or None
+                ),
+                artifact_refs=[
+                    item
+                    for item in list(artifact_refs or [])
+                    if isinstance(item, Mapping)
+                ],
+                error=error,
+            ).to_wire()
         return {
             "schema": RESULT_SCHEMA,
             "job_id": str(job.get("job_id") or ""),
@@ -610,6 +780,9 @@ def build_knowledge_index_task_handler(
     payload_loader: KnowledgeIndexPayloadLoaderPort | None = None,
     artifact_publisher: KnowledgeIndexArtifactPublisherPort | None = None,
     graph_artifact_materializer: KnowledgeIndexGraphArtifactMaterializerPort | None = None,
+    source_access_manifest_verifier: Any | None = None,
+    worker_id: str | None = None,
+    allow_legacy_unsigned_source_dispatch: bool = False,
 ) -> KnowledgeIndexWorkerTaskHandler:
     """Composition hook used by the worker-only application bootstrap."""
 
@@ -623,7 +796,12 @@ def build_knowledge_index_task_handler(
             payload_loader=payload_loader,
             artifact_publisher=artifact_publisher,
             graph_artifact_materializer=graph_artifact_materializer,
-        )
+        ),
+        source_access_manifest_verifier=source_access_manifest_verifier,
+        worker_id=worker_id,
+        allow_legacy_unsigned_source_dispatch=(
+            allow_legacy_unsigned_source_dispatch
+        ),
     )
 
 

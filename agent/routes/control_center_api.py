@@ -23,12 +23,14 @@ from agent.db_models import AgentSessionDB, PolicySnapshotDB, TaskDB, ToolCallDB
 from agent.routes.control_center_task_mutations import (
     ControlCenterTaskMutationRoutes,
 )
+from agent.routes.source_control_access import authorize_route_request
 from agent.routes.tasks.status import normalize_task_status
 from agent.routes.tasks.vector_admin_boundary import (
     reserved_vector_mutation_response,
 )
 from agent.services.repository_registry import get_repository_registry
 from agent.services.share_session_service import get_share_session_service
+from agent.services.source_control_access_policy import SourceControlAction
 from agent.services.user_token_scope import (
     CONTROL_CENTER_STREAM_TOKEN_USE,
     control_center_stream_identity_is_bound,
@@ -777,6 +779,14 @@ def list_policies():
 @check_auth
 def list_context_scopes():
     """B15: GET /api/codecompass/context-scopes"""
+    denied = authorize_route_request(
+        action=SourceControlAction.list,
+        resource_kind="codecompass_context_scope_catalog",
+        resource={},
+        object_id="ananta-context-scope-catalog",
+    )
+    if denied is not None:
+        return denied
     defaults = [
         {
             "id": "repo_all",
@@ -804,6 +814,14 @@ def list_context_scopes():
 @check_auth
 def preview_context_scope():
     """B16: POST /api/codecompass/context-scopes/preview"""
+    denied = authorize_route_request(
+        action=SourceControlAction.graph,
+        resource_kind="codecompass_context_scope_catalog",
+        resource={},
+        object_id="ananta-context-scope-catalog",
+    )
+    if denied is not None:
+        return denied
     body = request.get_json(silent=True) or {}
     include = [str(item).strip() for item in list(body.get("include") or []) if str(item).strip()]
     exclude = [str(item).strip() for item in list(body.get("exclude") or []) if str(item).strip()]
@@ -824,6 +842,7 @@ def preview_context_scope():
     return api_response(
         data={
             "scope_preview": {
+                "authoritative": False,
                 "include": include,
                 "exclude": exclude,
                 "excluded_sensitive_paths": sorted(set(excluded_sensitive)),

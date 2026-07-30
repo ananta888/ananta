@@ -947,3 +947,64 @@ def get_request_auth_context() -> dict:
     if auth_payload:
         return auth_payload
     return {}
+
+
+def get_authenticated_source_control_principal():
+    """Project the authenticated request identity into the Hub policy contract.
+
+    Tenant, project, subject and roles are derived exclusively from the
+    authenticated request context. Query parameters and request bodies are
+    intentionally never consulted.
+    """
+
+    from agent.services.source_control_access_policy import HubSourcePrincipal
+
+    context = get_request_auth_context()
+    roles: set[str] = set()
+
+    def _add_roles(value: Any) -> None:
+        if isinstance(value, str):
+            candidates = value.replace(",", " ").split()
+        elif isinstance(value, (list, tuple, set, frozenset)):
+            candidates = [str(item) for item in value]
+        else:
+            candidates = []
+        roles.update(
+            str(item).strip().lower().replace("-", "_")
+            for item in candidates
+            if str(item).strip()
+        )
+
+    _add_roles(context.get("role"))
+    _add_roles(context.get("roles"))
+    realm_access = context.get("realm_access")
+    if isinstance(realm_access, Mapping):
+        _add_roles(realm_access.get("roles"))
+    if bool(getattr(g, "is_admin", False)):
+        roles.add("admin")
+
+    subject_id = str(
+        context.get("sub")
+        or context.get("subject_id")
+        or context.get("user_id")
+        or context.get("username")
+        or ("hub_admin" if "admin" in roles else "")
+    ).strip()
+    tenant_id = str(
+        context.get("tenant_id")
+        or context.get("tenant")
+        or context.get("tid")
+        or ""
+    ).strip()
+    project_id = str(
+        context.get("project_id")
+        or context.get("project")
+        or context.get("pid")
+        or ""
+    ).strip()
+    return HubSourcePrincipal(
+        subject_id=subject_id,
+        tenant_id=tenant_id or None,
+        project_id=project_id or None,
+        roles=frozenset(roles),
+    )

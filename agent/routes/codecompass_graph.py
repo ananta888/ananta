@@ -21,6 +21,8 @@ from agent.services.codecompass_graph_artifact_resolver import (
 )
 from agent.services.codecompass_graph_projection_service import get_codecompass_graph_projection_service
 from agent.services.repository_registry import get_repository_registry
+from agent.routes.source_control_access import authorize_route_request
+from agent.services.source_control_access_policy import SourceControlAction
 
 codecompass_graph_bp = Blueprint("codecompass_graph", __name__)
 
@@ -54,8 +56,43 @@ def _resolve_index_path(knowledge_index_id: str) -> Path:
 
 
 def _load_store(index_path: Path):
-    from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
+    from ananta_codecompass.graph_store import CodeCompassGraphStore
     return CodeCompassGraphStore(index_path=index_path)
+
+
+_GRAPH_ACTIONS = {
+    "get_graph": SourceControlAction.graph,
+    "get_node": SourceControlAction.graph,
+    "expand_graph": SourceControlAction.graph,
+    "architecture_query": SourceControlAction.query,
+    "get_self_graph_domains": SourceControlAction.graph,
+    "get_self_graph": SourceControlAction.graph,
+}
+
+
+@codecompass_graph_bp.before_request
+@check_auth
+def _authorize_codecompass_graph_surface():
+    endpoint = str(request.endpoint or "").rsplit(".", 1)[-1]
+    action = _GRAPH_ACTIONS.get(endpoint)
+    if action is None:
+        return None
+    knowledge_index_id = str(
+        request.args.get("knowledge_index_id") or ""
+    ).strip()
+    if knowledge_index_id:
+        return authorize_route_request(
+            action=action,
+            resource_kind="knowledge_index",
+            resource=_knowledge_index_repo().get_by_id(knowledge_index_id),
+            object_id=knowledge_index_id,
+        )
+    return authorize_route_request(
+        action=action,
+        resource_kind="codecompass_self_graph",
+        resource={},
+        object_id="ananta-self-graph",
+    )
 
 
 @codecompass_graph_bp.route("/api/codecompass/graph", methods=["GET"])
@@ -120,7 +157,7 @@ def expand_graph():
         raise BadRequestError(f"invalid_profile — valid: {', '.join(sorted(_VALID_PROFILES))}")
     index_path = _resolve_index_path(knowledge_index_id)
     store = _load_store(index_path)
-    from worker.retrieval.codecompass_graph_expansion import expand_codecompass_graph
+    from ananta_codecompass.graph_expansion import expand_codecompass_graph
     expansion = expand_codecompass_graph(store=store, seed_node_ids=[seed_id], profile=profile)
     nodes = list(expansion.get("nodes") or [])
     payload = store.load()
@@ -160,7 +197,7 @@ def expand_graph():
 @check_auth
 def architecture_query():
     """CCAQE-017: typed architecture queries with evidence paths."""
-    from worker.retrieval.codecompass_architecture_query import (
+    from ananta_codecompass.architecture_query import (
         VALID_QUERY_TYPES,
         QueryLimits,
         run_architecture_query,

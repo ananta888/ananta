@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import subprocess
 from dataclasses import dataclass
@@ -8,13 +9,30 @@ from pathlib import Path
 from typing import Optional
 
 from agent.services.git_audit_service import record_git_activity
+from agent.services.git_remote_policy_service import (
+    GitRemoteAccessPolicyPort,
+    GitRemotePolicyError,
+    GitRemotePolicyRequest,
+    GitTransportAuthorization,
+    get_git_remote_access_policy,
+    hardened_git_environment,
+    hardened_git_transport_args,
+)
 
 
 class WorkspaceGitInitError(RuntimeError):
-    def __init__(self, message: str, workspace_dir: Path, stderr: str = "") -> None:
+    def __init__(
+        self,
+        message: str,
+        workspace_dir: Path,
+        stderr: str = "",
+        *,
+        reason_code: str = "workspace_git_initialization_failed",
+    ) -> None:
         super().__init__(message)
         self.workspace_dir = workspace_dir
         self.stderr = stderr
+        self.reason_code = reason_code
 
 
 @dataclass(frozen=True)
@@ -24,6 +42,7 @@ class WorkspaceGitContext:
     branch: str
     remote_url: Optional[str]
     is_clone: bool
+    credential_ref: Optional[str] = None
 
 
 def _sanitize_segment(value: str, max_len: int = 12) -> str:
@@ -32,6 +51,22 @@ def _sanitize_segment(value: str, max_len: int = 12) -> str:
 
 
 def _run_git(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
+    environment = os.environ.copy()
+    for key in tuple(environment):
+        if (
+            key.startswith("GIT_CONFIG_")
+            or key.startswith("GIT_SSL_")
+            or key
+            in {
+                "GIT_ASKPASS",
+                "SSH_ASKPASS",
+                "GIT_PROXY_COMMAND",
+                "GIT_SSH",
+                "GIT_SSH_COMMAND",
+            }
+        ):
+            environment.pop(key, None)
+    environment.update(hardened_git_environment())
     try:
         return subprocess.run(
             ["git"] + args,
@@ -39,6 +74,7 @@ def _run_git(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
             capture_output=True,
             text=True,
             timeout=30,
+            env=environment,
         )
     except Exception as exc:
         raise WorkspaceGitInitError(
@@ -67,6 +103,13 @@ def _audit_commit_and_push(
 
 
 class WorkspaceGitService:
+    def __init__(
+        self,
+        *,
+        remote_policy: GitRemoteAccessPolicyPort | None = None,
+    ) -> None:
+        self._remote_policy = remote_policy or get_git_remote_access_policy()
+
     @staticmethod
     def init_bare_repo(bare_path: Path) -> None:
         """Create a bare git repo at bare_path if it does not already exist."""
@@ -138,7 +181,48 @@ class WorkspaceGitService:
                 return False
             head = _run_git(["rev-parse", "--verify", "HEAD"], cwd=workspace_dir)
             commit_sha = head.stdout.strip() if head.returncode == 0 else ""
-            res = _run_git(["push", "origin", f"HEAD:{branch}"], cwd=workspace_dir)
+            remote = _run_git(["remote", "get-url", "origin"], cwd=workspace_dir)
+            if remote.returncode != 0:
+                _audit_commit_and_push(
+                    workspace_dir,
+                    branch=branch,
+                    outcome="remote_url_unavailable",
+                    task_id=task_id,
+                    commit_sha=commit_sha,
+                )
+                return False
+            try:
+                policy_request = GitRemotePolicyRequest(
+                    remote_url=remote.stdout.strip(),
+                    operation="push",
+                )
+                authorized_remote = self._remote_policy.authorize(
+                    policy_request
+                )
+                transport_authorization = (
+                    GitTransportAuthorization.create(
+                        authorized=authorized_remote,
+                        request=policy_request,
+                    )
+                )
+                transport_authorization.validate()
+            except GitRemotePolicyError as exc:
+                _audit_commit_and_push(
+                    workspace_dir,
+                    branch=branch,
+                    outcome=exc.reason_code,
+                    task_id=task_id,
+                    commit_sha=commit_sha,
+                )
+                return False
+            res = _run_git(
+                hardened_git_transport_args(
+                    transport_authorization,
+                    ["push", "origin", f"HEAD:{branch}"],
+                    remote_name="origin",
+                ),
+                cwd=workspace_dir,
+            )
             if res.returncode != 0:
                 logging.warning("git push failed for %s: %s", workspace_dir, res.stderr)
                 _audit_commit_and_push(
@@ -174,46 +258,114 @@ class WorkspaceGitService:
         *,
         remote_url: Optional[str],
         branch: str,
+        credential_ref: Optional[str] = None,
         enabled: bool = True,
     ) -> WorkspaceGitContext:
         workspace_dir = Path(workspace_dir)
+        authorized_remote = None
+        transport_authorization = None
+        if remote_url:
+            try:
+                policy_request = GitRemotePolicyRequest(
+                    remote_url=remote_url,
+                    operation="clone" if enabled else "configure",
+                    credential_ref=credential_ref,
+                    allow_redirects=False,
+                    proxy_url=None,
+                    recurse_submodules=False,
+                    lfs_mode="pointer_only",
+                )
+                authorized_remote = self._remote_policy.authorize(
+                    policy_request
+                )
+                transport_authorization = (
+                    GitTransportAuthorization.create(
+                        authorized=authorized_remote,
+                        request=policy_request,
+                    )
+                )
+                transport_authorization.validate()
+            except GitRemotePolicyError as exc:
+                raise WorkspaceGitInitError(
+                    "Git remote policy denied workspace initialization",
+                    workspace_dir=workspace_dir,
+                    reason_code=exc.reason_code,
+                ) from exc
         if not enabled:
             return WorkspaceGitContext(
                 workspace_dir=workspace_dir,
                 repo_root=workspace_dir,
                 branch=branch,
-                remote_url=remote_url,
+                remote_url=authorized_remote.redacted_url if authorized_remote else None,
                 is_clone=False,
+                credential_ref=authorized_remote.credential_ref if authorized_remote else None,
             )
 
         git_dir = workspace_dir / ".git"
         is_clone = bool(remote_url)
 
         if git_dir.exists():
+            actual_remote = _run_git(["remote", "get-url", "origin"], cwd=workspace_dir)
+            if actual_remote.returncode == 0:
+                try:
+                    actual_authorization = self._remote_policy.authorize(
+                        GitRemotePolicyRequest(
+                            remote_url=actual_remote.stdout.strip(),
+                            operation="configure",
+                            credential_ref=credential_ref,
+                        )
+                    )
+                except GitRemotePolicyError as exc:
+                    raise WorkspaceGitInitError(
+                        "Existing Git remote is denied by policy",
+                        workspace_dir=workspace_dir,
+                        reason_code=exc.reason_code,
+                    ) from exc
+                if (
+                    authorized_remote is not None
+                    and actual_authorization.canonical_url
+                    != authorized_remote.canonical_url
+                ):
+                    raise WorkspaceGitInitError(
+                        "Existing Git remote does not match configured remote",
+                        workspace_dir=workspace_dir,
+                        reason_code="git_remote_binding_mismatch",
+                    )
+                authorized_remote = actual_authorization
             self._ensure_branch(workspace_dir, branch=branch)
             return WorkspaceGitContext(
                 workspace_dir=workspace_dir,
                 repo_root=workspace_dir,
                 branch=branch,
-                remote_url=remote_url,
+                remote_url=authorized_remote.redacted_url if authorized_remote else None,
                 is_clone=is_clone,
+                credential_ref=authorized_remote.credential_ref if authorized_remote else None,
             )
 
         workspace_dir.mkdir(parents=True, exist_ok=True)
 
         if remote_url:
-            if remote_url.startswith("file://"):
-                bare_path = Path(remote_url[len("file://"):])
-                self.init_bare_repo(bare_path)
+            assert authorized_remote is not None
+            assert transport_authorization is not None
             res = _run_git(
-                ["clone", remote_url, str(workspace_dir), "--no-local"],
+                hardened_git_transport_args(
+                    transport_authorization,
+                    [
+                        "clone",
+                        "--no-local",
+                        "--no-recurse-submodules",
+                        authorized_remote.canonical_url,
+                        str(workspace_dir),
+                    ]
+                ),
                 cwd=workspace_dir.parent,
             )
             if res.returncode != 0:
                 raise WorkspaceGitInitError(
-                    f"git clone failed for {remote_url}",
+                    "git clone failed for authorized remote",
                     workspace_dir=workspace_dir,
                     stderr=res.stderr,
+                    reason_code="workspace_git_clone_failed",
                 )
             self._ensure_branch(workspace_dir, branch=branch)
             self._write_gitignore(workspace_dir)
@@ -239,8 +391,9 @@ class WorkspaceGitService:
             workspace_dir=workspace_dir,
             repo_root=workspace_dir,
             branch=branch,
-            remote_url=remote_url,
+            remote_url=authorized_remote.redacted_url if authorized_remote else None,
             is_clone=is_clone,
+            credential_ref=authorized_remote.credential_ref if authorized_remote else None,
         )
 
     @staticmethod

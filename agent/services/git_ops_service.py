@@ -10,6 +10,15 @@ from urllib.parse import urlsplit, urlunsplit
 from agent.common.audit import log_audit
 from agent.services.commit_message_validator import CommitMessageValidator
 from agent.services.git_audit_service import git_workspace_fingerprint
+from agent.services.git_remote_policy_service import (
+    GitRemoteAccessPolicyPort,
+    GitRemotePolicyError,
+    GitRemotePolicyRequest,
+    GitTransportAuthorization,
+    get_git_remote_access_policy,
+    hardened_git_environment,
+    hardened_git_transport_args,
+)
 from agent.services.ops_command_runner import CommandResult, CommandRunner, get_default_command_runner
 from agent.services.ops_models import (
     GitActivity,
@@ -51,10 +60,12 @@ class GitOpsService:
         registry: OpsRegistryService | None = None,
         runner: CommandRunner | None = None,
         policy: OpsPolicyService | None = None,
+        remote_policy: GitRemoteAccessPolicyPort | None = None,
     ) -> None:
         self._registry = registry or get_ops_registry_service()
         self._runner = runner or get_default_command_runner()
         self._policy = policy or get_ops_policy_service()
+        self._remote_policy = remote_policy or get_git_remote_access_policy()
 
     # ------------------------------------------------------------------ reads
 
@@ -547,17 +558,48 @@ class GitOpsService:
         workspace_id: str | None,
         *,
         remote: str | None = None,
+        credential_ref: str | None = None,
         approval_id: str | None = None,
     ) -> OpsActionResult:
-        workspace, remote_name, error = self._fetch_target(workspace_id, remote=remote)
+        workspace, remote_name, error = self._fetch_target(
+            workspace_id,
+            remote=remote,
+            credential_ref=credential_ref,
+        )
         if error:
             return OpsActionResult(False, "fetch", target_id=str(workspace_id or ""), error=error)
         assert workspace is not None and remote_name is not None
-        arguments = {"workspace_id": workspace.workspace_id, "remote": remote_name}
+        arguments = {
+            "workspace_id": workspace.workspace_id,
+            "remote": remote_name,
+            "credential_ref": credential_ref,
+        }
         blocked = self._authorize("git.fetch", "fetch", workspace.workspace_id, arguments, approval_id)
         if blocked:
             return blocked
-        result = self._git(["fetch", "--no-tags", remote_name], cwd=workspace.root, timeout_seconds=60)
+        transport, transport_error = self._remote_transport_authorization(
+            workspace=workspace,
+            remote_name=remote_name,
+            credential_ref=credential_ref,
+            operation="fetch",
+        )
+        if transport_error:
+            return OpsActionResult(
+                False,
+                "fetch",
+                target_id=workspace.workspace_id,
+                error=transport_error,
+            )
+        assert transport is not None
+        result = self._git(
+            hardened_git_transport_args(
+                transport,
+                ["fetch", "--no-tags", "--no-recurse-submodules", remote_name],
+                remote_name=remote_name,
+            ),
+            cwd=workspace.root,
+            timeout_seconds=60,
+        )
         return self._command_result("fetch", "git.fetch", workspace.workspace_id, arguments, result, approval_id)
 
     def pull(
@@ -566,9 +608,16 @@ class GitOpsService:
         *,
         remote: str | None = None,
         branch: str | None = None,
+        credential_ref: str | None = None,
         approval_id: str | None = None,
     ) -> OpsActionResult:
-        workspace, target, error = self._sync_target(workspace_id, remote=remote, branch=branch)
+        workspace, target, error = self._sync_target(
+            workspace_id,
+            remote=remote,
+            branch=branch,
+            credential_ref=credential_ref,
+            operation="pull",
+        )
         if error:
             return OpsActionResult(False, "pull", target_id=str(workspace_id or ""), error=error)
         assert workspace is not None and target is not None
@@ -583,12 +632,44 @@ class GitOpsService:
                 "finish the active Git operation before pull",
             )
         remote_name, branch_name = target
-        arguments = {"workspace_id": workspace.workspace_id, "remote": remote_name, "branch": branch_name}
+        arguments = {
+            "workspace_id": workspace.workspace_id,
+            "remote": remote_name,
+            "branch": branch_name,
+            "credential_ref": credential_ref,
+        }
         blocked = self._authorize("git.pull", "pull_ff_only", workspace.workspace_id, arguments, approval_id)
         if blocked:
             return blocked
+        transport, transport_error = self._remote_transport_authorization(
+            workspace=workspace,
+            remote_name=remote_name,
+            credential_ref=credential_ref,
+            operation="pull",
+        )
+        if transport_error:
+            return OpsActionResult(
+                False,
+                "pull",
+                target_id=workspace.workspace_id,
+                error=transport_error,
+            )
+        assert transport is not None
         result = self._git(
-            ["pull", "--ff-only", "--no-rebase", remote_name, branch_name], cwd=workspace.root, timeout_seconds=90
+            hardened_git_transport_args(
+                transport,
+                [
+                    "pull",
+                    "--ff-only",
+                    "--no-rebase",
+                    "--no-recurse-submodules",
+                    remote_name,
+                    branch_name,
+                ],
+                remote_name=remote_name,
+            ),
+            cwd=workspace.root,
+            timeout_seconds=90,
         )
         return self._command_result("pull", "git.pull", workspace.workspace_id, arguments, result, approval_id)
 
@@ -598,9 +679,16 @@ class GitOpsService:
         *,
         remote: str | None = None,
         branch: str | None = None,
+        credential_ref: str | None = None,
         approval_id: str | None = None,
     ) -> OpsActionResult:
-        workspace, target, error = self._sync_target(workspace_id, remote=remote, branch=branch)
+        workspace, target, error = self._sync_target(
+            workspace_id,
+            remote=remote,
+            branch=branch,
+            credential_ref=credential_ref,
+            operation="push",
+        )
         if error:
             return OpsActionResult(False, "push", target_id=str(workspace_id or ""), error=error)
         assert workspace is not None and target is not None
@@ -619,12 +707,35 @@ class GitOpsService:
                 "finish the active Git operation before push",
             )
         remote_name, branch_name = target
-        arguments = {"workspace_id": workspace.workspace_id, "remote": remote_name, "branch": branch_name}
+        arguments = {
+            "workspace_id": workspace.workspace_id,
+            "remote": remote_name,
+            "branch": branch_name,
+            "credential_ref": credential_ref,
+        }
         blocked = self._authorize("git.push", "push", workspace.workspace_id, arguments, approval_id)
         if blocked:
             return blocked
+        transport, transport_error = self._remote_transport_authorization(
+            workspace=workspace,
+            remote_name=remote_name,
+            credential_ref=credential_ref,
+            operation="push",
+        )
+        if transport_error:
+            return OpsActionResult(
+                False,
+                "push",
+                target_id=workspace.workspace_id,
+                error=transport_error,
+            )
+        assert transport is not None
         result = self._git(
-            ["push", "--porcelain", remote_name, f"HEAD:refs/heads/{branch_name}"],
+            hardened_git_transport_args(
+                transport,
+                ["push", "--porcelain", remote_name, f"HEAD:refs/heads/{branch_name}"],
+                remote_name=remote_name,
+            ),
             cwd=workspace.root,
             timeout_seconds=90,
         )
@@ -859,6 +970,8 @@ class GitOpsService:
         *,
         remote: str | None = None,
         branch: str | None = None,
+        credential_ref: str | None = None,
+        operation: str,
     ) -> tuple[WorkspaceRef | None, tuple[str, str] | None, OpsError | None]:
         workspace, error = self._workspace(workspace_id)
         if error:
@@ -896,6 +1009,14 @@ class GitOpsService:
             )
         if remote is not None and upstream_remote and remote_name != upstream_remote:
             return workspace, None, OpsError("git_remote_not_allowed", "only the configured upstream remote is allowed")
+        policy_error = self._remote_access_error(
+            workspace=workspace,
+            remote_name=remote_name,
+            credential_ref=credential_ref,
+            operation=operation,
+        )
+        if policy_error is not None:
+            return workspace, None, policy_error
         return workspace, (remote_name, branch_name), None
 
     def _fetch_target(
@@ -903,6 +1024,7 @@ class GitOpsService:
         workspace_id: str | None,
         *,
         remote: str | None,
+        credential_ref: str | None,
     ) -> tuple[WorkspaceRef | None, str | None, OpsError | None]:
         workspace, error = self._workspace(workspace_id)
         if error:
@@ -923,7 +1045,13 @@ class GitOpsService:
                         "remote is not registered for this workspace",
                     ),
                 )
-            return workspace, requested, None
+            policy_error = self._remote_access_error(
+                workspace=workspace,
+                remote_name=requested,
+                credential_ref=credential_ref,
+                operation="fetch",
+            )
+            return workspace, requested, policy_error
 
         upstream_result = self._git(
             ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"],
@@ -935,9 +1063,22 @@ class GitOpsService:
             "",
         )
         if upstream_remote:
-            return workspace, upstream_remote, None
+            policy_error = self._remote_access_error(
+                workspace=workspace,
+                remote_name=upstream_remote,
+                credential_ref=credential_ref,
+                operation="fetch",
+            )
+            return workspace, upstream_remote, policy_error
         if len(configured) == 1:
-            return workspace, next(iter(configured)), None
+            selected = next(iter(configured))
+            policy_error = self._remote_access_error(
+                workspace=workspace,
+                remote_name=selected,
+                credential_ref=credential_ref,
+                operation="fetch",
+            )
+            return workspace, selected, policy_error
         return (
             workspace,
             None,
@@ -946,6 +1087,60 @@ class GitOpsService:
                 "select one of the registered remotes",
             ),
         )
+
+    def _remote_access_error(
+        self,
+        *,
+        workspace: WorkspaceRef,
+        remote_name: str,
+        credential_ref: str | None,
+        operation: str,
+    ) -> OpsError | None:
+        _, error = self._remote_transport_authorization(
+            workspace=workspace,
+            remote_name=remote_name,
+            credential_ref=credential_ref,
+            operation=operation,
+        )
+        return error
+
+    def _remote_transport_authorization(
+        self,
+        *,
+        workspace: WorkspaceRef,
+        remote_name: str,
+        credential_ref: str | None,
+        operation: str,
+    ) -> tuple[GitTransportAuthorization | None, OpsError | None]:
+        get_url_args = ["remote", "get-url"]
+        if operation == "push":
+            get_url_args.append("--push")
+        get_url_args.append(remote_name)
+        result = self._git(get_url_args, cwd=workspace.root)
+        if result.returncode != 0:
+            return None, OpsError(
+                "git_remote_url_unavailable",
+                "registered remote URL is unavailable",
+            )
+        try:
+            request = GitRemotePolicyRequest(
+                remote_url=result.stdout.strip(),
+                operation=operation,
+                credential_ref=credential_ref,
+                allow_redirects=False,
+                proxy_url=None,
+                recurse_submodules=False,
+                lfs_mode="pointer_only",
+            )
+            authorized = self._remote_policy.authorize(request)
+            transport = GitTransportAuthorization.create(
+                authorized=authorized,
+                request=request,
+            )
+            transport.validate()
+        except GitRemotePolicyError as exc:
+            return None, OpsError(exc.reason_code, exc.reason_code)
+        return transport, None
 
     def _changed_files(self, cwd: Path) -> tuple[list[GitChangedFile], bool]:
         result = self._git(["status", "--porcelain=v1", "-z", "--untracked-files=all"], cwd=cwd)
@@ -1299,7 +1494,12 @@ class GitOpsService:
         return audit_ref
 
     def _git(self, args: list[str], *, cwd: Path, timeout_seconds: int | None = None) -> CommandResult:
-        return self._runner.run(["git", *args], cwd=cwd, timeout_seconds=timeout_seconds)
+        return self._runner.run(
+            ["git", *args],
+            cwd=cwd,
+            timeout_seconds=timeout_seconds,
+            env=hardened_git_environment(),
+        )
 
 
 _default_git_ops_service: GitOpsService | None = None

@@ -71,6 +71,7 @@ from agent.routes.share_sessions import share_sessions_bp
 from agent.routes.snakes import snakes_bp
 from agent.routes.snapshot_diff_api import snapshot_diff_bp
 from agent.routes.sources import sources_bp
+from agent.bootstrap.source_control_api import register_source_control_api
 from agent.routes.speech_adaptation_control import speech_adaptation_control_bp
 from agent.routes.speech_evidence_consents import speech_evidence_consents_bp
 from agent.routes.speech_evidence_sync import speech_evidence_sync_bp
@@ -164,6 +165,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(classroom_bp, url_prefix="/api/classroom")
     app.register_blueprint(text_quality_bp, url_prefix="/api")
     app.register_blueprint(sources_bp)
+    register_source_control_api(app)
     app.register_blueprint(goal_artifacts_bp)
     app.register_blueprint(sgpt_bp, url_prefix="/api/sgpt")
     app.register_blueprint(semantic_media_contracts_bp)

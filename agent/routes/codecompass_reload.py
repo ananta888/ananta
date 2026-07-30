@@ -13,7 +13,10 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
+from agent.auth import check_auth
 from agent.services.context_delivery_service import get_context_delivery_service
+from agent.routes.source_control_access import authorize_route_request
+from agent.services.source_control_access_policy import SourceControlAction
 
 
 log = logging.getLogger(__name__)
@@ -21,7 +24,37 @@ log = logging.getLogger(__name__)
 codecompass_reload_bp = Blueprint("codecompass_reload", __name__)
 
 
+def _task_for_policy(task_id: str):
+    from agent.services.repository_registry import get_repository_registry
+
+    return get_repository_registry().task_repo.get_by_id(task_id)
+
+
+@codecompass_reload_bp.before_request
+@check_auth
+def _authorize_codecompass_reload_surface():
+    body = request.get_json(silent=True) or {}
+    task_id = (
+        str(body.get("task_id") or "").strip()
+        if isinstance(body, dict)
+        else ""
+    )
+    if not task_id:
+        return authorize_route_request(
+            action=SourceControlAction.query,
+            resource_kind="task_context",
+            collection=True,
+        )
+    return authorize_route_request(
+        action=SourceControlAction.query,
+        resource_kind="task_context",
+        resource=_task_for_policy(task_id),
+        object_id=task_id,
+    )
+
+
 @codecompass_reload_bp.post("/api/codecompass/reload-context")
+@check_auth
 def reload_context() -> Any:
     """Validate a context_reload_request, look up the task, and serve chunks.
 

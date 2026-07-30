@@ -312,6 +312,11 @@ class WorkerWorkspaceService:
         )
 
     def _init_git_context(self, *, task: dict, workspace_dir: Path):
+        from agent.services.workspace_git_service import (
+            WorkspaceGitInitError,
+            get_workspace_git_service,
+        )
+
         try:
             effective_config = dict((task or {}).get("effective_config") or {})
             git_workspace_cfg = dict((effective_config.get("git_workspace")) or {})
@@ -322,16 +327,28 @@ class WorkerWorkspaceService:
                 if not ws_git.get("enabled"):
                     return None
                 git_workspace_cfg = ws_git
-            from agent.services.workspace_git_service import get_workspace_git_service
             svc = get_workspace_git_service()
             goal_id = str((task or {}).get("goal_id") or "")
             worker_key = str((task or {}).get("worker_key") or (task or {}).get("agent_url") or "")
             branch_strategy = str(git_workspace_cfg.get("branch_strategy") or "goal")
             branch = svc.resolve_branch_name(goal_id, worker_key, branch_strategy)
             remote_url = git_workspace_cfg.get("remote_url") or None
-            return svc.init_workspace(workspace_dir, remote_url=remote_url, branch=branch, enabled=True)
-        except Exception:
-            return None
+            credential_ref = git_workspace_cfg.get("credential_ref") or None
+            return svc.init_workspace(
+                workspace_dir,
+                remote_url=remote_url,
+                branch=branch,
+                credential_ref=credential_ref,
+                enabled=True,
+            )
+        except WorkspaceGitInitError:
+            raise
+        except Exception as exc:
+            raise WorkspaceGitInitError(
+                "Workspace Git initialization failed",
+                workspace_dir=workspace_dir,
+                reason_code="workspace_git_initialization_failed",
+            ) from exc
 
     def _materialize_predecessor_artifacts(self, *, task: dict, workspace_dir: Path) -> list | None:
         """Inject workspace_file artifacts from completed sibling tasks when artifact_hub_sync is active.
