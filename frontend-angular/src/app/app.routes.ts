@@ -14,6 +14,7 @@ import { diff3Routes } from './features/diff3/diff3.routes';
 import { codeHugRoutes } from './features/codehug/codehug.routes';
 import { caseFlowRoutes } from './features/caseflow/caseflow.routes';
 import { modelTrainingRoutes } from './features/model-training/model-training.routes';
+import { modelAnalysisRoutes } from './features/model-analysis/model-analysis.routes';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -40,6 +41,7 @@ export const routes: Routes = [
       ...taskRoutes,
       ...contextAccessPolicyRoutes,
       ...modelTrainingRoutes,
+      ...modelAnalysisRoutes,
       ...visualProcessRoutes,
       ...diff3Routes,
       ...codeHugRoutes,
