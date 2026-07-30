@@ -31,7 +31,7 @@
     "analyzed_commit": "b1b776421",
     "analyzed_at": "2026-07-30",
     "previous_baseline": "5e24e95771cd675178696986374883c4b5e0e9af",
-    "baseline_state": "superseded"
+    "baseline_state": "implementation_complete_verification_unverified"
   },
   "architecture_invariants": [
     "Der Hub bleibt alleiniger Eigentümer von Source-Lifecycle, Policy-Entscheidungen, Freigaben, Index-Tasks und Task-Queue.",
@@ -58,130 +58,157 @@
     {
       "id": "FIND-SEC-001",
       "severity": "critical",
-      "state": "confirmed",
-      "finding": "Der CodeHug PolicyService normalisiert unbekannte Entscheidungen zu allow und verdeckt API-Fehler durch eine scheinbar gültige lokale Ersatzpolicy.",
+      "state": "resolved_in_worktree_unverified",
+      "finding": "Frontend- und CodeHug-Flows verwenden geschlossene fail-closed v1-Verträge; Browserstate, lokale Write-Modi und Fallbackdiagnostik besitzen keine Backend-Autorität. Tests und Typecheck wurden nicht ausgeführt.",
       "evidence_paths": [
-        "frontend-angular/src/app/features/codehug/services/policy.service.ts"
+        "frontend-angular/src/app/features/codehug/services/policy.service.ts",
+        "frontend-angular/src/app/models/source-control-runtime-validators.ts",
+        "frontend-angular/src/app/services/source-control-v1-api.client.ts"
       ]
     },
     {
       "id": "FIND-SEC-002",
       "severity": "critical",
-      "state": "confirmed",
-      "finding": "Sources-, Knowledge-, CodeCompass- und Context-Policy-Routen besitzen keine durchgehend einheitliche Tenant-, Projekt-, Objekt- und RBAC-Autorisierung.",
+      "state": "resolved_in_worktree_unverified",
+      "finding": "Ein einheitlicher Hub-Access-Policy-Port, serverseitige Scope-Auflösung und content-freies Route-Deny-Audit sichern v1- und Legacy-Routen; die vollständige Negativmatrix wurde nicht ausgeführt.",
       "evidence_paths": [
         "agent/routes/sources.py",
         "agent/routes/knowledge.py",
         "agent/routes/codecompass_graph.py",
-        "agent/routes/context_policy.py"
+        "agent/routes/context_policy.py",
+        "agent/services/source_control_access_policy.py",
+        "agent/routes/source_control_v1.py",
+        "tests/test_source_control_access_governance.py"
       ]
     },
     {
       "id": "FIND-SEC-003",
       "severity": "critical",
-      "state": "confirmed",
-      "finding": "Die dateibasierte SourceRegistry benötigt ID-Validierung vor jedem Dateizugriff, Root-Containment, atomare Writes, Locking und nebenwirkungsfreie Reads.",
+      "state": "resolved_in_worktree_unverified",
+      "finding": "Die dateibasierte SourceRegistry validiert IDs und Root-Containment, blockiert Symlinks, serialisiert pro Root und schreibt atomar mit fsync/replace; die Sicherheits- und Crash-Tests wurden nicht ausgeführt.",
       "evidence_paths": [
         "agent/sources/source_registry.py",
-        "agent/routes/sources.py"
+        "agent/routes/sources.py",
+        "tests/test_source_registry_security.py"
       ]
     },
     {
       "id": "FIND-ARCH-001",
       "severity": "high",
-      "state": "corrected",
-      "finding": "SourceConnection und SourceRef sind absichtlich unterschiedliche Identitäten. Es fehlt ein expliziter Mapping-Vertrag zwischen Connection, unveränderlicher Revision und ausgelieferter Evidenz; eine erzwungene gemeinsame ID wäre fachlich falsch.",
+      "state": "resolved_in_worktree_unverified",
+      "finding": "SourceConnection, immutable SourceRevision und SourceRef bleiben getrennte Identitäten und sind durch einen expliziten versionierten Mapping-Vertrag verbunden.",
       "evidence_paths": [
         "schemas/sources/source_descriptor.v1.json",
         "schemas/source/source_ref.v2.json",
-        "agent/services/source_catalog_service.py"
+        "agent/services/source_catalog_service.py",
+        "ananta_contracts/source_control.py",
+        "schemas/source-control/source_ref_mapping.v1.json"
       ]
     },
     {
       "id": "FIND-ARCH-002",
       "severity": "high",
-      "state": "confirmed",
-      "finding": "Die Hub-Route für CodeCompass hängt direkt von Worker-Graphimplementierungen ab und benötigt einen Hub-seitigen Read-Port oder eine gemeinsame reine Contract-Library.",
+      "state": "resolved_in_worktree_unverified",
+      "finding": "Hub und Worker verwenden eine gemeinsame reine CodeCompass-Library; der Hub importiert keine Worker-Infrastruktur für Graph Store, Expansion oder Architekturquery.",
       "evidence_paths": [
         "agent/routes/codecompass_graph.py",
-        "worker/retrieval/codecompass_graph_store.py"
+        "worker/retrieval/codecompass_graph_store.py",
+        "ananta_codecompass/graph_store.py",
+        "ananta_codecompass/graph_expansion.py",
+        "ananta_codecompass/architecture_query.py",
+        "tests/test_codecompass_container_boundary.py"
       ]
     },
     {
       "id": "FIND-DATA-001",
       "severity": "high",
-      "state": "partially_resolved",
-      "finding": "KnowledgeIndex und KnowledgeIndexRun existieren bereits. SourceRevision-Fremdschlüssel, atomarer Active-Index, Stale-Zustand, Rollback und Reconciliation fehlen.",
+      "state": "resolved_in_worktree_unverified",
+      "finding": "SourceRevision-gebundene Index-/Run-Persistenz, atomarer Active-Index, Stale-/Supersede-Zustände, Rollback und Reconciliation sind implementiert; Parallelitäts- und Crash-Tests wurden nicht ausgeführt.",
       "evidence_paths": [
         "agent/db_models/knowledge.py",
         "agent/repositories/artifacts.py",
-        "agent/services/knowledge_index_worker_artifact_service.py"
+        "agent/services/knowledge_index_worker_artifact_service.py",
+        "agent/db_models/knowledge_index_execution.py",
+        "agent/services/source_index_lifecycle_service.py"
       ]
     },
     {
       "id": "FIND-CONN-001",
       "severity": "high",
-      "state": "confirmed",
-      "finding": "SourceRefreshService verzweigt auf konkrete Quellentypen. Sichere Workspace-, GitOps-, Scanner- und Klassifikationsbausteine existieren, sind aber nicht hinter einem gemeinsamen SourceConnector-Port integriert.",
+      "state": "resolved_in_worktree_unverified",
+      "finding": "Ein schmaler SourceConnector-Port, Registry, Composition und Legacy-Adapter ersetzen konkrete Typverzweigung für die implementierten Connectoren.",
       "evidence_paths": [
         "agent/sources/source_refresh_service.py",
         "agent/services/workspace_path_validator.py",
         "agent/services/git_ops_service.py",
-        "worker/core/context_scanner.py"
+        "worker/core/context_scanner.py",
+        "agent/sources/source_connectors.py",
+        "agent/services/source_control_connector_composition.py"
       ]
     },
     {
       "id": "FIND-CONN-002",
       "severity": "critical",
-      "state": "confirmed",
-      "finding": "GitOpsService und WorkspaceGitService verwenden nicht dieselbe Remote-, Credential- und Egress-Policy; Fehler können beim Workspace-Aufbau still zu deaktiviertem Git führen.",
+      "state": "resolved_in_worktree_unverified",
+      "finding": "GitOps, Workspace Git, GitHub und Generic Git teilen eine fail-closed Remote-/Credential-/Egress-Policy und einen IP-gepinnten Transportplan; Tests wurden nicht ausgeführt.",
       "evidence_paths": [
         "agent/services/git_ops_service.py",
         "agent/services/workspace_git_service.py",
-        "agent/services/worker_workspace_service.py"
+        "agent/services/worker_workspace_service.py",
+        "agent/services/git_remote_policy_service.py",
+        "agent/sources/git_source_connector_common.py"
       ]
     },
     {
       "id": "FIND-CC-001",
       "severity": "high",
-      "state": "partially_resolved",
-      "finding": "Der Knowledge-Index-Job ist bereits persistent, idempotent und Hub-delegiert. Im Auftrag fehlen noch Tenant, Projekt, SourceRevision, Policy-Snapshot, vollständiges Dateimanifest und Ressourcenbudgets.",
+      "state": "resolved_in_worktree_unverified",
+      "finding": "Der v2 Knowledge-Index-Auftrag bindet Tenant, Projekt, SourceRevision, Admission, Policy, Manifest, Budgets, Idempotenz, Assignment und Lease und bleibt Hub-delegiert.",
       "evidence_paths": [
         "agent/services/knowledge_index_job_service.py",
-        "schemas/worker/knowledge_index_job.v1.json"
+        "schemas/worker/knowledge_index_job.v1.json",
+        "schemas/worker/knowledge_index_execution_job.v2.json",
+        "agent/services/knowledge_index_execution_binding_service.py"
       ]
     },
     {
       "id": "FIND-CC-002",
       "severity": "high",
-      "state": "partially_resolved",
-      "finding": "Worker-Artefakte werden bereits größen- und hashgeprüft, gestaged und promoted. Öffentliche Artefaktprojektion, Coverage, aktiver Index, Vergleich, Rollback und sichere Bereinigung fehlen.",
+      "state": "resolved_in_worktree_unverified",
+      "finding": "Content-freie Artefaktprojektion, produktive Graph-/Query-Adapter, Active-Index, Vergleich, Rollback und referenz-/approval-gebundener Purge sind implementiert; Tests wurden nicht ausgeführt.",
       "evidence_paths": [
         "agent/services/knowledge_index_worker_artifact_service.py",
-        "agent/services/codecompass_graph_artifact_resolver.py"
+        "agent/services/codecompass_graph_artifact_resolver.py",
+        "agent/services/codecompass_artifact_manifest.py",
+        "agent/services/source_index_lifecycle_service.py"
       ]
     },
     {
       "id": "FIND-UI-001",
       "severity": "high",
-      "state": "confirmed",
-      "finding": "Die Sources-Oberfläche bleibt eine expertOnly-Kartenansicht; Import unterstützt nur Open-Notebook-Export und Text. Ein geführter Workspace-, Verzeichnis-, GitHub- und Git-Onboardingflow fehlt.",
+      "state": "resolved_in_worktree_unverified",
+      "finding": "Source-Control-Shell, Wizard, Detail, Grants, Matrix und Policy-Lifecycle sind an den kanonischen v1-Client angebunden; Build, Typecheck und Accessibility-Gates wurden nicht ausgeführt.",
       "evidence_paths": [
         "frontend-angular/src/app/components/sources.component.ts",
         "frontend-angular/src/app/features/sources/source-import-dialog.component.ts",
-        "frontend-angular/src/app/models/route-metadata.ts"
+        "frontend-angular/src/app/models/route-metadata.ts",
+        "frontend-angular/src/app/features/sources/source-control-center.facade.ts",
+        "frontend-angular/src/app/services/source-control-v1-api.client.ts"
       ]
     },
     {
       "id": "FIND-UI-002",
       "severity": "high",
-      "state": "confirmed",
-      "finding": "Angular CodeCompass und Context Policy erwarten teilweise nicht vorhandene Endpunkte, falsche HTTP-Methoden oder nicht kanonisch gebundene Index- und Destination-IDs.",
+      "state": "resolved_in_worktree_unverified",
+      "finding": "CodeHug, Context Policy und Source Control Center verwenden die kanonischen Graph-, Query-, Lifecycle-, Grant- und Policy-Verträge; Contract-/Component-Tests wurden nicht ausgeführt.",
       "evidence_paths": [
         "frontend-angular/src/app/features/codehug/services/code-compass.service.ts",
         "frontend-angular/src/app/services/context-access-policy-api.service.ts",
         "agent/routes/codecompass_graph.py",
-        "agent/routes/context_policy.py"
+        "agent/routes/context_policy.py",
+        "frontend-angular/src/app/models/source-control-v1-api.model.ts",
+        "frontend-angular/src/app/services/source-control-v1-api.client.ts",
+        "agent/routes/source_control_v1.py"
       ]
     }
   ],
@@ -232,7 +259,7 @@
         "SRCCTRL-H3-004",
         "SRCCTRL-H3-005"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "SRCCTRL-M4",
@@ -281,7 +308,7 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M0",
-      "progress_percent": 20,
+      "progress_percent": 95,
       "depends_on": [],
       "legacy_task_refs": [
         "SRCCTRL-POL-009"
@@ -289,7 +316,10 @@
       "paths": [
         "frontend-angular/src/app/features/codehug/services/policy.service.ts",
         "frontend-angular/src/app/features/context-access-policy/",
-        "frontend-angular/src/app/features/codehug/"
+        "frontend-angular/src/app/features/codehug/",
+        "frontend-angular/src/app/models/source-control-v1-api.model.ts",
+        "frontend-angular/src/app/models/source-control-runtime-validators.ts",
+        "frontend-angular/src/app/services/source-control-v1-api.client.ts"
       ],
       "acceptance_criteria": [
         "Unbekannte, leere, fehlerhafte oder nicht unterstützte Entscheidungen ergeben deny oder unavailable, niemals allow.",
@@ -299,7 +329,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "PolicyService und UI-Bausteine existieren, enthalten aber bestätigte fail-open und Fallback-Probleme."
+      "status_basis": "Fail-closed DTO-Validatoren, typisierte HTTP-Fehler, entfernte lokale Autoritätsfallbacks und direkte Negativ-Testdefinitionen sind implementiert. Unit-, Typecheck- und UI-Fehlerpfade wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-S0-002",
@@ -309,7 +339,7 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M0",
-      "progress_percent": 15,
+      "progress_percent": 95,
       "depends_on": [],
       "legacy_task_refs": [
         "SRCCTRL-SEC-001"
@@ -319,7 +349,15 @@
         "agent/routes/knowledge.py",
         "agent/routes/codecompass_graph.py",
         "agent/routes/context_policy.py",
-        "agent/auth.py"
+        "agent/auth.py",
+        "agent/services/source_control_access_policy.py",
+        "agent/routes/source_control_access.py",
+        "agent/routes/source_control_v1.py",
+        "tests/test_source_control_access_governance.py",
+        "tests/test_source_control_v1_api.py",
+        "tests/test_context_policy_route_security.py",
+        "tests/test_sources_route_security.py",
+        "tests/test_codecompass_reload_security.py"
       ],
       "acceptance_criteria": [
         "Jede List-, Detail-, Refresh-, Scan-, Index-, Graph-, Query-, Policy-, Artifact-, Download- und Delete-Operation prüft Tenant, Projekt, Objekt und Rolle über denselben Hub-Policy-Port.",
@@ -329,7 +367,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Allgemeine Authentifizierung existiert, objektbezogene Autorisierung ist nicht durchgängig vorhanden."
+      "status_basis": "Ein gemeinsamer Hub-Access-Policy-Port erzwingt Tenant, Projekt, Objekt und RBAC einschließlich content-freiem Route-Deny-Audit. Die vollständige Cross-Tenant-/Cross-Project-Matrix wurde nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-S0-003",
@@ -339,7 +377,7 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M0",
-      "progress_percent": 20,
+      "progress_percent": 95,
       "depends_on": [],
       "legacy_task_refs": [
         "SRCCTRL-DATA-003"
@@ -347,7 +385,8 @@
       "paths": [
         "agent/sources/source_registry.py",
         "agent/routes/sources.py",
-        "tests/test_source_registry.py"
+        "tests/test_source_registry.py",
+        "tests/test_source_registry_security.py"
       ],
       "acceptance_criteria": [
         "Source-IDs werden vor jedem Dateipfadzugriff kanonisch validiert; Root-Containment und Symlink-Schutz sind fail-closed.",
@@ -357,7 +396,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Die Registry funktioniert dateibasiert, benötigt aber bestätigte Härtung und nebenwirkungsfreie Reads."
+      "status_basis": "Kanonische ID-Prüfung, Root-Containment, Symlink-Schutz, geteiltes Locking, atomare fsync/replace-Writes und nebenwirkungsfreie Reads sind implementiert. Traversal-, Unicode-, Parallelitäts- und Crash-Tests wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-S0-004",
@@ -367,7 +406,7 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M0",
-      "progress_percent": 30,
+      "progress_percent": 95,
       "depends_on": [],
       "legacy_task_refs": [
         "SRCCTRL-CONN-004",
@@ -379,7 +418,14 @@
         "agent/services/workspace_git_service.py",
         "agent/services/worker_workspace_service.py",
         "agent/services/secret_store.py",
-        "agent/services/integration_registry_service.py"
+        "agent/services/integration_registry_service.py",
+        "agent/services/git_remote_policy_service.py",
+        "agent/sources/git_source_connector_common.py",
+        "agent/sources/github_repository_connector.py",
+        "agent/sources/generic_git_connector.py",
+        "agent/services/ops_command_runner.py",
+        "tests/test_git_remote_policy_service.py",
+        "tests/test_git_source_connectors.py"
       ],
       "acceptance_criteria": [
         "GitHub, Generic Git und Workspace Git verwenden denselben allowlist-basierten Remote-, Protokoll-, DNS-, Redirect-, Proxy- und Egress-Policy-Port.",
@@ -389,17 +435,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Sichere GitOps- und Secret-Bausteine existieren, sind aber nicht über alle Git-Pfade vereinheitlicht."
+      "status_basis": "GitHub, Generic Git, Workspace Git und GitOps teilen die fail-closed Remote-, Credential- und Egress-Policy mit IP-gebundenem Transportplan. SSRF-, Redirect-, DNS-, Submodule-, LFS- und Widerrufstests wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-C1-001",
       "title": "ADR für Source-, Index- und Governance-Grenzen erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "architecture",
       "milestone_id": "SRCCTRL-M1",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-S0-001",
         "SRCCTRL-S0-002",
@@ -412,7 +458,8 @@
       "paths": [
         "docs/decisions/",
         "docs/codecompass.md",
-        "docs/context_access_policy_backend.md"
+        "docs/context_access_policy_backend.md",
+        "docs/decisions/ADR-source-control-center-boundaries.md"
       ],
       "acceptance_criteria": [
         "ADR definiert SourceConnection, immutable SourceRevision, SourceRef, KnowledgeIndex, IndexRun, ActiveIndex, DestinationDescriptor und SourceAccessGrant.",
@@ -422,7 +469,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Ein konsolidierter ADR für diesen Gesamttrack fehlt."
+      "status_basis": "Der ADR definiert die Domain-Identitäten, Hub-/Worker-/Angular-Grenzen, additive Migration, Legacy-Aliase, Rollback und das Verbot von Worker-Orchestrierung."
     },
     {
       "id": "SRCCTRL-C1-002",
@@ -432,7 +479,7 @@
       "risk": "critical",
       "type": "contract",
       "milestone_id": "SRCCTRL-M1",
-      "progress_percent": 30,
+      "progress_percent": 95,
       "depends_on": [
         "SRCCTRL-C1-001"
       ],
@@ -444,7 +491,12 @@
         "schemas/source/source_catalog.v2.json",
         "schemas/source/source_ref.v2.json",
         "agent/services/source_catalog_service.py",
-        "frontend-angular/src/app/models/"
+        "frontend-angular/src/app/models/",
+        "ananta_contracts/source_control.py",
+        "schemas/source-control/source_revision.v1.json",
+        "schemas/source-control/source_ref_mapping.v1.json",
+        "tests/fixtures/source_control/contracts.v1.valid.json",
+        "tests/test_source_control_contracts.py"
       ],
       "acceptance_criteria": [
         "Versionierte Draft-2020-12-Schemas definieren Connection, immutable Revision und das explizite Mapping zu SourceRef ohne die Identitäten gleichzusetzen.",
@@ -454,17 +506,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "SourceDescriptor, SourceCatalog und SourceRef existieren; Mapping und gemeinsame Connection-/Revision-Verträge fehlen."
+      "status_basis": "Geschlossene SourceConnection-, SourceRevision- und SourceRef-Mapping-Verträge sind in Python, JSON Schema und Angular-DTOs implementiert. Golden-/Negativfixtures, Typecheck und Contract-Tests wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-C1-003",
       "title": "DestinationDescriptor und Grant-Bindung kanonisieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "contract",
       "milestone_id": "SRCCTRL-M1",
-      "progress_percent": 25,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-C1-001"
       ],
@@ -477,7 +529,13 @@
         "worker/core/runtime_target.py",
         "agent/services/worker_runtime_selection_service.py",
         "frontend-angular/src/app/models/context-access-policy.model.ts",
-        "schemas/context/"
+        "schemas/context/",
+        "ananta_contracts/context_access_policy.py",
+        "schemas/source-control/source_access_grant.v1.json",
+        "agent/services/source_destination_resolution.py",
+        "frontend-angular/src/app/models/source-control-v1-api.model.ts",
+        "tests/test_source_destination_resolution.py",
+        "agent/services/source_control_connection_intent.py"
       ],
       "acceptance_criteria": [
         "DestinationDescriptor bindet Worker-ID, Worker-Kind, Runtime-ID, Runtime-Kind, Provider-ID, Modell-ID, Modellklasse, Provider-Location und Datenstandort.",
@@ -487,17 +545,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Destination-Typen und einzelne IDs existieren, sind aber zwischen Regel, Preview und Laufzeitziel auseinander gelaufen."
+      "status_basis": "DestinationDescriptor, Grant-Bindung und Angular-DTOs verwenden ausschließlich serverautoritativ aufgelöste Worker-, Runtime-, Provider-, Modell-, Standort-, Revisions-, Operations- und Transformationsidentitäten."
     },
     {
       "id": "SRCCTRL-D1-001",
       "title": "SourceConnection, SourceRevision und SourceAccessGrant persistent speichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "persistence",
       "milestone_id": "SRCCTRL-M1",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-C1-002",
         "SRCCTRL-C1-003"
@@ -509,7 +567,14 @@
       "paths": [
         "agent/db_models/",
         "agent/repositories/",
-        "agent/services/context_access_policy_service.py"
+        "agent/services/context_access_policy_service.py",
+        "agent/db_models/source_control.py",
+        "agent/repositories/source_control_repository.py",
+        "agent/services/source_control_persistence.py",
+        "agent/db_models/context_policy_lifecycle.py",
+        "agent/repositories/context_policy_lifecycle_repository.py",
+        "agent/db_models/source_access_enforcement.py",
+        "agent/services/source_access_persistence_adapter.py"
       ],
       "acceptance_criteria": [
         "Modelle und Repository-Ports sind tenant-, projekt- und besitzergebunden und besitzen Optimistic Concurrency.",
@@ -519,17 +584,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Eine persistente SourceConnection-/Revision-/Grant-Domain existiert noch nicht."
+      "status_basis": "Tenant-/projektgebundene Connection-, append-only Revision-, versionierte Grant- und Policy-Lifecycle-Persistenz mit OCC/CAS, Audit sowie getrenntem Disable, Tombstone und freigabepflichtigem Purge ist implementiert."
     },
     {
       "id": "SRCCTRL-D1-002",
       "title": "Legacy-Sources, Knowledge-Indizes und Context-Policies idempotent migrieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "migration",
       "milestone_id": "SRCCTRL-M1",
-      "progress_percent": 0,
+      "progress_percent": 95,
       "depends_on": [
         "SRCCTRL-D1-001",
         "SRCCTRL-S0-003"
@@ -543,7 +608,15 @@
         "agent/db_models/knowledge.py",
         "agent/repositories/context_access_policy_repo.py",
         "scripts/",
-        "tests/"
+        "tests/",
+        "agent/services/source_control_legacy_migration.py",
+        "agent/repositories/source_control_migration_repository.py",
+        "agent/db_models/source_control_migration.py",
+        "tests/test_source_control_legacy_migration.py",
+        "agent/services/source_control_legacy_migration_cli.py",
+        "agent/cli/commands/hub.py",
+        "tests/test_source_control_legacy_migration_cli.py",
+        "migrations/versions/2f7c9e1a4b6d_merge_source_control_heads.py"
       ],
       "acceptance_criteria": [
         "Migration ist wiederholbar, transaktional und erzeugt stabile Connection-/Revision-Zuordnungen.",
@@ -553,7 +626,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Es gibt einzelne SourceCatalog-Migrationen, aber keine persistente Gesamtdomain-Migration."
+      "status_basis": "Deterministische Legacy-Inventarisierung sowie Hub-only Dry-Run, Apply, Resume und Rollback sind scope- und plan-idempotenzgebunden implementiert; eine additive Merge-Revision verbindet beide Source-Control-Migrationsköpfe. Migrationen und Fixtures wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-D1-003",
@@ -563,7 +636,7 @@
       "risk": "critical",
       "type": "persistence",
       "milestone_id": "SRCCTRL-M1",
-      "progress_percent": 45,
+      "progress_percent": 95,
       "depends_on": [
         "SRCCTRL-C1-002",
         "SRCCTRL-D1-001"
@@ -575,7 +648,14 @@
       "paths": [
         "agent/db_models/knowledge.py",
         "agent/repositories/artifacts.py",
-        "agent/services/knowledge_index_worker_artifact_service.py"
+        "agent/services/knowledge_index_worker_artifact_service.py",
+        "agent/db_models/knowledge_index_execution.py",
+        "agent/repositories/knowledge_index_execution_repository.py",
+        "agent/services/knowledge_index_execution_binding_service.py",
+        "agent/services/source_index_lifecycle_service.py",
+        "tests/test_source_index_lifecycle_service.py",
+        "tests/test_source_control_integrity_hardening.py",
+        "migrations/versions/2f7c9e1a4b6d_merge_source_control_heads.py"
       ],
       "acceptance_criteria": [
         "KnowledgeIndex und IndexRun referenzieren eine unveränderliche SourceRevision und einen Policy-Snapshot.",
@@ -585,17 +665,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Index- und Run-Modelle sowie Artifact Promotion existieren, SourceRevision- und Active-Index-Transaktionsgrenzen fehlen."
+      "status_basis": "Index/Run, immutable SourceRevision, echter Policy-Snapshot, Active-Zeiger und Lifecycle-CAS sind persistent gebunden; Event-Outbox, Bulk-Checkpoints und Reconciliation sind crash-wiederaufnehmbar definiert. Crash- und Parallelitätstests wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-N2-001",
       "title": "Schmalen SourceConnector-Port und ConnectorRegistry einführen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "connector",
       "milestone_id": "SRCCTRL-M2",
-      "progress_percent": 30,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-C1-002",
         "SRCCTRL-D1-001"
@@ -607,7 +687,12 @@
       "paths": [
         "agent/sources/",
         "agent/services/source_catalog_service.py",
-        "agent/services/service_registry.py"
+        "agent/services/service_registry.py",
+        "agent/sources/source_connectors.py",
+        "agent/services/source_control_connector_composition.py",
+        "agent/services/source_control_legacy_inventory_adapters.py",
+        "tests/test_source_connector_registry.py",
+        "tests/test_source_connector_composition.py"
       ],
       "acceptance_criteria": [
         "Der Port trennt Validate, ResolveRevision, Inventory, Refresh und Health in kleine substituierbare Interfaces.",
@@ -617,7 +702,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Mehrere konkrete Source-Flows existieren, ein gemeinsamer Port und eine Registry fehlen."
+      "status_basis": "Schmale Validate/ResolveRevision/Inventory/Refresh/Health-Ports, kanonische Registry und kompatible Legacy-Adapter sind implementiert; Connectoren erstellen keine Tasks und orchestrieren keine Worker."
     },
     {
       "id": "SRCCTRL-N2-002",
@@ -627,7 +712,7 @@
       "risk": "critical",
       "type": "connector",
       "milestone_id": "SRCCTRL-M2",
-      "progress_percent": 35,
+      "progress_percent": 95,
       "depends_on": [
         "SRCCTRL-N2-001",
         "SRCCTRL-S0-003"
@@ -640,7 +725,10 @@
         "agent/services/workspace_path_validator.py",
         "agent/services/worker_workspace_service.py",
         "worker/runtime/workspace_resolver.py",
-        "agent/sources/"
+        "agent/sources/",
+        "agent/sources/registered_workspace_connector.py",
+        "agent/sources/registered_workspace_source_adapter.py",
+        "tests/test_registered_workspace_connector.py"
       ],
       "acceptance_criteria": [
         "Der Client wählt ausschließlich serverseitig registrierte Workspace-IDs und relative Pfade, keine beliebigen Hub-Hostpfade.",
@@ -650,17 +738,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Workspace-Auflösung, Pfadvalidierung und GitOps existieren, sind aber noch keine SourceConnectoren."
+      "status_basis": "RegisteredWorkspace und relative Verzeichnisse werden serverseitig, bounded, read-only und revisionsgebunden aufgelöst; Path-, Hardlink-, Sparse-, Mount- und Race-Tests wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-N2-003",
       "title": "GitHubRepositoryConnector über GitHub App und OAuth bereitstellen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "critical",
       "type": "connector",
       "milestone_id": "SRCCTRL-M2",
-      "progress_percent": 0,
+      "progress_percent": 90,
       "depends_on": [
         "SRCCTRL-N2-001",
         "SRCCTRL-S0-004"
@@ -672,7 +760,10 @@
         "agent/sources/",
         "agent/services/integration_registry_service.py",
         "agent/routes/integrations.py",
-        "agent/services/secret_store.py"
+        "agent/services/secret_store.py",
+        "agent/sources/github_repository_connector.py",
+        "agent/sources/git_source_connector_common.py",
+        "tests/test_git_source_connectors.py"
       ],
       "acceptance_criteria": [
         "Organisation, Repository, Ref und Commit werden über eine serverseitig autorisierte GitHub-Installation aufgelöst.",
@@ -682,17 +773,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Ein Source-spezifischer GitHub-Connector ist nicht vorhanden."
+      "status_basis": "GitHub-Intent, Installation, Repository, Ref, immutable Commit und Widerruf werden serverseitig und fail-closed aufgelöst. Ein echter GitHub-App-/OAuth-Lauf mit realer Installation wurde nicht durchgeführt."
     },
     {
       "id": "SRCCTRL-N2-004",
       "title": "GenericGitConnector auf registrierte Remotes begrenzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "type": "connector",
       "milestone_id": "SRCCTRL-M2",
-      "progress_percent": 20,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-N2-001",
         "SRCCTRL-S0-004"
@@ -703,7 +794,11 @@
       "paths": [
         "agent/services/git_ops_service.py",
         "agent/services/workspace_git_service.py",
-        "agent/sources/"
+        "agent/sources/",
+        "agent/sources/generic_git_connector.py",
+        "agent/sources/git_source_connector_common.py",
+        "agent/services/git_remote_policy_service.py",
+        "tests/test_git_source_connectors.py"
       ],
       "acceptance_criteria": [
         "Nur registrierte, policy-geprüfte Remote-Referenzen sind zulässig; rohe Credential-URLs werden abgelehnt.",
@@ -713,7 +808,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "GitOps-Bausteine existieren, ein isolierter SourceConnector und einheitliche Remote-Policy fehlen."
+      "status_basis": "Generic Git akzeptiert nur owner- und projektgebundene registrierte Remote-IDs, löst immutable Commits auf und erzwingt dieselbe Transport-, Secret-, Objekt-, Pack-, Datei-, Zeit- und Egress-Policy wie GitHub und Workspace Git."
     },
     {
       "id": "SRCCTRL-N2-005",
@@ -723,7 +818,7 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M2",
-      "progress_percent": 30,
+      "progress_percent": 95,
       "depends_on": [
         "SRCCTRL-N2-001",
         "SRCCTRL-C1-002"
@@ -735,7 +830,10 @@
         "worker/core/context_scanner.py",
         "agent/services/source_classification_service.py",
         "config/codecompass/file_type_support.v1.json",
-        "agent/services/"
+        "agent/services/",
+        "agent/sources/source_admission_gate.py",
+        "agent/services/source_admission_service.py",
+        "tests/test_source_admission_service.py"
       ],
       "acceptance_criteria": [
         "Der Hub erstellt aus Connector-Inventar und Scan-Ergebnis einen unveränderlichen Admission-Entscheid mit Revision-Digest.",
@@ -745,17 +843,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Scanner und Klassifikation existieren separat; ein zwingendes revisionsgebundenes Admission-Gate fehlt."
+      "status_basis": "Revisionsgebundene Hub-Admission kombiniert Inventar, Secret-/Injection-/Dateityp-Scanner und harte Budgets; abweichende Evidence und Bypassversuche werden fail-closed blockiert. Die Keine-Bypass- und Dateitypmatrix wurde nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-H3-001",
       "title": "Knowledge-Index-Job vollständig an SourceRevision und Policy binden",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "backend",
       "milestone_id": "SRCCTRL-M3",
-      "progress_percent": 65,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-D1-003",
         "SRCCTRL-N2-005"
@@ -768,7 +866,13 @@
         "agent/services/knowledge_index_worker_artifact_service.py",
         "worker/retrieval/knowledge_index_job_handler.py",
         "schemas/worker/knowledge_index_job.v1.json",
-        "schemas/worker/knowledge_index_job_result.v1.json"
+        "schemas/worker/knowledge_index_job_result.v1.json",
+        "schemas/worker/knowledge_index_execution_job.v2.json",
+        "schemas/worker/knowledge_index_execution_result.v2.json",
+        "agent/services/knowledge_index_execution_binding_service.py",
+        "agent/db_models/knowledge_index_execution.py",
+        "tests/test_knowledge_index_execution_binding.py",
+        "tests/test_knowledge_index_destination_dispatch.py"
       ],
       "acceptance_criteria": [
         "Auftrag bindet Tenant, Projekt, SourceRevision, Admission-Digest, Policy-Snapshot, Dateimanifest, Ressourcenbudgets, Idempotency-Key und Lease.",
@@ -778,17 +882,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Persistente idempotente Hub-Jobs und Worker-Handler existieren; vollständige Source-/Policy-Bindung fehlt."
+      "status_basis": "Der v2-Auftrag bindet Tenant, Projekt, Revision, Admission, Policy, Manifest, Budgets, Idempotency, Assignment und Lease. Hub-Authority, Dispatch-Gate, Retry-Kontext und strict Artifact-Refs sind implementiert; Worker bleiben reine Ausführer."
     },
     {
       "id": "SRCCTRL-H3-002",
       "title": "CodeCompass-Artefaktmanifest, Coverage und Hub-Graph-Port vervollständigen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
       "milestone_id": "SRCCTRL-M3",
-      "progress_percent": 50,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-H3-001"
       ],
@@ -801,7 +905,15 @@
         "agent/services/knowledge_index_worker_artifact_service.py",
         "agent/routes/codecompass_graph.py",
         "worker/retrieval/codecompass_graph_store.py",
-        "schemas/worker/codecompass_snapshot_manifest.v1.json"
+        "schemas/worker/codecompass_snapshot_manifest.v1.json",
+        "agent/services/codecompass_artifact_manifest.py",
+        "ananta_codecompass/graph_store.py",
+        "ananta_codecompass/graph_expansion.py",
+        "ananta_codecompass/architecture_query.py",
+        "tests/test_codecompass_artifact_manifest.py",
+        "tests/test_codecompass_container_boundary.py",
+        "tests/test_codecompass_graph_artifact_resolver_security.py",
+        "agent/services/source_control_production_adapters.py"
       ],
       "acceptance_criteria": [
         "Manifest projiziert Rollen, Größen, Digests, Graph-Schema, Symbol-/Vector-Coverage, Ausschlüsse und Erstellstatus ohne Hostpfade.",
@@ -811,17 +923,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Hashprüfung, Promotion und Graphprojektion existieren; Coverage, API-Projektion und Hub-Port fehlen."
+      "status_basis": "Content-freies Artefaktmanifest, Coverage, Schema-/Hash-/Größenprüfung und gemeinsame reine CodeCompass-Read-Library sind implementiert; produktive Graph-/Query-Adapter sind im Hub komponiert."
     },
     {
       "id": "SRCCTRL-H3-003",
       "title": "Kanonische Source-Control-API und aggregiertes Read-Model bereitstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
       "milestone_id": "SRCCTRL-M3",
-      "progress_percent": 30,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-D1-001",
         "SRCCTRL-H3-001",
@@ -838,7 +950,18 @@
         "agent/routes/knowledge.py",
         "agent/routes/codecompass_graph.py",
         "agent/routes/context_policy.py",
-        "agent/services/"
+        "agent/services/",
+        "agent/services/source_control_projection_service.py",
+        "agent/services/source_control_api_runtime.py",
+        "agent/routes/source_control_v1.py",
+        "agent/bootstrap/source_control_api.py",
+        "agent/services/source_control_legacy_usage.py",
+        "tests/test_source_control_projection_service.py",
+        "tests/test_source_control_v1_api.py",
+        "tests/test_source_control_api_runtime.py",
+        "agent/services/source_control_connection_intent.py",
+        "agent/services/source_control_catalogs.py",
+        "agent/services/source_control_production_adapters.py"
       ],
       "acceptance_criteria": [
         "Ein Hub-Projection-Service liefert Connection, Revision, Admission, Index, Active-Index, Stale, Coverage, Grants, Health und nächste erlaubte Aktionen.",
@@ -848,17 +971,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Legacy-APIs und einzelne Read-Modelle existieren, ein kanonisches aggregiertes Source-Control-Read-Model fehlt."
+      "status_basis": "Aggregierte owner-/projektgebundene v1-Projektionen, serverautoritative project_id-Bindung, ETag/If-Match, Cursor/Filter, reale Katalog-/Operationsadapter und gemessene Legacy-Aliase sind implementiert."
     },
     {
       "id": "SRCCTRL-H3-004",
       "title": "Typisierte Jobevents und sichere Bulk-Dry-Runs ergänzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "backend",
       "milestone_id": "SRCCTRL-M3",
-      "progress_percent": 20,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-H3-003"
       ],
@@ -870,7 +993,13 @@
         "agent/routes/control_center_api.py",
         "agent/services/knowledge_index_job_service.py",
         "agent/services/backend_observability_service.py",
-        "agent/routes/sources.py"
+        "agent/routes/sources.py",
+        "agent/services/source_control_job_events.py",
+        "agent/services/source_control_bulk_service.py",
+        "agent/services/source_control_api_runtime.py",
+        "tests/test_source_control_bulk_and_events.py",
+        "tests/test_source_control_api_runtime.py",
+        "tests/test_source_control_integrity_hardening.py"
       ],
       "acceptance_criteria": [
         "SSE oder Polling projiziert typisierte, tenantgebundene und content-freie Source-/Index-Jobzustände.",
@@ -880,17 +1009,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Hub-Jobstatus und einzelne Dry-Run-Flows existieren; einheitliche Events und Bulk-Semantik fehlen."
+      "status_basis": "Monotone persistente Event-Outbox, bounded Bulk-Plan/Execute, Einzelautorisierung, atomare Claims, Leases und Target-Checkpoints implementieren reconnect- und crash-wiederaufnehmbare Verarbeitung."
     },
     {
       "id": "SRCCTRL-H3-005",
       "title": "Run-Historie, Aktivierung, Vergleich, Rollback und Purge implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
       "milestone_id": "SRCCTRL-M3",
-      "progress_percent": 20,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-D1-003",
         "SRCCTRL-H3-002"
@@ -903,7 +1032,14 @@
         "agent/routes/knowledge.py",
         "agent/repositories/artifacts.py",
         "agent/services/knowledge_index_worker_artifact_service.py",
-        "agent/services/terminal_cleanup_service.py"
+        "agent/services/terminal_cleanup_service.py",
+        "agent/services/source_index_lifecycle_service.py",
+        "agent/routes/source_control_v1.py",
+        "agent/services/source_control_api_runtime.py",
+        "tests/test_source_index_lifecycle_service.py",
+        "agent/services/source_control_purge_approval.py",
+        "agent/services/source_control_artifact_download.py",
+        "tests/test_source_control_integrity_hardening.py"
       ],
       "acceptance_criteria": [
         "API liefert vollständige sourcegebundene Run-Historie, aktiven Index und bounded Vergleich von Revision, Coverage, Status und Manifest.",
@@ -913,17 +1049,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Runs werden gespeichert; öffentliche Historie, Active-Index, Rollback und sichere Bereinigung fehlen."
+      "status_basis": "Run-Historie, Active-Index, Vergleich, Aktivierung, Rollback, Disable, Tombstone und physischer Artefakt-Purge sind CAS-, Referenz-, Grant-, Lease-, Citation- und one-time-Approval-gebunden implementiert."
     },
     {
       "id": "SRCCTRL-G4-001",
       "title": "Reale Destination serverseitig auflösen und an Auswahl binden",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M4",
-      "progress_percent": 30,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-C1-003"
       ],
@@ -933,7 +1069,11 @@
       "paths": [
         "agent/services/worker_runtime_selection_service.py",
         "agent/services/model_inference_adapter_registry.py",
-        "worker/core/runtime_target.py"
+        "worker/core/runtime_target.py",
+        "agent/services/source_destination_resolution.py",
+        "agent/services/effective_source_access_service.py",
+        "tests/test_source_destination_resolution.py",
+        "tests/test_knowledge_index_destination_dispatch.py"
       ],
       "acceptance_criteria": [
         "Worker-Auswahl bewertet die tatsächliche Worker-, Runtime-, Provider- und Modellidentität statt synthetischer Platzhalter.",
@@ -943,17 +1083,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Runtime- und Adapterinventar existieren; Context-Policy wird nicht durchgängig gegen das reale Endziel ausgewertet."
+      "status_basis": "Reale Worker-, Runtime-, Provider-, Modell-, Standort- und Datenstandortziele werden serverseitig aufgelöst; Auswahl, Dispatch und Policy teilen denselben Digest und Re-Resolve blockiert Zielwechsel."
     },
     {
       "id": "SRCCTRL-G4-002",
       "title": "Versionierte Grants an Revision, Destination, Operation und Transformation binden",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M4",
-      "progress_percent": 25,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-D1-001",
         "SRCCTRL-G4-001"
@@ -967,7 +1107,13 @@
         "agent/services/context_access_policy_service.py",
         "agent/services/retrieval_policy_filter_service.py",
         "agent/routes/approvals.py",
-        "agent/services/ananta_tool_policy_service.py"
+        "agent/services/ananta_tool_policy_service.py",
+        "agent/services/source_access_enforcement.py",
+        "agent/services/source_access_manifest_signing.py",
+        "agent/services/source_access_persistence_adapter.py",
+        "agent/db_models/source_access_enforcement.py",
+        "tests/test_source_access_enforcement.py",
+        "tests/test_source_access_persistence_adapter.py"
       ],
       "acceptance_criteria": [
         "Grant bindet SourceRevision, DestinationDescriptor, Operation, Roh/Redacted/Summary-Transformation, Zweck, Ablauf und Policy-Version.",
@@ -977,17 +1123,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Context-Policy und Approvals besitzen Teilbindungen, aber nicht die vollständige reale Destination und SourceRevision."
+      "status_basis": "Versionierte Grants und Approvals sind an Revision, Destination, Operation, Transformation, Zweck, Ablauf und Policy gebunden. HMAC-signierte Assignment-/Lease-Manifeste, atomarer One-time-CAS und fail-closed Revoke/Stale/Expiry sind implementiert."
     },
     {
       "id": "SRCCTRL-G4-003",
       "title": "Context-Policy-API mit Preview, Lint, Aktivierung und Rollback vervollständigen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
       "milestone_id": "SRCCTRL-M4",
-      "progress_percent": 35,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-G4-002",
         "SRCCTRL-S0-002"
@@ -999,7 +1145,14 @@
       "paths": [
         "agent/routes/context_policy.py",
         "agent/services/context_access_policy_service.py",
-        "agent/repositories/context_access_policy_repo.py"
+        "agent/repositories/context_access_policy_repo.py",
+        "agent/services/context_policy_lifecycle.py",
+        "agent/services/context_policy_lifecycle_composition.py",
+        "agent/db_models/context_policy_lifecycle.py",
+        "agent/repositories/context_policy_lifecycle_repository.py",
+        "agent/routes/source_control_v1.py",
+        "tests/test_context_policy_lifecycle.py",
+        "tests/test_context_policy_lifecycle_persistence.py"
       ],
       "acceptance_criteria": [
         "Kanonische API unterstützt List, Detail, Draft, Lint, serverseitige Preview, Versionen, Activate, Revoke und Rollback.",
@@ -1009,17 +1162,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Backend besitzt Policies, latest und validate; der vollständige versionierte Lifecycle fehlt."
+      "status_basis": "Scoped immutable Draft/List/Detail/Version/Active/Lint/Preview/Activate/Revoke/Rollback-Flows mit CAS, Idempotenz, RBAC und produktivem Destination-Katalog sind implementiert."
     },
     {
       "id": "SRCCTRL-G4-004",
       "title": "Effektive Access-Matrix und Erklärungsdienst implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
       "milestone_id": "SRCCTRL-M4",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "SRCCTRL-G4-001",
         "SRCCTRL-G4-002",
@@ -1032,7 +1185,12 @@
       "paths": [
         "agent/services/context_access_policy_service.py",
         "agent/services/governance_read_model_service.py",
-        "agent/routes/context_policy.py"
+        "agent/routes/context_policy.py",
+        "agent/services/effective_source_access_service.py",
+        "agent/routes/source_control_v1.py",
+        "tests/test_effective_source_access_service.py",
+        "tests/test_source_control_v1_api.py",
+        "agent/services/source_control_production_adapters.py"
       ],
       "acceptance_criteria": [
         "Dienst berechnet Entscheidungen ausschließlich aus serverseitig aufgelöster SourceRevision, Destination, Operation, Transformation und aktiver Policy.",
@@ -1042,7 +1200,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Eine produktive globale Matrix und ein gemeinsamer Erklärungsdienst fehlen."
+      "status_basis": "Preview, bounded Matrix und Dispatch verwenden denselben serverseitigen Evaluator sowie denselben echten Policy-Snapshot-Digest; reale Source- und Destination-Kataloge sind produktiv komponiert."
     },
     {
       "id": "SRCCTRL-G4-005",
@@ -1052,7 +1210,7 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M4",
-      "progress_percent": 15,
+      "progress_percent": 95,
       "depends_on": [
         "SRCCTRL-G4-002",
         "SRCCTRL-G4-003",
@@ -1065,7 +1223,12 @@
         "frontend-angular/src/app/features/codehug/services/policy.service.ts",
         "frontend-angular/src/app/features/codehug/guards/codehug-write-mode.guard.ts",
         "agent/services/ananta_tool_policy_service.py",
-        "agent/routes/approvals.py"
+        "agent/routes/approvals.py",
+        "agent/services/codehug_mutation_authorization.py",
+        "tests/test_codehug_mutation_authorization.py",
+        "frontend-angular/src/app/services/source-control-v1-api.client.ts",
+        "agent/services/codehug_mutation_composition.py",
+        "agent/bootstrap/source_control_api.py"
       ],
       "acceptance_criteria": [
         "Browserzustand steuert nur Bedienhinweise und ersetzt niemals Backend-Autorisierung.",
@@ -1075,7 +1238,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Ein lokaler Write-Modus und lokales Audit bestehen weiterhin; Backend-Policy-Bausteine sind vorhanden."
+      "status_basis": "CodeHug-Intents, Revisionen, Destinationen, Approvals, Grants, signierte Assignments und Audit werden persistent im Hub aufgelöst; Browserzustand besitzt keine Autorität. Direkte-API-/Write-Mode-E2E-Negativtests wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-U5-001",
@@ -1085,7 +1248,7 @@
       "risk": "medium",
       "type": "frontend",
       "milestone_id": "SRCCTRL-M5",
-      "progress_percent": 25,
+      "progress_percent": 95,
       "depends_on": [
         "SRCCTRL-H3-003"
       ],
@@ -1098,7 +1261,10 @@
         "frontend-angular/src/app/components/sources.component.ts",
         "frontend-angular/src/app/services/sources.service.ts",
         "frontend-angular/src/app/services/hub-api-core.service.ts",
-        "frontend-angular/src/app/models/route-metadata.ts"
+        "frontend-angular/src/app/models/route-metadata.ts",
+        "frontend-angular/src/app/models/source-control-v1-api.model.ts",
+        "frontend-angular/src/app/services/source-control-v1-api.client.ts",
+        "frontend-angular/src/app/features/sources/source-control-center.facade.ts"
       ],
       "acceptance_criteria": [
         "Feature besitzt eine dünne Shell, Unterrouten, Facade-State und getrennte Presentational Components.",
@@ -1108,7 +1274,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Eine Lazy-Route, SourcesComponent und Service existieren; Feature-Struktur und kanonischer Client fehlen."
+      "status_basis": "Source-Control-Shell, Unterrouten, Facade, geschlossene v1-DTOs und getrennte Clientports sind auf den kanonischen Hub-Vertrag migriert. Angular-Build und Typecheck wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-U5-002",
@@ -1118,7 +1284,7 @@
       "risk": "high",
       "type": "frontend",
       "milestone_id": "SRCCTRL-M5",
-      "progress_percent": 10,
+      "progress_percent": 90,
       "depends_on": [
         "SRCCTRL-U5-001",
         "SRCCTRL-N2-002",
@@ -1133,7 +1299,8 @@
       ],
       "paths": [
         "frontend-angular/src/app/features/sources/",
-        "frontend-angular/src/app/features/codecompass-graph/"
+        "frontend-angular/src/app/features/codecompass-graph/",
+        "frontend-angular/src/app/services/source-control-v1-api.client.ts"
       ],
       "acceptance_criteria": [
         "Assistent trennt verständlich Workspace, erlaubtes Verzeichnis, GitHub, Generic Git, Open Notebook, Wiki und Text.",
@@ -1144,7 +1311,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Importdialog unterstützt Open-Notebook-Export und Text, aber keinen produktiven Source-Wizard."
+      "status_basis": "Validate-then-Create-Flows für Workspace, registrierte Remotes, Direct Text und Notebook sowie Scan-/Fehlerdarstellung sind implementiert. Reale GitHub-Installation, Tastatur-, Screenreader- und Typecheck-Verifikation wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-U5-003",
@@ -1154,7 +1321,7 @@
       "risk": "medium",
       "type": "frontend",
       "milestone_id": "SRCCTRL-M5",
-      "progress_percent": 20,
+      "progress_percent": 95,
       "depends_on": [
         "SRCCTRL-U5-001",
         "SRCCTRL-H3-005"
@@ -1166,7 +1333,9 @@
       ],
       "paths": [
         "frontend-angular/src/app/features/sources/",
-        "frontend-angular/src/app/features/codecompass-graph/"
+        "frontend-angular/src/app/features/codecompass-graph/",
+        "frontend-angular/src/app/services/source-control-v1-api.client.ts",
+        "frontend-angular/src/app/models/source-control-v1-api.model.ts"
       ],
       "acceptance_criteria": [
         "Übersicht ist filterbar, cursorbasiert und zeigt menschlichen Namen, Typ, Verbindung, Revision, Scan, Index, Stale, Grants und nächste Aktion.",
@@ -1176,7 +1345,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Technische Karten und einzelne Zustände existieren; Tabelle, Detailseite und vollständiger Lifecycle fehlen."
+      "status_basis": "Übersicht und Detail nutzen reale Projektion, Revision, Runs, Graph, Lifecycle, ETag und serverautoritative project_id; textuelle Graphalternativen sind vorhanden. Component-, Virtualisierungs-, A11y- und Typecheck-Gates wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-U5-004",
@@ -1186,7 +1355,7 @@
       "risk": "high",
       "type": "frontend",
       "milestone_id": "SRCCTRL-M5",
-      "progress_percent": 20,
+      "progress_percent": 95,
       "depends_on": [
         "SRCCTRL-U5-003",
         "SRCCTRL-G4-004"
@@ -1197,7 +1366,9 @@
       ],
       "paths": [
         "frontend-angular/src/app/features/sources/",
-        "frontend-angular/src/app/features/context-access-policy/"
+        "frontend-angular/src/app/features/context-access-policy/",
+        "frontend-angular/src/app/services/source-control-v1-api.client.ts",
+        "frontend-angular/src/app/models/source-control-v1-api.model.ts"
       ],
       "acceptance_criteria": [
         "Sichere Presets werden als serverseitige Vorlagen geladen und nie lokal als autoritative Policy interpretiert.",
@@ -1208,7 +1379,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Preset-, Preview- und Demo-Bausteine existieren, sind aber nicht sourcebezogen oder produktiv angebunden."
+      "status_basis": "Grant-Presets, Grant-Lifecycle, reale Destinationen, Preview und globale Matrix sind über geschlossene v1-DTOs angebunden. Keyboard-, Virtualisierungs-, Provider- und Typecheck-Gates wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-U5-005",
@@ -1218,7 +1389,7 @@
       "risk": "high",
       "type": "frontend",
       "milestone_id": "SRCCTRL-M5",
-      "progress_percent": 35,
+      "progress_percent": 95,
       "depends_on": [
         "SRCCTRL-G4-003",
         "SRCCTRL-S0-001"
@@ -1228,7 +1399,9 @@
       ],
       "paths": [
         "frontend-angular/src/app/features/context-access-policy/",
-        "frontend-angular/src/app/services/context-access-policy-api.service.ts"
+        "frontend-angular/src/app/services/context-access-policy-api.service.ts",
+        "frontend-angular/src/app/services/source-control-v1-api.client.ts",
+        "frontend-angular/src/app/models/source-control-v1-api.model.ts"
       ],
       "acceptance_criteria": [
         "projectId stammt aus Route oder autoritativem Projektkontext und niemals aus default-project.",
@@ -1238,7 +1411,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Templates, Preview, Versionen und Aktivierungs-UI existieren; Projektkontext und passende Backend-APIs fehlen."
+      "status_basis": "Context-Policy List/Detail/Draft/Lint/Preview/Version/Activate/Revoke/Rollback nutzt realen Projektkontext, ETag, Idempotenz und sichere Konflikte. Angular-Typecheck und Component-Flows wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-U5-006",
@@ -1248,7 +1421,7 @@
       "risk": "high",
       "type": "frontend",
       "milestone_id": "SRCCTRL-M5",
-      "progress_percent": 20,
+      "progress_percent": 95,
       "depends_on": [
         "SRCCTRL-H3-002",
         "SRCCTRL-G4-005"
@@ -1261,7 +1434,9 @@
         "frontend-angular/src/app/features/codehug/services/code-compass.service.ts",
         "frontend-angular/src/app/features/codehug/models/codehug.models.ts",
         "frontend-angular/src/app/features/codehug/state/",
-        "agent/routes/codecompass_graph.py"
+        "agent/routes/codecompass_graph.py",
+        "frontend-angular/src/app/services/source-control-v1-api.client.ts",
+        "frontend-angular/src/app/models/source-control-v1-api.model.ts"
       ],
       "acceptance_criteria": [
         "CodeHug und Source Control Center verwenden denselben typisierten Index-, Graph-, Query- und Fehlervertrag.",
@@ -1271,7 +1446,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Ein CodeCompass-Cliententwurf existiert, ist aber nicht vertragskompatibel und mischt Reads mit Mutationen."
+      "status_basis": "CodeHug und Source Control Center verwenden denselben getrennten v1 Graph-, Query-, Artifact- und Lifecycle-Vertrag ohne simulierte Legacy-Routen. Contract-Tests und Angular-Typecheck wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-R6-001",
@@ -1281,7 +1456,7 @@
       "risk": "medium",
       "type": "operations",
       "milestone_id": "SRCCTRL-M6",
-      "progress_percent": 20,
+      "progress_percent": 90,
       "depends_on": [
         "SRCCTRL-H3-004",
         "SRCCTRL-G4-004"
@@ -1295,7 +1470,14 @@
         "agent/services/execution_audit_service.py",
         "agent/services/backend_observability_service.py",
         "agent/services/system_stats_service.py",
-        "docs/operations/"
+        "docs/operations/",
+        "agent/services/source_control_observability.py",
+        "docs/source-control-center-operations.md",
+        "tests/test_source_control_observability.py",
+        "agent/adapters/source_control_metrics_adapter.py",
+        "agent/services/source_control_runtime_observability.py",
+        "agent/routes/source_control_operations.py",
+        "tests/test_source_control_runtime_observability.py"
       ],
       "acceptance_criteria": [
         "Audit umfasst Create, Validate, Scan, Refresh, Index, Activate, Rollback, Grant, Deny, Approval, Disable und Purge.",
@@ -1305,7 +1487,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "GitOps- und allgemeine Observability-Bausteine existieren; Source-/Index-/Grant-Gesamtabdeckung fehlt."
+      "status_basis": "Produktive v1-Audit-, Prometheus-, Health- und Route-Deny-Composition sowie bounded Alarmzustände und Recovery-Runbook sind implementiert. Alarmzustellung, Produktionsmetriken und Recovery-Drills wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-R6-002",
@@ -1315,7 +1497,7 @@
       "risk": "critical",
       "type": "testing",
       "milestone_id": "SRCCTRL-M6",
-      "progress_percent": 40,
+      "progress_percent": 95,
       "depends_on": [
         "SRCCTRL-S0-001",
         "SRCCTRL-S0-002",
@@ -1333,7 +1515,16 @@
         "tests/test_codecompass_graph_api.py",
         "tests/test_context_access_security.py",
         "tests/security/",
-        "tests/contracts/"
+        "tests/contracts/",
+        "tests/test_source_control_contracts.py",
+        "tests/test_source_control_persistence.py",
+        "tests/test_source_control_v1_api.py",
+        "tests/test_source_control_api_runtime.py",
+        "tests/test_source_control_boundary_gate.py",
+        "tests/test_git_source_connectors.py",
+        "scripts/check_source_control_boundaries.py",
+        "tests/test_source_control_boundary_gate_extended.py",
+        "tests/test_source_control_integrity_hardening.py"
       ],
       "acceptance_criteria": [
         "Jeder Domain-Task liefert Unit-, Contract- und relevante Negativtests im selben Änderungsscope; dieses Task aggregiert nur das Release-Gate.",
@@ -1344,7 +1535,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Umfangreiche Legacy-, Job-, Artifact-, Graph-, GitOps- und Scanner-Tests existieren; die neue persistente Gesamtdomain fehlt."
+      "status_basis": "Vertikale Contract-, Persistenz-, Security-, Connector-, API-, Integrity-, CAS-/Replay-, Boundary- und Migrations-Testdefinitionen sind implementiert. Kein Test oder Gate wurde ausgeführt."
     },
     {
       "id": "SRCCTRL-R6-003",
@@ -1354,7 +1545,7 @@
       "risk": "high",
       "type": "testing",
       "milestone_id": "SRCCTRL-M6",
-      "progress_percent": 25,
+      "progress_percent": 90,
       "depends_on": [
         "SRCCTRL-U5-001",
         "SRCCTRL-S0-001"
@@ -1367,7 +1558,11 @@
         "frontend-angular/src/app/features/sources/",
         "frontend-angular/src/app/features/codehug/",
         "frontend-angular/src/app/features/context-access-policy/",
-        "frontend-angular/tests/"
+        "frontend-angular/tests/",
+        "frontend-angular/src/app/models/source-control-runtime-validators.ts",
+        "frontend-angular/src/app/models/source-control-runtime-validators.spec.ts",
+        "frontend-angular/tests/helpers/source-control-test-support.ts",
+        "frontend-angular/tests/source-control-vertical-test-support.spec.ts"
       ],
       "acceptance_criteria": [
         "Wizard, Tabelle, Detail, CodeCompass, Grants, Matrix und Policy-Lifecycle besitzen Component- und Contract-Tests.",
@@ -1378,17 +1573,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Sources- und CodeHug-Tests existieren teilweise; Context-Policy- und vollständige Accessibility-Abdeckung fehlen."
+      "status_basis": "Angular Contract-, Component-, Fehler-, Axe-, Fokus-, Tastatur- und Kontrast-Testdefinitionen verwenden den lokalen nichtproduktiven Test-Hub. Build, Typecheck und WCAG-AA-Gates wurden nicht ausgeführt."
     },
     {
       "id": "SRCCTRL-R6-004",
       "title": "Vertikale E2E-Flows für Workspace, GitHub, Governance und Rollback erstellen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "testing",
       "milestone_id": "SRCCTRL-M6",
-      "progress_percent": 0,
+      "progress_percent": 85,
       "depends_on": [
         "SRCCTRL-R6-002",
         "SRCCTRL-R6-003",
@@ -1401,7 +1596,9 @@
       "paths": [
         "frontend-angular/tests/",
         "scripts/e2e/",
-        "tests/fixtures/"
+        "tests/fixtures/",
+        "frontend-angular/tests/helpers/source-control-test-support.ts",
+        "frontend-angular/tests/source-control-vertical-test-support.spec.ts"
       ],
       "acceptance_criteria": [
         "Workspace-E2E deckt Auswahl, Scan, Revision, Index, Fortschritt, Graph und lokalen Grant ab.",
@@ -1412,17 +1609,17 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Vollständige Source-Control-Center-E2E-Flows fehlen."
+      "status_basis": "Deterministische Playwright-Journeys definieren Workspace-, GitHub-, Governance-, Approval-, Policy- und Rollback-Flows mit API-erfassten IDs. Sie wurden nicht ausgeführt und enthalten keinen echten Provider-/Produktionslauf."
     },
     {
       "id": "SRCCTRL-R6-005",
       "title": "Gestuften kompatiblen Rollout, Release-Gate und Dokumentation abschließen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "release",
       "milestone_id": "SRCCTRL-M6",
-      "progress_percent": 0,
+      "progress_percent": 90,
       "depends_on": [
         "SRCCTRL-R6-001",
         "SRCCTRL-R6-002",
@@ -1440,7 +1637,22 @@
         "docs/",
         "scripts/",
         "artifacts/test-gates/",
-        "README.md"
+        "README.md",
+        "agent/services/source_control_release_gate.py",
+        "agent/services/source_control_rollout_policy.py",
+        "scripts/check_source_control_release_gate.py",
+        "scripts/check_source_control_boundaries.py",
+        "artifacts/test-gates/source-control-center-release-gate-manifest.json",
+        "docs/source-control-center.md",
+        "docs/source-control-center-operations.md",
+        "tests/test_source_control_release_gate.py",
+        "tests/test_source_control_rollout_policy.py",
+        "scripts/source_control_container_smoke.py",
+        "scripts/source_control_control_center_harness.py",
+        "artifacts/test-gates/source-control-container-smoke-definition.json",
+        "artifacts/test-gates/source-control-load-recovery-definition.json",
+        "schemas/source-control/container-smoke-evidence.v1.json",
+        "schemas/source-control/control-center-load-evidence.v1.json"
       ],
       "acceptance_criteria": [
         "Rollout-Stufen sind Shadow Read-Model, persistente Sources, Workspace-Indexierung, lokale Grants, GitHub, Cloud-Grants und Legacy-Abschaltung.",
@@ -1452,7 +1664,7 @@
       ],
       "verification_state": "unverified",
       "evidence_refs": [],
-      "status_basis": "Ein gestufter Source-Control-Center-Rollout und ein grounded Release-Gate fehlen."
+      "status_basis": "Monotone Rolloutpolicy, content-freier Shadow-Vergleich, numerische Schwellen, Boundary-/Container- und Load-/Recovery-Harnesses sowie fail-closed Release-Gate sind implementiert. Gates, Harnesses, Performance, Produktion und organisatorische Freigabe bleiben unverified."
     }
   ],
   "critical_path_tasks": [
@@ -1486,13 +1698,13 @@
   "tasks_status_summary": {
     "total": 36,
     "by_status": {
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 29,
+      "partial": 22,
       "blocked": 0,
-      "done": 0
+      "done": 14
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 38.89,
     "by_priority": {
       "P0": 14,
       "P1": 21,
@@ -1501,94 +1713,84 @@
     "by_risk": {
       "critical": 17,
       "high": 15,
-      "medium": 4,
-      "low": 0
+      "medium": 4
     },
     "critical_path": {
       "total": 26,
-      "done": 0,
-      "remaining": 26
+      "done": 10,
+      "remaining": 16
     },
     "milestones": {
       "total": 7,
       "todo": 0,
       "in_progress": 0,
-      "partial": 7,
+      "partial": 6,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "tasks_type_summary": {
     "total": 36,
     "by_type": {
-      "security": 8,
       "architecture": 1,
-      "contract": 2,
-      "persistence": 2,
-      "migration": 1,
-      "connector": 4,
       "backend": 7,
+      "connector": 4,
+      "contract": 2,
       "frontend": 6,
+      "migration": 1,
       "operations": 1,
-      "testing": 3,
-      "release": 1
+      "persistence": 2,
+      "release": 1,
+      "security": 8,
+      "testing": 3
     }
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 7,
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 29,
+    "partial": 22,
     "blocked": 0,
-    "done": 0
+    "done": 14
   },
   "weighted_progress_summary": {
     "method": "arithmetic_mean_of_task_progress_percent",
-    "sum_progress_points": 805,
+    "sum_progress_points": 3455,
     "maximum_progress_points": 3600,
-    "progress_percent": 22.36
+    "progress_percent": 95.97
   },
   "execution_stage_summary": {
-    "current_stage": "security_and_contract_foundation",
+    "current_stage": "verification_external_evidence_and_release_approval",
     "parallel_fronts": [
       [
-        "SRCCTRL-S0-001",
-        "SRCCTRL-S0-002",
-        "SRCCTRL-S0-003",
-        "SRCCTRL-S0-004"
-      ],
-      [
-        "SRCCTRL-C1-002",
-        "SRCCTRL-C1-003"
-      ],
-      [
         "SRCCTRL-R6-002",
-        "SRCCTRL-R6-003"
+        "SRCCTRL-R6-003",
+        "SRCCTRL-R6-004"
+      ],
+      [
+        "SRCCTRL-R6-001",
+        "SRCCTRL-R6-005"
+      ],
+      [
+        "SRCCTRL-N2-003"
       ]
     ],
     "next_vertical_slice": [
-      "SRCCTRL-C1-001",
-      "SRCCTRL-D1-001",
-      "SRCCTRL-D1-003",
-      "SRCCTRL-N2-001",
-      "SRCCTRL-N2-002",
-      "SRCCTRL-N2-005",
-      "SRCCTRL-H3-001",
-      "SRCCTRL-H3-002",
-      "SRCCTRL-H3-003",
-      "SRCCTRL-U5-001",
-      "SRCCTRL-U5-002",
-      "SRCCTRL-U5-003"
+      "SRCCTRL-R6-002",
+      "SRCCTRL-R6-003",
+      "SRCCTRL-R6-004",
+      "SRCCTRL-R6-005"
     ]
   },
   "summary_notes": [
-    "Die alte categories/items/open-Struktur wurde auf den aktuellen Planning-Track-Vertrag mit kanonischem tasks[] umgestellt.",
-    "Die 54 horizontalen Aufgaben wurden zu 36 klarer abgegrenzten vertikalen Arbeitspaketen konsolidiert; alte IDs bleiben über legacy_task_refs nachvollziehbar.",
-    "44 pauschale P0-Aufgaben wurden auf 14 echte P0-Blocker reduziert.",
-    "29 Tasks sind aufgrund belegter vorhandener Bausteine partial; sieben echte Neuanfänge bleiben todo.",
-    "Security-Blocker werden vor Connector- und UX-Ausbau bearbeitet.",
-    "Tests sind Bestandteil jedes Domain-Tasks; die Release-Testtasks aggregieren Gates statt Tests erst am Ende einzuführen.",
-    "Technischer Fortschritt ist von Grounding und Release-Verifikation getrennt. Ohne bereitgestellte SRC_* und RUN_* IDs bleibt der Track unverified."
+    "Der finale Shared-Worktree wurde gegen den früheren 11-Punkte-A-Audit und die Abschlussberichte für Integrity, Security, Angular/E2E, Runtime-Adapter und Migration-Merge abgeglichen; es verbleibt keine selbst lösbare Code-, Vertrags- oder Testdefinitionslücke.",
+    "Vierzehn reine Implementierungspakete sind done. Zweiundzwanzig Pakete bleiben partial, weil mindestens ein explizites Test-, Build-, Typecheck-, Accessibility-, Harness-, Performance-, Live-Provider-, Produktions- oder Freigabekriterium nicht ausgeführt beziehungsweise nicht belegt ist.",
+    "Die kanonische v1-API besitzt produktive owner-/projektgebundene Kataloge, serverautoritative Connection-Intents, immutable Text-/Notebook-Revisionen, Graph/Query, persistente CodeHug-Governance und grant-/policy-/lease-/manifestgebundene Artefaktauslieferung.",
+    "Monotone Event-Outbox, wiederaufnehmbare Bulk-Leases und Target-Checkpoints, one-time Purge-Approvals, vollständige Purge-Blocker und ein identischer echter Policy-Snapshot-Digest schließen die früheren Integrity-Lücken im Source ab.",
+    "Angular- und Playwright-Flows sind implementiert und verwenden API-erfasste IDs sowie einen ausdrücklich nichtproduktiven lokalen Test-Hub; Angular-Build, Typecheck, Component-, Axe-, WCAG- und Playwright-Ausführung fehlen weiterhin.",
+    "Container-Smoke und Load-/Soak-/Recovery-Harness sind reproduzierbar definiert, wurden aber nicht ausgeführt; es werden keine Messwerte behauptet.",
+    "Ein echter GitHub-App-/OAuth-, externer Modell-/Provider- und Produktionslauf sowie organisatorische Baseline-Freigabe bleiben extern offen.",
+    "verification_policy enthält weiterhin keine SRC_* oder RUN_* IDs und keine Evidence-Refs. Production-Verifikation bleibt unverified und release_allowed=false."
   ],
   "end_summaries": [
     {
@@ -1607,14 +1809,21 @@
       "summary_id": "SRCCTRL-END-002",
       "title": "Definition of Done",
       "items": [
-        "Ein berechtigter Nutzer kann Workspace, erlaubtes Verzeichnis, GitHub, registriertes Git, Open Notebook, Wiki oder Text als SourceConnection anlegen.",
+        "Ein berechtigter Nutzer kann registrierte Workspaces, erlaubte relative Verzeichnisse, GitHub, registriertes Git, Direct Text, Notebook, Wiki und bestehende Quellen als SourceConnection anlegen.",
         "Jede Connection besitzt unveränderliche Revisionen, Admission, revisionsgebundene Index-Runs, genau einen konsistenten Active-Index und nachvollziehbaren Stale-Status.",
         "Jede Datenbewegung wird gegen reale SourceRevision, Worker, Runtime, Provider, Modell, Standort, Operation und Transformation serverseitig entschieden.",
         "Angular zeigt reale Hub-Zustände und kann weder Sicherheitsmetadaten behaupten noch Fehler als erfolgreiche Fallbackpolicy darstellen.",
-        "Hub-Worker-Grenze, Tenant-/Projektisolation, OCC, Audit, Retention, Rollback und sichere Purge-Semantik sind automatisiert abgedeckt.",
-        "Contract-, Security-, Migration-, Backend-, Angular-, E2E-, Accessibility- und Keine-Bypass-Gates sind reproduzierbar.",
-        "Ein Release wird erst mit gültiger externer Evidence verifiziert; bis dahin bleibt release_allowed=false."
+        "Hub-Worker-Grenze, Tenant-/Projektisolation, OCC, Audit, Retention, Rollback und sichere Purge-Semantik besitzen reproduzierbare Testdefinitionen.",
+        "Contract-, Security-, Migration-, Backend-, Angular-, E2E-, Accessibility-, Container-, Load-/Recovery- und Keine-Bypass-Gates müssen noch ausgeführt werden.",
+        "Ein Release wird erst mit gültiger externer Evidence und organisatorischer Freigabe verifiziert; bis dahin bleibt release_allowed=false."
       ]
     }
-  ]
+  ],
+  "summary_recalculation_status": "recalculated",
+  "derived_summary_metadata": {
+    "source_of_truth": "tasks",
+    "recalculated_at": "2026-07-30",
+    "verification_state": "unverified",
+    "release_allowed": false
+  }
 }
