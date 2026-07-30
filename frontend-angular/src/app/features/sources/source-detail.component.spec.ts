@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { vi } from 'vitest';
 
 import { SourceDetailComponent } from './source-detail.component';
 import { SourceDetailFacade } from './source-detail.facade';
@@ -107,18 +108,18 @@ describe('SourceDetailComponent', () => {
     auditLoading: signal(false),
     auditError: signal(null),
     auditEvents: signal([]),
-    load: jasmine.createSpy('load'),
-    loadGraph: jasmine.createSpy('loadGraph'),
-    loadAudit: jasmine.createSpy('loadAudit'),
-    can: jasmine.createSpy('can').and.returnValue(true),
-    startIndex: jasmine.createSpy('startIndex'),
-    activateIndex: jasmine.createSpy('activateIndex'),
-    rollbackIndex: jasmine.createSpy('rollbackIndex'),
-    createGrant: jasmine.createSpy('createGrant'),
-    revokeGrant: jasmine.createSpy('revokeGrant'),
-    refresh: jasmine.createSpy('refresh'),
-    scan: jasmine.createSpy('scan'),
-    disable: jasmine.createSpy('disable'),
+    load: vi.fn(),
+    loadGraph: vi.fn(),
+    loadAudit: vi.fn(),
+    can: vi.fn(() => true),
+    startIndex: vi.fn(),
+    activateIndex: vi.fn(),
+    rollbackIndex: vi.fn(),
+    createGrant: vi.fn(),
+    revokeGrant: vi.fn(),
+    refresh: vi.fn(),
+    scan: vi.fn(),
+    disable: vi.fn(),
   };
 
   beforeEach(async () => {
@@ -134,7 +135,7 @@ describe('SourceDetailComponent', () => {
       facade.refresh,
       facade.scan,
       facade.disable,
-    ].forEach((spy) => spy.calls.reset());
+    ].forEach((spy) => spy.mockClear());
 
     await TestBed.configureTestingModule({
       imports: [SourceDetailComponent],
@@ -156,7 +157,7 @@ describe('SourceDetailComponent', () => {
   });
 
   it('loads the route-bound source and exposes keyboard-operable tabs', () => {
-    expect(facade.load).toHaveBeenCalledOnceWith(connectionId);
+    expect(facade.load).toHaveBeenCalledWith(connectionId);
     const tabs = fixture.nativeElement.querySelectorAll('[role="tab"]') as NodeListOf<HTMLButtonElement>;
     tabs[0].focus();
     tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
@@ -175,9 +176,9 @@ describe('SourceDetailComponent', () => {
     (fixture.nativeElement.querySelector('[data-testid="index-activate"]') as HTMLButtonElement).click();
     (fixture.nativeElement.querySelector('[data-testid="index-rollback"]') as HTMLButtonElement).click();
 
-    expect(facade.startIndex).toHaveBeenCalledOnceWith('profile-default');
-    expect(facade.activateIndex).toHaveBeenCalledOnceWith(indexId);
-    expect(facade.rollbackIndex).toHaveBeenCalledOnceWith(indexId);
+    expect(facade.startIndex).toHaveBeenCalledWith('profile-default');
+    expect(facade.activateIndex).toHaveBeenCalledWith(indexId);
+    expect(facade.rollbackIndex).toHaveBeenCalledWith(indexId);
   });
 
   it('passes explicit policy inputs to grant creation and revokes the server grant', () => {
@@ -192,13 +193,13 @@ describe('SourceDetailComponent', () => {
     (fixture.nativeElement.querySelector('[data-testid="grant-create"]') as HTMLButtonElement).click();
     (fixture.nativeElement.querySelector('[data-testid="grant-revoke"]') as HTMLButtonElement).click();
 
-    expect(facade.createGrant).toHaveBeenCalledOnceWith({
+    expect(facade.createGrant).toHaveBeenCalledWith({
       destinationId: 'hub-destination-primary',
       policyId: 'policy-primary',
       policyEtag: '"policy-etag"',
       presetId: 'preset-read',
       durationSeconds: 900,
     });
-    expect(facade.revokeGrant).toHaveBeenCalledOnceWith(grantId);
+    expect(facade.revokeGrant).toHaveBeenCalledWith(grantId);
   });
 });

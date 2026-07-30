@@ -30,7 +30,7 @@ describe('source-control v1 projection contract', () => {
     );
 
     expect(parsed.connection.project_id).toBe('project-example');
-    expect('tenant_id' in parsed.connection).toBeFalse();
+    expect('tenant_id' in parsed.connection).toBeFalsy();
   });
 
   it('fails closed when project is absent or tenant is projected', () => {

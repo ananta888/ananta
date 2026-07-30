@@ -54,48 +54,13 @@ def _construct(adapter_type, resolver):
 
 
 def _read_inventory(adapter) -> LegacyMigrationInventory:
-    preferred = (
-        "read_inventory",
-        "load_inventory",
-        "snapshot",
-        "read",
-        "load",
+    result = adapter.load_inventory(
+        tenant_id="tenant-example",
+        project_id="project-example",
+        owner_id="owner-example",
     )
-    names = [
-        *preferred,
-        *(
-            name
-            for name, member in inspect.getmembers(
-                adapter,
-                predicate=callable,
-            )
-            if not name.startswith("_")
-            and name not in preferred
-            and any(
-                token in name
-                for token in ("inventory", "snapshot", "read", "load")
-            )
-        ),
-    ]
-    for name in names:
-        method = getattr(adapter, name, None)
-        if method is None:
-            continue
-        signature = inspect.signature(method)
-        if any(
-            parameter.default is inspect.Parameter.empty
-            and parameter.kind
-            not in {
-                inspect.Parameter.VAR_POSITIONAL,
-                inspect.Parameter.VAR_KEYWORD,
-            }
-            for parameter in signature.parameters.values()
-        ):
-            continue
-        result = method()
-        if isinstance(result, LegacyMigrationInventory):
-            return result
-    raise AssertionError("composed adapter has no public inventory reader")
+    assert isinstance(result, LegacyMigrationInventory)
+    return result
 
 
 def test_concrete_readers_compose_empty_inventory_without_mutation(

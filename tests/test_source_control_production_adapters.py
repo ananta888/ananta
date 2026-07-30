@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from agent.db_models import AgentInfoDB, KnowledgeIndexDB, KnowledgeIndexRunDB
+from agent.db_models.context_policy_lifecycle import ContextPolicyVersionDB
 from agent.db_models.source_control import (
     KnowledgeIndexRunSourceBindingDB,
     KnowledgeIndexSourceBindingDB,
@@ -21,6 +22,7 @@ from agent.services.source_control_production_adapters import (
     ScopedWorkerModelDestinationCatalog,
     SourceControlProductionAdapterError,
     build_scoped_effective_access_service,
+    derive_policy_snapshot_id,
 )
 from agent.services.source_control_projection_service import (
     SourceControlPrincipal,
@@ -116,6 +118,14 @@ def test_destination_catalog_requires_server_scope_and_model_evidence() -> None:
 
 def test_effective_access_uses_scoped_destination_and_persistent_grant() -> None:
     engine = _engine()
+    policy_digest = "9" * 64
+    policy_snapshot_id = derive_policy_snapshot_id(
+        tenant_id="tenant-example",
+        project_id="project-example",
+        policy_id="policy-example",
+        version=1,
+        policy_digest=policy_digest,
+    )
     with Session(engine) as db:
         db.add(
             AgentInfoDB(
@@ -173,6 +183,23 @@ def test_effective_access_uses_scoped_destination_and_persistent_grant() -> None
                 captured_at_epoch=1.0,
             )
         )
+        db.add(
+            ContextPolicyVersionDB(
+                record_id=policy_snapshot_id,
+                tenant_id="tenant-example",
+                project_id="project-example",
+                policy_id="policy-example",
+                version=1,
+                state="active",
+                document_json={"policy_id": "policy-example", "version": 1},
+                policy_digest=policy_digest,
+                etag=policy_digest,
+                created_by="owner-example",
+                created_at="2026-01-01T00:00:00Z",
+                updated_by="owner-example",
+                updated_at="2026-01-01T00:00:00Z",
+            )
+        )
         db.commit()
     destinations = ScopedWorkerModelDestinationCatalog(
         engine=engine,
@@ -199,7 +226,8 @@ def test_effective_access_uses_scoped_destination_and_persistent_grant() -> None
                 operation=GrantOperation.INDEX.value,
                 transformation=GrantTransformation.REDACTED.value,
                 purpose="code-review",
-                policy_version="policy-example-v1",
+                policy_version=policy_snapshot_id,
+                policy_snapshot_digest=policy_digest,
                 state="active",
                 issued_at_epoch=1.0,
                 expires_at_epoch=4_102_444_800.0,

@@ -45,8 +45,10 @@ def _seed_active_grant(engine, grant_id):
             values[name] = grant_id
         elif name == "state":
             values[name] = "active"
-        elif name == "expires_at":
-            values[name] = NOW + timedelta(minutes=5)
+        elif name == "expires_at_epoch":
+            values[name] = (NOW + timedelta(minutes=5)).timestamp()
+        elif name in {"issued_at_epoch", "updated_at_epoch"}:
+            values[name] = NOW.timestamp()
         elif name.endswith("_at"):
             values[name] = NOW
         elif name in {"version", "grant_version", "lock_version"}:
@@ -80,6 +82,8 @@ def _seed_active_grant(engine, grant_id):
                 values[name] = False
             elif isinstance(column.type, sa.Integer):
                 values[name] = 1
+            elif isinstance(column.type, sa.Float):
+                values[name] = NOW.timestamp()
             elif isinstance(column.type, sa.DateTime):
                 values[name] = NOW
             else:

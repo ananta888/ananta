@@ -369,3 +369,38 @@ def test_default_cache_gc_task_persists_only_system_identity_and_scope_digest() 
         assert principal.tenant_id not in persisted
         assert principal.subject not in persisted
         assert profile_id not in persisted
+
+
+def test_retry_all_pending_coalesces_scope_audits_into_one_content_free_batch() -> None:
+    events: list[tuple[str, dict]] = []
+    service = VoiceRuntimeCleanupService(
+        codec=_TestCodec(),
+        restricted_cache_gc=lambda _principal, _request_id: None,
+        audit_sink=lambda event, details: events.append((event, details)),
+    )
+    for suffix in ("a", "b"):
+        service.stage_cache_gc(
+            VoicePrincipal(
+                tenant_id=f"batch-tenant-{suffix}",
+                subject=f"batch-owner-{suffix}",
+            ),
+            profile_id=f"batch-profile-{suffix}",
+            operation="profile_delete",
+        )
+
+    assert service.retry_all_pending() == 2
+    assert events == [
+        (
+            "voice_runtime_cleanup_batch_processed",
+            {
+                "scope_count": 2,
+                "attempted_count": 2,
+                "succeeded_count": 2,
+                "failed_count": 0,
+                "pending_scope_count": 0,
+            },
+        )
+    ]
+    assert "batch-tenant" not in str(events)
+    assert "batch-owner" not in str(events)
+    assert "batch-profile" not in str(events)

@@ -264,6 +264,17 @@ def test_effective_policy_uses_real_snapshot_digest_and_rejects_tamper() -> None
                 updated_at="2026-01-01T00:00:00Z",
             )
         )
+        destination = DestinationDescriptor.create(
+            worker_id="worker-example",
+            worker_kind="llm",
+            runtime_id="runtime-example",
+            runtime_kind="remote_api",
+            provider_id="provider-example",
+            model_id="model-example",
+            model_class="model-class-example",
+            provider_location=ProviderLocation.EXTERNAL_REGION,
+            data_residency="region-example",
+        )
         db.add(
             SourceAccessGrantDB(
                 grant_id="grant-example",
@@ -273,7 +284,7 @@ def test_effective_policy_uses_real_snapshot_digest_and_rejects_tamper() -> None
                 project_id="project-example",
                 owner_id="actor-example",
                 source_revision_id="revision-example",
-                destination_id="destination-example",
+                destination_id=destination.destination_id,
                 operation="index",
                 transformation="redacted",
                 purpose="knowledge-index",
@@ -294,17 +305,6 @@ def test_effective_policy_uses_real_snapshot_digest_and_rejects_tamper() -> None
         source_type="workspace",
         sensitivity="project_internal",
         revision_digest="a" * 64,
-    )
-    destination = DestinationDescriptor.create(
-        worker_id="worker-example",
-        worker_kind="llm",
-        runtime_id="runtime-example",
-        runtime_kind="remote_api",
-        provider_id="provider-example",
-        model_id="model-example",
-        model_class="model-class-example",
-        provider_location=ProviderLocation.EXTERNAL_REGION,
-        data_residency="region-example",
     )
     policy = PersistentGrantEffectivePolicy(engine, clock=lambda: 200.0)
 

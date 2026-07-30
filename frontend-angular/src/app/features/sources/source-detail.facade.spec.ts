@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
+import { vi } from 'vitest';
 
 import { SourceControlV1ApiClient } from '../../services/source-control-v1-api.client';
 import { SourceControlV1GovernanceApiClient } from '../../services/source-control-v1-governance-api.client';
@@ -10,149 +11,138 @@ describe('SourceDetailFacade', () => {
   const revisionId = `srev_${'2'.repeat(64)}`;
   const indexId = `idx_${'3'.repeat(64)}`;
   const grantId = `grant_${'4'.repeat(64)}`;
+  const connectionEtag = '9'.repeat(64);
+  const indexEtag = '8'.repeat(64);
+  const grantEtag = '7'.repeat(64);
+  const policyEtag = '6'.repeat(64);
 
-  const core = jasmine.createSpyObj<SourceControlV1ApiClient>('SourceControlV1ApiClient', [
-    'getConnection',
-    'listRuns',
-    'startIndexRun',
-    'activateIndex',
-    'rollbackIndex',
-    'loadGraph',
-    'listEvents',
-    'refreshConnection',
-    'scanConnection',
-    'disableConnection',
-  ]);
-  const governance = jasmine.createSpyObj<SourceControlV1GovernanceApiClient>(
-    'SourceControlV1GovernanceApiClient',
-    [
-      'listIndexProfiles',
-      'listGrantPresets',
-      'listGrants',
-      'createGrant',
-      'revokeGrant',
-    ],
-  );
+  const getConnection = vi.fn();
+  const listRuns = vi.fn();
+  const startIndexRun = vi.fn();
+  const activateIndex = vi.fn();
+  const rollbackIndex = vi.fn();
+  const core = {
+    getConnection,
+    listRuns,
+    startIndexRun,
+    activateIndex,
+    rollbackIndex,
+    loadGraph: vi.fn(),
+    listEvents: vi.fn(),
+    refreshConnection: vi.fn(),
+    scanConnection: vi.fn(),
+    disableConnection: vi.fn(),
+  };
+
+  const listIndexProfiles = vi.fn();
+  const listGrantPresets = vi.fn();
+  const listGrants = vi.fn();
+  const createGrant = vi.fn();
+  const revokeGrant = vi.fn();
+  const governance = {
+    listIndexProfiles,
+    listGrantPresets,
+    listGrants,
+    createGrant,
+    revokeGrant,
+  };
 
   beforeEach(() => {
-    Object.values(core).forEach((candidate) => {
-      if (candidate && typeof candidate === 'function' && 'calls' in candidate) {
-        (candidate as jasmine.Spy).calls.reset();
-      }
-    });
-    Object.values(governance).forEach((candidate) => {
-      if (candidate && typeof candidate === 'function' && 'calls' in candidate) {
-        (candidate as jasmine.Spy).calls.reset();
-      }
-    });
-
-    core.getConnection.and.returnValue(
-      of({
-        etag: '"connection-etag"',
-        projection: {
+    vi.clearAllMocks();
+    getConnection.mockReturnValue(of({
+      etag: connectionEtag,
+      projection: {
+        schema: 'ananta.source-control.projection.v1',
+        connection_id: connectionId,
+        etag: connectionEtag,
+        connection: {
           connection_id: connectionId,
-          connection: {
-            connection_id: connectionId,
-            project_id: 'project-alpha',
-            display_name: 'Primary source',
-            connector_type: 'direct_text',
-            state: 'ready',
-          },
-          revision: {
-            source_revision_id: revisionId,
-            revision_digest: `sha256:${'a'.repeat(64)}`,
-            captured_at: '2026-07-30T10:00:00Z',
-          },
-          admission: { state: 'admitted' },
-          grants: [{ grant_id: 'legacy-projection-grant-must-not-win' }],
-          next_actions: ['index', 'activate', 'rollback'],
-          stale: false,
+          project_id: 'project-alpha',
+          display_name: 'Primary source',
+          connector_type: 'direct_text',
+          state: 'ready',
         },
-      } as never),
-    );
-    core.listRuns.and.returnValue(
-      of({
-        items: [
-          {
-            knowledge_index_id: indexId,
-            status: 'ready',
-            etag: '"index-etag"',
-            coverage: { percent: 100 },
-            created_at: '2026-07-30T10:01:00Z',
-            updated_at: '2026-07-30T10:02:00Z',
-          },
-        ],
-        active: null,
-        next_cursor: null,
-      } as never),
-    );
-    core.startIndexRun.and.returnValue(of({ accepted: true } as never));
-    core.activateIndex.and.returnValue(of({ accepted: true } as never));
-    core.rollbackIndex.and.returnValue(of({ accepted: true } as never));
+        revision: {
+          source_revision_id: revisionId,
+          revision_digest: 'a'.repeat(64),
+          captured_at: '2026-07-30T10:00:00Z',
+        },
+        admission: { state: 'admitted' },
+        index: null,
+        active_index: null,
+        grants: [{ grant_id: 'legacy-projection-grant-must-not-win' }],
+        health: {},
+        next_actions: ['index', 'activate', 'rollback'],
+        stale: false,
+      },
+    }));
+    listRuns.mockReturnValue(of({
+      items: [{
+        knowledge_index_id: indexId,
+        source_revision_id: revisionId,
+        status: 'ready',
+        etag: indexEtag,
+        coverage: { percent: 100 },
+        created_at: '2026-07-30T10:01:00Z',
+        updated_at: '2026-07-30T10:02:00Z',
+      }],
+      active: null,
+      next_cursor: null,
+    }));
+    startIndexRun.mockReturnValue(of({ accepted: true }));
+    activateIndex.mockReturnValue(of({ accepted: true }));
+    rollbackIndex.mockReturnValue(of({ accepted: true }));
 
-    governance.listIndexProfiles.and.returnValue(
-      of({
-        items: [
-          {
-            profile_id: 'profile-default',
-            label: 'Default',
-            description: 'Default profile',
-            is_default: true,
-            capabilities: [],
-          },
-        ],
-        next_cursor: null,
-        capabilities: [],
-      }),
-    );
-    governance.listGrantPresets.and.returnValue(
-      of({
+    listIndexProfiles.mockReturnValue(of({
+      items: [{
+        profile_id: 'profile-default',
+        label: 'Default',
+        description: 'Default profile',
+        is_default: true,
+        capabilities: {},
+      }],
+      next_cursor: null,
+      capabilities: {},
+    }));
+    listGrantPresets.mockReturnValue(of({
+      items: [{
         schema: 'ananta.source-control.grant-preset.v1',
-        items: [
-          {
-            schema: 'ananta.source-control.grant-preset.v1',
-            preset_id: 'preset-read',
-            label: 'Read',
-            description: 'Read-only context',
-            operation: 'read',
-            transformation: 'none',
-            purpose: 'analysis',
-            max_duration_seconds: 1800,
-          },
-        ],
-        next_cursor: null,
-        capabilities: [],
-      } as never),
-    );
-    governance.listGrants.and.returnValue(
-      of({
-        schema: 'ananta.source-control.grant-admin-list.v1',
-        items: [
-          {
-            schema: 'ananta.source-control.grant-admin-item.v1',
-            grant_id: grantId,
-            grant_family_id: `grantfam_${'5'.repeat(64)}`,
-            version: 1,
-            source_revision_id: revisionId,
-            destination_id: 'hub-destination-primary',
-            preset_id: 'preset-read',
-            operation: 'read',
-            transformation: 'none',
-            purpose: 'analysis',
-            policy_version: 7,
-            state: 'active',
-            issued_at: '2026-07-30T10:00:00Z',
-            expires_at: '2026-07-30T10:30:00Z',
-            expired: false,
-            etag: '"grant-etag"',
-          },
-        ],
-        next_cursor: null,
-        capabilities: [],
-      } as never),
-    );
-    governance.createGrant.and.returnValue(of({} as never));
-    governance.revokeGrant.and.returnValue(of({} as never));
+        preset_id: 'preset-read',
+        label: 'Read',
+        description: 'Read-only context',
+        operation: 'read',
+        transformation: 'none',
+        purpose: 'analysis',
+        max_duration_seconds: 1800,
+      }],
+      next_cursor: null,
+      capabilities: {},
+    }));
+    listGrants.mockReturnValue(of({
+      schema: 'ananta.source-control.grant-admin-list.v1',
+      items: [{
+        schema: 'ananta.source-control.grant-admin-item.v1',
+        grant_id: grantId,
+        grant_family_id: `grantfam_${'5'.repeat(64)}`,
+        version: 1,
+        source_revision_id: revisionId,
+        destination_id: 'hub-destination-primary',
+        preset_id: 'preset-read',
+        operation: 'read',
+        transformation: 'none',
+        purpose: 'analysis',
+        policy_version: 'policy-primary:7',
+        state: 'active',
+        issued_at: '2026-07-30T10:00:00Z',
+        expires_at: '2026-07-30T10:30:00Z',
+        expired: false,
+        etag: grantEtag,
+      }],
+      next_cursor: null,
+      capabilities: {},
+    }));
+    createGrant.mockReturnValue(of({}));
+    revokeGrant.mockReturnValue(of({}));
 
     TestBed.configureTestingModule({
       providers: [
@@ -168,12 +158,12 @@ describe('SourceDetailFacade', () => {
 
     facade.load(connectionId);
 
-    expect(governance.listIndexProfiles).toHaveBeenCalledOnceWith('project-alpha');
-    expect(governance.listGrantPresets).toHaveBeenCalledOnceWith('project-alpha');
-    expect(governance.listGrants).toHaveBeenCalledOnceWith('project-alpha');
+    expect(listIndexProfiles).toHaveBeenCalledWith('project-alpha');
+    expect(listGrantPresets).toHaveBeenCalledWith('project-alpha');
+    expect(listGrants).toHaveBeenCalledWith('project-alpha');
     expect(facade.grants()[0]?.grantId).toBe(grantId);
-    expect(facade.grants().some((grant) => grant.grantId.includes('legacy'))).toBeFalse();
-    expect(facade.runs()[0]?.etag).toBe('"index-etag"');
+    expect(facade.grants().some((grant) => grant.grantId.includes('legacy'))).toBeFalsy();
+    expect(facade.runs()[0]?.etag).toBe(indexEtag);
   });
 
   it('starts, activates and rolls back only server-listed index resources with their ETags', () => {
@@ -181,32 +171,26 @@ describe('SourceDetailFacade', () => {
     facade.load(connectionId);
 
     facade.startIndex('profile-default');
-    expect(core.startIndexRun).toHaveBeenCalledWith(
+    expect(startIndexRun).toHaveBeenCalledWith(
       connectionId,
       'profile-default',
-      jasmine.objectContaining({
-        etag: '"connection-etag"',
-        idempotencyKey: jasmine.stringMatching(/^ui:index:start:/),
-      }),
+      {
+        etag: connectionEtag,
+        idempotencyKey: expect.stringMatching(/^ui:index:start:/),
+      },
     );
 
     facade.activateIndex(indexId);
-    expect(core.activateIndex).toHaveBeenCalledWith(
-      indexId,
-      jasmine.objectContaining({
-        etag: '"index-etag"',
-        idempotencyKey: jasmine.stringMatching(/^ui:index:activate:/),
-      }),
-    );
+    expect(activateIndex).toHaveBeenCalledWith(indexId, {
+      etag: indexEtag,
+      idempotencyKey: expect.stringMatching(/^ui:index:activate:/),
+    });
 
     facade.rollbackIndex(indexId);
-    expect(core.rollbackIndex).toHaveBeenCalledWith(
-      indexId,
-      jasmine.objectContaining({
-        etag: '"index-etag"',
-        idempotencyKey: jasmine.stringMatching(/^ui:index:rollback:/),
-      }),
-    );
+    expect(rollbackIndex).toHaveBeenCalledWith(indexId, {
+      etag: indexEtag,
+      idempotencyKey: expect.stringMatching(/^ui:index:rollback:/),
+    });
   });
 
   it('creates and revokes grants with policy/grant CAS and no browser-invented source IDs', () => {
@@ -218,10 +202,10 @@ describe('SourceDetailFacade', () => {
       policyId: 'policy-primary',
       presetId: 'preset-read',
       durationSeconds: 900,
-      policyEtag: '"policy-etag"',
+      policyEtag,
     });
 
-    expect(governance.createGrant).toHaveBeenCalledWith(
+    expect(createGrant).toHaveBeenCalledWith(
       'project-alpha',
       {
         source_revision_id: revisionId,
@@ -230,17 +214,21 @@ describe('SourceDetailFacade', () => {
         preset_id: 'preset-read',
         duration_seconds: 900,
       },
-      '"policy-etag"',
-      jasmine.stringMatching(/^ui:grant:create:/),
+      {
+        etag: policyEtag,
+        idempotencyKey: expect.stringMatching(/^ui:grant:create:/),
+      },
     );
 
     facade.revokeGrant(grantId);
-    expect(governance.revokeGrant).toHaveBeenCalledWith(
+    expect(revokeGrant).toHaveBeenCalledWith(
       'project-alpha',
       grantId,
-      { reason_code: 'operator_revoked' },
-      '"grant-etag"',
-      jasmine.stringMatching(/^ui:grant:revoke:/),
+      'operator_revoked',
+      {
+        etag: grantEtag,
+        idempotencyKey: expect.stringMatching(/^ui:grant:revoke:/),
+      },
     );
   });
 
@@ -255,11 +243,11 @@ describe('SourceDetailFacade', () => {
       policyId: 'policy-primary',
       presetId: 'browser-invented-preset',
       durationSeconds: 900,
-      policyEtag: '"policy-etag"',
+      policyEtag,
     });
 
-    expect(core.startIndexRun).not.toHaveBeenCalled();
-    expect(core.activateIndex).not.toHaveBeenCalled();
-    expect(governance.createGrant).not.toHaveBeenCalled();
+    expect(startIndexRun).not.toHaveBeenCalled();
+    expect(activateIndex).not.toHaveBeenCalled();
+    expect(createGrant).not.toHaveBeenCalled();
   });
 });

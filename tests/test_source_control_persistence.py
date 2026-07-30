@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime
 
 import pytest
 from sqlmodel import SQLModel, create_engine
@@ -14,6 +14,7 @@ from agent.db_models.source_control import (
     SourceAccessGrantAuditDB,
     SourceAccessGrantDB,
     SourceConnectionDB,
+    SourceControlJobEventOutboxDB,
     SourceRevisionDB,
 )
 from agent.repositories.source_control_repository import (
@@ -37,6 +38,7 @@ TABLES = [
     SourceRevisionDB.__table__,
     SourceAccessGrantDB.__table__,
     SourceAccessGrantAuditDB.__table__,
+    SourceControlJobEventOutboxDB.__table__,
     KnowledgeIndexSourceBindingDB.__table__,
     KnowledgeIndexRunSourceBindingDB.__table__,
     ActiveKnowledgeIndexDB.__table__,

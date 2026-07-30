@@ -9,6 +9,9 @@ from types import SimpleNamespace
 import pytest
 from jsonschema import Draft202012Validator
 
+from agent.services.codecompass_graph_artifact_resolver import (
+    CodeCompassGraphArtifactResolver,
+)
 from agent.services.knowledge_index_job_service import KnowledgeIndexJobService
 from agent.services.knowledge_index_worker_artifact_service import (
     KnowledgeIndexWorkerArtifactService,
@@ -508,6 +511,13 @@ def test_hub_worker_graph_artifact_flow_crosses_only_artifact_port(
     monkeypatch.setattr(
         "agent.routes.codecompass_graph._knowledge_index_repo",
         lambda: index_repository,
+    )
+    monkeypatch.setattr(
+        "agent.routes.codecompass_graph.get_codecompass_graph_artifact_resolver",
+        lambda: CodeCompassGraphArtifactResolver(
+            artifact_root=hub_output,
+            allow_legacy=False,
+        ),
     )
     monkeypatch.setattr(
         "worker.retrieval.codecompass_graph_metrics.compute_graph_metrics",

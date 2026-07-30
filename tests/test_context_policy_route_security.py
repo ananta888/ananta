@@ -11,7 +11,10 @@ from agent.routes.context_policy import context_policy_bp
 
 def _app() -> Flask:
     app = Flask(__name__)
-    app.config.update(TESTING=True, AGENT_TOKEN=None)
+    app.config.update(
+        TESTING=True,
+        AGENT_TOKEN="test-agent-token-with-sufficient-length-1234567890",
+    )
     app.register_blueprint(context_policy_bp)
     return app
 
@@ -22,13 +25,26 @@ def _headers(role: str) -> dict[str, str]:
             "sub": f"{role}-operator",
             "role": role,
             "tenant_id": "tenant-a",
+            "project_id": "project-a",
         },
         settings.secret_key,
     )
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_context_policy_management_is_fail_closed_admin_only() -> None:
+def test_context_policy_management_is_fail_closed_admin_only(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "agent.routes.context_policy.policy_service",
+        SimpleNamespace(
+            get_latest_policy=lambda _policy_id: SimpleNamespace(
+                tenant_id="tenant-a",
+                project_id="project-a",
+                owner_id="user-operator",
+            )
+        ),
+    )
     client = _app().test_client()
     requests = (
         ("get", "/api/context-policy/policies", None),

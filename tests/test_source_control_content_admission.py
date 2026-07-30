@@ -3,6 +3,7 @@ from __future__ import annotations
 from sqlmodel import Session, SQLModel, create_engine, select
 from sqlalchemy.pool import StaticPool
 
+import agent.services.source_control_content_admission as content_admission
 from agent.db_models.source_control import (
     SourceConnectionDB,
     SourceControlContentDB,
@@ -79,7 +80,7 @@ def test_direct_text_preview_and_admission_are_bounded_and_idempotent() -> None:
     assert preview["preview"]["source_type"] == "direct_text"
     assert preview["preview"]["capabilities"] == {
         "immutable_revision": True,
-        "raw_paths_accepted": False,
+        "raw_location_inputs_accepted": False,
         "browser_ids_accepted": False,
         "binary_content_accepted": False,
         "secret_content_accepted": False,
@@ -132,13 +133,20 @@ def test_content_admission_rejects_client_ids_paths_binary_and_secrets() -> None
         raise AssertionError(f"payload unexpectedly admitted: {payload!r}")
 
 
-def test_notebook_accepts_text_outputs_and_rejects_rich_outputs() -> None:
+def test_notebook_accepts_text_outputs_and_rejects_rich_outputs(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        content_admission.settings,
+        "codecompass_max_notebook_output_bytes",
+        1_024,
+    )
     _, service = _service()
     valid = {
         "project_id": _PROJECT,
         "source_type": "notebook",
         "display_name": "Analysis",
-        "sensitivity": "confidential",
+        "sensitivity": "internal",
         "notebook": {
             "cells": [
                 {

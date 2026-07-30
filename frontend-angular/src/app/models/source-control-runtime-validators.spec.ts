@@ -101,7 +101,7 @@ describe('versioned source-control runtime validators', () => {
   it('accepts every schema-v1 artifact without adding or rewriting fields', () => {
     for (const artifact of artifacts) {
       const result = validateSourceControlArtifact(artifact);
-      expect(result.valid).withContext(artifact.schema).toBeTrue();
+      expect(result.valid).withContext(artifact.schema).toBeTruthy();
       if (result.valid) expect(result.value).toBe(artifact);
     }
   });
@@ -109,32 +109,38 @@ describe('versioned source-control runtime validators', () => {
   it('enforces additionalProperties=false for every versioned artifact', () => {
     for (const artifact of artifacts) {
       const result = validateSourceControlArtifact({ ...artifact, local_default: true });
-      expect(result.valid).withContext(artifact.schema).toBeFalse();
-      if (!result.valid) expect(result.issues.some((issue) => issue.code === 'additional_property')).toBeTrue();
+      expect(result.valid).withContext(artifact.schema).toBeFalsy();
+      if (!result.valid) expect(result.issues.some((issue) => issue.code === 'additional_property')).toBeTruthy();
     }
   });
 
   it('does not fill missing required fields with local defaults', () => {
     const { authority: _authority, ...missingAuthority } = artifacts[0];
     const result = validateSourceControlArtifact(missingAuthority, SOURCE_CONNECTION_V1_SCHEMA);
-    expect(result.valid).toBeFalse();
-    expect('authority' in missingAuthority).toBeFalse();
-    if (!result.valid) expect(result.issues).toContain(jasmine.objectContaining({ path: '$.authority', code: 'required' }));
+    expect(result.valid).toBeFalsy();
+    expect('authority' in missingAuthority).toBeFalsy();
+    if (!result.valid) {
+      expect(
+        result.issues.some(
+          (issue) => issue.path === '$.authority' && issue.code === 'required',
+        ),
+      ).toBeTruthy();
+    }
   });
 
   it('rejects schema constants, identifier patterns and enum drift', () => {
-    expect(validateSourceControlArtifact({ ...artifacts[0], authority: 'worker' }).valid).toBeFalse();
-    expect(validateSourceControlArtifact({ ...artifacts[1], source_revision_id: 'srev_short' }).valid).toBeFalse();
-    expect(validateSourceControlArtifact({ ...artifacts[3], provider_location: 'local' }).valid).toBeFalse();
-    expect(validateSourceControlArtifact({ ...artifacts[4], operation: 'locally_allowed' }).valid).toBeFalse();
+    expect(validateSourceControlArtifact({ ...artifacts[0], authority: 'worker' }).valid).toBeFalsy();
+    expect(validateSourceControlArtifact({ ...artifacts[1], source_revision_id: 'srev_short' }).valid).toBeFalsy();
+    expect(validateSourceControlArtifact({ ...artifacts[3], provider_location: 'local' }).valid).toBeFalsy();
+    expect(validateSourceControlArtifact({ ...artifacts[4], operation: 'locally_allowed' }).valid).toBeFalsy();
   });
 
   it('rejects malformed date-time values and non-positive grant versions', () => {
-    expect(validateSourceControlArtifact({ ...artifacts[0], created_at: 'yesterday' }).valid).toBeFalse();
-    expect(validateSourceControlArtifact({ ...artifacts[0], created_at: '2026-02-30T10:15:30Z' }).valid).toBeFalse();
-    expect(validateSourceControlArtifact({ ...artifacts[0], created_at: '2025-02-29T10:15:30+02:00' }).valid).toBeFalse();
-    expect(validateSourceControlArtifact({ ...artifacts[0], created_at: '2024-02-29T10:15:30+02:00' }).valid).toBeTrue();
-    expect(validateSourceControlArtifact({ ...artifacts[4], version: 0 }).valid).toBeFalse();
+    expect(validateSourceControlArtifact({ ...artifacts[0], created_at: 'yesterday' }).valid).toBeFalsy();
+    expect(validateSourceControlArtifact({ ...artifacts[0], created_at: '2026-02-30T10:15:30Z' }).valid).toBeFalsy();
+    expect(validateSourceControlArtifact({ ...artifacts[0], created_at: '2025-02-29T10:15:30+02:00' }).valid).toBeFalsy();
+    expect(validateSourceControlArtifact({ ...artifacts[0], created_at: '2024-02-29T10:15:30+02:00' }).valid).toBeTruthy();
+    expect(validateSourceControlArtifact({ ...artifacts[4], version: 0 }).valid).toBeFalsy();
   });
 
   it('throws an unprocessable error only after returning all validation issues', () => {
@@ -145,7 +151,7 @@ describe('versioned source-control runtime validators', () => {
       );
       fail('expected strict validator rejection');
     } catch (error) {
-      expect(error instanceof SourceControlRuntimeValidationError).toBeTrue();
+      expect(error instanceof SourceControlRuntimeValidationError).toBeTruthy();
       expect((error as SourceControlRuntimeValidationError).status).toBe(422);
       expect((error as SourceControlRuntimeValidationError).issues.length).toBe(2);
     }

@@ -4,8 +4,12 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from jsonschema import Draft202012Validator
 
+from agent.services.codecompass_graph_artifact_resolver import (
+    CodeCompassGraphArtifactResolver,
+)
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -65,6 +69,18 @@ def _mock_repo(output_dir: str | None = None, missing: bool = False):
     repo = MagicMock()
     repo.get_by_id.return_value = None if missing else index
     return repo
+
+
+@pytest.fixture(autouse=True)
+def _allow_test_legacy_graph_artifacts(monkeypatch):
+    resolver = CodeCompassGraphArtifactResolver(
+        artifact_root=None,
+        allow_legacy=True,
+    )
+    monkeypatch.setattr(
+        "agent.routes.codecompass_graph.get_codecompass_graph_artifact_resolver",
+        lambda: resolver,
+    )
 
 
 # ── GET /api/codecompass/graph ────────────────────────────────────────────────

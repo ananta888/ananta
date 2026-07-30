@@ -88,35 +88,49 @@ class TestResolveBranchName:
 # ── WS-SYNC-006: commit_and_push / init_bare_repo ───────────────────────────
 
 class TestCommitAndPush:
-    def _make_bare(self, tmp_path: Path) -> Path:
+    def _make_bare(
+        self,
+        tmp_path: Path,
+        svc: WorkspaceGitService,
+    ) -> Path:
         bare = tmp_path / "remote.git"
-        bare.mkdir()
-        subprocess.run(["git", "init", "--bare", str(bare)], check=True, capture_output=True)
+        svc.init_bare_repo(bare)
         return bare
 
     def _clone_and_file(self, tmp_path: Path, bare: Path, filename: str, content: str) -> Path:
         workspace = tmp_path / "workspace"
-        subprocess.run(
-            ["git", "clone", f"file://{bare}", str(workspace), "--no-local"],
+        subprocess.run(  # noqa: S603 - controlled test fixture command.
+            [  # noqa: S607 - test environment provides Git.
+                "git",
+                "clone",
+                f"file://{bare}",
+                str(workspace),
+                "--no-local",
+            ],
             check=True, capture_output=True,
         )
         (workspace / filename).write_text(content)
         return workspace
 
     def test_commit_and_push_pushes_new_file(self, tmp_path, svc):
-        bare = self._make_bare(tmp_path)
+        bare = self._make_bare(tmp_path, svc)
         ws = self._clone_and_file(tmp_path, bare, "hello.py", "print('hello')")
         result = svc.commit_and_push(ws, branch="goal/abc123", message="task abc: write hello")
         assert result is True
         # Verify the bare repo has the commit on the correct branch
         log = subprocess.run(
-            ["git", "log", "--oneline", "goal/abc123"],
+            [  # noqa: S607 - test environment provides Git.
+                "git",
+                "log",
+                "--oneline",
+                "goal/abc123",
+            ],
             cwd=str(bare), capture_output=True, text=True,
         )
         assert "task abc" in log.stdout
 
     def test_commit_and_push_audits_internal_git_without_exposing_path(self, tmp_path, svc):
-        bare = self._make_bare(tmp_path)
+        bare = self._make_bare(tmp_path, svc)
         ws = self._clone_and_file(tmp_path, bare, "result.txt", "transparent")
 
         with patch("agent.services.git_audit_service.log_audit") as audit:
@@ -138,14 +152,14 @@ class TestCommitAndPush:
         assert str(ws) not in str(details)
 
     def test_commit_and_push_returns_false_when_nothing_to_commit(self, tmp_path, svc):
-        bare = self._make_bare(tmp_path)
+        bare = self._make_bare(tmp_path, svc)
         ws = self._clone_and_file(tmp_path, bare, "hello.py", "print('hello')")
         svc.commit_and_push(ws, branch="goal/abc123", message="first")
         result = svc.commit_and_push(ws, branch="goal/abc123", message="should be empty")
         assert result is False
 
     def test_second_clone_sees_pushed_files(self, tmp_path, svc):
-        bare = self._make_bare(tmp_path)
+        bare = self._make_bare(tmp_path, svc)
         remote_url = f"file://{bare}"
 
         # Task 1: init workspace via svc (creates branch), write file, push

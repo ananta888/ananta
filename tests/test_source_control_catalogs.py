@@ -22,7 +22,7 @@ class _Remotes:
         return (
             SimpleNamespace(
                 connection_ref="remote_github_main",
-                authorization_kind="github",
+                authorization_kind="github_app",
                 repository="ananta/example",
                 authorization_state="active",
                 granted_scopes=("contents:read",),
@@ -46,30 +46,34 @@ class _Profiles:
         del args, kwargs
         return (
             {
-                "profile_id": "profile_code_default",
+                "name": "profile_code_default",
                 "label": "Code default",
                 "description": "Incremental code indexing",
                 "is_default": True,
-                "source_types": ["git", "registered_workspace"],
+                "source": "git",
                 "task_kinds": ["code_analysis"],
                 "retrieval_intents": ["code"],
-                "incremental": True,
-                "resume": True,
-                "progress": True,
+                "flags": {
+                    "incremental": True,
+                    "resume": True,
+                    "progress": True,
+                },
                 "config_path": "/etc/ananta/private-profile.json",
                 "provider_api_key": "never-return-this",
             },
             {
-                "profile_id": "profile_notebook",
+                "name": "profile_notebook",
                 "label": "Notebook",
                 "description": "Notebook indexing",
                 "is_default": False,
-                "source_types": ["notebook"],
+                "source": "notebook",
                 "task_kinds": ["analysis"],
                 "retrieval_intents": ["notebook"],
-                "incremental": False,
-                "resume": False,
-                "progress": True,
+                "flags": {
+                    "incremental": False,
+                    "resume": False,
+                    "progress": True,
+                },
                 "config_path": "/etc/ananta/private-notebook.json",
             },
         )
@@ -114,6 +118,8 @@ def test_workspace_catalog_is_scoped_read_only_and_hides_roots() -> None:
     page = service.list_workspaces(
         tenant_id=_TENANT,
         project_id=_PROJECT,
+        actor_id="catalog-owner",
+        roles=frozenset(),
         cursor=None,
         limit=20,
         filters={},
@@ -138,8 +144,8 @@ def test_registered_remote_catalog_hides_urls_credentials_and_is_bounded() -> No
     first = service.list_registered_remotes(
         tenant_id=_TENANT,
         project_id=_PROJECT,
-        owner_id="catalog-owner",
-        is_admin=False,
+        actor_id="catalog-owner",
+        roles=frozenset(),
         cursor=None,
         limit=1,
         filters={"kind": "github"},
@@ -164,7 +170,6 @@ def test_index_profile_catalog_exposes_only_server_profiles() -> None:
     service, _ = _service()
 
     page = service.list_index_profiles(
-        tenant_id=_TENANT,
         project_id=_PROJECT,
         cursor=None,
         limit=20,

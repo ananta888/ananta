@@ -99,7 +99,7 @@ function grantRecord(state = 'active'): Record<string, unknown> {
     operation: 'read',
     transformation: 'none',
     purpose: 'analysis',
-    policy_version: 7,
+    policy_version: 'policy-primary:7',
     state,
     issued_at: NOW,
     expires_at: '2026-07-30T10:30:00Z',
@@ -109,11 +109,13 @@ function grantRecord(state = 'active'): Record<string, unknown> {
 }
 
 function projection(): Record<string, unknown> {
+  const projectionConnection = connection();
+  delete projectionConnection['tenant_id'];
   return {
     schema: 'ananta.source-control.projection.v1',
     connection_id: CONNECTION_ID,
     etag: '9'.repeat(64),
-    connection: connection(),
+    connection: projectionConnection,
     revision: {
       source_revision_id: REVISION_ID,
       revision_digest: 'b'.repeat(64),
@@ -195,11 +197,11 @@ async function handle(
           workspace_id: 'workspace-primary',
           enabled: true,
           read_only: true,
-          capabilities: ['connect'],
+          capabilities: { connect: true },
         },
       ],
       next_cursor: null,
-      capabilities: ['connect'],
+      capabilities: { connect: true },
     });
     return;
   }
@@ -215,11 +217,11 @@ async function handle(
           kind: 'git',
           repository: 'local/repository',
           state: 'ready',
-          capabilities: ['connect'],
+          capabilities: { connect: true },
         },
       ],
       next_cursor: null,
-      capabilities: ['connect'],
+      capabilities: { connect: true },
     });
     return;
   }
@@ -232,11 +234,11 @@ async function handle(
           label: 'Deterministic',
           description: 'Local deterministic index profile',
           is_default: true,
-          capabilities: ['start'],
+          capabilities: { start: true },
         },
       ],
       next_cursor: null,
-      capabilities: ['start'],
+      capabilities: { start: true },
     });
     return;
   }
@@ -379,7 +381,7 @@ async function handle(
         },
       ],
       next_cursor: null,
-      capabilities: ['issue'],
+      capabilities: { issue: true },
     });
     return;
   }
@@ -389,14 +391,22 @@ async function handle(
       schema: 'ananta.source-control.grant-admin-list.v1',
       items: [grantRecord(state.grantState)],
       next_cursor: null,
-      capabilities: ['issue', 'revoke'],
+      capabilities: { issue: true, revoke: true },
     });
     return;
   }
 
   if (method === 'POST' && requestUrl.pathname === '/api/source-control/v1/grants') {
     state.grantState = 'active';
-    json(response, 201, grantRecord('active'), { etag: '7'.repeat(64) });
+    json(
+      response,
+      201,
+      {
+        grant: grantRecord('active'),
+        capabilities: { revoke: true },
+      },
+      { etag: '7'.repeat(64) },
+    );
     return;
   }
 
@@ -405,7 +415,15 @@ async function handle(
     requestUrl.pathname === `/api/source-control/v1/grants/${GRANT_ID}/actions/revoke`
   ) {
     state.grantState = 'revoked';
-    json(response, 200, grantRecord('revoked'), { etag: '6'.repeat(64) });
+    json(
+      response,
+      200,
+      {
+        grant: grantRecord('revoked'),
+        capabilities: { revoke: false },
+      },
+      { etag: '6'.repeat(64) },
+    );
     return;
   }
 

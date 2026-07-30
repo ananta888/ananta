@@ -39,13 +39,13 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
   });
 
   test('admits DirectText and Notebook through validate-then-create', async ({ page }) => {
-    await page.goto('/sources/import?projectId=project-alpha');
+    await page.goto('/sources/add?projectId=project-alpha');
     await page.getByTestId('direct-display-name').fill('Architecture notes');
     await page.getByTestId('direct-content').fill('# Hub-owned source');
     await page.getByTestId('submit-source').click();
     await expect(page.getByTestId('content-admission-success')).toBeVisible();
 
-    await page.goto('/sources/import?projectId=project-alpha');
+    await page.goto('/sources/add?projectId=project-alpha');
     await page.getByRole('button', { name: /Notebook/ }).click();
     await page.getByTestId('notebook-display-name').fill('Runbook');
     await page.getByTestId('notebook-json').fill(
@@ -76,7 +76,7 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
   });
 
   test('binds a registered workspace without browser identity material', async ({ page }) => {
-    await page.goto('/sources/import?projectId=project-alpha');
+    await page.goto('/sources/add?projectId=project-alpha');
     await page.getByRole('button', { name: /Registrierter Workspace/ }).click();
     await page.getByTestId('workspace-display-name').fill('Primary workspace');
     await page.getByTestId('workspace-catalog').selectOption('workspace-primary');
@@ -120,7 +120,7 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
     await page.getByRole('tab', { name: 'Zugriff' }).click();
     await page.getByTestId('grant-destination').fill('hub-destination-primary');
     await page.getByTestId('grant-policy').fill('policy-primary');
-    await page.getByTestId('grant-policy-etag').fill('"policy-etag"');
+    await page.getByTestId('grant-policy-etag').fill('e'.repeat(64));
     await page.getByTestId('grant-preset').selectOption('preset-read');
     await page.getByTestId('grant-duration').fill('900');
     await page.getByTestId('grant-create').click();
@@ -184,10 +184,14 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
   });
 
   test('meets the source-control keyboard, focus and automated axe gate', async ({ page }) => {
-    await page.goto('/sources/import?projectId=project-alpha');
+    await page.goto('/sources/add?projectId=project-alpha');
+    const directText = page.getByRole('button', { name: /Direkttext/ });
+    const notebook = page.getByRole('button', { name: /Notebook/ });
+    await expect(directText).toBeVisible();
+    await directText.focus();
+    await expect(directText).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(page.locator(':focus')).toBeVisible();
-    await page.getByRole('button', { name: /Notebook/ }).focus();
+    await expect(notebook).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: 'Notebook' })).toBeVisible();
 

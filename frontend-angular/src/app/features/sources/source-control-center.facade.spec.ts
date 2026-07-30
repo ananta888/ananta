@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 
 import { SourceControlV1ApiClient } from '../../services/source-control-v1-api.client';
 import { SourceControlCenterFacade } from './source-control-center.facade';
@@ -10,10 +11,7 @@ describe('SourceControlCenterFacade', () => {
         SourceControlCenterFacade,
         {
           provide: SourceControlV1ApiClient,
-          useValue: jasmine.createSpyObj('SourceControlV1ApiClient', [
-            'listConnections',
-            'listConnectionRevisions',
-          ]),
+          useValue: { listConnections: vi.fn() },
         },
       ],
     });

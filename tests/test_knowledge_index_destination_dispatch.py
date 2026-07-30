@@ -202,6 +202,7 @@ def _composition():
         execution_binding_service=_BindingGate(envelope),
         destination_resolution_service=destinations,
         source_access_enforcement_service=enforcement,
+        clock=lambda: NOW.timestamp(),
     )
     return service, consumptions
 

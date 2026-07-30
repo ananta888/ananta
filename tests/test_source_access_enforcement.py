@@ -138,7 +138,7 @@ def test_exact_grant_produces_assignment_bound_worker_manifest() -> None:
 
 
 @pytest.mark.parametrize(
-    ("request", "reason_code"),
+    ("access_request", "reason_code"),
     (
         (
             _request(source_revision_id="srev_" + "d" * 64),
@@ -159,13 +159,13 @@ def test_exact_grant_produces_assignment_bound_worker_manifest() -> None:
     ),
 )
 def test_grant_cannot_be_reused_across_a_binding(
-    request: SourceAccessRequest,
+    access_request: SourceAccessRequest,
     reason_code: str,
 ) -> None:
     service, _ = _service(_grant())
 
     with pytest.raises(SourceAccessEnforcementError, match=reason_code):
-        service.authorize(request, now=NOW)
+        service.authorize(access_request, now=NOW)
 
 
 def test_missing_expired_revoked_or_consumed_grant_is_denied() -> None:

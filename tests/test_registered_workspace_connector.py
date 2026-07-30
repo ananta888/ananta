@@ -117,6 +117,7 @@ def test_symlink_and_hardlink_are_fail_closed(tmp_path: Path) -> None:
             workspace_id="workspace-example",
             relative_path="link",
         )
+    (tmp_path / "link").unlink()
 
     original = tmp_path / "original.txt"
     original.write_text("same inode", encoding="utf-8")

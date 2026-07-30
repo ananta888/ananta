@@ -45,7 +45,13 @@ class DeniedApprovalPolicy(OpsPolicyService):
 
 
 def _git(args: list[str], cwd: Path) -> str:
-    return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout
+    return subprocess.run(  # noqa: S603 - controlled test fixture command.
+        ["git", *args],  # noqa: S607 - test environment provides Git.
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
 
 
 def _repo(tmp_path: Path, name: str = "repo") -> Path:
@@ -199,9 +205,14 @@ def test_activity_filters_internal_git_events_by_workspace_fingerprint(app, tmp_
     assert internal.outcome == "committed"
 
 
-def test_fetch_pull_and_push_use_registered_current_upstream_without_force(tmp_path):
+def test_network_actions_reject_untrusted_local_filesystem_remote(tmp_path):
     remote = tmp_path / "remote.git"
-    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True, text=True)
+    subprocess.run(  # noqa: S603 - controlled test fixture command.
+        ["git", "init", "--bare", str(remote)],  # noqa: S607
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     repo = _repo(tmp_path)
     _git(["remote", "add", "origin", str(remote)], repo)
     branch = _git(["branch", "--show-current"], repo).strip()
@@ -213,31 +224,27 @@ def test_fetch_pull_and_push_use_registered_current_upstream_without_force(tmp_p
     _git(["commit", "-m", "feat(test): add local change"], repo)
     pushed = service.push("w1")
 
-    peer = tmp_path / "peer"
-    subprocess.run(
-        ["git", "clone", "--branch", branch, str(remote), str(peer)], check=True, capture_output=True, text=True
-    )
-    _git(["config", "user.name", "Peer"], peer)
-    _git(["config", "user.email", "peer@example.invalid"], peer)
-    (peer / "peer.txt").write_text("peer\n", encoding="utf-8")
-    _git(["add", "peer.txt"], peer)
-    _git(["commit", "-m", "feat(test): add peer change"], peer)
-    _git(["push", "origin", branch], peer)
-
     fetched = service.fetch("w1")
     pulled = service.pull("w1")
 
-    assert pushed.ok is True
-    assert fetched.ok is True
-    assert pulled.ok is True
-    assert (repo / "peer.txt").read_text(encoding="utf-8") == "peer\n"
+    assert pushed.ok is False
+    assert fetched.ok is False
+    assert pulled.ok is False
+    assert pushed.error.code == "git_remote_url_invalid"
+    assert fetched.error.code == "git_remote_url_invalid"
+    assert pulled.error.code == "git_remote_url_invalid"
 
 
-def test_fetch_allows_any_registered_remote_and_detached_head(tmp_path):
+def test_fetch_rejects_untrusted_local_remote_even_when_registered(tmp_path):
     origin = tmp_path / "origin.git"
     backup = tmp_path / "backup.git"
     for remote in (origin, backup):
-        subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True, text=True)
+        subprocess.run(  # noqa: S603 - controlled test fixture command.
+            ["git", "init", "--bare", str(remote)],  # noqa: S607
+            check=True,
+            capture_output=True,
+            text=True,
+        )
     repo = _repo(tmp_path)
     branch = _git(["branch", "--show-current"], repo).strip()
     _git(["remote", "add", "origin", str(origin)], repo)
@@ -249,6 +256,8 @@ def test_fetch_allows_any_registered_remote_and_detached_head(tmp_path):
     _git(["checkout", "--detach"], repo)
     detached = service.fetch("w1", remote="backup")
 
-    assert alternate.ok is True
-    assert detached.ok is True
+    assert alternate.ok is False
+    assert detached.ok is False
+    assert alternate.error.code == "git_remote_url_invalid"
+    assert detached.error.code == "git_remote_url_invalid"
     assert service.fetch("w1", remote="missing").error.code == "git_remote_not_allowed"

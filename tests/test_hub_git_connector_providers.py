@@ -16,15 +16,22 @@ from agent.services.hub_git_authorization_registry import (
     RegisteredGitAuthorization,
     ScopedGitAuthorizationRegistry,
 )
-from agent.services.hub_git_credential_resolver import GitCommandResult
 from agent.services.hub_git_credential_resolver import (
+    GitCommandResult,
     SubprocessGitCredentialCommandResolver,
 )
 from agent.services.hub_git_transport import HubGitTransport
+from agent.sources.generic_git_connector import (
+    GenericGitCommitResolutionRequest,
+    RegisteredGitRemoteRequest,
+)
 from agent.sources.git_source_connector_common import (
     GitConnectorProviderError,
     GitRepositoryBudgets,
     GitSourceScope,
+)
+from agent.sources.github_repository_connector import (
+    GitHubRepositoryEndpointRequest,
 )
 from agent.sources.hub_git_connector_providers import (
     HubGenericGitCommitResolver,
@@ -32,15 +39,7 @@ from agent.sources.hub_git_connector_providers import (
     HubGitHubRepositoryEndpointProvider,
     HubRegisteredGitRemoteProvider,
 )
-from agent.sources.generic_git_connector import (
-    GenericGitCommitResolutionRequest,
-    RegisteredGitRemoteRequest,
-)
 from agent.sources.source_connectors import SourceConnectorError
-from agent.sources.github_repository_connector import (
-    GitHubRepositoryEndpointRequest,
-)
-
 
 COMMIT = "a" * 40
 SCOPE = GitSourceScope(
@@ -143,19 +142,19 @@ class FakeCommandSession:
             candidate = command[-1]
             return GitCommandResult(
                 0,
-                f"{COMMIT}\\t{candidate}\\n".encode("ascii"),
+                f"{COMMIT}\t{candidate}\n".encode("ascii"),
             )
         if "ls-tree" in command:
             return GitCommandResult(
                 0,
                 (
-                    f"100644 blob {COMMIT} {self.tree_size}\\tREADME.md\\0"
+                    f"100644 blob {COMMIT} {self.tree_size}\tREADME.md\0"
                 ).encode("ascii"),
             )
         if "count-objects" in command:
             return GitCommandResult(
                 0,
-                b"count: 1\\nsize: 0\\nin-pack: 0\\nsize-pack: 0\\n",
+                b"count: 1\nsize: 0\nin-pack: 0\nsize-pack: 0\n",
             )
         if "checkout" in command:
             (cwd / "README.md").write_bytes(b"hello")
@@ -258,6 +257,25 @@ def test_commit_resolution_uses_pinned_plan_and_opaque_reference(
     assert list(tmp_path.iterdir()) == []
 
 
+def test_commit_resolution_supports_symbolic_head(tmp_path: Path) -> None:
+    session = FakeCommandSession()
+    transport = HubGitTransport(
+        credential_resolver=FakeCredentialResolver(session),
+        workspace_root=tmp_path,
+    )
+
+    commit = transport.resolve_commit(
+        authorization=_authorization(),
+        credential_username=None,
+        requested_ref="HEAD",
+    )
+
+    assert commit == COMMIT
+    ls_remote = next(call for call in session.calls if "ls-remote" in call)
+    assert ls_remote[-1] == "HEAD"
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_inventory_cleans_workspace_and_enforces_read_only_checkout(
     tmp_path: Path,
 ) -> None:
@@ -332,7 +350,7 @@ def test_content_provider_rechecks_revocation_before_fetch(
     registry.set_authorization_state(
         scope=SCOPE,
         connection_ref="github-installation:installation-1",
-        repository="owner/repository",
+        repository="ananta/example",
         authorization_state="revoked",
     )
     request = SimpleNamespace(
@@ -341,7 +359,7 @@ def test_content_provider_rechecks_revocation_before_fetch(
         budgets=GitRepositoryBudgets(),
         scope=SCOPE,
         connection_ref="github-installation:installation-1",
-        repository_identifier="owner/repository",
+        repository_identifier="ananta/example",
     )
 
     with pytest.raises(SourceConnectorError, match="authorization_required"):
