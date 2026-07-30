@@ -1151,10 +1151,7 @@ export class SourceControlV1ApiClient
       'display_name',
       256,
     );
-    if (
-      intent.connector_type === 'registered_workspace'
-      || intent.connector_type === 'local_directory'
-    ) {
+    if ('workspace_id' in intent) {
       assertSourceControlOpaqueId(intent.workspace_id, 'workspace_id');
       return {
         connector_type: intent.connector_type,

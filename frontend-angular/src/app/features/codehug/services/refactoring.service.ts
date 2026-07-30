@@ -65,7 +65,7 @@ export class RefactoringService {
     ).pipe(
       map((result) => ({
         proposalId,
-        status: result.status === 'completed' ? 'applied' : 'accepted',
+        status: result.status === 'completed' ? 'applied' as const : 'accepted' as const,
         appliedFiles: [],
         testGate: {
           ran: false,

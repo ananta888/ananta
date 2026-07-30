@@ -331,12 +331,12 @@ function grantPreset(value: unknown, path: string): SourceControlGrantPreset {
   }
   return {
     schema: 'ananta.source-control.grant-preset.v1',
-    preset_id: item['preset_id'],
+    preset_id: item['preset_id'] as string,
     label: text(item['label'], `${path}.label`, 256),
     description: text(item['description'], `${path}.description`, 1024, true),
-    operation: item['operation'],
-    transformation: item['transformation'],
-    purpose: item['purpose'],
+    operation: item['operation'] as string,
+    transformation: item['transformation'] as string,
+    purpose: item['purpose'] as string,
     max_duration_seconds: integer(
       item['max_duration_seconds'],
       `${path}.max_duration_seconds`,
@@ -392,17 +392,17 @@ function grant(value: unknown, path: string): SourceControlGrant {
   assertSourceControlSha256(item['etag'], `${path}.etag`);
   return {
     schema: 'ananta.source-control.grant-admin-item.v1',
-    grant_id: item['grant_id'],
-    grant_family_id: item['grant_family_id'],
+    grant_id: item['grant_id'] as string,
+    grant_family_id: item['grant_family_id'] as string,
     version: integer(item['version'], `${path}.version`, 1),
-    source_revision_id: item['source_revision_id'],
-    destination_id: item['destination_id'],
-    preset_id: presetId,
-    operation: item['operation'],
-    transformation: item['transformation'],
-    purpose: item['purpose'],
-    policy_version: item['policy_version'],
-    state: item['state'],
+    source_revision_id: item['source_revision_id'] as string,
+    destination_id: item['destination_id'] as string,
+    preset_id: presetId as string | null,
+    operation: item['operation'] as string,
+    transformation: item['transformation'] as string,
+    purpose: item['purpose'] as string,
+    policy_version: item['policy_version'] as string,
+    state: item['state'] as string,
     issued_at: text(item['issued_at'], `${path}.issued_at`, 128),
     expires_at: text(item['expires_at'], `${path}.expires_at`, 128),
     expired: booleanValue(item['expired'], `${path}.expired`),
@@ -423,12 +423,10 @@ function safeObject(value: unknown, path: string): SourceControlJsonObject {
 }
 
 function safeValue(value: unknown, path: string): SourceControlJson {
-  if (
-    value === null
-    || typeof value === 'boolean'
-    || typeof value === 'string'
-    || (typeof value === 'number' && Number.isFinite(value))
-  ) return value;
+  if (value === null || typeof value === 'boolean' || typeof value === 'string') {
+    return value as null | boolean | string;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (Array.isArray(value)) {
     return value.map((item, index) => safeValue(item, `${path}[${index}]`));
   }

@@ -572,9 +572,8 @@ export class SourceImportPageComponent implements OnInit {
       return;
     }
 
-    const dryRun = this.contentRequest(true);
-    const create = this.contentRequest(false);
-    if (!dryRun || !create) {
+    const request = this.contentRequest();
+    if (!request) {
       this.submitError.set('Das Notebook entspricht nicht dem kanonischen Hub-Vertrag.');
       return;
     }
@@ -583,14 +582,17 @@ export class SourceImportPageComponent implements OnInit {
     this.completed.set(false);
     this.submitError.set('');
     this.api
-      .validateContentAdmission(dryRun)
+      .validateContentAdmission(request)
       .pipe(
         switchMap((validation) => {
           if (!validation.valid) {
             return throwError(() => new Error('Content admission was rejected'));
           }
           this.admissionPreview.set(validation.preview);
-          return this.api.createContentAdmission(create);
+          return this.api.createContentAdmission(
+            request,
+            `ui:content:create:${crypto.randomUUID()}`,
+          );
         }),
         finalize(() => this.submitting.set(false)),
       )
@@ -605,9 +607,8 @@ export class SourceImportPageComponent implements OnInit {
   }
 
   private submitConnection(): void {
-    const dryRun = this.connectionIntent(true);
-    const create = this.connectionIntent(false);
-    if (!dryRun || !create) {
+    const intent = this.connectionIntent();
+    if (!intent) {
       this.submitError.set('Die ausgewaehlte Hub-Registrierung ist nicht mehr verfuegbar.');
       return;
     }
@@ -615,9 +616,14 @@ export class SourceImportPageComponent implements OnInit {
     this.completed.set(false);
     this.submitError.set('');
     this.connectionApi
-      .validateConnection(dryRun)
+      .validateConnection(intent)
       .pipe(
-        switchMap(() => this.connectionApi.createConnection(create)),
+        switchMap(() =>
+          this.connectionApi.createConnection(
+            intent,
+            `ui:connection:create:${crypto.randomUUID()}`,
+          ),
+        ),
         finalize(() => this.submitting.set(false)),
       )
       .subscribe({
@@ -630,7 +636,7 @@ export class SourceImportPageComponent implements OnInit {
       });
   }
 
-  private connectionIntent(dryRun: boolean) {
+  private connectionIntent() {
     if (this.selectedKind() === 'registered_workspace') {
       const workspace = this.workspaces().find(
         (item) => item.workspaceId === this.selectedWorkspaceId() && item.enabled,
@@ -641,7 +647,6 @@ export class SourceImportPageComponent implements OnInit {
             workspace_id: workspace.workspaceId,
             display_name: this.displayName().trim(),
             sensitivity: this.sensitivity(),
-            dry_run: dryRun,
           }
         : null;
     }
@@ -655,14 +660,13 @@ export class SourceImportPageComponent implements OnInit {
             remote_id: remote.remoteId,
             display_name: this.displayName().trim(),
             sensitivity: this.sensitivity(),
-            dry_run: dryRun,
           }
         : null;
     }
     return null;
   }
 
-  private contentRequest(dryRun: boolean) {
+  private contentRequest() {
     if (this.selectedKind() === 'direct_text') {
       return {
         project_id: this.projectId,
@@ -671,7 +675,6 @@ export class SourceImportPageComponent implements OnInit {
         sensitivity: this.sensitivity(),
         content: this.directContent(),
         media_type: this.mediaType(),
-        dry_run,
       };
     }
     if (this.selectedKind() === 'open_notebook') {
@@ -683,7 +686,6 @@ export class SourceImportPageComponent implements OnInit {
             display_name: this.displayName().trim(),
             sensitivity: this.sensitivity(),
             notebook,
-            dry_run,
           }
         : null;
     }

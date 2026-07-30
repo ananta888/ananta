@@ -743,9 +743,9 @@ export function parseSourceControlAccessDecision(
     source_revision_id: decision['source_revision_id'],
     revision_digest: decision['revision_digest'],
     destination_id: decision['destination_id'],
-    operation: decision['operation'],
-    transformation: decision['transformation'],
-    purpose: decision['purpose'],
+    operation: decision['operation'] as string,
+    transformation: decision['transformation'] as string,
+    purpose: decision['purpose'] as string,
     decision: decision['decision'] as SourceControlAccessDecisionKind,
     reason_codes: opaqueIdArray(
       decision['reason_codes'],
@@ -756,7 +756,7 @@ export function parseSourceControlAccessDecision(
       `${path}.matched_rule_path`,
     ),
     default_applied: decision['default_applied'],
-    approval_requirement: approvalRequirement,
+    approval_requirement: approvalRequirement as string | null,
     policy_digest: decision['policy_digest'],
   };
 }
@@ -947,15 +947,15 @@ export function parseContextPolicyVersion(
     fail(`${path}.created_at_invalid`);
   }
   return {
-    policy_id: version['policy_id'],
+    policy_id: version['policy_id'] as string,
     version: version['version'],
-    tenant_id: version['tenant_id'],
-    project_id: version['project_id'],
+    tenant_id: version['tenant_id'] as string,
+    project_id: version['project_id'] as string,
     state: version['state'] as ContextPolicyState,
     document: safeJsonObject(version['document'], `${path}.document`),
     policy_digest: version['policy_digest'],
     etag: version['etag'],
-    created_by: version['created_by'],
+    created_by: version['created_by'] as string,
     created_at: version['created_at'],
   };
 }
@@ -1023,7 +1023,7 @@ export function parseContextPolicyPreview(
       preview['matched_rule_path'],
       `${path}.matched_rule_path`,
     ),
-    approval_requirement: preview['approval_requirement'],
+    approval_requirement: preview['approval_requirement'] as string | null,
     policy_digest: preview['policy_digest'],
   };
 }
@@ -1248,7 +1248,7 @@ function contextPolicyDiagnostic(
       'severity'
     ] as ContextPolicyDiagnosticSeverity,
     reason_code: diagnostic['reason_code'],
-    rule_id: diagnostic['rule_id'],
+    rule_id: diagnostic['rule_id'] as string | null,
   };
 }
 
@@ -1293,15 +1293,15 @@ function jobEvent(value: unknown, path: string): SourceControlJobEvent {
     );
   }
   return {
-    event_id: event['event_id'],
-    sequence: event['sequence'],
-    resource_id: event['resource_id'],
-    job_id: event['job_id'],
+    event_id: event['event_id'] as string,
+    sequence: event['sequence'] as number,
+    resource_id: event['resource_id'] as string,
+    job_id: event['job_id'] as string,
     event_type: event['event_type'] as SourceControlJobEventType,
-    status: event['status'],
-    reason_code: event['reason_code'],
-    trace_id: event['trace_id'],
-    occurred_at: event['occurred_at'],
+    status: event['status'] as string,
+    reason_code: event['reason_code'] as string | null,
+    trace_id: event['trace_id'] as string,
+    occurred_at: event['occurred_at'] as string,
   };
 }
 
@@ -1321,12 +1321,8 @@ function safeJsonObject(
 }
 
 function safeJson(value: unknown, path: string): SourceControlJson {
-  if (
-    value === null ||
-    typeof value === 'boolean' ||
-    typeof value === 'string'
-  ) {
-    return value;
+  if (value === null || typeof value === 'boolean' || typeof value === 'string') {
+    return value as null | boolean | string;
   }
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;

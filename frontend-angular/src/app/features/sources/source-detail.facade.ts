@@ -51,7 +51,7 @@ export interface SourceGrantView {
   operation: string;
   transformation: string;
   purpose: string;
-  policyVersion: number;
+  policyVersion: string;
   state: string;
   issuedAt: string;
   expiresAt: string;
@@ -532,8 +532,10 @@ export class SourceDetailFacade {
           preset_id: preset.presetId,
           duration_seconds: durationSeconds,
         },
-        policyEtag,
-        `ui:grant:create:${crypto.randomUUID()}`,
+        {
+          etag: policyEtag,
+          idempotencyKey: `ui:grant:create:${crypto.randomUUID()}`,
+        },
       ),
       'Grant wurde serverseitig ausgestellt.',
     );
@@ -557,9 +559,11 @@ export class SourceDetailFacade {
       this.governanceApi.revokeGrant(
         projectId,
         grant.grantId,
-        { reason_code: reasonCode },
-        grant.etag,
-        `ui:grant:revoke:${crypto.randomUUID()}`,
+        reasonCode,
+        {
+          etag: grant.etag,
+          idempotencyKey: `ui:grant:revoke:${crypto.randomUUID()}`,
+        },
       ),
       'Grant wurde serverseitig widerrufen.',
     );
@@ -653,7 +657,7 @@ export class SourceDetailFacade {
       etag,
       idempotencyKey: `ui:${crypto.randomUUID()}`,
     };
-    const request = operation === 'refresh'
+    const request: Observable<unknown> = operation === 'refresh'
       ? this.sourceControlApi.refreshConnection(connectionId, guard)
       : operation === 'scan'
         ? this.sourceControlApi.scanConnection(connectionId, guard)
