@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.source-control.source-connection.v1",
+  "title": "Hub-owned source connection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "authority",
+    "connection_id",
+    "tenant_id",
+    "project_id",
+    "owner_id",
+    "connector_type",
+    "connection_identity_digest",
+    "display_name",
+    "sensitivity",
+    "state",
+    "created_at"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.source-control.source-connection.v1"},
+    "authority": {"const": "hub"},
+    "connection_id": {"type": "string", "pattern": "^conn_[0-9a-f]{64}$"},
+    "tenant_id": {"$ref": "#/$defs/identifier"},
+    "project_id": {"$ref": "#/$defs/identifier"},
+    "owner_id": {"$ref": "#/$defs/identifier"},
+    "connector_type": {
+      "enum": [
+        "registered_workspace",
+        "local_directory",
+        "git",
+        "github",
+        "keycloak_docs",
+        "wikimedia_dump",
+        "web_doc",
+        "local_dump",
+        "open_notebook",
+        "wiki"
+      ]
+    },
+    "connection_identity_digest": {"$ref": "#/$defs/sha256"},
+    "display_name": {"type": "string", "minLength": 1, "maxLength": 200},
+    "sensitivity": {"$ref": "#/$defs/sensitivity"},
+    "state": {"enum": ["draft", "active", "disabled", "tombstoned"]},
+    "created_at": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sensitivity": {
+      "enum": [
+        "public",
+        "internal",
+        "internal_high",
+        "secret",
+        "credential",
+        "security_sensitive"
+      ]
+    }
+  }
+}

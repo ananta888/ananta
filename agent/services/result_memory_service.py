@@ -7,7 +7,7 @@ from typing import Any, List, Optional, Dict
 
 from agent.db_models import MemoryEntryDB
 from agent.repository import memory_entry_repo
-from worker.core.context_access_policy import (
+from ananta_contracts.context_access_policy import (
     ContextAccessPolicy,
     ContextAccessPolicyEvaluator,
     DestinationContext,

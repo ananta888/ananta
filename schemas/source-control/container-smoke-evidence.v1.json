@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "definition_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "results": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "body_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "duration_ms": {
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "http_status": {
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "id": {
+            "pattern": "^[a-z0-9-]{1,64}$",
+            "type": "string"
+          },
+          "reason_code": {
+            "pattern": "^[a-z0-9._:-]{1,64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "unverified"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "http_status",
+          "duration_ms",
+          "body_digest",
+          "reason_code"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "const": "ananta.source-control.container-smoke-evidence.v1"
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "unverified"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "definition_digest",
+    "status",
+    "results"
+  ],
+  "type": "object"
+}

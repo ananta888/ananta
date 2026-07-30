@@ -21,7 +21,7 @@ from worker.core.runtime_target import (
     WorkerSelectionMode,
     WorkerSelectionPolicy,
 )
-from worker.core.context_access_policy import (
+from ananta_contracts.context_access_policy import (
     ContextAccessPolicy,
     ContextAccessPolicyEvaluator,
     Decision,
@@ -224,7 +224,7 @@ class WorkerRuntimeSelectionService:
         for raw in (policy or {}).get("rules", []):
             rules.append(raw if hasattr(raw, "id") else dict(raw))
         # Reuse pydantic-like constructor via dataclass kwargs from dict rules.
-        from worker.core.context_access_policy import ContextAccessRule
+        from ananta_contracts.context_access_policy import ContextAccessRule
         coerced_rules = [r if isinstance(r, ContextAccessRule) else ContextAccessRule(**r) for r in rules]
         return ContextAccessPolicy(
             policy_id=(policy or {}).get("policy_id", "selection-default"),

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.source-control.destination-descriptor.v1",
+  "title": "Complete Hub-resolved execution destination",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "authority",
+    "destination_id",
+    "worker_id",
+    "worker_kind",
+    "runtime_id",
+    "runtime_kind",
+    "provider_id",
+    "model_id",
+    "model_class",
+    "provider_location",
+    "data_residency"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.source-control.destination-descriptor.v1"},
+    "authority": {"const": "hub"},
+    "destination_id": {"type": "string", "pattern": "^dst_[0-9a-f]{64}$"},
+    "worker_id": {"$ref": "#/$defs/identifier"},
+    "worker_kind": {"$ref": "#/$defs/identifier"},
+    "runtime_id": {"$ref": "#/$defs/identifier"},
+    "runtime_kind": {"$ref": "#/$defs/identifier"},
+    "provider_id": {"$ref": "#/$defs/identifier"},
+    "model_id": {"$ref": "#/$defs/identifier"},
+    "model_class": {"$ref": "#/$defs/identifier"},
+    "provider_location": {
+      "enum": [
+        "local_container",
+        "private_network",
+        "tenant_region",
+        "external_region"
+      ]
+    },
+    "data_residency": {"$ref": "#/$defs/identifier"}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  }
+}

@@ -3,7 +3,7 @@ from typing import List, Optional, Dict, Any
 from agent.db_models import ContextAccessPolicyDB
 from agent.repositories.context_access_policy_repo import get_context_access_policy_repo
 from agent.services.source_classification_service import get_source_classification_service
-from worker.core.context_access_policy import (
+from ananta_contracts.context_access_policy import (
     ContextAccessPolicy,
     ContextAccessRule,
     DestinationContext,

@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.knowledge_index_execution_job.v2",
+  "title": "Hub-authorized immutable source revision index execution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "authority",
+    "job_id",
+    "hub_task_id",
+    "job_type",
+    "scope_id",
+    "source_scope",
+    "profile_name",
+    "created_by",
+    "created_at_epoch_ms",
+    "attempt",
+    "idempotency_key_digest",
+    "idempotency_fingerprint",
+    "authority_binding",
+    "file_manifest",
+    "resources",
+    "assignment",
+    "payload"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.knowledge_index_execution_job.v2"},
+    "authority": {"const": "hub"},
+    "job_id": {"type": "string", "pattern": "^knowledge-index-[0-9a-f]{32}$"},
+    "hub_task_id": {"$ref": "#/$defs/identifier"},
+    "job_type": {"const": "source_records"},
+    "scope_id": {"$ref": "#/$defs/identifier"},
+    "source_scope": {"$ref": "#/$defs/identifier"},
+    "profile_name": {"$ref": "#/$defs/identifier"},
+    "created_by": {"$ref": "#/$defs/identifier"},
+    "created_at_epoch_ms": {"type": "integer", "minimum": 0},
+    "attempt": {"type": "integer", "minimum": 1, "maximum": 100},
+    "idempotency_key_digest": {"$ref": "#/$defs/sha256"},
+    "idempotency_fingerprint": {"$ref": "#/$defs/sha256"},
+    "authority_binding": {"$ref": "#/$defs/authority_binding"},
+    "file_manifest": {"$ref": "#/$defs/file_manifest"},
+    "resources": {"$ref": "#/$defs/resources"},
+    "assignment": {"$ref": "#/$defs/assignment"},
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["payload_artifact_ref"],
+      "properties": {
+        "payload_artifact_ref": {"$ref": "#/$defs/payload_ref"}
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$"
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "authority_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "project_id",
+        "source_revision_id",
+        "source_revision_digest",
+        "admission_digest",
+        "policy_snapshot_id",
+        "policy_snapshot_digest",
+        "destination_id",
+        "destination_digest",
+        "source_access_grant_id",
+        "source_access_grant_digest",
+        "binding_digest"
+      ],
+      "properties": {
+        "tenant_id": {"$ref": "#/$defs/identifier"},
+        "project_id": {"$ref": "#/$defs/identifier"},
+        "source_revision_id": {"type": "string", "pattern": "^srev_[0-9a-f]{64}$"},
+        "source_revision_digest": {"$ref": "#/$defs/sha256"},
+        "admission_digest": {"$ref": "#/$defs/sha256"},
+        "policy_snapshot_id": {"$ref": "#/$defs/identifier"},
+        "policy_snapshot_digest": {"$ref": "#/$defs/sha256"},
+        "destination_id": {"type": "string", "pattern": "^dst_[0-9a-f]{64}$"},
+        "destination_digest": {"$ref": "#/$defs/sha256"},
+        "source_access_grant_id": {"type": "string", "pattern": "^grant_[0-9a-f]{64}$"},
+        "source_access_grant_digest": {"$ref": "#/$defs/sha256"},
+        "binding_digest": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "file_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest_id", "manifest_digest", "files", "total_bytes"],
+      "properties": {
+        "manifest_id": {"type": "string", "pattern": "^manifest_[0-9a-f]{64}$"},
+        "manifest_digest": {"$ref": "#/$defs/sha256"},
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["relative_path", "sha256", "size_bytes"],
+            "properties": {
+              "relative_path": {"type": "string", "minLength": 1, "maxLength": 512},
+              "sha256": {"$ref": "#/$defs/sha256"},
+              "size_bytes": {"type": "integer", "minimum": 0, "maximum": 134217728}
+            }
+          }
+        },
+        "total_bytes": {"type": "integer", "minimum": 0, "maximum": 536870912}
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_files",
+        "max_total_bytes",
+        "max_file_bytes",
+        "max_runtime_seconds",
+        "max_memory_bytes",
+        "max_output_bytes"
+      ],
+      "properties": {
+        "max_files": {"type": "integer", "minimum": 1, "maximum": 10000},
+        "max_total_bytes": {"type": "integer", "minimum": 1, "maximum": 536870912},
+        "max_file_bytes": {"type": "integer", "minimum": 1, "maximum": 134217728},
+        "max_runtime_seconds": {"type": "integer", "minimum": 1, "maximum": 86400},
+        "max_memory_bytes": {"type": "integer", "minimum": 67108864, "maximum": 274877906944},
+        "max_output_bytes": {"type": "integer", "minimum": 1, "maximum": 536870912}
+      }
+    },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assignment_id",
+        "worker_id",
+        "lease_id",
+        "lease_generation",
+        "lease_issued_epoch_ms",
+        "lease_expires_epoch_ms"
+      ],
+      "properties": {
+        "assignment_id": {"$ref": "#/$defs/identifier"},
+        "worker_id": {"$ref": "#/$defs/identifier"},
+        "lease_id": {"$ref": "#/$defs/identifier"},
+        "lease_generation": {"type": "integer", "minimum": 1},
+        "lease_issued_epoch_ms": {"type": "integer", "minimum": 0},
+        "lease_expires_epoch_ms": {"type": "integer", "minimum": 1}
+      }
+    },
+    "payload_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "sha256", "size_bytes", "media_type", "encoding"],
+      "properties": {
+        "artifact_id": {"$ref": "#/$defs/identifier"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1, "maximum": 134217728},
+        "media_type": {"const": "application/vnd.ananta.knowledge-index-job+json"},
+        "encoding": {"const": "json"}
+      }
+    }
+  }
+}

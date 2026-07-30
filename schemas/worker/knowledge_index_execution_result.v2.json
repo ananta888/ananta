@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.knowledge_index_execution_result.v2",
+  "title": "Worker execution outcome bound to one Hub lease",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "job_id",
+    "idempotency_fingerprint",
+    "assignment_id",
+    "worker_id",
+    "lease_id",
+    "lease_generation",
+    "source_revision_id",
+    "source_revision_digest",
+    "admission_digest",
+    "policy_snapshot_id",
+    "policy_snapshot_digest",
+    "destination_id",
+    "destination_digest",
+    "source_access_grant_id",
+    "source_access_grant_digest",
+    "authority_binding_digest",
+    "file_manifest_digest",
+    "status",
+    "reason_code",
+    "knowledge_index",
+    "run",
+    "results",
+    "artifact_refs",
+    "error"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.knowledge_index_execution_result.v2"},
+    "job_id": {"type": "string", "pattern": "^knowledge-index-[0-9a-f]{32}$"},
+    "idempotency_fingerprint": {"$ref": "#/$defs/sha256"},
+    "assignment_id": {"$ref": "#/$defs/identifier"},
+    "worker_id": {"$ref": "#/$defs/identifier"},
+    "lease_id": {"$ref": "#/$defs/identifier"},
+    "lease_generation": {"type": "integer", "minimum": 1},
+    "source_revision_id": {"type": "string", "pattern": "^srev_[0-9a-f]{64}$"},
+    "source_revision_digest": {"$ref": "#/$defs/sha256"},
+    "admission_digest": {"$ref": "#/$defs/sha256"},
+    "policy_snapshot_id": {"$ref": "#/$defs/identifier"},
+    "policy_snapshot_digest": {"$ref": "#/$defs/sha256"},
+    "destination_id": {"type": "string", "pattern": "^dst_[0-9a-f]{64}$"},
+    "destination_digest": {"$ref": "#/$defs/sha256"},
+    "source_access_grant_id": {"type": "string", "pattern": "^grant_[0-9a-f]{64}$"},
+    "source_access_grant_digest": {"$ref": "#/$defs/sha256"},
+    "authority_binding_digest": {"$ref": "#/$defs/sha256"},
+    "file_manifest_digest": {"$ref": "#/$defs/sha256"},
+    "status": {"enum": ["completed", "failed"]},
+    "reason_code": {"type": ["string", "null"], "maxLength": 160},
+    "knowledge_index": {"type": ["object", "null"]},
+    "run": {"type": ["object", "null"]},
+    "results": {
+      "type": ["array", "null"],
+      "items": {"type": "object"}
+    },
+    "artifact_refs": {
+      "type": "array",
+      "items": {"type": "object"}
+    },
+    "error": {"type": ["string", "null"], "maxLength": 1000}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$"
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

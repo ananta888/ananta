@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "definition_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "metrics": {
+      "additionalProperties": false,
+      "properties": {
+        "cursor_p95_ms": {
+          "minimum": 0,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "cursor_p99_ms": {
+          "minimum": 0,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "error_rate": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "failed_requests": {
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "replay_consistent": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "total_requests": {
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "total_requests",
+        "failed_requests",
+        "error_rate",
+        "cursor_p95_ms",
+        "cursor_p99_ms",
+        "replay_consistent"
+      ],
+      "type": "object"
+    },
+    "scenario_status": {
+      "additionalProperties": {
+        "enum": [
+          "passed",
+          "failed",
+          "unverified"
+        ]
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "ananta.source-control.load-recovery-evidence.v1"
+    },
+    "seed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "unverified"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "definition_digest",
+    "seed",
+    "status",
+    "scenario_status",
+    "metrics"
+  ],
+  "type": "object"
+}

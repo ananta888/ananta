@@ -313,7 +313,7 @@ def _resolve_graph_store(arguments: dict[str, Any]):
         index_path = Path(output_dir) / _GRAPH_INDEX_FILENAME
         if not index_path.exists():
             continue
-        from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
+        from ananta_codecompass.graph_store import CodeCompassGraphStore
 
         return CodeCompassGraphStore(index_path=index_path), str(getattr(index, "id", "") or "")
     return None, None
@@ -345,7 +345,7 @@ def codecompass_expand_graph(*, workspace_dir: str, arguments: dict[str, Any], t
             warnings=["codecompass_graph_unavailable"],
         )
     from agent.services.codecompass_context_planner_service import get_codecompass_context_planner
-    from worker.retrieval.codecompass_graph_expansion import expand_codecompass_graph
+    from ananta_codecompass.graph_expansion import expand_codecompass_graph
 
     profile = str(args.get("profile") or "bugfix_local").strip() or "bugfix_local"
     expansion = expand_codecompass_graph(store=store, seed_node_ids=[node], profile=profile)
@@ -410,7 +410,7 @@ def codecompass_architecture_query(*, workspace_dir: str, arguments: dict[str, A
             error=f"graph_unavailable:{unavailable_reason}",
             warnings=["codecompass_graph_unavailable"],
         )
-    from worker.retrieval.codecompass_architecture_query import run_architecture_query
+    from ananta_codecompass.architecture_query import run_architecture_query
 
     result = run_architecture_query(
         store=store,
@@ -984,7 +984,7 @@ def _rig_graph_store(arguments: dict[str, Any]):
 
     ``arguments['graph_index_path']`` overrides the default location.
     """
-    from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
+    from ananta_codecompass.graph_store import CodeCompassGraphStore
     idx = str(arguments.get("graph_index_path") or "").strip()
     if idx:
         return CodeCompassGraphStore(index_path=idx)

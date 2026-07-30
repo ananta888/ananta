@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.source-control.delegated-source-manifest-ref.v1",
+  "title": "Least-privilege source manifest reference delegated to a worker",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "authority",
+    "manifest_id",
+    "manifest_digest",
+    "source_revision_id",
+    "destination_id",
+    "source_access_grant_id",
+    "policy_version"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.source-control.delegated-source-manifest-ref.v1"},
+    "authority": {"const": "hub"},
+    "manifest_id": {"type": "string", "pattern": "^manifest_[0-9a-f]{64}$"},
+    "manifest_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source_revision_id": {"type": "string", "pattern": "^srev_[0-9a-f]{64}$"},
+    "destination_id": {"type": "string", "pattern": "^dst_[0-9a-f]{64}$"},
+    "source_access_grant_id": {"type": "string", "pattern": "^grant_[0-9a-f]{64}$"},
+    "policy_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  }
+}

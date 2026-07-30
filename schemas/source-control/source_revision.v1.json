@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.source-control.source-revision.v1",
+  "title": "Immutable Hub-owned source revision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "authority",
+    "source_revision_id",
+    "connection_id",
+    "tenant_id",
+    "project_id",
+    "owner_id",
+    "connector_type",
+    "sensitivity",
+    "revision_token",
+    "revision_digest",
+    "content_manifest_id",
+    "content_manifest_digest",
+    "admission_state",
+    "captured_at"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.source-control.source-revision.v1"},
+    "authority": {"const": "hub"},
+    "source_revision_id": {"type": "string", "pattern": "^srev_[0-9a-f]{64}$"},
+    "connection_id": {"type": "string", "pattern": "^conn_[0-9a-f]{64}$"},
+    "tenant_id": {"$ref": "#/$defs/identifier"},
+    "project_id": {"$ref": "#/$defs/identifier"},
+    "owner_id": {"$ref": "#/$defs/identifier"},
+    "connector_type": {
+      "enum": [
+        "registered_workspace",
+        "local_directory",
+        "git",
+        "github",
+        "keycloak_docs",
+        "wikimedia_dump",
+        "web_doc",
+        "local_dump",
+        "open_notebook",
+        "wiki"
+      ]
+    },
+    "sensitivity": {"$ref": "#/$defs/sensitivity"},
+    "revision_token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+@:/-]{0,255}$"
+    },
+    "revision_digest": {"$ref": "#/$defs/sha256"},
+    "content_manifest_id": {"type": "string", "pattern": "^manifest_[0-9a-f]{64}$"},
+    "content_manifest_digest": {"$ref": "#/$defs/sha256"},
+    "admission_state": {"enum": ["pending", "admitted", "blocked"]},
+    "captured_at": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sensitivity": {
+      "enum": [
+        "public",
+        "internal",
+        "internal_high",
+        "secret",
+        "credential",
+        "security_sensitive"
+      ]
+    }
+  }
+}

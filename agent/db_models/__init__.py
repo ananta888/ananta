@@ -62,6 +62,7 @@ from .knowledge import (
     KnowledgeIndexRunDB,
     KnowledgeLinkDB,
 )
+from .knowledge_index_execution import KnowledgeIndexExecutionBindingDB
 from .kanban_projection import KanbanBoardSequenceDB, KanbanOutboxEventDB
 from .memory import (
     MemoryEntryDB,
@@ -111,6 +112,24 @@ from .semantic_media import (
     SemanticSfuRoomStateDB,
 )
 from .semantic_relay import SemanticRelayCursorDB, SemanticRelayEnvelopeDB
+from .source_control import (
+    ActiveKnowledgeIndexDB,
+    ActiveKnowledgeIndexEventDB,
+    KnowledgeIndexRunSourceBindingDB,
+    KnowledgeIndexSourceBindingDB,
+    SourceAccessGrantAuditDB,
+    SourceAccessGrantDB,
+    SourceConnectionDB,
+    SourceControlArtifactDeletionDB,
+    SourceControlContentDB,
+    SourceControlOperationDB,
+    SourceRevisionDB,
+)
+from .source_control_migration import (
+    SourceControlLegacyMappingDB,
+    SourceControlMigrationRunDB,
+    SourceRefMappingDB,
+)
 from .sfu_broadcast_feature_flags import (
     SfuBroadcastFeatureFlagDB,
     SfuBroadcastFeatureFlagMutationDB,

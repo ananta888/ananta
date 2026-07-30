@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.source-control.source-ref-mapping.v1",
+  "title": "Explicit SourceRef to immutable revision mapping",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "authority",
+    "source_ref_id",
+    "connection_id",
+    "source_revision_id",
+    "tenant_id",
+    "project_id",
+    "provenance_digest"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.source-control.source-ref-mapping.v1"},
+    "authority": {"const": "hub"},
+    "source_ref_id": {"type": "string", "pattern": "^sref_[0-9a-f]{64}$"},
+    "connection_id": {"type": "string", "pattern": "^conn_[0-9a-f]{64}$"},
+    "source_revision_id": {"type": "string", "pattern": "^srev_[0-9a-f]{64}$"},
+    "tenant_id": {"$ref": "#/$defs/identifier"},
+    "project_id": {"$ref": "#/$defs/identifier"},
+    "provenance_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  }
+}

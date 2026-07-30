@@ -346,7 +346,7 @@ class CodeCompassContextService:
             }
         try:
             from agent.services.tools.codecompass_tools import _resolve_graph_store
-            from worker.retrieval.codecompass_graph_expansion import expand_codecompass_graph
+            from ananta_codecompass.graph_expansion import expand_codecompass_graph
 
             store, index_id = _resolve_graph_store({})
             if store is None:

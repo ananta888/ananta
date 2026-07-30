@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.source-control.source-access-grant.v1",
+  "title": "Versioned source revision to destination grant",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "authority",
+    "grant_id",
+    "version",
+    "tenant_id",
+    "project_id",
+    "source_revision_id",
+    "destination_id",
+    "operation",
+    "transformation",
+    "purpose",
+    "policy_version",
+    "state",
+    "issued_at",
+    "expires_at"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.source-control.source-access-grant.v1"},
+    "authority": {"const": "hub"},
+    "grant_id": {"type": "string", "pattern": "^grant_[0-9a-f]{64}$"},
+    "version": {"type": "integer", "minimum": 1},
+    "tenant_id": {"$ref": "#/$defs/identifier"},
+    "project_id": {"$ref": "#/$defs/identifier"},
+    "source_revision_id": {"type": "string", "pattern": "^srev_[0-9a-f]{64}$"},
+    "destination_id": {"type": "string", "pattern": "^dst_[0-9a-f]{64}$"},
+    "operation": {
+      "enum": [
+        "inventory",
+        "index",
+        "retrieve",
+        "analyze",
+        "summarize",
+        "chat_context",
+        "tool_context",
+        "export"
+      ]
+    },
+    "transformation": {"enum": ["raw", "redacted", "summary"]},
+    "purpose": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_.:-]{0,127}$"
+    },
+    "policy_version": {"$ref": "#/$defs/identifier"},
+    "state": {"enum": ["draft", "active", "superseded", "revoked"]},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  }
+}

@@ -2,7 +2,7 @@ from __future__ import annotations
 import re
 import fnmatch
 from typing import Dict, Any, List, Optional
-from worker.core.context_access_policy import Sensitivity, SourceType
+from ananta_contracts.context_access_policy import Sensitivity, SourceType
 
 class SourceClassificationService:
     def __init__(self):
