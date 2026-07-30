@@ -1,0 +1,91 @@
+{
+  "fixture_version": "ananta.source-control.contracts.valid.v1",
+  "_meta": {
+    "deterministic": true,
+    "purpose": "Minimal golden payloads for tests/test_source_control_contracts.py"
+  },
+  "contracts": {
+    "source_connection": {
+      "schema": "ananta.source-control.source-connection.v1",
+      "authority": "hub",
+      "connection_id": "conn_726d81b9269096e6b5465d1433ca3139928e5670f39efc2458c0d7edb27b7099",
+      "tenant_id": "tenant-alpha",
+      "project_id": "project-atlas",
+      "owner_id": "user-owner-001",
+      "connector_type": "registered_workspace",
+      "connection_identity_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "display_name": "Atlas workspace",
+      "sensitivity": "internal",
+      "state": "active",
+      "created_at": "2026-07-30T00:00:00Z"
+    },
+    "source_revision": {
+      "schema": "ananta.source-control.source-revision.v1",
+      "authority": "hub",
+      "source_revision_id": "srev_4fbff019bd31daf9155de244e5622aea044eaeb80fcfab4ce3f00cca1e24555e",
+      "connection_id": "conn_726d81b9269096e6b5465d1433ca3139928e5670f39efc2458c0d7edb27b7099",
+      "tenant_id": "tenant-alpha",
+      "project_id": "project-atlas",
+      "owner_id": "user-owner-001",
+      "connector_type": "registered_workspace",
+      "sensitivity": "internal",
+      "revision_token": "workspace-snapshot-17",
+      "revision_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "content_manifest_id": "manifest_dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "content_manifest_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "admission_state": "admitted",
+      "captured_at": "2026-07-30T00:01:00Z"
+    },
+    "source_ref_mapping": {
+      "schema": "ananta.source-control.source-ref-mapping.v1",
+      "authority": "hub",
+      "source_ref_id": "sref_0b9744de880f961df3e2bfd19289d37d42afc904e2aa72ae1856e15d7584fcb2",
+      "connection_id": "conn_726d81b9269096e6b5465d1433ca3139928e5670f39efc2458c0d7edb27b7099",
+      "source_revision_id": "srev_4fbff019bd31daf9155de244e5622aea044eaeb80fcfab4ce3f00cca1e24555e",
+      "tenant_id": "tenant-alpha",
+      "project_id": "project-atlas",
+      "provenance_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "destination_descriptor": {
+      "schema": "ananta.source-control.destination-descriptor.v1",
+      "authority": "hub",
+      "destination_id": "dst_21023074f1c0a8d0d0208f99b07def823d2942155d536435e4cc07aa6b302b01",
+      "worker_id": "worker-code-analysis-01",
+      "worker_kind": "code_analysis",
+      "runtime_id": "runtime-local-transformers",
+      "runtime_kind": "local_container",
+      "provider_id": "provider-local",
+      "model_id": "model-codecompass-small",
+      "model_class": "code_embedding",
+      "provider_location": "local_container",
+      "data_residency": "host_local"
+    },
+    "source_access_grant": {
+      "schema": "ananta.source-control.source-access-grant.v1",
+      "authority": "hub",
+      "grant_id": "grant_d7c677afb9b94d6efab37dd56eab13249e7bd2d5bc36f7bf0e8dda9c6aead358",
+      "version": 1,
+      "tenant_id": "tenant-alpha",
+      "project_id": "project-atlas",
+      "source_revision_id": "srev_4fbff019bd31daf9155de244e5622aea044eaeb80fcfab4ce3f00cca1e24555e",
+      "destination_id": "dst_21023074f1c0a8d0d0208f99b07def823d2942155d536435e4cc07aa6b302b01",
+      "operation": "retrieve",
+      "transformation": "redacted",
+      "purpose": "code_navigation",
+      "policy_version": "policy-v7",
+      "state": "active",
+      "issued_at": "2026-07-30T00:02:00Z",
+      "expires_at": "2027-01-01T00:00:00Z"
+    },
+    "delegated_source_manifest_ref": {
+      "schema": "ananta.source-control.delegated-source-manifest-ref.v1",
+      "authority": "hub",
+      "manifest_id": "manifest_dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "manifest_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "source_revision_id": "srev_4fbff019bd31daf9155de244e5622aea044eaeb80fcfab4ce3f00cca1e24555e",
+      "destination_id": "dst_21023074f1c0a8d0d0208f99b07def823d2942155d536435e4cc07aa6b302b01",
+      "source_access_grant_id": "grant_d7c677afb9b94d6efab37dd56eab13249e7bd2d5bc36f7bf0e8dda9c6aead358",
+      "policy_version": "policy-v7"
+    }
+  }
+}

@@ -6,6 +6,7 @@ import { AgentRunService } from './agent-run.service';
 import { HubApiCoreService } from '../../../services/hub-api-core.service';
 import { AgentDirectoryService } from '../../../services/agent-directory.service';
 import { ChServiceError } from '../models/codehug.models';
+import { SourceControlV1ApiClient } from '../../../services/source-control-v1-api.client';
 
 function mockHubCore(responses: Record<string, any> = {}) {
   return {
@@ -29,16 +30,26 @@ function mockDir() {
 describe('AgentRunService', () => {
   let service: AgentRunService;
   let hubCore: ReturnType<typeof mockHubCore>;
+  let sourceControl: any;
 
   beforeEach(() => {
     hubCore = mockHubCore({
       '/api/agent-runs': { run_id: 'r-123' },
     });
+    sourceControl = {
+      dispatchCodeHugMutation: vi.fn(() => of({
+        schema: 'ananta.codehug.mutation-result.v1',
+        status: 'accepted',
+        operation_id: 'r-governed',
+        binding_digest: 'e'.repeat(64),
+      })),
+    };
     TestBed.configureTestingModule({
       providers: [
         AgentRunService,
         { provide: HubApiCoreService, useValue: hubCore },
         { provide: AgentDirectoryService, useValue: mockDir() },
+        { provide: SourceControlV1ApiClient, useValue: sourceControl },
       ],
     });
     service = TestBed.inject(AgentRunService);
@@ -46,29 +57,31 @@ describe('AgentRunService', () => {
 
   it('should be created', () => expect(service).toBeTruthy());
 
-  it('startRun: posts write_armed=false by default', async () => {
+  it('startRun: read-only request never posts write_armed', async () => {
     const resp = await firstValueFrom(service.startRun({
       projectId: 'p1',
       profileId: 'prof-1',
       taskDescription: 'refactor',
       riskLevel: 'low',
-      writeArmed: false,
     }));
     expect(resp.runId).toBe('r-123');
     const body = (hubCore.post as any).mock.calls[0][1];
-    expect(body.write_armed).toBe(false);
+    expect(body.write_armed).toBeUndefined();
   });
 
-  it('startRun: propagates write_armed=true explicitly', async () => {
-    await firstValueFrom(service.startRun({
+  it('startRun: mutation uses canonical server-intent endpoint', async () => {
+    const result = await firstValueFrom(service.startRun({
       projectId: 'p1',
       profileId: 'prof-1',
       taskDescription: 'fix',
       riskLevel: 'high',
-      writeArmed: true,
+      mutationIntentId: 'intent-example',
     }));
-    const body = (hubCore.post as any).mock.calls[0][1];
-    expect(body.write_armed).toBe(true);
+    expect(result.runId).toBe('r-governed');
+    expect(sourceControl.dispatchCodeHugMutation).toHaveBeenCalledWith(
+      'intent-example',
+      'codehug.agent-run.intent-example',
+    );
   });
 
   it('applyDiff: rejects when applyConfirmationToken is missing (sync throw)', () => {

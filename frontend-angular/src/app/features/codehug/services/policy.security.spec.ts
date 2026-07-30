@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { of } from 'rxjs';
+import { firstValueFrom, of, throwError } from 'rxjs';
 
 import { PolicyService } from './policy.service';
 import { HubApiCoreService } from '../../../services/hub-api-core.service';
@@ -104,4 +104,38 @@ describe('PolicyService — Audit + Risk + RateLimit', () => {
     svc.resetRate('k1');
     expect(svc.checkRate('k1', 1).allowed).toBe(true);
   });
+
+  it.each([undefined, '', 'unknown', 'unavailable'])(
+    'treats missing or unsupported backend decision %s as deny',
+    async decision => {
+      const { svc, hub } = setup();
+      hub.post.mockReturnValue(of({ id: 'decision-1', decision }));
+
+      const result = await firstValueFrom(svc.checkAction({ actionType: 'tool_write' }));
+
+      expect(result.decision).toBe('deny');
+      expect(result.reason).toBe('invalid_or_missing_policy_decision');
+    },
+  );
+
+  it('preserves an explicit backend allow decision', async () => {
+    const { svc, hub } = setup();
+    hub.post.mockReturnValue(of({ id: 'decision-1', decision: 'allow', reason: 'matched_allow_rule' }));
+
+    const result = await firstValueFrom(svc.checkAction({ actionType: 'tool_read' }));
+
+    expect(result.decision).toBe('allow');
+    expect(result.reason).toBe('matched_allow_rule');
+  });
+
+  it.each([401, 403, 404, 409, 422, 429, 500, 503])(
+    'does not replace policy load failure %s with a local success snapshot',
+    async status => {
+      const { svc, hub } = setup();
+      hub.get.mockReturnValue(throwError(() => ({ status })));
+
+      await expect(firstValueFrom(svc.loadCurrentSnapshot())).rejects.toBeInstanceOf(Error);
+      expect(svc.getCachedSnapshot()).toBeNull();
+    },
+  );
 });

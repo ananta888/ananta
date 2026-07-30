@@ -39,9 +39,22 @@ describe('CodeCompassService', () => {
 
   beforeEach(() => {
     hubCore = mockHubCore({
-      '/api/codecompass/projects/': { id: 'p1', name: 'Test', root_path: '/tmp', index_status: 'complete' },
+      '/knowledge/indices': {
+        items: [{
+          id: 'p1',
+          source_scope: 'artifact',
+          profile_name: 'default',
+          status: 'completed',
+          index_metadata: { display_name: 'Test' },
+        }],
+      },
       '/api/codecompass/reload-context': { suggestions: [], resolved_symbols: [], estimated_token_count: 0 },
-      '/api/codecompass/query': { symbols: [], total_matches: 0 },
+      '/api/codecompass/query': {
+        schema: 'architecture_query.v1',
+        metadata: { knowledge_index_id: 'p1' },
+        symbols: [],
+        total_matches: 0,
+      },
     });
     TestBed.configureTestingModule({
       providers: [
@@ -74,7 +87,7 @@ describe('CodeCompassService', () => {
     const project = await firstValueFrom(service.getProject('p1'));
     expect(project.id).toBe('p1');
     expect(project.name).toBe('Test');
-    expect(project.rootPath).toBe('/tmp');
+    expect(project.indexStatus).toBe('completed');
   });
 
   it('resolveContext: passes task_description in request body', async () => {
@@ -88,12 +101,12 @@ describe('CodeCompassService', () => {
   it('searchSymbols: encodes query and limits', async () => {
     await firstValueFrom(service.searchSymbols({ projectId: 'p1', query: 'foo bar', limit: 5 }));
     const callArgs = (hubCore.get as any).mock.calls[0];
+    expect(callArgs[0]).toContain('knowledge_index_id=p1');
     expect(callArgs[0]).toContain('seed=foo+bar');
-    expect(callArgs[0]).toContain('limit=5');
   });
 
   it('healthCheck: returns true on ok status', async () => {
-    hubCore.get = vi.fn(() => of({ status: 'ok' }));
+    hubCore.get = vi.fn(() => of({ items: [] }));
     const ok = await firstValueFrom(service.healthCheck());
     expect(ok).toBe(true);
   });

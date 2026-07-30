@@ -1,0 +1,53 @@
+{
+  "fixture_version": "ananta.source-control.contracts.invalid.v1",
+  "_meta": {
+    "deterministic": true,
+    "purpose": "Minimal fail-closed mutations for tests/test_source_control_contracts.py"
+  },
+  "cases": [
+    {
+      "name": "browser_cannot_claim_cloud_effective",
+      "contract": "destination_descriptor",
+      "set": {"cloud_effective": false},
+      "schema_rejects": true
+    },
+    {
+      "name": "browser_cannot_claim_external_effective",
+      "contract": "destination_descriptor",
+      "set": {"external_effective": false},
+      "schema_rejects": true
+    },
+    {
+      "name": "revision_digest_must_be_lowercase_sha256",
+      "contract": "source_revision",
+      "set": {
+        "revision_digest": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+      },
+      "schema_rejects": true
+    },
+    {
+      "name": "source_ref_id_cannot_alias_an_unverified_source_identifier",
+      "contract": "source_ref_mapping",
+      "set": {"source_ref_id": "sref_not-a-digest"},
+      "schema_rejects": true
+    },
+    {
+      "name": "grant_cannot_embed_provider_claims",
+      "contract": "source_access_grant",
+      "set": {"provider_id": "browser-provider"},
+      "schema_rejects": true
+    },
+    {
+      "name": "worker_manifest_cannot_embed_connector_config",
+      "contract": "delegated_source_manifest_ref",
+      "set": {"connector_config": {"path": "/host/private"}},
+      "schema_rejects": true
+    },
+    {
+      "name": "destination_identity_changes_with_provider",
+      "contract": "destination_descriptor",
+      "set": {"provider_id": "provider-other"},
+      "schema_rejects": false
+    }
+  ]
+}

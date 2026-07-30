@@ -1,0 +1,75 @@
+{
+  "fixture_version": "ananta.source-control.legacy-migration.v1",
+  "_meta": {
+    "deterministic": true,
+    "purpose": "Minimal migration inventory for tests/test_source_control_legacy_migration.py"
+  },
+  "scope": {
+    "tenant_id": "tenant-alpha",
+    "project_id": "project-atlas",
+    "owner_id": "owner-alice"
+  },
+  "source_snapshots": [
+    {
+      "legacy_source_key": "legacy-source-alpha",
+      "legacy_snapshot_key": "legacy-snapshot-alpha-v1",
+      "tenant_id": "tenant-alpha",
+      "project_id": "project-atlas",
+      "owner_id": "owner-alice",
+      "connector_type": "local_dump",
+      "display_name": "Legacy Alpha",
+      "sensitivity": "internal",
+      "enabled": true,
+      "connection_identity_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "revision_token": "snapshot-alpha-v1",
+      "revision_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "content_manifest_id": "manifest_dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "content_manifest_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "admission_state": "admitted",
+      "captured_at_epoch": 1785369600.0
+    }
+  ],
+  "context_policies": [
+    {
+      "legacy_policy_key": "legacy-policy-alpha-v7",
+      "tenant_id": "tenant-alpha",
+      "project_id": "project-atlas",
+      "owner_id": "owner-alice",
+      "policy_snapshot_id": "policy-snapshot-alpha-v7",
+      "policy_version": "policy-v7",
+      "policy_snapshot_digest": "7777777777777777777777777777777777777777777777777777777777777777"
+    }
+  ],
+  "knowledge_indexes": [
+    {
+      "legacy_index_key": "legacy-index-alpha",
+      "knowledge_index_id": "knowledge-index-alpha",
+      "legacy_snapshot_key": "legacy-snapshot-alpha-v1",
+      "legacy_policy_key": "legacy-policy-alpha-v7",
+      "status": "completed",
+      "index_contract_version": "knowledge-index-v1",
+      "artifact_manifest_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "created_at_epoch": 1785369660.0,
+      "updated_at_epoch": 1785369720.0
+    }
+  ],
+  "index_runs": [
+    {
+      "legacy_run_key": "legacy-index-attempt-alpha",
+      "index_run_id": "knowledge-attempt-alpha",
+      "legacy_index_key": "legacy-index-alpha",
+      "status": "completed",
+      "artifact_manifest_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "artifacts_verified": true,
+      "created_at_epoch": 1785369660.0,
+      "completed_at_epoch": 1785369720.0
+    }
+  ],
+  "citations": [
+    {
+      "legacy_citation_key": "legacy-citation-alpha",
+      "legacy_snapshot_key": "legacy-snapshot-alpha-v1",
+      "provenance_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ]
+}

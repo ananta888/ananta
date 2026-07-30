@@ -6,6 +6,7 @@ import { RefactoringService } from './refactoring.service';
 import { HubApiCoreService } from '../../../services/hub-api-core.service';
 import { AgentDirectoryService } from '../../../services/agent-directory.service';
 import { PolicyService } from './policy.service';
+import { SourceControlV1ApiClient } from '../../../services/source-control-v1-api.client';
 
 function mockHub() {
   return {
@@ -27,15 +28,29 @@ function setup(overrides: { writeModeActive?: boolean; hub?: any } = {}) {
     writeModeActive: () => overrides.writeModeActive ?? false,
     writeMode: () => 'read-only',
   };
+  const sourceControl: any = {
+    dispatchCodeHugMutation: vi.fn(() => of({
+      schema: 'ananta.codehug.mutation-result.v1',
+      status: 'accepted',
+      operation_id: 'operation-r1',
+      binding_digest: 'e'.repeat(64),
+    })),
+  };
   TestBed.configureTestingModule({
     providers: [
       RefactoringService,
       { provide: HubApiCoreService, useValue: hub },
       { provide: AgentDirectoryService, useValue: mockDir() },
       { provide: PolicyService, useValue: policy },
+      { provide: SourceControlV1ApiClient, useValue: sourceControl },
     ],
   });
-  return { svc: TestBed.inject(RefactoringService), hub, policy };
+  return {
+    svc: TestBed.inject(RefactoringService),
+    hub,
+    policy,
+    sourceControl,
+  };
 }
 
 describe('RefactoringService', () => {
@@ -62,18 +77,22 @@ describe('RefactoringService', () => {
     expect(d.validation.syntaxOk).toBe(true);
   });
 
-  it('apply() is BLOCKED when write-mode is not active', async () => {
-    const { svc } = setup({ writeModeActive: false });
+  it('apply() delegates authority to the canonical Hub endpoint', async () => {
+    const { svc, sourceControl } = setup({ writeModeActive: false });
     const { firstValueFrom } = await import('rxjs');
-    await expect(firstValueFrom(svc.apply('r1'))).rejects.toThrow(/write-armed/);
+    const result = await firstValueFrom(svc.apply('r1'));
+    expect(result.status).toBe('accepted');
+    expect(sourceControl.dispatchCodeHugMutation).toHaveBeenCalledWith(
+      'r1',
+      'codehug.refactor.r1',
+    );
   });
 
   it('apply() succeeds when write-mode is active', async () => {
     const { svc, hub } = setup({ writeModeActive: true });
-    (hub.post as any).mockReturnValue(of({ proposalId: 'r1', status: 'applied', appliedFiles: ['x.py'], testGate: { ran: true, passed: true, diagnostics: [] }, message: 'ok' }));
     const { firstValueFrom } = await import('rxjs');
     const r = await firstValueFrom(svc.apply('r1'));
-    expect(r.status).toBe('applied');
+    expect(r.status).toBe('accepted');
   });
 
   it('dismiss() DELETEs the proposal', async () => {
