@@ -1,0 +1,47 @@
+{
+  "budgets": {
+    "max_egress_bytes": 2097152,
+    "max_elapsed_seconds": 60.0,
+    "max_file_bytes": 1048576,
+    "max_files": 16,
+    "max_lfs_bytes": 0,
+    "max_lfs_objects": 0,
+    "max_objects": 64,
+    "max_pack_bytes": 2097152,
+    "max_submodules": 0,
+    "max_total_file_bytes": 2097152
+  },
+  "controls": {
+    "credential_free": true,
+    "dns_ip_pinning": true,
+    "lfs": "disabled",
+    "proxy": "deny",
+    "redirects": "deny",
+    "submodules": "disabled",
+    "temporary_database_isolated": true,
+    "temporary_workspace_cleaned": true
+  },
+  "gate": "generic_git_live_verification",
+  "immutable_sha": "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+  "inventory": {
+    "exclusion_count": 0,
+    "item_count": 1,
+    "total_bytes": 13
+  },
+  "manifest_digest": "abff31be741ec5460f1f8ea8fbbd9a58339e7f6e5a815f33ecc33ded9c45f1b3",
+  "operations": {
+    "head_resolved": true,
+    "inventory_completed": true,
+    "refresh_completed": true,
+    "scoped_remote_registered": true
+  },
+  "refresh": {
+    "item_count": 1,
+    "status": "ok",
+    "total_bytes": 13
+  },
+  "repository_identifier": "github.com/octocat/Hello-World",
+  "requested_ref": "HEAD",
+  "schema_version": 1,
+  "status": "passed"
+}

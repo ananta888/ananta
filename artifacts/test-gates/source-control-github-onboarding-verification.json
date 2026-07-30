@@ -1,0 +1,40 @@
+{
+  "schema": "ananta.source-control.local-github-onboarding-verification.v1",
+  "scope": "local_non_production",
+  "status": "passed",
+  "implementation": {
+    "persistent_git_connector_composition": true,
+    "server_handle_only_api": ["provision", "list", "detail", "revoke", "scope_loss", "health"],
+    "authorization": {
+      "roles": ["admin", "project_owner"],
+      "project_scope_required": true
+    },
+    "persistence": {
+      "sql": true,
+      "idempotency": true,
+      "optimistic_concurrency": true,
+      "immutable_history": true,
+      "audit": true
+    },
+    "browser_contract": {
+      "token_exposed": false,
+      "credential_ref_exposed": false,
+      "remote_url_exposed": false
+    },
+    "provider_and_secret_resolution": "fail_closed"
+  },
+  "verification": {
+    "ruff": "passed",
+    "tests": {"passed": 148, "failed": 0, "status": "passed"},
+    "bootstrap_import": "passed",
+    "static_production_call_site": "present"
+  },
+  "external_prerequisites": {
+    "persistent_github_app_oauth_registration_count": 0,
+    "external_installation": "missing",
+    "external_oauth_grant": "missing"
+  },
+  "production_evidence": false,
+  "source_ids": [],
+  "run_ids": []
+}

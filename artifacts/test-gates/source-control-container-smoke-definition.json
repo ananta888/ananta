@@ -7,7 +7,7 @@
       ],
       "id": "hub-health",
       "method": "GET",
-      "path": "/health",
+      "path": "/health?basic=1",
       "surface": "hub"
     },
     {
@@ -37,7 +37,7 @@
       ],
       "id": "worker-health",
       "method": "GET",
-      "path": "/health",
+      "path": "/health?basic=1",
       "surface": "worker"
     }
   ],

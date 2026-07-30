@@ -1,0 +1,88 @@
+{
+  "schema": "ananta.source-control.local-backend-verification.v1",
+  "scope": "local_non_production",
+  "status": "passed",
+  "gates": [
+    "contract",
+    "security",
+    "migration",
+    "backend"
+  ],
+  "results": {
+    "backend_tests": {
+      "passed": 1711,
+      "skipped": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    "ruff": {
+      "selectors": [
+        "E",
+        "F",
+        "W",
+        "S603",
+        "S607"
+      ],
+      "status": "passed"
+    },
+    "contracts": {
+      "primary": {
+        "passed": 274,
+        "failed": 0,
+        "artifact": "artifacts/source-control-contract-final.xml",
+        "artifact_digest": "1bf5c1479cefb37ae5909b0b54f21f73fffa6707e9cdeb1d51c1ff72cfe2e94f"
+      },
+      "earlier_vertical_slice": {
+        "passed": 26,
+        "failed": 0,
+        "artifact": "artifacts/source-control-contract-tests.xml",
+        "artifact_digest": "3451e51ebcad9cd34c5b37de4b94273b69ad460c10cc1b21fb9b2d20ac249a25"
+      },
+      "status": "passed"
+    },
+    "migration": {
+      "single_head": "2f7c9e1a4b6d",
+      "upgrade": "passed",
+      "explicit_merge_downgrade": "passed",
+      "reupgrade": "passed",
+      "status": "passed"
+    },
+    "generic_git_live": {
+      "status": "passed",
+      "credential_free": true,
+      "production_composition": true,
+      "sql_registry": true,
+      "dns_ip_pinning": true,
+      "immutable_head": true,
+      "inventory": "passed",
+      "refresh": "passed",
+      "cleanup": "passed",
+      "focused_tests_passed": 12,
+      "ruff": "passed",
+      "artifact": "artifacts/test-gates/generic-git-live-verification.json",
+      "artifact_digest": "6f6fa3a3fc9d510829557602760324a865421b58beaeaef7a164d3235a35fe07"
+    },
+    "github_onboarding": {
+      "status": "passed_local_implementation",
+      "persistent_git_connector_composition": true,
+      "server_handle_only_api": true,
+      "authorization": "admin_or_project_owner_with_project_scope",
+      "sql_idempotency_cas_immutable_history_audit": true,
+      "browser_token_credential_ref_url_exposure": false,
+      "provider_secret_resolver": "fail_closed",
+      "tests_passed": 148,
+      "tests_failed": 0,
+      "ruff": "passed",
+      "bootstrap_import": "passed",
+      "static_production_call_site": "present",
+      "persistent_registration_count": 0,
+      "external_installation": "missing",
+      "external_oauth_grant": "missing",
+      "artifact": "artifacts/test-gates/source-control-github-onboarding-verification.json",
+      "artifact_digest": "f9f4de252e93b3fbc4bd865cdb586e6acbd97f7fd99b88e4159fcc7d7aded2ef"
+    }
+  },
+  "production_evidence": false,
+  "source_ids": [],
+  "run_ids": []
+}

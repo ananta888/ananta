@@ -1,0 +1,22 @@
+{
+  "schema": "ananta.source-control.local-frontend-verification.v1",
+  "scope": "local_non_production",
+  "status": "passed",
+  "gates": ["angular", "e2e", "accessibility"],
+  "results": {
+    "angular_typecheck": "passed",
+    "angular_production_build": "passed",
+    "angular_unit": {"passed": 33, "failed": 0, "status": "passed"},
+    "playwright_chromium": {
+      "passed": 6,
+      "failed": 0,
+      "retries": 0,
+      "status": "passed",
+      "coverage": ["vertical_source_control_flows", "axe", "keyboard", "focus", "contrast"]
+    }
+  },
+  "uses_live_github_or_cloud_provider": false,
+  "production_evidence": false,
+  "source_ids": [],
+  "run_ids": []
+}

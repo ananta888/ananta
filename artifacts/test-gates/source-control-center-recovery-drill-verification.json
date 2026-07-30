@@ -1,0 +1,43 @@
+{
+  "schema": "ananta.source-control.local-recovery-drill-verification.v1",
+  "scope": "local_non_production",
+  "status": "passed",
+  "root_cause": {
+    "restricted_inference_scopes": 14,
+    "execution_mode": "serial",
+    "shared_endpoint_state": "unreachable",
+    "endpoint_redacted": true
+  },
+  "remediation": {
+    "endpoint_circuit_breaker": true,
+    "fail_fast": true,
+    "tasks_failed": true,
+    "tasks_retryable": true,
+    "tasks_durable": true
+  },
+  "verification": {
+    "tests": {"passed": 22, "failed": 0, "status": "passed"},
+    "ruff": "passed",
+    "hub_health": "ok",
+    "container_start_to_health_seconds": 30.837,
+    "performance_seconds": {
+      "application_startup_before": 168.7424,
+      "application_startup_after": 22.3307,
+      "cleanup_before": 167.1531,
+      "cleanup_after": 20.7195
+    },
+    "outbox": {
+      "rows_preserved": 14,
+      "worker_unavailable": 1,
+      "worker_circuit_open": 13
+    }
+  },
+  "redaction": {
+    "timestamps_included": false,
+    "host_paths_included": false,
+    "endpoint_values_included": false
+  },
+  "production_evidence": false,
+  "source_ids": [],
+  "run_ids": []
+}

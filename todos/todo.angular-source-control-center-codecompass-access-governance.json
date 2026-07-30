@@ -31,7 +31,7 @@
     "analyzed_commit": "b1b776421",
     "analyzed_at": "2026-07-30",
     "previous_baseline": "5e24e95771cd675178696986374883c4b5e0e9af",
-    "baseline_state": "implementation_complete_verification_unverified"
+    "baseline_state": "locally_verified_external_release_unverified"
   },
   "architecture_invariants": [
     "Der Hub bleibt alleiniger Eigentümer von Source-Lifecycle, Policy-Entscheidungen, Freigaben, Index-Tasks und Task-Queue.",
@@ -46,31 +46,43 @@
   "verification_policy": {
     "source_ids": [],
     "run_ids": [],
-    "evidence_refs": [],
-    "state": "unverified",
+    "evidence_refs": [
+      "artifacts/test-gates/generic-git-live-verification.json#sha256=6f6fa3a3fc9d510829557602760324a865421b58beaeaef7a164d3235a35fe07",
+      "artifacts/test-gates/source-control-alert-delivery-drill.json#sha256=5f085631affccf8b72fdf8a00043acf4ca52335011150b50c28bec8d009e07b0",
+      "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
+      "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
+      "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9",
+      "artifacts/test-gates/source-control-center-recovery-drill-verification.json#sha256=dacef2d7bce0e801fe7500d5c7408a3fcd93e6dce8cc354426be7413ccf61272",
+      "artifacts/test-gates/source-control-center-rollout-verification.json#sha256=f8a89012a90539af96c158691f497679b8785a959315b81e8f8cd27b260987ed",
+      "artifacts/test-gates/source-control-github-onboarding-verification.json#sha256=f9f4de252e93b3fbc4bd865cdb586e6acbd97f7fd99b88e4159fcc7d7aded2ef"
+    ],
+    "state": "local_gates_passed_production_unverified",
     "rules": [
       "Nur bereitgestellte gültige SRC_* und RUN_* IDs dürfen Grounding oder Release-Verifikation belegen.",
       "Lokale Quellcodebefunde rechtfertigen Implementierungsstatus und progress_percent, aber kein verifiziertes Release.",
       "Fehlende Evidence bleibt unverified; IDs werden niemals erfunden."
-    ]
+    ],
+    "local_gate_state": "passed",
+    "production_state": "unverified"
   },
   "corrected_findings": [
     {
       "id": "FIND-SEC-001",
       "severity": "critical",
-      "state": "resolved_in_worktree_unverified",
-      "finding": "Frontend- und CodeHug-Flows verwenden geschlossene fail-closed v1-Verträge; Browserstate, lokale Write-Modi und Fallbackdiagnostik besitzen keine Backend-Autorität. Tests und Typecheck wurden nicht ausgeführt.",
+      "state": "resolved_locally_verified",
+      "finding": "Frontend- und CodeHug-Flows verwenden geschlossene fail-closed v1-Verträge; Browserstate, lokale Write-Modi und Fallbackdiagnostik besitzen keine Backend-Autorität. Tests und Typecheck wurden lokal erfolgreich ausgeführt.",
       "evidence_paths": [
         "frontend-angular/src/app/features/codehug/services/policy.service.ts",
         "frontend-angular/src/app/models/source-control-runtime-validators.ts",
         "frontend-angular/src/app/services/source-control-v1-api.client.ts"
-      ]
+      ],
+      "local_verification_ref": "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
     },
     {
       "id": "FIND-SEC-002",
       "severity": "critical",
-      "state": "resolved_in_worktree_unverified",
-      "finding": "Ein einheitlicher Hub-Access-Policy-Port, serverseitige Scope-Auflösung und content-freies Route-Deny-Audit sichern v1- und Legacy-Routen; die vollständige Negativmatrix wurde nicht ausgeführt.",
+      "state": "resolved_locally_verified",
+      "finding": "Ein einheitlicher Hub-Access-Policy-Port, serverseitige Scope-Auflösung und content-freies Route-Deny-Audit sichern v1- und Legacy-Routen; die vollständige Negativmatrix wurde lokal erfolgreich ausgeführt.",
       "evidence_paths": [
         "agent/routes/sources.py",
         "agent/routes/knowledge.py",
@@ -79,23 +91,25 @@
         "agent/services/source_control_access_policy.py",
         "agent/routes/source_control_v1.py",
         "tests/test_source_control_access_governance.py"
-      ]
+      ],
+      "local_verification_ref": "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
     },
     {
       "id": "FIND-SEC-003",
       "severity": "critical",
-      "state": "resolved_in_worktree_unverified",
-      "finding": "Die dateibasierte SourceRegistry validiert IDs und Root-Containment, blockiert Symlinks, serialisiert pro Root und schreibt atomar mit fsync/replace; die Sicherheits- und Crash-Tests wurden nicht ausgeführt.",
+      "state": "resolved_locally_verified",
+      "finding": "Die dateibasierte SourceRegistry validiert IDs und Root-Containment, blockiert Symlinks, serialisiert pro Root und schreibt atomar mit fsync/replace; die Sicherheits- und Crash-Tests wurden lokal erfolgreich ausgeführt.",
       "evidence_paths": [
         "agent/sources/source_registry.py",
         "agent/routes/sources.py",
         "tests/test_source_registry_security.py"
-      ]
+      ],
+      "local_verification_ref": "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
     },
     {
       "id": "FIND-ARCH-001",
       "severity": "high",
-      "state": "resolved_in_worktree_unverified",
+      "state": "resolved_locally_verified",
       "finding": "SourceConnection, immutable SourceRevision und SourceRef bleiben getrennte Identitäten und sind durch einen expliziten versionierten Mapping-Vertrag verbunden.",
       "evidence_paths": [
         "schemas/sources/source_descriptor.v1.json",
@@ -103,12 +117,13 @@
         "agent/services/source_catalog_service.py",
         "ananta_contracts/source_control.py",
         "schemas/source-control/source_ref_mapping.v1.json"
-      ]
+      ],
+      "local_verification_ref": "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
     },
     {
       "id": "FIND-ARCH-002",
       "severity": "high",
-      "state": "resolved_in_worktree_unverified",
+      "state": "resolved_locally_verified",
       "finding": "Hub und Worker verwenden eine gemeinsame reine CodeCompass-Library; der Hub importiert keine Worker-Infrastruktur für Graph Store, Expansion oder Architekturquery.",
       "evidence_paths": [
         "agent/routes/codecompass_graph.py",
@@ -117,25 +132,27 @@
         "ananta_codecompass/graph_expansion.py",
         "ananta_codecompass/architecture_query.py",
         "tests/test_codecompass_container_boundary.py"
-      ]
+      ],
+      "local_verification_ref": "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
     },
     {
       "id": "FIND-DATA-001",
       "severity": "high",
-      "state": "resolved_in_worktree_unverified",
-      "finding": "SourceRevision-gebundene Index-/Run-Persistenz, atomarer Active-Index, Stale-/Supersede-Zustände, Rollback und Reconciliation sind implementiert; Parallelitäts- und Crash-Tests wurden nicht ausgeführt.",
+      "state": "resolved_locally_verified",
+      "finding": "SourceRevision-gebundene Index-/Run-Persistenz, atomarer Active-Index, Stale-/Supersede-Zustände, Rollback und Reconciliation sind implementiert; Parallelitäts- und Crash-Tests wurden lokal erfolgreich ausgeführt.",
       "evidence_paths": [
         "agent/db_models/knowledge.py",
         "agent/repositories/artifacts.py",
         "agent/services/knowledge_index_worker_artifact_service.py",
         "agent/db_models/knowledge_index_execution.py",
         "agent/services/source_index_lifecycle_service.py"
-      ]
+      ],
+      "local_verification_ref": "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
     },
     {
       "id": "FIND-CONN-001",
       "severity": "high",
-      "state": "resolved_in_worktree_unverified",
+      "state": "resolved_locally_verified",
       "finding": "Ein schmaler SourceConnector-Port, Registry, Composition und Legacy-Adapter ersetzen konkrete Typverzweigung für die implementierten Connectoren.",
       "evidence_paths": [
         "agent/sources/source_refresh_service.py",
@@ -144,63 +161,68 @@
         "worker/core/context_scanner.py",
         "agent/sources/source_connectors.py",
         "agent/services/source_control_connector_composition.py"
-      ]
+      ],
+      "local_verification_ref": "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
     },
     {
       "id": "FIND-CONN-002",
       "severity": "critical",
-      "state": "resolved_in_worktree_unverified",
-      "finding": "GitOps, Workspace Git, GitHub und Generic Git teilen eine fail-closed Remote-/Credential-/Egress-Policy und einen IP-gepinnten Transportplan; Tests wurden nicht ausgeführt.",
+      "state": "resolved_locally_verified",
+      "finding": "GitOps, Workspace Git, GitHub und Generic Git teilen eine fail-closed Remote-/Credential-/Egress-Policy und einen IP-gepinnten Transportplan; Tests wurden lokal erfolgreich ausgeführt.",
       "evidence_paths": [
         "agent/services/git_ops_service.py",
         "agent/services/workspace_git_service.py",
         "agent/services/worker_workspace_service.py",
         "agent/services/git_remote_policy_service.py",
         "agent/sources/git_source_connector_common.py"
-      ]
+      ],
+      "local_verification_ref": "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
     },
     {
       "id": "FIND-CC-001",
       "severity": "high",
-      "state": "resolved_in_worktree_unverified",
+      "state": "resolved_locally_verified",
       "finding": "Der v2 Knowledge-Index-Auftrag bindet Tenant, Projekt, SourceRevision, Admission, Policy, Manifest, Budgets, Idempotenz, Assignment und Lease und bleibt Hub-delegiert.",
       "evidence_paths": [
         "agent/services/knowledge_index_job_service.py",
         "schemas/worker/knowledge_index_job.v1.json",
         "schemas/worker/knowledge_index_execution_job.v2.json",
         "agent/services/knowledge_index_execution_binding_service.py"
-      ]
+      ],
+      "local_verification_ref": "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
     },
     {
       "id": "FIND-CC-002",
       "severity": "high",
-      "state": "resolved_in_worktree_unverified",
-      "finding": "Content-freie Artefaktprojektion, produktive Graph-/Query-Adapter, Active-Index, Vergleich, Rollback und referenz-/approval-gebundener Purge sind implementiert; Tests wurden nicht ausgeführt.",
+      "state": "resolved_locally_verified",
+      "finding": "Content-freie Artefaktprojektion, produktive Graph-/Query-Adapter, Active-Index, Vergleich, Rollback und referenz-/approval-gebundener Purge sind implementiert; Tests wurden lokal erfolgreich ausgeführt.",
       "evidence_paths": [
         "agent/services/knowledge_index_worker_artifact_service.py",
         "agent/services/codecompass_graph_artifact_resolver.py",
         "agent/services/codecompass_artifact_manifest.py",
         "agent/services/source_index_lifecycle_service.py"
-      ]
+      ],
+      "local_verification_ref": "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
     },
     {
       "id": "FIND-UI-001",
       "severity": "high",
-      "state": "resolved_in_worktree_unverified",
-      "finding": "Source-Control-Shell, Wizard, Detail, Grants, Matrix und Policy-Lifecycle sind an den kanonischen v1-Client angebunden; Build, Typecheck und Accessibility-Gates wurden nicht ausgeführt.",
+      "state": "resolved_locally_verified",
+      "finding": "Source-Control-Shell, Wizard, Detail, Grants, Matrix und Policy-Lifecycle sind an den kanonischen v1-Client angebunden; Build, Typecheck und Accessibility-Gates wurden lokal erfolgreich ausgeführt.",
       "evidence_paths": [
         "frontend-angular/src/app/components/sources.component.ts",
         "frontend-angular/src/app/features/sources/source-import-dialog.component.ts",
         "frontend-angular/src/app/models/route-metadata.ts",
         "frontend-angular/src/app/features/sources/source-control-center.facade.ts",
         "frontend-angular/src/app/services/source-control-v1-api.client.ts"
-      ]
+      ],
+      "local_verification_ref": "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
     },
     {
       "id": "FIND-UI-002",
       "severity": "high",
-      "state": "resolved_in_worktree_unverified",
-      "finding": "CodeHug, Context Policy und Source Control Center verwenden die kanonischen Graph-, Query-, Lifecycle-, Grant- und Policy-Verträge; Contract-/Component-Tests wurden nicht ausgeführt.",
+      "state": "resolved_locally_verified",
+      "finding": "CodeHug, Context Policy und Source Control Center verwenden die kanonischen Graph-, Query-, Lifecycle-, Grant- und Policy-Verträge; Contract-/Component-Tests wurden lokal erfolgreich ausgeführt.",
       "evidence_paths": [
         "frontend-angular/src/app/features/codehug/services/code-compass.service.ts",
         "frontend-angular/src/app/services/context-access-policy-api.service.ts",
@@ -209,7 +231,8 @@
         "frontend-angular/src/app/models/source-control-v1-api.model.ts",
         "frontend-angular/src/app/services/source-control-v1-api.client.ts",
         "agent/routes/source_control_v1.py"
-      ]
+      ],
+      "local_verification_ref": "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
     }
   ],
   "milestones": [
@@ -222,7 +245,7 @@
         "SRCCTRL-S0-003",
         "SRCCTRL-S0-004"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "SRCCTRL-M1",
@@ -235,7 +258,7 @@
         "SRCCTRL-D1-002",
         "SRCCTRL-D1-003"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "SRCCTRL-M2",
@@ -247,7 +270,7 @@
         "SRCCTRL-N2-004",
         "SRCCTRL-N2-005"
       ],
-      "status": "partial"
+      "status": "in_progress"
     },
     {
       "id": "SRCCTRL-M3",
@@ -271,7 +294,7 @@
         "SRCCTRL-G4-004",
         "SRCCTRL-G4-005"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "SRCCTRL-M5",
@@ -284,7 +307,7 @@
         "SRCCTRL-U5-005",
         "SRCCTRL-U5-006"
       ],
-      "status": "partial"
+      "status": "in_progress"
     },
     {
       "id": "SRCCTRL-M6",
@@ -296,19 +319,19 @@
         "SRCCTRL-R6-004",
         "SRCCTRL-R6-005"
       ],
-      "status": "partial"
+      "status": "in_progress"
     }
   ],
   "tasks": [
     {
       "id": "SRCCTRL-S0-001",
       "title": "Frontend-Policy strikt fail-closed machen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M0",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [],
       "legacy_task_refs": [
         "SRCCTRL-POL-009"
@@ -327,19 +350,21 @@
         "Lokaler Write-Modus und In-Memory-Audit werden als unverbindliche UI-Diagnostik entfernt oder eindeutig gekennzeichnet.",
         "Unit- und Negativtests beweisen fail-closed Verhalten für fehlende Felder, unbekannte Enums und jeden API-Fehlerpfad."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Fail-closed DTO-Validatoren, typisierte HTTP-Fehler, entfernte lokale Autoritätsfallbacks und direkte Negativ-Testdefinitionen sind implementiert. Unit-, Typecheck- und UI-Fehlerpfade wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-S0-002",
       "title": "Tenant-, Projekt-, Objekt- und RBAC-Autorisierung vereinheitlichen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M0",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [],
       "legacy_task_refs": [
         "SRCCTRL-SEC-001"
@@ -365,19 +390,21 @@
         "Context-Policy-Routen verlangen Auth und rollenbezogene Mutationsrechte.",
         "Cross-Tenant- und Cross-Project-Negativtests decken alle Source-, Index-, Graph- und Policy-Routen ab."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Ein gemeinsamer Hub-Access-Policy-Port erzwingt Tenant, Projekt, Objekt und RBAC einschließlich content-freiem Route-Deny-Audit. Die vollständige Cross-Tenant-/Cross-Project-Matrix wurde nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-S0-003",
       "title": "Legacy-SourceRegistry gegen Dateizugriffs- und Konsistenzfehler härten",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M0",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [],
       "legacy_task_refs": [
         "SRCCTRL-DATA-003"
@@ -394,19 +421,21 @@
         "GET- und List-Operationen besitzen keine impliziten Persistenzmutationen.",
         "Traversal-, Unicode-, Symlink-, Parallelitäts- und Crash-Recovery-Tests bestehen."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Kanonische ID-Prüfung, Root-Containment, Symlink-Schutz, geteiltes Locking, atomare fsync/replace-Writes und nebenwirkungsfreie Reads sind implementiert. Traversal-, Unicode-, Parallelitäts- und Crash-Tests wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-S0-004",
       "title": "Gemeinsame Credential-, Remote- und Egress-Policy einführen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M0",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [],
       "legacy_task_refs": [
         "SRCCTRL-CONN-004",
@@ -433,9 +462,11 @@
         "Git-Fehler werden fail-closed und typisiert zurückgegeben statt Git still zu deaktivieren.",
         "SSRF, URL-Credentials, Redirect, DNS-Rebinding, Submodule, LFS- und Credential-Widerruf-Negativtests bestehen."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "GitHub, Generic Git, Workspace Git und GitOps teilen die fail-closed Remote-, Credential- und Egress-Policy mit IP-gebundenem Transportplan. SSRF-, Redirect-, DNS-, Submodule-, LFS- und Widerrufstests wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-C1-001",
@@ -445,7 +476,7 @@
       "risk": "critical",
       "type": "architecture",
       "milestone_id": "SRCCTRL-M1",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-S0-001",
         "SRCCTRL-S0-002",
@@ -467,19 +498,21 @@
         "ADR dokumentiert additive Migration, Legacy-Aliase, Feature Flags, Rollback und Abschaltkriterien.",
         "ADR verbietet Worker-Orchestrierung und direkte Hub-Abhängigkeiten auf Worker-Infrastruktur."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Der ADR definiert die Domain-Identitäten, Hub-/Worker-/Angular-Grenzen, additive Migration, Legacy-Aliase, Rollback und das Verbot von Worker-Orchestrierung."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-C1-002",
       "title": "SourceConnection-, Revision- und SourceRef-Verträge kanonisieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "contract",
       "milestone_id": "SRCCTRL-M1",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-C1-001"
       ],
@@ -504,9 +537,11 @@
         "Sicherheitskritische Grenzen verwenden additionalProperties=false und serverseitige Ableitung aller nicht vom Nutzer behauptbaren Felder.",
         "Golden- und Negativfixtures bestehen gegen JSON Schema, Python und TypeScript."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Geschlossene SourceConnection-, SourceRevision- und SourceRef-Mapping-Verträge sind in Python, JSON Schema und Angular-DTOs implementiert. Golden-/Negativfixtures, Typecheck und Contract-Tests wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-C1-003",
@@ -516,7 +551,7 @@
       "risk": "critical",
       "type": "contract",
       "milestone_id": "SRCCTRL-M1",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-C1-001"
       ],
@@ -543,9 +578,11 @@
         "Provider- und Modellwechsel erzeugen eine andere Destination-Identität und invalidieren nicht passende Grants.",
         "Angular kann keine cloud_effective-, external_effective-, Provider- oder Modellmetadaten als autoritative Fakten behaupten."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "DestinationDescriptor, Grant-Bindung und Angular-DTOs verwenden ausschließlich serverautoritativ aufgelöste Worker-, Runtime-, Provider-, Modell-, Standort-, Revisions-, Operations- und Transformationsidentitäten."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-D1-001",
@@ -555,7 +592,7 @@
       "risk": "critical",
       "type": "persistence",
       "milestone_id": "SRCCTRL-M1",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-C1-002",
         "SRCCTRL-C1-003"
@@ -582,19 +619,21 @@
         "Grant-Versionen unterstützen Draft, Preview, Activate, Supersede, Revoke und Rollback mit Audit.",
         "Disable und Tombstone sind vom freigabepflichtigen physischen Purge getrennt."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Tenant-/projektgebundene Connection-, append-only Revision-, versionierte Grant- und Policy-Lifecycle-Persistenz mit OCC/CAS, Audit sowie getrenntem Disable, Tombstone und freigabepflichtigem Purge ist implementiert."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-D1-002",
       "title": "Legacy-Sources, Knowledge-Indizes und Context-Policies idempotent migrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "migration",
       "milestone_id": "SRCCTRL-M1",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-D1-001",
         "SRCCTRL-S0-003"
@@ -624,19 +663,21 @@
         "Migration erzeugt keine neue Cloud-, Provider-, Modell- oder Worker-Freigabe.",
         "Dry-Run, Abbruch, Rollback, Teilzustands-Reconciliation und Migrationsfixtures sind dokumentiert und getestet."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Deterministische Legacy-Inventarisierung sowie Hub-only Dry-Run, Apply, Resume und Rollback sind scope- und plan-idempotenzgebunden implementiert; eine additive Merge-Revision verbindet beide Source-Control-Migrationsköpfe. Migrationen und Fixtures wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-D1-003",
       "title": "Index, Run und Active-Index transaktional an SourceRevision binden",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "persistence",
       "milestone_id": "SRCCTRL-M1",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-C1-002",
         "SRCCTRL-D1-001"
@@ -663,9 +704,11 @@
         "Stale, policy_changed, superseded und rollback_candidate werden deterministisch abgeleitet.",
         "Crash- und Parallelitätstests beweisen, dass keine verwaisten completed-Indizes oder widersprüchlichen Active-Zeiger verbleiben."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Index/Run, immutable SourceRevision, echter Policy-Snapshot, Active-Zeiger und Lifecycle-CAS sind persistent gebunden; Event-Outbox, Bulk-Checkpoints und Reconciliation sind crash-wiederaufnehmbar definiert. Crash- und Parallelitätstests wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-N2-001",
@@ -675,7 +718,7 @@
       "risk": "high",
       "type": "connector",
       "milestone_id": "SRCCTRL-M2",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-C1-002",
         "SRCCTRL-D1-001"
@@ -700,19 +743,21 @@
         "Open Notebook, Text, Keycloak, Wikimedia und Wiki werden über Adapter integriert und bleiben kompatibel.",
         "Connectoren erstellen keine Hub-Tasks und orchestrieren keine Worker."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Schmale Validate/ResolveRevision/Inventory/Refresh/Health-Ports, kanonische Registry und kompatible Legacy-Adapter sind implementiert; Connectoren erstellen keine Tasks und orchestrieren keine Worker."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-N2-002",
       "title": "RegisteredWorkspace- und LocalDirectory-Connector implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "connector",
       "milestone_id": "SRCCTRL-M2",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-N2-001",
         "SRCCTRL-S0-003"
@@ -736,9 +781,11 @@
         "Revision-Digest basiert auf einem bounded, sortierten Dateimanifest mit Limits und Ausschlussgründen.",
         "Worker erhalten nur eine assignment-gebundene, read-only aufgelöste Workspace-Referenz."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "RegisteredWorkspace und relative Verzeichnisse werden serverseitig, bounded, read-only und revisionsgebunden aufgelöst; Path-, Hardlink-, Sparse-, Mount- und Race-Tests wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-N2-003",
@@ -748,7 +795,7 @@
       "risk": "critical",
       "type": "connector",
       "milestone_id": "SRCCTRL-M2",
-      "progress_percent": 90,
+      "progress_percent": 99.0,
       "depends_on": [
         "SRCCTRL-N2-001",
         "SRCCTRL-S0-004"
@@ -771,9 +818,22 @@
         "Revision ist an unveränderlichen Commit, Submodule-Policy und optionalen LFS-Zustand gebunden.",
         "Widerruf oder Scope-Verlust setzt betroffene Connections auf authorization_required und blockiert Refresh sowie Indexierung."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "GitHub-Intent, Installation, Repository, Ref, immutable Commit und Widerruf werden serverseitig und fail-closed aufgelöst. Ein echter GitHub-App-/OAuth-Lauf mit realer Installation wurde nicht durchgeführt."
+      "verification_state": "local_verified_external_unverified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
+        "artifacts/test-gates/source-control-github-onboarding-verification.json#sha256=f9f4de252e93b3fbc4bd865cdb586e6acbd97f7fd99b88e4159fcc7d7aded2ef"
+      ],
+      "status_basis": "Produktive persistente Git-Connector-Composition sowie server-handle-only Provisioning-, List-, Detail-, Revoke-, Scope-loss- und Health-Flows sind mit RBAC/Scope, SQL-Idempotenz/CAS, immutable History, Audit und fail-closed Provider-/Secret-Auflösung lokal verifiziert. 148 Tests, Ruff, Bootstrap-Import und statischer Production-Call-Site bestanden. Ausschließlich die persistente GitHub-App-/OAuth-Registration mit count=0 sowie externe Installation und Grant fehlen.",
+      "acceptance_evidence": {
+        "persistent_connector_composition": "passed",
+        "server_handle_only_api": "passed",
+        "rbac_scope_sql_cas_audit": "passed",
+        "secret_boundary": "passed",
+        "tests": "148_passed",
+        "persistent_registration_count": 0,
+        "external_installation": "unverified",
+        "external_oauth_grant": "unverified"
+      }
     },
     {
       "id": "SRCCTRL-N2-004",
@@ -783,7 +843,7 @@
       "risk": "high",
       "type": "connector",
       "milestone_id": "SRCCTRL-M2",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-N2-001",
         "SRCCTRL-S0-004"
@@ -806,19 +866,22 @@
         "Submodule, LFS, Dateianzahl, Objektgröße, Packgröße, Zeit und Egress besitzen harte Budgets.",
         "Der Connector verwendet dieselbe Remote- und Secret-Policy wie GitHub und Workspace Git."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Generic Git akzeptiert nur owner- und projektgebundene registrierte Remote-IDs, löst immutable Commits auf und erzwingt dieselbe Transport-, Secret-, Objekt-, Pack-, Datei-, Zeit- und Egress-Policy wie GitHub und Workspace Git."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
+        "artifacts/test-gates/generic-git-live-verification.json#sha256=6f6fa3a3fc9d510829557602760324a865421b58beaeaef7a164d3235a35fe07"
+      ],
+      "status_basis": "Credential-freie Generic-Git-Live-Verifikation über Produktions-Composition, SQL-Registry, DNS-IP-Pinning und HubGitTransport bestand einschließlich immutable HEAD, Inventory, Refresh, Cleanup, zwölf fokussierter Tests und Ruff. Dies ist kein Produktions-SRC_*/RUN_*-Nachweis."
     },
     {
       "id": "SRCCTRL-N2-005",
       "title": "Source Admission für Secrets, Injection, Dateitypen und Budgets erzwingen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M2",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-N2-001",
         "SRCCTRL-C1-002"
@@ -841,9 +904,11 @@
         "Scanner-Ergebnis ist Worker-Evidence; nur der Hub aktiviert oder blockiert die Revision.",
         "Kein direkter API-Aufruf kann Admission, Policy oder explizite Aktivierung umgehen."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Revisionsgebundene Hub-Admission kombiniert Inventar, Secret-/Injection-/Dateityp-Scanner und harte Budgets; abweichende Evidence und Bypassversuche werden fail-closed blockiert. Die Keine-Bypass- und Dateitypmatrix wurde nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-H3-001",
@@ -853,7 +918,7 @@
       "risk": "critical",
       "type": "backend",
       "milestone_id": "SRCCTRL-M3",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-D1-003",
         "SRCCTRL-N2-005"
@@ -880,9 +945,12 @@
         "Worker akzeptieren ausschließlich assignment- und lease-gebundene Manifeste und können keinen Hub-Status direkt publizieren.",
         "Stale Lease, Revision-, Manifest-, Policy- oder Digest-Abweichung wird vor Ausführung beziehungsweise Ergebnisannahme blockiert."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Der v2-Auftrag bindet Tenant, Projekt, Revision, Admission, Policy, Manifest, Budgets, Idempotency, Assignment und Lease. Hub-Authority, Dispatch-Gate, Retry-Kontext und strict Artifact-Refs sind implementiert; Worker bleiben reine Ausführer."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
+        "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-H3-002",
@@ -892,7 +960,7 @@
       "risk": "high",
       "type": "backend",
       "milestone_id": "SRCCTRL-M3",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-H3-001"
       ],
@@ -921,9 +989,12 @@
         "Graph-, Node-, Expansion- und Query-Aufrufe verlangen kanonische Index-ID und serverseitige Source-/Policy-Autorisierung.",
         "Bounded Query, beschädigte Artefakte, Hashdrift und nicht unterstützte Schema-Versionen werden fail-closed behandelt."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Content-freies Artefaktmanifest, Coverage, Schema-/Hash-/Größenprüfung und gemeinsame reine CodeCompass-Read-Library sind implementiert; produktive Graph-/Query-Adapter sind im Hub komponiert."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
+        "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-H3-003",
@@ -933,7 +1004,7 @@
       "risk": "high",
       "type": "backend",
       "milestone_id": "SRCCTRL-M3",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-D1-001",
         "SRCCTRL-H3-001",
@@ -969,9 +1040,12 @@
         "ETag beziehungsweise If-Match schützt Mutationen; Cursor, Filter, Limits und Fehlervertrag sind versioniert.",
         "Legacy-Endpunkte bleiben über dokumentierte Aliase oder Adapter verfügbar und besitzen Abschaltmetriken."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Aggregierte owner-/projektgebundene v1-Projektionen, serverautoritative project_id-Bindung, ETag/If-Match, Cursor/Filter, reale Katalog-/Operationsadapter und gemessene Legacy-Aliase sind implementiert."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
+        "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-H3-004",
@@ -981,7 +1055,7 @@
       "risk": "medium",
       "type": "backend",
       "milestone_id": "SRCCTRL-M3",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-H3-003"
       ],
@@ -1007,9 +1081,12 @@
         "Jede Einzelmutation wird separat autorisiert, versioniert und auditiert.",
         "Clientabbruch, Reconnect und Replay erzeugen keine doppelte Mutation."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Monotone persistente Event-Outbox, bounded Bulk-Plan/Execute, Einzelautorisierung, atomare Claims, Leases und Target-Checkpoints implementieren reconnect- und crash-wiederaufnehmbare Verarbeitung."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
+        "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-H3-005",
@@ -1019,7 +1096,7 @@
       "risk": "high",
       "type": "backend",
       "milestone_id": "SRCCTRL-M3",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-D1-003",
         "SRCCTRL-H3-002"
@@ -1047,9 +1124,12 @@
         "Disable, Retention, Tombstone und physischer Purge sind getrennte, auditierte Zustände.",
         "Purge prüft Referenzen, aktive Leases, Grants, Citations und Approvals und verlangt bei sensiblen Daten eine explizite Freigabe."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Run-Historie, Active-Index, Vergleich, Aktivierung, Rollback, Disable, Tombstone und physischer Artefakt-Purge sind CAS-, Referenz-, Grant-, Lease-, Citation- und one-time-Approval-gebunden implementiert."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
+        "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-G4-001",
@@ -1059,7 +1139,7 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M4",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-C1-003"
       ],
@@ -1081,9 +1161,11 @@
         "Auswahlentscheidung, Dispatch-Lease und Policy-Entscheidung referenzieren denselben Destination-Digest.",
         "Zielwechsel zwischen Preview und Dispatch blockiert die Ausführung."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Reale Worker-, Runtime-, Provider-, Modell-, Standort- und Datenstandortziele werden serverseitig aufgelöst; Auswahl, Dispatch und Policy teilen denselben Digest und Re-Resolve blockiert Zielwechsel."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-G4-002",
@@ -1093,7 +1175,7 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M4",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-D1-001",
         "SRCCTRL-G4-001"
@@ -1121,9 +1203,11 @@
         "Einmalige Grants werden atomar konsumiert; stale, widerrufene oder abgelaufene Grants bleiben denied.",
         "Worker erhalten nur ein Hub-signiertes, assignment-gebundenes Enforcement-Manifest und treffen keine Governance-Entscheidung."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Versionierte Grants und Approvals sind an Revision, Destination, Operation, Transformation, Zweck, Ablauf und Policy gebunden. HMAC-signierte Assignment-/Lease-Manifeste, atomarer One-time-CAS und fail-closed Revoke/Stale/Expiry sind implementiert."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-G4-003",
@@ -1133,7 +1217,7 @@
       "risk": "high",
       "type": "backend",
       "milestone_id": "SRCCTRL-M4",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-G4-002",
         "SRCCTRL-S0-002"
@@ -1160,9 +1244,11 @@
         "Mutationen verwenden If-Match oder expected_version und liefern bei 409 einen sicheren Konfliktkontext.",
         "Nur Administratoren oder explizit berechtigte Projektverantwortliche dürfen Policy mutieren."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Scoped immutable Draft/List/Detail/Version/Active/Lint/Preview/Activate/Revoke/Rollback-Flows mit CAS, Idempotenz, RBAC und produktivem Destination-Katalog sind implementiert."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-G4-004",
@@ -1172,7 +1258,7 @@
       "risk": "high",
       "type": "backend",
       "milestone_id": "SRCCTRL-M4",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-G4-001",
         "SRCCTRL-G4-002",
@@ -1198,19 +1284,21 @@
         "Matrix unterstützt bounded Filter und Cursor nach Source, Worker, Provider, Modell, Cloud, Operation, Sensitivität und Projekt.",
         "Preview und tatsächliche Dispatch-Entscheidung verwenden dieselbe Evaluator-Schnittstelle und denselben Policy-Digest."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Preview, bounded Matrix und Dispatch verwenden denselben serverseitigen Evaluator sowie denselben echten Policy-Snapshot-Digest; reale Source- und Destination-Kataloge sind produktiv komponiert."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-G4-005",
       "title": "CodeHug-Mutationen vollständig auf Hub-Policy und Audit umstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "security",
       "milestone_id": "SRCCTRL-M4",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-G4-002",
         "SRCCTRL-G4-003",
@@ -1236,19 +1324,21 @@
         "Nur serverseitige Audit-Events gelten als Sicherheitsnachweis.",
         "E2E-Negativtests beweisen, dass direkte API-Aufrufe ohne Grant auch bei aktivem UI-Write-Modus scheitern."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "CodeHug-Intents, Revisionen, Destinationen, Approvals, Grants, signierte Assignments und Audit werden persistent im Hub aufgelöst; Browserzustand besitzt keine Autorität. Direkte-API-/Write-Mode-E2E-Negativtests wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-U5-001",
       "title": "Source-Control-Center-Shell, Routing und typisierten API-Client bereitstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "frontend",
       "milestone_id": "SRCCTRL-M5",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-H3-003"
       ],
@@ -1272,9 +1362,11 @@
         "Sources ist für berechtigte Standardnutzer auffindbar; Expertoptionen bleiben separat gekennzeichnet.",
         "Loading, Empty, Offline, 401, 403, 404, 409, 422, 429 und 5xx sind unterscheidbare Zustände."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Source-Control-Shell, Unterrouten, Facade, geschlossene v1-DTOs und getrennte Clientports sind auf den kanonischen Hub-Vertrag migriert. Angular-Build und Typecheck wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-U5-002",
@@ -1284,7 +1376,7 @@
       "risk": "high",
       "type": "frontend",
       "milestone_id": "SRCCTRL-M5",
-      "progress_percent": 90,
+      "progress_percent": 99.0,
       "depends_on": [
         "SRCCTRL-U5-001",
         "SRCCTRL-N2-002",
@@ -1309,19 +1401,30 @@
         "Scan-Vorschau erklärt Ausschlüsse, Budgets, Secrets, Injection-Risiken und Blockgründe vor Indexierung.",
         "Fokusführung, Zurück, Abbruch, Wiederaufnahme und Fehlerzustände sind tastatur- und screenreader-tauglich."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Validate-then-Create-Flows für Workspace, registrierte Remotes, Direct Text und Notebook sowie Scan-/Fehlerdarstellung sind implementiert. Reale GitHub-Installation, Tastatur-, Screenreader- und Typecheck-Verifikation wurden nicht ausgeführt."
+      "verification_state": "local_verified_external_unverified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
+        "artifacts/test-gates/source-control-github-onboarding-verification.json#sha256=f9f4de252e93b3fbc4bd865cdb586e6acbd97f7fd99b88e4159fcc7d7aded2ef"
+      ],
+      "status_basis": "Angular-Build, Typecheck, Unit-, Playwright- und Accessibility-Gates sowie der produktive server-handle-only GitHub-Onboarding-Vertrag sind lokal erfolgreich. Browserstate erhält weder Token, credential_ref noch Remote-URL. Ausschließlich die Journey mit einer persistent registrierten realen GitHub-App-/OAuth-Installation und externem Grant fehlt.",
+      "acceptance_evidence": {
+        "angular_and_accessibility": "passed",
+        "server_handle_only_contract": "passed",
+        "browser_secret_exposure": "denied",
+        "persistent_registration_count": 0,
+        "external_installation_journey": "unverified",
+        "external_oauth_grant": "unverified"
+      }
     },
     {
       "id": "SRCCTRL-U5-003",
       "title": "Quellenübersicht und Detailseite mit Index-Lifecycle umsetzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "frontend",
       "milestone_id": "SRCCTRL-M5",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-U5-001",
         "SRCCTRL-H3-005"
@@ -1343,19 +1446,21 @@
         "Run-Historie, Coverage, Artefakte, Active-Index, Vergleich, Rollback, Disable und Purge zeigen reale Hub-Zustände.",
         "Große Tabellen und Graphen bleiben bounded, virtualisiert, tastaturbedienbar und besitzen textuelle Alternativen."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Übersicht und Detail nutzen reale Projektion, Revision, Runs, Graph, Lifecycle, ETag und serverautoritative project_id; textuelle Graphalternativen sind vorhanden. Component-, Virtualisierungs-, A11y- und Typecheck-Gates wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-U5-004",
       "title": "Sourcebezogenen Grant-Assistenten und globale Access-Matrix integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "frontend",
       "milestone_id": "SRCCTRL-M5",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-U5-003",
         "SRCCTRL-G4-004"
@@ -1377,19 +1482,21 @@
         "Vor Speichern zeigt eine serverseitige Preview neue Datenbewegungen, Regelpfade, Konflikte und erforderliche Freigaben.",
         "Globale Matrix verwendet reale Daten, Virtualisierung und vollständige Tastaturbedienung statt hartcodierter Beispiele."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Grant-Presets, Grant-Lifecycle, reale Destinationen, Preview und globale Matrix sind über geschlossene v1-DTOs angebunden. Keyboard-, Virtualisierungs-, Provider- und Typecheck-Gates wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-U5-005",
       "title": "Context-Policy-Oberfläche an reale Projekt- und Lifecycle-APIs anbinden",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "frontend",
       "milestone_id": "SRCCTRL-M5",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-G4-003",
         "SRCCTRL-S0-001"
@@ -1409,19 +1516,21 @@
         "409 zeigt sichere Differenz und Reload-Option; Fehler werden nicht in scheinbar gültige Diagnosen umgewandelt.",
         "Mutationsbedienung ist nur bei serverseitig bestätigter Berechtigung erreichbar."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Context-Policy List/Detail/Draft/Lint/Preview/Version/Activate/Revoke/Rollback nutzt realen Projektkontext, ETag, Idempotenz und sichere Konflikte. Angular-Typecheck und Component-Flows wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-U5-006",
       "title": "CodeHug auf kanonischen CodeCompass-Vertrag migrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "frontend",
       "milestone_id": "SRCCTRL-M5",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-H3-002",
         "SRCCTRL-G4-005"
@@ -1444,9 +1553,11 @@
         "HTTP-Methoden und Endpunkte stimmen mit Flask-Contract-Fixtures überein; nicht vorhandene Projekt-, Health- oder Reindex-Routen werden nicht simuliert.",
         "Reads und Lifecycle-Mutationen werden in getrennte API-Ports aufgeteilt."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "CodeHug und Source Control Center verwenden denselben getrennten v1 Graph-, Query-, Artifact- und Lifecycle-Vertrag ohne simulierte Legacy-Routen. Contract-Tests und Angular-Typecheck wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-R6-001",
@@ -1456,7 +1567,7 @@
       "risk": "medium",
       "type": "operations",
       "milestone_id": "SRCCTRL-M6",
-      "progress_percent": 90,
+      "progress_percent": 99.0,
       "depends_on": [
         "SRCCTRL-H3-004",
         "SRCCTRL-G4-004"
@@ -1485,19 +1596,34 @@
         "Metriken verwenden bounded Labels und umfassen Queuezeit, Laufzeit, Erfolg, Stale-Alter, Coverage, Bytes, Rate Limits und Policy-Denials.",
         "Alarme und Runbooks decken stale Sources, Auth-Fehler, blockierte Jobs, Hashdrift, Speichergrenzen und sichere Wiederherstellung ab."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Produktive v1-Audit-, Prometheus-, Health- und Route-Deny-Composition sowie bounded Alarmzustände und Recovery-Runbook sind implementiert. Alarmzustellung, Produktionsmetriken und Recovery-Drills wurden nicht ausgeführt."
+      "verification_state": "local_verified_external_unverified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-alert-delivery-drill.json#sha256=5f085631affccf8b72fdf8a00043acf4ca52335011150b50c28bec8d009e07b0",
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
+        "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9",
+        "artifacts/test-gates/source-control-center-recovery-drill-verification.json#sha256=dacef2d7bce0e801fe7500d5c7408a3fcd93e6dce8cc354426be7413ccf61272"
+      ],
+      "status_basis": "Audit-, Metrik-, Health-, Boundary- und Recovery-Verträge, der Fail-fast-Recovery-Drill sowie der lokale Alarm-Delivery-Drill sind erfolgreich verifiziert. Die Loopback-Kette firing, delivered, resolved und healthy bestand; produktive Rules-, Config- und Alertmanager-Anbindung sind implementiert. Nur ein realer Produktionsreceiver beziehungsweise Paging und Produktionsmetriken bleiben extern unverified.",
+      "acceptance_evidence": {
+        "recovery_drill": "passed",
+        "endpoint_circuit_breaker": "passed",
+        "durable_retryable_tasks": "passed",
+        "outbox_preservation": "passed",
+        "alarm_delivery": "passed_local_loopback",
+        "production_metrics": "unverified",
+        "production_alarm_receiver": "unverified",
+        "production_paging": "unverified"
+      }
     },
     {
       "id": "SRCCTRL-R6-002",
       "title": "Backend-, Contract-, Security- und Migrationstests als vertikale Gates ergänzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "testing",
       "milestone_id": "SRCCTRL-M6",
-      "progress_percent": 95,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-S0-001",
         "SRCCTRL-S0-002",
@@ -1533,19 +1659,22 @@
         "Migrationstests sind idempotent, fail-closed und beweisen, dass keine zusätzliche Cloud-Freigabe entsteht.",
         "Fixtures sind klein, deterministisch und enthalten keine erfundenen SRC_* oder RUN_* IDs."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Vertikale Contract-, Persistenz-, Security-, Connector-, API-, Integrity-, CAS-/Replay-, Boundary- und Migrations-Testdefinitionen sind implementiert. Kein Test oder Gate wurde ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
+        "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-R6-003",
       "title": "Angular Contract-, Component- und Accessibility-Gates vervollständigen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "testing",
       "milestone_id": "SRCCTRL-M6",
-      "progress_percent": 90,
+      "progress_percent": 100.0,
       "depends_on": [
         "SRCCTRL-U5-001",
         "SRCCTRL-S0-001"
@@ -1571,9 +1700,11 @@
         "Tastatur, Fokus, Screenreader, Live-Status, Kontrast und nicht ausschließlich farbliche Statusdarstellung erfüllen WCAG AA.",
         "Keine Sicherheitsentscheidung wird allein aus lokalem UI-State abgeleitet."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Angular Contract-, Component-, Fehler-, Axe-, Fokus-, Tastatur- und Kontrast-Testdefinitionen verwenden den lokalen nichtproduktiven Test-Hub. Build, Typecheck und WCAG-AA-Gates wurden nicht ausgeführt."
+      "verification_state": "locally_verified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
+      ],
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
     },
     {
       "id": "SRCCTRL-R6-004",
@@ -1583,7 +1714,7 @@
       "risk": "high",
       "type": "testing",
       "milestone_id": "SRCCTRL-M6",
-      "progress_percent": 85,
+      "progress_percent": 95.0,
       "depends_on": [
         "SRCCTRL-R6-002",
         "SRCCTRL-R6-003",
@@ -1607,9 +1738,12 @@
         "Approval-E2E bindet eine einmalige Freigabe an Modell, Destination und Revision; jede Änderung bleibt denied.",
         "Rollback-E2E aktiviert einen früheren validen Index und prüft Active-Zeiger, Audit und Retrieval."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Deterministische Playwright-Journeys definieren Workspace-, GitHub-, Governance-, Approval-, Policy- und Rollback-Flows mit API-erfassten IDs. Sie wurden nicht ausgeführt und enthalten keinen echten Provider-/Produktionslauf."
+      "verification_state": "local_verified_external_unverified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
+        "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9"
+      ],
+      "status_basis": "Sechs deterministische Chromium-E2E-Flows liefen ohne Fehler und ohne Retry; lokale Governance-, Approval-, Rollback- und Accessibility-Pfade sind belegt. Live-GitHub-/OAuth-, Cloud- und Produktions-Journeys bleiben extern unverified."
     },
     {
       "id": "SRCCTRL-R6-005",
@@ -1619,7 +1753,7 @@
       "risk": "high",
       "type": "release",
       "milestone_id": "SRCCTRL-M6",
-      "progress_percent": 90,
+      "progress_percent": 99.0,
       "depends_on": [
         "SRCCTRL-R6-001",
         "SRCCTRL-R6-002",
@@ -1662,9 +1796,14 @@
         "Benutzer- und Betriebsdokumentation erklärt Connection, Revision, aktiven Index, Stale, lokale und Cloud-Ziele, Credential-Widerruf, Rollback und Purge.",
         "Production-Verifikation bleibt ohne bereitgestellte gültige SRC_* und RUN_* IDs unverified und release_allowed=false."
       ],
-      "verification_state": "unverified",
-      "evidence_refs": [],
-      "status_basis": "Monotone Rolloutpolicy, content-freier Shadow-Vergleich, numerische Schwellen, Boundary-/Container- und Load-/Recovery-Harnesses sowie fail-closed Release-Gate sind implementiert. Gates, Harnesses, Performance, Produktion und organisatorische Freigabe bleiben unverified."
+      "verification_state": "local_verified_external_unverified",
+      "evidence_refs": [
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
+        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
+        "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9",
+        "artifacts/test-gates/source-control-center-rollout-verification.json#sha256=f8a89012a90539af96c158691f497679b8785a959315b81e8f8cd27b260987ed"
+      ],
+      "status_basis": "Alle lokalen Rollout-, Contract-, Security-, Migration-, Backend-, Angular-, E2E-, Accessibility-, Container-, No-Bypass- und Load-/Recovery-Gates sind erfolgreich. Produktionsverifikation mit gültigen SRC_*/RUN_*-IDs und organisatorische Freigabe bleiben extern unverified."
     }
   ],
   "critical_path_tasks": [
@@ -1700,11 +1839,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 22,
+      "partial": 5,
       "blocked": 0,
-      "done": 14
+      "done": 31
     },
-    "progress_percent_done": 38.89,
+    "progress_percent_done": 86.1,
     "by_priority": {
       "P0": 14,
       "P1": 21,
@@ -1713,84 +1852,232 @@
     "by_risk": {
       "critical": 17,
       "high": 15,
-      "medium": 4
+      "medium": 4,
+      "low": 0
     },
     "critical_path": {
       "total": 26,
-      "done": 10,
-      "remaining": 16
+      "done": 23,
+      "remaining": 3
     },
     "milestones": {
       "total": 7,
       "todo": 0,
-      "in_progress": 0,
-      "partial": 6,
+      "in_progress": 3,
       "blocked": 0,
-      "done": 1
+      "done": 4
     }
   },
   "tasks_type_summary": {
     "total": 36,
     "by_type": {
-      "architecture": 1,
-      "backend": 7,
-      "connector": 4,
-      "contract": 2,
-      "frontend": 6,
-      "migration": 1,
-      "operations": 1,
-      "persistence": 2,
-      "release": 1,
-      "security": 8,
-      "testing": 3
+      "security": {
+        "total": 8,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 8
+        },
+        "done": 8,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "architecture": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "contract": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "persistence": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "migration": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "connector": {
+        "total": 4,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 99.8
+      },
+      "backend": {
+        "total": 7,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 7
+        },
+        "done": 7,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "frontend": {
+        "total": 6,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 5
+        },
+        "done": 5,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 99.8
+      },
+      "operations": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 99.0
+      },
+      "testing": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 98.3
+      },
+      "release": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 99.0
+      }
     }
   },
   "progress_summary": {
-    "state": "partial",
+    "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 22,
+    "partial": 5,
     "blocked": 0,
-    "done": 14
+    "done": 31,
+    "count_based_percent": 86.1,
+    "weighted_percent": 99.7
   },
   "weighted_progress_summary": {
-    "method": "arithmetic_mean_of_task_progress_percent",
-    "sum_progress_points": 3455,
-    "maximum_progress_points": 3600,
-    "progress_percent": 95.97
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 67.0,
+    "done_weight": 66.795,
+    "remaining_weight": 0.205,
+    "blocked_weight": 0.0,
+    "weighted_percent": 99.7
   },
   "execution_stage_summary": {
-    "current_stage": "verification_external_evidence_and_release_approval",
+    "current_stage": "external_provider_production_and_organizational_verification",
     "parallel_fronts": [
       [
-        "SRCCTRL-R6-002",
-        "SRCCTRL-R6-003",
+        "SRCCTRL-N2-003",
+        "SRCCTRL-U5-002",
         "SRCCTRL-R6-004"
       ],
       [
         "SRCCTRL-R6-001",
         "SRCCTRL-R6-005"
-      ],
-      [
-        "SRCCTRL-N2-003"
       ]
     ],
     "next_vertical_slice": [
-      "SRCCTRL-R6-002",
-      "SRCCTRL-R6-003",
+      "SRCCTRL-N2-003",
+      "SRCCTRL-R6-001",
       "SRCCTRL-R6-004",
       "SRCCTRL-R6-005"
     ]
   },
   "summary_notes": [
-    "Der finale Shared-Worktree wurde gegen den früheren 11-Punkte-A-Audit und die Abschlussberichte für Integrity, Security, Angular/E2E, Runtime-Adapter und Migration-Merge abgeglichen; es verbleibt keine selbst lösbare Code-, Vertrags- oder Testdefinitionslücke.",
-    "Vierzehn reine Implementierungspakete sind done. Zweiundzwanzig Pakete bleiben partial, weil mindestens ein explizites Test-, Build-, Typecheck-, Accessibility-, Harness-, Performance-, Live-Provider-, Produktions- oder Freigabekriterium nicht ausgeführt beziehungsweise nicht belegt ist.",
-    "Die kanonische v1-API besitzt produktive owner-/projektgebundene Kataloge, serverautoritative Connection-Intents, immutable Text-/Notebook-Revisionen, Graph/Query, persistente CodeHug-Governance und grant-/policy-/lease-/manifestgebundene Artefaktauslieferung.",
-    "Monotone Event-Outbox, wiederaufnehmbare Bulk-Leases und Target-Checkpoints, one-time Purge-Approvals, vollständige Purge-Blocker und ein identischer echter Policy-Snapshot-Digest schließen die früheren Integrity-Lücken im Source ab.",
-    "Angular- und Playwright-Flows sind implementiert und verwenden API-erfasste IDs sowie einen ausdrücklich nichtproduktiven lokalen Test-Hub; Angular-Build, Typecheck, Component-, Axe-, WCAG- und Playwright-Ausführung fehlen weiterhin.",
-    "Container-Smoke und Load-/Soak-/Recovery-Harness sind reproduzierbar definiert, wurden aber nicht ausgeführt; es werden keine Messwerte behauptet.",
-    "Ein echter GitHub-App-/OAuth-, externer Modell-/Provider- und Produktionslauf sowie organisatorische Baseline-Freigabe bleiben extern offen.",
-    "verification_policy enthält weiterhin keine SRC_* oder RUN_* IDs und keine Evidence-Refs. Production-Verifikation bleibt unverified und release_allowed=false."
+    "Alle elf lokalen Release-Manifest-Gates sind mit stabilen SHA-256-referenzierten Evidence-Berichten passed.",
+    "Backend: 1711 passed, 3 skipped, 0 failed; Ruff E/F/W/S603/S607 passed; Contract-Gates 274/274 plus 26/26 passed.",
+    "Migration: genau ein Alembic-Head 2f7c9e1a4b6d; Upgrade, expliziter Merge-Downgrade und Re-Upgrade passed.",
+    "Frontend: Typecheck und Produktionsbuild passed, Unit 33/33, Playwright Chromium 6/6 ohne Retry einschließlich Axe, Tastatur, Fokus und Kontrast.",
+    "Betrieb: Boundary 0 Violations, Container 4/4, Canonical Load 4000 Requests bei 0 Fehlern, p95 66.523 ms und p99 479.934 ms; Replay, Bulk, Recovery und Connection sowie QueuePool-/5xx-Zähler passed beziehungsweise 0.",
+    "Generic Git wurde credential-frei live gegen ein öffentliches kleines Repository über Produktions-Composition, SQL-Registry, DNS-IP-Pinning und HubGitTransport verifiziert; immutable HEAD, Inventory, Refresh und Cleanup bestanden.",
+    "Lokale Hub-IDs conn_c6... und srev_667... sind ausdrücklich keine Produktions-SRC_*/RUN_*-Evidence und werden nicht in production_verification eingetragen.",
+    "Live GitHub-App/OAuth, Cloud-/Provider-Produktion, realer Produktionsreceiver beziehungsweise Paging, Produktionsmetriken und organisatorische Freigabe bleiben extern offen.",
+    "Production-Verifikation bleibt ohne bereitgestellte gültige SRC_* und RUN_* IDs unverified; release_allowed=false.",
+    "Recovery-Drill: 14 serielle restricted-inference Scopes am selben unerreichbaren Endpoint wurden durch Endpoint-Circuit-Breaker und Fail-fast sicher beendet; 22/22 Tests und Ruff passed, Tasks blieben failed/retryable/durable, 14 Outbox-Zeilen blieben als 1 worker_unavailable plus 13 worker_circuit_open erhalten. Startup sank von 168.7424 s auf 22.3307 s, Cleanup von 167.1531 s auf 20.7195 s; Container-Start bis Health betrug 30.837 s und Hub Health war ok.",
+    "Alarm-Drill: Die lokale Loopback-Kette firing, delivered, resolved und healthy bestand mit firing=0 und resolved=1; 9/9 Tests und Ruff passed. Produktive Rules-, Config- und Alertmanager-Anbindung sind implementiert, ein realer Produktionsreceiver beziehungsweise Paging wurde nicht kontaktiert.",
+    "GitHub-Onboarding: Persistente Git-Connector-Composition und server-handle-only Provisioning/List/Detail/Revoke/Scope-loss/Health sind mit admin/project_owner plus Scope, SQL-Idempotenz/CAS, immutable History, Audit und fail-closed Provider-/Secret-Auflösung implementiert; 148 Tests, Ruff und Bootstrap bestanden. Persistente GitHub-App-/OAuth-Registration count=0 sowie externe Installation und Grant bleiben offen."
   ],
   "end_summaries": [
     {
@@ -1809,21 +2096,86 @@
       "summary_id": "SRCCTRL-END-002",
       "title": "Definition of Done",
       "items": [
+        "Angular zeigt reale Hub-Zustände und kann weder Sicherheitsmetadaten behaupten noch Fehler als erfolgreiche Fallbackpolicy darstellen.",
+        "Contract-, Security-, Migration-, Backend-, Angular-, E2E-, Accessibility-, Container-, Load-/Recovery- und Keine-Bypass-Gates wurden lokal erfolgreich ausgeführt und SHA-256-belegt.",
+        "Das GitHub-Onboarding ist bis zur externen Providergrenze persistent, server-handle-only, RBAC-/Scope-gebunden, CAS- und auditgesichert; eine reale GitHub-App-/OAuth-Registration, Installation und Grant bleiben externe Voraussetzungen.",
+        "Ein Release wird erst mit gültiger externer Evidence und organisatorischer Freigabe verifiziert; bis dahin bleibt release_allowed=false.",
         "Ein berechtigter Nutzer kann registrierte Workspaces, erlaubte relative Verzeichnisse, GitHub, registriertes Git, Direct Text, Notebook, Wiki und bestehende Quellen als SourceConnection anlegen.",
+        "Hub-Worker-Grenze, Tenant-/Projektisolation, OCC, Audit, Retention, Rollback und sichere Purge-Semantik besitzen reproduzierbare Testdefinitionen.",
         "Jede Connection besitzt unveränderliche Revisionen, Admission, revisionsgebundene Index-Runs, genau einen konsistenten Active-Index und nachvollziehbaren Stale-Status.",
         "Jede Datenbewegung wird gegen reale SourceRevision, Worker, Runtime, Provider, Modell, Standort, Operation und Transformation serverseitig entschieden.",
-        "Angular zeigt reale Hub-Zustände und kann weder Sicherheitsmetadaten behaupten noch Fehler als erfolgreiche Fallbackpolicy darstellen.",
-        "Hub-Worker-Grenze, Tenant-/Projektisolation, OCC, Audit, Retention, Rollback und sichere Purge-Semantik besitzen reproduzierbare Testdefinitionen.",
-        "Contract-, Security-, Migration-, Backend-, Angular-, E2E-, Accessibility-, Container-, Load-/Recovery- und Keine-Bypass-Gates müssen noch ausgeführt werden.",
-        "Ein Release wird erst mit gültiger externer Evidence und organisatorischer Freigabe verifiziert; bis dahin bleibt release_allowed=false."
+        "Lokaler Recovery- und Alarm-Delivery-Drill belegen Circuit-Breaker, Fail-fast, retryable/durable Tasks, vollständigen Outbox-Erhalt sowie firing-to-resolved-to-healthy. Reale Produktionsreceiver, Paging und Produktionsmetriken bleiben externe Release-Voraussetzungen."
       ]
     }
   ],
   "summary_recalculation_status": "recalculated",
   "derived_summary_metadata": {
+    "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "recalculated_at": "2026-07-30",
-    "verification_state": "unverified",
-    "release_allowed": false
+    "generated_at": "2026-07-30T17:22:57.057391Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "9c14af37b86767950336dc3dcf1db09229f83bbdcdaeb21afea220069e5d46b0",
+    "is_stale": false
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "SRCCTRL-M0": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "SRCCTRL-M1": {
+        "total_tasks": 6,
+        "done": 6,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "SRCCTRL-M2": {
+        "total_tasks": 5,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 80.0,
+        "weighted_percent": 99.8,
+        "status": "in_progress"
+      },
+      "SRCCTRL-M3": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "SRCCTRL-M4": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "SRCCTRL-M5": {
+        "total_tasks": 6,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 83.3,
+        "weighted_percent": 99.8,
+        "status": "in_progress"
+      },
+      "SRCCTRL-M6": {
+        "total_tasks": 5,
+        "done": 2,
+        "blocked": 0,
+        "count_based_percent": 40.0,
+        "weighted_percent": 98.4,
+        "status": "in_progress"
+      }
+    }
   }
 }

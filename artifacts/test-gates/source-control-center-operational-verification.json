@@ -1,0 +1,96 @@
+{
+  "schema": "ananta.source-control.local-operational-verification.v1",
+  "scope": "local_non_production",
+  "status": "passed",
+  "gates": [
+    "container",
+    "no_bypass",
+    "load_recovery"
+  ],
+  "results": {
+    "boundary": {
+      "status": "passed",
+      "violations": 0,
+      "artifact": "artifacts/source-control-boundary-final.json",
+      "artifact_digest": "b89c584eead47bef8fb5f53c11b6afbcafb02e095a3721ddca50f4783187cca5"
+    },
+    "container": {
+      "status": "passed",
+      "passed": 4,
+      "failed": 0,
+      "artifact": "artifacts/source-control-container-smoke-final.json",
+      "artifact_digest": "c8f15fea5a6b0584d358661749817d095968636376f29ce37f861ac2066d0b6f"
+    },
+    "canonical_load_recovery": {
+      "status": "passed",
+      "total_requests": 4000,
+      "failed_requests": 0,
+      "error_rate": 0.0,
+      "cursor_p95_ms": 66.523,
+      "cursor_p99_ms": 479.934,
+      "replay_consistent": true,
+      "scenarios": {
+        "bulk_dry_run": "passed",
+        "connection_list_cursor": "passed",
+        "event_replay": "passed",
+        "job_recovery_replay": "passed"
+      },
+      "queue_pool_errors": 0,
+      "http_5xx": 0,
+      "artifact": "artifacts/source-control-load-recovery-canonical-final.json",
+      "artifact_digest": "a2e8591adad5c081f23fbb8522864bd8d1ad883a12f4f2ab2f201179b7b36daf"
+    },
+    "recovery_drill": {
+      "status": "passed",
+      "root_cause": "14_serial_restricted_inference_scopes_shared_unreachable_endpoint",
+      "circuit_breaker": "passed",
+      "fail_fast": "passed",
+      "durable_retryable_tasks": true,
+      "tests_passed": 22,
+      "tests_failed": 0,
+      "ruff": "passed",
+      "application_startup_seconds": {
+        "before": 168.7424,
+        "after": 22.3307
+      },
+      "cleanup_seconds": {
+        "before": 167.1531,
+        "after": 20.7195
+      },
+      "container_start_to_health_seconds": 30.837,
+      "hub_health": "ok",
+      "outbox_rows_preserved": 14,
+      "outbox_reason_counts": {
+        "worker_unavailable": 1,
+        "worker_circuit_open": 13
+      },
+      "artifact": "artifacts/test-gates/source-control-center-recovery-drill-verification.json",
+      "artifact_digest": "dacef2d7bce0e801fe7500d5c7408a3fcd93e6dce8cc354426be7413ccf61272"
+    },
+    "alert_delivery_drill": {
+      "status": "passed",
+      "evidence_id": "scad-b26b906654ae87dd72ce3bf1",
+      "scope": "local_loopback_only",
+      "sequence": [
+        "firing",
+        "delivered",
+        "resolved",
+        "healthy"
+      ],
+      "firing_metric": 0,
+      "resolved_metric": 1,
+      "tests_passed": 9,
+      "tests_failed": 0,
+      "ruff": "passed",
+      "production_rules_config_alertmanager_wiring": "implemented",
+      "production_receiver_exercised": false,
+      "production_paging_exercised": false,
+      "artifact": "artifacts/test-gates/source-control-alert-delivery-drill.json",
+      "artifact_digest": "5f085631affccf8b72fdf8a00043acf4ca52335011150b50c28bec8d009e07b0"
+    }
+  },
+  "local_hub_ids_are_not_production_evidence": true,
+  "production_evidence": false,
+  "source_ids": [],
+  "run_ids": []
+}

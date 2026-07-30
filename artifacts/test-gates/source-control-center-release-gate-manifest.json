@@ -1,5 +1,61 @@
 {
-  "evidence": [],
+  "evidence": [
+    {
+      "gate": "contract",
+      "status": "passed",
+      "artifact_digest": "d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+    },
+    {
+      "gate": "security",
+      "status": "passed",
+      "artifact_digest": "d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+    },
+    {
+      "gate": "migration",
+      "status": "passed",
+      "artifact_digest": "d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+    },
+    {
+      "gate": "backend",
+      "status": "passed",
+      "artifact_digest": "d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+    },
+    {
+      "gate": "angular",
+      "status": "passed",
+      "artifact_digest": "5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
+    },
+    {
+      "gate": "e2e",
+      "status": "passed",
+      "artifact_digest": "5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
+    },
+    {
+      "gate": "accessibility",
+      "status": "passed",
+      "artifact_digest": "5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
+    },
+    {
+      "gate": "container",
+      "status": "passed",
+      "artifact_digest": "25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9"
+    },
+    {
+      "gate": "no_bypass",
+      "status": "passed",
+      "artifact_digest": "25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9"
+    },
+    {
+      "gate": "rollout",
+      "status": "passed",
+      "artifact_digest": "f8a89012a90539af96c158691f497679b8785a959315b81e8f8cd27b260987ed"
+    },
+    {
+      "gate": "load_recovery",
+      "status": "passed",
+      "artifact_digest": "25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9"
+    }
+  ],
   "production_verification": null,
   "schema_version": "1.0"
 }

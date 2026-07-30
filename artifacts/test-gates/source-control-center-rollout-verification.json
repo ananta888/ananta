@@ -1,0 +1,45 @@
+{
+  "schema": "ananta.source-control.local-rollout-verification.v1",
+  "scope": "local_non_production",
+  "status": "passed",
+  "gate": "rollout",
+  "local_gate_dependencies": [
+    {
+      "artifact": "artifacts/test-gates/source-control-center-backend-verification.json",
+      "artifact_digest": "d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
+      "status": "passed"
+    },
+    {
+      "artifact": "artifacts/test-gates/source-control-center-frontend-verification.json",
+      "artifact_digest": "5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
+      "status": "passed"
+    },
+    {
+      "artifact": "artifacts/test-gates/source-control-center-operational-verification.json",
+      "artifact_digest": "25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9",
+      "status": "passed"
+    }
+  ],
+  "production_rollout": "unverified",
+  "organizational_approval": "unverified",
+  "production_evidence": false,
+  "source_ids": [],
+  "run_ids": [],
+  "recovery_drill": {
+    "artifact": "artifacts/test-gates/source-control-center-recovery-drill-verification.json",
+    "artifact_digest": "dacef2d7bce0e801fe7500d5c7408a3fcd93e6dce8cc354426be7413ccf61272",
+    "status": "passed"
+  },
+  "alert_delivery_drill": {
+    "artifact": "artifacts/test-gates/source-control-alert-delivery-drill.json",
+    "artifact_digest": "5f085631affccf8b72fdf8a00043acf4ca52335011150b50c28bec8d009e07b0",
+    "scope": "local_loopback_only",
+    "status": "passed"
+  },
+  "github_onboarding": {
+    "artifact": "artifacts/test-gates/source-control-github-onboarding-verification.json",
+    "artifact_digest": "f9f4de252e93b3fbc4bd865cdb586e6acbd97f7fd99b88e4159fcc7d7aded2ef",
+    "local_implementation": "passed",
+    "external_registration_installation_grant": "unverified"
+  }
+}

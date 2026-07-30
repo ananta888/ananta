@@ -1,0 +1,27 @@
+{
+  "load": {
+    "concurrency": 1,
+    "duration_seconds": 120,
+    "max_iterations": 200,
+    "page_limits": [
+      10,
+      25,
+      50
+    ],
+    "seed": 20260730
+  },
+  "scenarios": [
+    "connection-list-cursor",
+    "event-replay",
+    "bulk-dry-run",
+    "job-recovery-replay"
+  ],
+  "schema": "ananta.source-control.load-recovery-definition.v1",
+  "thresholds": {
+    "cursor_p95_ms": 5000,
+    "cursor_p99_ms": 10000,
+    "max_error_rate": 0.02,
+    "minimum_requests": 30,
+    "require_replay_consistency": true
+  }
+}

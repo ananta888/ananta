@@ -1,0 +1,37 @@
+{
+  "delivery_sequence": [
+    {
+      "alertname": "SourceControlOperationalAlarm",
+      "delivery": "accepted",
+      "receiver": "source-control-drill-loopback",
+      "sequence": 1,
+      "status": "firing"
+    },
+    {
+      "alertname": "SourceControlOperationalAlarm",
+      "delivery": "accepted",
+      "receiver": "source-control-drill-loopback",
+      "sequence": 2,
+      "status": "resolved"
+    }
+  ],
+  "drill_scope": "loopback_only",
+  "evidence_id": "scad-b26b906654ae87dd72ce3bf1",
+  "pipeline": {
+    "alert_rule": "SourceControlOperationalAlarm",
+    "health_contract": "ananta.source-control.health.v1",
+    "metric": "source_control_alert_state",
+    "metrics_adapter": "PrometheusSourceControlMetrics",
+    "production_alertmanager_exercised": false,
+    "production_channels_contacted": false,
+    "receiver": "source-control-drill-loopback"
+  },
+  "recovery": {
+    "firing_metric": 0.0,
+    "health_status": "healthy",
+    "resolved_metric": 1.0
+  },
+  "rule_digest": "sha256:54a56e19cba2a61d83592ca0f5ef889156c12c54456e29d39179db92257c47c2",
+  "schema": "ananta.source-control.alert-delivery-drill.v1",
+  "status": "passed"
+}
