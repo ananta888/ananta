@@ -1,0 +1,21 @@
+{
+  "codecompass_repository_gate_reused": false,
+  "container_digest": null,
+  "invalid_run_ids": [],
+  "invalid_source_ids": [],
+  "junit_sha256": "36f5ee8b36b6030ca905e2a22940d772efb0bb8a36bffa31807c9c58638ca777",
+  "profile": "core",
+  "reason_code": "model_intelligence_evidence_missing",
+  "release_allowed": false,
+  "run_ids": [],
+  "schema_version": "model_intelligence_acceptance.v1",
+  "source_ids": [],
+  "status": "unverified",
+  "tests": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "tests": 45
+  },
+  "tool_digest": "a59eb7213c5ed4dae6a282c27be0ca193302abc1a2cd7d70ec5e10d2cbdd1e06"
+}

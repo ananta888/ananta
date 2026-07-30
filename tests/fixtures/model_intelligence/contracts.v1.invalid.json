@@ -1,0 +1,99 @@
+{
+  "fixture_version": "ananta.model-intelligence.contracts.invalid.v1",
+  "_meta": {
+    "deterministic": true,
+    "purpose": "Negative cross-language contract cases for OWMA-002"
+  },
+  "cases": [
+    {
+      "contract": "model_identity",
+      "expected_reason_code": "contract_invalid",
+      "payload": {
+        "extensions": {},
+        "schema": "ananta.model-intelligence.model-identity.v1",
+        "model_id": "model_bad",
+        "source": "huggingface",
+        "locator": "acme/tiny-transformer",
+        "revision": "0123456789abcdef",
+        "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "contract": "capability_descriptor",
+      "expected_reason_code": "contract_invalid",
+      "payload": {
+        "extensions": {},
+        "schema": "ananta.model-intelligence.capability-descriptor.v1",
+        "model_id": "model_4f992bdd84a4efa805bf8bebb7c06cbd5755e3406a4b6fe49abcc08907d63ba7",
+        "capability_id": "analysis.static.tensor-statistics",
+        "state": "unsupported",
+        "evidence": "probed",
+        "adapter_id": "hf-local-v1",
+        "adapter_version": "1.0.0",
+        "reason_code": null
+      }
+    },
+    {
+      "contract": "capability_descriptor",
+      "expected_reason_code": "contract_invalid",
+      "payload": {
+        "extensions": {},
+        "schema": "ananta.model-intelligence.capability-descriptor.v1",
+        "model_id": "model_4f992bdd84a4efa805bf8bebb7c06cbd5755e3406a4b6fe49abcc08907d63ba7",
+        "capability_id": "analysis.static.tensor-statistics",
+        "state": "conditional",
+        "evidence": "declared",
+        "adapter_id": "hf-local-v1",
+        "adapter_version": "1.0.0",
+        "reason_code": null
+      }
+    },
+    {
+      "contract": "analysis_job",
+      "expected_reason_code": "contract_invalid",
+      "payload": {
+        "extensions": {},
+        "schema": "ananta.model-intelligence.analysis-job.v1",
+        "job_id": "analysis-job-001",
+        "hub_task_id": "task-owma-002-001",
+        "tenant_id": "tenant-001",
+        "model_id": "model_4f992bdd84a4efa805bf8bebb7c06cbd5755e3406a4b6fe49abcc08907d63ba7",
+        "analysis_kind": "static.tensor-statistics",
+        "profile_id": "profile.static-safe.v1",
+        "request_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "requested_artifact_kinds": [
+          "tensor.statistics"
+        ],
+        "max_runtime_seconds": 0,
+        "max_output_bytes": 1048576
+      }
+    },
+    {
+      "contract": "artifact_ref",
+      "expected_reason_code": "contract_invalid",
+      "payload": {
+        "extensions": {},
+        "schema": "ananta.model-intelligence.artifact-ref.v1",
+        "artifact_id": "artifact-001",
+        "job_id": "analysis-job-001",
+        "kind": "tensor.statistics",
+        "sha256": "not-a-digest",
+        "size_bytes": 4096,
+        "media_type": "application/json"
+      }
+    },
+    {
+      "contract": "error_envelope",
+      "expected_reason_code": "contract_invalid",
+      "payload": {
+        "extensions": {},
+        "schema": "ananta.model-intelligence.error-envelope.v1",
+        "reason_code": "runtime_unavailable",
+        "retryable": true,
+        "details": {
+          "api_key": "must-not-cross-the-wire"
+        }
+      }
+    }
+  ]
+}

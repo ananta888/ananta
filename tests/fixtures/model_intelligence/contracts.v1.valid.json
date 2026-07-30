@@ -1,0 +1,66 @@
+{
+  "fixture_version": "ananta.model-intelligence.contracts.valid.v1",
+  "_meta": {
+    "deterministic": true,
+    "purpose": "Cross-language golden wire contracts for OWMA-002"
+  },
+  "contracts": {
+    "model_identity": {
+      "extensions": {},
+      "schema": "ananta.model-intelligence.model-identity.v1",
+      "model_id": "model_4f992bdd84a4efa805bf8bebb7c06cbd5755e3406a4b6fe49abcc08907d63ba7",
+      "source": "huggingface",
+      "locator": "acme/tiny-transformer",
+      "revision": "0123456789abcdef",
+      "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "capability_descriptor": {
+      "extensions": {},
+      "schema": "ananta.model-intelligence.capability-descriptor.v1",
+      "model_id": "model_4f992bdd84a4efa805bf8bebb7c06cbd5755e3406a4b6fe49abcc08907d63ba7",
+      "capability_id": "analysis.static.tensor-statistics",
+      "state": "conditional",
+      "evidence": "declared",
+      "adapter_id": "hf-local-v1",
+      "adapter_version": "1.0.0",
+      "reason_code": "requires_compatible_model_task"
+    },
+    "analysis_job": {
+      "extensions": {},
+      "schema": "ananta.model-intelligence.analysis-job.v1",
+      "job_id": "analysis-job-001",
+      "hub_task_id": "task-owma-002-001",
+      "tenant_id": "tenant-001",
+      "model_id": "model_4f992bdd84a4efa805bf8bebb7c06cbd5755e3406a4b6fe49abcc08907d63ba7",
+      "analysis_kind": "static.tensor-statistics",
+      "profile_id": "profile.static-safe.v1",
+      "request_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "requested_artifact_kinds": [
+        "model.graph",
+        "tensor.statistics"
+      ],
+      "max_runtime_seconds": 300,
+      "max_output_bytes": 1048576
+    },
+    "artifact_ref": {
+      "extensions": {},
+      "schema": "ananta.model-intelligence.artifact-ref.v1",
+      "artifact_id": "artifact-001",
+      "job_id": "analysis-job-001",
+      "kind": "tensor.statistics",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "size_bytes": 4096,
+      "media_type": "application/json"
+    },
+    "error_envelope": {
+      "extensions": {},
+      "schema": "ananta.model-intelligence.error-envelope.v1",
+      "reason_code": "runtime_unavailable",
+      "retryable": true,
+      "details": {
+        "adapter_id": "hf-local-v1",
+        "job_id": "analysis-job-001"
+      }
+    }
+  }
+}

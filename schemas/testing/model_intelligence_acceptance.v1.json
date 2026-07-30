@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/testing/model_intelligence_acceptance.v1.json",
+  "title": "ModelIntelligenceAcceptance v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile",
+    "status",
+    "reason_code",
+    "release_allowed",
+    "tests",
+    "junit_sha256",
+    "tool_digest",
+    "container_digest",
+    "source_ids",
+    "run_ids",
+    "invalid_source_ids",
+    "invalid_run_ids",
+    "codecompass_repository_gate_reused"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "model_intelligence_acceptance.v1"
+    },
+    "profile": {
+      "enum": [
+        "core",
+        "extended"
+      ]
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "unverified"
+      ]
+    },
+    "reason_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "release_allowed": {
+      "type": "boolean"
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tests",
+        "failures",
+        "errors",
+        "skipped"
+      ],
+      "properties": {
+        "tests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failures": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "junit_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 of the canonical JUnit projection with volatile host, timestamp, and duration metadata removed."
+    },
+    "tool_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "container_digest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^SRC_"
+      }
+    },
+    "run_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^RUN_"
+      }
+    },
+    "invalid_source_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "invalid_run_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "codecompass_repository_gate_reused": {
+      "const": false
+    }
+  }
+}
