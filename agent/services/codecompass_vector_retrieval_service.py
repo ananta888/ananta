@@ -15,8 +15,8 @@ from agent.services.embedding_provider_config_service import (
     EmbeddingProviderConfigService,
     build_embedding_provider_from_config,
 )
-from worker.retrieval.codecompass_embedding_loader import load_codecompass_embedding_documents
-from worker.retrieval.codecompass_vector_engine import CodeCompassVectorEngine
+from ananta_codecompass.embedding_loader import load_codecompass_embedding_documents
+from ananta_codecompass.vector_engine import CodeCompassVectorEngine
 from worker.retrieval.embedding_text_builder import (
     CODECOMPASS_EMBEDDING_TEXT_PROFILE,
     build_embedding_texts_batch,

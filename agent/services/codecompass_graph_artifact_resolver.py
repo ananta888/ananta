@@ -45,7 +45,7 @@ class CodeCompassGraphArtifactResolver:
         if not output_dir:
             raise ValueError("graph_output_dir_not_set")
         candidate = Path(output_dir) / GRAPH_INDEX_FILENAME
-        return self._validated_local_path(candidate)
+        return self._validated_legacy_path(candidate)
 
     def _resolve_admitted_binding(self, raw_binding: Any) -> Path:
         if not isinstance(raw_binding, Mapping):
@@ -93,6 +93,28 @@ class CodeCompassGraphArtifactResolver:
                 raise ValueError("graph_artifact_outside_root") from exc
         if resolved.stat().st_size > _MAX_GRAPH_BYTES:
             raise ValueError("graph_artifact_too_large")
+        return resolved
+
+    def _validated_legacy_path(self, local_path: Path) -> Path:
+        """Resolve a legacy path while preserving the historical empty graph.
+
+        A missing legacy graph is a supported degraded read state. Existing
+        files still pass the complete materialization, containment and size
+        checks used for admitted artifacts.
+        """
+
+        if not local_path.is_absolute() or local_path.name != GRAPH_INDEX_FILENAME:
+            raise ValueError("graph_artifact_not_materialized")
+        if local_path.is_symlink():
+            raise ValueError("graph_artifact_not_materialized")
+        if local_path.exists():
+            return self._validated_local_path(local_path)
+        resolved = local_path.resolve(strict=False)
+        if self._artifact_root is not None:
+            try:
+                resolved.relative_to(self._artifact_root)
+            except ValueError as exc:
+                raise ValueError("graph_artifact_outside_root") from exc
         return resolved
 
     @staticmethod

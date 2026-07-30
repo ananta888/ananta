@@ -997,7 +997,7 @@ def codecompass_repository_query(
     *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
 ) -> dict[str, Any]:
     """RIG-006: whitelisted RIG query against the graph store."""
-    from worker.retrieval.codecompass_repository_intelligence_query import (
+    from ananta_codecompass.repository_intelligence_query import (
         ALLOWED_QUERY_TYPES,
         run_query,
     )
@@ -1045,7 +1045,7 @@ def codecompass_build_test_map(
     *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
 ) -> dict[str, Any]:
     """RIG-006: convenience tool — build a build/test map for a target."""
-    from worker.retrieval.codecompass_repository_intelligence_query import run_query
+    from ananta_codecompass.repository_intelligence_query import run_query
     args = arguments or {}
     target = str(args.get("target") or "").strip()
     if not target:

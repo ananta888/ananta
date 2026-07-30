@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any
 
@@ -86,7 +85,7 @@ def _resolve_domain_scope_for_chat(domain_hint: str | None) -> object | None:
     """
     if not domain_hint:
         return None
-    if not str(getattr(settings, "codecompass_domain_scope_enabled", False)).strip().lower() in {"1", "true", "yes"}:
+    if str(getattr(settings, "codecompass_domain_scope_enabled", False)).strip().lower() not in {"1", "true", "yes"}:
         return None
     try:
         from agent.codecompass.domain_scope_resolver import (
@@ -190,7 +189,7 @@ def _snake_retrieval_dry_run(
     try:
         from agent.routes.ai_snake_config import _current_config
         from agent.services.retrieval_profile_service import resolve_profile
-        from worker.retrieval.codecompass_candidate_resolver import ResolverConfig
+        from ananta_codecompass.candidate_resolver import ResolverConfig
 
         cfg = _current_config()
         cfg.update(dict(retrieval_config_overrides or {}))

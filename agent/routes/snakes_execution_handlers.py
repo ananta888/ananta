@@ -1170,7 +1170,7 @@ def worker_context():
             get_worker_context_handoff_diagnostics_service,
         )
         from agent.services.worker_contract_service import get_worker_contract_service
-        from worker.retrieval.codecompass_candidate_resolver import (
+        from ananta_codecompass.candidate_resolver import (
             CodeCompassCandidateResolver,
             ResolverConfig,
         )
