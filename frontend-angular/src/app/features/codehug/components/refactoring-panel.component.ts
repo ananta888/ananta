@@ -320,10 +320,6 @@ export class RefactoringPanelComponent implements OnChanges {
   }
 
   onApply(p: ChRefactorProposalReadModel): void {
-    if (!this.policy.writeModeActive()) {
-      this.error.set('Write-Modus nicht aktiv.');
-      return;
-    }
     this.applying.set(true);
     this.error.set(null);
     this.svc.apply(p.id).subscribe({

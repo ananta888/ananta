@@ -43,16 +43,16 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   readonly clusterDomains = signal<any[]>([]);
 
   ngOnInit(): void {
-    this.service.getSelfGraphDomains().subscribe(domains => {
-      this.domains.set(domains);
-      const preferred = domains.find(item => item.domain === 'agent.routes')
-        ?? domains.find(item => item.domain === 'agent')
-        ?? domains.find(item => item.file_count > 0)
-        ?? domains[0];
-      if (preferred) this.domain.set(preferred.domain);
-      this.loadSelfGraph();
+    this.service.listKnowledgeIndexes().subscribe(indexes => {
+      this.indexes.set([...indexes]);
+      const firstConnectionId = String(indexes[0]?.['id'] || '').trim();
+      if (firstConnectionId) {
+        this.graphMode.set(firstConnectionId);
+        this.loadSelfGraph();
+      } else {
+        this.error.set('Keine kanonische Connection mit aktivem Index verfügbar');
+      }
     });
-    this.service.listKnowledgeIndexes().subscribe(indexes => this.indexes.set(indexes));
   }
 
   ngOnDestroy(): void {
@@ -61,21 +61,24 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   }
 
   loadSelfGraph(): void {
+    const connectionId = this.graphMode();
+    if (connectionId === 'self') {
+      this.error.set('Der ungebundene Self-Graph ist in v1 nicht verfügbar');
+      return;
+    }
     this.loading.set(true);
     this.error.set('');
     this.rawGraph.set(null);
-    this.service.getSelfGraph(
-      this.domain(), this.detailLevel(), this.graphDepth(), this.maxNodes(), this.maxEdges(),
-    ).subscribe({
+    this.service.getCodeCompassGraph(connectionId).subscribe({
       next: graph => {
-        if (this.graphMode() !== 'self') return;
+        if (this.graphMode() !== connectionId) return;
         this.loading.set(false);
         if (!graph) return this.error.set('Self-Graph nicht verfügbar');
         this.rawGraph.set(graph);
         this.metadata.set(graph?.metadata ?? null);
       },
       error: () => {
-        if (this.graphMode() === 'self') {
+        if (this.graphMode() === connectionId) {
           this.loading.set(false);
           this.error.set('Fehler beim Laden des Self-Graphs');
         }
@@ -86,7 +89,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   changeSource(value: string): void {
     this.graphMode.set(value);
     this.resetViewState();
-    value === 'self' ? this.loadSelfGraph() : this.initializeWiki(value);
+    this.loadSelfGraph();
   }
 
   search(query: string): void {

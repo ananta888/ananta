@@ -226,3 +226,64 @@ export interface EffectivePolicyReadModel {
   merged_policy: ContextAccessPolicy;
   diagnostics: any; // Will be defined in context-policy-diagnostics.model.ts
 }
+
+/**
+ * Persisted projection returned by the real `/api/context-policy` routes.
+ *
+ * The database envelope and the policy payload are deliberately separated so
+ * clients do not confuse a stored record with an active/effective decision.
+ */
+export interface ContextPolicyRecord {
+  policy_id: string;
+  version: number;
+  project_id?: string;
+  scope: string;
+  created_at?: string;
+  updated_at?: string;
+  policy: ContextAccessPolicy;
+  raw: Record<string, unknown>;
+}
+
+export interface ContextPolicyValidationResult {
+  status: 'success' | 'error' | string;
+  valid: boolean;
+  errors: string[];
+}
+
+export type ContextPolicyFlow =
+  | 'list'
+  | 'detail'
+  | 'create'
+  | 'draft'
+  | 'lint'
+  | 'validate'
+  | 'preview'
+  | 'version'
+  | 'activate'
+  | 'revoke'
+  | 'rollback'
+  | 'presets'
+  | 'destinations'
+  | 'grant';
+
+export interface ContextPolicyRouteCapability {
+  flow: ContextPolicyFlow;
+  routeAvailable: boolean;
+  mutating: boolean;
+  reason: string;
+}
+
+export interface ContextPolicyMatrixRow {
+  policyId: string;
+  version: number;
+  ruleId: string;
+  source: string;
+  sensitivity: string;
+  workerKinds: string;
+  runtimeKinds: string;
+  providerLocations: string;
+  modelScopes: string;
+  operations: string;
+  transformations: string;
+  reasonData: string;
+}

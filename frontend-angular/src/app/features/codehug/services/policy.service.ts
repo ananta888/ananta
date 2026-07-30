@@ -1,9 +1,9 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { Observable, throwError, of } from 'rxjs';
-import { catchError, map, tap } from 'rxjs/operators';
+import { Observable, throwError } from 'rxjs';
+import { catchError, map, switchMap, tap } from 'rxjs/operators';
 
-import { HubApiCoreService } from '../../../services/hub-api-core.service';
-import { AgentDirectoryService } from '../../../services/agent-directory.service';
+import { SourceControlAccessDecision } from '../../../models/source-control-v1-api.model';
+import { SourceControlV1ApiClient } from '../../../services/source-control-v1-api.client';
 import {
   ChPolicyDecisionReadModel,
   ChPolicySnapshotReadModel,
@@ -13,7 +13,6 @@ import {
   ChAuditEntry,
   ChToolRiskAssessment,
   DEFAULT_WRITE_MODE_TIMEOUT_MS,
-  DEFAULT_SENSITIVE_FILE_PATTERNS,
 } from '../models/codehug.models';
 
 /**
@@ -23,16 +22,15 @@ import {
  * wie features/context-access-policy zu (kein Component-Reuse, nur API).
  *
  * Sicherheit:
- * - Read-only default (writeMode signal)
- * - Schreibversuche ohne write-armed werden abgelehnt
- * - write-mode-Timeout (default 15min) zaehlt herunter
+ * - Der lokale Write-Mode ist ausschliesslich eine UI-Bedienhilfe.
+ * - Der Hub autorisiert jede Mutation unabhaengig vom Browserzustand.
+ * - Policy-Ladefehler und unbekannte Entscheidungen bleiben fail-closed.
  */
 @Injectable({ providedIn: 'root' })
 export class PolicyService {
-  private readonly hub = inject(HubApiCoreService);
-  private readonly dir = inject(AgentDirectoryService);
+  private readonly sourceControlApi = inject(SourceControlV1ApiClient);
 
-  /** Aktueller Write-Modus (default read-only). */
+  /** Lokaler UI-Bearbeitungsmodus; er erteilt keine Backend-Berechtigung. */
   readonly writeMode = signal<ChWriteMode>('read-only');
   /** Unix-Millisekunden, an dem der aktuelle Write-Modus ablaeuft. */
   readonly writeModeExpiresAt = signal<number | null>(null);
@@ -49,15 +47,6 @@ export class PolicyService {
 
   /** Aktuell geladene Policy. */
   private currentSnapshot: ChPolicySnapshotReadModel | null = null;
-
-  /** Liefert die URL des konfigurierten Hub. */
-  private hubUrl(): string {
-    const hub = this.dir.list().find(a => a.role === 'hub');
-    if (!hub) {
-      throw new ChServiceError('not_found', 'Kein Hub-Agent im AgentDirectory registriert.');
-    }
-    return hub.url;
-  }
 
   /**
    * Konfiguriert das write-mode-Timeout. 0 = default.
@@ -100,34 +89,27 @@ export class PolicyService {
 
   /** Laedt den aktuellen Policy-Snapshot fuer den User. */
   loadCurrentSnapshot(): Observable<ChPolicySnapshotReadModel> {
-    const url = `${this.hubUrl()}/api/codehug/policy/current`;
-    return this.hub.get<ChPolicySnapshotReadModel>(url, this.hubUrl()).pipe(
-      tap(snap => { this.currentSnapshot = this.normalizeSnapshot(snap); }),
-      map(snap => this.normalizeSnapshot(snap)),
-      catchError(() => {
-        const def = this._defaultSnapshot();
-        this.currentSnapshot = def;
-        return of(def);
+    return this.sourceControlApi.listContextPolicies({ limit: 2 }).pipe(
+      switchMap(page => {
+        if (page.next_cursor !== null || page.items.length !== 1) {
+          return throwError(
+            () => new ChServiceError(
+              'validation_error',
+              'CodeHug benötigt genau eine serverseitig bestätigte Projekt-Policy.',
+            ),
+          );
+        }
+        return this.sourceControlApi.getActiveContextPolicy(
+          page.items[0].policy_id,
+        );
+      }),
+      map(({ policy }) => this.canonicalSnapshot(policy)),
+      tap(snap => { this.currentSnapshot = snap; }),
+      catchError(err => {
+        this.currentSnapshot = null;
+        return throwError(() => this.toChError(err, 'loadCurrentSnapshot'));
       }),
     );
-  }
-
-  private _defaultSnapshot(): ChPolicySnapshotReadModel {
-    return {
-      id: 'local-default',
-      policyVersion: '1',
-      riskLevel: 'low',
-      allowedTools: [],
-      deniedTools: [],
-      allowedPaths: ['/home/krusty/ananta'],
-      deniedPaths: [],
-      sensitiveFilePatterns: [...DEFAULT_SENSITIVE_FILE_PATTERNS],
-      cloudAllowed: false,
-      runtimeBoundary: 'local-only',
-      requiresHumanApproval: false,
-      approvalReason: null,
-      createdAt: Date.now(),
-    };
   }
 
   /** Liefert die letzte geladene Snapshot (synchrone Variante, kein API-Call). */
@@ -137,20 +119,22 @@ export class PolicyService {
 
   /**
    * Aktualisiert die CodeHug-relevanten Policy-Anteile.
-   * Erfordert aktiven Write-Modus.
+   * Erfordert fuer die UI einen aktiven Bearbeitungsmodus. Die eigentliche
+   * Autorisierung muss der Hub fuer jeden Request erneut durchsetzen.
    */
   update(request: ChPolicyUpdateRequest): Observable<ChPolicySnapshotReadModel> {
     if (!this.ensureWriteModeValid()) {
       throw new ChServiceError(
         'forbidden',
-        'Write-Modus nicht aktiv. Aktiviere zuerst den Write-Modus (armWriteMode()).',
+        'Lokaler Bearbeitungsmodus nicht aktiv. Dies ist nur eine UI-Sperre; der Hub autorisiert separat.',
       );
     }
-    const url = `${this.hubUrl()}/api/codehug/policy`;
-    return this.hub.patch<ChPolicySnapshotReadModel>(url, request, this.hubUrl()).pipe(
-      tap(snap => { this.currentSnapshot = this.normalizeSnapshot(snap); }),
-      map(snap => this.normalizeSnapshot(snap)),
-      catchError(err => throwError(() => this.toChError(err, 'update'))),
+    void request;
+    return throwError(
+      () => new ChServiceError(
+        'validation_error',
+        'Die Legacy-Snapshot-Mutation ist deaktiviert. Änderungen müssen als kanonischer Policy-Draft mit vollständigem Dokument erfolgen.',
+      ),
     );
   }
 
@@ -158,12 +142,17 @@ export class PolicyService {
    * Liste aller Policy-Decisions (allow/deny/require_approval).
    */
   listDecisions(limit = 100): Observable<ChPolicyDecisionReadModel[]> {
-    const url = `${this.hubUrl()}/api/codehug/policy/decisions?limit=${limit}`;
-    return this.hub.get<{ decisions: any[] } | ChPolicyDecisionReadModel[]>(url, this.hubUrl()).pipe(
-      map(resp => {
-        const arr = Array.isArray(resp) ? resp : (resp.decisions ?? []);
-        return arr.map(d => this.normalizeDecision(d));
-      }),
+    const boundedLimit = Math.min(625, Math.max(1, Math.trunc(limit)));
+    return this.sourceControlApi.loadAccessMatrix({
+      operation: 'chat_context',
+      transformation: 'redacted',
+      purpose: 'code_navigation',
+      source_limit: 25,
+      destination_limit: 25,
+    }).pipe(
+      map(matrix => matrix.items
+        .slice(0, boundedLimit)
+        .map(decision => this.canonicalDecision(decision))),
       catchError(err => throwError(() => this.toChError(err, 'listDecisions'))),
     );
   }
@@ -173,13 +162,35 @@ export class PolicyService {
    */
   checkAction(request: {
     actionType: string;
+    sourceRevisionId?: string;
+    destinationId?: string;
+    transformation?: string;
+    purpose?: string;
     targetPath?: string;
     toolName?: string;
     profileId?: string;
   }): Observable<ChPolicyDecisionReadModel> {
-    const url = `${this.hubUrl()}/api/codehug/policy/check`;
-    return this.hub.post<ChPolicyDecisionReadModel>(url, request, this.hubUrl()).pipe(
-      map(d => this.normalizeDecision(d)),
+    if (
+      !request.sourceRevisionId ||
+      !request.destinationId ||
+      !request.transformation ||
+      !request.purpose
+    ) {
+      return throwError(
+        () => new ChServiceError(
+          'validation_error',
+          'Policy-Preview verlangt servergelieferte SourceRevision- und Destination-IDs sowie Transformation und Zweck.',
+        ),
+      );
+    }
+    return this.sourceControlApi.previewAccess({
+      source_revision_id: request.sourceRevisionId,
+      destination_id: request.destinationId,
+      operation: request.actionType,
+      transformation: request.transformation,
+      purpose: request.purpose,
+    }).pipe(
+      map(d => this.canonicalDecision(d)),
       tap(d => this.appendAudit({ kind: 'policy-check', action: request.actionType, decision: d.decision, reason: d.reason })),
       catchError(err => throwError(() => this.toChError(err, 'checkAction'))),
     );
@@ -224,10 +235,11 @@ export class PolicyService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Audit-Log (lokal, in-memory; in Produktion ueber Hub persistiert)
+  // Lokale Sitzungsdiagnose. Nicht persistent und kein Audit-Nachweis.
   // ─────────────────────────────────────────────────────────────────────────
 
   private readonly audit = signal<ChAuditEntry[]>([]);
+  /** Nicht-autoritative lokale Bedienhistorie; serverseitiges Audit bleibt massgeblich. */
   readonly auditLog = this.audit.asReadonly();
   private readonly auditLimit = 500;
 
@@ -291,34 +303,73 @@ export class PolicyService {
   // Normalisierung
   // ─────────────────────────────────────────────────────────────────────────
 
-  private normalizeSnapshot(r: any): ChPolicySnapshotReadModel {
+  private canonicalSnapshot(
+    policy: {
+      readonly policy_id: string;
+      readonly version: number;
+      readonly document: Readonly<Record<string, unknown>>;
+      readonly created_at: string;
+    },
+  ): ChPolicySnapshotReadModel {
+    const defaults =
+      policy.document['defaults']
+      && typeof policy.document['defaults'] === 'object'
+      && !Array.isArray(policy.document['defaults'])
+        ? policy.document['defaults'] as Record<string, unknown>
+        : {};
+    const strings = (value: unknown): string[] =>
+      Array.isArray(value)
+        ? value.filter((item): item is string =>
+            typeof item === 'string' && item.trim().length > 0,
+          )
+        : [];
+    const createdAt = Date.parse(policy.created_at);
     return {
-      id: r.id ?? '',
-      policyVersion: r.policy_version ?? r.policyVersion ?? '0',
-      riskLevel: r.risk_level ?? r.riskLevel ?? 'low',
-      allowedTools: r.allowed_tools ?? r.allowedTools ?? [],
-      deniedTools: r.denied_tools ?? r.deniedTools ?? [],
-      allowedPaths: r.allowed_paths ?? r.allowedPaths ?? [],
-      deniedPaths: r.denied_paths ?? r.deniedPaths ?? [],
-      sensitiveFilePatterns: r.sensitive_file_patterns ?? r.sensitiveFilePatterns ?? [],
-      cloudAllowed: r.cloud_allowed ?? r.cloudAllowed ?? false,
-      runtimeBoundary: r.runtime_boundary ?? r.runtimeBoundary ?? 'unknown',
-      requiresHumanApproval: r.requires_human_approval ?? r.requiresHumanApproval ?? false,
-      approvalReason: r.approval_reason ?? r.approvalReason ?? null,
-      createdAt: r.created_at ?? r.createdAt ?? 0,
+      id: policy.policy_id,
+      policyVersion: String(policy.version),
+      riskLevel:
+        typeof defaults['risk_level'] === 'string'
+          ? defaults['risk_level'] as ChPolicySnapshotReadModel['riskLevel']
+          : 'unknown' as ChPolicySnapshotReadModel['riskLevel'],
+      allowedTools: strings(defaults['allowed_tools']),
+      deniedTools: strings(defaults['denied_tools']),
+      allowedPaths: strings(defaults['allowed_paths']),
+      deniedPaths: strings(defaults['denied_paths']),
+      sensitiveFilePatterns: strings(defaults['sensitive_file_patterns']),
+      cloudAllowed: defaults['cloud_allowed'] === true,
+      runtimeBoundary:
+        typeof defaults['runtime_boundary'] === 'string'
+          ? defaults['runtime_boundary'] as ChPolicySnapshotReadModel['runtimeBoundary']
+          : 'unavailable' as ChPolicySnapshotReadModel['runtimeBoundary'],
+      requiresHumanApproval:
+        defaults['approval_required'] === true,
+      approvalReason:
+        typeof defaults['approval_reason'] === 'string'
+          ? defaults['approval_reason']
+          : null,
+      createdAt: Number.isFinite(createdAt) ? createdAt : 0,
     };
   }
 
-  private normalizeDecision(d: any): ChPolicyDecisionReadModel {
+  private canonicalDecision(
+    value: SourceControlAccessDecision,
+  ): ChPolicyDecisionReadModel {
+    const decision: ChPolicyDecisionReadModel['decision'] =
+      value.decision === 'allow'
+        ? 'allow'
+        : value.decision === 'approval_required'
+          ? 'require_approval'
+          : 'deny';
     return {
-      id: d.id ?? '',
-      decision: d.decision ?? 'allow',
-      decisionType: d.decision_type ?? d.decisionType ?? '',
-      reason: d.reason ?? '',
-      matchedRuleIds: d.matched_rule_ids ?? d.matchedRuleIds ?? [],
-      createdAt: d.created_at ?? d.createdAt ?? 0,
-      actionId: d.action_id ?? d.actionId,
-      toolCallId: d.tool_call_id ?? d.toolCallId,
+      id: '',
+      decision,
+      decisionType: value.operation,
+      reason: value.reason_codes.join(', ')
+        || (value.decision === 'unavailable'
+          ? 'policy_decision_unavailable'
+          : 'no_reason_code'),
+      matchedRuleIds: [...value.matched_rule_path],
+      createdAt: 0,
     };
   }
 

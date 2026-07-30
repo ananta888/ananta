@@ -4,6 +4,7 @@ import { catchError, map } from 'rxjs/operators';
 
 import { HubApiCoreService } from '../../../services/hub-api-core.service';
 import { AgentDirectoryService } from '../../../services/agent-directory.service';
+import { SourceControlV1ApiClient } from '../../../services/source-control-v1-api.client';
 import {
   ChAgentRunReadModel,
   ChApplyDiffRequest,
@@ -19,15 +20,14 @@ import {
  * SOLID: SRP — ausschliesslich Agent-Run-Lifecycle. Kontext-Pakete und
  * Profile liegen in eigenen Services.
  *
- * Sicherheit: writeArmed-Status wird sowohl clientseitig (Service-Eingabe)
- * als auch serverseitig (Policy-Snapshot-ID) durchgesetzt. Der Client
- * uebertraegt writeArmed als booleschen Wert, fuehrt aber KEIN write
- * aus wenn dieser false ist.
+ * Mutationen referenzieren ausschließlich einen Hub-registrierten Intent.
+ * Ein Browser-Write-Flag ist weder Autorität noch Teil des Requests.
  */
 @Injectable({ providedIn: 'root' })
 export class AgentRunService {
   private readonly hub = inject(HubApiCoreService);
   private readonly dir = inject(AgentDirectoryService);
+  private readonly sourceControl = inject(SourceControlV1ApiClient);
 
   private readonly liveStreams = new Map<string, Subscription>();
 
@@ -43,6 +43,26 @@ export class AgentRunService {
    * Startet einen neuen Agent-Run.
    */
   startRun(request: ChStartAgentRunRequest): Observable<{ runId: string }> {
+    if (request.mutationIntentId) {
+      const safe = request.mutationIntentId
+        .replace(/[^A-Za-z0-9_.:-]/g, '_')
+        .slice(0, 96);
+      return this.sourceControl.dispatchCodeHugMutation(
+        request.mutationIntentId,
+        `codehug.agent-run.${safe}`,
+      ).pipe(
+        map((result) => {
+          if (!result.operation_id) {
+            throw new ChServiceError(
+              'backend_error',
+              'Der Hub lieferte keine gebundene Operation.',
+            );
+          }
+          return { runId: result.operation_id };
+        }),
+        catchError(err => throwError(() => this.toChError(err, 'startRun'))),
+      );
+    }
     const url = `${this.hubUrl()}/api/agent-runs`;
     const body = {
       project_id: request.projectId,
@@ -50,7 +70,6 @@ export class AgentRunService {
       task_description: request.taskDescription,
       context_package_id: request.contextPackageId,
       risk_level: request.riskLevel,
-      write_armed: request.writeArmed,
       template_id: request.templateId,
     };
     return this.hub.post<{ run_id: string }>(url, body, this.hubUrl()).pipe(

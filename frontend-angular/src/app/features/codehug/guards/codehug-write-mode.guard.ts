@@ -3,7 +3,10 @@ import { inject } from '@angular/core';
 import { PolicyService } from '../services/policy.service';
 
 /**
- * Guard für Routen, die aktiven Write-Modus erfordern.
+ * UX-Guard für Routen, die einen lokalen Bearbeitungsmodus verwenden.
+ *
+ * Dieser Guard ist keine Autorisierungsgrenze. Der Hub muss jede Mutation
+ * unabhängig von diesem vollständig vom Browser kontrollierten Zustand prüfen.
  *
  * Leitet bei inaktivem Write-Modus auf /codehug zurück und übergibt
  * `writeRequired=1` + `from=<ursprüngliche URL>` als Query-Params,

@@ -1,9 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 
 import { AgentDirectoryService } from '../../../services/agent-directory.service';
+import { SourceControlV1ApiClient } from '../../../services/source-control-v1-api.client';
+import {
+  CodeCompassGraphV1,
+} from '../../../models/source-control-contracts';
 
 export interface AnantaTemplate {
   id: string;
@@ -91,6 +95,7 @@ export interface AutopilotStatus {
 export class InternalsService {
   private readonly http = inject(HttpClient);
   private readonly dir = inject(AgentDirectoryService);
+  private readonly sourceControlApi = inject(SourceControlV1ApiClient);
 
   private hubUrl(): string {
     const hub = this.dir.list().find(a => a.role === 'hub');
@@ -187,26 +192,44 @@ export class InternalsService {
     );
   }
 
-  listKnowledgeIndexes(): Observable<any[]> {
-    return this.http.get<any>(`${this.hubUrl()}/knowledge/indexes`).pipe(
-      map(r => Array.isArray(r?.data?.items) ? r.data.items : []),
-      catchError(() => of([])),
+  listKnowledgeIndexes(): Observable<readonly Record<string, unknown>[]> {
+    return this.sourceControlApi.listConnections({ limit: 200 }).pipe(
+      map(page => page.items.flatMap(projection => {
+        const index = projection.active_index ?? projection.index;
+        const knowledgeIndexId =
+          typeof index?.['knowledge_index_id'] === 'string'
+            ? index['knowledge_index_id']
+            : '';
+        if (!knowledgeIndexId) return [];
+        return [{
+          id: projection.connection_id,
+          knowledge_index_id: knowledgeIndexId,
+          source_scope: 'connection',
+          status:
+            typeof index?.['status'] === 'string'
+              ? index['status']
+              : 'active',
+          index_metadata: {
+            source_id: projection.connection_id,
+            display_name:
+              typeof projection.connection['display_name'] === 'string'
+                ? projection.connection['display_name']
+                : projection.connection_id,
+          },
+        }];
+      })),
     );
   }
 
-  getCodeCompassGraph(knowledgeIndexId: string): Observable<any> {
-    return this.http.get<any>(
-      `${this.hubUrl()}/api/codecompass/graph?knowledge_index_id=${encodeURIComponent(knowledgeIndexId)}`,
-    ).pipe(
-      map(r => r?.data ?? null),
-      catchError(() => of(null)),
+  getCodeCompassGraph(connectionId: string): Observable<CodeCompassGraphV1> {
+    return this.sourceControlApi.loadGraph(connectionId).pipe(
+      map(graph => graph as unknown as CodeCompassGraphV1),
     );
   }
 
   getSelfGraphDomains(): Observable<{domain: string; display_name: string; file_count: number; kind: string; depth?: number; parent_domain?: string}[]> {
-    return this.http.get<any>(`${this.hubUrl()}/api/codecompass/self-graph/domains`).pipe(
-      map(r => Array.isArray(r?.data?.domains) ? r.data.domains : []),
-      catchError(() => of([])),
+    return throwError(
+      () => new Error('source_control_v1_self_graph_domains_unavailable'),
     );
   }
 
@@ -303,16 +326,13 @@ export class InternalsService {
   }
 
   getSelfGraph(domain = 'agent.routes', detailLevel = 2, graphDepth = 0, maxNodes = 0, maxEdges = 0): Observable<any> {
-    const params = new URLSearchParams({
-      domain,
-      detail_level: String(detailLevel),
-      graph_depth: String(graphDepth),
-      max_nodes: String(maxNodes),
-      max_edges: String(maxEdges),
-    });
-    return this.http.get<any>(`${this.hubUrl()}/api/codecompass/self-graph?${params}`).pipe(
-      map(r => r?.data ?? null),
-      catchError(() => of(null)),
+    void domain;
+    void detailLevel;
+    void graphDepth;
+    void maxNodes;
+    void maxEdges;
+    return throwError(
+      () => new Error('source_control_v1_self_graph_unavailable'),
     );
   }
 

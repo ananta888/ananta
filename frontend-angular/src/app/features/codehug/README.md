@@ -73,13 +73,15 @@ src/app/features/codehug/
 | CH-013 Dokumentation | — | — | diese Datei |
 | CH-014 Topologie & Internals | codehug-internals, topology-graph, trace-view | topology | topology.service.spec |
 
-## Sicherheitsmodell
+## Lokale Bedienhilfen und autoritative Sicherheit
 
-- **Default read-only**. Schreibende Aktionen erfordern `PolicyService.armWriteMode()`.
-- **Write-Modus-Timeout** (default 15 min) — `ensureWriteModeValid()` dekativiert bei Ablauf.
-- **Tool-Risk-Assessment** — deterministische Vorab-Einschaetzung (low/medium/high/critical).
-- **Audit-Log** — alle Policy-Checks werden geloggt (lokal in-memory, 500 Eintraege).
-- **Rate-Limit** — Frontend-side Buckets, Backend hat eigene Quota.
+- **Default read-only UI**. `PolicyService.armWriteMode()` schaltet nur lokale Bearbeitungselemente frei und erteilt keine Berechtigung.
+- **Bearbeitungsmodus-Timeout** (default 15 min) — `ensureWriteModeValid()` deaktiviert ausschließlich den lokalen UI-Zustand.
+- **Hub-Autorisierung** — jede Mutation muss unabhängig vom Browserzustand serverseitig gegen Policy, Rolle und Approval geprüft werden.
+- **Tool-Risk-Assessment** — unverbindliche lokale Vorab-Einschaetzung; niemals Grundlage einer Freigabe.
+- **Sitzungsdiagnose** — lokale In-Memory-Einträge sind löschbare Bedienhinweise und kein Audit-Nachweis. Nur das serverseitige Audit ist autoritativ.
+- **Rate-Limit-Hinweis** — Frontend-Buckets optimieren die Bedienung; ausschließlich die Backend-Quota erzwingt Grenzen.
+- **Fail-closed** — Policy-Ladefehler werden angezeigt, unbekannte oder fehlende Entscheidungen als `deny` behandelt.
 - **Fallback-Pattern**: heuristisch (Signatur + JSDoc) → nur bei leeren Daten LLM.
 
 ## Konventionen

@@ -16,7 +16,13 @@ export const systemRoutes: Routes = [
   { path: 'worker-pool', data: routeDataFor('worker-pool'), loadComponent: () => import('../../components/worker-pool-dashboard.component').then(m => m.WorkerPoolDashboardComponent) },
   { path: 'worker-loop-diagnostics', data: routeDataFor('worker-loop-diagnostics'), loadComponent: () => import('../../components/worker-loop-diagnostics.component').then(m => m.WorkerLoopDiagnosticsComponent) },
   { path: 'workflow-runtime-operations', data: routeDataFor('workflow-runtime-operations'), loadComponent: () => import('../workflow-runtime-operations/workflow-runtime-operations.component').then(m => m.WorkflowRuntimeOperationsComponent) },
-  { path: 'sources', data: routeDataFor('sources'), loadComponent: () => import('../../components/sources.component').then(m => m.SourcesComponent) },
+  {
+    path: 'sources',
+    data: routeDataFor('sources'),
+    loadComponent: () => import('../../components/sources.component').then(m => m.SourcesComponent),
+    loadChildren: () => import('../sources/source-control-center.routes')
+      .then(m => m.sourceControlCenterRoutes),
+  },
   { path: 'goal-artifacts', data: routeDataFor('goal-artifacts'), loadComponent: () => import('../../components/goal-artifacts.component').then(m => m.GoalArtifactsComponent) },
   { path: 'strategy-game-demo', data: routeDataFor('strategy-game-demo'), loadComponent: () => import('../../components/strategy-game-demo.component').then(m => m.StrategyGameDemoComponent) },
   { path: 'panel/:name', data: routeDataFor('panel'), loadComponent: () => import('../../components/agent-panel.component').then(m => m.AgentPanelComponent) },

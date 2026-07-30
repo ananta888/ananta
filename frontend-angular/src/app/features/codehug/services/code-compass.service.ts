@@ -1,9 +1,9 @@
 import { Injectable, inject } from '@angular/core';
+import { SourceControlV1ApiClient } from '../../../services/source-control-v1-api.client';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 
-import { HubApiCoreService } from '../../../services/hub-api-core.service';
-import { AgentDirectoryService } from '../../../services/agent-directory.service';
+import { SourceControlProjection } from '../../../models/source-control-v1-api.model';
 import {
   ChProjectReadModel,
   ChFileReadModel,
@@ -29,49 +29,32 @@ import {
  * liegen in anderen Services.
  *
  * Abhaengigkeiten:
- * - HubApiCoreService (Auth, Timeout, Retry, Unwrap)
- * - AgentDirectoryService (Hub-URL-Aufloesung)
+ * - SourceControlV1ApiClient (kanonische, Hub-autorisierte Read-API)
  *
  * Komponenten nutzen ausschliesslich diesen Service, niemals HttpClient direkt.
  */
 @Injectable({ providedIn: 'root' })
 export class CodeCompassService {
-  private readonly hub = inject(HubApiCoreService);
-  private readonly dir = inject(AgentDirectoryService);
-
-  /** Liefert die URL des konfigurierten Hub. */
-  private hubUrl(): string {
-    const hub = this.dir.list().find(a => a.role === 'hub');
-    if (!hub) {
-      throw new ChServiceError('not_found', 'Kein Hub-Agent im AgentDirectory registriert.');
-    }
-    return hub.url;
-  }
+  private readonly sourceControlApi = inject(SourceControlV1ApiClient);
 
   /**
    * Listet alle Dateien fuer ein Projekt.
    */
   listFiles(projectId: string): Observable<ChFileReadModel[]> {
-    const url = `${this.hubUrl()}/api/codecompass/projects/${encodeURIComponent(projectId)}/files`;
-    return this.hub.get<{ files: any[] } | ChFileReadModel[]>(url, this.hubUrl()).pipe(
-      map(resp => {
-        const arr = Array.isArray(resp) ? resp : (resp.files ?? []);
-        return arr.map(f => this.normalizeFile(f));
-      }),
-      catchError(err => throwError(() => this.toChError(err, 'listFiles'))),
-    );
+    return throwError(() => new ChServiceError(
+      'not_found',
+      `listFiles: Für KnowledgeIndex ${projectId} existiert kein Hub-Dateilisten-Endpunkt.`,
+    ));
   }
 
   /**
    * Listet alle bekannten Projekte.
    */
   listProjects(): Observable<ChProjectReadModel[]> {
-    const url = `${this.hubUrl()}/api/codecompass/projects`;
-    return this.hub.get<{ projects: any[] } | ChProjectReadModel[]>(url, this.hubUrl()).pipe(
-      map(resp => {
-        const arr = Array.isArray(resp) ? resp : (resp.projects ?? []);
-        return arr.map(p => this.normalizeProject(p));
-      }),
+    return this.sourceControlApi.listConnections({ limit: 200 }).pipe(
+      map(page => page.items
+        .filter(item => item.active_index !== null)
+        .map(item => this.projectionAsProject(item))),
       catchError(err => throwError(() => this.toChError(err, 'listProjects'))),
     );
   }
@@ -80,47 +63,41 @@ export class CodeCompassService {
    * Liest Projekt-Metadaten fuer ein gegebenes Projekt.
    */
   getProject(projectId: string): Observable<ChProjectReadModel> {
-    const url = `${this.hubUrl()}/api/codecompass/projects/${encodeURIComponent(projectId)}`;
-    return this.hub.get<ChProjectReadModel>(url, this.hubUrl()).pipe(
-      map(raw => this.normalizeProject(raw)),
+    return this.listProjects().pipe(
+      map(projects => {
+        const project = projects.find(item => item.id === projectId);
+        if (!project) {
+          throw new ChServiceError('not_found', `KnowledgeIndex ${projectId} wurde nicht gefunden.`);
+        }
+        return project;
+      }),
       catchError(err => throwError(() => this.toChError(err, 'getProject'))),
     );
   }
 
   /**
    * Loest Kontext-Vorschlaege zu einer Aufgabe auf.
-   * Backend-Endpoint: /api/codecompass/reload-context
+   * Kanonische Query ist an die servergelieferte Connection-ID gebunden.
    */
   resolveContext(request: ChResolveContextRequest): Observable<ChResolveContextResponse> {
-    const url = `${this.hubUrl()}/api/codecompass/reload-context`;
-    return this.hub.post<ChResolveContextResponse>(
-      url,
-      { task_id: request.projectId, request: { description: request.taskDescription, max_suggestions: request.maxSuggestions } },
-      this.hubUrl(),
-    ).pipe(
-      map(resp => this.normalizeResolveContext(resp)),
+    return this.sourceControlApi.queryConnection(request.projectId, {
+      query: request.taskDescription,
+      limit: request.maxSuggestions,
+    }).pipe(
+      map(resp => this.normalizeResolveContext(resp['payload'] ?? resp)),
       catchError(err => throwError(() => this.toChError(err, 'resolveContext'))),
     );
   }
 
   /**
    * Semantische Symbolsuche.
-   * Backend-Endpoint: /api/codecompass/query (type=symbol_search)
+   * Semantische Query über die kanonische Connection-Route.
    */
   searchSymbols(request: ChSearchSymbolsRequest): Observable<ChSearchSymbolsResponse> {
-    const params = new URLSearchParams({
-      type: 'symbol_search',
-      seed: request.query,
-    });
-    if (request.kinds && request.kinds.length > 0) {
-      params.set('kinds', request.kinds.join(','));
-    }
-    if (request.limit) {
-      params.set('limit', String(request.limit));
-    }
-    const url = `${this.hubUrl()}/api/codecompass/query?${params.toString()}`;
-    return this.hub.get<ChSearchSymbolsResponse>(url, this.hubUrl()).pipe(
-      map(resp => this.normalizeSearchSymbols(resp)),
+    return this.sourceControlApi.queryConnection(request.projectId, {
+      query: request.query,
+    }).pipe(
+      map(resp => this.normalizeSearchSymbols(resp['payload'] ?? resp)),
       catchError(err => throwError(() => this.toChError(err, 'searchSymbols'))),
     );
   }
@@ -129,69 +106,56 @@ export class CodeCompassService {
    * Liefert Kontext zu einer Datei (deterministische Fakten + KI-Summary).
    */
   getFileContext(request: ChGetFileContextRequest): Observable<ChGetFileContextResponse> {
-    const params = new URLSearchParams({
-      type: 'file_context',
-      seed: request.filePath,
-    });
-    if (request.includeSymbols) {
-      params.set('include_symbols', '1');
-    }
-    const url = `${this.hubUrl()}/api/codecompass/query?${params.toString()}`;
-    return this.hub.get<ChGetFileContextResponse>(url, this.hubUrl()).pipe(
-      map(resp => this.normalizeFileContext(resp)),
+    return this.sourceControlApi.queryConnection(request.projectId, {
+      query: request.filePath,
+    }).pipe(
+      map(resp => this.normalizeFileContext(resp['payload'] ?? resp)),
       catchError(err => throwError(() => this.toChError(err, 'getFileContext'))),
     );
   }
 
   /**
    * Liefert Detail zu einem Symbol (Signatur, Doku, Caller, Callee).
-   * Backend-Endpoint: /api/codecompass/query (type=symbol_detail)
+   * Detailquery über die kanonische Connection-Route.
    */
-  getSymbolDetail(symbolId: string): Observable<ChSymbolDetailReadModel> {
-    const params = new URLSearchParams({
-      type: 'symbol_detail',
-      seed: symbolId,
-    });
-    const url = `${this.hubUrl()}/api/codecompass/query?${params.toString()}`;
-    return this.hub.get<ChSymbolDetailReadModel>(url, this.hubUrl()).pipe(
+  getSymbolDetail(symbolId: string, knowledgeIndexId?: string): Observable<ChSymbolDetailReadModel> {
+    if (!knowledgeIndexId) {
+      return throwError(() => new ChServiceError(
+        'validation_error',
+        'getSymbolDetail: knowledge_index_id ist erforderlich.',
+      ));
+    }
+    return this.sourceControlApi.queryConnection(knowledgeIndexId, {
+      query: symbolId,
+    }).pipe(
+      map(resp => (resp['payload'] ?? resp) as unknown as ChSymbolDetailReadModel),
       catchError(err => throwError(() => this.toChError(err, 'getSymbolDetail'))),
     );
   }
 
   /**
    * Plant Kontext-Gruppen fuer eine Aufgabe.
-   * Backend-Endpoint: /api/codecompass/query (type=plan_context)
+   * Planungskontext über die kanonische Connection-Route.
    */
   planContext(request: ChPlanContextRequest): Observable<ChPlanContextResponse> {
-    const url = `${this.hubUrl()}/api/codecompass/query`;
-    return this.hub.post<ChPlanContextResponse>(
-      url,
-      { type: 'plan_context', description: request.taskDescription, strategy: request.strategy ?? 'anchored' },
-      this.hubUrl(),
-    ).pipe(
-      map(resp => this.normalizePlanContext(resp)),
+    return this.sourceControlApi.queryConnection(request.projectId, {
+      query: request.taskDescription,
+    }).pipe(
+      map(resp => this.normalizePlanContext(resp['payload'] ?? resp)),
       catchError(err => throwError(() => this.toChError(err, 'planContext'))),
     );
   }
 
-  /**
-   * Stösst eine Re-Indexierung des Projekts an.
-   */
-  triggerReindex(projectId: string): Observable<{ jobId: string }> {
-    const url = `${this.hubUrl()}/api/codecompass/reindex`;
-    return this.hub.post<{ job_id: string }>(url, { project_id: projectId }, this.hubUrl()).pipe(
-      map(resp => ({ jobId: resp.job_id })),
-      catchError(err => throwError(() => this.toChError(err, 'triggerReindex'))),
+  /** Readiness wird über die vorhandene Index-Route abgeleitet. */
+  healthCheck(): Observable<boolean> {
+    return this.sourceControlApi.listConnections({ limit: 1 }).pipe(
+      map(() => true),
+      catchError(() => of(false)),
     );
   }
 
-  /** Health-check: liefert true wenn CodeCompass antwortet. */
-  healthCheck(): Observable<boolean> {
-    const url = `${this.hubUrl()}/api/codecompass/health`;
-    return this.hub.get<{ status: string }>(url, this.hubUrl(), undefined, false).pipe(
-      map(resp => resp.status === 'ok'),
-      catchError(() => of(false)),
-    );
+  lifecycleCapabilities() {
+    return [];
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -211,6 +175,24 @@ export class CodeCompassService {
       lastIndexedAt: raw.last_indexed_at ?? raw.lastIndexedAt ?? null,
       indexStatus: raw.index_status ?? raw.indexStatus ?? 'missing',
     };
+  }
+
+  private projectionAsProject(index: SourceControlProjection): ChProjectReadModel {
+    const connection = index.connection;
+    const activeIndex = index.active_index ?? {};
+    const indexMetadata = index.index ?? {};
+    return this.normalizeProject({
+      id: index.connection_id,
+      name: String(connection['display_name'] || index.connection_id),
+      root_path: '',
+      language_breakdown: indexMetadata['language_breakdown'] || {},
+      framework_signals: indexMetadata['framework_signals'] || [],
+      module_count: indexMetadata['module_count'] || 0,
+      file_count: indexMetadata['file_count'] || 0,
+      symbol_count: indexMetadata['symbol_count'] || 0,
+      last_indexed_at: activeIndex['updated_at'] || null,
+      index_status: String(indexMetadata['status'] || 'missing'),
+    });
   }
 
   private normalizeResolveContext(raw: any): ChResolveContextResponse {

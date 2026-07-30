@@ -4,7 +4,7 @@ import { catchError, map } from 'rxjs/operators';
 
 import { HubApiCoreService } from '../../../services/hub-api-core.service';
 import { AgentDirectoryService } from '../../../services/agent-directory.service';
-import { PolicyService } from './policy.service';
+import { SourceControlV1ApiClient } from '../../../services/source-control-v1-api.client';
 import {
   ChRefactorProposalReadModel,
   ChRefactorProposalInput,
@@ -17,13 +17,13 @@ import {
  * RefactoringService — CH-005: Refactoring-Vorschlaege, Diff-Vorschau, Apply.
  *
  * SOLID: SRP — Vorschlaege erzeugen, Diffs zeigen, sicher anwenden.
- * Sicherheit: Apply nur im write-armed Modus.
+ * Sicherheit: Apply referenziert nur einen serverseitig genehmigten Intent.
  */
 @Injectable({ providedIn: 'root' })
 export class RefactoringService {
   private readonly hub = inject(HubApiCoreService);
   private readonly dir = inject(AgentDirectoryService);
-  private readonly policy = inject(PolicyService);
+  private readonly sourceControl = inject(SourceControlV1ApiClient);
 
   private hubUrl(): string {
     const h = this.dir.list().find(a => a.role === 'hub');
@@ -55,17 +55,25 @@ export class RefactoringService {
   }
 
   /**
-   * Wendet einen Vorschlag an. Erfordert aktiven write-Modus.
+   * Reicht den Vorschlag als serverregistrierten Mutation-Intent ein.
    */
   apply(proposalId: string): Observable<ChRefactorApplyResult> {
-    if (!this.policy.writeModeActive()) {
-      return throwError(() => new ChServiceError(
-        'forbidden',
-        'Refactoring.Apply erfordert write-armed Modus. Aktiviere ihn zuerst.',
-      ));
-    }
-    const url = `${this.hubUrl()}/api/refactoring/proposals/${encodeURIComponent(proposalId)}/apply`;
-    return this.hub.post<ChRefactorApplyResult>(url, {}, this.hubUrl()).pipe(
+    const safe = proposalId.replace(/[^A-Za-z0-9_.:-]/g, '_').slice(0, 96);
+    return this.sourceControl.dispatchCodeHugMutation(
+      proposalId,
+      `codehug.refactor.${safe}`,
+    ).pipe(
+      map((result) => ({
+        proposalId,
+        status: result.status === 'completed' ? 'applied' : 'accepted',
+        appliedFiles: [],
+        testGate: {
+          ran: false,
+          passed: false,
+          diagnostics: [],
+        },
+        message: result.operation_id || result.status,
+      })),
       catchError(err => throwError(() => this.toChError(err, 'apply'))),
     );
   }

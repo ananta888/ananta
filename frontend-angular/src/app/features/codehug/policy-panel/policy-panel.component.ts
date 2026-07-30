@@ -8,12 +8,10 @@ import {
 } from '@angular/core';
 import { DatePipe, UpperCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
 
 import { PolicyService } from '../services/policy.service';
 import {
   ChPolicySnapshotReadModel,
-  ChPolicyUpdateRequest,
   DEFAULT_SENSITIVE_FILE_PATTERNS,
 } from '../models/codehug.models';
 
@@ -40,7 +38,8 @@ import {
         </div>
         <p class="ch-pp-lead">
           CodeHug-relevante Policies: erlaubte Pfade, Sensitive-File-Muster,
-          Risk-Level, Tools. Schreibzugriff nur im Write-Modus.
+          Risk-Level, Tools. Der lokale Bearbeitungsmodus ist nur eine
+          Bedienhilfe; jede Änderung wird vom Hub separat autorisiert.
         </p>
 
         <!-- Write-Mode-Steuerung -->
@@ -48,10 +47,10 @@ import {
           <span class="ch-pp-wm-label">
             @if (policy.writeMode() === 'read-only') {
               <span class="ch-pp-wm-dot ch-pp-dot-ro"></span>
-              Read-only — Änderungen blockiert
+              Lokaler Lesemodus — Bearbeitung ausgeblendet
             } @else {
               <span class="ch-pp-wm-dot ch-pp-dot-wa"></span>
-              Write-Mode aktiv
+              Lokaler Bearbeitungsmodus aktiv
               @if (writeModeExpiresIn() !== null) {
                 — läuft ab in {{ writeModeExpiresIn() }}s
               }
@@ -59,11 +58,11 @@ import {
           </span>
           @if (policy.writeMode() === 'read-only') {
             <button type="button" class="ch-btn ch-btn-warn" (click)="armWriteMode()">
-              Write-Modus aktivieren
+              Bearbeitung lokal aktivieren
             </button>
           } @else {
             <button type="button" class="ch-btn ch-btn-secondary" (click)="disarmWriteMode()">
-              Write-Modus beenden
+              Bearbeitung lokal beenden
             </button>
           }
         </div>
@@ -273,14 +272,16 @@ import {
           <p class="ch-error" role="alert">{{ saveError() }}</p>
         }
         @if (saveSuccess()) {
-          <p class="ch-success">Gespeichert.</p>
+          <p class="ch-success">Vom Hub bestätigt und gespeichert.</p>
         }
 
         <!-- ── Audit-Log ──────────────────────────────────────────────── -->
         @if (policy.auditLog().length > 0) {
           <section class="ch-pp-card" aria-labelledby="ch-pp-audit-h">
             <header class="ch-pp-card-head">
-              <h3 id="ch-pp-audit-h" class="ch-pp-card-title">Audit-Log</h3>
+              <h3 id="ch-pp-audit-h" class="ch-pp-card-title">
+                Lokale Sitzungsdiagnose (kein Audit-Nachweis)
+              </h3>
               <button type="button" class="ch-btn ch-btn-mini" (click)="policy.clearAudit()">Leeren</button>
             </header>
             <ul class="ch-pp-audit-list">
@@ -520,7 +521,7 @@ export class PolicyPanelComponent implements OnInit {
   readonly editDeniedPaths = signal<string[]>([]);
   readonly editSensitivePatterns = signal<string[]>([]);
 
-  readonly canEdit = computed(() => this.policy.writeModeActive());
+  readonly canEdit = computed(() => false);
 
   readonly hasUnsavedChanges = computed(() => {
     const snap = this.snapshot();
@@ -559,16 +560,13 @@ export class PolicyPanelComponent implements OnInit {
   }
 
   armWriteMode(): void {
-    const ok = confirm('Write-Modus aktivieren? Änderungen an Policies können das Systemverhalten direkt beeinflussen.');
-    if (ok) {
-      this.policy.armWriteMode();
-      this.policy.appendAudit({ kind: 'write-armed', action: 'policy-panel:arm-write-mode' });
-    }
+    this.saveError.set(
+      'Die lokale Snapshot-Bearbeitung ist deaktiviert. Änderungen erfolgen ausschließlich als vollständiger kanonischer Policy-Draft im Access-Governance-Bereich.',
+    );
   }
 
   disarmWriteMode(): void {
     this.policy.disarmWriteMode();
-    this.policy.appendAudit({ kind: 'write-disarmed', action: 'policy-panel:disarm-write-mode' });
     this.resetEdits();
   }
 
@@ -600,35 +598,10 @@ export class PolicyPanelComponent implements OnInit {
 
   // ── Save ───────────────────────────────────────────────────────────────
   async save(): Promise<void> {
-    if (!this.policy.ensureWriteModeValid()) {
-      this.saveError.set('Write-Modus ist abgelaufen. Bitte neu aktivieren.');
-      return;
-    }
-    this.saving.set(true);
-    this.saveError.set(null);
+    this.saving.set(false);
     this.saveSuccess.set(false);
-
-    const req: ChPolicyUpdateRequest = {
-      allowedPaths: this.editAllowedPaths().filter(p => p.trim()),
-      deniedPaths: this.editDeniedPaths().filter(p => p.trim()),
-      sensitiveFilePatterns: this.editSensitivePatterns().filter(p => p.trim()),
-    };
-
-    try {
-      const updated = await firstValueFrom(this.policy.update(req));
-      this.snapshot.set(updated);
-      this.resetEdits();
-      this.saveSuccess.set(true);
-      this.policy.appendAudit({
-        kind: 'approval',
-        action: 'policy-panel:save',
-        decision: 'allow',
-        reason: 'Policy manuell geändert',
-      });
-    } catch (err: unknown) {
-      this.saveError.set(err instanceof Error ? err.message : 'Speichern fehlgeschlagen');
-    } finally {
-      this.saving.set(false);
-    }
+    this.saveError.set(
+      'Speichern ist hier deaktiviert: Der Legacy-Snapshot lässt sich nicht verlustfrei in einen vollständigen v1-Policy-Draft umwandeln.',
+    );
   }
 }

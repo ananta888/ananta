@@ -233,8 +233,8 @@ export interface ChStartAgentRunRequest {
   taskDescription: string;
   contextPackageId?: string;
   riskLevel: 'low' | 'medium' | 'high';
-  /** Wenn false: Agent darf nichts schreiben, nur analysieren. */
-  writeArmed: boolean;
+  /** Optionaler, vorab im Hub registrierter und genehmigter Mutation-Intent. */
+  mutationIntentId?: string;
   templateId?: string;
 }
 
@@ -650,7 +650,7 @@ export interface ChRefactorDiffReadModel {
 
 export interface ChRefactorApplyResult {
   proposalId: string;
-  status: 'applied' | 'failed' | 'rolled_back';
+  status: 'accepted' | 'applied' | 'failed' | 'rolled_back';
   appliedFiles: string[];
   testGate: {
     ran: boolean;

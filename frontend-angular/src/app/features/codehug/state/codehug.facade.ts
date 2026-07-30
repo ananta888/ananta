@@ -33,6 +33,7 @@ export class CodeHugFacade {
   readonly recentRuns = signal<ChAgentRunReadModel[]>([]);
   readonly loadingProject = signal(false);
   readonly projectError = signal<string | null>(null);
+  readonly policyConfirmed = signal(false);
 
   readonly currentProject = computed(() => {
     const id = this.currentProjectId();
@@ -40,7 +41,9 @@ export class CodeHugFacade {
     return this.projects().find(p => p.id === id) ?? null;
   });
 
-  readonly hasProject = computed(() => this.currentProjectId() !== null);
+  readonly hasProject = computed(() =>
+    this.currentProjectId() !== null && this.policyConfirmed(),
+  );
 
   /**
    * Lädt alle bekannten Projekte. Wird beim Dashboard-Start aufgerufen.
@@ -59,6 +62,7 @@ export class CodeHugFacade {
     this.currentProjectId.set(projectId);
     this.loadingProject.set(true);
     this.projectError.set(null);
+    this.policyConfirmed.set(false);
 
     this.cc.getProject(projectId).subscribe({
       next: project => {
@@ -79,12 +83,17 @@ export class CodeHugFacade {
     // Sensitive-Patterns aus Policy laden
     this.policy.loadCurrentSnapshot().subscribe({
       next: snap => {
+        this.policyConfirmed.set(true);
         if (snap.sensitiveFilePatterns.length > 0) {
           this.packages.setSensitivePatterns(snap.sensitiveFilePatterns);
         }
       },
-      // Kein Hard-Fail: bei Policy-Load-Fehler bleiben Default-Patterns aktiv.
-      error: () => undefined,
+      error: err => {
+        this.policyConfirmed.set(false);
+        this.projectError.set(
+          err?.message ?? 'Der Hub hat keinen eindeutigen aktiven Policy-Snapshot bestätigt.',
+        );
+      },
     });
 
     // Letzte Runs für dieses Projekt nachladen
@@ -109,6 +118,7 @@ export class CodeHugFacade {
   clearProject(): void {
     this.currentProjectId.set(null);
     this.projectError.set(null);
+    this.policyConfirmed.set(false);
     this.recentRuns.set([]);
   }
 
@@ -118,9 +128,8 @@ export class CodeHugFacade {
   triggerReindex(): void {
     const id = this.currentProjectId();
     if (!id) return;
-    this.cc.triggerReindex(id).subscribe({
-      next: () => this.refreshCurrentProject(),
-      error: err => this.projectError.set(err.message ?? 'Re-Indexierung fehlgeschlagen'),
-    });
+    this.projectError.set(
+      'Re-Indexierung ist gesperrt: v1 verlangt eine servergelieferte index_profile_id; CodeHug besitzt noch keinen Profilkatalog.',
+    );
   }
 }

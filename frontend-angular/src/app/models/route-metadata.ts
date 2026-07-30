@@ -38,7 +38,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   'worker-pool': { label: 'Worker Pool', area: 'Operate', navGroup: 'Betrieb', navOrder: 25, expertOnly: true },
   'worker-loop-diagnostics': { label: 'Worker Loop Diagnostik', area: 'Operate', navGroup: 'Betrieb', navOrder: 25.5, expertOnly: true },
   'workflow-runtime-operations': { label: 'Workflow Runtimes', area: 'Operate', navGroup: 'Betrieb', navOrder: 25.7, expertOnly: true },
-  sources: { label: 'Sources', area: 'Operate', navGroup: 'Betrieb', navOrder: 26, expertOnly: true },
+  sources: { label: 'Quellen', area: 'Operate', navGroup: 'Arbeiten', navOrder: 26, simpleNav: true },
   'goal-artifacts': { label: 'Goal Artifacts', area: 'Operate', navGroup: 'Betrieb', navOrder: 27, expertOnly: true },
   'strategy-game-demo': { label: 'Strategy Game Demo', area: 'Operate', navGroup: 'Betrieb', navOrder: 28, expertOnly: true },
   board: { label: 'Aufgaben', area: 'Operate', navGroup: 'Arbeiten', navOrder: 20, simpleNav: true },
