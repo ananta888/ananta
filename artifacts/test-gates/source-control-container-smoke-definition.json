@@ -1,0 +1,50 @@
+{
+  "checks": [
+    {
+      "auth": "none",
+      "expected_status": [
+        200
+      ],
+      "id": "hub-health",
+      "method": "GET",
+      "path": "/health",
+      "surface": "hub"
+    },
+    {
+      "auth": "bearer",
+      "expected_status": [
+        200
+      ],
+      "id": "source-control-health",
+      "method": "GET",
+      "path": "/api/source-control/v1/health",
+      "surface": "hub"
+    },
+    {
+      "auth": "bearer",
+      "expected_status": [
+        200
+      ],
+      "id": "source-control-list",
+      "method": "GET",
+      "path": "/api/source-control/v1/connections?limit=1",
+      "surface": "hub"
+    },
+    {
+      "auth": "none",
+      "expected_status": [
+        200
+      ],
+      "id": "worker-health",
+      "method": "GET",
+      "path": "/health",
+      "surface": "worker"
+    }
+  ],
+  "limits": {
+    "max_response_bytes": 1048576,
+    "request_timeout_seconds": 5,
+    "total_timeout_seconds": 30
+  },
+  "schema": "ananta.source-control.container-smoke-definition.v1"
+}
