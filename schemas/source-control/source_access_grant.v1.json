@@ -50,6 +50,10 @@
       "pattern": "^[a-z][a-z0-9_.:-]{0,127}$"
     },
     "policy_version": {"$ref": "#/$defs/identifier"},
+    "policy_snapshot_digest": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "state": {"enum": ["draft", "active", "superseded", "revoked"]},
     "issued_at": {"type": "string", "format": "date-time"},
     "expires_at": {"type": "string", "format": "date-time"}

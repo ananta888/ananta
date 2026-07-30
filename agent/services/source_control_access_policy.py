@@ -151,6 +151,10 @@ class SourceControlAccessPolicy:
                     reason_code="source_control_admin_legacy_access",
                     legacy_admin_access=True,
                 )
+            if action is SourceControlAction.policy:
+                return self._forbidden(
+                    "source_control_policy_admin_required"
+                )
             return self._hidden()
 
         if principal.is_admin:
@@ -161,9 +165,6 @@ class SourceControlAccessPolicy:
         ):
             return self._hidden()
 
-        if action is SourceControlAction.policy:
-            return self._forbidden("source_control_policy_admin_required")
-
         if (
             binding.owner_id
             and principal.subject_id != binding.owner_id
@@ -172,6 +173,10 @@ class SourceControlAccessPolicy:
         ):
             return self._hidden()
 
+        if action is SourceControlAction.policy:
+            return self._forbidden(
+                "source_control_policy_admin_required"
+            )
         if action in _MUTATING_ACTIONS and not principal.is_project_owner:
             return self._forbidden(
                 "source_control_mutation_role_required"

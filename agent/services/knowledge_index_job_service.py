@@ -6,6 +6,7 @@ import hashlib
 import json
 import time
 from collections.abc import Mapping
+from datetime import datetime, timezone
 from typing import Any, Protocol
 
 KNOWLEDGE_INDEX_JOB_SCHEMA = "ananta.knowledge_index_job.v1"
@@ -436,7 +437,13 @@ class KnowledgeIndexJobService:
             ),
             lease_id=str(assignment.get("lease_id") or ""),
         )
-        source_dispatch = enforcement.authorize(request)
+        source_dispatch = enforcement.authorize(
+            request,
+            now=datetime.fromtimestamp(
+                float(self._clock()),
+                tz=timezone.utc,
+            ),
+        )
         worker_envelope = {
             **current_envelope,
             "source_access_enforcement_manifest": asdict(

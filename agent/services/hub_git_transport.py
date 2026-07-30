@@ -33,7 +33,6 @@ from agent.sources.git_source_connector_common import (
     GitRepositoryMetrics,
 )
 
-
 _COMMIT_SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _FULL_REF = re.compile(r"^refs/[A-Za-z0-9._/-]{1,240}$")
 
@@ -308,6 +307,8 @@ class HubGitTransport(HubGitTransportPort):
 
     @staticmethod
     def _ref_candidates(requested_ref: str) -> tuple[str, ...]:
+        if requested_ref == "HEAD":
+            return ("HEAD",)
         if _FULL_REF.fullmatch(requested_ref):
             if requested_ref.startswith("refs/tags/"):
                 return (f"{requested_ref}^{{}}", requested_ref)

@@ -124,10 +124,14 @@ class SourceRefreshService:
         corpus_url: str | None = None,
         destination_name: str | None = None,
     ) -> dict[str, Any]:
-        descriptor, connector = self._resolve_connector(source_id)
-        if not bool(descriptor.get("enabled", True)):
-            return {"source_id": source_id, "status": "skipped", "reason_code": "source_disabled"}
         try:
+            descriptor, connector = self._resolve_connector(source_id)
+            if not bool(descriptor.get("enabled", True)):
+                return {
+                    "source_id": source_id,
+                    "status": "skipped",
+                    "reason_code": "source_disabled",
+                }
             errors = connector.validator.validate(descriptor)
             if errors:
                 return {
@@ -219,7 +223,13 @@ class SourceRefreshService:
             source_id = str(item.get("source_id") or "")
             action = str(item.get("action") or "")
             if action != "refresh":
-                results.append({"source_id": source_id, "status": "skipped", "reason_code": str(item.get("reason_code") or "")})
+                results.append(
+                    {
+                        "source_id": source_id,
+                        "status": "skipped",
+                        "reason_code": str(item.get("reason_code") or ""),
+                    }
+                )
                 continue
             results.append(self.refresh_source(source_id=source_id, dry_run=dry_run))
         return results

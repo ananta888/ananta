@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta://source-control/git-authorization-provision-request.v1",
+  "title": "GitAuthorizationProvisionRequestV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authorization_handle",
+    "authorization_kind",
+    "repository"
+  ],
+  "properties": {
+    "authorization_handle": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"
+    },
+    "authorization_kind": {
+      "enum": [
+        "github_app",
+        "github_oauth",
+        "generic_git"
+      ]
+    },
+    "repository": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})/[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})$"
+    }
+  }
+}

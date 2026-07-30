@@ -40,7 +40,7 @@ class ScopedRegisteredWorkspaceCatalog:
                 (
                     workspace.tenant_id,
                     workspace.project_id,
-                    str(workspace.owner_id or ""),
+                    str(getattr(workspace, "owner_id", None) or ""),
                     workspace.workspace_id,
                 )
             ] = workspace
@@ -61,7 +61,11 @@ class ScopedRegisteredWorkspaceCatalog:
                 if tenant == tenant_id
                 and project == project_id
                 and identifier == workspace_id
-                and (owner_id is None or owner == owner_id)
+                and (
+                    owner_id is None
+                    or not owner
+                    or owner == owner_id
+                )
             )
             return matches[0] if len(matches) == 1 else None
 
@@ -95,7 +99,11 @@ class ScopedRegisteredWorkspaceCatalog:
                         for (tenant, project, owner, _), value
                         in self._values.items()
                         if tenant == tenant_id and project == project_id
-                        and (owner_id is None or owner == owner_id)
+                        and (
+                            owner_id is None
+                            or not owner
+                            or owner == owner_id
+                        )
                     ),
                     key=lambda value: value.workspace_id,
                 )

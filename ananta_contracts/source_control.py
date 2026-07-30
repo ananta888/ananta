@@ -507,6 +507,7 @@ class SourceAccessGrant(_ClosedHubContract):
     transformation: GrantTransformation
     purpose: Purpose
     policy_version: Identifier
+    policy_snapshot_digest: Sha256 | None = None
     state: GrantState
     issued_at: AwareDatetime
     expires_at: AwareDatetime

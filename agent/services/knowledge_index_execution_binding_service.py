@@ -126,7 +126,7 @@ class KnowledgeIndexExecutionBindingService:
     ) -> KnowledgeIndexExecutionRecord:
         self._assert_current(authority)
         if assignment.lease_expires_epoch_ms <= self._clock_ms():
-            raise KnowledgeIndexExecutionRejected(
+            raise KnowledgeIndexExecutionBindingError(
                 "knowledge_index_execution_assignment_lease_expired"
             )
         manifest = KnowledgeIndexFileManifest.create(files)

@@ -2,40 +2,71 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import hashlib
 import logging
 import os
 import re
+from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 from sqlmodel import Session, select
 
-from agent.database import engine
+from agent.adapters.source_control_metrics_adapter import (
+    PrometheusSourceControlMetrics,
+)
 from agent.config import settings
+from agent.database import engine
 from agent.db_models.source_control import SourceRevisionDB
-from agent.routes.source_control_v1 import (
-    create_source_control_legacy_alias_blueprint,
-    create_source_control_v1_blueprint,
+from agent.routes.source_control_git_authorizations import (
+    create_source_control_git_authorizations_blueprint,
 )
 from agent.routes.source_control_operations import (
     create_source_control_operations_blueprint,
 )
-from agent.adapters.source_control_metrics_adapter import (
-    PrometheusSourceControlMetrics,
+from agent.routes.source_control_v1 import (
+    create_source_control_legacy_alias_blueprint,
+    create_source_control_v1_blueprint,
+)
+from agent.services.codecompass_graph_artifact_resolver import (
+    get_codecompass_graph_artifact_resolver,
+)
+from agent.services.codecompass_graph_projection_service import (
+    get_codecompass_graph_projection_service,
+)
+from agent.services.codehug_mutation_composition import (
+    CodeHugMutationCompositionService,
 )
 from agent.services.context_policy_lifecycle_composition import (
     build_persistent_context_policy_lifecycle,
+)
+from agent.services.git_remote_policy_service import (
+    get_git_remote_access_policy,
+)
+from agent.services.hub_git_authorization_provisioning import (
+    HubGitAuthorizationProvisioningService,
+    UnavailableHubGitAuthorizationProvisioner,
+    UnavailableHubGitSecretResolver,
+)
+from agent.services.model_catalog_service import CatalogQuery
+from agent.services.ops_registry_service import get_ops_registry_service
+from agent.services.rag_helper_index_service import (
+    get_rag_helper_index_service,
+)
+from agent.services.service_registry import get_core_services
+from agent.services.source_access_manifest_signing import (
+    SourceAccessSigningKey,
 )
 from agent.services.source_control_api_runtime import (
     SQLSourceControlOperationStore,
     build_source_control_api_runtime,
 )
-from agent.services.source_control_connection_intent import (
-    SourceControlConnectionIntentResolver,
+from agent.services.source_control_artifact_download import (
+    SourceControlArtifactDownloadService,
 )
-from agent.services.codehug_mutation_composition import (
-    CodeHugMutationCompositionService,
+from agent.services.source_control_catalogs import (
+    SourceControlReadCatalogService,
+    SourceRegistryRegisteredWorkspaceCatalog,
 )
 from agent.services.source_control_codehug_adapters import (
     ResolvedCodeHugDestinationCatalog,
@@ -44,28 +75,14 @@ from agent.services.source_control_codehug_adapters import (
     SQLCodeHugRevisionCatalog,
     build_persistent_codehug_authorization,
 )
-from agent.services.source_access_manifest_signing import (
-    SourceAccessSigningKey,
-)
-from agent.services.source_control_artifact_download import (
-    SourceControlArtifactDownloadService,
-)
-from agent.services.source_control_catalogs import (
-    SourceRegistryRegisteredWorkspaceCatalog,
-    SourceControlReadCatalogService,
+from agent.services.source_control_connection_intent import (
+    SourceControlConnectionIntentResolver,
 )
 from agent.services.source_control_content_admission import (
     SourceControlContentAdmissionService,
 )
 from agent.services.source_control_grant_admin import (
     SourceControlGrantAdminService,
-)
-from agent.services.source_control_production_adapters import (
-    ContainedArtifactDeletionService,
-    HubBoundSourceIndexSubmissionAdapter,
-    HubSourceControlOperationsAdapter,
-    ScopedWorkerModelDestinationCatalog,
-    build_scoped_effective_access_service,
 )
 from agent.services.source_control_legacy_usage import (
     BoundedLegacySourceControlUsage,
@@ -78,6 +95,13 @@ from agent.services.source_control_observability import (
     bounded_metric_labels,
     emit_source_control_audit,
 )
+from agent.services.source_control_production_adapters import (
+    ContainedArtifactDeletionService,
+    HubBoundSourceIndexSubmissionAdapter,
+    HubSourceControlOperationsAdapter,
+    ScopedWorkerModelDestinationCatalog,
+    build_scoped_effective_access_service,
+)
 from agent.services.source_control_rollout_policy import (
     SourceControlRolloutConfiguration,
     SourceControlRolloutPolicy,
@@ -86,24 +110,14 @@ from agent.services.source_control_rollout_policy import (
 from agent.services.source_control_runtime_observability import (
     SourceControlRuntimeObservability,
 )
-from agent.services.codecompass_graph_artifact_resolver import (
-    get_codecompass_graph_artifact_resolver,
+from agent.sources.hub_git_persistent_composition import (
+    compose_persistent_hub_git_source_connectors,
 )
-from agent.services.codecompass_graph_projection_service import (
-    get_codecompass_graph_projection_service,
+from agent.sources.source_control_connector_composition import (
+    build_source_control_connector_extensions,
 )
-from agent.services.model_catalog_service import CatalogQuery
-from agent.repositories.hub_git_authorization_repository import (
-    SQLHubGitAuthorizationRepository,
-)
-from agent.services.ops_registry_service import get_ops_registry_service
-from agent.services.rag_helper_index_service import (
-    get_rag_helper_index_service,
-)
-from agent.services.service_registry import get_core_services
 from agent.sources.source_refresh_service import SourceRefreshService
 from agent.sources.source_registry import SourceRegistry
-
 
 _LOG = logging.getLogger(__name__)
 _BOUNDED_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
@@ -241,6 +255,51 @@ def register_source_control_api(app) -> None:
         app.extensions[
             "source_control_destination_catalog"
         ] = destination_catalog
+    remote_catalog = app.extensions.get(
+        "hub_git_authorization_registry"
+    )
+    git_composition = app.extensions.get(
+        "hub_git_connector_composition"
+    )
+    remote_policy = app.extensions.get(
+        "hub_git_remote_policy"
+    ) or get_git_remote_access_policy()
+    app.extensions["hub_git_remote_policy"] = remote_policy
+    secret_resolver = app.extensions.get(
+        "hub_git_secret_resolver"
+    ) or UnavailableHubGitSecretResolver()
+    if remote_catalog is None:
+        data_root = Path(str(settings.data_dir))
+        persistent_git = compose_persistent_hub_git_source_connectors(
+            session_factory=lambda: Session(engine),
+            config={
+                "hub_git_workspace_root": (
+                    data_root / "source-control/git/workspaces"
+                ),
+                "hub_git_credential_root": (
+                    data_root / "source-control/git/credentials"
+                ),
+                "hub_git_budgets": app.config.get("HUB_GIT_BUDGETS"),
+            },
+            secret_resolver=secret_resolver,
+            remote_policy=remote_policy,
+        )
+        remote_catalog = persistent_git.registry
+        git_composition = persistent_git.connectors
+        app.extensions[
+            "hub_git_authorization_registry"
+        ] = remote_catalog
+        app.extensions[
+            "hub_git_connector_composition"
+        ] = git_composition
+    additional_connectors = (
+        build_source_control_connector_extensions(
+            github_repository=git_composition.github_repository,
+            generic_git=git_composition.generic_git,
+        )
+        if git_composition is not None
+        else ()
+    )
     refresh = app.extensions.get("source_refresh_service")
     registry = (
         getattr(refresh, "registry", None)
@@ -248,8 +307,18 @@ def register_source_control_api(app) -> None:
         else None
     ) or SourceRegistry()
     if refresh is None:
-        refresh = SourceRefreshService(registry=registry)
+        refresh = SourceRefreshService(
+            registry=registry,
+            additional_connectors=additional_connectors,
+        )
         app.extensions["source_refresh_service"] = refresh
+    else:
+        registered_types = frozenset(
+            refresh.connector_registry.list_types()
+        )
+        for connector in additional_connectors:
+            if connector.connector_type not in registered_types:
+                refresh.connector_registry.register(connector)
     workspace_catalog = app.extensions.get(
         "registered_workspace_catalog"
     )
@@ -259,14 +328,6 @@ def register_source_control_api(app) -> None:
             registrations=get_ops_registry_service(),
         )
         app.extensions["registered_workspace_catalog"] = workspace_catalog
-    remote_catalog = app.extensions.get(
-        "hub_git_authorization_registry"
-    )
-    if remote_catalog is None:
-        remote_catalog = SQLHubGitAuthorizationRepository(
-            session_factory=lambda: Session(engine)
-        )
-        app.extensions["hub_git_authorization_registry"] = remote_catalog
     connection_intents = SourceControlConnectionIntentResolver(
         workspaces=workspace_catalog,
         remotes=remote_catalog,
@@ -280,6 +341,23 @@ def register_source_control_api(app) -> None:
         index_profiles=get_rag_helper_index_service(),
     )
     app.extensions["source_control_read_catalogs"] = read_catalogs
+    git_authorizations = HubGitAuthorizationProvisioningService(
+        repository=remote_catalog,
+        provider=(
+            app.extensions.get("hub_git_authorization_provisioner")
+            or UnavailableHubGitAuthorizationProvisioner()
+        ),
+        remote_policy=app.extensions["hub_git_remote_policy"],
+        idempotency=SQLSourceControlOperationStore(engine),
+        connector_types=refresh.connector_registry.list_types,
+        secret_resolver_ready=lambda: not isinstance(
+            secret_resolver,
+            UnavailableHubGitSecretResolver,
+        ),
+    )
+    app.extensions[
+        "hub_git_authorization_provisioning_service"
+    ] = git_authorizations
     content_admission = SourceControlContentAdmissionService(
         engine=engine,
         idempotency=SQLSourceControlOperationStore(engine),
@@ -483,6 +561,11 @@ def register_source_control_api(app) -> None:
     app.extensions["source_control_rollout_policy"] = rollout
     app.extensions["source_control_v1_runtime"] = runtime
     app.register_blueprint(create_source_control_v1_blueprint(runtime))
+    app.register_blueprint(
+        create_source_control_git_authorizations_blueprint(
+            git_authorizations
+        )
+    )
     app.register_blueprint(
         create_source_control_operations_blueprint(health)
     )

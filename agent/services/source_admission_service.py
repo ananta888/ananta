@@ -251,7 +251,11 @@ def evaluate_source_admission(
         "scan_evidence_digest": scan.evidence_digest,
     }
     return SourceAdmissionDecision(
-        **decision_payload,
+        **{
+            **decision_payload,
+            "state": state,
+            "reason_codes": reason_codes,
+        },
         admission_digest=_digest(decision_payload),
     )
 

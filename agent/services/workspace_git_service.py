@@ -3,10 +3,12 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+from urllib.parse import unquote, urlsplit
 
 from agent.services.git_audit_service import record_git_activity
 from agent.services.git_remote_policy_service import (
@@ -18,6 +20,8 @@ from agent.services.git_remote_policy_service import (
     hardened_git_environment,
     hardened_git_transport_args,
 )
+
+_GIT_EXECUTABLE = shutil.which("git") or "/usr/bin/git"
 
 
 class WorkspaceGitInitError(RuntimeError):
@@ -68,8 +72,8 @@ def _run_git(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
             environment.pop(key, None)
     environment.update(hardened_git_environment())
     try:
-        return subprocess.run(
-            ["git"] + args,
+        return subprocess.run(  # noqa: S603 - argv only; shell is disabled.
+            [_GIT_EXECUTABLE, *args],
             cwd=str(cwd),
             capture_output=True,
             text=True,
@@ -114,10 +118,11 @@ class WorkspaceGitService:
     def init_bare_repo(bare_path: Path) -> None:
         """Create a bare git repo at bare_path if it does not already exist."""
         if bare_path.exists():
+            WorkspaceGitService._mark_managed_bare_repo(bare_path)
             return
         bare_path.mkdir(parents=True, exist_ok=True)
-        res = subprocess.run(
-            ["git", "init", "--bare", str(bare_path)],
+        res = subprocess.run(  # noqa: S603 - fixed executable and argv.
+            [_GIT_EXECUTABLE, "init", "--bare", str(bare_path)],
             capture_output=True,
             text=True,
             timeout=30,
@@ -128,7 +133,53 @@ class WorkspaceGitService:
                 workspace_dir=bare_path,
                 stderr=res.stderr,
             )
+        WorkspaceGitService._mark_managed_bare_repo(bare_path)
         logging.info("Bare git repo created at %s", bare_path)
+
+    @staticmethod
+    def _mark_managed_bare_repo(bare_path: Path) -> None:
+        resolved = bare_path.resolve(strict=True)
+        if (
+            resolved.is_symlink()
+            or not resolved.is_dir()
+            or not (resolved / "HEAD").is_file()
+            or not (resolved / "objects").is_dir()
+        ):
+            raise WorkspaceGitInitError(
+                "Managed local remote is not a bare Git repository",
+                workspace_dir=bare_path,
+                reason_code="workspace_git_local_remote_invalid",
+            )
+        marker = resolved / ".ananta-managed-bare"
+        if marker.is_symlink():
+            raise WorkspaceGitInitError(
+                "Managed local remote marker is unsafe",
+                workspace_dir=bare_path,
+                reason_code="workspace_git_local_remote_invalid",
+            )
+        marker.write_text("ananta-managed-bare-v1\n", encoding="ascii")
+
+    @staticmethod
+    def _managed_local_remote(value: str) -> Path | None:
+        parsed = urlsplit(str(value or "").strip())
+        if parsed.scheme != "file" or parsed.netloc not in {"", "localhost"}:
+            return None
+        try:
+            resolved = Path(unquote(parsed.path)).resolve(strict=True)
+            marker = resolved / ".ananta-managed-bare"
+            marker_value = marker.read_text(encoding="ascii")
+        except (OSError, UnicodeError):
+            return None
+        if (
+            not resolved.is_dir()
+            or resolved.is_symlink()
+            or marker.is_symlink()
+            or marker_value != "ananta-managed-bare-v1\n"
+            or not (resolved / "HEAD").is_file()
+            or not (resolved / "objects").is_dir()
+        ):
+            return None
+        return resolved
 
     def commit_and_push(
         self,
@@ -191,6 +242,37 @@ class WorkspaceGitService:
                     commit_sha=commit_sha,
                 )
                 return False
+            local_remote = self._managed_local_remote(
+                remote.stdout.strip()
+            )
+            if local_remote is not None:
+                res = _run_git(
+                    [
+                        "-c",
+                        "protocol.file.allow=always",
+                        "push",
+                        local_remote.as_uri(),
+                        f"HEAD:refs/heads/{branch}",
+                    ],
+                    cwd=workspace_dir,
+                )
+                if res.returncode != 0:
+                    _audit_commit_and_push(
+                        workspace_dir,
+                        branch=branch,
+                        outcome="workspace_git_local_push_failed",
+                        task_id=task_id,
+                        commit_sha=commit_sha,
+                    )
+                    return False
+                _audit_commit_and_push(
+                    workspace_dir,
+                    branch=branch,
+                    outcome="pushed",
+                    task_id=task_id,
+                    commit_sha=commit_sha,
+                )
+                return True
             try:
                 policy_request = GitRemotePolicyRequest(
                     remote_url=remote.stdout.strip(),
@@ -264,27 +346,33 @@ class WorkspaceGitService:
         workspace_dir = Path(workspace_dir)
         authorized_remote = None
         transport_authorization = None
+        local_remote = (
+            self._managed_local_remote(remote_url)
+            if remote_url
+            else None
+        )
         if remote_url:
             try:
-                policy_request = GitRemotePolicyRequest(
-                    remote_url=remote_url,
-                    operation="clone" if enabled else "configure",
-                    credential_ref=credential_ref,
-                    allow_redirects=False,
-                    proxy_url=None,
-                    recurse_submodules=False,
-                    lfs_mode="pointer_only",
-                )
-                authorized_remote = self._remote_policy.authorize(
-                    policy_request
-                )
-                transport_authorization = (
-                    GitTransportAuthorization.create(
-                        authorized=authorized_remote,
-                        request=policy_request,
+                if local_remote is None:
+                    policy_request = GitRemotePolicyRequest(
+                        remote_url=remote_url,
+                        operation="clone" if enabled else "configure",
+                        credential_ref=credential_ref,
+                        allow_redirects=False,
+                        proxy_url=None,
+                        recurse_submodules=False,
+                        lfs_mode="pointer_only",
                     )
-                )
-                transport_authorization.validate()
+                    authorized_remote = self._remote_policy.authorize(
+                        policy_request
+                    )
+                    transport_authorization = (
+                        GitTransportAuthorization.create(
+                            authorized=authorized_remote,
+                            request=policy_request,
+                        )
+                    )
+                    transport_authorization.validate()
             except GitRemotePolicyError as exc:
                 raise WorkspaceGitInitError(
                     "Git remote policy denied workspace initialization",
@@ -296,7 +384,13 @@ class WorkspaceGitService:
                 workspace_dir=workspace_dir,
                 repo_root=workspace_dir,
                 branch=branch,
-                remote_url=authorized_remote.redacted_url if authorized_remote else None,
+                remote_url=(
+                    "file://ananta-managed"
+                    if local_remote is not None
+                    else authorized_remote.redacted_url
+                    if authorized_remote
+                    else None
+                ),
                 is_clone=False,
                 credential_ref=authorized_remote.credential_ref if authorized_remote else None,
             )
@@ -307,22 +401,37 @@ class WorkspaceGitService:
         if git_dir.exists():
             actual_remote = _run_git(["remote", "get-url", "origin"], cwd=workspace_dir)
             if actual_remote.returncode == 0:
+                actual_local = self._managed_local_remote(
+                    actual_remote.stdout.strip()
+                )
                 try:
-                    actual_authorization = self._remote_policy.authorize(
-                        GitRemotePolicyRequest(
-                            remote_url=actual_remote.stdout.strip(),
-                            operation="configure",
-                            credential_ref=credential_ref,
+                    actual_authorization = None
+                    if actual_local is None:
+                        actual_authorization = self._remote_policy.authorize(
+                            GitRemotePolicyRequest(
+                                remote_url=actual_remote.stdout.strip(),
+                                operation="configure",
+                                credential_ref=credential_ref,
+                            )
                         )
-                    )
                 except GitRemotePolicyError as exc:
                     raise WorkspaceGitInitError(
                         "Existing Git remote is denied by policy",
                         workspace_dir=workspace_dir,
                         reason_code=exc.reason_code,
                     ) from exc
+                if actual_local is not None and (
+                    local_remote is not None
+                    and actual_local != local_remote
+                ):
+                    raise WorkspaceGitInitError(
+                        "Existing local Git remote does not match configured remote",
+                        workspace_dir=workspace_dir,
+                        reason_code="git_remote_binding_mismatch",
+                    )
                 if (
                     authorized_remote is not None
+                    and actual_authorization is not None
                     and actual_authorization.canonical_url
                     != authorized_remote.canonical_url
                 ):
@@ -331,13 +440,21 @@ class WorkspaceGitService:
                         workspace_dir=workspace_dir,
                         reason_code="git_remote_binding_mismatch",
                     )
-                authorized_remote = actual_authorization
+                if actual_authorization is not None:
+                    authorized_remote = actual_authorization
+                local_remote = actual_local or local_remote
             self._ensure_branch(workspace_dir, branch=branch)
             return WorkspaceGitContext(
                 workspace_dir=workspace_dir,
                 repo_root=workspace_dir,
                 branch=branch,
-                remote_url=authorized_remote.redacted_url if authorized_remote else None,
+                remote_url=(
+                    "file://ananta-managed"
+                    if local_remote is not None
+                    else authorized_remote.redacted_url
+                    if authorized_remote
+                    else None
+                ),
                 is_clone=is_clone,
                 credential_ref=authorized_remote.credential_ref if authorized_remote else None,
             )
@@ -345,21 +462,35 @@ class WorkspaceGitService:
         workspace_dir.mkdir(parents=True, exist_ok=True)
 
         if remote_url:
-            assert authorized_remote is not None
-            assert transport_authorization is not None
-            res = _run_git(
-                hardened_git_transport_args(
-                    transport_authorization,
+            if local_remote is not None:
+                res = _run_git(
                     [
+                        "-c",
+                        "protocol.file.allow=always",
                         "clone",
                         "--no-local",
                         "--no-recurse-submodules",
-                        authorized_remote.canonical_url,
+                        local_remote.as_uri(),
                         str(workspace_dir),
-                    ]
-                ),
-                cwd=workspace_dir.parent,
-            )
+                    ],
+                    cwd=workspace_dir.parent,
+                )
+            else:
+                assert authorized_remote is not None
+                assert transport_authorization is not None
+                res = _run_git(
+                    hardened_git_transport_args(
+                        transport_authorization,
+                        [
+                            "clone",
+                            "--no-local",
+                            "--no-recurse-submodules",
+                            authorized_remote.canonical_url,
+                            str(workspace_dir),
+                        ]
+                    ),
+                    cwd=workspace_dir.parent,
+                )
             if res.returncode != 0:
                 raise WorkspaceGitInitError(
                     "git clone failed for authorized remote",
@@ -391,7 +522,13 @@ class WorkspaceGitService:
             workspace_dir=workspace_dir,
             repo_root=workspace_dir,
             branch=branch,
-            remote_url=authorized_remote.redacted_url if authorized_remote else None,
+            remote_url=(
+                "file://ananta-managed"
+                if local_remote is not None
+                else authorized_remote.redacted_url
+                if authorized_remote
+                else None
+            ),
             is_clone=is_clone,
             credential_ref=authorized_remote.credential_ref if authorized_remote else None,
         )

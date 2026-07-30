@@ -560,6 +560,7 @@ class SourceControlGrantAdminService:
                     transformation=preset.transformation.value,
                     purpose=preset.purpose,
                     policy_version=policy_version,
+                    policy_snapshot_digest=policy.policy_digest,
                     state="active",
                     issued_at_epoch=now,
                     expires_at_epoch=now + request.duration_seconds,

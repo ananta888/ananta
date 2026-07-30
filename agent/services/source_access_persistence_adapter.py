@@ -232,6 +232,7 @@ class SQLSourceAccessEnforcementAdapter:
             transformation=row.transformation,
             purpose=row.purpose,
             policy_version=row.policy_version,
+            policy_snapshot_digest=row.policy_snapshot_digest,
             state=row.state,
             issued_at=datetime.fromtimestamp(
                 row.issued_at_epoch, tz=timezone.utc

@@ -136,7 +136,10 @@ class GitTransportAuthorization:
             "requires_dns_ip_pinning": True,
         }
         return cls(
-            **coordinates,
+            **{
+                **coordinates,
+                "validated_ips": tuple(authorized.resolved_ips),
+            },
             authorization_digest=_transport_digest(coordinates),
         )
 

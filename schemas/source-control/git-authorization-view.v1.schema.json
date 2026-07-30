@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta://source-control/git-authorization-view.v1",
+  "title": "GitAuthorizationViewV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authorization_ref",
+    "authorization_kind",
+    "repository",
+    "authorization_state",
+    "granted_scopes",
+    "credential_configured",
+    "persisted",
+    "current_revision",
+    "etag",
+    "next_actions"
+  ],
+  "properties": {
+    "authorization_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"
+    },
+    "authorization_kind": {
+      "enum": [
+        "github_app",
+        "github_oauth",
+        "generic_git"
+      ]
+    },
+    "repository": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "authorization_state": {
+      "enum": [
+        "active",
+        "revoked",
+        "scope_loss"
+      ]
+    },
+    "granted_scopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "credential_configured": {
+      "type": "boolean"
+    },
+    "persisted": {
+      "type": "boolean"
+    },
+    "current_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "etag": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "next_actions": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "revoke",
+          "record_scope_loss"
+        ]
+      },
+      "uniqueItems": true
+    }
+  }
+}

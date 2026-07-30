@@ -98,7 +98,7 @@ class _NormalizedContent:
             "revision_digest": self.revision_digest,
             "capabilities": {
                 "immutable_revision": True,
-                "raw_paths_accepted": False,
+                "raw_location_inputs_accepted": False,
                 "browser_ids_accepted": False,
                 "binary_content_accepted": False,
                 "secret_content_accepted": False,

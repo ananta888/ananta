@@ -295,8 +295,11 @@ class SourceRegistry:
             yield
             return
         root = self._ensure_storage_directory(self._root)
+        raw_lock_path = root / ".registry.lock"
+        if raw_lock_path.is_symlink():
+            raise ValueError("registry_lock_symlink_not_allowed")
         lock_path = self._safe_path(
-            root / ".registry.lock",
+            raw_lock_path,
             allowed_root=root,
             anchor=self._base,
         )
@@ -382,7 +385,13 @@ class SourceRegistry:
         return self.update_source(source_id=source_id, descriptor=descriptor, allow_create=True)
 
     @_registry_locked
-    def update_source(self, *, source_id: str, descriptor: dict[str, Any], allow_create: bool = False) -> dict[str, Any]:
+    def update_source(
+        self,
+        *,
+        source_id: str,
+        descriptor: dict[str, Any],
+        allow_create: bool = False,
+    ) -> dict[str, Any]:
         normalized_id = _canonical_registry_id(source_id, field="source_id")
         payload = dict(descriptor)
         payload["source_id"] = normalized_id
@@ -463,7 +472,13 @@ class SourceRegistry:
         return self.update_source_pack(source_pack_id=source_pack_id, payload=payload, allow_create=True)
 
     @_registry_locked
-    def update_source_pack(self, *, source_pack_id: str, payload: dict[str, Any], allow_create: bool = False) -> dict[str, Any]:
+    def update_source_pack(
+        self,
+        *,
+        source_pack_id: str,
+        payload: dict[str, Any],
+        allow_create: bool = False,
+    ) -> dict[str, Any]:
         normalized_id = _canonical_registry_id(source_pack_id, field="source_pack_id")
         pack = dict(payload or {})
         pack["source_pack_id"] = normalized_id
@@ -599,8 +614,29 @@ class SourceRegistry:
         rows = [dict(item) for item in list(pack.get("sources") or []) if isinstance(item, dict)]
         index = {str(item.get("source_id") or ""): item for item in rows}
         query_text = str(query or "").strip().lower()
-        is_keycloak_question = any(token in query_text for token in ("oidc", "keycloak", "realm", "token", "client", "authorization"))
-        is_eclipse_question = any(token in query_text for token in ("eclipse", "swt", "jdt", "pde", "plugin", "osgi", "equinox"))
+        is_keycloak_question = any(
+            token in query_text
+            for token in (
+                "oidc",
+                "keycloak",
+                "realm",
+                "token",
+                "client",
+                "authorization",
+            )
+        )
+        is_eclipse_question = any(
+            token in query_text
+            for token in (
+                "eclipse",
+                "swt",
+                "jdt",
+                "pde",
+                "plugin",
+                "osgi",
+                "equinox",
+            )
+        )
 
         def _score(sid: str) -> int:
             row = index.get(str(sid) or "")
@@ -614,9 +650,21 @@ class SourceRegistry:
                 base += 200
             if is_eclipse_question and str(row.get("source_id") or "").startswith("eclipse-"):
                 base += 120
-            if str(row.get("source_id") or "") == "wikimedia-wikipedia-initial-dump" and (is_keycloak_question or is_eclipse_question):
+            if (
+                str(row.get("source_id") or "")
+                == "wikimedia-wikipedia-initial-dump"
+                and (is_keycloak_question or is_eclipse_question)
+            ):
                 base -= 120
             return base
 
-        ranked = sorted({str(item).strip() for item in list(source_ids or []) if str(item).strip()}, key=lambda sid: (-_score(sid), sid))
+        candidates = {
+            str(item).strip()
+            for item in list(source_ids or [])
+            if str(item).strip()
+        }
+        ranked = sorted(
+            candidates,
+            key=lambda sid: (-_score(sid), sid),
+        )
         return ranked
