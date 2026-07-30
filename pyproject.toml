@@ -187,6 +187,7 @@ packages = [
     "worker.coding",
     "worker.core",
     "worker.loop",
+    "worker.model_intelligence",
     "worker.planning",
     "worker.repair",
     "worker.retrieval",

@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model-intelligence/error_envelope.v1.json",
+  "title": "Ananta model-intelligence ErrorEnvelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "reason_code",
+    "retryable",
+    "details"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ananta.model-intelligence.error-envelope.v1"
+    },
+    "reason_code": {
+      "enum": [
+        "contract_invalid",
+        "model_identity_invalid",
+        "capability_unsupported",
+        "analysis_request_invalid",
+        "analysis_cancelled",
+        "analysis_deadline_exceeded",
+        "artifact_not_found",
+        "artifact_integrity_mismatch",
+        "artifact_store_unavailable",
+        "resource_limit_exceeded",
+        "runtime_unavailable",
+        "policy_denied",
+        "internal_error"
+      ]
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "details": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": {
+        "enum": [
+          "adapter_id",
+          "analysis_kind",
+          "artifact_id",
+          "capability_id",
+          "field",
+          "job_id",
+          "limit_name",
+          "model_id",
+          "operation",
+          "task_id"
+        ]
+      },
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "integer",
+          "boolean",
+          "null"
+        ]
+      }
+    },
+    "extensions": {
+      "$ref": "#/$defs/extensions"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "reason_code": {
+            "enum": [
+              "analysis_deadline_exceeded",
+              "artifact_store_unavailable",
+              "runtime_unavailable"
+            ]
+          }
+        },
+        "required": [
+          "reason_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "retryable": {
+            "const": true
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "retryable": {
+            "const": false
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "extensions": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": {
+        "pattern": "^x-[a-z0-9]+(?:[._-][a-z0-9]+){0,7}$"
+      },
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "integer",
+          "boolean",
+          "null"
+        ]
+      }
+    }
+  }
+}

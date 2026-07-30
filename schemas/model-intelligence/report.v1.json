@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model-intelligence/report.v1.json",
+  "title": "Ananta Model Intelligence Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model_identity",
+    "schema",
+    "sections",
+    "tool_versions"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ananta.model-intelligence-report.v1"
+    },
+    "model_identity": {
+      "type": "object"
+    },
+    "tool_versions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/section"
+      }
+    }
+  },
+  "$defs": {
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_kind",
+        "digest",
+        "media_type",
+        "schema",
+        "size_bytes",
+        "tenant_scope"
+      ],
+      "properties": {
+        "schema": {
+          "const": "ananta.model-intelligence-artifact-ref.v1"
+        },
+        "artifact_kind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tenant_scope": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_refs",
+        "data",
+        "name",
+        "status"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$"
+        },
+        "status": {
+          "enum": [
+            "available",
+            "unsupported",
+            "not_run",
+            "failed"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "data": true,
+        "artifact_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact_ref"
+          }
+        }
+      }
+    }
+  }
+}

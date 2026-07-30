@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model-intelligence/static_analysis.v1.json",
+  "title": "StaticTensorAnalysis v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "tensor_count",
+    "parameter_count",
+    "total_tensor_bytes",
+    "dtypes",
+    "modules",
+    "tensors",
+    "content_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "static_analysis.v1"
+    },
+    "status": {
+      "const": "available"
+    },
+    "tensor_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "parameter_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_tensor_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dtypes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "modules": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "tensors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "module",
+          "layer_index",
+          "dtype",
+          "shape",
+          "parameter_count",
+          "size_bytes",
+          "relative_path"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "module": {
+            "type": "string",
+            "minLength": 1
+          },
+          "layer_index": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "dtype": {
+            "type": "string",
+            "minLength": 1
+          },
+          "shape": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "parameter_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "relative_path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "content_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

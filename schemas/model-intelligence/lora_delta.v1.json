@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model-intelligence/lora_delta.v1.json",
+  "title": "Ananta LoRA Delta Analysis v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "adapter",
+    "aggregate_delta_frobenius_norm",
+    "aggregate_scaled_delta_frobenius_norm",
+    "base_model",
+    "composition_support",
+    "content_digest",
+    "metric_tolerances",
+    "module_coverage",
+    "modules",
+    "parameter_count",
+    "schema"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ananta.model-intelligence.lora-delta.v1"
+    },
+    "content_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "base_model": {
+      "$ref": "#/$defs/base_identity"
+    },
+    "adapter": {
+      "$ref": "#/$defs/adapter_identity"
+    },
+    "parameter_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "aggregate_delta_frobenius_norm": {
+      "type": "number",
+      "minimum": 0
+    },
+    "aggregate_scaled_delta_frobenius_norm": {
+      "type": "number",
+      "minimum": 0
+    },
+    "module_coverage": {
+      "$ref": "#/$defs/module_coverage"
+    },
+    "modules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/module"
+      }
+    },
+    "composition_support": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/support"
+      },
+      "required": [
+        "merged_delta",
+        "qlora_metadata"
+      ]
+    },
+    "metric_tolerances": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverage_absolute",
+        "norm_absolute",
+        "parameter_count_absolute"
+      ],
+      "properties": {
+        "coverage_absolute": {
+          "const": 0.0
+        },
+        "norm_absolute": {
+          "type": "number",
+          "minimum": 0
+        },
+        "parameter_count_absolute": {
+          "const": 0.0
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "base_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_sha256",
+        "model_id",
+        "revision"
+      ],
+      "properties": {
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "adapter_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter_id",
+        "base_model_content_sha256",
+        "base_model_id",
+        "content_sha256",
+        "revision"
+      ],
+      "properties": {
+        "adapter_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "base_model_content_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "base_model_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "module_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "affected_module_count",
+        "configured_target_count",
+        "matched_target_count",
+        "matched_targets",
+        "target_pattern_ratio"
+      ],
+      "properties": {
+        "affected_module_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "configured_target_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "matched_target_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "matched_targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "target_pattern_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alpha",
+        "delta_frobenius_norm",
+        "lora_a_frobenius_norm",
+        "lora_b_frobenius_norm",
+        "module",
+        "parameter_count",
+        "rank",
+        "scaled_delta_frobenius_norm",
+        "scaling"
+      ],
+      "properties": {
+        "module": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "alpha": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "scaling": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "parameter_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lora_a_frobenius_norm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "lora_b_frobenius_norm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "delta_frobenius_norm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "scaled_delta_frobenius_norm": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "support": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "available",
+            "unsupported",
+            "not_run"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

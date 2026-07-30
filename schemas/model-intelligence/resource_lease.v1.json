@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model-intelligence/resource_lease.v1.json",
+  "title": "Ananta model-intelligence ResourceLease v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "lease_id",
+    "job_id",
+    "tenant_id",
+    "worker_id",
+    "lease_generation",
+    "acquired_epoch_ms",
+    "expires_epoch_ms",
+    "max_memory_bytes",
+    "max_output_bytes",
+    "completion_key",
+    "request_sha256"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.model-intelligence.resource-lease.v1"},
+    "lease_id": {"$ref": "#/$defs/identifier"},
+    "job_id": {"$ref": "#/$defs/identifier"},
+    "tenant_id": {"$ref": "#/$defs/identifier"},
+    "worker_id": {"$ref": "#/$defs/identifier"},
+    "lease_generation": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "acquired_epoch_ms": {"type": "integer", "minimum": 0},
+    "expires_epoch_ms": {"type": "integer", "minimum": 1},
+    "max_memory_bytes": {"type": "integer", "minimum": 1, "maximum": 1099511627776},
+    "max_output_bytes": {"type": "integer", "minimum": 1, "maximum": 107374182400},
+    "completion_key": {"type": "string", "pattern": "^completion_[0-9a-f]{64}$"},
+    "request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  }
+}

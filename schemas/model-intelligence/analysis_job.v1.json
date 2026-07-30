@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model-intelligence/analysis_job.v1.json",
+  "title": "Ananta model-intelligence AnalysisJob v1",
+  "description": "Immutable Hub-created work description; never grants worker orchestration authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "job_id",
+    "hub_task_id",
+    "tenant_id",
+    "model_id",
+    "analysis_kind",
+    "profile_id",
+    "request_sha256",
+    "requested_artifact_kinds",
+    "max_runtime_seconds",
+    "max_output_bytes"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ananta.model-intelligence.analysis-job.v1"
+    },
+    "job_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "hub_task_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "tenant_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "model_id": {
+      "type": "string",
+      "pattern": "^model_[0-9a-f]{64}$"
+    },
+    "analysis_kind": {
+      "$ref": "#/$defs/kind"
+    },
+    "profile_id": {
+      "$ref": "#/$defs/kind"
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "requested_artifact_kinds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/kind"
+      }
+    },
+    "max_runtime_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 86400
+    },
+    "max_output_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1073741824
+    },
+    "extensions": {
+      "$ref": "#/$defs/extensions"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}(?:\\.[a-z][a-z0-9-]{0,31}){1,7}$"
+    },
+    "extensions": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": {
+        "pattern": "^x-[a-z0-9]+(?:[._-][a-z0-9]+){0,7}$"
+      },
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "integer",
+          "boolean",
+          "null"
+        ]
+      }
+    }
+  }
+}

@@ -10,6 +10,7 @@ from agent.services.model_inference_adapters import (
     CAP_EMBEDDINGS,
     CAP_FEATURE_EXTRACTION,
     CAP_RERANK,
+    SUPPORT_CONDITIONAL,
     AdapterStatus,
     BaseInferenceAdapter,
     ChoiceScore,
@@ -207,6 +208,10 @@ class SentenceTransformersAdapter(BaseInferenceAdapter):
 
     ENGINE = _ENGINE
     CAPABILITIES = frozenset({CAP_EMBEDDINGS, CAP_FEATURE_EXTRACTION, CAP_RERANK})
+    CAPABILITY_DECLARATIONS = dict.fromkeys(
+        CAPABILITIES,
+        (SUPPORT_CONDITIONAL, "requires_sentence_transformers_mode"),
+    )
 
     def __init__(
         self,

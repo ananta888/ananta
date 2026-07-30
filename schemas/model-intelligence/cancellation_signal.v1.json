@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model-intelligence/cancellation_signal.v1.json",
+  "title": "Ananta model-intelligence CancellationSignal v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "job_id",
+    "lease_id",
+    "lease_generation",
+    "reason_code",
+    "requested_epoch_ms"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.model-intelligence.cancellation-signal.v1"},
+    "job_id": {"$ref": "#/$defs/identifier"},
+    "lease_id": {"$ref": "#/$defs/identifier"},
+    "lease_generation": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "reason_code": {
+      "enum": ["hub_cancelled", "lease_revoked", "worker_shutdown"]
+    },
+    "requested_epoch_ms": {"type": "integer", "minimum": 0}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  }
+}

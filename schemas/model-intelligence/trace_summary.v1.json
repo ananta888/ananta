@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model-intelligence/trace_summary.v1.json",
+  "title": "TraceSummary v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "admission_id",
+    "model_id",
+    "runtime_kind",
+    "prompt_digest",
+    "token_count",
+    "layers",
+    "raw_activations_stored",
+    "content_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "trace_summary.v1"
+    },
+    "status": {
+      "const": "available"
+    },
+    "admission_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtime_kind": {
+      "const": "huggingface_local"
+    },
+    "prompt_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "token_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "layer_index",
+          "shape",
+          "mean",
+          "standard_deviation",
+          "minimum",
+          "maximum",
+          "l2_norm"
+        ],
+        "properties": {
+          "layer_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "shape": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "mean": {
+            "type": "number"
+          },
+          "standard_deviation": {
+            "type": "number",
+            "minimum": 0
+          },
+          "minimum": {
+            "type": "number"
+          },
+          "maximum": {
+            "type": "number"
+          },
+          "l2_norm": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "raw_activations_stored": {
+      "const": false
+    },
+    "content_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

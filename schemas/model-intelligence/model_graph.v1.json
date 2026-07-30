@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model-intelligence/model_graph.v1.json",
+  "title": "ModelGraphArtifact v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "model_id",
+    "nodes",
+    "edges",
+    "content_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "model_graph.v1"
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "node_id",
+          "kind",
+          "label",
+          "attributes"
+        ],
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "kind": {
+            "enum": [
+              "model",
+              "module",
+              "layer",
+              "tensor",
+              "tokenizer",
+              "adapter",
+              "analysis_run"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attributes": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "edge_id",
+          "source_node_id",
+          "target_node_id",
+          "kind"
+        ],
+        "properties": {
+          "edge_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source_node_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "target_node_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "content_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

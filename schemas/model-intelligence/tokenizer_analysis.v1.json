@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model-intelligence/tokenizer_analysis.v1.json",
+  "title": "TokenizerAnalysis v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "vocabulary_size",
+    "model_max_length",
+    "special_tokens",
+    "normalizer",
+    "pre_tokenizer",
+    "prompt_template_status",
+    "prompt_template_digest",
+    "content_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "tokenizer_analysis.v1"
+    },
+    "status": {
+      "enum": [
+        "available",
+        "not_available"
+      ]
+    },
+    "vocabulary_size": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "model_max_length": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "special_tokens": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "normalizer": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "pre_tokenizer": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "prompt_template_status": {
+      "enum": [
+        "available",
+        "not_available",
+        "invalid"
+      ]
+    },
+    "prompt_template_digest": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "content_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

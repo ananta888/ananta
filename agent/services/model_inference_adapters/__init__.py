@@ -20,7 +20,7 @@ Missing optional dependencies produce ``degraded`` status, not a crash.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar, Mapping
 
 # ── Capability constants ──────────────────────────────────────────────────────
 CAP_EMBEDDINGS = "embeddings"
@@ -44,6 +44,86 @@ ALL_CAPABILITIES = frozenset(
         CAP_CHOICE_SCORING,
     }
 )
+
+SUPPORT_SUPPORTED = "supported"
+SUPPORT_UNSUPPORTED = "unsupported"
+SUPPORT_CONDITIONAL = "conditional"
+CAPABILITY_SUPPORT_STATES = frozenset(
+    {
+        SUPPORT_SUPPORTED,
+        SUPPORT_UNSUPPORTED,
+        SUPPORT_CONDITIONAL,
+    }
+)
+
+# A capability is externally probeable only when it maps to a public adapter
+# operation. Hidden states, attention and raw logits intentionally remain
+# unadvertised until a dedicated inspection port exposes them.
+CAPABILITY_OPERATION_METHODS: Mapping[str, str] = {
+    CAP_EMBEDDINGS: "embed",
+    CAP_CLASSIFICATION: "classify",
+    CAP_RERANK: "rerank",
+    CAP_FEATURE_EXTRACTION: "extract_features",
+    CAP_CHOICE_SCORING: "score_choices",
+}
+
+
+@dataclass(frozen=True)
+class CapabilityDescriptor:
+    """Machine-readable support statement for one adapter capability."""
+
+    name: str
+    support: str
+    reason_code: str
+    operation: str = ""
+
+    def __post_init__(self) -> None:
+        if self.name not in ALL_CAPABILITIES:
+            raise ValueError(f"unknown_capability:{self.name}")
+        if self.support not in CAPABILITY_SUPPORT_STATES:
+            raise ValueError(f"invalid_capability_support:{self.support}")
+        if not self.reason_code:
+            raise ValueError("capability_reason_code_required")
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "name": self.name,
+            "operation": self.operation,
+            "reason_code": self.reason_code,
+            "support": self.support,
+        }
+
+
+@dataclass(frozen=True)
+class AdapterCapabilityDescriptor:
+    """Adapter-owned, deterministic capability declaration."""
+
+    engine: str
+    adapter_class: str
+    capabilities: tuple[CapabilityDescriptor, ...]
+
+    def __post_init__(self) -> None:
+        names = tuple(item.name for item in self.capabilities)
+        if names != tuple(sorted(ALL_CAPABILITIES)):
+            raise ValueError("descriptor_must_cover_all_capabilities_once")
+
+    def advertised_capabilities(self) -> frozenset[str]:
+        return frozenset(
+            item.name for item in self.capabilities if item.support != SUPPORT_UNSUPPORTED and item.operation
+        )
+
+    def capability(self, name: str) -> CapabilityDescriptor:
+        for item in self.capabilities:
+            if item.name == name:
+                return item
+        raise KeyError(name)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "adapter_class": self.adapter_class,
+            "capabilities": [item.to_dict() for item in self.capabilities],
+            "engine": self.engine,
+        }
 
 # ── Result types (shared across all adapters) ─────────────────────────────────
 
@@ -130,6 +210,33 @@ class BaseInferenceAdapter:
 
     ENGINE: str = "base"
     CAPABILITIES: frozenset[str] = frozenset()
+    CAPABILITY_DECLARATIONS: ClassVar[Mapping[str, tuple[str, str]]] = {}
+
+    @classmethod
+    def capability_descriptor(cls) -> AdapterCapabilityDescriptor:
+        """Describe support without importing optional runtimes or loading weights."""
+
+        capabilities: list[CapabilityDescriptor] = []
+        for capability in sorted(ALL_CAPABILITIES):
+            declaration = cls.CAPABILITY_DECLARATIONS.get(capability)
+            if declaration is None:
+                support = SUPPORT_SUPPORTED if capability in cls.CAPABILITIES else SUPPORT_UNSUPPORTED
+                reason_code = "operation_implemented" if capability in cls.CAPABILITIES else "operation_not_implemented"
+            else:
+                support, reason_code = declaration
+            capabilities.append(
+                CapabilityDescriptor(
+                    name=capability,
+                    support=support,
+                    reason_code=reason_code,
+                    operation=CAPABILITY_OPERATION_METHODS.get(capability, ""),
+                )
+            )
+        return AdapterCapabilityDescriptor(
+            engine=cls.ENGINE,
+            adapter_class=f"{cls.__module__}.{cls.__qualname__}",
+            capabilities=tuple(capabilities),
+        )
 
     def status(self) -> AdapterStatus:
         raise NotImplementedError

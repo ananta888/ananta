@@ -12,8 +12,8 @@ from agent.services.model_inference_adapters import (
     CAP_CLASSIFICATION,
     CAP_EMBEDDINGS,
     CAP_FEATURE_EXTRACTION,
-    CAP_LOGITS,
     CAP_RERANK,
+    SUPPORT_CONDITIONAL,
     AdapterStatus,
     BaseInferenceAdapter,
     ChoiceScore,
@@ -35,7 +35,11 @@ class HuggingFaceTransformersAdapter(BaseInferenceAdapter):
 
     ENGINE = _ENGINE
     CAPABILITIES = frozenset(
-        {CAP_CLASSIFICATION, CAP_EMBEDDINGS, CAP_FEATURE_EXTRACTION, CAP_LOGITS, CAP_CHOICE_SCORING, CAP_RERANK}
+        {CAP_CLASSIFICATION, CAP_EMBEDDINGS, CAP_FEATURE_EXTRACTION, CAP_CHOICE_SCORING, CAP_RERANK}
+    )
+    CAPABILITY_DECLARATIONS = dict.fromkeys(
+        CAPABILITIES,
+        (SUPPORT_CONDITIONAL, "requires_compatible_model_task"),
     )
 
     def __init__(
@@ -151,10 +155,15 @@ class HuggingFaceTransformersAdapter(BaseInferenceAdapter):
 
     def _task_capabilities(self) -> frozenset[str]:
         if self._task in _CLASSIFICATION_TASKS:
-            return frozenset({CAP_CLASSIFICATION, CAP_LOGITS, CAP_RERANK})
+            capabilities = {CAP_CLASSIFICATION}
+            if len(self._labels) == 2:
+                capabilities.add(CAP_RERANK)
+            return frozenset(capabilities)
         if self._task in _FEATURE_TASKS:
             return frozenset({CAP_EMBEDDINGS, CAP_FEATURE_EXTRACTION})
-        return frozenset({CAP_CHOICE_SCORING, CAP_LOGITS})
+        if self._task in _CHOICE_TASKS:
+            return frozenset({CAP_CHOICE_SCORING})
+        return frozenset()
 
     def status(self) -> AdapterStatus:
         return AdapterStatus(

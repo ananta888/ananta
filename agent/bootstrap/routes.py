@@ -52,6 +52,7 @@ from agent.routes.mcp import mcp_bp
 from agent.routes.ml_intern_lora_runtime import ml_intern_lora_runtime_bp
 from agent.routes.ml_intern_speech_adapters import ml_intern_speech_adapters_bp
 from agent.routes.ml_intern_training import ml_intern_training_bp
+from agent.routes.model_intelligence import model_intelligence_bp
 from agent.routes.network_profiles import network_profiles_bp
 from agent.routes.ollama_benchmark import ollama_benchmark_bp
 from agent.routes.openai_compat import openai_compat_bp
@@ -130,6 +131,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(approvals_bp)
     app.register_blueprint(knowledge_bp)
     app.register_blueprint(ml_intern_training_bp)
+    app.register_blueprint(model_intelligence_bp)
     app.register_blueprint(ml_intern_lora_runtime_bp)
     app.register_blueprint(ml_intern_speech_adapters_bp)
     app.register_blueprint(openai_compat_bp)

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model-intelligence/quantization_analysis.v1.json",
+  "title": "QuantizationAnalysis v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "scheme",
+    "bit_width",
+    "group_size",
+    "affected_tensors",
+    "metadata_source",
+    "reason_code",
+    "content_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "quantization_analysis.v1"
+    },
+    "status": {
+      "enum": [
+        "available",
+        "not_available",
+        "failed"
+      ]
+    },
+    "scheme": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "bit_width": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "group_size": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "affected_tensors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "metadata_source": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reason_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "content_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

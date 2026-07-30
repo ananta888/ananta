@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model-intelligence/artifact_ref.v1.json",
+  "title": "Ananta model-intelligence ArtifactRef v1",
+  "description": "Content-addressed reference without a host or shared-filesystem path.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "artifact_id",
+    "job_id",
+    "kind",
+    "sha256",
+    "size_bytes",
+    "media_type"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ananta.model-intelligence.artifact-ref.v1"
+    },
+    "artifact_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "job_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "kind": {
+      "$ref": "#/$defs/kind"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "size_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 107374182400
+    },
+    "media_type": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.+-]{0,63}/[a-z0-9][a-z0-9.+-]{0,63}$"
+    },
+    "extensions": {
+      "$ref": "#/$defs/extensions"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}(?:\\.[a-z][a-z0-9-]{0,31}){1,7}$"
+    },
+    "extensions": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": {
+        "pattern": "^x-[a-z0-9]+(?:[._-][a-z0-9]+){0,7}$"
+      },
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "integer",
+          "boolean",
+          "null"
+        ]
+      }
+    }
+  }
+}

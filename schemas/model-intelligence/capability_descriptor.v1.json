@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/model-intelligence/capability_descriptor.v1.json",
+  "title": "Ananta model-intelligence CapabilityDescriptor v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "model_id",
+    "capability_id",
+    "state",
+    "evidence",
+    "adapter_id",
+    "adapter_version"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ananta.model-intelligence.capability-descriptor.v1"
+    },
+    "model_id": {
+      "type": "string",
+      "pattern": "^model_[0-9a-f]{64}$"
+    },
+    "capability_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}(?:\\.[a-z][a-z0-9-]{0,31}){1,7}$"
+    },
+    "state": {
+      "enum": [
+        "supported",
+        "conditional",
+        "unsupported",
+        "unknown"
+      ]
+    },
+    "evidence": {
+      "enum": [
+        "declared",
+        "probed",
+        "inferred"
+      ]
+    },
+    "adapter_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "adapter_version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}$"
+    },
+    "reason_code": {
+      "oneOf": [
+        {
+          "enum": [
+            "adapter_unavailable",
+            "capability_not_declared",
+            "capability_probe_failed",
+          "dependency_unavailable",
+          "format_unsupported",
+          "requires_compatible_model_task",
+          "requires_sentence_transformers_mode",
+          "runtime_unsupported"
+        ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "extensions": {
+      "$ref": "#/$defs/extensions"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "supported"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason_code": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "required": [
+          "reason_code"
+        ],
+        "properties": {
+          "reason_code": {
+            "enum": [
+              "adapter_unavailable",
+              "capability_not_declared",
+              "capability_probe_failed",
+              "dependency_unavailable",
+              "format_unsupported",
+              "requires_compatible_model_task",
+              "requires_sentence_transformers_mode",
+              "runtime_unsupported"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "extensions": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": {
+        "pattern": "^x-[a-z0-9]+(?:[._-][a-z0-9]+){0,7}$"
+      },
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "integer",
+          "boolean",
+          "null"
+        ]
+      }
+    }
+  }
+}
