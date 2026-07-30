@@ -230,6 +230,8 @@ class VoiceRuntimeCleanupService:
         principal: VoicePrincipal,
         normalized_profile_id: str,
         records,
+        *,
+        audit: bool = True,
     ) -> VoiceRuntimeCleanupRun:
         attempted_count = 0
         succeeded_count = 0
@@ -308,16 +310,17 @@ class VoiceRuntimeCleanupService:
             if self._repository.complete(principal, normalized_profile_id, record.id):
                 succeeded_count += 1
         status = self._repository.status(principal, normalized_profile_id)
-        self._audit(
-            "voice_runtime_cleanup_processed",
-            {
-                "scope_digest": voice_scope_digest(principal, normalized_profile_id),
-                "attempted_count": attempted_count,
-                "succeeded_count": succeeded_count,
-                "failed_count": status.failed_count,
-                "pending": status.pending_count > 0,
-            },
-        )
+        if audit:
+            self._audit(
+                "voice_runtime_cleanup_processed",
+                {
+                    "scope_digest": voice_scope_digest(principal, normalized_profile_id),
+                    "attempted_count": attempted_count,
+                    "succeeded_count": succeeded_count,
+                    "failed_count": status.failed_count,
+                    "pending": status.pending_count > 0,
+                },
+            )
         return VoiceRuntimeCleanupRun(
             attempted_count=attempted_count,
             succeeded_count=succeeded_count,
@@ -334,11 +337,36 @@ class VoiceRuntimeCleanupService:
             limit=scope_limit,
             include_provisional=include_provisional,
         )
+        attempted_count = 0
+        succeeded_count = 0
+        failed_count = 0
+        pending_scope_count = 0
         for principal, profile_id in scopes:
-            self.retry_profile(
+            records = self._repository.list_scope(principal, profile_id)
+            if not include_provisional:
+                records = tuple(
+                    record for record in records if record.state != "provisional"
+                )
+            run = self._retry_records(
                 principal,
                 profile_id,
-                include_provisional=include_provisional,
+                records,
+                audit=False,
+            )
+            attempted_count += run.attempted_count
+            succeeded_count += run.succeeded_count
+            failed_count += run.status.failed_count
+            pending_scope_count += int(run.status.pending_count > 0)
+        if scopes:
+            self._audit(
+                "voice_runtime_cleanup_batch_processed",
+                {
+                    "scope_count": len(scopes),
+                    "attempted_count": attempted_count,
+                    "succeeded_count": succeeded_count,
+                    "failed_count": failed_count,
+                    "pending_scope_count": pending_scope_count,
+                },
             )
         return len(scopes)
 

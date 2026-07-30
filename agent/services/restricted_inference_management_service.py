@@ -14,6 +14,10 @@ from agent.services.restricted_inference_endpoint_policy import (
     pin_private_container_address,
     require_allowlisted_restricted_inference_endpoint,
 )
+from agent.services.restricted_inference_management_circuit_breaker import (
+    RestrictedInferenceManagementCircuitBreaker,
+    get_restricted_inference_management_circuit_breaker,
+)
 
 _MANIFEST_DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
 _MANIFEST_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,191}$")
@@ -62,6 +66,7 @@ class RestrictedInferenceManagementService:
         max_response_bytes: int = 4 * 1024 * 1024,
         resolver: AddressResolver | None = None,
         opener: Any | None = None,
+        circuit_breaker: RestrictedInferenceManagementCircuitBreaker | None = None,
     ) -> None:
         endpoint = str(inference_endpoint or os.getenv("ANANTA_RESTRICTED_INFERENCE_URL", "")).strip()
         configured_allowlist = allowed_endpoints
@@ -95,10 +100,14 @@ class RestrictedInferenceManagementService:
         if timeout_seconds <= 0 or not 1024 <= max_response_bytes <= 16 * 1024 * 1024:
             raise ValueError("restricted inference management transport limits are invalid")
         self._parsed = parsed
+        self._endpoint_key = normalized_endpoint
         self._token = token
         self._timeout = float(timeout_seconds)
         self._max_response_bytes = int(max_response_bytes)
         self._resolver = resolver
+        self._circuit_breaker = (
+            circuit_breaker or get_restricted_inference_management_circuit_breaker()
+        )
         self._opener = opener or urllib.request.build_opener(
             urllib.request.ProxyHandler({}),
             _NoRedirectHandler(),
@@ -168,6 +177,13 @@ class RestrictedInferenceManagementService:
         *,
         body: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        circuit_decision = self._circuit_breaker.before_request(self._endpoint_key)
+        if not circuit_decision.allowed:
+            raise RestrictedInferenceManagementError(
+                "worker_circuit_open",
+                "restricted inference worker is temporarily unavailable",
+                status_code=503,
+            )
         encoded_body = (
             json.dumps(body or {}, sort_keys=True, separators=(",", ":")).encode("utf-8")
             if method in {"PATCH", "POST"}
@@ -180,6 +196,10 @@ class RestrictedInferenceManagementService:
                 resolver=self._resolver,
             )
         except RestrictedInferenceEndpointResolutionError as exc:
+            if exc.reason_code == "worker_unavailable":
+                self._circuit_breaker.record_unavailable(self._endpoint_key)
+            else:
+                self._circuit_breaker.record_reachable(self._endpoint_key)
             raise RestrictedInferenceManagementError(
                 exc.reason_code,
                 str(exc),
@@ -201,6 +221,7 @@ class RestrictedInferenceManagementService:
             response = self._opener.open(request, timeout=self._timeout)
             payload = self._read_payload(response)
         except urllib.error.HTTPError as exc:
+            self._circuit_breaker.record_reachable(self._endpoint_key)
             payload = self._read_payload(exc)
             error = payload.get("error") if isinstance(payload, dict) else None
             reason = (
@@ -214,13 +235,16 @@ class RestrictedInferenceManagementService:
                 status_code=exc.code,
             ) from exc
         except RestrictedInferenceManagementError:
+            self._circuit_breaker.record_reachable(self._endpoint_key)
             raise
         except (TimeoutError, urllib.error.URLError, OSError) as exc:
+            self._circuit_breaker.record_unavailable(self._endpoint_key)
             raise RestrictedInferenceManagementError(
                 "worker_unavailable",
                 "restricted inference worker is unavailable",
                 status_code=503,
             ) from exc
+        self._circuit_breaker.record_reachable(self._endpoint_key)
         if not isinstance(payload, dict):
             raise RestrictedInferenceManagementError("invalid_worker_response", "worker response must be an object")
         sanitized = _sanitize_management_payload(payload)
