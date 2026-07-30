@@ -1,5 +1,5 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "3.0",
   "owner": "Ananta maintainers",
   "track": "codecompass-openweight-model-analysis",
