@@ -9,12 +9,13 @@ import re
 import time
 from collections.abc import Callable, Mapping
 from functools import wraps
-from typing import Any, Protocol
+from typing import Protocol
 
 from agent.services.source_control_observability import (
     SourceControlAuditEvent,
     SourceControlAuditOperation,
     SourceControlDecision,
+    SourceControlHealthMetricsPublisher,
     SourceControlHealthMonitor,
     SourceControlMetricsPort,
     bounded_metric_labels,
@@ -25,7 +26,6 @@ from agent.services.source_control_rollout_policy import (
     SourceControlShadowComparator,
     SourceControlShadowProjectionComparator,
 )
-
 
 _LOG = logging.getLogger(__name__)
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
@@ -92,6 +92,7 @@ class SourceControlRuntimeObservability:
         self._rollout = rollout
         self._metrics = metrics
         self._health = health
+        self._health_metrics = SourceControlHealthMetricsPublisher(metrics)
         self._shadow = shadow
         self._audit = audit_emitter or emit_source_control_audit
         self._clock = clock
@@ -331,21 +332,7 @@ class SourceControlRuntimeObservability:
     def _publish_health(self) -> None:
         report = self._health.snapshot()
         try:
-            for status in ("healthy", "degraded"):
-                self._metrics.set_gauge(
-                    "source_control_health",
-                    1.0 if report.health.status == status else 0.0,
-                    bounded_metric_labels(status=status),
-                )
-            for alarm in report.alarms:
-                self._metrics.set_gauge(
-                    "source_control_alert_state",
-                    1.0,
-                    bounded_metric_labels(
-                        reason_code=alarm,
-                        status="firing",
-                    ),
-                )
+            self._health_metrics.publish(report)
         except Exception:
             self._health.set_operational_alarm("metrics_adapter_failure")
 

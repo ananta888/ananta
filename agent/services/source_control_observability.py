@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Mapping, Optional, Protocol, Sequence
 
-
 _DIGEST_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 
@@ -228,6 +227,46 @@ class SourceControlHealthReport:
             "storage_pressure": self.health.storage_pressure,
             "alarms": list(self.alarms),
         }
+
+
+class SourceControlHealthMetricsPublisher:
+    """Project health snapshots into transition-safe, bounded metrics."""
+
+    def __init__(self, metrics: SourceControlMetricsPort) -> None:
+        self._metrics = metrics
+        self._lock = threading.RLock()
+        self._active_alarms: set[str] = set()
+
+    def publish(self, report: SourceControlHealthReport) -> None:
+        active_alarms = set(report.alarms)
+        with self._lock:
+            for status in ("healthy", "degraded"):
+                self._metrics.set_gauge(
+                    "source_control_health",
+                    1.0 if report.health.status == status else 0.0,
+                    bounded_metric_labels(status=status),
+                )
+            for reason_code in sorted(
+                active_alarms | self._active_alarms
+            ):
+                active = reason_code in active_alarms
+                self._metrics.set_gauge(
+                    "source_control_alert_state",
+                    1.0 if active else 0.0,
+                    bounded_metric_labels(
+                        reason_code=reason_code,
+                        status="firing",
+                    ),
+                )
+                self._metrics.set_gauge(
+                    "source_control_alert_state",
+                    0.0 if active else 1.0,
+                    bounded_metric_labels(
+                        reason_code=reason_code,
+                        status="resolved",
+                    ),
+                )
+            self._active_alarms = active_alarms
 
 
 class SourceControlHealthMonitor:

@@ -2,9 +2,11 @@ import logging
 import hashlib
 import json
 import re
+import threading
 from typing import Any
 
 from flask import g, has_request_context, request
+from sqlalchemy import text
 from sqlmodel import Session, select
 
 from agent.common.redaction import DEFAULT_SENSITIVE_KEYS, VisibilityLevel, redact
@@ -54,6 +56,12 @@ AUDIT_ARTIFACT_RECONCILIATION_APPLIED = "artifact_reconciliation_applied"
 
 # Logger für Audit-Events
 audit_logger = logging.getLogger("audit")
+_AUDIT_CHAIN_THREAD_LOCK = threading.Lock()
+_AUDIT_CHAIN_ADVISORY_LOCK_ID = int.from_bytes(
+    hashlib.sha256(b"ananta.audit-chain.v1").digest()[:8],
+    byteorder="big",
+    signed=True,
+)
 SENSITIVE_FIELDS = tuple(sorted({key for keys in DEFAULT_SENSITIVE_KEYS.values() for key in keys}))
 _FORBIDDEN_RAW_FIELDS = {
     "prompt",
@@ -70,6 +78,21 @@ def _engine():
     from agent.database import engine
 
     return engine
+
+
+def _acquire_database_audit_chain_lock(session: Session) -> None:
+    """Serialize the persistent hash chain across Hub processes.
+
+    Threads are serialized before checking out a connection. PostgreSQL's
+    transaction-scoped advisory lock remains the cross-process authority.
+    SQLite needs only the process-local lock used by ``log_audit``.
+    """
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    session.execute(
+        text("SELECT pg_advisory_xact_lock(:lock_id)"),
+        {"lock_id": _AUDIT_CHAIN_ADVISORY_LOCK_ID},
+    )
 
 
 def _drop_forbidden_raw_fields(value):
@@ -308,33 +331,38 @@ def log_audit(action: str, details: dict = None):
     audit_logger.info(msg, extra=extra)
 
     try:
-        with Session(_engine()) as session:
-            previous = session.exec(select(AuditLogDB).order_by(AuditLogDB.id.desc())).first()
-            prev_hash = previous.record_hash if previous else None
-            hash_payload = {
-                "username": username,
-                "ip": ip,
-                "action": action,
-                "details": sanitized_details,
-                "prev_hash": prev_hash,
-            }
-            record_hash = hashlib.sha256(
-                json.dumps(hash_payload, sort_keys=True, ensure_ascii=True, default=str).encode("utf-8")
-            ).hexdigest()
-            log_entry = AuditLogDB(
-                username=username,
-                ip=ip,
-                action=action,
-                trace_id=sanitized_details.get("trace_id"),
-                goal_id=sanitized_details.get("goal_id"),
-                task_id=sanitized_details.get("task_id"),
-                plan_id=sanitized_details.get("plan_id"),
-                verification_record_id=sanitized_details.get("verification_record_id"),
-                prev_hash=prev_hash,
-                record_hash=record_hash,
-                details=sanitized_details,
-            )
-            session.add(log_entry)
-            session.commit()
+        # Wait before acquiring a pooled connection. This prevents concurrent
+        # request-audit writes from exhausting the Hub pool while preserving
+        # the append-only chain as one atomic database transaction.
+        with _AUDIT_CHAIN_THREAD_LOCK:
+            with Session(_engine()) as session:
+                _acquire_database_audit_chain_lock(session)
+                previous = session.exec(select(AuditLogDB).order_by(AuditLogDB.id.desc())).first()
+                prev_hash = previous.record_hash if previous else None
+                hash_payload = {
+                    "username": username,
+                    "ip": ip,
+                    "action": action,
+                    "details": sanitized_details,
+                    "prev_hash": prev_hash,
+                }
+                record_hash = hashlib.sha256(
+                    json.dumps(hash_payload, sort_keys=True, ensure_ascii=True, default=str).encode("utf-8")
+                ).hexdigest()
+                log_entry = AuditLogDB(
+                    username=username,
+                    ip=ip,
+                    action=action,
+                    trace_id=sanitized_details.get("trace_id"),
+                    goal_id=sanitized_details.get("goal_id"),
+                    task_id=sanitized_details.get("task_id"),
+                    plan_id=sanitized_details.get("plan_id"),
+                    verification_record_id=sanitized_details.get("verification_record_id"),
+                    prev_hash=prev_hash,
+                    record_hash=record_hash,
+                    details=sanitized_details,
+                )
+                session.add(log_entry)
+                session.commit()
     except Exception as e:
         audit_logger.error(f"Failed to save audit log to database: {e}")
