@@ -18,6 +18,7 @@ from agent.routes.source_control_git_authorizations import (
     GIT_AUTHORIZATION_ROUTE_MATRIX,
     create_source_control_git_authorizations_blueprint,
 )
+from tests.project_access_fakes import AllowProjectAccess
 from agent.services.hub_git_authorization_provisioning import (
     GitAuthorizationProviderHealth,
     HubGitAuthorizationProvisioningError,
@@ -232,6 +233,9 @@ def test_http_matrix_is_authenticated_and_role_guarded(monkeypatch):
     )
     service, _ = _service()
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = AllowProjectAccess(
+        role="viewer"
+    )
     app.register_blueprint(
         create_source_control_git_authorizations_blueprint(service)
     )
@@ -268,6 +272,7 @@ def test_http_provision_detail_and_revoke_never_expose_secret_metadata(
     )
     service, _ = _service()
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = AllowProjectAccess()
     app.register_blueprint(
         create_source_control_git_authorizations_blueprint(service)
     )

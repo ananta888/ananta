@@ -30,6 +30,9 @@ from agent.db_models.source_control import (
     SourceAccessGrantDB,
     SourceRevisionDB,
 )
+from agent.repositories.source_control_repository import (
+    SQLSourceControlRepository,
+)
 from agent.services.effective_source_access_service import (
     EffectivePolicyEvaluation,
     EffectiveSourceAccessService,
@@ -57,6 +60,7 @@ from ananta_contracts.model_catalog import (
     ModelHealth,
 )
 from ananta_contracts.source_control import (
+    ConnectionState,
     DestinationDescriptor,
     ProviderLocation,
 )
@@ -136,6 +140,29 @@ _BOUND_INDEX_PLAN_FIELDS = frozenset(
     }
 )
 
+_REPOSITORY_CONNECTOR_SCOPES = frozenset(
+    {
+        "registered_workspace",
+        "local_directory",
+        "git",
+        "github",
+        "generic_git",
+        "github_repository",
+    }
+)
+
+
+def _runtime_index_source_scope(connector_type: object) -> str:
+    normalized = str(connector_type or "").strip().lower()
+    if normalized in _REPOSITORY_CONNECTOR_SCOPES:
+        return "repo_path"
+    if normalized in {"artifact", "repo_path", "wiki"}:
+        return normalized
+    raise SourceControlProductionAdapterError(
+        "source_index_connector_scope_unsupported",
+        status_code=400,
+    )
+
 
 class HubBoundSourceIndexSubmissionAdapter:
     """Submit only complete Hub-planned, revision-bound index jobs."""
@@ -194,6 +221,12 @@ class HubBoundSourceIndexSubmissionAdapter:
             raise SourceControlProductionAdapterError(
                 "source_index_governance_plan_stale", status_code=409
             )
+        execution_plan = {
+            **plan,
+            "source_scope": _runtime_index_source_scope(
+                plan["source_scope"]
+            ),
+        }
         result = submit_method(
             tenant_id=connection.tenant_id,
             project_id=connection.project_id,
@@ -205,7 +238,7 @@ class HubBoundSourceIndexSubmissionAdapter:
             source_transformation="redacted",
             source_purpose="knowledge-index",
             source_policy_version=str(plan["policy_snapshot_id"]),
-            **plan,
+            **execution_plan,
         )
         public = _public(result)
         if not isinstance(public, Mapping):
@@ -239,6 +272,7 @@ class HubSourceControlOperationsAdapter:
 
     def refresh(self, **kwargs: object) -> Mapping[str, object]:
         descriptor = self._descriptor(**kwargs)
+        connection = self._connection(**kwargs)
         refresh_descriptor = getattr(
             self._refresh, "refresh_descriptor", None
         )
@@ -250,6 +284,15 @@ class HubSourceControlOperationsAdapter:
                 dry_run=False,
             )
         )
+        if connection.state == ConnectionState.DRAFT.value:
+            SQLSourceControlRepository(self._engine).transition_connection(
+                tenant_id=connection.tenant_id,
+                project_id=connection.project_id,
+                owner_id=connection.owner_id,
+                connection_id=connection.connection_id,
+                target_state=ConnectionState.ACTIVE,
+                expected_lock_version=int(connection.lock_version),
+            )
         return self._bounded_receipt(result)
 
     def scan(self, **kwargs: object) -> Mapping[str, object]:
@@ -905,6 +948,8 @@ class ScopedWorkerModelDestinationCatalog:
         tenant_id: str,
         project_id: str,
     ) -> bool:
+        if target.get("global_source_access") is True:
+            return True
         if (
             target.get("tenant_id") == tenant_id
             and target.get("project_id") == project_id
@@ -1112,9 +1157,15 @@ class PersistentGrantEffectivePolicy:
             grants, key=lambda item: item.grant_version, default=None
         )
         if grant is None:
-            raise SourceControlProductionAdapterError(
-                "active_grant_not_found",
-                status_code=403,
+            return EffectivePolicyEvaluation(
+                decision="deny",
+                reason_codes=("active_grant_not_found",),
+                matched_rule_path=(),
+                default_applied=True,
+                approval_requirement=None,
+                policy_digest=hashlib.sha256(
+                    b"ananta.source-control.no-active-grant.v1"
+                ).hexdigest(),
             )
         policy_digest = self._resolve_policy_snapshot_digest(
             tenant_id=source_revision.tenant_id,

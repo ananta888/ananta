@@ -72,6 +72,14 @@ class HubSourcePrincipal:
     def is_project_owner(self) -> bool:
         return "project_owner" in self.roles
 
+    @property
+    def is_project_maintainer(self) -> bool:
+        return "project_maintainer" in self.roles
+
+    @property
+    def can_mutate_project(self) -> bool:
+        return self.is_project_owner or self.is_project_maintainer
+
     def projection_principal(self) -> SourceControlPrincipal:
         if not self.tenant_id or not self.project_id:
             raise SourceControlAccessPolicyError(
@@ -134,7 +142,7 @@ class SourceControlAccessPolicy:
                 return self._forbidden(
                     "source_control_principal_scope_required"
                 )
-            if action in _MUTATING_ACTIONS and not principal.is_project_owner:
+            if action in _MUTATING_ACTIONS and not principal.can_mutate_project:
                 return self._forbidden(
                     "source_control_mutation_role_required"
                 )
@@ -177,7 +185,7 @@ class SourceControlAccessPolicy:
             return self._forbidden(
                 "source_control_policy_admin_required"
             )
-        if action in _MUTATING_ACTIONS and not principal.is_project_owner:
+        if action in _MUTATING_ACTIONS and not principal.can_mutate_project:
             return self._forbidden(
                 "source_control_mutation_role_required"
             )

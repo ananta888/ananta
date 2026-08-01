@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import tempfile
 import urllib.parse
@@ -17,6 +18,17 @@ from agent.config import settings
 from agent.db_models import KnowledgeIndexDB, KnowledgeIndexRunDB
 from agent.services.codecompass_artifact_manifest import (
     CodeCompassArtifactManifestProjector,
+)
+from ananta_contracts.knowledge_index_worker_output_capability import (
+    KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER,
+    KNOWLEDGE_INDEX_OUTPUT_INDEX_ID_HEADER,
+    KNOWLEDGE_INDEX_OUTPUT_JOB_ID_HEADER,
+    KNOWLEDGE_INDEX_OUTPUT_MEDIA_TYPE_HEADER,
+    KNOWLEDGE_INDEX_OUTPUT_ROLE_HEADER,
+    KNOWLEDGE_INDEX_OUTPUT_RUN_ID_HEADER,
+    KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER,
+    KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER,
+    encode_knowledge_index_output_capability,
 )
 
 _MAX_ARTIFACT_BYTES = 128 * 1024 * 1024
@@ -36,6 +48,13 @@ _GRAPH_MEDIA_TYPES = {
     "graph_index": "application/vnd.ananta.codecompass-graph-index+json",
     "graph_visual_metrics": "application/vnd.ananta.codecompass-graph-visual-metrics+json",
 }
+_PUBLIC_ARTIFACT_SCHEMAS = {
+    "manifest": "ananta.knowledge-index.manifest.v1",
+    "index": "ananta.knowledge-index.records.v1",
+    "details": "ananta.knowledge-index.details.v1",
+    "relations": "ananta.knowledge-index.relations.v1",
+}
+_JOB_ID = re.compile(r"^knowledge-index-[0-9a-f]{32}$")
 
 
 class KnowledgeIndexWorkerArtifactDownloaderPort(Protocol):
@@ -70,34 +89,15 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
         worker_url: str,
         worker_token: str,
         reference: Mapping[str, Any],
+        source_access_manifest: Mapping[str, Any] | None = None,
+        job_id: str | None = None,
     ) -> bytes:
-        parsed = urllib.parse.urlsplit(str(worker_url or "").rstrip("/"))
-        if (
-            parsed.scheme not in {"http", "https"}
-            or not parsed.netloc
-            or parsed.username is not None
-            or parsed.password is not None
-            or parsed.query
-            or parsed.fragment
-        ):
-            raise ValueError("knowledge_index_worker_url_invalid")
-        artifact_id = str(reference.get("artifact_id") or "").strip()
-        raw_size = reference.get("size_bytes")
-        if isinstance(raw_size, bool) or not isinstance(raw_size, int):
-            raise ValueError("knowledge_index_worker_artifact_ref_invalid")
-        expected_size = raw_size
-        expected_hash = str(reference.get("sha256") or "").lower()
-        if not artifact_id or expected_size < 0 or expected_size > _MAX_ARTIFACT_BYTES:
-            raise ValueError("knowledge_index_worker_artifact_ref_invalid")
-        if len(expected_hash) != 64 or any(char not in "0123456789abcdef" for char in expected_hash):
-            raise ValueError("knowledge_index_worker_artifact_digest_invalid")
-        base_url = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
-        encoded_id = urllib.parse.quote(artifact_id, safe="")
-        headers = {"Authorization": f"Bearer {worker_token}"} if worker_token else {}
-        request = urllib.request.Request(
-            f"{base_url}/artifacts/{encoded_id}/content",
-            headers=headers,
-            method="GET",
+        request, expected_size, expected_hash = self._request(
+            worker_url=worker_url,
+            worker_token=worker_token,
+            reference=reference,
+            source_access_manifest=source_access_manifest,
+            job_id=job_id,
         )
         with urllib.request.urlopen(request, timeout=60) as response:
             declared = response.headers.get("Content-Length")
@@ -117,6 +117,8 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
         worker_token: str,
         reference: Mapping[str, Any],
         destination: Path,
+        source_access_manifest: Mapping[str, Any] | None = None,
+        job_id: str | None = None,
     ) -> None:
         """Stream one verified worker artifact directly into Hub staging."""
 
@@ -124,6 +126,8 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
             worker_url=worker_url,
             worker_token=worker_token,
             reference=reference,
+            source_access_manifest=source_access_manifest,
+            job_id=job_id,
         )
         if destination.exists() or destination.is_symlink():
             raise ValueError("knowledge_index_worker_artifact_staging_conflict")
@@ -163,6 +167,8 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
         worker_url: str,
         worker_token: str,
         reference: Mapping[str, Any],
+        source_access_manifest: Mapping[str, Any] | None = None,
+        job_id: str | None = None,
     ) -> tuple[urllib.request.Request, int, str]:
         parsed = urllib.parse.urlsplit(str(worker_url or "").rstrip("/"))
         if (
@@ -189,10 +195,48 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
             (parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "")
         )
         encoded_id = urllib.parse.quote(artifact_id, safe="")
-        headers = {"Authorization": f"Bearer {worker_token}"} if worker_token else {}
+        normalized_token = str(worker_token or "").strip()
+        if normalized_token:
+            path = f"/artifacts/{encoded_id}/content"
+            headers = {"Authorization": f"Bearer {normalized_token}"}
+        else:
+            normalized_job_id = str(job_id or "").strip()
+            if (
+                not isinstance(source_access_manifest, Mapping)
+                or not _JOB_ID.fullmatch(normalized_job_id)
+            ):
+                raise ValueError(
+                    "knowledge_index_worker_artifact_transport_unavailable"
+                )
+            path = (
+                "/internal/knowledge-index/output-artifacts/"
+                f"{encoded_id}"
+            )
+            headers = {
+                KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER: (
+                    encode_knowledge_index_output_capability(
+                        source_access_manifest
+                    )
+                ),
+                KNOWLEDGE_INDEX_OUTPUT_JOB_ID_HEADER: normalized_job_id,
+                KNOWLEDGE_INDEX_OUTPUT_INDEX_ID_HEADER: str(
+                    reference.get("knowledge_index_id") or ""
+                ),
+                KNOWLEDGE_INDEX_OUTPUT_RUN_ID_HEADER: str(
+                    reference.get("run_id") or ""
+                ),
+                KNOWLEDGE_INDEX_OUTPUT_ROLE_HEADER: str(
+                    reference.get("role") or ""
+                ),
+                KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER: expected_hash,
+                KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER: str(raw_size),
+                KNOWLEDGE_INDEX_OUTPUT_MEDIA_TYPE_HEADER: str(
+                    reference.get("media_type") or ""
+                ),
+            }
         return (
             urllib.request.Request(
-                f"{base_url}/artifacts/{encoded_id}/content",
+                f"{base_url}{path}",
                 headers=headers,
                 method="GET",
             ),
@@ -247,7 +291,11 @@ class KnowledgeIndexWorkerArtifactService:
         source_scope = self._source_scope(envelope)
         worker_url = str(task.get("assigned_agent_url") or "").strip()
         worker_token = self._worker_token(task, worker_url=worker_url)
-        if not worker_url or not worker_token:
+        raw_manifest = envelope.get("source_access_enforcement_manifest")
+        source_access_manifest = (
+            dict(raw_manifest) if isinstance(raw_manifest, Mapping) else None
+        )
+        if not worker_url or not (worker_token or source_access_manifest):
             raise ValueError("knowledge_index_worker_artifact_transport_unavailable")
 
         units = self._result_units(normalized)
@@ -288,6 +336,8 @@ class KnowledgeIndexWorkerArtifactService:
                     self._stage_reference(
                         worker_url=worker_url,
                         worker_token=worker_token,
+                        source_access_manifest=source_access_manifest,
+                        job_id=job_id,
                         reference=reference,
                         destination=destination,
                     )
@@ -300,8 +350,13 @@ class KnowledgeIndexWorkerArtifactService:
                     if present_graph_roles
                     else None
                 )
+                authority_binding = dict(
+                    envelope.get("authority_binding") or {}
+                )
                 source_revision_id = str(
-                    envelope.get("source_revision_id") or ""
+                    envelope.get("source_revision_id")
+                    or authority_binding.get("source_revision_id")
+                    or ""
                 ).strip()
                 public_artifact_manifest: dict[str, Any] | None = None
                 if source_revision_id:
@@ -324,7 +379,17 @@ class KnowledgeIndexWorkerArtifactService:
                         knowledge_index_id=index_id,
                         run_id=run_id,
                         source_revision_id=source_revision_id,
-                        references=list(by_role.values()),
+                        references=[
+                            {
+                                **dict(reference),
+                                "artifact_schema": str(
+                                    reference.get("artifact_schema")
+                                    or _PUBLIC_ARTIFACT_SCHEMAS.get(role)
+                                    or ""
+                                ),
+                            }
+                            for role, reference in by_role.items()
+                        ],
                         coverage=(
                             dict(raw_coverage)
                             if isinstance(raw_coverage, Mapping)
@@ -434,7 +499,15 @@ class KnowledgeIndexWorkerArtifactService:
     def _source_scope(envelope: Mapping[str, Any]) -> str:
         job_type = str(envelope.get("job_type") or "")
         scope = str(envelope.get("source_scope") or "").strip().lower() if job_type == "source_records" else "artifact"
-        if scope not in {"artifact", "wiki", "repo_path"}:
+        if scope not in {
+            "artifact",
+            "wiki",
+            "repo_path",
+            "registered_workspace",
+            "local_directory",
+            "github",
+            "generic_git",
+        }:
             raise ValueError("knowledge_index_worker_source_scope_invalid")
         return scope
 
@@ -488,25 +561,45 @@ class KnowledgeIndexWorkerArtifactService:
         *,
         worker_url: str,
         worker_token: str,
+        source_access_manifest: Mapping[str, Any] | None,
+        job_id: str,
         reference: Mapping[str, Any],
         destination: Path,
     ) -> None:
         streaming_download = getattr(self._downloader, "download_to_path", None)
         if callable(streaming_download):
+            transport = {
+                "worker_url": worker_url,
+                "worker_token": worker_token,
+                "reference": reference,
+                "destination": destination,
+            }
+            if not worker_token:
+                transport.update(
+                    {
+                        "source_access_manifest": source_access_manifest,
+                        "job_id": job_id,
+                    }
+                )
             streaming_download(
-                worker_url=worker_url,
-                worker_token=worker_token,
-                reference=reference,
-                destination=destination,
+                **transport,
             )
             self._verify_staged_file(reference=reference, path=destination)
             return
 
-        content = self._downloader.download(
-            worker_url=worker_url,
-            worker_token=worker_token,
-            reference=reference,
-        )
+        transport = {
+            "worker_url": worker_url,
+            "worker_token": worker_token,
+            "reference": reference,
+        }
+        if not worker_token:
+            transport.update(
+                {
+                    "source_access_manifest": source_access_manifest,
+                    "job_id": job_id,
+                }
+            )
+        content = self._downloader.download(**transport)
         try:
             self._verify_downloaded_content(reference=reference, content=content)
             with destination.open("xb") as handle:

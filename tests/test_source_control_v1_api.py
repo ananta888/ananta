@@ -8,6 +8,7 @@ import agent.routes.source_control_v1 as routes
 from agent.routes.source_control_v1 import (
     create_source_control_v1_blueprint,
 )
+from tests.project_access_fakes import AllowProjectAccess
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,7 @@ def _app(monkeypatch):
     )
     monkeypatch.setattr(routes, "_principal", lambda: _Principal())
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = AllowProjectAccess()
     app.register_blueprint(create_source_control_v1_blueprint(_Api()))
     return app
 
@@ -135,6 +137,7 @@ def test_common_policy_denial_stops_collection_before_service(
     )
     monkeypatch.setattr(routes, "_principal", lambda: _Principal())
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = AllowProjectAccess()
     app.register_blueprint(create_source_control_v1_blueprint(_Api()))
 
     response = app.test_client().get(
@@ -272,6 +275,7 @@ def test_unexpected_exception_never_crosses_versioned_boundary(
     api = _Api()
     api.raise_detail = True
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = AllowProjectAccess()
     app.register_blueprint(create_source_control_v1_blueprint(api))
 
     response = app.test_client().get(

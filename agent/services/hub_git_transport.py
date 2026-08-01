@@ -11,7 +11,7 @@ import tempfile
 import time
 from contextlib import contextmanager
 from dataclasses import replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Iterator, Protocol
 
 from agent.services.git_remote_policy_service import (
@@ -29,6 +29,8 @@ from agent.services.hub_git_credential_resolver import (
 from agent.sources.git_source_connector_common import (
     GitConnectorProviderError,
     GitContentRequest,
+    GitMaterializedFile,
+    GitRepositoryMaterialization,
     GitRepositoryBudgets,
     GitRepositoryMetrics,
 )
@@ -57,6 +59,13 @@ class HubGitTransportPort(Protocol):
         *,
         credential_username: str | None,
     ) -> GitRepositoryMetrics: ...
+
+    def materialize_content(
+        self,
+        request: GitContentRequest,
+        *,
+        credential_username: str | None,
+    ) -> GitRepositoryMaterialization: ...
 
 
 class SecureTemporaryGitWorkspace:
@@ -193,6 +202,31 @@ class HubGitTransport(HubGitTransportPort):
         *,
         credential_username: str | None,
     ) -> GitRepositoryMetrics:
+        return self._fetch_content(
+            request,
+            credential_username=credential_username,
+            include_files=False,
+        ).metrics
+
+    def materialize_content(
+        self,
+        request: GitContentRequest,
+        *,
+        credential_username: str | None,
+    ) -> GitRepositoryMaterialization:
+        return self._fetch_content(
+            request,
+            credential_username=credential_username,
+            include_files=True,
+        )
+
+    def _fetch_content(
+        self,
+        request: GitContentRequest,
+        *,
+        credential_username: str | None,
+        include_files: bool,
+    ) -> GitRepositoryMaterialization:
         authorization = request.transport_authorization
         self._validate_authorization(authorization)
         commit_sha = str(request.commit_sha or "").strip().lower()
@@ -291,8 +325,25 @@ class HubGitTransport(HubGitTransportPort):
                         elapsed_seconds=self._monotonic() - start,
                     )
                     self._enforce_budgets(metrics, request.budgets)
+                    files = (
+                        self._materialized_files(
+                            workspace,
+                            entries,
+                            request.budgets,
+                        )
+                        if include_files
+                        else ()
+                    )
+                    metrics = replace(
+                        metrics,
+                        elapsed_seconds=self._monotonic() - start,
+                    )
+                    self._enforce_budgets(metrics, request.budgets)
                     self._make_checkout_read_only(workspace)
-                    return metrics
+                    return GitRepositoryMaterialization(
+                        metrics=metrics,
+                        files=files,
+                    )
         except HubGitCredentialError as exc:
             raise GitConnectorProviderError(exc.reason_code) from None
 
@@ -521,6 +572,162 @@ class HubGitTransport(HubGitTransportPort):
                                 "git_lfs_pointer_invalid"
                             ) from None
         return count, total
+
+    @classmethod
+    def _materialized_files(
+        cls,
+        workspace: Path,
+        entries: tuple[tuple[str, str, int, bytes], ...],
+        budgets: GitRepositoryBudgets,
+    ) -> tuple[GitMaterializedFile, ...]:
+        root = workspace.resolve(strict=True)
+        files: list[GitMaterializedFile] = []
+        seen: set[str] = set()
+        for mode, object_id, size, raw_path in sorted(
+            entries, key=lambda item: item[3]
+        ):
+            if mode not in {"100644", "100755"}:
+                raise GitConnectorProviderError(
+                    "git_special_entry_forbidden"
+                )
+            try:
+                relative_path = raw_path.decode("utf-8")
+            except UnicodeDecodeError:
+                raise GitConnectorProviderError(
+                    "git_checkout_path_invalid"
+                ) from None
+            canonical = PurePosixPath(relative_path)
+            parts = canonical.parts
+            if (
+                canonical.is_absolute()
+                or not parts
+                or str(canonical) != relative_path
+                or any(
+                    part in {"", ".", ".."}
+                    or part.casefold() == ".git"
+                    or "\\" in part
+                    or any(ord(character) < 32 for character in part)
+                    for part in parts
+                )
+                or relative_path in seen
+            ):
+                raise GitConnectorProviderError(
+                    "git_checkout_path_invalid"
+                )
+            seen.add(relative_path)
+            content = cls._read_materialized_file(
+                root=root,
+                relative_path=canonical,
+                expected_size=size,
+                expected_object_id=object_id,
+                maximum_size=budgets.max_file_bytes,
+            )
+            try:
+                content.decode("utf-8")
+            except UnicodeDecodeError:
+                raise GitConnectorProviderError(
+                    "git_binary_file_forbidden"
+                ) from None
+            files.append(
+                GitMaterializedFile(
+                    relative_path=relative_path,
+                    mode=mode,
+                    content_digest=hashlib.sha256(content).hexdigest(),
+                    byte_size=len(content),
+                    content=content,
+                )
+            )
+        if sum(item.byte_size for item in files) > budgets.max_total_file_bytes:
+            raise GitConnectorProviderError(
+                "git_total_file_budget_exceeded"
+            )
+        return tuple(files)
+
+    @staticmethod
+    def _read_materialized_file(
+        *,
+        root: Path,
+        relative_path: PurePosixPath,
+        expected_size: int,
+        expected_object_id: str,
+        maximum_size: int,
+    ) -> bytes:
+        if expected_size > maximum_size:
+            raise GitConnectorProviderError("git_file_budget_exceeded")
+        directory_flags = (
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_DIRECTORY", 0)
+        )
+        file_flags = (
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
+        descriptors: list[int] = []
+        try:
+            root_fd = os.open(root, directory_flags)
+            descriptors.append(root_fd)
+            root_stat = os.fstat(root_fd)
+            current_fd = root_fd
+            for part in relative_path.parts[:-1]:
+                current_fd = os.open(part, directory_flags, dir_fd=current_fd)
+                descriptors.append(current_fd)
+                opened = os.fstat(current_fd)
+                if opened.st_dev != root_stat.st_dev:
+                    raise GitConnectorProviderError(
+                        "git_checkout_mount_changed"
+                    )
+            file_fd = os.open(
+                relative_path.parts[-1], file_flags, dir_fd=current_fd
+            )
+            descriptors.append(file_fd)
+            before = os.fstat(file_fd)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_dev != root_stat.st_dev
+                or before.st_nlink != 1
+                or before.st_size != expected_size
+            ):
+                raise GitConnectorProviderError(
+                    "git_checkout_file_invalid"
+                )
+            chunks: list[bytes] = []
+            remaining = expected_size + 1
+            while remaining > 0:
+                chunk = os.read(file_fd, min(1024 * 1024, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            content = b"".join(chunks)
+            after = os.fstat(file_fd)
+            object_hash = (
+                hashlib.sha1()
+                if len(expected_object_id) == 40
+                else hashlib.sha256()
+            )
+            object_hash.update(f"blob {len(content)}\0".encode("ascii"))
+            object_hash.update(content)
+            if (
+                len(content) != expected_size
+                or before.st_ino != after.st_ino
+                or before.st_size != after.st_size
+                or before.st_mtime_ns != after.st_mtime_ns
+                or object_hash.hexdigest() != expected_object_id
+            ):
+                raise GitConnectorProviderError(
+                    "git_checkout_file_changed"
+                )
+            return content
+        except OSError as exc:
+            raise GitConnectorProviderError(
+                "git_checkout_file_read_failed"
+            ) from exc
+        finally:
+            for descriptor in reversed(descriptors):
+                os.close(descriptor)
 
     @staticmethod
     def _make_checkout_read_only(workspace: Path) -> None:

@@ -4,7 +4,11 @@ from typing import Any
 
 from flask import current_app, g, request
 
-from agent.auth import check_auth
+from agent.auth import check_auth, get_authenticated_source_control_principal
+from agent.services.project_access_authority import (
+    ProjectAccessError,
+    ProjectCapability,
+)
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.config import settings
@@ -272,13 +276,55 @@ def create_goal():
 
     _cancel_stale_planning_goals(actor=_current_username())
 
+    project_scope = None
+    if payload.project_id:
+        principal = get_authenticated_source_control_principal()
+        authority = current_app.extensions.get("project_access_authority")
+        if authority is None:
+            return api_response(
+                status="error",
+                message="project_access_authority_unavailable",
+                code=503,
+            )
+        try:
+            project_scope = authority.require(
+                tenant_id=str(principal.tenant_id or ""),
+                project_id=payload.project_id,
+                subject_id=principal.subject_id,
+                capability=ProjectCapability.WRITE,
+                tenant_admin=principal.is_admin,
+            )
+        except ProjectAccessError as exc:
+            return api_response(
+                status="error",
+                message=exc.reason_code,
+                code=exc.public_status,
+            )
+        if (
+            payload.team_id
+            and payload.team_id != project_scope.team_id
+        ):
+            return api_response(
+                status="error",
+                message="project_team_mismatch",
+                code=422,
+            )
+
     goal_record = GoalDB(
         goal=goal_text,
         summary=goal_text[:200],
         status="planning",
         source=str(payload.source or "ui"),
         requested_by=_current_username(),
-        team_id=payload.team_id,
+        team_id=(
+            project_scope.team_id if project_scope is not None else payload.team_id
+        ),
+        tenant_id=(
+            project_scope.tenant_id if project_scope is not None else None
+        ),
+        project_id=(
+            project_scope.project_id if project_scope is not None else None
+        ),
         context=mode_context,
         constraints=[*mode_constraints, *list(payload.constraints or [])],
         acceptance_criteria=[*mode_acceptance, *list(payload.acceptance_criteria or [])],

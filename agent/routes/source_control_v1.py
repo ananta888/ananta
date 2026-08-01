@@ -8,7 +8,16 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import Any, Protocol
 
-from flask import Blueprint, Response, jsonify, make_response, redirect, request
+from flask import (
+    Blueprint,
+    Response,
+    current_app,
+    g,
+    jsonify,
+    make_response,
+    redirect,
+    request,
+)
 
 from agent.auth import (
     check_auth as _base_check_auth,
@@ -37,7 +46,15 @@ _SUCCESS_SCHEMA = "ananta.source-control.api-response.v1"
 _ERROR_SCHEMA = "ananta.source-control.error.v1"
 _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$")
 _CONNECTION_FILTERS = frozenset(
-    {"cursor", "limit", "state", "connector_type", "owner_id", "sensitivity"}
+    {
+        "project_id",
+        "cursor",
+        "limit",
+        "state",
+        "connector_type",
+        "owner_id",
+        "sensitivity",
+    }
 )
 _PREVIEW_FIELDS = frozenset(
     {
@@ -59,6 +76,53 @@ _MATRIX_FIELDS = frozenset(
         "destination_limit",
         "source_filters",
         "destination_filters",
+    }
+)
+_AUTHORITATIVE_PROJECT_ENDPOINTS = frozenset(
+    {
+        "validate_connection",
+        "create_connection",
+        "validate_content_admission",
+        "create_content_admission",
+        "list_connections",
+        "get_connection",
+        "run_history",
+        "list_workspaces",
+        "list_registered_remotes",
+        "list_index_profiles",
+        "list_grant_presets",
+        "list_grants",
+        "create_grant",
+        "revoke_grant",
+        "refresh_connection",
+        "scan_connection",
+        "start_index_run",
+        "compare_indices",
+        "activate_index",
+        "rollback_index",
+        "disable_connection",
+        "tombstone_index",
+        "purge_index",
+        "graph",
+        "query",
+        "artifact_status",
+        "artifact_download",
+        "bulk_plan",
+        "bulk_execute",
+        "poll_events",
+        "access_preview",
+        "access_matrix",
+        "codehug_mutation",
+        "context_policy_list",
+        "context_policy_versions",
+        "context_policy_detail",
+        "context_policy_active",
+        "context_policy_draft",
+        "context_policy_lint",
+        "context_policy_preview",
+        "context_policy_activate",
+        "context_policy_revoke",
+        "context_policy_rollback",
     }
 )
 
@@ -442,7 +506,11 @@ def _require_grant_mutation_headers() -> tuple[str, str]:
 
 
 def _principal() -> object:
-    return get_authenticated_source_control_principal()
+    return getattr(
+        g,
+        "source_control_principal",
+        None,
+    ) or get_authenticated_source_control_principal()
 
 
 def _catalog_request(
@@ -464,8 +532,7 @@ def _catalog_request(
             exc.reason_code,
             status_code=exc.status_code,
         ) from None
-    if not str(getattr(principal, "project_id", None) or "").strip():
-        principal = scoped_principal
+    principal = scoped_principal
     filters = {
         key: str(value)
         for key, value in request.args.items()
@@ -493,6 +560,7 @@ def _authorize(
     resource_kind: str,
     resource_id: str | None = None,
     collection: bool = False,
+    principal_override: object | None = None,
 ) -> object | None:
     endpoint = str(request.endpoint or "").rsplit(".", 1)[-1]
     expected = SOURCE_CONTROL_V1_AUTHORIZATION_BY_ENDPOINT.get(endpoint)
@@ -502,6 +570,24 @@ def _authorize(
             status_code=500,
         )
     action = expected.action
+    require_project_scope = endpoint in _AUTHORITATIVE_PROJECT_ENDPOINTS
+    scoped_principal = principal_override
+    if require_project_scope and scoped_principal is None:
+        authenticated = _principal()
+        selected_project = str(
+            request.args.get("project_id")
+            or getattr(authenticated, "project_id", None)
+            or ""
+        )
+        scoped_principal = bind_source_control_project_selector(
+            selected_project,
+            principal=authenticated,
+        )
+    if require_project_scope and scoped_principal is not None:
+        # Authorization and the subsequent domain operation must observe the
+        # same project-bound principal. Keeping the binding request-local also
+        # prevents one project's selector from leaking into another request.
+        g.source_control_principal = scoped_principal
     resource = None
     if resource_id is not None:
         resource = api.binding(
@@ -524,6 +610,8 @@ def _authorize(
         resource=resource,
         object_id=resource_id or "",
         collection=collection,
+        principal_override=scoped_principal,
+        require_project_scope=require_project_scope,
     )
     return denied
 
@@ -662,6 +750,9 @@ def _boundary(view):
                     )
                 )
                 return _error(reason_code, status_code)
+            current_app.logger.exception(
+                "Unhandled Source-Control V1 boundary error"
+            )
             return _error("source_control_internal_error", 500)
 
     return wrapped
@@ -797,17 +888,18 @@ def create_source_control_v1_blueprint(
         catalog: str,
         allowed: frozenset[str],
     ):
+        principal, project_id, cursor, limit, filters = _catalog_request(
+            allowed=allowed
+        )
         denied = _authorize(
             api,
             action=SourceControlAction.LIST,
             resource_kind="source_connection",
             collection=True,
+            principal_override=principal,
         )
         if denied is not None:
             return denied
-        principal, project_id, cursor, limit, filters = _catalog_request(
-            allowed=allowed
-        )
         return _success(
             api.list_source_control_catalog(
                 principal=principal,
@@ -1292,7 +1384,7 @@ def create_source_control_v1_blueprint(
         )
         if denied is not None:
             return denied
-        if set(request.args) - {"cursor", "limit", "view"}:
+        if set(request.args) - {"project_id", "cursor", "limit", "view"}:
             raise SourceControlApiError("graph_parameters_invalid")
         parameters = {
             "cursor": request.args.get("cursor"),

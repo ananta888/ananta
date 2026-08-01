@@ -22,7 +22,16 @@ def configure_cors(app: Flask) -> None:
         origins = settings.cors_origins
         if "," in origins:
             origins = [o.strip() for o in origins.split(",")]
-        CORS(app, resources={r"*": {"origins": origins, "supports_credentials": True}})
+        CORS(
+            app,
+            resources={
+                r"*": {
+                    "origins": origins,
+                    "supports_credentials": True,
+                    "expose_headers": ["ETag"],
+                }
+            },
+        )
     except Exception as e:
         logging.error(f"CORS konnte nicht initialisiert werden: {e}")
 
@@ -75,4 +84,3 @@ def load_extensions(app: Flask) -> None:
         load_plugins(app)
     except Exception as e:
         logging.error(f"Fehler beim Laden der Plugins: {e}")
-

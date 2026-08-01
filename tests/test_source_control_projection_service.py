@@ -64,7 +64,7 @@ def _record(**overrides) -> SourceControlAggregateRecord:
         "grants": (),
         "health": {"status": "healthy"},
         "capabilities": frozenset(
-            {"refresh", "index", "activate", "grant", "disable", "rollback"}
+            {"refresh", "scan", "index", "activate", "grant", "disable", "rollback"}
         ),
     }
     values.update(overrides)
@@ -91,6 +91,59 @@ def test_projection_derives_stale_etag_and_allowed_actions() -> None:
     )
     assert projection.connection["project_id"] == "project-example"
     assert "tenant_id" not in projection.connection
+
+
+def test_draft_projection_offers_refresh_as_only_bootstrap_action() -> None:
+    service = SourceControlProjectionService(
+        _Data(
+            [
+                _record(
+                    connection={
+                        "state": "draft",
+                        "connector_type": "workspace",
+                    },
+                    revision=None,
+                    admission={"state": "pending"},
+                    index=None,
+                    active_index=None,
+                )
+            ]
+        )
+    )
+
+    projection = service.get(
+        principal=_principal(),
+        connection_id="connection-example",
+    )
+
+    assert projection.next_actions == ("refresh",)
+
+
+def test_refreshed_active_projection_offers_scan_without_faking_revision() -> None:
+    service = SourceControlProjectionService(
+        _Data(
+            [
+                _record(
+                    connection={
+                        "state": "active",
+                        "connector_type": "workspace",
+                    },
+                    revision=None,
+                    admission={"state": "pending"},
+                    index=None,
+                    active_index=None,
+                )
+            ]
+        )
+    )
+
+    projection = service.get(
+        principal=_principal(),
+        connection_id="connection-example",
+    )
+
+    assert projection.revision is None
+    assert projection.next_actions == ("refresh", "scan", "disable")
 
 
 def test_cross_tenant_project_and_non_owner_are_hidden_as_not_found() -> None:

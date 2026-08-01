@@ -26,6 +26,7 @@ from agent.services.source_control_access_policy import (
     SourceControlAction,
     SourceObjectBinding,
 )
+from tests.project_access_fakes import AllowProjectAccess
 
 
 class _Api:
@@ -103,6 +104,7 @@ def test_matrix_covers_every_v1_flask_rule(monkeypatch) -> None:
         lambda config=None: "a" * 32,
     )
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = AllowProjectAccess()
     app.register_blueprint(create_source_control_v1_blueprint(_Api()))
     actual = {
         (
@@ -128,6 +130,7 @@ def test_matrix_covers_every_v1_flask_rule(monkeypatch) -> None:
 
 def test_project_selector_matrices_cover_every_flask_rule() -> None:
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = AllowProjectAccess()
     for _, factory, _ in _PROJECT_SELECTOR_SURFACES:
         app.register_blueprint(factory(_Api()))
     blueprint_names = {
@@ -171,12 +174,36 @@ def test_every_v1_rule_is_unauthenticated_fail_closed(
         lambda config=None: "a" * 32,
     )
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = AllowProjectAccess()
     app.register_blueprint(create_source_control_v1_blueprint(_Api()))
     response = app.test_client().open(
         _path(entry.rule),
         method=entry.methods[0],
     )
     assert response.status_code == 401
+
+
+def test_graph_accepts_authoritative_project_selector(monkeypatch) -> None:
+    monkeypatch.setattr(
+        auth,
+        "resolve_configured_agent_token",
+        lambda config=None: "a" * 32,
+    )
+    app = Flask(__name__)
+    app.extensions["project_access_authority"] = AllowProjectAccess()
+    app.register_blueprint(create_source_control_v1_blueprint(_Api()))
+
+    response = app.test_client().get(
+        (
+            "/api/source-control/v1/connections/connection-example/graph"
+            "?project_id=project-example&limit=10&view=default"
+        ),
+        headers={
+            "Authorization": f"Bearer {_token(roles=('admin',))}"
+        },
+    )
+
+    assert response.status_code == 200
 
 
 @pytest.mark.parametrize(
@@ -196,6 +223,7 @@ def test_project_selector_rules_are_unauthenticated_fail_closed(
         lambda config=None: "a" * 32,
     )
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = AllowProjectAccess()
     app.register_blueprint(factory(_Api()))
     response = app.test_client().open(
         _path(entry.rule),

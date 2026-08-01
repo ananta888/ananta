@@ -387,6 +387,67 @@ def test_default_http_downloader_streams_in_bounded_chunks(monkeypatch, tmp_path
     assert max(response.read_sizes) <= 1024 * 1024
 
 
+def test_default_http_downloader_uses_job_bound_output_capability(
+    monkeypatch, tmp_path
+) -> None:
+    content = b'{"record_count":1}'
+    captured = {}
+
+    class Response:
+        headers = {"Content-Length": str(len(content))}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _size):
+            value = getattr(self, "_content", content)
+            self._content = b""
+            return value
+
+    def fake_urlopen(request, *, timeout):
+        captured["url"] = request.full_url
+        captured["headers"] = {
+            key.lower(): value for key, value in request.header_items()
+        }
+        assert timeout == 60
+        return Response()
+
+    monkeypatch.setattr(
+        "agent.services.knowledge_index_worker_artifact_service.urllib.request.urlopen",
+        fake_urlopen,
+    )
+    destination = tmp_path / "manifest.json"
+    job_id = "knowledge-index-" + "a" * 32
+
+    HttpKnowledgeIndexWorkerArtifactDownloader().download_to_path(
+        worker_url="http://worker-a:5000",
+        worker_token="",
+        source_access_manifest={"schema": "signed-manifest"},
+        job_id=job_id,
+        reference={
+            "artifact_id": "artifact-manifest",
+            "size_bytes": len(content),
+            "sha256": hashlib.sha256(content).hexdigest(),
+            "media_type": "application/json",
+            "role": "manifest",
+            "knowledge_index_id": "idx-1",
+            "run_id": "run-1",
+        },
+        destination=destination,
+    )
+
+    assert captured["url"].endswith(
+        "/internal/knowledge-index/output-artifacts/artifact-manifest"
+    )
+    assert "authorization" not in captured["headers"]
+    assert captured["headers"]["x-ananta-knowledge-index-job-id"] == job_id
+    assert "x-ananta-source-access-manifest" in captured["headers"]
+    assert destination.read_bytes() == content
+
+
 def test_hub_removes_staging_and_exposes_no_partial_output_on_failure(tmp_path) -> None:
     content_by_id = {
         "artifact-index": b'{"file":"a.py"}\n',
@@ -475,3 +536,61 @@ def test_hub_rejects_oversized_graph_json_before_any_download(tmp_path) -> None:
 
     assert downloader.calls == 0
     assert not list(tmp_path.rglob(".run-1.artifacts-*"))
+
+
+def test_v2_nested_authority_projects_public_artifact_manifest(tmp_path) -> None:
+    manifest = b'{"coverage":{},"exclusions":[]}'
+    index = b'{"file":"agent/runtime.py"}\n'
+    service = KnowledgeIndexWorkerArtifactService(
+        downloader=Downloader(
+            {"artifact-manifest": manifest, "artifact-index": index}
+        ),
+        knowledge_index_repository=Repository(),
+        knowledge_index_run_repository=Repository(),
+        output_root=tmp_path,
+    )
+    task = assigned_task()
+    envelope = task["worker_execution_context"]["knowledge_index_job"]
+    envelope.update(
+        {
+            "schema": "ananta.knowledge_index_execution_job.v2",
+            "job_type": "source_records",
+            "source_scope": "repo_path",
+            "authority_binding": {
+                "source_revision_id": "srev_" + "a" * 64
+            },
+        }
+    )
+    result = completed_result(
+        [
+            reference(
+                artifact_id="artifact-manifest",
+                role="manifest",
+                filename="manifest.json",
+                content=manifest,
+            ),
+            reference(
+                artifact_id="artifact-index",
+                role="index",
+                filename="index.jsonl",
+                content=index,
+            ),
+        ]
+    )
+
+    materialized = service.materialize(
+        job_id="knowledge-index-" + "a" * 32,
+        result=result,
+        task=task,
+    )
+
+    public = materialized["knowledge_index"]["index_metadata"][
+        "artifact_manifest"
+    ]
+    assert public["source_revision_id"] == "srev_" + "a" * 64
+    assert public["run_id"] == "run-1"
+    assert len(public["manifest_digest"]) == 64
+    assert (
+        materialized["run"]["run_metadata"]["artifact_manifest"]
+        == public
+    )

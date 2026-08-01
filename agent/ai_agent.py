@@ -172,6 +172,42 @@ def _advertise_worker_capabilities(
     ] = registration
 
 
+def _load_governed_knowledge_index_security_from_environment():
+    """Compose the worker boundary without importing Hub implementations."""
+
+    from agent.services.source_access_manifest_keyring import (
+        load_source_access_manifest_keyring,
+        resolve_knowledge_index_worker_id,
+    )
+    from worker.retrieval.governed_knowledge_index_worker_composition import (
+        GovernedKnowledgeIndexWorkerSecurity,
+    )
+
+    keyring = load_source_access_manifest_keyring()
+    security = GovernedKnowledgeIndexWorkerSecurity(
+        worker_id=resolve_knowledge_index_worker_id(),
+        verification_keys=keyring.verification_keys,
+    )
+    return security
+
+
+def _build_governed_knowledge_index_handler_from_environment(
+    *, security=None
+):
+    """Compose the worker boundary without importing Hub implementations."""
+
+    from worker.retrieval.governed_knowledge_index_worker_composition import (
+        build_governed_knowledge_index_worker_handler,
+    )
+
+    return build_governed_knowledge_index_worker_handler(
+        security=(
+            security
+            or _load_governed_knowledge_index_security_from_environment()
+        )
+    )
+
+
 def _register_worker_domain_handlers(app: Flask) -> None:
     """Compose worker-only execution adapters behind the shared task registry."""
 
@@ -187,9 +223,6 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     )
     from worker.core.model_provider import build_model_provider
     from worker.mail_task_execution import build_mail_task_handler
-    from worker.retrieval.knowledge_index_job_handler import (
-        build_knowledge_index_task_handler,
-    )
     from worker.retrieval.vector_index_execution import (
         ConfiguredVectorIndexExecution,
     )
@@ -209,26 +242,94 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         VisualProcessAssistantRetrievalHandler,
     )
 
-    register_task_handler(
-        "codecompass_index_build",
-        build_knowledge_index_task_handler(),
-        app=app,
-        capabilities=["retrieval", "index_write"],
-        safety_flags={
-            "requires_review": False,
-            "worker_only": True,
-            "network_access": "hub_artifact_only",
-        },
-        verification_hooks=[
-            "knowledge_index_job_result_schema",
-            "idempotency_fingerprint",
-            "artifact_first",
-        ],
-    )
-    _advertise_worker_capabilities(
-        app,
-        ["retrieval", "index_write"],
-    )
+    knowledge_index_registered = False
+    try:
+        from agent.services.source_index_runtime_target import (
+            load_source_index_runtime_target,
+        )
+
+        source_index_runtime_target = load_source_index_runtime_target()
+        knowledge_index_security = (
+            _load_governed_knowledge_index_security_from_environment()
+        )
+        knowledge_index_handler = (
+            _build_governed_knowledge_index_handler_from_environment(
+                security=knowledge_index_security
+            )
+        )
+    except (RuntimeError, ValueError) as exc:
+        reason_code = str(getattr(exc, "reason_code", "") or exc).strip()
+        app.extensions["knowledge_index_worker_registration"] = {
+            "ready": False,
+            "reason_code": reason_code
+            or "knowledge_index_worker_composition_invalid",
+        }
+    else:
+        from agent.services.repository_registry import get_repository_registry
+        from agent.services.source_access_manifest_signing import (
+            WorkerSourceAccessManifestVerifier,
+        )
+        from worker.retrieval.knowledge_index_output_authorization import (
+            KnowledgeIndexWorkerOutputCapabilityAuthorizer,
+        )
+
+        app.extensions[
+            "knowledge_index_worker_output_capability_authorizer"
+        ] = KnowledgeIndexWorkerOutputCapabilityAuthorizer(
+            task_repository=get_repository_registry().task_repo,
+            manifest_verifier=WorkerSourceAccessManifestVerifier(
+                dict(knowledge_index_security.verification_keys)
+            ),
+            worker_id=knowledge_index_security.worker_id,
+            worker_url=str(settings.agent_url or ""),
+        )
+        register_task_handler(
+            "codecompass_index_build",
+            knowledge_index_handler,
+            app=app,
+            capabilities=["retrieval", "index_write"],
+            safety_flags={
+                "requires_review": False,
+                "worker_only": True,
+                "network_access": "hub_artifact_only",
+                "signed_source_manifest_required": True,
+            },
+            verification_hooks=[
+                "knowledge_index_job_result_schema",
+                "idempotency_fingerprint",
+                "artifact_first",
+                "authenticated_worker_id",
+                "source_access_manifest_signature",
+            ],
+        )
+        _advertise_worker_capabilities(
+            app,
+            ["retrieval", "index_write"],
+        )
+        if source_index_runtime_target is not None:
+            workflow_registration = dict(
+                app.extensions.get("workflow_adapter_worker_registration") or {}
+            )
+            runtime_targets = list(
+                workflow_registration.get("runtime_targets") or []
+            )
+            runtime_target_id = source_index_runtime_target["runtime_target_id"]
+            runtime_targets = [
+                target
+                for target in runtime_targets
+                if not isinstance(target, dict)
+                or target.get("runtime_target_id") != runtime_target_id
+            ]
+            runtime_targets.append(source_index_runtime_target)
+            workflow_registration["runtime_targets"] = runtime_targets
+            app.extensions[
+                "workflow_adapter_worker_registration"
+            ] = workflow_registration
+        app.extensions["knowledge_index_worker_registration"] = {
+            "ready": True,
+            "reason_code": None,
+        }
+        knowledge_index_registered = True
     vector_registered = False
     try:
         vector_verifier = load_vector_index_task_verifier()
@@ -331,7 +432,11 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         verification_hooks=["help_response_v1", "workflow_patch_v1", "source_ref_v2"],
     )
     registered = [
-        "codecompass_index_build",
+        *(
+            ["codecompass_index_build"]
+            if knowledge_index_registered
+            else []
+        ),
         *(
             ["vector_index_operation"]
             if vector_registered

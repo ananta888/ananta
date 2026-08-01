@@ -168,11 +168,17 @@ def _access_guard(function: Callable):
                 reason_code=exc.reason_code,
             )
             return _error(exc.reason_code, exc.status_code)
+        action = (
+            SourceControlAction.list
+            if request.method == "GET"
+            else SourceControlAction.refresh
+        )
         denied = authorize_route_request(
-            action=SourceControlAction.refresh,
+            action=action,
             resource_kind="registered_workspace",
             collection=True,
             principal_override=principal,
+            require_project_scope=True,
         )
         if denied is not None:
             return denied

@@ -7,13 +7,17 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import Callable, Mapping
 
-from flask import Blueprint, Response, jsonify, make_response, request
+from flask import Blueprint, Response, g, jsonify, make_response, request
 
 from agent.auth import check_auth, get_authenticated_source_control_principal
 from agent.repositories.hub_git_authorization_repository import (
     HubGitAuthorizationPersistenceError,
 )
-from agent.routes.source_control_access import authorize_route_request
+from agent.routes.source_control_access import (
+    SourceControlProjectScopeError,
+    authorize_route_request,
+    bind_source_control_project_selector,
+)
 from agent.services.hub_git_authorization_provisioning import (
     HubGitAuthorizationProvisioningError,
     HubGitAuthorizationProvisioningService,
@@ -98,7 +102,7 @@ def create_source_control_git_authorizations_blueprint(
     @_boundary
     def validate_authorization():
         result = service.validate(
-            principal=get_authenticated_source_control_principal(),
+            principal=_scoped_principal(),
             payload=_json_object(),
         )
         return _success(result)
@@ -109,7 +113,7 @@ def create_source_control_git_authorizations_blueprint(
     @_boundary
     def provision_authorization():
         result = service.provision(
-            principal=get_authenticated_source_control_principal(),
+            principal=_scoped_principal(),
             payload=_json_object(),
             idempotency_key=_idempotency_key(),
         )
@@ -125,6 +129,7 @@ def create_source_control_git_authorizations_blueprint(
             "limit",
             "kind",
             "state",
+            "project_id",
         }
         if unknown:
             raise HubGitAuthorizationProvisioningError(
@@ -137,7 +142,7 @@ def create_source_control_git_authorizations_blueprint(
                 "git_authorization_limit_invalid"
             ) from None
         result = service.list_authorizations(
-            principal=get_authenticated_source_control_principal(),
+            principal=_scoped_principal(),
             cursor=request.args.get("cursor"),
             limit=limit,
             authorization_kind=request.args.get("kind"),
@@ -151,7 +156,7 @@ def create_source_control_git_authorizations_blueprint(
     @_boundary
     def authorization_health():
         result = service.health(
-            principal=get_authenticated_source_control_principal()
+            principal=_scoped_principal()
         )
         status_code = 200 if result.get("status") == "healthy" else 503
         return _success(result, status_code=status_code)
@@ -161,13 +166,13 @@ def create_source_control_git_authorizations_blueprint(
     @_access_guard
     @_boundary
     def authorization_detail(authorization_ref: str):
-        unknown = set(request.args) - {"repository"}
+        unknown = set(request.args) - {"repository", "project_id"}
         if unknown:
             raise HubGitAuthorizationProvisioningError(
                 "git_authorization_query_fields_invalid"
             )
         result = service.detail(
-            principal=get_authenticated_source_control_principal(),
+            principal=_scoped_principal(),
             authorization_ref=authorization_ref,
             repository=request.args.get("repository"),
         )
@@ -181,7 +186,7 @@ def create_source_control_git_authorizations_blueprint(
     @_boundary
     def revoke_authorization(authorization_ref: str):
         result = service.revoke(
-            principal=get_authenticated_source_control_principal(),
+            principal=_scoped_principal(),
             authorization_ref=authorization_ref,
             repository=_transition_repository(),
             expected_revision=_expected_revision(),
@@ -197,7 +202,7 @@ def create_source_control_git_authorizations_blueprint(
     @_boundary
     def record_scope_loss(authorization_ref: str):
         result = service.record_scope_loss(
-            principal=get_authenticated_source_control_principal(),
+            principal=_scoped_principal(),
             authorization_ref=authorization_ref,
             repository=_transition_repository(),
             expected_revision=_expected_revision(),
@@ -213,16 +218,45 @@ def _access_guard(function: Callable):
 
     @wraps(function)
     def wrapper(*args, **kwargs):
+        try:
+            authenticated = get_authenticated_source_control_principal()
+            principal = bind_source_control_project_selector(
+                str(
+                    request.args.get("project_id")
+                    or getattr(authenticated, "project_id", None)
+                    or ""
+                ),
+                principal=authenticated,
+            )
+        except SourceControlProjectScopeError as exc:
+            return _error(exc.reason_code, exc.status_code)
+        action = (
+            SourceControlAction.list
+            if request.method == "GET"
+            else SourceControlAction.refresh
+        )
         denied = authorize_route_request(
-            action=SourceControlAction.refresh,
+            action=action,
             resource_kind="git_authorization",
             collection=True,
+            principal_override=principal,
+            require_project_scope=True,
         )
         if denied is not None:
             return denied
         return function(*args, **kwargs)
 
     return wrapper
+
+
+def _scoped_principal():
+    principal = getattr(g, "source_control_principal", None)
+    if principal is None:
+        raise HubGitAuthorizationProvisioningError(
+            "source_control_principal_scope_required",
+            status_code=403,
+        )
+    return principal
 
 
 def _json_object() -> Mapping[str, object]:

@@ -56,6 +56,14 @@ from agent.models.task_models import (
     WorkerContextHandoffV3,
 )
 
+from agent.models.project_models import (
+    ProjectCreateCommand,
+    ProjectMembershipRead,
+    ProjectMembershipUpsertCommand,
+    ProjectRead,
+    ProjectUpdateCommand,
+)
+
 from agent.models.team_models import (
     BlueprintArtifactDefinition,
     BlueprintBundleDefinition,
@@ -119,6 +127,11 @@ from agent.models.config_models import (
 )
 
 __all__ = [
+    "ProjectCreateCommand",
+    "ProjectMembershipRead",
+    "ProjectMembershipUpsertCommand",
+    "ProjectRead",
+    "ProjectUpdateCommand",
     "AgentDirectoryEntryContract",
     "AgentLivenessContract",
     "AgentRegisterRequest",

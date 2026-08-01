@@ -68,6 +68,27 @@ class SQLKnowledgeIndexExecutionRepository:
             row = db.get(KnowledgeIndexExecutionBindingDB, job_id)
             return None if row is None else self._record(row)
 
+    def get_by_assignment(
+        self,
+        *,
+        assignment_id: str,
+        lease_id: str,
+    ) -> KnowledgeIndexExecutionRecord | None:
+        with Session(self._engine) as db:
+            rows = list(
+                db.exec(
+                    select(KnowledgeIndexExecutionBindingDB).where(
+                        KnowledgeIndexExecutionBindingDB.assignment_id
+                        == assignment_id,
+                        KnowledgeIndexExecutionBindingDB.lease_id
+                        == lease_id,
+                    ).limit(2)
+                ).all()
+            )
+            if len(rows) != 1:
+                return None
+            return self._record(rows[0])
+
     def compare_and_set(
         self,
         record: KnowledgeIndexExecutionRecord,

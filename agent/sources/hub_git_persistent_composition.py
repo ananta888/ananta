@@ -23,6 +23,9 @@ from agent.services.hub_git_credential_resolver import (
     GitSecretValueResolverPort,
     SubprocessGitCredentialCommandResolver,
 )
+from agent.services.remote_source_payload_store import (
+    RemoteSourcePayloadStorePort,
+)
 from agent.sources.git_source_connector_common import GitRepositoryBudgets
 from agent.sources.hub_git_connector_composition import (
     HubGitConnectorComposition,
@@ -35,6 +38,7 @@ class PersistentHubGitConnectorComposition:
     registry: SQLHubGitAuthorizationRepository
     connectors: HubGitConnectorComposition
     registered_remotes: HubGitAuthorizationRegistryPort | None = None
+    payload_store: RemoteSourcePayloadStorePort | None = None
 
 
 def compose_persistent_hub_git_source_connectors(
@@ -46,6 +50,7 @@ def compose_persistent_hub_git_source_connectors(
     additional_registered_remote_registry: (
         HubGitAuthorizationRegistryPort | None
     ) = None,
+    payload_store: RemoteSourcePayloadStorePort | None = None,
 ) -> PersistentHubGitConnectorComposition:
     """Build adapters without opening a DB session or resolving any secret."""
 
@@ -83,11 +88,13 @@ def compose_persistent_hub_git_source_connectors(
         remote_policy=remote_policy,
         workspace_root=workspace_root,
         budgets=budgets,
+        payload_store=payload_store,
     )
     return PersistentHubGitConnectorComposition(
         registry=registry,
         registered_remotes=registered_remotes,
         connectors=connectors,
+        payload_store=payload_store,
     )
 
 

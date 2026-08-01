@@ -18,6 +18,10 @@ from agent.services.source_control_access_policy import (
     SourceControlAction,
     SourceObjectBinding,
 )
+from agent.services.project_access_authority import (
+    ProjectAccessError,
+    ProjectCapability,
+)
 
 
 class SourceScopeProjectionPort(Protocol):
@@ -61,6 +65,74 @@ class SourceControlProjectScopeError(ValueError):
         self.reason_code = str(reason_code)
         self.status_code = int(status_code)
         super().__init__(self.reason_code)
+
+
+_PROJECT_ROLE_MARKERS = frozenset(
+    {"project_owner", "project_maintainer", "project_viewer"}
+)
+
+
+def _project_capability(action: SourceControlAction) -> ProjectCapability:
+    if action is SourceControlAction.policy:
+        return ProjectCapability.MANAGE
+    if action in {
+        SourceControlAction.refresh,
+        SourceControlAction.scan,
+        SourceControlAction.index,
+        SourceControlAction.delete,
+    }:
+        return ProjectCapability.WRITE
+    return ProjectCapability.READ
+
+
+def _require_authoritative_project_scope(
+    principal: HubSourcePrincipal,
+    *,
+    capability: ProjectCapability,
+) -> HubSourcePrincipal:
+    authority = current_app.extensions.get("project_access_authority")
+    if authority is None:
+        raise SourceControlProjectScopeError(
+            "project_access_authority_unavailable",
+            status_code=503,
+        )
+    tenant_id = str(principal.tenant_id or "").strip()
+    project_id = str(principal.project_id or "").strip()
+    subject_id = str(principal.subject_id or "").strip()
+    if not tenant_id or not project_id or not subject_id:
+        raise SourceControlProjectScopeError(
+            "source_control_principal_scope_required",
+            status_code=403,
+        )
+    try:
+        scope = authority.require(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            subject_id=subject_id,
+            capability=capability,
+            tenant_admin="admin" in principal.roles,
+        )
+    except ProjectAccessError as exc:
+        raise SourceControlProjectScopeError(
+            exc.reason_code,
+            status_code=exc.public_status,
+        ) from None
+    roles = set(principal.roles) - set(_PROJECT_ROLE_MARKERS)
+    role_marker = {
+        "owner": "project_owner",
+        "maintainer": "project_maintainer",
+        "viewer": "project_viewer",
+    }.get(str(scope.role))
+    if role_marker:
+        roles.add(role_marker)
+    scoped = HubSourcePrincipal(
+        subject_id=scope.subject_id,
+        tenant_id=scope.tenant_id,
+        project_id=scope.project_id,
+        roles=frozenset(roles),
+    )
+    g.authorized_project_scope = scope
+    return scoped
 
 
 def bind_source_control_project_selector(
@@ -115,16 +187,15 @@ def bind_source_control_project_selector(
             "source_control_not_found",
             status_code=404,
         )
-    if not token_project and "admin" not in roles:
-        raise SourceControlProjectScopeError(
-            "source_control_project_selector_not_authorized",
-            status_code=403,
-        )
     scoped = HubSourcePrincipal(
         subject_id=subject_id,
         tenant_id=tenant_id,
         project_id=selected,
         roles=roles,
+    )
+    scoped = _require_authoritative_project_scope(
+        scoped,
+        capability=ProjectCapability.READ,
     )
     decision = _POLICY.authorize(
         principal=scoped,
@@ -138,7 +209,11 @@ def bind_source_control_project_selector(
         )
     if not token_project:
         log_audit(
-            "source_control_admin_project_selector",
+            (
+                "source_control_admin_project_selector"
+                if "admin" in scoped.roles
+                else "source_control_member_project_selector"
+            ),
             {
                 "actor_id": scoped.subject_id,
                 "tenant_id": scoped.tenant_id,
@@ -275,6 +350,7 @@ def authorize_route_request(
     object_id: str = "",
     collection: bool = False,
     principal_override: HubSourcePrincipal | None = None,
+    require_project_scope: bool = False,
 ):
     try:
         principal = (
@@ -297,6 +373,29 @@ def authorize_route_request(
             data={"reason_code": exc.reason_code},
             code=403,
         )
+    if require_project_scope:
+        try:
+            principal = _require_authoritative_project_scope(
+                principal,
+                capability=_project_capability(action),
+            )
+        except SourceControlProjectScopeError as exc:
+            record_source_control_route_denial(
+                principal=principal,
+                action=action,
+                resource_kind=resource_kind,
+                object_id=object_id,
+                status_code=exc.status_code,
+                reason_code=exc.reason_code,
+            )
+            return api_response(
+                status="error",
+                message=(
+                    "not_found" if exc.status_code == 404 else "forbidden"
+                ),
+                data={"reason_code": exc.reason_code},
+                code=exc.status_code,
+            )
     g.source_control_principal = principal
     binding = None
     if not collection:

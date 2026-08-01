@@ -33,6 +33,7 @@ def build_governed_knowledge_index_job_service(
     task_repository: Any | None = None,
     payload_store: Any | None = None,
     worker_artifact_service: Any | None = None,
+    source_control_completion_projector: Any | None = None,
     allow_legacy_reusable_grants: bool = False,
     clock: Any | None = None,
 ) -> KnowledgeIndexJobService:
@@ -47,6 +48,9 @@ def build_governed_knowledge_index_job_service(
         "task_repository": task_repository,
         "payload_store": payload_store,
         "worker_artifact_service": worker_artifact_service,
+        "source_control_completion_projector": (
+            source_control_completion_projector
+        ),
         "execution_binding_service": execution_binding_service,
         "destination_resolution_service": (
             SourceDestinationResolutionService(destination_catalog)

@@ -171,7 +171,10 @@ def _composition():
             "lease_issued_epoch_ms": 1_000,
             "lease_expires_epoch_ms": 20_000,
         },
-        "file_manifest": {"manifest_digest": "d" * 64},
+        "file_manifest": {
+            "manifest_id": "manifest_" + "d" * 64,
+            "manifest_digest": "d" * 64,
+        },
     }
     task = {
         "id": envelope["job_id"],
@@ -226,6 +229,9 @@ def test_preview_destination_is_re_resolved_and_bound_at_dispatch() -> None:
     )
     assert manifest["assignment_id"] == "assignment-index-01"
     assert manifest["lease_id"] == "lease-index-01"
+    assert manifest["content_manifest_id"] == (
+        context["knowledge_index_job"]["file_manifest"]["manifest_id"]
+    )
     assert len(consumptions.calls) == 1
 
 

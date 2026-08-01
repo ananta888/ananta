@@ -281,6 +281,21 @@ def test_create_resolves_scope_policy_and_replays_atomically() -> None:
         )
 
 
+def test_create_accepts_policy_decision_matching_preset_transformation() -> None:
+    _, _, policies, service = _service()
+    policies.decision = "allow_redacted"
+
+    created = service.create_grant(
+        actor=_actor(),
+        request=_request(),
+        if_match=_POLICY_ETAG,
+        idempotency_key="redacted-policy",
+    )
+
+    assert created.state == "active"
+    assert created.transformation == "redacted"
+
+
 def test_create_rejects_security_coordinates_stale_policy_and_denial() -> None:
     _, _, policies, service = _service()
     with pytest.raises(
@@ -362,7 +377,7 @@ def test_list_is_scope_bound_and_cursor_is_opaque() -> None:
                 destination_id=_destination().destination_id,
                 operation="index",
                 transformation="redacted",
-                purpose="knowledge_index",
+                purpose="knowledge-index",
                 policy_version="cpv_"
                 + hashlib.sha256(b"foreign-policy").hexdigest(),
                 state="active",

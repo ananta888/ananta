@@ -441,7 +441,19 @@ class RagHelperKnowledgeIndexExecution:
         if size_bytes < 0 or size_bytes > MAX_PAYLOAD_BYTES:
             raise ValueError("knowledge_index_payload_artifact_size_invalid")
         loader = self._payload_loader or HubArtifactKnowledgeIndexPayloadLoader()
-        content = loader.load(reference)
+        authorized_load = getattr(loader, "load_authorized", None)
+        source_access_manifest = job.get(SOURCE_ACCESS_MANIFEST_FIELD)
+        if (
+            str(job.get("schema") or "") == BOUND_JOB_SCHEMA
+            and isinstance(source_access_manifest, Mapping)
+            and callable(authorized_load)
+        ):
+            content = authorized_load(
+                reference,
+                source_access_manifest=source_access_manifest,
+            )
+        else:
+            content = loader.load(reference)
         if len(content) != size_bytes:
             raise ValueError("knowledge_index_payload_artifact_size_mismatch")
         if hashlib.sha256(content).hexdigest() != str(reference.get("sha256") or ""):
@@ -713,6 +725,26 @@ class HubArtifactKnowledgeIndexPayloadLoader:
             expected_sha256=str(reference.get("sha256") or "").lower(),
         )
 
+    def load_authorized(
+        self,
+        reference: Mapping[str, Any],
+        *,
+        source_access_manifest: Mapping[str, Any],
+    ) -> bytes:
+        artifact_id = str(reference.get("artifact_id") or "").strip()
+        expected_size = int(reference.get("size_bytes") or -1)
+        if not artifact_id or expected_size < 0 or expected_size > MAX_PAYLOAD_BYTES:
+            raise ValueError("knowledge_index_payload_artifact_ref_invalid")
+        local = self._load_local(artifact_id, expected_size=expected_size)
+        if local is not None:
+            return local
+        return self._load_from_hub(
+            artifact_id,
+            expected_size=expected_size,
+            expected_sha256=str(reference.get("sha256") or "").lower(),
+            source_access_manifest=source_access_manifest,
+        )
+
     @staticmethod
     def _load_local(artifact_id: str, *, expected_size: int) -> bytes | None:
         try:
@@ -734,6 +766,7 @@ class HubArtifactKnowledgeIndexPayloadLoader:
         *,
         expected_size: int,
         expected_sha256: str,
+        source_access_manifest: Mapping[str, Any] | None = None,
     ) -> bytes:
         from agent.auth import resolve_configured_agent_token
         from agent.config import settings
@@ -755,6 +788,17 @@ class HubArtifactKnowledgeIndexPayloadLoader:
         )
         if identity is not None:
             headers.update(identity.headers())
+        if source_access_manifest is not None:
+            from ananta_contracts.knowledge_index_payload_capability import (
+                KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER,
+                encode_knowledge_index_payload_capability,
+            )
+
+            headers[KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER] = (
+                encode_knowledge_index_payload_capability(
+                    source_access_manifest
+                )
+            )
         encoded_id = urllib.parse.quote(artifact_id, safe="")
         request = urllib.request.Request(
             f"{hub_url}/internal/knowledge-index/payload-artifacts/{encoded_id}",

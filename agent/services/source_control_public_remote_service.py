@@ -27,6 +27,11 @@ from agent.services.source_control_public_remote_contracts import (
     SourceControlPublicRemoteContractError,
     audit_binding_digest,
 )
+from agent.services.project_access_authority import (
+    ProjectAccessError,
+    ProjectAccessPort,
+    ProjectCapability,
+)
 from agent.sources.git_source_connector_common import (
     GitConnectorProviderError,
     GitSourceScope,
@@ -85,6 +90,7 @@ class SourceControlPublicRemoteService:
         remote_policy: GitRemoteAccessPolicyPort,
         transport: PublicRemoteTransportPort | None,
         idempotency: PublicRemoteIdempotencyPort,
+        project_access: ProjectAccessPort,
         enabled: bool,
         connector_registry_ready: bool,
         ttl_seconds: int = 300,
@@ -99,6 +105,7 @@ class SourceControlPublicRemoteService:
         self._remote_policy = remote_policy
         self._transport = transport
         self._idempotency = idempotency
+        self._project_access = project_access
         self._enabled = bool(enabled)
         self._connector_registry_ready = bool(connector_registry_ready)
         self._ttl_seconds = int(ttl_seconds)
@@ -344,14 +351,8 @@ class SourceControlPublicRemoteService:
                 status_code=503,
             )
 
-    @staticmethod
-    def _scope(principal: object) -> GitSourceScope:
+    def _scope(self, principal: object) -> GitSourceScope:
         roles = frozenset(getattr(principal, "roles", frozenset()) or ())
-        if roles.isdisjoint({"admin", "project_owner"}):
-            raise SourceControlPublicRemoteError(
-                "public_remote_role_required",
-                status_code=403,
-            )
         values = (
             str(getattr(principal, "tenant_id", "") or "").strip(),
             str(getattr(principal, "project_id", "") or "").strip(),
@@ -362,10 +363,23 @@ class SourceControlPublicRemoteService:
                 "source_control_principal_scope_required",
                 status_code=403,
             )
+        try:
+            authorized = self._project_access.require(
+                tenant_id=values[0],
+                project_id=values[1],
+                subject_id=values[2],
+                capability=ProjectCapability.WRITE,
+                tenant_admin="admin" in roles,
+            )
+        except ProjectAccessError as exc:
+            raise SourceControlPublicRemoteError(
+                exc.reason_code,
+                status_code=exc.public_status,
+            ) from None
         return GitSourceScope(
-            tenant_id=values[0],
-            project_id=values[1],
-            owner_id=values[2],
+            tenant_id=authorized.tenant_id,
+            project_id=authorized.project_id,
+            owner_id=authorized.subject_id,
         )
 
     def _record_denial(

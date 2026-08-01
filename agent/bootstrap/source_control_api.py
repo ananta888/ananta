@@ -24,6 +24,12 @@ from agent.repositories.source_control_public_remote_repository import (
 from agent.repositories.source_control_workspace_registration_repository import (
     SQLSourceControlWorkspaceRegistrationRepository,
 )
+from agent.repositories.source_admission_receipt_repository import (
+    SQLSourceAdmissionReceiptRepository,
+)
+from agent.repositories.source_control_repository import (
+    SQLSourceControlRepository,
+)
 from agent.routes.source_control_git_authorizations import (
     create_source_control_git_authorizations_blueprint,
 )
@@ -35,6 +41,9 @@ from agent.routes.source_control_public_remotes import (
 )
 from agent.routes.source_control_workspace_registrations import (
     create_source_control_workspace_registrations_blueprint,
+)
+from agent.routes.source_control_workspace_snapshots import (
+    create_source_control_workspace_snapshots_blueprint,
 )
 from agent.routes.source_control_v1 import (
     create_source_control_legacy_alias_blueprint,
@@ -61,13 +70,44 @@ from agent.services.hub_git_authorization_provisioning import (
     UnavailableHubGitSecretResolver,
 )
 from agent.services.model_catalog_service import CatalogQuery
+from agent.services.project_access_authority import SqlProjectAccessAuthority
 from agent.services.ops_registry_service import get_ops_registry_service
 from agent.services.rag_helper_index_service import (
     get_rag_helper_index_service,
 )
 from agent.services.service_registry import get_core_services
+from agent.services.repository_registry import get_repository_registry
+from agent.services.knowledge_index_payload_authorization import (
+    KnowledgeIndexPayloadCapabilityAuthorizer,
+)
 from agent.services.source_access_manifest_signing import (
     SourceAccessSigningKey,
+    WorkerSourceAccessManifestVerifier,
+)
+from agent.services.source_access_manifest_keyring import (
+    SourceAccessManifestKeyringError,
+    load_source_access_manifest_keyring,
+)
+from agent.services.source_admission_revision_coordinator import (
+    SourceAdmissionRevisionCoordinator,
+)
+from agent.services.source_admission_service import SourceAdmissionBudgets
+from agent.services.artifact_store import get_artifact_store
+from agent.services.source_filesystem_scanner import (
+    ProductionFilesystemSourceScanner,
+)
+from agent.services.registered_workspace_source_admission import (
+    RegisteredWorkspaceSourceAdmissionService,
+)
+from agent.services.remote_git_source_admission import (
+    RemoteGitSourceAdmissionService,
+    SourceScanServiceRouter,
+)
+from agent.services.remote_source_payload_store import (
+    SQLRemoteSourcePayloadStore,
+)
+from agent.services.source_control_index_production_wiring import (
+    build_source_control_index_production_composition,
 )
 from agent.services.source_control_api_runtime import (
     SQLSourceControlOperationStore,
@@ -87,6 +127,9 @@ from agent.services.source_control_workspace_catalog import (
 )
 from agent.services.source_control_workspace_registration_service import (
     SourceControlWorkspaceRegistrationService,
+)
+from agent.services.source_control_workspace_snapshot_service import (
+    WorkspaceSnapshotUploadService,
 )
 from agent.services.source_control_codehug_adapters import (
     ResolvedCodeHugDestinationCatalog,
@@ -265,6 +308,16 @@ class _SourceControlRouteDenyAudit:
 
 
 def register_source_control_api(app) -> None:
+    if settings.role != "hub":
+        app.extensions["source_control_api_registration"] = {
+            "ready": False,
+            "reason_code": "source_control_hub_role_required",
+        }
+        return
+    app.extensions.setdefault(
+        "project_access_authority",
+        SqlProjectAccessAuthority(),
+    )
     """Build once in the Hub process and register the versioned blueprint."""
 
     if app.extensions.get("source_control_v1_registered") is True:
@@ -304,6 +357,13 @@ def register_source_control_api(app) -> None:
     secret_resolver = app.extensions.get(
         "hub_git_secret_resolver"
     ) or UnavailableHubGitSecretResolver()
+    remote_payload_store = app.extensions.get("remote_source_payload_store")
+    if remote_payload_store is None:
+        remote_payload_store = SQLRemoteSourcePayloadStore(
+            session_factory=lambda: Session(engine),
+            artifact_store=get_artifact_store(),
+        )
+        app.extensions["remote_source_payload_store"] = remote_payload_store
     if remote_catalog is None:
         data_root = Path(str(settings.data_dir))
         persistent_git = compose_persistent_hub_git_source_connectors(
@@ -322,6 +382,7 @@ def register_source_control_api(app) -> None:
             additional_registered_remote_registry=(
                 public_remote_repository
             ),
+            payload_store=remote_payload_store,
         )
         remote_catalog = persistent_git.registry
         git_composition = persistent_git.connectors
@@ -426,6 +487,7 @@ def register_source_control_api(app) -> None:
         repository=workspace_registration_repository,
         folders=workspace_folders,
         idempotency=SQLSourceControlOperationStore(engine),
+        project_access=app.extensions["project_access_authority"],
     )
     app.extensions[
         "source_control_workspace_registration_service"
@@ -444,6 +506,68 @@ def register_source_control_api(app) -> None:
         app.extensions[
             "registered_workspace_source_connector"
         ] = workspace_source_connector
+    source_scanner = app.extensions.get("source_filesystem_scanner")
+    if source_scanner is None:
+        source_scanner = ProductionFilesystemSourceScanner()
+        app.extensions["source_filesystem_scanner"] = source_scanner
+    workspace_snapshot_upload = app.extensions.get(
+        "source_control_workspace_snapshot_upload_service"
+    )
+    if workspace_snapshot_upload is None:
+        workspace_snapshot_upload = WorkspaceSnapshotUploadService(
+            workspace_root=settings.hub_workspace_root,
+            project_access=app.extensions["project_access_authority"],
+            folders=workspace_folders,
+            workspace_registrations=workspace_registrations,
+            idempotency=SQLSourceControlOperationStore(engine),
+            scanner=source_scanner,
+        )
+        app.extensions[
+            "source_control_workspace_snapshot_upload_service"
+        ] = workspace_snapshot_upload
+    source_admission_budgets = app.extensions.get(
+        "source_admission_budgets"
+    )
+    if not isinstance(source_admission_budgets, SourceAdmissionBudgets):
+        source_admission_budgets = SourceAdmissionBudgets()
+        app.extensions[
+            "source_admission_budgets"
+        ] = source_admission_budgets
+    if app.extensions.get("source_admission_revision_coordinator") is None:
+        app.extensions[
+            "source_admission_revision_coordinator"
+        ] = SourceAdmissionRevisionCoordinator(
+            scanner=source_scanner,
+            revision_repository=SQLSourceControlRepository(engine),
+            receipt_repository=SQLSourceAdmissionReceiptRepository(engine),
+            budgets=source_admission_budgets,
+        )
+    if app.extensions.get("source_scan_service") is None:
+        workspace_scan_service = RegisteredWorkspaceSourceAdmissionService(
+            engine=engine,
+            workspace_catalog=workspace_catalog,
+            workspace_connector=workspace_source_connector,
+            coordinator=app.extensions[
+                "source_admission_revision_coordinator"
+            ],
+            budgets=source_admission_budgets,
+        )
+        remote_scan_service = RemoteGitSourceAdmissionService(
+            engine=engine,
+            registry=registered_remote_catalog,
+            payload_store=remote_payload_store,
+            revision_repository=SQLSourceControlRepository(engine),
+            receipt_repository=SQLSourceAdmissionReceiptRepository(engine),
+            budgets=source_admission_budgets,
+        )
+        app.extensions["source_scan_service"] = SourceScanServiceRouter(
+            {
+                "registered_workspace": workspace_scan_service,
+                "local_directory": workspace_scan_service,
+                "generic_git": remote_scan_service,
+                "github_repository": remote_scan_service,
+            }
+        )
     registered_types = frozenset(refresh.connector_registry.list_types())
     for connector in build_source_control_connector_extensions(
         registered_workspace=workspace_source_connector
@@ -486,6 +610,7 @@ def register_source_control_api(app) -> None:
         remote_policy=remote_policy,
         transport=getattr(git_composition, "transport", None),
         idempotency=SQLSourceControlOperationStore(engine),
+        project_access=app.extensions["project_access_authority"],
         enabled=_public_remote_feature_enabled(app),
         connector_registry_ready=connector_registry_ready,
     )
@@ -519,6 +644,81 @@ def register_source_control_api(app) -> None:
             policies=context_policy,
         )
         app.extensions["source_control_grant_admin"] = grant_admin
+    index_composition = app.extensions.get(
+        "source_control_index_production_composition"
+    )
+    if index_composition is None:
+        try:
+            configured_signing_key = app.extensions.get(
+                "source_access_signing_key"
+            )
+            if isinstance(configured_signing_key, SourceAccessSigningKey):
+                source_access_signing_key = configured_signing_key
+                source_access_verification_keys = {
+                    configured_signing_key.key_id: (
+                        configured_signing_key.secret
+                    )
+                }
+            else:
+                source_access_keyring = (
+                    load_source_access_manifest_keyring()
+                )
+                source_access_signing_key = (
+                    source_access_keyring.active_signing_key
+                )
+                source_access_verification_keys = (
+                    source_access_keyring.verification_keys
+                )
+        except SourceAccessManifestKeyringError as exc:
+            app.extensions["source_control_index_governance_readiness"] = {
+                "ready": False,
+                "reason_code": exc.reason_code,
+            }
+        else:
+            app.extensions[
+                "source_access_signing_key"
+            ] = source_access_signing_key
+            index_composition = (
+                build_source_control_index_production_composition(
+                    app=app,
+                    engine=engine,
+                    destination_catalog=destination_catalog,
+                    workspace_catalog=workspace_catalog,
+                    workspace_connector=workspace_source_connector,
+                    scanner=source_scanner,
+                    budgets=source_admission_budgets,
+                    signing_key=source_access_signing_key,
+                )
+            )
+            app.extensions[
+                "source_control_index_production_composition"
+            ] = index_composition
+            app.extensions[
+                "source_control_index_authority_planner"
+            ] = index_composition.planner
+            app.extensions[
+                "source_control_governed_knowledge_index_job_service"
+            ] = index_composition.job_service
+            app.extensions[
+                "knowledge_index_execution_binding_service"
+            ] = index_composition.execution_binding_service
+            app.extensions[
+                "knowledge_index_payload_capability_authorizer"
+            ] = KnowledgeIndexPayloadCapabilityAuthorizer(
+                execution_binding_service=(
+                    index_composition.execution_binding_service
+                ),
+                manifest_verifier=WorkerSourceAccessManifestVerifier(
+                    source_access_verification_keys
+                ),
+                agent_repository=(
+                    get_repository_registry().agent_repo
+                ),
+            )
+            app.extensions["source_control_index_governance_readiness"] = {
+                "ready": True,
+                "reason_code": None,
+            }
     operations = app.extensions.get("source_control_v1_operations")
     if operations is None:
         index_submission = app.extensions.get(
@@ -530,8 +730,8 @@ def register_source_control_api(app) -> None:
         if index_submission is None and index_planner is not None:
             index_submission = HubBoundSourceIndexSubmissionAdapter(
                 planner=index_planner,
-                job_service=(
-                    get_core_services(app).knowledge_index_job_service
+                job_service=app.extensions.get(
+                    "source_control_governed_knowledge_index_job_service"
                 ),
             )
             app.extensions[
@@ -706,6 +906,11 @@ def register_source_control_api(app) -> None:
     app.register_blueprint(
         create_source_control_workspace_registrations_blueprint(
             workspace_registrations
+        )
+    )
+    app.register_blueprint(
+        create_source_control_workspace_snapshots_blueprint(
+            workspace_snapshot_upload
         )
     )
     app.register_blueprint(

@@ -28,6 +28,10 @@ from agent.routes.source_control_public_remotes import (
     create_source_control_public_remotes_blueprint,
 )
 from agent.services.user_session_tokens import issue_user_access_token
+from agent.services.project_access_authority import (
+    AuthorizedProjectScope,
+    ProjectCapability,
+)
 
 _COMMIT = "a" * 40
 _PUBLIC_IP = "93.184.216.34"
@@ -86,6 +90,20 @@ class _Idempotency:
         self.completed[(idempotency_key, plan_digest)] = dict(result)
 
 
+class _ProjectAccess:
+    def require(self, **kwargs):
+        return AuthorizedProjectScope(
+            tenant_id=kwargs["tenant_id"],
+            project_id=kwargs["project_id"],
+            team_id=kwargs["project_id"],
+            subject_id=kwargs["subject_id"],
+            role="owner",
+            status="active",
+            capability=kwargs.get("capability", ProjectCapability.READ),
+            lock_version=1,
+        )
+
+
 def _engine():
     engine = create_engine(
         "sqlite://",
@@ -121,6 +139,7 @@ def _service(*, now, enabled=True):
         ),
         transport=transport,
         idempotency=_Idempotency(),
+        project_access=_ProjectAccess(),
         enabled=enabled,
         connector_registry_ready=True,
         ttl_seconds=60,
@@ -305,6 +324,7 @@ class _PublicRemoteRouteService:
 
 def test_public_remote_route_binds_normal_admin_token_project_selector() -> None:
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = _ProjectAccess()
     app.config["TESTING"] = True
     service = _PublicRemoteRouteService()
     app.register_blueprint(
@@ -338,6 +358,7 @@ def test_public_remote_route_binds_normal_admin_token_project_selector() -> None
 
 def test_public_remote_route_requires_project_selector() -> None:
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = _ProjectAccess()
     app.config["TESTING"] = True
     service = _PublicRemoteRouteService()
     app.register_blueprint(

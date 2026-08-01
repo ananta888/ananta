@@ -1161,6 +1161,38 @@ class SQLSourceControlOperationStore:
                 )
             db.commit()
 
+    def release(
+        self,
+        *,
+        idempotency_key: str,
+        plan_digest: str,
+        claim_token: str,
+    ) -> None:
+        """Expire an owned claim so a failed operation can be retried safely."""
+
+        now = float(self._clock())
+        with Session(self._engine) as db:
+            mutation = db.exec(
+                update(SourceControlOperationDB)
+                .where(
+                    SourceControlOperationDB.idempotency_key
+                    == idempotency_key,
+                    SourceControlOperationDB.request_digest == plan_digest,
+                    SourceControlOperationDB.state == "claimed",
+                    SourceControlOperationDB.claim_token == claim_token,
+                )
+                .values(
+                    lease_expires_at_epoch=now,
+                    updated_at_epoch=now,
+                )
+            )
+            if mutation.rowcount != 1:
+                db.rollback()
+                raise SourceControlApiRuntimeError(
+                    "idempotency_release_conflict", status_code=409
+                )
+            db.commit()
+
     def begin_target(
         self,
         *,
@@ -1997,10 +2029,25 @@ class SourceControlApiRuntime:
             "payload": dict(payload),
             "idempotency_key": idempotency_key,
         }
-        if getattr(self.operations, operation, None) is execute:
-            raw = execute(**kwargs)
-        else:
-            raw = execute(operation=operation, **kwargs)
+        if not claim.claim_token:
+            raise SourceControlApiRuntimeError(
+                "idempotency_claim_token_missing", status_code=500
+            )
+        try:
+            if getattr(self.operations, operation, None) is execute:
+                raw = execute(**kwargs)
+            else:
+                raw = execute(operation=operation, **kwargs)
+        except Exception:
+            try:
+                self.idempotency.release(
+                    idempotency_key=key,
+                    plan_digest=request_digest,
+                    claim_token=claim.claim_token,
+                )
+            except Exception:
+                pass
+            raise
         result = {
             "operation": operation,
             "connection_id": connection_id,
@@ -2009,6 +2056,7 @@ class SourceControlApiRuntime:
         self.idempotency.complete(
             idempotency_key=key,
             plan_digest=request_digest,
+            claim_token=claim.claim_token,
             result=result,
         )
         return result
@@ -2157,8 +2205,8 @@ class SourceControlApiRuntime:
                 purpose=str(payload["purpose"]),
                 source_cursor=payload.get("source_cursor"),
                 destination_cursor=payload.get("destination_cursor"),
-                source_limit=int(payload.get("source_limit", 50)),
-                destination_limit=int(payload.get("destination_limit", 50)),
+                source_limit=int(payload.get("source_limit", 25)),
+                destination_limit=int(payload.get("destination_limit", 25)),
                 source_filters=payload.get("source_filters") or {},
                 destination_filters=payload.get("destination_filters") or {},
             )

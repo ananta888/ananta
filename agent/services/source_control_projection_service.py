@@ -292,8 +292,17 @@ def _derive_next_actions(
     connection_state = str(record.connection.get("state") or "")
     admission_state = str((record.admission or {}).get("state") or "")
     index_status = str((record.index or {}).get("status") or "")
-    if "refresh" in capabilities and connection_state == "active":
+    if "refresh" in capabilities and connection_state in {"draft", "active"}:
         actions.append("refresh")
+    if (
+        "scan" in capabilities
+        and connection_state == "active"
+        and (
+            record.revision is None
+            or admission_state in {"pending", "blocked"}
+        )
+    ):
+        actions.append("scan")
     if (
         "index" in capabilities
         and admission_state == "admitted"

@@ -4,6 +4,7 @@ import os
 from flask import Flask
 
 from agent.bootstrap.route_aliases import register_route_aliases
+from agent.bootstrap.project_lifecycle import configure_project_lifecycle
 from agent.config import settings
 from agent.routes.admin.planning_dataset import planning_dataset_bp
 from agent.routes.admin.planning_metrics import planning_metrics_bp
@@ -29,6 +30,7 @@ from agent.routes.config import register_config_blueprints
 from agent.routes.config_graph import config_graph_bp
 from agent.routes.context_policy import context_policy_bp
 from agent.routes.control_center_api import control_center_api_bp
+from agent.routes.projects import projects_bp
 from agent.routes.debug.backend_observability import backend_observability_bp
 from agent.routes.debug.command_guardrails import command_guardrails_bp
 from agent.routes.debug.prompt_render import prompt_render_bp
@@ -111,6 +113,7 @@ from agent.ws_voice import register_ws_voice
 
 
 def register_blueprints(app: Flask) -> None:
+    configure_project_lifecycle(app)
     app.register_blueprint(system_bp, url_prefix="/api/system")
     app.register_blueprint(demo_bp)
     register_config_blueprints(app)
@@ -156,6 +159,7 @@ def register_blueprints(app: Flask) -> None:
 
         app.register_blueprint(semantic_media_e2e_support_bp)
     app.register_blueprint(context_policy_bp)
+    app.register_blueprint(projects_bp)
     app.register_blueprint(control_center_api_bp)
     app.register_blueprint(instruction_layers_bp)
     app.register_blueprint(blender_client_surface_bp, url_prefix="/api/client-surfaces/blender")

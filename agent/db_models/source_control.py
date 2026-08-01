@@ -472,3 +472,72 @@ class SourceControlContentDB(SQLModel, table=True):
         sa_column=Column(Text, nullable=False)
     )
     created_at_epoch: float
+
+
+class RemoteSourcePayloadDB(SQLModel, table=True):
+    """Content-addressed Hub artifact created by one exact Git fetch."""
+
+    __tablename__ = "remote_source_payloads"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "project_id",
+            "owner_id",
+            "connector_type",
+            "source_id",
+            "connection_ref",
+            "repository_key",
+            "requested_ref",
+            "commit_sha",
+            "source_revision_digest",
+            name="uq_remote_source_payload_coordinates",
+        ),
+    )
+
+    payload_digest: str = Field(primary_key=True, max_length=64)
+    tenant_id: str = Field(index=True, max_length=128)
+    project_id: str = Field(index=True, max_length=128)
+    owner_id: str = Field(index=True, max_length=128)
+    connector_type: str = Field(index=True, max_length=64)
+    source_id: str = Field(index=True, max_length=255)
+    connection_ref: str = Field(index=True, max_length=192)
+    repository_key: str = Field(default="", max_length=201)
+    requested_ref: str = Field(max_length=255)
+    commit_sha: str = Field(index=True, max_length=64)
+    source_revision_digest: str = Field(index=True, max_length=64)
+    git_manifest_digest: str = Field(index=True, max_length=64)
+    authorization_binding_digest: str = Field(max_length=64)
+    artifact_id: str = Field(max_length=128)
+    artifact_filename: str = Field(max_length=128)
+    artifact_version: int = Field(default=1, ge=1)
+    byte_size: int = Field(ge=0)
+    file_count: int = Field(ge=0)
+    metrics_json: str = Field(sa_column=Column(Text, nullable=False))
+    created_at_epoch: float
+
+
+class RemoteSourcePayloadBindingDB(SQLModel, table=True):
+    """Append-only authority binding from a payload to an admitted revision."""
+
+    __tablename__ = "remote_source_payload_bindings"
+
+    source_revision_id: str = Field(
+        primary_key=True,
+        foreign_key="source_revisions.source_revision_id",
+        max_length=69,
+    )
+    connection_id: str = Field(
+        foreign_key="source_connections.connection_id",
+        index=True,
+        max_length=69,
+    )
+    payload_digest: str = Field(
+        foreign_key="remote_source_payloads.payload_digest",
+        index=True,
+        max_length=64,
+    )
+    tenant_id: str = Field(index=True, max_length=128)
+    project_id: str = Field(index=True, max_length=128)
+    source_revision_digest: str = Field(max_length=64)
+    manifest_digest: str = Field(max_length=64)
+    bound_at_epoch: float

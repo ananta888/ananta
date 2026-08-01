@@ -68,6 +68,19 @@ class ResolvedDestination:
     destination_digest: str
 
 
+def source_destination_digest(descriptor: DestinationDescriptor) -> str:
+    """Return the canonical digest used to bind policy to a destination."""
+
+    return hashlib.sha256(
+        json.dumps(
+            descriptor.to_wire(),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        ).encode("utf-8")
+    ).hexdigest()
+
+
 class SourceDestinationResolutionService:
     """Resolve client selections exclusively through the Hub catalog."""
 
@@ -105,18 +118,9 @@ class SourceDestinationResolutionService:
             provider_location=record.provider_location,
             data_residency=record.data_residency,
         )
-        wire = descriptor.to_wire()
-        digest = hashlib.sha256(
-            json.dumps(
-                wire,
-                sort_keys=True,
-                separators=(",", ":"),
-                ensure_ascii=True,
-            ).encode("utf-8")
-        ).hexdigest()
         return ResolvedDestination(
             descriptor=descriptor,
-            destination_digest=digest,
+            destination_digest=source_destination_digest(descriptor),
         )
 
     def verify_dispatch_binding(

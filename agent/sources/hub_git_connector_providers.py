@@ -8,6 +8,10 @@ from agent.services.hub_git_authorization_registry import (
     RegisteredGitAuthorization,
 )
 from agent.services.hub_git_transport import HubGitTransportPort
+from agent.services.remote_source_payload_store import (
+    RemoteSourcePayloadStorePort,
+    authorization_binding_digest,
+)
 from agent.sources.generic_git_connector import (
     GenericGitCommitResolutionRequest,
     RegisteredGitRemoteRequest,
@@ -18,6 +22,7 @@ from agent.sources.git_source_connector_common import (
     GitContentRequest,
     GitRemoteEndpoint,
     GitRepositoryMetrics,
+    GitStoredPayloadQuery,
 )
 from agent.sources.github_repository_connector import (
     GitHubCommitResolutionRequest,
@@ -201,9 +206,11 @@ class HubGitContentProvider:
         *,
         registry: HubGitAuthorizationRegistryPort,
         transport: HubGitTransportPort,
+        payload_store: RemoteSourcePayloadStorePort | None = None,
     ) -> None:
         self._registry = registry
         self._transport = transport
+        self._payloads = payload_store
 
     def supports_transport_authorization(
         self,
@@ -213,6 +220,16 @@ class HubGitContentProvider:
 
     def inventory(self, request: GitContentRequest) -> GitRepositoryMetrics:
         record = self._record_for(request)
+        if self._payloads is not None:
+            try:
+                return self._payloads.inventory(
+                    request=request,
+                    authorization_binding_digest=authorization_binding_digest(
+                        record
+                    ),
+                )
+            except GitConnectorProviderError as exc:
+                raise SourceConnectorError(exc.reason_code) from None
         return self._transport.inspect_content(
             request,
             credential_username=record.credential_username,
@@ -220,9 +237,43 @@ class HubGitContentProvider:
 
     def fetch(self, request: GitContentRequest) -> GitRepositoryMetrics:
         record = self._record_for(request)
+        if self._payloads is not None:
+            try:
+                materialized = self._transport.materialize_content(
+                    request,
+                    credential_username=record.credential_username,
+                )
+                self._payloads.persist(
+                    request=request,
+                    materialization=materialized,
+                    authorization_binding_digest=authorization_binding_digest(
+                        record
+                    ),
+                )
+                return materialized.metrics
+            except GitConnectorProviderError as exc:
+                raise SourceConnectorError(exc.reason_code) from None
         return self._transport.inspect_content(
             request,
             credential_username=record.credential_username,
+        )
+
+    def resolve_stored_commit(self, query: GitStoredPayloadQuery) -> str:
+        if self._payloads is None:
+            raise GitConnectorProviderError("remote_source_payload_required")
+        request = type(
+            "StoredPayloadAuthorizationRequest",
+            (),
+            {
+                "scope": query.scope,
+                "connection_ref": query.connection_ref,
+                "repository_identifier": query.repository_identifier,
+            },
+        )()
+        record = self._record_for(request)
+        return self._payloads.resolve_stored_commit(
+            query=query,
+            authorization_binding_digest=authorization_binding_digest(record),
         )
 
     def _record_for(

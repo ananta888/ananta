@@ -10,6 +10,8 @@ import agent.routes.source_control_v1 as routes
 from agent.routes.source_control_v1 import (
     create_source_control_v1_blueprint,
 )
+from agent.services.source_control_access_policy import HubSourcePrincipal
+from tests.project_access_fakes import AllowProjectAccess
 
 
 _SUCCESS_SCHEMA = "ananta.source-control.api-response.v1"
@@ -102,8 +104,42 @@ def _app(monkeypatch):
     )
     monkeypatch.setattr(routes, "_principal", lambda: principal)
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = AllowProjectAccess()
     app.register_blueprint(create_source_control_v1_blueprint(api))
     return app, api, principal
+
+
+def _assert_scoped_principal(
+    actual: object,
+    *,
+    authenticated: _Principal,
+) -> None:
+    assert isinstance(actual, HubSourcePrincipal)
+    assert actual.subject_id == authenticated.subject_id
+    assert actual.tenant_id == authenticated.tenant_id
+    assert actual.project_id == "project-example"
+    assert actual.roles == frozenset({"project_owner"})
+
+
+def _assert_recorded_call(
+    api: _RecordingApi,
+    index: int,
+    *,
+    authenticated: _Principal,
+    name: str,
+    kwargs: dict[str, object],
+) -> None:
+    recorded_name, recorded_kwargs = api.calls[index]
+    assert recorded_name == name
+    _assert_scoped_principal(
+        recorded_kwargs["principal"],
+        authenticated=authenticated,
+    )
+    assert {
+        key: value
+        for key, value in recorded_kwargs.items()
+        if key != "principal"
+    } == kwargs
 
 
 def _assert_error(response, *, status: int, code: str) -> None:
@@ -267,9 +303,16 @@ def test_read_catalogs_are_scoped_and_pass_bounded_queries(
     assert body["data"]["capabilities"] == {"read_only": True}
     call, kwargs = api.calls[-1]
     assert call == call_name
-    assert kwargs == {
+    _assert_scoped_principal(
+        kwargs["principal"],
+        authenticated=principal,
+    )
+    assert {
+        key: value
+        for key, value in kwargs.items()
+        if key != "principal"
+    } == {
         **({"catalog": catalog} if catalog is not None else {}),
-        "principal": principal,
         "project_id": "project-example",
         "cursor": "opaque-cursor",
         "limit": 25,
@@ -386,18 +429,19 @@ def test_grant_create_requires_headers_and_returns_projection_etag(
             }
         },
     }
-    assert api.calls == [
-        (
-            "create_grant",
-            {
-                "principal": principal,
-                "project_id": "project-example",
-                "payload": payload,
-                "if_match": '"base-etag"',
-                "idempotency_key": "grant-create-001",
-            },
-        )
-    ]
+    assert len(api.calls) == 1
+    _assert_recorded_call(
+        api,
+        0,
+        authenticated=principal,
+        name="create_grant",
+        kwargs={
+            "project_id": "project-example",
+            "payload": payload,
+            "if_match": '"base-etag"',
+            "idempotency_key": "grant-create-001",
+        },
+    )
 
 
 def test_grant_create_rejects_non_contract_body_and_query(
@@ -489,16 +533,17 @@ def test_grant_revoke_requires_headers_and_passes_exact_body(
             }
         },
     }
-    assert api.calls == [
-        (
-            "revoke_grant",
-            {
-                "principal": principal,
-                "project_id": "project-example",
-                "grant_id": "grant-existing",
-                "payload": payload,
-                "if_match": '"current-etag"',
-                "idempotency_key": "grant-revoke-001",
-            },
-        )
-    ]
+    assert len(api.calls) == 1
+    _assert_recorded_call(
+        api,
+        0,
+        authenticated=principal,
+        name="revoke_grant",
+        kwargs={
+            "project_id": "project-example",
+            "grant_id": "grant-existing",
+            "payload": payload,
+            "if_match": '"current-etag"',
+            "idempotency_key": "grant-revoke-001",
+        },
+    )

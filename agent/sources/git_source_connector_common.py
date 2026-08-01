@@ -13,7 +13,7 @@ import json
 import math
 import re
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Protocol, TypeVar
 
 from agent.services.git_remote_policy_service import (
@@ -163,6 +163,8 @@ class GitContentRequest:
     commit_sha: str
     budgets: GitRepositoryBudgets
     transport_authorization: GitTransportAuthorization
+    source_id: str = ""
+    source_revision_digest: str = ""
     recurse_submodules: bool = False
     lfs_mode: str = "disabled"
     follow_redirects: bool = False
@@ -184,6 +186,31 @@ class GitRepositoryMetrics:
     egress_bytes: int
     manifest_digest: str
     exclusions: tuple[Mapping[str, Any], ...] = ()
+
+
+@dataclass(frozen=True)
+class GitStoredPayloadQuery:
+    scope: GitSourceScope
+    connector_type: str
+    source_id: str
+    connection_ref: str
+    repository_identifier: str | None
+    requested_ref: str
+
+
+@dataclass(frozen=True)
+class GitMaterializedFile:
+    relative_path: str
+    mode: str
+    content_digest: str
+    byte_size: int
+    content: bytes = field(repr=False)
+
+
+@dataclass(frozen=True)
+class GitRepositoryMaterialization:
+    metrics: GitRepositoryMetrics
+    files: tuple[GitMaterializedFile, ...]
 
 
 class GitInventoryProviderPort(Protocol):
@@ -215,6 +242,18 @@ def _canonical_digest(payload: Mapping[str, Any]) -> str:
         ensure_ascii=True,
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def git_source_revision_digest(
+    *, connector_type: str, source_id: str, commit_sha: str
+) -> str:
+    return _canonical_digest(
+        {
+            "commit_sha": str(commit_sha).lower(),
+            "connector_type": str(connector_type),
+            "source_id": str(source_id),
+        }
+    )
 
 
 def _contains_forbidden_descriptor_value(value: Any) -> bool:
@@ -307,7 +346,9 @@ class GitSourceConnectorBase(ABC):
         self,
         descriptor: Mapping[str, Any],
     ) -> SourceRevisionResolution:
-        content_request = self._resolve_content_request(descriptor)
+        content_request = self._resolve_content_request(
+            descriptor, prefer_stored=True
+        )
         return self._revision_projection(descriptor, content_request)
 
     def assert_indexable(
@@ -319,7 +360,9 @@ class GitSourceConnectorBase(ABC):
         return self.resolve_revision(descriptor)
 
     def inventory(self, descriptor: Mapping[str, Any]) -> SourceInventory:
-        content_request = self._resolve_content_request(descriptor)
+        content_request = self._resolve_content_request(
+            descriptor, prefer_stored=True
+        )
         self._require_transport_support(
             self._inventory_provider,
             content_request.transport_authorization,
@@ -398,6 +441,8 @@ class GitSourceConnectorBase(ABC):
     def _resolve_content_request(
         self,
         descriptor: Mapping[str, Any],
+        *,
+        prefer_stored: bool = False,
     ) -> GitContentRequest:
         errors = self.validate(descriptor)
         if errors:
@@ -414,14 +459,38 @@ class GitSourceConnectorBase(ABC):
             endpoint,
             operation="fetch",
         )
-        commit = self._invoke_provider(
-            lambda: self._resolve_commit(
-                scope,
-                descriptor,
-                transport_authorization,
-            )
-        )
         requested_ref = self._requested_ref(descriptor)
+        source_id = str(descriptor.get("source_id") or "").strip()
+        stored_resolver = getattr(
+            self._inventory_provider, "resolve_stored_commit", None
+        )
+        if prefer_stored and callable(stored_resolver):
+            stored_commit = self._invoke_provider(
+                lambda: stored_resolver(
+                    GitStoredPayloadQuery(
+                        scope=scope,
+                        connector_type=self.connector_type,
+                        source_id=source_id,
+                        connection_ref=connection_ref,
+                        repository_identifier=self._repository_identifier(
+                            descriptor
+                        ),
+                        requested_ref=requested_ref,
+                    )
+                )
+            )
+            commit = GitCommitResolution(
+                requested_ref=requested_ref,
+                commit_sha=str(stored_commit),
+            )
+        else:
+            commit = self._invoke_provider(
+                lambda: self._resolve_commit(
+                    scope,
+                    descriptor,
+                    transport_authorization,
+                )
+            )
         if commit.requested_ref != requested_ref:
             raise SourceConnectorError("provider_response_invalid")
         commit_sha = str(commit.commit_sha or "").strip().lower()
@@ -436,6 +505,12 @@ class GitSourceConnectorBase(ABC):
             commit_sha=commit_sha,
             budgets=self._budgets,
             transport_authorization=transport_authorization,
+            source_id=source_id,
+            source_revision_digest=git_source_revision_digest(
+                connector_type=self.connector_type,
+                source_id=source_id,
+                commit_sha=commit_sha,
+            ),
         )
 
     def _require_authorization(self, endpoint: GitRemoteEndpoint) -> None:
@@ -511,12 +586,10 @@ class GitSourceConnectorBase(ABC):
         descriptor: Mapping[str, Any],
         request: GitContentRequest,
     ) -> SourceRevisionResolution:
-        digest = _canonical_digest(
-            {
-                "commit_sha": request.commit_sha,
-                "connector_type": self.connector_type,
-                "source_id": str(descriptor.get("source_id") or "").strip(),
-            }
+        digest = request.source_revision_digest or git_source_revision_digest(
+            connector_type=self.connector_type,
+            source_id=str(descriptor.get("source_id") or "").strip(),
+            commit_sha=request.commit_sha,
         )
         metadata: dict[str, Any] = {
             "connector_type": self.connector_type,

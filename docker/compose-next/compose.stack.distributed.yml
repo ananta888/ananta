@@ -18,6 +18,7 @@ services:
       service: ai-agent-worker-base
     environment:
       AGENT_NAME: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
+      ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
       AGENT_URL: http://ai-agent-alpha:5000
       HUB_URL: http://ai-agent-hub:5000
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
@@ -37,6 +38,7 @@ services:
       service: ai-agent-worker-base
     environment:
       AGENT_NAME: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
+      ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
       AGENT_URL: http://ai-agent-beta:5000
       HUB_URL: http://ai-agent-hub:5000
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
@@ -56,6 +58,7 @@ services:
       service: ai-agent-worker-base
     environment:
       AGENT_NAME: ${ANANTA_WORKER_GAMMA_ID:-ananta-worker-3}
+      ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_GAMMA_ID:-ananta-worker-3}
       AGENT_URL: http://ai-agent-gamma:5000
       HUB_URL: http://ai-agent-hub:5000
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
@@ -75,6 +78,7 @@ services:
       service: ai-agent-worker-base
     environment:
       AGENT_NAME: ${ANANTA_WORKER_DELTA_ID:-ananta-worker-4}
+      ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_DELTA_ID:-ananta-worker-4}
       AGENT_URL: http://ai-agent-delta:5000
       HUB_URL: http://ai-agent-hub:5000
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"

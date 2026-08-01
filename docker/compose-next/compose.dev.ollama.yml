@@ -102,6 +102,7 @@ services:
       INITIAL_ADMIN_PASSWORD: ""
       OPENROUTER_API_KEY: ""
       AGENT_NAME: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
+      ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
       AGENT_URL: http://ai-agent-alpha:5000
       HUB_URL: http://ai-agent-hub:5000
       # Workers use isolated local databases. They receive an allowlisted task
@@ -178,6 +179,7 @@ services:
       INITIAL_ADMIN_PASSWORD: ""
       OPENROUTER_API_KEY: ""
       AGENT_NAME: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
+      ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
       AGENT_URL: http://ai-agent-beta:5000
       HUB_URL: http://ai-agent-hub:5000
       # Never share the Hub's PostgreSQL principal or authoritative Task rows.

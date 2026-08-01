@@ -105,6 +105,7 @@ from .planning import (
     ScheduledTaskDB,
     TemplateDB,
 )
+from .projects import ProjectDB, ProjectMembershipDB
 from .semantic_media import (
     SemanticCapabilityAdvertisementDB,
     SemanticComputeCandidateKeyDB,
@@ -122,6 +123,7 @@ from .semantic_media import (
     SemanticSfuRoomStateDB,
 )
 from .semantic_relay import SemanticRelayCursorDB, SemanticRelayEnvelopeDB
+from .source_admission_receipt import SourceAdmissionReceiptDB
 from .source_control import (
     ActiveKnowledgeIndexDB,
     ActiveKnowledgeIndexEventDB,
@@ -314,6 +316,7 @@ from .workflow_runtime import (
 )
 
 __all__ = [
+    "SourceAdmissionReceiptDB",
     "AgentInfoDB",
     "ActionPackDB",
     "AgentSessionDB",

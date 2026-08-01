@@ -43,6 +43,17 @@ if TYPE_CHECKING:
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
 
+def _governed_source_control_index_job_service() -> Any:
+    service = current_app.extensions.get(
+        "source_control_governed_knowledge_index_job_service"
+    )
+    if service is None:
+        raise WorkerForwardingError(
+            "knowledge_index_dispatch_authorizer_unavailable"
+        )
+    return service
+
+
 _VISUAL_PROCESS_ASSISTANT_RESULT_CONTRACTS: dict[str, tuple[str, frozenset[str]]] = {
     "visual_process_assistant_retrieval": (
         "ananta.visual_process_assistant.retrieval_result.v1",
@@ -272,13 +283,83 @@ def forward_task_request_if_remote(
                     "worker_url": worker_url,
                 }
             )
+    registered_agent = None
     try:
-        agent = get_repository_registry().agent_repo.get_by_url(worker_url)
-        current_token = str(getattr(agent, "token", "") or "").strip()
+        registered_agent = get_repository_registry().agent_repo.get_by_url(
+            worker_url
+        )
+        current_token = str(
+            getattr(registered_agent, "token", "") or ""
+        ).strip()
         if current_token:
             resolved_token = current_token
     except Exception:
         pass
+    worker_execution_context = task.get("worker_execution_context")
+    if (
+        str(task.get("task_kind") or "").strip().lower()
+        == "codecompass_index_build"
+        and isinstance(worker_execution_context, dict)
+    ):
+        knowledge_index_job = worker_execution_context.get(
+            "knowledge_index_job"
+        )
+        if (
+            isinstance(knowledge_index_job, dict)
+            and knowledge_index_job.get("schema")
+            == "ananta.knowledge_index_execution_job.v2"
+            and not knowledge_index_job.get(
+                "source_access_enforcement_manifest"
+            )
+        ):
+            if registered_agent is None:
+                raise WorkerForwardingError(
+                    "assigned_worker_not_registered"
+                )
+            if not getattr(
+                registered_agent,
+                "registration_validated",
+                False,
+            ):
+                raise WorkerForwardingError(
+                    "assigned_worker_registration_not_validated"
+                )
+            if (
+                str(getattr(registered_agent, "role", ""))
+                .strip()
+                .lower()
+                != "worker"
+            ):
+                raise WorkerForwardingError(
+                    "assigned_agent_is_not_worker"
+                )
+
+            destination_selection = worker_execution_context.get(
+                "destination_selection"
+            )
+            if (
+                not isinstance(destination_selection, dict)
+                or not destination_selection
+            ):
+                raise WorkerForwardingError(
+                    "knowledge_index_destination_selection_missing"
+                )
+            knowledge_index_job_service = (
+                _governed_source_control_index_job_service()
+            )
+            authorized_context = (
+                knowledge_index_job_service.authorize_bound_worker_dispatch(
+                    job_id=tid,
+                    authenticated_worker_id=str(
+                        registered_agent.name or registered_agent.url
+                    ),
+                    destination_selection=destination_selection,
+                )
+            )
+            task["worker_execution_context"] = {
+                **worker_execution_context,
+                **authorized_context,
+            }
     try:
         response = forwarder(worker_url, endpoint, payload, token=resolved_token)
         if (
@@ -718,7 +799,11 @@ def persist_forwarded_execution(
             or None
         )
         verification_status.update(unsloth_projection)
-    if str(response.get("schema") or "") == "ananta.knowledge_index_job_result.v1":
+    knowledge_index_result_schema = str(response.get("schema") or "")
+    if knowledge_index_result_schema in {
+        "ananta.knowledge_index_job_result.v1",
+        "ananta.knowledge_index_execution_result.v2",
+    }:
         result_fields = {
             "schema",
             "job_id",
@@ -732,14 +817,60 @@ def persist_forwarded_execution(
             "error",
         }
         framework_fields = {"handler_contract"}
-        unknown_fields = set(response) - result_fields - framework_fields
-        if unknown_fields:
-            raise ValueError("knowledge_index_result_forwarding_fields_unknown")
-        candidate = {field: response.get(field) for field in result_fields}
-        normalized_result = (
-            get_core_services()
-            .knowledge_index_job_service
-            .materialize_worker_result(job_id=tid, result=candidate, task=task)
+        if (
+            knowledge_index_result_schema
+            == "ananta.knowledge_index_execution_result.v2"
+        ):
+            candidate = {
+                field: value
+                for field, value in response.items()
+                if field not in framework_fields
+            }
+        else:
+            unknown_fields = set(response) - result_fields - framework_fields
+            if unknown_fields:
+                raise ValueError(
+                    "knowledge_index_result_forwarding_fields_unknown"
+                )
+            candidate = {
+                field: response.get(field) for field in result_fields
+            }
+        execution_context = dict(
+            task.get("worker_execution_context") or {}
+        )
+        execution_job = dict(
+            execution_context.get("knowledge_index_job") or {}
+        )
+        if (
+            execution_job.get("schema")
+            == "ananta.knowledge_index_execution_job.v2"
+        ):
+            job_service = _governed_source_control_index_job_service()
+            assigned_worker_url = str(
+                task.get("assigned_agent_url") or ""
+            ).strip()
+            assigned_worker = (
+                get_repository_registry().agent_repo.get_by_url(
+                    assigned_worker_url
+                )
+                if assigned_worker_url
+                else None
+            )
+            authenticated_worker_id = str(
+                getattr(assigned_worker, "name", "") or ""
+            ).strip()
+            if not authenticated_worker_id:
+                raise ValueError(
+                    "knowledge_index_result_worker_identity_missing"
+                )
+        else:
+            job_service = get_core_services().knowledge_index_job_service
+            authenticated_worker_id = None
+        normalized_result = job_service.materialize_worker_result(
+            job_id=tid,
+            result=candidate,
+            task=task,
+            authenticated_worker_id=authenticated_worker_id,
         )
         verification_status["knowledge_index_job_result"] = normalized_result
     if str(response.get("schema") or "") == "ananta.mail_task_result.v1":

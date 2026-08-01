@@ -331,6 +331,9 @@ class PlanningTrackTaskIntegrationService:
 
     def _materialize_tasks_locked(self, *, goal_id: str, output_artifact_id: str) -> dict[str, Any]:
         graph, output, payload = self._load_output(goal_id=goal_id, output_artifact_id=output_artifact_id)
+        from agent.repository import goal_repo
+
+        goal_scope = goal_repo.get_by_id(goal_id)
         tasks = [dict(item) for item in list(payload.get("tasks") or []) if isinstance(item, dict)]
         mapping: dict[str, str] = {
             plan_task_id: _task_id_for_plan_task(
@@ -394,6 +397,10 @@ class PlanningTrackTaskIntegrationService:
                 task_payload.status = "blocked"
             task_payload.priority = str(plan_task.get("priority") or "Medium")
             task_payload.goal_id = goal_id
+            if goal_scope is not None:
+                task_payload.tenant_id = getattr(goal_scope, "tenant_id", None)
+                task_payload.project_id = getattr(goal_scope, "project_id", None)
+                task_payload.team_id = getattr(goal_scope, "team_id", None)
             task_payload.plan_id = output_artifact_id
             task_payload.plan_node_id = plan_task_id
             workflow_task_kind = str(workflow_step.get("task_kind") or "").strip()

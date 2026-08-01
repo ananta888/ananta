@@ -20,6 +20,7 @@ _DIRECTORY_FLAGS = (
     | getattr(os, "O_CLOEXEC", 0)
     | getattr(os, "O_NOFOLLOW", 0)
 )
+_INTERNAL_FOLDER_PREFIXES = (".ananta-snapshot-",)
 
 
 class SourceControlWorkspaceCatalogError(ValueError):
@@ -69,6 +70,8 @@ class SecureWorkspaceFolderCatalog:
         try:
             snapshots = []
             for name in sorted(os.listdir(root_fd), key=os.fsencode):
+                if name.startswith(_INTERNAL_FOLDER_PREFIXES):
+                    continue
                 metadata = os.stat(
                     name,
                     dir_fd=root_fd,

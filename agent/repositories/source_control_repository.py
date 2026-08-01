@@ -367,6 +367,26 @@ class SQLSourceControlRepository:
             ).first()
             return None if row is None else self._revision_record(row)
 
+    def get_scoped_revision(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        source_revision_id: str,
+    ) -> SourceRevisionRecord | None:
+        """Resolve immutable revision ownership within an explicit scope."""
+
+        with Session(self._engine) as db:
+            row = db.exec(
+                select(SourceRevisionDB).where(
+                    SourceRevisionDB.source_revision_id
+                    == source_revision_id,
+                    SourceRevisionDB.tenant_id == tenant_id,
+                    SourceRevisionDB.project_id == project_id,
+                )
+            ).first()
+            return None if row is None else self._revision_record(row)
+
     def save_grant(
         self,
         contract: SourceAccessGrant,
@@ -727,6 +747,164 @@ class SQLSourceControlRepository:
                 ) from None
             db.refresh(row)
             return self._run_record(row)
+
+    def project_completed_index_run(
+        self,
+        *,
+        index: KnowledgeIndexBindingRecord,
+        run: KnowledgeIndexRunBindingRecord,
+    ) -> tuple[KnowledgeIndexBindingRecord, KnowledgeIndexRunBindingRecord]:
+        """Atomically insert or replay one fully verified completed run."""
+
+        if (
+            index.status != "completed"
+            or run.status != "completed"
+            or not run.artifacts_verified
+            or not index.activation_requested
+            or not index.artifact_manifest_digest
+            or run.artifact_manifest_digest
+            != index.artifact_manifest_digest
+            or run.knowledge_index_id != index.knowledge_index_id
+            or (
+                run.tenant_id,
+                run.project_id,
+                run.owner_id,
+                run.source_revision_id,
+                run.policy_snapshot_id,
+                run.policy_snapshot_digest,
+            )
+            != (
+                index.tenant_id,
+                index.project_id,
+                index.owner_id,
+                index.source_revision_id,
+                index.policy_snapshot_id,
+                index.policy_snapshot_digest,
+            )
+        ):
+            raise SourceControlPersistenceError(
+                "source_control_completed_index_projection_invalid"
+            )
+        self._require_digest(index.artifact_manifest_digest)
+        with Session(self._engine) as db:
+            with db.begin():
+                self._require_scoped_revision(
+                    db,
+                    tenant_id=index.tenant_id,
+                    project_id=index.project_id,
+                    owner_id=index.owner_id,
+                    source_revision_id=index.source_revision_id,
+                )
+                index_row = db.get(
+                    KnowledgeIndexSourceBindingDB,
+                    index.knowledge_index_id,
+                )
+                if index_row is None:
+                    index_row = KnowledgeIndexSourceBindingDB(
+                        **index.__dict__
+                    )
+                    db.add(index_row)
+                    db.flush()
+                else:
+                    self._assert_index_projection_binding(index_row, index)
+
+                run_row = db.get(
+                    KnowledgeIndexRunSourceBindingDB,
+                    run.index_run_id,
+                )
+                if run_row is not None:
+                    self._assert_run_projection_binding(run_row, run)
+                    if run_row.status == "completed":
+                        if (
+                            not run_row.artifacts_verified
+                            or run_row.artifact_manifest_digest
+                            != run.artifact_manifest_digest
+                        ):
+                            raise SourceControlPersistenceError(
+                                "source_control_index_run_projection_conflict"
+                            )
+                        return (
+                            self._index_record(index_row),
+                            self._run_record(run_row),
+                        )
+                    if run_row.status != "pending":
+                        raise SourceControlPersistenceError(
+                            "source_control_index_run_projection_conflict"
+                        )
+                    run_row.status = "completed"
+                    run_row.artifact_manifest_digest = (
+                        run.artifact_manifest_digest
+                    )
+                    run_row.artifacts_verified = True
+                    run_row.lock_version += 1
+                    run_row.completed_at_epoch = run.completed_at_epoch
+                else:
+                    run_row = KnowledgeIndexRunSourceBindingDB(
+                        **run.__dict__
+                    )
+                    db.add(run_row)
+
+                if index_row.status not in {"pending", "completed"}:
+                    raise SourceControlPersistenceError(
+                        "source_control_index_projection_conflict"
+                    )
+                if index_row.status == "completed":
+                    index_row.lock_version += 1
+                index_row.status = "completed"
+                index_row.artifact_manifest_digest = (
+                    index.artifact_manifest_digest
+                )
+                index_row.activation_requested = True
+                index_row.updated_at_epoch = index.updated_at_epoch
+                db.flush()
+                projected_index = self._index_record(index_row)
+                projected_run = self._run_record(run_row)
+            return projected_index, projected_run
+
+    @staticmethod
+    def _assert_index_projection_binding(
+        row: KnowledgeIndexSourceBindingDB,
+        expected: KnowledgeIndexBindingRecord,
+    ) -> None:
+        fields = (
+            "tenant_id",
+            "project_id",
+            "owner_id",
+            "connection_id",
+            "source_revision_id",
+            "policy_snapshot_id",
+            "policy_snapshot_digest",
+            "index_contract_version",
+        )
+        if any(
+            getattr(row, field) != getattr(expected, field)
+            for field in fields
+        ):
+            raise SourceControlPersistenceError(
+                "source_control_index_projection_binding_mismatch"
+            )
+
+    @staticmethod
+    def _assert_run_projection_binding(
+        row: KnowledgeIndexRunSourceBindingDB,
+        expected: KnowledgeIndexRunBindingRecord,
+    ) -> None:
+        fields = (
+            "knowledge_index_id",
+            "tenant_id",
+            "project_id",
+            "owner_id",
+            "source_revision_id",
+            "policy_snapshot_id",
+            "policy_snapshot_digest",
+        )
+        if any(
+            getattr(row, field) != getattr(expected, field)
+            for field in fields
+        ):
+            raise SourceControlPersistenceError(
+                "source_control_index_run_projection_binding_mismatch"
+            )
 
     def complete_index_run(
         self,

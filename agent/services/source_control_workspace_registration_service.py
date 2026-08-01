@@ -22,6 +22,11 @@ from agent.services.source_control_workspace_contracts import (
     WorkspaceRegistrationRecord,
     WorkspaceValidationBinding,
 )
+from agent.services.project_access_authority import (
+    ProjectAccessError,
+    ProjectAccessPort,
+    ProjectCapability,
+)
 from agent.sources.git_source_connector_common import GitSourceScope
 
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,190}$")
@@ -43,6 +48,7 @@ class SourceControlWorkspaceRegistrationService:
         repository: object,
         folders: object,
         idempotency: object,
+        project_access: ProjectAccessPort,
         ttl_seconds: int = 300,
         clock: Callable[[], float] = time.time,
         token_factory: Callable[[], str] = (
@@ -54,12 +60,16 @@ class SourceControlWorkspaceRegistrationService:
         self._repository = repository
         self._folders = folders
         self._idempotency = idempotency
+        self._project_access = project_access
         self._ttl_seconds = int(ttl_seconds)
         self._clock = clock
         self._token_factory = token_factory
 
     def list_folders(self, *, principal: object) -> Mapping[str, object]:
-        scope, _admin = self._principal(principal)
+        scope, _admin = self._principal(
+            principal,
+            capability=ProjectCapability.READ,
+        )
         folders = self._folders.list_folders(
             tenant_id=scope.tenant_id,
             project_id=scope.project_id,
@@ -91,7 +101,10 @@ class SourceControlWorkspaceRegistrationService:
         principal: object,
         payload: Mapping[str, object],
     ) -> Mapping[str, object]:
-        scope, _admin = self._principal(principal)
+        scope, _admin = self._principal(
+            principal,
+            capability=ProjectCapability.WRITE,
+        )
         selection = self._folder_selection(payload)
         snapshot = self._folders.resolve_folder(
             tenant_id=scope.tenant_id,
@@ -154,7 +167,10 @@ class SourceControlWorkspaceRegistrationService:
         payload: Mapping[str, object],
         idempotency_key: str,
     ) -> Mapping[str, object]:
-        scope, _admin = self._principal(principal)
+        scope, _admin = self._principal(
+            principal,
+            capability=ProjectCapability.WRITE,
+        )
         selection = self._create_selection(payload)
         operation_key, plan_digest, claim = self._claim(
             scope=scope,
@@ -217,7 +233,10 @@ class SourceControlWorkspaceRegistrationService:
         principal: object,
         workspace_id: str,
     ) -> Mapping[str, object]:
-        scope, admin = self._principal(principal)
+        scope, admin = self._principal(
+            principal,
+            capability=ProjectCapability.READ,
+        )
         self._require_workspace_id(workspace_id)
         record = self._repository.get_registration(
             workspace_id=workspace_id,
@@ -240,7 +259,10 @@ class SourceControlWorkspaceRegistrationService:
         expected_revision: int,
         idempotency_key: str,
     ) -> Mapping[str, object]:
-        scope, admin = self._principal(principal)
+        scope, admin = self._principal(
+            principal,
+            capability=ProjectCapability.WRITE,
+        )
         self._require_workspace_id(workspace_id)
         operation_key, plan_digest, claim = self._claim(
             scope=scope,
@@ -370,14 +392,13 @@ class SourceControlWorkspaceRegistrationService:
                 status_code=exc.status_code,
             ) from None
 
-    @staticmethod
-    def _principal(principal: object) -> tuple[GitSourceScope, bool]:
+    def _principal(
+        self,
+        principal: object,
+        *,
+        capability: ProjectCapability,
+    ) -> tuple[GitSourceScope, bool]:
         roles = frozenset(getattr(principal, "roles", frozenset()) or ())
-        if roles.isdisjoint({"admin", "project_owner"}):
-            raise SourceControlWorkspaceRegistrationError(
-                "workspace_registration_role_required",
-                status_code=403,
-            )
         values = (
             str(getattr(principal, "tenant_id", "") or "").strip(),
             str(getattr(principal, "project_id", "") or "").strip(),
@@ -388,11 +409,24 @@ class SourceControlWorkspaceRegistrationService:
                 "source_control_principal_scope_required",
                 status_code=403,
             )
-        return (
-            GitSourceScope(
+        try:
+            authorized = self._project_access.require(
                 tenant_id=values[0],
                 project_id=values[1],
-                owner_id=values[2],
+                subject_id=values[2],
+                capability=capability,
+                tenant_admin="admin" in roles,
+            )
+        except ProjectAccessError as exc:
+            raise SourceControlWorkspaceRegistrationError(
+                exc.reason_code,
+                status_code=exc.public_status,
+            ) from None
+        return (
+            GitSourceScope(
+                tenant_id=authorized.tenant_id,
+                project_id=authorized.project_id,
+                owner_id=authorized.subject_id,
             ),
             "admin" in roles,
         )

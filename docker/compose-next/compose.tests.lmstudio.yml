@@ -75,6 +75,7 @@ services:
       FLASK_DEBUG: "0"
       # Local compose-next test opt-in only; production remains opt-in and fail-closed.
       ANANTA_SOURCE_CONTROL_PUBLIC_REMOTES_ENABLED: "true"
+      ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION: "true"
       INITIAL_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-test123}
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434/api/generate}
@@ -157,6 +158,9 @@ services:
       AGENT_NAME: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
       AGENT_URL: http://ai-agent-alpha:5000
       HUB_URL: http://ai-agent-hub:5000
+      ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION: "true"
+      ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
+      ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON: '{"runtime_target_id":"source-index-alpha","runtime_id":"codecompass-index","runtime_kind":"docker_container","provider_id":"codex","model_ids":["gpt-5-codex"],"provider_location":"local_container","data_residency":"local","model_class":"code","source_access_authorized":true,"global_source_access":true,"enabled":true,"worker_kind":"worker"}'
       ANANTA_WORKSPACE_ROOT: /project-workspaces
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta_password}@postgres:5432/${POSTGRES_DB:-ananta}"
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -207,6 +211,9 @@ services:
       AGENT_NAME: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
       AGENT_URL: http://ai-agent-beta:5000
       HUB_URL: http://ai-agent-hub:5000
+      ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION: "true"
+      ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
+      ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON: '{"runtime_target_id":"source-index-beta","runtime_id":"codecompass-index","runtime_kind":"docker_container","provider_id":"codex","model_ids":["gpt-5-codex"],"provider_location":"local_container","data_residency":"local","model_class":"code","source_access_authorized":true,"global_source_access":true,"enabled":true,"worker_kind":"worker"}'
       ANANTA_WORKSPACE_ROOT: /project-workspaces
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta_password}@postgres:5432/${POSTGRES_DB:-ananta}"
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}

@@ -76,6 +76,13 @@ class KnowledgeIndexExecutionRepositoryPort(Protocol):
 
     def get(self, job_id: str) -> KnowledgeIndexExecutionRecord | None: ...
 
+    def get_by_assignment(
+        self,
+        *,
+        assignment_id: str,
+        lease_id: str,
+    ) -> KnowledgeIndexExecutionRecord | None: ...
+
     def compare_and_set(
         self,
         record: KnowledgeIndexExecutionRecord,
@@ -178,6 +185,39 @@ class KnowledgeIndexExecutionBindingService:
         if record.state not in {"assigned", "running"}:
             raise KnowledgeIndexExecutionBindingError(
                 "knowledge_index_execution_not_dispatchable"
+            )
+        return record
+
+    def validate_delegated_payload_access(
+        self,
+        *,
+        assignment_id: str,
+        lease_id: str,
+        authenticated_worker_id: str,
+    ) -> KnowledgeIndexExecutionRecord:
+        """Validate post-dispatch payload access without re-consuming authority.
+
+        The signed enforcement manifest carries the Hub decision made at
+        dispatch. A one-time grant has already been consumed at that point, so
+        this phase deliberately validates only the immutable binding, assigned
+        Worker, live lease and dispatchable state.
+        """
+
+        record = self._repository.get_by_assignment(
+            assignment_id=str(assignment_id),
+            lease_id=str(lease_id),
+        )
+        if record is None:
+            raise KnowledgeIndexExecutionBindingError(
+                "knowledge_index_execution_not_found"
+            )
+        self._assert_live_assignment(
+            record,
+            authenticated_worker_id=authenticated_worker_id,
+        )
+        if record.state not in {"assigned", "running"}:
+            raise KnowledgeIndexExecutionBindingError(
+                "knowledge_index_execution_payload_access_invalid"
             )
         return record
 

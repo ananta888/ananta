@@ -12,6 +12,7 @@ services:
       service: ai-agent-worker-base
     environment:
       AGENT_NAME: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
+      ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
       AGENT_URL: http://ai-agent-alpha:5000
       HUB_URL: http://ai-agent-hub:5000
       DATABASE_URL: ${ALPHA_DATABASE_URL:-sqlite:////app/data/ananta-alpha.db}
@@ -28,6 +29,7 @@ services:
       service: ai-agent-worker-base
     environment:
       AGENT_NAME: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
+      ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
       AGENT_URL: http://ai-agent-beta:5000
       HUB_URL: http://ai-agent-hub:5000
       DATABASE_URL: ${BETA_DATABASE_URL:-sqlite:////app/data/ananta-beta.db}

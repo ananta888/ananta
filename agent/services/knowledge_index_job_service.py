@@ -221,6 +221,7 @@ class KnowledgeIndexJobService:
         task_repository: KnowledgeIndexJobRepositoryPort | None = None,
         payload_store: KnowledgeIndexPayloadStorePort | None = None,
         worker_artifact_service: Any | None = None,
+        source_control_completion_projector: Any | None = None,
         execution_binding_service: Any | None = None,
         destination_resolution_service: Any | None = None,
         source_access_enforcement_service: Any | None = None,
@@ -236,6 +237,9 @@ class KnowledgeIndexJobService:
         self._task_repository = task_repository
         self._payload_store = payload_store
         self._worker_artifact_service = worker_artifact_service
+        self._source_control_completion_projector = (
+            source_control_completion_projector
+        )
         self._execution_binding_service = execution_binding_service
         self._destination_resolution_service = (
             destination_resolution_service
@@ -425,10 +429,7 @@ class KnowledgeIndexJobService:
             policy_digest=str(
                 authority.get("policy_snapshot_digest") or ""
             ),
-            manifest_id=(
-                "knowledge-index-manifest-"
-                f"{str(manifest.get('manifest_digest') or '')[:32]}"
-            ),
+            manifest_id=str(manifest.get("manifest_id") or ""),
             manifest_digest=str(
                 manifest.get("manifest_digest") or ""
             ),
@@ -450,6 +451,10 @@ class KnowledgeIndexJobService:
                 source_dispatch.manifest
             ),
         }
+        self._persist_bound_execution_envelope(
+            job_id=job_id,
+            envelope=worker_envelope,
+        )
         return {"knowledge_index_job": worker_envelope}
 
     def retry_bound_job(
@@ -802,11 +807,12 @@ class KnowledgeIndexJobService:
             )
         payload = {
             "source_scope": str(source_scope),
-            "source_id": str(source_id),
+            "source_id": f"bound-source:{source_revision_id}",
             "records": [dict(item) for item in records],
             "source_metadata": {
                 "source_revision_id": source_revision_id,
                 "source_revision_digest": source_revision_digest,
+                "connection_source_id": str(source_id),
             },
             "codecompass_prerender": False,
             "graph_visual_metrics": _normalize_graph_visual_metrics_options(
@@ -886,6 +892,9 @@ class KnowledgeIndexJobService:
                     ],
                     "worker_execution_context": {
                         "knowledge_index_job": envelope,
+                        "destination_selection": dict(
+                            destination_selection or {}
+                        ),
                         "source_access_intent": {
                             "operation": str(source_operation),
                             "transformation": str(
@@ -973,10 +982,15 @@ class KnowledgeIndexJobService:
         job_id: str,
         result: Mapping[str, Any],
         task: Mapping[str, Any],
+        authenticated_worker_id: str | None = None,
     ) -> dict[str, Any]:
         """Validate and admit worker artifacts before a Hub task can complete."""
 
-        payload = self.validate_worker_result(job_id=job_id, result=result)
+        payload = self.validate_worker_result(
+            job_id=job_id,
+            result=result,
+            authenticated_worker_id=authenticated_worker_id,
+        )
         service = self._worker_artifact_service
         if service is None:
             from agent.services.knowledge_index_worker_artifact_service import (
@@ -984,7 +998,52 @@ class KnowledgeIndexJobService:
             )
 
             service = KnowledgeIndexWorkerArtifactService()
-        return service.materialize(job_id=job_id, result=payload, task=task)
+        materialized = service.materialize(
+            job_id=job_id,
+            result=payload,
+            task=task,
+        )
+        raw_task = self._repository().get_by_id(str(job_id))
+        raw_task_payload = (
+            raw_task.model_dump()
+            if hasattr(raw_task, "model_dump")
+            else dict(raw_task or {})
+        )
+        envelope = dict(
+            (raw_task_payload.get("worker_execution_context") or {}).get(
+                "knowledge_index_job"
+            )
+            or {}
+        )
+        if (
+            str(envelope.get("schema") or "")
+            == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
+        ):
+            projector = self._source_control_completion_projector
+            if (
+                str(materialized.get("status") or "") == "completed"
+                and projector is not None
+            ):
+                projector.project(
+                    envelope=envelope,
+                    result=materialized,
+                    artifact_references=[
+                        dict(item)
+                        for item in list(payload.get("artifact_refs") or [])
+                    ],
+                )
+            if self._execution_binding_service is None:
+                raise RuntimeError(
+                    "knowledge_index_execution_binding_service_unavailable"
+                )
+            self._execution_binding_service.finalize_result(
+                job_id=str(job_id),
+                payload=payload,
+                authenticated_worker_id=str(
+                    authenticated_worker_id or ""
+                ),
+            )
+        return materialized
 
     def validate_worker_result(
         self,

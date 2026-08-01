@@ -6,9 +6,9 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
-from flask import Blueprint, request
+from flask import Blueprint, current_app, request
 
-from agent.auth import check_auth
+from agent.auth import check_auth, get_authenticated_source_control_principal
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.db_models import TaskDB
@@ -22,6 +22,10 @@ from agent.services.recovery_task_mutation_policy import (
 )
 from agent.services.task_runtime_service import (
     update_local_task_status,
+)
+from agent.services.project_access_authority import (
+    ProjectAccessError,
+    ProjectCapability,
 )
 
 
@@ -55,6 +59,32 @@ class ControlCenterTaskMutationRoutes:
                 code=400,
             )
 
+        project_id = str(body.get("project_id") or "").strip()
+        project_scope = None
+        if project_id:
+            principal = get_authenticated_source_control_principal()
+            authority = current_app.extensions.get("project_access_authority")
+            if authority is None:
+                return api_response(
+                    status="error",
+                    message="project_access_authority_unavailable",
+                    code=503,
+                )
+            try:
+                project_scope = authority.require(
+                    tenant_id=str(principal.tenant_id or ""),
+                    project_id=project_id,
+                    subject_id=principal.subject_id,
+                    capability=ProjectCapability.WRITE,
+                    tenant_admin=principal.is_admin,
+                )
+            except ProjectAccessError as exc:
+                return api_response(
+                    status="error",
+                    message=exc.reason_code,
+                    code=exc.public_status,
+                )
+
         task = TaskDB(
             id=str(uuid.uuid4()),
             title=title,
@@ -63,10 +93,9 @@ class ControlCenterTaskMutationRoutes:
                 str(body.get("status") or "backlog")
             ),
             priority=str(body.get("priority") or "Medium"),
-            team_id=(
-                str(body.get("project_id") or "").strip()
-                or None
-            ),
+            team_id=(project_scope.team_id if project_scope else None),
+            tenant_id=(project_scope.tenant_id if project_scope else None),
+            project_id=(project_scope.project_id if project_scope else None),
             task_kind=(
                 str(body.get("task_kind") or "").strip()
                 or None

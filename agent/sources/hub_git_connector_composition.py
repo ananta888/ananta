@@ -16,6 +16,9 @@ from agent.services.hub_git_transport import (
     HubGitTransport,
     HubGitTransportPort,
 )
+from agent.services.remote_source_payload_store import (
+    RemoteSourcePayloadStorePort,
+)
 from agent.sources.generic_git_connector import GenericGitConnector
 from agent.sources.git_source_connector_common import GitRepositoryBudgets
 from agent.sources.github_repository_connector import (
@@ -36,6 +39,7 @@ class HubGitConnectorComposition:
     generic_git: GenericGitConnector
     transport: HubGitTransportPort | None = None
     registered_remotes: HubGitAuthorizationRegistryPort | None = None
+    payload_store: RemoteSourcePayloadStorePort | None = None
 
 
 def compose_hub_git_source_connectors(
@@ -45,6 +49,7 @@ def compose_hub_git_source_connectors(
     remote_policy: GitRemoteAccessPolicyPort,
     workspace_root: Path,
     budgets: GitRepositoryBudgets | None = None,
+    payload_store: RemoteSourcePayloadStorePort | None = None,
 ) -> HubGitConnectorComposition:
     """Build both connectors without performing filesystem or network I/O."""
 
@@ -55,6 +60,7 @@ def compose_hub_git_source_connectors(
     content = HubGitContentProvider(
         registry=authorization_registry,
         transport=transport,
+        payload_store=payload_store,
     )
     return HubGitConnectorComposition(
         github_repository=GitHubRepositoryConnector(
@@ -85,6 +91,7 @@ def compose_hub_git_source_connectors(
         ),
         transport=transport,
         registered_remotes=authorization_registry,
+        payload_store=payload_store,
     )
 
 

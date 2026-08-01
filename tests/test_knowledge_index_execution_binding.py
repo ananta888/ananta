@@ -145,6 +145,11 @@ def test_hub_issues_idempotent_bound_job_and_finalizes_once(tmp_path) -> None:
     service, _authority_port = _service(tmp_path)
     issued = _issue(service)
     replay = _issue(service)
+    delegated = service.validate_delegated_payload_access(
+        assignment_id="assignment-1",
+        lease_id="lease-1",
+        authenticated_worker_id="worker-index-01",
+    )
     running = service.mark_running(
         job_id=issued.job.job_id,
         authenticated_worker_id="worker-index-01",
@@ -162,6 +167,7 @@ def test_hub_issues_idempotent_bound_job_and_finalizes_once(tmp_path) -> None:
     )
 
     assert replay.job == issued.job
+    assert delegated.job == issued.job
     assert running.state == "running"
     assert completed.state == final_replay.state == "completed"
     assert completed.result_digest == final_replay.result_digest

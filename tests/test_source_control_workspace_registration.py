@@ -26,6 +26,10 @@ from agent.routes.source_control_workspace_registrations import (
     create_source_control_workspace_registrations_blueprint,
 )
 from agent.services.user_session_tokens import issue_user_access_token
+from agent.services.project_access_authority import (
+    AuthorizedProjectScope,
+    ProjectCapability,
+)
 
 
 class _Idempotency:
@@ -50,6 +54,20 @@ class _Idempotency:
     ):
         assert claim_token == "claim"
         self.results[(idempotency_key, plan_digest)] = dict(result)
+
+
+class _ProjectAccess:
+    def require(self, **kwargs):
+        return AuthorizedProjectScope(
+            tenant_id=kwargs["tenant_id"],
+            project_id=kwargs["project_id"],
+            team_id=kwargs["project_id"],
+            subject_id=kwargs["subject_id"],
+            role="owner",
+            status="active",
+            capability=kwargs.get("capability", ProjectCapability.READ),
+            lock_version=1,
+        )
 
 
 def _project_root(root: Path) -> Path:
@@ -86,6 +104,7 @@ def _service(tmp_path: Path):
         repository=repository,
         folders=folders,
         idempotency=_Idempotency(),
+        project_access=_ProjectAccess(),
         ttl_seconds=60,
         clock=lambda: now[0],
         token_factory=lambda: "x" * 43,
@@ -218,6 +237,7 @@ class _WorkspaceRouteService:
 
 def test_workspace_route_binds_normal_admin_token_project_selector() -> None:
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = _ProjectAccess()
     app.config["TESTING"] = True
     service = _WorkspaceRouteService()
     app.register_blueprint(
@@ -237,8 +257,9 @@ def test_workspace_route_binds_normal_admin_token_project_selector() -> None:
     assert service.principal.project_id == "project-example"
 
 
-def test_workspace_route_rejects_unscoped_non_admin_selector() -> None:
+def test_workspace_route_authorizes_member_selector_without_project_claim() -> None:
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = _ProjectAccess()
     app.config["TESTING"] = True
     service = _WorkspaceRouteService()
     app.register_blueprint(
@@ -255,8 +276,8 @@ def test_workspace_route_rejects_unscoped_non_admin_selector() -> None:
         headers={"Authorization": f"Bearer {token}"},
     )
 
-    assert response.status_code == 403
-    assert response.get_json()["error"]["code"] == (
-        "source_control_project_selector_not_authorized"
-    )
-    assert service.principal is None
+    assert response.status_code == 200
+    assert service.principal.tenant_id
+    assert service.principal.subject_id == "project-owner"
+    assert service.principal.project_id == "project-example"
+    assert service.principal.roles == frozenset({"project_owner"})

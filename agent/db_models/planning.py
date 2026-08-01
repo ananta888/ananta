@@ -38,6 +38,8 @@ class GoalDB(SQLModel, table=True):
     source: str = "ui"
     requested_by: Optional[str] = None
     team_id: Optional[str] = Field(default=None, foreign_key="teams.id")
+    tenant_id: Optional[str] = Field(default=None, index=True, max_length=191)
+    project_id: Optional[str] = Field(default=None, index=True, max_length=191)
     context: Optional[str] = None
     constraints: List[str] = Field(default=[], sa_column=Column(JSON))
     acceptance_criteria: List[str] = Field(default=[], sa_column=Column(JSON))

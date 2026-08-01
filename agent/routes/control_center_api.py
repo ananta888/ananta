@@ -81,7 +81,11 @@ def _task_item(task: Any) -> dict[str, Any]:
         "description": str(getattr(task, "description", "") or ""),
         "status": normalize_task_status(str(getattr(task, "status", "todo") or "todo")),
         "priority": str(getattr(task, "priority", "Medium") or "Medium"),
-        "project_id": str(getattr(task, "team_id", "") or ""),
+        "project_id": str(
+            getattr(task, "project_id", None)
+            or getattr(task, "team_id", "")
+            or ""
+        ),
         "team_id": str(getattr(task, "team_id", "") or ""),
         "assigned_agent_url": str(getattr(task, "assigned_agent_url", "") or ""),
         "goal_id": str(getattr(task, "goal_id", "") or "") or None,
@@ -341,24 +345,6 @@ def _ensure_event_poller() -> None:
             return
         _EVENT_POLL_THREAD = threading.Thread(target=_event_poll_loop, daemon=True, name="control-center-event-poller")
         _EVENT_POLL_THREAD.start()
-
-
-@control_center_api_bp.route("/projects", methods=["GET"])
-@check_auth
-def list_projects():
-    """B01: GET /api/projects"""
-    teams = _repos().team_repo.get_all() or []
-    items = [_project_item(team) for team in teams]
-    return api_response(data={"items": items, "count": len(items)})
-
-
-@control_center_api_bp.route("/projects/<project_id>/tasks", methods=["GET"])
-@check_auth
-def list_project_tasks(project_id: str):
-    """B02: GET /api/projects/{projectId}/tasks"""
-    tasks = _repos().task_repo.get_all() or []
-    items = [_task_item(task) for task in tasks if str(getattr(task, "team_id", "") or "") == project_id]
-    return api_response(data={"items": items, "count": len(items), "project_id": project_id})
 
 
 @control_center_api_bp.route("/tasks/<task_id>", methods=["GET"])

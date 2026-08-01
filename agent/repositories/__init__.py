@@ -57,8 +57,24 @@ from .planning_learning import (
     PlanningRunRepository,
     PlanningTemplateCandidateRepository,
 )
+from .projects import ProjectRepository
+from .source_admission_receipt_repository import (
+    SQLSourceAdmissionReceiptRepository,
+    SourceAdmissionCounters,
+    SourceAdmissionReceiptDraft,
+    SourceAdmissionReceiptPersistenceError,
+    SourceAdmissionReceiptPort,
+    SourceAdmissionReceiptRecord,
+)
 
 __all__ = [
+    "SQLSourceAdmissionReceiptRepository",
+    "SourceAdmissionCounters",
+    "SourceAdmissionReceiptDraft",
+    "SourceAdmissionReceiptPersistenceError",
+    "SourceAdmissionReceiptPort",
+    "SourceAdmissionReceiptRecord",
+    "ProjectRepository",
     "ActionPackRepository",
     "AgentRepository",
     "ArtifactRepository",

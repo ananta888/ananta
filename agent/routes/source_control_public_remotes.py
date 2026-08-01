@@ -110,6 +110,7 @@ def _access_guard(function: Callable):
             resource_kind="public_remote",
             collection=True,
             principal_override=principal,
+            require_project_scope=True,
         )
         if denied is not None:
             return denied

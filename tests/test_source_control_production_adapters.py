@@ -353,6 +353,7 @@ def test_bound_index_submission_keeps_scope_and_access_intent_hub_owned() -> Non
     assert jobs.arguments["source_operation"] == "index"
     assert jobs.arguments["source_transformation"] == "redacted"
     assert jobs.arguments["source_purpose"] == "knowledge-index"
+    assert jobs.arguments["source_scope"] == "repo_path"
 
 
 def _seed_deletable_index(engine, output_dir, manifest_digest) -> None:

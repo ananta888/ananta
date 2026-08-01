@@ -8,6 +8,7 @@ class GoalCreateRequest(SQLModel):
     context: Optional[str] = None
     source: Optional[str] = "ui"
     team_id: Optional[str] = None
+    project_id: Optional[str] = None
     create_tasks: Optional[bool] = None
     use_template: Optional[bool] = None
     use_repo_context: Optional[bool] = None

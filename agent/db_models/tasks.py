@@ -16,6 +16,8 @@ class TaskDB(SQLModel, table=True):
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
     team_id: Optional[str] = Field(default=None, foreign_key="teams.id")
+    tenant_id: Optional[str] = Field(default=None, index=True, max_length=191)
+    project_id: Optional[str] = Field(default=None, index=True, max_length=191)
     assigned_agent_url: Optional[str] = Field(default=None, foreign_key="agents.url")
     assigned_role_id: Optional[str] = Field(default=None, foreign_key="roles.id")
     history: List[dict] = Field(default=[], sa_column=Column(JSON))

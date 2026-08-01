@@ -23,6 +23,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.db_models.context_policy_lifecycle import ContextPolicyVersionDB
+from agent.db_models.source_access_enforcement import (
+    SourceAccessGrantExecutionPolicyDB,
+)
 from agent.db_models.source_control import (
     SourceAccessGrantAuditDB,
     SourceAccessGrantDB,
@@ -35,6 +38,10 @@ from agent.services.context_policy_lifecycle import (
     ContextPolicyLifecycleError,
     ContextPolicyPreview,
     ContextPolicyVersion,
+)
+from agent.services.source_access_enforcement import source_access_grant_digest
+from agent.services.source_destination_resolution import (
+    source_destination_digest,
 )
 from ananta_contracts.source_control import (
     DestinationDescriptor,
@@ -133,6 +140,7 @@ class GrantPreset:
     operation: GrantOperation
     transformation: GrantTransformation
     purpose: str
+    consumption_mode: str
     max_duration_seconds: int
 
     def to_dict(self) -> dict[str, object]:
@@ -275,7 +283,8 @@ class SourceControlGrantPresetCatalog:
             description="Index redacted source material on an authorized worker.",
             operation=GrantOperation.INDEX,
             transformation=GrantTransformation.REDACTED,
-            purpose="knowledge_index",
+            purpose="knowledge-index",
+            consumption_mode="one_time",
             max_duration_seconds=86_400,
         ),
         GrantPreset(
@@ -285,6 +294,7 @@ class SourceControlGrantPresetCatalog:
             operation=GrantOperation.CHAT_CONTEXT,
             transformation=GrantTransformation.REDACTED,
             purpose="assisted_code_review",
+            consumption_mode="reusable",
             max_duration_seconds=14_400,
         ),
         GrantPreset(
@@ -294,6 +304,7 @@ class SourceControlGrantPresetCatalog:
             operation=GrantOperation.EXPORT,
             transformation=GrantTransformation.SUMMARY,
             purpose="tool_assisted_review",
+            consumption_mode="reusable",
             max_duration_seconds=3_600,
         ),
     )
@@ -445,7 +456,10 @@ class SourceControlGrantAdminService:
             raise SourceControlGrantAdminError(
                 "grant_policy_snapshot_mismatch", status_code=409
             )
-        if preview.decision != "allow":
+        if not _preview_allows_transformation(
+            decision=preview.decision,
+            transformation=preset.transformation,
+        ):
             reason = (
                 "grant_policy_approval_required"
                 if preview.decision == "approval_required"
@@ -568,6 +582,20 @@ class SourceControlGrantAdminService:
                     updated_at_epoch=now,
                 )
                 db.add(row)
+                db.add(
+                    SourceAccessGrantExecutionPolicyDB(
+                        grant_id=contract.grant_id,
+                        grant_digest=source_access_grant_digest(contract),
+                        destination_digest=source_destination_digest(
+                            destination
+                        ),
+                        consumption_mode=preset.consumption_mode,
+                        grant_lock_version=1,
+                        concurrency_version=1,
+                        created_at=issued_at,
+                        updated_at=issued_at,
+                    )
+                )
                 db.add(
                     _audit_row(
                         row=row,
@@ -1023,6 +1051,23 @@ def _policy_snapshot_id(policy: ContextPolicyVersion) -> str:
             "policy_digest": policy.policy_digest,
         }
     )
+
+
+def _preview_allows_transformation(
+    *,
+    decision: str,
+    transformation: GrantTransformation,
+) -> bool:
+    compatible = {
+        GrantTransformation.RAW: frozenset({"allow"}),
+        GrantTransformation.REDACTED: frozenset(
+            {"allow", "allow_redacted"}
+        ),
+        GrantTransformation.SUMMARY: frozenset(
+            {"allow", "allow_summary_only"}
+        ),
+    }
+    return str(decision) in compatible[transformation]
 
 
 def _grant_family_id(
