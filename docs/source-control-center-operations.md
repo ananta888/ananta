@@ -103,3 +103,29 @@ Produktionsverifikation bleibt `unverified` und `release_allowed=false`, solange
 keine tatsaechlich bereitgestellten gueltigen Source- und Run-IDs samt Evidence
 vorliegen. IDs duerfen niemals fuer Dokumentation, Fixture oder Gate erfunden
 werden.
+
+## Aktivierungsstand der neuen Onboarding-Pfade
+
+- Credential-freie Public Remotes sind lokal nur per explizitem Compose-Opt-in
+  aktiv. Produktion verwendet standardmaessig
+  `ANANTA_SOURCE_CONTROL_PUBLIC_REMOTES_ENABLED=false`.
+- Workspace-Folder-Registration bleibt auf den projektgebundenen
+  `ANANTA_WORKSPACE_ROOT`, opaque Handles, read-only Aufloesung und
+  content-freies Audit begrenzt.
+- Private GitHub-App-/OAuth-Nutzung bleibt fail-closed, solange Provisioner,
+  Secret Resolver, reale Installation und Grant nicht extern konfiguriert sind.
+- Die aktuellen Backend-Gates liefen mit `167/167`, der
+  PostgreSQL-Identifierfix mit `14/14` und der Auth-Produktionsfix mit
+  `147/147`. Angular lief mit `68/68`, erfolgreichem Build und `42/42`
+  Project-Selector-Tests; die Planning-Gates waren gruen.
+- Ein Live-PostgreSQL-Upgrade erreichte den Head-Praefix `5c0f...`; Hub und
+  Angular waren healthy. Workspace List `200`, Validate `200`, Create `201`,
+  Catalog-Match und Disable `200` verifizieren die lokale
+  Workspace-Registration auf Backend-/Integrationsniveau.
+- Public Git/GitHub bleibt `partial`: Live-Validate lieferte `200` und einen
+  40-Zeichen-Commit, aber Live-Create und Public-Remote-UI-E2E fehlen.
+- Angular `/sources/add` lieferte `200`; daraus wird keine vollstaendige
+  Workspace-Registration-Browser-Journey abgeleitet.
+- Historische Gate-Evidence bleibt erhalten, belegt aber nicht automatisch
+  den aktuellen Implementierungsdelta. Neue `SRC_*`- oder `RUN_*`-IDs werden
+  ohne reale Bereitstellung nicht eingetragen.

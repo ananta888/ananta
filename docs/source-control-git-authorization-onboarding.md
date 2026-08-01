@@ -51,3 +51,34 @@ secret or endpoint is returned by list, detail, mutation or health responses.
 
 Lifecycle mutations require the returned ETag in `If-Match` plus an
 `Idempotency-Key`. Revoke and scope-loss clear all granted scopes immediately.
+
+## Angular status
+
+The Git authorization list, selection, health and lifecycle controls are
+implemented in Angular. The browser continues to receive opaque authorization
+references only. The current Angular verification completed with `68/68`, a
+successful production build and `42/42` project-selector tests. The related
+authorization production-fix suite completed with `147/147`.
+
+Private GitHub App and OAuth remain external boundaries. No persistent private
+provider registration, installation or OAuth grant is configured by the
+repository default. Those capabilities therefore remain externally
+unverified even though the Hub and Angular boundaries are implemented.
+
+## Credential-free public remotes
+
+Public repositories use a separate flow:
+
+- `POST /api/source-control/v1/public-remotes/validate`
+- `POST /api/source-control/v1/public-remotes`
+
+The request uses structured public repository selection. It does not accept
+browser-supplied clone URLs, credentials or credential references. Validation
+returns a short-lived opaque handle; create consumes that handle through the
+Hub-owned idempotent persistence path.
+
+Local Compose activation is explicit opt-in. Production keeps
+`ANANTA_SOURCE_CONTROL_PUBLIC_REMOTES_ENABLED=false` by default. Public remote
+support remains `partial`: live validation returned `200` and resolved a
+40-character commit, but no live public-remote create and no dedicated Angular
+UI E2E were executed.

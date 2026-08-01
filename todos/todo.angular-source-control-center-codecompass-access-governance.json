@@ -823,7 +823,7 @@
         "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
         "artifacts/test-gates/source-control-github-onboarding-verification.json#sha256=f9f4de252e93b3fbc4bd865cdb586e6acbd97f7fd99b88e4159fcc7d7aded2ef"
       ],
-      "status_basis": "Produktive persistente Git-Connector-Composition sowie server-handle-only Provisioning-, List-, Detail-, Revoke-, Scope-loss- und Health-Flows sind mit RBAC/Scope, SQL-Idempotenz/CAS, immutable History, Audit und fail-closed Provider-/Secret-Auflösung lokal verifiziert. 148 Tests, Ruff, Bootstrap-Import und statischer Production-Call-Site bestanden. Ausschließlich die persistente GitHub-App-/OAuth-Registration mit count=0 sowie externe Installation und Grant fehlen.",
+      "status_basis": "Der credential-freie Public-Remote-Validate/Create-Pfad ist implementiert; lokale Compose-Nutzung ist Opt-in und die Produktions-Flag bleibt standardmaessig false. Backend 167/167 und Live-Validate 200 mit aufgeloestem 40-Zeichen-Commit sind belegt. Da Live-Create und Public-Remote-UI-E2E fehlen, bleibt Public Git/GitHub partial. Die persistente private GitHub-App-/OAuth-Registration hat weiterhin count=0; externe Installation und Grant bleiben unverified.",
       "acceptance_evidence": {
         "persistent_connector_composition": "passed",
         "server_handle_only_api": "passed",
@@ -832,7 +832,14 @@
         "tests": "148_passed",
         "persistent_registration_count": 0,
         "external_installation": "unverified",
-        "external_oauth_grant": "unverified"
+        "external_oauth_grant": "unverified",
+        "public_remote_validate_create_backend": "passed_167_of_167",
+        "public_remote_local_compose": "explicit_opt_in",
+        "public_remote_production_default": "disabled",
+        "public_remote_current_delta_tests": "not_run",
+        "public_remote_live_validate": "passed_http_200_commit_length_40",
+        "public_remote_live_create": "not_run",
+        "public_remote_ui_e2e": "not_run"
       }
     },
     {
@@ -1045,7 +1052,16 @@
         "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
         "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9"
       ],
-      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
+      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis.",
+      "implementation_delta": {
+        "state": "locally_verified",
+        "capability": "atomic_connection_binding",
+        "details": [
+          "Connector-Auswahl und validierter relative_path werden atomar an die Connection gebunden.",
+          "Workspace-Intents persistieren keine Browser- oder Hub-Hostpfade.",
+          "Das aktuelle Backend-Gate lief mit 167/167; die Planning-Gates waren gruen."
+        ]
+      }
     },
     {
       "id": "SRCCTRL-H3-004",
@@ -1406,14 +1422,22 @@
         "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
         "artifacts/test-gates/source-control-github-onboarding-verification.json#sha256=f9f4de252e93b3fbc4bd865cdb586e6acbd97f7fd99b88e4159fcc7d7aded2ef"
       ],
-      "status_basis": "Angular-Build, Typecheck, Unit-, Playwright- und Accessibility-Gates sowie der produktive server-handle-only GitHub-Onboarding-Vertrag sind lokal erfolgreich. Browserstate erhält weder Token, credential_ref noch Remote-URL. Ausschließlich die Journey mit einer persistent registrierten realen GitHub-App-/OAuth-Installation und externem Grant fehlt.",
+      "status_basis": "Git-Authorization-UI und opaque server-handle-only Backend-Anbindung sind implementiert. Angular 68/68, Build und 42/42 Project-Selector-Tests sowie Auth-Produktionsfix 147/147 sind erfolgreich. Workspace-Registration ist durch Backend 167/167 und den realen List-200/Validate-200/Create-201/Catalog-Match/Disable-200-Smoke lokal verifiziert; /sources/add war 200, eine vollstaendige Angular-Browser-Registration-Journey wurde jedoch nicht ausgefuehrt. Private GitHub-App-/OAuth-Installation und Grant bleiben extern unverified; die Aufgabe bleibt partial.",
       "acceptance_evidence": {
         "angular_and_accessibility": "passed",
         "server_handle_only_contract": "passed",
         "browser_secret_exposure": "denied",
         "persistent_registration_count": 0,
         "external_installation_journey": "unverified",
-        "external_oauth_grant": "unverified"
+        "external_oauth_grant": "unverified",
+        "git_authorization_ui": "passed_angular_68_of_68_and_build",
+        "workspace_folder_registration_backend": "locally_verified",
+        "workspace_folder_registration_angular": "browser_journey_not_run",
+        "current_delta_tests": "not_run",
+        "project_selector": "passed_42_of_42",
+        "authorization_production_fix": "passed_147_of_147",
+        "workspace_registration_live_smoke": "list_200_validate_200_create_201_catalog_match_disable_200",
+        "sources_add_route": "http_200"
       }
     },
     {
@@ -1743,7 +1767,17 @@
         "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
         "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9"
       ],
-      "status_basis": "Sechs deterministische Chromium-E2E-Flows liefen ohne Fehler und ohne Retry; lokale Governance-, Approval-, Rollback- und Accessibility-Pfade sind belegt. Live-GitHub-/OAuth-, Cloud- und Produktions-Journeys bleiben extern unverified."
+      "status_basis": "Die historisch referenzierten sechs deterministischen Chromium-E2E-Flows sowie lokale Governance-, Approval-, Rollback- und Accessibility-Pfade bleiben belegt. Der aktuelle Delta ist durch Backend 167/167, Identifierfix 14/14, Auth 147/147, Angular 68/68 plus Build, Project-Selector 42/42 und einen realen Workspace-Registration-Smoke belegt. Es fehlen weiterhin die vollstaendige Workspace-Registration-Browser-Journey, Public-Remote-Live-Create und Public-Remote-UI-E2E sowie externe private GitHub-/Cloud-/Produktions-Journeys; die Aufgabe bleibt partial.",
+      "acceptance_evidence": {
+        "current_connection_binding_tests": "passed_backend_167_of_167",
+        "current_public_remote_tests": "not_run",
+        "current_git_authorization_ui_tests": "passed_angular_68_of_68_build_project_selector_42_of_42",
+        "current_workspace_registration_tests": "passed_backend_and_live_smoke",
+        "current_public_remote_validate": "passed_live_http_200_commit_length_40",
+        "current_public_remote_create": "not_run",
+        "current_public_remote_ui_e2e": "not_run",
+        "current_workspace_browser_journey": "not_run"
+      }
     },
     {
       "id": "SRCCTRL-R6-005",
@@ -1803,7 +1837,7 @@
         "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9",
         "artifacts/test-gates/source-control-center-rollout-verification.json#sha256=f8a89012a90539af96c158691f497679b8785a959315b81e8f8cd27b260987ed"
       ],
-      "status_basis": "Alle lokalen Rollout-, Contract-, Security-, Migration-, Backend-, Angular-, E2E-, Accessibility-, Container-, No-Bypass- und Load-/Recovery-Gates sind erfolgreich. Produktionsverifikation mit gültigen SRC_*/RUN_*-IDs und organisatorische Freigabe bleiben extern unverified."
+      "status_basis": "Historische lokale Rollout-, Contract-, Security-, Migration-, Backend-, Angular-, E2E-, Accessibility-, Container-, No-Bypass- und Load-/Recovery-Gates bleiben erhalten. Der aktuelle Delta ist mit Backend 167/167, PostgreSQL-Identifierfix 14/14, Auth-Produktionsfix 147/147, Angular 68/68 plus Build, Project-Selector 42/42 und gruenen Planning-Gates verifiziert. Das Live-PostgreSQL-Upgrade erreichte Head-Praefix 5c0f..., Hub und Angular waren healthy. Public-Remote-Live-Create/UI-E2E, gueltige SRC_*/RUN_*-Produktionsverifikation und organisatorische Freigabe bleiben offen."
     }
   ],
   "critical_path_tasks": [
@@ -2077,7 +2111,12 @@
     "Production-Verifikation bleibt ohne bereitgestellte gültige SRC_* und RUN_* IDs unverified; release_allowed=false.",
     "Recovery-Drill: 14 serielle restricted-inference Scopes am selben unerreichbaren Endpoint wurden durch Endpoint-Circuit-Breaker und Fail-fast sicher beendet; 22/22 Tests und Ruff passed, Tasks blieben failed/retryable/durable, 14 Outbox-Zeilen blieben als 1 worker_unavailable plus 13 worker_circuit_open erhalten. Startup sank von 168.7424 s auf 22.3307 s, Cleanup von 167.1531 s auf 20.7195 s; Container-Start bis Health betrug 30.837 s und Hub Health war ok.",
     "Alarm-Drill: Die lokale Loopback-Kette firing, delivered, resolved und healthy bestand mit firing=0 und resolved=1; 9/9 Tests und Ruff passed. Produktive Rules-, Config- und Alertmanager-Anbindung sind implementiert, ein realer Produktionsreceiver beziehungsweise Paging wurde nicht kontaktiert.",
-    "GitHub-Onboarding: Persistente Git-Connector-Composition und server-handle-only Provisioning/List/Detail/Revoke/Scope-loss/Health sind mit admin/project_owner plus Scope, SQL-Idempotenz/CAS, immutable History, Audit und fail-closed Provider-/Secret-Auflösung implementiert; 148 Tests, Ruff und Bootstrap bestanden. Persistente GitHub-App-/OAuth-Registration count=0 sowie externe Installation und Grant bleiben offen."
+    "GitHub-Onboarding: Persistente Git-Connector-Composition und server-handle-only Provisioning/List/Detail/Revoke/Scope-loss/Health sind mit admin/project_owner plus Scope, SQL-Idempotenz/CAS, immutable History, Audit und fail-closed Provider-/Secret-Auflösung implementiert; 148 Tests, Ruff und Bootstrap bestanden. Persistente GitHub-App-/OAuth-Registration count=0 sowie externe Installation und Grant bleiben offen.",
+    "Aktueller Implementierungsdelta: Backend 167/167, PostgreSQL-Identifierfix 14/14, Auth-Produktionsfix 147/147, Angular 68/68 plus Build, Project-Selector 42/42 und Planning-Gates sind erfolgreich ausgefuehrt.",
+    "Public Git/GitHub ist lokal nur per Compose-Opt-in aktiv und in Produktion standardmaessig deaktiviert. Live-Validate war 200 mit 40-Zeichen-Commit; ohne Live-Create und UI-E2E bleibt die Capability partial.",
+    "Private GitHub-App-/OAuth-Provider bleiben trotz lokal verifizierter Hub- und Angular-Grenzen extern nicht konfiguriert und unverified. Es wurden keine SRC_*/RUN_*-IDs ergaenzt.",
+    "Live PostgreSQL erreichte den Alembic-Head-Praefix 5c0f...; Hub und Angular waren healthy. Ein realer claimloser Admin-plus-project_id-Smoke bestand Workspace List 200, Validate 200, Create 201, Catalog-Match und Disable 200; Angular /sources/add war 200.",
+    "Workspace-Registration ist damit auf Backend-/Integrationsniveau lokal verifiziert. Eine vollstaendige Angular-Browser-Journey wird nicht behauptet."
   ],
   "end_summaries": [
     {
@@ -2104,7 +2143,9 @@
         "Hub-Worker-Grenze, Tenant-/Projektisolation, OCC, Audit, Retention, Rollback und sichere Purge-Semantik besitzen reproduzierbare Testdefinitionen.",
         "Jede Connection besitzt unveränderliche Revisionen, Admission, revisionsgebundene Index-Runs, genau einen konsistenten Active-Index und nachvollziehbaren Stale-Status.",
         "Jede Datenbewegung wird gegen reale SourceRevision, Worker, Runtime, Provider, Modell, Standort, Operation und Transformation serverseitig entschieden.",
-        "Lokaler Recovery- und Alarm-Delivery-Drill belegen Circuit-Breaker, Fail-fast, retryable/durable Tasks, vollständigen Outbox-Erhalt sowie firing-to-resolved-to-healthy. Reale Produktionsreceiver, Paging und Produktionsmetriken bleiben externe Release-Voraussetzungen."
+        "Lokaler Recovery- und Alarm-Delivery-Drill belegen Circuit-Breaker, Fail-fast, retryable/durable Tasks, vollständigen Outbox-Erhalt sowie firing-to-resolved-to-healthy. Reale Produktionsreceiver, Paging und Produktionsmetriken bleiben externe Release-Voraussetzungen.",
+        "Die Capability-Matrix trennt Backend-Implementierung, Angular-Bedienbarkeit und externe private Provider-Konfiguration; historische Evidence wird nicht als Beleg fuer nicht ausgefuehrte neue Tests verwendet.",
+        "Workspace-Folder-Registration ist durch automatisierte und reale Backend-/Integrations-Smokes lokal verifiziert; die Angular-Browser-Journey bleibt offen. Public Git/GitHub bleibt ohne Live-Create und UI-E2E partial."
       ]
     }
   ],
@@ -2177,5 +2218,75 @@
         "status": "in_progress"
       }
     }
+  },
+  "capability_matrix": [
+    {
+      "capability": "atomic_connection_binding_relative_path",
+      "backend": "implemented",
+      "angular": "available_through_existing_source_wizard",
+      "external_private_provider": "not_applicable",
+      "verification": "locally_verified_backend_167_of_167"
+    },
+    {
+      "capability": "git_authorization_lifecycle",
+      "backend": "implemented",
+      "angular": "implemented",
+      "external_private_provider": "required_for_private_github_app_or_oauth",
+      "verification": "locally_verified_auth_147_of_147_angular_68_of_68_build_project_selector_42_of_42"
+    },
+    {
+      "capability": "credential_free_public_git_github",
+      "backend": "implemented_validate_create",
+      "angular": "not_yet_verified_as_dedicated_flow",
+      "external_private_provider": "not_required",
+      "activation": {
+        "local_compose": "explicit_opt_in",
+        "production_default": "disabled"
+      },
+      "verification": "partial_live_validate_200_commit_length_40_live_create_and_ui_e2e_not_run"
+    },
+    {
+      "capability": "local_workspace_folder_registration",
+      "backend": "implemented",
+      "angular": "not_yet_verified_as_end_to_end_flow",
+      "external_private_provider": "not_applicable",
+      "verification": "locally_verified_backend_and_live_smoke_browser_journey_not_run"
+    },
+    {
+      "capability": "private_github_app_oauth",
+      "backend": "provider_boundary_implemented_fail_closed",
+      "angular": "authorization_ui_implemented",
+      "external_private_provider": "not_configured",
+      "verification": "external_unverified"
+    }
+  ],
+  "latest_verification_results": {
+    "backend": "167/167 passed",
+    "postgres_identifier_fix": "14/14 passed",
+    "authorization_production_fix": "147/147 passed",
+    "angular": "68/68 passed and build passed",
+    "project_selector": "42/42 passed",
+    "planning_gates": "passed",
+    "live_postgres_upgrade_head_prefix": "5c0f...",
+    "hub_health": "healthy",
+    "angular_health": "healthy",
+    "workspace_registration_live_smoke": {
+      "identity_mode": "claimless admin plus project_id",
+      "workspace_list": 200,
+      "workspace_validate": 200,
+      "workspace_create": 201,
+      "catalog_match": true,
+      "workspace_disable": 200
+    },
+    "public_github_live_validate": {
+      "status": 200,
+      "resolved_commit_length": 40,
+      "live_create": "not_run",
+      "ui_e2e": "not_run"
+    },
+    "angular_sources_add": 200,
+    "workspace_registration_browser_journey": "not_run",
+    "private_github_app_oauth": "external_unverified",
+    "production_source_run_ids": "not_provided"
   }
 }
