@@ -311,6 +311,7 @@ const NEXT_ACTIONS = new Set<SourceControlNextAction>([
 ]);
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$/;
 const ETAG = /^(?:[0-9a-f]{64}|index:[1-9][0-9]*)$/;
+const ACTIVE_POINTER_ETAG = /^active:(?:0|[1-9][0-9]*)$/;
 const POLICY_STATES = new Set<ContextPolicyState>([
   'draft',
   'active',
@@ -401,6 +402,15 @@ export function assertSourceControlEtag(
   }
 }
 
+export function assertSourceControlActivePointerEtag(
+  value: unknown,
+  path: string,
+): asserts value is string {
+  if (typeof value !== 'string' || !ACTIVE_POINTER_ETAG.test(value)) {
+    fail(`${path}_invalid`);
+  }
+}
+
 export function parseSourceControlEnvelope<T>(
   value: unknown,
   parseData: (data: unknown, path: string) => T,
@@ -439,7 +449,16 @@ export function parseSourceControlProjectionPage(
   path = 'projection_page',
 ): SourceControlProjectionPage {
   const page = record(value, path);
-  exactKeys(page, ['items', 'next_cursor'], path);
+  const expectedKeys = ['items', 'next_cursor'];
+  if ('schema' in page) {
+    expectedKeys.push('schema');
+    literal(
+      page['schema'],
+      'ananta.source-control.projection-page.v1',
+      `${path}.schema`,
+    );
+  }
+  exactKeys(page, expectedKeys, path);
   return {
     items: array(page['items'], `${path}.items`).map((item, index) =>
       parseSourceControlProjection(item, `${path}.items[${index}]`),

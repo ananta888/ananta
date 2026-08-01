@@ -25,13 +25,13 @@ import { ControlCenterStateFacade } from '../services/control-center-state.facad
           }
         </div>
         <nav>
-          <a routerLink="dashboard" data-waypoint="cc.dashboard">Dashboard</a>
-          <a routerLink="tasks" data-waypoint="cc.tasks">Tasks</a>
-          <a routerLink="sessions" data-waypoint="cc.sessions">Sessions</a>
-          <a routerLink="artifacts" data-waypoint="cc.artifacts">Artifacts</a>
-          <a routerLink="workers" data-waypoint="cc.workers">Workers</a>
-          <a routerLink="policies" data-waypoint="cc.policies">Policies</a>
-          <a routerLink="codecompass" data-waypoint="cc.codecompass">CodeCompass</a>
+          <a routerLink="dashboard" queryParamsHandling="preserve" data-waypoint="cc.dashboard">Dashboard</a>
+          <a routerLink="tasks" queryParamsHandling="preserve" data-waypoint="cc.tasks">Tasks</a>
+          <a routerLink="sessions" queryParamsHandling="preserve" data-waypoint="cc.sessions">Sessions</a>
+          <a routerLink="artifacts" queryParamsHandling="preserve" data-waypoint="cc.artifacts">Artifacts</a>
+          <a routerLink="workers" queryParamsHandling="preserve" data-waypoint="cc.workers">Workers</a>
+          <a routerLink="policies" queryParamsHandling="preserve" data-waypoint="cc.policies">Policies</a>
+          <a routerLink="codecompass" queryParamsHandling="preserve" data-waypoint="cc.codecompass">CodeCompass</a>
         </nav>
       </aside>
       <main class="cc-center"><router-outlet /></main>

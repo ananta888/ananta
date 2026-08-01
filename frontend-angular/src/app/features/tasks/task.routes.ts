@@ -1,12 +1,13 @@
 import { Routes } from '@angular/router';
 
+import { projectContextGuard } from '../../guards/project-context.guard';
 import { routeDataFor } from '../../models/route-metadata';
 import { angularKanbanGuard } from '../dashboard-foundation/dashboard-feature-flags';
 
 export const taskRoutes: Routes = [
-  { path: 'board', canActivate: [angularKanbanGuard], data: routeDataFor('board'), loadComponent: () => import('../../components/board.component').then(m => m.BoardComponent) },
+  { path: 'board', canActivate: [projectContextGuard, angularKanbanGuard], data: routeDataFor('board'), loadComponent: () => import('../../components/board.component').then(m => m.BoardComponent) },
   { path: 'archived', data: routeDataFor('archived'), loadComponent: () => import('../../components/archived-tasks.component').then(m => m.ArchivedTasksComponent) },
   { path: 'graph', data: routeDataFor('graph'), loadComponent: () => import('../../components/task-graph.component').then(m => m.TaskGraphComponent) },
   { path: 'task/:id', data: routeDataFor('task'), loadComponent: () => import('../../components/task-detail.component').then(m => m.TaskDetailComponent) },
-  { path: 'goal/:id', data: routeDataFor('goal'), loadComponent: () => import('../../components/goal-detail.component').then(m => m.GoalDetailComponent) },
+  { path: 'goal/:id', canActivate: [projectContextGuard], data: routeDataFor('goal'), loadComponent: () => import('../../components/goal-detail.component').then(m => m.GoalDetailComponent) },
 ];

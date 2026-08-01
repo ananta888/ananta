@@ -1,9 +1,11 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 
 import { SourceControlV1ApiClient } from '../../services/source-control-v1-api.client';
 import { SourceControlV1GovernanceApiClient } from '../../services/source-control-v1-governance-api.client';
+import { ProjectContextService } from '../../services/project-context.service';
 import { SourceDetailFacade } from './source-detail.facade';
 
 describe('SourceDetailFacade', () => {
@@ -15,6 +17,7 @@ describe('SourceDetailFacade', () => {
   const indexEtag = '8'.repeat(64);
   const grantEtag = '7'.repeat(64);
   const policyEtag = '6'.repeat(64);
+  const selectedProjectId = signal<string | null>('project-alpha');
 
   const getConnection = vi.fn();
   const listRuns = vi.fn();
@@ -49,6 +52,7 @@ describe('SourceDetailFacade', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    selectedProjectId.set('project-alpha');
     getConnection.mockReturnValue(of({
       etag: connectionEtag,
       projection: {
@@ -149,6 +153,7 @@ describe('SourceDetailFacade', () => {
         SourceDetailFacade,
         { provide: SourceControlV1ApiClient, useValue: core },
         { provide: SourceControlV1GovernanceApiClient, useValue: governance },
+        { provide: ProjectContextService, useValue: { selectedProjectId } },
       ],
     });
   });
@@ -166,7 +171,7 @@ describe('SourceDetailFacade', () => {
     expect(facade.runs()[0]?.etag).toBe(indexEtag);
   });
 
-  it('starts, activates and rolls back only server-listed index resources with their ETags', () => {
+  it('uses the connection ETag for runs and the active-pointer CAS for lifecycle changes', () => {
     const facade = TestBed.inject(SourceDetailFacade);
     facade.load(connectionId);
 
@@ -182,13 +187,13 @@ describe('SourceDetailFacade', () => {
 
     facade.activateIndex(indexId);
     expect(activateIndex).toHaveBeenCalledWith(indexId, {
-      etag: indexEtag,
+      etag: 'active:0',
       idempotencyKey: expect.stringMatching(/^ui:index:activate:/),
     });
 
     facade.rollbackIndex(indexId);
     expect(rollbackIndex).toHaveBeenCalledWith(indexId, {
-      etag: indexEtag,
+      etag: 'active:0',
       idempotencyKey: expect.stringMatching(/^ui:index:rollback:/),
     });
   });
@@ -249,5 +254,19 @@ describe('SourceDetailFacade', () => {
     expect(startIndexRun).not.toHaveBeenCalled();
     expect(activateIndex).not.toHaveBeenCalled();
     expect(createGrant).not.toHaveBeenCalled();
+  });
+
+  it('discards a projection outside the globally selected project scope', () => {
+    selectedProjectId.set('project-beta');
+    const facade = TestBed.inject(SourceDetailFacade);
+
+    facade.load(connectionId);
+
+    expect(facade.source()).toBeNull();
+    expect(facade.runs()).toEqual([]);
+    expect(facade.sourceError()?.state).toBe('forbidden');
+    expect(listIndexProfiles).not.toHaveBeenCalled();
+    facade.startIndex('profile-default');
+    expect(startIndexRun).not.toHaveBeenCalled();
   });
 });

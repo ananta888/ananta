@@ -138,7 +138,12 @@ describe('source-control v1 public remote contracts', () => {
     requested_ref: 'refs/heads/main',
     commit_sha: 'a'.repeat(40),
     expires_at_epoch: 1_800_000_000,
-    capabilities: { browse: true, index: false },
+    capabilities: {
+      connector_type: 'github',
+      credential_mode: 'none',
+      remote_url_exposed: false,
+      immutable_validation: true,
+    },
     ...overrides,
   });
 
@@ -179,14 +184,22 @@ describe('source-control v1 public remote contracts', () => {
         provider: 'https_git',
         commit_sha: 'b'.repeat(64),
         state: 'active',
-        capabilities: { browse: true },
+        capabilities: {
+          connector_type: 'git',
+          credential_mode: 'none',
+          remote_url_exposed: false,
+        },
       }),
     ).toEqual({
       remote_id: 'public-remote-1',
       provider: 'https_git',
       commit_sha: 'b'.repeat(64),
       state: 'active',
-      capabilities: { browse: true },
+      capabilities: {
+        connector_type: 'git',
+        credential_mode: 'none',
+        remote_url_exposed: false,
+      },
     });
   });
 
@@ -241,7 +254,7 @@ describe('source-control v1 public remote contracts', () => {
     ).toThrowError(SourceControlV1ContractError);
   });
 
-  it('requires lowercase Git object IDs, positive epochs, and boolean capabilities', () => {
+  it('requires lowercase Git object IDs, positive epochs, and closed capabilities', () => {
     expect(() =>
       parsePublicRemoteValidation(
         validation({ commit_sha: 'A'.repeat(40) }),
@@ -254,6 +267,26 @@ describe('source-control v1 public remote contracts', () => {
       parsePublicRemoteValidation(
         validation({ capabilities: { browse: 'yes' } }),
       ),
+    ).toThrowError(SourceControlV1ContractError);
+    expect(() =>
+      parsePublicRemoteValidation(validation({
+        capabilities: {
+          connector_type: 'github',
+          credential_mode: 'token',
+          remote_url_exposed: false,
+          immutable_validation: true,
+        },
+      })),
+    ).toThrowError(SourceControlV1ContractError);
+    expect(() =>
+      parsePublicRemoteValidation(validation({
+        capabilities: {
+          connector_type: 'github',
+          credential_mode: 'none',
+          remote_url_exposed: true,
+          immutable_validation: true,
+        },
+      })),
     ).toThrowError(SourceControlV1ContractError);
   });
 });

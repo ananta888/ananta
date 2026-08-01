@@ -2,6 +2,7 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 import { TestBed } from '@angular/core/testing';
 
 import { SourceControlV1ContractError } from '../models/source-control-v1-api.model';
+import { SUPPRESS_GLOBAL_ERROR_NOTIFICATION } from './error-request-context';
 import { SourceControlV1GovernanceApiClient } from './source-control-v1-governance-api.client';
 
 const envelope = (data: unknown) => ({
@@ -200,6 +201,9 @@ describe('SourceControlV1GovernanceApiClient', () => {
     const request = http.expectOne(
       '/api/source-control/v1/git-authorizations/health',
     );
+    expect(
+      request.request.context.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION),
+    ).toBe(true);
     request.flush(
       envelope({
         status: 'unavailable',
@@ -355,7 +359,12 @@ describe('SourceControlV1GovernanceApiClient', () => {
         requested_ref: 'refs/heads/main',
         commit_sha: 'a'.repeat(40),
         expires_at_epoch: 1_800_000_000,
-        capabilities: { browse: true },
+        capabilities: {
+          connector_type: 'github',
+          credential_mode: 'none',
+          remote_url_exposed: false,
+          immutable_validation: true,
+        },
       }),
     );
     expect(handle).toBe('public-validation-1');
@@ -409,7 +418,12 @@ describe('SourceControlV1GovernanceApiClient', () => {
         requested_ref: 'main',
         commit_sha: 'b'.repeat(64),
         expires_at_epoch: 1_800_000_000,
-        capabilities: {},
+        capabilities: {
+          connector_type: 'github',
+          credential_mode: 'none',
+          remote_url_exposed: false,
+          immutable_validation: true,
+        },
       }),
     );
     expect(contractError).toEqual(expect.any(SourceControlV1ContractError));
@@ -447,7 +461,11 @@ describe('SourceControlV1GovernanceApiClient', () => {
         provider: 'github_public',
         commit_sha: 'a'.repeat(40),
         state: 'active',
-        capabilities: { browse: true },
+        capabilities: {
+          connector_type: 'github',
+          credential_mode: 'none',
+          remote_url_exposed: false,
+        },
       }),
     );
     expect(remoteId).toBe('public-remote-1');

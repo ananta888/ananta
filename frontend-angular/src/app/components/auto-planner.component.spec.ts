@@ -8,6 +8,7 @@ describe('AutoPlannerComponent', () => {
       controlPlane: any;
       cdr: any;
       ns: any;
+      projectContext: any;
       loadGoals: any;
       selectGoal: any;
     };
@@ -24,6 +25,11 @@ describe('AutoPlannerComponent', () => {
     });
     Object.defineProperty(cmp, 'ns', {
       value: { success: vi.fn(), error: vi.fn(), fromApiError: vi.fn((_e: any, fallback: string) => fallback) },
+      configurable: true,
+      writable: true,
+    });
+    Object.defineProperty(cmp, 'projectContext', {
+      value: { selectedProjectId: vi.fn(() => 'project-1') },
       configurable: true,
       writable: true,
     });
@@ -71,6 +77,7 @@ describe('AutoPlannerComponent', () => {
     expect(body.goal).toBe('Goal');
     expect(body.constraints).toEqual(['constraint-a', 'constraint-b']);
     expect(body.acceptance_criteria).toEqual(['criterion-a']);
+    expect(body.project_id).toBe('project-1');
     expect(body.workflow).toBeUndefined();
   });
 
@@ -86,6 +93,26 @@ describe('AutoPlannerComponent', () => {
       routing: { mode: 'active_team_or_hub_default' },
       policy: { security_level: 'strict' },
     });
+  });
+
+  it('fails closed when no global project is selected', () => {
+    const cmp = createComponent();
+    (cmp as any).projectContext.selectedProjectId.mockReturnValue(null);
+
+    cmp.planGoal();
+
+    expect(cmp.controlPlane.createGoal).not.toHaveBeenCalled();
+    expect(cmp.ns.error).toHaveBeenCalledWith('Bitte zuerst ein Projekt auswaehlen.');
+  });
+
+  it('keeps project context on goal and board next-step links', () => {
+    const cmp = createComponent();
+    cmp.selectedGoalId = 'G-1';
+
+    expect(cmp.goalDetailNextSteps()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'open-goal', queryParams: { projectId: 'project-1' } }),
+      expect.objectContaining({ id: 'open-board', queryParams: { projectId: 'project-1' } }),
+    ]));
   });
 
   it('prefers the active team with known worker members for goal defaults', () => {

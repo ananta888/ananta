@@ -21,9 +21,11 @@ import {
   SourceControlV1ApiClient,
   normalizeSourceWorkspaceRelativePath,
 } from '../../services/source-control-v1-api.client';
+import { ProjectContextService } from '../../services/project-context.service';
 import { GitAuthorizationOnboardingComponent } from './git-authorization-onboarding.component';
 import { PublicGitRemoteOnboardingComponent } from './public-git-remote-onboarding.component';
 import { WorkspaceRegistrationComponent } from './workspace-registration.component';
+import { WorkspaceSnapshotUploadComponent } from './workspace-snapshot-upload.component';
 import {
   SourceConnectorCatalogService,
 } from './source-connector-catalog.service';
@@ -149,11 +151,12 @@ function canonicalNotebook(value: unknown): CanonicalNotebook | null {
     GitAuthorizationOnboardingComponent,
     PublicGitRemoteOnboardingComponent,
     WorkspaceRegistrationComponent,
+    WorkspaceSnapshotUploadComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="import-shell" aria-labelledby="source-import-title">
-      <a class="back-link" routerLink="/sources">Zur Source-Control-Uebersicht</a>
+      <a class="back-link" routerLink="/sources" queryParamsHandling="preserve">Zur Source-Control-Uebersicht</a>
       <header>
         <p class="eyebrow">Source Control v1</p>
         <h1 id="source-import-title">Quelle aufnehmen</h1>
@@ -272,6 +275,9 @@ function canonicalNotebook(value: unknown): CanonicalNotebook | null {
           <h2 id="workspace-title">Registrierte Workspaces</h2>
           <app-workspace-registration
             [projectId]="projectId"
+            (workspaceCreated)="onWorkspaceRegistered($event)"
+          />
+          <app-workspace-snapshot-upload
             (workspaceCreated)="onWorkspaceRegistered($event)"
           />
           <label for="workspace-name">Anzeigename</label>
@@ -515,6 +521,7 @@ export class SourceImportPageComponent implements OnInit {
   private readonly api = inject(SourceControlV1GovernanceApiClient);
   private readonly connectionApi = inject(SourceControlV1ApiClient);
   private readonly route = inject(ActivatedRoute);
+  private readonly projectContext = inject(ProjectContextService);
 
   readonly projectId = sourceProjectIdFromRoute(this.route.snapshot);
   readonly selectedKind = signal<ImportKind>('direct_text');
@@ -620,14 +627,17 @@ export class SourceImportPageComponent implements OnInit {
     this.reloadRegisteredRemotes(null, authorization.repository);
   }
 
-  onWorkspaceRegistered(workspace: SourceControlWorkspaceRegistration): void {
-    if (!this.projectId || workspace.state !== 'active') {
+  onWorkspaceRegistered(
+    workspace: Pick<SourceControlWorkspaceRegistration, 'workspace_id' | 'state'>,
+  ): void {
+    const activeProjectId = this.projectContext.selectedProjectId()?.trim() ?? '';
+    if (!activeProjectId || workspace.state !== 'active') {
       return;
     }
     this.loadingCatalogs.set(true);
     this.catalogError.set('');
     this.catalog
-      .loadWorkspaces(this.projectId)
+      .loadWorkspaces(activeProjectId)
       .pipe(finalize(() => this.loadingCatalogs.set(false)))
       .subscribe({
         next: (workspaces) => {

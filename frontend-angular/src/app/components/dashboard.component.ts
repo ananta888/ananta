@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
+import { ProjectContextService } from '../services/project-context.service';
 import { NotificationService } from '../services/notification.service';
 import { ToastService } from '../services/toast.service';
 import { UiAsyncState } from '../models/ui.models';
@@ -61,6 +62,7 @@ import { ModeCardOption, ModeCardPickerComponent, PresetOption } from '../shared
   imports: [CommonModule, FormsModule, RouterLink, OnboardingChecklistComponent, DashboardAgentStatusPanelComponent, DashboardAutopilotPanelComponent, DashboardTimelinePanelComponent, DashboardBenchmarkPanelComponent, DashboardDemoPreviewComponent, DashboardGoalGovernanceSummaryCardComponent, DashboardGuidedGoalWizardComponent, DashboardPersonalWorkspaceComponent, DashboardQuickGoalPanelComponent, EmptyStateComponent, ErrorStateComponent, LoadingStateComponent, KeyValueGridComponent, DecisionExplanationComponent, ExplanationNoticeComponent, SystemStatusSummaryComponent, SectionCardComponent, PageIntroComponent, ActionCardComponent, ModeCardPickerComponent],  templateUrl: './dashboard.component.html'
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  private readonly projectContext = inject(ProjectContextService);
   private dir = inject(AgentDirectoryService);
   protected ns = inject(NotificationService);
   private toast = inject(ToastService);
@@ -248,12 +250,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   submitGuidedGoal(request: GuidedGoalSubmit) {
-    if (!this.hub || !request.mode) return;
+    const projectId = this.projectContext.selectedProjectId();
+    if (!this.hub || !request.mode || !projectId) return;
     this.quickGoalBusy = true;
     this.quickGoalResult = null;
     const selection = this.currentInstructionSelection();
 
     this.hubApi.createGoal(this.hub.url, {
+      project_id: projectId,
       mode: request.mode.id,
       mode_data: {
         ...request.modeData,
@@ -448,6 +452,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         label: 'Aufgaben verfolgen',
         description: 'Erzeugte Aufgaben ansehen und naechste Arbeit starten.',
         routerLink: ['/board'],
+        queryParams: { projectId: this.projectContext.selectedProjectId() },
       },
       {
         id: 'artifacts',
@@ -916,11 +921,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   goToBoard() {
-    this.router.navigate(['/board']);
+    this.router.navigate(['/board'], {
+      queryParams: { projectId: this.projectContext.selectedProjectId() },
+    });
   }
 
   goToGoal(id: string) {
-    this.router.navigate(['/goal', id]);
+    this.router.navigate(['/goal', id], {
+      queryParams: { projectId: this.projectContext.selectedProjectId() },
+    });
   }
 }
 

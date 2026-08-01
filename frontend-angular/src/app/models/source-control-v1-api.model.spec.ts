@@ -1,6 +1,8 @@
 import {
   SourceControlV1ContractError,
+  assertSourceControlActivePointerEtag,
   parseSourceControlProjection,
+  parseSourceControlProjectionPage,
 } from './source-control-v1-api.model';
 
 function projection(connection: Record<string, unknown>): unknown {
@@ -21,6 +23,17 @@ function projection(connection: Record<string, unknown>): unknown {
 }
 
 describe('source-control v1 projection contract', () => {
+  it('accepts only the documented active-pointer controller ETag normal form', () => {
+    expect(() => assertSourceControlActivePointerEtag('active:0', 'if_match')).not.toThrow();
+    expect(() => assertSourceControlActivePointerEtag('active:17', 'if_match')).not.toThrow();
+    expect(() => assertSourceControlActivePointerEtag('"active:0"', 'if_match')).toThrow(
+      'if_match_invalid',
+    );
+    expect(() => assertSourceControlActivePointerEtag('index:2', 'if_match')).toThrow(
+      'if_match_invalid',
+    );
+  });
+
   it('requires the server-authoritative project without exposing tenant', () => {
     const parsed = parseSourceControlProjection(
       projection({
@@ -48,5 +61,23 @@ describe('source-control v1 projection contract', () => {
         }),
       ),
     ).toThrowError(SourceControlV1ContractError);
+  });
+
+  it('accepts and validates the Hub projection-page schema marker', () => {
+    const page = parseSourceControlProjectionPage({
+      schema: 'ananta.source-control.projection-page.v1',
+      items: [projection({
+        connection_id: 'connection-example',
+        project_id: 'project-example',
+      })],
+      next_cursor: null,
+    });
+
+    expect(page.items[0].connection_id).toBe('connection-example');
+    expect(() => parseSourceControlProjectionPage({
+      schema: 'ananta.source-control.projection-page.v2',
+      items: [],
+      next_cursor: null,
+    })).toThrowError(SourceControlV1ContractError);
   });
 });

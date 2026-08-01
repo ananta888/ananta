@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
+import { ProjectContextService } from '../services/project-context.service';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { UserAuthService } from '../services/user-auth.service';
 import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, SafetyNoticeComponent } from '../shared/ui/display';
@@ -342,6 +343,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
     `
 })
 export class AutoPlannerComponent implements OnInit {
+  private readonly projectContext = inject(ProjectContextService);
   private cdr = inject(ChangeDetectorRef);
   private controlPlane = inject(ControlPlaneFacade);
   private dir = inject(AgentDirectoryService);
@@ -416,7 +418,12 @@ export class AutoPlannerComponent implements OnInit {
 
   loadGoals(selectFirst = true) {
     if (!this.hub) return;
-    this.controlPlane.listGoals(this.hub.url).subscribe({
+    const projectId = this.projectContext.selectedProjectId();
+    if (!projectId) {
+      this.ns.error('Bitte zuerst ein Projekt auswaehlen.');
+      return;
+    }
+    this.controlPlane.listGoals(this.hub.url, undefined, projectId).subscribe({
       next: (goals) => {
         const nextGoals = Array.isArray(goals) ? goals : [];
         this.goals.set(nextGoals);
@@ -454,6 +461,11 @@ export class AutoPlannerComponent implements OnInit {
 
   planGoal() {
     if (!this.hub || !this.goalForm.goal?.trim()) return;
+    const projectId = this.projectContext.selectedProjectId();
+    if (!projectId) {
+      this.ns.error('Bitte zuerst ein Projekt auswaehlen.');
+      return;
+    }
     this.planning = true;
     this.planningResult = null;
     const llmTimeoutSeconds = Math.max(5, Number(this.config?.llm_timeout) || 30);
@@ -466,6 +478,7 @@ export class AutoPlannerComponent implements OnInit {
       context: this.goalForm.context || undefined,
       team_id: effectiveTeamId || undefined,
       create_tasks: this.goalForm.create_tasks,
+      project_id: projectId,
     };
 
     if (this.advancedMode) {
@@ -503,9 +516,9 @@ export class AutoPlannerComponent implements OnInit {
   autoPlannerNextSteps(): NextStepAction[] {
     const goalId = String(this.planningResult?.goal?.id || this.selectedGoalId || '').trim();
     return [
-      { id: 'open-goal', label: 'Goal Detail oeffnen', description: 'Plan, Governance und Artefakte ansehen.', routerLink: goalId ? ['/goal', goalId] : ['/dashboard'] },
-      { id: 'open-board', label: 'Board oeffnen', description: 'Tasks verfolgen und blockierte Punkte klaeren.', routerLink: ['/board'] },
-      { id: 'open-dashboard', label: 'Dashboard oeffnen', description: 'Timeline/Guardrails und Governance-Summary ansehen.', routerLink: ['/dashboard'] },
+      { id: 'open-goal', label: 'Goal Detail oeffnen', description: 'Plan, Governance und Artefakte ansehen.', routerLink: goalId ? ['/goal', goalId] : ['/dashboard'], queryParams: this.projectQueryParams() },
+      { id: 'open-board', label: 'Board oeffnen', description: 'Tasks verfolgen und blockierte Punkte klaeren.', routerLink: ['/board'], queryParams: this.projectQueryParams() },
+      { id: 'open-dashboard', label: 'Dashboard oeffnen', description: 'Timeline/Guardrails und Governance-Summary ansehen.', routerLink: ['/dashboard'], queryParams: this.projectQueryParams() },
       { id: 'open-settings', label: 'Settings oeffnen', description: 'Profiles & Governance sicht-/waehlbar machen.', routerLink: ['/settings'] },
     ];
   }
@@ -513,10 +526,15 @@ export class AutoPlannerComponent implements OnInit {
   goalDetailNextSteps(): NextStepAction[] {
     const goalId = String(this.selectedGoalId || '').trim();
     return [
-      { id: 'open-goal', label: 'Goal Detail oeffnen', description: 'Zur Abschluss- und Ergebnisansicht wechseln.', routerLink: goalId ? ['/goal', goalId] : ['/dashboard'] },
-      { id: 'open-board', label: 'Board oeffnen', description: 'Statuses, Blockierungen und Review-Pflichten sehen.', routerLink: ['/board'] },
+      { id: 'open-goal', label: 'Goal Detail oeffnen', description: 'Zur Abschluss- und Ergebnisansicht wechseln.', routerLink: goalId ? ['/goal', goalId] : ['/dashboard'], queryParams: this.projectQueryParams() },
+      { id: 'open-board', label: 'Board oeffnen', description: 'Statuses, Blockierungen und Review-Pflichten sehen.', routerLink: ['/board'], queryParams: this.projectQueryParams() },
       { id: 'open-settings', label: 'Policies/Profiles pruefen', description: 'Governance Mode und Runtime Profile abgleichen.', routerLink: ['/settings'] },
     ];
+  }
+
+  private projectQueryParams(): Record<string, string> | undefined {
+    const projectId = this.projectContext.selectedProjectId();
+    return projectId ? { projectId } : undefined;
   }
 
   selectGoal(goalId: string, announce = false) {

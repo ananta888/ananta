@@ -6,6 +6,7 @@ import { vi } from 'vitest';
 
 import { SourceControlCenterFacade } from './source-control-center.facade';
 import { SourceOverviewComponent } from './source-overview.component';
+import { ProjectContextService } from '../../services/project-context.service';
 
 describe('SourceOverviewComponent', () => {
   it('preserves project query context for every add-source link', async () => {
@@ -27,6 +28,10 @@ describe('SourceOverviewComponent', () => {
       providers: [
         provideRouter([]),
         { provide: SourceControlCenterFacade, useValue: facade },
+        {
+          provide: ProjectContextService,
+          useValue: { hasProject: signal(true) },
+        },
       ],
     }).compileComponents();
     const fixture = TestBed.createComponent(SourceOverviewComponent);

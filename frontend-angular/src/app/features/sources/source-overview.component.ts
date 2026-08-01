@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { SourceControlCenterFacade } from './source-control-center.facade';
+import { ProjectContextService } from '../../services/project-context.service';
 
 @Component({
   selector: 'app-source-overview',
@@ -17,6 +18,7 @@ import { SourceControlCenterFacade } from './source-control-center.facade';
           <p class="muted">Verbindung, Snapshot und realer CodeCompass-Index auf einen Blick.</p>
         </div>
         <div class="actions">
+          <a class="btn" routerLink="journey" queryParamsHandling="preserve">Index-Journey</a>
           <a class="btn" routerLink="add" queryParamsHandling="preserve">Quelle hinzufügen</a>
           <button class="btn btn-secondary" type="button" (click)="facade.load()" [disabled]="facade.loading()">
             Neu laden
@@ -81,7 +83,7 @@ import { SourceControlCenterFacade } from './source-control-center.facade';
                   @for (row of filteredRows(); track row.source.source_id) {
                     <tr>
                       <td>
-                        <a [routerLink]="[row.source.source_id]">
+                        <a [routerLink]="[row.source.source_id]" queryParamsHandling="preserve">
                           <strong>{{ row.source.display_name }}</strong>
                         </a>
                         <small>{{ row.source.source_id }}</small>
@@ -180,6 +182,7 @@ import { SourceControlCenterFacade } from './source-control-center.facade';
 })
 export class SourceOverviewComponent {
   readonly facade = inject(SourceControlCenterFacade);
+  readonly projectContext = inject(ProjectContextService);
   readonly search = signal('');
   readonly typeFilter = signal('');
   readonly statusFilter = signal('');
@@ -207,7 +210,11 @@ export class SourceOverviewComponent {
   });
 
   constructor() {
-    this.facade.load();
+    effect(() => {
+      if (this.projectContext.hasProject()) {
+        this.facade.load();
+      }
+    });
   }
 
   setSearch(event: Event): void {

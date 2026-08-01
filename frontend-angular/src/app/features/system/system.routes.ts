@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { adminGuard } from '../../guards/admin.guard';
+import { projectContextGuard } from '../../guards/project-context.guard';
 import { routeDataFor } from '../../models/route-metadata';
 
 export const systemRoutes: Routes = [
@@ -18,6 +19,7 @@ export const systemRoutes: Routes = [
   { path: 'workflow-runtime-operations', data: routeDataFor('workflow-runtime-operations'), loadComponent: () => import('../workflow-runtime-operations/workflow-runtime-operations.component').then(m => m.WorkflowRuntimeOperationsComponent) },
   {
     path: 'sources',
+    canActivate: [projectContextGuard],
     data: routeDataFor('sources'),
     loadComponent: () => import('../../components/sources.component').then(m => m.SourcesComponent),
     loadChildren: () => import('../sources/source-control-center.routes')

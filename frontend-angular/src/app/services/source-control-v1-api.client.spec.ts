@@ -91,4 +91,29 @@ describe('SourceControlV1ApiClient security DTOs', () => {
     });
     expect(request.request.body.write_armed).toBeUndefined();
   });
+
+  it('activates an index with the authoritative active-pointer CAS', () => {
+    client.activateIndex('index-example', {
+      etag: 'active:0',
+      idempotencyKey: 'index-activate-example',
+    }).subscribe();
+
+    const request = http.expectOne(
+      '/api/source-control/v1/indices/index-example/activate',
+    );
+    expect(request.request.body).toEqual({ dry_run: false });
+    expect(request.request.headers.get('If-Match')).toBe('"active:0"');
+    expect(request.request.headers.get('Idempotency-Key')).toBe(
+      'index-activate-example',
+    );
+  });
+
+  it('rejects a run-resource ETag for active-pointer mutations', () => {
+    expect(() => client.activateIndex('index-example', {
+      etag: 'index:2',
+      idempotencyKey: 'index-activate-wrong-cas',
+    })).toThrow('if_match_invalid');
+
+    http.expectNone('/api/source-control/v1/indices/index-example/activate');
+  });
 });

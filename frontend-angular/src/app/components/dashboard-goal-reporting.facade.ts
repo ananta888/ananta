@@ -1,9 +1,10 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, effect, inject, untracked } from '@angular/core';
 import { catchError, forkJoin, of } from 'rxjs';
 
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { GoalDetail, GoalGovernanceSummary, GoalListEntry } from '../models/dashboard.models';
 import { NotificationService } from '../services/notification.service';
+import { ProjectContextService } from '../services/project-context.service';
 
 export interface GoalReportingState {
   goals: GoalListEntry[];
@@ -17,7 +18,10 @@ export interface GoalReportingState {
 export class DashboardGoalReportingFacade {
   private hubApi = inject(ControlPlaneFacade);
   private ns = inject(NotificationService);
+  private projectContext = inject(ProjectContextService);
   private refreshSequence = 0;
+  private lastHubUrl = '';
+  private observedProjectId = this.projectContext.selectedProjectId();
 
   readonly state: GoalReportingState = {
     goals: [],
@@ -27,14 +31,37 @@ export class DashboardGoalReportingFacade {
     loading: false,
   };
 
+  constructor() {
+    effect(() => {
+      const projectId = this.projectContext.selectedProjectId();
+      if (projectId === this.observedProjectId) return;
+      this.observedProjectId = projectId;
+      if (!projectId) {
+        this.reset();
+        return;
+      }
+      if (this.lastHubUrl) {
+        untracked(() => this.refresh(this.lastHubUrl));
+      }
+    });
+  }
+
   refresh(hubUrl: string, goalId?: string): void {
+    this.lastHubUrl = hubUrl;
     const sequence = ++this.refreshSequence;
     if (goalId) {
       this.state.selectedGoalId = goalId;
     }
     this.state.loading = true;
 
-    this.hubApi.listGoals(hubUrl).subscribe({
+    const projectId = this.projectContext.selectedProjectId();
+    if (!projectId) {
+      this.reset();
+      this.ns.error('Bitte zuerst ein Projekt auswaehlen.');
+      return;
+    }
+
+    this.hubApi.listGoals(hubUrl, undefined, projectId).subscribe({
       next: goals => this.loadSelectedGoal(hubUrl, this.normalizeGoals(goals), sequence),
       error: () => {
         if (!this.isCurrent(sequence)) return;

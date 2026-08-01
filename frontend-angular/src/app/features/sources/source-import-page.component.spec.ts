@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
@@ -5,6 +6,7 @@ import { vi } from 'vitest';
 
 import { SourceControlV1GovernanceApiClient } from '../../services/source-control-v1-governance-api.client';
 import { SourceControlV1ApiClient } from '../../services/source-control-v1-api.client';
+import { ProjectContextService } from '../../services/project-context.service';
 import { SourceConnectorCatalogService } from './source-connector-catalog.service';
 import { SourceImportPageComponent } from './source-import-page.component';
 
@@ -89,6 +91,10 @@ describe('SourceImportPageComponent', () => {
         { provide: SourceControlV1GovernanceApiClient, useValue: api },
         { provide: SourceControlV1ApiClient, useValue: connectionApi },
         { provide: SourceConnectorCatalogService, useValue: catalog },
+        {
+          provide: ProjectContextService,
+          useValue: { selectedProjectId: signal('project-alpha') },
+        },
       ],
     }).compileComponents();
 
@@ -195,9 +201,6 @@ describe('SourceImportPageComponent', () => {
     component.onWorkspaceRegistered({
       workspace_id: 'workspace-new',
       state: 'active',
-      read_only: true,
-      etag: '"workspace-v1:1"',
-      capabilities: { refresh: true },
     });
 
     expect(loadWorkspaces).toHaveBeenLastCalledWith('project-alpha');

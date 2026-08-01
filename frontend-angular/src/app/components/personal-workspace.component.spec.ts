@@ -1,9 +1,11 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { AgentDirectoryService } from '../services/agent-directory.service';
+import { ProjectContextService } from '../services/project-context.service';
 import { PersonalWorkspaceComponent } from './personal-workspace.component';
 
 describe('personal workspace start actions', () => {
@@ -31,6 +33,7 @@ describe('personal workspace start actions', () => {
       providers: [
         { provide: AgentDirectoryService, useValue: directory },
         { provide: ControlPlaneFacade, useValue: hubApi },
+        { provide: ProjectContextService, useValue: { selectedProjectId: signal('project-1') } },
         { provide: Router, useValue: router },
       ],
     });
@@ -47,7 +50,7 @@ describe('personal workspace start actions', () => {
 
     component.loadGoals();
 
-    expect(hubApi.listGoals).toHaveBeenCalledWith('http://hub:5000');
+    expect(hubApi.listGoals).toHaveBeenCalledWith('http://hub:5000', undefined, 'project-1');
     expect(component.loading).toBe(false);
     expect(component.error).toBe('');
     expect(component.goals.map(goal => goal.id)).toEqual(['goal-open', 'goal-active', 'goal-done', 'goal-failed']);
@@ -79,9 +82,14 @@ describe('personal workspace start actions', () => {
     component.goTemplates();
     component.openGoal('goal-123');
 
-    expect(router.navigate).toHaveBeenCalledWith(['/dashboard'], { fragment: 'quick-goal' });
+    expect(router.navigate).toHaveBeenCalledWith(['/dashboard'], {
+      fragment: 'quick-goal',
+      queryParams: { projectId: 'project-1' },
+    });
     expect(router.navigate).toHaveBeenCalledWith(['/templates']);
-    expect(router.navigate).toHaveBeenCalledWith(['/goal', 'goal-123']);
+    expect(router.navigate).toHaveBeenCalledWith(['/goal', 'goal-123'], {
+      queryParams: { projectId: 'project-1' },
+    });
   });
 
   it('keeps user-facing status labels stable', () => {

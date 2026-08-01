@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { AgentDirectoryService } from '../services/agent-directory.service';
+import { ProjectContextService } from '../services/project-context.service';
 import { NotificationService } from '../services/notification.service';
 import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
 import { LoadingStateComponent, StatusBadgeComponent, StatusTone } from '../shared/ui/state';
@@ -291,6 +292,7 @@ import { RunTransparencyReport } from '../models/transparency.models';
   `
 })
 export class GoalDetailComponent implements OnInit, OnDestroy {
+  private readonly projectContext = inject(ProjectContextService);
   private route = inject(ActivatedRoute);
   private facade = inject(ControlPlaneFacade);
   private dir = inject(AgentDirectoryService);
@@ -324,15 +326,15 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
 
   blockedNextSteps(): NextStepAction[] {
     return [
-      { id: 'board', label: 'Board oeffnen', description: 'Blockierte Tasks sammeln und klaeren.', routerLink: ['/board'] },
-      { id: 'dashboard', label: 'Dashboard oeffnen', description: 'Timeline/Guardrails und Governance-Summary ansehen.', routerLink: ['/dashboard'] },
+      { id: 'board', label: 'Board oeffnen', description: 'Blockierte Tasks sammeln und klaeren.', routerLink: ['/board'], queryParams: { projectId: this.projectContext.selectedProjectId() } },
+      { id: 'dashboard', label: 'Dashboard oeffnen', description: 'Timeline/Guardrails und Governance-Summary ansehen.', routerLink: ['/dashboard'], queryParams: { projectId: this.projectContext.selectedProjectId() } },
       { id: 'settings', label: 'Policies/Profiles pruefen', description: 'Governance Mode und Runtime Profile abgleichen.', routerLink: ['/settings'] },
     ];
   }
 
   reviewNextSteps(): NextStepAction[] {
     return [
-      { id: 'goal', label: 'Plan/Tasks pruefen', description: 'Review-required Tasks identifizieren.', routerLink: ['/board'] },
+      { id: 'goal', label: 'Plan/Tasks pruefen', description: 'Review-required Tasks identifizieren.', routerLink: ['/board'], queryParams: { projectId: this.projectContext.selectedProjectId() } },
       { id: 'settings', label: 'Governance Mode pruefen', description: 'Safe/Balanced/Strict Entscheidung verifizieren.', routerLink: ['/settings'] },
     ];
   }
@@ -355,6 +357,19 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
 
     this.facade.getGoalDetail(this.hub.url, this.gid).subscribe({
       next: (res: any) => {
+        const goalProjectId = String(res.goal?.project_id ?? '').trim();
+        if (goalProjectId && goalProjectId !== this.projectContext.selectedProjectId()) {
+          this.goal = null;
+          this.tasks = [];
+          this.artifacts = [];
+          this.artifactSummary = null;
+          this.governance = null;
+          this.costSummary = null;
+          this.loading = false;
+          if (!silent) this.ns.error('Das Goal gehoert nicht zum ausgewaehlten Projekt.');
+          this.cdr.detectChanges();
+          return;
+        }
         this.goal = res.goal;
         this.tasks = res.tasks || [];
         this.artifacts = res.artifacts?.artifacts || [];
@@ -443,6 +458,7 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
         label: this.openTasks() > 0 ? 'Offene Aufgaben pruefen' : 'Board oeffnen',
         description: 'Status, Blocker und naechste Ausfuehrungsschritte ansehen.',
         routerLink: ['/board'],
+        queryParams: { projectId: this.projectContext.selectedProjectId() },
       },
       {
         id: 'artifacts',

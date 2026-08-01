@@ -1,4 +1,4 @@
-import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize, forkJoin } from 'rxjs';
 import type { Observable } from 'rxjs';
@@ -11,6 +11,7 @@ import {
 } from '../../models/source-control-v1-api.model';
 import { SourceControlV1ApiClient } from '../../services/source-control-v1-api.client';
 import { SourceControlV1GovernanceApiClient } from '../../services/source-control-v1-governance-api.client';
+import { ProjectContextService } from '../../services/project-context.service';
 
 export interface SourceDetailView {
   sourceId: string;
@@ -139,14 +140,17 @@ export function toSourceDetailError(error: unknown): SourceDetailError {
 export class SourceDetailFacade {
   private readonly sourceControlApi = inject(SourceControlV1ApiClient);
   private readonly governanceApi = inject(SourceControlV1GovernanceApiClient);
+  private readonly projectContext = inject(ProjectContextService);
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly connectionId = signal('');
+  private readonly requestProjectId = signal('');
   private readonly projectId = signal('');
   private readonly sourceRevisionId = signal('');
   private readonly etag = signal('');
   private readonly nextActions = signal<readonly string[]>([]);
   private readonly activeIndexId = signal<string | null>(null);
+  private readonly activeIndexGeneration = signal(0);
   private readonly projectionStale = signal<boolean | null>(null);
   readonly source = signal<SourceDetailView | null>(null);
   readonly revisions = signal<readonly SourceRevisionView[]>([]);
@@ -182,6 +186,7 @@ export class SourceDetailFacade {
   );
   readonly stale = computed(() => this.projectionStale());
   readonly coveragePercent = computed(() => this.index()?.coveragePercent ?? null);
+  readonly projectScopeValid = computed(() => this.hasActiveProjectScope());
   readonly nextAction = computed(() => {
     const source = this.source();
     if (!source) return 'Quelle prüfen';
@@ -198,21 +203,46 @@ export class SourceDetailFacade {
     return 'Keine serverseitig erlaubte Aktion verfügbar';
   });
 
+  constructor() {
+    effect(() => {
+      const selectedProjectId = this.selectedProjectId();
+      const requestedProjectId = this.requestProjectId();
+      const projectedProjectId = this.projectId();
+      if (
+        (requestedProjectId && selectedProjectId !== requestedProjectId) ||
+        (projectedProjectId && selectedProjectId !== projectedProjectId)
+      ) {
+        this.invalidateProjectScope(
+          'Der Projektkontext wurde gewechselt. Die Quelldetails wurden sicher verworfen.',
+        );
+      }
+    });
+  }
+
   load(sourceId: string): void {
     const normalizedId = String(sourceId || '').trim();
+    const selectedProjectId = this.selectedProjectId();
     this.reset();
+    if (!selectedProjectId) {
+      this.sourceError.set({
+        state: 'forbidden',
+        message: 'Ohne aktiven Projektkontext bleiben Quelldetails gesperrt.',
+      });
+      return;
+    }
     if (!normalizedId) {
       this.sourceError.set({ state: 'not-found', message: 'Es wurde keine Source-ID angegeben.' });
       return;
     }
     this.connectionId.set(normalizedId);
-    this.loadSource(normalizedId);
-    this.loadIndex(normalizedId);
+    this.requestProjectId.set(selectedProjectId);
+    this.loadSource(normalizedId, selectedProjectId);
+    this.loadIndex(normalizedId, selectedProjectId);
   }
 
   loadGraph(): void {
     const connectionId = this.connectionId();
-    if (!connectionId || this.graphLoading()) return;
+    if (!connectionId || !this.hasActiveProjectScope() || this.graphLoading()) return;
     this.graphLoading.set(true);
     this.graphError.set(null);
     this.sourceControlApi.loadGraph(connectionId, {
@@ -260,7 +290,7 @@ export class SourceDetailFacade {
 
   loadAudit(): void {
     const connectionId = this.connectionId();
-    if (!connectionId || this.auditLoading()) return;
+    if (!connectionId || !this.hasActiveProjectScope() || this.auditLoading()) return;
     this.auditLoading.set(true);
     this.auditError.set(null);
     this.sourceControlApi.listEvents({ after_sequence: 0, limit: 500 }).pipe(
@@ -275,7 +305,7 @@ export class SourceDetailFacade {
   }
 
   can(action: SourceControlNextAction): boolean {
-    return this.nextActions().includes(action);
+    return this.hasActiveProjectScope() && this.nextActions().includes(action);
   }
 
   refresh(): void {
@@ -290,13 +320,21 @@ export class SourceDetailFacade {
     this.mutateConnection('disable');
   }
 
-  private loadSource(sourceId: string): void {
+  private loadSource(sourceId: string, expectedProjectId: string): void {
     this.begin();
     this.sourceControlApi.getConnection(sourceId).pipe(
       takeUntilDestroyed(this.destroyRef),
       finalize(() => this.end()),
     ).subscribe({
       next: ({ projection, etag }) => {
+        if (!this.matchesActiveRequest(sourceId, expectedProjectId)) return;
+        const projectionProjectId = String(projection.connection.project_id || '').trim();
+        if (!projectionProjectId || projectionProjectId !== expectedProjectId) {
+          this.invalidateProjectScope(
+            'Die Hub-Projektion gehört nicht zum aktiven Projekt. Die Antwort wurde verworfen.',
+          );
+          return;
+        }
         this.etag.set(etag);
         this.nextActions.set(projection.next_actions);
         this.projectConnection(projection);
@@ -306,15 +344,17 @@ export class SourceDetailFacade {
     });
   }
 
-  private loadIndex(sourceId: string): void {
+  private loadIndex(sourceId: string, expectedProjectId: string): void {
     this.begin();
     this.sourceControlApi.listRuns(sourceId, { limit: MAX_REVISIONS }).pipe(
       takeUntilDestroyed(this.destroyRef),
       finalize(() => this.end()),
     ).subscribe({
       next: (page) => {
+        if (!this.matchesActiveRequest(sourceId, expectedProjectId)) return;
         this.runsTruncated.set(page.next_cursor !== null);
         this.activeIndexId.set(page.active?.knowledge_index_id ?? null);
+        this.activeIndexGeneration.set(page.active?.generation ?? 0);
         this.runs.set(page.items.map((item) => this.indexView(item)));
         const match = page.items[page.items.length - 1];
         if (match === undefined) {
@@ -424,7 +464,7 @@ export class SourceDetailFacade {
 
   activateIndex(indexId: string): void {
     const run = this.serverRun(indexId);
-    if (!run?.etag || !this.can('activate') || this.mutationLoading()) {
+    if (!run || !this.can('activate') || this.mutationLoading()) {
       this.mutationError.set({
         state: 'conflict',
         message:
@@ -435,7 +475,7 @@ export class SourceDetailFacade {
     this.runIndexMutation(
       this.sourceControlApi.activateIndex(
         run.indexId,
-        this.guard(run.etag, 'index:activate'),
+        this.guard(this.activePointerEtag(), 'index:activate'),
       ),
       'Index wurde serverseitig aktiviert.',
     );
@@ -443,7 +483,7 @@ export class SourceDetailFacade {
 
   rollbackIndex(indexId: string): void {
     const run = this.serverRun(indexId);
-    if (!run?.etag || !this.can('rollback') || this.mutationLoading()) {
+    if (!run || !this.can('rollback') || this.mutationLoading()) {
       this.mutationError.set({
         state: 'conflict',
         message:
@@ -454,7 +494,7 @@ export class SourceDetailFacade {
     this.runIndexMutation(
       this.sourceControlApi.rollbackIndex(
         run.indexId,
-        this.guard(run.etag, 'index:rollback'),
+        this.guard(this.activePointerEtag(), 'index:rollback'),
       ),
       'Rollback wurde serverseitig angefordert.',
     );
@@ -463,6 +503,10 @@ export class SourceDetailFacade {
   private serverRun(indexId: string): SourceIndexView | undefined {
     const normalizedId = String(indexId || '').trim();
     return this.runs().find((run) => run.indexId === normalizedId);
+  }
+
+  private activePointerEtag(): string {
+    return `active:${this.activeIndexGeneration()}`;
   }
 
   private guard(etag: string, operation: string) {
@@ -474,6 +518,14 @@ export class SourceDetailFacade {
 
   private runIndexMutation(request: Observable<unknown>, message: string): void {
     const connectionId = this.connectionId();
+    const expectedProjectId = this.requestProjectId();
+    if (!this.hasActiveProjectScope()) {
+      this.mutationError.set({
+        state: 'forbidden',
+        message: 'Die Indexaktion wurde wegen eines ungültigen Projektkontexts blockiert.',
+      });
+      return;
+    }
     this.mutationLoading.set(true);
     this.mutationError.set(null);
     this.lifecycleMessage.set('');
@@ -482,10 +534,11 @@ export class SourceDetailFacade {
       finalize(() => this.mutationLoading.set(false)),
     ).subscribe({
       next: () => {
+        if (!this.matchesActiveRequest(connectionId, expectedProjectId)) return;
         this.lifecycleMessage.set(message);
         if (connectionId) {
-          this.loadSource(connectionId);
-          this.loadIndex(connectionId);
+          this.loadSource(connectionId, expectedProjectId);
+          this.loadIndex(connectionId, expectedProjectId);
         }
       },
       error: (error) => this.mutationError.set(toSourceDetailError(error)),
@@ -571,7 +624,7 @@ export class SourceDetailFacade {
 
   private loadGovernance(): void {
     const projectId = this.projectId();
-    if (!projectId || this.governanceLoading()) return;
+    if (!projectId || !this.hasActiveProjectScope() || this.governanceLoading()) return;
     this.governanceLoading.set(true);
     this.governanceError.set(null);
     forkJoin({
@@ -621,6 +674,14 @@ export class SourceDetailFacade {
   }
 
   private runGovernanceMutation(request: Observable<unknown>, message: string): void {
+    const expectedProjectId = this.requestProjectId();
+    if (!this.hasActiveProjectScope()) {
+      this.governanceError.set({
+        state: 'forbidden',
+        message: 'Die Governance-Aktion wurde wegen eines ungültigen Projektkontexts blockiert.',
+      });
+      return;
+    }
     this.governanceLoading.set(true);
     this.governanceError.set(null);
     this.lifecycleMessage.set('');
@@ -633,6 +694,7 @@ export class SourceDetailFacade {
       }),
     ).subscribe({
       next: () => {
+        if (!this.hasActiveProjectScope(expectedProjectId)) return;
         succeeded = true;
         this.lifecycleMessage.set(message);
       },
@@ -648,6 +710,7 @@ export class SourceDetailFacade {
     if (
       !connectionId ||
       !etag ||
+      !this.hasActiveProjectScope() ||
       !this.can(operation) ||
       this.mutationLoading()
     ) return;
@@ -666,7 +729,9 @@ export class SourceDetailFacade {
       takeUntilDestroyed(this.destroyRef),
       finalize(() => this.mutationLoading.set(false)),
     ).subscribe({
-      next: () => this.load(connectionId),
+      next: () => {
+        if (this.hasActiveProjectScope()) this.load(connectionId);
+      },
       error: (error) => this.mutationError.set(toSourceDetailError(error)),
     });
   }
@@ -696,11 +761,13 @@ export class SourceDetailFacade {
     this.governanceError.set(null);
     this.lifecycleMessage.set('');
     this.connectionId.set('');
+    this.requestProjectId.set('');
     this.projectId.set('');
     this.sourceRevisionId.set('');
     this.etag.set('');
     this.nextActions.set([]);
     this.activeIndexId.set(null);
+    this.activeIndexGeneration.set(0);
     this.projectionStale.set(null);
   }
 
@@ -710,5 +777,30 @@ export class SourceDetailFacade {
 
   private end(): void {
     this.pending.update((value) => Math.max(0, value - 1));
+  }
+
+  private selectedProjectId(): string {
+    return String(this.projectContext.selectedProjectId() || '').trim();
+  }
+
+  private hasActiveProjectScope(expectedProjectId = this.requestProjectId()): boolean {
+    const selectedProjectId = this.selectedProjectId();
+    const projectedProjectId = this.projectId();
+    return Boolean(
+      selectedProjectId &&
+        expectedProjectId &&
+        selectedProjectId === expectedProjectId &&
+        (!projectedProjectId || projectedProjectId === expectedProjectId),
+    );
+  }
+
+  private matchesActiveRequest(sourceId: string, expectedProjectId: string): boolean {
+    return this.connectionId() === sourceId && this.hasActiveProjectScope(expectedProjectId);
+  }
+
+  private invalidateProjectScope(message: string): void {
+    this.reset();
+    this.sourceError.set({ state: 'forbidden', message });
+    this.indexError.set({ state: 'forbidden', message });
   }
 }

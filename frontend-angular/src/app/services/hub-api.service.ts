@@ -66,7 +66,9 @@ export class HubApiService {
   ingestOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.ingestOrchestrationTask(baseUrl, body, token); }
   claimOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.claimOrchestrationTask(baseUrl, body, token); }
   completeOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.completeOrchestrationTask(baseUrl, body, token); }
-  listGoals(baseUrl: string, token?: string): Observable<any[]> { return this.tasks.listGoals(baseUrl, token); }
+  listGoals(baseUrl: string, token?: string, projectId?: string): Observable<any[]> {
+    return this.tasks.listGoals(baseUrl, token, projectId);
+  }
   listGoalModes(baseUrl: string, token?: string): Observable<any[]> { return this.tasks.getGoalModes(baseUrl, token); }
   getGoal(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.getGoal(baseUrl, id, token); }
   getGoalDetail(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.getGoalDetail(baseUrl, id, token); }

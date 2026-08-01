@@ -1,13 +1,25 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { HubApiCoreService } from '../../../services/hub-api-core.service';
 
 export interface CcProjectReadModel {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
+  status?: 'active' | 'archived';
   is_active: boolean;
-  root: string | null;
+  origin?: 'native' | 'legacy_source_control';
+  team_id?: string | null;
+  version?: number;
+  created_at?: number;
+  updated_at?: number;
+  archived_at?: number | null;
+  root?: string | null;
+}
+
+export interface CcProjectCreateRequest {
+  readonly name: string;
+  readonly description?: string;
 }
 
 export interface CcTaskReadModel {
@@ -105,6 +117,23 @@ export class HubControlCenterApiClient {
 
   listProjects(baseUrl: string, token?: string): Observable<{ items: CcProjectReadModel[]; count: number }> {
     return this.core.get<{ items: CcProjectReadModel[]; count: number }>(`${baseUrl}/api/projects`, baseUrl, token, false);
+  }
+
+  createProject(
+    baseUrl: string,
+    request: CcProjectCreateRequest,
+    token?: string,
+  ): Observable<CcProjectReadModel> {
+    return this.core.post<CcProjectReadModel | { project: CcProjectReadModel }>(
+      `${baseUrl}/api/projects`,
+      {
+        name: request.name,
+        ...(request.description ? { description: request.description } : {}),
+      },
+      baseUrl,
+      token,
+      false,
+    ).pipe(map((response) => 'project' in response ? response.project : response));
   }
 
   listProjectTasks(baseUrl: string, projectId: string, token?: string): Observable<{ items: CcTaskReadModel[]; count: number }> {

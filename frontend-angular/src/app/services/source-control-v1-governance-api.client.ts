@@ -1,5 +1,6 @@
 import {
   HttpClient,
+  HttpContext,
   HttpErrorResponse,
   HttpHeaders,
   HttpParams,
@@ -60,6 +61,7 @@ import {
   SourceControlMutationGuard,
   SourceControlV1HttpError,
 } from './source-control-v1-api.client';
+import { SUPPRESS_GLOBAL_ERROR_NOTIFICATION } from './error-request-context';
 
 const BASE_PATH = '/api/source-control/v1';
 
@@ -321,7 +323,9 @@ export class SourceControlV1GovernanceApiClient {
 
   gitAuthorizationHealth(): Observable<SourceControlGitAuthorizationHealth> {
     return this.http
-      .get<unknown>(`${BASE_PATH}/git-authorizations/health`)
+      .get<unknown>(`${BASE_PATH}/git-authorizations/health`, {
+        context: new HttpContext().set(SUPPRESS_GLOBAL_ERROR_NOTIFICATION, true),
+      })
       .pipe(
         map((body) =>
           parseSourceControlEnvelope(body, parseGitAuthorizationHealth),

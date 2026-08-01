@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { GoalListEntry } from '../models/dashboard.models';
 import { AgentDirectoryService } from '../services/agent-directory.service';
+import { ProjectContextService } from '../services/project-context.service';
 import { DecisionExplanationComponent, MetricCardComponent } from '../shared/ui/display';
 import { ActionCardComponent, PageIntroComponent, SectionCardComponent } from '../shared/ui/layout';
 import { EmptyStateComponent, ErrorStateComponent, LoadingStateComponent } from '../shared/ui/state';
@@ -79,6 +80,7 @@ import { EmptyStateComponent, ErrorStateComponent, LoadingStateComponent } from 
   `,
 })
 export class PersonalWorkspaceComponent implements OnInit {
+  private readonly projectContext = inject(ProjectContextService);
   private dir = inject(AgentDirectoryService);
   private hubApi = inject(ControlPlaneFacade);
   private router = inject(Router);
@@ -99,7 +101,13 @@ export class PersonalWorkspaceComponent implements OnInit {
     }
     this.loading = true;
     this.error = '';
-    this.hubApi.listGoals(hub.url).subscribe({
+    const projectId = this.projectContext.selectedProjectId();
+    if (!projectId) {
+      this.loading = false;
+      this.error = 'Bitte zuerst ein Projekt auswaehlen.';
+      return;
+    }
+    this.hubApi.listGoals(hub.url, undefined, projectId).subscribe({
       next: goals => {
         this.goals = Array.isArray(goals) ? goals : [];
         this.loading = false;
@@ -112,11 +120,16 @@ export class PersonalWorkspaceComponent implements OnInit {
   }
 
   openGoal(goalId: string): void {
-    this.router.navigate(['/goal', goalId]);
+    this.router.navigate(['/goal', goalId], {
+      queryParams: { projectId: this.projectContext.selectedProjectId() },
+    });
   }
 
   goPlan(): void {
-    this.router.navigate(['/dashboard'], { fragment: 'quick-goal' });
+    this.router.navigate(['/dashboard'], {
+      fragment: 'quick-goal',
+      queryParams: { projectId: this.projectContext.selectedProjectId() },
+    });
   }
 
   goTemplates(): void {

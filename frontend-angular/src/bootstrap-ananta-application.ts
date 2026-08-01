@@ -12,6 +12,8 @@ import { AuthInterceptor } from './app/services/auth.interceptor';
 import { ErrorInterceptor } from './app/services/error.interceptor';
 import { GlobalErrorHandler } from './app/services/global-error-handler';
 import { provideSfuProjectionSignatureVerifier } from './app/services/sfu-projection-signature-verifier.service';
+import { SourceControlProjectInterceptor } from './app/services/source-control-project.interceptor';
+import { SourceControlHubInterceptor } from './app/services/source-control-hub.interceptor';
 
 /**
  * Shared application bootstrap. Production and the explicit live-E2E entry use
@@ -24,8 +26,10 @@ export function bootstrapAnantaApplication() {
       provideHttpClient(withInterceptorsFromDi()),
       provideAnimations(),
       { provide: ErrorHandler, useClass: GlobalErrorHandler },
+      { provide: HTTP_INTERCEPTORS, useClass: SourceControlHubInterceptor, multi: true },
       { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
       { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
+      { provide: HTTP_INTERCEPTORS, useClass: SourceControlProjectInterceptor, multi: true },
       identityRestoreInitializer,
       authRequiredRouterInitializer,
       provideSfuProjectionSignatureVerifier(),

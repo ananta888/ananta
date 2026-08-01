@@ -111,8 +111,8 @@ export class ControlPlaneFacade {
     return this.hubApi.completeOrchestrationTask(baseUrl, body, token);
   }
 
-  listGoals(baseUrl: string, token?: string) {
-    return this.hubApi.listGoals(baseUrl, token);
+  listGoals(baseUrl: string, token?: string, projectId?: string) {
+    return this.hubApi.listGoals(baseUrl, token, projectId);
   }
 
   listGoalModes(baseUrl: string, token?: string) {

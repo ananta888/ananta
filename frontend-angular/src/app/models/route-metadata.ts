@@ -10,6 +10,7 @@ export interface AppRouteMeta {
   expertOnly?: boolean;
   roles?: readonly string[];
   separatorAfter?: boolean;
+  projectScoped?: boolean;
 }
 
 export interface AppNavItem extends AppRouteMeta {
@@ -22,7 +23,8 @@ export interface AppNavGroup {
 }
 
 export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
-  workspace: { label: 'Arbeitsbereich', area: 'Operate', navGroup: 'Arbeiten', navOrder: 10, simpleNav: true },
+  projects: { label: 'Projekte', area: 'Configure', navGroup: 'Arbeiten', navOrder: 8, simpleNav: true },
+  workspace: { label: 'Arbeitsbereich', area: 'Operate', navGroup: 'Arbeiten', navOrder: 10, simpleNav: true, projectScoped: true },
   chats: { label: 'AI Chats', area: 'Operate', navGroup: 'Arbeiten', navOrder: 12, simpleNav: true },
   'caseflow/studio': {
     label: 'CaseFlow Studio',
@@ -32,18 +34,18 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
     simpleNav: true,
     separatorAfter: true,
   },
-  dashboard: { label: 'Dashboard', area: 'Operate', navGroup: 'Betrieb', navOrder: 15, expertOnly: true },
+  dashboard: { label: 'Dashboard', area: 'Operate', navGroup: 'Betrieb', navOrder: 15, expertOnly: true, projectScoped: true },
   help: { label: 'Hilfe', area: 'General', navGroup: 'Arbeiten', navOrder: 50, simpleNav: true },
   agents: { label: 'Agenten', area: 'Operate', navGroup: 'Betrieb', navOrder: 20, expertOnly: true },
   'worker-pool': { label: 'Worker Pool', area: 'Operate', navGroup: 'Betrieb', navOrder: 25, expertOnly: true },
   'worker-loop-diagnostics': { label: 'Worker Loop Diagnostik', area: 'Operate', navGroup: 'Betrieb', navOrder: 25.5, expertOnly: true },
   'workflow-runtime-operations': { label: 'Workflow Runtimes', area: 'Operate', navGroup: 'Betrieb', navOrder: 25.7, expertOnly: true },
-  sources: { label: 'Quellen', area: 'Operate', navGroup: 'Arbeiten', navOrder: 26, simpleNav: true },
+  sources: { label: 'Quellen', area: 'Operate', navGroup: 'Arbeiten', navOrder: 26, simpleNav: true, projectScoped: true },
   'goal-artifacts': { label: 'Goal Artifacts', area: 'Operate', navGroup: 'Betrieb', navOrder: 27, expertOnly: true },
   'strategy-game-demo': { label: 'Strategy Game Demo', area: 'Operate', navGroup: 'Betrieb', navOrder: 28, expertOnly: true },
-  board: { label: 'Aufgaben', area: 'Operate', navGroup: 'Arbeiten', navOrder: 20, simpleNav: true },
+  board: { label: 'Aufgaben', area: 'Operate', navGroup: 'Arbeiten', navOrder: 20, simpleNav: true, projectScoped: true },
   operations: { label: 'Operationen', area: 'Operate', navGroup: 'Betrieb', navOrder: 40, expertOnly: true },
-  artifacts:  { label: 'Ergebnisse', area: 'Operate', navGroup: 'Arbeiten', navOrder: 30, simpleNav: true },
+  artifacts:  { label: 'Ergebnisse', area: 'Operate', navGroup: 'Arbeiten', navOrder: 30, simpleNav: true, projectScoped: true },
   'markdown-slides': { label: 'Markdown Slides', area: 'Operate', navGroup: 'Arbeiten', navOrder: 30.5, simpleNav: true },
   knowledge:  { label: 'Wissen',     area: 'Operate', navGroup: 'Arbeiten', navOrder: 31, expertOnly: true },
   wikipedia:  { label: 'Wikipedia',  area: 'Operate', navGroup: 'Arbeiten', navOrder: 32, expertOnly: true },
@@ -67,7 +69,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   settings: { label: 'Einstellungen', area: 'System', navGroup: 'Konfiguration', navOrder: 40, expertOnly: true },
   panel: { label: 'Agent Panel', area: 'System' },
   task: { label: 'Task Details', area: 'Operate' },
-  goal: { label: 'Goal Details', area: 'Operate' },
+  goal: { label: 'Goal Details', area: 'Operate', projectScoped: true },
   'context-access-policy': { label: 'Policy', area: 'Configure', navGroup: 'Konfiguration', navOrder: 36, adminOnly: true, expertOnly: true },
   'effective-workflow': { label: 'Effective Workflow', area: 'Configure', navGroup: 'Konfiguration', navOrder: 36.5, expertOnly: true },
   'config-graph': { label: 'Konfig-Graph', area: 'Configure', navGroup: 'Konfiguration', navOrder: 37, expertOnly: true },
@@ -79,9 +81,15 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   diff3: { label: 'Three-Way Diff', area: 'Operate', navGroup: 'Betrieb', navOrder: 73, expertOnly: true },
 };
 
-export function routeDataFor(path: keyof typeof APP_ROUTE_META): { breadcrumb: string; area: AppRouteArea } {
+export function routeDataFor(
+  path: keyof typeof APP_ROUTE_META,
+): { breadcrumb: string; area: AppRouteArea; projectScoped?: true } {
   const meta = APP_ROUTE_META[path];
-  return { breadcrumb: meta.label, area: meta.area };
+  return {
+    breadcrumb: meta.label,
+    area: meta.area,
+    ...(meta.projectScoped ? { projectScoped: true as const } : {}),
+  };
 }
 
 export type AppShellMode = 'simple' | 'advanced';

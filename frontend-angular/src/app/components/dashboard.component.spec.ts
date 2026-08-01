@@ -73,6 +73,7 @@ describe('DashboardComponent (benchmarks)', () => {
       taskFacade: any;
       ns: any;
       goalReporting: any;
+      projectContext: any;
       workspaceViewModel: any;
     };
     cmp.facade = createFacade();
@@ -90,6 +91,11 @@ describe('DashboardComponent (benchmarks)', () => {
       activeGoalCount: vi.fn(() => (cmp.goalReporting.state.goals || []).filter((g: any) => g.status !== 'completed').length),
       costTasks: vi.fn(() => []),
     };
+    Object.defineProperty(cmp, 'projectContext', {
+      value: { selectedProjectId: vi.fn(() => 'project-1') },
+      configurable: true,
+      writable: true,
+    });
     cmp.workspaceViewModel = {
       nextTaskCount: (tasks: any[]) => (Array.isArray(tasks) ? tasks.filter(t => String(t?.status || '').toLowerCase() === 'todo').length : 0),
       starterProgress: (_: any) => ({ done: 2, total: 3, label: 'stub' }),
@@ -415,6 +421,9 @@ describe('DashboardComponent (benchmarks)', () => {
         },
       },
       create_tasks: true,
+      instruction_profile_id: undefined,
+      instruction_overlay_id: undefined,
+      project_id: 'project-1',
     });
   });
 
@@ -446,6 +455,9 @@ describe('DashboardComponent (benchmarks)', () => {
         },
       },
       create_tasks: true,
+      instruction_profile_id: undefined,
+      instruction_overlay_id: undefined,
+      project_id: 'project-1',
     });
     expect(cmp.quickGoalResult?.goal_id).toBe('G-42');
   });

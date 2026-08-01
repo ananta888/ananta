@@ -1,9 +1,11 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { GoalDetail, GoalGovernanceSummary, GoalListEntry } from '../models/dashboard.models';
 import { NotificationService } from '../services/notification.service';
+import { ProjectContextService } from '../services/project-context.service';
 import { DashboardGoalReportingFacade } from './dashboard-goal-reporting.facade';
 import { DashboardWorkspaceViewModelService } from './dashboard-workspace-view-model.service';
 
@@ -75,6 +77,10 @@ describe('dashboard goal reporting facade', () => {
         DashboardGoalReportingFacade,
         { provide: ControlPlaneFacade, useValue: hubApi },
         { provide: NotificationService, useValue: notifications },
+        {
+          provide: ProjectContextService,
+          useValue: { selectedProjectId: signal('project-1') },
+        },
       ],
     });
     return {
@@ -89,7 +95,7 @@ describe('dashboard goal reporting facade', () => {
 
     facade.refresh('http://hub:5000', 'new');
 
-    expect(hubApi.listGoals).toHaveBeenCalledWith('http://hub:5000');
+    expect(hubApi.listGoals).toHaveBeenCalledWith('http://hub:5000', undefined, 'project-1');
     expect(hubApi.getGoalDetail).toHaveBeenCalledWith('http://hub:5000', 'new');
     expect(hubApi.getGoalGovernanceSummary).toHaveBeenCalledWith('http://hub:5000', 'new');
     expect(facade.state.goals.map(goal => goal.id)).toEqual(['new', 'created', 'old']);

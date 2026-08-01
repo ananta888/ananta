@@ -17,12 +17,15 @@ import { WindowBridgeService } from './services/window-bridge.service';
 import { SnakeOverlayService } from './services/snake-overlay.service';
 import { SnakeOverlayComponent } from './components/snake-overlay.component';
 import { SecurityStorageBannerComponent } from './components/security-storage-banner.component';
+import { ProjectContextSwitcherComponent } from './components/project-context-switcher.component';
+import type { AppNavItem } from './models/route-metadata';
+import { ProjectContextService } from './services/project-context.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent, BreadcrumbComponent, SnakeOverlayComponent, SecurityStorageBannerComponent],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent, BreadcrumbComponent, SnakeOverlayComponent, SecurityStorageBannerComponent, ProjectContextSwitcherComponent],
   template: `
     <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
     <app-security-storage-banner />
@@ -61,6 +64,7 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
                     @for (item of group.items; track item.path) {
                       <a
                         [routerLink]="item.path"
+                        [queryParams]="projectQueryParams(item)"
                         routerLinkActive="active"
                         [routerLinkActiveOptions]="{ exact: true }"
                         (click)="closeMobileNav()">
@@ -82,6 +86,7 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
         <!-- Rechts: User-Controls -->
         @if (headerUser()) {
           <div class="app-hright">
+            <app-project-context-switcher />
             @if (!isAndroidNative) {
               <button class="secondary app-hbtn mobile-nav-toggle"
                 (click)="shell.toggleMobileNav()"
@@ -119,6 +124,7 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
               @for (item of group.items; track item.path) {
                 <a
                   [routerLink]="item.path"
+                  [queryParams]="projectQueryParams(item)"
                   routerLinkActive="active"
                   [routerLinkActiveOptions]="{ exact: true }"
                   (click)="closeMobileNav()">
@@ -310,6 +316,7 @@ export class AppComponent implements OnInit, OnDestroy {
   readonly snakeOverlay = inject(SnakeOverlayService);
   private pythonRuntime = inject(PythonRuntimeService);
   readonly bridge = inject(WindowBridgeService);
+  readonly projectContext = inject(ProjectContextService);
 
   private authSub?: Subscription;
   private touchStartX = 0;
@@ -386,6 +393,11 @@ get isAndroidNative(): boolean {
 
   navGroups(role?: string | null) {
     return this.shell.navGroups(role);
+  }
+
+  projectQueryParams(item: AppNavItem): Record<string, string> | null {
+    const projectId = this.projectContext.selectedProjectId();
+    return item.projectScoped && projectId ? { projectId } : null;
   }
 
   get isFullscreenRoute(): boolean {

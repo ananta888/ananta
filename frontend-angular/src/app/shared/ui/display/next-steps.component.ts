@@ -1,11 +1,12 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Params, RouterLink } from '@angular/router';
 
 export interface NextStepAction {
   id: string;
   label: string;
   description?: string;
   routerLink?: string | unknown[];
+  queryParams?: Params;
   href?: string;
   disabled?: boolean;
 }
@@ -27,7 +28,7 @@ export interface NextStepAction {
       <div class="shared-next-step-list">
         @for (step of steps; track step.id) {
           @if (step.routerLink) {
-            <a class="shared-next-step" [routerLink]="step.routerLink" [class.disabled]="step.disabled">
+            <a class="shared-next-step" [routerLink]="step.routerLink" [queryParams]="step.queryParams" [class.disabled]="step.disabled">
               <strong>{{ step.label }}</strong>
               @if (step.description) {
                 <span>{{ step.description }}</span>

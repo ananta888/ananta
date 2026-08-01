@@ -26,6 +26,7 @@ import {
   SourceControlProjectionPage,
   SourceControlRunPage,
   SourceControlV1ContractError,
+  assertSourceControlActivePointerEtag,
   assertSourceControlCursor,
   assertSourceControlEtag,
   assertSourceControlIdempotencyKey,
@@ -654,6 +655,7 @@ export class SourceControlV1ApiClient
     return this.lifecyclePost(
       `/indices/${this.pathId(indexId, 'index_id')}/activate`,
       guard,
+      'active-pointer',
     );
   }
 
@@ -664,6 +666,7 @@ export class SourceControlV1ApiClient
     return this.lifecyclePost(
       `/indices/${this.pathId(indexId, 'index_id')}/rollback`,
       guard,
+      'active-pointer',
     );
   }
 
@@ -1088,13 +1091,18 @@ export class SourceControlV1ApiClient
   private lifecyclePost(
     path: string,
     guard: SourceControlMutationGuard,
+    etagKind: 'resource' | 'active-pointer' = 'resource',
   ): Observable<SourceControlLifecycleAcknowledgement> {
     return this.handle(
       this.http
         .post<unknown>(
           `${BASE_PATH}${path}`,
           { dry_run: false },
-          { headers: this.mutationHeaders(guard) },
+          {
+            headers: etagKind === 'active-pointer'
+              ? this.activePointerMutationHeaders(guard)
+              : this.mutationHeaders(guard),
+          },
         )
         .pipe(
           map((body) =>
@@ -1153,6 +1161,20 @@ export class SourceControlV1ApiClient
 
   private mutationHeaders(guard: SourceControlMutationGuard): HttpHeaders {
     assertSourceControlEtag(guard.etag, 'if_match');
+    assertSourceControlIdempotencyKey(
+      guard.idempotencyKey,
+      'idempotency_key',
+    );
+    return new HttpHeaders({
+      'If-Match': `"${guard.etag}"`,
+      'Idempotency-Key': guard.idempotencyKey,
+    });
+  }
+
+  private activePointerMutationHeaders(
+    guard: SourceControlMutationGuard,
+  ): HttpHeaders {
+    assertSourceControlActivePointerEtag(guard.etag, 'if_match');
     assertSourceControlIdempotencyKey(
       guard.idempotencyKey,
       'idempotency_key',

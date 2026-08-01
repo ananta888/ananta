@@ -169,7 +169,7 @@ export interface SourceControlPublicRemoteValidation {
   readonly requested_ref: string;
   readonly commit_sha: string;
   readonly expires_at_epoch: number;
-  readonly capabilities: Readonly<Record<string, boolean>>;
+  readonly capabilities: SourceControlPublicRemoteCapabilities;
 }
 
 export interface SourceControlPublicRemoteCreation {
@@ -177,7 +177,14 @@ export interface SourceControlPublicRemoteCreation {
   readonly provider: SourceControlPublicRemoteProvider;
   readonly commit_sha: string;
   readonly state: string;
-  readonly capabilities: Readonly<Record<string, boolean>>;
+  readonly capabilities: SourceControlPublicRemoteCapabilities;
+}
+
+export interface SourceControlPublicRemoteCapabilities {
+  readonly connector_type: 'github' | 'git';
+  readonly credential_mode: 'none';
+  readonly remote_url_exposed: false;
+  readonly immutable_validation?: true;
 }
 
 export interface SourceControlGrantPreset {
@@ -335,6 +342,7 @@ export function parsePublicRemoteValidation(
     capabilities: publicRemoteCapabilities(
       input['capabilities'],
       `${path}.capabilities`,
+      true,
     ),
   };
 }
@@ -362,6 +370,7 @@ export function parsePublicRemoteCreation(
     capabilities: publicRemoteCapabilities(
       input['capabilities'],
       `${path}.capabilities`,
+      false,
     ),
   };
 }
@@ -603,20 +612,38 @@ function requireCapability(
 function publicRemoteCapabilities(
   value: unknown,
   path: string,
-): Readonly<Record<string, boolean>> {
+  immutableValidation: boolean,
+): SourceControlPublicRemoteCapabilities {
   const input = objectValue(value, path);
-  const result: Record<string, boolean> = {};
-  for (const [key, capability] of Object.entries(input)) {
-    if (
-      !/^[a-z][a-z0-9_]{0,63}$/.test(key)
-      || PUBLIC_REMOTE_FORBIDDEN_CAPABILITIES.has(key)
-      || typeof capability !== 'boolean'
-    ) {
-      fail(`${path}.${key}_invalid`);
-    }
-    result[key] = capability;
+  exactKeys(
+    input,
+    immutableValidation
+      ? ['connector_type', 'credential_mode', 'remote_url_exposed', 'immutable_validation']
+      : ['connector_type', 'credential_mode', 'remote_url_exposed'],
+    path,
+  );
+  const connectorType = input['connector_type'];
+  if (connectorType !== 'github' && connectorType !== 'git') {
+    fail(`${path}.connector_type_invalid`);
   }
-  return result;
+  if (input['credential_mode'] !== 'none') {
+    fail(`${path}.credential_mode_invalid`);
+  }
+  if (input['remote_url_exposed'] !== false) {
+    fail(`${path}.remote_url_exposed_invalid`);
+  }
+  if (
+    Object.keys(input).some((key) => PUBLIC_REMOTE_FORBIDDEN_CAPABILITIES.has(key))
+    || (immutableValidation && input['immutable_validation'] !== true)
+  ) {
+    fail(`${path}.immutable_validation_invalid`);
+  }
+  return {
+    connector_type: connectorType,
+    credential_mode: 'none',
+    remote_url_exposed: false,
+    ...(immutableValidation ? { immutable_validation: true as const } : {}),
+  };
 }
 
 export function parseContentAdmissionValidation(

@@ -18,7 +18,7 @@ interface DetailTabDefinition {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="detail-shell" aria-labelledby="source-detail-title">
-      <a routerLink="/sources" class="back-link">← Quellenübersicht</a>
+      <a routerLink="/sources" queryParamsHandling="preserve" class="back-link">← Quellenübersicht</a>
 
       <div *ngIf="facade.sourceError() as error" class="state-card error" role="alert">
         <span>{{ stateLabel(error.state) }}</span>
@@ -178,7 +178,7 @@ interface DetailTabDefinition {
                     <button
                       type="button"
                       data-testid="index-activate"
-                      [disabled]="facade.mutationLoading() || !run.etag || !facade.can('activate')"
+                      [disabled]="facade.mutationLoading() || !facade.can('activate')"
                       (click)="facade.activateIndex(run.indexId)"
                     >
                       Aktivieren
@@ -186,7 +186,7 @@ interface DetailTabDefinition {
                     <button
                       type="button"
                       data-testid="index-rollback"
-                      [disabled]="facade.mutationLoading() || !run.etag || !facade.can('rollback')"
+                      [disabled]="facade.mutationLoading() || !facade.can('rollback')"
                       (click)="facade.rollbackIndex(run.indexId)"
                     >
                       Rollback

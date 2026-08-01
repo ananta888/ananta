@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, effect, inject } from '@angular/core';
 import { BehaviorSubject, catchError, of } from 'rxjs';
 import { Subscription } from 'rxjs';
 
@@ -13,12 +13,14 @@ import {
   HubControlCenterApiClient,
 } from './hub-control-center-api.client';
 import { ControlCenterEventStreamService } from './control-center-event-stream.service';
+import { ProjectContextService } from '../../../services/project-context.service';
 
 @Injectable({ providedIn: 'root' })
 export class ControlCenterStateFacade {
   private api = inject(HubControlCenterApiClient);
   private directory = inject(AgentDirectoryService);
   private stream = inject(ControlCenterEventStreamService);
+  private projectContext = inject(ProjectContextService);
 
   readonly projects$ = new BehaviorSubject<CcProjectReadModel[]>([]);
   readonly tasks$ = new BehaviorSubject<CcTaskReadModel[]>([]);
@@ -35,8 +37,24 @@ export class ControlCenterStateFacade {
   private connectingEvents = false;
 
   constructor() {
-    const initial = localStorage.getItem('ananta.cc.selectedProjectId') || '';
-    this.selectedProjectId$.next(initial);
+    effect(() => {
+      this.projects$.next(this.projectContext.projects().map((project) => ({
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        status: project.status,
+        is_active: project.isActive,
+        origin: project.origin,
+        team_id: project.teamId,
+        version: project.version,
+        created_at: project.createdAt,
+        updated_at: project.updatedAt,
+        archived_at: project.archivedAt,
+      })));
+      this.selectedProjectId$.next(this.projectContext.selectedProjectId());
+      this.loading$.next(this.projectContext.loading());
+      this.error$.next(this.projectContext.error());
+    });
   }
 
   hubBaseUrl(): string | null {
@@ -45,30 +63,11 @@ export class ControlCenterStateFacade {
   }
 
   loadProjects(): void {
-    const baseUrl = this.hubBaseUrl();
-    if (!baseUrl) {
-      this.error$.next('Kein Hub konfiguriert');
-      return;
-    }
-    this.loading$.next(true);
-    this.api.listProjects(baseUrl).pipe(
-      catchError(() => {
-        this.error$.next('Projekte konnten nicht geladen werden');
-        return of({ items: [], count: 0 });
-      }),
-    ).subscribe((res) => {
-      this.projects$.next(res.items || []);
-      const current = this.selectedProjectId$.value;
-      const fallback = (res.items || [])[0]?.id || '';
-      const selected = (res.items || []).some((p) => p.id === current) ? current : fallback;
-      this.selectProject(selected, false);
-      this.loading$.next(false);
-    });
+    this.projectContext.ensureLoaded(true).subscribe({ error: () => undefined });
   }
 
   selectProject(projectId: string, reload = true): void {
-    this.selectedProjectId$.next(projectId || '');
-    localStorage.setItem('ananta.cc.selectedProjectId', projectId || '');
+    this.projectContext.selectProject(projectId || '');
     if (reload) {
       this.loadTasks();
       this.loadSessions();

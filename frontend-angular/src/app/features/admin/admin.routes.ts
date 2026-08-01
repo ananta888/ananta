@@ -1,13 +1,14 @@
 import { Routes } from '@angular/router';
 
 import { adminGuard } from '../../guards/admin.guard';
+import { projectContextGuard } from '../../guards/project-context.guard';
 import { sfuBroadcastOperatorGuard } from '../../guards/sfu-broadcast-operator.guard';
 import { routeDataFor } from '../../models/route-metadata';
 
 export const adminRoutes: Routes = [
   { path: 'templates', data: routeDataFor('templates'), loadComponent: () => import('../../components/templates.component').then(m => m.TemplatesComponent) },
   { path: 'teams', data: routeDataFor('teams'), loadComponent: () => import('../../components/teams.component').then(m => m.TeamsComponent) },
-  { path: 'artifacts', data: routeDataFor('artifacts'), loadComponent: () => import('../../components/artifacts.component').then(m => m.ArtifactsComponent) },
+  { path: 'artifacts', canActivate: [projectContextGuard], data: routeDataFor('artifacts'), loadComponent: () => import('../../components/artifacts.component').then(m => m.ArtifactsComponent) },
   { path: 'knowledge', data: routeDataFor('knowledge'), loadComponent: () => import('../../components/knowledge.component').then(m => m.KnowledgeComponent) },
   { path: 'wikipedia', data: routeDataFor('wikipedia'), loadComponent: () => import('../../components/wikipedia.component').then(m => m.WikipediaComponent) },
   {

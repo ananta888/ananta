@@ -15,6 +15,8 @@ import { codeHugRoutes } from './features/codehug/codehug.routes';
 import { caseFlowRoutes } from './features/caseflow/caseflow.routes';
 import { modelTrainingRoutes } from './features/model-training/model-training.routes';
 import { modelAnalysisRoutes } from './features/model-analysis/model-analysis.routes';
+import { PROJECT_ROUTES } from './features/projects/project.routes';
+import { projectContextGuard } from './guards/project-context.guard';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -24,7 +26,8 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'workspace' },
-      { path: 'workspace', data: { breadcrumb: 'Arbeitsbereich', area: 'Operate' }, loadComponent: () => import('./components/personal-workspace.component').then(m => m.PersonalWorkspaceComponent) },
+      { path: 'projects', children: PROJECT_ROUTES },
+      { path: 'workspace', canActivate: [projectContextGuard], data: { breadcrumb: 'Arbeitsbereich', area: 'Operate', projectScoped: true }, loadComponent: () => import('./components/personal-workspace.component').then(m => m.PersonalWorkspaceComponent) },
       { path: 'chats', data: { breadcrumb: 'AI Chats', area: 'Operate' }, loadComponent: () => import('./features/chat/chat-page.component').then(m => m.ChatPageComponent) },
       { path: 'classroom', pathMatch: 'full', redirectTo: 'caseflow/classroom' },
       { path: 'help', data: { breadcrumb: 'Hilfe', area: 'General' }, loadComponent: () => import('./components/help.component').then(m => m.HelpComponent) },
