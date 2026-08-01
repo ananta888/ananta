@@ -1,0 +1,88 @@
+{
+  "schema": "ananta.source-control.local-live-browser-verification.v1",
+  "scope": "local_compose_non_production",
+  "status": "passed",
+  "results": {
+    "angular_focused_contract_tests": {
+      "status": "passed",
+      "passed": 35,
+      "failed": 0
+    },
+    "angular_typecheck": {
+      "status": "passed"
+    },
+    "angular_production_image_build": {
+      "status": "passed"
+    },
+    "public_git_browser_e2e": {
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "retries": 0,
+      "coverage": [
+        "validate_public_github_remote",
+        "create_public_github_remote",
+        "resolve_and_pin_master_commit",
+        "create_connection",
+        "refresh_connection",
+        "reach_scan_ready",
+        "suppress_expected_private_provider_health_notification"
+      ]
+    },
+    "workspace_snapshot_browser_e2e": {
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "retries": 0,
+      "observed_duration_minutes": 7.3,
+      "coverage": [
+        "upload_workspace_snapshot",
+        "create_connection",
+        "refresh_connection",
+        "reach_scan_ready",
+        "create_and_activate_context_policy",
+        "create_revision_and_destination_bound_grant",
+        "start_index_run",
+        "claim_with_900_second_lease",
+        "propose_and_execute_worker_job",
+        "materialize_capability_bound_outputs",
+        "project_completed_index",
+        "activate_with_active_pointer_compare_and_swap",
+        "read_back_source_state_in_ui"
+      ]
+    },
+    "worker_output_capability_tests": {
+      "status": "passed",
+      "passed": 18,
+      "failed": 0
+    },
+    "completion_projection_tests": {
+      "status": "passed",
+      "passed": 22,
+      "failed": 0
+    },
+    "graph_authorization_whitelist_regression": {
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "deselected": 102
+    },
+    "live_graph_and_query_http": {
+      "status": "passed",
+      "graph_status": 200,
+      "query_status": 200
+    }
+  },
+  "architecture_assertions": {
+    "hub_is_control_plane": true,
+    "workers_orchestrate_other_workers": false,
+    "user_or_hub_bearer_forwarded_for_worker_output_reads": false,
+    "worker_output_capability_bound_to_job_assignment_lease_and_artifact": true,
+    "hub_projection_atomic_and_idempotent": true
+  },
+  "public_provider_used": "github_public_repository",
+  "private_github_app_or_oauth_used": false,
+  "production_evidence": false,
+  "source_ids": [],
+  "run_ids": []
+}

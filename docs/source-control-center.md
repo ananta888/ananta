@@ -76,17 +76,17 @@ und Serverfehler. Ein Fehler erzeugt niemals eine lokale Ersatzfreigabe.
 ## Aktueller Capability-Stand
 
 Die folgende Matrix beschreibt den implementierten und lokal verifizierten
-Stand. Sie ist kein Produktionsnachweis. Die aktuellen Backend-Gates liefen
-mit `167/167`, der PostgreSQL-Identifierfix mit `14/14` und der
-Auth-Produktionsfix mit `147/147`. Angular lief mit `68/68`, erfolgreichem
-Build und `42/42` Project-Selector-Tests.
+Stand. Sie ist kein Produktionsnachweis. Zusaetzlich zu den bestehenden Gates
+liefen die aktuellen fokussierten Angular-Vertraege mit `35/35`, Typecheck und
+Produktions-Image-Build erfolgreich. Die lokalen Chromium-Journeys fuer Public
+Git und Workspace-Snapshot bestanden jeweils `1/1` ohne Retry.
 
 | Capability | Backend | Angular | Externe private Provider | Verifikation |
 |---|---|---|---|---|
 | Atomare Connection-Bindung | Implementiert; Connector-Auswahl und validierter `relative_path` werden gemeinsam gebunden. | Der bestehende Quellen-Assistent verwendet die Connection-API. | Nicht erforderlich. | Backend-Gate `167/167`; Planning-Gates gruen. |
 | Git-Authorization-Lifecycle | Persistente List-, Detail-, Health-, Revoke- und Scope-loss-Flows sind implementiert. | Git-Authorization-UI ist implementiert. | Fuer private GitHub-App-/OAuth-Nutzung weiterhin erforderlich und nicht konfiguriert. | Auth-Gate `147/147`; Angular `68/68`, Build und Project-Selector `42/42`. |
-| Credential-freies Public Git/GitHub | Strukturierter Validate/Create-Pfad ohne Browser-URL, Credential oder Secret ist implementiert. | Noch nicht als eigener Public-Remote-Flow nachgewiesen. | Nicht erforderlich. | Live-Validate `200` mit aufgeloestem 40-Zeichen-Commit; weiterhin `partial`, weil Live-Create und UI-E2E fehlen. |
-| Lokale Workspace-Folder-Registration | Opaque Folder-Handles, TTL-Validation, read-only Registrierung, Catalog-Aufloesung und CAS-Disable sind implementiert. | `/sources/add` war erreichbar; eine vollstaendige Browser-Registration-Journey wurde nicht ausgefuehrt. | Nicht erforderlich. | Backend lokal verifiziert; Live-Smoke: List `200`, Validate `200`, Create `201`, Catalog-Match und Disable `200`. |
+| Credential-freies Public Git/GitHub | Strukturierter Validate/Create-Pfad ohne Browser-URL, Credential oder Secret ist implementiert. | Der Public-Remote-Flow ist lokal im Browser verifiziert. | Nicht erforderlich. | Chromium `1/1` ohne Retry: `octocat/Hello-World`, `master` auf immutable Commit aufgeloest, Validate, Create, Connection, Refresh und Scan-ready bestanden; erwarteter privater Provider-Health-Fehler erzeugte keine globale Fehlermeldung. |
+| Lokale Workspace-Folder-Registration | Opaque Folder-Handles, TTL-Validation, read-only Registrierung, Catalog-Aufloesung und CAS-Disable sind implementiert. | Die vollstaendige Workspace-Snapshot-Journey ist lokal im Browser verifiziert. | Nicht erforderlich. | Chromium `1/1` ohne Retry: Upload, Connection, Refresh, Scan, Policy, Grant, Index-Run, Worker-Ausgabe, Projektion, Aktivierung und UI-Readback bestanden. |
 | Private GitHub App/OAuth | Fail-closed Provider- und Secret-Ports sowie server-handle-only API sind implementiert. | Authorization-Auswahl und Lifecycle sind bedienbar. | Reale App/OAuth-Registration, Installation und Grant fehlen. | Extern `unverified`. |
 
 ## Connection-Bindung und relative Pfade
@@ -117,9 +117,21 @@ Public Git/GitHub verwendet einen separaten Validate/Create-Pfad mit
 strukturierten Selektoren und ohne Credentials. Lokale Compose-Nutzung ist ein
 explizites Opt-in. In Produktion bleibt
 `ANANTA_SOURCE_CONTROL_PUBLIC_REMOTES_ENABLED` standardmaessig deaktiviert.
-Live-Validate war erfolgreich und lieferte einen aufgeloesten 40-Zeichen-
-Commit. Die Capability bleibt dennoch `partial`, weil kein Live-Create und
-kein Public-Remote-UI-E2E ausgefuehrt wurden.
+Die lokale Chromium-Journey validierte und erstellte
+`octocat/Hello-World@master`, band den aufgeloesten immutable Commit an eine
+Connection und erreichte nach Refresh den Scan-ready-Zustand. Sie bestand
+`1/1` ohne Retry. Eine private GitHub-App-/OAuth-Installation wurde dabei
+bewusst nicht verwendet und bleibt eine externe Voraussetzung.
+
+## Worker-Ausgaben und Hub-Projektion
+
+Der Hub delegiert den Index-Auftrag und bleibt Eigentuemer von Job, Lease,
+Policy-Entscheidung und Projektion. Worker-Ausgaben werden mit einer
+kurzlebigen signierten Capability gelesen, die an Job, Assignment, Lease und
+Artefakt gebunden ist. Weder Nutzer- noch Hub-Bearer werden dafuer an einen
+Worker weitergereicht. Der Hub prueft Artefaktgroesse, Medientyp und Digest
+und materialisiert danach die kanonischen Index- und Run-Bindungen atomar und
+idempotent. Die Aktivierung bleibt ein separater CAS-geschuetzter Schritt.
 
 ## Ausgefuehrter lokaler Integrationsstand
 
@@ -129,6 +141,16 @@ Admin-plus-`project_id`-Smoke lieferte fuer Workspace-Registration List `200`,
 Validate `200`, Create `201`, den passenden Workspace im Catalog und Disable
 `200`. Angular `/sources/add` lieferte `200`.
 
-Diese Resultate belegen die lokale Backend- und Integrationsfaehigkeit. Sie
-belegen keine Angular-Browser-Journey fuer Workspace-Registration, keinen
-Public-Remote-Live-Create und keine private GitHub-App-/OAuth-Konfiguration.
+Darauf aufbauend bestanden zwei aktuelle Chromium-Journeys jeweils `1/1` ohne
+Retry. Public Git deckte Validate, Create, immutable Commit-Pinning,
+Connection, Refresh und Scan-ready ab. Die Workspace-Snapshot-Journey deckte
+Upload, Connection, Refresh, Scan, dynamische Policy und Grant, Index-Run,
+einen realen Worker-Claim mit `900` Sekunden Lease, Propose/Execute,
+capability-gebundene Ausgabematerialisierung, Hub-Projektion, explizite
+Aktivierung mit Active-Pointer-CAS `active:0` und UI-Readback ab. Graph und
+Query antworteten nach dem Authorization-Whitelist-Fix jeweils mit HTTP `200`.
+
+Diese Resultate belegen die lokale Compose-Integration, nicht eine private
+GitHub-App-/OAuth-Konfiguration, Cloud-/Claude-Nutzung oder Produktion. Die
+deterministische Evidence liegt unter
+`artifacts/test-gates/source-control-center-live-browser-verification.json`.

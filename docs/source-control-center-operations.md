@@ -122,10 +122,32 @@ werden.
   Angular waren healthy. Workspace List `200`, Validate `200`, Create `201`,
   Catalog-Match und Disable `200` verifizieren die lokale
   Workspace-Registration auf Backend-/Integrationsniveau.
-- Public Git/GitHub bleibt `partial`: Live-Validate lieferte `200` und einen
-  40-Zeichen-Commit, aber Live-Create und Public-Remote-UI-E2E fehlen.
-- Angular `/sources/add` lieferte `200`; daraus wird keine vollstaendige
-  Workspace-Registration-Browser-Journey abgeleitet.
+- Public Git/GitHub ist lokal durch Chromium `1/1` ohne Retry verifiziert:
+  Validate und Create fuer `octocat/Hello-World@master`, immutable
+  Commit-Pinning, Connection, Refresh und Scan-ready bestanden. Der erwartete
+  Health-Fehler des nicht konfigurierten privaten Providers erzeugte keine
+  irrefuehrende globale Fehlermeldung.
+- Die Workspace-Snapshot-Chromium-Journey bestand `1/1` ohne Retry in `7,3`
+  Minuten. Sie umfasste Upload, Connection, Refresh, Scan, dynamische Policy
+  und Grant, Index-Run, realen Claim mit `900` Sekunden Lease,
+  Propose/Execute, capability-gebundene Ausgabematerialisierung, atomare
+  idempotente Hub-Projektion, explizite Aktivierung mit Active-Pointer-CAS
+  `active:0` sowie UI-Readback.
+- Worker-Ausgaben verwenden eine signierte, kurzlebige und an Job, Assignment,
+  Lease sowie Artefakt gebundene Capability. Nutzer- oder Hub-Bearer werden
+  nicht an Worker weitergegeben. Die fokussierten Output-Tests bestanden
+  `18/18`, die Completion-/Projection-Suite `22/22`.
+- Graph und Query antworteten nach dem Authorization-Whitelist-Regressionsfix
+  live jeweils mit HTTP `200`; der fokussierte Regressionstest bestand `1/1`.
+- Die lokale Compose-E2E-Konfiguration betreibt den Autopilot bewusst nicht.
+  Der Test-Harness treibt Claim, Propose und Execute ueber den Hub mit einer
+  gebundenen Lease; daraus entsteht keine Worker-zu-Worker-Orchestrierung.
 - Historische Gate-Evidence bleibt erhalten, belegt aber nicht automatisch
   den aktuellen Implementierungsdelta. Neue `SRC_*`- oder `RUN_*`-IDs werden
   ohne reale Bereitstellung nicht eingetragen.
+
+Der stabile lokale Nachweis liegt in
+`artifacts/test-gates/source-control-center-live-browser-verification.json`.
+Er enthaelt keine Lauf-IDs oder Zeitstempel und ist ausdruecklich kein
+Produktionsnachweis. Private GitHub-App-/OAuth-, Claude-/Cloud-, Receiver-,
+Paging- und Produktionsmetriken-Journeys bleiben extern offen.
