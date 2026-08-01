@@ -73,6 +73,8 @@ services:
       PYTHONPATH: /app
       PYTHONUNBUFFERED: "1"
       FLASK_DEBUG: "0"
+      # Local compose-next test opt-in only; production remains opt-in and fail-closed.
+      ANANTA_SOURCE_CONTROL_PUBLIC_REMOTES_ENABLED: "true"
       INITIAL_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-test123}
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434/api/generate}
@@ -223,6 +225,7 @@ services:
   # ── Angular Dev-Server (für Frontend-E2E) ───────────────────────────────────
 
   angular-frontend:
+    restart: unless-stopped
     build:
       context: ../..
       dockerfile: frontend-angular/Dockerfile
@@ -243,6 +246,16 @@ services:
       - /ms-playwright
     ports:
       - "${FRONTEND_PORT:-4200}:4200"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4200/').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
     depends_on:
       ai-agent-hub:
         condition: service_healthy
