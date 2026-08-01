@@ -12,7 +12,10 @@ from agent.services.hub_git_authorization_registry import (
 from agent.services.hub_git_credential_resolver import (
     GitCredentialCommandResolverPort,
 )
-from agent.services.hub_git_transport import HubGitTransport
+from agent.services.hub_git_transport import (
+    HubGitTransport,
+    HubGitTransportPort,
+)
 from agent.sources.generic_git_connector import GenericGitConnector
 from agent.sources.git_source_connector_common import GitRepositoryBudgets
 from agent.sources.github_repository_connector import (
@@ -31,6 +34,8 @@ from agent.sources.hub_git_connector_providers import (
 class HubGitConnectorComposition:
     github_repository: GitHubRepositoryConnector
     generic_git: GenericGitConnector
+    transport: HubGitTransportPort | None = None
+    registered_remotes: HubGitAuthorizationRegistryPort | None = None
 
 
 def compose_hub_git_source_connectors(
@@ -78,6 +83,8 @@ def compose_hub_git_source_connectors(
             refresh_provider=content,
             budgets=budgets,
         ),
+        transport=transport,
+        registered_remotes=authorization_registry,
     )
 
 

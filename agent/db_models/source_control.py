@@ -35,6 +35,40 @@ class SourceConnectionDB(SQLModel, table=True):
     tombstoned_at_epoch: Optional[float] = None
 
 
+class SourceConnectionSelectorDB(SQLModel, table=True):
+    """Secret-free selector bound one-to-one to a canonical connection."""
+
+    __tablename__ = "source_connection_selectors"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "project_id",
+            "owner_id",
+            "public_connector_type",
+            "selector_id",
+            "relative_path",
+            name="uq_source_connection_selectors_coordinates",
+        ),
+    )
+
+    connection_id: str = Field(
+        primary_key=True,
+        foreign_key="source_connections.connection_id",
+        max_length=69,
+    )
+    tenant_id: str = Field(index=True, max_length=128)
+    project_id: str = Field(index=True, max_length=128)
+    owner_id: str = Field(index=True, max_length=128)
+    public_connector_type: str = Field(index=True, max_length=32)
+    implementation_connector_type: str = Field(index=True, max_length=32)
+    selector_kind: str = Field(index=True, max_length=16)
+    selector_id: str = Field(index=True, max_length=192)
+    relative_path: Optional[str] = Field(default=None, max_length=512)
+    repository_identifier: Optional[str] = Field(default=None, max_length=201)
+    binding_digest: str = Field(index=True, max_length=64)
+    created_at_epoch: float
+
+
 class SourceRevisionDB(SQLModel, table=True):
     __tablename__ = "source_revisions"
     __table_args__ = (

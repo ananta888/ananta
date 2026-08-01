@@ -8,6 +8,12 @@ import re
 from dataclasses import dataclass
 from typing import Mapping
 
+from agent.services.source_control_connection_binding import (
+    SourceConnectionSelectorBinding,
+    implementation_connector_type,
+    normalize_workspace_relative_path,
+)
+
 
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,191}$")
 _WORKSPACE_CONNECTORS = frozenset(
@@ -34,6 +40,34 @@ class ResolvedSourceControlConnectionIntent:
     connection_identity_digest: str
     display_name: str
     sensitivity: str
+    selector_kind: str
+    selector_id: str
+    implementation_connector_type: str
+    relative_path: str | None = None
+    repository_identifier: str | None = None
+
+    def binding(
+        self,
+        *,
+        connection_id: str,
+        tenant_id: str,
+        project_id: str,
+        owner_id: str,
+    ) -> SourceConnectionSelectorBinding:
+        return SourceConnectionSelectorBinding(
+            connection_id=connection_id,
+            tenant_id=tenant_id,
+            project_id=project_id,
+            owner_id=owner_id,
+            public_connector_type=self.connector_type,
+            implementation_connector_type=(
+                self.implementation_connector_type
+            ),
+            selector_kind=self.selector_kind,
+            selector_id=self.selector_id,
+            relative_path=self.relative_path,
+            repository_identifier=self.repository_identifier,
+        )
 
 
 class SourceControlConnectionIntentResolver:
@@ -69,20 +103,33 @@ class SourceControlConnectionIntentResolver:
         if _OPAQUE_ID.fullmatch(sensitivity) is None:
             raise SourceControlConnectionIntentError("sensitivity_invalid")
         if connector_type in _WORKSPACE_CONNECTORS:
+            selector_id = str(payload.get("workspace_id") or "")
+            relative_path = normalize_workspace_relative_path(
+                payload.get("relative_path")
+            )
             identity = self._workspace_identity(
                 connector_type=connector_type,
                 tenant_id=tenant_id,
                 project_id=project_id,
                 actor_id=None if "admin" in roles else actor_id,
-                workspace_id=str(payload.get("workspace_id") or ""),
+                workspace_id=selector_id,
+                relative_path=relative_path,
             )
+            selector_kind = "workspace"
+            repository_identifier = None
         elif connector_type in _REMOTE_CONNECTORS:
+            selector_id = str(payload.get("remote_id") or "")
             identity = self._remote_identity(
                 connector_type=connector_type,
                 tenant_id=tenant_id,
                 project_id=project_id,
                 actor_id=None if "admin" in roles else actor_id,
-                remote_id=str(payload.get("remote_id") or ""),
+                remote_id=selector_id,
+            )
+            selector_kind = "remote"
+            relative_path = None
+            repository_identifier = (
+                str(identity.get("repository") or "") or None
             )
         else:
             raise SourceControlConnectionIntentError(
@@ -93,6 +140,13 @@ class SourceControlConnectionIntentResolver:
             connection_identity_digest=_digest(identity),
             display_name=display_name,
             sensitivity=sensitivity,
+            selector_kind=selector_kind,
+            selector_id=selector_id,
+            implementation_connector_type=implementation_connector_type(
+                connector_type
+            ),
+            relative_path=relative_path,
+            repository_identifier=repository_identifier,
         )
 
     def _workspace_identity(
@@ -103,6 +157,7 @@ class SourceControlConnectionIntentResolver:
         project_id: str,
         actor_id: str | None,
         workspace_id: str,
+        relative_path: str,
     ) -> Mapping[str, object]:
         if _OPAQUE_ID.fullmatch(workspace_id) is None:
             raise SourceControlConnectionIntentError("workspace_id_invalid")
@@ -170,6 +225,7 @@ class SourceControlConnectionIntentResolver:
             "tenant_id": tenant_id,
             "project_id": project_id,
             "workspace_id": workspace_id,
+            "relative_path": relative_path,
             "owner_id": str(workspace_owner or ""),
             "registered_root_digest": hashlib.sha256(
                 root_identity.encode("utf-8")

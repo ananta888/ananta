@@ -130,6 +130,7 @@ from .source_control import (
     SourceAccessGrantAuditDB,
     SourceAccessGrantDB,
     SourceConnectionDB,
+    SourceConnectionSelectorDB,
     SourceControlArtifactDeletionDB,
     SourceControlBulkTargetCheckpointDB,
     SourceControlContentDB,
@@ -138,6 +139,16 @@ from .source_control import (
     SourceControlOperationDB,
     SourceControlPurgeApprovalDB,
     SourceRevisionDB,
+)
+from .source_control_public_remote import (
+    SourceControlPublicRemoteAuditDB,
+    SourceControlPublicRemoteDB,
+    SourceControlPublicRemoteValidationDB,
+)
+from .source_control_workspace_registration import (
+    SourceControlWorkspaceRegistrationAuditDB,
+    SourceControlWorkspaceRegistrationDB,
+    SourceControlWorkspaceValidationDB,
 )
 from .source_access_enforcement import (
     SourceAccessGrantConsumptionDB,
@@ -468,6 +479,13 @@ __all__ = [
     "SourceAccessGrantDB",
     "SourceAccessGrantExecutionPolicyDB",
     "SourceConnectionDB",
+    "SourceConnectionSelectorDB",
+    "SourceControlPublicRemoteAuditDB",
+    "SourceControlPublicRemoteDB",
+    "SourceControlPublicRemoteValidationDB",
+    "SourceControlWorkspaceRegistrationAuditDB",
+    "SourceControlWorkspaceRegistrationDB",
+    "SourceControlWorkspaceValidationDB",
     "SourceControlArtifactDeletionDB",
     "SourceControlBulkTargetCheckpointDB",
     "SourceControlContentDB",

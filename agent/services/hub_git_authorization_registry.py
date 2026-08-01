@@ -15,7 +15,9 @@ _REPOSITORY = re.compile(
     r"^[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})/"
     r"[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})$"
 )
-_KINDS = frozenset({"github_app", "github_oauth", "generic_git"})
+_KINDS = frozenset(
+    {"github_app", "github_oauth", "github_public", "generic_git"}
+)
 _STATES = frozenset({"active", "revoked", "scope_loss"})
 
 

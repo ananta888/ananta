@@ -15,10 +15,16 @@ from agent.auth import (
     get_authenticated_source_control_principal,
 )
 from agent.routes.source_control_access import (
+    SourceControlProjectScopeError,
     authorize_route_request,
+    bind_source_control_project_selector,
     record_source_control_route_denial,
 )
 from agent.services.source_control_access_policy import SourceControlAction
+from agent.services.source_control_connection_binding import (
+    SourceControlConnectionBindingError,
+    normalize_workspace_relative_path,
+)
 from agent.services.source_control_legacy_usage import (
     BoundedLegacySourceControlUsage,
 )
@@ -445,13 +451,21 @@ def _catalog_request(
     if set(request.args) - allowed:
         raise SourceControlApiError("query_fields_forbidden")
     project_id = str(request.args.get("project_id") or "").strip()
-    principal = _principal()
     if not project_id:
         raise SourceControlApiError("project_id_required")
-    if project_id != str(getattr(principal, "project_id", "")):
-        raise SourceControlApiError(
-            "source_control_not_found", status_code=404
+    principal = _principal()
+    try:
+        scoped_principal = bind_source_control_project_selector(
+            project_id,
+            principal=principal,
         )
+    except SourceControlProjectScopeError as exc:
+        raise SourceControlApiError(
+            exc.reason_code,
+            status_code=exc.status_code,
+        ) from None
+    if not str(getattr(principal, "project_id", None) or "").strip():
+        principal = scoped_principal
     filters = {
         key: str(value)
         for key, value in request.args.items()
@@ -603,17 +617,27 @@ def _connection_intent_payload() -> dict[str, object]:
         {"connector_type", "display_name", "sensitivity", "dry_run"}
     )
     if connector_type in {"registered_workspace", "local_directory"}:
-        allowed = common | {"workspace_id"}
+        required = common | {"workspace_id"}
+        allowed = required | {"relative_path"}
         _required_string(payload, "workspace_id")
+        if "relative_path" in payload:
+            relative_path = _required_string(payload, "relative_path")
+            try:
+                payload["relative_path"] = (
+                    normalize_workspace_relative_path(relative_path)
+                )
+            except SourceControlConnectionBindingError as exc:
+                raise SourceControlApiError(exc.reason_code) from None
     elif connector_type in {"git", "github"}:
         allowed = common | {"remote_id"}
+        required = allowed
         _required_string(payload, "remote_id")
     else:
         raise SourceControlApiError("connector_type_not_registered")
     _require_exact_fields(
         payload,
         frozenset(allowed),
-        required=frozenset(allowed),
+        required=frozenset(required),
     )
     _required_string(payload, "display_name")
     _required_string(payload, "sensitivity")

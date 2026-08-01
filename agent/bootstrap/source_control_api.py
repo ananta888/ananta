@@ -18,11 +18,23 @@ from agent.adapters.source_control_metrics_adapter import (
 from agent.config import settings
 from agent.database import engine
 from agent.db_models.source_control import SourceRevisionDB
+from agent.repositories.source_control_public_remote_repository import (
+    SQLSourceControlPublicRemoteRepository,
+)
+from agent.repositories.source_control_workspace_registration_repository import (
+    SQLSourceControlWorkspaceRegistrationRepository,
+)
 from agent.routes.source_control_git_authorizations import (
     create_source_control_git_authorizations_blueprint,
 )
 from agent.routes.source_control_operations import (
     create_source_control_operations_blueprint,
+)
+from agent.routes.source_control_public_remotes import (
+    create_source_control_public_remotes_blueprint,
+)
+from agent.routes.source_control_workspace_registrations import (
+    create_source_control_workspace_registrations_blueprint,
 )
 from agent.routes.source_control_v1 import (
     create_source_control_legacy_alias_blueprint,
@@ -68,6 +80,14 @@ from agent.services.source_control_catalogs import (
     SourceControlReadCatalogService,
     SourceRegistryRegisteredWorkspaceCatalog,
 )
+from agent.services.source_control_workspace_catalog import (
+    CompositeRegisteredWorkspaceCatalog,
+    SQLRegisteredWorkspaceCatalog,
+    SecureWorkspaceFolderCatalog,
+)
+from agent.services.source_control_workspace_registration_service import (
+    SourceControlWorkspaceRegistrationService,
+)
 from agent.services.source_control_codehug_adapters import (
     ResolvedCodeHugDestinationCatalog,
     SQLCodeHugApprovalStore,
@@ -101,6 +121,12 @@ from agent.services.source_control_production_adapters import (
     HubSourceControlOperationsAdapter,
     ScopedWorkerModelDestinationCatalog,
     build_scoped_effective_access_service,
+)
+from agent.services.source_control_public_remote_service import (
+    SourceControlPublicRemoteService,
+)
+from agent.services.source_control_registered_remote_composite import (
+    CompositeRegisteredRemoteCatalog,
 )
 from agent.services.source_control_rollout_policy import (
     SourceControlRolloutConfiguration,
@@ -258,6 +284,16 @@ def register_source_control_api(app) -> None:
     remote_catalog = app.extensions.get(
         "hub_git_authorization_registry"
     )
+    public_remote_repository = app.extensions.get(
+        "source_control_public_remote_repository"
+    )
+    if public_remote_repository is None:
+        public_remote_repository = SQLSourceControlPublicRemoteRepository(
+            session_factory=lambda: Session(engine)
+        )
+        app.extensions[
+            "source_control_public_remote_repository"
+        ] = public_remote_repository
     git_composition = app.extensions.get(
         "hub_git_connector_composition"
     )
@@ -283,6 +319,9 @@ def register_source_control_api(app) -> None:
             },
             secret_resolver=secret_resolver,
             remote_policy=remote_policy,
+            additional_registered_remote_registry=(
+                public_remote_repository
+            ),
         )
         remote_catalog = persistent_git.registry
         git_composition = persistent_git.connectors
@@ -292,6 +331,26 @@ def register_source_control_api(app) -> None:
         app.extensions[
             "hub_git_connector_composition"
         ] = git_composition
+    connector_remote_catalog = getattr(
+        git_composition,
+        "registered_remotes",
+        None,
+    )
+    connector_registry_ready = bool(
+        isinstance(
+            connector_remote_catalog,
+            CompositeRegisteredRemoteCatalog,
+        )
+        and connector_remote_catalog.contains(public_remote_repository)
+    )
+    registered_remote_catalog = (
+        connector_remote_catalog
+        if connector_registry_ready
+        else remote_catalog
+    )
+    app.extensions[
+        "source_control_registered_remote_catalog"
+    ] = registered_remote_catalog
     additional_connectors = (
         build_source_control_connector_extensions(
             github_repository=git_composition.github_repository,
@@ -319,25 +378,89 @@ def register_source_control_api(app) -> None:
         for connector in additional_connectors:
             if connector.connector_type not in registered_types:
                 refresh.connector_registry.register(connector)
-    workspace_catalog = app.extensions.get(
+    base_workspace_catalog = app.extensions.get(
         "registered_workspace_catalog"
     )
-    if workspace_catalog is None:
-        workspace_catalog = SourceRegistryRegisteredWorkspaceCatalog(
+    if base_workspace_catalog is None:
+        base_workspace_catalog = SourceRegistryRegisteredWorkspaceCatalog(
             registry=registry,
             registrations=get_ops_registry_service(),
         )
-        app.extensions["registered_workspace_catalog"] = workspace_catalog
+    workspace_registration_repository = (
+        app.extensions.get(
+            "source_control_workspace_registration_repository"
+        )
+        or SQLSourceControlWorkspaceRegistrationRepository(
+            session_factory=lambda: Session(engine)
+        )
+    )
+    workspace_folders = (
+        app.extensions.get("source_control_workspace_folder_catalog")
+        or SecureWorkspaceFolderCatalog(
+            workspace_root=app.config.get(
+                "ANANTA_WORKSPACE_ROOT",
+                os.environ.get("ANANTA_WORKSPACE_ROOT"),
+            )
+        )
+    )
+    persistent_workspace_catalog = SQLRegisteredWorkspaceCatalog(
+        repository=workspace_registration_repository,
+        folders=workspace_folders,
+    )
+    workspace_catalog = CompositeRegisteredWorkspaceCatalog(
+        (base_workspace_catalog, persistent_workspace_catalog)
+    )
+    app.extensions[
+        "source_control_workspace_registration_repository"
+    ] = workspace_registration_repository
+    app.extensions[
+        "source_control_workspace_folder_catalog"
+    ] = workspace_folders
+    app.extensions[
+        "source_control_persistent_workspace_catalog"
+    ] = persistent_workspace_catalog
+    app.extensions[
+        "registered_workspace_catalog"
+    ] = workspace_catalog
+    workspace_registrations = SourceControlWorkspaceRegistrationService(
+        repository=workspace_registration_repository,
+        folders=workspace_folders,
+        idempotency=SQLSourceControlOperationStore(engine),
+    )
+    app.extensions[
+        "source_control_workspace_registration_service"
+    ] = workspace_registrations
+    workspace_source_connector = app.extensions.get(
+        "registered_workspace_source_connector"
+    )
+    if workspace_source_connector is None:
+        from agent.sources.registered_workspace_connector import (
+            RegisteredWorkspaceConnector,
+        )
+
+        workspace_source_connector = RegisteredWorkspaceConnector(
+            catalog=workspace_catalog
+        )
+        app.extensions[
+            "registered_workspace_source_connector"
+        ] = workspace_source_connector
+    registered_types = frozenset(refresh.connector_registry.list_types())
+    for connector in build_source_control_connector_extensions(
+        registered_workspace=workspace_source_connector
+    ):
+        if connector.connector_type not in registered_types:
+            refresh.connector_registry.register(connector)
+            registered_types = registered_types | {connector.connector_type}
     connection_intents = SourceControlConnectionIntentResolver(
         workspaces=workspace_catalog,
-        remotes=remote_catalog,
+        remotes=registered_remote_catalog,
     )
     app.extensions[
         "source_control_connection_intent_resolver"
     ] = connection_intents
     read_catalogs = SourceControlReadCatalogService(
         workspaces=workspace_catalog,
-        remotes=remote_catalog,
+        remotes=registered_remote_catalog,
         index_profiles=get_rag_helper_index_service(),
     )
     app.extensions["source_control_read_catalogs"] = read_catalogs
@@ -358,6 +481,17 @@ def register_source_control_api(app) -> None:
     app.extensions[
         "hub_git_authorization_provisioning_service"
     ] = git_authorizations
+    public_remotes = SourceControlPublicRemoteService(
+        repository=public_remote_repository,
+        remote_policy=remote_policy,
+        transport=getattr(git_composition, "transport", None),
+        idempotency=SQLSourceControlOperationStore(engine),
+        enabled=_public_remote_feature_enabled(app),
+        connector_registry_ready=connector_registry_ready,
+    )
+    app.extensions[
+        "source_control_public_remote_service"
+    ] = public_remotes
     content_admission = SourceControlContentAdmissionService(
         engine=engine,
         idempotency=SQLSourceControlOperationStore(engine),
@@ -567,6 +701,14 @@ def register_source_control_api(app) -> None:
         )
     )
     app.register_blueprint(
+        create_source_control_public_remotes_blueprint(public_remotes)
+    )
+    app.register_blueprint(
+        create_source_control_workspace_registrations_blueprint(
+            workspace_registrations
+        )
+    )
+    app.register_blueprint(
         create_source_control_operations_blueprint(health)
     )
     if rollout.capabilities().legacy_aliases:
@@ -576,6 +718,24 @@ def register_source_control_api(app) -> None:
             create_source_control_legacy_alias_blueprint(legacy_usage)
         )
     app.extensions["source_control_v1_registered"] = True
+
+
+def _public_remote_feature_enabled(app) -> bool:
+    value = app.config.get(
+        "SOURCE_CONTROL_PUBLIC_REMOTES_ENABLED",
+        os.environ.get(
+            "ANANTA_SOURCE_CONTROL_PUBLIC_REMOTES_ENABLED",
+            "false",
+        ),
+    )
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def _server_models(app):

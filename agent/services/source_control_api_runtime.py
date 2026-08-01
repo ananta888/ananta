@@ -1486,7 +1486,7 @@ class SourceControlApiRuntime:
         idempotency_key: str,
     ) -> Mapping[str, object]:
         actor = _principal(principal)
-        contract = self._connection_contract(principal, payload)
+        contract, resolved = self._resolved_connection(principal, payload)
         request_digest = _digest(
             {
                 "operation": "create_connection",
@@ -1506,8 +1506,16 @@ class SourceControlApiRuntime:
             raise SourceControlApiRuntimeError(
                 "idempotency_in_progress", status_code=409
             )
-        record = SQLSourceControlRepository(self.engine).save_connection(
-            contract
+        record = SQLSourceControlRepository(
+            self.engine
+        ).save_connection_with_selector(
+            contract,
+            resolved.binding(
+                connection_id=contract.connection_id,
+                tenant_id=contract.tenant_id,
+                project_id=contract.project_id,
+                owner_id=contract.owner_id,
+            ),
         )
         result = {
             "connection": record.contract.to_wire(),
@@ -2473,6 +2481,11 @@ class SourceControlApiRuntime:
     def _connection_contract(
         self, principal: object, payload: Mapping[str, object]
     ) -> SourceConnection:
+        return self._resolved_connection(principal, payload)[0]
+
+    def _resolved_connection(
+        self, principal: object, payload: Mapping[str, object]
+    ) -> tuple[SourceConnection, object]:
         actor = _principal(principal)
         if self.connection_intents is None:
             raise SourceControlApiRuntimeError(
@@ -2484,7 +2497,7 @@ class SourceControlApiRuntime:
                 principal=actor,
                 payload=payload,
             )
-            return SourceConnection.create(
+            contract = SourceConnection.create(
                 tenant_id=actor.tenant_id,
                 project_id=actor.project_id,
                 owner_id=actor.subject_id,
@@ -2499,6 +2512,7 @@ class SourceControlApiRuntime:
                 state=ConnectionState.DRAFT,
                 created_at=datetime.now(timezone.utc),
             )
+            return contract, resolved
         except (KeyError, TypeError, ValueError) as exc:
             reason_code = str(getattr(exc, "reason_code", "") or "")
             if reason_code:

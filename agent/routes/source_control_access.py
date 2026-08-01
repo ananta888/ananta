@@ -38,6 +38,9 @@ class SourceControlRouteDenyAuditPort(Protocol):
 
 _POLICY = SourceControlAccessPolicy()
 _TRACE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
+_PROJECT_SELECTOR = re.compile(
+    r"^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,190}$"
+)
 _SCOPE_METADATA_KEYS = (
     "source_control_scope",
     "source_control_binding",
@@ -51,6 +54,99 @@ _CONTAINER_KEYS = (
     "source_metadata",
     "task_metadata",
 )
+
+
+class SourceControlProjectScopeError(ValueError):
+    def __init__(self, reason_code: str, *, status_code: int) -> None:
+        self.reason_code = str(reason_code)
+        self.status_code = int(status_code)
+        super().__init__(self.reason_code)
+
+
+def bind_source_control_project_selector(
+    project_id: str,
+    *,
+    principal: HubSourcePrincipal | None = None,
+) -> HubSourcePrincipal:
+    """Bind a query selector to authenticated tenant/actor coordinates.
+
+    A token-scoped project can never be replaced. Tokens without a project
+    claim may bind a selector only through the explicit tenant-admin policy.
+    """
+
+    selected = str(project_id or "").strip()
+    if not selected:
+        raise SourceControlProjectScopeError(
+            "project_id_required",
+            status_code=400,
+        )
+    if _PROJECT_SELECTOR.fullmatch(selected) is None:
+        raise SourceControlProjectScopeError(
+            "project_id_invalid",
+            status_code=400,
+        )
+    authenticated = (
+        principal
+        if principal is not None
+        else get_authenticated_source_control_principal()
+    )
+    tenant_id = str(getattr(authenticated, "tenant_id", None) or "").strip()
+    subject_id = str(getattr(authenticated, "subject_id", None) or "").strip()
+    roles = frozenset(
+        str(role).strip()
+        for role in (getattr(authenticated, "roles", None) or ())
+        if str(role).strip()
+    )
+    if not tenant_id:
+        raise SourceControlProjectScopeError(
+            "source_control_principal_scope_required",
+            status_code=403,
+        )
+    if not subject_id:
+        raise SourceControlProjectScopeError(
+            "source_control_principal_subject_required",
+            status_code=403,
+        )
+    token_project = str(
+        getattr(authenticated, "project_id", None) or ""
+    ).strip()
+    if token_project and token_project != selected:
+        raise SourceControlProjectScopeError(
+            "source_control_not_found",
+            status_code=404,
+        )
+    if not token_project and "admin" not in roles:
+        raise SourceControlProjectScopeError(
+            "source_control_project_selector_not_authorized",
+            status_code=403,
+        )
+    scoped = HubSourcePrincipal(
+        subject_id=subject_id,
+        tenant_id=tenant_id,
+        project_id=selected,
+        roles=roles,
+    )
+    decision = _POLICY.authorize(
+        principal=scoped,
+        action=SourceControlAction.list,
+        binding=None,
+    )
+    if not decision.allowed:
+        raise SourceControlProjectScopeError(
+            decision.reason_code,
+            status_code=decision.status_code,
+        )
+    if not token_project:
+        log_audit(
+            "source_control_admin_project_selector",
+            {
+                "actor_id": scoped.subject_id,
+                "tenant_id": scoped.tenant_id,
+                "project_id": scoped.project_id,
+                "path": request.path,
+            },
+        )
+    return scoped
 
 
 def _as_mapping(resource: Any) -> dict[str, Any]:
@@ -178,9 +274,14 @@ def authorize_route_request(
     resource: Any = None,
     object_id: str = "",
     collection: bool = False,
+    principal_override: HubSourcePrincipal | None = None,
 ):
     try:
-        principal = get_authenticated_source_control_principal()
+        principal = (
+            principal_override
+            if isinstance(principal_override, HubSourcePrincipal)
+            else get_authenticated_source_control_principal()
+        )
     except SourceControlAccessPolicyError as exc:
         record_source_control_route_denial(
             principal=None,
@@ -332,7 +433,9 @@ def filter_visible_resources(
 __all__ = [
     "SourceControlRouteDenyAuditPort",
     "SourceScopeProjectionPort",
+    "SourceControlProjectScopeError",
     "authorize_route_request",
+    "bind_source_control_project_selector",
     "filter_visible_resources",
     "project_resource_binding",
     "record_source_control_route_denial",

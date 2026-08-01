@@ -60,7 +60,40 @@ def test_workspace_identity_is_derived_from_scoped_catalog(
     )
 
     assert resolved.connector_type == "registered_workspace"
+    assert resolved.implementation_connector_type == "registered_workspace"
+    assert resolved.selector_kind == "workspace"
+    assert resolved.selector_id == "workspace-example"
+    assert resolved.relative_path == "."
     assert len(resolved.connection_identity_digest) == 64
+
+    nested = resolver.resolve(
+        principal=_Principal(),
+        payload={
+            "connector_type": "local_directory",
+            "workspace_id": "workspace-example",
+            "relative_path": "src/./agent",
+            "display_name": "Agent sources",
+            "sensitivity": "internal",
+            "dry_run": True,
+        },
+    )
+    assert nested.implementation_connector_type == "local_directory"
+    assert nested.relative_path == "src/agent"
+
+    with pytest.raises(
+        ValueError, match="workspace_relative_path_invalid"
+    ):
+        resolver.resolve(
+            principal=_Principal(),
+            payload={
+                "connector_type": "registered_workspace",
+                "workspace_id": "workspace-example",
+                "relative_path": "../escape",
+                "display_name": "Escape",
+                "sensitivity": "internal",
+                "dry_run": True,
+            },
+        )
 
 
 def test_remote_identity_and_connector_are_server_bound() -> None:
@@ -95,6 +128,9 @@ def test_remote_identity_and_connector_are_server_bound() -> None:
         },
     )
     assert resolved.connector_type == "github"
+    assert resolved.implementation_connector_type == "github_repository"
+    assert resolved.selector_id == "remote-example"
+    assert resolved.repository_identifier == "example/repository"
     assert len(resolved.connection_identity_digest) == 64
 
     with pytest.raises(

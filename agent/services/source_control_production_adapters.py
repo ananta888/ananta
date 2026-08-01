@@ -239,9 +239,16 @@ class HubSourceControlOperationsAdapter:
 
     def refresh(self, **kwargs: object) -> Mapping[str, object]:
         descriptor = self._descriptor(**kwargs)
-        result = self._refresh.refresh_source(
-            source_id=str(descriptor["source_id"]),
-            dry_run=False,
+        refresh_descriptor = getattr(
+            self._refresh, "refresh_descriptor", None
+        )
+        result = (
+            refresh_descriptor(descriptor=descriptor, dry_run=False)
+            if callable(refresh_descriptor)
+            else self._refresh.refresh_source(
+                source_id=str(descriptor["source_id"]),
+                dry_run=False,
+            )
         )
         return self._bounded_receipt(result)
 
@@ -249,9 +256,30 @@ class HubSourceControlOperationsAdapter:
         descriptor = self._descriptor(**kwargs)
         connection = self._connection(**kwargs)
         source_id = str(descriptor["source_id"])
-        revision = self._refresh.resolve_revision(source_id=source_id)
-        inventory = self._refresh.inventory(source_id=source_id)
-        health = self._refresh.health(source_id=source_id)
+        resolve_revision = getattr(
+            self._refresh, "resolve_revision_descriptor", None
+        )
+        inventory_descriptor = getattr(
+            self._refresh, "inventory_descriptor", None
+        )
+        health_descriptor = getattr(
+            self._refresh, "health_descriptor", None
+        )
+        revision = (
+            resolve_revision(descriptor=descriptor)
+            if callable(resolve_revision)
+            else self._refresh.resolve_revision(source_id=source_id)
+        )
+        inventory = (
+            inventory_descriptor(descriptor=descriptor)
+            if callable(inventory_descriptor)
+            else self._refresh.inventory(source_id=source_id)
+        )
+        health = (
+            health_descriptor(descriptor=descriptor)
+            if callable(health_descriptor)
+            else self._refresh.health(source_id=source_id)
+        )
         scan = getattr(self._scanner, "scan_source", None)
         if not callable(scan):
             raise SourceControlProductionAdapterError(
@@ -416,6 +444,22 @@ class HubSourceControlOperationsAdapter:
 
     def _descriptor(self, **kwargs: object) -> Mapping[str, object]:
         connection = self._connection(**kwargs)
+        from agent.repositories.source_control_repository import (
+            SQLSourceControlRepository,
+        )
+
+        selector = SQLSourceControlRepository(
+            self._engine
+        ).get_connection_selector(
+            tenant_id=connection.tenant_id,
+            project_id=connection.project_id,
+            connection_id=connection.connection_id,
+        )
+        if selector is not None:
+            return selector.descriptor(
+                display_name=connection.display_name,
+                enabled=connection.state not in {"disabled", "tombstoned"},
+            )
         for descriptor in self._registry.list_sources(
             include_disabled=True
         ):

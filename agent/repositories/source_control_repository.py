@@ -21,6 +21,7 @@ from agent.db_models.source_control import (
     SourceAccessGrantAuditDB,
     SourceAccessGrantDB,
     SourceConnectionDB,
+    SourceConnectionSelectorDB,
     SourceControlJobEventOutboxDB,
     SourceRevisionDB,
 )
@@ -40,6 +41,9 @@ from agent.services.source_control_persistence import (
     derive_active_index_id,
     derive_grant_family_id,
     derive_index_lifecycle,
+)
+from agent.services.source_control_connection_binding import (
+    SourceConnectionSelectorBinding,
 )
 from ananta_contracts.source_control import (
     ConnectionState,
@@ -130,6 +134,82 @@ class SQLSourceControlRepository:
                 ) from None
             db.refresh(row)
             return self._connection_record(row)
+
+    def save_connection_with_selector(
+        self,
+        contract: SourceConnection,
+        binding: SourceConnectionSelectorBinding,
+    ) -> SourceConnectionRecord:
+        """Atomically create or idempotently recover connection and binding."""
+
+        if (
+            binding.connection_id != contract.connection_id
+            or binding.tenant_id != contract.tenant_id
+            or binding.project_id != contract.project_id
+            or binding.owner_id != contract.owner_id
+            or binding.public_connector_type != contract.connector_type.value
+        ):
+            raise SourceControlPersistenceError(
+                "source_control_connection_selector_scope_mismatch"
+            )
+        with Session(self._engine) as db:
+            row = db.get(SourceConnectionDB, contract.connection_id)
+            selector = db.get(
+                SourceConnectionSelectorDB, contract.connection_id
+            )
+            if row is not None:
+                record = self._connection_record(row)
+                if record.contract != contract:
+                    raise SourceControlPersistenceError(
+                        "source_control_connection_identity_conflict"
+                    )
+                if selector is not None:
+                    if self._selector_binding(selector) != binding:
+                        raise SourceControlPersistenceError(
+                            "source_control_connection_selector_conflict"
+                        )
+                    return record
+            elif selector is not None:
+                raise SourceControlPersistenceError(
+                    "source_control_connection_selector_conflict"
+                )
+            now = float(self._clock())
+            if row is None:
+                row = self._new_connection_row(contract, now=now)
+                db.add(row)
+            db.add(
+                SourceConnectionSelectorDB(
+                    **binding.coordinates(),
+                    binding_digest=binding.binding_digest,
+                    created_at_epoch=now,
+                )
+            )
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                raise SourceControlPersistenceError(
+                    "source_control_connection_selector_conflict"
+                ) from None
+            db.refresh(row)
+            return self._connection_record(row)
+
+    def get_connection_selector(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        connection_id: str,
+    ) -> SourceConnectionSelectorBinding | None:
+        with Session(self._engine) as db:
+            row = db.get(SourceConnectionSelectorDB, connection_id)
+            if (
+                row is None
+                or row.tenant_id != tenant_id
+                or row.project_id != project_id
+            ):
+                return None
+            return self._selector_binding(row)
 
     def get_connection(
         self,
@@ -1224,6 +1304,49 @@ class SQLSourceControlRepository:
             lock_version=1,
             updated_at_epoch=updated_at_epoch,
         )
+
+    @staticmethod
+    def _new_connection_row(
+        contract: SourceConnection, *, now: float
+    ) -> SourceConnectionDB:
+        return SourceConnectionDB(
+            connection_id=contract.connection_id,
+            tenant_id=contract.tenant_id,
+            project_id=contract.project_id,
+            owner_id=contract.owner_id,
+            connector_type=contract.connector_type.value,
+            connection_identity_digest=contract.connection_identity_digest,
+            display_name=contract.display_name,
+            sensitivity=contract.sensitivity.value,
+            state=contract.state.value,
+            lock_version=1,
+            created_at_epoch=contract.created_at.timestamp(),
+            updated_at_epoch=now,
+        )
+
+    @staticmethod
+    def _selector_binding(
+        row: SourceConnectionSelectorDB,
+    ) -> SourceConnectionSelectorBinding:
+        binding = SourceConnectionSelectorBinding(
+            connection_id=row.connection_id,
+            tenant_id=row.tenant_id,
+            project_id=row.project_id,
+            owner_id=row.owner_id,
+            public_connector_type=row.public_connector_type,
+            implementation_connector_type=(
+                row.implementation_connector_type
+            ),
+            selector_kind=row.selector_kind,
+            selector_id=row.selector_id,
+            relative_path=row.relative_path,
+            repository_identifier=row.repository_identifier,
+        )
+        if binding.binding_digest != row.binding_digest:
+            raise SourceControlPersistenceError(
+                "source_control_connection_selector_digest_mismatch"
+            )
+        return binding
 
     @staticmethod
     def _connection_record(row: SourceConnectionDB) -> SourceConnectionRecord:

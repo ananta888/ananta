@@ -13,6 +13,12 @@ from agent.repositories.hub_git_authorization_repository import (
     SQLHubGitAuthorizationRepository,
 )
 from agent.services.git_remote_policy_service import GitRemoteAccessPolicyPort
+from agent.services.hub_git_authorization_registry import (
+    HubGitAuthorizationRegistryPort,
+)
+from agent.services.source_control_registered_remote_composite import (
+    CompositeRegisteredRemoteCatalog,
+)
 from agent.services.hub_git_credential_resolver import (
     GitSecretValueResolverPort,
     SubprocessGitCredentialCommandResolver,
@@ -28,6 +34,7 @@ from agent.sources.hub_git_connector_composition import (
 class PersistentHubGitConnectorComposition:
     registry: SQLHubGitAuthorizationRepository
     connectors: HubGitConnectorComposition
+    registered_remotes: HubGitAuthorizationRegistryPort | None = None
 
 
 def compose_persistent_hub_git_source_connectors(
@@ -36,6 +43,9 @@ def compose_persistent_hub_git_source_connectors(
     config: Mapping[str, Any],
     secret_resolver: GitSecretValueResolverPort,
     remote_policy: GitRemoteAccessPolicyPort,
+    additional_registered_remote_registry: (
+        HubGitAuthorizationRegistryPort | None
+    ) = None,
 ) -> PersistentHubGitConnectorComposition:
     """Build adapters without opening a DB session or resolving any secret."""
 
@@ -58,12 +68,17 @@ def compose_persistent_hub_git_source_connectors(
     registry = SQLHubGitAuthorizationRepository(
         session_factory=session_factory,
     )
+    registered_remotes: HubGitAuthorizationRegistryPort = registry
+    if additional_registered_remote_registry is not None:
+        registered_remotes = CompositeRegisteredRemoteCatalog(
+            (registry, additional_registered_remote_registry)
+        )
     credential_resolver = SubprocessGitCredentialCommandResolver(
         secret_resolver=secret_resolver,
         credential_root=credential_root,
     )
     connectors = compose_hub_git_source_connectors(
-        authorization_registry=registry,
+        authorization_registry=registered_remotes,
         credential_resolver=credential_resolver,
         remote_policy=remote_policy,
         workspace_root=workspace_root,
@@ -71,6 +86,7 @@ def compose_persistent_hub_git_source_connectors(
     )
     return PersistentHubGitConnectorComposition(
         registry=registry,
+        registered_remotes=registered_remotes,
         connectors=connectors,
     )
 

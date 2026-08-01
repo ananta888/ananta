@@ -205,7 +205,6 @@ def test_connection_rejects_browser_digest_url_and_path(monkeypatch) -> None:
         {"connection_identity_digest": "a" * 64},
         {"url": "https://attacker.invalid/repository"},
         {"path": "/etc"},
-        {"relative_path": "../escape"},
     ):
         response = client.post(
             "/api/source-control/v1/connections/validate",
@@ -215,6 +214,21 @@ def test_connection_rejects_browser_digest_url_and_path(monkeypatch) -> None:
         assert response.get_json()["error"]["code"] == (
             "request_fields_forbidden"
         )
+
+    traversal = client.post(
+        "/api/source-control/v1/connections/validate",
+        json={**base, "relative_path": "../escape"},
+    )
+    assert traversal.status_code == 400
+    assert traversal.get_json()["error"]["code"] == (
+        "workspace_relative_path_invalid"
+    )
+
+    safe_relative = client.post(
+        "/api/source-control/v1/connections/validate",
+        json={**base, "relative_path": "src/agent"},
+    )
+    assert safe_relative.status_code == 200
 
 
 def test_existing_mutation_requires_dry_run_if_match_and_key(
