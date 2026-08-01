@@ -25,10 +25,11 @@ describe('SourceControlV1ApiClient security DTOs', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  it('sends only a server workspace id for validation', () => {
+  it('sends only a server workspace id and safe relative path for validation', () => {
     client.validateConnection({
       connector_type: 'registered_workspace',
       workspace_id: 'workspace-example',
+      relative_path: 'src/app',
       display_name: 'Workspace',
       sensitivity: 'internal',
     }).subscribe();
@@ -39,6 +40,7 @@ describe('SourceControlV1ApiClient security DTOs', () => {
     expect(request.request.body).toEqual({
       connector_type: 'registered_workspace',
       workspace_id: 'workspace-example',
+      relative_path: 'src/app',
       display_name: 'Workspace',
       sensitivity: 'internal',
       dry_run: true,
@@ -46,6 +48,18 @@ describe('SourceControlV1ApiClient security DTOs', () => {
     expect(request.request.body.connection_identity_digest).toBeUndefined();
     expect(request.request.body.path).toBeUndefined();
     expect(request.request.body.url).toBeUndefined();
+  });
+
+  it('rejects unsafe workspace relative paths before issuing a request', () => {
+    expect(() => client.validateConnection({
+      connector_type: 'registered_workspace',
+      workspace_id: 'workspace-example',
+      relative_path: '../secret',
+      display_name: 'Workspace',
+      sensitivity: 'internal',
+    })).toThrowError('relative_path_invalid');
+
+    http.expectNone('/api/source-control/v1/connections/validate');
   });
 
   it('sends only a registered remote id for creation', () => {

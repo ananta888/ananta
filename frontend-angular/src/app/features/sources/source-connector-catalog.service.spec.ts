@@ -62,7 +62,7 @@ describe('SourceConnectorCatalogService', () => {
         remote_id: 'remote-primary',
         kind: 'git',
         repository: 'team/repository',
-        state: 'ready',
+        state: 'active',
         capabilities: {},
       }],
       next_cursor: null,
@@ -91,7 +91,8 @@ describe('SourceConnectorCatalogService', () => {
       label: 'team/repository',
       kind: 'git',
       repository: 'team/repository',
-      state: 'ready',
+      state: 'active',
+      active: true,
     }]);
     expect(profiles).toEqual([{
       profileId: 'profile-default',

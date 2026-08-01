@@ -47,6 +47,13 @@ describe('SourceImportPageComponent', () => {
         available: true,
         persistable: true,
       },
+      {
+        kind: 'registered_remote',
+        label: 'Remote',
+        description: 'Remote',
+        available: true,
+        persistable: true,
+      },
     ],
   };
 
@@ -145,7 +152,7 @@ describe('SourceImportPageComponent', () => {
     expect(validateContentAdmission).not.toHaveBeenCalled();
   });
 
-  it('binds a server-listed workspace without URL, path or browser-computed digest', () => {
+  it('binds a server-listed workspace using only safe server selectors', () => {
     component.workspaces.set([{
       workspaceId: 'workspace-primary',
       label: 'Primary',
@@ -155,12 +162,14 @@ describe('SourceImportPageComponent', () => {
     component.selectedKind.set('registered_workspace');
     component.displayName.set('Primary workspace');
     component.selectedWorkspaceId.set('workspace-primary');
+    component.workspaceRelativePath.set('src/app');
 
     component.submit();
 
     const intent = {
       connector_type: 'registered_workspace',
       workspace_id: 'workspace-primary',
+      relative_path: 'src/app',
       display_name: 'Primary workspace',
       sensitivity: 'internal',
     };
@@ -171,8 +180,129 @@ describe('SourceImportPageComponent', () => {
     );
     const serialized = JSON.stringify(createConnection.mock.calls[0]?.[0]);
     expect(serialized).not.toContain('connection_identity_digest');
-    expect(serialized).not.toContain('path');
     expect(serialized).not.toContain('url');
+    expect(createConnection.mock.calls[0]?.[0]).not.toHaveProperty('path');
+  });
+
+  it('reloads workspaces and selects the exact active registration id', () => {
+    loadWorkspaces.mockReturnValueOnce(of([{
+      workspaceId: 'workspace-new',
+      label: 'Registered workspace',
+      enabled: true,
+      readOnly: true,
+    }]));
+
+    component.onWorkspaceRegistered({
+      workspace_id: 'workspace-new',
+      state: 'active',
+      read_only: true,
+      etag: '"workspace-v1:1"',
+      capabilities: { refresh: true },
+    });
+
+    expect(loadWorkspaces).toHaveBeenLastCalledWith('project-alpha');
+    expect(component.selectedWorkspaceId()).toBe('workspace-new');
+  });
+
+  it('rejects traversal and absolute workspace path input before the API boundary', () => {
+    component.workspaces.set([{
+      workspaceId: 'workspace-primary',
+      label: 'Primary',
+      enabled: true,
+      readOnly: false,
+    }]);
+    component.selectedKind.set('registered_workspace');
+    component.displayName.set('Primary workspace');
+    component.selectedWorkspaceId.set('workspace-primary');
+
+    component.workspaceRelativePath.set('../secret');
+    component.submit();
+    expect(validateConnection).not.toHaveBeenCalled();
+
+    component.workspaceRelativePath.set('/absolute/path');
+    component.submit();
+    expect(validateConnection).not.toHaveBeenCalled();
+  });
+
+  it('fails closed for inactive registered remotes', () => {
+    component.remotes.set([{
+      remoteId: 'remote-inactive',
+      label: 'team/repository',
+      kind: 'github',
+      repository: 'team/repository',
+      state: 'revoked',
+      active: false,
+    }]);
+    component.selectedKind.set('registered_remote');
+    component.displayName.set('Repository');
+    component.selectedRemoteId.set('remote-inactive');
+
+    component.submit();
+
+    expect(validateConnection).not.toHaveBeenCalled();
+    expect(createConnection).not.toHaveBeenCalled();
+  });
+
+  it('does not select an unavailable capability', () => {
+    component.selectKind({
+      kind: 'registered_remote',
+      label: 'Remote',
+      description: 'Unavailable',
+      available: false,
+      persistable: true,
+      reason: 'provider unavailable',
+    });
+
+    expect(component.selectedKind()).toBe('direct_text');
+  });
+
+  it('reloads registered remotes and selects the active provisioned repository', () => {
+    loadRemotes.mockReturnValueOnce(of([{
+      remoteId: 'remote-new',
+      label: 'team/repository',
+      kind: 'github',
+      repository: 'team/repository',
+      state: 'active',
+      active: true,
+    }]));
+
+    component.onGitAuthorizationProvisioned({
+      authorization_ref: 'auth-new',
+      authorization_kind: 'github_app',
+      repository: 'team/repository',
+      authorization_state: 'active',
+      granted_scopes: ['contents:read'],
+      credential_configured: true,
+      persisted: true,
+      current_revision: 1,
+      etag: '"git-auth-v1:1"',
+      next_actions: ['revoke', 'record_scope_loss'],
+    });
+
+    expect(loadRemotes).toHaveBeenLastCalledWith('project-alpha');
+    expect(component.selectedRemoteId()).toBe('remote-new');
+  });
+
+  it('reloads registered remotes and selects the exact public remote id', () => {
+    loadRemotes.mockReturnValueOnce(of([{
+      remoteId: 'remote-public',
+      label: 'team/public-repository',
+      kind: 'git',
+      repository: 'team/public-repository',
+      state: 'active',
+      active: true,
+    }]));
+
+    component.onPublicRemoteCreated({
+      remote_id: 'remote-public',
+      provider: 'github_public',
+      commit_sha: '0123456789abcdef0123456789abcdef01234567',
+      state: 'active',
+      capabilities: { refresh: true },
+    });
+
+    expect(loadRemotes).toHaveBeenLastCalledWith('project-alpha');
+    expect(component.selectedRemoteId()).toBe('remote-public');
   });
 
   it('reports a rejected admission without attempting persistence', () => {

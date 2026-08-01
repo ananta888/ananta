@@ -17,9 +17,9 @@ import { SourceControlCenterFacade } from '../features/sources/source-control-ce
           <h1>Source Control Center</h1>
         </div>
         <nav aria-label="Source Control Center">
-          <a routerLink="/sources" routerLinkActive="active"
+          <a routerLink="/sources" queryParamsHandling="preserve" routerLinkActive="active"
             [routerLinkActiveOptions]="{ exact: true }">Übersicht</a>
-          <a routerLink="/sources/add" routerLinkActive="active">Hinzufügen</a>
+          <a routerLink="/sources/add" queryParamsHandling="preserve" routerLinkActive="active">Hinzufügen</a>
         </nav>
       </header>
       <router-outlet />

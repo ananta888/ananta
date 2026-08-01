@@ -114,6 +114,7 @@ export type SourceControlConnectionIntent =
   | (SourceControlConnectionIntentBase & {
       readonly connector_type: 'registered_workspace' | 'local_directory';
       readonly workspace_id: string;
+      readonly relative_path?: string;
     })
   | (SourceControlConnectionIntentBase & {
       readonly connector_type: 'git' | 'github';
@@ -310,6 +311,35 @@ export class SourceControlV1HttpError extends Error {
     super(reasonCode);
     this.name = 'SourceControlV1HttpError';
   }
+}
+
+export function normalizeSourceWorkspaceRelativePath(value: string): string | null {
+  const normalized = value.trim();
+  if (!normalized) {
+    return '';
+  }
+  if (
+    normalized.length > 1024
+    || normalized.startsWith('/')
+    || normalized.endsWith('/')
+    || normalized.includes('\\')
+    || /[\u0000-\u001f\u007f]/.test(normalized)
+  ) {
+    return null;
+  }
+  const segments = normalized.split('/');
+  if (
+    segments.some(
+      (segment) =>
+        segment === ''
+        || segment === '.'
+        || segment === '..'
+        || !/^[A-Za-z0-9._@+-]+$/.test(segment),
+    )
+  ) {
+    return null;
+  }
+  return segments.join('/');
 }
 
 function parseCodeHugMutationResult(
@@ -1153,9 +1183,16 @@ export class SourceControlV1ApiClient
     );
     if ('workspace_id' in intent) {
       assertSourceControlOpaqueId(intent.workspace_id, 'workspace_id');
+      const relativePath = normalizeSourceWorkspaceRelativePath(
+        intent.relative_path ?? '',
+      );
+      if (relativePath === null) {
+        throw new SourceControlV1ContractError('relative_path_invalid');
+      }
       return {
         connector_type: intent.connector_type,
         workspace_id: intent.workspace_id,
+        ...(relativePath ? { relative_path: relativePath } : {}),
         display_name: displayName,
         sensitivity: intent.sensitivity,
       };

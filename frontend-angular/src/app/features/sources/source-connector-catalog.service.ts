@@ -32,6 +32,7 @@ export interface SourceRemoteOption {
   readonly kind: 'git' | 'github';
   readonly repository: string | null;
   readonly state: string;
+  readonly active: boolean;
 }
 
 export interface SourceIndexProfileOption {
@@ -100,6 +101,7 @@ export class SourceConnectorCatalogService {
           kind: remote.kind,
           repository: remote.repository,
           state: remote.state,
+          active: remote.state === 'active',
         })),
       ),
     );

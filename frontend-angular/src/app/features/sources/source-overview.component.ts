@@ -17,7 +17,7 @@ import { SourceControlCenterFacade } from './source-control-center.facade';
           <p class="muted">Verbindung, Snapshot und realer CodeCompass-Index auf einen Blick.</p>
         </div>
         <div class="actions">
-          <a class="btn" routerLink="add">Quelle hinzufügen</a>
+          <a class="btn" routerLink="add" queryParamsHandling="preserve">Quelle hinzufügen</a>
           <button class="btn btn-secondary" type="button" (click)="facade.load()" [disabled]="facade.loading()">
             Neu laden
           </button>
@@ -31,7 +31,7 @@ import { SourceControlCenterFacade } from './source-control-center.facade';
         @case ('empty') {
           <div class="state-panel">
             <strong>{{ facade.stateMessage() }}</strong>
-            <a class="btn" routerLink="add">Erste Quelle hinzufügen</a>
+            <a class="btn" routerLink="add" queryParamsHandling="preserve">Erste Quelle hinzufügen</a>
           </div>
         }
         @case ('ready') {

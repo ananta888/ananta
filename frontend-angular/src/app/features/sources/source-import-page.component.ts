@@ -12,7 +12,18 @@ import { ActivatedRoute, ActivatedRouteSnapshot, RouterLink } from '@angular/rou
 import { finalize, forkJoin, switchMap, throwError } from 'rxjs';
 
 import { SourceControlV1GovernanceApiClient } from '../../services/source-control-v1-governance-api.client';
-import { SourceControlV1ApiClient } from '../../services/source-control-v1-api.client';
+import type {
+  SourceControlGitAuthorizationView,
+  SourceControlPublicRemoteCreation,
+  SourceControlWorkspaceRegistration,
+} from '../../models/source-control-v1-governance.model';
+import {
+  SourceControlV1ApiClient,
+  normalizeSourceWorkspaceRelativePath,
+} from '../../services/source-control-v1-api.client';
+import { GitAuthorizationOnboardingComponent } from './git-authorization-onboarding.component';
+import { PublicGitRemoteOnboardingComponent } from './public-git-remote-onboarding.component';
+import { WorkspaceRegistrationComponent } from './workspace-registration.component';
 import {
   SourceConnectorCatalogService,
 } from './source-connector-catalog.service';
@@ -131,7 +142,14 @@ function canonicalNotebook(value: unknown): CanonicalNotebook | null {
 @Component({
   selector: 'app-source-import-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    GitAuthorizationOnboardingComponent,
+    PublicGitRemoteOnboardingComponent,
+    WorkspaceRegistrationComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="import-shell" aria-labelledby="source-import-title">
@@ -158,11 +176,13 @@ function canonicalNotebook(value: unknown): CanonicalNotebook | null {
             class="source-card"
             [class.selected]="selectedKind() === capability.kind"
             [attr.aria-pressed]="selectedKind() === capability.kind"
+            [attr.aria-disabled]="!capability.available"
+            [disabled]="!capability.available"
             (click)="selectKind(capability)"
           >
             <strong>{{ capability.label }}</strong>
             <span>{{ capability.description }}</span>
-            @if (!capability.persistable) {
+            @if (!capability.available || !capability.persistable) {
               <small>{{ capability.reason }}</small>
             }
           </button>
@@ -250,6 +270,10 @@ function canonicalNotebook(value: unknown): CanonicalNotebook | null {
       @if (selectedKind() === 'registered_workspace') {
         <section class="editor" aria-labelledby="workspace-title">
           <h2 id="workspace-title">Registrierte Workspaces</h2>
+          <app-workspace-registration
+            [projectId]="projectId"
+            (workspaceCreated)="onWorkspaceRegistered($event)"
+          />
           <label for="workspace-name">Anzeigename</label>
           <input
             id="workspace-name"
@@ -282,9 +306,18 @@ function canonicalNotebook(value: unknown): CanonicalNotebook | null {
               </option>
             }
           </select>
+          <label for="workspace-relative-path">Optionaler relativer Pfad</label>
+          <input
+            id="workspace-relative-path"
+            data-testid="workspace-relative-path"
+            placeholder="src/app"
+            [ngModel]="workspaceRelativePath()"
+            (ngModelChange)="workspaceRelativePath.set($event)"
+          />
           <p class="notice" role="status">
-            Nur die serverregistrierte Workspace-ID wird gesendet. Pfad und
-            Connection-Identity werden nicht im Browser erzeugt.
+            Gesendet werden nur die serverregistrierte Workspace-ID und optional ein
+            validierter relativer Pfad. Rohe Pfade und Connection-Identity bleiben
+            Hub-Verantwortung.
           </p>
         </section>
       }
@@ -292,6 +325,13 @@ function canonicalNotebook(value: unknown): CanonicalNotebook | null {
       @if (selectedKind() === 'registered_remote') {
         <section class="editor" aria-labelledby="remote-title">
           <h2 id="remote-title">Registrierte Remotes</h2>
+          <app-git-authorization-onboarding
+            (provisioned)="onGitAuthorizationProvisioned($event)"
+          />
+          <app-public-git-remote-onboarding
+            [projectId]="projectId"
+            (remoteCreated)="onPublicRemoteCreated($event)"
+          />
           <label for="remote-name">Anzeigename</label>
           <input
             id="remote-name"
@@ -319,7 +359,7 @@ function canonicalNotebook(value: unknown): CanonicalNotebook | null {
           >
             <option value="">Auswaehlen</option>
             @for (remote of remotes(); track remote.remoteId) {
-              <option [value]="remote.remoteId">
+              <option [value]="remote.remoteId" [disabled]="!remote.active">
                 {{ remote.label }} ({{ remote.kind }}, {{ remote.state }})
               </option>
             }
@@ -486,6 +526,7 @@ export class SourceImportPageComponent implements OnInit {
     JSON.stringify({ cells: [{ cell_type: 'markdown', source: '', outputs: [] }] }, null, 2),
   );
   readonly selectedWorkspaceId = signal('');
+  readonly workspaceRelativePath = signal('');
   readonly selectedRemoteId = signal('');
   readonly selectedProfileId = signal('');
   readonly workspaces = signal<readonly SourceWorkspaceOption[]>([]);
@@ -502,6 +543,12 @@ export class SourceImportPageComponent implements OnInit {
     if (!this.projectId || this.submitting()) {
       return false;
     }
+    const capability = this.catalog.capabilities.find(
+      (candidate) => candidate.kind === this.selectedKind(),
+    );
+    if (!capability?.available) {
+      return false;
+    }
     if (this.selectedKind() === 'direct_text') {
       return Boolean(this.displayName().trim() && this.directContent().trim());
     }
@@ -509,7 +556,11 @@ export class SourceImportPageComponent implements OnInit {
       return Boolean(this.displayName().trim() && canonicalNotebookFromText(this.notebookJson()));
     }
     if (this.selectedKind() === 'registered_workspace') {
+      const relativePath = normalizeSourceWorkspaceRelativePath(
+        this.workspaceRelativePath(),
+      );
       return Boolean(
+        relativePath !== null &&
         this.displayName().trim() &&
           this.workspaces().some(
             (workspace) =>
@@ -520,7 +571,9 @@ export class SourceImportPageComponent implements OnInit {
     if (this.selectedKind() === 'registered_remote') {
       return Boolean(
         this.displayName().trim() &&
-          this.remotes().some((remote) => remote.remoteId === this.selectedRemoteId()),
+          this.remotes().some(
+            (remote) => remote.remoteId === this.selectedRemoteId() && remote.active,
+          ),
       );
     }
     return false;
@@ -552,10 +605,86 @@ export class SourceImportPageComponent implements OnInit {
   }
 
   selectKind(capability: SourceConnectorCapability): void {
+    if (!capability.available) {
+      return;
+    }
     this.selectedKind.set(capability.kind);
     this.submitError.set('');
     this.completed.set(false);
     this.admissionPreview.set(null);
+  }
+
+  onGitAuthorizationProvisioned(
+    authorization: SourceControlGitAuthorizationView,
+  ): void {
+    this.reloadRegisteredRemotes(null, authorization.repository);
+  }
+
+  onWorkspaceRegistered(workspace: SourceControlWorkspaceRegistration): void {
+    if (!this.projectId || workspace.state !== 'active') {
+      return;
+    }
+    this.loadingCatalogs.set(true);
+    this.catalogError.set('');
+    this.catalog
+      .loadWorkspaces(this.projectId)
+      .pipe(finalize(() => this.loadingCatalogs.set(false)))
+      .subscribe({
+        next: (workspaces) => {
+          this.workspaces.set(workspaces);
+          const matchingWorkspace = workspaces.find(
+            (candidate) =>
+              candidate.enabled && candidate.workspaceId === workspace.workspace_id,
+          );
+          this.selectedWorkspaceId.set(matchingWorkspace?.workspaceId ?? '');
+        },
+        error: () => {
+          this.catalogError.set(
+            'Der Workspace-Katalog konnte nach der Registrierung nicht geladen werden.',
+          );
+        },
+      });
+  }
+
+  onPublicRemoteCreated(remote: SourceControlPublicRemoteCreation): void {
+    this.reloadRegisteredRemotes(remote.remote_id, null);
+  }
+
+  private reloadRegisteredRemotes(
+    preferredRemoteId: string | null,
+    preferredRepository: string | null,
+  ): void {
+    if (!this.projectId) {
+      return;
+    }
+    this.loadingCatalogs.set(true);
+    this.catalogError.set('');
+    this.catalog
+      .loadRemotes(this.projectId)
+      .pipe(finalize(() => this.loadingCatalogs.set(false)))
+      .subscribe({
+        next: (remotes) => {
+          this.remotes.set(remotes);
+          const matchingRemote = remotes.find(
+            (remote) =>
+              remote.active
+              && (
+                (preferredRemoteId !== null && remote.remoteId === preferredRemoteId)
+                || (
+                  preferredRemoteId === null
+                  && preferredRepository !== null
+                  && remote.repository === preferredRepository
+                )
+              ),
+          );
+          this.selectedRemoteId.set(matchingRemote?.remoteId ?? '');
+        },
+        error: () => {
+          this.catalogError.set(
+            'Der Remote-Katalog konnte nach der Autorisierung nicht geladen werden.',
+          );
+        },
+      });
   }
 
   submit(): void {
@@ -641,10 +770,14 @@ export class SourceImportPageComponent implements OnInit {
       const workspace = this.workspaces().find(
         (item) => item.workspaceId === this.selectedWorkspaceId() && item.enabled,
       );
-      return workspace
+      const relativePath = normalizeSourceWorkspaceRelativePath(
+        this.workspaceRelativePath(),
+      );
+      return workspace && relativePath !== null
         ? {
             connector_type: 'registered_workspace' as const,
             workspace_id: workspace.workspaceId,
+            ...(relativePath ? { relative_path: relativePath } : {}),
             display_name: this.displayName().trim(),
             sensitivity: this.sensitivity(),
           }
@@ -652,7 +785,7 @@ export class SourceImportPageComponent implements OnInit {
     }
     if (this.selectedKind() === 'registered_remote') {
       const remote = this.remotes().find(
-        (item) => item.remoteId === this.selectedRemoteId(),
+        (item) => item.remoteId === this.selectedRemoteId() && item.active,
       );
       return remote
         ? {
