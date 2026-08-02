@@ -1,5 +1,5 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "2.0",
   "owner": "ananta-core",
   "track": "angular-source-control-center-codecompass-access-governance",
