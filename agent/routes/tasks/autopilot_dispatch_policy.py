@@ -30,6 +30,42 @@ def resolve_effective_concurrency(
     return max(1, min(caps))
 
 
+def resolve_dispatch_hard_timeout(
+    *,
+    tasks: list[Any],
+    security_policy: dict[str, Any],
+) -> int:
+    """Resolve a bounded Hub wait window from signed worker job budgets."""
+
+    propose_timeout = max(
+        1,
+        _safe_int((security_policy or {}).get("propose_timeout"), 120),
+    )
+    execute_timeout = max(
+        1,
+        _safe_int((security_policy or {}).get("execute_timeout"), 60),
+    )
+    timeout = propose_timeout + execute_timeout + 30
+    for task in tasks:
+        if str(getattr(task, "task_kind", "") or "").strip().lower() != "codecompass_index_build":
+            continue
+        context = getattr(task, "worker_execution_context", None)
+        if not isinstance(context, dict):
+            continue
+        job = context.get("knowledge_index_job")
+        if not isinstance(job, dict) or job.get("schema") != "ananta.knowledge_index_execution_job.v2":
+            continue
+        resources = job.get("resources")
+        if not isinstance(resources, dict):
+            continue
+        max_runtime_seconds = max(
+            execute_timeout,
+            min(_safe_int(resources.get("max_runtime_seconds"), execute_timeout), 3600),
+        )
+        timeout = max(timeout, propose_timeout + max_runtime_seconds + 30)
+    return timeout
+
+
 def dispatch_queue_positions(dispatch_queue: list[dict[str, Any]]) -> dict[str, Any]:
     return {str(item.get("task_id") or ""): item.get("queue_position") for item in dispatch_queue if item.get("task_id")}
 

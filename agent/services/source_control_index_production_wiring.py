@@ -438,6 +438,7 @@ class SQLBoundSourceIndexAuthorityAdapter:
                     "source_index_authority_unambiguous_grant_required"
                 )
             grant_row, _policy, selection, resolved = candidates[0]
+            max_runtime_seconds = 900
             existing = session.exec(
                 select(KnowledgeIndexExecutionBindingDB).where(
                     KnowledgeIndexExecutionBindingDB.tenant_id
@@ -468,7 +469,7 @@ class SQLBoundSourceIndexAuthorityAdapter:
                 now_ms = int(now * 1000)
                 expires_ms = min(
                     int(grant_row.expires_at_epoch * 1000),
-                    now_ms + 300_000,
+                    now_ms + max_runtime_seconds * 1000,
                 )
                 if expires_ms <= now_ms:
                     raise BoundSourceRevisionPlanningError(
@@ -500,7 +501,7 @@ class SQLBoundSourceIndexAuthorityAdapter:
                 max_files=10_000,
                 max_total_bytes=512 * 1024 * 1024,
                 max_file_bytes=16 * 1024 * 1024,
-                max_runtime_seconds=900,
+                max_runtime_seconds=max_runtime_seconds,
                 max_memory_bytes=2 * 1024 * 1024 * 1024,
                 max_output_bytes=384 * 1024 * 1024,
             ),

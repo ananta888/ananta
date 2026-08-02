@@ -16,6 +16,7 @@ from agent.routes.tasks.autopilot_dispatch_policy import (
     build_tick_debug_payload,
     classify_no_candidate_reason,
     dispatch_queue_positions,
+    resolve_dispatch_hard_timeout,
     resolve_effective_concurrency,
     resolve_target_worker_for_task,
 )
@@ -571,7 +572,10 @@ def execute_autopilot_tick(
         task_assignments.append((task, target_worker, was_assigned))
 
     # thr-011: propose_timeout + execute_timeout + 30s buffer = hard deadline per task thread.
-    per_task_hard_timeout = int(policy.get("propose_timeout", 120)) + int(policy.get("execute_timeout", 60)) + 30
+    per_task_hard_timeout = resolve_dispatch_hard_timeout(
+        tasks=[task for task, _target_worker, _was_assigned in task_assignments],
+        security_policy=policy,
+    )
     app = loop._app
 
     # thr-006: parallel dispatch via ThreadPoolExecutor.
