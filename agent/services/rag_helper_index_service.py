@@ -1090,7 +1090,16 @@ class RagHelperIndexService:
                 for record in normalized_records
             )
             source_files = {
-                str((item or {}).get("file") or (item or {}).get("path") or "").strip()
+                str(
+                    (
+                        (item.get("metadata") or {}).get("relative_path")
+                        if isinstance(item.get("metadata"), dict)
+                        else ""
+                    )
+                    or item.get("file")
+                    or item.get("path")
+                    or ""
+                ).strip()
                 for item in normalized_records
             }
             source_files.discard("")
@@ -1121,22 +1130,57 @@ class RagHelperIndexService:
                 }
             else:
                 index_path.write_text("\n".join(serialized) + ("\n" if serialized else ""), encoding="utf-8")
+                graph_export_mode = str(
+                    profile.get("limits", {}).get("graph_export_mode")
+                    or "off"
+                ).strip().lower()
+                graph_manifest: dict[str, Any] = {}
+                if normalized_scope == "repo_path" and graph_export_mode != "off":
+                    from worker.retrieval.repository_codecompass_bridge import (
+                        RepositoryCodeCompassBridge,
+                    )
+
+                    graph_manifest = RepositoryCodeCompassBridge().build_outputs(
+                        source_id=normalized_source_id,
+                        records=normalized_records,
+                        output_dir=output_dir,
+                    )
                 manifest = {
                     "source_scope": normalized_scope,
                     "source_id": normalized_source_id,
                     "profile_name": profile["name"],
-                    "file_count": len(source_files),
+                    "file_count": int(
+                        graph_manifest.get("file_count", len(source_files))
+                    ),
                     "index_record_count": len(serialized),
-                    "detail_record_count": 0,
-                    "relation_record_count": 0,
-                    "error_count": 0,
-                    "partitioned_outputs": {},
+                    "detail_record_count": int(
+                        graph_manifest.get("semantic_node_count", 0)
+                    ),
+                    "relation_record_count": int(
+                        graph_manifest.get("graph_edge_count", 0)
+                    )
+                    + int(graph_manifest.get("semantic_edge_count", 0)),
+                    "error_count": int(
+                        graph_manifest.get("diagnostic_count", 0)
+                    ),
+                    "partitioned_outputs": dict(
+                        graph_manifest.get("partitioned_outputs") or {}
+                    ),
+                    "graph_export_mode": graph_export_mode,
                     "deterministic_order": "json_sort_keys",
                     "chunking": {
                         "source_scope": normalized_scope,
                         "input_record_count": len(records),
                         "normalized_record_count": len(normalized_records),
-                        "strategy": "wiki_sentence_chunks" if normalized_scope == "wiki" else "identity",
+                        "strategy": (
+                            "wiki_sentence_chunks"
+                            if normalized_scope == "wiki"
+                            else (
+                                "identity+codecompass_graph"
+                                if graph_manifest
+                                else "identity"
+                            )
+                        ),
                     },
                     "generated_at": time.time(),
                 }

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 
 
@@ -38,6 +40,25 @@ def test_codecompass_graph_store_loads_nodes_edges_and_indexes(tmp_path):
     assert "n1" in by_id and "n2" in by_id
     assert loaded["outgoing_index"]["n2"]["child_of_type"][0]["target_id"] == "n1"
     assert loaded["incoming_index"]["n1"]["child_of_type"][0]["source_id"] == "n2"
+    raw = json.loads((tmp_path / "cc_graph_index.json").read_text(encoding="utf-8"))
+    assert raw["state"]["storage_encoding"] == "compact_v2"
+    assert raw["state"]["edge_index_encoding"] == "derived"
+    assert (
+        raw["state"]["edge_storage"]["graph_edges"]["edge_id_strategy"]
+        == "legacy_confidence_default_omitted"
+    )
+    assert "node_index" not in raw
+    assert "outgoing_index" not in raw
+    assert "incoming_index" not in raw
+    assert "edge_id" not in raw["edges"][0]
+    assert "raw_edge_type" not in raw["edges"][0]
+    assert "provenance" not in raw["edges"][0]
+    assert loaded["edges"][0]["edge_id"].startswith("edge:sha256:")
+    assert loaded["edges"][0]["raw_edge_type"] == "child_of_type"
+    assert loaded["edges"][0]["provenance"] == {
+        "manifest_hash": "mh-1",
+        "output_kind": "graph_edges",
+    }
     assert traversal["cycle_guarded"] is True
     assert traversal["bounded"] is True
     assert [node["id"] for node in traversal["nodes"]] == ["n2", "n1"]
@@ -197,4 +218,3 @@ def test_codecompass_graph_store_degrades_when_graph_outputs_missing(tmp_path):
 
     assert diagnostics["status"] == "degraded"
     assert diagnostics["reason"] == "missing_graph_outputs"
-

@@ -138,6 +138,30 @@ def test_graph_visual_options_are_strict_and_input_bounded() -> None:
         normalize_graph_visual_options({"include_advanced_metrics": "yes"})
 
 
+def test_graph_capable_profile_rejects_empty_graph_output(tmp_path) -> None:
+    output = tmp_path / "empty-graph"
+    output.mkdir()
+    (output / "manifest.json").write_text(
+        json.dumps({"index_record_count": 1}), encoding="utf-8"
+    )
+    (output / "index.jsonl").write_text(
+        '{"id":"src/example.py","content":"def example(): pass"}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="knowledge_index_graph_output_empty"):
+        WorkerCodeCompassGraphArtifactMaterializer().materialize(
+            knowledge_index={"id": "idx-empty", "source_scope": "repo_path"},
+            run={
+                "id": "run-empty",
+                "output_dir": str(output),
+                "run_metadata": {
+                    "profile": {"limits": {"graph_export_mode": "jsonl"}}
+                },
+            },
+        )
+
+
 def test_legacy_custom_artifact_publisher_remains_additively_compatible() -> None:
     class IndexService:
         def index_source_records(self, **_kwargs):

@@ -28,6 +28,29 @@ class CodeCompassSqliteGraphStore(CodeCompassGraphStore):
         return sqlite3.connect(str(self._db_path))
 
     @staticmethod
+    def _build_edge_indexes(
+        edges: list[dict[str, Any]],
+    ) -> tuple[dict[str, dict[str, list[dict[str, Any]]]], dict[str, dict[str, list[dict[str, Any]]]]]:
+        """Build hydrated indexes for the relational in-memory contract.
+
+        The JSON store persists edge identifiers to avoid serializing every
+        edge three times. SQLite already stores edges relationally, so its
+        loaded payload keeps the historic, fully hydrated lookup contract.
+        """
+        outgoing: dict[str, dict[str, list[dict[str, Any]]]] = {}
+        incoming: dict[str, dict[str, list[dict[str, Any]]]] = {}
+        for edge in edges:
+            source_id = str(edge.get("source_id") or "").strip()
+            target_id = str(edge.get("target_id") or "").strip()
+            edge_type = str(edge.get("edge_type") or "unknown").strip() or "unknown"
+            if not source_id or not target_id:
+                continue
+            hydrated_edge = dict(edge)
+            outgoing.setdefault(source_id, {}).setdefault(edge_type, []).append(hydrated_edge)
+            incoming.setdefault(target_id, {}).setdefault(edge_type, []).append(hydrated_edge)
+        return outgoing, incoming
+
+    @staticmethod
     def _ensure_schema(conn: sqlite3.Connection) -> None:
         conn.execute(
             """

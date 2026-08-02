@@ -193,6 +193,63 @@ def test_rag_helper_index_service_indexes_source_records_in_scope_layout():
     assert parsed[0]["chunk_id"].startswith("wiki:")
 
 
+def test_repo_source_records_build_deterministic_deep_code_graph(tmp_path):
+    service = RagHelperIndexService()
+    service._knowledge_output_root = (
+        lambda *, source_scope: tmp_path / "knowledge_indices" / source_scope
+    )
+    records = [
+        {
+            "id": "src/payments.py",
+            "content": "class PaymentService:\n    def retry(self):\n        return True\n",
+            "metadata": {
+                "relative_path": "src/payments.py",
+                "file_type": "python",
+            },
+        },
+        {
+            "id": "src/card.ts",
+            "content": "export class PaymentCard {}\n",
+            "metadata": {
+                "relative_path": "src/card.ts",
+                "file_type": "typescript",
+            },
+        },
+    ]
+
+    _first_index, first_run = service.index_source_records(
+        source_scope="repo_path",
+        source_id="source-control-deep-code-graph",
+        records=records,
+        created_by="tester",
+        profile_name="deep_code",
+    )
+    _second_index, second_run = service.index_source_records(
+        source_scope="repo_path",
+        source_id="source-control-deep-code-graph",
+        records=list(reversed(records)),
+        created_by="tester",
+        profile_name="deep_code",
+    )
+
+    first_output = Path(str(first_run.output_dir))
+    second_output = Path(str(second_run.output_dir))
+    manifest = json.loads((first_output / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["file_count"] == 2
+    assert manifest["detail_record_count"] >= 2
+    assert manifest["relation_record_count"] >= 2
+    assert manifest["chunking"]["strategy"] == "identity+codecompass_graph"
+    for filename in (
+        "graph_nodes.jsonl",
+        "graph_edges.jsonl",
+        "semantic_nodes.jsonl",
+        "semantic_edges.jsonl",
+    ):
+        assert (first_output / filename).read_bytes() == (
+            second_output / filename
+        ).read_bytes()
+
+
 def test_rag_helper_index_service_wiki_chunk_ids_are_stable_across_rebuilds():
     service = RagHelperIndexService()
     records = [

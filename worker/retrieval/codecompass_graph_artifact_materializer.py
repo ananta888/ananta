@@ -44,6 +44,10 @@ _GRAPH_OUTPUT_KINDS = frozenset(
     }
 )
 
+_GRAPH_NODE_OUTPUT_KINDS = frozenset(
+    {"graph_nodes", "semantic_nodes", "x86_nodes", "rig_nodes"}
+)
+
 
 def _canonical_json(value: Any) -> bytes:
     return json.dumps(
@@ -137,6 +141,23 @@ def _stable_graph_revision(records: list[dict[str, Any]]) -> str:
     return f"sha256:{digest}"
 
 
+def _graph_export_required(
+    knowledge_index: Mapping[str, Any],
+    run: Mapping[str, Any],
+) -> bool:
+    for owner, metadata_field in (
+        (run, "run_metadata"),
+        (knowledge_index, "index_metadata"),
+    ):
+        metadata = owner.get(metadata_field)
+        profile = metadata.get("profile") if isinstance(metadata, Mapping) else None
+        limits = profile.get("limits") if isinstance(profile, Mapping) else None
+        if isinstance(limits, Mapping) and "graph_export_mode" in limits:
+            mode = str(limits.get("graph_export_mode") or "off").strip().lower()
+            return mode not in {"", "off", "none"}
+    return False
+
+
 class WorkerCodeCompassGraphArtifactMaterializer:
     """Build both graph artifacts from one completed worker index output."""
 
@@ -160,6 +181,14 @@ class WorkerCodeCompassGraphArtifactMaterializer:
             for item in list(loaded.get("records") or [])
             if isinstance(item, Mapping)
         ]
+        if _graph_export_required(knowledge_index, run) and not any(
+            str((record.get("_provenance") or {}).get("output_kind") or "")
+            .strip()
+            .lower()
+            in _GRAPH_NODE_OUTPUT_KINDS
+            for record in records
+        ):
+            raise RuntimeError("knowledge_index_graph_output_empty")
         revision = _stable_graph_revision(records)
         for record in records:
             provenance = record.get("_provenance")
