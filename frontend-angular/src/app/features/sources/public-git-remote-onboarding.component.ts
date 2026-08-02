@@ -19,7 +19,9 @@ import type {
 } from '../../models/source-control-v1-governance.model';
 import { SourceControlV1GovernanceApiClient } from '../../services/source-control-v1-governance-api.client';
 
-type PublicRemoteProvider = SourceControlPublicRemoteIntent['provider'];
+type PublicGitCoordinate =
+  | { readonly provider: 'github_public'; readonly owner: string; readonly repository: string }
+  | { readonly provider: 'https_git'; readonly host: string; readonly repository: string };
 
 @Component({
   selector: 'app-public-git-remote-onboarding',
@@ -29,60 +31,32 @@ type PublicRemoteProvider = SourceControlPublicRemoteIntent['provider'];
   template: `
     <section class="public-remote" aria-labelledby="public-remote-title">
       <header>
-        <p class="eyebrow">Credential-freier Import</p>
-        <h3 id="public-remote-title">Öffentliches Git-Remote registrieren</h3>
-        <p>
-          Repository und Ref werden vom Hub validiert und auf einen Commit fixiert.
-        </p>
+          <p class="eyebrow">Credential-freier Import</p>
+          <h3 id="public-remote-title">Öffentliches Git/GitHub-Repository</h3>
+          <p>
+            Repository-URL und Branch, Tag oder Commit werden vom Hub validiert und auf einen Commit fixiert.
+          </p>
       </header>
 
       <div class="form-grid">
-        <label for="public-remote-provider">Provider</label>
-        <select
-          id="public-remote-provider"
-          [ngModel]="provider()"
-          (ngModelChange)="setProvider($event)"
-        >
-          <option value="github_public">Öffentliches GitHub-Repository</option>
-          <option value="https_git">Öffentlicher HTTPS-Git-Host</option>
-        </select>
-
-        @if (provider() === 'github_public') {
-          <label for="public-github-owner">Owner</label>
-          <input
-            id="public-github-owner"
-            data-testid="public-github-owner"
-            autocomplete="off"
-            [ngModel]="owner()"
-            (ngModelChange)="owner.set($event)"
-          />
-        } @else {
-          <label for="public-git-host">Öffentlicher DNS-Host</label>
-          <input
-            id="public-git-host"
-            data-testid="public-git-host"
-            autocomplete="off"
-            placeholder="git.example.org"
-            [ngModel]="host()"
-            (ngModelChange)="host.set($event)"
-          />
-        }
-
-        <label for="public-git-repository">Repository</label>
+        <label for="public-git-url">Repository-URL</label>
         <input
-          id="public-git-repository"
-          data-testid="public-git-repository"
+          id="public-git-url"
+          data-testid="public-git-url"
           autocomplete="off"
-          [placeholder]="provider() === 'github_public' ? 'repository' : 'team/repository.git'"
-          [ngModel]="repository()"
-          (ngModelChange)="repository.set($event)"
+          inputmode="url"
+          placeholder="https://github.com/octocat/Hello-World"
+          [ngModel]="repositoryUrl()"
+          (ngModelChange)="repositoryUrl.set($event)"
+          aria-describedby="public-git-url-examples"
         />
 
-        <label for="public-git-ref">Ref</label>
+        <label for="public-git-ref">Branch, Tag oder Commit</label>
         <input
           id="public-git-ref"
           data-testid="public-git-ref"
           autocomplete="off"
+          placeholder="main"
           [ngModel]="requestedRef()"
           (ngModelChange)="requestedRef.set($event)"
         />
@@ -97,8 +71,10 @@ type PublicRemoteProvider = SourceControlPublicRemoteIntent['provider'];
         </button>
       </div>
 
-      <p class="hint">
-        Es werden keine Clone-URLs, Netzwerkadressen, Ports oder Zugangsdaten eingegeben.
+      <p class="hint" id="public-git-url-examples">
+        Beispiele: <code>https://github.com/octocat/Hello-World</code> mit
+        <code>master</code>, <code>v1.2.0</code> oder einem vollständigen Commit-SHA.
+        Erlaubt sind ausschließlich öffentliche HTTPS-URLs ohne Zugangsdaten, Port, Query oder Fragment.
       </p>
       @if (validation(); as preview) {
         <p class="notice" role="status">
@@ -136,10 +112,7 @@ export class PublicGitRemoteOnboardingComponent {
   @Input() projectId = '';
   @Output() readonly remoteCreated = new EventEmitter<SourceControlPublicRemoteCreation>();
 
-  readonly provider = signal<PublicRemoteProvider>('github_public');
-  readonly owner = signal('');
-  readonly host = signal('');
-  readonly repository = signal('');
+  readonly repositoryUrl = signal('');
   readonly requestedRef = signal('main');
   readonly submitting = signal(false);
   readonly validation = signal<SourceControlPublicRemoteValidation | null>(null);
@@ -149,16 +122,6 @@ export class PublicGitRemoteOnboardingComponent {
   readonly canSubmit = computed(() =>
     Boolean(this.projectId.trim()) && !this.submitting() && this.intent() !== null,
   );
-
-  setProvider(value: PublicRemoteProvider): void {
-    if (value !== 'github_public' && value !== 'https_git') {
-      return;
-    }
-    this.provider.set(value);
-    this.validation.set(null);
-    this.errorMessage.set('');
-    this.successMessage.set('');
-  }
 
   submit(): void {
     const projectId = this.projectId.trim();
@@ -201,32 +164,51 @@ export class PublicGitRemoteOnboardingComponent {
   }
 
   private intent(): SourceControlPublicRemoteIntent | null {
-    const repository = this.repository().trim();
     const requestedRef = this.requestedRef().trim();
-    if (!isSafeGitRef(requestedRef)) {
-      return null;
-    }
-    if (this.provider() === 'github_public') {
-      const owner = this.owner().trim();
-      return isGitHubSlug(owner) && isGitHubSlug(repository)
-        ? {
-            provider: 'github_public',
-            owner,
-            repository,
-            requested_ref: requestedRef,
-          }
-        : null;
-    }
-    const host = this.host().trim().toLowerCase();
-    return isPublicDnsHost(host) && isRepositoryPath(repository)
-      ? {
-          provider: 'https_git',
-          host,
-          repository,
-          requested_ref: requestedRef,
-        }
+    const coordinate = parsePublicGitRepositoryUrl(this.repositoryUrl());
+    return coordinate && isSafeGitRef(requestedRef)
+      ? { ...coordinate, requested_ref: requestedRef }
       : null;
   }
+}
+
+export function parsePublicGitRepositoryUrl(
+  value: string,
+): PublicGitCoordinate | null {
+  const raw = String(value || '').trim();
+  if (!raw || raw.length > 1024) return null;
+  const authority = raw.match(/^https:\/\/([^/?#]+)/)?.[1] ?? '';
+  if (!authority || authority.includes(':')) return null;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (
+    url.protocol !== 'https:'
+    || url.username
+    || url.password
+    || url.port
+    || url.search
+    || url.hash
+  ) {
+    return null;
+  }
+  const host = url.hostname.toLowerCase();
+  const segments = url.pathname.split('/').filter(Boolean);
+  if (host === 'github.com') {
+    if (segments.length !== 2) return null;
+    const owner = segments[0];
+    const repository = segments[1].replace(/\.git$/, '');
+    return isGitHubSlug(owner) && isGitHubSlug(repository)
+      ? { provider: 'github_public', owner, repository }
+      : null;
+  }
+  const repository = segments.join('/');
+  return isPublicDnsHost(host) && isRepositoryPath(repository)
+    ? { provider: 'https_git', host, repository }
+    : null;
 }
 
 function isGitHubSlug(value: string): boolean {

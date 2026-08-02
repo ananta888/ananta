@@ -49,7 +49,7 @@ import { ProjectContextService } from '../../services/project-context.service';
         } @else {
           <ul>
             @for (project of context.projects(); track project.id) {
-              <li [attr.data-status]="project.status">
+              <li [attr.data-status]="project.status" [class.selected]="context.selectedProjectId() === project.id">
                 <div>
                   <strong>{{ project.name }}</strong>
                   <span>{{ project.id }}</span>
@@ -63,6 +63,15 @@ import { ProjectContextService } from '../../services/project-context.service';
                 >
                   {{ context.selectedProjectId() === project.id ? 'Ausgewaehlt' : 'Auswaehlen' }}
                 </button>
+                @if (context.selectedProjectId() === project.id) {
+                  <button
+                    type="button"
+                    class="source-cta"
+                    (click)="openSourceJourney(project.id)"
+                  >
+                    Git oder Ordner hinzufügen
+                  </button>
+                }
               </li>
             }
           </ul>
@@ -83,9 +92,11 @@ import { ProjectContextService } from '../../services/project-context.service';
     input, textarea, button { padding: .65rem; font: inherit; }
     ul { display: grid; gap: .6rem; margin: 0; padding: 0; list-style: none; }
     li { display: grid; grid-template-columns: 1fr auto auto; gap: .8rem; align-items: center; padding: 1rem; border: 1px solid var(--border); border-radius: .7rem; }
+    li.selected { border-color: #176b5b; box-shadow: 0 8px 24px rgb(15 91 78 / 12%); }
     li span, li p { display: block; margin: .2rem 0 0; color: var(--muted); }
     li[data-status="archived"] { opacity: .7; }
     .status { font-weight: 700; }
+    .source-cta { grid-column: 1 / -1; padding: .85rem 1rem; border: 1px solid #0e5e50; border-radius: .55rem; color: #fff; background: linear-gradient(105deg, #0e5e50, #167565); font-weight: 750; }
     .error { color: #b91c1c; }
     @media (max-width: 42rem) { .projects { padding: 1rem; } li { grid-template-columns: 1fr; } }
   `],
@@ -119,6 +130,20 @@ export class ProjectManagementComponent implements OnInit {
     if (this.context.selectProject(projectId)) {
       this.continueToReturnUrl();
     }
+  }
+
+  openSourceJourney(projectId: string): void {
+    const normalizedId = String(projectId || '').trim();
+    if (
+      !normalizedId
+      || (this.context.selectedProjectId() !== normalizedId
+        && !this.context.selectProject(normalizedId, false))
+    ) {
+      return;
+    }
+    void this.router.navigateByUrl(
+      this.context.urlWithProject('/sources/journey', normalizedId),
+    );
   }
 
   private continueToReturnUrl(): void {

@@ -139,6 +139,9 @@ _BOUND_INDEX_PLAN_FIELDS = frozenset(
         "records",
     }
 )
+_BOUND_INDEX_REMOTE_PLAN_FIELDS = frozenset(
+    {"source_payload_digest", "source_payload_connection_id"}
+)
 
 _REPOSITORY_CONNECTOR_SCOPES = frozenset(
     {
@@ -208,10 +211,34 @@ class HubBoundSourceIndexSubmissionAdapter:
                 "source_index_governance_plan_invalid", status_code=502
             )
         plan = dict(raw_plan)
-        if set(plan) != _BOUND_INDEX_PLAN_FIELDS:
+        plan_fields = set(plan)
+        remote_plan_fields = plan_fields & _BOUND_INDEX_REMOTE_PLAN_FIELDS
+        if (
+            plan_fields
+            not in (
+                _BOUND_INDEX_PLAN_FIELDS,
+                _BOUND_INDEX_PLAN_FIELDS
+                | _BOUND_INDEX_REMOTE_PLAN_FIELDS,
+            )
+            or remote_plan_fields
+            not in (set(), set(_BOUND_INDEX_REMOTE_PLAN_FIELDS))
+        ):
             raise SourceControlProductionAdapterError(
                 "source_index_governance_plan_invalid", status_code=502
             )
+        if remote_plan_fields:
+            if (
+                re.fullmatch(
+                    r"[0-9a-f]{64}",
+                    str(plan["source_payload_digest"]),
+                )
+                is None
+                or plan["source_payload_connection_id"]
+                != connection.connection_id
+            ):
+                raise SourceControlProductionAdapterError(
+                    "source_index_governance_plan_stale", status_code=409
+                )
         if (
             plan["source_revision_id"] != revision.source_revision_id
             or plan["source_revision_digest"] != revision.revision_digest
@@ -222,7 +249,11 @@ class HubBoundSourceIndexSubmissionAdapter:
                 "source_index_governance_plan_stale", status_code=409
             )
         execution_plan = {
-            **plan,
+            **{
+                key: value
+                for key, value in plan.items()
+                if key not in _BOUND_INDEX_REMOTE_PLAN_FIELDS
+            },
             "source_scope": _runtime_index_source_scope(
                 plan["source_scope"]
             ),

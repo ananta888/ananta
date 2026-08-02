@@ -61,6 +61,18 @@ describe('ErrorInterceptor', () => {
     expect(msg).toContain('API-Fehler (500)');
   });
 
+  it('renders a nested source-control error code instead of an object string', async () => {
+    const err = new HttpErrorResponse({
+      status: 400,
+      statusText: 'Bad Request',
+      url: 'http://hub:5000/api/source-control/v1/connections/conn-1/scan',
+      error: { error: { code: 'remote_source_payload_required' } },
+    });
+
+    await expect(firstValueFrom(interceptor.intercept(makeRequest(), makeHandler(err)))).rejects.toBe(err);
+    expect(notify).toHaveBeenCalledWith('API-Fehler (400): remote_source_payload_required');
+  });
+
   it('rethrows locally handled request failures without a global notification', async () => {
     const request = new HttpRequest(
       'POST',

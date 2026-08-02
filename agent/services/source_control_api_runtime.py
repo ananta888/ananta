@@ -64,6 +64,9 @@ from agent.services.source_control_grant_admin import (
     GrantCreateRequest,
     GrantRevokeRequest,
 )
+from agent.services.source_control_prepare_index_access import (
+    SourceControlPrepareIndexAccessService,
+)
 from agent.services.source_control_projection_service import (
     SourceControlAggregateRecord,
     SourceControlPage,
@@ -334,10 +337,7 @@ class SQLSourceControlReadRepository:
         )
         revision = max(
             revisions,
-            key=lambda row: float(
-                getattr(row, "created_at_epoch", 0.0)
-                or getattr(row, "observed_at_epoch", 0.0)
-            ),
+            key=lambda row: float(row.captured_at_epoch),
             default=None,
         )
         indexes = list(
@@ -390,12 +390,18 @@ class SQLSourceControlReadRepository:
                     "source_revision_id": revision.source_revision_id,
                     "revision_digest": revision.revision_digest,
                     "sensitivity": revision.sensitivity,
+                    "admission_state": revision.admission_state,
+                    "captured_at": _iso(revision.captured_at_epoch),
                 }
                 if revision is not None
                 else None
             ),
             admission={
-                "state": "admitted" if revision is not None else "pending"
+                "state": (
+                    revision.admission_state
+                    if revision is not None
+                    else "pending"
+                )
             },
             index=(
                 {
@@ -1493,6 +1499,7 @@ class SourceControlApiRuntime:
     content_admission: object | None = None
     catalogs: object | None = None
     grants: object | None = None
+    index_access: object | None = None
     connection_intents: object | None = None
     codehug_mutations: object | None = None
     artifact_downloads: object | None = None
@@ -1791,6 +1798,44 @@ class SourceControlApiRuntime:
             "grant": _wire(grant),
             "capabilities": _grant_capabilities(actor.project_id),
         }
+
+    def prepare_index_access_options(
+        self,
+        *,
+        principal: object,
+        project_id: str,
+        connection_id: str,
+    ) -> Mapping[str, object]:
+        actor = _principal(principal)
+        _require_project_scope(actor=actor, project_id=project_id)
+        return dict(
+            self._index_access_service().options(
+                actor=actor,
+                connection_id=connection_id,
+            )
+        )
+
+    def prepare_index_access(
+        self,
+        *,
+        principal: object,
+        project_id: str,
+        connection_id: str,
+        payload: Mapping[str, object],
+        if_match: str,
+        idempotency_key: str,
+    ) -> Mapping[str, object]:
+        actor = _principal(principal)
+        _require_project_scope(actor=actor, project_id=project_id)
+        return dict(
+            self._index_access_service().prepare(
+                actor=actor,
+                connection_id=connection_id,
+                payload=payload,
+                if_match=if_match,
+                idempotency_key=idempotency_key,
+            )
+        )
 
     def list_connections(
         self,
@@ -2658,6 +2703,13 @@ class SourceControlApiRuntime:
             )
         return self.grants
 
+    def _index_access_service(self):
+        if self.index_access is None:
+            raise SourceControlApiRuntimeError(
+                "source_control_index_access_unavailable", status_code=503
+            )
+        return self.index_access
+
 
 def _etag_number(value: str, namespace: str) -> int:
     normalized = value.strip()
@@ -2842,11 +2894,30 @@ def build_source_control_api_runtime(
     content_admission: object | None = None,
     catalogs: object | None = None,
     grants: object | None = None,
+    destinations: object | None = None,
+    index_access: object | None = None,
     connection_intents: object | None = None,
     codehug_mutations: object | None = None,
     artifact_downloads: object | None = None,
 ) -> SourceControlApiRuntime:
     reads = SQLSourceControlReadRepository(engine)
+    projection = SourceControlProjectionService(reads)
+    idempotency = SQLSourceControlOperationStore(engine)
+    resolved_index_access = index_access
+    if (
+        resolved_index_access is None
+        and destinations is not None
+        and context_policy is not None
+        and grants is not None
+    ):
+        resolved_index_access = SourceControlPrepareIndexAccessService(
+            projections=projection,
+            bindings=reads,
+            destinations=destinations,
+            policies=context_policy,
+            grants=grants,
+            idempotency=idempotency,
+        )
     repository = SQLSourceIndexLifecycleRepository(
         engine,
         artifact_deletion=artifact_deletion,
@@ -2855,7 +2926,7 @@ def build_source_control_api_runtime(
     return SourceControlApiRuntime(
         engine=engine,
         reads=reads,
-        projection=SourceControlProjectionService(reads),
+        projection=projection,
         lifecycle=SourceIndexLifecycleService(
             repository=repository,
             audit=_LifecycleAudit(),
@@ -2865,7 +2936,7 @@ def build_source_control_api_runtime(
         events=SourceControlJobEventService(
             SQLSourceControlJobEventRepository(engine)
         ),
-        idempotency=SQLSourceControlOperationStore(engine),
+        idempotency=idempotency,
         access=access,
         operations=operations,
         context_policy=context_policy,
@@ -2873,6 +2944,7 @@ def build_source_control_api_runtime(
         content_admission=content_admission,
         catalogs=catalogs,
         grants=grants,
+        index_access=resolved_index_access,
         connection_intents=connection_intents,
         codehug_mutations=codehug_mutations,
         artifact_downloads=artifact_downloads,

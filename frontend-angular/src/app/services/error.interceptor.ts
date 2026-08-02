@@ -8,6 +8,21 @@ import {
   SUPPRESS_GLOBAL_NOT_FOUND_NOTIFICATION,
 } from './error-request-context';
 
+function serverErrorMessage(value: unknown, depth = 0): string | null {
+  if (typeof value === 'string') return value.trim() || null;
+  if (!value || typeof value !== 'object' || Array.isArray(value) || depth > 3) return null;
+  const record = value as Record<string, unknown>;
+  for (const key of ['message', 'detail', 'reason_code', 'code']) {
+    const candidate = record[key];
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  for (const key of ['error', 'data']) {
+    const nested = serverErrorMessage(record[key], depth + 1);
+    if (nested) return nested;
+  }
+  return null;
+}
+
 @Injectable()
 export class ErrorInterceptor implements HttpInterceptor {
   private ns = inject(NotificationService);
@@ -62,17 +77,9 @@ export class ErrorInterceptor implements HttpInterceptor {
         } else {
           // Server-seitiger Fehler
           errorMessage = `API-Fehler (${error.status}): `;
-          if (error.error?.error) {
-            errorMessage += error.error.error;
-          } else if (error.error?.detail) {
-            errorMessage += error.error.detail;
-          } else if (error.error?.message) {
-            errorMessage += error.error.message;
-          } else if (error.message) {
-            errorMessage += error.message;
-          } else {
-            errorMessage += error.statusText;
-          }
+          errorMessage += serverErrorMessage(error.error)
+            || error.message
+            || error.statusText;
         }
         
         // Zentrale Benachrichtigung

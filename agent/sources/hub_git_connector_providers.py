@@ -270,7 +270,7 @@ class HubGitContentProvider:
                 "repository_identifier": query.repository_identifier,
             },
         )()
-        record = self._record_for(request)
+        record = self._active_record_for(request)
         return self._payloads.resolve_stored_commit(
             query=query,
             authorization_binding_digest=authorization_binding_digest(record),
@@ -280,10 +280,20 @@ class HubGitContentProvider:
         self,
         request: GitContentRequest,
     ) -> RegisteredGitAuthorization:
+        active = self._active_record_for(request)
+        _require_plan_binding(active, request.transport_authorization)
+        return active
+
+    def _active_record_for(
+        self,
+        request: object,
+    ) -> RegisteredGitAuthorization:
         record = self._registry.resolve_connection(
-            scope=request.scope,
-            connection_ref=request.connection_ref,
-            repository_identifier=request.repository_identifier,
+            scope=getattr(request, "scope"),
+            connection_ref=getattr(request, "connection_ref"),
+            repository_identifier=getattr(
+                request, "repository_identifier"
+            ),
         )
         required_scope = (
             "contents:read"
@@ -291,9 +301,7 @@ class HubGitContentProvider:
             and record.authorization_kind.startswith("github_")
             else "repository:read"
         )
-        active = _require_active(record, required_scope=required_scope)
-        _require_plan_binding(active, request.transport_authorization)
-        return active
+        return _require_active(record, required_scope=required_scope)
 
 
 __all__ = [

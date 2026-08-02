@@ -47,8 +47,7 @@ describe('PublicGitRemoteOnboardingComponent', () => {
   it('validates structured GitHub coordinates and creates only from the returned handle', () => {
     const emitted = vi.fn();
     component.remoteCreated.subscribe(emitted);
-    component.owner.set('openai');
-    component.repository.set('public-repository');
+    component.repositoryUrl.set('https://github.com/openai/public-repository');
     component.requestedRef.set('main');
 
     component.submit();
@@ -76,9 +75,7 @@ describe('PublicGitRemoteOnboardingComponent', () => {
   });
 
   it('accepts a public DNS host as a structured HTTPS-Git coordinate', () => {
-    component.setProvider('https_git');
-    component.host.set('git.example.org');
-    component.repository.set('team/repository.git');
+    component.repositoryUrl.set('https://git.example.org/team/repository.git');
     component.requestedRef.set('refs/heads/main');
 
     component.submit();
@@ -96,8 +93,7 @@ describe('PublicGitRemoteOnboardingComponent', () => {
 
   it('fails closed without a route project context', () => {
     component.projectId = '';
-    component.owner.set('openai');
-    component.repository.set('public-repository');
+    component.repositoryUrl.set('https://github.com/openai/public-repository');
 
     component.submit();
 
@@ -107,16 +103,15 @@ describe('PublicGitRemoteOnboardingComponent', () => {
   });
 
   it.each([
-    '127.0.0.1',
-    '10.0.0.1',
-    '[::1]',
-    'git.example.org:443',
-    'https://git.example.org',
-    'localhost',
-  ])('rejects IP, port and URL-shaped HTTPS hosts: %s', (host) => {
-    component.setProvider('https_git');
-    component.host.set(host);
-    component.repository.set('team/repository.git');
+    'https://127.0.0.1/team/repository.git',
+    'https://10.0.0.1/team/repository.git',
+    'https://[::1]/team/repository.git',
+    'https://git.example.org:443/team/repository.git',
+    'http://git.example.org/team/repository.git',
+    'https://localhost/team/repository.git',
+    'https://token@git.example.org/team/repository.git',
+  ])('rejects private, credentialed or non-canonical repository URLs: %s', (url) => {
+    component.repositoryUrl.set(url);
 
     component.submit();
 

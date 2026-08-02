@@ -823,9 +823,9 @@
       "evidence_refs": [
         "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
         "artifacts/test-gates/source-control-github-onboarding-verification.json#sha256=f9f4de252e93b3fbc4bd865cdb586e6acbd97f7fd99b88e4159fcc7d7aded2ef",
-        "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=98a247a3bbe875f3a4ec9035d3d4e428164402143f1a1941ca494c89f1e08087"
+        "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
       ],
-      "status_basis": "Credential-freies Public Git/GitHub ist lokal vollstaendig verifiziert: Die Chromium-Journey bestand 1/1 ohne Retry und deckte Validate, Create, immutable Commit-Pinning, Connection, Refresh und Scan-ready ab. Der private GitHub-App-/OAuth-Pfad bleibt fail-closed implementiert, aber die persistente Provider-Registration hat weiterhin count=0; reale externe Installation und OAuth-Grant fehlen. Nur diese externe Providergrenze haelt die Aufgabe auf partial.",
+      "status_basis": "Credential-freies Public Git/GitHub ist lokal vollstaendig verifiziert: Chromium bestand 1/1 ohne Retry ueber Validate, Create, immutable Commit-Pinning, Connection, Refresh, Scan, Hub-owned lokale Einmalfreigabe, Index-Run, Worker-Ausfuehrung und Aktivierung. Der private GitHub-App-/OAuth-Pfad bleibt fail-closed implementiert, aber reale externe Installation und OAuth-Grant fehlen. Nur diese externe Providergrenze haelt die Aufgabe auf partial.",
       "acceptance_evidence": {
         "persistent_connector_composition": "passed",
         "server_handle_only_api": "passed",
@@ -838,13 +838,15 @@
         "public_remote_validate_create_backend": "passed_167_of_167",
         "public_remote_local_compose": "explicit_opt_in",
         "public_remote_production_default": "disabled",
-        "public_remote_current_delta_tests": "passed_35_of_35_typecheck_and_production_image_build",
+        "public_remote_current_delta_tests": "passed_backend_136_of_136_frontend_32_of_32_initial_6_of_6_final_app_spec_typecheck",
         "public_remote_live_validate": "passed_http_200_commit_length_40",
         "public_remote_live_create": "passed_http_201",
-        "public_remote_ui_e2e": "passed_chromium_1_of_1_no_retry",
+        "public_remote_ui_e2e": "passed_chromium_1_of_1_no_retry_through_activation",
         "public_remote_repository": "octocat/Hello-World",
         "public_remote_ref": "master_resolved_to_immutable_commit",
-        "private_provider_registration_count": 0
+        "private_provider_registration_count": 0,
+        "public_remote_regression_gates": "passed_37_of_37_39_of_39_43_of_43_14_of_14",
+        "hub_owned_prepare_index_access": "passed"
       }
     },
     {
@@ -1050,14 +1052,16 @@
         "Ein Hub-Projection-Service liefert Connection, Revision, Admission, Index, Active-Index, Stale, Coverage, Grants, Health und nächste erlaubte Aktionen.",
         "Routes bleiben dünn und verwenden Domain-Ports; Clientfelder können keine Tenant-, Ziel- oder Sicherheitsmetadaten überschreiben.",
         "ETag beziehungsweise If-Match schützt Mutationen; Cursor, Filter, Limits und Fehlervertrag sind versioniert.",
-        "Legacy-Endpunkte bleiben über dokumentierte Aliase oder Adapter verfügbar und besitzen Abschaltmetriken."
+        "Legacy-Endpunkte bleiben über dokumentierte Aliase oder Adapter verfügbar und besitzen Abschaltmetriken.",
+        "Prepare-Index-Access GET/POST loest Revision, lokale Container-Destination und sichere Option serverseitig auf und komponiert Preview, Aktivierung und einmaligen Grant als genau einen Hub-owned Befehl."
       ],
       "verification_state": "locally_verified",
       "evidence_refs": [
         "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
-        "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9"
+        "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9",
+        "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
       ],
-      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis.",
+      "status_basis": "Das kanonische Read-Model und der Hub-owned Prepare-Index-Access-Aggregatpfad sind lokal verifiziert. GET und POST binden Projekt, Connection, Revision, local_container-Destination und local/redacted/one_time-Wirkung; Confirmation, OCC und Idempotenz bleiben fail-closed. Das fokussierte Backend-Gate bestand 136/136. Dies ist kein Produktionsnachweis.",
       "implementation_delta": {
         "state": "locally_verified",
         "capability": "atomic_connection_binding",
@@ -1066,6 +1070,12 @@
           "Workspace-Intents persistieren keine Browser- oder Hub-Hostpfade.",
           "Das aktuelle Backend-Gate lief mit 167/167; die Planning-Gates waren gruen."
         ]
+      },
+      "acceptance_evidence": {
+        "prepare_index_access_backend_contracts": "passed_136_of_136",
+        "aggregate_owner": "hub",
+        "browser_direct_policy_or_grant_sequence": "absent",
+        "negative_occ_and_selection_cases": "passed"
       }
     },
     {
@@ -1222,13 +1232,21 @@
         "Grant bindet SourceRevision, DestinationDescriptor, Operation, Roh/Redacted/Summary-Transformation, Zweck, Ablauf und Policy-Version.",
         "Approval-Override bindet denselben vollständigen Digest und kann weder auf andere Revisionen noch Modelle übertragen werden.",
         "Einmalige Grants werden atomar konsumiert; stale, widerrufene oder abgelaufene Grants bleiben denied.",
-        "Worker erhalten nur ein Hub-signiertes, assignment-gebundenes Enforcement-Manifest und treffen keine Governance-Entscheidung."
+        "Worker erhalten nur ein Hub-signiertes, assignment-gebundenes Enforcement-Manifest und treffen keine Governance-Entscheidung.",
+        "Die gefuehrte lokale Einmalfreigabe akzeptiert ausschliesslich servergelieferte local_container-Ziele und local/redacted/one_time-Optionen; Confirmation, If-Match und Idempotency-Key sind obligatorisch."
       ],
       "verification_state": "locally_verified",
       "evidence_refs": [
-        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
+        "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
+        "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
       ],
-      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
+      "status_basis": "Versionierte Grants und der neue Hub-Aggregatbefehl sind lokal verifiziert. Der Browser bestaetigt nur die servergelieferte local_container/redacted/one_time-Auswahl; der Hub komponiert Policy und Einmalgrant atomar. Stale ETags, unbestaetigte, erfundene oder unsichere Auswahl sowie ungueltige Dauern bleiben denied.",
+      "acceptance_evidence": {
+        "aggregate_contract_tests": "passed_136_of_136",
+        "local_redacted_one_time_only": "passed",
+        "confirmation_occ_idempotency": "passed",
+        "browser_direct_policy_or_grant_sequence": "absent"
+      }
     },
     {
       "id": "SRCCTRL-G4-003",
@@ -1385,9 +1403,17 @@
       ],
       "verification_state": "locally_verified",
       "evidence_refs": [
-        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
+        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
+        "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
       ],
-      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
+      "status_basis": "Shell und Routing sind im realen Browserpfad verifiziert: sichtbares Hauptmenue Quellen & Indexierung, Projektauswahl, CTA Git oder Ordner hinzufügen und projektgebundene Journey. Initiale fokussierte Angular-Gates bestanden 32/32; finaler Aggregate-Abgleich 6/6 sowie App- und Spec-Typecheck.",
+      "acceptance_evidence": {
+        "visible_main_menu": "Quellen & Indexierung",
+        "project_cta": "Git oder Ordner hinzufügen",
+        "initial_angular_contracts": "passed_32_of_32",
+        "final_aggregate_contracts": "passed_6_of_6",
+        "app_and_spec_typecheck": "passed"
+      }
     },
     {
       "id": "SRCCTRL-U5-002",
@@ -1420,31 +1446,26 @@
         "Workspace- und Verzeichnisauswahl verwendet nur servergelieferte IDs und relative Pfade.",
         "GitHub-Auswahl zeigt Installation, Organisation, Repository, Ref, aufgelösten Commit und Berechtigungsstatus ohne Tokens.",
         "Scan-Vorschau erklärt Ausschlüsse, Budgets, Secrets, Injection-Risiken und Blockgründe vor Indexierung.",
-        "Fokusführung, Zurück, Abbruch, Wiederaufnahme und Fehlerzustände sind tastatur- und screenreader-tauglich."
+        "Fokusführung, Zurück, Abbruch, Wiederaufnahme und Fehlerzustände sind tastatur- und screenreader-tauglich.",
+        "Die projektgebundene Journey zeigt vier klare Karten: Öffentliches Git/GitHub-Repository, Lokaler Ordner / lokale Git-Arbeitskopie, Server-Workspace und Privates GitHub.",
+        "Der dauerhafte Hinweis Wird Projekt <Projektname> zugeordnet macht die Projektbindung jeder neuen Connection sichtbar."
       ],
       "verification_state": "local_verified",
       "evidence_refs": [
         "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
         "artifacts/test-gates/source-control-github-onboarding-verification.json#sha256=f9f4de252e93b3fbc4bd865cdb586e6acbd97f7fd99b88e4159fcc7d7aded2ef",
-        "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=98a247a3bbe875f3a4ec9035d3d4e428164402143f1a1941ca494c89f1e08087"
+        "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
       ],
-      "status_basis": "Der gefuehrte Quellen-Assistent und seine fail-closed Hub-Anbindung sind lokal vollstaendig verifiziert. Angular-Vertraege 35/35, Typecheck und Produktions-Image-Build bestanden. Die Public-Git-Chromium-Journey bestand 1/1 ohne Retry mit Validate, Create, Commit-Pinning, Connection, Refresh und Scan-ready. Die Workspace-Snapshot-Chromium-Journey bestand 1/1 ohne Retry mit Upload, Connection, Refresh, Scan, dynamischer Policy und Grant, Index-Run, capability-gebundener Worker-Ausgabe, Hub-Projektion, Aktivierung und UI-Readback. Eine reale private GitHub-App-/OAuth-Installation ist keine offene Frontend-Implementierung und wird ausschliesslich durch SRCCTRL-N2-003 verfolgt.",
+      "status_basis": "Der gefuehrte Projektpfad ist lokal vollstaendig verifiziert: sichtbares Hauptmenue, Projekt-CTA, Project-Binding-Hinweis und vier Quellkarten. Public Git und Workspace-Snapshot bestanden jeweils Chromium 1/1 ohne Retry ueber Connection, Refresh, Scan, Hub-owned Einmalfreigabe, Run, Hub-Worker-Ausfuehrung und Aktivierung. Private GitHub-App-/OAuth-Konfiguration wird ausschliesslich als externe Providergrenze in SRCCTRL-N2-003 verfolgt.",
       "acceptance_evidence": {
-        "angular_and_accessibility": "passed",
-        "server_handle_only_contract": "passed",
-        "browser_secret_exposure": "denied",
-        "git_authorization_ui": "passed_angular_68_of_68_and_build",
-        "workspace_folder_registration_backend": "locally_verified",
-        "workspace_folder_registration_angular": "passed_browser_snapshot_journey_1_of_1_no_retry",
-        "current_delta_tests": "passed_35_of_35_typecheck_and_production_image_build",
-        "project_selector": "passed_42_of_42",
-        "authorization_production_fix": "passed_147_of_147",
-        "workspace_registration_live_smoke": "list_200_validate_200_create_201_catalog_match_disable_200",
-        "sources_add_route": "http_200",
-        "public_remote_browser_journey": "passed_1_of_1_no_retry",
-        "workspace_snapshot_browser_journey": "passed_1_of_1_no_retry",
-        "worker_output_projection_and_activation": "passed_live",
-        "graph_and_query_readback": "passed_http_200",
+        "visible_project_journey": "passed",
+        "four_source_cards": "passed",
+        "project_binding_notice": "passed",
+        "initial_angular_contracts": "passed_32_of_32",
+        "final_aggregate_contracts": "passed_6_of_6",
+        "app_and_spec_typecheck": "passed",
+        "public_git_browser_journey": "passed_1_of_1_no_retry_through_activation",
+        "workspace_snapshot_browser_journey": "passed_1_of_1_no_retry_through_activation",
         "private_provider_dependency": "tracked_by_SRCCTRL-N2-003_not_required_for_frontend_completion"
       }
     },
@@ -1512,13 +1533,22 @@
         "Benutzerdefiniert zeigt reale Worker, Runtime, Provider, Modell, Standort, Operation und Roh/Redacted/Summary getrennt.",
         "Anthropic Claude wird mit konkretem Modell und Cloud-/Standorthinweis angezeigt.",
         "Vor Speichern zeigt eine serverseitige Preview neue Datenbewegungen, Regelpfade, Konflikte und erforderliche Freigaben.",
-        "Globale Matrix verwendet reale Daten, Virtualisierung und vollständige Tastaturbedienung statt hartcodierter Beispiele."
+        "Globale Matrix verwendet reale Daten, Virtualisierung und vollständige Tastaturbedienung statt hartcodierter Beispiele.",
+        "Die einfache lokale Freigabe verwendet genau einen Hub-owned Prepare-Index-Access-GET/POST statt Policy- und Grant-Lifecycle im Browser und zeigt die exakte local_container/redacted/one_time-Wirkung vor expliziter Bestaetigung."
       ],
       "verification_state": "locally_verified",
       "evidence_refs": [
-        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
+        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
+        "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
       ],
-      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
+      "status_basis": "Der sourcebezogene Grant-Assistent nutzt fuer die einfache lokale Freigabe ausschliesslich den Hub-owned Prepare-Index-Access-Aggregatpfad. Die UI zeigt servergelieferte Destination, Wirkung und Dauer, verlangt explizite Bestaetigung und startet erst nach dem erfolgreichen Aggregatresultat. Direkte Policy-/Grant-Orchestrierung im Browser ist nicht vorhanden; beide Live-Journeys bestanden bis zur Aktivierung.",
+      "acceptance_evidence": {
+        "hub_owned_prepare_index_access": "passed",
+        "local_container_redacted_one_time_display": "passed",
+        "explicit_confirmation": "passed",
+        "browser_direct_policy_or_grant_sequence": "absent",
+        "public_and_snapshot_live_activation": "passed_1_of_1_each_no_retry"
+      }
     },
     {
       "id": "SRCCTRL-U5-005",
@@ -1734,9 +1764,17 @@
       ],
       "verification_state": "locally_verified",
       "evidence_refs": [
-        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e"
+        "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
+        "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
       ],
-      "status_basis": "Implementierung und alle lokal ausführbaren Acceptance-Kriterien wurden durch die referenzierten Contract-, Test-, Build-, Security- oder Operations-Gates erfolgreich verifiziert. Dies ist kein Produktionsnachweis."
+      "status_basis": "Der UX-Nachtrag ist durch initial 32/32 fokussierte Angular-Tests, final 6/6 Aggregate-Vertrags- und Clienttests sowie App- und Spec-Typecheck verifiziert. Die exakte serverseitige local_container-Normalform bleibt im Client fail-closed; unsichere Wirkungen und erfundene Auswahlen werden nicht akzeptiert.",
+      "acceptance_evidence": {
+        "initial_focused_angular": "passed_32_of_32",
+        "final_index_access_contracts": "passed_6_of_6",
+        "app_typecheck": "passed",
+        "spec_typecheck": "passed",
+        "unsafe_effect_and_invented_selection": "fail_closed"
+      }
     },
     {
       "id": "SRCCTRL-R6-004",
@@ -1774,18 +1812,18 @@
       "evidence_refs": [
         "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
         "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9",
-        "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=98a247a3bbe875f3a4ec9035d3d4e428164402143f1a1941ca494c89f1e08087"
+        "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
       ],
-      "status_basis": "Die aktuellen lokalen vertikalen Browserpfade sind ausgefuehrt: Public Git bestand in Chromium 1/1 ohne Retry bis Scan-ready; Workspace Snapshot bestand 1/1 ohne Retry ueber Upload, Connection, Refresh, Scan, dynamische Policy und Grant, Index-Run, realen Worker-Claim mit 900-Sekunden-Lease, Propose/Execute, capability-gebundene Ausgabematerialisierung, atomare idempotente Hub-Projektion, explizite Aktivierung per Active-Pointer-CAS active:0 und UI-Readback. Graph und Query lieferten live HTTP 200. Historische lokale Governance-, Approval- und Rollback-Gates bleiben belegt. Vollstaendige externe private GitHub-App-/OAuth-, Claude-/Cloud- und Produktions-Journeys fehlen weiterhin; deshalb bleibt die Aufgabe partial.",
+      "status_basis": "Die beiden aktuellen lokalen vertikalen Browserpfade sind vollstaendig ausgefuehrt: Public Git und Workspace Snapshot bestanden jeweils Chromium 1/1 ohne Retry vom sichtbaren Hauptmenue ueber Projekt-CTA, Connection, Refresh, Scan, Hub-owned local_container/redacted/one_time-Einmalfreigabe, Index-Run, Hub Claim/Propose/Execute und Aktivierung. Der Browser verwendete keine direkte Policy-/Grant-Sequenz. Historische lokale Governance-, Approval- und Rollback-Gates bleiben belegt. Nur externe private GitHub-App-/OAuth-, Claude-/Cloud- und Produktions-Journeys fehlen; deshalb bleibt die Aufgabe partial.",
       "acceptance_evidence": {
         "current_connection_binding_tests": "passed_backend_167_of_167",
-        "current_public_remote_tests": "passed_35_of_35_typecheck_and_production_image_build",
+        "current_public_remote_tests": "passed_frontend_32_of_32_initial_6_of_6_final_app_spec_typecheck",
         "current_git_authorization_ui_tests": "passed_angular_68_of_68_build_project_selector_42_of_42",
         "current_workspace_registration_tests": "passed_backend_and_live_smoke",
         "current_public_remote_validate": "passed_live_http_200_commit_length_40",
         "current_public_remote_create": "passed_live_http_201",
-        "current_public_remote_ui_e2e": "passed_chromium_1_of_1_no_retry",
-        "current_workspace_browser_journey": "passed_chromium_1_of_1_no_retry",
+        "current_public_remote_ui_e2e": "passed_chromium_1_of_1_no_retry_through_activation",
+        "current_workspace_browser_journey": "passed_chromium_1_of_1_no_retry_through_activation",
         "workspace_index_worker_output_projection_activation": "passed_live",
         "worker_output_capability_tests": "passed_18_of_18",
         "completion_projection_tests": "passed_22_of_22",
@@ -1793,7 +1831,10 @@
         "graph_and_query_live_readback": "passed_http_200",
         "private_github_app_oauth_journey": "external_unverified",
         "claude_cloud_journey": "external_unverified",
-        "production_journey": "external_unverified"
+        "production_journey": "external_unverified",
+        "prepare_index_access_backend_contracts": "passed_136_of_136",
+        "public_remote_regression_gates": "passed_37_of_37_39_of_39_43_of_43_14_of_14",
+        "browser_direct_policy_or_grant_sequence": "absent"
       }
     },
     {
@@ -1853,15 +1894,20 @@
         "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
         "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9",
         "artifacts/test-gates/source-control-center-rollout-verification.json#sha256=f8a89012a90539af96c158691f497679b8785a959315b81e8f8cd27b260987ed",
-        "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=98a247a3bbe875f3a4ec9035d3d4e428164402143f1a1941ca494c89f1e08087"
+        "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
       ],
-      "status_basis": "Historische lokale Rollout-, Contract-, Security-, Migration-, Backend-, Angular-, E2E-, Accessibility-, Container-, No-Bypass- und Load-/Recovery-Gates bleiben erhalten. Der aktuelle Delta ist zusaetzlich durch Angular-Vertraege 35/35, Typecheck, Produktions-Image-Build, zwei Chromium-Journeys jeweils 1/1 ohne Retry, Worker-Output 18/18, Completion-Projektion 22/22, Graph-Whitelist-Regression 1/1 sowie Graph und Query live HTTP 200 verifiziert. Offen bleiben ausschliesslich externe Produktionsverifikation mit gueltigen bereitgestellten SRC_*/RUN_*-IDs, die Produktionsreceiver-/Metrikvoraussetzungen und die organisatorische Freigabe; release_allowed bleibt false.",
+      "status_basis": "Historische lokale Release-Gates bleiben erhalten. Der UX-Nachtrag ist zusaetzlich durch Backend 136/136, 37/37, 39/39, 43/43 und 14/14, Frontend initial 32/32 und final 6/6, App-/Spec-Typecheck sowie Public-Git- und Workspace-Snapshot-Chromium jeweils 1/1 ohne Retry bis zur Aktivierung verifiziert. Offen bleiben ausschliesslich externe Produktionsverifikation mit gueltigen bereitgestellten SRC_*/RUN_*-IDs, Produktionsreceiver und -metriken sowie organisatorische Freigabe; release_allowed bleibt false.",
       "acceptance_evidence": {
         "local_live_browser_gate": "passed",
         "production_source_run_ids": "not_provided",
         "production_verification": "unverified",
         "organizational_approval": "unverified",
-        "release_allowed": false
+        "release_allowed": false,
+        "aggregate_backend_gates": "passed_136_of_136_37_of_37_39_of_39_43_of_43_14_of_14",
+        "frontend_delta_gates": "passed_32_of_32_initial_6_of_6_final_app_spec_typecheck",
+        "public_and_snapshot_activation_e2e": "passed_1_of_1_each_no_retry",
+        "source_ids": [],
+        "run_ids": []
       }
     }
   ],
@@ -2137,9 +2183,10 @@
     "Recovery-Drill: 14 serielle restricted-inference Scopes am selben unerreichbaren Endpoint wurden durch Endpoint-Circuit-Breaker und Fail-fast sicher beendet; 22/22 Tests und Ruff passed, Tasks blieben failed/retryable/durable, 14 Outbox-Zeilen blieben als 1 worker_unavailable plus 13 worker_circuit_open erhalten. Startup sank von 168.7424 s auf 22.3307 s, Cleanup von 167.1531 s auf 20.7195 s; Container-Start bis Health betrug 30.837 s und Hub Health war ok.",
     "Alarm-Drill: Die lokale Loopback-Kette firing, delivered, resolved und healthy bestand mit firing=0 und resolved=1; 9/9 Tests und Ruff passed. Produktive Rules-, Config- und Alertmanager-Anbindung sind implementiert, ein realer Produktionsreceiver beziehungsweise Paging wurde nicht kontaktiert.",
     "GitHub-Onboarding: Persistente Git-Connector-Composition und server-handle-only Provisioning/List/Detail/Revoke/Scope-loss/Health sind mit admin/project_owner plus Scope, SQL-Idempotenz/CAS, immutable History, Audit und fail-closed Provider-/Secret-Auflösung implementiert; 148 Tests, Ruff und Bootstrap bestanden. Persistente GitHub-App-/OAuth-Registration count=0 sowie externe Installation und Grant bleiben offen.",
-    "Aktueller lokaler Delta: Angular-Vertraege 35/35, Typecheck und Produktions-Image-Build, Public-Git-Chromium 1/1 ohne Retry, Workspace-Snapshot-Chromium 1/1 ohne Retry, Worker-Output 18/18, Completion-Projektion 22/22, Graph-Whitelist 1/1 sowie Graph und Query live HTTP 200 bestanden.",
-    "Public Git/GitHub ist lokal bis Scan-ready verifiziert. Die Workspace-Snapshot-Journey belegt den vertikalen Pfad bis zur capability-gebundenen Worker-Ausgabe, atomaren idempotenten Hub-Projektion, expliziten CAS-Aktivierung und UI-Readback. Die Compose-E2E-Konfiguration liess den Hub-Test-Harness Claim, Propose und Execute treiben; Worker orchestrierten keine Worker.",
-    "Private GitHub-App-/OAuth-Installation und Grant, Claude-/Cloud-Produktion, realer Produktionsreceiver beziehungsweise Paging, Produktionsmetriken, bereitgestellte gueltige SRC_*/RUN_*-IDs und organisatorische Freigabe bleiben extern offen. Es wurden keine Source- oder Run-IDs erfunden."
+    "Aktueller UX-Delta: Backend 136/136, 37/37, 39/39, 43/43 und 14/14; Frontend initial 32/32, final 6/6 sowie App-/Spec-Typecheck; Public-Git- und Workspace-Snapshot-Chromium jeweils 1/1 ohne Retry bis zur Aktivierung.",
+    "Public Git/GitHub und Workspace-Snapshot sind lokal ueber das sichtbare Hauptmenue Quellen & Indexierung, den Projekt-CTA Git oder Ordner hinzufügen, den Project-Binding-Hinweis und die vier Quellkarten bis zur Aktivierung verifiziert. Beide nutzten genau den Hub-owned Prepare-Index-Access-Aggregatpfad; Worker orchestrierten keine Worker und der Browser keine Policy-/Grant-Sequenz.",
+    "Private GitHub-App-/OAuth-Installation und Grant, Claude-/Cloud-Produktion, realer Produktionsreceiver beziehungsweise Paging, Produktionsmetriken, bereitgestellte gueltige SRC_*/RUN_*-IDs und organisatorische Freigabe bleiben extern offen. Es wurden keine Source- oder Run-IDs erfunden.",
+    "Prepare-Index-Access ist fail-closed auf local_container mit lokaler Datenresidenz sowie local/redacted/one_time beschraenkt; Confirmation, OCC, Idempotenz und negative Auswahlfaelle sind lokal verifiziert."
   ],
   "end_summaries": [
     {
@@ -2168,7 +2215,7 @@
         "Jede Datenbewegung wird gegen reale SourceRevision, Worker, Runtime, Provider, Modell, Standort, Operation und Transformation serverseitig entschieden.",
         "Lokaler Recovery- und Alarm-Delivery-Drill belegen Circuit-Breaker, Fail-fast, retryable/durable Tasks, vollständigen Outbox-Erhalt sowie firing-to-resolved-to-healthy. Reale Produktionsreceiver, Paging und Produktionsmetriken bleiben externe Release-Voraussetzungen.",
         "Die Capability-Matrix trennt Backend-Implementierung, Angular-Bedienbarkeit und externe private Provider-Konfiguration; historische Evidence wird nicht als Beleg fuer nicht ausgefuehrte neue Tests verwendet.",
-        "Workspace-Folder-Registration und credential-freies Public Git/GitHub sind durch aktuelle Chromium-Journeys lokal verifiziert. Offen bleiben die explizit externen privaten Provider-, Cloud-, Produktions- und Organisationsnachweise."
+        "Workspace-Snapshot und credential-freies Public Git/GitHub sind durch aktuelle sichtbare Chromium-Journeys jeweils 1/1 ohne Retry bis zur Aktivierung verifiziert; die lokale Einmalfreigabe wird ausschliesslich durch den Hub aggregiert. Offen bleiben die explizit externen privaten Provider-, Cloud-, Produktions- und Organisationsnachweise."
       ]
     }
   ],
@@ -2176,10 +2223,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-01T17:04:23.439359Z",
+    "generated_at": "2026-08-01T19:40:23.559597Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "31243bc8d991a33f33600a859909b4e431b8ba726d2352baf9a0e280f8c766db",
+    "source_hash": "06be509b85f6c4d0fc4e386f8b8208a469f64534c7c3ed4719fc852ab166e504",
     "is_stale": false
   },
   "milestone_progress_summary": {
@@ -2259,21 +2306,21 @@
     },
     {
       "capability": "credential_free_public_git_github",
-      "backend": "implemented_validate_create",
-      "angular": "locally_verified_dedicated_flow",
+      "backend": "implemented_validate_create_prepare_index_access_and_run",
+      "angular": "locally_verified_visible_project_journey_through_activation",
       "external_private_provider": "not_required",
       "activation": {
         "local_compose": "explicit_opt_in",
         "production_default": "disabled"
       },
-      "verification": "passed_chromium_1_of_1_no_retry_validate_create_commit_connection_refresh_scan_ready"
+      "verification": "passed_chromium_1_of_1_no_retry_through_hub_aggregate_run_and_activation"
     },
     {
       "capability": "local_workspace_folder_registration",
       "backend": "implemented",
-      "angular": "locally_verified_end_to_end_flow",
+      "angular": "locally_verified_visible_project_journey_through_activation",
       "external_private_provider": "not_applicable",
-      "verification": "passed_chromium_1_of_1_no_retry_through_index_projection_activation_and_ui_readback"
+      "verification": "passed_chromium_1_of_1_no_retry_through_hub_aggregate_run_projection_activation_and_ui_readback"
     },
     {
       "capability": "private_github_app_oauth",
@@ -2305,23 +2352,21 @@
       "status": 200,
       "resolved_commit_length": 40,
       "live_create": 201,
-      "ui_e2e": "passed_chromium_1_of_1_no_retry",
+      "ui_e2e": "passed_chromium_1_of_1_no_retry_through_activation",
       "repository": "octocat/Hello-World",
       "ref": "master_resolved_to_immutable_commit",
-      "connection_refresh_scan_ready": "passed",
+      "connection_refresh_scan_ready": "passed_through_hub_aggregate_run_and_activation",
       "erroneous_private_health_global_notification": "absent"
     },
     "angular_sources_add": 200,
     "workspace_registration_browser_journey": {
-      "status": "passed_chromium_1_of_1_no_retry",
-      "observed_duration_minutes": 7.3,
-      "coverage": "upload_connection_refresh_scan_policy_grant_run_worker_output_projection_activation_ui_readback",
-      "worker_claim_lease_seconds": 900,
-      "active_pointer_compare_and_swap": "active:0"
+      "status": "passed_chromium_1_of_1_no_retry_through_activation",
+      "coverage": "visible_project_journey_snapshot_connection_refresh_scan_hub_aggregate_run_worker_projection_activation_ui_readback",
+      "worker_claim_lease_seconds": 900
     },
     "private_github_app_oauth": "external_unverified",
     "production_source_run_ids": "not_provided",
-    "angular_focused_contracts": "35/35 passed",
+    "angular_focused_contracts": "32/32 initial passed; 6/6 final passed",
     "angular_typecheck": "passed",
     "angular_production_image_build": "passed",
     "worker_output_capability_tests": "18/18 passed",
@@ -2329,6 +2374,26 @@
     "graph_authorization_whitelist_regression": "1/1 passed, 102 deselected",
     "graph_live_http": 200,
     "query_live_http": 200,
-    "hub_alpha_beta_health": "healthy"
+    "hub_alpha_beta_health": "healthy",
+    "prepare_index_access_backend_contracts": "136/136 passed",
+    "public_remote_connector_regression": "37/37 passed",
+    "public_remote_cache_miss_regression": "39/39 passed",
+    "public_remote_admission_binding_regression": "43/43 passed",
+    "public_run_provenance_adapter_regression": "14/14 passed",
+    "angular_app_typecheck": "passed",
+    "angular_spec_typecheck": "passed",
+    "visible_source_journey": {
+      "main_menu": "Quellen & Indexierung",
+      "project_cta": "Git oder Ordner hinzufügen",
+      "project_binding_notice": "passed",
+      "four_source_cards": "passed"
+    },
+    "prepare_index_access": {
+      "destination": "local_container_local_residency",
+      "effect": "local_redacted_one_time",
+      "confirmation_occ_idempotency": "passed",
+      "negative_cases": "passed",
+      "browser_direct_policy_or_grant_sequence": "absent"
+    }
   }
 }

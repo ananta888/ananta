@@ -81,3 +81,74 @@ def test_resolve_target_worker_assigned_hub_is_blocked_when_forbidden():
     assert cursor == 0
     assert was_assigned is False
     assert reason == "assigned_worker_is_hub_forbidden"
+
+
+def test_bound_knowledge_index_routes_to_authorized_destination_worker():
+    task = SimpleNamespace(
+        assigned_agent_url=None,
+        task_kind="codecompass_index_build",
+        worker_execution_context={
+            "knowledge_index_job": {
+                "schema": "ananta.knowledge_index_execution_job.v2",
+            },
+            "destination_selection": {"worker_id": "worker-b"},
+        },
+        _hub_can_be_worker=False,
+        _local_worker_url="http://hub:5000",
+    )
+    workers = [
+        SimpleNamespace(
+            name="worker-a",
+            url="http://worker-a:5000",
+            token="ta",
+        ),
+        SimpleNamespace(
+            name="worker-b",
+            url="http://worker-b:5000",
+            token="tb",
+        ),
+    ]
+
+    target, cursor, was_assigned, reason = resolve_target_worker_for_task(
+        task=task,
+        workers=workers,
+        worker_cursor=0,
+    )
+
+    assert target is workers[1]
+    assert cursor == 0
+    assert was_assigned is True
+    assert reason == "destination_worker_binding"
+
+
+def test_bound_knowledge_index_fails_closed_when_destination_worker_is_absent():
+    task = SimpleNamespace(
+        assigned_agent_url=None,
+        task_kind="codecompass_index_build",
+        worker_execution_context={
+            "knowledge_index_job": {
+                "schema": "ananta.knowledge_index_execution_job.v2",
+            },
+            "destination_selection": {"worker_id": "worker-missing"},
+        },
+        _hub_can_be_worker=False,
+        _local_worker_url="http://hub:5000",
+    )
+    workers = [
+        SimpleNamespace(
+            name="worker-a",
+            url="http://worker-a:5000",
+            token="ta",
+        ),
+    ]
+
+    target, cursor, was_assigned, reason = resolve_target_worker_for_task(
+        task=task,
+        workers=workers,
+        worker_cursor=3,
+    )
+
+    assert target is None
+    assert cursor == 3
+    assert was_assigned is False
+    assert reason == "destination_worker_unavailable"

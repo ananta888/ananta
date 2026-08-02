@@ -3,16 +3,45 @@
   "scope": "local_compose_non_production",
   "status": "passed",
   "results": {
-    "angular_focused_contract_tests": {
+    "backend_prepare_index_access_contract_tests": {
       "status": "passed",
-      "passed": 35,
+      "passed": 136,
       "failed": 0
     },
-    "angular_typecheck": {
+    "backend_public_git_regression_gates": {
+      "status": "passed",
+      "connector_intent_and_public_remote_binding": "37/37",
+      "cache_miss_and_fail_closed_fallback": "39/39",
+      "remote_payload_admission_binding": "43/43",
+      "public_run_provenance_adapter": "14/14"
+    },
+    "angular_initial_focused_contract_tests": {
+      "status": "passed",
+      "passed": 32,
+      "failed": 0
+    },
+    "angular_final_index_access_contract_tests": {
+      "status": "passed",
+      "passed": 6,
+      "failed": 0
+    },
+    "angular_app_typecheck": {
+      "status": "passed"
+    },
+    "angular_spec_typecheck": {
       "status": "passed"
     },
     "angular_production_image_build": {
       "status": "passed"
+    },
+    "prepare_index_access_negative_contracts": {
+      "status": "passed",
+      "stale_if_match": "http_412",
+      "missing_confirmation": "http_400",
+      "invented_destination_or_option": "fail_closed",
+      "duration_out_of_bounds": "http_400",
+      "unsafe_effect": "fail_closed",
+      "idempotent_replay": "byte_identical_http_201"
     },
     "public_git_browser_e2e": {
       "status": "passed",
@@ -20,13 +49,19 @@
       "failed": 0,
       "retries": 0,
       "coverage": [
-        "validate_public_github_remote",
-        "create_public_github_remote",
-        "resolve_and_pin_master_commit",
-        "create_connection",
-        "refresh_connection",
-        "reach_scan_ready",
-        "suppress_expected_private_provider_health_notification"
+        "open_sources_and_indexing_main_menu",
+        "select_project_and_use_git_or_folder_cta",
+        "verify_project_binding_notice",
+        "select_public_git_github_card",
+        "validate_and_create_public_remote",
+        "resolve_and_pin_immutable_commit",
+        "create_and_refresh_connection",
+        "scan_and_admit_revision",
+        "prepare_local_container_redacted_one_time_access",
+        "confirm_occ_and_idempotent_aggregate_command",
+        "start_index_run",
+        "hub_claim_propose_and_execute_worker_job",
+        "activate_completed_index"
       ]
     },
     "workspace_snapshot_browser_e2e": {
@@ -34,21 +69,21 @@
       "passed": 1,
       "failed": 0,
       "retries": 0,
-      "observed_duration_minutes": 7.3,
       "coverage": [
-        "upload_workspace_snapshot",
-        "create_connection",
-        "refresh_connection",
-        "reach_scan_ready",
-        "create_and_activate_context_policy",
-        "create_revision_and_destination_bound_grant",
+        "open_sources_and_indexing_main_menu",
+        "select_project_and_use_git_or_folder_cta",
+        "verify_project_binding_notice",
+        "select_local_folder_or_git_worktree_card",
+        "upload_bounded_snapshot_without_vcs_or_ananta_metadata",
+        "create_and_refresh_connection",
+        "scan_and_admit_revision",
+        "prepare_local_container_redacted_one_time_access",
+        "confirm_occ_and_idempotent_aggregate_command",
         "start_index_run",
         "claim_with_900_second_lease",
-        "propose_and_execute_worker_job",
-        "materialize_capability_bound_outputs",
-        "project_completed_index",
-        "activate_with_active_pointer_compare_and_swap",
-        "read_back_source_state_in_ui"
+        "hub_propose_and_execute_worker_job",
+        "materialize_and_project_completed_index",
+        "activate_and_read_back_source_state_in_ui"
       ]
     },
     "worker_output_capability_tests": {
@@ -73,8 +108,42 @@
       "query_status": 200
     }
   },
+  "visible_ui_contract": {
+    "main_menu": "Quellen & Indexierung",
+    "project_cta": "Git oder Ordner hinzufügen",
+    "project_binding_notice": "Wird Projekt <Projektname> zugeordnet",
+    "source_cards": [
+      "Öffentliches Git/GitHub-Repository",
+      "Lokaler Ordner / lokale Git-Arbeitskopie",
+      "Server-Workspace",
+      "Privates GitHub"
+    ]
+  },
+  "prepare_index_access_contract": {
+    "owner": "hub",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "path": "/api/source-control/v1/connections/<connection_id>/actions/prepare-index-access",
+    "project_scope_required": true,
+    "destination": {
+      "provider_location": "local_container",
+      "data_residency": "local"
+    },
+    "effect": {
+      "provider_location": "local",
+      "transformation": "redacted",
+      "one_time": true
+    },
+    "explicit_confirmation_required": true,
+    "occ_if_match_required": true,
+    "idempotency_key_required": true
+  },
   "architecture_assertions": {
     "hub_is_control_plane": true,
+    "browser_orchestrates_policy_lifecycle": false,
+    "browser_orchestrates_grant_admin": false,
     "workers_orchestrate_other_workers": false,
     "user_or_hub_bearer_forwarded_for_worker_output_reads": false,
     "worker_output_capability_bound_to_job_assignment_lease_and_artifact": true,

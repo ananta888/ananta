@@ -12,6 +12,7 @@ from agent.services.git_remote_policy_service import (
 from agent.sources.generic_git_connector import GenericGitConnector
 from agent.sources.git_source_connector_common import (
     GitCommitResolution,
+    GitConnectorProviderError,
     GitRemoteEndpoint,
     GitRepositoryBudgets,
     GitRepositoryMetrics,
@@ -108,6 +109,16 @@ class FakeContentProvider:
         authorization: GitTransportAuthorization,
     ) -> bool:
         return self.transport_supported
+
+
+class StoredPayloadProvider(FakeContentProvider):
+    def __init__(self, reason_code: str) -> None:
+        super().__init__()
+        self.reason_code = reason_code
+
+    def resolve_stored_commit(self, query):
+        del query
+        raise GitConnectorProviderError(self.reason_code)
 
 
 class FakeGitHubEndpointProvider:
@@ -256,6 +267,51 @@ def test_github_resolves_ref_server_side_to_immutable_commit() -> None:
         {"token", "credential_ref", "remote_url"}
     )
     assert policy.requests[0].remote_url.startswith("https://github.com/")
+
+
+def test_github_cache_miss_falls_back_to_authorized_commit_resolution() -> None:
+    connector, _, commit, _, _ = github_connector(
+        content_provider=StoredPayloadProvider(
+            "remote_source_payload_required"
+        )
+    )
+
+    revision = connector.resolve_revision(GITHUB_DESCRIPTOR)
+
+    assert revision.metadata["commit_sha"] == COMMIT
+    assert len(commit.requests) == 1
+
+
+def test_github_non_cache_payload_error_remains_fail_closed() -> None:
+    connector, _, commit, _, _ = github_connector(
+        content_provider=StoredPayloadProvider(
+            "remote_source_payload_binding_invalid"
+        )
+    )
+
+    with pytest.raises(
+        SourceConnectorError,
+        match="remote_source_payload_binding_invalid",
+    ):
+        connector.resolve_revision(GITHUB_DESCRIPTOR)
+
+    assert commit.requests == []
+
+
+def test_github_accepts_only_canonical_public_remote_references() -> None:
+    connector, *_ = github_connector()
+    public_descriptor = {
+        **GITHUB_DESCRIPTOR,
+        "github_authorization_ref": f"pub_{'x' * 43}",
+    }
+
+    assert connector.validate(public_descriptor) == ()
+    assert "github_authorization_ref_invalid" in connector.validate(
+        {
+            **public_descriptor,
+            "github_authorization_ref": "pub_too-short",
+        }
+    )
 
 
 def test_github_rejects_raw_token_and_clone_url_before_provider_access() -> None:

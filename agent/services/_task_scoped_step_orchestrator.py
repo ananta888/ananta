@@ -51,6 +51,29 @@ _vector_index_handler_unavailable = _task_scoped_vector_step_policy.vector_index
 _INTERACTIVE_TERMINAL_FINALIZE_COMMAND = "__ANANTA_FINALIZE_INTERACTIVE_OPENCODE__"
 
 
+def _knowledge_index_handler_unavailable(
+    *,
+    task: dict[str, Any],
+    phase: str,
+):
+    from agent.services.task_scoped_execution_service import (
+        TaskScopedRouteResponse,
+    )
+
+    return TaskScopedRouteResponse(
+        data={
+            "status": "unavailable",
+            "reason_code": "knowledge_index_worker_handler_unavailable",
+            "task_id": str(task.get("id") or ""),
+            "task_kind": "codecompass_index_build",
+            "phase": str(phase),
+        },
+        status="error",
+        message="Knowledge index worker handler unavailable",
+        code=503,
+    )
+
+
 def _publish_recovery_artifact_receipts(
     *,
     task: dict[str, Any],
@@ -668,6 +691,25 @@ def _run_propose_step_admitted(
         if handler_response is not None:
             return handler_response
         return _vector_index_handler_unavailable(
+            task=task,
+            phase="propose",
+        )
+    if task_kind == "codecompass_index_build":
+        handler_response = try_handler_propose(
+            tid=tid,
+            task=task,
+            task_kind=task_kind,
+            request_data=request_data,
+            base_prompt=base_prompt,
+            cli_runner=cli_runner,
+            forwarder=forwarder,
+            tool_definitions_resolver=tool_definitions_resolver,
+            service=service,
+            build_review_state=service._build_review_state,
+        )
+        if handler_response is not None:
+            return handler_response
+        return _knowledge_index_handler_unavailable(
             task=task,
             phase="propose",
         )

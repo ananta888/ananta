@@ -464,26 +464,31 @@ class GitSourceConnectorBase(ABC):
         stored_resolver = getattr(
             self._inventory_provider, "resolve_stored_commit", None
         )
+        commit: GitCommitResolution | None = None
         if prefer_stored and callable(stored_resolver):
-            stored_commit = self._invoke_provider(
-                lambda: stored_resolver(
-                    GitStoredPayloadQuery(
-                        scope=scope,
-                        connector_type=self.connector_type,
-                        source_id=source_id,
-                        connection_ref=connection_ref,
-                        repository_identifier=self._repository_identifier(
-                            descriptor
-                        ),
-                        requested_ref=requested_ref,
+            try:
+                stored_commit = self._invoke_provider(
+                    lambda: stored_resolver(
+                        GitStoredPayloadQuery(
+                            scope=scope,
+                            connector_type=self.connector_type,
+                            source_id=source_id,
+                            connection_ref=connection_ref,
+                            repository_identifier=self._repository_identifier(
+                                descriptor
+                            ),
+                            requested_ref=requested_ref,
+                        )
                     )
                 )
-            )
-            commit = GitCommitResolution(
-                requested_ref=requested_ref,
-                commit_sha=str(stored_commit),
-            )
-        else:
+                commit = GitCommitResolution(
+                    requested_ref=requested_ref,
+                    commit_sha=str(stored_commit),
+                )
+            except SourceConnectorError as exc:
+                if exc.reason_code != "remote_source_payload_required":
+                    raise
+        if commit is None:
             commit = self._invoke_provider(
                 lambda: self._resolve_commit(
                     scope,

@@ -12,6 +12,32 @@ Projekt, Operation, Entscheidung, Reason Code und Trace-ID. Quellinhalt,
 Dateipfade, URLs, Querytext und Credentials duerfen weder Audit noch
 Metriklabels erreichen.
 
+## Hub-owned Prepare-Index-Access
+
+Die sichtbare Angular-Journey darf Policy-Preview, Policy-Aktivierung und
+Grant-Erzeugung nicht als mehrere Browserkommandos orchestrieren. Nach
+projektgebundenem Refresh und Scan verwendet sie genau den Hub-Aggregatpfad:
+
+```text
+GET  /api/source-control/v1/connections/<connection_id>/actions/prepare-index-access?project_id=<project_id>
+POST /api/source-control/v1/connections/<connection_id>/actions/prepare-index-access?project_id=<project_id>
+```
+
+GET muss eine starke, mit dem Body uebereinstimmende ETag, die aktuelle
+zugelassene Revision, `local_container`-Destinationen mit lokaler
+Datenresidenz und ausschliesslich die Wirkung `local/redacted/one_time`
+liefern. POST verlangt `If-Match`, `Idempotency-Key`, eine servergelieferte
+Destination und Option, eine begrenzte Dauer und `confirmed=true`. Der Hub
+komponiert Preview, Aktivierung und Einmalgrant atomar und gibt erst danach
+`start_index_run` frei.
+
+Die Betriebsgegenproben muessen stale OCC mit HTTP `412` sowie fehlende
+Bestaetigung, erfundene Auswahl, ungueltige Dauer und unsichere Wirkung mit
+HTTP `400` beziehungsweise fail-closed Clientablehnung belegen. Eine
+idempotente Wiederholung muss denselben erfolgreichen Body liefern. Cloud-,
+Private-Network- und externe Ziele werden in diesem lokalen Preset nicht
+angeboten.
+
 ## Metriken und Alarme
 
 Zulaessige Metriklabels sind `connector_type`, `decision`, `operation`,
@@ -118,21 +144,28 @@ werden.
   PostgreSQL-Identifierfix mit `14/14` und der Auth-Produktionsfix mit
   `147/147`. Angular lief mit `68/68`, erfolgreichem Build und `42/42`
   Project-Selector-Tests; die Planning-Gates waren gruen.
+- Der Hub-owned Prepare-Index-Access-Vertrag bestand `136/136`; die
+  aufeinander aufbauenden Public-Remote-, Cache-Miss-, Admission-Binding- und
+  Provenance-Adapter-Regressionsgates bestanden `37/37`, `39/39`, `43/43` und
+  `14/14`. Frontendseitig bestanden initial `32/32`, nach dem finalen
+  DTO-Abgleich `6/6` sowie App- und Spec-Typecheck.
 - Ein Live-PostgreSQL-Upgrade erreichte den Head-Praefix `5c0f...`; Hub und
   Angular waren healthy. Workspace List `200`, Validate `200`, Create `201`,
   Catalog-Match und Disable `200` verifizieren die lokale
   Workspace-Registration auf Backend-/Integrationsniveau.
-- Public Git/GitHub ist lokal durch Chromium `1/1` ohne Retry verifiziert:
-  Validate und Create fuer `octocat/Hello-World@master`, immutable
-  Commit-Pinning, Connection, Refresh und Scan-ready bestanden. Der erwartete
-  Health-Fehler des nicht konfigurierten privaten Providers erzeugte keine
-  irrefuehrende globale Fehlermeldung.
-- Die Workspace-Snapshot-Chromium-Journey bestand `1/1` ohne Retry in `7,3`
-  Minuten. Sie umfasste Upload, Connection, Refresh, Scan, dynamische Policy
-  und Grant, Index-Run, realen Claim mit `900` Sekunden Lease,
-  Propose/Execute, capability-gebundene Ausgabematerialisierung, atomare
-  idempotente Hub-Projektion, explizite Aktivierung mit Active-Pointer-CAS
-  `active:0` sowie UI-Readback.
+- Public Git/GitHub ist lokal durch Chromium `1/1` ohne Retry bis zur
+  Aktivierung verifiziert: sichtbares Hauptmenue `Quellen & Indexierung`,
+  Projekt-CTA `Git oder Ordner hinzufügen`, Public-Git-Karte, Validate,
+  Create, immutable Commit-Pinning, Connection, Refresh, Scan, Hub-owned
+  Einmalfreigabe, Index-Run, Claim/Propose/Execute und Aktivierung bestanden.
+- Die Workspace-Snapshot-Chromium-Journey bestand ebenfalls `1/1` ohne Retry
+  bis zur Aktivierung. Sie umfasste denselben sichtbaren Projektpfad, die
+  lokale Ordnerkarte, Snapshot-Ausschluesse, Connection, Refresh, Scan,
+  Hub-owned Einmalfreigabe, Index-Run, realen Claim mit `900` Sekunden Lease,
+  Propose/Execute, Hub-Projektion, explizite Aktivierung und UI-Readback.
+- Beide Journeys verwendeten keine direkte Browsersequenz gegen Policy- oder
+  Grant-Admin-Endpunkte. Die vier Karten und der dauerhafte Project-Binding-
+  Hinweis wurden als sichtbare UI-Bestandteile verifiziert.
 - Worker-Ausgaben verwenden eine signierte, kurzlebige und an Job, Assignment,
   Lease sowie Artefakt gebundene Capability. Nutzer- oder Hub-Bearer werden
   nicht an Worker weitergegeben. Die fokussierten Output-Tests bestanden

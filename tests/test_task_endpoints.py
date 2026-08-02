@@ -1071,6 +1071,55 @@ def test_authoritative_vector_task_without_handler_fails_closed(
     assert shell_calls == []
 
 
+def test_authoritative_knowledge_index_without_handler_never_falls_back_to_llm(
+    client,
+    app,
+    admin_auth_header,
+    monkeypatch,
+):
+    from agent.config import settings
+
+    task_id = "knowledge-index-handler-missing"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status(
+            task_id,
+            "proposing",
+            task_kind="codecompass_index_build",
+            description="Hub-authorized immutable source-revision index job.",
+            worker_execution_context={
+                "knowledge_index_job": {
+                    "schema": "ananta.knowledge_index_execution_job.v2",
+                },
+                "destination_selection": {
+                    "worker_id": "ananta-worker-2",
+                },
+            },
+        )
+    monkeypatch.setattr(settings, "role", "worker")
+    monkeypatch.setattr(
+        "agent.services._task_scoped_adapters.get_task_handler_registry",
+        lambda: types.SimpleNamespace(resolve=lambda _kind: None),
+    )
+
+    response = client.post(
+        f"/tasks/{task_id}/step/propose",
+        json={
+            "prompt": "attempt generic proposal",
+            "strategy_mode": "autopilot_no_human_review",
+        },
+        headers=admin_auth_header,
+    )
+
+    assert response.status_code == 503
+    assert (
+        response.get_json()["data"]["reason_code"]
+        == "knowledge_index_worker_handler_unavailable"
+    )
+    assert response.get_json()["data"]["phase"] == "propose"
+
+
 def test_task_execute_retries_retryable_exit_codes_and_reports_failure_type(client, app, admin_auth_header):
     tid = "T-EXEC-RETRY"
     with app.app_context():

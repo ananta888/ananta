@@ -325,15 +325,19 @@ class HubGitTransport(HubGitTransportPort):
                         elapsed_seconds=self._monotonic() - start,
                     )
                     self._enforce_budgets(metrics, request.budgets)
-                    files = (
-                        self._materialized_files(
+                    if include_files:
+                        files, binary_exclusion_count = self._materialized_files(
                             workspace,
                             entries,
                             request.budgets,
                         )
-                        if include_files
-                        else ()
-                    )
+                        metrics = self._materialization_metrics(
+                            metrics,
+                            files,
+                            binary_exclusion_count=binary_exclusion_count,
+                        )
+                    else:
+                        files = ()
                     metrics = replace(
                         metrics,
                         elapsed_seconds=self._monotonic() - start,
@@ -579,17 +583,16 @@ class HubGitTransport(HubGitTransportPort):
         workspace: Path,
         entries: tuple[tuple[str, str, int, bytes], ...],
         budgets: GitRepositoryBudgets,
-    ) -> tuple[GitMaterializedFile, ...]:
+    ) -> tuple[tuple[GitMaterializedFile, ...], int]:
         root = workspace.resolve(strict=True)
         files: list[GitMaterializedFile] = []
+        binary_exclusion_count = 0
         seen: set[str] = set()
-        for mode, object_id, size, raw_path in sorted(
+        for mode, _object_id, _size, raw_path in sorted(
             entries, key=lambda item: item[3]
         ):
             if mode not in {"100644", "100755"}:
-                raise GitConnectorProviderError(
-                    "git_special_entry_forbidden"
-                )
+                continue
             try:
                 relative_path = raw_path.decode("utf-8")
             except UnicodeDecodeError:
@@ -618,16 +621,13 @@ class HubGitTransport(HubGitTransportPort):
             content = cls._read_materialized_file(
                 root=root,
                 relative_path=canonical,
-                expected_size=size,
-                expected_object_id=object_id,
                 maximum_size=budgets.max_file_bytes,
             )
             try:
                 content.decode("utf-8")
             except UnicodeDecodeError:
-                raise GitConnectorProviderError(
-                    "git_binary_file_forbidden"
-                ) from None
+                binary_exclusion_count += 1
+                continue
             files.append(
                 GitMaterializedFile(
                     relative_path=relative_path,
@@ -641,19 +641,40 @@ class HubGitTransport(HubGitTransportPort):
             raise GitConnectorProviderError(
                 "git_total_file_budget_exceeded"
             )
-        return tuple(files)
+        return tuple(files), binary_exclusion_count
+
+    @staticmethod
+    def _materialization_metrics(
+        metrics: GitRepositoryMetrics,
+        files: tuple[GitMaterializedFile, ...],
+        *,
+        binary_exclusion_count: int,
+    ) -> GitRepositoryMetrics:
+        exclusions = list(metrics.exclusions)
+        if binary_exclusion_count:
+            exclusions.append(
+                {
+                    "reason_code": "git_binary_file_excluded",
+                    "count": binary_exclusion_count,
+                }
+            )
+        exclusions.sort(key=lambda item: str(item.get("reason_code", "")))
+        sizes = [item.byte_size for item in files]
+        return replace(
+            metrics,
+            file_count=len(files),
+            largest_file_bytes=max(sizes, default=0),
+            total_file_bytes=sum(sizes),
+            exclusions=tuple(exclusions),
+        )
 
     @staticmethod
     def _read_materialized_file(
         *,
         root: Path,
         relative_path: PurePosixPath,
-        expected_size: int,
-        expected_object_id: str,
         maximum_size: int,
     ) -> bytes:
-        if expected_size > maximum_size:
-            raise GitConnectorProviderError("git_file_budget_exceeded")
         directory_flags = (
             os.O_RDONLY
             | getattr(os, "O_CLOEXEC", 0)
@@ -688,13 +709,14 @@ class HubGitTransport(HubGitTransportPort):
                 not stat.S_ISREG(before.st_mode)
                 or before.st_dev != root_stat.st_dev
                 or before.st_nlink != 1
-                or before.st_size != expected_size
             ):
                 raise GitConnectorProviderError(
                     "git_checkout_file_invalid"
                 )
+            if before.st_size > maximum_size:
+                raise GitConnectorProviderError("git_file_budget_exceeded")
             chunks: list[bytes] = []
-            remaining = expected_size + 1
+            remaining = before.st_size + 1
             while remaining > 0:
                 chunk = os.read(file_fd, min(1024 * 1024, remaining))
                 if not chunk:
@@ -703,19 +725,11 @@ class HubGitTransport(HubGitTransportPort):
                 remaining -= len(chunk)
             content = b"".join(chunks)
             after = os.fstat(file_fd)
-            object_hash = (
-                hashlib.sha1()
-                if len(expected_object_id) == 40
-                else hashlib.sha256()
-            )
-            object_hash.update(f"blob {len(content)}\0".encode("ascii"))
-            object_hash.update(content)
             if (
-                len(content) != expected_size
+                len(content) != before.st_size
                 or before.st_ino != after.st_ino
                 or before.st_size != after.st_size
                 or before.st_mtime_ns != after.st_mtime_ns
-                or object_hash.hexdigest() != expected_object_id
             ):
                 raise GitConnectorProviderError(
                     "git_checkout_file_changed"

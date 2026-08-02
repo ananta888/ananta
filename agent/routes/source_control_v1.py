@@ -94,6 +94,8 @@ _AUTHORITATIVE_PROJECT_ENDPOINTS = frozenset(
         "list_grants",
         "create_grant",
         "revoke_grant",
+        "prepare_index_access_options",
+        "prepare_index_access",
         "refresh_connection",
         "scan_connection",
         "start_index_run",
@@ -212,6 +214,25 @@ class SourceControlV1Port(Protocol):
         principal: object,
         project_id: str,
         grant_id: str,
+        payload: Mapping[str, object],
+        if_match: str,
+        idempotency_key: str,
+    ) -> Mapping[str, object]: ...
+
+    def prepare_index_access_options(
+        self,
+        *,
+        principal: object,
+        project_id: str,
+        connection_id: str,
+    ) -> Mapping[str, object]: ...
+
+    def prepare_index_access(
+        self,
+        *,
+        principal: object,
+        project_id: str,
+        connection_id: str,
         payload: Mapping[str, object],
         if_match: str,
         idempotency_key: str,
@@ -660,6 +681,8 @@ SOURCE_CONTROL_V1_AUTHORIZATION_MATRIX = (
     SourceControlV1AuthorizationRule("list_grants", "/grants", ("GET",), SourceControlAction.list, "source_access_grant", True),
     SourceControlV1AuthorizationRule("create_grant", "/grants", ("POST",), SourceControlAction.index, "source_access_grant", True),
     SourceControlV1AuthorizationRule("revoke_grant", "/grants/<grant_id>/actions/revoke", ("POST",), SourceControlAction.delete, "source_access_grant", False),
+    SourceControlV1AuthorizationRule("prepare_index_access_options", "/connections/<connection_id>/actions/prepare-index-access", ("GET",), SourceControlAction.index, "source_connection", False),
+    SourceControlV1AuthorizationRule("prepare_index_access", "/connections/<connection_id>/actions/prepare-index-access", ("POST",), SourceControlAction.index, "source_connection", False),
     SourceControlV1AuthorizationRule("list_connections", "/connections", ("GET",), SourceControlAction.list, "source_connection", True),
     SourceControlV1AuthorizationRule("get_connection", "/connections/<connection_id>", ("GET",), SourceControlAction.detail, "source_connection", False),
     SourceControlV1AuthorizationRule("run_history", "/connections/<connection_id>/runs", ("GET",), SourceControlAction.detail, "source_connection", False),
@@ -1090,6 +1113,85 @@ def create_source_control_v1_blueprint(
         grant = data.get("grant")
         if isinstance(grant, Mapping) and grant.get("etag"):
             response.headers["ETag"] = f'"{grant["etag"]}"'
+        return response
+
+    @blueprint.get(
+        "/connections/<connection_id>/actions/prepare-index-access"
+    )
+    @check_auth
+    @_boundary
+    def prepare_index_access_options(connection_id: str):
+        principal, project_id, _, _, _ = _catalog_request(
+            allowed=frozenset({"project_id"})
+        )
+        denied = _authorize(
+            api,
+            action=SourceControlAction.INDEX,
+            resource_kind="source_connection",
+            resource_id=connection_id,
+            principal_override=principal,
+        )
+        if denied is not None:
+            return denied
+        data = api.prepare_index_access_options(
+            principal=principal,
+            project_id=project_id,
+            connection_id=connection_id,
+        )
+        response = _success(data)
+        etag = str(data.get("etag") or "").strip().strip('"')
+        if etag:
+            response.headers["ETag"] = f'"{etag}"'
+        return response
+
+    @blueprint.post(
+        "/connections/<connection_id>/actions/prepare-index-access"
+    )
+    @check_auth
+    @_boundary
+    def prepare_index_access(connection_id: str):
+        principal, project_id, _, _, _ = _catalog_request(
+            allowed=frozenset({"project_id"})
+        )
+        denied = _authorize(
+            api,
+            action=SourceControlAction.INDEX,
+            resource_kind="source_connection",
+            resource_id=connection_id,
+            principal_override=principal,
+        )
+        if denied is not None:
+            return denied
+        payload = _json_object()
+        fields = frozenset(
+            {
+                "source_revision_id",
+                "destination_id",
+                "option_id",
+                "duration_seconds",
+                "confirmed",
+            }
+        )
+        _require_exact_fields(payload, fields, required=fields)
+        if payload.get("confirmed") is not True:
+            raise SourceControlApiError(
+                "index_access_confirmation_required"
+            )
+        if_match, idempotency_key = _require_grant_mutation_headers()
+        data = api.prepare_index_access(
+            principal=principal,
+            project_id=project_id,
+            connection_id=connection_id,
+            payload=payload,
+            if_match=if_match,
+            idempotency_key=idempotency_key,
+        )
+        response = _success(data, status=201)
+        grant = data.get("grant")
+        if isinstance(grant, Mapping) and grant.get("etag"):
+            etag = str(grant["etag"]).strip().removeprefix("W/")
+            etag = etag.strip().strip('"')
+            response.headers["ETag"] = f'"{etag}"'
         return response
 
     @blueprint.get("/connections")

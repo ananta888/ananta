@@ -867,6 +867,7 @@ class KnowledgeIndexJobService:
                 priority="medium",
                 created_by=created_by,
                 source="knowledge_index",
+                team_id=project_id,
                 tags=[
                     "knowledge_index",
                     "hub_delegated",

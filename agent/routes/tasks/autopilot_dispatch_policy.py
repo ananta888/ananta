@@ -64,6 +64,49 @@ def resolve_target_worker_for_task(
         eligible_workers = filtered
     if not eligible_workers:
         return None, worker_cursor, False, "no_workers_available"
+
+    task_kind = str(getattr(task, "task_kind", None) or "").strip().lower()
+    execution_context = getattr(task, "worker_execution_context", None)
+    if task_kind == "codecompass_index_build" and isinstance(execution_context, dict):
+        knowledge_index_job = execution_context.get("knowledge_index_job")
+        if (
+            isinstance(knowledge_index_job, dict)
+            and knowledge_index_job.get("schema")
+            == "ananta.knowledge_index_execution_job.v2"
+        ):
+            destination_selection = execution_context.get(
+                "destination_selection"
+            )
+            if not isinstance(destination_selection, dict):
+                return (
+                    None,
+                    worker_cursor,
+                    False,
+                    "destination_worker_selection_missing",
+                )
+            destination_worker_id = str(
+                destination_selection.get("worker_id") or ""
+            ).strip()
+            matching_workers = [
+                worker
+                for worker in eligible_workers
+                if str(getattr(worker, "name", None) or "").strip()
+                == destination_worker_id
+            ]
+            if len(matching_workers) != 1:
+                return (
+                    None,
+                    worker_cursor,
+                    False,
+                    "destination_worker_unavailable",
+                )
+            return (
+                matching_workers[0],
+                worker_cursor,
+                True,
+                "destination_worker_binding",
+            )
+
     target_worker = eligible_workers[worker_cursor % len(eligible_workers)]
     return target_worker, worker_cursor + 1, True, None
 

@@ -7,7 +7,6 @@ import json
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
-import re
 import time
 from typing import Any, Mapping
 
@@ -28,6 +27,7 @@ from agent.services.hub_git_authorization_registry import (
 )
 from agent.services.remote_source_payload_store import (
     SQLRemoteSourcePayloadStore,
+    remote_source_prompt_injection_count,
     require_active_authorization,
 )
 from agent.services.source_admission_revision_coordinator import (
@@ -49,13 +49,6 @@ _CONTRACT_CONNECTOR_TYPES = {
     "generic_git": "git",
     "github_repository": "github",
 }
-_INJECTION = re.compile(
-    r"(?i)(ignore\s+(all\s+)?previous\s+instructions|"
-    r"system\s+prompt|developer\s+message|jailbreak|"
-    r"do\s+not\s+follow\s+the\s+user)"
-)
-
-
 class RemoteGitSourceAdmissionService:
     def __init__(
         self,
@@ -151,7 +144,9 @@ class RemoteGitSourceAdmissionService:
         for item in payload.files:
             if not self._secrets.scan_and_redact_text(item.content).clean:
                 secret_findings += 1
-            injection_findings += len(_INJECTION.findall(item.content))
+            injection_findings += remote_source_prompt_injection_count(
+                item.content
+            )
         evidence = SourceInventoryEvidence(
             revision_digest=payload.source_revision_digest,
             manifest_digest=payload.manifest_digest,
@@ -247,7 +242,9 @@ class RemoteGitSourceAdmissionService:
         }
 
     def _connection(self, descriptor: Mapping[str, Any], payload: Any):
-        supplied_id = str(descriptor.get("connection_id") or "").strip()
+        supplied_id, supplied_binding_digest = (
+            self._bound_connection_coordinates(descriptor)
+        )
         with Session(self._engine) as db:
             selector = (
                 db.get(SourceConnectionSelectorDB, supplied_id)
@@ -283,6 +280,18 @@ class RemoteGitSourceAdmissionService:
         if (
             selector is None
             or connection is None
+            or (
+                supplied_binding_digest is not None
+                and selector.binding_digest != supplied_binding_digest
+            )
+            or selector.tenant_id != payload.tenant_id
+            or selector.project_id != payload.project_id
+            or selector.owner_id != payload.owner_id
+            or selector.implementation_connector_type
+            != payload.connector_type
+            or selector.selector_id != payload.connection_ref
+            or (selector.repository_identifier or None)
+            != payload.repository_identifier
             or connection.state != "active"
             or connection.disabled_at_epoch is not None
             or connection.tombstoned_at_epoch is not None
@@ -292,6 +301,33 @@ class RemoteGitSourceAdmissionService:
         ):
             raise SourceConnectorError("source_connection_inactive")
         return selector, connection
+
+    @staticmethod
+    def _bound_connection_coordinates(
+        descriptor: Mapping[str, Any],
+    ) -> tuple[str, str | None]:
+        direct_id = str(descriptor.get("connection_id") or "").strip()
+        extensions = descriptor.get("extensions")
+        source_control = (
+            extensions.get("source_control")
+            if isinstance(extensions, Mapping)
+            else None
+        )
+        if source_control is None:
+            return direct_id, None
+        if not isinstance(source_control, Mapping):
+            raise SourceConnectorError("source_connection_binding_invalid")
+        bound_id = str(source_control.get("connection_id") or "").strip()
+        binding_digest = str(
+            source_control.get("binding_digest") or ""
+        ).strip()
+        if (
+            not bound_id
+            or len(binding_digest) != 64
+            or (direct_id and direct_id != bound_id)
+        ):
+            raise SourceConnectorError("source_connection_binding_invalid")
+        return bound_id, binding_digest
 
 
 class SourceScanServiceRouter:

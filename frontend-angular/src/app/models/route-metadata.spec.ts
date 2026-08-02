@@ -20,9 +20,11 @@ describe('route metadata', () => {
 
     expect(simplePaths).toEqual([
       '/codehug',
+      '/projects',
       '/workspace',
       '/chats',
       '/board',
+      '/sources',
       '/artifacts',
       '/markdown-slides',
       '/templates',
@@ -34,6 +36,16 @@ describe('route metadata', () => {
     ]);
     expect(simplePaths).not.toContain('/agents');
     expect(simplePaths).not.toContain('/audit-log');
+  });
+
+  it('exposes projects and source indexing as unambiguous everyday navigation', () => {
+    const workItems = buildNavGroups('user', 'simple')
+      .find(group => group.label === 'Arbeiten')?.items || [];
+
+    expect(workItems).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: '/projects', label: 'Projekte' }),
+      expect.objectContaining({ path: '/sources', label: 'Quellen & Indexierung' }),
+    ]));
   });
 
   it('places CaseFlow Studio first in its own main group with a separator', () => {

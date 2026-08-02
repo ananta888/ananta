@@ -136,6 +136,22 @@ export function toSourceDetailError(error: unknown): SourceDetailError {
   return { state: 'error', message: message || 'Die Hub-Anfrage ist fehlgeschlagen.' };
 }
 
+function operationReceiptError(
+  operation: 'refresh' | 'scan' | 'disable',
+  value: unknown,
+): SourceDetailError | null {
+  if (operation === 'disable') return null;
+  const receipt = recordOf(recordOf(value)['receipt']);
+  const status = stringField(receipt, 'status').toLowerCase();
+  if (!['failed', 'rejected', 'error', 'cancelled'].includes(status)) return null;
+  const reasonCode = stringField(receipt, 'reason_code', 'code') || 'operation_failed';
+  const label = operation === 'refresh' ? 'Die Quellenaktualisierung' : 'Der sichere Scan';
+  return {
+    state: 'unprocessable',
+    message: `${label} ist fehlgeschlagen (${reasonCode}).`,
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class SourceDetailFacade {
   private readonly sourceControlApi = inject(SourceControlV1ApiClient);
@@ -729,7 +745,12 @@ export class SourceDetailFacade {
       takeUntilDestroyed(this.destroyRef),
       finalize(() => this.mutationLoading.set(false)),
     ).subscribe({
-      next: () => {
+      next: (result) => {
+        const receiptError = operationReceiptError(operation, result);
+        if (receiptError) {
+          this.mutationError.set(receiptError);
+          return;
+        }
         if (this.hasActiveProjectScope()) this.load(connectionId);
       },
       error: (error) => this.mutationError.set(toSourceDetailError(error)),

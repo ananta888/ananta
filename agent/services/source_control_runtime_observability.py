@@ -38,6 +38,7 @@ _AUDITED_METHODS = frozenset(
         "create_content_admission",
         "create_grant",
         "revoke_grant",
+        "prepare_index_access",
         "mutate",
         "dispatch_operation",
         "bulk_execute",
@@ -173,7 +174,11 @@ class SourceControlRuntimeObservability:
             "mutate",
         }:
             capability = "persistent_sources"
-        elif name in {"create_grant", "revoke_grant"}:
+        elif name in {
+            "create_grant",
+            "revoke_grant",
+            "prepare_index_access",
+        }:
             capability = "local_grants"
         elif name == "dispatch_operation":
             capability = (

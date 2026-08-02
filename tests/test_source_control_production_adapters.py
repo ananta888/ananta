@@ -290,6 +290,8 @@ def test_bound_index_submission_keeps_scope_and_access_intent_hub_owned() -> Non
                 "destination_selection": {},
                 "source_scope": "github",
                 "source_id": "source-example",
+                "source_payload_digest": "7" * 64,
+                "source_payload_connection_id": kwargs["connection_id"],
                 "records": [],
             }
 
@@ -348,6 +350,8 @@ def test_bound_index_submission_keeps_scope_and_access_intent_hub_owned() -> Non
     assert result == {"job_id": "job-example", "status": "todo"}
     assert jobs.arguments["tenant_id"] == "tenant-example"
     assert jobs.arguments["project_id"] == "project-example"
+    assert "source_payload_digest" not in jobs.arguments
+    assert "source_payload_connection_id" not in jobs.arguments
     assert jobs.arguments["owner_id"] == "owner-example"
     assert jobs.arguments["created_by"] == "admin-example"
     assert jobs.arguments["source_operation"] == "index"

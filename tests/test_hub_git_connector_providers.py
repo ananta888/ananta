@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -123,8 +124,13 @@ def _generic_authorization() -> GitTransportAuthorization:
 
 
 class FakeCommandSession:
-    def __init__(self, *, tree_size: int = 5) -> None:
+    def __init__(self, *, tree_size: int = 5, content: bytes = b"hello") -> None:
         self.tree_size = tree_size
+        self.content = content
+        self.object_id = hashlib.sha1(
+            f"blob {len(content)}\0".encode("ascii") + content,
+            usedforsecurity=False,
+        ).hexdigest()
         self.calls: list[tuple[str, ...]] = []
 
     def run(
@@ -148,7 +154,7 @@ class FakeCommandSession:
             return GitCommandResult(
                 0,
                 (
-                    f"100644 blob {COMMIT} {self.tree_size}\tREADME.md\0"
+                    f"100644 blob {self.object_id} {self.tree_size}\tREADME.md\0"
                 ).encode("ascii"),
             )
         if "count-objects" in command:
@@ -157,7 +163,7 @@ class FakeCommandSession:
                 b"count: 1\nsize: 0\nin-pack: 0\nsize-pack: 0\n",
             )
         if "checkout" in command:
-            (cwd / "README.md").write_bytes(b"hello")
+            (cwd / "README.md").write_bytes(self.content)
         return GitCommandResult(0, b"")
 
 
@@ -324,6 +330,65 @@ def test_budget_failure_still_cleans_temporary_workspace(
     ):
         transport.inspect_content(request, credential_username=None)
 
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_materialization_excludes_binary_files_and_reports_them(
+    tmp_path: Path,
+) -> None:
+    session = FakeCommandSession(content=b"\x89PNG\n")
+    transport = HubGitTransport(
+        credential_resolver=FakeCredentialResolver(session),
+        workspace_root=tmp_path,
+    )
+    request = SimpleNamespace(
+        transport_authorization=_authorization(),
+        commit_sha=COMMIT,
+        budgets=GitRepositoryBudgets(),
+        scope=SCOPE,
+        connection_ref="github-installation:installation-1",
+    )
+
+    materialization = transport.materialize_content(
+        request,
+        credential_username=None,
+    )
+
+    assert materialization.files == ()
+    assert materialization.metrics.file_count == 0
+    assert materialization.metrics.total_file_bytes == 0
+    assert materialization.metrics.largest_file_bytes == 0
+    assert materialization.metrics.exclusions == (
+        {"reason_code": "git_binary_file_excluded", "count": 1},
+    )
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_materialization_accepts_deterministic_checkout_eol_conversion(
+    tmp_path: Path,
+) -> None:
+    session = FakeCommandSession(tree_size=4, content=b"a\r\nb\r\n")
+    transport = HubGitTransport(
+        credential_resolver=FakeCredentialResolver(session),
+        workspace_root=tmp_path,
+    )
+    request = SimpleNamespace(
+        transport_authorization=_authorization(),
+        commit_sha=COMMIT,
+        budgets=GitRepositoryBudgets(),
+        scope=SCOPE,
+        connection_ref="github-installation:installation-1",
+    )
+
+    materialization = transport.materialize_content(
+        request,
+        credential_username=None,
+    )
+
+    assert materialization.files[0].content == b"a\r\nb\r\n"
+    assert materialization.metrics.file_count == 1
+    assert materialization.metrics.total_file_bytes == 6
+    assert materialization.metrics.largest_file_bytes == 6
     assert list(tmp_path.iterdir()) == []
 
 

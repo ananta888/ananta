@@ -23,7 +23,10 @@ from agent.sources.git_source_connector_common import (
 
 
 _AUTHORIZATION_REF = re.compile(
-    r"^github-(?:installation|oauth):[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"
+    r"^(?:"
+    r"github-(?:installation|oauth):[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}"
+    r"|pub_[A-Za-z0-9_-]{32,96}"
+    r")$"
 )
 _REPOSITORY = re.compile(
     r"^[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})/"

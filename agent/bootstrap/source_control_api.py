@@ -864,6 +864,7 @@ def register_source_control_api(app) -> None:
             content_admission=content_admission,
             catalogs=read_catalogs,
             grants=grant_admin,
+            destinations=destination_catalog,
             connection_intents=connection_intents,
             codehug_mutations=codehug_mutations,
             artifact_downloads=artifact_downloads,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import PurePosixPath
 import re
 import time
@@ -36,6 +36,11 @@ from agent.sources.git_source_connector_common import (
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _COMMIT = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+_PROMPT_INJECTION = re.compile(
+    r"(?i)(ignore\s+(all\s+)?previous\s+instructions|"
+    r"system\s+prompt|developer\s+message|jailbreak|"
+    r"do\s+not\s+follow\s+the\s+user)"
+)
 _SCHEMA = "ananta.remote-source-payload.v1"
 _FILENAME = "remote-source-payload.json"
 
@@ -107,6 +112,10 @@ def authorization_binding_digest(record: RegisteredGitAuthorization) -> str:
     )
 
 
+def remote_source_prompt_injection_count(text: str) -> int:
+    return len(_PROMPT_INJECTION.findall(text))
+
+
 def require_active_authorization(
     *,
     registry: HubGitAuthorizationRegistryPort,
@@ -154,7 +163,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
         authorization_binding_digest: str,
     ) -> RemoteSourcePayload:
         self._validate_request(request, authorization_binding_digest)
-        files = self._normalize_files(materialization)
+        files, metrics = self._normalize_files(materialization)
         document = {
             "authority": "hub",
             "commit_sha": request.commit_sha,
@@ -170,7 +179,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
                 }
                 for item in files
             ],
-            "git_manifest_digest": materialization.metrics.manifest_digest,
+            "git_manifest_digest": metrics.manifest_digest,
             "owner_id": request.scope.owner_id,
             "project_id": request.scope.project_id,
             "repository_identifier": request.repository_identifier,
@@ -195,7 +204,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
         except ValueError as exc:
             raise GitConnectorProviderError(str(exc)) from None
         metrics_json = _canonical_text(
-            _metrics_mapping(materialization.metrics, elapsed_seconds=0.0)
+            _metrics_mapping(metrics, elapsed_seconds=0.0)
         )
         row = RemoteSourcePayloadDB(
             payload_digest=payload_digest,
@@ -209,7 +218,7 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
             requested_ref=request.requested_ref,
             commit_sha=request.commit_sha,
             source_revision_digest=request.source_revision_digest,
-            git_manifest_digest=materialization.metrics.manifest_digest,
+            git_manifest_digest=metrics.manifest_digest,
             authorization_binding_digest=authorization_binding_digest,
             artifact_id=artifact_id,
             artifact_filename=_FILENAME,
@@ -460,7 +469,20 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
                 )
             )
         try:
-            metrics = GitRepositoryMetrics(**json.loads(row.metrics_json))
+            metrics_document = json.loads(row.metrics_json)
+            if not isinstance(metrics_document, Mapping):
+                raise TypeError("metrics_mapping_required")
+            raw_exclusions = metrics_document.get("exclusions", [])
+            if not isinstance(raw_exclusions, list) or any(
+                not isinstance(item, Mapping) for item in raw_exclusions
+            ):
+                raise TypeError("metrics_exclusions_invalid")
+            metrics = GitRepositoryMetrics(
+                **{
+                    **metrics_document,
+                    "exclusions": tuple(dict(item) for item in raw_exclusions),
+                }
+            )
         except (TypeError, ValueError, json.JSONDecodeError):
             raise GitConnectorProviderError(
                 "remote_source_payload_metrics_invalid"
@@ -489,8 +511,9 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
 
     def _normalize_files(
         self, materialization: GitRepositoryMaterialization
-    ) -> tuple[RemoteSourcePayloadFile, ...]:
+    ) -> tuple[tuple[RemoteSourcePayloadFile, ...], GitRepositoryMetrics]:
         normalized: list[RemoteSourcePayloadFile] = []
+        excluded_counts: dict[str, int] = {}
         for item in sorted(
             materialization.files, key=lambda value: value.relative_path
         ):
@@ -508,25 +531,44 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
                 raise GitConnectorProviderError(
                     "remote_source_payload_path_invalid"
                 )
-            try:
-                text = item.content.decode("utf-8")
-            except UnicodeDecodeError:
-                raise GitConnectorProviderError(
-                    "remote_source_payload_text_required"
-                ) from None
             if (
-                _CONTROL.search(text)
-                or item.byte_size != len(item.content)
+                item.byte_size != len(item.content)
                 or item.content_digest
                 != hashlib.sha256(item.content).hexdigest()
             ):
                 raise GitConnectorProviderError(
                     "remote_source_payload_file_invalid"
                 )
-            if not self._secrets.scan_and_redact_text(text).clean:
-                raise GitConnectorProviderError(
-                    "remote_source_payload_secret_forbidden"
+            if self._secrets.is_secret_file(item.relative_path):
+                self._increment_exclusion(
+                    excluded_counts,
+                    "remote_source_payload_secret_excluded",
                 )
+                continue
+            try:
+                text = item.content.decode("utf-8")
+            except UnicodeDecodeError:
+                raise GitConnectorProviderError(
+                    "remote_source_payload_text_required"
+                ) from None
+            if _CONTROL.search(text):
+                self._increment_exclusion(
+                    excluded_counts,
+                    "remote_source_payload_control_character_excluded",
+                )
+                continue
+            if not self._secrets.scan_and_redact_text(text).clean:
+                self._increment_exclusion(
+                    excluded_counts,
+                    "remote_source_payload_secret_excluded",
+                )
+                continue
+            if remote_source_prompt_injection_count(text):
+                self._increment_exclusion(
+                    excluded_counts,
+                    "remote_source_payload_prompt_injection_excluded",
+                )
+                continue
             normalized.append(
                 RemoteSourcePayloadFile(
                     relative_path=item.relative_path,
@@ -536,11 +578,51 @@ class SQLRemoteSourcePayloadStore(RemoteSourcePayloadStorePort):
                     content=text,
                 )
             )
-        if len(normalized) != materialization.metrics.file_count:
+        if (
+            len(normalized) + sum(excluded_counts.values())
+            != materialization.metrics.file_count
+        ):
             raise GitConnectorProviderError(
                 "remote_source_payload_inventory_mismatch"
             )
-        return tuple(normalized)
+        files = tuple(normalized)
+        return files, self._filtered_metrics(
+            materialization.metrics,
+            files,
+            excluded_counts,
+        )
+
+    @staticmethod
+    def _increment_exclusion(counts: dict[str, int], reason_code: str) -> None:
+        counts[reason_code] = counts.get(reason_code, 0) + 1
+
+    @staticmethod
+    def _filtered_metrics(
+        metrics: GitRepositoryMetrics,
+        files: tuple[RemoteSourcePayloadFile, ...],
+        excluded_counts: Mapping[str, int],
+    ) -> GitRepositoryMetrics:
+        exclusions = {
+            str(item.get("reason_code") or ""): int(item.get("count") or 0)
+            for item in metrics.exclusions
+            if str(item.get("reason_code") or "")
+        }
+        for reason_code, count in excluded_counts.items():
+            exclusions[reason_code] = exclusions.get(reason_code, 0) + count
+        sizes = [item.byte_size for item in files]
+        return replace(
+            metrics,
+            file_count=len(files),
+            largest_file_bytes=max(sizes, default=0),
+            total_file_bytes=sum(sizes),
+            exclusions=tuple(
+                {
+                    "reason_code": reason_code,
+                    "count": exclusions[reason_code],
+                }
+                for reason_code in sorted(exclusions)
+            ),
+        )
 
     @staticmethod
     def _validate_request(
@@ -653,5 +735,6 @@ __all__ = [
     "RemoteSourcePayloadStorePort",
     "SQLRemoteSourcePayloadStore",
     "authorization_binding_digest",
+    "remote_source_prompt_injection_count",
     "require_active_authorization",
 ]

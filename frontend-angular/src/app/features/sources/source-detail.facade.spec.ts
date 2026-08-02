@@ -76,7 +76,7 @@ describe('SourceDetailFacade', () => {
         active_index: null,
         grants: [{ grant_id: 'legacy-projection-grant-must-not-win' }],
         health: {},
-        next_actions: ['index', 'activate', 'rollback'],
+        next_actions: ['refresh', 'scan', 'index', 'activate', 'rollback'],
         stale: false,
       },
     }));
@@ -96,6 +96,17 @@ describe('SourceDetailFacade', () => {
     startIndexRun.mockReturnValue(of({ accepted: true }));
     activateIndex.mockReturnValue(of({ accepted: true }));
     rollbackIndex.mockReturnValue(of({ accepted: true }));
+    core.refreshConnection.mockReturnValue(of({
+      operation: 'refresh',
+      connection_id: connectionId,
+      receipt: { status: 'accepted' },
+    }));
+    core.scanConnection.mockReturnValue(of({
+      operation: 'scan',
+      connection_id: connectionId,
+      receipt: { status: 'accepted' },
+    }));
+    core.disableConnection.mockReturnValue(of({ accepted: true }));
 
     listIndexProfiles.mockReturnValue(of({
       items: [{
@@ -254,6 +265,24 @@ describe('SourceDetailFacade', () => {
     expect(startIndexRun).not.toHaveBeenCalled();
     expect(activateIndex).not.toHaveBeenCalled();
     expect(createGrant).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a failed refresh receipt and does not reload it as a success', () => {
+    core.refreshConnection.mockReturnValue(of({
+      operation: 'refresh',
+      connection_id: connectionId,
+      receipt: { status: 'failed', reason_code: 'git_binary_file_forbidden' },
+    }));
+    const facade = TestBed.inject(SourceDetailFacade);
+    facade.load(connectionId);
+
+    facade.refresh();
+
+    expect(facade.mutationError()).toEqual({
+      state: 'unprocessable',
+      message: 'Die Quellenaktualisierung ist fehlgeschlagen (git_binary_file_forbidden).',
+    });
+    expect(getConnection).toHaveBeenCalledTimes(1);
   });
 
   it('discards a projection outside the globally selected project scope', () => {
