@@ -143,6 +143,84 @@ terminate that old run before retrying it under the new release.
 
 Planning output is contract-first and grounded in `todos/todo.track.schema.json`.
 
+### Organization planning: Category first
+
+Organization-bound Goals add a mandatory earlier planning artifact. Research
+first produces a Category-Todo conforming to `todos/todo.schema.json`; it is a
+versioned portfolio/research plan and never creates Worker Tasks. The Hub
+validates schema and item dependencies, recomputes Category summaries, checks
+claim/evidence references against the exact assignment allowlists and requests
+a revision/digest-bound promotion decision. No source identifier is inferred:
+missing or unknown `SRC_*`/`RUN_*` values remain unverified.
+
+Only the promoted Category revision can be transformed into one or more
+Planning Tracks. The normal second phase creates exactly one deterministic,
+role-bound `planning_track_task` for that immutable revision and the complete
+canonical set of its non-deferred `source_category_item_ids`. The Track Planner
+is an execution-only Worker: it returns candidates through the closed
+`organization_track_planning_result.v1` callback and cannot create or dispatch
+follow-up work. Its capability is bound to the exact Task, assignment, current
+WorkerJob/dispatch lease, expiry, and canonical payload digest.
+
+The Hub re-reads that binding inside the Track write transaction, validates
+each candidate against `todos/todo.track.schema.json`, recomputes summaries and
+quality gates, enforces the Category item scope and Worker authority ceiling,
+and validates the complete cross-Track DAG. Track lineage includes the source
+Category artifact, revision/digest, result Task/assignment/lease and exact item
+mappings. A successful callback persists passive Track revisions only; it does
+not adopt a Track, materialize a runtime Task, or write to the dispatch queue.
+Transport retries collapse onto one deterministic result idempotency key, and
+a different result digest fails closed.
+
+The direct Hub-admin derivation endpoint and fixed reference-workflow adapter
+remain additive compatibility paths, but both use the same Track validation
+and persistence service. Promotion, Track adoption and Task materialization use
+separate one-shot grants and separate transaction boundaries; every step
+revalidates current digests and policy before writes. Organization-less legacy
+Goals keep their compatibility adapter.
+
+The productive Organization path is:
+
+`Category research Task -> validated Category revision -> promotion ->`
+`bound planning_track_task -> capability-bound candidate callback ->`
+`Hub-validated Track persistence -> adoption -> guarded materialization ->`
+`Hub routing -> durable dispatch outbox -> Worker assignment`
+
+Operational invariants:
+
+- Category and Track artifacts are passive until their distinct Hub
+  transitions succeed. Research result ingress cannot write Track Tasks.
+- Track-planning result ingress accepts exactly the bound Category revision and
+  item scope. Worker-provided organization, team, role-slot, Agent, Worker,
+  tools, capabilities, context-right expansion, or budgets are rejected rather
+  than treated as authority.
+- The final Organization, unit, team, role-slot, role-assignment, and Agent
+  binding is resolved from authoritative Hub rows immediately before the Task
+  compare-and-swap. Target fields supplied by a planner, Worker, or caller are
+  advisory only.
+- `execute-next` requires an adopted Track, stable mapping, committed
+  materialization receipt, completed dependencies, current policy hash, and an
+  eligible active role assignment. There is no legacy or implicit
+  materialization fallback for Organization work.
+- Task-CAS and the first dispatch intent commit together. Network delivery
+  occurs only afterwards through the Hub-owned outbox port. Delivery has a
+  bounded processing lease, deterministic logical Worker task ID, exponential
+  retry, terminal retry state, and crash recovery from the authoritative Task
+  and WorkerJob receipt.
+- The generic Task delegation service accepts a Planning-selected Agent only
+  after re-reading the exact outbox, mapping, adopted Track, active role
+  assignment, Task state, and unexpired processing lease. JSON context alone
+  is never dispatch authority.
+- Fixed reference workflows produce ordinary Track candidates and therefore
+  use the same derivation, adoption, materialization, routing, and dispatch
+  services; they do not create a parallel workflow executor.
+
+Workers cannot promote, adopt or materialize. An assigned Worker may submit a
+closed follow-up proposal through its assignment/lease-bound callback. The Hub
+validates and classifies it as a Track amendment, chooses the destination and
+approval path, then materializes at most one idempotent Task. Generic follow-up
+and AutoPlanner paths reject organization-bound Worker credentials.
+
 Required core fields:
 - `version`
 - `owner`
@@ -169,6 +247,8 @@ Track-planning profile (`track_planner`) requirements:
 - summary engine recomputes `tasks_status_summary`, `tasks_type_summary`, `progress_summary`, `weighted_progress_summary`, milestone progress and `derived_summary_metadata`
 - task `progress_percent` semantics are normalized by status (`todo=0`, `done=100`, `in_progress|partial=1..99`, `blocked=0..100`)
 - prompt template: `prompts/planning/track_planning.j2`
+- organization Category-to-Track phase prompt:
+  `prompts/planning/organization_track_planning.j2`
 
 Planning track persistence/validation:
 - planner context envelope filters `available_artifacts` by `allowed_source_refs` and records denied refs

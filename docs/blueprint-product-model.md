@@ -1,6 +1,8 @@
 # Blueprint Product Model (Standard Mode)
 
-Dieses Dokument ist der kurze Produktleitfaden fuer normale Nutzer. Es erklaert nur die drei Kernbegriffe und den empfohlenen Startweg.
+Dieses Dokument ist der kurze Produktleitfaden fuer normale Nutzer. Fuer
+einzelne Teams gelten weiterhin die drei bestehenden Kernbegriffe. Groessere
+Vorhaben koennen dieselben Bausteine additiv als Organisation verwenden.
 
 ## Public model
 
@@ -9,6 +11,11 @@ Die Standard-Sprache fuer Produktnutzer ist:
 - **Role Template**: Wiederverwendbare Rollenanweisung (API bleibt `/templates`).
 - **Blueprint**: Zusammenstellung aus Rollen, Role Templates, Starter-Artefakten und Governance-Hinweisen.
 - **Team**: Laufende Instanz eines Blueprints fuer konkrete Ausfuehrung.
+- **Organization Blueprint**: Versionierte Topologie aus Units, wiederholbaren
+  Team-Blueprint-Referenzen, Role Slots, Relationen, Workflows und Policies.
+- **Organization Instance**: Gescope-te, revisionsgebundene Materialisierung
+  eines Organization Blueprints. Sie veraendert die Legacy-Teamaktivierung
+  nicht.
 
 ## Was nutze ich wann?
 
@@ -17,6 +24,23 @@ Die Standard-Sprache fuer Produktnutzer ist:
 - **Team**: Wenn die eigentliche Arbeit laeuft und Aufgaben ausgefuehrt werden.
 
 Merksatz: **Blueprint waehlen -> Team starten -> Arbeit ausfuehren**.
+
+Fuer Multi-Team-Arbeit lautet der Weg: **Organization Blueprint dry-run
+kompilieren -> Organization instanziieren -> Goal planen -> Hub materialisiert
+und delegiert Tasks**. Die Organisation selbst startet keine Worker.
+
+## Standard organization mode
+
+Die gefuehrte Organisationsauswahl startet bei acht Teams. Fuenf bis zehn
+Teams sind kuratierte Standardgroessen; oberhalb oder unterhalb dieses Bands
+ist eine explizite Custom Composition mit Admission-Pruefung erforderlich.
+Hierarchie- und Graphansicht sind zwei Projektionen derselben Definition und
+desselben schreibgeschuetzten Runtime-Overlays.
+
+Scrum-Accountabilities und Spezialisierungen bleiben getrennt. Product Owner,
+Scrum Master und Developer sind Accountabilities; beispielsweise Backend,
+UX, QA, Research, SRE, Security und Architecture sind Spezialisierungen oder
+Organisationsrollen.
 
 ## Standard entry path
 

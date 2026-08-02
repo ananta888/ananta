@@ -6,7 +6,7 @@
   "project": "ananta",
   "owner": "Ananta maintainers",
   "track": "enterprise_agentic_scrum_organization_blueprints",
-  "status": "todo",
+  "status": "partial",
   "priority": "P0",
   "review_basis": {
     "reviewed_commit_range": "main@cc7864c1addd58fcc3f29e8ff016e1c9d563c81d",
@@ -188,26 +188,17 @@
       "Instruction Layers, Role/Template-Auflösung, Workflows, Gates, Visual Process und Hub-Task-Abhängigkeiten liefern wiederverwendbare Grundlagen.",
       "Planning-Track-Vertrag, Validator, Summary-Recompute, GoalOutputArtifact-Persistenz, Adoption und Taskmaterialisierung nach todos/todo.track.schema.json existieren bereits."
     ],
+    "implementation_completed_unverified": [
+      "Der additive Organization-Control-Plane-Vertrag unterstützt hierarchische und graphförmige N-Team-Topologien mit cardinality-basierten Role Slots, Hub-Routing, Handoffs, Policies und Lifecycle.",
+      "Der Standardkatalog enthält 67 Rollen, sieben Team-Blueprints, acht Workflows und referenzierte Organisationsgrößen mit fünf, acht und zehn Teams; vier isolierte kleine 2er-/3er-Testkompositionen ergänzen die mittlere Acht-Team-Abnahme.",
+      "Die Planning-Pipeline erzeugt zuerst eine Category-Todo nach todos/todo.schema.json und delegiert anschließend genau eine gebundene Track-Planungsaufgabe nach todos/todo.track.schema.json an einen Worker; nur der Hub validiert, persistiert, adoptiert und materialisiert.",
+      "Workerrollen können assignment- und lease-gebundene Folgeaufgaben vorschlagen; ausschließlich der Hub ordnet Vorschläge ein und weist sie Rollen, Agenten oder Teams zu.",
+      "Normalisierte Persistenz, atomare Unit-of-Work-Grenzen, Organizations-Bundle-v2, Approval/Grant-Sicherheit, REST/TUI sowie Angular-Hierarchie-, Graph-, Editor- und Planning-Ansichten sind implementiert."
+    ],
     "review_gaps_unverified": [
-      "Das Standard-Scrum-Blueprint besitzt nur Product Owner, Scrum Master und einen generischen Developer; große Softwareteams und fachliche Spezialisierungen sind nicht modelliert.",
-      "Die drei Scrum-Role-Templates sind überwiegend einzeilige Rollenprompts und definieren keine belastbaren Inputs, Outputs, Handoffs, Entscheidungsrechte oder Eskalationen.",
-      "TeamDB besitzt keine organization_id, parent_team_id, value_stream_id oder andere Teamhierarchie.",
-      "Es existiert kein Organization-Blueprint-Modell, keine cardinality-basierte Topologie für N verschiedenartige Teaminstanzen und kein gemeinsamer Instanziierungsplan für mehrere Teams.",
-      "Legacy-Teamaktivierung deaktiviert beim Aktivieren eines Teams alle anderen Teams; Goal-Defaults und Autorisierung gehen ebenfalls von höchstens einem aktiven beziehungsweise einem Principal-Team aus.",
-      "Der bestehende Planmaterialisierer bindet alle PlanNodes an dieselbe Goal-Team-ID; ein additiver Hub-eigener Organization-Plan mit Unit-/Team-/Role-Slot-Bindung pro Node fehlt.",
-      "Die Teamliste lädt Member- und weitere Teamdaten pro Team nach; eine N-Team-Topologie benötigt einen batchfähigen Read-Port statt N+1-Zugriffen.",
-      "TeamBlueprintBundle v1 trägt genau einen Blueprint und optional ein Team; ein Organisationsbundle mit mehreren Blueprints, Teams, Relationen und Policies fehlt.",
-      "BlueprintBundleDefinition bildet Workflow-Daten nicht ab; der portable v1-Roundtrip kann bestehende Blueprint-Workflows nicht vollständig transportieren.",
-      "team_definition_version_service berücksichtigt Rollen und Artefakte, aber keine Workflow-Schritte oder Organisationstopologie im Revisionshash.",
-      "blueprint_serializer rekonstruiert Workflow mode=gated und default_failure_policy=manual fest, statt die exakte Workflow-Hülle persistent zu roundtrippen.",
-      "Role Slots besitzen keine min/default/max-Cardinality, Assignment-Regeln, Scrum-Accountability, Spezialisierung oder Separation-of-Duties-Metadaten.",
-      "Cross-Team-Handoffs, organisationsweite Abhängigkeiten, gemeinsame Produktziele, Portfolio-Backlog und Eskalationspfade sind nicht als eigener Vertrag vorhanden.",
-      "Vor der bestehenden Planning-Track-Pipeline fehlt eine research-grounded Category-Todo-Ebene nach todos/todo.schema.json sowie eine revisions- und digestgebundene Category->Track-Lineage.",
-      "Planning-Track-Adoption und stabile Task-Mappings liegen teilweise in GoalDB.execution_preferences beziehungsweise einem ungesperrten JSON-Artifact-Repository; exakte Approval-CAS-, Multi-Hub-Lock- und transaktionale Lineage-Persistenz fehlen.",
-      "Der bestehende Materialisierungspfad muss Validity-, Adoption-, Approval-, Content-Digest- und Source-Category-Bindungen unmittelbar vor jedem Taskwrite erneut prüfen; direkte execute-next-Pfade dürfen diesen Guard nicht umgehen.",
-      "Workerrollen besitzen keinen geschlossenen assignment-bound Proposal-Vertrag, über den sie notwendige Folgearbeit vorschlagen können, während der Hub allein Queue, Planrevision, Zielzuordnung und Materialisierung kontrolliert.",
-      "AutoPlanner- und generische Follow-up-Pfade können Tasks heute noch unmittelbar anlegen; Organization-Worker-Credentials müssen diese Pfade verlassen und ausschließlich den gebundenen Proposal-Ingress verwenden.",
-      "Die Angular-Teamsicht listet Blueprints und Teams flach; eine Organisationsübersicht, Teamgraph, Kapazitätsansicht und Multi-Team-Importvorschau fehlen."
+      "Die komplexen Unit-, Integrations-, Security-, Browser-, Accessibility-, Performance- und realen Worker-Tests sind auf ausdrückliche Anweisung bis zur Freigabe nur definiert, aber nicht ausgeführt.",
+      "Alembic Upgrade/Downgrade gegen reale Datenbanken und das globale Release-Konvergenzgate wurden nicht ausgeführt; der Release-Nachweis unter artifacts/test-gates/ fehlt daher bewusst.",
+      "Mangels bereitgestellter autoritativer SRC_*/RUN_*-IDs bleibt die Implementierung unverified und non_promotable; es wurden keine Quellen- oder Lauf-IDs erfunden."
     ]
   },
   "target_model": {
@@ -617,7 +608,7 @@
     {
       "id": "M0",
       "title": "Verträge, Grounding, Persistenz- und Hub-Sicherheitsgrenzen",
-      "status": "open",
+      "status": "completed",
       "priority": "P0",
       "exit_gate": "Schema-, Planning-, Domain-, UoW-, Membership-, Grounding- und Delete-Guard-Verträge sind implementiert, bevor Organization- oder Worker-Task-Writes freigegeben werden.",
       "task_ids": ["ESORG-ARCH-001", "ESORG-ARCH-002", "ESORG-ARCH-003", "ESORG-ARCH-004", "ESORG-ARCH-005", "ESORG-PLAN-001", "ESORG-PLAN-002", "ESORG-PLAN-002B", "ESORG-PLAN-003", "ESORG-PLAN-004", "ESORG-JSON-001", "ESORG-JSON-002", "ESORG-JSON-003", "ESORG-JSON-004", "ESORG-ROLE-001", "ESORG-ROLE-005", "ESORG-ORG-001", "ESORG-ORG-003", "ESORG-ORG-004", "ESORG-API-006", "ESORG-API-001", "ESORG-API-007", "ESORG-API-002", "ESORG-RUN-008A", "ESORG-API-012", "ESORG-API-009", "ESORG-SEC-005", "ESORG-SEC-001", "ESORG-SEC-002", "ESORG-SEC-006", "ESORG-SEC-008"]
@@ -625,7 +616,7 @@
     {
       "id": "M1",
       "title": "Standardkatalog, Organisationskern und Definition-UI",
-      "status": "open",
+      "status": "partial",
       "priority": "P1",
       "exit_gate": "Standardband fünf bis zehn, die mittlere Acht-Team-Referenz, atomare Instanziierung sowie read-only Hierarchie und Graph funktionieren ohne Runtime-Overlay.",
       "task_ids": ["ESORG-ROLE-002", "ESORG-ROLE-003", "ESORG-ROLE-004", "ESORG-ROLE-006", "ESORG-ROLE-007", "ESORG-ROLE-008", "ESORG-TEAM-001", "ESORG-TEAM-002", "ESORG-TEAM-003", "ESORG-TEAM-004", "ESORG-TEAM-005", "ESORG-TEAM-006", "ESORG-TEAM-007", "ESORG-ORG-002", "ESORG-ORG-001B", "ESORG-API-003", "ESORG-API-008", "ESORG-API-010", "ESORG-UI-001", "ESORG-UI-002", "ESORG-UI-006", "ESORG-UI-007", "ESORG-QA-001"]
@@ -633,7 +624,7 @@
     {
       "id": "M2",
       "title": "Hub-Runtime, Planning-Lineage und Worker-Task-Proposals",
-      "status": "open",
+      "status": "partial",
       "priority": "P1",
       "exit_gate": "Category->Track->Task-Lineage, Routing, Dependencies, Handoffs, bounded Rework und Hub-kontrollierte Proposals bestehen die günstige Zwei-/Drei-Team-Integrationsmatrix.",
       "task_ids": ["ESORG-PLAN-005", "ESORG-RUN-001", "ESORG-RUN-002", "ESORG-RUN-003", "ESORG-RUN-004", "ESORG-RUN-005", "ESORG-RUN-006", "ESORG-RUN-007", "ESORG-RUN-008", "ESORG-RUN-009", "ESORG-SEC-003", "ESORG-SEC-004", "ESORG-SEC-007", "ESORG-API-013", "ESORG-UI-003", "ESORG-UI-008", "ESORG-UI-009", "ESORG-UI-011", "ESORG-QA-003", "ESORG-QA-008"]
@@ -641,7 +632,7 @@
     {
       "id": "M3",
       "title": "Lifecycle, Bundle, Security und einzige Acht-Team-Vollabnahme",
-      "status": "open",
+      "status": "partial",
       "priority": "P1",
       "exit_gate": "Bundle, Reconcile, Lifecycle, Securitymatrix und genau ein vollständiger Acht-Team-Browser-/Runtime-E2E sind grün.",
       "task_ids": ["ESORG-JSON-005", "ESORG-JSON-006", "ESORG-JSON-007", "ESORG-ORG-005", "ESORG-API-004", "ESORG-API-005", "ESORG-API-011", "ESORG-UI-004", "ESORG-QA-002", "ESORG-QA-004", "ESORG-QA-007", "ESORG-QA-009"]
@@ -649,7 +640,7 @@
     {
       "id": "M4",
       "title": "Skalierung, Accessibility und Betriebsdokumentation",
-      "status": "open",
+      "status": "partial",
       "priority": "P2",
       "exit_gate": "Numerische API-/DB-/Renderbudgets, TUI, Accessibility und Runbooks sind reproduzierbar geprüft.",
       "task_ids": ["ESORG-UI-005", "ESORG-UI-010", "ESORG-QA-005", "ESORG-DOC-001"]
@@ -671,7 +662,7 @@
         {
           "id": "ESORG-ARCH-001",
           "title": "ADR für Organization-, Team-, Role-Slot- und Scrum-Semantik erstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "medium",
           "type": "architecture",
@@ -687,7 +678,7 @@
         {
           "id": "ESORG-ARCH-002",
           "title": "Hub-only Multi-Team-Orchestrierungsgrenze verbindlich spezifizieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "architecture",
@@ -703,7 +694,7 @@
         {
           "id": "ESORG-ARCH-003",
           "title": "Normalisiertes Organisationsdomänenmodell entwerfen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "contract",
@@ -722,7 +713,7 @@
         {
           "id": "ESORG-ARCH-004",
           "title": "Gemeinsames Product-Goal-, Backlog- und Dependency-Ownership-Modell definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "architecture",
@@ -739,7 +730,7 @@
         {
           "id": "ESORG-ARCH-005",
           "title": "SOLID-Servicegrenzen und Port/Adapter-Zuschnitt festlegen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "medium",
           "type": "architecture",
@@ -763,7 +754,7 @@
         {
           "id": "ESORG-PLAN-001",
           "title": "Zweistufigen Category-Todo- und Planning-Track-Vertrag definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "contract",
@@ -783,12 +774,12 @@
         {
           "id": "ESORG-PLAN-002",
           "title": "Research-Phase als validierte Category-Todo-Pipeline implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "implementation",
           "depends_on": ["ESORG-PLAN-001", "ESORG-ROLE-005", "ESORG-SEC-006", "ESORG-API-002", "ESORG-API-012"],
-          "paths": ["agent/services/planning_category_todo_pipeline_service.py", "agent/artifacts/goal_artifact_service.py", "prompts/planning/category_research_planning.j2"],
+          "paths": ["agent/services/planning_category_pipeline_service.py", "agent/artifacts/goal_artifact_service.py", "prompts/planning/category_research_planning.j2"],
           "acceptance_criteria": [
             "Der Hub delegiert genau eine gebundene Research-Planungsaufgabe; der Planner Worker erhält nur freigegebene SRC_*/RUN_*-, Repository- und Artifact-Referenzen und orchestriert keine Folgeworker.",
             "Pipeline extrahiert JSON, validiert todo.schema.json plus semantisches Quality Profile, DAG, recommended_order, Grounding und Scope und erlaubt höchstens einen begrenzten Repair-Versuch.",
@@ -800,7 +791,7 @@
         {
           "id": "ESORG-PLAN-002B",
           "title": "Validierte Category-Revision Hub-seitig freigeben",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "implementation",
@@ -818,7 +809,7 @@
         {
           "id": "ESORG-PLAN-003",
           "title": "Freigegebene Category-Todo revisionsgebunden in Planning Tracks zerlegen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "implementation",
@@ -837,7 +828,7 @@
         {
           "id": "ESORG-PLAN-004",
           "title": "Hub-Track-Adoption und Taskmaterialisierung absichern",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "implementation",
@@ -863,7 +854,7 @@
         {
           "id": "ESORG-PLAN-005",
           "title": "Status-, Replan- und Amendment-Projektion über beide Planungsebenen bereitstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "implementation",
@@ -885,7 +876,7 @@
         {
           "id": "ESORG-JSON-001",
           "title": "Striktes organization_blueprint_catalog.v1 JSON-Schema anlegen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "medium",
           "type": "contract",
@@ -906,7 +897,7 @@
         {
           "id": "ESORG-JSON-002",
           "title": "Semantischen Validator für Referenzen, Cardinality und Organisationsgraph bauen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "implementation",
@@ -928,15 +919,15 @@
         {
           "id": "ESORG-JSON-003",
           "title": "Portable Organization Bundle v2 definieren",
-          "status": "partial",
+          "status": "completed",
           "priority": "P0",
           "risk": "medium",
           "type": "contract",
           "depends_on": ["ESORG-JSON-001"],
           "paths": ["agent/models/team_models.py", "agent/services/blueprint_bundle_service.py", "docs/blueprint-bundle-import-export.md"],
-          "evidence_status": "unverified",
+          "evidence_status": "implementation_completed_unverified",
           "existing_evidence": "Unverifizierter Arbeitshinweis: TeamBlueprintBundle v1, dry_run und fail/skip/overwrite scheinen vorhanden, transportieren aber nur einen Blueprint und optional ein Team.",
-          "remaining_work": ["Bundle-v2-Hülle und geschlossene Section-Verträge definieren", "Workflow-Hülle und mehrere Definitionen verlustfrei transportieren", "Assignment-Redaction und v1-Kompatibilitätsadapter spezifizieren"],
+          "implemented_scope": ["Bundle-v2-Hülle und geschlossene Section-Verträge definieren", "Workflow-Hülle und mehrere Definitionen verlustfrei transportieren", "Assignment-Redaction und v1-Kompatibilitätsadapter spezifizieren"],
           "acceptance_criteria": [
             "Bundle v2 kann mehrere Role Templates, Team Blueprints, Workflows, Organization Blueprints, versionierte Handoff Definitions, Policies und optional Organization/Team Instances transportieren.",
             "Workflows werden inklusive mode, default_failure_policy, steps, checks und required_capabilities verlustfrei exportiert und importiert.",
@@ -947,15 +938,15 @@
         {
           "id": "ESORG-JSON-004",
           "title": "Kanonische Revisionen auf vollständige Definitionen erweitern",
-          "status": "partial",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "implementation",
           "depends_on": ["ESORG-JSON-001", "ESORG-JSON-003"],
           "paths": ["agent/services/team_definition_version_service.py", "agent/services/blueprint_serializer.py"],
-          "evidence_status": "unverified",
+          "evidence_status": "implementation_completed_unverified",
           "existing_evidence": "Unverifizierter Arbeitshinweis: Content-Hashes und Team-Drift scheinen vorhanden, berücksichtigen aktuell aber im Wesentlichen Rollen und Artefakte.",
-          "remaining_work": ["Workflow-Hülle und Team-/Organization-Parameter in die kanonische Revision aufnehmen", "hardcodierte Workflow-Defaults aus dem Serializer entfernen", "kanonische Sortierung und Hash-Kompatibilität testen"],
+          "implemented_scope": ["Workflow-Hülle und Team-/Organization-Parameter in die kanonische Revision aufnehmen", "hardcodierte Workflow-Defaults aus dem Serializer entfernen", "kanonische Sortierung und Hash-Kompatibilität testen"],
           "acceptance_criteria": [
             "Blueprint-Revisionen umfassen Rollen, Role-Slot-Config, Artefakte und die exakte Workflow-Hülle samt Steps.",
             "Organization-Revisionen umfassen Units, Counts, Relationen, Handoffs, Policies, Budgets und referenzierte Definition-Versionen.",
@@ -966,15 +957,15 @@
         {
           "id": "ESORG-JSON-005",
           "title": "Schreibfreien Dry-run-Importplaner für Organisationsbundles implementieren",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "implementation",
           "depends_on": ["ESORG-JSON-002", "ESORG-JSON-003", "ESORG-JSON-004", "ESORG-SEC-005"],
           "paths": ["agent/services/blueprint_bundle_service.py", "agent/services/organization_bundle_service.py", "agent/repositories/organization.py"],
-          "evidence_status": "unverified",
+          "evidence_status": "implementation_completed_unverified",
           "existing_evidence": "Unverifizierter Arbeitshinweis: Blueprint-Bundle-Import scheint Konfliktstrategien und eine Vorschau für Templates, Blueprint und Team zu besitzen.",
-          "remaining_work": ["v2-Diff über sämtliche Definitionen und Instanzen berechnen", "Berechtigungen, Limits, Referenzen und Hashes im Preview prüfen", "deterministischen Importplan ohne Writes erzeugen"],
+          "implemented_scope": ["v2-Diff über sämtliche Definitionen und Instanzen berechnen", "Berechtigungen, Limits, Referenzen und Hashes im Preview prüfen", "deterministischen Importplan ohne Writes erzeugen"],
           "acceptance_criteria": [
             "Dry-run zeigt create, update, unchanged, skip und conflict für jede Definition, Unit, Relation, Policy und Assignment.",
             "Der Planner hängt nur von Read-Ports ab, führt nachweislich keine Writes aus und liefert einen kanonisch gehashten Importplan.",
@@ -985,7 +976,7 @@
         {
           "id": "ESORG-JSON-006",
           "title": "v1-Migration, Split-Import und deterministische Beispielbundles bereitstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "low",
           "type": "migration",
@@ -1001,7 +992,7 @@
         {
           "id": "ESORG-JSON-007",
           "title": "Organisationsbundle aus gebundenem Importplan atomar anwenden",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "implementation",
@@ -1025,15 +1016,15 @@
         {
           "id": "ESORG-ROLE-001",
           "title": "Versionierten Role-Template-Vertrag und Kompositionsmodell definieren",
-          "status": "partial",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "contract",
           "depends_on": ["ESORG-ARCH-001", "ESORG-JSON-001"],
           "paths": ["config/blueprints/standard/templates.json", "agent/services/seed_template_catalog.py", "docs/template-role-overlay-architecture.md"],
-          "evidence_status": "unverified",
+          "evidence_status": "implementation_completed_unverified",
           "existing_evidence": "Unverifizierter Arbeitshinweis: Role Templates, Appendix-Auflösung und Instruction-Layer-Komposition scheinen vorhanden.",
-          "remaining_work": ["stabile key/version-Identitäten und strukturierte Metadaten definieren", "Grounding- und Verification-Vertrag ergänzen", "Komposition und Governance-Dominanz contracttesten"],
+          "implemented_scope": ["stabile key/version-Identitäten und strukturierte Metadaten definieren", "Grounding- und Verification-Vertrag ergänzen", "Komposition und Governance-Dominanz contracttesten"],
           "acceptance_criteria": [
             "Jedes Template besitzt key, version, extends, Scrum-Accountability, Spezialisierung, Mission, Scope und Prompt-Body.",
             "Strukturierte Metadaten definieren Responsibilities, Inputs, Outputs, Decision Rights, Handoffs, Capabilities, Context Policy, Verification, Escalation und eine standardmäßig verweigernde Task-Proposal-Policy.",
@@ -1045,15 +1036,15 @@
         {
           "id": "ESORG-ROLE-002",
           "title": "Product Owner, Scrum Master und Developer Basistemplates grundlegend verbessern",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "content",
           "depends_on": ["ESORG-ROLE-001"],
           "paths": ["config/blueprints/standard/templates.json", "config/blueprints/standard/blueprints.json"],
-          "evidence_status": "unverified",
+          "evidence_status": "implementation_completed_unverified",
           "existing_evidence": "Unverifizierter Arbeitshinweis: Drei Scrum-Templates scheinen vorhanden, sind aber für ein großes agentisches Team zu generisch.",
-          "remaining_work": ["Inputs, Outputs, Grenzen und Handoffs der drei Basistemplates ausarbeiten", "Hub-Eskalationen und Definition of Done ergänzen", "bestehende Seeds kompatibel migrieren"],
+          "implemented_scope": ["Inputs, Outputs, Grenzen und Handoffs der drei Basistemplates ausarbeiten", "Hub-Eskalationen und Definition of Done ergänzen", "bestehende Seeds kompatibel migrieren"],
           "acceptance_criteria": [
             "Product Owner definiert Product Goal, Backlog-Ordering, Acceptance Evidence, Scope-Entscheidungen und Übergabe an Delivery ohne technische Miksteuerung.",
             "Scrum Master schützt Flow, macht Blocker und Cross-Team-Abhängigkeiten sichtbar und orchestriert niemals selbst Worker.",
@@ -1064,7 +1055,7 @@
         {
           "id": "ESORG-ROLE-003",
           "title": "Engineering-Spezialisierungen als Developer-Overlays erstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "content",
@@ -1080,7 +1071,7 @@
         {
           "id": "ESORG-ROLE-004",
           "title": "Quality-, Test-, UX-, Accessibility- und Documentation-Templates erstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "content",
@@ -1096,15 +1087,15 @@
         {
           "id": "ESORG-ROLE-005",
           "title": "Research- und Discovery-Rollen vollständig ausarbeiten",
-          "status": "partial",
+          "status": "completed",
           "priority": "P0",
           "risk": "medium",
           "type": "content",
           "depends_on": ["ESORG-ROLE-001"],
           "paths": ["config/blueprints/standard/templates.json", "config/blueprints/standard/templates.d/research-roles.json"],
-          "evidence_status": "unverified",
+          "evidence_status": "implementation_completed_unverified",
           "existing_evidence": "Unverifizierter Arbeitshinweis: Research Lead, Source Analyst und Reviewer scheinen als einfache Templates vorhanden.",
-          "remaining_work": ["fehlende Research-Spezialisierungen ergänzen", "Source-Provenienz und Claim-Evidence-Matrix definieren", "unabhängiges Review und Hub-Eskalation contracttesten"],
+          "implemented_scope": ["fehlende Research-Spezialisierungen ergänzen", "Source-Provenienz und Claim-Evidence-Matrix definieren", "unabhängiges Review und Hub-Eskalation contracttesten"],
           "acceptance_criteria": [
             "Research Lead, Domain/Requirements Analyst, Source Analyst, Repository Analyst, User Researcher, Data Analyst, Experiment Designer und Independent Reviewer sind definiert.",
             "Jede Aussage ordnet Quellen-, Datei-, Artifact- oder Toolhinweise ausschließlich vom Hub bereitgestellten SRC_*- beziehungsweise RUN_*-IDs zu; ohne erlaubte ID bleibt der Claim unverified.",
@@ -1116,7 +1107,7 @@
         {
           "id": "ESORG-ROLE-006",
           "title": "Proof-of-Concept-Rollen und Entscheidungsgates ausarbeiten",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "content",
@@ -1132,7 +1123,7 @@
         {
           "id": "ESORG-ROLE-007",
           "title": "Platform-, DevOps-, SRE- und Operations-Rollen ausarbeiten",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "content",
@@ -1148,7 +1139,7 @@
         {
           "id": "ESORG-ROLE-008",
           "title": "Architektur-, Security-, Compliance-, Release- und Organisationsrollen ausarbeiten",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "content",
@@ -1170,15 +1161,15 @@
         {
           "id": "ESORG-TEAM-001",
           "title": "Enterprise Product Delivery Scrum Blueprint erstellen",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "implementation",
           "depends_on": ["ESORG-ROLE-002", "ESORG-ROLE-003", "ESORG-ROLE-004", "ESORG-JSON-002"],
           "paths": ["config/blueprints/standard/blueprints.d/enterprise-product-delivery-scrum.json"],
-          "evidence_status": "unverified",
+          "evidence_status": "implementation_completed_unverified",
           "existing_evidence": "Unverifizierter Arbeitshinweis: Das bestehende Scrum-Blueprint scheint eine Grundlage zu liefern, besitzt aber nur drei generische Rollen.",
-          "remaining_work": ["spezialisierte Pflicht- und optionale Role Slots ergänzen", "vollständigen Delivery-Workflow und unabhängige Gates definieren", "bestehendes Scrum-Blueprint kompatibel migrieren"],
+          "implemented_scope": ["spezialisierte Pflicht- und optionale Role Slots ergänzen", "vollständigen Delivery-Workflow und unabhängige Gates definieren", "bestehendes Scrum-Blueprint kompatibel migrieren"],
           "acceptance_criteria": [
             "Pflichtslots sind Product Owner, Scrum Master, Architecture/Tech Lead, mindestens zwei Engineering-Slots und unabhängige QA/Test-Kompetenz.",
             "UX, Integration, DevOps/SRE Liaison, AppSec, Data/ML, Accessibility und Documentation sind über Cardinality und optionale Slots konfigurierbar.",
@@ -1189,15 +1180,15 @@
         {
           "id": "ESORG-TEAM-002",
           "title": "Research and Discovery Blueprint erweitern",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "implementation",
           "depends_on": ["ESORG-ROLE-005", "ESORG-JSON-002"],
           "paths": ["config/blueprints/standard/blueprints.d/research-and-discovery.json", "config/blueprints/standard/blueprints.json"],
-          "evidence_status": "unverified",
+          "evidence_status": "implementation_completed_unverified",
           "existing_evidence": "Unverifizierter Arbeitshinweis: Ein Research-Blueprint mit Lead, Source Analyst und Reviewer scheint vorhanden.",
-          "remaining_work": ["fehlende Research-Slots und portable Outputs ergänzen", "Evidence- und Independent-Review-Workflow schließen", "Research-zu-PoC-Handoff definieren"],
+          "implemented_scope": ["fehlende Research-Slots und portable Outputs ergänzen", "Evidence- und Independent-Review-Workflow schließen", "Research-zu-PoC-Handoff definieren"],
           "acceptance_criteria": [
             "Blueprint deckt technische, fachliche, Repository-, Nutzer- und Datenanalyse über eigenständige Role Slots ab.",
             "Workflow führt von Research Brief über Source Plan und Evidence Collection zu Synthesis und Independent Review Gate.",
@@ -1208,7 +1199,7 @@
         {
           "id": "ESORG-TEAM-003",
           "title": "Proof-of-Concept Team Blueprint erstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "implementation",
@@ -1224,7 +1215,7 @@
         {
           "id": "ESORG-TEAM-004",
           "title": "Platform DevOps SRE Team Blueprint erstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
@@ -1240,7 +1231,7 @@
         {
           "id": "ESORG-TEAM-005",
           "title": "Architecture Governance Team Blueprint erstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "implementation",
@@ -1256,7 +1247,7 @@
         {
           "id": "ESORG-TEAM-006",
           "title": "Quality Security Release Team Blueprint erstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
@@ -1272,7 +1263,7 @@
         {
           "id": "ESORG-TEAM-007",
           "title": "Portfolio Product Coordination Blueprint erstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "implementation",
@@ -1294,7 +1285,7 @@
         {
           "id": "ESORG-ORG-001",
           "title": "Schreibfreien Organization-Blueprint-Compiler implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "implementation",
@@ -1312,7 +1303,7 @@
         {
           "id": "ESORG-ORG-002",
           "title": "Standardkomposition fünf bis zehn und mittlere Acht-Team-Referenz bereitstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "configuration",
@@ -1331,7 +1322,7 @@
         {
           "id": "ESORG-ORG-003",
           "title": "N-Team-Resize- und Topologieänderungsplaner implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "implementation",
@@ -1350,7 +1341,7 @@
         {
           "id": "ESORG-ORG-004",
           "title": "Revisionsgebundenen Hierarchie- und Graph-Projektionsvertrag definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "medium",
           "type": "contract",
@@ -1369,7 +1360,7 @@
         {
           "id": "ESORG-ORG-001B",
           "title": "Kompilierten Organisationsplan atomar instanziieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "implementation",
@@ -1386,7 +1377,7 @@
         {
           "id": "ESORG-ORG-005",
           "title": "Blueprint-Parameter, sichere Anpassung und Upgrade/Reconcile definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
@@ -1408,7 +1399,7 @@
         {
           "id": "ESORG-RUN-001",
           "title": "Organisationsziel in Team Goals und Tasks materialisieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "implementation",
@@ -1425,7 +1416,7 @@
         {
           "id": "ESORG-RUN-002",
           "title": "Capability-, Slot- und Kapazitätsbasiertes Teamrouting implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "implementation",
@@ -1441,12 +1432,12 @@
         {
           "id": "ESORG-RUN-003",
           "title": "Cross-Team Dependency DAG und Ownership implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "implementation",
           "depends_on": ["ESORG-RUN-001", "ESORG-API-007"],
-          "paths": ["agent/services/task_dependency_service.py", "agent/services/organization_dependency_service.py", "agent/services/task_queue_service.py"],
+          "paths": ["agent/services/organization_dependency_service.py", "agent/services/task_queue_service.py"],
           "acceptance_criteria": [
             "Normalisierte Runtime-Dependencies referenzieren Source/Target Team, Source/Target Task, Owner, Gate, erforderliche Artefakte und Eskalationsregel und werden als runtime_task_dependency projiziert.",
             "Der Hub verhindert Zyklen, verwaiste Dependencies und Freigaben ohne erfüllte Voraussetzungen.",
@@ -1457,7 +1448,7 @@
         {
           "id": "ESORG-RUN-004",
           "title": "Versionierten Cross-Team-Handoff-Vertrag implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "contract",
@@ -1474,7 +1465,7 @@
         {
           "id": "ESORG-RUN-005",
           "title": "Research -> PoC -> Architecture -> Delivery -> Release Referenzworkflow umsetzen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
@@ -1491,7 +1482,7 @@
         {
           "id": "ESORG-RUN-006",
           "title": "Begrenzte Feedback-, Rework- und Eskalationsschleifen integrieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
@@ -1507,7 +1498,7 @@
         {
           "id": "ESORG-RUN-007",
           "title": "Organisationsweite Events, Statusprojektion und Replay bereitstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
@@ -1524,7 +1515,7 @@
         {
           "id": "ESORG-RUN-008A",
           "title": "Geschlossenen Worker-Task-Proposal- und Result-Carrier-Vertrag definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "contract",
@@ -1541,7 +1532,7 @@
         {
           "id": "ESORG-RUN-008",
           "title": "Assignment-bound Worker-Task-Proposal-Ingress implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "implementation",
@@ -1562,12 +1553,12 @@
         {
           "id": "ESORG-RUN-009",
           "title": "Worker-Task-Proposals Hub-seitig einordnen, freigeben und routen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "implementation",
           "depends_on": ["ESORG-RUN-008", "ESORG-RUN-002", "ESORG-RUN-003", "ESORG-SEC-003", "ESORG-SEC-007"],
-          "paths": ["agent/services/worker_task_proposal_service.py", "agent/services/category_to_planning_track_service.py", "agent/services/organization_routing_service.py", "agent/services/planning_artifact_transition_service.py", "agent/services/planning_task_materialization_service.py"],
+          "paths": ["agent/services/worker_task_proposal_decision_service.py", "agent/services/worker_task_proposal_ingress_service.py", "agent/services/organization_proposal_destination_service.py", "agent/services/category_to_planning_track_service.py", "agent/services/organization_routing_service.py", "agent/services/planning_artifact_transition_service.py", "agent/services/planning_task_materialization_service.py"],
           "acceptance_criteria": [
             "Hub klassifiziert jeden Vorschlag als reject, needs_approval, accepted_as_plan_amendment oder superseded und nennt reason_code, Policy-Hash und zulässige nächste Schritte.",
             "Akzeptierte Vorschläge werden in die gültige Category-/Track-Lineage eingeordnet, gegen Duplikate, DAG-Zyklen, Scope-, Capability-, SoD-, Budget- und Limitverstöße geprüft und erzeugen eine neue gebundene Track-Revision.",
@@ -1588,7 +1579,7 @@
         {
           "id": "ESORG-API-006",
           "title": "Versionierte Definition-Persistenz und Legacy-Adapter implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "migration",
@@ -1605,12 +1596,12 @@
         {
           "id": "ESORG-API-001",
           "title": "Additive Datenbankmigrationen für Organisationen und Role Slots erstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "migration",
           "depends_on": ["ESORG-ARCH-003", "ESORG-JSON-004", "ESORG-API-006"],
-          "paths": ["agent/db_models/organizations.py", "agent/db_models/organization_access.py", "migrations/versions/"],
+          "paths": ["agent/db_models/organizations.py", "migrations/versions/"],
           "acceptance_criteria": [
             "Tabellen bilden Organization Blueprints/Instances, Units mit optionalem parent_unit_id, Team Links mit eigenem Lifecycle, Role Slots, Assignments, namespaced Relations, Layout Preferences und Handoff Definitions normalisiert ab.",
             "Organization Definition, Instance, Membership und Admin Grant sind mit tenant_id, project_id und organization_id gescopt; Eindeutigkeit gilt innerhalb des autoritativen Scopes.",
@@ -1623,7 +1614,7 @@
         {
           "id": "ESORG-API-007",
           "title": "Organization-Runtime-Bindings und Goal-Hierarchie persistieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "migration",
@@ -1640,12 +1631,12 @@
         {
           "id": "ESORG-API-012",
           "title": "Planning-Artefaktrevisionen, Adoption, Lineage und Worker-Proposals persistieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "migration",
           "depends_on": ["ESORG-PLAN-001", "ESORG-RUN-008A", "ESORG-API-002"],
-          "paths": ["agent/db_models/planning.py", "agent/db_models/planning_artifacts.py", "agent/db_models/governance.py", "agent/repositories/planning/", "agent/repositories/tasks.py", "agent/services/approval_request_service.py", "agent/services/organization_unit_of_work.py", "agent/artifacts/goal_artifact_repository.py", "migrations/versions/"],
+          "paths": ["agent/db_models/planning.py", "agent/db_models/planning_artifacts.py", "agent/db_models/governance.py", "agent/repositories/planning_artifacts.py", "agent/repositories/tasks.py", "agent/services/approval_request_service.py", "agent/services/organization_unit_of_work.py", "agent/artifacts/goal_artifact_repository.py", "migrations/versions/"],
           "acceptance_criteria": [
             "Normalisierte Tabellen persistieren Category- und Track-Artefaktrevisionen, Schema-/Content-/Policy-Hashes, Promotion/Adoption/Approval, Category->Track->Task-Lineage, stable Task-Mappings sowie Worker-Task-Proposals und Entscheidungen.",
             "Exakte Digests und erwartete Revisionen werden per transaktionalem Compare-and-Swap geprüft; PostgreSQL nutzt geeignete zeilen- oder advisory locks für mehrere Hub-Prozesse, Entwicklungs-Backends erhalten deterministische Ersatzsemantik.",
@@ -1660,7 +1651,7 @@
         {
           "id": "ESORG-API-002",
           "title": "Fokussierte Organization-Repositories und Domain Services implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "implementation",
@@ -1677,12 +1668,12 @@
         {
           "id": "ESORG-API-009",
           "title": "Organization-Team-Link-Integrität und frühen Delete-Guard implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "implementation",
           "depends_on": ["ESORG-API-002", "ESORG-SEC-005"],
-          "paths": ["agent/routes/teams.py", "agent/tools.py", "agent/services/organization_team_deletion_service.py", "agent/repositories/core.py", "agent/repositories/organization.py", "agent/repositories/tasks.py", "agent/repositories/goals.py", "agent/repositories/organizations/team_links.py", "migrations/versions/"],
+          "paths": ["agent/routes/teams.py", "agent/tools.py", "agent/services/organization_team_deletion_service.py", "agent/repositories/core.py", "agent/repositories/organization.py", "agent/repositories/organization_team_deletion.py", "agent/repositories/tasks.py", "agent/repositories/goals.py", "migrations/versions/"],
           "acceptance_criteria": [
             "Generische Teamlöschung prüft Organization-Team-Links, bevor Mitglieder gelöscht oder Task-/Goal-Zuordnungen geleert werden.",
             "HTTP-Route und delete_team_tool verwenden denselben sessiongebundenen Application Service; direkte Repository-Löschung besitzt keinen öffentlich ungeschützten Bypass.",
@@ -1698,12 +1689,12 @@
         {
           "id": "ESORG-API-003",
           "title": "Gescopte Definition-, Validierungs- und Kompositions-API bereitstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
           "depends_on": ["ESORG-API-002", "ESORG-ORG-001", "ESORG-ORG-004", "ESORG-SEC-005"],
-          "paths": ["agent/routes/organization_blueprints.py", "agent/services/organization_blueprint_application_service.py", "api-spec.md"],
+          "paths": ["agent/routes/organization_blueprints.py", "agent/services/organization_definition_application_service.py", "agent/services/organization_compile_application_service.py", "api-spec.md"],
           "acceptance_criteria": [
             "Additive Endpunkte unterstützen gescoptes list/get/create/patch/archive für Definitionen sowie validate und compile/dry-run; sie enthalten weder Bundle-Apply noch Runtime-Lifecycle-Businesslogik.",
             "Auch Listen, Reads und Dry-runs werden nach Tenant, Projekt und Organization Membership serverseitig gefiltert; Mutationen benötigen Admin-Grant und If-Match.",
@@ -1716,7 +1707,7 @@
         {
           "id": "ESORG-API-008",
           "title": "Idempotente Organization-Instanziierungs-API bereitstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "implementation",
@@ -1734,7 +1725,7 @@
         {
           "id": "ESORG-API-010",
           "title": "Paginiertes, gescoptes Organization-Topology-Read-API bereitstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
@@ -1751,7 +1742,7 @@
         {
           "id": "ESORG-API-013",
           "title": "Revisionsgebundene Organization-Draft-Patch-API implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "implementation",
@@ -1768,7 +1759,7 @@
         {
           "id": "ESORG-API-011",
           "title": "Gescopte Organization-Bundle-Endpunkte bereitstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
@@ -1785,7 +1776,7 @@
         {
           "id": "ESORG-API-004",
           "title": "Organization Instance Lifecycle, Archive und Recovery implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "implementation",
@@ -1802,15 +1793,15 @@
         {
           "id": "ESORG-API-005",
           "title": "Seed-Reconciliation und Definition-Drift auf Organisationsebene erweitern",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "implementation",
           "depends_on": ["ESORG-JSON-004", "ESORG-API-002", "ESORG-ORG-002", "ESORG-ORG-003", "ESORG-ORG-004"],
           "paths": ["agent/services/team_blueprint_reconciliation_service.py", "agent/services/organization_reconciliation_service.py", "agent/services/blueprint_seed_service.py"],
-          "evidence_status": "unverified",
+          "evidence_status": "implementation_completed_unverified",
           "existing_evidence": "Unverifizierter Arbeitshinweis: Seed-Reconciliation und Blueprint-Team-Drift scheinen für einzelne Blueprints und Teams vorhanden.",
-          "remaining_work": ["Organization-Definitionen in deterministische Seed-Reihenfolge aufnehmen", "Drift über Counts, Relationen, Policies und referenzierte Versionen projizieren", "idempotentes Reconcile mit Instanz-Snapshot-Schutz implementieren"],
+          "implemented_scope": ["Organization-Definitionen in deterministische Seed-Reihenfolge aufnehmen", "Drift über Counts, Relationen, Policies und referenzierte Versionen projizieren", "idempotentes Reconcile mit Instanz-Snapshot-Schutz implementieren"],
           "acceptance_criteria": [
             "Seed-Start lädt Template-Fragmente, Team Blueprints und Organization Blueprints in deterministischer Reihenfolge.",
             "Entfernte Seed-Definitionen werden nur nach expliziter Lifecycle-Regel behandelt und nicht blind gelöscht.",
@@ -1827,7 +1818,7 @@
         {
           "id": "ESORG-UI-001",
           "title": "Geführten Organization-Setup-Wizard in Angular bauen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "implementation",
@@ -1844,7 +1835,7 @@
         {
           "id": "ESORG-UI-002",
           "title": "Organization-Feature-Shell und gemeinsamen Topology-State implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "implementation",
@@ -1861,7 +1852,7 @@
         {
           "id": "ESORG-UI-006",
           "title": "Barrierearme, lazy geladene Organisationshierarchie umsetzen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "implementation",
@@ -1877,7 +1868,7 @@
         {
           "id": "ESORG-UI-007",
           "title": "Read-only Organisationsgraph mit Visual-Process-Bedienmustern bauen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
@@ -1894,7 +1885,7 @@
         {
           "id": "ESORG-UI-008",
           "title": "Revisionsgebundenes Runtime-Overlay und Inspector integrieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
@@ -1910,7 +1901,7 @@
         {
           "id": "ESORG-UI-009",
           "title": "Hub-validierte Hierarchie- und Graphmutationen umsetzen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
@@ -1926,12 +1917,12 @@
         {
           "id": "ESORG-UI-010",
           "title": "Organization-UI für Pagination, Performance und Accessibility härten",
-          "status": "open",
+          "status": "partial",
           "priority": "P2",
           "risk": "medium",
           "type": "test",
           "depends_on": ["ESORG-UI-006", "ESORG-UI-007", "ESORG-UI-008", "ESORG-UI-009"],
-          "paths": ["frontend-angular/src/app/features/organizations/", "frontend-angular/tests/organization-topology-components.spec.ts"],
+          "paths": ["frontend-angular/src/app/features/organizations/", "frontend-angular/src/app/features/organizations/components/organization-topology-components.spec.ts"],
           "acceptance_criteria": [
             "Component-Harnesses prüfen Tastatur, Screenreader-Namen, Fokuswechsel zwischen Hierarchie und Graph sowie nicht-farbgebundene Statusdarstellung.",
             "Renderbudget respektiert 500 Nodes und 2000 Edges; größere Topologien werden geclustert, paginiert oder trunciert statt vollständig im DOM gehalten.",
@@ -1942,7 +1933,7 @@
         {
           "id": "ESORG-UI-003",
           "title": "Role-Slot- und Assignment-Editor mit Konfliktprüfung bauen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
@@ -1958,7 +1949,7 @@
         {
           "id": "ESORG-UI-004",
           "title": "Organization Bundle Import/Export Workbench umsetzen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
@@ -1974,7 +1965,7 @@
         {
           "id": "ESORG-UI-005",
           "title": "TUI-Read-Model und kompakte Organisationskommandos ergänzen",
-          "status": "open",
+          "status": "completed",
           "priority": "P2",
           "risk": "low",
           "type": "implementation",
@@ -1990,7 +1981,7 @@
         {
           "id": "ESORG-UI-011",
           "title": "Zweistufige Planungslineage und Worker-Task-Proposals visualisieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "implementation",
@@ -2012,12 +2003,12 @@
         {
           "id": "ESORG-SEC-005",
           "title": "Organization-Membership und API-Scope frühzeitig durchsetzen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
           "depends_on": ["ESORG-API-002"],
-          "paths": ["agent/db_models/organization_access.py", "agent/repositories/organizations/", "agent/services/organization_access_authority.py", "agent/routes/approvals.py", "agent/services/approval_request_service.py"],
+          "paths": ["agent/db_models/organizations.py", "agent/repositories/organizations/", "agent/services/organization_membership_service.py", "agent/services/project_access_authority.py", "agent/routes/approvals.py", "agent/services/approval_request_service.py"],
           "acceptance_criteria": [
             "Memberships und explizite Admin-Grants binden Principal, Tenant, Projekt, Organization, Rolle und optionales Ablaufdatum; principal.team_id gewährt keinen impliziten Organization-Scope.",
             "List-, Get-, Topology-, Dry-run-, Export- und Instance-Queries werden bereits im Repository beziehungsweise Query nach autorisiertem Scope gefiltert.",
@@ -2030,7 +2021,7 @@
         {
           "id": "ESORG-SEC-001",
           "title": "Role-Slot-Capability- und Context-Policy-Resolver implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -2046,7 +2037,7 @@
         {
           "id": "ESORG-SEC-002",
           "title": "Separation-of-Duties- und Self-Approval-Policy implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -2062,12 +2053,12 @@
         {
           "id": "ESORG-SEC-006",
           "title": "Fail-closed Evidence Resolver für Hub-bereitgestellte Source-IDs implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
           "depends_on": ["ESORG-ARCH-002", "ESORG-PLAN-001", "ESORG-JSON-002"],
-          "paths": ["agent/services/source_catalog_authority_service.py", "agent/services/citation_verification_service.py", "agent/services/context_access_policy_service.py", "tests/security/test_evidence_reference_policy.py"],
+          "paths": ["agent/services/source_catalog_authority_service.py", "agent/services/citation_verification_service.py", "agent/services/context_access_policy_service.py", "tests/security/test_organization_grounding.py"],
           "acceptance_criteria": [
             "Bestehende SourceCatalogAuthority- und CitationVerification-Ports werden erweitert und akzeptieren ausschließlich exakte SRC_*- und RUN_*-IDs aus dem assignment-bound Hub-Manifest; es entsteht kein zweites Source-ID-System und Worker können keine Bezeichner registrieren.",
             "Datei-, URL-, Artifact- oder Toolhinweise ohne erlaubte Source-ID belegen keinen Claim und erfüllen kein Handoff oder Gate.",
@@ -2079,7 +2070,7 @@
         {
           "id": "ESORG-SEC-007",
           "title": "Separation of Duties bei Routing, Handoffs und Gates durchsetzen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "security",
@@ -2096,7 +2087,7 @@
         {
           "id": "ESORG-SEC-008",
           "title": "Rollenbezogene Worker-Task-Proposal-Policy definieren und erzwingen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -2113,12 +2104,12 @@
         {
           "id": "ESORG-SEC-003",
           "title": "Organisationsweite Modell-, Token-, Kosten-, Zeit- und Parallelitätsbudgets integrieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
           "depends_on": ["ESORG-RUN-001", "ESORG-RUN-002"],
-          "paths": ["agent/services/provider_budget_service.py", "agent/services/model_profile_resolver.py", "agent/services/organization_budget_service.py"],
+          "paths": ["agent/services/model_profile_resolver.py", "agent/services/organization_budget_service.py", "agent/services/organization_runtime_application_service.py"],
           "acceptance_criteria": [
             "Budgets sind auf Organization, Unit/Team, Workflow und Task begrenzbar und werden atomar reserviert/abgerechnet.",
             "Blueprint-Dry-run schätzt für die gewählte Teamzusammensetzung Agent Slots, Parallelität, Modellprofile, Token-/Kostenrahmen und kritische Shared-Team-Engpässe.",
@@ -2129,12 +2120,12 @@
         {
           "id": "ESORG-SEC-004",
           "title": "Template-Provenienz, Prompt-Injection-Schutz und Audit/Redaction härten",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "security",
           "depends_on": ["ESORG-ROLE-001", "ESORG-JSON-004", "ESORG-RUN-007", "ESORG-SEC-006"],
-          "paths": ["agent/services/template_policy_service.py", "agent/common/audit.py", "agent/common/redaction.py"],
+          "paths": ["agent/services/organization_template_security_service.py", "agent/common/audit.py", "agent/common/redaction.py"],
           "acceptance_criteria": [
             "Jede effektive Role Instruction referenziert Template-Key, Version, Hash, erlaubte Appendixes und Governance-Stack-Version.",
             "Importierte Templates werden vor Aktivierung auf verbotene Policy-/Tool-/Credential-Direktiven geprüft.",
@@ -2151,7 +2142,7 @@
         {
           "id": "ESORG-QA-001",
           "title": "Schema-, Catalog- und Role-Template-Contract-Tests ergänzen",
-          "status": "open",
+          "status": "partial",
           "priority": "P1",
           "risk": "high",
           "type": "test",
@@ -2172,7 +2163,7 @@
         {
           "id": "ESORG-QA-002",
           "title": "Bundle-, Migration-, Revision- und Drift-Tests erstellen",
-          "status": "open",
+          "status": "partial",
           "priority": "P1",
           "risk": "critical",
           "type": "test",
@@ -2189,7 +2180,7 @@
         {
           "id": "ESORG-QA-003",
           "title": "Günstige Zwei-/Drei-Team-Planungs- und Runtime-Integrationstests bauen",
-          "status": "open",
+          "status": "partial",
           "priority": "P1",
           "risk": "critical",
           "type": "test",
@@ -2207,7 +2198,7 @@
         {
           "id": "ESORG-QA-004",
           "title": "Einzige vollständige E2E-Abnahme der mittleren Acht-Team-Referenz automatisieren",
-          "status": "open",
+          "status": "partial",
           "priority": "P1",
           "risk": "high",
           "type": "test",
@@ -2226,7 +2217,7 @@
         {
           "id": "ESORG-QA-005",
           "title": "N-Team-Projektion, Skalierungs- und Ressourcenlimits prüfen",
-          "status": "open",
+          "status": "partial",
           "priority": "P2",
           "risk": "high",
           "type": "test",
@@ -2245,7 +2236,7 @@
         {
           "id": "ESORG-QA-007",
           "title": "Security-, Authorization-, SoD-, Grounding- und Proposal-Integrationstests bauen",
-          "status": "open",
+          "status": "partial",
           "priority": "P1",
           "risk": "critical",
           "type": "test",
@@ -2265,7 +2256,7 @@
         {
           "id": "ESORG-QA-008",
           "title": "Zweistufige Planning-Pipeline und Lineage vollständig testen",
-          "status": "open",
+          "status": "partial",
           "priority": "P1",
           "risk": "critical",
           "type": "test",
@@ -2286,7 +2277,7 @@
         {
           "id": "ESORG-QA-009",
           "title": "Lifecycle-, Delete-Guard-, Reconcile- und Upgrade-Tests bauen",
-          "status": "open",
+          "status": "partial",
           "priority": "P1",
           "risk": "high",
           "type": "test",
@@ -2302,7 +2293,7 @@
         {
           "id": "ESORG-DOC-001",
           "title": "Produkt-, Planning-, Admin-, Authoring- und Betriebsdokumentation abschließen",
-          "status": "open",
+          "status": "completed",
           "priority": "P2",
           "risk": "medium",
           "type": "documentation",
@@ -2360,14 +2351,14 @@
   "meta": {
     "total_items": 91,
     "by_status": {
-      "completed": 0,
+      "completed": 81,
       "partial": 9,
-      "open": 82
+      "open": 1
     },
     "by_priority": {"P0": 31, "P1": 55, "P2": 5},
     "by_risk": {"critical": 36, "high": 27, "medium": 26, "low": 2},
     "by_type": {"architecture": 4, "contract": 8, "implementation": 48, "migration": 5, "content": 7, "configuration": 1, "test": 10, "security": 7, "documentation": 1},
-    "phase_summary": {"total": 6, "open": 6, "completed": 0},
+    "phase_summary": {"total": 6, "open": 1, "partial": 4, "completed": 1},
     "dag_summary": {"nodes": 91, "edges": 313, "roots": ["ESORG-ARCH-001"], "leaves": ["ESORG-QA-006"], "maximum_dependency_depth": 27},
     "promotion_status": "non_promotable_unverified_sources",
     "notes": [
@@ -2376,12 +2367,13 @@
       "Research und PoC bleiben getrennte Arbeitsarten und Teams, damit belegte Erkenntnis, experimenteller Prototyp und produktive Lieferung nicht vermischt werden.",
       "Platform/DevOps/SRE gehört zur Standardbaseline. Die mittlere Referenz enthält alle sieben Team-Blueprint-Typen mit zwei Delivery-Instanzen; kleine test-only Kompositionen müssen fehlende Standardfähigkeiten offen ausweisen.",
       "Bestehende v1-Blueprints und APIs bleiben kompatibel. Organization Bundle v2 ist eine additive Transport- und Kompositionsebene.",
-      "Bekannte aktuelle SOLID-/Roundtrip-Schulden: BlueprintBundleDefinition transportiert keine Workflows, Blueprint-Revisionen ignorieren Workflows und der Serializer hardcodiert Workflow-Hüllenwerte. Diese Punkte sind als P0 erfasst.",
-      "Bekannte Planning-Schulden: Category-Todo-Ebene und Parent-Lineage fehlen; Track-Adoption materialisiert heute zu direkt; JSON-Artifact- und Goal-Preference-Zustand sind für CAS, Multi-Hub-Locks und atomare Lineage unzureichend. PLAN- und API-012-Tasks schließen diese Lücken.",
+      "Organization Bundle v2 transportiert Rollen, Workflows, Policies, Topologie und optionale pseudonymisierte Assignments; Revisionen und Roundtrips binden diese Bestandteile deterministisch ein.",
+      "Category-Todo, Track-Planung, Parent-Lineage, Approval-CAS, Multi-Hub-Locks und atomare Materialisierung sind als getrennte Hub-kontrollierte Verantwortlichkeiten implementiert.",
       "Worker-Task-Proposals sind nicht gleich Taskerzeugung: Worker liefern gebundene Vorschläge, während ausschließlich der Hub Planrevision, Queue, Zielrolle, Team, Agent und Freigabe kontrolliert.",
       "Die aktuelle Todo ist mangels bereitgestellter SRC_*/RUN_*-IDs unverified und non_promotable; existing_evidence bleibt Arbeitshinweis, bis eine Hub-gebundene Research-Ausführung autoritative Source-Refs liefert.",
       "Die genaue Anzahl realer Agenten ist nicht gleich der Anzahl Role Slots: ein Agent darf kontrolliert mehrere kompatible Slots halten, wobei Kapazität und Separation of Duties serverseitig geprüft werden.",
-      "Hierarchie, fachlicher Relationsgraph und Runtime-Dependency-Overlay sind getrennte Projektionen derselben Hub-eigenen Organisation; Canvas-Positionen und Collapse-State sind keine Orchestrierungs- oder Topologiewahrheit."
+      "Hierarchie, fachlicher Relationsgraph und Runtime-Dependency-Overlay sind getrennte Projektionen derselben Hub-eigenen Organisation; Canvas-Positionen und Collapse-State sind keine Orchestrierungs- oder Topologiewahrheit.",
+      "Komplexe Tests und das Release-Konvergenzgate bleiben bis zur ausdrücklichen Freigabe unausgeführt; ihre Definitionen zählen daher als partial und das globale Gate als open."
     ],
     "recommended_order": [
       "ESORG-ARCH-001",
