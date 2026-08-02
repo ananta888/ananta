@@ -20,18 +20,17 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   private domainPollTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly indexes = signal<any[]>([]);
-  readonly graphMode = signal('self');
+  readonly selectedConnectionId = signal('');
   readonly rawGraph = signal<any>(null);
   readonly loading = signal(false);
   readonly error = signal('');
-  readonly domains = signal<Array<{ domain: string; display_name: string; file_count: number; kind: string; depth?: number }>>([]);
-  readonly domain = signal('agent.routes');
-  readonly detailLevel = signal(2);
-  readonly graphDepth = signal(0);
-  readonly maxNodes = signal(0);
-  readonly maxEdges = signal(0);
   readonly metadata = signal<Record<string, unknown> | null>(null);
-  readonly selectedIndex = computed(() => this.indexes().find(index => index.id === this.graphMode()) ?? null);
+  readonly selectedIndex = computed(
+    () => this.indexes().find(index => index.id === this.selectedConnectionId()) ?? null,
+  );
+  readonly selectedKnowledgeIndexId = computed(
+    () => String(this.selectedIndex()?.knowledge_index_id ?? '').trim(),
+  );
 
   readonly status = signal<any>(null);
   readonly searchQuery = signal('');
@@ -43,15 +42,23 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   readonly clusterDomains = signal<any[]>([]);
 
   ngOnInit(): void {
-    this.service.listKnowledgeIndexes().subscribe(indexes => {
-      this.indexes.set([...indexes]);
-      const firstConnectionId = String(indexes[0]?.['id'] || '').trim();
-      if (firstConnectionId) {
-        this.graphMode.set(firstConnectionId);
-        this.loadSelfGraph();
-      } else {
-        this.error.set('Keine kanonische Connection mit aktivem Index verfügbar');
-      }
+    this.loading.set(true);
+    this.service.listKnowledgeIndexes().subscribe({
+      next: indexes => {
+        this.indexes.set([...indexes]);
+        const firstConnectionId = String(indexes[0]?.['id'] || '').trim();
+        if (!firstConnectionId) {
+          this.loading.set(false);
+          this.error.set('Keine kanonische Connection mit aktivem Index verfügbar');
+          return;
+        }
+        this.selectedConnectionId.set(firstConnectionId);
+        this.loadGraph();
+      },
+      error: () => {
+        this.loading.set(false);
+        this.error.set('Aktive Projektindizes konnten nicht geladen werden');
+      },
     });
   }
 
@@ -60,10 +67,10 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     if (this.domainPollTimer !== null) clearTimeout(this.domainPollTimer);
   }
 
-  loadSelfGraph(): void {
-    const connectionId = this.graphMode();
-    if (connectionId === 'self') {
-      this.error.set('Der ungebundene Self-Graph ist in v1 nicht verfügbar');
+  loadGraph(): void {
+    const connectionId = this.selectedConnectionId();
+    if (!connectionId) {
+      this.error.set('Keine projektgebundene Connection ausgewählt');
       return;
     }
     this.loading.set(true);
@@ -71,25 +78,36 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     this.rawGraph.set(null);
     this.service.getCodeCompassGraph(connectionId).subscribe({
       next: graph => {
-        if (this.graphMode() !== connectionId) return;
+        if (this.selectedConnectionId() !== connectionId) return;
         this.loading.set(false);
-        if (!graph) return this.error.set('Self-Graph nicht verfügbar');
+        if (!graph) return this.error.set('Quellgraph nicht verfügbar');
         this.rawGraph.set(graph);
         this.metadata.set(graph?.metadata ?? null);
+        const nodeCount = Number(
+          graph?.metadata?.node_count ?? graph?.nodes?.length ?? 0,
+        );
+        if (!Number.isFinite(nodeCount) || nodeCount <= 0) {
+          this.error.set(
+            'Der aktive Index enthält keinen Quellgraphen. Quelle mit dem Profil "Deep Code" neu indexieren.',
+          );
+          return;
+        }
+        const knowledgeIndexId = this.selectedKnowledgeIndexId();
+        if (knowledgeIndexId) this.initializeWiki(knowledgeIndexId);
       },
       error: () => {
-        if (this.graphMode() === connectionId) {
+        if (this.selectedConnectionId() === connectionId) {
           this.loading.set(false);
-          this.error.set('Fehler beim Laden des Self-Graphs');
+          this.error.set('Fehler beim Laden des projektgebundenen Quellgraphen');
         }
       },
     });
   }
 
   changeSource(value: string): void {
-    this.graphMode.set(value);
+    this.selectedConnectionId.set(value);
     this.resetViewState();
-    this.loadSelfGraph();
+    this.loadGraph();
   }
 
   search(query: string): void {
@@ -102,8 +120,8 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   }
 
   expand(slug: string): void {
-    const indexId = this.graphMode();
-    if (indexId === 'self') return;
+    const indexId = this.selectedKnowledgeIndexId();
+    if (!indexId) return;
     this.expandedSlug.set(slug);
     this.searchResults.set([]);
     this.searchQuery.set('');
@@ -111,14 +129,14 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     this.error.set('');
     this.service.expandWikiArticle(indexId, slug).subscribe({
       next: graph => {
-        if (this.graphMode() !== indexId) return;
+        if (this.selectedKnowledgeIndexId() !== indexId) return;
         this.loading.set(false);
         if (!graph?.nodes?.length) return this.error.set('Keine Nachbarn gefunden');
         this.rawGraph.set(graph);
         this.metadata.set(graph.metadata ?? null);
       },
       error: () => {
-        if (this.graphMode() === indexId) {
+        if (this.selectedKnowledgeIndexId() === indexId) {
           this.loading.set(false);
           this.error.set('Fehler beim Laden');
         }
@@ -127,21 +145,22 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   }
 
   selectDomain(mode: string, domainId: string): void {
-    if (!domainId || this.graphMode() === 'self') return;
+    if (!domainId) return;
     if (mode === 'hubs') return this.expand(domainId);
-    const indexId = this.graphMode();
+    const indexId = this.selectedKnowledgeIndexId();
+    if (!indexId) return;
     this.loading.set(true);
     this.error.set('');
     this.service.getWikiDomainGraph(indexId, mode, domainId).subscribe({
       next: graph => {
-        if (this.graphMode() !== indexId) return;
+        if (this.selectedKnowledgeIndexId() !== indexId) return;
         this.loading.set(false);
         if (!graph?.nodes?.length) return this.error.set('Keine Artikel in dieser Domäne');
         this.rawGraph.set(graph);
         this.metadata.set(graph.metadata ?? null);
       },
       error: () => {
-        if (this.graphMode() === indexId) {
+        if (this.selectedKnowledgeIndexId() === indexId) {
           this.loading.set(false);
           this.error.set('Fehler beim Laden');
         }
@@ -150,26 +169,21 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   }
 
   build(force = false): void {
-    const indexId = this.graphMode();
-    if (indexId === 'self') return;
+    const indexId = this.selectedKnowledgeIndexId();
+    if (!indexId) return;
     this.status.set({ status: 'building' });
     this.service.triggerWikiGraphBuild(indexId, force).subscribe(() => this.pollStatus(indexId));
   }
 
   buildDomain(mode: string): void {
-    const indexId = this.graphMode();
-    if (indexId === 'self') return;
+    const indexId = this.selectedKnowledgeIndexId();
+    if (!indexId) return;
     this.domainStatus.update(current => ({ ...(current ?? {}), [mode]: { status: 'building' } }));
     this.service.buildWikiDomains(indexId, mode).subscribe(() => this.pollDomainStatus(indexId, mode));
   }
 
   domainModeStatus(mode: string): string {
     return this.domainStatus()?.[mode]?.status ?? 'not_built';
-  }
-
-  domainOptionLabel(item: { display_name: string; file_count: number; depth?: number }): string {
-    const depth = Math.min(Math.max(item.depth ?? 0, 0), 4);
-    return `${depth ? `${'--'.repeat(depth)} ` : ''}${item.display_name}${item.file_count ? ` (${item.file_count})` : ''}`;
   }
 
   indexLabel(index: any): string {

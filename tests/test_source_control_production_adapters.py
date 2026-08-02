@@ -18,6 +18,7 @@ from agent.db_models.source_control import (
 )
 from agent.services.source_control_production_adapters import (
     ContainedArtifactDeletionService,
+    HubSourceControlOperationsAdapter,
     HubBoundSourceIndexSubmissionAdapter,
     ScopedWorkerModelDestinationCatalog,
     SourceControlProductionAdapterError,
@@ -54,6 +55,51 @@ class _Model:
     availability: ModelAvailability = ModelAvailability.AVAILABLE
     health: ModelHealth = ModelHealth.HEALTHY
     capabilities: tuple[str, ...] = ("class:code",)
+
+
+def test_active_graph_projects_codecompass_edge_identifiers() -> None:
+    class _Store:
+        def load(self):
+            return {
+                "state": {"manifest_hash": "sha256:graph"},
+                "nodes": [{"id": "n1"}, {"id": "n2"}],
+                "edges": [
+                    {
+                        "source_id": "n1",
+                        "target_id": "n2",
+                        "edge_type": "declares",
+                    }
+                ],
+            }
+
+        def load_visual_metrics(self):
+            return None
+
+    class _Projection:
+        def __init__(self) -> None:
+            self.edges = []
+
+        def project(self, **kwargs):
+            self.edges = list(kwargs["edges"])
+            return {"metadata": dict(kwargs["metadata"])}
+
+    projection = _Projection()
+    adapter = object.__new__(HubSourceControlOperationsAdapter)
+    adapter._projection = projection
+    adapter._active_index = lambda **_kwargs: type("Index", (), {"id": "index-1"})()
+    adapter._graph_store = lambda _index: _Store()
+    adapter._artifact_projection = lambda _index: {"status": "verified"}
+
+    result = adapter.graph(parameters={"limit": 100})
+
+    assert projection.edges == [
+        {
+            "source_id": "n1",
+            "target_id": "n2",
+            "edge_type": "declares",
+        }
+    ]
+    assert result["text_alternative"] == "Graph with 2 nodes and 1 edges."
 
 
 def test_destination_catalog_requires_server_scope_and_model_evidence() -> None:

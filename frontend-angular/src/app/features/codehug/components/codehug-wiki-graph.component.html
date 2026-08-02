@@ -1,24 +1,14 @@
 <div class="ch-int-bar">
   <label class="ch-lbl">Quelle</label>
-  <select class="ch-sel" [value]="graphMode()" (change)="changeSource($any($event.target).value)">
-    <option value="self">Ananta (Codebase)</option>
+  <select class="ch-sel" [value]="selectedConnectionId()" (change)="changeSource($any($event.target).value)">
+    @if (!selectedConnectionId()) {
+      <option value="" disabled>Aktiven Projektindex laden…</option>
+    }
     @for (index of indexes(); track index.id) {
       <option [value]="index.id">{{ indexLabel(index) }}</option>
     }
   </select>
-  @if (graphMode() === 'self') {
-    <label class="ch-lbl">Modul</label>
-    <select class="ch-sel" [value]="domain()" (change)="domain.set($any($event.target).value); loadSelfGraph()">
-      @for (item of domains(); track item.domain) {
-        <option [value]="item.domain">{{ domainOptionLabel(item) }}</option>
-      }
-    </select>
-    <label class="ch-lbl">Detailgrad</label>
-    <select class="ch-sel" [value]="detailLevel()" (change)="detailLevel.set(+$any($event.target).value); loadSelfGraph()">
-      <option value="0">Dateien</option><option value="1">+ Typen</option>
-      <option value="2">+ Funktionen</option><option value="3">+ Details</option>
-    </select>
-  } @else if (status()?.status === 'ready') {
+  @if (selectedConnectionId() && status()?.status === 'ready') {
     @for (entry of [
       { mode: 'hubs', label: 'Hub-Artikel', values: hubDomains() },
       { mode: 'categories', label: 'Kategorien', values: categoryDomains() },
@@ -58,10 +48,10 @@
 }
 <div class="ch-graph-wrap">
   @if (rawGraph() && (rawGraph().nodes?.length || rawGraph().entities?.length)) {
-    <app-graph-viewer [rawGraphData]="rawGraph()" [wikiIndexId]="graphMode() !== 'self' ? graphMode() : ''" />
+    <app-graph-viewer [rawGraphData]="rawGraph()" [wikiIndexId]="selectedKnowledgeIndexId()" />
   } @else if (!loading()) {
     <div class="ch-wg-empty-state">
-      <span>{{ graphMode() === 'self' ? 'Kein Graph verfügbar.' : 'Domäne wählen oder Artikel suchen.' }}</span>
+      <span>Kein Quellgraph im aktiven Projektindex.</span>
     </div>
   }
 </div>

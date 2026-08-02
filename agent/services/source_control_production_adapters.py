@@ -441,8 +441,18 @@ class HubSourceControlOperationsAdapter:
             edge
             for edge in list(raw.get("edges") or [])
             if isinstance(edge, Mapping)
-            and str(edge.get("source") or edge.get("from") or "") in node_ids
-            and str(edge.get("target") or edge.get("to") or "") in node_ids
+            and str(
+                edge.get("source_id")
+                or edge.get("source")
+                or edge.get("from")
+                or ""
+            ) in node_ids
+            and str(
+                edge.get("target_id")
+                or edge.get("target")
+                or edge.get("to")
+                or ""
+            ) in node_ids
         ][: limit * 4]
         state = raw.get("state")
         projected = self._projection.project(

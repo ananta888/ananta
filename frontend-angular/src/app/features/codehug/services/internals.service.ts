@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 
 import { AgentDirectoryService } from '../../../services/agent-directory.service';
@@ -227,12 +227,6 @@ export class InternalsService {
     );
   }
 
-  getSelfGraphDomains(): Observable<{domain: string; display_name: string; file_count: number; kind: string; depth?: number; parent_domain?: string}[]> {
-    return throwError(
-      () => new Error('source_control_v1_self_graph_domains_unavailable'),
-    );
-  }
-
   getWikiGraphStatus(indexId: string): Observable<any> {
     return this.http.get<any>(`${this.hubUrl()}/api/wiki-graph/status?index_id=${encodeURIComponent(indexId)}`).pipe(
       map(r => r?.data ?? null),
@@ -322,17 +316,6 @@ export class InternalsService {
     return this.http.get<any>(`${this.hubUrl()}/api/wiki-graph/domain-articles?${params}`).pipe(
       map(r => Array.isArray(r?.data?.articles) ? r.data.articles : []),
       catchError(() => of([])),
-    );
-  }
-
-  getSelfGraph(domain = 'agent.routes', detailLevel = 2, graphDepth = 0, maxNodes = 0, maxEdges = 0): Observable<any> {
-    void domain;
-    void detailLevel;
-    void graphDepth;
-    void maxNodes;
-    void maxEdges;
-    return throwError(
-      () => new Error('source_control_v1_self_graph_unavailable'),
     );
   }
 
