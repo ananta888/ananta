@@ -1,0 +1,159 @@
+{
+  "schema": "ananta.enterprise-organization.release-profile.v1",
+  "profile_version": 1,
+  "release_task_id": "ESORG-QA-006",
+  "complex_execution_approval_env": "ANANTA_APPROVE_COMPLEX_ORGANIZATION_TESTS",
+  "suites": [
+    {
+      "id": "python-static",
+      "tier": "static",
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "command": [
+        "python",
+        "-m",
+        "compileall",
+        "-q",
+        "agent/db_models/organizations.py",
+        "agent/models/organization_models.py",
+        "agent/repositories/organizations",
+        "agent/services",
+        "agent/routes"
+      ]
+    },
+    {
+      "id": "angular-static",
+      "tier": "static",
+      "cwd": "frontend-angular",
+      "timeout_seconds": 180,
+      "command": ["npx", "ngc", "-p", "tsconfig.app.json"]
+    },
+    {
+      "id": "schema-catalog-role-contracts",
+      "tier": "complex",
+      "cwd": ".",
+      "timeout_seconds": 600,
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_organization_blueprint_catalog_schema.py",
+        "tests/test_organization_role_templates.py",
+        "tests/test_seed_catalog_fragments.py"
+      ]
+    },
+    {
+      "id": "bundle-migration-revision",
+      "tier": "complex",
+      "cwd": ".",
+      "timeout_seconds": 900,
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_organization_bundle_service.py",
+        "tests/test_organization_bundle_migration.py",
+        "tests/test_organization_definition_versions.py",
+        "tests/test_organization_unit_of_work.py"
+      ]
+    },
+    {
+      "id": "small-runtime-matrix",
+      "tier": "complex",
+      "cwd": ".",
+      "timeout_seconds": 1200,
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/integration/test_small_organization_runtime_matrix.py",
+        "tests/integration/test_team_handoff_runtime.py",
+        "tests/integration/test_worker_task_proposals.py",
+        "tests/test_organization_runtime_services.py",
+        "tests/test_organization_security_and_routing.py"
+      ]
+    },
+    {
+      "id": "planning-lineage",
+      "tier": "complex",
+      "cwd": ".",
+      "timeout_seconds": 900,
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_planning_category_todo_pipeline_service.py",
+        "tests/test_category_to_planning_track_service.py",
+        "tests/test_planning_hierarchy_lineage.py",
+        "tests/test_enterprise_planning_contracts.py"
+      ]
+    },
+    {
+      "id": "authorization-security",
+      "tier": "complex",
+      "cwd": ".",
+      "timeout_seconds": 1200,
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/security/test_organization_authorization_matrix.py",
+        "tests/security/test_organization_grounding.py",
+        "tests/security/test_worker_task_proposal_policy.py",
+        "tests/security/test_worker_callback_capability.py"
+      ]
+    },
+    {
+      "id": "lifecycle-delete-reconcile",
+      "tier": "complex",
+      "cwd": ".",
+      "timeout_seconds": 900,
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_organization_lifecycle.py",
+        "tests/test_organization_team_delete_guard.py",
+        "tests/test_organization_reconciliation.py"
+      ]
+    },
+    {
+      "id": "angular-unit-accessibility",
+      "tier": "complex",
+      "cwd": "frontend-angular",
+      "timeout_seconds": 900,
+      "command": ["npx", "vitest", "run", "src/app/features/organizations"]
+    },
+    {
+      "id": "n-team-performance",
+      "tier": "complex",
+      "cwd": ".",
+      "timeout_seconds": 1800,
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/performance/test_n_team_organization_projection.py"
+      ]
+    },
+    {
+      "id": "medium-eight-team-e2e",
+      "tier": "full_e2e",
+      "cwd": "frontend-angular",
+      "timeout_seconds": 1800,
+      "command": [
+        "npx",
+        "playwright",
+        "test",
+        "tests/enterprise-organization-medium-eight-team.spec.ts"
+      ]
+    }
+  ]
+}

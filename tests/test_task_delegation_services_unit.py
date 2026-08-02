@@ -7,8 +7,8 @@ from agent.services.task_delegation_services import (
     TaskDelegationPlan,
     TaskDelegationPlanner,
     TaskDelegationResultWriter,
-    WorkerExecutionContextFactory,
     WorkerExecutionBundle,
+    WorkerExecutionContextFactory,
 )
 from agent.services.task_orchestration_service import CompletionOutcome, TaskOrchestrationService
 
@@ -213,7 +213,12 @@ def _isolate_result_writer_repositories(monkeypatch):
 def test_task_delegation_planner_selects_capable_worker_with_routing_hint():
     deps = _Dependencies(
         workers=[
-            {"url": "http://planner:5000", "status": "online", "capabilities": ["planning"], "worker_roles": ["planner"]},
+            {
+                "url": "http://planner:5000",
+                "status": "online",
+                "capabilities": ["planning"],
+                "worker_roles": ["planner"],
+            },
             {"url": "http://coder:5000", "status": "online", "capabilities": ["coding"], "worker_roles": ["coder"]},
         ],
         routing_hint={"preferred_worker_url": "http://planner:5000", "reason": "planner role"},
@@ -242,11 +247,71 @@ def test_task_delegation_planner_keeps_manual_override_without_policy_selection(
 
 def test_task_delegation_planner_returns_no_worker_available_for_empty_directory():
     request = _request(data_overrides={"agent_url": "", "required_capabilities": ["planning"]})
-    result = TaskDelegationPlanner(_Dependencies(workers=[])).plan(request=request, agent_registry_service=_AgentRegistry())
+    result = TaskDelegationPlanner(_Dependencies(workers=[])).plan(
+        request=request,
+        agent_registry_service=_AgentRegistry(),
+    )
 
     assert result["error"] == "no_worker_available"
     assert result["code"] == 409
     assert "reasons" in result["data"]
+
+
+def test_organization_track_delegation_uses_only_persisted_dispatch_binding():
+    request = _request(
+        data_overrides={"agent_url": "http://caller-hint:5000"},
+        parent_overrides={
+            "tenant_id": "tenant-1",
+            "project_id": "project-1",
+            "organization_id": "org-1",
+            "unit_id": "unit-1",
+            "role_slot_id": "slot-1",
+            "worker_execution_context": {
+                "planning_lineage": {
+                    "schema": "organization_planning_lineage.v1"
+                }
+            },
+        },
+    )
+    resolver = SimpleNamespace(resolve=lambda _task: "http://hub-routed:5000")
+
+    plan = TaskDelegationPlanner(
+        _Dependencies(workers=[]),
+        organization_binding_resolver=resolver,
+    ).plan(request=request, agent_registry_service=_AgentRegistry())
+
+    assert isinstance(plan, TaskDelegationPlan)
+    assert plan.agent_url == "http://hub-routed:5000"
+    assert plan.selected_by_policy is True
+
+
+def test_organization_track_delegation_fails_closed_without_outbox_binding():
+    request = _request(
+        parent_overrides={
+            "tenant_id": "tenant-1",
+            "project_id": "project-1",
+            "organization_id": "org-1",
+            "unit_id": "unit-1",
+            "role_slot_id": "slot-1",
+            "worker_execution_context": {
+                "planning_lineage": {
+                    "schema": "organization_planning_lineage.v1"
+                }
+            },
+        },
+    )
+    resolver = SimpleNamespace(resolve=lambda _task: None)
+
+    result = TaskDelegationPlanner(
+        _Dependencies(workers=[]),
+        organization_binding_resolver=resolver,
+    ).plan(request=request, agent_registry_service=_AgentRegistry())
+
+    assert result == {
+        "error": "organization_planning_dispatch_binding_required",
+        "code": 409,
+        "data": {},
+    }
 
 
 def test_worker_execution_context_factory_builds_context_job_workspace_and_payload():
@@ -254,7 +319,11 @@ def test_worker_execution_context_factory_builds_context_job_workspace_and_paylo
     plan = TaskDelegationPlan(
         agent_url="http://planner:5000",
         selected_by_policy=True,
-        selection=SimpleNamespace(reasons=["capability_match"], matched_capabilities=["planning"], matched_roles=["planner"]),
+        selection=SimpleNamespace(
+            reasons=["capability_match"],
+            matched_capabilities=["planning"],
+            matched_roles=["planner"],
+        ),
         policy_decision=SimpleNamespace(id="policy-1"),
         routing_hint={"preferred_worker_url": "http://planner:5000"},
         effective_task_kind="planning",
@@ -401,8 +470,7 @@ def test_task_delegation_result_writer_reports_forwarding_failure_without_parent
 def test_manual_recovery_delegation_fails_closed_without_worker_transport(
     monkeypatch,
 ):
-    from agent.services import recovery_dispatch_gate_service
-    from agent.services import repository_registry
+    from agent.services import recovery_dispatch_gate_service, repository_registry
 
     deps = _Dependencies()
     request = _request()

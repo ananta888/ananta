@@ -1,0 +1,76 @@
+{
+  "schema": "ananta.organization.small-scenario-catalog.v1",
+  "production_seed_allowed": false,
+  "fixture_scope": [
+    "schema",
+    "dry_run",
+    "repository_integration",
+    "planning_with_fakes",
+    "runtime_with_fakes"
+  ],
+  "admission": {
+    "policy_ref": "test_only_small_organization@1",
+    "fresh_request_bound_exception_required": true,
+    "reusable_grants_forbidden": true
+  },
+  "fixtures": [
+    {
+      "key": "two_delivery",
+      "team_blueprint_counts": {
+        "enterprise_product_delivery_scrum": 2
+      },
+      "expected_total_team_count": 2,
+      "expected_contains_edges": 6,
+      "expected_organization_edges": 0,
+      "expected_diagnostic_codes": [
+        "STANDARD_CAPABILITY_GAP_PORTFOLIO",
+        "STANDARD_CAPABILITY_GAP_RESEARCH",
+        "STANDARD_CAPABILITY_GAP_PLATFORM"
+      ]
+    },
+    {
+      "key": "delivery_plus_platform",
+      "team_blueprint_counts": {
+        "enterprise_product_delivery_scrum": 1,
+        "platform_devops_sre": 1
+      },
+      "expected_total_team_count": 2,
+      "expected_contains_edges": 6,
+      "expected_organization_edges": 1,
+      "expected_diagnostic_codes": [
+        "STANDARD_CAPABILITY_GAP_PORTFOLIO",
+        "STANDARD_CAPABILITY_GAP_RESEARCH",
+        "STANDARD_CAPABILITY_GAP_DELIVERY_REDUNDANCY"
+      ]
+    },
+    {
+      "key": "two_delivery_plus_platform",
+      "team_blueprint_counts": {
+        "enterprise_product_delivery_scrum": 2,
+        "platform_devops_sre": 1
+      },
+      "expected_total_team_count": 3,
+      "expected_contains_edges": 7,
+      "expected_organization_edges": 1,
+      "expected_diagnostic_codes": [
+        "STANDARD_CAPABILITY_GAP_PORTFOLIO",
+        "STANDARD_CAPABILITY_GAP_RESEARCH"
+      ]
+    },
+    {
+      "key": "delivery_research_platform",
+      "team_blueprint_counts": {
+        "enterprise_product_delivery_scrum": 1,
+        "platform_devops_sre": 1,
+        "research_and_discovery": 1
+      },
+      "expected_total_team_count": 3,
+      "expected_contains_edges": 7,
+      "expected_organization_edges": 1,
+      "expected_diagnostic_codes": [
+        "STANDARD_CAPABILITY_GAP_PORTFOLIO",
+        "STANDARD_CAPABILITY_GAP_DELIVERY_REDUNDANCY"
+      ]
+    }
+  ]
+}
