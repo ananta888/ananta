@@ -19,6 +19,7 @@ describe('SourceIndexJourneyComponent', () => {
     loading: signal(false),
     mutationLoading: signal(false),
     indexProfiles: signal<readonly { profileId: string }[]>([]),
+    revisionId: signal(''),
     sourceError: signal(null),
     lifecycleMessage: signal(''),
     can: vi.fn().mockReturnValue(false),
@@ -50,6 +51,7 @@ describe('SourceIndexJourneyComponent', () => {
     selectedProjectId.set('project-alpha');
     detail.runs.set([]);
     detail.indexProfiles.set([]);
+    detail.revisionId.set('');
     detail.can.mockReturnValue(false);
     indexAccess.prepare.mockReturnValue(of(indexAccessPreparation()));
     indexAccess.grant.mockReturnValue(of(indexAccessResult()));
@@ -131,10 +133,11 @@ describe('SourceIndexJourneyComponent', () => {
       next_cursor: null,
     }));
     catalog.loadIndexProfiles.mockReturnValue(of([profile]));
-    detail.can.mockImplementation((action: string) => action === 'index' || action === 'grant');
+    detail.can.mockImplementation((action: string) => action === 'grant');
     const journey = TestBed.runInInjectionContext(() => new SourceIndexJourneyComponent());
     TestBed.flushEffects();
     journey.chooseExisting(connectionId);
+    detail.revisionId.set(indexAccessPreparation().source_revision.source_revision_id);
 
     expect(journey.profileId()).toBe(profile.profileId);
     expect(journey.canStartIndex()).toBe(false);
@@ -152,6 +155,14 @@ describe('SourceIndexJourneyComponent', () => {
       'project-alpha',
       expect.objectContaining({ confirmed: true }),
       expect.stringMatching(/^ui:index-access:/),
+    );
+    journey.startIndex();
+    expect(detail.startIndex).toHaveBeenCalledWith(
+      profile.profileId,
+      expect.objectContaining({
+        connection_id: connectionId,
+        next_actions: ['start_index_run'],
+      }),
     );
   });
 

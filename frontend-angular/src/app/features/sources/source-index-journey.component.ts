@@ -470,10 +470,15 @@ export class SourceIndexJourneyComponent {
   readonly accessLoading = signal(false);
   readonly accessGranting = signal(false);
   readonly accessError = signal('');
-  readonly accessReady = computed(() =>
-    this.accessResult()?.access_ready === true
-      && this.accessResult()?.next_actions.includes('start_index_run') === true,
-  );
+  readonly accessReady = computed(() => {
+    const result = this.accessResult();
+    return Boolean(
+      result?.access_ready === true
+        && result.connection_id === this.selectedConnectionId()
+        && result.source_revision_id === this.detail.revisionId()
+        && result.next_actions.includes('start_index_run'),
+    );
+  });
   readonly selectedAccessOption = computed(() =>
     this.accessPreparation()?.options.find(option => option.option_id === this.accessOptionId()) ?? null,
   );
@@ -518,7 +523,6 @@ export class SourceIndexJourneyComponent {
       this.selectedConnectionId() &&
         this.profiles().some((profile) => profile.profileId === this.profileId()) &&
         this.detail.indexProfiles().some((profile) => profile.profileId === this.profileId()) &&
-        this.detail.can('index') &&
         this.accessReady() &&
         !this.detail.mutationLoading(),
     ),
@@ -600,7 +604,8 @@ export class SourceIndexJourneyComponent {
 
   startIndex(): void {
     const profileId = this.profileId();
-    if (this.canStartIndex()) this.detail.startIndex(profileId);
+    const access = this.accessResult();
+    if (this.canStartIndex() && access) this.detail.startIndex(profileId, access);
   }
 
   refreshSource(): void {

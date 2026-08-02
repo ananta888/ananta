@@ -209,6 +209,49 @@ describe('SourceDetailFacade', () => {
     });
   });
 
+  it('accepts the scoped one-time grant result when the projection exposes no index action', () => {
+    getConnection.mockReturnValue(of({
+      etag: connectionEtag,
+      projection: {
+        schema: 'ananta.source-control.projection.v1',
+        connection_id: connectionId,
+        etag: connectionEtag,
+        connection: {
+          connection_id: connectionId,
+          project_id: 'project-alpha',
+          display_name: 'Primary source',
+          connector_type: 'direct_text',
+          state: 'ready',
+        },
+        revision: {
+          source_revision_id: revisionId,
+          revision_digest: 'a'.repeat(64),
+          captured_at: '2026-07-30T10:00:00Z',
+        },
+        admission: { state: 'admitted' },
+        index: null,
+        active_index: null,
+        grants: [],
+        health: {},
+        next_actions: ['refresh', 'activate', 'grant', 'disable'],
+        stale: false,
+      },
+    }));
+    const facade = TestBed.inject(SourceDetailFacade);
+    facade.load(connectionId);
+
+    facade.startIndex('profile-default', indexAccessAuthorization());
+
+    expect(startIndexRun).toHaveBeenCalledWith(
+      connectionId,
+      'profile-default',
+      {
+        etag: connectionEtag,
+        idempotencyKey: expect.stringMatching(/^ui:index:start:/),
+      },
+    );
+  });
+
   it('creates and revokes grants with policy/grant CAS and no browser-invented source IDs', () => {
     const facade = TestBed.inject(SourceDetailFacade);
     facade.load(connectionId);
@@ -299,3 +342,31 @@ describe('SourceDetailFacade', () => {
     expect(startIndexRun).not.toHaveBeenCalled();
   });
 });
+
+function indexAccessAuthorization() {
+  return {
+    access_ready: true as const,
+    connection_id: `conn_${'1'.repeat(64)}`,
+    source_revision_id: `srev_${'2'.repeat(64)}`,
+    destination_id: 'worker-alpha',
+    option_id: 'redacted-local-once',
+    effect: {
+      provider_location: 'local' as const,
+      transformation: 'redacted' as const,
+      one_time: true as const,
+    },
+    policy: {
+      policy_id: 'policy-index-access',
+      version: 1,
+      state: 'active',
+      etag: 'b'.repeat(64),
+    },
+    grant: {
+      grant_id: 'grant-index-access',
+      state: 'active',
+      etag: 'c'.repeat(64),
+      expires_at: '2026-08-02T12:15:00Z',
+    },
+    next_actions: ['start_index_run'] as const,
+  };
+}

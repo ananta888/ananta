@@ -2,6 +2,7 @@ import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angul
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize, forkJoin } from 'rxjs';
 import type { Observable } from 'rxjs';
+import type { SourceControlIndexAccessResult } from '../../models/source-control-index-access.model';
 import {
   SourceControlJobEvent,
   SourceControlIndexRecord,
@@ -163,6 +164,7 @@ export class SourceDetailFacade {
   private readonly requestProjectId = signal('');
   private readonly projectId = signal('');
   private readonly sourceRevisionId = signal('');
+  readonly revisionId = this.sourceRevisionId.asReadonly();
   private readonly etag = signal('');
   private readonly nextActions = signal<readonly string[]>([]);
   private readonly activeIndexId = signal<string | null>(null);
@@ -448,7 +450,10 @@ export class SourceDetailFacade {
     };
   }
 
-  startIndex(profileId: string): void {
+  startIndex(
+    profileId: string,
+    accessAuthorization?: SourceControlIndexAccessResult,
+  ): void {
     const connectionId = this.connectionId();
     const connectionEtag = this.etag();
     const profile = this.indexProfiles().find(
@@ -458,13 +463,19 @@ export class SourceDetailFacade {
       !connectionId ||
       !connectionEtag ||
       !profile ||
-      !this.can('index') ||
+      (
+        !this.can('index')
+        && !this.isIndexAccessAuthorizationValid(
+          connectionId,
+          accessAuthorization,
+        )
+      ) ||
       this.mutationLoading()
     ) {
       this.mutationError.set({
         state: 'conflict',
         message:
-          'Ein Indexlauf erfordert ein serverseitiges Profil, den aktuellen Connection-ETag und die Hub-Aktion index.',
+          'Ein Indexlauf erfordert ein serverseitiges Profil, den aktuellen Connection-ETag und die Hub-Aktion index oder einen passenden einmaligen Indexzugriffs-Grant.',
       });
       return;
     }
@@ -475,6 +486,23 @@ export class SourceDetailFacade {
         this.guard(connectionEtag, 'index:start'),
       ),
       'Indexlauf wurde serverseitig gestartet.',
+    );
+  }
+
+  private isIndexAccessAuthorizationValid(
+    connectionId: string,
+    authorization?: SourceControlIndexAccessResult,
+  ): boolean {
+    return Boolean(
+      authorization?.access_ready === true
+        && authorization.connection_id === connectionId
+        && authorization.source_revision_id === this.sourceRevisionId()
+        && authorization.effect.provider_location === 'local'
+        && authorization.effect.transformation === 'redacted'
+        && authorization.effect.one_time === true
+        && authorization.grant.state === 'active'
+        && authorization.next_actions.length === 1
+        && authorization.next_actions[0] === 'start_index_run',
     );
   }
 
