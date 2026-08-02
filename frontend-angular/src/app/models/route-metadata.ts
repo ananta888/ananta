@@ -61,6 +61,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   templates: { label: 'Vorlagen', area: 'Configure', navGroup: 'Arbeiten', navOrder: 40, simpleNav: true },
   'instruction-layers': { label: 'Instruction Layers', area: 'Configure', navGroup: 'Konfiguration', navOrder: 35, expertOnly: true },
   teams: { label: 'Teams', area: 'Configure', navGroup: 'Konfiguration', navOrder: 20, expertOnly: true },
+  organizations: { label: 'Organisationen', area: 'Configure', navGroup: 'Konfiguration', navOrder: 21, expertOnly: true },
   'audit-log': { label: 'Audit-Logs', area: 'System', navGroup: 'Konfiguration', navOrder: 30, adminOnly: true, expertOnly: true },
   'user-management': { label: 'Benutzerverwaltung', area: 'System', navGroup: 'Konfiguration', navOrder: 31, adminOnly: true, expertOnly: true },
   'admin-diagnostics': { label: 'Admin-Diagnose', area: 'System', navGroup: 'Konfiguration', navOrder: 32, adminOnly: true, expertOnly: true },

@@ -74,6 +74,7 @@ class OpsApiClient:
         path: str,
         *,
         payload: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
         timeout: float = 5.0,
     ) -> dict[str, Any]:
         normalized_method = str(method or "").strip().upper()
@@ -87,17 +88,22 @@ class OpsApiClient:
         ):
             raise ValueError("hub_http_path_must_be_relative")
         url = f"{self._hub_url}{normalized_path}"
-        headers = {"Accept": "application/json"}
+        request_headers = {"Accept": "application/json"}
         body: bytes | None = None
         if self._token:
-            headers["Authorization"] = f"Bearer {self._token}"
+            request_headers["Authorization"] = f"Bearer {self._token}"
+        for name, value in dict(headers or {}).items():
+            normalized_name = str(name or "").strip()
+            if not normalized_name or normalized_name.lower() in {"authorization", "host"}:
+                raise ValueError("hub_http_header_not_allowed")
+            request_headers[normalized_name] = str(value)
         if payload is not None:
-            headers["Content-Type"] = "application/json"
+            request_headers["Content-Type"] = "application/json"
             body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
         request = urllib.request.Request(
             url,
             data=body,
-            headers=headers,
+            headers=request_headers,
             method=normalized_method,
         )
         opener = urllib.request.build_opener(_NoRedirectHandler())

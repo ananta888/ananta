@@ -184,3 +184,4 @@ scripts/dyndns.conf
 /test-results/
 /.coverage*
 /.*
+/frontend-angular/out-tsc/

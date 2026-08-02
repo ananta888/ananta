@@ -297,6 +297,8 @@ def _content_lines(state: OperatorState, width: int, *, height: int | None = Non
         lines.extend(_helpcenter_content_lines(payload, width=width, compact=width < 74))
     elif section.id == "artifacts" and bool(payload.get("goal_artifacts_mode")):
         lines.extend(_goal_artifacts_content_lines(payload, width=width, compact=width < 74))
+    elif section.id == "artifacts" and bool(payload.get("organization_mode")):
+        lines.extend(_rc_art_x._organization_content_lines(payload, width=width, compact=width < 74))
     else:
         items = payload.get("items") or []
         if panel_state == PanelState.EMPTY or not items:
@@ -892,4 +894,3 @@ def _tutorial_propose_dock_lines(state: OperatorState, width: int) -> list[str]:
         rows.append(f"| {_clip('waiting for first propose...', inner_width).ljust(inner_width)} |")
 
     return [top, title, *rows, top]
-
