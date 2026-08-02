@@ -21,7 +21,7 @@ class BlueprintRoleDB(SQLModel, table=True):
     template_id: Optional[str] = Field(default=None, foreign_key="templates.id")
     sort_order: int = 0
     is_required: bool = True
-    config: dict = Field(default={}, sa_column=Column(JSON))
+    config: dict = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class BlueprintArtifactDB(SQLModel, table=True):
@@ -36,7 +36,7 @@ class BlueprintArtifactDB(SQLModel, table=True):
     title: str
     description: Optional[str] = None
     sort_order: int = 0
-    payload: dict = Field(default={}, sa_column=Column(JSON))
+    payload: dict = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class BlueprintWorkflowStepDB(SQLModel, table=True):
@@ -54,13 +54,13 @@ class BlueprintWorkflowStepDB(SQLModel, table=True):
     title: Optional[str] = None
     description: Optional[str] = None
     sort_order: int = 0
-    produces: List[str] = Field(default=[], sa_column=Column(JSON))
-    consumes: List[str] = Field(default=[], sa_column=Column(JSON))
-    depends_on: List[str] = Field(default=[], sa_column=Column(JSON))
+    produces: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    consumes: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    depends_on: List[str] = Field(default_factory=list, sa_column=Column(JSON))
     gate: bool = False
-    checks: dict = Field(default={}, sa_column=Column(JSON))
+    checks: dict = Field(default_factory=dict, sa_column=Column(JSON))
     failure_policy: Optional[str] = None
-    required_capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
+    required_capabilities: List[str] = Field(default_factory=list, sa_column=Column(JSON))
     pattern_hints: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)

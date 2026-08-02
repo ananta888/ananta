@@ -42,13 +42,24 @@ class TeamRepository:
             return team
 
     def delete(self, team_id: str):
-        with Session(engine) as session:
-            team = session.get(TeamDB, team_id)
-            if team:
-                session.delete(team)
-                session.commit()
-                return True
+        """Compatibility adapter; Organization-linked Teams remain guarded."""
+
+        from agent.services.organization_team_deletion_service import (
+            OrganizationTeamDeletionError,
+            OrganizationTeamDeletionPrincipal,
+            OrganizationTeamDeletionService,
+        )
+
+        try:
+            OrganizationTeamDeletionService().delete(
+                team_id=team_id,
+                principal=OrganizationTeamDeletionPrincipal(
+                    principal_id="legacy-team-repository",
+                ),
+            )
+        except OrganizationTeamDeletionError:
             return False
+        return True
 
 
 class TemplateRepository:

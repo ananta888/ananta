@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import Optional
+from typing import List, Optional
 
+import sqlalchemy as sa
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
@@ -37,8 +38,8 @@ class TeamDB(SQLModel, table=True):
     team_type_id: Optional[str] = Field(default=None, foreign_key="team_types.id")
     blueprint_id: Optional[str] = Field(default=None, foreign_key="team_blueprints.id")
     is_active: bool = False
-    role_templates: dict = Field(default={}, sa_column=Column(JSON))
-    blueprint_snapshot: dict = Field(default={}, sa_column=Column(JSON))
+    role_templates: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    blueprint_snapshot: dict = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class TeamMemberDB(SQLModel, table=True):
@@ -53,10 +54,35 @@ class TeamMemberDB(SQLModel, table=True):
 
 class TeamBlueprintDB(SQLModel, table=True):
     __tablename__ = "team_blueprints"
+    __table_args__ = (
+        sa.UniqueConstraint("definition_key", "definition_version", name="uq_team_blueprints_definition_key_version"),
+    )
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: str = Field(index=True, unique=True)
     description: Optional[str] = None
     base_team_type_name: Optional[str] = None
     is_seed: bool = False
+    definition_key: Optional[str] = Field(default=None, index=True, max_length=191)
+    definition_version: Optional[int] = Field(default=None, ge=1)
+    definition_hash: Optional[str] = Field(default=None, index=True, max_length=64)
+    definition_lifecycle: Optional[str] = Field(default=None, max_length=16)
+    workflow_definition_key: Optional[str] = Field(default=None, max_length=191)
+    workflow_definition_version: Optional[int] = Field(default=None, ge=1)
+    workflow_mode: str = Field(
+        default="gated",
+        sa_column=sa.Column(sa.String(64), nullable=False, server_default="gated"),
+    )
+    workflow_default_failure_policy: str = Field(
+        default="manual",
+        sa_column=sa.Column(sa.String(64), nullable=False, server_default="manual"),
+    )
+    workflow_checks: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False, server_default=sa.text("'{}'")),
+    )
+    workflow_required_capabilities: List[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False, server_default=sa.text("'[]'")),
+    )
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)

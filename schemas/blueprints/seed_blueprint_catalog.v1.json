@@ -28,6 +28,17 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["name", "description", "roles", "artifacts"],
+      "dependentRequired": {
+        "key": [
+          "version",
+          "team_kind",
+          "role_slots",
+          "artifact_contracts",
+          "workflow_ref",
+          "policies",
+          "capacity_defaults"
+        ]
+      },
       "properties": {
         "name": {
           "type": "string",
@@ -39,6 +50,41 @@
         },
         "base_team_type_name": {
           "type": ["string", "null"]
+        },
+        "key": {
+          "$ref": "#/$defs/key"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "team_kind": {
+          "type": "string",
+          "enum": ["delivery", "research", "poc", "shared_service", "governance", "coordination"]
+        },
+        "role_slots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/role_slot"
+          }
+        },
+        "artifact_contracts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/artifact_contract"
+          }
+        },
+        "workflow_ref": {
+          "$ref": "#/$defs/versioned_ref"
+        },
+        "policies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/versioned_ref" },
+          "uniqueItems": true
+        },
+        "capacity_defaults": {
+          "$ref": "#/$defs/capacity_defaults"
         },
         "roles": {
           "type": "array",
@@ -79,6 +125,127 @@
             }
           }
         }
+      }
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "versioned_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*@[1-9][0-9]*$",
+      "maxLength": 160
+    },
+    "role_slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slot_id",
+        "role_template_ref",
+        "required",
+        "min_count",
+        "default_count",
+        "max_count",
+        "assignment_policy",
+        "separation_of_duties",
+        "overlays"
+      ],
+      "properties": {
+        "slot_id": { "$ref": "#/$defs/key" },
+        "role_template_ref": { "$ref": "#/$defs/versioned_ref" },
+        "required": { "type": "boolean" },
+        "min_count": { "type": "integer", "minimum": 0 },
+        "default_count": { "type": "integer", "minimum": 0 },
+        "max_count": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "null" }
+          ]
+        },
+        "assignment_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "principal_kinds",
+            "required_capabilities",
+            "forbidden_capabilities",
+            "write_access_required"
+          ],
+          "properties": {
+            "principal_kinds": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "enum": ["agent", "human"] },
+              "uniqueItems": true
+            },
+            "required_capabilities": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/key" },
+              "uniqueItems": true
+            },
+            "forbidden_capabilities": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/key" },
+              "uniqueItems": true
+            },
+            "write_access_required": { "type": "boolean" }
+          }
+        },
+        "separation_of_duties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enforcement", "independent_from_slot_ids"],
+          "properties": {
+            "enforcement": { "type": "string", "enum": ["none", "warn", "strict"] },
+            "independent_from_slot_ids": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/key" },
+              "uniqueItems": true
+            },
+            "independent_from_external_duties": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/key" },
+              "uniqueItems": true
+            }
+          }
+        },
+        "overlays": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/versioned_ref" },
+          "uniqueItems": true
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "required": { "const": true } }, "required": ["required"] },
+          "then": { "properties": { "min_count": { "minimum": 1 } } }
+        }
+      ]
+    },
+    "capacity_defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min_agents", "default_agents", "max_agents"],
+      "properties": {
+        "min_agents": { "type": "integer", "minimum": 1 },
+        "default_agents": { "type": "integer", "minimum": 1 },
+        "max_agents": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "artifact_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "required", "portable"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/key" },
+        "required": { "type": "boolean" },
+        "portable": { "type": "boolean" }
       }
     },
     "role": {

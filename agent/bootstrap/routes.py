@@ -3,8 +3,9 @@ import os
 
 from flask import Flask
 
-from agent.bootstrap.route_aliases import register_route_aliases
 from agent.bootstrap.project_lifecycle import configure_project_lifecycle
+from agent.bootstrap.route_aliases import register_route_aliases
+from agent.bootstrap.source_control_api import register_source_control_api
 from agent.config import settings
 from agent.routes.admin.planning_dataset import planning_dataset_bp
 from agent.routes.admin.planning_metrics import planning_metrics_bp
@@ -30,7 +31,6 @@ from agent.routes.config import register_config_blueprints
 from agent.routes.config_graph import config_graph_bp
 from agent.routes.context_policy import context_policy_bp
 from agent.routes.control_center_api import control_center_api_bp
-from agent.routes.projects import projects_bp
 from agent.routes.debug.backend_observability import backend_observability_bp
 from agent.routes.debug.command_guardrails import command_guardrails_bp
 from agent.routes.debug.prompt_render import prompt_render_bp
@@ -59,7 +59,15 @@ from agent.routes.network_profiles import network_profiles_bp
 from agent.routes.ollama_benchmark import ollama_benchmark_bp
 from agent.routes.openai_compat import openai_compat_bp
 from agent.routes.ops import ops_bp
+from agent.routes.organization_blueprints import organization_blueprints_bp
+from agent.routes.organization_bundles import organization_bundles_bp
+from agent.routes.organization_instances import organization_instances_bp
+from agent.routes.organization_planning import organization_planning_bp
+from agent.routes.organization_runtime import organization_runtime_bp
+from agent.routes.organization_topology import organization_topology_bp
+from agent.routes.organization_topology_patches import organization_topology_patches_bp
 from agent.routes.pair_groups import pair_groups_bp
+from agent.routes.projects import projects_bp
 from agent.routes.rendezvous import rendezvous_bp
 from agent.routes.repair import repair_bp
 from agent.routes.restricted_inference_management import restricted_inference_management_bp
@@ -73,7 +81,6 @@ from agent.routes.share_sessions import share_sessions_bp
 from agent.routes.snakes import snakes_bp
 from agent.routes.snapshot_diff_api import snapshot_diff_bp
 from agent.routes.sources import sources_bp
-from agent.bootstrap.source_control_api import register_source_control_api
 from agent.routes.speech_adaptation_control import speech_adaptation_control_bp
 from agent.routes.speech_evidence_consents import speech_evidence_consents_bp
 from agent.routes.speech_evidence_sync import speech_evidence_sync_bp
@@ -83,6 +90,7 @@ from agent.routes.tasks import register_tasks_blueprints, tasks_bp
 from agent.routes.teams import teams_bp
 from agent.routes.terminal import terminal_bp
 from agent.routes.text_quality import text_quality_bp
+from agent.routes.vector_store_control import vector_store_control_bp
 from agent.routes.visual_process import vp_bp
 from agent.routes.visual_process_assistant import visual_process_assistant_bp
 from agent.routes.voice import voice_bp
@@ -90,7 +98,6 @@ from agent.routes.voice_configuration import voice_configuration_bp
 from agent.routes.voice_governance import voice_governance_bp
 from agent.routes.voice_live_runs import voice_live_runs_bp
 from agent.routes.webhooks import webhooks_bp
-from agent.routes.webrtc_signaling import webrtc_signaling_bp
 from agent.routes.webrtc_sfu_broadcast_commands import webrtc_sfu_broadcast_commands_bp
 from agent.routes.webrtc_sfu_broadcast_operations import webrtc_sfu_broadcast_operations_bp
 from agent.routes.webrtc_sfu_broadcast_quality import webrtc_sfu_broadcast_quality_bp
@@ -98,6 +105,7 @@ from agent.routes.webrtc_sfu_browser_capabilities import webrtc_sfu_browser_capa
 from agent.routes.webrtc_sfu_layer_projections import webrtc_sfu_layer_projections_bp
 from agent.routes.webrtc_sfu_node_enrollment import webrtc_sfu_node_enrollment_bp
 from agent.routes.webrtc_sfu_node_observations import webrtc_sfu_node_observations_bp
+from agent.routes.webrtc_signaling import webrtc_signaling_bp
 from agent.routes.wiki_graph import wiki_graph_bp
 from agent.routes.worker_pool import worker_pool_bp
 from agent.routes.worker_tool_loop_diagnostics import worker_tool_loop_diagnostics_bp
@@ -106,7 +114,6 @@ from agent.routes.workflow_runtime_capabilities import workflow_runtime_capabili
 from agent.routes.workflow_runtime_internal import workflow_runtime_internal_bp
 from agent.routes.workflow_runtime_operations import workflow_runtime_operations_bp
 from agent.routes.workflow_runtime_rollout import workflow_runtime_rollout_bp
-from agent.routes.vector_store_control import vector_store_control_bp
 from agent.routes.workflow_runtime_test_support import register_workflow_runtime_test_support
 from agent.ws_terminal import register_ws_terminal
 from agent.ws_voice import register_ws_voice
@@ -148,11 +155,15 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(evolution_bp)
     app.register_blueprint(teams_bp)
     app.register_blueprint(blueprint_bp)
+    app.register_blueprint(organization_blueprints_bp)
+    app.register_blueprint(organization_bundles_bp)
+    app.register_blueprint(organization_instances_bp)
+    app.register_blueprint(organization_planning_bp)
+    app.register_blueprint(organization_runtime_bp)
+    app.register_blueprint(organization_topology_bp)
+    app.register_blueprint(organization_topology_patches_bp)
     app.register_blueprint(auth_bp)
-    if (
-        settings.auth_test_endpoints_enabled
-        and os.environ.get("RUN_SEMANTIC_MEDIA_LIVE_E2E", "").strip() == "1"
-    ):
+    if settings.auth_test_endpoints_enabled and os.environ.get("RUN_SEMANTIC_MEDIA_LIVE_E2E", "").strip() == "1":
         # Imported only in the explicit live-test runtime so this route does
         # not exist in a normal Hub process, even as a hidden 404 endpoint.
         from agent.routes.semantic_media_e2e_support import semantic_media_e2e_support_bp
@@ -206,7 +217,7 @@ def register_blueprints(app: Flask) -> None:
     )
 
     register_sfu_broadcast_extension_blueprints(app)
-    app.register_blueprint(chat_bp) # New: Chat Sessions API
+    app.register_blueprint(chat_bp)  # New: Chat Sessions API
     app.register_blueprint(config_graph_bp)
     app.register_blueprint(effective_workflow_bp)
     app.register_blueprint(workflow_adapters_bp)

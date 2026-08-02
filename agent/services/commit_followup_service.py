@@ -23,6 +23,12 @@ def maybe_create_git_commit_followup(
     Returns the created task dict or None if no followup was created.
     """
     task_kind = str(task.get("task_kind") or "").strip().lower()
+    from agent.services.organization_planning_adapter import (
+        organization_id_from_task,
+    )
+
+    if organization_id_from_task(task):
+        return None
     commit_metadata = task.get("commit_metadata")
     effective_config = dict(task.get("effective_config") or {})
 

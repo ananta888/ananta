@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import secrets
 import time
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from flask import current_app
@@ -10,13 +11,20 @@ from flask import current_app
 from agent.db_models import AgentInfoDB
 from agent.models import AgentDirectoryEntryContract, AgentLivenessContract, WorkerExecutionLimitsContract
 from agent.routes.tasks.orchestration_policy import normalize_capabilities, normalize_worker_roles
-from worker.core.runtime_target import WorkerKind
+
+if TYPE_CHECKING:
+    from worker.core.runtime_target import WorkerCandidate
 
 
 class AgentRegistryService:
     """Hub-owned worker registration and liveness normalization."""
 
-    def validate_registration_payload(self, data: dict, *, registration_token: str | None) -> tuple[dict | None, str | None, int]:
+    def validate_registration_payload(
+        self,
+        data: dict,
+        *,
+        registration_token: str | None,
+    ) -> tuple[dict | None, str | None, int]:
         if registration_token:
             provided_token = str(data.get("registration_token") or "")
             if not provided_token or not secrets.compare_digest(
@@ -27,8 +35,21 @@ class AgentRegistryService:
                 return None, "Invalid or missing registration token", 401
 
         url = data.get("url")
-        parsed = urlparse(str(url or ""))
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        try:
+            parsed = urlparse(str(url or ""))
+            _ = parsed.port
+        except ValueError:
+            return None, "invalid_agent_url", 400
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or bool(parsed.query)
+            or bool(parsed.fragment)
+            or any(character.isspace() for character in str(url or ""))
+        ):
             return None, "invalid_agent_url", 400
 
         role = str(data.get("role") or "worker").strip().lower()
@@ -113,7 +134,7 @@ class AgentRegistryService:
             status="online",
         )
 
-    def agent_to_candidate(self, agent: AgentInfoDB) -> WorkerCandidate:
+    def agent_to_candidate(self, agent: AgentInfoDB) -> "WorkerCandidate":
         """Map AgentInfoDB to WorkerCandidate for selection logic. DRR-T050."""
         from worker.core.runtime_target import RuntimeHealthState, WorkerCandidate, WorkerKind
 
@@ -218,8 +239,6 @@ class AgentRegistryService:
 
     def get_online_candidates(self) -> list:
         """Fetch all online agents and return them as WorkerCandidate list."""
-        from worker.core.runtime_target import WorkerCandidate
-
         agents = self._get_all_agents()
         candidates: list[WorkerCandidate] = []
         for a in agents:
@@ -241,7 +260,12 @@ class AgentRegistryService:
         return {
             "registration_mode": "hub_owned_worker_directory",
             "liveness_source": "agent_registry_and_health_checks",
-            "offline_timeout_seconds": int(getattr(current_app.config, "get", lambda *_: None)("AGENT_OFFLINE_TIMEOUT", 0) or 0),
+            "offline_timeout_seconds": int(
+                getattr(current_app.config, "get", lambda *_: None)(
+                    "AGENT_OFFLINE_TIMEOUT", 0
+                )
+                or 0
+            ),
         }
 
 

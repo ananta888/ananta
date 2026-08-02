@@ -586,6 +586,12 @@ class PlanningService:
             authoritative_goal = repos.goal_repo.get_by_id(
                 str(goal_id)
             )
+            from agent.services.organization_planning_adapter import (
+                is_organization_goal,
+            )
+
+            if is_organization_goal(authoritative_goal):
+                return [], "organization_planning_legacy_bypass_blocked"
             if (
                 authoritative_goal is None
                 or str(
@@ -1369,6 +1375,20 @@ class PlanningService:
         mode_data: Optional[dict] = None,
         initial_plan_rationale: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        if goal_id:
+            from agent.services.organization_planning_adapter import (
+                is_organization_goal,
+                load_goal_for_planning,
+                organization_id_from_goal,
+                organization_planning_required_response,
+            )
+
+            authoritative_goal = load_goal_for_planning(goal_id)
+            if is_organization_goal(authoritative_goal):
+                return organization_planning_required_response(
+                    goal_id=goal_id,
+                    organization_id=organization_id_from_goal(authoritative_goal),
+                )
         flags = get_goal_feature_flags()
         if not flags.get("goal_workflow_enabled", True):
             return {"subtasks": [], "created_task_ids": [], "error": "goal_workflow_disabled"}

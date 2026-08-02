@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/policies/organization_policy_catalog.v1.json",
+  "title": "Organization policy catalog v1",
+  "description": "Closed declarative policies referenced by organization, team and handoff definitions. Runtime authority remains with Hub policy services.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "version", "policies"],
+  "properties": {
+    "schema": { "type": "string", "const": "organization_policy_catalog.v1" },
+    "version": { "type": "integer", "minimum": 1 },
+    "policies": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/policy" }
+    }
+  },
+  "$defs": {
+    "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "maxLength": 128 },
+    "versioned_ref": { "type": "string", "pattern": "^[a-z][a-z0-9_]*@[1-9][0-9]*$", "maxLength": 160 },
+    "key_list": { "type": "array", "items": { "$ref": "#/$defs/key" }, "uniqueItems": true },
+    "policy": {
+      "oneOf": [
+        { "$ref": "#/$defs/grounding_policy" },
+        { "$ref": "#/$defs/budget_policy" },
+        { "$ref": "#/$defs/admission_policy" },
+        { "$ref": "#/$defs/sod_policy" },
+        { "$ref": "#/$defs/operation_approval_policy" },
+        { "$ref": "#/$defs/role_boundary_policy" },
+        { "$ref": "#/$defs/limit_pointer_policy" },
+        { "$ref": "#/$defs/acceptance_gate_policy" }
+      ]
+    },
+    "base_properties": {
+      "key": { "$ref": "#/$defs/key" },
+      "version": { "type": "integer", "minimum": 1 }
+    },
+    "grounding_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "version", "policy_type", "accepted_ref_pattern", "origin", "exact_allowlist_membership_required", "workers_may_create_identifiers", "missing_or_unknown_result"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" }, "version": { "type": "integer", "minimum": 1 }, "policy_type": { "const": "grounding" },
+        "accepted_ref_pattern": { "type": "string", "const": "^(SRC|RUN)_[0-9]{4}$" },
+        "origin": { "type": "string", "const": "hub_provided_assignment_manifest" },
+        "exact_allowlist_membership_required": { "type": "boolean", "const": true },
+        "workers_may_create_identifiers": { "type": "boolean", "const": false },
+        "missing_or_unknown_result": { "type": "string", "const": "unverified_or_failed" }
+      }
+    },
+    "budget_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "version", "policy_type", "reservation_owner", "scope", "exhaustion_behavior"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" }, "version": { "type": "integer", "minimum": 1 }, "policy_type": { "const": "budget" },
+        "reservation_owner": { "type": "string", "const": "hub" },
+        "scope": { "type": "array", "const": ["organization", "team", "task", "provider"] },
+        "exhaustion_behavior": { "type": "string", "const": "block_and_review" }
+      }
+    },
+    "admission_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "version", "policy_type", "test_only", "minimum_team_count", "maximum_team_count", "production_seed_allowed", "grant_binding_fields", "single_use", "harness_mints_grant"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" }, "version": { "type": "integer", "minimum": 1 }, "policy_type": { "const": "admission" },
+        "test_only": { "type": "boolean", "const": true },
+        "minimum_team_count": { "type": "integer", "const": 2 },
+        "maximum_team_count": { "type": "integer", "const": 3 },
+        "production_seed_allowed": { "type": "boolean", "const": false },
+        "grant_binding_fields": { "type": "array", "const": ["payload_digest", "principal_id", "tenant_id", "project_id", "organization_id", "composition_digest", "policy_revision", "expires_at"] },
+        "single_use": { "type": "boolean", "const": true },
+        "harness_mints_grant": { "type": "boolean", "const": true }
+      }
+    },
+    "sod_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "version", "policy_type", "mode", "rules"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" }, "version": { "type": "integer", "minimum": 1 }, "policy_type": { "const": "separation_of_duties" },
+        "mode": { "type": "string", "enum": ["strict", "bounded_test_exception"] },
+        "rules": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["rule_id", "left_duty", "right_duty", "strict"],
+            "properties": {"rule_id": {"$ref": "#/$defs/key"}, "left_duty": {"$ref": "#/$defs/key"}, "right_duty": {"$ref": "#/$defs/key"}, "strict": {"type": "boolean"}}
+          }
+        }
+      }
+    },
+    "operation_approval_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "version", "policy_type", "operations", "default_decision", "hub_policy_required", "exact_approval_binding_required", "prompt_may_authorize"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" }, "version": { "type": "integer", "minimum": 1 }, "policy_type": { "const": "operation_approval" },
+        "operations": { "$ref": "#/$defs/key_list" },
+        "default_decision": { "type": "string", "const": "deny" },
+        "hub_policy_required": { "type": "boolean", "const": true },
+        "exact_approval_binding_required": { "type": "boolean", "const": true },
+        "prompt_may_authorize": { "type": "boolean", "const": false }
+      }
+    },
+    "role_boundary_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "version", "policy_type", "allowed_decisions", "forbidden_decisions", "orchestration_owner"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" }, "version": { "type": "integer", "minimum": 1 }, "policy_type": { "const": "role_boundary" },
+        "allowed_decisions": { "$ref": "#/$defs/key_list" },
+        "forbidden_decisions": { "$ref": "#/$defs/key_list" },
+        "orchestration_owner": { "type": "string", "const": "hub" }
+      }
+    },
+    "limit_pointer_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "version", "policy_type", "limit_profile_ref", "revalidate_before_write"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" }, "version": { "type": "integer", "minimum": 1 }, "policy_type": { "const": "limit_profile" },
+        "limit_profile_ref": { "$ref": "#/$defs/versioned_ref" },
+        "revalidate_before_write": { "type": "boolean", "const": true }
+      }
+    },
+    "acceptance_gate_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "version", "policy_type", "required_artifact_kinds", "allowed_decisions", "self_approval_allowed"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" }, "version": { "type": "integer", "minimum": 1 }, "policy_type": { "const": "acceptance_gate" },
+        "required_artifact_kinds": { "$ref": "#/$defs/key_list" },
+        "allowed_decisions": { "type": "array", "minItems": 1, "items": { "type": "string", "enum": ["accepted", "rejected", "needs_changes", "pass", "conditional_pass", "needs_human_approval"] }, "uniqueItems": true },
+        "self_approval_allowed": { "type": "boolean", "const": false }
+      }
+    }
+  }
+}

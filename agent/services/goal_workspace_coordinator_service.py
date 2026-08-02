@@ -35,6 +35,13 @@ class GoalWorkspaceCoordinatorService:
         task_queue_service: Any,
         actor: str = "hub",
     ) -> Optional[dict]:
+        from agent.services.organization_planning_adapter import (
+            is_organization_goal,
+            load_goal_for_planning,
+        )
+
+        if is_organization_goal(load_goal_for_planning(goal_id)):
+            return None
         git_workspace_cfg = dict((effective_config or {}).get("git_workspace") or {})
         if not git_workspace_cfg.get("enabled"):
             return None

@@ -10,6 +10,10 @@ import uuid
 
 from agent.common.audit import log_audit
 from agent.db_models import TaskDB
+from agent.models.organization_models import canonical_definition_sha256
+from agent.services.organization_definition_catalog_service import (
+    get_organization_definition_catalog,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.services.seed_blueprint_catalog import get_seed_blueprint_catalog
 from agent.services.seed_template_catalog import get_seed_template_catalog
@@ -166,6 +170,7 @@ def ensure_seed_blueprints() -> None:
                  "fields": report.get("fields"), "source": "seed_sync"},
             )
 
+    # 3. Reconcile reusable Team Blueprints after their role templates.
     seed_blueprints = _load_seed_blueprints()
     reconcile_reports = reconcile_seed_blueprints_service(
         seed_blueprints,
@@ -183,3 +188,28 @@ def ensure_seed_blueprints() -> None:
                 "source": "seed_sync",
             },
         )
+
+    # 4. Validate and publish the immutable Organization seed graph only after
+    # its role-template and Team Blueprint prerequisites.  Standard
+    # Organization definitions intentionally remain a file-backed fallback;
+    # project revisions are created only through an explicit, grant-bound
+    # reconcile apply.  This path never reads or rewrites instance snapshots.
+    load_organization_seed_fallback()
+
+
+def load_organization_seed_fallback() -> list[dict[str, object]]:
+    """Read the validated Organization seed snapshot as a stable manifest."""
+
+    snapshot = get_organization_definition_catalog().snapshot()
+    return [
+        {
+            "definition_ref": f"{definition.key}@{definition.version}",
+            "revision": canonical_definition_sha256(definition),
+            "storage": "file_fallback",
+            "action": "available",
+        }
+        for definition in (
+            snapshot.organization_blueprints[key]
+            for key in sorted(snapshot.organization_blueprints)
+        )
+    ]

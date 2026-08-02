@@ -29,6 +29,11 @@ class GoalArtifactService:
     def get_goal_graph(self, goal_id: str) -> dict[str, Any]:
         return self._repository.get_graph(goal_id)
 
+    def find_goal_graph(self, goal_id: str) -> dict[str, Any] | None:
+        """Return an existing graph without materializing a missing one."""
+
+        return self._repository.find_graph(goal_id)
+
     def get_execution_provenance(self, *, goal_id: str, provenance_id: str) -> dict[str, Any] | None:
         graph = self.get_goal_graph(goal_id)
         for item in list(dict(graph.get("extensions") or {}).get("execution_provenance") or []):
@@ -51,7 +56,14 @@ class GoalArtifactService:
         self._repository.save_graph(graph)
         return payload
 
-    def revoke_grant(self, *, goal_id: str, grant_id: str, revoked_at: str | None = None, revoke_reason: str = "") -> dict[str, Any]:
+    def revoke_grant(
+        self,
+        *,
+        goal_id: str,
+        grant_id: str,
+        revoked_at: str | None = None,
+        revoke_reason: str = "",
+    ) -> dict[str, Any]:
         graph = self.get_goal_graph(goal_id)
         for item in graph.get("source_grants", []):
             if str(item.get("grant_id") or "") != str(grant_id):
@@ -71,7 +83,13 @@ class GoalArtifactService:
         payload["goal_id"] = goal_id
         usage_kind = str(payload.get("usage_kind") or "").strip().lower()
         if usage_kind != "preview":
-            payload.setdefault("execution_id", self._build_execution_id(goal_id=goal_id, task_id=str(payload.get("task_id") or "")))
+            payload.setdefault(
+                "execution_id",
+                self._build_execution_id(
+                    goal_id=goal_id,
+                    task_id=str(payload.get("task_id") or ""),
+                ),
+            )
             payload.setdefault(
                 "provenance_id",
                 self._build_provenance_id(
@@ -157,7 +175,9 @@ class GoalArtifactService:
         existing = [
             item
             for item in list(extensions.get("execution_provenance") or [])
-            if isinstance(item, dict) and str(item.get("provenance_id") or "") != str(payload.get("provenance_id") or "")
+            if isinstance(item, dict)
+            and str(item.get("provenance_id") or "")
+            != str(payload.get("provenance_id") or "")
         ]
         existing.append(payload)
         extensions["execution_provenance"] = existing
@@ -315,7 +335,9 @@ class GoalArtifactService:
 
     @staticmethod
     def _build_provenance_id(*, goal_id: str, task_id: str, worker_id: str, execution_id: str) -> str:
-        digest = hashlib.sha1(f"{goal_id}:{task_id}:{worker_id}:{execution_id}:provenance".encode("utf-8")).hexdigest()[:16]
+        digest = hashlib.sha1(
+            f"{goal_id}:{task_id}:{worker_id}:{execution_id}:provenance".encode("utf-8")
+        ).hexdigest()[:16]
         return f"prov-{digest}"
 
     @staticmethod

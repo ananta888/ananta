@@ -6,6 +6,7 @@ Extracted from agent/routes/teams.py (SPLIT-012).
 from typing import Any
 
 from agent.db_models import BlueprintArtifactDB, BlueprintRoleDB, TeamBlueprintDB
+from agent.services.blueprint_workflow_serialization import serialize_persisted_workflow
 from agent.services.repository_registry import get_repository_registry
 from agent.services.team_definition_version_service import enrich_blueprint_payload
 
@@ -29,11 +30,18 @@ def _serialize_blueprint(
     # in-memory catalog is what the materialiser uses at
     # runtime. Both views are kept in sync by
     # team_blueprint_reconciliation_service.
-    blueprint_dict["workflow"] = _serialize_blueprint_workflow(blueprint.id)
-    return enrich_blueprint_payload(blueprint_dict, blueprint, blueprint_roles, blueprint_artifacts)
+    blueprint_workflow = _serialize_blueprint_workflow(blueprint)
+    blueprint_dict["workflow"] = blueprint_workflow
+    return enrich_blueprint_payload(
+        blueprint_dict,
+        blueprint,
+        blueprint_roles,
+        blueprint_artifacts,
+        blueprint_workflow,
+    )
 
 
-def _serialize_blueprint_workflow(blueprint_id: str) -> dict | None:
+def _serialize_blueprint_workflow(blueprint: TeamBlueprintDB) -> dict | None:
     """Return the workflow block for a blueprint as a dict.
 
     The function reads from
@@ -46,31 +54,8 @@ def _serialize_blueprint_workflow(blueprint_id: str) -> dict | None:
     repo = getattr(_repos(), "blueprint_workflow_step_repo", None)
     if repo is None:
         return None
-    rows = list(repo.get_by_blueprint(blueprint_id) or [])
-    if not rows:
-        return None
-    return {
-        "mode": "gated",
-        "default_failure_policy": "manual",
-        "steps": [
-            {
-                "id": r.step_id,
-                "role": r.role_name,
-                "task_kind": r.task_kind,
-                "title": r.title,
-                "description": r.description,
-                "produces": list(r.produces or []),
-                "consumes": list(r.consumes or []),
-                "depends_on": list(r.depends_on or []),
-                "gate": bool(r.gate),
-                "checks": dict(r.checks or {}),
-                "failure_policy": r.failure_policy,
-                "required_capabilities": list(r.required_capabilities or []),
-                "sort_order": int(r.sort_order),
-            }
-            for r in rows
-        ],
-    }
+    rows = list(repo.get_by_blueprint(blueprint.id) or [])
+    return serialize_persisted_workflow(blueprint, rows)
 
 
 def _suggest_goal_modes_for_blueprint(blueprint: TeamBlueprintDB) -> list[str]:

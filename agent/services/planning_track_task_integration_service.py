@@ -325,7 +325,18 @@ class PlanningTrackTaskIntegrationService:
             raise ValueError("planning_track_payload_missing")
         return graph, output, payload
 
+    @staticmethod
+    def _guard_organization_legacy_path(goal_id: str) -> None:
+        from agent.services.organization_planning_adapter import (
+            is_organization_goal,
+            load_goal_for_planning,
+        )
+
+        if is_organization_goal(load_goal_for_planning(goal_id)):
+            raise ValueError("organization_planning_transition_service_required")
+
     def materialize_tasks(self, *, goal_id: str, output_artifact_id: str) -> dict[str, Any]:
+        self._guard_organization_legacy_path(goal_id)
         with _MATERIALIZATION_LOCK:
             return self._materialize_tasks_locked(goal_id=goal_id, output_artifact_id=output_artifact_id)
 
@@ -470,6 +481,7 @@ class PlanningTrackTaskIntegrationService:
         }
 
     def adopt_track(self, *, goal_id: str, output_artifact_id: str) -> dict[str, Any]:
+        self._guard_organization_legacy_path(goal_id)
         _graph, output, payload = self._load_output(goal_id=goal_id, output_artifact_id=output_artifact_id)
         ext = dict(output.get("extensions") or {})
         if not bool(ext.get("active_plan_candidate", False)):
@@ -494,6 +506,7 @@ class PlanningTrackTaskIntegrationService:
         return materialized
 
     def reject_track(self, *, goal_id: str, output_artifact_id: str) -> dict[str, Any]:
+        self._guard_organization_legacy_path(goal_id)
         goal = goal_repo.get_by_id(goal_id)
         if goal is None:
             return {"goal_id": goal_id, "rejected_output_ids": [output_artifact_id]}
@@ -560,6 +573,7 @@ class PlanningTrackTaskIntegrationService:
     def execute_next_plan_task(
         self, *, goal_id: str, output_artifact_id: str, worker_id: str = "operator_tui"
     ) -> dict[str, Any]:
+        self._guard_organization_legacy_path(goal_id)
         graph, output, payload = self._load_output(goal_id=goal_id, output_artifact_id=output_artifact_id)
         ext = dict(output.get("extensions") or {})
         mapped = dict(ext.get("task_mapping") or {})
@@ -684,6 +698,7 @@ class PlanningTrackTaskIntegrationService:
         plan_task_id: str,
         internal_status: str,
     ) -> dict[str, Any]:
+        self._guard_organization_legacy_path(goal_id)
         graph, output, payload = self._load_output(goal_id=goal_id, output_artifact_id=output_artifact_id)
         ext = dict(output.get("extensions") or {})
         tasks = [dict(item) for item in list(payload.get("tasks") or []) if isinstance(item, dict)]

@@ -250,3 +250,27 @@ class TeamTypeRoleLinkRepository:
                 session.commit()
                 return True
             return False
+
+
+# Additive v2 compatibility exports.  Legacy repositories above intentionally
+# retain their historical self-managed sessions; new aggregate writes must use
+# ``agent.repositories.organizations`` through OrganizationUnitOfWork.
+from agent.repositories.organizations import (  # noqa: E402
+    SqlOrganizationDefinitionRepository,
+    SqlOrganizationInstanceRepository,
+    SqlOrganizationTopologyReadRepository,
+)
+
+__all__ = [
+    "BlueprintArtifactRepository",
+    "BlueprintRoleRepository",
+    "BlueprintWorkflowStepRepository",
+    "RoleRepository",
+    "SqlOrganizationDefinitionRepository",
+    "SqlOrganizationInstanceRepository",
+    "SqlOrganizationTopologyReadRepository",
+    "TeamBlueprintRepository",
+    "TeamMemberRepository",
+    "TeamTypeRepository",
+    "TeamTypeRoleLinkRepository",
+]

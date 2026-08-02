@@ -1,0 +1,60 @@
+{
+  "schema": "seed_blueprint_catalog.v1",
+  "version": "1.0.0",
+  "blueprints": [
+    {
+      "name": "Quality-Security-Release",
+      "description": "Independent quality, performance, security, compliance, operations-readiness and release-verification blueprint.",
+      "base_team_type_name": "Quality-Security-Release",
+      "key": "quality_security_release",
+      "version": 1,
+      "team_kind": "governance",
+      "role_slots": [
+        {"slot_id": "quality_lead", "role_template_ref": "quality_engineering_lead@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["quality_governance", "testing"], "forbidden_capabilities": ["self_approval", "implementation_write"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": [], "independent_from_external_duties": ["implementer"]}, "overlays": []},
+        {"slot_id": "performance_engineer", "role_template_ref": "performance_engineer@1", "required": false, "min_count": 0, "default_count": 1, "max_count": 3, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["performance_analysis", "testing"], "forbidden_capabilities": ["production_load_without_approval"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": [], "independent_from_external_duties": ["implementer"]}, "overlays": []},
+        {"slot_id": "security_analyst", "role_template_ref": "security_analyst@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 3, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["security_testing", "verification"], "forbidden_capabilities": ["self_approval", "policy_mutation"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": [], "independent_from_external_duties": ["implementer"]}, "overlays": []},
+        {"slot_id": "compliance_reviewer", "role_template_ref": "compliance_reviewer@1", "required": false, "min_count": 0, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["compliance", "review"], "forbidden_capabilities": ["policy_mutation"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": [], "independent_from_external_duties": ["implementer"]}, "overlays": []},
+        {"slot_id": "release_verifier", "role_template_ref": "release_verification_engineer@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["release_verification", "artifact_integrity"], "forbidden_capabilities": ["deployment", "self_approval"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["quality_lead", "security_analyst", "compliance_reviewer", "operations_reviewer"], "independent_from_external_duties": ["implementer", "release_executor"]}, "overlays": []},
+        {"slot_id": "operations_reviewer", "role_template_ref": "operations_readiness_reviewer@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["operations", "reliability", "review"], "forbidden_capabilities": ["deployment", "self_approval"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": [], "independent_from_external_duties": ["implementer"]}, "overlays": []}
+      ],
+      "artifact_contracts": [
+        {"kind": "quality_report", "required": true, "portable": true},
+        {"kind": "performance_report", "required": true, "portable": true},
+        {"kind": "security_report", "required": true, "portable": true},
+        {"kind": "compliance_report", "required": true, "portable": true},
+        {"kind": "operations_readiness_report", "required": true, "portable": true},
+        {"kind": "release_gate_decision", "required": true, "portable": true},
+        {"kind": "release_gate_handoff", "required": true, "portable": true}
+      ],
+      "policies": ["assignment_grounding@1", "review_task_proposals@1", "strict_release_separation@1"],
+      "capacity_defaults": {"min_agents": 4, "default_agents": 6, "max_agents": 14},
+      "workflow_ref": "quality_security_release_workflow@1",
+      "roles": [
+        {"name": "Quality Engineering Lead", "description": "Owns independent quality evidence and decision.", "template_name": "Governance - Quality Engineering Lead", "sort_order": 10, "is_required": true, "config": {"slot_id": "quality_lead", "min_count": 1, "default_count": 1, "max_count": 2, "independent_from_external_slot": "primary_implementer"}},
+        {"name": "Performance Engineer", "description": "Produces independent reproducible performance evidence.", "template_name": "Product Quality - Performance Engineer", "sort_order": 20, "is_required": false, "config": {"slot_id": "performance_engineer", "min_count": 0, "default_count": 1, "max_count": 3, "independent_from_external_slot": "primary_implementer"}},
+        {"name": "Security Analyst", "description": "Performs independent security verification.", "template_name": "Governance - Security Analyst", "sort_order": 30, "is_required": true, "config": {"slot_id": "security_analyst", "min_count": 1, "default_count": 1, "max_count": 3, "independent_from_external_slot": "primary_implementer"}},
+        {"name": "Compliance Reviewer", "description": "Verifies control and exception evidence.", "template_name": "Governance - Compliance Reviewer", "sort_order": 40, "is_required": false, "config": {"slot_id": "compliance_reviewer", "min_count": 0, "default_count": 1, "max_count": 2, "independent_from_external_slot": "primary_implementer"}},
+        {"name": "Release Verification Engineer", "description": "Owns exact-artifact release verification.", "template_name": "Governance - Release Verification Engineer", "sort_order": 50, "is_required": true, "config": {"slot_id": "release_verifier", "min_count": 1, "default_count": 1, "max_count": 2, "independent_from": ["quality_lead", "security_analyst", "compliance_reviewer", "operations_reviewer"], "independent_from_external_slot": "primary_implementer"}},
+        {"name": "Operations Readiness Reviewer", "description": "Verifies deployment, rollback, SLO and recovery readiness.", "template_name": "Governance - Operations Readiness Reviewer", "sort_order": 60, "is_required": true, "config": {"slot_id": "operations_reviewer", "min_count": 1, "default_count": 1, "max_count": 2, "independent_from_external_slot": "primary_implementer"}}
+      ],
+      "artifacts": [
+        {"kind": "task", "title": "Independent Release Evidence Intake", "description": "Consume exact delivery, architecture and platform artifact versions for independent verification.", "sort_order": 10, "payload": {"status": "todo", "priority": "High"}},
+        {"kind": "task", "title": "Release Gate Decision", "description": "Return pass, conditional_pass, reject or needs_human_approval with all conditions and residual risks.", "sort_order": 20, "payload": {"status": "todo", "priority": "High"}},
+        {"kind": "policy", "title": "Strict Release Separation", "description": "Primary implementers cannot approve their own quality, security, compliance, readiness or release evidence.", "sort_order": 100, "payload": {"policy_ref": "strict_release_separation@1", "self_approval_allowed": false}}
+      ],
+      "workflow": {
+        "mode": "strict_gated",
+        "default_failure_policy": "block",
+        "steps": [
+          {"id": "quality_review", "role": "Quality Engineering Lead", "task_kind": "testing", "title": "Aggregate independent quality evidence", "sort_order": 10, "produces": ["Quality Report", "Residual Quality Risk"], "consumes": ["Delivery Artifacts", "Acceptance Criteria", "Test Evidence"], "required_capabilities": ["quality_governance", "testing"]},
+          {"id": "performance_review", "role": "Performance Engineer", "task_kind": "testing", "title": "Verify performance evidence", "sort_order": 20, "produces": ["Performance Report", "Capacity Risk Report"], "consumes": ["Delivery Artifacts", "Performance Budget", "Workload Profile"], "required_capabilities": ["performance_analysis", "testing"]},
+          {"id": "security_review", "role": "Security Analyst", "task_kind": "testing", "title": "Verify security evidence", "sort_order": 30, "produces": ["Security Report", "Security Gate Decision"], "consumes": ["Delivery Artifacts", "Security Architecture Review", "Control Evidence"], "required_capabilities": ["security_testing", "verification"]},
+          {"id": "compliance_review", "role": "Compliance Reviewer", "task_kind": "review", "title": "Verify compliance evidence", "sort_order": 40, "produces": ["Compliance Report", "Compliance Gate Decision"], "consumes": ["Compliance Profile", "Control Evidence", "Approved Exceptions"], "required_capabilities": ["compliance", "review"]},
+          {"id": "operations_review", "role": "Operations Readiness Reviewer", "task_kind": "gate_review", "title": "Verify operational readiness", "sort_order": 50, "gate": true, "checks": {"min_artifacts": ["Deployment Plan", "Rollback Plan", "Observability Plan", "Operations Readiness Decision"], "approval_role": "Operations Readiness Reviewer", "verification_required": true}, "failure_policy": "block", "produces": ["Operations Readiness Report", "Operations Readiness Decision"], "consumes": ["Deployment Plan", "Rollback Plan", "Observability Plan", "Recovery Test Plan"], "required_capabilities": ["operations", "reliability", "review"]},
+          {"id": "release_gate", "role": "Release Verification Engineer", "task_kind": "gate_review", "title": "Verify exact release artifacts and all gates", "sort_order": 60, "depends_on": ["quality_review", "performance_review", "security_review", "compliance_review", "operations_review"], "gate": true, "checks": {"min_artifacts": ["Quality Report", "Performance Report", "Security Report", "Compliance Report", "Operations Readiness Decision", "Release Gate Decision"], "approval_role": "Release Verification Engineer", "verification_required": true}, "failure_policy": "manual", "produces": ["Release Verification Report", "Release Gate Decision", "Unmet Conditions"], "consumes": ["Release Manifest", "Quality Report", "Performance Report", "Security Report", "Compliance Report", "Operations Readiness Decision"], "required_capabilities": ["release_verification", "artifact_integrity"]},
+          {"id": "release_handoff", "role": "Release Verification Engineer", "task_kind": "handoff", "title": "Return release gate handoff", "sort_order": 70, "depends_on": ["release_gate"], "produces": ["Release Gate Handoff"], "consumes": ["Release Verification Report", "Release Gate Decision", "Unmet Conditions"], "required_capabilities": ["artifact_handoff"]}
+        ]
+      }
+    }
+  ]
+}

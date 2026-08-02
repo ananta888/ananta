@@ -1,3 +1,5 @@
+from functools import wraps
+
 from flask import Blueprint, g, request
 
 import agent.routes.tasks.archive_admin as _archive_admin_routes
@@ -67,6 +69,38 @@ vector_index_dispatch_admission = (
     _vector_admission_route.vector_index_dispatch_admission
 )
 task_repo = get_repository_registry().task_repo
+
+
+def _task_callback_auth(fn):
+    """Accept only the narrow assignment-bound Worker result capability."""
+
+    @wraps(fn)
+    def wrapped(tid, *args, **kwargs):
+        auth_header = str(request.headers.get("Authorization") or "")
+        token = auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else ""
+        payload = request.get_json(silent=True) or {}
+        assignment_id = str(payload.get("id") or payload.get("assignment_id") or "")
+        if token.startswith("wrc1."):
+            try:
+                from agent.services.worker_result_capability_service import (
+                    WorkerResultCapabilityService,
+                )
+
+                g.worker_result_capability = WorkerResultCapabilityService().verify(
+                    token,
+                    source_task_id=str(tid or ""),
+                    assignment_id=assignment_id,
+                )
+            except ValueError:
+                return api_response(status="error", message="unauthorized", code=401)
+            return fn(tid, *args, **kwargs)
+        return api_response(
+            status="error",
+            message="worker_result_capability_required",
+            code=401,
+        )
+
+    return wrapped
 
 
 def _actor_username() -> str:
@@ -680,13 +714,45 @@ def recovery_dispatch_admission(tid):
 
 
 @management_bp.route("/tasks/<tid>/subtask-callback", methods=["POST"])
-@check_auth
+@_task_callback_auth
 def subtask_callback(tid):
-    result = get_core_services().task_management_service.subtask_callback(
-        task_id=tid,
-        payload=request.get_json() or {},
-        vector_authorization=_vector_authorization(),
-    )
+    payload = request.get_json() or {}
+    proposal_results: list[dict] = []
+    capability = getattr(g, "worker_result_capability", None)
+    if payload.get("task_proposals") is not None:
+        if not isinstance(capability, dict):
+            return api_response(status="error", message="worker_result_capability_required", code=403)
+        try:
+            from agent.services.worker_task_proposal_result_adapter import (
+                ingest_callback_task_proposals,
+            )
+
+            proposal_results = ingest_callback_task_proposals(
+                source_task_id=tid,
+                callback_payload=payload,
+                capability_claims=capability,
+            )
+        except ValueError as exc:
+            return api_response(status="error", message=str(exc), code=409)
+    try:
+        from agent.services.worker_result_callback_service import (
+            WorkerResultCallbackError,
+            WorkerResultCallbackService,
+        )
+
+        callback_result = WorkerResultCallbackService().accept(
+            task_id=tid,
+            payload=payload,
+            capability_claims=capability,
+        )
+    except WorkerResultCallbackError as exc:
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            data={"reason_code": exc.reason_code},
+            code=409,
+        )
+    result = {"data": callback_result}
     if result.get("error"):
         return api_response(
             status="error",
@@ -694,7 +760,7 @@ def subtask_callback(tid):
             data=result.get("data"),
             code=result.get("code", 400),
         )
-    return api_response(data=result["data"])
+    return api_response(data={**result["data"], "task_proposals": proposal_results})
 
 
 @management_bp.route("/tasks/<tid>/followups", methods=["POST"])

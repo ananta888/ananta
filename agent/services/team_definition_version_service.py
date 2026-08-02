@@ -5,6 +5,8 @@ import json
 from typing import Any
 
 from agent.db_models import BlueprintArtifactDB, BlueprintRoleDB, TeamBlueprintDB, TeamDB, TemplateDB
+from agent.services.blueprint_workflow_serialization import serialize_persisted_workflow
+from agent.models.organization_models import canonical_definition_sha256
 from agent.services.repository_registry import get_repository_registry
 
 
@@ -42,12 +44,15 @@ def blueprint_revision_payload(
     blueprint: TeamBlueprintDB,
     roles: list[BlueprintRoleDB],
     artifacts: list[BlueprintArtifactDB],
+    workflow: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "name": blueprint.name,
         "description": blueprint.description,
         "base_team_type_name": blueprint.base_team_type_name,
         "is_seed": blueprint.is_seed,
+        "definition_key": blueprint.definition_key,
+        "definition_version": blueprint.definition_version,
         "roles": [
             {
                 "name": role.name,
@@ -69,6 +74,7 @@ def blueprint_revision_payload(
             }
             for artifact in sorted(artifacts, key=lambda item: (item.sort_order, item.title))
         ],
+        "workflow": workflow,
     }
 
 
@@ -76,9 +82,10 @@ def blueprint_version_metadata(
     blueprint: TeamBlueprintDB,
     roles: list[BlueprintRoleDB],
     artifacts: list[BlueprintArtifactDB],
+    workflow: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
-        "revision": _revision(blueprint_revision_payload(blueprint, roles, artifacts)),
+        "revision": _revision(blueprint_revision_payload(blueprint, roles, artifacts, workflow)),
         "version_scheme": "definition-sha256-16",
         "origin_kind": "seed_blueprint" if blueprint.is_seed else "custom_blueprint",
         "updated_at": blueprint.updated_at,
@@ -90,9 +97,26 @@ def enrich_blueprint_payload(
     blueprint: TeamBlueprintDB,
     roles: list[BlueprintRoleDB],
     artifacts: list[BlueprintArtifactDB],
+    workflow: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    payload["version_metadata"] = blueprint_version_metadata(blueprint, roles, artifacts)
+    payload["version_metadata"] = blueprint_version_metadata(blueprint, roles, artifacts, workflow)
     return payload
+
+
+def organization_revision_payload(definition: dict[str, Any]) -> dict[str, Any]:
+    """Canonical full Organization definition, excluding transport metadata."""
+
+    excluded = {"id", "created_at", "updated_at", "activated_at", "version_metadata"}
+    return {key: value for key, value in definition.items() if key not in excluded}
+
+
+def organization_version_metadata(definition: dict[str, Any]) -> dict[str, Any]:
+    payload = organization_revision_payload(definition)
+    return {
+        "revision": canonical_definition_sha256(payload),
+        "version_scheme": "organization-definition-sha256",
+        "origin_kind": "organization_blueprint",
+    }
 
 
 def team_definition_metadata(team: TeamDB) -> dict[str, Any]:
@@ -106,7 +130,9 @@ def team_definition_metadata(team: TeamDB) -> dict[str, Any]:
     if blueprint is not None:
         roles = repos.blueprint_role_repo.get_by_blueprint(blueprint.id)
         artifacts = repos.blueprint_artifact_repo.get_by_blueprint(blueprint.id)
-        current_revision = blueprint_version_metadata(blueprint, roles, artifacts)["revision"]
+        workflow_rows = repos.blueprint_workflow_step_repo.get_by_blueprint(blueprint.id)
+        workflow = serialize_persisted_workflow(blueprint, workflow_rows)
+        current_revision = blueprint_version_metadata(blueprint, roles, artifacts, workflow)["revision"]
         source = "seed_blueprint_instance" if blueprint.is_seed else "custom_blueprint_instance"
         drift_status = "unknown"
         snapshot_meta = snapshot.get("version_metadata") if isinstance(snapshot.get("version_metadata"), dict) else {}
@@ -140,15 +166,19 @@ def build_team_blueprint_diff(team_id: str) -> dict[str, Any] | None:
     if blueprint is not None:
         roles = repos.blueprint_role_repo.get_by_blueprint(blueprint.id)
         artifacts = repos.blueprint_artifact_repo.get_by_blueprint(blueprint.id)
+        workflow_rows = repos.blueprint_workflow_step_repo.get_by_blueprint(blueprint.id)
+        workflow = serialize_persisted_workflow(blueprint, workflow_rows)
         current_blueprint = enrich_blueprint_payload(
             {
                 **blueprint.model_dump(),
                 "roles": [role.model_dump() for role in roles],
                 "artifacts": [artifact.model_dump() for artifact in artifacts],
+                "workflow": workflow,
             },
             blueprint,
             roles,
             artifacts,
+            workflow,
         )
 
     def _names(items: list[dict], key: str) -> set[str]:

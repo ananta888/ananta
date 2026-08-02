@@ -1,6 +1,7 @@
 import uuid
-from typing import List, Optional
+from typing import Any, List, Literal, Optional
 
+from pydantic import ConfigDict, model_validator
 from sqlmodel import Field, SQLModel
 
 
@@ -9,8 +10,8 @@ class Team(SQLModel):
     name: str
     description: Optional[str] = None
     type: str = "Scrum"
-    agent_names: List[str] = []
-    role_templates: dict = {}
+    agent_names: List[str] = Field(default_factory=list)
+    role_templates: dict = Field(default_factory=dict)
     is_active: bool = False
 
 
@@ -36,7 +37,7 @@ class TeamCreateRequest(SQLModel):
     name: str
     description: Optional[str] = None
     team_type_id: Optional[str] = None
-    members: Optional[List[TeamMemberAssignment]] = []
+    members: Optional[List[TeamMemberAssignment]] = Field(default_factory=list)
 
 
 class TeamUpdateRequest(SQLModel):
@@ -118,6 +119,112 @@ class TeamBlueprintBundleImportRequest(SQLModel):
     conflict_strategy: str = "fail"
     dry_run: bool = False
     bundle: TeamBlueprintBundle
+
+
+class PortableDefinitionRevision(SQLModel):
+    """Portable key/version definition; local database IDs are forbidden."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    version: int = Field(ge=1)
+    content_hash: str
+    lifecycle: Literal["draft", "active", "retired"] = "draft"
+    definition: dict[str, Any] = Field(default_factory=dict)
+
+
+class PortableOrganizationInstance(SQLModel):
+    """Portable target-recompile recipe, never a source runtime snapshot."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instance_key: str = Field(min_length=1, max_length=191)
+    definition_ref: str = Field(min_length=3, max_length=255)
+    name: str = Field(min_length=1, max_length=255)
+    composition_mode: Literal["standard", "custom"]
+    team_count: int | None = Field(default=None, ge=2)
+    team_blueprint_counts: dict[str, int] | None = None
+    requested_lifecycle: Literal["draft", "validated"] = "draft"
+    # Deprecated source-bound fields remain parseable solely so old v2
+    # producers receive a precise fail-closed diagnostic during preview.
+    organization_id: str | None = None
+    definition_revision: str | None = None
+    effective_limit_profile_ref: str | None = None
+    effective_limit_profile_revision: int | None = Field(
+        default=None,
+        ge=1,
+    )
+    effective_limit_profile_hash: str | None = None
+    plan_digest: str | None = None
+    topology_snapshot: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def validate_composition(self) -> "PortableOrganizationInstance":
+        if self.composition_mode == "standard":
+            if self.team_count is None or self.team_blueprint_counts is not None:
+                raise ValueError("portable_standard_composition_invalid")
+        elif self.team_count is not None or not self.team_blueprint_counts:
+            raise ValueError("portable_custom_composition_invalid")
+        return self
+
+
+class RedactedOrganizationAssignment(SQLModel):
+    """Portable assignment intent requiring an explicit target-local rebind."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instance_key: str = Field(min_length=1, max_length=191)
+    unit_key: str = Field(min_length=1, max_length=191)
+    role_slot_key: str = Field(min_length=1, max_length=191)
+    principal_ref: str = Field(min_length=1, max_length=191)
+    principal_label: str | None = Field(default=None, max_length=255)
+    redaction: Literal["pseudonymized"] = "pseudonymized"
+    organization_id: str | None = None
+
+
+class OrganizationBlueprintBundleV2(SQLModel):
+    """Closed multi-definition Organization bundle envelope."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["2.0"] = "2.0"
+    bundle_metadata: dict[str, Any] = Field(default_factory=dict)
+    role_templates: List[PortableDefinitionRevision] = Field(default_factory=list)
+    team_blueprints: List[PortableDefinitionRevision] = Field(default_factory=list)
+    workflow_definitions: List[PortableDefinitionRevision] = Field(default_factory=list)
+    organization_blueprints: List[PortableDefinitionRevision] = Field(default_factory=list)
+    handoff_definitions: List[PortableDefinitionRevision] = Field(default_factory=list)
+    policies: List[PortableDefinitionRevision] = Field(default_factory=list)
+    limit_profiles: List[PortableDefinitionRevision] = Field(default_factory=list)
+    organization_instances: List[PortableOrganizationInstance] = Field(
+        default_factory=list,
+        description="Portable target-recompile recipes without source scope or runtime IDs.",
+    )
+    include_assignments: bool = Field(
+        default=False,
+        description="Whether pseudonymized assignment intents are included.",
+    )
+    assignments: List[RedactedOrganizationAssignment] = Field(
+        default_factory=list,
+        description="Pseudonymized intents; import requires an explicit target-local principal rebind.",
+    )
+
+    @model_validator(mode="after")
+    def validate_optional_runtime_sections(self) -> "OrganizationBlueprintBundleV2":
+        if self.assignments and not self.include_assignments:
+            raise ValueError("organization_bundle_assignment_flag_mismatch")
+        instance_keys = {value.instance_key for value in self.organization_instances}
+        if len(instance_keys) != len(self.organization_instances):
+            raise ValueError("organization_bundle_instance_key_duplicate")
+        if any(value.instance_key not in instance_keys for value in self.assignments):
+            raise ValueError("organization_bundle_assignment_instance_missing")
+        return self
+
+
+class OrganizationBlueprintBundleV2ImportRequest(SQLModel):
+    conflict_strategy: Literal["fail", "skip", "overwrite"] = "fail"
+    dry_run: bool = True
+    bundle: OrganizationBlueprintBundleV2
 
 
 class TeamBlueprintCreateRequest(SQLModel):

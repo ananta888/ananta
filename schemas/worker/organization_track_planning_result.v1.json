@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/organization_track_planning_result.v1.json",
+  "title": "Assignment-bound Organization Track planning result v1",
+  "description": "Untrusted Worker candidates for Hub-side validation against todos/todo.track.schema.json. A valid carrier persists Planning Track artifacts only; it does not adopt a Track, create runtime Tasks, route work, or grant authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "payload_digest",
+    "category_revision_id",
+    "source_category_item_ids",
+    "track_candidates",
+    "exclusions"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "organization_track_planning_result.v1"
+    },
+    "payload_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "category_revision_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "source_category_item_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "track_candidates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_id", "payload"],
+        "properties": {
+          "artifact_id": {
+            "$ref": "#/$defs/identifier"
+          },
+          "payload": {
+            "type": "object",
+            "minProperties": 1,
+            "description": "Validated by the Hub against todos/todo.track.schema.json plus lineage, DAG, quality, and authority-ceiling rules.",
+            "x-ananta-schema-ref": "todos/todo.track.schema.json"
+          }
+        }
+      }
+    },
+    "exclusions": {
+      "type": "object",
+      "maxProperties": 100,
+      "propertyNames": {
+        "$ref": "#/$defs/identifier"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 191,
+      "pattern": "^\\S+$"
+    }
+  }
+}
