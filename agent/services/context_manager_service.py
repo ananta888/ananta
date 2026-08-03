@@ -130,6 +130,7 @@ class ContextManagerService:
                     "budget": bundle.get("budget") or {},
                     "compaction": bundle.get("compaction") or {},
                     "why_this_context": bundle.get("why_this_context") or {},
+                    "retrieval_trace": bundle.get("retrieval_trace") or {},
                     "selection_trace": bundle.get("selection_trace") or {},
                 },
             )

@@ -7,6 +7,7 @@ from threading import RLock
 from types import TracebackType
 from typing import Iterator
 
+from sqlalchemy import text
 from sqlmodel import Session
 
 from agent.repositories.planning_artifacts import PlanningArtifactRepository
@@ -21,6 +22,30 @@ def planning_scope_lock(scope_key: str) -> Iterator[None]:
     lock = _PLANNING_LOCK_STRIPES[digest[0] % len(_PLANNING_LOCK_STRIPES)]
     with lock:
         yield
+
+
+def planning_transaction_lock(session: Session, scope_key: str) -> None:
+    """Serialize one Planning aggregate across Hub processes on PostgreSQL.
+
+    SQLite remains a development/test no-op and still uses the bounded local
+    lock above.  The namespace is part of the digest, and the positive 60-bit
+    key stays clear of unrelated advisory-lock key spaces.
+    """
+
+    dialect = str(
+        getattr(getattr(session.get_bind(), "dialect", None), "name", "")
+    )
+    if dialect != "postgresql":
+        return
+    digest = hashlib.sha256(
+        f"ananta:planning-transaction:v1:{scope_key}".encode("utf-8")
+    ).digest()
+    lock_key = int.from_bytes(digest[:8], "big") & ((1 << 60) - 1)
+    session.exec(
+        text("SELECT pg_advisory_xact_lock(:lock_key)").bindparams(
+            lock_key=lock_key
+        )
+    )
 
 
 class PlanningControlUnitOfWork:
@@ -69,4 +94,8 @@ class PlanningControlUnitOfWork:
             self.planning = None
 
 
-__all__ = ["PlanningControlUnitOfWork", "planning_scope_lock"]
+__all__ = [
+    "PlanningControlUnitOfWork",
+    "planning_scope_lock",
+    "planning_transaction_lock",
+]

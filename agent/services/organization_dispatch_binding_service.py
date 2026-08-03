@@ -9,6 +9,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from agent.db_models import (
+    OrganizationInstanceDB,
     OrganizationRoleAssignmentDB,
     PlanningArtifactRevisionDB,
     PlanningTaskDispatchDB,
@@ -29,10 +30,23 @@ class OrganizationDispatchBindingResolver:
         self,
         *,
         session_factory: Callable[[], Session] | None = None,
+        research_assignment_bindings=None,
         clock: Callable[[], float] = time.time,
     ) -> None:
         self._session_factory = session_factory or self._default_session
         self._clock = clock
+        if research_assignment_bindings is None:
+            from agent.services.organization_research_assignment_binding_service import (
+                OrganizationResearchAssignmentBindingService,
+            )
+
+            research_assignment_bindings = (
+                OrganizationResearchAssignmentBindingService(
+                    session_factory=self._session_factory,
+                    clock=clock,
+                )
+            )
+        self._research_assignment_bindings = research_assignment_bindings
 
     @staticmethod
     def _default_session() -> Session:
@@ -47,16 +61,41 @@ class OrganizationDispatchBindingResolver:
         organization_id = str(task.get("organization_id") or "").strip()
         if not all((task_id, tenant_id, project_id, organization_id)):
             return None
+        if str(task.get("task_kind") or "").strip() == "planning_research":
+            return self._research_assignment_bindings.resolve_worker(task)
         with self._session_factory() as session:
-            authoritative = session.exec(
-                select(TaskDB).where(
-                    TaskDB.id == task_id,
-                    TaskDB.tenant_id == tenant_id,
-                    TaskDB.project_id == project_id,
-                    TaskDB.organization_id == organization_id,
+            lock_rows = self._supports_row_lock(session)
+            authoritative_statement = select(TaskDB).where(
+                TaskDB.id == task_id,
+                TaskDB.tenant_id == tenant_id,
+                TaskDB.project_id == project_id,
+                TaskDB.organization_id == organization_id,
+            )
+            if lock_rows:
+                authoritative_statement = (
+                    authoritative_statement.with_for_update()
                 )
+            authoritative = session.exec(
+                authoritative_statement
             ).one_or_none()
             if authoritative is None:
+                return None
+            organization_statement = select(
+                OrganizationInstanceDB
+            ).where(
+                OrganizationInstanceDB.tenant_id == tenant_id,
+                OrganizationInstanceDB.project_id == project_id,
+                OrganizationInstanceDB.organization_id == organization_id,
+                OrganizationInstanceDB.lifecycle == "active",
+            )
+            if lock_rows:
+                organization_statement = (
+                    organization_statement.with_for_update()
+                )
+            organization = session.exec(
+                organization_statement
+            ).one_or_none()
+            if organization is None:
                 return None
             worker_context = dict(authoritative.worker_execution_context or {})
             routing = self._mapping(worker_context.get("organization_routing"))
@@ -67,8 +106,7 @@ class OrganizationDispatchBindingResolver:
                 dispatch_binding=dispatch_binding,
             ):
                 return None
-            dispatch = session.exec(
-                select(PlanningTaskDispatchDB).where(
+            dispatch_statement = select(PlanningTaskDispatchDB).where(
                     PlanningTaskDispatchDB.dispatch_intent_id == str(dispatch_binding.get("dispatch_intent_id") or ""),
                     PlanningTaskDispatchDB.tenant_id == tenant_id,
                     PlanningTaskDispatchDB.project_id == project_id,
@@ -79,7 +117,9 @@ class OrganizationDispatchBindingResolver:
                     PlanningTaskDispatchDB.requested_worker_id == str(routing.get("selected_agent_id") or ""),
                     PlanningTaskDispatchDB.status == "dispatching",
                 )
-            ).one_or_none()
+            if lock_rows:
+                dispatch_statement = dispatch_statement.with_for_update()
+            dispatch = session.exec(dispatch_statement).one_or_none()
             if (
                 dispatch is None
                 or not str(dispatch.processing_owner or "")
@@ -87,7 +127,12 @@ class OrganizationDispatchBindingResolver:
                 or dispatch.attempt != self._positive_int(dispatch_binding.get("attempt"))
             ):
                 return None
-            mapping = session.get(PlanningTaskMappingDB, dispatch.task_mapping_id)
+            mapping_statement = select(PlanningTaskMappingDB).where(
+                PlanningTaskMappingDB.id == dispatch.task_mapping_id
+            )
+            if lock_rows:
+                mapping_statement = mapping_statement.with_for_update()
+            mapping = session.exec(mapping_statement).one_or_none()
             if (
                 mapping is None
                 or mapping.internal_task_id != authoritative.id
@@ -98,7 +143,13 @@ class OrganizationDispatchBindingResolver:
                 or mapping.unit_id != str(authoritative.unit_id or "")
             ):
                 return None
-            track = session.get(PlanningArtifactRevisionDB, dispatch.track_revision_id)
+            track_statement = select(PlanningArtifactRevisionDB).where(
+                PlanningArtifactRevisionDB.id
+                == dispatch.track_revision_id
+            )
+            if lock_rows:
+                track_statement = track_statement.with_for_update()
+            track = session.exec(track_statement).one_or_none()
             if (
                 track is None
                 or track.status != "adopted"
@@ -108,8 +159,9 @@ class OrganizationDispatchBindingResolver:
                 or track.policy_hash != str(routing.get("effective_policy_hash") or "")
             ):
                 return None
-            assignment = session.exec(
-                select(OrganizationRoleAssignmentDB).where(
+            assignment_statement = select(
+                OrganizationRoleAssignmentDB
+            ).where(
                     OrganizationRoleAssignmentDB.id == str(routing.get("selected_assignment_id") or ""),
                     OrganizationRoleAssignmentDB.tenant_id == tenant_id,
                     OrganizationRoleAssignmentDB.project_id == project_id,
@@ -118,7 +170,9 @@ class OrganizationDispatchBindingResolver:
                     OrganizationRoleAssignmentDB.agent_url == str(routing.get("selected_agent_id") or ""),
                     OrganizationRoleAssignmentDB.lifecycle == "active",
                 )
-            ).one_or_none()
+            if lock_rows:
+                assignment_statement = assignment_statement.with_for_update()
+            assignment = session.exec(assignment_statement).one_or_none()
             return str(assignment.agent_url) if assignment is not None else None
 
     @staticmethod
@@ -160,6 +214,11 @@ class OrganizationDispatchBindingResolver:
         except (TypeError, ValueError, OverflowError):
             return 0
         return parsed if parsed > 0 else 0
+
+    @staticmethod
+    def _supports_row_lock(session: Session) -> bool:
+        bind = session.get_bind()
+        return bool(bind is not None and bind.dialect.name != "sqlite")
 
 
 __all__ = ["OrganizationDispatchBindingResolver"]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -22,6 +23,16 @@ from agent.routes.tasks.orchestration_policy import (
     persist_policy_decision,
 )
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
+from agent.services.organization_research_delegation_policy_service import (
+    OrganizationResearchDelegationPolicyError,
+    OrganizationResearchDelegationPolicyService,
+    get_organization_research_delegation_policy_service,
+)
+from agent.services.organization_research_dispatch_capability_service import (
+    OrganizationResearchDispatchCapabilityError,
+    OrganizationResearchDispatchCapabilityIssuer,
+    get_organization_research_dispatch_capability_issuer,
+)
 from agent.services.task_execution_policy_service import normalize_allowed_tools
 from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 from agent.services.worker_result_capability_service import WorkerResultCapabilityService
@@ -116,17 +127,7 @@ class TaskDelegationPlanner:
             # intent.  Only that closed binding is authoritative here.
             agent_url = self._organization_bindings.resolve(parent_task)
             hub_routing_binding = bool(agent_url)
-            planning_lineage = dict(
-                dict(parent_task.get("worker_execution_context") or {}).get(
-                    "planning_lineage"
-                )
-                or {}
-            )
-            if (
-                planning_lineage.get("schema")
-                == "organization_planning_lineage.v1"
-                and not hub_routing_binding
-            ):
+            if not hub_routing_binding:
                 return {
                     "error": "organization_planning_dispatch_binding_required",
                     "code": 409,
@@ -136,8 +137,21 @@ class TaskDelegationPlanner:
         selection = None
         policy_decision = None
         routing_hint = None
-        effective_task_kind = data.task_kind or parent_task.get("task_kind")
-        if getattr(data, "required_capabilities", None) is not None:
+        authoritative_research_task = bool(
+            organization_bound
+            and str(parent_task.get("task_kind") or "").strip()
+            == "planning_research"
+        )
+        effective_task_kind = (
+            "planning_research"
+            if authoritative_research_task
+            else data.task_kind or parent_task.get("task_kind")
+        )
+        if authoritative_research_task:
+            effective_required_capabilities = list(
+                parent_task.get("required_capabilities") or []
+            )
+        elif getattr(data, "required_capabilities", None) is not None:
             effective_required_capabilities = list(data.required_capabilities or [])
         else:
             effective_required_capabilities = parent_task.get("required_capabilities") or derive_required_capabilities(
@@ -258,8 +272,23 @@ class TaskDelegationPlanner:
 class WorkerExecutionContextFactory:
     """Builds context bundle, workspace scope, worker job and worker task payload."""
 
-    def __init__(self, dependencies) -> None:
+    def __init__(
+        self,
+        dependencies,
+        *,
+        research_delegation_policy: (
+            OrganizationResearchDelegationPolicyService | None
+        ) = None,
+        research_dispatch_issuer: (
+            OrganizationResearchDispatchCapabilityIssuer | None
+        ) = None,
+    ) -> None:
         self.dependencies = dependencies
+        self._research_delegation_policy = (
+            research_delegation_policy
+            or get_organization_research_delegation_policy_service()
+        )
+        self._research_dispatch_issuer = research_dispatch_issuer
 
     def build(
         self,
@@ -271,11 +300,10 @@ class WorkerExecutionContextFactory:
     ) -> WorkerExecutionBundle:
         task_id = request.task_id
         parent_task = request.parent_task
+        parent_wec = dict(parent_task.get("worker_execution_context") or {})
         data = request.data
         parent_dispatch = dict(
-            dict(parent_task.get("worker_execution_context") or {}).get(
-                "planning_dispatch"
-            )
+            parent_wec.get("planning_dispatch")
             or {}
         )
         dispatch_intent_id = str(
@@ -297,12 +325,32 @@ class WorkerExecutionContextFactory:
                 effective_task_kind=plan.effective_task_kind,
             )
         )
-        context_bundle = worker_job_service.create_context_bundle(
-            query=context_query,
-            parent_task_id=task_id,
-            goal_id=parent_task.get("goal_id"),
-            context_policy=context_policy,
+        authoritative_context = (
+            self._research_delegation_policy.resolve_context(parent_task)
         )
+        if authoritative_context is None:
+            context_bundle = worker_job_service.create_context_bundle(
+                query=context_query,
+                parent_task_id=task_id,
+                goal_id=parent_task.get("goal_id"),
+                context_policy=context_policy,
+            )
+        else:
+            context_bundle = authoritative_context.bundle
+            context_policy = {
+                **dict(context_policy or {}),
+                "mode": "authoritative_source_catalog_bundle",
+                "llm_scope": "local_only",
+                "authoritative_context": dict(
+                    authoritative_context.context_policy
+                ),
+            }
+            retrieval_hints = {
+                **dict(retrieval_hints or {}),
+                "retrieval_intent": "authoritative_source_catalog",
+                "required_context_scope": "exact_task_context_bundle",
+                "preferred_bundle_mode": "authoritative",
+            }
         resolved_profile, profile_source = self._resolve_execution_profile(
             parent_task=parent_task,
             request_data=data,
@@ -312,8 +360,32 @@ class WorkerExecutionContextFactory:
             "worker_profile": resolved_profile,
             "worker_profile_source": profile_source,
         }
-        expected_output_schema = dict(data.expected_output_schema or {})
-        allowed_tools = normalize_allowed_tools(data.allowed_tools)
+        if authoritative_context is None:
+            expected_output_schema = dict(data.expected_output_schema or {})
+            allowed_tools = normalize_allowed_tools(data.allowed_tools)
+        else:
+            expected_output_schema = dict(
+                parent_wec.get("expected_output_schema") or {}
+            )
+            allowed_tools = normalize_allowed_tools(
+                parent_wec.get("allowed_tools")
+            )
+        selected_runtime_target_id, selected_runtime_kind = (
+            self._runtime_selection_coordinates(plan)
+        )
+        research_destination_binding = (
+            self._research_delegation_policy.resolve_destination_binding(
+                task=parent_task,
+                worker_url=plan.agent_url,
+                selected_runtime_target_id=selected_runtime_target_id,
+                selected_runtime_kind=selected_runtime_kind,
+                preferred_provider=plan.preferred_backend,
+            )
+        )
+        if research_destination_binding is not None:
+            context_policy["research_destination_binding"] = dict(
+                research_destination_binding
+            )
         routing_decision_payload = worker_contract_service.build_routing_decision(
             agent_url=plan.agent_url,
             selected_by_policy=plan.selected_by_policy,
@@ -346,9 +418,36 @@ class WorkerExecutionContextFactory:
         routing_decision_payload["goal_config_source"] = scoped_resolution.source
         routing_decision_payload["worker_profile"] = resolved_profile
         routing_decision_payload["profile_source"] = profile_source
+        if research_destination_binding is not None:
+            routing_decision_payload["research_destination"] = dict(
+                research_destination_binding
+            )
         if plan.routing_hint:
             routing_decision_payload["copilot_hint"] = dict(plan.routing_hint)
         routing_decision = RoutingDecision(routing_decision_payload)
+        selection_decision = (
+            plan.worker_runtime_decision.model_dump(mode="json")
+            if plan.worker_runtime_decision
+            and hasattr(plan.worker_runtime_decision, "model_dump")
+            else None
+        )
+        if selection_decision is None and research_destination_binding is not None:
+            selection_decision = {
+                "selected_worker_id": plan.agent_url,
+                "selected_worker_kind": research_destination_binding.get(
+                    "worker_kind"
+                ),
+                "selected_runtime_target_id": (
+                    research_destination_binding.get("runtime_target_id")
+                ),
+                "selected_runtime_kind": research_destination_binding.get(
+                    "runtime_kind"
+                ),
+                "selection_mode": "organization_research_destination",
+                "policy_decision_ref": research_destination_binding.get(
+                    "binding_digest"
+                ),
+            }
         worker_job = worker_job_service.create_worker_job(
             parent_task_id=task_id,
             subtask_id=subtask_id,
@@ -363,9 +462,7 @@ class WorkerExecutionContextFactory:
                 context_policy=context_policy,
                 extra_metadata={"selected_by_policy": plan.selected_by_policy},
             ),
-            selection_decision=plan.worker_runtime_decision.model_dump(mode="json")
-            if plan.worker_runtime_decision and hasattr(plan.worker_runtime_decision, "model_dump")
-            else None,
+            selection_decision=selection_decision,
         )
         workspace_scope = derive_workspace_scope(
             parent_task=parent_task,
@@ -399,7 +496,6 @@ class WorkerExecutionContextFactory:
             expected_output_schema=expected_output_schema,
             routing_decision=routing_decision.as_dict(),
         )
-        parent_wec = dict(parent_task.get("worker_execution_context") or {})
         # Preserve the Hub-issued task contract (planning lineage, source/run
         # allowlists, role binding, budgets, and persisted routing decision)
         # while the execution factory adds assignment-specific context.
@@ -407,6 +503,26 @@ class WorkerExecutionContextFactory:
             **parent_wec,
             **dict(worker_execution_context or {}),
         }
+        if research_destination_binding is not None:
+            worker_execution_context["research_destination_binding"] = dict(
+                research_destination_binding
+            )
+        if authoritative_context is not None:
+            worker_execution_context[
+                "source_context_bundle_manifest"
+            ] = {
+                "schema": "organization_research_context_manifest.v1",
+                "id": str(getattr(context_bundle, "id", "") or ""),
+                "retrieval_run_id": str(
+                    getattr(context_bundle, "retrieval_run_id", "") or ""
+                ),
+                "task_id": str(
+                    getattr(context_bundle, "task_id", "") or ""
+                ),
+                "bundle_type": str(
+                    getattr(context_bundle, "bundle_type", "") or ""
+                ),
+            }
         parent_foundation = parent_wec.get("deterministic_repair_foundation")
         if isinstance(parent_foundation, dict):
             worker_execution_context["deterministic_repair_foundation"] = parent_foundation
@@ -459,6 +575,48 @@ class WorkerExecutionContextFactory:
             context_policy=context_policy,
             worker_execution_context=worker_execution_context,
         )
+        if authoritative_context is not None:
+            source_context_policy = dict(
+                worker_execution_context.get("source_context_policy") or {}
+            )
+            destination_binding = dict(
+                worker_execution_context.get(
+                    "research_destination_binding"
+                )
+                or {}
+            )
+            try:
+                delegation_payload["hub_dispatch_capability"] = (
+                    self._research_dispatch_capability_issuer().issue(
+                        payload=delegation_payload,
+                        worker_url=plan.agent_url,
+                        source_context_bundle_digest=str(
+                            source_context_policy.get(
+                                "context_bundle_digest"
+                            )
+                            or ""
+                        ),
+                        destination_binding_digest=str(
+                            destination_binding.get("binding_digest") or ""
+                        ),
+                        worker_job_id=str(worker_job.id),
+                    )
+                )
+            except OrganizationResearchDispatchCapabilityError as exc:
+                fail_dispatch = getattr(
+                    worker_job_service,
+                    "fail_dispatch",
+                    None,
+                )
+                if callable(fail_dispatch):
+                    fail_dispatch(
+                        worker_job_id=str(worker_job.id),
+                        reason_code=exc.reason_code,
+                        rejected=True,
+                    )
+                raise OrganizationResearchDelegationPolicyError(
+                    exc.reason_code
+                ) from exc
         return WorkerExecutionBundle(
             subtask_id=subtask_id,
             context_bundle=context_bundle,
@@ -473,6 +631,31 @@ class WorkerExecutionContextFactory:
             worker_execution_context=worker_execution_context,
             delegation_payload=delegation_payload,
         )
+
+    def _research_dispatch_capability_issuer(
+        self,
+    ) -> OrganizationResearchDispatchCapabilityIssuer:
+        if self._research_dispatch_issuer is None:
+            self._research_dispatch_issuer = (
+                get_organization_research_dispatch_capability_issuer()
+            )
+        return self._research_dispatch_issuer
+
+    @staticmethod
+    def _runtime_selection_coordinates(
+        plan: TaskDelegationPlan,
+    ) -> tuple[str | None, str | None]:
+        decision = plan.worker_runtime_decision
+        if decision is None:
+            return None, None
+        target_id = str(
+            getattr(decision, "selected_runtime_target_id", "") or ""
+        ).strip()
+        raw_kind = getattr(decision, "selected_runtime_kind", None)
+        runtime_kind = str(
+            getattr(raw_kind, "value", raw_kind or "")
+        ).strip()
+        return target_id or None, runtime_kind or None
 
     def _resolve_output_dir(self, parent_task: dict[str, Any]) -> str:
         goal_id = str(parent_task.get("goal_id") or "").strip()
@@ -636,8 +819,29 @@ class WorkerExecutionContextFactory:
 class TaskDelegationResultWriter:
     """Persists delegation side effects and builds the API response model."""
 
-    def __init__(self, dependencies) -> None:
+    def __init__(
+        self,
+        dependencies,
+        *,
+        research_delegation_policy: (
+            OrganizationResearchDelegationPolicyService | None
+        ) = None,
+        organization_binding_resolver=None,
+    ) -> None:
         self.dependencies = dependencies
+        self._research_delegation_policy = (
+            research_delegation_policy
+            or get_organization_research_delegation_policy_service()
+        )
+        if organization_binding_resolver is None:
+            from agent.services.organization_dispatch_binding_service import (
+                OrganizationDispatchBindingResolver,
+            )
+
+            organization_binding_resolver = (
+                OrganizationDispatchBindingResolver()
+            )
+        self._organization_bindings = organization_binding_resolver
 
     def forward_and_write(
         self,
@@ -645,6 +849,7 @@ class TaskDelegationResultWriter:
         request: DelegationRequest,
         plan: TaskDelegationPlan,
         bundle: WorkerExecutionBundle,
+        worker_job_service=None,
     ) -> dict[str, Any]:
         from agent.services.recovery_dispatch_gate_service import (
             get_recovery_dispatch_gate_service,
@@ -658,12 +863,19 @@ class TaskDelegationResultWriter:
         authoritative = repos.task_repo.get_by_id(request.task_id)
         if gate.is_recovery_child(authoritative):
             with gate.dispatch_guard(request.task_id) as gate_decision:
+                reason_code = (
+                    gate_decision.reason_code
+                    if not gate_decision.allowed
+                    else "recovery_child_delegation_not_supported"
+                )
+                self._terminalize_dispatch(
+                    worker_job_service,
+                    bundle=bundle,
+                    reason_code=reason_code,
+                    rejected=True,
+                )
                 return {
-                    "error": (
-                        gate_decision.reason_code
-                        if not gate_decision.allowed
-                        else "recovery_child_delegation_not_supported"
-                    ),
+                    "error": reason_code,
                     "code": 409,
                     "data": {
                         "source_task_id": (gate_decision.source_task_id),
@@ -680,6 +892,12 @@ class TaskDelegationResultWriter:
             "timeout",
             "archived",
         }:
+            self._terminalize_dispatch(
+                worker_job_service,
+                bundle=bundle,
+                reason_code="task_not_dispatchable",
+                rejected=True,
+            )
             return {
                 "error": "task_not_dispatchable",
                 "code": 409,
@@ -688,6 +906,12 @@ class TaskDelegationResultWriter:
         worker = repos.agent_repo.get_by_url(plan.agent_url)
         worker_token = str(getattr(worker, "token", "") or "").strip()
         if worker is None or not worker_token:
+            self._terminalize_dispatch(
+                worker_job_service,
+                bundle=bundle,
+                reason_code="worker_auth_unavailable",
+                rejected=True,
+            )
             return {
                 "error": "worker_auth_unavailable",
                 "code": 409,
@@ -699,19 +923,113 @@ class TaskDelegationResultWriter:
                 plan=plan,
                 bundle=bundle,
             )
-            response = unwrap_api_envelope(
-                self.dependencies.forward_task_to_worker(
-                    plan.agent_url,
-                    "/tasks",
-                    bundle.delegation_payload,
-                    token=worker_token,
+            authoritative_task = (
+                authoritative.model_dump()
+                if hasattr(authoritative, "model_dump")
+                else dict(authoritative)
+                if isinstance(authoritative, Mapping)
+                else vars(authoritative)
+            )
+            selected_runtime_target_id, selected_runtime_kind = (
+                WorkerExecutionContextFactory._runtime_selection_coordinates(
+                    plan
                 )
             )
-        except Exception as exc:
+            self._research_delegation_policy.verify_forward(
+                task=authoritative_task,
+                worker_url=plan.agent_url,
+                selected_runtime_target_id=selected_runtime_target_id,
+                selected_runtime_kind=selected_runtime_kind,
+                preferred_provider=plan.preferred_backend,
+                expected_context_bundle_id=str(
+                    getattr(bundle.context_bundle, "id", "") or ""
+                ),
+                expected_destination_binding=(
+                    bundle.context_policy.get(
+                        "research_destination_binding"
+                    )
+                    if isinstance(bundle.context_policy, Mapping)
+                    else None
+                ),
+                expected_worker_job_id=str(bundle.worker_job.id),
+                expected_subtask_id=bundle.subtask_id,
+            )
+            if str(
+                authoritative_task.get("organization_id") or ""
+            ).strip():
+                current_worker = self._organization_bindings.resolve(
+                    authoritative_task
+                )
+                if not current_worker:
+                    raise OrganizationResearchDelegationPolicyError(
+                        "organization_planning_dispatch_binding_required"
+                    )
+                if str(current_worker) != str(plan.agent_url):
+                    raise OrganizationResearchDelegationPolicyError(
+                        "organization_planning_dispatch_binding_changed_before_forward"
+                    )
+            endpoint = (
+                "/internal/tasks/organization-planning-research"
+                if str(
+                    bundle.delegation_payload.get(
+                        "hub_dispatch_capability"
+                    )
+                    or ""
+                )
+                else "/tasks"
+            )
+            raw_response = self.dependencies.forward_task_to_worker(
+                plan.agent_url,
+                endpoint,
+                bundle.delegation_payload,
+                token=worker_token,
+            )
+            response = self._accepted_worker_response(
+                raw_response,
+                research_dispatch=bool(
+                    bundle.delegation_payload.get(
+                        "hub_dispatch_capability"
+                    )
+                ),
+                expected_task_id=bundle.subtask_id,
+            )
+            if response is None:
+                self._terminalize_dispatch(
+                    worker_job_service,
+                    bundle=bundle,
+                    reason_code="worker_transport_failed",
+                    rejected=False,
+                )
+                return {
+                    "error": "delegation_failed",
+                    "code": 502,
+                    "data": {
+                        "reason_code": "worker_transport_failed"
+                    },
+                }
+        except OrganizationResearchDelegationPolicyError as exc:
+            self._terminalize_dispatch(
+                worker_job_service,
+                bundle=bundle,
+                reason_code=exc.reason_code,
+                rejected=True,
+            )
+            return {
+                "error": exc.reason_code,
+                "code": 409,
+                "data": {},
+            }
+        except Exception:
+            self._terminalize_dispatch(
+                worker_job_service,
+                bundle=bundle,
+                reason_code="worker_transport_failed",
+                rejected=False,
+            )
             return {
                 "error": "delegation_failed",
                 "code": 502,
-                "data": {"details": str(exc)},
+                "data": {"reason_code": "worker_transport_failed"},
             }
 
         self._update_parent_task(
@@ -727,6 +1045,69 @@ class TaskDelegationResultWriter:
             bundle=bundle,
             policy_decision=policy_decision,
         )
+
+    @staticmethod
+    def _terminalize_dispatch(
+        worker_job_service,
+        *,
+        bundle: WorkerExecutionBundle,
+        reason_code: str,
+        rejected: bool,
+    ) -> None:
+        if worker_job_service is None:
+            return
+        worker_job_service.fail_dispatch(
+            worker_job_id=str(bundle.worker_job.id),
+            reason_code=reason_code,
+            rejected=rejected,
+        )
+
+    @staticmethod
+    def _accepted_worker_response(
+        raw_response: Any,
+        *,
+        research_dispatch: bool,
+        expected_task_id: str,
+    ) -> dict[str, Any] | None:
+        """Accept only a non-error Worker acknowledgement.
+
+        The production HTTP gateway historically returns error dictionaries
+        instead of raising. Treating such a value as a normal response would
+        advance the Hub parent while no Worker owns the Task.
+        """
+
+        if not isinstance(raw_response, Mapping):
+            return None
+        outer = dict(raw_response)
+        response = unwrap_api_envelope(outer)
+        if TaskDelegationResultWriter._is_worker_error(outer):
+            return None
+        if TaskDelegationResultWriter._is_worker_error(response):
+            return None
+        if research_dispatch:
+            if response.get("accepted") is not True:
+                return None
+            response_task_id = str(response.get("task_id") or "").strip()
+            if response_task_id != str(expected_task_id or "").strip():
+                return None
+        return response
+
+    @staticmethod
+    def _is_worker_error(payload: Mapping[str, Any]) -> bool:
+        status = str(payload.get("status") or "").strip().lower()
+        if status in {"error", "failed", "failure", "rejected"}:
+            return True
+        if payload.get("success") is False or payload.get("ok") is False:
+            return True
+        if payload.get("accepted") is False:
+            return True
+        raw_code = payload.get("status_code", payload.get("code"))
+        if isinstance(raw_code, bool):
+            return True
+        try:
+            return raw_code is not None and int(raw_code) >= 400
+        except (TypeError, ValueError, OverflowError):
+            return raw_code is not None
 
     def _persist_manual_policy(
         self,

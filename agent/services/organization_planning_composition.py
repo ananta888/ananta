@@ -34,6 +34,9 @@ from agent.services.approval_request_service import (
 from agent.services.category_to_planning_track_service import (
     CategoryToPlanningTrackService,
 )
+from agent.services.organization_category_research_readiness_service import (
+    OrganizationCategoryResearchReadinessService,
+)
 from agent.services.organization_category_research_service import (
     OrganizationCategoryResearchService,
 )
@@ -172,6 +175,7 @@ class OrganizationPlanningComposition:
         proposal_decision_service: WorkerTaskProposalDecisionService | None = None,
         approval_service: ApprovalRequestService | None = None,
         category_research_service: OrganizationCategoryResearchService | None = None,
+        category_research_readiness_service: OrganizationCategoryResearchReadinessService | None = None,
         track_derivation_service: CategoryToPlanningTrackService | None = None,
         track_planning_service: OrganizationTrackPlanningService | None = None,
         materialization_service: PlanningTaskMaterializationService | None = None,
@@ -185,7 +189,15 @@ class OrganizationPlanningComposition:
         self._transitions = transition_service or PlanningArtifactTransitionService()
         self._proposal_decisions = proposal_decision_service or WorkerTaskProposalDecisionService()
         self._approvals = approval_service or ApprovalRequestService()
-        self._category_research = category_research_service or OrganizationCategoryResearchService()
+        self._category_research_readiness = (
+            category_research_readiness_service
+            or OrganizationCategoryResearchReadinessService(
+                session_factory=self._session_factory,
+            )
+        )
+        self._category_research = category_research_service or OrganizationCategoryResearchService(
+            readiness_service=self._category_research_readiness,
+        )
         self._track_derivation = track_derivation_service or CategoryToPlanningTrackService()
         self._track_planning = track_planning_service or OrganizationTrackPlanningService(
             track_derivation_service=self._track_derivation
@@ -353,6 +365,34 @@ class OrganizationPlanningComposition:
             role_slot_id=role_slot_id,
             catalog_binding=catalog_binding,
             idempotency_key=idempotency_key,
+        )
+
+    def get_category_research_readiness(
+        self,
+        *,
+        principal: OrganizationAccessPrincipal,
+        organization_id: str,
+        goal_id: str,
+        unit_id: str,
+        team_id: str,
+        role_slot_id: str,
+        catalog_task_id: str,
+    ) -> dict[str, Any]:
+        organization = self._organization(
+            principal=principal,
+            organization_id=organization_id,
+            mutation_grant=None,
+        )
+        return self._category_research_readiness.evaluate(
+            context=self._operation_context(
+                principal=principal,
+                organization=organization,
+            ),
+            goal_id=goal_id,
+            unit_id=unit_id,
+            team_id=team_id,
+            role_slot_id=role_slot_id,
+            catalog_task_id=catalog_task_id,
         )
 
     def accept_category_research_result(

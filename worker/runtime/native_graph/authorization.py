@@ -141,10 +141,10 @@ class HubBackedNativeAuthorizationVerifier:
             self._nonces[key] = float(expires_at)
 
 
-def load_ed25519_native_authorization_verifier(
+def load_ed25519_verification_key_ring(
     environment: Mapping[str, str] | None = None,
-) -> AuthorizationVerifier | None:
-    """Load a public verification ring; private/symmetric fields are rejected."""
+) -> Ed25519VerificationKeyRing | None:
+    """Load a public-only workflow keyring for Worker-side verification."""
 
     source = os.environ if environment is None else environment
     raw_path = str(source.get("ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE") or "").strip()
@@ -168,10 +168,22 @@ def load_ed25519_native_authorization_verifier(
         key_ring = Ed25519VerificationKeyRing.from_mapping(decoded)
     except RuntimeAuthorizationCryptoError as exc:
         raise ValueError(exc.reason_code) from exc
+    return key_ring
+
+
+def load_ed25519_native_authorization_verifier(
+    environment: Mapping[str, str] | None = None,
+) -> AuthorizationVerifier | None:
+    """Load the Native verifier without exposing a Worker signing seam."""
+
+    key_ring = load_ed25519_verification_key_ring(environment)
+    if key_ring is None:
+        return None
     return AuthorizationVerifier(key_ring, InMemoryReplayNonceStore())
 
 
 __all__ = [
     "HubBackedNativeAuthorizationVerifier",
     "load_ed25519_native_authorization_verifier",
+    "load_ed25519_verification_key_ring",
 ]

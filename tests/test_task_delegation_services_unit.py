@@ -1,6 +1,14 @@
+import base64
 import contextlib
 from types import SimpleNamespace
 
+from agent.common.gateways.worker_gateway import HttpWorkerGateway
+from agent.services.organization_research_delegation_policy_service import (
+    AuthoritativeResearchContext,
+)
+from agent.services.organization_research_dispatch_capability_service import (
+    OrganizationResearchDispatchCapabilityIssuer,
+)
 from agent.services.task_delegation_services import (
     DelegationRequest,
     RoutingDecision,
@@ -11,19 +19,44 @@ from agent.services.task_delegation_services import (
     WorkerExecutionContextFactory,
 )
 from agent.services.task_orchestration_service import CompletionOutcome, TaskOrchestrationService
+from ananta_contracts.runtime_authorization_crypto import (
+    Ed25519SigningKeyRing,
+)
+
+_RESEARCH_DISPATCH_ISSUER = (
+    OrganizationResearchDispatchCapabilityIssuer(
+        Ed25519SigningKeyRing(
+            {
+                "hub-research-test": base64.b64encode(b"h" * 32)
+            },
+            active_key_id="hub-research-test",
+        )
+    )
+)
 
 
 class _Dependencies:
     def __init__(self, *, workers=None, routing_hint=None, forward_result=None, forward_error=None):
         self.workers = workers or []
         self.routing_hint = routing_hint
-        self.forward_result = forward_result or {"status": "success", "data": {"accepted": True}}
+        self.forward_result = forward_result or {
+            "status": "success",
+            "data": {"accepted": True, "task_id": "sub-1"},
+        }
         self.forward_error = forward_error
         self.forward_calls = []
         self.update_calls = []
 
     def repository_registry(self):
-        return SimpleNamespace(agent_repo=SimpleNamespace(get_all=lambda: list(self.workers)))
+        return SimpleNamespace(
+            agent_repo=SimpleNamespace(
+                get_all=lambda: list(self.workers),
+                get_by_url=lambda worker_url: SimpleNamespace(
+                    url=worker_url,
+                    token="worker-specific-service-token-1234567890",
+                ),
+            )
+        )
 
     def routing_advisor(self):
         return SimpleNamespace(
@@ -71,6 +104,7 @@ class _WorkerJobService:
     def __init__(self):
         self.context_calls = []
         self.job_calls = []
+        self.failed_dispatches = []
 
     def create_context_bundle(self, **kwargs):
         self.context_calls.append(kwargs)
@@ -85,6 +119,9 @@ class _WorkerJobService:
     def create_worker_job(self, **kwargs):
         self.job_calls.append(kwargs)
         return SimpleNamespace(id="job-1")
+
+    def fail_dispatch(self, **kwargs):
+        self.failed_dispatches.append(kwargs)
 
 
 class _WorkerContractService:
@@ -314,6 +351,69 @@ def test_organization_track_delegation_fails_closed_without_outbox_binding():
     }
 
 
+def test_every_organization_task_requires_authoritative_dispatch_binding():
+    request = _request(
+        parent_overrides={
+            "tenant_id": "tenant-1",
+            "project_id": "project-1",
+            "organization_id": "org-1",
+            "unit_id": "unit-1",
+            "role_slot_id": "slot-1",
+            "worker_execution_context": {},
+        },
+    )
+
+    result = TaskDelegationPlanner(
+        _Dependencies(workers=[]),
+        organization_binding_resolver=SimpleNamespace(
+            resolve=lambda _task: None
+        ),
+    ).plan(request=request, agent_registry_service=_AgentRegistry())
+
+    assert result == {
+        "error": "organization_planning_dispatch_binding_required",
+        "code": 409,
+        "data": {},
+    }
+
+
+def test_organization_category_research_routing_keeps_hub_required_capabilities():
+    request = _request(
+        data_overrides={
+            "agent_url": "http://caller-hint:5000",
+            "task_kind": "planning",
+            "required_capabilities": [],
+        },
+        parent_overrides={
+            "tenant_id": "tenant-1",
+            "project_id": "project-1",
+            "organization_id": "org-1",
+            "task_kind": "planning_research",
+            "required_capabilities": [
+                "planning",
+                "research",
+                "source_analysis",
+            ],
+        },
+    )
+    resolver = SimpleNamespace(
+        resolve=lambda _task: "http://hub-routed:5000"
+    )
+
+    plan = TaskDelegationPlanner(
+        _Dependencies(workers=[]),
+        organization_binding_resolver=resolver,
+    ).plan(request=request, agent_registry_service=_AgentRegistry())
+
+    assert isinstance(plan, TaskDelegationPlan)
+    assert plan.effective_task_kind == "planning_research"
+    assert plan.effective_required_capabilities == [
+        "planning",
+        "research",
+        "source_analysis",
+    ]
+
+
 def test_worker_execution_context_factory_builds_context_job_workspace_and_payload():
     request = _request()
     plan = TaskDelegationPlan(
@@ -385,6 +485,137 @@ def test_worker_execution_context_factory_uses_explicit_context_query_and_empty_
     assert bundle.allowed_tools == []
     assert bundle.expected_output_schema == {}
     assert bundle.routing_decision.as_dict()["selected_by_policy"] is False
+
+
+def test_category_research_factory_reuses_authoritative_bundle_without_generic_rag():
+    authoritative_bundle = SimpleNamespace(
+        id="ctx-authoritative",
+        retrieval_run_id="retrieval-authoritative",
+        task_id="parent-1",
+        bundle_type="worker_execution_context",
+        context_text="authoritative source text",
+        chunks=[],
+        token_estimate=12,
+        bundle_metadata={"schema": "organization_source_catalog_context.v1"},
+    )
+
+    class ResearchPolicy:
+        def resolve_context(self, task):
+            assert task["task_kind"] == "planning_research"
+            return AuthoritativeResearchContext(
+                bundle=authoritative_bundle,
+                context_policy={
+                    "schema": "organization_research_source_context_policy.v1",
+                    "context_bundle_id": authoritative_bundle.id,
+                    "llm_scope": "local_only",
+                },
+            )
+
+        def resolve_destination_binding(self, **kwargs):
+            assert kwargs["worker_url"] == "http://planner:5000"
+            return {
+                "schema": "organization_research_destination_binding.v1",
+                "destination_id": "dst-current",
+                "binding_digest": "d" * 64,
+                "worker_kind": "worker",
+                "runtime_target_id": "runtime-target-alpha",
+                "runtime_kind": "docker_container",
+                "provider_id": "codex",
+                "llm_scope": "local_only",
+            }
+
+    request = _request(
+        parent_overrides={
+            "tenant_id": "tenant-1",
+            "project_id": "project-1",
+            "organization_id": "org-1",
+            "task_kind": "planning_research",
+            "required_capabilities": [
+                "planning",
+                "research",
+                "source_analysis",
+            ],
+            "context_bundle_id": authoritative_bundle.id,
+                "worker_execution_context": {
+                    "context_bundle_id": authoritative_bundle.id,
+                    "llm_scope": "local_only",
+                    "source_context_policy": {
+                        "schema": "organization_research_source_context_policy.v1",
+                        "authority": "hub",
+                        "mode": "authoritative_source_catalog_bundle",
+                        "context_bundle_id": authoritative_bundle.id,
+                        "context_bundle_digest": "c" * 64,
+                        "llm_scope": "local_only",
+                    },
+                    "planning_research_assignment": {
+                        "schema": "organization_category_research_assignment_binding.v1",
+                        "assignment_id": "assignment-1",
+                        "agent_url": "http://planner:5000",
+                    },
+                "allowed_tools": [],
+                "expected_output_schema": {
+                    "schema_ref": "todos/todo.schema.json"
+                },
+            },
+        }
+    )
+    plan = TaskDelegationPlan(
+        agent_url="http://planner:5000",
+        selected_by_policy=True,
+        selection=None,
+        policy_decision=SimpleNamespace(id="policy-1"),
+        routing_hint=None,
+        effective_task_kind="planning_research",
+        effective_required_capabilities=["planning", "research"],
+        preferred_backend="codex",
+    )
+    worker_jobs = _WorkerJobService()
+
+    bundle = WorkerExecutionContextFactory(
+        _Dependencies(),
+        research_delegation_policy=ResearchPolicy(),
+        research_dispatch_issuer=_RESEARCH_DISPATCH_ISSUER,
+    ).build(
+        request=request,
+        plan=plan,
+        worker_job_service=worker_jobs,
+        worker_contract_service=_WorkerContractService(),
+    )
+
+    assert bundle.context_bundle is authoritative_bundle
+    assert worker_jobs.context_calls == []
+    assert worker_jobs.job_calls[0]["context_bundle_id"] == authoritative_bundle.id
+    assert bundle.allowed_tools == []
+    assert bundle.expected_output_schema == {
+        "schema_ref": "todos/todo.schema.json"
+    }
+    assert worker_jobs.job_calls[0]["selection_decision"] == {
+        "selected_worker_id": "http://planner:5000",
+        "selected_worker_kind": "worker",
+        "selected_runtime_target_id": "runtime-target-alpha",
+        "selected_runtime_kind": "docker_container",
+        "selection_mode": "organization_research_destination",
+        "policy_decision_ref": "d" * 64,
+    }
+    assert bundle.context_policy["mode"] == "authoritative_source_catalog_bundle"
+    assert bundle.context_policy["llm_scope"] == "local_only"
+    assert bundle.retrieval_hints == {
+        "retrieval_intent": "authoritative_source_catalog",
+        "required_context_scope": "exact_task_context_bundle",
+        "preferred_bundle_mode": "authoritative",
+    }
+    assert (
+        bundle.worker_execution_context["research_destination_binding"]
+        == bundle.context_policy["research_destination_binding"]
+    )
+    assert bundle.delegation_payload["context_bundle_id"] == authoritative_bundle.id
+    assert (
+        bundle.delegation_payload["context_bundle_policy"]["llm_scope"]
+        == "local_only"
+    )
+    assert bundle.delegation_payload["hub_dispatch_capability"].startswith(
+        "ord2."
+    )
 
 
 def test_task_delegation_result_writer_forwards_then_updates_parent_and_returns_stable_model(
@@ -459,12 +690,511 @@ def test_task_delegation_result_writer_reports_forwarding_failure_without_parent
         worker_execution_context={},
         delegation_payload={},
     )
+    worker_jobs = _WorkerJobService()
 
-    response = TaskDelegationResultWriter(deps).forward_and_write(request=request, plan=plan, bundle=bundle)
+    response = TaskDelegationResultWriter(deps).forward_and_write(
+        request=request,
+        plan=plan,
+        bundle=bundle,
+        worker_job_service=worker_jobs,
+    )
 
     assert response["error"] == "delegation_failed"
     assert response["code"] == 502
+    assert response["data"]["reason_code"] == "worker_transport_failed"
+    assert worker_jobs.failed_dispatches == [
+        {
+            "worker_job_id": "job-1",
+            "reason_code": "worker_transport_failed",
+            "rejected": False,
+        }
+    ]
     assert deps.update_calls == []
+
+
+def test_result_writer_rejects_gateway_error_dict_without_parent_update(
+    monkeypatch,
+):
+    _isolate_result_writer_repositories(monkeypatch)
+    deps = _Dependencies(
+        forward_result={
+            "status": "error",
+            "message": "worker request failed",
+        }
+    )
+    request = _request()
+    plan = TaskDelegationPlan(
+        agent_url="http://planner:5000",
+        selected_by_policy=True,
+        selection=None,
+        policy_decision=None,
+        routing_hint=None,
+        effective_task_kind="planning",
+        effective_required_capabilities=["planning"],
+        preferred_backend=None,
+    )
+    bundle = WorkerExecutionBundle(
+        subtask_id="sub-1",
+        context_bundle=SimpleNamespace(id="ctx-1"),
+        context_policy={},
+        retrieval_hints={},
+        task_neighborhood={},
+        expected_output_schema={},
+        allowed_tools=[],
+        routing_decision=RoutingDecision({}),
+        worker_job=SimpleNamespace(id="job-1"),
+        workspace_scope={},
+        worker_execution_context={},
+        delegation_payload={"id": "sub-1"},
+    )
+    worker_jobs = _WorkerJobService()
+
+    response = TaskDelegationResultWriter(deps).forward_and_write(
+        request=request,
+        plan=plan,
+        bundle=bundle,
+        worker_job_service=worker_jobs,
+    )
+
+    assert response == {
+        "error": "delegation_failed",
+        "code": 502,
+        "data": {"reason_code": "worker_transport_failed"},
+    }
+    assert worker_jobs.failed_dispatches == [
+        {
+            "worker_job_id": "job-1",
+            "reason_code": "worker_transport_failed",
+            "rejected": False,
+        }
+    ]
+    assert deps.update_calls == []
+
+
+def test_category_research_requires_positive_worker_acknowledgement(
+    monkeypatch,
+):
+    _isolate_result_writer_repositories(monkeypatch)
+    deps = _Dependencies(
+        forward_result={"status": "success", "data": {}}
+    )
+    request = _request()
+    plan = TaskDelegationPlan(
+        agent_url="http://planner:5000",
+        selected_by_policy=True,
+        selection=None,
+        policy_decision=None,
+        routing_hint=None,
+        effective_task_kind="planning_research",
+        effective_required_capabilities=[
+            "planning",
+            "research",
+            "source_analysis",
+        ],
+        preferred_backend=None,
+    )
+    bundle = WorkerExecutionBundle(
+        subtask_id="sub-1",
+        context_bundle=SimpleNamespace(id="ctx-1"),
+        context_policy={},
+        retrieval_hints={},
+        task_neighborhood={},
+        expected_output_schema={},
+        allowed_tools=[],
+        routing_decision=RoutingDecision({}),
+        worker_job=SimpleNamespace(id="job-1"),
+        workspace_scope={},
+        worker_execution_context={},
+        delegation_payload={
+            "id": "sub-1",
+            "hub_dispatch_capability": "ord2.payload.signature",
+        },
+    )
+    worker_jobs = _WorkerJobService()
+
+    response = TaskDelegationResultWriter(deps).forward_and_write(
+        request=request,
+        plan=plan,
+        bundle=bundle,
+        worker_job_service=worker_jobs,
+    )
+
+    assert response["error"] == "delegation_failed"
+    assert response["code"] == 502
+    assert worker_jobs.failed_dispatches[0]["reason_code"] == (
+        "worker_transport_failed"
+    )
+    assert deps.update_calls == []
+
+
+def test_category_research_acknowledgement_requires_exact_task_id(
+    monkeypatch,
+):
+    _isolate_result_writer_repositories(monkeypatch)
+    deps = _Dependencies(
+        forward_result={
+            "status": "success",
+            "data": {"accepted": True},
+        }
+    )
+    request = _request()
+    plan = TaskDelegationPlan(
+        agent_url="http://planner:5000",
+        selected_by_policy=True,
+        selection=None,
+        policy_decision=None,
+        routing_hint=None,
+        effective_task_kind="planning_research",
+        effective_required_capabilities=[
+            "planning",
+            "research",
+            "source_analysis",
+        ],
+        preferred_backend=None,
+    )
+    bundle = WorkerExecutionBundle(
+        subtask_id="sub-1",
+        context_bundle=SimpleNamespace(id="ctx-1"),
+        context_policy={},
+        retrieval_hints={},
+        task_neighborhood={},
+        expected_output_schema={},
+        allowed_tools=[],
+        routing_decision=RoutingDecision({}),
+        worker_job=SimpleNamespace(id="job-1"),
+        workspace_scope={},
+        worker_execution_context={},
+        delegation_payload={
+            "id": "sub-1",
+            "hub_dispatch_capability": "ord2.payload.signature",
+        },
+    )
+    worker_jobs = _WorkerJobService()
+
+    response = TaskDelegationResultWriter(deps).forward_and_write(
+        request=request,
+        plan=plan,
+        bundle=bundle,
+        worker_job_service=worker_jobs,
+    )
+
+    assert response["error"] == "delegation_failed"
+    assert response["code"] == 502
+    assert worker_jobs.failed_dispatches[0]["reason_code"] == (
+        "worker_transport_failed"
+    )
+    assert deps.update_calls == []
+
+
+def test_category_research_redirect_is_not_followed_or_committed(
+    monkeypatch,
+):
+    _isolate_result_writer_repositories(monkeypatch)
+
+    class RedirectResponse:
+        status_code = 307
+        headers = {"Location": "https://outside.invalid/capture"}
+
+        def __init__(self):
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    class Client:
+        def __init__(self):
+            self.calls = []
+            self.response = RedirectResponse()
+
+        def post(self, url, **kwargs):
+            self.calls.append({"url": url, **kwargs})
+            return self.response
+
+    gateway = HttpWorkerGateway(timeout=5, retries=1)
+    gateway.client = Client()
+
+    class Dependencies(_Dependencies):
+        def forward_task_to_worker(
+            self,
+            agent_url,
+            endpoint,
+            data,
+            token=None,
+        ):
+            return gateway.forward_task(
+                agent_url,
+                endpoint,
+                data,
+                token=token,
+            )
+
+    class ResearchPolicy:
+        @staticmethod
+        def verify_forward(**_kwargs):
+            return None
+
+    deps = Dependencies()
+    bundle = WorkerExecutionBundle(
+        subtask_id="sub-1",
+        context_bundle=SimpleNamespace(id="ctx-1"),
+        context_policy={},
+        retrieval_hints={},
+        task_neighborhood={},
+        expected_output_schema={},
+        allowed_tools=[],
+        routing_decision=RoutingDecision({}),
+        worker_job=SimpleNamespace(id="job-1"),
+        workspace_scope={},
+        worker_execution_context={},
+        delegation_payload={
+            "id": "sub-1",
+            "hub_dispatch_capability": "ord2.payload.signature",
+            "worker_execution_context": {
+                "context": {"context_text": "sensitive local context"}
+            },
+        },
+    )
+    worker_jobs = _WorkerJobService()
+
+    response = TaskDelegationResultWriter(
+        deps,
+        research_delegation_policy=ResearchPolicy(),
+    ).forward_and_write(
+        request=_request(),
+        plan=TaskDelegationPlan(
+            agent_url="http://planner:5000",
+            selected_by_policy=True,
+            selection=None,
+            policy_decision=SimpleNamespace(id="policy-1"),
+            routing_hint=None,
+            effective_task_kind="planning_research",
+            effective_required_capabilities=[
+                "planning",
+                "research",
+                "source_analysis",
+            ],
+            preferred_backend="codex",
+        ),
+        bundle=bundle,
+        worker_job_service=worker_jobs,
+    )
+
+    assert response == {
+        "error": "delegation_failed",
+        "code": 502,
+        "data": {"reason_code": "worker_transport_failed"},
+    }
+    assert len(gateway.client.calls) == 1
+    assert gateway.client.calls[0]["allow_redirects"] is False
+    assert gateway.client.response.closed is True
+    assert worker_jobs.failed_dispatches == [
+        {
+            "worker_job_id": "job-1",
+            "reason_code": "worker_transport_failed",
+            "rejected": False,
+        }
+    ]
+    assert deps.update_calls == []
+
+
+def test_http_worker_gateway_does_not_project_worker_error_body():
+    class ErrorResponse:
+        status_code = 401
+        text = "worker-secret-token"
+
+        def __init__(self):
+            self.closed = False
+            self.json_called = False
+
+        def json(self):
+            self.json_called = True
+            return {"token": "worker-secret-token"}
+
+        def close(self):
+            self.closed = True
+
+    class Client:
+        def __init__(self):
+            self.response = ErrorResponse()
+
+        def post(self, _url, **_kwargs):
+            return self.response
+
+    gateway = HttpWorkerGateway(timeout=5, retries=1)
+    gateway.client = Client()
+
+    result = gateway.forward_task(
+        "http://planner:5000",
+        "/tasks",
+        {"id": "sub-1"},
+        token="worker-service-token",
+    )
+
+    assert result == {
+        "status": "error",
+        "message": "worker_forward_failed",
+        "http_status": 401,
+    }
+    assert gateway.client.response.json_called is False
+    assert gateway.client.response.closed is True
+    assert "worker-secret-token" not in repr(result)
+
+
+def test_category_research_result_writer_rechecks_destination_immediately_before_forward(
+    monkeypatch,
+):
+    _isolate_result_writer_repositories(monkeypatch)
+    sequence = []
+
+    class Dependencies(_Dependencies):
+        def forward_task_to_worker(self, agent_url, endpoint, data, token=None):
+            sequence.append("forward")
+            return super().forward_task_to_worker(
+                agent_url,
+                endpoint,
+                data,
+                token=token,
+            )
+
+    class ResearchPolicy:
+        def verify_forward(self, **kwargs):
+            sequence.append("verify")
+            assert kwargs["worker_url"] == "http://planner:5000"
+            assert kwargs["expected_context_bundle_id"] == "ctx-1"
+            assert kwargs["expected_destination_binding"]["destination_id"] == "dst-current"
+            assert kwargs["expected_worker_job_id"] == "job-1"
+            assert kwargs["expected_subtask_id"] == "sub-1"
+
+    deps = Dependencies()
+    request = _request()
+    plan = TaskDelegationPlan(
+        agent_url="http://planner:5000",
+        selected_by_policy=True,
+        selection=None,
+        policy_decision=SimpleNamespace(id="policy-1"),
+        routing_hint=None,
+        effective_task_kind="planning_research",
+        effective_required_capabilities=["planning", "research"],
+        preferred_backend="codex",
+    )
+    bundle = WorkerExecutionBundle(
+        subtask_id="sub-1",
+        context_bundle=SimpleNamespace(id="ctx-1"),
+        context_policy={
+            "research_destination_binding": {
+                "destination_id": "dst-current"
+            }
+        },
+        retrieval_hints={},
+        task_neighborhood={},
+        expected_output_schema={},
+        allowed_tools=[],
+        routing_decision=RoutingDecision({}),
+        worker_job=SimpleNamespace(id="job-1"),
+        workspace_scope={},
+        worker_execution_context={},
+        delegation_payload={
+            "id": "sub-1",
+            "hub_dispatch_capability": "ord2.payload.signature",
+        },
+    )
+
+    response = TaskDelegationResultWriter(
+        deps,
+        research_delegation_policy=ResearchPolicy(),
+    ).forward_and_write(request=request, plan=plan, bundle=bundle)
+
+    assert response["data"]["status"] == "delegated"
+    assert sequence == ["verify", "forward"]
+    assert deps.forward_calls[0]["endpoint"] == (
+        "/internal/tasks/organization-planning-research"
+    )
+
+
+def test_result_writer_rechecks_organization_binding_immediately_before_forward(
+    monkeypatch,
+):
+    from agent.services import repository_registry
+
+    authoritative = SimpleNamespace(
+        id="parent-1",
+        status="todo",
+        organization_id="org-1",
+        task_kind="planning",
+        derivation_reason=None,
+        status_reason_details={},
+    )
+    worker = SimpleNamespace(
+        url="http://planner:5000",
+        token="worker-token",
+    )
+    monkeypatch.setattr(
+        repository_registry,
+        "get_repository_registry",
+        lambda: SimpleNamespace(
+            task_repo=SimpleNamespace(
+                get_by_id=lambda _task_id: authoritative
+            ),
+            agent_repo=SimpleNamespace(
+                get_by_url=lambda _worker_url: worker
+            ),
+        ),
+    )
+    deps = _Dependencies()
+    worker_jobs = _WorkerJobService()
+    request = _request(
+        parent_overrides={"organization_id": "org-1"}
+    )
+    plan = TaskDelegationPlan(
+        agent_url="http://planner:5000",
+        selected_by_policy=True,
+        selection=None,
+        policy_decision=SimpleNamespace(id="policy-1"),
+        routing_hint=None,
+        effective_task_kind="planning",
+        effective_required_capabilities=["planning"],
+        preferred_backend=None,
+    )
+    bundle = WorkerExecutionBundle(
+        subtask_id="sub-1",
+        context_bundle=SimpleNamespace(id="ctx-1"),
+        context_policy={},
+        retrieval_hints={},
+        task_neighborhood={},
+        expected_output_schema={},
+        allowed_tools=[],
+        routing_decision=RoutingDecision({}),
+        worker_job=SimpleNamespace(id="job-1"),
+        workspace_scope={},
+        worker_execution_context={},
+        delegation_payload={"id": "sub-1"},
+    )
+
+    response = TaskDelegationResultWriter(
+        deps,
+        organization_binding_resolver=SimpleNamespace(
+            resolve=lambda _task: None
+        ),
+    ).forward_and_write(
+        request=request,
+        plan=plan,
+        bundle=bundle,
+        worker_job_service=worker_jobs,
+    )
+
+    assert response["error"] == (
+        "organization_planning_dispatch_binding_required"
+    )
+    assert deps.forward_calls == []
+    assert worker_jobs.failed_dispatches == [
+        {
+            "worker_job_id": "job-1",
+            "reason_code": (
+                "organization_planning_dispatch_binding_required"
+            ),
+            "rejected": True,
+        }
+    ]
 
 
 def test_manual_recovery_delegation_fails_closed_without_worker_transport(

@@ -123,6 +123,7 @@ class WorkerJobService:
                         "budget": bundle.get("budget") or {},
                         "compaction": bundle.get("compaction") or {},
                         "why_this_context": bundle.get("why_this_context") or {},
+                        "retrieval_trace": bundle.get("retrieval_trace") or {},
                         "selection_trace": bundle.get("selection_trace") or {},
                     },
                 )
@@ -219,6 +220,49 @@ class WorkerJobService:
                 selection_reason=eff.get("selection_reason"),
             )
         )
+
+    def fail_dispatch(
+        self,
+        *,
+        worker_job_id: str,
+        reason_code: str,
+        rejected: bool = False,
+    ) -> WorkerJobDB | None:
+        """Terminalize a Hub-created job that never reached its Worker.
+
+        Only a stable reason code is persisted. Transport exception text may
+        contain URLs, credentials, or payload fragments and is deliberately
+        excluded from the audit metadata.
+        """
+
+        job = worker_job_repo.get_by_id(str(worker_job_id or "").strip())
+        if job is None:
+            return None
+        if str(job.status or "").strip().lower() in {
+            "completed",
+            "failed",
+            "cancelled",
+            "timeout",
+            "rejected",
+        }:
+            return job
+        now = time.time()
+        job.status = "rejected" if rejected else "failed"
+        job.finished_at = now
+        job.updated_at = now
+        job.job_metadata = {
+            **dict(job.job_metadata or {}),
+            "dispatch_failure": {
+                "schema": "worker_job_dispatch_failure.v1",
+                "reason_code": str(reason_code or "dispatch_failed"),
+                "terminal_status": job.status,
+            },
+        }
+        persisted = worker_job_repo.save(job)
+        self._worker_pool_scheduler_service.release_for_job(
+            persisted.slot_lease_id
+        )
+        return persisted
 
 
 worker_job_service = WorkerJobService()

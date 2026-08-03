@@ -35,6 +35,10 @@ def test_blueprint_exposes_only_scoped_planning_and_capability_ingress(app: Flas
         ("POST",),
     ) in rules
     assert (
+        "/api/organizations/<organization_id>/goals/<goal_id>/planning/category-research/readiness",
+        ("GET",),
+    ) in rules
+    assert (
         "/api/organizations/<organization_id>/planning/<category_revision_id>/derive-tracks",
         ("POST",),
     ) in rules
@@ -261,6 +265,61 @@ def test_category_research_catalog_selector_is_closed() -> None:
     assert routes._source_catalog_binding(binding) == binding
     with pytest.raises(OrganizationPlanningCompositionError):
         routes._source_catalog_binding({**binding, "source_ids": ["SRC_0001"]})
+
+
+def test_category_research_readiness_forwards_only_closed_server_selector(
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeComposition:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        def get_category_research_readiness(self, **kwargs: Any) -> dict[str, Any]:
+            self.calls.append(kwargs)
+            return {
+                "schema": "organization_category_research_readiness.v1",
+                "organization_id": kwargs["organization_id"],
+                "goal_id": kwargs["goal_id"],
+                "ready": True,
+                "blockers": [],
+                "source_catalog_binding": {"catalog_task_id": kwargs["catalog_task_id"]},
+                "task_write": False,
+                "queue_write": False,
+            }
+
+    composition = FakeComposition()
+    monkeypatch.setattr(routes, "get_organization_planning_composition", lambda: composition)
+    monkeypatch.setattr(routes, "_operator_principal", lambda *_args, **_kwargs: _principal())
+    endpoint = (
+        "/api/organizations/org-1/goals/goal-1/planning/category-research/readiness"
+        "?unit_id=unit-1&team_id=team-1&role_slot_id=slot-1&catalog_task_id=catalog-task-1"
+    )
+
+    with app.test_request_context(endpoint):
+        response = routes.get_organization_category_research_readiness.__wrapped__("org-1", "goal-1")
+
+    assert response.get_json()["ready"] is True
+    assert composition.calls == [
+        {
+            "principal": _principal(),
+            "organization_id": "org-1",
+            "goal_id": "goal-1",
+            "unit_id": "unit-1",
+            "team_id": "team-1",
+            "role_slot_id": "slot-1",
+            "catalog_task_id": "catalog-task-1",
+        }
+    ]
+
+    with app.test_request_context(endpoint + "&source_scope=forged"):
+        response, status_code = routes.get_organization_category_research_readiness.__wrapped__(
+            "org-1",
+            "goal-1",
+        )
+    assert status_code == 400
+    assert response.get_json()["reason_code"] == "category_research_readiness_selector_invalid"
+    assert len(composition.calls) == 1
 
 
 def test_dispatch_pump_forwards_only_scoped_limit(

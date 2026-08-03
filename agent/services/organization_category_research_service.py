@@ -9,17 +9,28 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import select
 
 from agent.db_models import (
-    GoalDB,
     OrganizationInstanceDB,
-    OrganizationRoleSlotDB,
-    OrganizationTeamLinkDB,
     TaskDB,
     WorkerJobDB,
 )
 from agent.services.chat_session_security import ChatSessionPrincipal
+from agent.services.organization_category_research_readiness_service import (
+    CATEGORY_RESEARCH_CATALOG_TASK_KINDS,
+    CATEGORY_RESEARCH_CATALOG_TASK_SOURCES,
+    OrganizationCategoryResearchReadinessService,
+)
+from agent.services.organization_research_delegation_policy_service import (
+    build_authoritative_research_context_policy,
+    category_research_destination_policy,
+)
+from agent.services.organization_source_catalog_context_service import (
+    OrganizationSourceCatalogContextError,
+    OrganizationSourceCatalogContextPort,
+    OrganizationSourceCatalogContextService,
+)
 from agent.services.planning_artifact_transition_service import (
     PlanningOperationContext,
     PlanningTransitionError,
@@ -28,17 +39,19 @@ from agent.services.planning_category_pipeline_service import PlanningCategoryPi
 from agent.services.planning_control_unit_of_work import (
     PlanningControlUnitOfWork,
     planning_scope_lock,
+    planning_transaction_lock,
 )
 from agent.services.planning_evidence_resolver_service import AssignmentEvidenceContext
-from agent.services.source_catalog_authority_service import SourceCatalogAuthorityService
+from agent.services.source_catalog_authority_service import (
+    ResolvedSourceCatalog,
+    SourceCatalogAuthorityService,
+)
 from agent.services.worker_task_proposal_policy_service import (
     WorkerTaskProposalPolicyService,
 )
 
 _ROOT = Path(__file__).resolve().parents[2]
 _PROMPT_PATH = _ROOT / "prompts" / "planning" / "category_research_planning.j2"
-_CATALOG_TASK_SOURCES = frozenset({"agent", "api", "system", "ui"})
-_CATALOG_TASK_KINDS = frozenset({"knowledge", "planning_research", "research", "retrieval", "source_catalog"})
 # The generic delegation facade currently preserves the parent Task status
 # while attaching the authoritative WorkerJob lease.  ``todo`` is therefore
 # an admissible callback state only together with the exact current-job,
@@ -54,12 +67,21 @@ class OrganizationCategoryResearchService:
         *,
         source_catalog_authority: SourceCatalogAuthorityService | None = None,
         category_pipeline: PlanningCategoryPipelineService | None = None,
+        readiness_service: OrganizationCategoryResearchReadinessService | None = None,
+        source_catalog_context: OrganizationSourceCatalogContextPort | None = None,
         uow_factory: Callable[[], PlanningControlUnitOfWork] | None = None,
         task_reader: Callable[[str], Any | None] | None = None,
     ) -> None:
         self._catalog_authority = source_catalog_authority or SourceCatalogAuthorityService()
         self._pipeline = category_pipeline or PlanningCategoryPipelineService()
+        self._readiness = readiness_service or OrganizationCategoryResearchReadinessService()
+        self._source_catalog_context = (
+            source_catalog_context or OrganizationSourceCatalogContextService()
+        )
         self._uow_factory = uow_factory or PlanningControlUnitOfWork
+        # Retained as a constructor compatibility seam.  Productive context
+        # hydration deliberately uses the locked catalog Task in the Planning
+        # transaction and never this independently-read projection.
         self._task_reader = task_reader or self._default_task_reader
 
     @staticmethod
@@ -81,37 +103,22 @@ class OrganizationCategoryResearchService:
     ) -> dict[str, Any]:
         self._authorize(context)
         self._require_idempotency_key(idempotency_key)
-        resolved = self._catalog_authority.resolve(
-            principal=ChatSessionPrincipal.from_values(
-                context.tenant_id,
-                context.subject_id,
-            ),
-            catalog_task_id=str(catalog_binding.get("catalog_task_id") or ""),
-            catalog_id=str(catalog_binding.get("catalog_id") or ""),
-            catalog_hash=str(catalog_binding.get("catalog_hash") or ""),
-            repository_revision=str(catalog_binding.get("repository_revision") or ""),
-            manifest_hash=str(catalog_binding.get("manifest_hash") or ""),
-            source_allowlist_version=str(catalog_binding.get("source_allowlist_version") or ""),
-            source_scope=str(catalog_binding.get("source_scope") or ""),
-            allowed_task_sources=_CATALOG_TASK_SOURCES,
-            allowed_task_kinds=_CATALOG_TASK_KINDS,
-        )
-        source_catalog = self._authoritative_catalog_payload(
-            resolved.catalog_task_id,
-            catalog_id=resolved.catalog_id,
-            catalog_hash=resolved.catalog_hash,
-            allowed_ids={row.source_id for row in resolved.source_refs},
+        resolved = self._resolve_catalog_binding(
+            context=context,
+            catalog_binding=catalog_binding,
         )
         source_ids = sorted(row.source_id for row in resolved.source_refs)
         source_refs = [value for value in source_ids if value.startswith("SRC_")]
         run_refs = [value for value in source_ids if value.startswith("RUN_")]
         prompt_hash = hashlib.sha256(_PROMPT_PATH.read_bytes()).hexdigest()
+        destination_policy = category_research_destination_policy()
         request_binding = {
             "schema": "organization_category_research_binding.v1",
             "goal_id": goal_id,
             "unit_id": unit_id,
             "team_id": team_id,
             "role_slot_id": role_slot_id,
+            "catalog_task_id": resolved.catalog_task_id,
             "source_catalog_id": resolved.catalog_id,
             "source_catalog_hash": resolved.catalog_hash,
             "repository_revision": resolved.repository_revision,
@@ -120,6 +127,8 @@ class OrganizationCategoryResearchService:
             "allowed_source_refs": source_refs,
             "allowed_run_refs": run_refs,
             "prompt_hash": prompt_hash,
+            "llm_scope": "local_only",
+            "destination_policy": destination_policy,
         }
         request_digest = self._digest(request_binding)
         task_id = self._stable_id(
@@ -142,13 +151,10 @@ class OrganizationCategoryResearchService:
             self._uow_factory() as uow,
         ):
             assert uow.session is not None
-            self._validate_goal_and_binding(
+            planning_transaction_lock(
                 uow.session,
-                context=context,
-                goal_id=goal_id,
-                unit_id=unit_id,
-                team_id=team_id,
-                role_slot_id=role_slot_id,
+                f"planning-category-research:{context.tenant_id}:{context.project_id}:"
+                f"{context.organization_id}:{goal_id}",
             )
             existing = uow.session.get(TaskDB, task_id)
             if existing is not None:
@@ -178,6 +184,91 @@ class OrganizationCategoryResearchService:
                 or organization.project_id != context.project_id
             ):
                 raise PlanningTransitionError("organization_planning_not_found")
+            readiness = self._readiness.require_start_ready(
+                uow.session,
+                context=context,
+                goal_id=goal_id,
+                unit_id=unit_id,
+                team_id=team_id,
+                role_slot_id=role_slot_id,
+            )
+            assignment_id = str(
+                readiness.selected_assignment_id or ""
+            ).strip()
+            assigned_agent_url = str(
+                readiness.selected_agent_url or ""
+            ).strip()
+            if not assignment_id or not assigned_agent_url:
+                raise PlanningTransitionError(
+                    "category_research_eligible_assignment_required"
+                )
+            try:
+                materialized_context = self._source_catalog_context.materialize(
+                    uow.session,
+                    context=context,
+                    catalog_binding=catalog_binding,
+                    task_id=task_id,
+                    goal_id=goal_id,
+                )
+            except OrganizationSourceCatalogContextError as exc:
+                raise PlanningTransitionError(exc.reason_code) from exc
+            current_catalog = materialized_context.resolved_catalog
+            if current_catalog != resolved:
+                raise PlanningTransitionError("category_research_source_catalog_stale")
+            resolved = current_catalog
+            source_catalog = dict(materialized_context.source_catalog)
+            context_bundle_id = materialized_context.context_bundle.id
+            source_context_policy = build_authoritative_research_context_policy(
+                bundle=materialized_context.context_bundle,
+                catalog_task_id=resolved.catalog_task_id,
+                source_catalog_id=resolved.catalog_id,
+                source_catalog_hash=resolved.catalog_hash,
+            )
+            assignment_binding = {
+                "schema": (
+                    "organization_category_research_assignment_binding.v1"
+                ),
+                "tenant_id": context.tenant_id,
+                "project_id": context.project_id,
+                "organization_id": context.organization_id,
+                "goal_id": goal_id,
+                "unit_id": unit_id,
+                "team_id": team_id,
+                "role_slot_id": role_slot_id,
+                "assignment_id": assignment_id,
+                "agent_url": assigned_agent_url,
+                "required_capabilities": list(
+                    readiness.required_capabilities
+                ),
+                "effective_policy_hash": (
+                    organization.effective_limit_profile_hash
+                ),
+            }
+            assignment_binding["binding_digest"] = self._digest(
+                assignment_binding
+            )
+            organization_routing = {
+                "schema": "organization_routing_decision.v1",
+                "strategy": "category_research_assignment_binding",
+                "status": "routable",
+                "reason_code": "eligible_assignment_selected",
+                "selected_agent_id": assigned_agent_url,
+                "selected_assignment_id": assignment_id,
+                "selected_team_id": team_id,
+                "selected_role_slot_id": role_slot_id,
+                "effective_policy_hash": (
+                    organization.effective_limit_profile_hash
+                ),
+                "assignment_binding_digest": assignment_binding[
+                    "binding_digest"
+                ],
+            }
+            organization_routing["decision_hash"] = self._digest(
+                {
+                    "task_id": task_id,
+                    "organization_routing": organization_routing,
+                }
+            )
             task = TaskDB(
                 id=task_id,
                 title="Research and produce the Organization Category-Todo",
@@ -194,17 +285,35 @@ class OrganizationCategoryResearchService:
                 unit_id=unit_id,
                 team_id=team_id,
                 role_slot_id=role_slot_id,
+                assigned_agent_url=assigned_agent_url,
                 goal_id=goal_id,
                 task_kind="planning_research",
-                required_capabilities=["research", "planning"],
+                required_capabilities=list(
+                    readiness.required_capabilities
+                ),
+                context_bundle_id=context_bundle_id,
                 worker_execution_context={
+                    "context_bundle_id": context_bundle_id,
+                    "llm_scope": "local_only",
+                    "source_context_policy": source_context_policy,
+                    "organization_routing": organization_routing,
+                    "planning_research_assignment": assignment_binding,
                     "planning_research_binding": {
                         **request_binding,
                         "request_digest": request_digest,
                         "artifact_id": artifact_id,
                         "policy_hash": organization.effective_limit_profile_hash,
                         "source_catalog": source_catalog,
+                        "context_bundle_id": context_bundle_id,
+                        "context_bundle_digest": source_context_policy[
+                            "context_bundle_digest"
+                        ],
                         "artifact_hashes": {},
+                        "assignment_id": assignment_id,
+                        "agent_url": assigned_agent_url,
+                        "assignment_binding_digest": assignment_binding[
+                            "binding_digest"
+                        ],
                     },
                     "allowed_source_refs": source_refs,
                     "allowed_run_refs": run_refs,
@@ -236,6 +345,8 @@ class OrganizationCategoryResearchService:
                             "request_digest": request_digest,
                             "source_catalog_id": resolved.catalog_id,
                             "source_catalog_hash": resolved.catalog_hash,
+                            "assignment_id": assignment_id,
+                            "agent_url": assigned_agent_url,
                         },
                     }
                 ],
@@ -320,78 +431,34 @@ class OrganizationCategoryResearchService:
             }
         return self._pipeline.persist_research_result(**arguments)
 
-    def _authoritative_catalog_payload(
+    def _resolve_catalog_binding(
         self,
-        catalog_task_id: str,
-        *,
-        catalog_id: str,
-        catalog_hash: str,
-        allowed_ids: set[str],
-    ) -> dict[str, Any]:
-        task = self._task_reader(catalog_task_id)
-        raw = task.model_dump() if hasattr(task, "model_dump") else dict(task or {})
-        catalog = dict(dict(raw.get("verification_status") or {}).get("source_catalog") or {})
-        if (
-            str(catalog.get("source_catalog_id") or "") != catalog_id
-            or str(catalog.get("source_catalog_hash") or "") != catalog_hash
-        ):
-            raise PlanningTransitionError("category_research_source_catalog_stale")
-        sources = [
-            dict(row)
-            for row in list(catalog.get("sources") or [])
-            if isinstance(row, Mapping) and str(row.get("source_id") or "") in allowed_ids
-        ]
-        if {str(row.get("source_id") or "") for row in sources} != allowed_ids:
-            raise PlanningTransitionError("category_research_source_catalog_incomplete")
-        return {
-            "schema": "source_catalog.v2",
-            "source_catalog_id": catalog_id,
-            "source_catalog_hash": catalog_hash,
-            "sources": sources,
-        }
-
-    @staticmethod
-    def _validate_goal_and_binding(
-        session: Session,
         *,
         context: PlanningOperationContext,
-        goal_id: str,
-        unit_id: str,
-        team_id: str,
-        role_slot_id: str,
-    ) -> None:
-        goal = session.exec(
-            select(GoalDB).where(
-                GoalDB.id == goal_id,
-                GoalDB.tenant_id == context.tenant_id,
-                GoalDB.project_id == context.project_id,
-                GoalDB.organization_id == context.organization_id,
-            )
-        ).one_or_none()
-        if goal is None or str(goal.goal_kind or "") != "organization":
-            raise PlanningTransitionError("organization_goal_not_found")
-        team = session.exec(
-            select(OrganizationTeamLinkDB).where(
-                OrganizationTeamLinkDB.tenant_id == context.tenant_id,
-                OrganizationTeamLinkDB.project_id == context.project_id,
-                OrganizationTeamLinkDB.organization_id == context.organization_id,
-                OrganizationTeamLinkDB.unit_id == unit_id,
-                OrganizationTeamLinkDB.team_id == team_id,
-                OrganizationTeamLinkDB.lifecycle.in_(("planned", "active")),
-            )
-        ).one_or_none()
-        slot = session.exec(
-            select(OrganizationRoleSlotDB).where(
-                OrganizationRoleSlotDB.id == role_slot_id,
-                OrganizationRoleSlotDB.tenant_id == context.tenant_id,
-                OrganizationRoleSlotDB.project_id == context.project_id,
-                OrganizationRoleSlotDB.organization_id == context.organization_id,
-                OrganizationRoleSlotDB.unit_id == unit_id,
-                OrganizationRoleSlotDB.lifecycle == "active",
-            )
-        ).one_or_none()
-        if team is None or slot is None:
-            raise PlanningTransitionError("category_research_role_binding_invalid")
+        catalog_binding: Mapping[str, Any],
+    ) -> ResolvedSourceCatalog:
+        source_scope = str(catalog_binding.get("source_scope") or "").strip()
+        if source_scope != f"organization:{context.organization_id}":
+            raise PlanningTransitionError("category_research_source_scope_invalid")
+        return self._catalog_authority.resolve(
+            principal=ChatSessionPrincipal.from_values(
+                context.tenant_id,
+                context.subject_id,
+            ),
+            catalog_task_id=str(catalog_binding.get("catalog_task_id") or ""),
+            catalog_id=str(catalog_binding.get("catalog_id") or ""),
+            catalog_hash=str(catalog_binding.get("catalog_hash") or ""),
+            repository_revision=str(catalog_binding.get("repository_revision") or ""),
+            manifest_hash=str(catalog_binding.get("manifest_hash") or ""),
+            source_allowlist_version=str(catalog_binding.get("source_allowlist_version") or ""),
+            source_scope=source_scope,
+            allowed_task_sources=CATEGORY_RESEARCH_CATALOG_TASK_SOURCES,
+            allowed_task_kinds=CATEGORY_RESEARCH_CATALOG_TASK_KINDS,
+            expected_task_tenant_id=context.tenant_id,
+            expected_task_project_id=context.project_id,
+            expected_task_organization_id=context.organization_id,
+            organization_access_authorized=True,
+        )
 
     @staticmethod
     def _authorize(context: PlanningOperationContext) -> None:
@@ -419,6 +486,8 @@ class OrganizationCategoryResearchService:
             "task_kind": task.task_kind,
             "allowed_source_refs": list(bound.get("allowed_source_refs") or []),
             "allowed_run_refs": list(bound.get("allowed_run_refs") or []),
+            "assignment_id": bound.get("assignment_id"),
+            "agent_url": bound.get("agent_url"),
             "replayed": replayed,
             "materialized_task_ids": [],
         }

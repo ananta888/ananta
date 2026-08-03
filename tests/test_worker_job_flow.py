@@ -1,10 +1,56 @@
-from agent.db_models import AgentInfoDB, ContextBundleDB, RetrievalRunDB, TaskDB, WorkerJobDB
 from agent.config import settings
-from agent.repository import context_bundle_repo, retrieval_run_repo, task_repo, worker_job_repo, worker_result_repo, agent_repo
+from agent.db_models import AgentInfoDB, ContextBundleDB, RetrievalRunDB, TaskDB, TeamDB, WorkerJobDB
+from agent.repository import (
+    agent_repo,
+    context_bundle_repo,
+    retrieval_run_repo,
+    task_repo,
+    team_repo,
+    worker_job_repo,
+    worker_result_repo,
+)
 from agent.services.worker_job_service import WorkerJobService
 
 
 class TestWorkerJobFlow:
+    def test_failed_forward_terminalizes_worker_job_and_releases_slot(self):
+        job = worker_job_repo.save(
+            WorkerJobDB(
+                id="dispatch-failure-job-1",
+                parent_task_id="dispatch-failure-parent-1",
+                subtask_id="dispatch-failure-subtask-1",
+                worker_url="http://dispatch-failure-worker:5000",
+                status="delegated",
+                slot_lease_id="dispatch-slot-lease-1",
+            )
+        )
+        released = []
+        service = WorkerJobService()
+        service._worker_pool_scheduler_service = type(
+            "Scheduler",
+            (),
+            {
+                "release_for_job": staticmethod(
+                    lambda slot_lease_id: released.append(slot_lease_id)
+                )
+            },
+        )()
+
+        persisted = service.fail_dispatch(
+            worker_job_id=job.id,
+            reason_code="worker_transport_failed",
+        )
+
+        assert persisted is not None
+        assert persisted.status == "failed"
+        assert persisted.finished_at is not None
+        assert persisted.job_metadata["dispatch_failure"] == {
+            "schema": "worker_job_dispatch_failure.v1",
+            "reason_code": "worker_transport_failed",
+            "terminal_status": "failed",
+        }
+        assert released == ["dispatch-slot-lease-1"]
+
     def test_delegate_persists_context_bundle_and_worker_job(self, client, admin_auth_header, monkeypatch):
         monkeypatch.setattr(settings, "role", "hub")
         agent_repo.save(
@@ -18,6 +64,7 @@ class TestWorkerJobFlow:
                 token="planner-service-token",
             )
         )
+        team_repo.save(TeamDB(id="team-a", name="Planning team", is_active=True))
         task_repo.save(
             TaskDB(
                 id="parent-job-1",
@@ -342,6 +389,11 @@ def test_worker_job_service_persists_selection_trace_and_budget_metadata():
                 "budget": {"total_tokens": 32000, "retrieval_utilization": 0.4},
                 "why_this_context": {"summary": "task_kind=implement | selected_chunks=1 | mode=standard"},
                 "explainability": {"engines": ["knowledge_index"], "sources": [{"source": "docs/abc.md", "score": 2.1}]},
+                "retrieval_trace": {
+                    "trace_id": "retrieval-task-parent",
+                    "context_hash": "a" * 64,
+                    "manifest_hash": "b" * 64,
+                },
                 "selection_trace": {
                     "fusion": {"candidate_counts": {"all": 3, "final": 1}},
                     "knowledge_index_reason": "query_overlap",
@@ -357,6 +409,7 @@ def test_worker_job_service_persists_selection_trace_and_budget_metadata():
         context_policy={"mode": "standard", "task_kind": "implement", "window_profile": "standard_32k"},
     )
     metadata = dict(bundle.bundle_metadata or {})
+    assert (metadata.get("retrieval_trace") or {}).get("trace_id") == "retrieval-task-parent"
     assert (metadata.get("selection_trace") or {}).get("knowledge_index_reason") == "query_overlap"
     assert (metadata.get("selection_trace") or {}).get("result_memory_reason") == "neighbor_task_match"
     assert (metadata.get("budget") or {}).get("total_tokens") == 32000

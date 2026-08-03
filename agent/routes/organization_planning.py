@@ -101,6 +101,35 @@ def create_organization_category_research(organization_id: str, goal_id: str):
     return jsonify(payload), 200 if payload.get("replayed") else 201
 
 
+@organization_planning_bp.get(
+    "/api/organizations/<organization_id>/goals/<goal_id>/planning/category-research/readiness"
+)
+@check_auth
+@organization_boundary
+def get_organization_category_research_readiness(organization_id: str, goal_id: str):
+    """Resolve the Category-research selector and project current readiness."""
+
+    try:
+        selector = _closed_query_identifiers(
+            {"unit_id", "team_id", "role_slot_id", "catalog_task_id"}
+        )
+        payload = get_organization_planning_composition().get_category_research_readiness(
+            principal=_operator_principal(
+                organization_id,
+                ProjectCapability.READ,
+            ),
+            organization_id=organization_id,
+            goal_id=str(goal_id or "").strip(),
+            unit_id=selector["unit_id"],
+            team_id=selector["team_id"],
+            role_slot_id=selector["role_slot_id"],
+            catalog_task_id=selector["catalog_task_id"],
+        )
+    except (TypeError, ValueError) as exc:
+        return _operator_error(exc)
+    return jsonify(payload)
+
+
 @organization_planning_bp.post("/api/organizations/<organization_id>/planning/<category_revision_id>/derive-tracks")
 @check_auth
 @organization_boundary
@@ -723,6 +752,24 @@ def _closed_json_body(allowed_fields: set[str]) -> dict[str, Any]:
 
 def _required_identifier(body: dict[str, Any], field: str) -> str:
     return _required_text(body, field, maximum=191)
+
+
+def _closed_query_identifiers(fields: set[str]) -> dict[str, str]:
+    if set(request.args) != fields or any(len(request.args.getlist(field)) != 1 for field in fields):
+        raise OrganizationPlanningCompositionError(
+            "category_research_readiness_selector_invalid",
+            status_code=400,
+        )
+    values = {field: str(request.args.get(field) or "").strip() for field in fields}
+    if any(
+        not value or len(value) > 191 or any(character.isspace() for character in value)
+        for value in values.values()
+    ):
+        raise OrganizationPlanningCompositionError(
+            "category_research_readiness_selector_invalid",
+            status_code=400,
+        )
+    return values
 
 
 def _bounded_identifier_list(value: Any, *, reason_code: str) -> list[str]:
