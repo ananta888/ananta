@@ -160,7 +160,7 @@
     },
     {
       "path": "todos/active/todo.enterprise-agentic-scrum-organization-blueprints.json",
-      "sha256": "d2f6184bed61c7e22674d36c5a77e74a471b841c175a60a73610b9b8b112f07a"
+      "sha256": "31db71a71f56fd0012261376285900ea878b26faa6bec6a8556d11ac6606d99e"
     },
     {
       "path": "todos/todo.schema.json",
@@ -171,13 +171,13 @@
       "sha256": "f20ba477ad89f5c88f95269d9bf1d7fe90e4b556198f21b67e87ed44b2068c69"
     }
   ],
-  "input_set_sha256": "79db6c9f6b4a7f482f6aa1d73f357a590a900dfaec7197ccba79cb57c3d7dd72",
+  "input_set_sha256": "e4179f6cda6ad7460ff2d5961a5ae3365d9b8b4b8394233219a1cbcfcffde830",
   "known_residual_risks": [
     "Complex integration, browser, accessibility, and performance evidence is not accepted until the full gate runs with explicit approval.",
     "A dirty working tree is implementation state, not immutable release evidence."
   ],
   "mode": "static",
-  "produced_at": "2026-08-03T12:26:31.455406Z",
+  "produced_at": "2026-08-03T12:56:17.071904Z",
   "reason_codes": [
     "complex_tests_deferred_pending_user_approval",
     "release_predecessors_incomplete",
@@ -199,7 +199,7 @@
         "agent/routes"
       ],
       "cwd": ".",
-      "duration_ms": 4962,
+      "duration_ms": 5326,
       "exit_code": 0,
       "id": "python-static",
       "reason_code": null,
@@ -217,7 +217,7 @@
         "tsconfig.app.json"
       ],
       "cwd": "frontend-angular",
-      "duration_ms": 33357,
+      "duration_ms": 39941,
       "exit_code": 0,
       "id": "angular-static",
       "reason_code": null,
