@@ -17,6 +17,7 @@ import { modelTrainingRoutes } from './features/model-training/model-training.ro
 import { modelAnalysisRoutes } from './features/model-analysis/model-analysis.routes';
 import { PROJECT_ROUTES } from './features/projects/project.routes';
 import { projectContextGuard } from './guards/project-context.guard';
+import { organizationRoutes } from './features/organizations/organization.routes';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -45,6 +46,7 @@ export const routes: Routes = [
       ...contextAccessPolicyRoutes,
       ...modelTrainingRoutes,
       ...modelAnalysisRoutes,
+      ...organizationRoutes,
       ...visualProcessRoutes,
       ...diff3Routes,
       ...codeHugRoutes,

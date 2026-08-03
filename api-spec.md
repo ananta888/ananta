@@ -61,6 +61,487 @@ Der Hub bleibt dabei die Steuerungsebene: Externe Systeme liefern Ziele oder Ere
 
 ---
 
+## Enterprise-Organisationen (Hub Control Plane)
+
+Alle Endpunkte in diesem Abschnitt laufen ausschliesslich am Hub. Definitionen
+werden aus dem validierten Produktionskatalog und optionalen projektgebundenen
+Revisionen gelesen; `test_only_fixtures` werden nie als Produktions-Blueprint
+ausgeliefert. Die Standardauswahl umfasst 5 bis 10 Teams, mit 8 Teams als
+empfohlener mittlerer Zusammensetzung. Worker koennen Rollenaufgaben und
+geschlossene Task-Vorschlaege liefern, orchestrieren oder adressieren aber
+keine anderen Worker; Einordnung und Zuweisung bleiben Hub-Aufgabe.
+
+Jede Antwort verwendet den normalen Envelope `{"status":"success","data":...}`.
+Tenant, Projekt und Principal stammen aus dem authentifizierten Request-Kontext
+beziehungsweise einer explizit autorisierten Projektauswahl, niemals aus einem
+vom Client behaupteten Compile-Plan. Bei mehreren autorisierten Projekten muss
+`project_id` explizit angegeben werden.
+
+### Definitionen lesen und kompilieren
+
+- `GET /api/organization-blueprints?page_size=100&cursor=...`
+  liefert `{items, next_cursor}`. Die `key`-Werte der Standardvarianten haben
+  die Form `<definition-key>:standard:<team-count>`.
+- `GET /api/organization-blueprints/<key>?version=1` liefert die portable,
+  prompt-freie Definition samt kanonischer `revision`.
+- `POST /api/organization-blueprints/<key>/admission-exceptions` stellt eine
+  produktive, einmal verwendbare Freigabe fuer eine exakte Custom-N-
+  Zusammensetzung aus. Der Aufruf erfordert `ProjectCapability.MANAGE` und
+  `Idempotency-Key`. Body:
+
+  ```json
+  {
+    "blueprint_version": "1",
+    "team_blueprint_counts": {
+      "enterprise_product_delivery_scrum": 2,
+      "portfolio_product_coordination": 1,
+      "platform_devops_sre": 1
+    },
+    "reason": "Bewusst reduzierte, projektgebundene Startkomposition",
+    "ttl_seconds": 900
+  }
+  ```
+
+  `ttl_seconds` liegt zwischen 60 und 3600 Sekunden; ohne Angabe gelten 900
+  Sekunden. Der Hub validiert bekannte Team Blueprints, Singleton-/Gruppen-
+  Kardinalitaeten, mindestens zwei Teams und das aktuelle Projektlimit. Die
+  Antwort (`201`, identischer Idempotency-Replay `200`) enthaelt
+  `admission_exception_ref`, `definition_ref`, `definition_revision`,
+  `composition_digest`, normalisierte `team_blueprint_counts`, `team_count`,
+  `capability_gaps`, `policy_hash`, `status=issued`, `expires_at` und
+  `replayed`. Derselbe Idempotency-Key mit veraendertem Body ist ein Konflikt.
+
+  Die Freigabe ist an Tenant, Projekt, Principal, Definition-Key/-Version,
+  kanonische Definitionsrevision, aktuellen Limit-Policy-Hash und exakte
+  Counts gebunden. Ein anderer Scope/Principal, geaenderte Counts, eine neue
+  Definition/Policy, Ablauf, Widerruf oder vorheriger Verbrauch machen sie
+  ungueltig. Der Endpoint startet weder Compile noch Instanziierung und erzeugt
+  keine Tasks oder Worker-Aktivitaet.
+- `POST /api/organization-blueprints/<key>/compile` ist ein reiner Dry-Run.
+  Der Body entspricht:
+
+  ```json
+  {
+    "blueprint_key": "enterprise_agentic_scrum:standard:8",
+    "blueprint_version": "1",
+    "title": "Produktorganisation Alpha",
+    "team_count": 8,
+    "custom_team_blueprint_keys": [],
+    "admission_exception_ref": null,
+    "parameters": {}
+  }
+  ```
+
+  Der Compile-Plan enthaelt unter anderem `organization_id`,
+  `definition_revision`, `plan_digest`, einen kurzlebigen `compile_token`,
+  `admin_policy_hash`, geplante Schreibmengen, Diagnosen und wirksame Limits.
+  Freie Zusammensetzungen sind fail-closed und benoetigen eine projektgebundene
+  Admission-Exception. Fuer Custom N enthaelt `parameters` die exakt bei der
+  Ausnahme freigegebenen `team_blueprint_counts`; `admission_exception_ref`
+  transportiert nur deren opaken Bezug. Compile validiert die noch als
+  `issued` markierte Ausnahme lesend und verbraucht sie nicht. Der Compile-Token
+  ist an Tenant, Projekt, Principal,
+  Organisations-ID, Definition, Zusammensetzung, Digest, Policy-Hash und Titel
+  gebunden.
+- `POST /api/organization-blueprints/<key>/precreation-admin-grants`
+  akzeptiert den unveraenderten `compile_plan`, kompiliert ihn serverseitig im
+  authentifizierten Projekt erneut und verlangt
+  `If-Match: "<definition_revision>"`, `Idempotency-Key` sowie
+  `ProjectCapability.MANAGE`. Erst danach stellt der Hub einen 60–3600 Sekunden
+  gueltigen `instantiate`-Grant aus, der exakt an Principal, Plan-Digest und
+  aktuellen Policy-Hash gebunden ist. Der Endpoint instanziiert nichts.
+  Derselbe `Idempotency-Key` liefert nur denselben noch gueltigen Grant;
+  abgelaufene oder verbrauchte Grants bleiben unter diesem Key terminal. Ein
+  neuer Key darf fuer denselben unveraenderten Plan einen neuen One-shot-Grant
+  ausstellen.
+
+### Definitionen erstellen, revisionieren, archivieren und reconciliieren
+
+Projektgebundene Revisionen liegen vor dem unveraenderlichen Standardkatalog;
+fehlt eine solche Revision, bleibt die validierte Datei-Definition der
+produktive Fallback. Alle folgenden Endpunkte erfordern
+`ProjectCapability.MANAGE`. Eine Mutation ersetzt nie den Inhalt einer
+Revision und veraendert keine laufenden Instanz-Snapshots.
+
+- `POST /api/organization-blueprints/validate` und
+  `POST /api/organization-blueprints/<key>/validate` validieren eine
+  `definition`, deren naechste Version, Referenzabschluss und wirksames
+  Limitprofil. `lifecycle` ist `draft` oder `active`; optional bindet
+  `expected_parent_revision` die Vorschau an den aktuellen Parent. Der Aufruf
+  benoetigt `Idempotency-Key` und liefert `mutation_digest`, `policy_hash`,
+  `parent_revision`, echte `referenced_definition_hashes` sowie einen
+  kurzlebigen, principal- und projektgebundenen `admin_grant`. Der
+  `mutation_digest` bindet Definition, Parent, Lifecycle, aktuellen Policy-Hash
+  und die transitive Referenz-Closure aus Teams, Rollen, Workflows, Handoffs
+  und Policies.
+- `POST /api/organization-blueprints` legt Version 1 an. Es verlangt
+  `If-Match: "none"`, `Idempotency-Key`, den unveraenderten
+  `mutation_digest` sowie denselben Grant in
+  `X-Organization-Admin-Grant`. Optional akzeptiert `admin_grant` im Body
+  entweder dieselbe Grant-ID oder das unveraenderte Vorschauobjekt; massgeblich
+  bleibt dessen `grant_id`, die exakt zum Header passen muss.
+- `PATCH /api/organization-blueprints/<key>` und der semantisch identische
+  additive Endpoint `POST /api/organization-blueprints/<key>/revisions`
+  erzeugen ausschliesslich die naechste immutable Revision. `If-Match` ist
+  exakt die `parent_revision` der Validation; In-place-Patches gibt es nicht.
+- `POST /api/organization-blueprints/<key>/archive-preview` akzeptiert
+  `version`, meldet nicht archivierte Instanzen als Blocker und stellt nur bei
+  einer anwendbaren Vorschau einen plan-gebundenen Grant aus.
+  `POST /api/organization-blueprints/<key>/archive` verbraucht ihn atomar und
+  verlangt `If-Match: "<revision>"`, `mutation_digest` und
+  `Idempotency-Key`. Eine entfernte Datei-Definition wird durch einen
+  projektgebundenen `retired`-Marker verdeckt, niemals aus dem Seed geloescht.
+- `POST /api/organization-blueprints/<key>/reconcile-preview` vergleicht
+  `current_version` entweder mit `source: "seed"` oder einer expliziten
+  `desired_definition`. Die Antwort enthaelt Abschnitts-Drift,
+  `entity_drift` je Unit/Gruppe/Role Slot/Workflow/Relation/Policy/Referenz,
+  betroffene laufende `assignment_impacts`, erhaltene
+  `preserved_snapshot_revisions`, lokale Override-Konflikte,
+  `planned_writes`, `plan_digest`, `applicable` und `requires_apply`.
+- `POST /api/organization-blueprints/<key>/reconcile-apply` akzeptiert die
+  unveraenderte komplette `preview`, den Vorschau-Grant und
+  `If-Match: "<current_revision>"`. Der Hub berechnet Vorschau,
+  Definitions-/Policy-Hashes und aktuelle Version erneut, verbraucht den
+  One-shot-Grant in derselben Transaktion und legt genau eine neue Revision
+  an. Ein No-op, ein lokaler Override-Konflikt oder eine stale Vorschau wird
+  abgewiesen.
+
+Der Seed-Start validiert in deterministischer Reihenfolge Template-Fragmente,
+Team Blueprints und danach Organization Blueprints. Standarddefinitionen
+bleiben file-backed; Seed-Reconcile erfolgt nur nach Vorschau und explizitem
+projektgebundenem Apply. Keiner dieser Definition-Endpunkte kompiliert
+Runtime-Lifecycle-Aktionen, startet Worker oder schreibt Tasks.
+
+### Instanzen und Lifecycle
+
+- `GET /api/organizations?page_size=50&cursor=...` liefert nur Organisationen,
+  fuer die der Principal eine aktive Membership im autorisierten Projekt hat.
+- `GET /api/organizations/<organization-id>` liefert das Summary inklusive
+  `definition_revision`, `snapshot_hash`, Team-/Unit-Anzahl und `lock_version`.
+- `POST /api/organizations` materialisiert atomar einen aktuellen Compile-Plan.
+
+  Erforderliche Header:
+
+  ```text
+  If-Match: "<definition_revision>"
+  Idempotency-Key: <mindestens 8 nicht-leere Zeichen>
+  X-Organization-Admin-Grant: <plan-bound one-shot grant id>
+  ```
+
+  Body:
+
+  ```json
+  {
+    "compile_plan": {"compile_token": "...", "definition_revision": "...", "plan_digest": "..."},
+    "title": "Produktorganisation Alpha",
+    "admin_grant": "grant-id-identisch-zum-header"
+  }
+  ```
+
+  Direkt vor dem Schreiben kompiliert der Hub aus dem signierten Binding und
+  seinem aktuellen Katalog erneut. Clientseitige Units, Rollen, Tenant- oder
+  Projektwerte werden nicht uebernommen. Der Precreation-Grant muss exakt zu
+  Tenant, Projekt, Principal, Plan-Digest und aktuellem Admin-Policy-Hash
+  passen, darf weder abgelaufen noch widerrufen sein und wird durch ein
+  bedingtes Update in derselben Transaktion einmalig verbraucht. Rollt die
+  Materialisierung zurueck, rollt auch der Verbrauch zurueck. Ein identischer
+  erfolgreicher Idempotency-Replay liefert das bestehende Ergebnis, ohne den
+  bereits verbrauchten Grant erneut zu fordern.
+
+  Bei Custom N wird zusaetzlich die im Compile-Token gebundene
+  `admission_exception_ref` gegen denselben Principal/Scope und den aus
+  Definition, Definitionsrevision, aktuellem Policy-Hash und Counts erneut
+  berechneten `composition_digest` geprueft. Der Statuswechsel
+  `issued -> consumed`, der Verbrauch des Precreation-Admin-Grants und alle
+  Instanz-Writes teilen eine Unit of Work. Ein Rollback stellt daher auch die
+  Ausnahme wieder als unverbraucht her. Nach erfolgreichem Commit kann die
+  Ausnahme keine zweite Instanz autorisieren; nur der identische erfolgreiche
+  Instantiate-Idempotency-Replay darf das vorhandene Ergebnis wiedergeben.
+
+  Die Erfolgsantwort enthält zusätzlich `organization_admin_grant_id` für den
+  neu erzeugten, organisationsgebundenen und widerrufbaren Grant des
+  Erstellers. Clients dürfen diesen Wert nur im geschützten Sitzungszustand
+  halten und weder protokollieren noch in URLs, Shell-History oder
+  Präsentationszustand übernehmen. Ein identischer Idempotency-Replay liefert
+  denselben Grant-Bezug statt einen zweiten Grant auszustellen.
+
+- `POST /api/organizations/<organization-id>/lifecycle` verwendet einen
+  organisationsgebundenen Admin-Grant und folgende Header:
+  `If-Match: "<lock_version>"`, `Idempotency-Key` und
+  `X-Organization-Admin-Grant`. Body:
+
+  ```json
+  {"target_state":"paused","active_work_strategy":null,"admin_grant":"grant-id"}
+  ```
+
+  Fuer `active_work_strategy=migrate` ist zusaetzlich ein vollstaendig
+  gescoptes Ziel erforderlich:
+
+  ```json
+  {
+    "target_state": "completed",
+    "active_work_strategy": "migrate",
+    "migration_target": {
+      "organization_id": "validated-successor-id",
+      "unit_id": "target-team-unit-id",
+      "team_id": "target-team-id",
+      "role_slot_id": "target-role-slot-id"
+    },
+    "admin_grant": "grant-id"
+  }
+  ```
+
+  Erlaubte Zustande sind `draft`, `validated`, `active`, `paused`, `completed`
+  und `archived`. Archivieren loescht keine Lineage. Der Hub liest aktive
+  Tasks, Leases, Gates und Handoffs innerhalb derselben Transaktion erneut und
+  materialisiert Drain, Cancel oder die explizit zielgebundene Migration vor
+  dem Zustandswechsel. Migration erzeugt deterministische Successor-Tasks mit
+  `source_task_id`; sie verschiebt niemals still eine bestehende Task-ID.
+  Offene Leases, Jobs, Gates und Handoffs werden strukturiert aufgeloest und
+  im Lifecycle-Ergebnis referenziert. Recovery `archived -> validated` startet
+  weder Worker noch bestehende Tasks neu.
+
+### Persistenter Organization-Runtime
+
+- `GET /api/organizations/<organization-id>/runtime?event_limit=500` liefert
+  die an `definition_revision` und `snapshot_hash` gebundene Eventprojektion,
+  autoritative Task-/Dependency-Zustaende, hierarchische Budgetnutzung,
+  Cross-Team-Handoffs und begrenzte Workflow-Loop-Zustaende. `event_limit`
+  liegt zwischen 1 und 1000; eine gekuerzte Eventliste ist markiert. Prompt-
+  Bodies, Secrets und Artifact-Inhalte sind nie Teil der Antwort.
+- `POST /api/organizations/<organization-id>/handoffs` ist ein vom Hub
+  vermittelter, projektgescopter CAS-Write. Er verlangt `Idempotency-Key` und
+  bindet Producer/Consumer jeweils an Unit, Team, Role-Slot und Task, dazu
+  Goal, eine versionierte Handoff-Definition, strukturierte
+  Artifact-ID/Version/Digest-Referenzen, Acceptance Checks, Due/SLA,
+  Assignment und Dispatch-Lease. `grounding` nennt die versionierte Policy,
+  die bereitgestellten `SRC_####`-/`RUN_####`-Allowlisten und die daraus
+  verwendeten Evidence-Refs; `verification_status` muss `hub_verified` sein.
+  Der Hub gleicht die Handoff-Definition mit der aktiven Organization-Relation
+  ab, liest Goal-Mitgliedschaft/Verifikation aus dem bestehenden
+  Goal-Artifact-Graph und den unveraenderlichen Digest aus der bestehenden
+  Artifact-Version. Nur identische Digests, exakte Evidence-Allowlist- und
+  explizite Context-Scope-Freigaben werden akzeptiert.
+- `POST /api/organizations/<organization-id>/handoffs/<handoff-id>/decisions`
+  verlangt `If-Match: "<handoff-revision>"`, `Idempotency-Key`, eine aktive
+  Consumer-Assignment des authentifizierten Principals sowie `accepted`,
+  `rejected` oder `needs_changes` mit strukturiertem `reason_code`.
+
+Budget-Reservation/Settlement und Workflow-Loop-Erzeugung sind absichtlich
+keine frei beschreibbaren HTTP-Schreibendpunkte. Der Hub ruft den
+`OrganizationDispatchBudgetPort` mit bereits autoritativ aufgeloesten Limits
+auf und erzeugt Loop-State aus versionierten Workflow-Definitionen. Worker,
+Model/Cost-Stewards und Clients koennen Limits oder Provider-Policy dadurch
+nicht selbst erhoehen.
+
+### Hierarchie, Graph, Rollen und Layout
+
+- `GET /api/organizations/<id>/topology` unterstuetzt `cursor`, `page_size`,
+  `depth`, `subgraph_root_id`, `kinds`, `edge_namespaces`, `search` und
+  `include_runtime`. Die Antwort entspricht `OrganizationTopologyPage` mit
+  stabilen Nodes, getrennten Namespaces `hierarchy`, `organization`, `runtime`,
+  Revisionsbindung, Limits und `next_cursor`. `depth=0` liefert nur den
+  Organisationsknoten; die erste Unit-Ebene beginnt bei `depth=1`.
+- `GET /api/organizations/<id>/role-slots` liefert Rollen-Template, Scrum-
+  Accountability, Spezialisierung, Capabilities, SoD-Risiko und Zuweisungen.
+- `GET /api/organizations/<id>/role-slots/<slot-id>/assignment-candidates`
+  liefert nur redigierte Agenten-Metadaten, Capability-Kompatibilitaet,
+  Kapazitaet, betroffene Teams und strukturierte Gruende. Tokens werden nie
+  ausgegeben.
+- `GET|PUT /api/organizations/<id>/layout-preferences` liest/speichert
+  ausschliesslich benutzerspezifische Koordinaten fuer `hierarchy` oder
+  `graph`. Das idempotente PUT ist die einzige bewusste Ausnahme von
+  Admin-Grant/If-Match bei Organization-Schreibendpunkten: Layout ist
+  nicht-autoritatives Presentation State und kann Topologie, Rollen,
+  Zuweisungen, Lifecycle oder Policy nicht veraendern.
+
+### Topologie-Patches
+
+- `POST /api/organizations/<id>/patches/preview` akzeptiert einen geschlossenen
+  Vertrag `{expected_revision, operations}`. Erlaubte Operationen sind
+  `add`, `remove`, `reparent`, `connect` und `assign`; Runtime-Kanten sind
+  niemals schreibbar. `If-Match` muss der Body-Revision entsprechen. Ein
+  aktives `remove` mit `migrate` verlangt `migration_target` mit Ziel-
+  Organization, Team-Unit, Team und Role-Slot. Der Hub validiert alle vier
+  Bindungen im selben Projekt und erzeugt neue Tasks mit `source_task_id`;
+  ein Reparent kann dieselben Task-IDs nach Lease-Stopp erneut routen.
+- `POST /api/organizations/<id>/patches/grants` stellt aus der vollständigen,
+  unveränderten Preview einen maximal fünf Minuten gültigen One-shot Grant
+  aus. Erforderlich sind `If-Match`, `Idempotency-Key`, `X-Patch-Digest`,
+  `X-Policy-Digest`, `X-Limit-Digest` und als reine Parent-Autorität
+  `X-Organization-Admin-Grant`. Der Hub lädt Topologie, Policy und Limits
+  autoritativ erneut und bindet den neuen `topology_patch` Grant an Principal,
+  Tenant, Projekt, Organisation, Patch-Digest, Policy-Hash, Limit-Hash und
+  erwartete Revision. Ein generischer `organization_admin`- oder `*`-Grant
+  ist am Apply-Endpunkt ungültig.
+- `POST /api/organizations/<id>/patches/apply` akzeptiert ausschließlich die
+  vollständige, unveränderte Preview-Antwort und den dafür ausgestellten
+  `X-Topology-Patch-Grant`. Erforderlich sind außerdem `If-Match`,
+  `Idempotency-Key`, `X-Patch-Digest`, `X-Policy-Digest` und
+  `X-Limit-Digest`. Der Hub löst Limits, Lifecycle,
+  Capabilities, Kapazität und Separation of Duties unmittelbar vor der
+  atomaren Unit-of-Work erneut auf und konsumiert/widerruft den Grant in
+  derselben Transaktion. Nur ein Replay mit identischem Grant,
+  Idempotency-Key, Request-Digest und bereits angewandtem Ergebnis ist danach
+  zulässig. `drain` pausiert betroffene nichtterminale
+  Tasks, beendet aktuelle Jobs/Leases und löst offene Gates/Handoffs
+  strukturiert auf; `archive` bleibt bei aktiver Arbeit blockiert.
+
+### Organization Bundle v2
+
+- `GET /api/organization-bundles/export?organization_id=<id>` nutzt die
+  gescopte Instanz ausschließlich zur Auswahl des exakten Definitionsgraphen.
+  Die Antwort selbst ist projekt-/tenantübergreifend portabel und enthält
+  weder Quellscope/Instanz-IDs noch lokale IDs oder Compiled Plans. Ohne Opt-in
+  werden Runtime-Instanzen und Assignments ausgelassen. `include_instances=true`
+  ergänzt ausschließlich ein zielseitig neu zu kompilierendes Rezept;
+  `include_assignments=true` verlangt dieses Rezept und ergänzt nur
+  pseudonymisierte Assignment-Intents ohne lokale Agent-URLs.
+- `POST /api/organization-bundles/import-preview` nimmt
+  `{bundle, conflict_strategy, project_id?, migrate_v1?,
+  assignment_rebindings?, instance_admission_exception_refs?}` entgegen.
+  `conflict_strategy` ist `fail`, `skip` oder `overwrite`. Ein v1-Team-Bundle
+  wird nur mit `migrate_v1=true` deterministisch als Team-Slice migriert; der
+  Hub erfindet dabei keine Organisationstopologie. Quellgebundene Legacy-Felder
+  in `organization_instances`/`assignments` blockieren den Preview-Plan. Die
+  Preview meldet `instance_import_mode=optional_target_recompile`.
+  `target_rebind_contract` nennt – sofern ein exportierter Root-Blueprint im
+  Bundle vorhanden ist – dessen `key@version`, den authentifizierten Zielscope,
+  die Compile-/Instantiate-Endpunkte, Hub-seitige ID-Vergabe und das
+  explizite lokale Assignment-Binding. Instanzrezepte werden ausschließlich im
+  authentifizierten Zielscope neu kompiliert; Custom-Kompositionen benötigen
+  eine passende, noch nicht verbrauchte Admission Exception. Team-only Bundles
+  melden `available=false` und erfinden keinen Organization-Root.
+- `POST /api/organization-bundles/import-grants` nimmt die vollständige
+  Preview-Hülle entgegen und verlangt `If-Match`, `Idempotency-Key` sowie
+  `X-Import-Plan-Digest`. Der Hub berechnet Preview, Zielrevision, Limits,
+  Instanzpläne und Rebindings erneut. Nur ein exakter, an Principal und
+  Zielscope gebundener Vergleich erzeugt einen kurzlebigen One-shot-Grant.
+- `POST /api/organization-bundles/import-apply` nimmt die unveränderte
+  Preview-Hülle entgegen und verlangt `X-Import-Plan-Digest`,
+  `Idempotency-Key` und `X-Organization-Admin-Grant`. Zielrevision, Scope,
+  Bundle-Digest und effektives Limitprofil werden in derselben Transaktion
+  erneut geprüft. Definitionen, optionale neu kompilierte Instanzen, Teams,
+  Slots, Relationen, target-lokal gebundene Assignments und Audit-Outbox werden
+  atomar geschrieben; Teilimporte werden zurückgerollt. Eligibility,
+  Kapazität und Separation of Duties werden direkt vor dem Assignment-Write
+  erneut geprüft.
+
+### Zweistufige Planung und Worker-Vorschläge
+
+- `POST /api/organizations/<id>/goals` persistiert mit `Idempotency-Key` ein
+  passives Root-Ziel im autoritativen Organization-/Tenant-/Project-Scope. Der
+  geschlossene Body akzeptiert nur `goal`, `summary`, `constraints` und
+  `acceptance_criteria`; Scope, Ersteller, Typ und Status werden ausschließlich
+  serverseitig gesetzt. Der Aufruf startet weder Planung noch Worker-Dispatch
+  und schreibt keine Queue.
+- `POST /api/organizations/<id>/source-catalogs` akzeptiert ausschließlich
+  `connection_id`, `queries` und `limit`. Der Hub fragt damit einen aktiven,
+  zugelassenen Knowledge Index im aktuellen Organization-Scope ab, validiert
+  Revision, Admission, Index-Run und Manifest erneut und weist die
+  `SRC_*`-/`RUN_*`-Referenzen selbst zu. Persistiert wird ein inhaltsfreier,
+  idempotenter Katalog; vom Aufrufer gelieferte Source-IDs sind keine
+  Autorität.
+- `GET /api/organizations/<id>/planning` liefert die paginierte Lineage
+  Goal → Category-Todo-Revision → Planning-Track-Revision → Milestone → Task
+  sowie passive Worker-Task-Proposals.
+- `GET /api/organizations/<id>/goals/<goal-id>/planning/category-research/readiness`
+  verlangt die Query-Parameter `unit_id`, `team_id`, `role_slot_id` und
+  `catalog_task_id`. Die Projektion prüft den aktuellen Lifecycle, Scope,
+  Membership, Topologie, eine konkrete eligible Assignment-/Agent-Bindung,
+  Capability, Kapazität und den exakten Source Catalog, ohne dabei Tasks oder
+  Queue-Einträge zu erzeugen.
+- `POST /api/organizations/<id>/planning/<revision-id>/promote|adopt` verlangt
+  `{expected_revision, expected_digest}` und führt ausschließlich die exakte,
+  Hub-autorisierte CAS-Transition aus. Promotion erzeugt keine Tracks;
+  Adoption materialisiert keine Tasks.
+- `POST /api/organizations/<id>/goals/<goal-id>/planning/category-research`
+  erzeugt mit `Idempotency-Key` genau eine Hub-Task `planning_research`. Der
+  geschlossene `source_catalog_binding` identifiziert nur einen bereits
+  persistierten, principal-/tenant-/scopegebundenen Katalog; Browserdaten
+  dürfen keine `SRC_*`-/`RUN_*`-IDs autorisieren. Die Task erzeugt noch keine
+  Category-Revision, Tracks oder ausführbaren Track-Tasks. Der Hub persistiert
+  dabei eine konkrete aktive Role-Assignment-/Agent-Bindung mit `planning`,
+  `research` und `source_analysis`; es gibt keinen globalen Worker-Fallback.
+  Vor dem Forward werden Lifecycle, Topologie, Registrierung, Kapazität und
+  WorkerJob-Lease erneut geprüft. Der Ziel-Worker akzeptiert nur den exakten,
+  kurzlebig und payloadgebunden mit dem privaten Hub-Ed25519-Key signierten
+  Transport an seinem service-only Intake. Der Worker besitzt nur den
+  öffentlichen Verifikations-Keyring; sein Service-Token authentifiziert den
+  HTTP-Transport, verleiht aber keine Hub-Autorität. Ohne kanonische
+  `AGENT_URL` oder Verifikations-Keyring lehnt er geschlossen ab und routet
+  selbst keine weitere Arbeit.
+- `POST /api/worker-results/tasks/<task-id>/assignments/<assignment-id>/planning/category`
+  nimmt die geschlossene Category-Ausgabe ausschließlich mit der exakten
+  Worker-Result-Capability, Assignment-ID, Dispatch-Lease, Payload-Digest und
+  `Idempotency-Key` an. Der Hub validiert `todos/todo.schema.json`, Grounding,
+  DAG und Quality Profile und persistiert eine neue, zunächst unpromotete
+  Revision.
+- `POST /api/organizations/<id>/planning/<category-revision-id>/track-planning`
+  erzeugt nach Promotion genau eine deterministische Hub-Task
+  `planning_track_task` für die exakte Category-Revision. Der geschlossene Body
+  enthält `expected_revision`, `expected_digest`, `expected_policy_hash`, die
+  persistierte `unit_id`-/`team_id`-/`role_slot_id`-Bindung und die vollständige,
+  kanonisch sortierte Menge aller nicht deferierten
+  `source_category_item_ids`; `If-Match` und `Idempotency-Key` sind Pflicht.
+  Der Worker erhält Category-Payload, Source-Katalog/Allowlist und Prompt-Hash,
+  jedoch keine Routing-, Tool-, Kontext- oder Budgetautorität.
+- `POST /api/worker-results/tasks/<task-id>/assignments/<assignment-id>/planning/tracks`
+  akzeptiert ausschließlich die exakte, nicht abgelaufene
+  Worker-Result-Capability und den aktuellen `WorkerJob`/Dispatch-Lease. Die
+  geschlossene `organization_track_planning_result.v1`-Hülle enthält
+  `category_revision_id`, die gebundenen `source_category_item_ids`, ein bis
+  hundert `{artifact_id,payload}`-Kandidaten, strukturierte `exclusions` und
+  einen `sha256:`-Digest über alle übrigen Hüllenfelder (sortierte Keys,
+  kompakte Separatoren, ASCII-Escaping, keine nichtendlichen Zahlen, danach
+  UTF-8). Der Hub
+  validiert jeden Payload gegen `todos/todo.track.schema.json`, Quality Gates,
+  vollständige Lineage, Scope, Authority Ceiling und den Cross-Track-DAG. Die
+  Annahme persistiert nur passive Track-Revisionen; Antwortfelder
+  `materialized_task_ids=[]`, `task_created=false` und `queue_write=false`
+  machen die fehlende Ausführungswirkung explizit.
+- `POST /api/organizations/<id>/planning/<category-revision-id>/derive-tracks`
+  bleibt als expliziter Hub-Admin-Einstieg kompatibel und partitioniert
+  ausschließlich eine exakt promotete Category-Revision. Es verlangt
+  `If-Match`, Revision, Digest, Policy-Hash und `Idempotency-Key`;
+  Überlappungen, Lücken oder verlorene/invertierte Dependencies werden
+  abgewiesen. Die `reference-workflows/<key>/preview|derive`-Varianten lösen
+  denselben Hub-validierten Track-Vertrag aus dem versionierten
+  Workflow-Katalog auf; weder direkte noch Worker-gebundene Ableitung
+  materialisiert Tasks.
+- `POST /api/organizations/<id>/planning/<track-revision-id>/materialize`
+  verbraucht einen separaten digestgebundenen Approval-Grant atomar mit den
+  stabilen Plan-/Goal-/Task-Mappings. Ohne Grant wird nur eine passive
+  Approval-Anfrage (`202`) erzeugt.
+- `POST /api/organizations/<id>/planning/<track-revision-id>/tasks/<plan-task-id>/dispatch-next`
+  materialisiert niemals implizit. Der Hub prüft Mapping, Dependencies,
+  Team/Role-Slot, Capability, Kapazität, Risiko und Separation of Duties,
+  persistiert die finale Assignment-/Agent-Entscheidung und erzeugt Task-CAS,
+  Dispatch-Intent und Lease in einer Transaktion. `requested_worker_id` ist
+  nur ein nicht autorisierender Hint.
+- `POST /api/organizations/<id>/planning/dispatches/<intent-id>/retry` und
+  `POST /api/organizations/<id>/planning/dispatches/pump` liefern den
+  persistenten Hub→Worker-Outbox nach Backoff beziehungsweise nach abgelaufener
+  Processing-Lease erneut aus. Ein vorhandener autoritativer WorkerJob wird
+  als Crash-Replay-Receipt übernommen; der generische Delegationspfad darf
+  eine persistierte Organization-Routingentscheidung nicht überschreiben.
+- `POST /api/organizations/<id>/proposals/<proposal-id>/approve|reject`
+  entscheidet eine exakte Proposal-Revision. Auch ein akzeptierter Vorschlag
+  wird zunächst nur als revisionsgebundenes Track-Amendment eingeordnet.
+- `POST /api/worker-results/tasks/<task-id>/assignments/<assignment-id>/proposals`
+  ist ein Capability-only Result-Kanal. Er akzeptiert weder User-/Admin-Bearer
+  noch unbekannte Felder und antwortet `202` mit `task_created=false` und
+  `queue_write=false`. Nur der Hub darf später Rolle, Team, Agent und eine
+  mögliche Taskmaterialisierung bestimmen.
+
+Typische Fehler sind `400` fuer ungueltige Request-/Cursor-Vertraege, `403`
+fuer fehlende oder falsch gebundene Grants, `404` fuer ausserhalb der eigenen
+Membership liegende Ressourcen, `409` fuer Idempotency-Konflikte, `412` fuer
+veraltete Revisionen, `422` fuer Compile-/Limit-/Lifecycle-Blocker und `428`
+fuer fehlendes `If-Match`.
+
+---
+
 ## Voice API Contract (Hub)
 
 Alle Voice-Endpunkte sind authentifiziert (Bearer Token).

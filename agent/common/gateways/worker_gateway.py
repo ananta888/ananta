@@ -1,5 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from typing import Any, Optional
 
 from agent.common.http import HttpClient
@@ -43,10 +44,52 @@ class HttpWorkerGateway(WorkerGateway):
 
         url = f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}"
         try:
-            return self.client.post(url, data=data, headers=headers, timeout=timeout)
-        except Exception as e:
-            logging.error(f"Fehler bei der Weiterleitung an Worker ({url}): {e}")
-            return {"status": "error", "message": str(e)}
+            response = self.client.post(
+                url,
+                data=data,
+                headers=headers,
+                timeout=timeout,
+                return_response=True,
+                allow_redirects=False,
+            )
+            return self._response_payload(response)
+        except Exception as exc:
+            logging.error(
+                "Fehler bei der Weiterleitung an Worker (%s): %s",
+                url,
+                exc,
+            )
+            return {"status": "error", "message": str(exc)}
+
+    @staticmethod
+    def _response_payload(response: Any) -> Any:
+        if response is None or isinstance(response, Mapping):
+            return response
+        status_code = int(
+            getattr(response, "status_code", 500) or 500
+        )
+        close = getattr(response, "close", None)
+        try:
+            if 300 <= status_code < 400:
+                return {
+                    "status": "error",
+                    "message": "worker_forward_redirect_forbidden",
+                    "http_status": status_code,
+                }
+            if status_code >= 400:
+                return {
+                    "status": "error",
+                    "message": "worker_forward_failed",
+                    "http_status": status_code,
+                }
+            try:
+                body = response.json()
+            except (TypeError, ValueError):
+                body = getattr(response, "text", "")
+            return body
+        finally:
+            if callable(close):
+                close()
 
 # Singleton-Instanz für den Hub
 _default_worker_gateway = None

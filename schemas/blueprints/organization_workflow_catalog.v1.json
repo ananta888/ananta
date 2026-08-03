@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/blueprints/organization_workflow_catalog.v1.json",
+  "title": "Organization workflow catalog v1",
+  "description": "Closed catalog of Hub-materialized organization and team workflow definitions. These definitions do not form a second runtime graph.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "version", "workflow_definitions"],
+  "properties": {
+    "schema": { "type": "string", "const": "organization_workflow_catalog.v1" },
+    "version": { "type": "integer", "minimum": 1 },
+    "workflow_definitions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "https://ananta.local/schemas/blueprints/organization_blueprint_catalog.v1.json#/$defs/workflow_definition"
+      }
+    }
+  }
+}

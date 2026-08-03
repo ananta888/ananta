@@ -509,6 +509,18 @@ class AutoPlanner:
                 "analysis": None,
                 "skipped": "model_recovery_followups_require_hub_plan",
             }
+        from agent.services.organization_planning_adapter import (
+            organization_id_from_task,
+        )
+
+        organization_id = organization_id_from_task(task)
+        if organization_id:
+            return {
+                "followups_created": [],
+                "analysis": None,
+                "skipped": "organization_plan_amendment_required",
+                "organization_id": organization_id,
+            }
 
         task_dict = task.model_dump()
         prompt = _build_followup_prompt(task_dict, output or task.last_output or "", exit_code)

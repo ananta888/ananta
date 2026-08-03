@@ -1,0 +1,194 @@
+{
+  "schema": "organization_blueprint_fragment.v1",
+  "metadata": {
+    "catalog_key": "enterprise_scrum_organization_catalog",
+    "catalog_version": 1,
+    "description": "Standard organization fragment for five to ten teams, one full eight-team acceptance reference and bounded test-only two/three-team compositions.",
+    "orchestration_owner": "hub",
+    "portable_references": true
+  },
+  "organization_blueprints": [
+    {
+      "key": "enterprise_scrum_organization",
+      "version": 1,
+      "description": "Data-driven Scrum organization with a five-to-ten standard band and an admitted custom N-team composition.",
+      "parameter_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "discriminator": "composition_mode",
+        "oneOf": [
+          {
+            "properties": {
+              "composition_mode": {"const": "standard"},
+              "team_count": {"type": "integer", "minimum": 5, "maximum": 10}
+            },
+            "required": ["composition_mode", "team_count"],
+            "not": {
+              "anyOf": [
+                {"required": ["custom_composition"]},
+                {"required": ["admission_exception_ref"]}
+              ]
+            }
+          },
+          {
+            "properties": {
+              "composition_mode": {"const": "custom"},
+              "custom_composition": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["team_blueprint_counts"],
+                "properties": {
+                  "team_blueprint_counts": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {"type": "integer", "minimum": 1}
+                  }
+                }
+              },
+              "admission_exception_ref": {"type": "string", "minLength": 1}
+            },
+            "required": ["composition_mode", "custom_composition", "admission_exception_ref"],
+            "not": {"required": ["team_count"]}
+          }
+        ]
+      },
+      "standard_composition": {
+        "team_count_range": {"minimum": 5, "default": 8, "maximum": 10},
+        "baseline_singleton_team_refs": ["portfolio_product_coordination", "research_and_discovery", "platform_devops_sre"],
+        "baseline_group_counts": {"product_delivery": 2},
+        "activation_order": ["quality_security_release", "architecture_governance", "proof_of_concept"],
+        "scale_out_group": "product_delivery"
+      },
+      "unit_groups": [
+        {
+          "group_id": "product_delivery",
+          "team_blueprint_ref": "enterprise_product_delivery_scrum@1",
+          "parent_unit_ref": "delivery_value_stream",
+          "min_count": 1,
+          "default_count": 2,
+          "max_count": null,
+          "capacity_rule": {"formula": "effective_max_team_instances_minus_active_singleton_teams", "minimum_remaining": 1},
+          "limit_policy_ref": "organization_limits@1",
+          "naming_policy": "stable_group_ordinal",
+          "overrides": {}
+        }
+      ],
+      "units": [
+        {"unit_key": "enterprise_portfolio", "unit_kind": "coordination_unit", "materialization_kind": "structural_unit", "parent_unit_ref": null, "activation_policy": "always"},
+        {"unit_key": "discovery_value_stream", "unit_kind": "value_stream", "materialization_kind": "structural_unit", "parent_unit_ref": "enterprise_portfolio", "activation_policy": "always"},
+        {"unit_key": "delivery_value_stream", "unit_kind": "value_stream", "materialization_kind": "structural_unit", "parent_unit_ref": "enterprise_portfolio", "activation_policy": "always"},
+        {"unit_key": "enablement_value_stream", "unit_kind": "value_stream", "materialization_kind": "structural_unit", "parent_unit_ref": "enterprise_portfolio", "activation_policy": "always"},
+        {"unit_key": "portfolio_product_coordination", "unit_kind": "team", "materialization_kind": "team_instance", "team_blueprint_ref": "portfolio_product_coordination@1", "parent_unit_ref": "enterprise_portfolio", "activation_policy": "baseline"},
+        {"unit_key": "research_and_discovery", "unit_kind": "team", "materialization_kind": "team_instance", "team_blueprint_ref": "research_and_discovery@1", "parent_unit_ref": "discovery_value_stream", "activation_policy": "baseline"},
+        {"unit_key": "proof_of_concept", "unit_kind": "team", "materialization_kind": "team_instance", "team_blueprint_ref": "proof_of_concept@1", "parent_unit_ref": "discovery_value_stream", "activation_policy": "ordered_optional"},
+        {"unit_key": "platform_devops_sre", "unit_kind": "team", "materialization_kind": "team_instance", "team_blueprint_ref": "platform_devops_sre@1", "parent_unit_ref": "enablement_value_stream", "activation_policy": "baseline"},
+        {"unit_key": "quality_security_release", "unit_kind": "team", "materialization_kind": "team_instance", "team_blueprint_ref": "quality_security_release@1", "parent_unit_ref": "enablement_value_stream", "activation_policy": "ordered_optional"},
+        {"unit_key": "architecture_governance", "unit_kind": "team", "materialization_kind": "team_instance", "team_blueprint_ref": "architecture_governance@1", "parent_unit_ref": "enablement_value_stream", "activation_policy": "ordered_optional"}
+      ],
+      "relations": [
+        {"relation_id": "portfolio_governs_discovery", "namespace": "organization", "source_unit_ref": "portfolio_product_coordination", "target_unit_ref": "discovery_value_stream", "kind": "governs", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": null, "dependency_policy": "advisory", "escalation_policy": "portfolio"},
+        {"relation_id": "portfolio_governs_delivery", "namespace": "organization", "source_unit_ref": "portfolio_product_coordination", "target_unit_ref": "delivery_value_stream", "kind": "governs", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": null, "dependency_policy": "advisory", "escalation_policy": "portfolio"},
+        {"relation_id": "portfolio_governs_enablement", "namespace": "organization", "source_unit_ref": "portfolio_product_coordination", "target_unit_ref": "enablement_value_stream", "kind": "governs", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": null, "dependency_policy": "advisory", "escalation_policy": "portfolio"},
+        {"relation_id": "research_supplies_poc", "namespace": "organization", "source_unit_ref": "research_and_discovery", "target_unit_ref": "proof_of_concept", "kind": "supplies_research_to", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": "research_evidence_handoff@1", "dependency_policy": "declared", "escalation_policy": "portfolio"},
+        {"relation_id": "poc_prototypes_for_delivery", "namespace": "organization", "source_unit_ref": "proof_of_concept", "target_unit_ref": "delivery_value_stream", "kind": "prototypes_for", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": "poc_decision_handoff@1", "dependency_policy": "declared", "escalation_policy": "portfolio"},
+        {"relation_id": "architecture_reviews_delivery", "namespace": "organization", "source_unit_ref": "architecture_governance", "target_unit_ref": "delivery_value_stream", "kind": "reviews", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": "architecture_decision_handoff@1", "dependency_policy": "gate", "escalation_policy": "architecture"},
+        {"relation_id": "platform_enables_delivery", "namespace": "organization", "source_unit_ref": "platform_devops_sre", "target_unit_ref": "delivery_value_stream", "kind": "enables", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": "platform_readiness_handoff@1", "dependency_policy": "declared", "escalation_policy": "operations"},
+        {"relation_id": "quality_releases_delivery", "namespace": "organization", "source_unit_ref": "quality_security_release", "target_unit_ref": "delivery_value_stream", "kind": "releases_for", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": "release_gate_handoff@1", "dependency_policy": "gate", "escalation_policy": "release"}
+      ],
+      "shared_product_model": {"goal_scope": "organization", "team_backlogs": "derived"},
+      "orchestration": {"owner": "hub", "workers_may_orchestrate": false},
+      "governance": {"admission_policy": "standard_or_explicit_custom", "separation_of_duties": "strict"},
+      "budgets": {"policy_ref": "organization_budget_defaults@1"},
+      "limit_policy_ref": "organization_limits@1"
+    }
+  ],
+  "handoff_definitions": [
+    {"key": "research_evidence_handoff", "version": 1, "required_artifact_kinds": ["research_report", "source_manifest"], "acceptance_gate_ref": "evidence_verified@1"},
+    {"key": "poc_decision_handoff", "version": 1, "required_artifact_kinds": ["poc_report", "benchmark_result", "decision_record"], "acceptance_gate_ref": "poc_exit@1"},
+    {"key": "architecture_decision_handoff", "version": 1, "required_artifact_kinds": ["architecture_decision_record"], "acceptance_gate_ref": "architecture_review@1"},
+    {"key": "platform_readiness_handoff", "version": 1, "required_artifact_kinds": ["deployment_plan", "rollback_plan", "observability_plan"], "acceptance_gate_ref": "operational_readiness@1"},
+    {"key": "release_gate_handoff", "version": 1, "required_artifact_kinds": ["quality_report", "security_report", "release_evidence"], "acceptance_gate_ref": "release_approval@1"}
+  ],
+  "acceptance_fixtures": [
+    {
+      "key": "enterprise_scrum_medium_eight_team_reference",
+      "organization_blueprint_ref": "enterprise_scrum_organization@1",
+      "parameter_overrides": {"composition_mode": "standard", "team_count": 8},
+      "expected_team_blueprint_counts": {"enterprise_product_delivery_scrum": 2, "portfolio_product_coordination": 1, "research_and_discovery": 1, "proof_of_concept": 1, "platform_devops_sre": 1, "architecture_governance": 1, "quality_security_release": 1},
+      "expected_total_team_count": 8,
+      "expected_hierarchy_node_counts": {"organization": 1, "coordination_unit": 1, "value_stream": 3, "team": 8},
+      "expected_edge_counts": {"contains": 12, "organization": 8},
+      "test_scope": ["schema", "dry_run", "repository_integration", "planning", "runtime", "browser", "bundle", "demo"]
+    }
+  ],
+  "test_only_fixtures": [
+    {
+      "key": "two_delivery", "organization_blueprint_ref": "enterprise_scrum_organization@1", "composition_overrides": {"composition_mode": "custom", "custom_composition": {"team_blueprint_counts": {"enterprise_product_delivery_scrum": 2}}}, "expected_team_blueprint_counts": {"enterprise_product_delivery_scrum": 2}, "expected_total_team_count": 2, "expected_hierarchy_node_counts": {"organization": 1, "coordination_unit": 1, "value_stream": 3, "team": 2}, "expected_edge_counts": {"contains": 6, "organization": 0}, "expected_admission": "accepted_with_test_exception", "expected_diagnostic_codes": ["STANDARD_CAPABILITY_GAP_PORTFOLIO", "STANDARD_CAPABILITY_GAP_RESEARCH", "STANDARD_CAPABILITY_GAP_PLATFORM"], "admission_policy_ref": "test_only_small_organization@1", "test_scope": ["schema", "dry_run", "repository_integration", "planning_with_fakes", "runtime_with_fakes"], "production_seed_allowed": false
+    },
+    {
+      "key": "delivery_plus_platform", "organization_blueprint_ref": "enterprise_scrum_organization@1", "composition_overrides": {"composition_mode": "custom", "custom_composition": {"team_blueprint_counts": {"enterprise_product_delivery_scrum": 1, "platform_devops_sre": 1}}}, "expected_team_blueprint_counts": {"enterprise_product_delivery_scrum": 1, "platform_devops_sre": 1}, "expected_total_team_count": 2, "expected_hierarchy_node_counts": {"organization": 1, "coordination_unit": 1, "value_stream": 3, "team": 2}, "expected_edge_counts": {"contains": 6, "organization": 1}, "expected_admission": "accepted_with_test_exception", "expected_diagnostic_codes": ["STANDARD_CAPABILITY_GAP_PORTFOLIO", "STANDARD_CAPABILITY_GAP_RESEARCH", "STANDARD_CAPABILITY_GAP_DELIVERY_REDUNDANCY"], "admission_policy_ref": "test_only_small_organization@1", "test_scope": ["schema", "dry_run", "repository_integration", "planning_with_fakes", "runtime_with_fakes"], "production_seed_allowed": false
+    },
+    {
+      "key": "two_delivery_plus_platform", "organization_blueprint_ref": "enterprise_scrum_organization@1", "composition_overrides": {"composition_mode": "custom", "custom_composition": {"team_blueprint_counts": {"enterprise_product_delivery_scrum": 2, "platform_devops_sre": 1}}}, "expected_team_blueprint_counts": {"enterprise_product_delivery_scrum": 2, "platform_devops_sre": 1}, "expected_total_team_count": 3, "expected_hierarchy_node_counts": {"organization": 1, "coordination_unit": 1, "value_stream": 3, "team": 3}, "expected_edge_counts": {"contains": 7, "organization": 1}, "expected_admission": "accepted_with_test_exception", "expected_diagnostic_codes": ["STANDARD_CAPABILITY_GAP_PORTFOLIO", "STANDARD_CAPABILITY_GAP_RESEARCH"], "admission_policy_ref": "test_only_small_organization@1", "test_scope": ["schema", "dry_run", "repository_integration", "planning_with_fakes", "runtime_with_fakes"], "production_seed_allowed": false
+    },
+    {
+      "key": "delivery_research_platform", "organization_blueprint_ref": "enterprise_scrum_organization@1", "composition_overrides": {"composition_mode": "custom", "custom_composition": {"team_blueprint_counts": {"enterprise_product_delivery_scrum": 1, "research_and_discovery": 1, "platform_devops_sre": 1}}}, "expected_team_blueprint_counts": {"enterprise_product_delivery_scrum": 1, "research_and_discovery": 1, "platform_devops_sre": 1}, "expected_total_team_count": 3, "expected_hierarchy_node_counts": {"organization": 1, "coordination_unit": 1, "value_stream": 3, "team": 3}, "expected_edge_counts": {"contains": 7, "organization": 1}, "expected_admission": "accepted_with_test_exception", "expected_diagnostic_codes": ["STANDARD_CAPABILITY_GAP_PORTFOLIO", "STANDARD_CAPABILITY_GAP_DELIVERY_REDUNDANCY"], "admission_policy_ref": "test_only_small_organization@1", "test_scope": ["schema", "dry_run", "repository_integration", "planning_with_fakes", "runtime_with_fakes"], "production_seed_allowed": false
+    }
+  ],
+  "limit_profiles": [
+    {
+      "policy_id": "organization_limits",
+      "revision": 1,
+      "max_team_instances_per_organization": 32,
+      "max_units_per_organization": 128,
+      "max_role_slots_per_organization": 1024,
+      "max_assignments_per_organization": 2048,
+      "max_relations_per_organization": 4096,
+      "max_workflow_steps_per_organization": 512,
+      "max_bundle_bytes": 10485760,
+      "max_patch_operations": 100,
+      "topology_default_page_size": 100,
+      "topology_max_page_size": 500,
+      "topology_max_depth": 8,
+      "runtime_overlay_max_events": 2000,
+      "canvas_render_node_limit": 500,
+      "canvas_render_edge_limit": 2000
+    }
+  ],
+  "policy_refs": [
+    "assignment_grounding@1",
+    "organization_limits@1",
+    "organization_budget_defaults@1",
+    "test_only_small_organization@1",
+    "deny_task_proposals@1",
+    "delivery_task_proposals@1",
+    "research_task_proposals@1",
+    "review_task_proposals@1",
+    "coordination_task_proposals@1",
+    "governance_task_proposals@1",
+    "strict_delivery_separation@1",
+    "strict_research_separation@1",
+    "strict_poc_separation@1",
+    "strict_platform_separation@1",
+    "strict_architecture_separation@1",
+    "strict_release_separation@1",
+    "poc_non_production@1",
+    "platform_production_approval@1",
+    "portfolio_decision_boundaries@1",
+    "evidence_verified@1",
+    "poc_exit@1",
+    "architecture_review@1",
+    "operational_readiness@1",
+    "release_approval@1"
+  ],
+  "workflow_refs": [
+    "enterprise_delivery_workflow@1",
+    "research_discovery_workflow@1",
+    "proof_of_concept_workflow@1",
+    "platform_devops_sre_workflow@1",
+    "architecture_governance_workflow@1",
+    "quality_security_release_workflow@1",
+    "portfolio_product_coordination_workflow@1",
+    "enterprise_product_evolution@1"
+  ]
+}

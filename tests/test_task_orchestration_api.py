@@ -1,3 +1,109 @@
+from types import SimpleNamespace
+
+
+def test_category_research_delegation_policy_error_is_returned_before_forward(
+    client,
+    admin_auth_header,
+    monkeypatch,
+):
+    from agent.config import settings
+    from agent.services.organization_research_delegation_policy_service import (
+        OrganizationResearchDelegationPolicyError,
+    )
+    from agent.services.task_delegation_services import TaskDelegationPlanner
+    from agent.services.task_orchestration_service import (
+        TaskOrchestrationDependencies,
+        TaskOrchestrationService,
+    )
+
+    parent_task = {
+        "id": "research-route-1",
+        "title": "Research",
+        "description": "Use exact sources",
+        "status": "todo",
+        "tenant_id": "tenant-1",
+        "project_id": "project-1",
+        "organization_id": "org-1",
+        "task_kind": "planning_research",
+        "worker_execution_context": {},
+    }
+    forwarded = []
+
+    class DeniedResearchPolicy:
+        def resolve_context(self, _task):
+            raise OrganizationResearchDelegationPolicyError(
+                "category_research_context_policy_missing"
+            )
+
+    dependencies = TaskOrchestrationDependencies(
+        get_task_status=lambda _task_id: dict(parent_task),
+        update_task_status=lambda *_args, **_kwargs: None,
+        forward_task_to_worker=lambda *_args, **_kwargs: forwarded.append(
+            True
+        ),
+        repository_registry=lambda: SimpleNamespace(
+            agent_repo=SimpleNamespace(get_all=lambda: [])
+        ),
+        routing_advisor=lambda: SimpleNamespace(
+            resolve_routing_hint=lambda **_kwargs: None
+        ),
+        context_policy_service=lambda: SimpleNamespace(
+            build_context_policy=lambda **_kwargs: (
+                {"mode": "standard"},
+                {
+                    "retrieval_intent": "execution_focused_context",
+                    "required_context_scope": "task_and_direct_neighbors",
+                    "preferred_bundle_mode": "standard",
+                },
+                {"neighbor_task_ids": []},
+            )
+        ),
+        execution_tracking_service=lambda: SimpleNamespace(),
+    )
+    orchestration = TaskOrchestrationService(
+        dependencies,
+        research_delegation_policy=DeniedResearchPolicy(),
+    )
+    orchestration.delegation_planner = TaskDelegationPlanner(
+        dependencies,
+        organization_binding_resolver=SimpleNamespace(
+            resolve=lambda _task: "http://worker-alpha:5000"
+        ),
+    )
+    services = SimpleNamespace(
+        task_runtime_service=SimpleNamespace(
+            get_local_task_status=lambda _task_id: dict(parent_task)
+        ),
+        task_orchestration_service=orchestration,
+        worker_job_service=object(),
+        worker_contract_service=object(),
+        agent_registry_service=object(),
+        result_memory_service=object(),
+        verification_service=object(),
+    )
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(
+        "agent.routes.tasks.orchestration._services",
+        lambda: services,
+    )
+
+    response = client.post(
+        "/tasks/research-route-1/delegate",
+        headers=admin_auth_header,
+        json={
+            "agent_url": "http://worker-alpha:5000",
+            "subtask_description": "Produce the Category Todo",
+            "task_kind": "planning_research",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.get_json()["message"] == (
+        "category_research_context_policy_missing"
+    )
+    assert forwarded == []
+
+
 def test_orchestration_ingest_and_read_model(client, auth_header):
     r = client.post(
         "/tasks/orchestration/ingest",
@@ -11,7 +117,7 @@ def test_orchestration_ingest_and_read_model(client, auth_header):
     assert rm.status_code == 200
     data = rm.json["data"]
     assert data["queue"]["todo"] >= 1
-    assert data["by_source"]["ui"] >= 1
+    assert data["by_source"]["api"] >= 1
     assert any(t["id"] == task_id for t in data["recent_tasks"])
     assert "worker_execution_reconciliation" in data
     assert "artifact_flow" in data
@@ -89,12 +195,36 @@ def test_orchestration_ingest_uses_central_task_ingestion_fields(client, auth_he
     assert (task.get("worker_execution_context") or {}).get("allowed_tools") == ["list_teams"]
     ingested = next((item for item in (task.get("history") or []) if item.get("event_type") == "task_ingested"), None)
     assert ingested is not None
+    assert ingested["actor"] != "tester"
+    assert (ingested.get("details") or {}).get("source") == "api"
     assert (ingested.get("details") or {}).get("channel") == "central_task_management"
 
 
 def test_orchestration_read_model_includes_artifact_flow_details(client, auth_header):
-    from agent.db_models import AgentInfoDB, ContextBundleDB, MemoryEntryDB, RoleDB, TaskDB, TeamDB, TeamMemberDB, TemplateDB, WorkerJobDB, WorkerResultDB
-    from agent.repository import agent_repo, context_bundle_repo, memory_entry_repo, role_repo, task_repo, team_member_repo, team_repo, template_repo, worker_job_repo, worker_result_repo
+    from agent.db_models import (
+        AgentInfoDB,
+        ContextBundleDB,
+        MemoryEntryDB,
+        RoleDB,
+        TaskDB,
+        TeamDB,
+        TeamMemberDB,
+        TemplateDB,
+        WorkerJobDB,
+        WorkerResultDB,
+    )
+    from agent.repository import (
+        agent_repo,
+        context_bundle_repo,
+        memory_entry_repo,
+        role_repo,
+        task_repo,
+        team_member_repo,
+        team_repo,
+        template_repo,
+        worker_job_repo,
+        worker_result_repo,
+    )
 
     template = template_repo.save(TemplateDB(name="Python Worker Template", prompt_template="Do Python work"))
     role = role_repo.save(RoleDB(name="Python Worker", default_template_id=template.id))

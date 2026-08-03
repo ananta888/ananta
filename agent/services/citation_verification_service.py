@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +42,7 @@ class CitationVerificationService:
         answer_payload: dict[str, Any],
         source_catalog: dict[str, Any],
         tool_run_catalog: list[dict[str, Any]] | None = None,
+        allowed_source_task_ids: Collection[str] | None = None,
     ) -> dict[str, Any]:
         schema_errors = self._validate_answer_shape(answer_payload)
         if schema_errors:
@@ -56,6 +58,11 @@ class CitationVerificationService:
         source_map = {str(s.get("source_id")): dict(s) for s in list(source_catalog.get("sources") or []) if isinstance(s, dict)}
         run_map = {str(r.get("source_id")): dict(r) for r in list(tool_run_catalog or []) if isinstance(r, dict)}
         all_sources = {**source_map, **run_map}
+        allowed_tasks = {
+            str(value or "").strip()
+            for value in list(allowed_source_task_ids or [])
+            if str(value or "").strip()
+        }
         failed_claims: list[dict[str, Any]] = []
         verified = 0
         unverified = 0
@@ -81,7 +88,11 @@ class CitationVerificationService:
                     failed_claims.append({"claim_id": claim_id, "reason": "failed_unknown_source", "source_id": ref})
                     claim_failed = True
                     continue
-                if str(src.get("task_id") or task_id) != str(task_id):
+                source_task_id = str(src.get("task_id") or task_id)
+                if (
+                    source_task_id != str(task_id)
+                    and source_task_id not in allowed_tasks
+                ):
                     failed_claims.append({"claim_id": claim_id, "reason": "failed_cross_task_source", "source_id": ref})
                     claim_failed = True
                     continue

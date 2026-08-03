@@ -1,0 +1,857 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/blueprints/organization_blueprint_catalog.v1.json",
+  "title": "Organization Blueprint Catalog v1",
+  "description": "Closed, portable source contract compiled by the Hub from standard role, team, organization, workflow, handoff, policy, fixture, and limit fragments. Stable key@version references are resolved before any write.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "metadata",
+    "role_templates",
+    "team_blueprints",
+    "organization_blueprints",
+    "handoff_definitions",
+    "acceptance_fixtures",
+    "test_only_fixtures",
+    "workflow_definitions",
+    "policies",
+    "limit_profiles"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "organization_blueprint_catalog.v1" },
+    "metadata": { "$ref": "#/$defs/metadata" },
+    "role_templates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/role_template" }
+    },
+    "team_blueprints": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/team_blueprint" }
+    },
+    "organization_blueprints": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/organization_blueprint" }
+    },
+    "handoff_definitions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/handoff_definition" }
+    },
+    "acceptance_fixtures": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": { "$ref": "#/$defs/acceptance_fixture" }
+    },
+    "test_only_fixtures": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/test_only_fixture" }
+    },
+    "workflow_definitions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/workflow_definition" }
+    },
+    "policies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/policy_definition" }
+    },
+    "limit_profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/limit_profile" }
+    }
+  },
+  "$defs": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "version": { "type": "integer", "minimum": 1 },
+    "versioned_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*@[1-9][0-9]*$",
+      "maxLength": 160
+    },
+    "non_empty_string_list": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "key_list": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/key" },
+      "uniqueItems": true
+    },
+    "versioned_ref_list": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/versioned_ref" },
+      "uniqueItems": true
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["catalog_key", "catalog_version", "description", "orchestration_owner", "portable_references"],
+      "properties": {
+        "catalog_key": { "$ref": "#/$defs/key" },
+        "catalog_version": { "$ref": "#/$defs/version" },
+        "description": { "type": "string", "minLength": 1 },
+        "orchestration_owner": { "type": "string", "const": "hub" },
+        "portable_references": { "type": "boolean", "const": true }
+      }
+    },
+    "role_template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "version",
+        "extends",
+        "scrum_accountability",
+        "specialization",
+        "mission",
+        "scope",
+        "responsibilities",
+        "inputs",
+        "outputs",
+        "decision_rights",
+        "handoffs",
+        "capability_policy",
+        "context_policy",
+        "grounding_policy_ref",
+        "task_proposal_policy_ref",
+        "verification",
+        "escalation",
+        "prompt_template"
+      ],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "version": { "$ref": "#/$defs/version" },
+        "extends": { "$ref": "#/$defs/versioned_ref_list" },
+        "scrum_accountability": {
+          "type": "string",
+          "enum": ["product_owner", "scrum_master", "developer", "none"]
+        },
+        "specialization": { "$ref": "#/$defs/key" },
+        "mission": { "type": "string", "minLength": 1 },
+        "scope": { "type": "string", "minLength": 1 },
+        "responsibilities": { "$ref": "#/$defs/non_empty_string_list" },
+        "inputs": { "$ref": "#/$defs/non_empty_string_list" },
+        "outputs": { "$ref": "#/$defs/non_empty_string_list" },
+        "decision_rights": { "$ref": "#/$defs/non_empty_string_list" },
+        "handoffs": { "$ref": "#/$defs/non_empty_string_list" },
+        "capability_policy": { "$ref": "#/$defs/capability_policy" },
+        "context_policy": { "$ref": "#/$defs/context_policy" },
+        "grounding_policy_ref": { "$ref": "#/$defs/versioned_ref" },
+        "task_proposal_policy_ref": { "$ref": "#/$defs/versioned_ref" },
+        "verification": { "$ref": "#/$defs/verification_policy" },
+        "escalation": { "$ref": "#/$defs/escalation_policy" },
+        "prompt_template": { "type": "string", "minLength": 1 }
+      }
+    },
+    "capability_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "optional", "forbidden", "write_access_required"],
+      "properties": {
+        "required": { "$ref": "#/$defs/key_list" },
+        "optional": { "$ref": "#/$defs/key_list" },
+        "forbidden": { "$ref": "#/$defs/key_list" },
+        "write_access_required": { "type": "boolean" }
+      }
+    },
+    "context_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_scopes", "max_context_refs", "source_allowlist_required"],
+      "properties": {
+        "allowed_scopes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["task", "team", "unit", "organization", "project"]
+          },
+          "uniqueItems": true
+        },
+        "max_context_refs": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "source_allowlist_required": { "type": "boolean", "const": true }
+      }
+    },
+    "verification_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "evidence_outputs", "gates", "independent_reviewer_required"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "evidence_outputs": { "$ref": "#/$defs/key_list" },
+        "gates": { "$ref": "#/$defs/key_list" },
+        "independent_reviewer_required": { "type": "boolean" }
+      }
+    },
+    "escalation_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "conditions"],
+      "properties": {
+        "target": {
+          "type": "string",
+          "enum": ["hub", "portfolio", "architecture", "security", "quality", "human_operator"]
+        },
+        "conditions": { "$ref": "#/$defs/non_empty_string_list" }
+      }
+    },
+    "team_blueprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "version",
+        "description",
+        "team_kind",
+        "role_slots",
+        "artifacts",
+        "workflow_ref",
+        "policies",
+        "capacity_defaults"
+      ],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "version": { "$ref": "#/$defs/version" },
+        "description": { "type": "string", "minLength": 1 },
+        "team_kind": {
+          "type": "string",
+          "enum": ["delivery", "research", "poc", "shared_service", "governance", "coordination"]
+        },
+        "role_slots": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/role_slot" }
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/artifact_contract" }
+        },
+        "workflow_ref": { "$ref": "#/$defs/versioned_ref" },
+        "policies": { "$ref": "#/$defs/versioned_ref_list" },
+        "capacity_defaults": { "$ref": "#/$defs/capacity_defaults" }
+      }
+    },
+    "role_slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slot_id",
+        "role_template_ref",
+        "required",
+        "min_count",
+        "default_count",
+        "max_count",
+        "assignment_policy",
+        "separation_of_duties",
+        "overlays"
+      ],
+      "properties": {
+        "slot_id": { "$ref": "#/$defs/key" },
+        "role_template_ref": { "$ref": "#/$defs/versioned_ref" },
+        "required": { "type": "boolean" },
+        "min_count": { "type": "integer", "minimum": 0 },
+        "default_count": { "type": "integer", "minimum": 0 },
+        "max_count": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "null" }
+          ]
+        },
+        "assignment_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["principal_kinds", "required_capabilities", "forbidden_capabilities", "write_access_required"],
+          "properties": {
+            "principal_kinds": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "enum": ["agent", "human"] },
+              "uniqueItems": true
+            },
+            "required_capabilities": { "$ref": "#/$defs/key_list" },
+            "forbidden_capabilities": { "$ref": "#/$defs/key_list" },
+            "write_access_required": { "type": "boolean" }
+          }
+        },
+        "separation_of_duties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enforcement", "independent_from_slot_ids"],
+          "properties": {
+            "enforcement": { "type": "string", "enum": ["none", "warn", "strict"] },
+            "independent_from_slot_ids": { "$ref": "#/$defs/key_list" },
+            "independent_from_external_duties": { "$ref": "#/$defs/key_list" }
+          }
+        },
+        "overlays": { "$ref": "#/$defs/versioned_ref_list" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "required": { "const": true } }, "required": ["required"] },
+          "then": { "properties": { "min_count": { "minimum": 1 } } }
+        }
+      ]
+    },
+    "artifact_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "required", "portable"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/key" },
+        "required": { "type": "boolean" },
+        "portable": { "type": "boolean" }
+      }
+    },
+    "capacity_defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min_agents", "default_agents", "max_agents"],
+      "properties": {
+        "min_agents": { "type": "integer", "minimum": 1 },
+        "default_agents": { "type": "integer", "minimum": 1 },
+        "max_agents": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "organization_blueprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "version",
+        "description",
+        "parameter_schema",
+        "standard_composition",
+        "unit_groups",
+        "units",
+        "relations",
+        "shared_product_model",
+        "orchestration",
+        "governance",
+        "budgets",
+        "limit_policy_ref"
+      ],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "version": { "$ref": "#/$defs/version" },
+        "description": { "type": "string", "minLength": 1 },
+        "parameter_schema": { "$ref": "#/$defs/organization_parameter_schema" },
+        "standard_composition": { "$ref": "#/$defs/standard_composition" },
+        "unit_groups": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/unit_group" }
+        },
+        "units": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/unit" }
+        },
+        "relations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/organization_relation" }
+        },
+        "shared_product_model": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["goal_scope", "team_backlogs"],
+          "properties": {
+            "goal_scope": { "type": "string", "const": "organization" },
+            "team_backlogs": { "type": "string", "const": "derived" }
+          }
+        },
+        "orchestration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["owner", "workers_may_orchestrate"],
+          "properties": {
+            "owner": { "type": "string", "const": "hub" },
+            "workers_may_orchestrate": { "type": "boolean", "const": false }
+          }
+        },
+        "governance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["admission_policy", "separation_of_duties"],
+          "properties": {
+            "admission_policy": { "type": "string", "const": "standard_or_explicit_custom" },
+            "separation_of_duties": { "type": "string", "enum": ["warn", "strict"] }
+          }
+        },
+        "budgets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["policy_ref"],
+          "properties": { "policy_ref": { "$ref": "#/$defs/versioned_ref" } }
+        },
+        "limit_policy_ref": { "$ref": "#/$defs/versioned_ref" }
+      }
+    },
+    "organization_parameter_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "additionalProperties", "discriminator", "oneOf"],
+      "properties": {
+        "type": { "type": "string", "const": "object" },
+        "additionalProperties": { "type": "boolean", "const": false },
+        "discriminator": { "type": "string", "const": "composition_mode" },
+        "oneOf": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            { "$ref": "#/$defs/standard_parameter_branch" },
+            { "$ref": "#/$defs/custom_parameter_branch" }
+          ],
+          "items": false
+        }
+      }
+    },
+    "standard_parameter_branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["properties", "required", "not"],
+      "properties": {
+        "properties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["composition_mode", "team_count"],
+          "properties": {
+            "composition_mode": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["const"],
+              "properties": { "const": { "type": "string", "const": "standard" } }
+            },
+            "team_count": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "minimum", "maximum"],
+              "properties": {
+                "type": { "type": "string", "const": "integer" },
+                "minimum": { "type": "integer", "const": 5 },
+                "maximum": { "type": "integer", "const": 10 }
+              }
+            }
+          }
+        },
+        "required": { "type": "array", "const": ["composition_mode", "team_count"] },
+        "not": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["anyOf"],
+          "properties": {
+            "anyOf": {
+              "type": "array",
+              "const": [
+                { "required": ["custom_composition"] },
+                { "required": ["admission_exception_ref"] }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "custom_parameter_branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["properties", "required", "not"],
+      "properties": {
+        "properties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["composition_mode", "custom_composition", "admission_exception_ref"],
+          "properties": {
+            "composition_mode": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["const"],
+              "properties": { "const": { "type": "string", "const": "custom" } }
+            },
+            "custom_composition": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "additionalProperties", "required", "properties"],
+              "properties": {
+                "type": { "type": "string", "const": "object" },
+                "additionalProperties": { "type": "boolean", "const": false },
+                "required": { "type": "array", "const": ["team_blueprint_counts"] },
+                "properties": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["team_blueprint_counts"],
+                  "properties": {
+                    "team_blueprint_counts": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["type", "minProperties", "additionalProperties"],
+                      "properties": {
+                        "type": { "type": "string", "const": "object" },
+                        "minProperties": { "type": "integer", "const": 1 },
+                        "additionalProperties": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["type", "minimum"],
+                          "properties": {
+                            "type": { "type": "string", "const": "integer" },
+                            "minimum": { "type": "integer", "const": 1 }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "admission_exception_ref": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "minLength"],
+              "properties": {
+                "type": { "type": "string", "const": "string" },
+                "minLength": { "type": "integer", "const": 1 }
+              }
+            }
+          }
+        },
+        "required": {
+          "type": "array",
+          "const": ["composition_mode", "custom_composition", "admission_exception_ref"]
+        },
+        "not": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required"],
+          "properties": { "required": { "type": "array", "const": ["team_count"] } }
+        }
+      }
+    },
+    "standard_composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["team_count_range", "baseline_singleton_team_refs", "baseline_group_counts", "activation_order", "scale_out_group"],
+      "properties": {
+        "team_count_range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minimum", "default", "maximum"],
+          "properties": {
+            "minimum": { "type": "integer", "const": 5 },
+            "default": { "type": "integer", "minimum": 5, "maximum": 10 },
+            "maximum": { "type": "integer", "const": 10 }
+          }
+        },
+        "baseline_singleton_team_refs": { "$ref": "#/$defs/key_list" },
+        "baseline_group_counts": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/key" },
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
+        "activation_order": { "$ref": "#/$defs/key_list" },
+        "scale_out_group": { "$ref": "#/$defs/key" }
+      }
+    },
+    "unit_group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["group_id", "team_blueprint_ref", "parent_unit_ref", "min_count", "default_count", "max_count", "capacity_rule", "limit_policy_ref", "naming_policy", "overrides"],
+      "properties": {
+        "group_id": { "$ref": "#/$defs/key" },
+        "team_blueprint_ref": { "$ref": "#/$defs/versioned_ref" },
+        "parent_unit_ref": { "$ref": "#/$defs/key" },
+        "min_count": { "type": "integer", "minimum": 1 },
+        "default_count": { "type": "integer", "minimum": 1 },
+        "max_count": { "oneOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }] },
+        "capacity_rule": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["formula", "minimum_remaining"],
+          "properties": {
+            "formula": { "type": "string", "const": "effective_max_team_instances_minus_active_singleton_teams" },
+            "minimum_remaining": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "limit_policy_ref": { "$ref": "#/$defs/versioned_ref" },
+        "naming_policy": { "type": "string", "const": "stable_group_ordinal" },
+        "overrides": { "type": "object", "additionalProperties": false }
+      }
+    },
+    "unit": {
+      "oneOf": [
+        { "$ref": "#/$defs/structural_unit" },
+        { "$ref": "#/$defs/team_unit" }
+      ]
+    },
+    "structural_unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_key", "unit_kind", "materialization_kind", "parent_unit_ref", "activation_policy"],
+      "properties": {
+        "unit_key": { "$ref": "#/$defs/key" },
+        "unit_kind": { "type": "string", "enum": ["coordination_unit", "value_stream"] },
+        "materialization_kind": { "type": "string", "const": "structural_unit" },
+        "parent_unit_ref": { "oneOf": [{ "$ref": "#/$defs/key" }, { "type": "null" }] },
+        "activation_policy": { "type": "string", "const": "always" }
+      }
+    },
+    "team_unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_key", "unit_kind", "materialization_kind", "team_blueprint_ref", "parent_unit_ref", "activation_policy"],
+      "properties": {
+        "unit_key": { "$ref": "#/$defs/key" },
+        "unit_kind": { "type": "string", "const": "team" },
+        "materialization_kind": { "type": "string", "const": "team_instance" },
+        "team_blueprint_ref": { "$ref": "#/$defs/versioned_ref" },
+        "parent_unit_ref": { "$ref": "#/$defs/key" },
+        "activation_policy": { "type": "string", "enum": ["baseline", "ordered_optional"] }
+      }
+    },
+    "organization_relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation_id", "namespace", "source_unit_ref", "target_unit_ref", "kind", "activation_condition", "handoff_contract_ref", "dependency_policy", "escalation_policy"],
+      "properties": {
+        "relation_id": { "$ref": "#/$defs/key" },
+        "namespace": { "type": "string", "const": "organization" },
+        "source_unit_ref": { "$ref": "#/$defs/key" },
+        "target_unit_ref": { "$ref": "#/$defs/key" },
+        "kind": {
+          "type": "string",
+          "enum": ["governs", "enables", "supplies_research_to", "prototypes_for", "reviews", "releases_for", "declared_dependency", "handoff", "escalates_to"]
+        },
+        "activation_condition": { "type": "string", "const": "both_endpoints_materialized" },
+        "handoff_contract_ref": {
+          "oneOf": [{ "$ref": "#/$defs/versioned_ref" }, { "type": "null" }]
+        },
+        "dependency_policy": { "type": "string", "enum": ["advisory", "declared", "gate"] },
+        "escalation_policy": { "$ref": "#/$defs/key" }
+      }
+    },
+    "handoff_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "version", "required_artifact_kinds", "acceptance_gate_ref"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "version": { "$ref": "#/$defs/version" },
+        "required_artifact_kinds": { "$ref": "#/$defs/key_list" },
+        "acceptance_gate_ref": { "$ref": "#/$defs/versioned_ref" }
+      }
+    },
+    "acceptance_fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "organization_blueprint_ref", "parameter_overrides", "expected_team_blueprint_counts", "expected_total_team_count", "expected_hierarchy_node_counts", "expected_edge_counts", "test_scope"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "organization_blueprint_ref": { "$ref": "#/$defs/versioned_ref" },
+        "parameter_overrides": { "$ref": "#/$defs/standard_composition_request" },
+        "expected_team_blueprint_counts": { "$ref": "#/$defs/team_blueprint_counts" },
+        "expected_total_team_count": { "type": "integer", "minimum": 5, "maximum": 10 },
+        "expected_hierarchy_node_counts": { "$ref": "#/$defs/hierarchy_counts" },
+        "expected_edge_counts": { "$ref": "#/$defs/edge_counts" },
+        "test_scope": { "$ref": "#/$defs/test_scope" }
+      }
+    },
+    "test_only_fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "organization_blueprint_ref", "composition_overrides", "expected_team_blueprint_counts", "expected_total_team_count", "expected_hierarchy_node_counts", "expected_edge_counts", "expected_admission", "expected_diagnostic_codes", "admission_policy_ref", "test_scope", "production_seed_allowed"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "organization_blueprint_ref": { "$ref": "#/$defs/versioned_ref" },
+        "composition_overrides": { "$ref": "#/$defs/custom_composition_fixture_request" },
+        "expected_team_blueprint_counts": { "$ref": "#/$defs/team_blueprint_counts" },
+        "expected_total_team_count": { "type": "integer", "minimum": 2 },
+        "expected_hierarchy_node_counts": { "$ref": "#/$defs/hierarchy_counts" },
+        "expected_edge_counts": { "$ref": "#/$defs/edge_counts" },
+        "expected_admission": { "type": "string", "const": "accepted_with_test_exception" },
+        "expected_diagnostic_codes": { "$ref": "#/$defs/non_empty_string_list" },
+        "admission_policy_ref": { "$ref": "#/$defs/versioned_ref" },
+        "test_scope": { "$ref": "#/$defs/test_scope" },
+        "production_seed_allowed": { "type": "boolean", "const": false }
+      }
+    },
+    "standard_composition_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["composition_mode", "team_count"],
+      "properties": {
+        "composition_mode": { "type": "string", "const": "standard" },
+        "team_count": { "type": "integer", "minimum": 5, "maximum": 10 }
+      }
+    },
+    "custom_composition_fixture_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["composition_mode", "custom_composition"],
+      "properties": {
+        "composition_mode": { "type": "string", "const": "custom" },
+        "custom_composition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["team_blueprint_counts"],
+          "properties": { "team_blueprint_counts": { "$ref": "#/$defs/team_blueprint_counts" } }
+        }
+      },
+      "description": "Fixture template only. A trusted harness must mint and inject a fresh, request-bound admission_exception_ref; a reusable grant is forbidden in source data."
+    },
+    "team_blueprint_counts": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/key" },
+      "additionalProperties": { "type": "integer", "minimum": 1 }
+    },
+    "hierarchy_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["organization", "coordination_unit", "value_stream", "team"],
+      "properties": {
+        "organization": { "type": "integer", "const": 1 },
+        "coordination_unit": { "type": "integer", "minimum": 1 },
+        "value_stream": { "type": "integer", "minimum": 1 },
+        "team": { "type": "integer", "minimum": 2 }
+      }
+    },
+    "edge_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contains", "organization"],
+      "properties": {
+        "contains": { "type": "integer", "minimum": 1 },
+        "organization": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "test_scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": ["schema", "dry_run", "repository_integration", "planning", "planning_with_fakes", "runtime", "runtime_with_fakes", "browser", "bundle", "demo"]
+      },
+      "uniqueItems": true
+    },
+    "workflow_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "version", "mode", "default_failure_policy", "steps"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "version": { "$ref": "#/$defs/version" },
+        "mode": { "type": "string", "enum": ["gated", "strict_gated"] },
+        "default_failure_policy": { "type": "string", "enum": ["block", "manual"] },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/workflow_step" }
+        }
+      }
+    },
+    "workflow_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step_id", "title", "task_kind", "owner_role_ref", "target_team_selector", "depends_on", "inputs", "outputs", "gate", "failure_policy"],
+      "properties": {
+        "step_id": { "$ref": "#/$defs/key" },
+        "title": { "type": "string", "minLength": 1 },
+        "task_kind": {
+          "type": "string",
+          "enum": ["planning", "research", "prototype", "coding", "review", "testing", "documentation", "gate_review", "handoff", "release"]
+        },
+        "owner_role_ref": { "$ref": "#/$defs/versioned_ref" },
+        "target_team_selector": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["team_blueprint_ref", "cardinality", "routing"],
+          "properties": {
+            "team_blueprint_ref": { "$ref": "#/$defs/versioned_ref" },
+            "cardinality": { "type": "integer", "minimum": 1 },
+            "routing": { "type": "string", "enum": ["single", "parallel"] }
+          }
+        },
+        "depends_on": { "$ref": "#/$defs/key_list" },
+        "inputs": { "$ref": "#/$defs/key_list" },
+        "outputs": { "$ref": "#/$defs/key_list" },
+        "handoff_ref": { "$ref": "#/$defs/versioned_ref" },
+        "gate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "acceptance_checks", "approval_role_ref", "independent_principal_required"],
+          "properties": {
+            "required": { "type": "boolean" },
+            "acceptance_checks": { "$ref": "#/$defs/key_list" },
+            "approval_role_ref": { "oneOf": [{ "$ref": "#/$defs/versioned_ref" }, { "type": "null" }] },
+            "independent_principal_required": { "type": "boolean" }
+          }
+        },
+        "failure_policy": { "type": "string", "enum": ["block", "manual"] }
+      }
+    },
+    "policy_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "version", "policy_type", "contract_ref", "content_digest"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "version": { "$ref": "#/$defs/version" },
+        "policy_type": {
+          "type": "string",
+          "enum": ["grounding", "task_proposal", "admission", "budget", "separation_of_duties", "operation_approval", "role_boundary", "limit_profile", "acceptance_gate"]
+        },
+        "contract_ref": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "content_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+      }
+    },
+    "limit_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "revision",
+        "max_team_instances_per_organization",
+        "max_units_per_organization",
+        "max_role_slots_per_organization",
+        "max_assignments_per_organization",
+        "max_relations_per_organization",
+        "max_workflow_steps_per_organization",
+        "max_bundle_bytes",
+        "max_patch_operations",
+        "topology_default_page_size",
+        "topology_max_page_size",
+        "topology_max_depth",
+        "runtime_overlay_max_events",
+        "canvas_render_node_limit",
+        "canvas_render_edge_limit"
+      ],
+      "properties": {
+        "policy_id": { "$ref": "#/$defs/key" },
+        "revision": { "$ref": "#/$defs/version" },
+        "max_team_instances_per_organization": { "type": "integer", "minimum": 10 },
+        "max_units_per_organization": { "type": "integer", "minimum": 1 },
+        "max_role_slots_per_organization": { "type": "integer", "minimum": 1 },
+        "max_assignments_per_organization": { "type": "integer", "minimum": 1 },
+        "max_relations_per_organization": { "type": "integer", "minimum": 1 },
+        "max_workflow_steps_per_organization": { "type": "integer", "minimum": 1 },
+        "max_bundle_bytes": { "type": "integer", "minimum": 1 },
+        "max_patch_operations": { "type": "integer", "minimum": 1 },
+        "topology_default_page_size": { "type": "integer", "minimum": 1 },
+        "topology_max_page_size": { "type": "integer", "minimum": 1 },
+        "topology_max_depth": { "type": "integer", "minimum": 1 },
+        "runtime_overlay_max_events": { "type": "integer", "minimum": 1 },
+        "canvas_render_node_limit": { "type": "integer", "minimum": 1 },
+        "canvas_render_edge_limit": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

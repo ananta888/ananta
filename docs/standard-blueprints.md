@@ -2,6 +2,29 @@
 
 Die folgende Liste ist der offizielle Standard-Blueprint-Katalog fuer den produktnahen Einstieg.
 
+## Enterprise organization Team Blueprints
+
+Der Multi-Team-Katalog fuegt sieben wiederverwendbare Team Blueprints hinzu.
+Sie werden von Organization Blueprints per stabilem Key und Version
+referenziert und ersetzen die bestehenden Einzelteam-Blueprints nicht.
+
+| Team Blueprint | Primaere Verantwortung |
+| --- | --- |
+| Enterprise Product Delivery Scrum | Product Owner, Scrum Master und spezialisierte Developers liefern ein verifiziertes Inkrement. |
+| Portfolio Product Coordination | Gemeinsames Product Goal, Portfolio Backlog, Value-Stream-Zuordnung und Cross-Team-Eskalation. |
+| Research and Discovery | Grounded Research, Quellenmatrix, Synthese und Category-Todo; keine Delivery-Entscheidung. |
+| Proof of Concept | Zeit-/Kosten-beschraenkter Prototyp und Messdaten mit explizitem Exit-Gate. |
+| Platform DevOps SRE | Plattform, CI/CD, Observability, Reliability und Hub-kontrolliertes Deployment. |
+| Architecture Governance | Architekturentscheidungen, Constraints und unabhaengige Review-Gates. |
+| Quality Security Release | Unabhaengige Quality-, Security-, Accessibility-, Compliance- und Release-Verifikation. |
+
+Standardorganisationen umfassen fuenf bis zehn Teaminstanzen; acht ist der
+Default und die einzige vollstaendige Referenzabnahme. Bei acht Teams werden
+zwei Delivery-Instanzen und je eine Instanz der sechs anderen Typen erzeugt.
+Die Teamzahl ist Cardinality einer wiederholbaren Gruppe, kein separates
+Preset. Zwei-/Drei-Team-Varianten gehoeren ausschliesslich zum injizierten
+Testkatalog und werden nicht produktiv geseedet.
+
 | Blueprint | Intended use | Safety/review stance | Default outputs (initial) |
 | --- | --- | --- | --- |
 | Scrum | Iterative, cross-funktionale Feature-Lieferung mit klarer Rollenverantwortung. | balanced security, standard verification | Initial Backlog, Sprint-Plan, Definition-of-Done-Check |

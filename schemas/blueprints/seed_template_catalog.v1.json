@@ -103,11 +103,150 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["name", "description", "team_type", "prompt_template"],
+      "dependentRequired": {
+        "key": [
+          "version",
+          "extends",
+          "scrum_accountability",
+          "specialization",
+          "mission",
+          "scope",
+          "responsibilities",
+          "inputs",
+          "outputs",
+          "decision_rights",
+          "handoffs",
+          "capability_policy",
+          "context_policy",
+          "grounding_policy_ref",
+          "task_proposal_policy_ref",
+          "verification",
+          "escalation"
+        ]
+      },
       "properties": {
         "name": { "type": "string", "minLength": 1 },
         "description": { "type": "string", "minLength": 1 },
         "team_type": { "type": "string", "minLength": 1 },
+        "key": { "$ref": "#/$defs/key" },
+        "version": { "$ref": "#/$defs/version" },
+        "extends": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/versioned_ref" },
+          "uniqueItems": true
+        },
+        "scrum_accountability": {
+          "type": "string",
+          "enum": ["product_owner", "scrum_master", "developer", "none"]
+        },
+        "specialization": { "$ref": "#/$defs/key" },
+        "mission": { "type": "string", "minLength": 1 },
+        "scope": { "type": "string", "minLength": 1 },
+        "responsibilities": { "$ref": "#/$defs/non_empty_string_list" },
+        "inputs": { "$ref": "#/$defs/non_empty_string_list" },
+        "outputs": { "$ref": "#/$defs/non_empty_string_list" },
+        "decision_rights": { "$ref": "#/$defs/non_empty_string_list" },
+        "handoffs": { "$ref": "#/$defs/non_empty_string_list" },
+        "capability_policy": { "$ref": "#/$defs/capability_policy" },
+        "context_policy": { "$ref": "#/$defs/context_policy" },
+        "grounding_policy_ref": { "$ref": "#/$defs/versioned_ref" },
+        "task_proposal_policy_ref": { "$ref": "#/$defs/versioned_ref" },
+        "verification": { "$ref": "#/$defs/verification_policy" },
+        "escalation": { "$ref": "#/$defs/escalation_policy" },
         "prompt_template": { "type": "string", "minLength": 1 }
+      }
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "versioned_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*@[1-9][0-9]*$",
+      "maxLength": 160
+    },
+    "non_empty_string_list": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "capability_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "optional", "forbidden", "write_access_required"],
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/key" },
+          "uniqueItems": true
+        },
+        "optional": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/key" },
+          "uniqueItems": true
+        },
+        "forbidden": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/key" },
+          "uniqueItems": true
+        },
+        "write_access_required": { "type": "boolean" }
+      }
+    },
+    "context_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_scopes", "max_context_refs", "source_allowlist_required"],
+      "properties": {
+        "allowed_scopes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["task", "team", "unit", "organization", "project"]
+          },
+          "uniqueItems": true
+        },
+        "max_context_refs": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "source_allowlist_required": { "type": "boolean", "const": true }
+      }
+    },
+    "verification_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "evidence_outputs", "gates", "independent_reviewer_required"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "evidence_outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/key" },
+          "uniqueItems": true
+        },
+        "gates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/key" },
+          "uniqueItems": true
+        },
+        "independent_reviewer_required": { "type": "boolean" }
+      }
+    },
+    "escalation_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "conditions"],
+      "properties": {
+        "target": {
+          "type": "string",
+          "enum": ["hub", "portfolio", "architecture", "security", "quality", "human_operator"]
+        },
+        "conditions": { "$ref": "#/$defs/non_empty_string_list" }
       }
     }
   }

@@ -19,16 +19,19 @@ from agent.routes.tasks.autopilot_strategy_candidates import (
     _safe_context_length,
     _strategy_cfg,
 )
+from agent.services.organization_task_dispatch_gate_service import (
+    get_organization_task_dispatch_gate_service,
+)
 from agent.services.recovery_dispatch_gate_service import (
     get_recovery_dispatch_gate_service,
     recovery_dispatch_request_fingerprint,
 )
+from agent.services.repository_registry import get_repository_registry
+from agent.tool_guardrails import estimate_text_tokens
 from ananta_contracts.model_recovery import (
     is_recoverable_model_error_type,
     sanitize_terminal_model_recovery_signal,
 )
-from agent.services.repository_registry import get_repository_registry
-from agent.tool_guardrails import estimate_text_tokens
 
 from .autopilot_task_dispatcher_helpers import (
     TaskDispatchResult,
@@ -86,6 +89,21 @@ def _dispatch_one_task_inner(  # noqa: C901
             result.failed = True
             result.failure_type = gate_decision.reason_code
             return result
+    current_task = get_repository_registry(app_ctx).task_repo.get_by_id(task.id)
+    organization_decision = (
+        get_organization_task_dispatch_gate_service().evaluate(
+            current_task or task
+        )
+    )
+    if not organization_decision.allowed:
+        append_trace_event(
+            task.id,
+            "autopilot_dispatch_skipped_organization_lifecycle",
+            delegated_to=target_worker.url,
+            reason_code=organization_decision.reason_code,
+        )
+        result.failure_type = organization_decision.reason_code
+        return result
     latest_status = _current_task_status(task.id, app=app_ctx)
     if _is_terminal_status(latest_status):
         append_trace_event(

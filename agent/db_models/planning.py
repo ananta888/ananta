@@ -10,12 +10,28 @@ from sqlmodel import JSON, Column, Field, SQLModel
 
 class TemplateDB(SQLModel, table=True):
     __tablename__ = "templates"
-    __table_args__ = (sa.UniqueConstraint("name", name="uq_templates_name"),)
+    __table_args__ = (
+        sa.UniqueConstraint("name", name="uq_templates_name"),
+        sa.UniqueConstraint("definition_key", "definition_version", name="uq_templates_definition_key_version"),
+    )
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: str
     description: Optional[str] = None
     prompt_template: str
     is_seed: bool = Field(default=False, sa_column=sa.Column(sa.Boolean, nullable=False, server_default=sa.false()))
+    definition_key: Optional[str] = Field(default=None, index=True, max_length=191)
+    definition_version: Optional[int] = Field(default=None, ge=1)
+    definition_hash: Optional[str] = Field(default=None, index=True, max_length=64)
+    prompt_hash: Optional[str] = Field(default=None, max_length=64)
+    appendix_refs: List[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False, server_default=sa.text("'[]'")),
+    )
+    template_metadata: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False, server_default=sa.text("'{}'")),
+    )
+    definition_lifecycle: Optional[str] = Field(default=None, max_length=16)
 
 
 class ScheduledTaskDB(SQLModel, table=True):
@@ -30,6 +46,65 @@ class ScheduledTaskDB(SQLModel, table=True):
 
 class GoalDB(SQLModel, table=True):
     __tablename__ = "goals"
+    __table_args__ = (
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "project_id"],
+            ["projects.tenant_id", "projects.project_id"],
+            name="fk_goals_project_scope",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "project_id", "organization_id"],
+            [
+                "organization_instances.tenant_id",
+                "organization_instances.project_id",
+                "organization_instances.organization_id",
+            ],
+            name="fk_goals_organization_scope",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "project_id", "organization_id", "unit_id"],
+            [
+                "organization_units.tenant_id",
+                "organization_units.project_id",
+                "organization_units.organization_id",
+                "organization_units.id",
+            ],
+            name="fk_goals_unit_scope",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "project_id", "organization_id", "team_id"],
+            [
+                "organization_team_links.tenant_id",
+                "organization_team_links.project_id",
+                "organization_team_links.organization_id",
+                "organization_team_links.team_id",
+            ],
+            name="fk_goals_organization_team_scope",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "project_id", "parent_goal_id"],
+            ["goals.tenant_id", "goals.project_id", "goals.id"],
+            name="fk_goals_parent_scope",
+            ondelete="RESTRICT",
+        ),
+        sa.UniqueConstraint(
+            "tenant_id",
+            "project_id",
+            "id",
+            name="uq_goals_project_scope_id",
+        ),
+        sa.UniqueConstraint(
+            "tenant_id",
+            "project_id",
+            "organization_id",
+            "id",
+            name="uq_goals_organization_scope_id",
+        ),
+    )
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     trace_id: str = Field(default_factory=lambda: f"goal-{uuid.uuid4().hex}", index=True)
     goal: str
@@ -38,18 +113,22 @@ class GoalDB(SQLModel, table=True):
     source: str = "ui"
     requested_by: Optional[str] = None
     team_id: Optional[str] = Field(default=None, foreign_key="teams.id")
+    organization_id: Optional[str] = Field(default=None, index=True)
+    unit_id: Optional[str] = Field(default=None, index=True)
+    goal_kind: Optional[str] = Field(default=None, index=True, max_length=32)
+    parent_goal_id: Optional[str] = Field(default=None, foreign_key="goals.id", index=True)
     tenant_id: Optional[str] = Field(default=None, index=True, max_length=191)
     project_id: Optional[str] = Field(default=None, index=True, max_length=191)
     context: Optional[str] = None
-    constraints: List[str] = Field(default=[], sa_column=Column(JSON))
-    acceptance_criteria: List[str] = Field(default=[], sa_column=Column(JSON))
-    execution_preferences: dict = Field(default={}, sa_column=Column(JSON))
-    visibility: dict = Field(default={}, sa_column=Column(JSON))
-    workflow_defaults: dict = Field(default={}, sa_column=Column(JSON))
-    workflow_overrides: dict = Field(default={}, sa_column=Column(JSON))
-    workflow_effective: dict = Field(default={}, sa_column=Column(JSON))
-    workflow_provenance: dict = Field(default={}, sa_column=Column(JSON))
-    readiness: dict = Field(default={}, sa_column=Column(JSON))
+    constraints: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    acceptance_criteria: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    execution_preferences: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    visibility: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    workflow_defaults: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    workflow_overrides: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    workflow_effective: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    workflow_provenance: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    readiness: dict = Field(default_factory=dict, sa_column=Column(JSON))
     mode: str = Field(default="generic", index=True)
     mode_data: dict = Field(default={}, sa_column=Column(JSON))
     planning_lease_expires_at: Optional[float] = Field(default=None, index=True)
@@ -70,7 +149,7 @@ class PlaybookDB(SQLModel, table=True):
 class PlanDB(SQLModel, table=True):
     __tablename__ = "plans"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    goal_id: str = Field(index=True)
+    goal_id: str = Field(index=True, foreign_key="goals.id")
     trace_id: str = Field(index=True)
     status: str = "draft"
     planning_mode: str = "auto_planner"
@@ -81,20 +160,84 @@ class PlanDB(SQLModel, table=True):
 
 class PlanNodeDB(SQLModel, table=True):
     __tablename__ = "plan_nodes"
+    __table_args__ = (
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "project_id"],
+            ["projects.tenant_id", "projects.project_id"],
+            name="fk_plan_nodes_project_scope",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "project_id", "organization_id"],
+            [
+                "organization_instances.tenant_id",
+                "organization_instances.project_id",
+                "organization_instances.organization_id",
+            ],
+            name="fk_plan_nodes_organization_scope",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "project_id", "organization_id", "unit_id"],
+            [
+                "organization_units.tenant_id",
+                "organization_units.project_id",
+                "organization_units.organization_id",
+                "organization_units.id",
+            ],
+            name="fk_plan_nodes_unit_scope",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "project_id", "organization_id", "team_id"],
+            [
+                "organization_team_links.tenant_id",
+                "organization_team_links.project_id",
+                "organization_team_links.organization_id",
+                "organization_team_links.team_id",
+            ],
+            name="fk_plan_nodes_organization_team_scope",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "project_id", "organization_id", "role_slot_id"],
+            [
+                "organization_role_slots.tenant_id",
+                "organization_role_slots.project_id",
+                "organization_role_slots.organization_id",
+                "organization_role_slots.id",
+            ],
+            name="fk_plan_nodes_role_slot_scope",
+            ondelete="RESTRICT",
+        ),
+        sa.UniqueConstraint(
+            "tenant_id",
+            "project_id",
+            "organization_id",
+            "id",
+            name="uq_plan_nodes_organization_scope_id",
+        ),
+    )
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    plan_id: str = Field(index=True)
+    plan_id: str = Field(index=True, foreign_key="plans.id")
+    tenant_id: Optional[str] = Field(default=None, index=True, max_length=191)
+    project_id: Optional[str] = Field(default=None, index=True, max_length=191)
+    organization_id: Optional[str] = Field(default=None, index=True)
+    unit_id: Optional[str] = Field(default=None, index=True)
+    team_id: Optional[str] = Field(default=None, foreign_key="teams.id", index=True)
+    role_slot_id: Optional[str] = Field(default=None, index=True)
     node_key: str = Field(index=True)
     title: str
     description: Optional[str] = None
     priority: str = "Medium"
     status: str = "draft"
     position: int = 0
-    depends_on: List[str] = Field(default=[], sa_column=Column(JSON))
-    rationale: dict = Field(default={}, sa_column=Column(JSON))
+    depends_on: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    rationale: dict = Field(default_factory=dict, sa_column=Column(JSON))
     editable: bool = True
     materialized_task_id: Optional[str] = None
-    verification_spec: dict = Field(default={}, sa_column=Column(JSON))
-    verification_status: dict = Field(default={}, sa_column=Column(JSON))
+    verification_spec: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    verification_status: dict = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
 

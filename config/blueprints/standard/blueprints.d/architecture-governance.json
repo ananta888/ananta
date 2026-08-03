@@ -1,0 +1,59 @@
+{
+  "schema": "seed_blueprint_catalog.v1",
+  "version": "1.0.0",
+  "blueprints": [
+    {
+      "name": "Architecture-Governance",
+      "description": "Independent enterprise, solution, security, data and integration architecture review with a closed ADR gate.",
+      "base_team_type_name": "Architecture-Governance",
+      "key": "architecture_governance",
+      "version": 1,
+      "team_kind": "governance",
+      "role_slots": [
+        {"slot_id": "enterprise_architect", "role_template_ref": "enterprise_architect@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["architecture", "governance"], "forbidden_capabilities": ["backlog_ordering", "code_approval"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["decision_reviewer"]}, "overlays": []},
+        {"slot_id": "solution_architect", "role_template_ref": "governance_solution_architect@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 3, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["architecture", "review"], "forbidden_capabilities": ["implementation_approval"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["decision_reviewer"]}, "overlays": []},
+        {"slot_id": "security_architect", "role_template_ref": "security_architect@1", "required": false, "min_count": 0, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["security_architecture", "threat_modeling"], "forbidden_capabilities": ["policy_mutation"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["decision_reviewer"]}, "overlays": []},
+        {"slot_id": "data_architect", "role_template_ref": "data_architect@1", "required": false, "min_count": 0, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["data_architecture", "review"], "forbidden_capabilities": ["production_data_access"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["decision_reviewer"]}, "overlays": []},
+        {"slot_id": "integration_architect", "role_template_ref": "api_integration_architect@1", "required": false, "min_count": 0, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["integration_architecture", "api_design"], "forbidden_capabilities": ["implementation_approval"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["decision_reviewer"]}, "overlays": []},
+        {"slot_id": "decision_reviewer", "role_template_ref": "architecture_decision_reviewer@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["architecture", "review", "verification"], "forbidden_capabilities": ["self_approval", "code_approval"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["enterprise_architect", "solution_architect", "security_architect", "data_architect", "integration_architect"]}, "overlays": []}
+      ],
+      "artifact_contracts": [
+        {"kind": "enterprise_context_map", "required": true, "portable": true},
+        {"kind": "architecture_decision_record", "required": true, "portable": true},
+        {"kind": "security_architecture_review", "required": true, "portable": true},
+        {"kind": "data_architecture_review", "required": true, "portable": true},
+        {"kind": "integration_architecture_review", "required": true, "portable": true},
+        {"kind": "architecture_decision_handoff", "required": true, "portable": true}
+      ],
+      "policies": ["assignment_grounding@1", "governance_task_proposals@1", "strict_architecture_separation@1"],
+      "capacity_defaults": {"min_agents": 3, "default_agents": 6, "max_agents": 12},
+      "workflow_ref": "architecture_governance_workflow@1",
+      "roles": [
+        {"name": "Chief / Enterprise Architect", "description": "Owns context map and enterprise guardrails.", "template_name": "Governance - Enterprise Architect", "sort_order": 10, "is_required": true, "config": {"slot_id": "enterprise_architect", "min_count": 1, "default_count": 1, "max_count": 2}},
+        {"name": "Solution Architect", "description": "Reviews solution fit and boundaries.", "template_name": "Governance - Solution Architect", "sort_order": 20, "is_required": true, "config": {"slot_id": "solution_architect", "min_count": 1, "default_count": 1, "max_count": 3}},
+        {"name": "Security Architect", "description": "Reviews trust boundaries and threats.", "template_name": "Governance - Security Architect", "sort_order": 30, "is_required": false, "config": {"slot_id": "security_architect", "min_count": 0, "default_count": 1, "max_count": 2}},
+        {"name": "Data Architect", "description": "Reviews data contracts and lineage.", "template_name": "Governance - Data Architect", "sort_order": 40, "is_required": false, "config": {"slot_id": "data_architect", "min_count": 0, "default_count": 1, "max_count": 2}},
+        {"name": "API and Integration Architect", "description": "Reviews API and integration compatibility.", "template_name": "Governance - API and Integration Architect", "sort_order": 50, "is_required": false, "config": {"slot_id": "integration_architect", "min_count": 0, "default_count": 1, "max_count": 2}},
+        {"name": "Architecture Decision Reviewer", "description": "Independently owns the architecture evidence gate.", "template_name": "Governance - Architecture Decision Reviewer", "sort_order": 60, "is_required": true, "config": {"slot_id": "decision_reviewer", "min_count": 1, "default_count": 1, "max_count": 2, "independent_from": ["enterprise_architect", "solution_architect", "security_architect", "data_architect", "integration_architect"]}}
+      ],
+      "artifacts": [
+        {"kind": "task", "title": "Architecture Request", "description": "Review a Hub-routed architecture request with explicit inputs, SLA and expected decision artifacts.", "sort_order": 10, "payload": {"status": "todo", "priority": "High"}},
+        {"kind": "task", "title": "Architecture Decision Pack", "description": "Produce context map, ADR, security/data/API reviews, conditions and residual risk.", "sort_order": 20, "payload": {"status": "todo", "priority": "High"}},
+        {"kind": "policy", "title": "Architecture Governance Boundary", "description": "Architecture does not order product backlogs or approve implementation/release.", "sort_order": 100, "payload": {"policy_ref": "strict_architecture_separation@1", "task_proposal_policy_ref": "governance_task_proposals@1"}}
+      ],
+      "workflow": {
+        "mode": "strict_gated",
+        "default_failure_policy": "block",
+        "steps": [
+          {"id": "context_map", "role": "Chief / Enterprise Architect", "task_kind": "planning", "title": "Review enterprise context and boundaries", "sort_order": 10, "produces": ["Enterprise Context Map", "Architecture Guardrails"], "consumes": ["Architecture Request", "Organization Product Goal"], "required_capabilities": ["architecture", "governance"]},
+          {"id": "solution_review", "role": "Solution Architect", "task_kind": "review", "title": "Review solution ADR and trade-offs", "sort_order": 20, "depends_on": ["context_map"], "produces": ["Solution Review", "Architecture Decision Record"], "consumes": ["Architecture Request", "Enterprise Context Map", "Architecture Guardrails"], "required_capabilities": ["architecture", "review"]},
+          {"id": "security_review", "role": "Security Architect", "task_kind": "review", "title": "Review threat and trust boundaries", "sort_order": 30, "depends_on": ["solution_review"], "produces": ["Security Architecture Review", "Trust Boundary Map"], "consumes": ["Architecture Decision Record"], "required_capabilities": ["security_architecture", "threat_modeling"]},
+          {"id": "data_review", "role": "Data Architect", "task_kind": "review", "title": "Review data contracts and lineage", "sort_order": 40, "depends_on": ["solution_review"], "produces": ["Data Architecture Review", "Lineage Findings"], "consumes": ["Architecture Decision Record"], "required_capabilities": ["data_architecture", "review"]},
+          {"id": "integration_review", "role": "API and Integration Architect", "task_kind": "review", "title": "Review API and integration contracts", "sort_order": 50, "depends_on": ["solution_review"], "produces": ["Integration Architecture Review", "Compatibility Findings"], "consumes": ["Architecture Decision Record"], "required_capabilities": ["integration_architecture", "api_design"]},
+          {"id": "decision_gate", "role": "Architecture Decision Reviewer", "task_kind": "gate_review", "title": "Independent architecture decision gate", "sort_order": 60, "depends_on": ["security_review", "data_review", "integration_review"], "gate": true, "checks": {"min_artifacts": ["Architecture Decision Record", "Security Architecture Review", "Data Architecture Review", "Integration Architecture Review", "Architecture Review Decision"], "approval_role": "Architecture Decision Reviewer", "verification_required": true}, "failure_policy": "manual", "produces": ["Architecture Review Decision", "Architecture Conditions", "Residual Architecture Risk"], "consumes": ["Architecture Decision Record", "Security Architecture Review", "Data Architecture Review", "Integration Architecture Review"], "required_capabilities": ["architecture", "review", "verification"]},
+          {"id": "delivery_handoff", "role": "Chief / Enterprise Architect", "task_kind": "handoff", "title": "Prepare architecture decision handoff", "sort_order": 70, "depends_on": ["decision_gate"], "produces": ["Architecture Decision Handoff"], "consumes": ["Architecture Review Decision", "Architecture Conditions", "Residual Architecture Risk"], "required_capabilities": ["artifact_handoff"]}
+        ]
+      }
+    }
+  ]
+}

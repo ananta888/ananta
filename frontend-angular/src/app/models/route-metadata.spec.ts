@@ -89,4 +89,13 @@ describe('route metadata', () => {
     expect(paths.indexOf('/effective-workflow')).toBe(paths.indexOf('/config-graph') - 1);
     expect(paths.indexOf('/blueprint-config')).toBe(paths.indexOf('/config-graph') + 1);
   });
+
+  it('exposes multi-team organization management only in advanced navigation', () => {
+    const advanced = buildNavGroups('admin', 'advanced').flatMap(group => group.items).map(item => item.path);
+    const simple = buildNavGroups('admin', 'simple').flatMap(group => group.items).map(item => item.path);
+
+    expect(advanced).toContain('/organizations');
+    expect(simple).not.toContain('/organizations');
+    expect(APP_ROUTE_META.organizations).toMatchObject({ area: 'Configure', expertOnly: true });
+  });
 });

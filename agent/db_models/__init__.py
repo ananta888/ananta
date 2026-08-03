@@ -66,6 +66,7 @@ from .hub_git_authorization import (
     HubGitRemoteRegistrationDB,
     HubGitRemoteRegistrationRevisionDB,
 )
+from .kanban_projection import KanbanBoardSequenceDB, KanbanOutboxEventDB
 from .knowledge import (
     KnowledgeCollectionDB,
     KnowledgeIndexDB,
@@ -73,7 +74,6 @@ from .knowledge import (
     KnowledgeLinkDB,
 )
 from .knowledge_index_execution import KnowledgeIndexExecutionBindingDB
-from .kanban_projection import KanbanBoardSequenceDB, KanbanOutboxEventDB
 from .memory import (
     MemoryEntryDB,
     MemoryTreeChunkDB,
@@ -90,6 +90,37 @@ from .ml_intern_training import (
     MlInternTrainingExecutionLeaseDB,
     MlInternTrainingJobDB,
 )
+from .organization_runtime import (
+    OrganizationBudgetReservationDB,
+    OrganizationBudgetUsageDB,
+    OrganizationRuntimeEventDB,
+    OrganizationTeamHandoffDB,
+    OrganizationWorkflowLoopStateDB,
+)
+from .organizations import (
+    CrossTeamTaskDependencyDB,
+    OrganizationAdminGrantDB,
+    OrganizationAdmissionExceptionDB,
+    OrganizationAuditOutboxDB,
+    OrganizationBlueprintRevisionDB,
+    OrganizationHandoffDefinitionRevisionDB,
+    OrganizationInstanceDB,
+    OrganizationLayoutPreferenceDB,
+    OrganizationLimitProfileRevisionDB,
+    OrganizationMembershipDB,
+    OrganizationOperationDB,
+    OrganizationPolicyRevisionDB,
+    OrganizationRelationDB,
+    OrganizationRoleAssignmentDB,
+    OrganizationRoleSlotDB,
+    OrganizationTeamLinkDB,
+    OrganizationTopologyPatchGrantDB,
+    OrganizationTopologySnapshotDB,
+    OrganizationUnitDB,
+    RoleTemplateRevisionDB,
+    TeamBlueprintRevisionDB,
+    WorkflowDefinitionRevisionDB,
+)
 from .planning import (
     GoalDB,
     PlanDB,
@@ -104,6 +135,15 @@ from .planning import (
     PlaybookDB,
     ScheduledTaskDB,
     TemplateDB,
+)
+from .planning_artifacts import (
+    PlanningAmendmentInputDB,
+    PlanningArtifactRevisionDB,
+    PlanningLineageDB,
+    PlanningOperationReceiptDB,
+    PlanningTaskDispatchDB,
+    PlanningTaskMappingDB,
+    WorkerTaskProposalDB,
 )
 from .projects import ProjectDB, ProjectMembershipDB
 from .semantic_media import (
@@ -123,6 +163,58 @@ from .semantic_media import (
     SemanticSfuRoomStateDB,
 )
 from .semantic_relay import SemanticRelayCursorDB, SemanticRelayEnvelopeDB
+from .sfu_broadcast import (
+    SfuBroadcastAudienceDB,
+    SfuFanoutRouteDB,
+    SfuReceiverGroupDB,
+)
+from .sfu_broadcast_admission_operations import SfuBroadcastAdmissionOperationDB
+from .sfu_broadcast_background_jobs import SfuBroadcastBackgroundJobDB
+from .sfu_broadcast_feature_flags import (
+    SfuBroadcastFeatureFlagDB,
+    SfuBroadcastFeatureFlagMutationDB,
+)
+from .sfu_broadcast_flag_projections import (
+    SfuBroadcastFlagProjectionDB,
+    SfuBroadcastRuntimeProjectionStateDB,
+)
+from .sfu_broadcast_group_keys import (
+    SfuBroadcastGroupKeyAuthorizationDB,
+    SfuBroadcastGroupKeyPackageDB,
+    SfuBroadcastGroupKeyReceiptDB,
+)
+from .sfu_broadcast_retention import (
+    SfuAudienceRetentionFenceDB,
+    SfuAudienceSnapshotTombstoneDB,
+)
+from .sfu_broadcast_user_intents import (
+    SfuBroadcastCommandAuditDB,
+    SfuBroadcastUserIntentDB,
+)
+from .sfu_broadcast_vendor_identities import (
+    SfuBroadcastDestinationHandleDB,
+    SfuBroadcastVendorIdentityDB,
+)
+from .sfu_capacity_reservations import (
+    SfuCapacityLedgerDB,
+    SfuCapacityReservationDB,
+    SfuCapacityReservationMutationDB,
+)
+from .sfu_node_observation_cursors import (
+    SfuNodeObservationCursorDB,
+    SfuNodeObservationReplayDB,
+)
+from .sfu_nodes import SfuNodeDB, SfuNodeMutationDB
+from .sfu_runtime_identities import (
+    SfuRuntimeCredentialDB,
+    SfuRuntimeEnrollmentRateLimitDB,
+    SfuRuntimeIdentityDB,
+    SfuRuntimeIdentityMutationDB,
+)
+from .source_access_enforcement import (
+    SourceAccessGrantConsumptionDB,
+    SourceAccessGrantExecutionPolicyDB,
+)
 from .source_admission_receipt import SourceAdmissionReceiptDB
 from .source_control import (
     ActiveKnowledgeIndexDB,
@@ -142,6 +234,11 @@ from .source_control import (
     SourceControlPurgeApprovalDB,
     SourceRevisionDB,
 )
+from .source_control_migration import (
+    SourceControlLegacyMappingDB,
+    SourceControlMigrationRunDB,
+    SourceRefMappingDB,
+)
 from .source_control_public_remote import (
     SourceControlPublicRemoteAuditDB,
     SourceControlPublicRemoteDB,
@@ -152,72 +249,6 @@ from .source_control_workspace_registration import (
     SourceControlWorkspaceRegistrationDB,
     SourceControlWorkspaceValidationDB,
 )
-from .source_access_enforcement import (
-    SourceAccessGrantConsumptionDB,
-    SourceAccessGrantExecutionPolicyDB,
-)
-from .source_control_migration import (
-    SourceControlLegacyMappingDB,
-    SourceControlMigrationRunDB,
-    SourceRefMappingDB,
-)
-from .sfu_broadcast_feature_flags import (
-    SfuBroadcastFeatureFlagDB,
-    SfuBroadcastFeatureFlagMutationDB,
-)
-from .sfu_broadcast_flag_projections import (
-    SfuBroadcastFlagProjectionDB,
-    SfuBroadcastRuntimeProjectionStateDB,
-)
-from .sfu_broadcast_admission_operations import SfuBroadcastAdmissionOperationDB
-from .sfu_broadcast_background_jobs import SfuBroadcastBackgroundJobDB
-from .sfu_broadcast import (
-    SfuBroadcastAudienceDB,
-    SfuFanoutRouteDB,
-    SfuReceiverGroupDB,
-)
-from .sfu_broadcast_group_keys import (
-    SfuBroadcastGroupKeyAuthorizationDB,
-    SfuBroadcastGroupKeyPackageDB,
-    SfuBroadcastGroupKeyReceiptDB,
-)
-from .sfu_broadcast_user_intents import (
-    SfuBroadcastCommandAuditDB,
-    SfuBroadcastUserIntentDB,
-)
-from .sfu_broadcast_retention import (
-    SfuAudienceRetentionFenceDB,
-    SfuAudienceSnapshotTombstoneDB,
-)
-from .sfu_broadcast_vendor_identities import (
-    SfuBroadcastDestinationHandleDB,
-    SfuBroadcastVendorIdentityDB,
-)
-from .sfu_capacity_reservations import (
-    SfuCapacityLedgerDB,
-    SfuCapacityReservationDB,
-    SfuCapacityReservationMutationDB,
-)
-from .sfu_nodes import SfuNodeDB, SfuNodeMutationDB
-from .sfu_node_observation_cursors import (
-    SfuNodeObservationCursorDB,
-    SfuNodeObservationReplayDB,
-)
-from .sfu_runtime_identities import (
-    SfuRuntimeCredentialDB,
-    SfuRuntimeEnrollmentRateLimitDB,
-    SfuRuntimeIdentityDB,
-    SfuRuntimeIdentityMutationDB,
-)
-from .turn_observer_identities import (
-    TurnObserverCredentialDB,
-    TurnObserverEnrollmentRateLimitDB,
-    TurnObserverIdentityDB,
-    TurnObserverIdentityMutationDB,
-)
-from .turn_observations import TurnObservationCursorDB, TurnObservationReplayDB
-from .turn_pool_nodes import TurnPoolNodeDB, TurnPoolNodeMutationDB
-from .turn_accounting import TurnAccountingLedgerDB, TurnAccountingSourceCursorDB
 from .speech_adaptation import (
     SpeechAdaptationArtifactDB,
     SpeechAdaptationCapacityLeaseDB,
@@ -254,7 +285,13 @@ from .speech_reconciliation import (
     SpeechReconciliationJobDB,
     SpeechReconciliationMutationDB,
 )
-from .tasks import ArchivedTaskDB, ConfigDB, TaskDB
+from .tasks import (
+    ArchivedTaskDB,
+    ConfigDB,
+    TaskDB,
+    archive_task_record,
+    restore_task_record,
+)
 from .teams import (
     RoleDB,
     TeamBlueprintDB,
@@ -265,6 +302,15 @@ from .teams import (
 )
 from .temporal_runtime import TemporalHistoryProjectionDB, TemporalProjectedEventDB
 from .text_quality import TextQualityCriteriaSetDB, TextQualityEvaluationDB
+from .turn_accounting import TurnAccountingLedgerDB, TurnAccountingSourceCursorDB
+from .turn_observations import TurnObservationCursorDB, TurnObservationReplayDB
+from .turn_observer_identities import (
+    TurnObserverCredentialDB,
+    TurnObserverEnrollmentRateLimitDB,
+    TurnObserverIdentityDB,
+    TurnObserverIdentityMutationDB,
+)
+from .turn_pool_nodes import TurnPoolNodeDB, TurnPoolNodeMutationDB
 from .visual_process import VisualProcessGraphDB
 from .visual_process_assistant import (
     VisualProcessAssistantContextDB,
@@ -323,6 +369,8 @@ __all__ = [
     "ArtifactDB",
     "ArtifactVersionDB",
     "ArchivedTaskDB",
+    "archive_task_record",
+    "restore_task_record",
     "ApprovalRequestDB",
     "AuditLogDB",
     "BannedIPDB",
@@ -373,16 +421,24 @@ __all__ = [
     "PasswordHistoryDB",
     "PlanDB",
     "PlanNodeDB",
+    "PlanningAmendmentInputDB",
+    "PlanningArtifactRevisionDB",
     "PlanningEvaluationDB",
+    "PlanningLineageDB",
     "PlanningModelProfileDB",
+    "PlanningOperationReceiptDB",
     "PlanningPatternClusterDB",
     "PlanningPromptVersionDB",
     "PlanningReviewItemDB",
     "PlanningRunDB",
     "PlanningTemplateCandidateDB",
+    "PlanningTaskMappingDB",
+    "PlanningTaskDispatchDB",
     "PlaybookDB",
     "PolicyDecisionDB",
     "PolicySnapshotDB",
+    "ProjectDB",
+    "ProjectMembershipDB",
     "RefreshTokenDB",
     "RepairExecutionRecordDB",
     "RepairOutcomeMemoryDB",
@@ -470,7 +526,32 @@ __all__ = [
     "SpeechReconciliationMutationDB",
     "SemanticRelayCursorDB",
     "SemanticRelayEnvelopeDB",
+    "CrossTeamTaskDependencyDB",
+    "OrganizationAdminGrantDB",
+    "OrganizationTopologyPatchGrantDB",
+    "OrganizationAdmissionExceptionDB",
+    "OrganizationAuditOutboxDB",
+    "OrganizationBlueprintRevisionDB",
+    "OrganizationBudgetReservationDB",
+    "OrganizationBudgetUsageDB",
+    "OrganizationHandoffDefinitionRevisionDB",
+    "OrganizationInstanceDB",
+    "OrganizationLayoutPreferenceDB",
+    "OrganizationLimitProfileRevisionDB",
+    "OrganizationMembershipDB",
+    "OrganizationOperationDB",
+    "OrganizationPolicyRevisionDB",
+    "OrganizationRelationDB",
+    "OrganizationRoleAssignmentDB",
+    "OrganizationRoleSlotDB",
+    "OrganizationRuntimeEventDB",
+    "OrganizationTeamHandoffDB",
+    "OrganizationTeamLinkDB",
+    "OrganizationTopologySnapshotDB",
+    "OrganizationUnitDB",
+    "OrganizationWorkflowLoopStateDB",
     "RoleDB",
+    "RoleTemplateRevisionDB",
     "ScheduledTaskDB",
     "ShareParticipantDB",
     "ShareSessionDB",
@@ -504,6 +585,7 @@ __all__ = [
     "TextQualityCriteriaSetDB",
     "TextQualityEvaluationDB",
     "TeamBlueprintDB",
+    "TeamBlueprintRevisionDB",
     "TeamDB",
     "TeamMemberDB",
     "TeamTypeDB",
@@ -532,6 +614,7 @@ __all__ = [
     "WorkflowRuntimeRolloutAuditDB",
     "WorkflowRuntimeRolloutPolicyDB",
     "WorkflowSideEffectLedgerDB",
+    "WorkflowDefinitionRevisionDB",
     "ToolCallDB",
     "UserDB",
     "UserInstructionProfileDB",
@@ -568,4 +651,5 @@ __all__ = [
     "WorkerJobDB",
     "WorkerResultDB",
     "WorkerSlotLeaseDB",
+    "WorkerTaskProposalDB",
 ]

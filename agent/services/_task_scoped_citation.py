@@ -103,32 +103,102 @@ def build_source_catalog_from_execution_context(
     if not chunks:
         return None
     selected: list[dict[str, Any]] = []
-    provenance: list[dict[str, Any]] = []
     for chunk in chunks:
         metadata = dict(chunk.get("metadata") or {})
+        identity_verification = dict(
+            metadata.get("source_id_verification") or {}
+        )
+        identity_verified = (
+            metadata.get("source_id_verified") is True
+            and identity_verification.get("verified") is True
+            and str(identity_verification.get("status") or "")
+            == "verified"
+            and str(identity_verification.get("reason_code") or "")
+            == "source_id_verified"
+        )
+        if not identity_verified:
+            # The normalized retrieval contract is the Hub verification
+            # boundary.  Keep the candidate observable, but remove any
+            # unverified identity value before SourceCatalogService sees it.
+            metadata.pop("source_id", None)
+            metadata.pop("registry_source_id", None)
+        source_provenance = metadata.get("source_provenance")
+        if not isinstance(source_provenance, dict):
+            source_provenance = metadata.get("provenance")
         selected.append(
             {
+                # One candidate carries the complete provider-issued identity
+                # and its location/provenance projection.  A second,
+                # identity-less provenance row would turn an otherwise valid
+                # catalog into a degraded one.
+                "source_id": str(
+                    (
+                        chunk.get("source_id")
+                        or metadata.get("source_id")
+                        or metadata.get("registry_source_id")
+                        or ""
+                    )
+                    if identity_verified
+                    else ""
+                ),
+                "source_version": str(
+                    chunk.get("source_version")
+                    or metadata.get("source_version")
+                    or ""
+                ),
+                "tenant_id": str(
+                    chunk.get("tenant_id")
+                    or metadata.get("tenant_id")
+                    or ""
+                ),
+                "scope": str(
+                    chunk.get("scope")
+                    or metadata.get("scope")
+                    or metadata.get("source_scope")
+                    or ""
+                ),
+                "provenance_digest": str(
+                    chunk.get("provenance_digest")
+                    or metadata.get("provenance_digest")
+                    or ""
+                ),
+                "provenance": (
+                    dict(source_provenance)
+                    if isinstance(source_provenance, dict)
+                    else {}
+                ),
                 "path": str(chunk.get("source") or metadata.get("file") or ""),
                 "record_id": str(metadata.get("record_id") or chunk.get("record_id") or ""),
-                "content_hash": str(metadata.get("record_id") or chunk.get("record_id") or chunk.get("source") or ""),
+                # Never substitute a record ID or path for a content digest.
+                # Missing provider content hashes remain a fail-closed
+                # rejection in SourceCatalogService.
+                "content_hash": str(
+                    chunk.get("content_hash")
+                    or metadata.get("content_hash")
+                    or ""
+                ),
                 "channel": str(metadata.get("channel") or metadata.get("engine") or ""),
+                "kind": str(metadata.get("record_kind") or metadata.get("kind") or ""),
+                "manifest_hash": str(metadata.get("source_manifest_hash") or ""),
+                "line_start": metadata.get("line_start", metadata.get("start_line")),
+                "line_end": metadata.get("line_end", metadata.get("end_line")),
+                "sensitivity": str(metadata.get("sensitivity") or "internal"),
                 "metadata": metadata,
             }
         )
-        provenance.append(
-            {
-                "engine": str(metadata.get("engine") or metadata.get("channel") or ""),
-                "record_id": str(metadata.get("record_id") or chunk.get("record_id") or chunk.get("source") or ""),
-                "file": str(metadata.get("file") or chunk.get("source") or ""),
-                "kind": str(metadata.get("record_kind") or metadata.get("kind") or ""),
-                "score": float(chunk.get("score") or 0.0),
-                "manifest_hash": str(metadata.get("source_manifest_hash") or ""),
-                "line_start": metadata.get("line_start"),
-                "line_end": metadata.get("line_end"),
-                "sensitivity": str(metadata.get("sensitivity") or "internal"),
+    bundle_metadata = dict(context_payload.get("bundle_metadata") or {})
+    retrieval_trace = dict(bundle_metadata.get("retrieval_trace") or {})
+    if not retrieval_trace:
+        selection_trace = dict(bundle_metadata.get("selection_trace") or {})
+        if selection_trace:
+            retrieval_trace = {
+                "trace_id": selection_trace.get("retrieval_trace_id")
+                or selection_trace.get("trace_id"),
+                "context_hash": selection_trace.get("context_hash"),
+                "manifest_hash": selection_trace.get("manifest_hash"),
+                "tenant_id": selection_trace.get("tenant_id"),
+                "scope": selection_trace.get("scope"),
             }
-        )
-    retrieval_trace = dict((context_payload.get("bundle_metadata") or {}).get("retrieval_trace") or {})
     if not retrieval_trace:
         retrieval_trace = dict(context_payload.get("retrieval_trace") or {})
     from agent.services.source_catalog_service import get_source_catalog_service
@@ -137,7 +207,6 @@ def build_source_catalog_from_execution_context(
         task_id=str(tid),
         retrieval_payload={
             "selected": selected,
-            "provenance": provenance,
             "retrieval_trace": retrieval_trace,
         },
         llm_scope=llm_scope,

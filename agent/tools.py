@@ -2,7 +2,9 @@ import json
 import logging
 from typing import Any, List, Optional
 
-from flask import current_app
+from flask import current_app, has_request_context
+
+from agent.auth import get_authenticated_source_control_principal
 
 from agent.db_models import ConfigDB, RoleDB, TeamDB, TeamMemberDB, TeamTypeDB, TeamTypeRoleLink, TemplateDB
 from agent.repository import (
@@ -22,9 +24,10 @@ from agent.services.template_variable_registry import (
     find_unknown_template_variables,
     resolve_allowed_template_variables,
 )
-from agent.services.recovery_task_mutation_policy import (
-    RecoveryTaskMutationConflict,
-    ensure_external_recovery_mutation_allowed,
+from agent.services.organization_team_deletion_service import (
+    OrganizationTeamDeletionError,
+    OrganizationTeamDeletionPrincipal,
+    OrganizationTeamDeletionService,
 )
 from agent.tools_registry import ToolRegistry, ToolResult, _TOOL_ALIASES, registry  # noqa: F401
 
@@ -621,21 +624,22 @@ def upsert_team_tool(
     },
 )
 def delete_team_tool(team_id: str):
+    if not has_request_context():
+        return {"error": "organization_team_delete_principal_required"}
     try:
-        for task in task_repo.get_all():
-            if str(getattr(task, "team_id", "") or "") == team_id:
-                ensure_external_recovery_mutation_allowed(
-                    task,
-                    action="team_delete",
-                )
-    except RecoveryTaskMutationConflict as exc:
-        return {"error": exc.reason_code, **exc.as_data()}
-    team_member_repo.delete_by_team(team_id)
-    task_repo.clear_team_assignments(team_id)
-    goal_repo.clear_team_assignments(team_id)
-    if team_repo.delete(team_id):
-        return {"status": "deleted", "team_id": team_id}
-    return {"error": "not_found"}
+        authenticated = get_authenticated_source_control_principal()
+        result = OrganizationTeamDeletionService().delete(
+            team_id=team_id,
+            principal=OrganizationTeamDeletionPrincipal(
+                principal_id=authenticated.subject_id,
+                tenant_id=authenticated.tenant_id,
+                project_id=authenticated.project_id,
+                is_hub_admin=authenticated.is_admin,
+            ),
+        )
+    except OrganizationTeamDeletionError as exc:
+        return {"error": exc.reason_code, **exc.details}
+    return {"status": "deleted", "team_id": result.team_id}
 
 
 @registry.register(

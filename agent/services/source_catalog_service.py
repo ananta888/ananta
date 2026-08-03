@@ -57,6 +57,39 @@ def validate_source_catalog_payload(payload: dict[str, Any]) -> list[str]:
     return msgs
 
 
+def source_catalog_integrity_projection(
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Return the exact v2 fields covered by the catalog content hash.
+
+    Persisted task projections use aliases for the catalog ID/hash and omit
+    zero rejected-candidate details.  Keeping the integrity projection in one
+    public helper lets both the producer and the read authority apply the same
+    canonical algorithm without reaching into a private implementation detail.
+    """
+
+    return {
+        "task_id": payload.get("task_id"),
+        "retrieval_trace_id": payload.get("retrieval_trace_id"),
+        "retrieval_context_hash": payload.get("retrieval_context_hash"),
+        "retrieval_manifest_hash": payload.get("retrieval_manifest_hash"),
+        "sources": list(payload.get("sources") or []),
+        "rejected_candidates": list(payload.get("rejected_candidates") or []),
+    }
+
+
+def calculate_source_catalog_hash(payload: Mapping[str, Any]) -> str:
+    """Recompute the deterministic SHA-256 integrity binding for a v2 catalog."""
+
+    return _stable_hash(source_catalog_integrity_projection(payload))
+
+
+def calculate_source_catalog_id(catalog_hash: str) -> str:
+    """Derive the deterministic catalog identifier from a validated hash."""
+
+    return f"catalog-{str(catalog_hash or '').strip().lower()[:16]}"
+
+
 class SourceCatalogService:
     """Build a deterministic, fail-closed catalog from authoritative references.
 
@@ -293,10 +326,10 @@ class SourceCatalogService:
             "sources": sources,
             "rejected_candidates": rejected,
         }
-        catalog_hash = _stable_hash(projection)
+        catalog_hash = calculate_source_catalog_hash(projection)
         base = {
             "schema": "source_catalog.v2",
-            "catalog_id": f"catalog-{catalog_hash[:16]}",
+            "catalog_id": calculate_source_catalog_id(catalog_hash),
             **projection,
             "catalog_hash": catalog_hash,
             "catalog_state": (

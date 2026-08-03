@@ -13,6 +13,11 @@ from agent.services.copilot_routing_advisor import (
     extract_copilot_routing_hint,
     get_copilot_routing_advisor,
 )
+from agent.services.organization_research_delegation_policy_service import (
+    OrganizationResearchDelegationPolicyError,
+    OrganizationResearchDelegationPolicyService,
+    get_organization_research_delegation_policy_service,
+)
 from agent.services.recovery_task_mutation_policy import (
     RecoveryTaskMutationConflict,
     ensure_external_recovery_mutation_allowed,
@@ -86,11 +91,28 @@ class TaskOrchestrationService:
     * :mod:`agent.services.workspace_scope_builder` – Workspace-Scope-Ableitung und Worker-Workspace.
     """
 
-    def __init__(self, dependencies: TaskOrchestrationDependencies | None = None) -> None:
+    def __init__(
+        self,
+        dependencies: TaskOrchestrationDependencies | None = None,
+        *,
+        research_delegation_policy: (
+            OrganizationResearchDelegationPolicyService | None
+        ) = None,
+    ) -> None:
         self.dependencies = dependencies or _default_dependencies()
+        policy = (
+            research_delegation_policy
+            or get_organization_research_delegation_policy_service()
+        )
         self.delegation_planner = TaskDelegationPlanner(self.dependencies)
-        self.execution_context_factory = WorkerExecutionContextFactory(self.dependencies)
-        self.delegation_result_writer = TaskDelegationResultWriter(self.dependencies)
+        self.execution_context_factory = WorkerExecutionContextFactory(
+            self.dependencies,
+            research_delegation_policy=policy,
+        )
+        self.delegation_result_writer = TaskDelegationResultWriter(
+            self.dependencies,
+            research_delegation_policy=policy,
+        )
 
     @staticmethod
     def _recovery_conflict(
@@ -147,16 +169,24 @@ class TaskOrchestrationService:
         if not isinstance(plan, TaskDelegationPlan):
             return plan
 
-        bundle = self.execution_context_factory.build(
-            request=delegation_request,
-            plan=plan,
-            worker_job_service=worker_job_service,
-            worker_contract_service=worker_contract_service,
-        )
+        try:
+            bundle = self.execution_context_factory.build(
+                request=delegation_request,
+                plan=plan,
+                worker_job_service=worker_job_service,
+                worker_contract_service=worker_contract_service,
+            )
+        except OrganizationResearchDelegationPolicyError as exc:
+            return {
+                "error": exc.reason_code,
+                "code": 409,
+                "data": {},
+            }
         return self.delegation_result_writer.forward_and_write(
             request=delegation_request,
             plan=plan,
             bundle=bundle,
+            worker_job_service=worker_job_service,
         )
 
     def complete_task(

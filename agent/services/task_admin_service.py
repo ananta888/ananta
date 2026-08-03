@@ -4,7 +4,7 @@ import time
 from typing import Any
 
 from agent.common.audit import log_audit
-from agent.db_models import ArchivedTaskDB, TaskDB
+from agent.db_models import archive_task_record, restore_task_record
 from agent.services.recovery_task_mutation_policy import (
     recovery_task_role,
 )
@@ -581,7 +581,7 @@ class TaskAdminService(
                         archived_target=True,
                     )
                     if action == "restore":
-                        task = TaskDB(**archived.model_dump())
+                        task = restore_task_record(archived)
                         if task.status == "archived":
                             task.status = "todo"
                         repos.task_repo.save(task)
@@ -723,9 +723,7 @@ class TaskAdminService(
                     return False, None
                 snapshot = refreshed.model_dump()
                 if archive:
-                    repos.archived_task_repo.save(
-                        ArchivedTaskDB(**snapshot)
-                    )
+                    repos.archived_task_repo.save(archive_task_record(refreshed))
                 repos.task_repo.delete(task_id)
         except _RetryTaskAdminFence:
             if _fence_attempt >= 7:

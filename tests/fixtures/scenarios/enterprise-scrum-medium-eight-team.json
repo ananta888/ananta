@@ -1,0 +1,39 @@
+{
+  "schema": "ananta.organization.acceptance-scenario.v1",
+  "fixture_key": "enterprise_scrum_medium_eight_team_reference",
+  "organization_blueprint_ref": "enterprise_scrum_organization@1",
+  "parameters": {
+    "composition_mode": "standard",
+    "team_count": 8
+  },
+  "expected": {
+    "team_blueprint_counts": {
+      "architecture_governance": 1,
+      "enterprise_product_delivery_scrum": 2,
+      "platform_devops_sre": 1,
+      "portfolio_product_coordination": 1,
+      "proof_of_concept": 1,
+      "quality_security_release": 1,
+      "research_and_discovery": 1
+    },
+    "topology_counts": {
+      "organization": 1,
+      "coordination_unit": 1,
+      "value_stream": 3,
+      "team": 8,
+      "contains_edges": 12,
+      "organization_edges": 8
+    }
+  },
+  "acceptance_scope": [
+    "schema",
+    "dry_run",
+    "repository_integration",
+    "planning",
+    "runtime",
+    "browser",
+    "bundle",
+    "demo"
+  ],
+  "sole_full_e2e": true
+}

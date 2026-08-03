@@ -49,9 +49,36 @@ class ApprovalRequestDB(SQLModel, table=True):
     """
 
     __tablename__ = "approval_requests"
+    __table_args__ = (
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "project_id"],
+            ["projects.tenant_id", "projects.project_id"],
+            name="fk_approval_requests_project_scope",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "project_id", "organization_id"],
+            [
+                "organization_instances.tenant_id",
+                "organization_instances.project_id",
+                "organization_instances.organization_id",
+            ],
+            name="fk_approval_requests_organization_scope",
+            ondelete="RESTRICT",
+        ),
+    )
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     task_id: Optional[str] = Field(default=None, index=True)
     goal_id: Optional[str] = Field(default=None, index=True)
+    tenant_id: Optional[str] = Field(default=None, index=True, max_length=191)
+    project_id: Optional[str] = Field(default=None, index=True, max_length=191)
+    organization_id: Optional[str] = Field(default=None, index=True, max_length=191)
+    approval_intent_key: Optional[str] = Field(
+        default=None,
+        index=True,
+        unique=True,
+        max_length=64,
+    )
     trace_id: Optional[str] = Field(default=None, index=True)
     tool_name: str = Field(index=True)
     canonical_arguments: dict = Field(default={}, sa_column=Column(JSON))

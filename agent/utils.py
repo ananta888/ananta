@@ -9,13 +9,16 @@ import portalocker
 from flask import current_app, g, request
 from pydantic import BaseModel, ValidationError
 
-from agent.common.errors import PermanentError, TransientError, api_response
 from agent.common.errors import ValidationError as AnantaValidationError
+from agent.common.errors import api_response
 from agent.common.http import get_default_client
 from agent.common.utils import archive_utils, extraction_utils, json_utils, network_utils
 from agent.config import settings
 from agent.metrics import HTTP_REQUEST_DURATION
 from agent.services.rate_limit_service import get_rate_limit_service
+from ananta_contracts.general_worker_capabilities import (
+    GENERAL_PURPOSE_WORKER_CAPABILITIES,
+)
 
 
 def get_data_dir() -> str:
@@ -237,20 +240,10 @@ def register_with_hub(
     if role == "worker":
         # Keep registration compatible with hub contract requiring worker capabilities.
         payload["worker_roles"] = ["planner", "researcher", "coder", "reviewer", "tester"]
-        base_capabilities = [
-            "planning",
-            "analysis",
-            "research",
-            "coding",
-            "implementation",
-            "review",
-            "testing",
-            "verification",
-        ]
         payload["capabilities"] = list(
             dict.fromkeys(
                 [
-                    *base_capabilities,
+                    *GENERAL_PURPOSE_WORKER_CAPABILITIES,
                     *(
                         str(value).strip()
                         for value in (capabilities or [])

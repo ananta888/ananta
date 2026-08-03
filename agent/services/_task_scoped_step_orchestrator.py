@@ -51,6 +51,41 @@ _vector_index_handler_unavailable = _task_scoped_vector_step_policy.vector_index
 _INTERACTIVE_TERMINAL_FINALIZE_COMMAND = "__ANANTA_FINALIZE_INTERACTIVE_OPENCODE__"
 
 
+def _organization_research_hub_execution_guard(
+    *,
+    task: dict[str, Any],
+    tid: str,
+    phase: str,
+):
+    """Keep authoritative Organization research on its secure dispatch path."""
+
+    from agent.config import settings
+    from agent.services.organization_task_dispatch_gate_service import (
+        organization_research_requires_secure_delegation,
+    )
+    from agent.services.task_scoped_execution_service import (
+        TaskScopedRouteResponse,
+    )
+
+    if (
+        str(settings.role or "").strip().lower() != "hub"
+        or not organization_research_requires_secure_delegation(task)
+    ):
+        return None
+    reason_code = "organization_research_secure_delegation_required"
+    return TaskScopedRouteResponse(
+        data={
+            "status": "denied",
+            "reason_code": reason_code,
+            "task_id": tid,
+            "phase": phase,
+        },
+        status="denied",
+        message=reason_code,
+        code=409,
+    )
+
+
 def _knowledge_index_handler_unavailable(
     *,
     task: dict[str, Any],
@@ -473,6 +508,12 @@ def run_propose_step(
 ):
     """Route a propose request to the appropriate strategy."""
     task = service._require_task(tid)
+    if guard := _organization_research_hub_execution_guard(
+        task=task,
+        tid=tid,
+        phase="propose",
+    ):
+        return guard
     if (
         vector_binding_error := _vector_index_domain_binding_error(task)
     ) is not None:
@@ -604,6 +645,12 @@ def _run_propose_step_admitted(
     """Execute an already admitted propose request."""
 
     task = service._require_task(tid)
+    if guard := _organization_research_hub_execution_guard(
+        task=task,
+        tid=tid,
+        phase="propose",
+    ):
+        return guard
     if (
         vector_binding_error := _vector_index_domain_binding_error(task)
     ) is not None:
@@ -860,6 +907,12 @@ def run_execute_step(
 ):
     """Route an execute request to the appropriate strategy."""
     task = service._require_task(tid)
+    if guard := _organization_research_hub_execution_guard(
+        task=task,
+        tid=tid,
+        phase="execute",
+    ):
+        return guard
     if (
         vector_binding_error := _vector_index_domain_binding_error(task)
     ) is not None:
@@ -1052,6 +1105,12 @@ def _run_execute_step_admitted(
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
     task = service._require_task(tid)
+    if guard := _organization_research_hub_execution_guard(
+        task=task,
+        tid=tid,
+        phase="execute",
+    ):
+        return guard
     if (
         vector_binding_error := _vector_index_domain_binding_error(task)
     ) is not None:

@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/policies/worker_task_proposal_policy.v1.json",
+  "title": "Worker task proposal policy v1",
+  "description": "Hub-evaluated, restrict-only policy for assignment-bound worker follow-up proposals. This policy never grants queue, routing, worker-addressing, approval, or orchestration authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "key",
+    "version",
+    "default_decision",
+    "may_propose_tasks",
+    "allowed_task_kinds",
+    "target_scope",
+    "max_proposals_per_source_task",
+    "max_amendment_depth",
+    "budget_limits",
+    "approval_policy",
+    "scope_constraints",
+    "suggestion_constraints",
+    "revalidate_effective_policy_hash"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "worker_task_proposal_policy.v1" },
+    "key": { "$ref": "#/$defs/key" },
+    "version": { "type": "integer", "minimum": 1 },
+    "default_decision": { "type": "string", "const": "deny" },
+    "may_propose_tasks": { "type": "boolean" },
+    "allowed_task_kinds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["planning", "research", "prototype", "coding", "review", "testing", "documentation", "handoff", "gate_review", "release"]
+      },
+      "uniqueItems": true
+    },
+    "target_scope": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["same_team", "same_unit", "same_organization"] },
+      "uniqueItems": true
+    },
+    "max_proposals_per_source_task": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "max_amendment_depth": { "type": "integer", "minimum": 0, "maximum": 8 },
+    "budget_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_estimated_tokens", "max_estimated_seconds", "max_estimated_cost_units"],
+      "properties": {
+        "max_estimated_tokens": { "type": "integer", "minimum": 0, "maximum": 10000000 },
+        "max_estimated_seconds": { "type": "integer", "minimum": 0, "maximum": 31536000 },
+        "max_estimated_cost_units": { "type": "number", "minimum": 0, "maximum": 1000000 }
+      }
+    },
+    "approval_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "self_approval_allowed", "materialization_owner"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["hub_policy", "human_required", "always_reject"] },
+        "self_approval_allowed": { "type": "boolean", "const": false },
+        "materialization_owner": { "type": "string", "const": "hub" }
+      }
+    },
+    "scope_constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inheritance_mode", "capabilities", "tools", "context", "evidence", "tenant", "project", "organization", "budget", "source_category_items"],
+      "properties": {
+        "inheritance_mode": { "type": "string", "const": "restrict_only" },
+        "capabilities": { "type": "string", "const": "source_assignment_intersection" },
+        "tools": { "type": "string", "const": "source_assignment_intersection" },
+        "context": { "type": "string", "const": "source_assignment_intersection" },
+        "evidence": { "type": "string", "const": "source_assignment_allowlist" },
+        "tenant": { "type": "string", "const": "source_assignment_exact" },
+        "project": { "type": "string", "const": "source_assignment_exact" },
+        "organization": { "type": "string", "const": "source_assignment_exact" },
+        "budget": { "type": "string", "const": "source_assignment_remaining" },
+        "source_category_items": { "type": "string", "const": "existing_items_only" }
+      }
+    },
+    "suggestion_constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role_hints_allowed", "team_hints_allowed", "agent_hints_allowed", "direct_worker_addresses_allowed", "queue_priority_override_allowed"],
+      "properties": {
+        "role_hints_allowed": { "type": "boolean" },
+        "team_hints_allowed": { "type": "boolean" },
+        "agent_hints_allowed": { "type": "boolean" },
+        "direct_worker_addresses_allowed": { "type": "boolean", "const": false },
+        "queue_priority_override_allowed": { "type": "boolean", "const": false }
+      }
+    },
+    "revalidate_effective_policy_hash": { "type": "boolean", "const": true }
+  },
+  "$defs": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}

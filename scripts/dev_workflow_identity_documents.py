@@ -10,15 +10,12 @@ from __future__ import annotations
 import hashlib
 from typing import Any, NamedTuple
 
+from ananta_contracts.general_worker_capabilities import (
+    GENERAL_PURPOSE_WORKER_CAPABILITIES,
+)
+
 WORKER_CAPABILITIES = [
-    "planning",
-    "analysis",
-    "research",
-    "coding",
-    "implementation",
-    "review",
-    "testing",
-    "verification",
+    *GENERAL_PURPOSE_WORKER_CAPABILITIES,
     "workflow.adapter.native",
     "approval",
     "bounded_parallel",
@@ -38,6 +35,24 @@ LEGACY_WORKER_CAPABILITIES = [
     for capability in WORKER_CAPABILITIES
     if capability not in {"index_write", "vector_index_operation"}
 ]
+UPGRADABLE_WORKER_CAPABILITY_SETS = tuple(
+    tuple(
+        capability
+        for capability in WORKER_CAPABILITIES
+        if capability not in omitted
+    )
+    for omitted in (
+        frozenset({"source_analysis"}),
+        frozenset({"index_write", "vector_index_operation"}),
+        frozenset(
+            {
+                "source_analysis",
+                "index_write",
+                "vector_index_operation",
+            }
+        ),
+    )
+)
 
 
 class WorkerRegistrationSpec(NamedTuple):

@@ -414,6 +414,7 @@ def test_strict_registration_route_binds_keyring_identity_and_service_token(
                         ).hexdigest(),
                         "allowed_capabilities": [
                             "planning",
+                            "source_analysis",
                             "workflow.adapter.native",
                         ],
                     }
@@ -444,7 +445,10 @@ def test_strict_registration_route_binds_keyring_identity_and_service_token(
                     "role": "worker",
                     "token": service_token,
                     "registration_token": bootstrap_token,
-                    "capabilities": ["workflow.adapter.native"],
+                    "capabilities": [
+                        "source_analysis",
+                        "workflow.adapter.native",
+                    ],
                     "worker_roles": ["coder"],
                 },
             )
@@ -457,9 +461,13 @@ def test_strict_registration_route_binds_keyring_identity_and_service_token(
     assert saved.registration_provenance == "strict_registration_keyring_v1"
     assert saved.authorized_capabilities == [
         "planning",
+        "source_analysis",
         "workflow.adapter.native",
     ]
-    assert saved.capabilities == ["workflow.adapter.native"]
+    assert saved.capabilities == [
+        "source_analysis",
+        "workflow.adapter.native",
+    ]
 
 
 def test_strict_registration_route_rejects_foreign_bootstrap_identity(

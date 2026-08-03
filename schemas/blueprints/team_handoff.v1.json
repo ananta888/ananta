@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/blueprints/team_handoff.v1.json",
+  "title": "Hub-owned cross-team handoff v1",
+  "description": "Versioned, replay-safe handoff between organization units. Workers may produce evidence but only the Hub may create or transition this record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "handoff_id",
+    "handoff_definition_ref",
+    "idempotency_key",
+    "correlation_id",
+    "goal_id",
+    "revision",
+    "producer",
+    "consumer",
+    "source_task_id",
+    "artifact_refs",
+    "grounding",
+    "acceptance_checks",
+    "due_at",
+    "sla_seconds",
+    "status"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "team_handoff.v1" },
+    "handoff_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "handoff_definition_ref": { "$ref": "#/$defs/versioned_ref" },
+    "idempotency_key": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "correlation_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "goal_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "revision": { "type": "integer", "minimum": 1 },
+    "producer": { "$ref": "#/$defs/endpoint" },
+    "consumer": { "$ref": "#/$defs/endpoint" },
+    "source_task_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "artifact_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/artifact_ref" }
+    },
+    "grounding": { "$ref": "#/$defs/grounding" },
+    "acceptance_checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/acceptance_check" }
+    },
+    "due_at": { "type": "string", "format": "date-time" },
+    "sla_seconds": { "type": "integer", "minimum": 1, "maximum": 31536000 },
+    "status": {
+      "type": "string",
+      "enum": ["offered", "pending_acceptance", "accepted", "rejected", "needs_changes", "cancelled", "superseded", "expired"]
+    },
+    "consumer_decision": { "$ref": "#/$defs/consumer_decision" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "enum": ["accepted", "rejected", "needs_changes"] } },
+        "required": ["status"]
+      },
+      "then": { "required": ["consumer_decision"] }
+    }
+  ],
+  "$defs": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "maxLength": 128
+    },
+    "versioned_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*@[1-9][0-9]*$",
+      "maxLength": 160
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["organization_id", "unit_id", "team_id", "role_slot_id", "task_id"],
+      "properties": {
+        "organization_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "unit_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "team_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "role_slot_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "task_id": { "type": "string", "minLength": 1, "maxLength": 160 }
+      }
+    },
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "artifact_kind", "artifact_version_ref", "version", "content_digest", "verification_status"],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1, "maxLength": 191 },
+        "artifact_kind": { "$ref": "#/$defs/key" },
+        "artifact_version_ref": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "version": { "type": "integer", "minimum": 1 },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "verification_status": { "type": "string", "const": "hub_verified" }
+      }
+    },
+    "grounding_ref": {
+      "type": "string",
+      "pattern": "^(SRC|RUN)_[0-9]{4}$",
+      "maxLength": 240
+    },
+    "grounding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["grounding_policy_ref", "allowed_source_refs", "allowed_run_refs", "evidence_refs", "verification_status"],
+      "properties": {
+        "grounding_policy_ref": { "$ref": "#/$defs/versioned_ref" },
+        "allowed_source_refs": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^SRC_[0-9]{4}$" },
+          "uniqueItems": true
+        },
+        "allowed_run_refs": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^RUN_[0-9]{4}$" },
+          "uniqueItems": true
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/grounding_ref" },
+          "uniqueItems": true
+        },
+        "verification_status": { "type": "string", "const": "hub_verified" }
+      },
+      "description": "Schema shape is necessary but not sufficient: every evidence ref must be an exact member of the assignment allowlist."
+    },
+    "acceptance_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check_id", "check_kind", "expected", "status"],
+      "properties": {
+        "check_id": { "$ref": "#/$defs/key" },
+        "check_kind": { "type": "string", "enum": ["artifact_present", "digest_matches", "evidence_verified", "policy_gate", "human_approval"] },
+        "expected": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "status": { "type": "string", "enum": ["pending", "passed", "failed"] }
+      }
+    },
+    "consumer_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "reason_code", "decided_by_assignment_id", "decided_revision"],
+      "properties": {
+        "decision": { "type": "string", "enum": ["accepted", "rejected", "needs_changes"] },
+        "reason_code": { "$ref": "#/$defs/key" },
+        "detail": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "decided_by_assignment_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "decided_revision": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

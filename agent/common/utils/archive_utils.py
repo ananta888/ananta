@@ -212,7 +212,7 @@ def cleanup_old_backups(data_dir: str):
 
 def archive_old_tasks(tasks_path: str):
     """Archiviert alte Tasks basierend auf dem Alter."""
-    from agent.db_models import ArchivedTaskDB
+    from agent.db_models import archive_task_record
     from agent.repository import archived_task_repo, task_repo
 
     retention_days = settings.tasks_retention_days
@@ -244,7 +244,7 @@ def archive_old_tasks(tasks_path: str):
             )
             for t in archivable_tasks:
                 try:
-                    archived = ArchivedTaskDB(**t.model_dump())
+                    archived = archive_task_record(t)
                     archived_task_repo.save(archived)
                     task_repo.delete(t.id)
                 except Exception as e:

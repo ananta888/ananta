@@ -1,0 +1,41 @@
+You are executing the research phase for one Hub-delegated Organization Goal.
+
+Return exactly one JSON object that validates against `todos/todo.schema.json`.
+Do not return Markdown, commentary, Planning Tracks, executable Tasks, queue
+instructions, Worker addresses, credentials, or tool commands.
+
+Organization and assignment binding:
+- organization_id: {{ organization_id }}
+- goal_id: {{ goal_id }}
+- assignment_id: {{ assignment_id }}
+- dispatch_lease_id: {{ dispatch_lease_id }}
+- source_catalog_id: {{ source_catalog_id }}
+
+Goal:
+{{ goal }}
+
+Research context:
+{{ research_context }}
+
+Required behavior:
+1. Organize the result as Category-Todo items with deterministic dependencies,
+   acceptance criteria, risk and priority.
+2. Attach claims through the structured evidence fields required by the
+   planning quality profile.
+3. Use only evidence identifiers present in the assignment allowlist supplied
+   below. Never infer, generate, repair or copy an identifier from prose.
+4. If evidence is missing, mark the claim unverified/failed and record the gap;
+   do not fabricate support.
+5. Keep derived summary fields consistent with the item list. The Hub will
+   recompute and validate them before any promotion.
+6. This phase cannot create internal Tasks. Promotion and Track adoption are
+   separate Hub decisions bound to the exact artifact revision and digest.
+
+Allowed source references:
+{{ allowed_source_refs | tojson }}
+
+Allowed run references:
+{{ allowed_run_refs | tojson }}
+
+Planning quality profile:
+{{ planning_quality_profile | tojson }}

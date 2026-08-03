@@ -201,6 +201,7 @@ class VisualProcessAssistantService:
                         source_scope=source_scope,
                         allowed_task_sources=ASSISTANT_CATALOG_TASK_SOURCES,
                         allowed_task_kinds=ASSISTANT_CATALOG_TASK_KINDS,
+                        expected_task_tenant_id=principal.tenant_id,
                         **catalog_fields,
                     )
                 except SourceCatalogAuthorityError as exc:

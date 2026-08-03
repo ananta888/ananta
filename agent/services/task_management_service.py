@@ -868,6 +868,40 @@ class TaskManagementService:
         )
         if recovery_conflict:
             return recovery_conflict
+        from agent.services.organization_planning_adapter import (
+            organization_id_from_task,
+        )
+
+        organization_id = organization_id_from_task(parent_task)
+        if organization_id:
+            from agent.services.organization_followup_amendment_service import (
+                OrganizationFollowupAmendmentService,
+            )
+
+            try:
+                staged = OrganizationFollowupAmendmentService().stage_manual_followups(
+                    parent_task=parent_task,
+                    items=list(data.items or []),
+                    actor=self.actor_username(),
+                )
+            except ValueError as exc:
+                return {
+                    "error": str(exc),
+                    "code": 409,
+                    "data": {
+                        "reason_code": str(exc),
+                        "organization_id": organization_id,
+                        "source_task_id": task_id,
+                    },
+                }
+            return {
+                "data": {
+                    "status": "planning_amendment_staged",
+                    "organization_id": organization_id,
+                    "source_task_id": task_id,
+                    **staged,
+                },
+            }
 
         created: list[dict[str, Any]] = []
         skipped: list[dict[str, Any]] = []

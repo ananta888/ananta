@@ -1,0 +1,64 @@
+{
+  "schema": "seed_blueprint_catalog.v1",
+  "version": "1.0.0",
+  "blueprints": [
+    {
+      "name": "Research-And-Discovery",
+      "description": "Grounded research team spanning domain, sources, repository, users, data and experiments with an independent evidence gate.",
+      "base_team_type_name": "Research-And-Discovery",
+      "key": "research_and_discovery",
+      "version": 1,
+      "team_kind": "research",
+      "role_slots": [
+        {"slot_id": "research_lead", "role_template_ref": "research_lead@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 1, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["research", "analysis"], "forbidden_capabilities": ["coding", "worker_orchestration"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["independent_reviewer"]}, "overlays": []},
+        {"slot_id": "requirements_analyst", "role_template_ref": "domain_requirements_analyst@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["requirements", "analysis"], "forbidden_capabilities": ["coding"], "write_access_required": false}, "separation_of_duties": {"enforcement": "none", "independent_from_slot_ids": []}, "overlays": []},
+        {"slot_id": "source_analyst", "role_template_ref": "source_analyst@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["source_analysis", "verification"], "forbidden_capabilities": ["source_id_creation"], "write_access_required": false}, "separation_of_duties": {"enforcement": "none", "independent_from_slot_ids": []}, "overlays": []},
+        {"slot_id": "repository_analyst", "role_template_ref": "repository_analyst@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["repository_read", "analysis"], "forbidden_capabilities": ["repository_write", "coding"], "write_access_required": false}, "separation_of_duties": {"enforcement": "none", "independent_from_slot_ids": []}, "overlays": []},
+        {"slot_id": "user_researcher", "role_template_ref": "user_researcher@1", "required": false, "min_count": 0, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["user_research"], "forbidden_capabilities": ["unapproved_personal_data_collection"], "write_access_required": false}, "separation_of_duties": {"enforcement": "warn", "independent_from_slot_ids": ["research_lead"]}, "overlays": []},
+        {"slot_id": "data_analyst", "role_template_ref": "data_analyst@1", "required": false, "min_count": 0, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["data_analysis"], "forbidden_capabilities": ["production_data_export"], "write_access_required": false}, "separation_of_duties": {"enforcement": "warn", "independent_from_slot_ids": ["research_lead"]}, "overlays": []},
+        {"slot_id": "experiment_designer", "role_template_ref": "experiment_designer@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["experiment_design", "measurement"], "forbidden_capabilities": ["production_experiment_activation"], "write_access_required": false}, "separation_of_duties": {"enforcement": "warn", "independent_from_slot_ids": ["research_lead"]}, "overlays": []},
+        {"slot_id": "independent_reviewer", "role_template_ref": "independent_research_reviewer@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["research", "review", "verification"], "forbidden_capabilities": ["self_approval", "coding"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["research_lead", "requirements_analyst", "source_analyst", "repository_analyst", "user_researcher", "data_analyst", "experiment_designer"]}, "overlays": []}
+      ],
+      "artifact_contracts": [
+        {"kind": "research_brief", "required": true, "portable": true},
+        {"kind": "source_matrix", "required": true, "portable": true},
+        {"kind": "research_report", "required": true, "portable": true},
+        {"kind": "uncertainty_report", "required": true, "portable": true},
+        {"kind": "decision_brief", "required": true, "portable": true},
+        {"kind": "research_evidence_handoff", "required": true, "portable": true}
+      ],
+      "policies": ["assignment_grounding@1", "research_task_proposals@1", "strict_research_separation@1"],
+      "capacity_defaults": {"min_agents": 6, "default_agents": 8, "max_agents": 14},
+      "workflow_ref": "research_discovery_workflow@1",
+      "roles": [
+        {"name": "Research Lead", "description": "Owns research framing and synthesis.", "template_name": "Enterprise Research - Research Lead", "sort_order": 10, "is_required": true, "config": {"slot_id": "research_lead", "min_count": 1, "default_count": 1, "max_count": 1}},
+        {"name": "Domain and Requirements Analyst", "description": "Analyzes domain terms and requirements.", "template_name": "Enterprise Research - Domain and Requirements Analyst", "sort_order": 20, "is_required": true, "config": {"slot_id": "requirements_analyst", "min_count": 1, "default_count": 1, "max_count": 2}},
+        {"name": "Source Analyst", "description": "Owns source traceability and gaps.", "template_name": "Enterprise Research - Source Analyst", "sort_order": 30, "is_required": true, "config": {"slot_id": "source_analyst", "min_count": 1, "default_count": 1, "max_count": 2}},
+        {"name": "Repository Analyst", "description": "Performs read-only repository analysis.", "template_name": "Enterprise Research - Repository Analyst", "sort_order": 40, "is_required": true, "config": {"slot_id": "repository_analyst", "min_count": 1, "default_count": 1, "max_count": 2}},
+        {"name": "User Researcher", "description": "Produces consent-aware user evidence.", "template_name": "Product Quality - User Researcher", "sort_order": 50, "is_required": false, "config": {"slot_id": "user_researcher", "min_count": 0, "default_count": 1, "max_count": 2}},
+        {"name": "Data Analyst", "description": "Produces reproducible data findings.", "template_name": "Enterprise Research - Data Analyst", "sort_order": 60, "is_required": false, "config": {"slot_id": "data_analyst", "min_count": 0, "default_count": 1, "max_count": 2}},
+        {"name": "Experiment Designer", "description": "Defines falsifiable hypotheses and measures.", "template_name": "Enterprise Research - Experiment Designer", "sort_order": 70, "is_required": true, "config": {"slot_id": "experiment_designer", "min_count": 1, "default_count": 1, "max_count": 2}},
+        {"name": "Independent Research Reviewer", "description": "Independently reviews evidence and uncertainty.", "template_name": "Enterprise Research - Independent Reviewer", "sort_order": 80, "is_required": true, "config": {"slot_id": "independent_reviewer", "min_count": 1, "default_count": 1, "max_count": 2, "independent_from": ["research_lead", "requirements_analyst", "source_analyst", "repository_analyst", "user_researcher", "data_analyst", "experiment_designer"]}}
+      ],
+      "artifacts": [
+        {"kind": "task", "title": "Research Brief", "description": "Bound the question, decision owner, method, source allowlist and limits.", "sort_order": 10, "payload": {"status": "todo", "priority": "High"}},
+        {"kind": "task", "title": "Portable Evidence Pack", "description": "Produce source matrix, research report, uncertainty and decision brief.", "sort_order": 20, "payload": {"status": "todo", "priority": "High"}},
+        {"kind": "policy", "title": "Research Grounding Policy", "description": "Only Hub-provided allowlisted source/run identifiers support claims.", "sort_order": 100, "payload": {"grounding_policy_ref": "assignment_grounding@1", "task_proposal_policy_ref": "research_task_proposals@1", "code_changes_allowed": false}}
+      ],
+      "workflow": {
+        "mode": "strict_gated",
+        "default_failure_policy": "block",
+        "steps": [
+          {"id": "brief", "role": "Research Lead", "task_kind": "planning", "title": "Frame research brief", "sort_order": 10, "produces": ["Research Brief", "Research Plan"], "consumes": ["Decision Question", "Assignment Allowlist"], "required_capabilities": ["research", "planning"]},
+          {"id": "source_plan", "role": "Source Analyst", "task_kind": "planning", "title": "Plan allowed evidence", "sort_order": 20, "depends_on": ["brief"], "produces": ["Source Plan", "Source Matrix"], "consumes": ["Research Brief", "Assignment Allowlist"], "required_capabilities": ["source_analysis", "verification"]},
+          {"id": "domain_analysis", "role": "Domain and Requirements Analyst", "task_kind": "review", "title": "Analyze domain and requirements", "sort_order": 30, "depends_on": ["source_plan"], "produces": ["Requirements Matrix", "Domain Glossary"], "consumes": ["Research Brief", "Source Matrix"], "required_capabilities": ["requirements", "analysis"]},
+          {"id": "repository_analysis", "role": "Repository Analyst", "task_kind": "review", "title": "Analyze repository read-only", "sort_order": 40, "depends_on": ["source_plan"], "produces": ["Repository Map", "Change Surface Report"], "consumes": ["Research Brief", "Source Matrix"], "required_capabilities": ["repository_read", "analysis"]},
+          {"id": "experiment_plan", "role": "Experiment Designer", "task_kind": "planning", "title": "Define hypotheses and measurement", "sort_order": 50, "depends_on": ["domain_analysis", "repository_analysis"], "produces": ["Hypothesis Set", "Measurement Contract"], "consumes": ["Requirements Matrix", "Change Surface Report"], "required_capabilities": ["experiment_design", "measurement"]},
+          {"id": "synthesis", "role": "Research Lead", "task_kind": "documentation", "title": "Synthesize evidence and uncertainty", "sort_order": 60, "depends_on": ["experiment_plan"], "produces": ["Research Report", "Uncertainty Report", "Decision Brief"], "consumes": ["Source Matrix", "Requirements Matrix", "Repository Map", "Hypothesis Set"], "required_capabilities": ["research", "source_synthesis"]},
+          {"id": "independent_review", "role": "Independent Research Reviewer", "task_kind": "gate_review", "title": "Independent research evidence gate", "sort_order": 70, "depends_on": ["synthesis"], "gate": true, "checks": {"min_artifacts": ["Source Matrix", "Research Report", "Uncertainty Report", "Research Review Decision"], "approval_role": "Independent Research Reviewer", "verification_required": true}, "failure_policy": "block", "produces": ["Research Review Decision", "Evidence Gap Report"], "consumes": ["Research Plan", "Source Matrix", "Research Report", "Uncertainty Report"], "required_capabilities": ["review", "verification"]},
+          {"id": "poc_handoff", "role": "Research Lead", "task_kind": "handoff", "title": "Prepare research-to-PoC handoff", "sort_order": 80, "depends_on": ["independent_review"], "produces": ["Research Evidence Handoff"], "consumes": ["Research Review Decision", "Decision Brief", "Hypothesis Set", "Evidence Gap Report"], "required_capabilities": ["artifact_handoff"]}
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schema": "worker_task_proposal_policy.v1",
+  "key": "coordination_task_proposals",
+  "version": 1,
+  "default_decision": "deny",
+  "may_propose_tasks": true,
+  "allowed_task_kinds": ["planning", "review", "documentation", "handoff"],
+  "target_scope": ["same_team", "same_unit", "same_organization"],
+  "max_proposals_per_source_task": 5,
+  "max_amendment_depth": 1,
+  "budget_limits": {"max_estimated_tokens": 150000, "max_estimated_seconds": 86400, "max_estimated_cost_units": 750},
+  "approval_policy": {"mode": "hub_policy", "self_approval_allowed": false, "materialization_owner": "hub"},
+  "scope_constraints": {"inheritance_mode": "restrict_only", "capabilities": "source_assignment_intersection", "tools": "source_assignment_intersection", "context": "source_assignment_intersection", "evidence": "source_assignment_allowlist", "tenant": "source_assignment_exact", "project": "source_assignment_exact", "organization": "source_assignment_exact", "budget": "source_assignment_remaining", "source_category_items": "existing_items_only"},
+  "suggestion_constraints": {"role_hints_allowed": true, "team_hints_allowed": true, "agent_hints_allowed": true, "direct_worker_addresses_allowed": false, "queue_priority_override_allowed": false},
+  "revalidate_effective_policy_hash": true
+}

@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/blueprints/organization_topology_projection.v1.json",
+  "title": "Revision-bound organization topology projection v1",
+  "description": "Hub-owned, paginated hierarchy and graph read model. Runtime edges are read-only overlays and presentation layout is intentionally absent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "organization_id",
+    "definition_revision",
+    "snapshot_hash",
+    "nodes",
+    "edges",
+    "runtime_overlay",
+    "diagnostics",
+    "limits",
+    "next_cursor",
+    "truncated"
+  ],
+  "properties": {
+    "organization_id": { "$ref": "#/$defs/id" },
+    "definition_revision": { "$ref": "#/$defs/hash" },
+    "snapshot_hash": { "$ref": "#/$defs/hash" },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    },
+    "runtime_overlay": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/runtime_overlay" }
+      ]
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "limits": { "$ref": "#/$defs/limits" },
+    "next_cursor": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "minLength": 1, "maxLength": 4096 }
+      ]
+    },
+    "truncated": { "type": "boolean" }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 191 },
+    "hash": { "type": "string", "minLength": 32, "maxLength": 128 },
+    "node_kind": {
+      "type": "string",
+      "enum": ["organization", "coordination_unit", "value_stream", "team", "role_slot", "assignment"]
+    },
+    "edge_namespace": {
+      "type": "string",
+      "enum": ["hierarchy", "organization", "runtime"]
+    },
+    "edge_kind": {
+      "type": "string",
+      "enum": [
+        "contains",
+        "governs",
+        "enables",
+        "supplies_research_to",
+        "prototypes_for",
+        "reviews",
+        "releases_for",
+        "declared_dependency",
+        "handoff",
+        "escalates_to",
+        "runtime_task_dependency",
+        "handoff_instance",
+        "gate_state",
+        "escalation_event",
+        "assignment"
+      ]
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "stable_key", "kind", "parent_id", "label", "depth", "child_count", "metadata"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "stable_key": { "$ref": "#/$defs/id" },
+        "kind": { "$ref": "#/$defs/node_kind" },
+        "parent_id": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/id" }
+          ]
+        },
+        "label": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "depth": { "type": "integer", "minimum": 0 },
+        "child_count": { "type": "integer", "minimum": 0 },
+        "has_more_children": { "type": "boolean" },
+        "team_id": { "$ref": "#/$defs/id" },
+        "unit_id": { "$ref": "#/$defs/id" },
+        "role_slot_id": { "$ref": "#/$defs/id" },
+        "assignment_id": { "$ref": "#/$defs/id" },
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "metadata": { "type": "object" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "namespace", "kind", "source_id", "target_id", "read_only", "metadata"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "namespace": { "$ref": "#/$defs/edge_namespace" },
+        "kind": { "$ref": "#/$defs/edge_kind" },
+        "source_id": { "$ref": "#/$defs/id" },
+        "target_id": { "$ref": "#/$defs/id" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "read_only": { "type": "boolean" },
+        "metadata": { "type": "object" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "namespace": { "enum": ["hierarchy", "runtime"] } },
+            "required": ["namespace"]
+          },
+          "then": {
+            "properties": { "read_only": { "const": true } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "namespace": { "const": "hierarchy" } },
+            "required": ["namespace"]
+          },
+          "then": {
+            "properties": { "kind": { "const": "contains" } }
+          }
+        }
+      ]
+    },
+    "runtime_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "label"],
+      "properties": {
+        "state": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "label": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "reason_code": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "capacity_used": { "type": "number", "minimum": 0 },
+        "capacity_limit": { "type": "number", "minimum": 0 },
+        "blocker_count": { "type": "integer", "minimum": 0 },
+        "gate_count": { "type": "integer", "minimum": 0 },
+        "handoff_count": { "type": "integer", "minimum": 0 },
+        "drift": { "type": "boolean" }
+      }
+    },
+    "runtime_node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "status"],
+      "properties": {
+        "node_id": { "$ref": "#/$defs/id" },
+        "status": { "$ref": "#/$defs/runtime_status" },
+        "latest_artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["artifact_id", "version", "digest", "label"],
+            "properties": {
+              "artifact_id": { "$ref": "#/$defs/id" },
+              "version": { "type": "string", "minLength": 1, "maxLength": 80 },
+              "digest": { "$ref": "#/$defs/hash" },
+              "label": { "type": "string", "minLength": 1, "maxLength": 500 }
+            }
+          }
+        }
+      }
+    },
+    "runtime_overlay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["definition_revision", "snapshot_hash", "generated_at", "stale", "nodes", "edges"],
+      "properties": {
+        "definition_revision": { "$ref": "#/$defs/hash" },
+        "snapshot_hash": { "$ref": "#/$defs/hash" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "stale": { "type": "boolean" },
+        "nodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/runtime_node" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/edge" }
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "reason_code", "message"],
+      "properties": {
+        "severity": { "type": "string", "enum": ["info", "warning", "blocker"] },
+        "reason_code": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "node_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "policy_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "policy_hash",
+        "max_teams",
+        "max_units",
+        "max_role_slots",
+        "max_assignments",
+        "max_relations",
+        "max_patch_operations",
+        "max_page_size",
+        "max_depth",
+        "max_render_nodes",
+        "max_render_edges"
+      ],
+      "properties": {
+        "revision": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "policy_hash": { "$ref": "#/$defs/hash" },
+        "max_teams": { "type": "integer", "minimum": 10 },
+        "max_units": { "type": "integer", "minimum": 1 },
+        "max_role_slots": { "type": "integer", "minimum": 1 },
+        "max_assignments": { "type": "integer", "minimum": 1 },
+        "max_relations": { "type": "integer", "minimum": 1 },
+        "max_patch_operations": { "type": "integer", "minimum": 1 },
+        "max_page_size": { "type": "integer", "minimum": 1 },
+        "max_depth": { "type": "integer", "minimum": 1 },
+        "max_render_nodes": { "type": "integer", "minimum": 1 },
+        "max_render_edges": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

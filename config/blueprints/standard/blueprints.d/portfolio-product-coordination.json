@@ -1,0 +1,64 @@
+{
+  "schema": "seed_blueprint_catalog.v1",
+  "version": "1.0.0",
+  "blueprints": [
+    {
+      "name": "Portfolio-Product-Coordination",
+      "description": "Organization-level Product Goal, portfolio projection, dependency, capacity, risk, cost and release coordination without worker orchestration.",
+      "base_team_type_name": "Portfolio-Product-Coordination",
+      "key": "portfolio_product_coordination",
+      "version": 1,
+      "team_kind": "coordination",
+      "role_slots": [
+        {"slot_id": "portfolio_product_owner", "role_template_ref": "portfolio_product_owner@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 1, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["product_strategy", "planning"], "forbidden_capabilities": ["team_backlog_micromanagement", "worker_orchestration"], "write_access_required": false}, "separation_of_duties": {"enforcement": "warn", "independent_from_slot_ids": ["risk_compliance_lead"]}, "overlays": []},
+        {"slot_id": "product_manager", "role_template_ref": "product_manager@1", "required": false, "min_count": 0, "default_count": 1, "max_count": 3, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["product_management", "research"], "forbidden_capabilities": ["team_backlog_ordering"], "write_access_required": false}, "separation_of_duties": {"enforcement": "none", "independent_from_slot_ids": []}, "overlays": []},
+        {"slot_id": "program_delivery_lead", "role_template_ref": "program_delivery_lead@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["program_management", "planning"], "forbidden_capabilities": ["worker_orchestration", "queue_write"], "write_access_required": false}, "separation_of_duties": {"enforcement": "warn", "independent_from_slot_ids": ["risk_compliance_lead"]}, "overlays": []},
+        {"slot_id": "organization_scrum_master", "role_template_ref": "organization_scrum_master@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["agile_coaching", "coordination"], "forbidden_capabilities": ["worker_orchestration", "queue_write"], "write_access_required": false}, "separation_of_duties": {"enforcement": "none", "independent_from_slot_ids": []}, "overlays": []},
+        {"slot_id": "dependency_coordinator", "role_template_ref": "cross_team_dependency_coordinator@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 3, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["dependency_analysis", "coordination"], "forbidden_capabilities": ["task_dependency_write", "worker_orchestration"], "write_access_required": false}, "separation_of_duties": {"enforcement": "none", "independent_from_slot_ids": []}, "overlays": []},
+        {"slot_id": "release_manager", "role_template_ref": "release_manager@1", "required": true, "min_count": 1, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["release_management", "planning"], "forbidden_capabilities": ["deployment", "gate_bypass"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["program_delivery_lead"]}, "overlays": []},
+        {"slot_id": "risk_compliance_lead", "role_template_ref": "risk_compliance_lead@1", "required": false, "min_count": 0, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["risk_management", "compliance"], "forbidden_capabilities": ["policy_mutation", "risk_self_acceptance"], "write_access_required": false}, "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["portfolio_product_owner", "program_delivery_lead"]}, "overlays": []},
+        {"slot_id": "model_cost_steward", "role_template_ref": "model_cost_steward@1", "required": false, "min_count": 0, "default_count": 1, "max_count": 2, "assignment_policy": {"principal_kinds": ["agent", "human"], "required_capabilities": ["cost_analysis", "model_analysis"], "forbidden_capabilities": ["budget_mutation", "provider_activation", "policy_mutation"], "write_access_required": false}, "separation_of_duties": {"enforcement": "warn", "independent_from_slot_ids": ["program_delivery_lead"]}, "overlays": []}
+      ],
+      "artifact_contracts": [
+        {"kind": "organization_product_goal", "required": true, "portable": true},
+        {"kind": "portfolio_backlog_projection", "required": true, "portable": true},
+        {"kind": "team_allocation_proposal", "required": true, "portable": true},
+        {"kind": "dependency_map", "required": true, "portable": true},
+        {"kind": "portfolio_risk_register", "required": true, "portable": true},
+        {"kind": "release_outlook", "required": true, "portable": true}
+      ],
+      "policies": ["assignment_grounding@1", "governance_task_proposals@1", "portfolio_decision_boundaries@1"],
+      "capacity_defaults": {"min_agents": 5, "default_agents": 8, "max_agents": 16},
+      "workflow_ref": "portfolio_product_coordination_workflow@1",
+      "roles": [
+        {"name": "Portfolio Product Owner", "description": "Owns the organization Product Goal and portfolio ordering.", "template_name": "Governance - Portfolio Product Owner", "sort_order": 10, "is_required": true, "config": {"slot_id": "portfolio_product_owner", "min_count": 1, "default_count": 1, "max_count": 1}},
+        {"name": "Product Manager", "description": "Synthesizes product opportunity and outcome evidence.", "template_name": "Governance - Product Manager", "sort_order": 20, "is_required": false, "config": {"slot_id": "product_manager", "min_count": 0, "default_count": 1, "max_count": 3}},
+        {"name": "Program Delivery Lead", "description": "Produces capacity-aware delivery and allocation proposals.", "template_name": "Governance - Program Delivery Lead", "sort_order": 30, "is_required": true, "config": {"slot_id": "program_delivery_lead", "min_count": 1, "default_count": 1, "max_count": 2}},
+        {"name": "Organization Scrum Master / Agile Coach", "description": "Surfaces systemic flow constraints.", "template_name": "Governance - Organization Scrum Master", "sort_order": 40, "is_required": true, "config": {"slot_id": "organization_scrum_master", "min_count": 1, "default_count": 1, "max_count": 2}},
+        {"name": "Cross-Team Dependency Coordinator", "description": "Maintains owner-bound dependency evidence.", "template_name": "Governance - Dependency Coordinator", "sort_order": 50, "is_required": true, "config": {"slot_id": "dependency_coordinator", "min_count": 1, "default_count": 1, "max_count": 3}},
+        {"name": "Release Manager", "description": "Synchronizes release conditions without gate bypass.", "template_name": "Governance - Release Manager", "sort_order": 60, "is_required": true, "config": {"slot_id": "release_manager", "min_count": 1, "default_count": 1, "max_count": 2}},
+        {"name": "Risk and Compliance Lead", "description": "Maintains risk ownership and compliance outlook.", "template_name": "Governance - Risk and Compliance Lead", "sort_order": 70, "is_required": false, "config": {"slot_id": "risk_compliance_lead", "min_count": 0, "default_count": 1, "max_count": 2}},
+        {"name": "Model and Cost Steward", "description": "Maintains model and cost evidence within Hub policy.", "template_name": "Governance - Model and Cost Steward", "sort_order": 80, "is_required": false, "config": {"slot_id": "model_cost_steward", "min_count": 0, "default_count": 1, "max_count": 2}}
+      ],
+      "artifacts": [
+        {"kind": "task", "title": "Organization Product Goal", "description": "Create the shared Product Goal and outcome evidence without replacing team backlogs.", "sort_order": 10, "payload": {"status": "todo", "priority": "High"}},
+        {"kind": "task", "title": "Portfolio Coordination Pack", "description": "Produce portfolio projection, allocation proposal, dependency map, risk register and release outlook.", "sort_order": 20, "payload": {"status": "todo", "priority": "High"}},
+        {"kind": "policy", "title": "Portfolio Decision Boundaries", "description": "Coordination roles submit Hub-validated planning and routing proposals only.", "sort_order": 100, "payload": {"policy_ref": "portfolio_decision_boundaries@1", "task_proposal_policy_ref": "governance_task_proposals@1", "workers_may_orchestrate": false}}
+      ],
+      "workflow": {
+        "mode": "strict_gated",
+        "default_failure_policy": "block",
+        "steps": [
+          {"id": "product_goal", "role": "Portfolio Product Owner", "task_kind": "planning", "title": "Define organization Product Goal", "sort_order": 10, "produces": ["Organization Product Goal", "Portfolio Outcome Priorities"], "consumes": ["Goal Request", "Research Evidence"], "required_capabilities": ["product_strategy", "planning"]},
+          {"id": "product_evidence", "role": "Product Manager", "task_kind": "review", "title": "Synthesize product opportunity evidence", "sort_order": 20, "depends_on": ["product_goal"], "produces": ["Product Opportunity Brief", "Outcome Metric Map"], "consumes": ["Organization Product Goal", "Research Evidence", "User Evidence"], "required_capabilities": ["product_management", "research"]},
+          {"id": "dependency_map", "role": "Cross-Team Dependency Coordinator", "task_kind": "planning", "title": "Build owner-bound dependency map", "sort_order": 30, "depends_on": ["product_goal"], "produces": ["Dependency Map", "Dependency Escalations"], "consumes": ["Organization Product Goal", "Team Dependency Signals"], "required_capabilities": ["dependency_analysis", "coordination"]},
+          {"id": "allocation", "role": "Program Delivery Lead", "task_kind": "planning", "title": "Prepare team allocation and delivery outlook", "sort_order": 40, "depends_on": ["product_evidence", "dependency_map"], "produces": ["Team Allocation Proposal", "Delivery Outlook"], "consumes": ["Portfolio Outcome Priorities", "Outcome Metric Map", "Dependency Map", "Capacity State"], "required_capabilities": ["program_management", "planning"]},
+          {"id": "flow_review", "role": "Organization Scrum Master / Agile Coach", "task_kind": "review", "title": "Review systemic flow and impediments", "sort_order": 50, "depends_on": ["allocation"], "produces": ["Organization Flow Report", "Improvement Proposal"], "consumes": ["Delivery Outlook", "Dependency Map", "Team Flow Reports"], "required_capabilities": ["agile_coaching", "analysis"]},
+          {"id": "risk_review", "role": "Risk and Compliance Lead", "task_kind": "review", "title": "Review portfolio risk and compliance", "sort_order": 60, "depends_on": ["allocation"], "produces": ["Portfolio Risk Register", "Compliance Outlook"], "consumes": ["Team Allocation Proposal", "Delivery Outlook", "Governance Decisions"], "required_capabilities": ["risk_management", "compliance"]},
+          {"id": "cost_review", "role": "Model and Cost Steward", "task_kind": "review", "title": "Review model and cost outlook", "sort_order": 70, "depends_on": ["allocation"], "produces": ["Model Usage Report", "Cost Outlook"], "consumes": ["Team Allocation Proposal", "Model Usage Evidence", "Budget State"], "required_capabilities": ["cost_analysis", "model_analysis"]},
+          {"id": "release_outlook", "role": "Release Manager", "task_kind": "handoff", "title": "Prepare portfolio release outlook", "sort_order": 80, "depends_on": ["flow_review", "risk_review", "cost_review"], "produces": ["Release Outlook", "Portfolio Coordination Handoff"], "consumes": ["Organization Product Goal", "Team Allocation Proposal", "Dependency Map", "Organization Flow Report", "Portfolio Risk Register", "Cost Outlook"], "required_capabilities": ["release_management", "coordination"]}
+        ]
+      }
+    }
+  ]
+}

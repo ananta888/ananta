@@ -16,16 +16,17 @@ from agent.routes.tasks.status import normalize_task_status
 from agent.routes.tasks.vector_admin_boundary import (
     reserved_vector_mutation_response,
 )
+from agent.services.hub_event_service import build_task_history_event
+from agent.services.project_access_authority import (
+    ProjectAccessError,
+    ProjectCapability,
+)
 from agent.services.recovery_task_mutation_policy import (
     RecoveryTaskMutationConflict,
     ensure_external_recovery_mutation_allowed,
 )
 from agent.services.task_runtime_service import (
     update_local_task_status,
-)
-from agent.services.project_access_authority import (
-    ProjectAccessError,
-    ProjectCapability,
 )
 
 
@@ -61,6 +62,7 @@ class ControlCenterTaskMutationRoutes:
 
         project_id = str(body.get("project_id") or "").strip()
         project_scope = None
+        principal = None
         if project_id:
             principal = get_authenticated_source_control_principal()
             authority = current_app.extensions.get("project_access_authority")
@@ -101,6 +103,18 @@ class ControlCenterTaskMutationRoutes:
                 or None
             ),
         )
+        if project_scope is not None and principal is not None:
+            task.history = [
+                build_task_history_event(
+                    task,
+                    "task_ingested",
+                    actor=principal.subject_id,
+                    details={
+                        "source": "api",
+                        "channel": "control_center_task_management",
+                    },
+                )
+            ]
         saved = self._repository_provider().task_repo.save(task)
         log_audit(
             "control_center_task_created",

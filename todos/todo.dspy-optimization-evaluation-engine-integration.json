@@ -1,0 +1,1628 @@
+{
+  "$schema": "todo.track.schema.json",
+  "version": "1.0",
+  "created_at": "2026-08-02",
+  "last_reviewed": "2026-08-02",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "dspy-optimization-evaluation-engine-integration",
+  "status": "planned",
+  "purpose": "DSPy als optionale, isolierte Optimierungs- und Evaluations-Engine in Ananta integrieren. DSPy soll versionierte Prompt-Programme anhand freigegebener Datensaetze und Metriken optimieren, ohne Anantas Hub-Worker-Orchestrierung, Provider-Routing, CodeCompass-Retrieval, Policies, Budgets, Audit oder Artifact-Promotion zu umgehen.",
+  "goal": "Ananta kann fuer klar begrenzte Planungs-, strukturierte Ausgabe- und RAG-Aufgaben reproduzierbare DSPy-Experimente ausfuehren, Baseline und Kandidat vergleichen, sichere JSON-Programm-Artefakte erzeugen und erfolgreiche Kandidaten nach expliziter Freigabe ausrollen oder zurueckrollen. DSPy bleibt optional, standardmaessig deaktiviert und aus dem Ananta-Kern sowie dem normalen Inferenz-Hot-Path entkoppelt.",
+  "source_review": {
+    "reviewed_at": "2026-08-02",
+    "grounding_status": "repository_inspected_without_provided_source_or_run_ids",
+    "ananta_repository": "https://github.com/ananta888/ananta",
+    "ananta_reviewed_commit": "585593cdc9e21aa85ecc986f0d9a45a34c49edf0",
+    "dspy_repository": "https://github.com/stanfordnlp/dspy",
+    "dspy_reviewed_commit": "c69136b29aca4c00ca6da7667f7b80783188980e",
+    "observed_dspy_project_version": "3.3.0b1",
+    "observed_dspy_license": "MIT",
+    "note": "Die Repositories und genannten Commits wurden ueber GitHub inspiziert. Es wurden keine SRC_* oder RUN_* IDs bereitgestellt. Deshalb gelten die Beobachtungen nicht als source-grounded Release-Evidence; Release-, Kompatibilitaets-, Kosten- und Leistungsclaims muessen spaeter mit bereitgestellten unveraenderlichen Evidenz-IDs belegt werden."
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "evidence_policy": {
+    "source_ids": [],
+    "run_ids": [],
+    "rules": [
+      "Keine implementierte, getestete oder produktionsreife Eigenschaft darf allein aus diesem Plan abgeleitet werden.",
+      "Upstream-, Lizenz-, Modell-, Dataset-, Kosten-, Performance- und Release-Claims benoetigen unveraenderliche Artefakt-Digests sowie bereitgestellte SRC_* beziehungsweise RUN_* IDs.",
+      "Lokale Testausgaben koennen Entwicklungsdiagnostik liefern, ersetzen aber keine freigegebene Release-Evidence.",
+      "Fehlende Evidenz muss als unverified, pending oder failed dargestellt werden; Identifikatoren duerfen nicht erfunden werden."
+    ]
+  },
+  "architecture_decisions": [
+    {
+      "id": "ADR-DSPY-001",
+      "decision": "DSPy wird als optionale OptimizationEngine hinter schmalen Ananta-Ports integriert und nicht als ChatProvider oder primaere Workflow-Runtime.",
+      "reason": "Ananta bleibt Control Plane; DSPy optimiert abgegrenzte Programme, orchestriert aber weder Worker noch Hub-Tasks."
+    },
+    {
+      "id": "ADR-DSPY-002",
+      "decision": "Alle DSPy-Modellaufrufe laufen ueber einen AnantaBaseLM-Bridge und ein vom Hub aufgeloestes ProviderExecutionBinding.",
+      "reason": "Direkte LiteLLM-, OpenAI-, Anthropic-, Ollama- oder LM-Studio-Aufrufe aus DSPy wuerden Routing, Least-Privilege, Kostenlimits, Endpoint-Policy und Audit umgehen."
+    },
+    {
+      "id": "ADR-DSPY-003",
+      "decision": "CodeCompass beziehungsweise Anantas autorisierte Hybrid-Retrieval-Ports bleiben die einzige Retriever-Quelle fuer produktive DSPy-RAG-Programme.",
+      "reason": "DSPy darf keine zweite unkontrollierte VectorDB-, Index- oder Quellenauswahl neben JSONVectorStore, Qdrant und dem bestehenden Scope-Modell einfuehren."
+    },
+    {
+      "id": "ADR-DSPY-004",
+      "decision": "Optimierte Programme werden standardmaessig als kanonische, menschenlesbare JSON-Artefakte gespeichert; Pickle und Full-Program-Deserialisierung sind verboten.",
+      "reason": "Pickle kann Code ausfuehren. Kanonische JSON-Artefakte sind diffbar, hashbar, auditierbar und in eine DSPy-unabhaengige Ananta-Darstellung ueberfuehrbar."
+    },
+    {
+      "id": "ADR-DSPY-005",
+      "decision": "Der normale Produktions-Hot-Path soll bevorzugt ein kanonisches ananta.prompt_program.v1-Artefakt ausfuehren; DSPy bleibt im Optimierungs-Worker.",
+      "reason": "Dies reduziert Laufzeitkopplung und ermoeglicht Exit, Rollback und native Reimplementierung ohne Verlust bereits optimierter Instruktionen und Demonstrationen."
+    },
+    {
+      "id": "ADR-DSPY-006",
+      "decision": "Promotion ist immer ein expliziter, revisionsgebundener Hub-Vorgang nach Baseline-Kandidaten-Vergleich und deterministischen Sicherheitsgates.",
+      "reason": "Ein besserer semantischer Score darf Schema-, Policy-, Security-, Kosten- oder Regression-Fehler nicht ueberstimmen."
+    },
+    {
+      "id": "ADR-DSPY-007",
+      "decision": "BootstrapFewShot und LabeledFewShot bilden den ersten freigegebenen Optimizer-Satz; MIPROv2, GEPA, SIMBA und weitere kostenintensive Optimierer bleiben separat freischaltbar.",
+      "reason": "Der erste Schnitt bleibt kontrollierbar und kostenseitig begrenzt, waehrend fortgeschrittene Suche spaeter unter strengeren Budgets aktiviert werden kann."
+    },
+    {
+      "id": "ADR-DSPY-008",
+      "decision": "DSPy ReAct, MCP-Toolimporte, beliebige Python-Tools und autonome Agenten-Loops sind kein Bestandteil des ersten Produktionsschnitts.",
+      "reason": "Diese Funktionen wuerden Anantas bestehende Tool-Registry, Approval-Gates, ExecutionPlan- und Hub-Orchestrierung duplizieren oder umgehen."
+    },
+    {
+      "id": "ADR-DSPY-009",
+      "decision": "Gewichtsoptimierung und Fine-Tuning bleiben im bestehenden Unsloth-Track; DSPy darf nur versionierte Trainingsbeispiele oder Fine-Tuning-Spezifikationen ueber einen expliziten Handoff erzeugen.",
+      "reason": "GPU-, Modell-, Lizenz-, Promotion- und Adapter-Lifecycle bleiben in einer kanonischen Ananta-Pipeline."
+    },
+    {
+      "id": "ADR-DSPY-010",
+      "decision": "Die DSPy-Abhaengigkeit wird auf eine getestete Version beziehungsweise einen getesteten Bereich gepinnt und hinter einem Compatibility Adapter gekapselt.",
+      "reason": "Der inspizierte DSPy-main-Stand verwendet 3.3.0b1 und migriert den BaseLM-Vertrag; Ananta darf diese Upstream-API nicht ungekapselt im Domain-Code verteilen."
+    }
+  ],
+  "architecture_principles": [
+    "Hub owns orchestration, authorization, provider selection, budgets, promotion and rollback.",
+    "Worker executes exactly one delegated optimization job and never delegates to another worker.",
+    "Domain contracts importieren DSPy, LiteLLM, Cloudpickle oder Provider-SDKs nicht.",
+    "Ports fuer LM, Retrieval, Metrics, Artifact Store, Evaluation und Promotion bleiben klein und substituierbar.",
+    "DSPy-spezifische Typen duerfen weder in ExecutionPlan noch in persistierten Hub-Read-Models gelangen.",
+    "Default-off, local-first, fail-closed und artifact-first sind verbindliche Defaults.",
+    "Deterministische Regeln und Security-Gates haben Vorrang vor LLM-basierten Metriken oder Judges.",
+    "Jeder Optimierungslauf ist durch Dataset-, Programm-, Modell-, Provider-, Optimizer-, Metric- und Runtime-Digests reproduzierbar gebunden."
+  ],
+  "non_goals": [
+    "DSPy ersetzt nicht Anantas Goal-, Plan-, Task-, Workflow- oder Worker-Orchestrierung.",
+    "DSPy wird nicht als weiterer Modellprovider neben OpenAI, Anthropic, Ollama oder LM Studio modelliert.",
+    "DSPy ersetzt weder CodeCompass noch JSONVectorStore, Qdrant, Wiki-RAG oder den hybriden Retrieval-Layer.",
+    "Der erste Schnitt fuehrt keine DSPy-ReAct-Agenten, freien MCP-Importe oder ungeprueften Python-Tools produktiv aus.",
+    "Der erste Schnitt aktiviert kein automatisches Fine-Tuning und keine automatische Promotion.",
+    "Es werden keine Pickle-Artefakte oder fremde DSPy-Full-Program-Verzeichnisse geladen.",
+    "Es werden keine API-Keys, Tokens, Base-URLs, Modelllisten oder Roh-Secrets in DSPy-Artefakte serialisiert.",
+    "Bestehende PlanningPromptOptimizerService-Heuristiken werden nicht ohne gemessene Migration entfernt."
+  ],
+  "proposed_config_shape": {
+    "dspy_optimization": {
+      "enabled": false,
+      "mode": "disabled",
+      "worker_profile": "dspy-optimization",
+      "dependency_profile": "dspy",
+      "allowed_program_kinds": [
+        "planning_structured_tasks",
+        "rag_answer",
+        "structured_extraction"
+      ],
+      "allowed_optimizers": [
+        "labeled_few_shot",
+        "bootstrap_few_shot"
+      ],
+      "instruction_optimization_enabled": false,
+      "weight_optimization_enabled": false,
+      "provider_profile_refs": [
+        "local.default"
+      ],
+      "retriever_source": "codecompass",
+      "artifact_format": "ananta.prompt_program.v1",
+      "allow_pickle": false,
+      "allow_unsafe_lm_state": false,
+      "max_total_model_calls": 100,
+      "max_total_tokens": 500000,
+      "max_cost_micros": 0,
+      "timeout_seconds": 1800,
+      "max_concurrency": 2,
+      "cache_scope": "tenant_dataset_program_model_optimizer",
+      "promotion_requires_confirmation": true,
+      "dataset_policy": {
+        "require_manifest": true,
+        "require_hashes": true,
+        "require_train_validation_test_split": true,
+        "allow_external_dataset_download": false,
+        "redaction_required": true
+      }
+    }
+  },
+  "expected_new_files": [
+    "docs/decisions/ADR-dspy-optimization-engine.md",
+    "docs/integrations/dspy-optimization-engine.md",
+    "docs/security/dspy-optimization-threat-model.md",
+    "docs/operations/dspy-optimization-runbook.md",
+    "config/dspy/optimization_defaults.v1.json",
+    "schemas/dspy/optimization_spec.v1.json",
+    "schemas/dspy/optimization_run.v1.json",
+    "schemas/dspy/prompt_program.v1.json",
+    "schemas/dspy/promotion_plan.v1.json",
+    "ananta_contracts/dspy_optimization.py",
+    "agent/services/dspy_optimization_service.py",
+    "agent/services/dspy_optimization_job_service.py",
+    "agent/services/dspy_engine_capability_service.py",
+    "agent/services/dspy_evaluation_bridge_service.py",
+    "agent/services/dspy_artifact_registry_service.py",
+    "agent/services/dspy_promotion_service.py",
+    "agent/routes/dspy_optimization.py",
+    "worker/optimization/__init__.py",
+    "worker/optimization/dspy/__init__.py",
+    "worker/optimization/dspy/config.py",
+    "worker/optimization/dspy/lm_bridge.py",
+    "worker/optimization/dspy/retriever_bridge.py",
+    "worker/optimization/dspy/metric_bridge.py",
+    "worker/optimization/dspy/module_registry.py",
+    "worker/optimization/dspy/optimizer_registry.py",
+    "worker/optimization/dspy/artifact_serializer.py",
+    "worker/optimization/dspy/native_program_exporter.py",
+    "worker/optimization/dspy/job_runner.py",
+    "tests/dspy_optimization/",
+    "frontend-angular/src/app/features/dspy-optimization/"
+  ],
+  "expected_modified_files": [
+    "pyproject.toml",
+    ".env.example",
+    "agent/ai_agent.py",
+    "agent/services/prompt_provenance.py",
+    "agent/services/planning_prompt_optimizer_service.py",
+    "agent/services/model_intelligence_evaluation_service.py",
+    "agent/services/unsloth_evaluation_promotion_service.py",
+    "worker/retrieval/codecompass_retriever.py",
+    "frontend-angular/src/app/app.routes.ts",
+    "frontend-angular/src/app/services/",
+    "docker/compose-next/",
+    "README.md",
+    "docs/security/third-party-components.md"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Upstream-Evidenz, ADR, Threat Model und SOLID-Grenzen",
+      "task_ids": [
+        "DSPY-001",
+        "DSPY-002",
+        "DSPY-003",
+        "DSPY-004"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Kanonische Contracts, optionale Packaging-Grenze und Hub-Jobmodell",
+      "task_ids": [
+        "DSPY-005",
+        "DSPY-006",
+        "DSPY-007",
+        "DSPY-008",
+        "DSPY-009",
+        "DSPY-010"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Provider-, Retrieval-, Module- und Optimizer-Bridges im Worker",
+      "task_ids": [
+        "DSPY-011",
+        "DSPY-012",
+        "DSPY-013",
+        "DSPY-014",
+        "DSPY-015",
+        "DSPY-016",
+        "DSPY-017",
+        "DSPY-018"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Datasets, Metriken, Evaluation, Artefakte und Promotion",
+      "task_ids": [
+        "DSPY-019",
+        "DSPY-020",
+        "DSPY-021",
+        "DSPY-022",
+        "DSPY-023",
+        "DSPY-024",
+        "DSPY-025"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M5",
+      "title": "Ananta-Use-Cases, Rollout, Unsloth-Handoff und Bedienoberflaechen",
+      "task_ids": [
+        "DSPY-026",
+        "DSPY-027",
+        "DSPY-028",
+        "DSPY-029",
+        "DSPY-030",
+        "DSPY-031",
+        "DSPY-032"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M6",
+      "title": "Observability, Security, Testpyramide und Release-Paketierung",
+      "task_ids": [
+        "DSPY-033",
+        "DSPY-034",
+        "DSPY-035",
+        "DSPY-036",
+        "DSPY-037"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M7",
+      "title": "Dokumentation, Upstream-Kompatibilitaet und Produktionsabnahme",
+      "task_ids": [
+        "DSPY-038",
+        "DSPY-039",
+        "DSPY-040"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "DSPY-001",
+      "title": "Unveraenderliche DSPy-Upstream-, Lizenz- und Support-Baseline festlegen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "analysis",
+      "milestone_id": "M1",
+      "depends_on": [],
+      "files": [
+        "docs/security/third-party-components.md",
+        "docs/integrations/dspy-optimization-engine.md"
+      ],
+      "description": "Eine belastbare Baseline fuer DSPy-Version, Python-Kompatibilitaet, Lizenz, direkte und transitive Abhaengigkeiten sowie bekannte API-Migrationspunkte herstellen.",
+      "acceptance_criteria": [
+        "Ein freizugebender DSPy-Tag oder Commit ist mit unveraenderlichem Digest dokumentiert; main oder ungebundene Versionsangaben sind fuer Releases unzulaessig.",
+        "MIT-Lizenztext, Copyright-Hinweis und erforderliche Third-Party-Notices sind der konkreten freizugebenden Version zugeordnet.",
+        "Direkte Abhaengigkeiten wie LiteLLM, OpenAI-SDK, Cloudpickle, GEPA, Diskcache und Pydantic werden mit Lizenz-, Security- und Versionsstatus erfasst.",
+        "Die unterstuetzten Python- und Ananta-Versionen werden als Support-Matrix dokumentiert.",
+        "Der BaseLM-Vertragswechsel zwischen Legacy- und Typed-LM-Pfad ist als Compatibility-Risiko festgehalten.",
+        "Ohne bereitgestellte SRC_* Evidenz bleibt die Release-Baseline explizit unverified."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-002",
+      "title": "ADR fuer DSPy als OptimizationEngine statt Runtime oder Provider verabschieden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "milestone_id": "M1",
+      "depends_on": [
+        "DSPY-001"
+      ],
+      "files": [
+        "docs/decisions/ADR-dspy-optimization-engine.md",
+        "docs/integrations/dspy-optimization-engine.md"
+      ],
+      "description": "Die Rolle von DSPy, Verantwortungsgrenzen und Exit-Strategie verbindlich gegen Anantas Hub-Worker- und runtime-neutrale Architektur abgrenzen.",
+      "acceptance_criteria": [
+        "Die ADR bestimmt den Hub als alleinigen Owner von Task, Routing, Authorization, Budget, Evaluation, Promotion und Rollback.",
+        "Der DSPy-Worker fuehrt genau einen delegierten OptimizationRun aus und darf keine Worker oder Hub-Tasks erzeugen.",
+        "DSPy wird nicht in WorkflowAdapterKind oder ChatProvider eingeordnet, sofern kein spaeterer separater ADR dies begruendet.",
+        "Ananta-native Ausfuehrung und ein DSPy-freier Exit-Pfad fuer optimierte Prompt-Artefakte sind beschrieben.",
+        "ReAct, freie Tools, MCP-Importe und Fine-Tuning sind fuer Phase 1 explizit ausgeschlossen.",
+        "SRP, OCP, ISP, LSP und DIP werden fuer die geplanten Ports nachvollziehbar abgebildet."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-003",
+      "title": "Threat Model und Datenfluss fuer Optimierung, Evaluation und Promotion erstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M1",
+      "depends_on": [
+        "DSPY-002"
+      ],
+      "files": [
+        "docs/security/dspy-optimization-threat-model.md"
+      ],
+      "description": "Bedrohungen fuer Trainingsbeispiele, Quellcode, Prompt-Traces, Provider-Endpunkte, Artefakte, Cache, Metriken und Promotion systematisch modellieren.",
+      "acceptance_criteria": [
+        "Trust Boundaries fuer Hub, Queue, DSPy-Worker, Provider, Retriever, Artifact Store, UI und externe Modelle sind dokumentiert.",
+        "Prompt Injection, Data Poisoning, Secret Exfiltration, Cross-Tenant-Leaks, SSRF, Endpoint-Rebinding, Cache-Poisoning und Metric-Gaming besitzen konkrete Controls.",
+        "Pickle-, Cloudpickle- und beliebige Python-Deserialisierung sind als Code-Execution-Risiko erfasst und standardmaessig verboten.",
+        "Optimizer-generierte Instruktionen werden als untrusted content behandelt und duerfen keine Policies, Tools, Provider oder Endpunkte konfigurieren.",
+        "Roh-Prompts, Roh-Outputs und Code-Snippets besitzen Redaktions-, Retention- und Zugriffsklassen.",
+        "Negative Security-Tests und verantwortliche Owner sind jeder kritischen Bedrohung zugeordnet."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-004",
+      "title": "SOLID-konforme Ports und Verantwortungsmatrix definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "architecture",
+      "milestone_id": "M1",
+      "depends_on": [
+        "DSPY-002",
+        "DSPY-003"
+      ],
+      "files": [
+        "ananta_contracts/dspy_optimization.py",
+        "docs/integrations/dspy-optimization-engine.md"
+      ],
+      "description": "Kleine, domainneutrale Ports fuer Jobausfuehrung, LM, Retrieval, Metric, Artefakt, Evaluation und Promotion festlegen.",
+      "acceptance_criteria": [
+        "OptimizationEnginePort, AuthorizedLmPort, AuthorizedRetrieverPort, MetricPort, ProgramArtifactPort und PromotionPort besitzen getrennte Verantwortungen.",
+        "Kein Contract importiert dspy, litellm, cloudpickle oder konkrete Provider-SDKs.",
+        "Fakes koennen jeden Port ohne Netzwerk, GPU oder DSPy-Installation substituieren.",
+        "Fehler sind als stabile, secret-freie Reason Codes modelliert.",
+        "Persistenz-, API-, Worker- und Domain-Logik befinden sich nicht in einer gemeinsamen Service-Klasse.",
+        "Ein Architecture-Test verhindert neue verbotene Importkanten."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-005",
+      "title": "Versionierte OptimizationSpec-, Run- und PromptProgram-Contracts erstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "contract",
+      "milestone_id": "M2",
+      "depends_on": [
+        "DSPY-004"
+      ],
+      "files": [
+        "ananta_contracts/dspy_optimization.py",
+        "schemas/dspy/optimization_spec.v1.json",
+        "schemas/dspy/optimization_run.v1.json",
+        "schemas/dspy/prompt_program.v1.json",
+        "tests/dspy_optimization/test_contracts.py"
+      ],
+      "description": "Runtime-neutrale JSON-Vertraege fuer Auftrag, Eingaben, Limits, Ergebnis, Kandidatenprogramm, Evidenz und Fehler definieren.",
+      "acceptance_criteria": [
+        "OptimizationSpec bindet tenant_id, program_kind, dataset_manifest_digest, metric_set_digest, optimizer_id, optimizer_config_digest, seed und Provider-Bindings.",
+        "OptimizationRun trennt requested, admitted, running, cancelling, cancelled, failed und completed mit monotoner Revision.",
+        "PromptProgram enthaelt nur allowlist-faehige Signaturen, Instruktionen, Demonstrationen, Modulgraph, Modellreferenzen und Hashes.",
+        "DSPy-Pythonobjekte, Callables, Secrets, Base-URLs und freie Metadaten mit unbekannter Semantik sind verboten.",
+        "Contracts besitzen Groessenlimits, kanonische JSON-Serialisierung, SHA-256-Content-Digests und Upcast-Regeln.",
+        "Schema-, Roundtrip-, Fuzz- und Rueckwaertskompatibilitaetstests sind vorhanden."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-006",
+      "title": "DSPy als optionale, gepinnte Dependency und separates Worker-Profil paketieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "dependency",
+      "milestone_id": "M2",
+      "depends_on": [
+        "DSPY-001",
+        "DSPY-002"
+      ],
+      "files": [
+        "pyproject.toml",
+        "docker/compose-next/",
+        "docs/security/third-party-components.md"
+      ],
+      "description": "DSPy und seine transitive Laufzeit aus dem Ananta-Core fernhalten und nur in einem expliziten Extra beziehungsweise Worker-Image installieren.",
+      "acceptance_criteria": [
+        "Ein optionales dspy-Extra pinnt eine getestete Version oder einen getesteten kompatiblen Bereich mit begruendeter Obergrenze.",
+        "Der Core-, Hub- und Standard-Worker-Installationspfad importiert oder installiert DSPy nicht.",
+        "Ein separates reproduzierbares Worker-Image besitzt Dependency-Lock, SBOM und Image-Digest.",
+        "Startup ohne DSPy bleibt voll funktionsfaehig; fehlende Dependency ergibt capability_unavailable statt Importfehler im Hub.",
+        "Dependency-Konflikte mit Pydantic, OpenAI-SDK, LiteLLM, LlamaIndex und bestehenden Extras werden automatisiert geprueft.",
+        "Development-, CI- und Release-Profile dokumentieren denselben Dependency-Stand."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-007",
+      "title": "Default-off-Konfiguration und Policy-Validierung implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "configuration",
+      "milestone_id": "M2",
+      "depends_on": [
+        "DSPY-003",
+        "DSPY-005",
+        "DSPY-006"
+      ],
+      "files": [
+        "config/dspy/optimization_defaults.v1.json",
+        "worker/optimization/dspy/config.py",
+        ".env.example",
+        "tests/dspy_optimization/test_config.py"
+      ],
+      "description": "Typisierte, serialisierbare und secret-freie DSPy-Konfiguration mit sicheren Defaults bereitstellen.",
+      "acceptance_criteria": [
+        "enabled=false, mode=disabled, allow_pickle=false, allow_unsafe_lm_state=false und weight_optimization_enabled=false sind unveraenderliche Defaults.",
+        "Nur bekannte ProgramKinds, Optimizer, ProviderProfileRefs, Retriever-Quellen und Metric-Sets sind konfigurierbar.",
+        "Kosten-, Token-, Call-, Zeit-, Concurrency-, Dataset- und Artefaktlimits sind Pflichtfelder oder besitzen sichere Obergrenzen.",
+        "Plaintext-Secrets, freie Base-URLs, modellseitig gelieferte Endpunkte und unbekannte Config-Schluessel werden abgelehnt.",
+        "Konfigurationsaenderungen erzeugen einen Digest und Audit-Event.",
+        "Config-Parsing funktioniert ohne DSPy-Import."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-008",
+      "title": "OptimizationEngine-Capability-, Health- und Support-Projektion bereitstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "architecture",
+      "milestone_id": "M2",
+      "depends_on": [
+        "DSPY-006",
+        "DSPY-007"
+      ],
+      "files": [
+        "agent/services/dspy_engine_capability_service.py",
+        "agent/routes/dspy_optimization.py",
+        "tests/dspy_optimization/test_capability_service.py"
+      ],
+      "description": "Eine Hub-seitige, DSPy-freie Projektion fuer Verfuegbarkeit, Version, zugelassene Optimierer, Limits und Degradationsgruende erstellen.",
+      "acceptance_criteria": [
+        "Die Projektion meldet installed_version, compatibility_profile, mode, optimizer_capabilities, program_kinds, limits und health reason codes.",
+        "Der Hub importiert dafuer weder DSPy noch Worker-Implementierungen.",
+        "Nicht installierte, inkompatible oder deaktivierte Worker werden unterscheidbar als unavailable, degraded oder disabled dargestellt.",
+        "UI, CLI und API konsumieren dieselbe Read-Model-Projektion.",
+        "Capabilities werden vor Jobannahme deterministisch validiert.",
+        "Health-Probes fuehren keine Modellaufrufe oder externen Netzwerkzugriffe aus."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-009",
+      "title": "Hub-gesteuerten OptimizationJob-Lifecycle implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "contract",
+      "milestone_id": "M2",
+      "depends_on": [
+        "DSPY-005",
+        "DSPY-007",
+        "DSPY-008"
+      ],
+      "files": [
+        "agent/services/dspy_optimization_job_service.py",
+        "agent/routes/dspy_optimization.py",
+        "tests/dspy_optimization/test_job_service.py"
+      ],
+      "description": "Create, admit, dispatch, observe, cancel, retry und finalize fuer DSPy-Auftraege in den bestehenden Hub-Taskfluss einordnen.",
+      "acceptance_criteria": [
+        "Nur der Hub erstellt Job-ID, Attempt-ID, Fencing Token, Provider-Bindings, Budget und Worker-Authorization.",
+        "Create und Cancel sind tenantgebunden, idempotent und revisionsgeschuetzt.",
+        "Der Worker kann Status und Artefaktreferenzen melden, aber weder Budget noch Provider noch Promotion entscheiden.",
+        "Stale Attempts und doppelte Finalisierung werden sicher abgelehnt.",
+        "Cancel, Timeout, Worker-Verlust und Hub-Neustart besitzen definierte Recovery-Zustaende.",
+        "Jeder Zustandswechsel erzeugt ein secret-freies Audit- und Workflow-Event."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-010",
+      "title": "Tenantgebundene Artifact- und Persistence-Grenze fuer DSPy-Runs entwerfen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "milestone_id": "M2",
+      "depends_on": [
+        "DSPY-003",
+        "DSPY-005",
+        "DSPY-009"
+      ],
+      "files": [
+        "agent/services/dspy_artifact_registry_service.py",
+        "worker/optimization/dspy/artifact_serializer.py",
+        "tests/dspy_optimization/test_artifact_storage.py"
+      ],
+      "description": "Run-Manifeste, Kandidatenprogramme, Auswertungen und Promotion-Evidenz atomar und tenantisoliert speichern.",
+      "acceptance_criteria": [
+        "Artefaktpfade werden serverseitig aus Tenant-, Run- und Digest-Identitaeten abgeleitet; Clientpfade und Traversal werden abgelehnt.",
+        "Writes sind atomar, content-addressed und gegen TOCTOU sowie Symlink-Angriffe geschuetzt.",
+        "Rohdaten und menschenlesbare Read Models besitzen getrennte Zugriffsklassen und Retention-Regeln.",
+        "Kein Persistenzartefakt enthaelt API-Keys, Authorization Header oder unredigierte Secrets.",
+        "Artifact-Referenzen binden Schema, Digest, Groesse, Media Type, Producer Run und Tenant.",
+        "Delete, Retention, Legal Hold und Promotion-Referenzen verhindern verwaiste oder vorzeitig geloeschte Kandidaten."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-011",
+      "title": "AnantaBaseLM-Bridge fuer DSPy Legacy- und Typed-LM-Vertraege implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M3",
+      "depends_on": [
+        "DSPY-005",
+        "DSPY-006",
+        "DSPY-007",
+        "DSPY-009"
+      ],
+      "files": [
+        "worker/optimization/dspy/lm_bridge.py",
+        "tests/dspy_optimization/test_lm_bridge.py"
+      ],
+      "description": "DSPy-Aufrufe in Anantas kanonischen Provider-Request uebersetzen und Antworten verlustarm in den jeweils getesteten DSPy-Vertrag zurueckfuehren.",
+      "acceptance_criteria": [
+        "Der Bridge kapselt die getestete DSPy-API und verhindert DSPy-Imports ausserhalb des Worker-Adapters.",
+        "Legacy OpenAI-aehnliche Antworten und der Typed-LMRequest/LMResponse-Pfad besitzen getrennte Compatibility-Tests.",
+        "Messages, System/User/Assistant-Rollen, strukturierte Ausgaben, Usage, Finish Reason, Reasoning-Metadaten und Tool-Call-Daten werden nur soweit erlaubt normalisiert.",
+        "DSPy kann weder model_id, provider_id, endpoint_identity noch Credentials aus dem Hub-Binding ueberschreiben.",
+        "Providerfehler werden auf stabile Ananta-Reason-Codes abgebildet; Rohfehler und Secrets verlassen den Worker nicht.",
+        "Serialisierung der LM-State entfernt API-Keys, Base-URLs und Modelllisten unabhaengig von DSPy-Flags."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-012",
+      "title": "ProviderExecutionBinding und Authorization fuer jeden Optimizer-Aufruf erzwingen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M3",
+      "depends_on": [
+        "DSPY-003",
+        "DSPY-009",
+        "DSPY-011"
+      ],
+      "files": [
+        "worker/optimization/dspy/lm_bridge.py",
+        "ananta_contracts/provider_execution.py",
+        "tests/dspy_optimization/test_provider_authorization.py"
+      ],
+      "description": "Sicherstellen, dass Teacher-, Student-, Judge- und Proposal-Aufrufe ausschliesslich innerhalb Hub-autorisierter Provider- und Modellgrenzen stattfinden.",
+      "acceptance_criteria": [
+        "Jede LM-Rolle verweist auf ein konkretes ProviderExecutionBinding und einen maximalen Attempt-/Call-Anteil.",
+        "Unaufgeloeste auto/default-Modellreferenzen, freie Endpunkte und providerseitige Redirect-Rebindings werden abgelehnt.",
+        "Teacher, Student, Judge und Prompt-Proposer koennen unterschiedliche Bindings nutzen, muessen aber einzeln autorisiert sein.",
+        "Fallbacks duerfen nur der vom Hub gelieferten geordneten Attempt-Liste folgen.",
+        "Direkte Nutzung von dspy.LM oder LiteLLM mit Umgebungscredentials wird durch Code- und Integrationstests verhindert.",
+        "Audit verknuepft jeden Call mit run_id, attempt_id, binding_id, role, budget counter und redigiertem request hash."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-013",
+      "title": "Usage-, Kosten-, Cache- und Trace-Metadaten aus DSPy normalisieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M3",
+      "depends_on": [
+        "DSPY-011",
+        "DSPY-012"
+      ],
+      "files": [
+        "worker/optimization/dspy/lm_bridge.py",
+        "worker/optimization/dspy/job_runner.py",
+        "tests/dspy_optimization/test_usage_accounting.py"
+      ],
+      "description": "DSPy-History und Provider-Usage in bounded, secret-freie Ananta-Events und Budgetzaehler ueberfuehren.",
+      "acceptance_criteria": [
+        "Input-, Output-, Reasoning-, Cache- und Gesamt-Tokens werden pro Call und Run normalisiert, ohne fehlende Providerwerte zu erfinden.",
+        "Kosten werden ausschliesslich mit Anantas konfigurierten Preisprofilen berechnet; DSPy- oder Providerkosten sind nur beobachtete Zusatzmetadaten.",
+        "Cache Hits, Rollout-ID, Retry, Latenz, Modellantwort und Finish Reason sind getrennt auswertbar.",
+        "Prompts und Outputs werden standardmaessig nur als Digest und Groessenmetadaten erfasst.",
+        "Budgetzaehler sind monoton, thread-safe und gegen doppelte Callback-Ereignisse idempotent.",
+        "Ein fehlender Usage-Wert fuehrt je nach Policy zu konservativer Schaetzung oder fail-closed, nie zu Nullkostenfreigabe."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-014",
+      "title": "CodeCompass- und Hybrid-Retrieval-Bridge fuer DSPy bereitstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M3",
+      "depends_on": [
+        "DSPY-003",
+        "DSPY-005",
+        "DSPY-009"
+      ],
+      "files": [
+        "worker/optimization/dspy/retriever_bridge.py",
+        "worker/retrieval/codecompass_retriever.py",
+        "tests/dspy_optimization/test_retriever_bridge.py"
+      ],
+      "description": "Autorisierte CodeCompass-/Wiki-Retrieval-Ergebnisse in eine kleine DSPy-kompatible Retriever-Oberflaeche uebersetzen.",
+      "acceptance_criteria": [
+        "Workspace-, Repository-, Tenant-, Profil-, Quellen- und Rollen-Scope stammen aus einem trusted Hub-Contract.",
+        "Der Bridge nutzt bestehende Hybrid-/Vector-Store-Ports und erzeugt weder Embeddings noch eigene Indizes oder Collections.",
+        "JSONVectorStore und optional Qdrant bleiben durch denselben Port substituierbar.",
+        "top_k, Filter, Kontextgroesse, Zitationsreferenzen und Retrieval-Budget sind begrenzt und auditierbar.",
+        "DSPy kann keine URL-, Dateipfad-, VectorDB- oder Retriever-Implementierung aus Programm-Artefakten laden.",
+        "Cross-Tenant-, unbekannte Scope-, Failover- und Backend-unavailable-Faelle besitzen fail-closed Tests."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-015",
+      "title": "Allowlist fuer DSPy Signatures, Module und ProgramGraph definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M3",
+      "depends_on": [
+        "DSPY-003",
+        "DSPY-005",
+        "DSPY-011",
+        "DSPY-014"
+      ],
+      "files": [
+        "worker/optimization/dspy/module_registry.py",
+        "schemas/dspy/prompt_program.v1.json",
+        "tests/dspy_optimization/test_module_registry.py"
+      ],
+      "description": "Nur vorab registrierte, in kanonische Contracts uebersetzbare DSPy-Bausteine fuer Optimierung und Export zulassen.",
+      "acceptance_criteria": [
+        "Phase 1 erlaubt nur Predict, ChainOfThought und einen kontrollierten RAG-Composite ohne freie Python-Callables.",
+        "Signature-Felder besitzen feste Namen, Typen, Groessenlimits, Beschreibungen und Output-Schemas.",
+        "ReAct, CodeAct, RLM, Avatar, MCP, Tools und dynamische Modulimporte sind in Phase 1 gesperrt.",
+        "ProgramGraph ist azyklisch oder folgt einem explizit validierten bounded Graph-Contract.",
+        "Unbekannte Module, Felder, Typen, Konfigurationen und serialisierte Klassen werden vor Modellaufrufen abgelehnt.",
+        "Registry und Exporter besitzen LSP- und Contracttests fuer jede freigegebene Modulart."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-016",
+      "title": "Policy-gesteuerte Optimizer Registry implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M3",
+      "depends_on": [
+        "DSPY-005",
+        "DSPY-007",
+        "DSPY-015"
+      ],
+      "files": [
+        "worker/optimization/dspy/optimizer_registry.py",
+        "tests/dspy_optimization/test_optimizer_registry.py"
+      ],
+      "description": "Optimizer ueber stabile Ananta-IDs, Parameter-Schemas, Mindestdaten, erwartete Call-Klassen und Risikoprofile registrieren.",
+      "acceptance_criteria": [
+        "LabeledFewShot und BootstrapFewShot sind der minimale freigegebene Phase-1-Satz.",
+        "BootstrapFewShotWithRandomSearch, MIPROv2, GEPA und SIMBA bleiben getrennte, standardmaessig deaktivierte Capabilities.",
+        "Jeder Optimizer besitzt ein validiertes Parameter-Schema, harte Obergrenzen und eine konservative Vorabschaetzung der Modellaufrufe.",
+        "Optimizer koennen keine eigenen Provider, Retriever, Tools, Threads oder Dateipfade konfigurieren.",
+        "Unbekannte oder in der installierten DSPy-Version fehlende Optimizer ergeben einen stabilen compatibility error.",
+        "Weight-Optimizer und BootstrapFinetune werden im Produktionspfad abgelehnt und nur ueber den Unsloth-Handoff adressiert."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-017",
+      "title": "Isolierten DSPy Optimization Worker und JobRunner implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "integration",
+      "milestone_id": "M3",
+      "depends_on": [
+        "DSPY-006",
+        "DSPY-009",
+        "DSPY-011",
+        "DSPY-012",
+        "DSPY-014",
+        "DSPY-015",
+        "DSPY-016"
+      ],
+      "files": [
+        "worker/optimization/dspy/job_runner.py",
+        "worker/optimization/dspy/__init__.py",
+        "docker/compose-next/",
+        "tests/dspy_optimization/test_job_runner.py"
+      ],
+      "description": "Den vollstaendigen, delegierten OptimizationRun im eigenen Container mit kontrolliertem Lifecycle ausfuehren.",
+      "acceptance_criteria": [
+        "Der Worker akzeptiert nur vom Hub signierte beziehungsweise authorisierte OptimizationSpec-Vertraege.",
+        "Pro Job werden DSPy Settings, LM-Kontext, Cache, Callbacks und temporaere Dateien isoliert; globale Settings leaken nicht zwischen Jobs.",
+        "Der Worker erstellt keine Hub-Tasks, ruft keine anderen Worker auf und besitzt keine Promotion-Berechtigung.",
+        "Zwischenergebnisse werden nur als bounded Checkpoints gespeichert und koennen nach Neustart eindeutig fortgesetzt oder verworfen werden.",
+        "Cancel und Timeout unterbrechen neue Calls, sichern einen terminalen Zustand und beseitigen temporaere Ressourcen.",
+        "Mock-, Local- und Cloud-gated-Modi besitzen getrennte Admission- und E2E-Tests."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-018",
+      "title": "Globale Budgets, Concurrency, Retry, Cache und Cancellation durchsetzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "runtime",
+      "milestone_id": "M3",
+      "depends_on": [
+        "DSPY-009",
+        "DSPY-013",
+        "DSPY-016",
+        "DSPY-017"
+      ],
+      "files": [
+        "worker/optimization/dspy/job_runner.py",
+        "agent/services/dspy_optimization_job_service.py",
+        "tests/dspy_optimization/test_budget_enforcement.py"
+      ],
+      "description": "Kostenexplosion und unkontrollierte Optimizer-Suche durch hierarchische, fail-closed Budgets verhindern.",
+      "acceptance_criteria": [
+        "Run-, Optimizer-, Rolle-, Trial- und Call-Budgets werden vor und nach jedem Modellaufruf atomar geprueft.",
+        "Max Calls, Tokens, Kosten, Wall Time, Trials, Threads, Retries, Dataset Records und Artifact Bytes sind begrenzt.",
+        "Optimizer-interne Parallelisierung kann die Hub- und Worker-Concurrency-Limits nicht umgehen.",
+        "Retry verbraucht Budget, respektiert idempotente Request-Identitaeten und verhindert Retry-Stuerme.",
+        "Cache Keys enthalten Tenant, Dataset-, Program-, Model-, Provider-, Optimizer-, Metric- und Config-Digests; Cross-Tenant-Treffer sind ausgeschlossen.",
+        "Budgeterschoepfung, Cancellation und fehlende Usage enden mit stabilen Reason Codes und niemals mit automatischer Promotion."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-019",
+      "title": "Versionierte Dataset-Manifeste, Splits und Datenschutzregeln einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M4",
+      "depends_on": [
+        "DSPY-003",
+        "DSPY-005",
+        "DSPY-010"
+      ],
+      "files": [
+        "schemas/dspy/optimization_spec.v1.json",
+        "agent/services/dspy_optimization_service.py",
+        "tests/dspy_optimization/test_dataset_manifest.py"
+      ],
+      "description": "Train-, Validation- und Testdaten unveraenderlich, tenantgebunden, redigiert und gegen Leakage beziehungsweise Poisoning pruefbar machen.",
+      "acceptance_criteria": [
+        "DatasetManifest bindet Dataset-ID, Version, Content-Digest, Record-Schema, Source-Referenzen, Split-Digests, Lizenz, Sensitivity und Retention.",
+        "Train, Validation und Test sind disjunkt oder dokumentieren kontrollierte Ueberlappung; Duplicate- und Leakage-Checks sind automatisiert.",
+        "Externe Downloads sind default-off und benoetigen eine separate, allowlist-basierte Importpipeline.",
+        "Secrets, personenbezogene Daten, vertraulicher Code und Lizenzrestriktionen werden vor Optimierung klassifiziert und nach Policy redigiert oder blockiert.",
+        "Record-Anzahl, Feldgroesse, Gesamtgroesse und verschachtelte Tiefe sind begrenzt.",
+        "Dataset-Aenderungen erzeugen neue Digests und invalidieren vorhandene Evaluation- oder Promotion-Evidenz."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-020",
+      "title": "Deterministische und semantische Metric-Bridge implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M4",
+      "depends_on": [
+        "DSPY-005",
+        "DSPY-012",
+        "DSPY-019"
+      ],
+      "files": [
+        "worker/optimization/dspy/metric_bridge.py",
+        "agent/services/dspy_evaluation_bridge_service.py",
+        "tests/dspy_optimization/test_metric_bridge.py"
+      ],
+      "description": "Ananta-Metriken in DSPy-kompatible Scores uebersetzen, ohne deterministische Gates durch LLM-Judges ersetzbar zu machen.",
+      "acceptance_criteria": [
+        "Schema-Validitaet, Parsebarkeit, Policy, Zitation, Pflichtfelder und Security sind deterministische Pass/Fail-Gates.",
+        "Task-spezifische Qualitaetsmetriken besitzen Version, Richtung, Wertebereich, Toleranz und Aggregationsregel.",
+        "Optionale LLM-Judges nutzen ein separates Hub-authorisiertes Binding und koennen deterministische Fehler niemals in Erfolg umwandeln.",
+        "Metric Exceptions, NaN, Infinity, fehlende Werte und uneinheitliche Skalen werden fail-closed behandelt.",
+        "Per-Record-Scores und Aggregate sind reproduzierbar an Metric- und Dataset-Digests gebunden.",
+        "Metric-Gaming wird durch Holdout-Testset, Mindestfallzahl und getrennte Optimierungs-/Release-Metriken begrenzt."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-021",
+      "title": "Reproduzierbaren Baseline-Kandidaten-Vergleich anbinden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M4",
+      "depends_on": [
+        "DSPY-013",
+        "DSPY-018",
+        "DSPY-019",
+        "DSPY-020"
+      ],
+      "files": [
+        "agent/services/dspy_evaluation_bridge_service.py",
+        "agent/services/model_intelligence_evaluation_service.py",
+        "schemas/dspy/optimization_run.v1.json",
+        "tests/dspy_optimization/test_evaluation_bridge.py"
+      ],
+      "description": "Bestehende Ananta-Evaluationen fuer faire Baseline-Kandidaten-Vergleiche von Prompt-Programmen wiederverwenden.",
+      "acceptance_criteria": [
+        "Baseline und Kandidat verwenden dasselbe Testset, Metric-Set, Provider-/Modellprofil, Runtimeprofil und vergleichbare Sampling-Parameter.",
+        "Seed, Prompt-Digest, DSPy-Version, Hardware, Cache-Modus, Wiederholungen und Warmups werden im Run-Manifest erfasst.",
+        "Qualitaet, Parse-Rate, Policy-Verstoesse, Tokens, Kosten und Latenz sind gemeinsam vergleichbar.",
+        "Statistische Unsicherheit, Mindestfallzahl und Regressionsschwellen verhindern Promotion aufgrund zufaelliger Einzelresultate.",
+        "Nicht vergleichbare Runs erhalten einen klaren reason_code statt eines irrefuehrenden Delta-Werts.",
+        "Testset-Ergebnisse sind fuer den Optimizer nicht als Trainingsfeedback verfuegbar."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-022",
+      "title": "Sicheren JSON-only DSPy-Program-State-Serializer bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M4",
+      "depends_on": [
+        "DSPY-003",
+        "DSPY-005",
+        "DSPY-015",
+        "DSPY-017"
+      ],
+      "files": [
+        "worker/optimization/dspy/artifact_serializer.py",
+        "schemas/dspy/prompt_program.v1.json",
+        "tests/dspy_optimization/test_artifact_serializer.py"
+      ],
+      "description": "Optimierte Instruktionen und Demonstrationen sicher extrahieren, normalisieren und ohne ausfuehrbaren Objektgraph speichern.",
+      "acceptance_criteria": [
+        "Nur state-only JSON fuer allowlist-faehige Module wird akzeptiert; .pkl, save_program, dspy.load und allow_pickle bleiben gesperrt.",
+        "api_key, api_base, base_url, model_list, Callables, Klassenpfade, Dateipfade und unbekannte Providerdaten werden entfernt oder blockiert.",
+        "Instruktionen und Demonstrationen werden gegen Groessen-, Feld-, Unicode-, Schema- und Prompt-Injection-Regeln validiert.",
+        "Serializer und Loader sind kanonisch, transaktional und erzeugen identische Digests bei semantisch identischem Zustand.",
+        "DSPy-, Python- und Schema-Versionen sowie Compatibility-Profil werden als nicht ausfuehrbare Metadaten gespeichert.",
+        "Malicious-, Corrupt-, Oversized-, Unknown-Module- und Endpoint-Injection-Fixtures werden sicher abgelehnt."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-023",
+      "title": "DSPy-Program-State in kanonisches Ananta PromptProgram exportieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "architecture",
+      "milestone_id": "M4",
+      "depends_on": [
+        "DSPY-005",
+        "DSPY-015",
+        "DSPY-022"
+      ],
+      "files": [
+        "worker/optimization/dspy/native_program_exporter.py",
+        "schemas/dspy/prompt_program.v1.json",
+        "tests/dspy_optimization/test_native_program_exporter.py"
+      ],
+      "description": "Die fuer Inferenz benoetigten Ergebnisse in eine DSPy-unabhaengige Ananta-Darstellung ueberfuehren.",
+      "acceptance_criteria": [
+        "Exporter uebertraegt Signatur, Instruktionen, Feldmetadaten, Demonstrationen, Modulreihenfolge und Modellrollen ohne Pythonobjekte.",
+        "Nur semantisch unterstuetzte Module koennen exportiert werden; unsupported_program ist ein terminaler, erklaerbarer Zustand.",
+        "Ein nativer Renderer erzeugt fuer Referenzfaelle dieselben strukturellen Eingaben wie der getestete DSPy-Renderer innerhalb definierter Toleranz.",
+        "DSPy bleibt fuer den normalen Inferenz-Hot-Path optional.",
+        "Exportierte Artefakte besitzen Source-Program-, Exporter-, Schema- und Content-Digests.",
+        "Golden- und Differentialtests erkennen Upstream-Format- oder Rendering-Aenderungen."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-024",
+      "title": "DSPy-Optimierung in PromptProvenance und Artifact-Traceability integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M4",
+      "depends_on": [
+        "DSPY-010",
+        "DSPY-021",
+        "DSPY-022",
+        "DSPY-023"
+      ],
+      "files": [
+        "agent/services/prompt_provenance.py",
+        "agent/services/dspy_artifact_registry_service.py",
+        "tests/dspy_optimization/test_prompt_provenance.py"
+      ],
+      "description": "Von Baseline ueber OptimizationRun bis zum final gerenderten Prompt eine nachvollziehbare, content-addressed Kette herstellen.",
+      "acceptance_criteria": [
+        "PromptProvenance kennt einen versionierten dspy_optimized_program-Eintrag mit Run-, Program-, Dataset-, Metric-, Optimizer- und Export-Digests.",
+        "Input- und Output-Hashes zeigen Aenderungen, ohne Roh-Prompts in Standardlogs zu duplizieren.",
+        "Nicht angewendete Kandidaten dokumentieren reason_not_applied und bleiben von aktiver Runtimekonfiguration getrennt.",
+        "Jede aktive Programmrevision ist auf Evaluation, Promotion und vorherige Revision rueckverfolgbar.",
+        "Provenienz bleibt bei Rollback erhalten und wird nicht ueberschrieben.",
+        "API, CLI und UI zeigen dieselbe kanonische Provenienzprojektion."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-025",
+      "title": "Explizite Promotion-, Canary- und Rollback-Gates implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "governance",
+      "milestone_id": "M4",
+      "depends_on": [
+        "DSPY-021",
+        "DSPY-022",
+        "DSPY-024"
+      ],
+      "files": [
+        "schemas/dspy/promotion_plan.v1.json",
+        "agent/services/dspy_promotion_service.py",
+        "agent/services/dspy_artifact_registry_service.py",
+        "tests/dspy_optimization/test_promotion_service.py"
+      ],
+      "description": "Nur evaluierten, policy-konformen und explizit bestaetigten Kandidaten eine aktive Revision geben.",
+      "acceptance_criteria": [
+        "PromotionPlan bindet Tenant, Kandidatendigest, Baseline, Evaluation, Dataset, Metriken, Mindestschwellen, Zielscope und erwartete Registry-Revision.",
+        "Plan und Bestaetigung verwenden einen HMAC-sicheren beziehungsweise digestgebundenen Zwei-Schritt wie bestehende Unsloth-Promotionen.",
+        "Deterministische Fehler, Security-Verstoesse, fehlende Evidenz, Kostenregressionen oder nicht vergleichbare Runs blockieren Promotion.",
+        "Canary-Scope und Rollout-Anteil sind begrenzt und koennen ohne Neuoptimierung erweitert oder zurueckgenommen werden.",
+        "Rollback aktiviert atomar eine bekannte vorherige Revision und erhaelt vollstaendige Audit-Historie.",
+        "Optimierer oder Worker besitzen keine Promotion- oder Registry-Schreibberechtigung."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-026",
+      "title": "PlanningStructuredTasks als ersten produktiven Use Case anbinden",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M5",
+      "depends_on": [
+        "DSPY-020",
+        "DSPY-023",
+        "DSPY-024",
+        "DSPY-025"
+      ],
+      "files": [
+        "agent/services/planning_prompt_optimizer_service.py",
+        "agent/services/dspy_optimization_service.py",
+        "tests/dspy_optimization/test_planning_use_case.py"
+      ],
+      "description": "Anantas strukturierte Planung als eng begrenzten DSPy-Optimierungsfall mit vorhandenem Fallback integrieren.",
+      "acceptance_criteria": [
+        "Input- und Output-Signatur entsprechen dem kanonischen Planning-Task-Schema und akzeptieren keine freien Tool- oder Routingfelder.",
+        "Bestehende heuristische Promptoptimierung bleibt Baseline und Fallback, bis ein Kandidat explizit promoted wurde.",
+        "Metriken umfassen JSON-/Schema-Validitaet, Task-Vollstaendigkeit, Abhaengigkeitsgueltigkeit, Duplikate, Policy und Kosten.",
+        "Optimierte Programme sind nach Sprache, Planning-Modus, Modellprofil und Schema-Version gescoped.",
+        "Ein Fehler im DSPy-Artefakt faellt kontrolliert auf die bekannte Baseline zurueck.",
+        "Differential- und Regressionstests decken goal-to-plan-to-task ohne Worker-to-Worker-Orchestrierung ab."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-027",
+      "title": "CodeCompass-RAG-Antwortprogramm als zweiten Use Case integrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M5",
+      "depends_on": [
+        "DSPY-014",
+        "DSPY-020",
+        "DSPY-023",
+        "DSPY-025"
+      ],
+      "files": [
+        "agent/services/rag_service.py",
+        "worker/optimization/dspy/retriever_bridge.py",
+        "tests/dspy_optimization/test_rag_use_case.py"
+      ],
+      "description": "Ein kontrolliertes Retrieve-Then-Answer-Programm gegen Anantas bestehende Retrieval- und Zitierungsvertraege optimieren.",
+      "acceptance_criteria": [
+        "Retriever-Queries und Antwortsignatur sind fest definiert; Quellenzugriff bleibt auf den autorisierten Scope begrenzt.",
+        "Metriken pruefen Antwortrelevanz, Zitierungsabdeckung, Source-Binding, Halluzination, Kontextverbrauch, Latenz und Kosten.",
+        "Optimierung kann Retriever-Prompts und Antwortinstruktionen aendern, aber weder Store-Backend, Scope noch Berechtigungen.",
+        "JSONVectorStore- und Qdrant-Pfade liefern contractkompatible Eingaben.",
+        "Leere, widerspruechliche, gesperrte und degradierte Retrieval-Ergebnisse besitzen definierte Ausgaben.",
+        "Release-Gates verlangen einen unabhaengigen Holdout-Satz mit code- und wiki-spezifischen Faellen."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-028",
+      "title": "Strukturierte Extraktion und Output-Reparatur als dritten Use Case integrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M5",
+      "depends_on": [
+        "DSPY-015",
+        "DSPY-020",
+        "DSPY-023",
+        "DSPY-025"
+      ],
+      "files": [
+        "agent/services/dspy_optimization_service.py",
+        "tests/dspy_optimization/test_structured_extraction_use_case.py"
+      ],
+      "description": "DSPy fuer klar typisierte Extraktions- und Normalisierungsaufgaben nutzen, ohne Schema-Reparatur als Erfolg zu tarnen.",
+      "acceptance_criteria": [
+        "Jeder ProgramKind bindet eine konkrete JSON-Schema-Version und feste Input-/Outputfelder.",
+        "Strict parse, repaired parse und unparseable werden getrennt gemessen und ausgewiesen.",
+        "Reparatur darf keine fehlenden fachlichen Werte erfinden und muss ihre Transformation nachvollziehbar protokollieren.",
+        "Schema- und Security-Verstoesse bleiben deterministische Fehler, unabhaengig vom semantischen Score.",
+        "Feldgenauigkeit, Vollstaendigkeit, Zusatzfelder, Formatstabilitaet, Tokens und Latenz werden bewertet.",
+        "Golden-Datasets enthalten valide, invalide, adversariale, mehrsprachige und uebergrosse Eingaben."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-029",
+      "title": "Shadow-, A/B- und Canary-Rollout ohne Seiteneffekte bereitstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "governance",
+      "milestone_id": "M5",
+      "depends_on": [
+        "DSPY-025",
+        "DSPY-026",
+        "DSPY-027",
+        "DSPY-028"
+      ],
+      "files": [
+        "agent/services/dspy_promotion_service.py",
+        "agent/services/dspy_optimization_service.py",
+        "tests/dspy_optimization/test_rollout_policy.py"
+      ],
+      "description": "Kandidaten vor voller Aktivierung kontrolliert vergleichen und schnell auf die Baseline zurueckschalten.",
+      "acceptance_criteria": [
+        "Shadow-Ausfuehrung beeinflusst keine Task-, Tool-, Artifact- oder Benutzerergebnisse und besitzt ein separates Budget.",
+        "A/B-Zuordnung ist tenant-, scope- und revisionsgebunden sowie stabil hashbasiert.",
+        "Canary-Rollout besitzt Maximalanteil, Laufzeit, Mindeststichprobe, Stop-Kriterien und manuelle Kill-Switches.",
+        "Security-, Parse-, Kosten- oder Latenzregressionen koennen automatisch stoppen, aber niemals automatisch vollstaendig promoten.",
+        "Vergleichsdaten sind redigiert, retention-begrenzt und gegen Cross-Tenant-Vermischung geschuetzt.",
+        "Rollback und Baseline-Fallback werden in E2E-Tests unter laufender Last geprueft."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-030",
+      "title": "Kontrollierten DSPy-zu-Unsloth-Dataset-Handoff definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M5",
+      "depends_on": [
+        "DSPY-019",
+        "DSPY-020",
+        "DSPY-021",
+        "DSPY-022"
+      ],
+      "files": [
+        "ananta_contracts/dspy_optimization.py",
+        "agent/services/unsloth_evaluation_promotion_service.py",
+        "docs/integrations/dspy-optimization-engine.md",
+        "tests/dspy_optimization/test_unsloth_handoff.py"
+      ],
+      "description": "Aus evaluierten DSPy-Traces optionale Trainingsdatensaetze erzeugen, ohne Fine-Tuning direkt aus dem DSPy-Worker zu starten.",
+      "acceptance_criteria": [
+        "Handoff ist ein versioniertes, content-addressed DatasetManifest mit Lineage zu Run, Programm, Modellen, Metriken und Quellen.",
+        "Nur durch Metric- und Security-Gates akzeptierte Beispiele koennen exportiert werden.",
+        "Teacher-generierte Labels sind als synthetisch gekennzeichnet und von menschlichen Labels unterscheidbar.",
+        "Der DSPy-Worker besitzt keine Berechtigung zum Erstellen oder Promoten eines Unsloth-Trainingsjobs.",
+        "Unsloth validiert Dataset, Base Model, Lizenz, Hardware und Promotion weiterhin eigenstaendig.",
+        "PII-, Secret-, Duplicate-, Poisoning- und Lizenzchecks laufen vor dem Handoff erneut."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-031",
+      "title": "Hub-API und CLI fuer DSPy-Experimente bereitstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "api",
+      "milestone_id": "M5",
+      "depends_on": [
+        "DSPY-008",
+        "DSPY-009",
+        "DSPY-021",
+        "DSPY-025"
+      ],
+      "files": [
+        "agent/routes/dspy_optimization.py",
+        "agent/cli/commands/",
+        "tests/dspy_optimization/test_api.py",
+        "tests/dspy_optimization/test_cli.py"
+      ],
+      "description": "Create, validate, dry-run, start, status, cancel, compare, inspect, promote und rollback als sichere Hub-Operationen anbieten.",
+      "acceptance_criteria": [
+        "API und CLI verwenden dieselben Domainservices, Contracts, Authorization- und Revision-Gates.",
+        "Dry-run zeigt Providerrollen, Dataset, Optimizer, erwartete Calls, harte Limits, Risiken und fehlende Capabilities ohne Modellaufruf.",
+        "Mutationen benoetigen CSRF-/Authz-Schutz, Idempotency Key und bei Promotion eine explizite Confirmation.",
+        "Responses enthalten keine Secrets, Roh-Prompts oder internen Stacktraces.",
+        "Listen- und Detailendpunkte sind tenantisoliert, paginiert und bounded.",
+        "Fehlercodes und Beispiele sind in OpenAPI- und CLI-Dokumentation abgedeckt."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-032",
+      "title": "Angular-Arbeitsbereich fuer DSPy-Optimierung und Vergleich bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "frontend",
+      "milestone_id": "M5",
+      "depends_on": [
+        "DSPY-008",
+        "DSPY-021",
+        "DSPY-025",
+        "DSPY-031"
+      ],
+      "files": [
+        "frontend-angular/src/app/features/dspy-optimization/",
+        "frontend-angular/src/app/app.routes.ts",
+        "frontend-angular/src/app/services/"
+      ],
+      "description": "Gefuehrte Auswahl von ProgramKind, Dataset, Metrik, Modellen, Optimizer und Budget sowie nachvollziehbaren Baseline-Kandidaten-Vergleich anbieten.",
+      "acceptance_criteria": [
+        "Die UI zeigt DSPy als optionale Optimierungs-Engine und nicht als Modellprovider oder autonomen Agenten.",
+        "Nur vom Hub projizierte Capabilities, ProviderProfileRefs, Datasets, Metriken und Optimizer sind auswählbar.",
+        "Vor Start werden geschätzte Calls, Token-/Kosten-/Zeitlimits, Datenlokalität und Risiken verständlich dargestellt.",
+        "Run-Status, Budgetverbrauch, Fehlergrund, Baseline-Kandidat-Deltas, Provenienz und Artefaktdigests sind sichtbar.",
+        "Promotion und Rollback besitzen getrennte Bestätigungsdialoge mit Zielscope und Registry-Revision.",
+        "Frontend-Unit-, Accessibility- und Browser-E2E-Tests decken Happy Path, Cancel, Failure, Promotion und Rollback ab."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-033",
+      "title": "Observability, Audit und Betriebsmetriken ergaenzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "observability",
+      "milestone_id": "M6",
+      "depends_on": [
+        "DSPY-009",
+        "DSPY-013",
+        "DSPY-017",
+        "DSPY-021"
+      ],
+      "files": [
+        "agent/services/dspy_optimization_job_service.py",
+        "worker/optimization/dspy/job_runner.py",
+        "docs/operations/dspy-optimization-runbook.md",
+        "tests/dspy_optimization/test_observability.py"
+      ],
+      "description": "Run-Lifecycle, Callvolumen, Budget, Queue, Fehler, Evaluation und Promotion ohne Inhalts- oder Secret-Leaks beobachtbar machen.",
+      "acceptance_criteria": [
+        "Metriken umfassen Jobs nach Zustand, Dauer, Queuezeit, Calls, Tokens, Kosten, Cache, Retries, Budgetabbrueche, Scores und Promotions.",
+        "Labels sind cardinality-begrenzt; run_id, prompt text, model output und tenant_id erscheinen nicht als Prometheus-Labels.",
+        "Audit-Events besitzen actor, tenant, action, target digest, revision, reason code und correlation_id.",
+        "Traces verknuepfen Hub-Job, Worker-Attempt, Provider-Calls, Retrieval, Evaluation und Artefakte ohne Rohinhalte.",
+        "Dashboards und Alerts fuer stuck jobs, Kostenanstieg, Error-Rate, Policy-Verstoesse und Promotionfehler sind definiert.",
+        "Logging-Tests pruefen Redaction gegen typische API-Key-, Authorization-, Prompt- und Quellcode-Leaks."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-034",
+      "title": "Security-Hardening und Missbrauchsschutz vollstaendig durchsetzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M6",
+      "depends_on": [
+        "DSPY-003",
+        "DSPY-012",
+        "DSPY-014",
+        "DSPY-015",
+        "DSPY-018",
+        "DSPY-019",
+        "DSPY-022"
+      ],
+      "files": [
+        "docs/security/dspy-optimization-threat-model.md",
+        "tests/dspy_optimization/test_security_negative_paths.py"
+      ],
+      "description": "Alle im Threat Model definierten Controls in Code, Konfiguration, Container, Tests und Release-Gates nachweisen.",
+      "acceptance_criteria": [
+        "Worker laeuft least-privilege, ohne Docker-Socket, ohne unnoetige Hostmounts und mit begrenztem Netzwerk-Egress.",
+        "Provider- und Retrieval-Endpunkte folgen bestehenden Endpoint-, SSRF-, DNS-/Redirect- und Locality-Policies.",
+        "Pickle, Cloudpickle load, dynamische Importe, eval/exec, fremde Module, freie Tools und MCP sind statisch und dynamisch blockiert.",
+        "Dataset-, Prompt-, Demonstrations- und Artifact-Groessen verhindern Speicher-, Kontext- und Dekompressionsmissbrauch.",
+        "Cross-Tenant-, Replay-, Stale-Attempt-, Cache-, Path-Traversal-, Symlink-, Poisoning- und Promotion-Angriffe besitzen negative Tests.",
+        "Ein Security-Gate prueft Dependency-Vulnerabilities, SBOM, Containerrechte, Secrets und verbotene Imports vor Release."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-035",
+      "title": "Unit-, Contract-, Property- und Compatibility-Testpaket implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "testing",
+      "milestone_id": "M6",
+      "depends_on": [
+        "DSPY-005",
+        "DSPY-011",
+        "DSPY-014",
+        "DSPY-015",
+        "DSPY-016",
+        "DSPY-020",
+        "DSPY-022"
+      ],
+      "files": [
+        "tests/dspy_optimization/"
+      ],
+      "description": "Alle Ports, Contracts, Registrys, Bridges, Serializer und Policies ohne echte Provider reproduzierbar absichern.",
+      "acceptance_criteria": [
+        "Fakes decken LM, Retriever, Metric, Artifact Store, Clock, Budget, Queue und Promotion isoliert ab.",
+        "Contracttests pruefen Legacy- und Typed-LM-Kompatibilitaet sowie jede allowlist-faehige Modul- und Optimizer-Art.",
+        "Propertytests variieren Schemafelder, Groessen, Reihenfolgen, Unicode, Digests, Seeds und Fehlerfaelle.",
+        "Golden-Tests sichern PromptProgram-JSON, native Exportdarstellung und Provenienz gegen unbeabsichtigte Aenderungen.",
+        "Tests laufen ohne Netzwerk, DSPy-Dependency im Core, externe Modelle, GPU oder Qdrant.",
+        "Coverage-Gates konzentrieren sich auf Authorization, Budget, Serialization, Tenant-Isolation und Promotion."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-036",
+      "title": "Integration-, E2E-, Reproduzierbarkeits- und Failure-Recovery-Tests erstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "testing",
+      "milestone_id": "M6",
+      "depends_on": [
+        "DSPY-017",
+        "DSPY-018",
+        "DSPY-021",
+        "DSPY-025",
+        "DSPY-026",
+        "DSPY-027",
+        "DSPY-028",
+        "DSPY-034",
+        "DSPY-035"
+      ],
+      "files": [
+        "tests/dspy_optimization/",
+        "scripts/"
+      ],
+      "description": "Den gesamten Hub-Worker-Provider-Retrieval-Evaluation-Promotion-Pfad unter normalen und gestoerten Bedingungen pruefen.",
+      "acceptance_criteria": [
+        "Ein deterministischer Fake-LM-E2E-Lauf erzeugt Baseline, Kandidat, Evaluation, JSON-Artefakt, Promotion und Rollback.",
+        "Lokale Ollama- oder LM-Studio-Smokes sind opt-in, budgetiert und keine Pflicht fuer normale CI.",
+        "Gleiche Manifeste, Seeds, Versionen und Fake-Antworten erzeugen identische Program- und Evaluation-Digests.",
+        "Worker-Crash, Hub-Restart, Queue-Duplikat, Provider-Timeout, Retrieval-Ausfall, Cancel und Storagefehler besitzen Recovery-Nachweise.",
+        "Canary und Shadow beweisen fehlende Seiteneffekte sowie sicheren Baseline-Fallback.",
+        "Echte Provider-, Performance- oder Produktionsclaims bleiben ohne bereitgestellte RUN_* Evidenz unverified."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-037",
+      "title": "CI-, Dependency-, Container- und Release-Gates einrichten",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "release",
+      "milestone_id": "M6",
+      "depends_on": [
+        "DSPY-006",
+        "DSPY-034",
+        "DSPY-035",
+        "DSPY-036"
+      ],
+      "files": [
+        ".github/workflows/",
+        "docker/compose-next/",
+        "docs/security/third-party-components.md"
+      ],
+      "description": "DSPy-Core-Trennung, reproduzierbare Builds, Lizenz, Security und Regressionen als automatisierte Release-Voraussetzungen verankern.",
+      "acceptance_criteria": [
+        "Core-CI beweist, dass Ananta ohne DSPy installiert, importiert und getestet werden kann.",
+        "DSPy-Matrix prueft den freigegebenen Pin, den naechsten vorgesehenen Compatibility-Kandidaten und unterstuetzte Python-Versionen.",
+        "Dependency-Lock, SBOM, Lizenzreport, Vulnerability Scan und Container-Digest werden erzeugt und geprueft.",
+        "Verbotene Import-, Pickle-, Provider- und Tool-Pfade besitzen statische Gates.",
+        "Schema-, Unit-, Security-, Integration- und deterministische E2E-Suites muessen vor Release bestehen.",
+        "Release-Artefakte enthalten keine Datasets, Roh-Prompts, Caches, Credentials oder lokale Run-Ausgaben."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-038",
+      "title": "Benutzer-, Entwickler-, Security- und Betriebsdokumentation vervollstaendigen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "documentation",
+      "milestone_id": "M7",
+      "depends_on": [
+        "DSPY-026",
+        "DSPY-027",
+        "DSPY-028",
+        "DSPY-031",
+        "DSPY-032",
+        "DSPY-033",
+        "DSPY-037"
+      ],
+      "files": [
+        "docs/integrations/dspy-optimization-engine.md",
+        "docs/security/dspy-optimization-threat-model.md",
+        "docs/operations/dspy-optimization-runbook.md",
+        "README.md"
+      ],
+      "description": "Konzept, Grenzen, Einrichtung, Use Cases, Kostenkontrolle, Fehlersuche, Rollback und Upgrade fuer unterschiedliche Zielgruppen erklaeren.",
+      "acceptance_criteria": [
+        "Dokumentation erklaert klar, dass DSPy Optimierungs-Engine und weder Provider noch Ananta-Orchestrator ist.",
+        "Setup deckt optionales Extra, Worker-Profil, lokale und Cloud-gated Provider, CodeCompass, Dataset und sichere Defaults ab.",
+        "Tutorials zeigen Planning, RAG und strukturierte Extraktion jeweils mit Dry-run, Budget, Evaluation und Rollback.",
+        "Security-Dokumentation erklaert JSON-only, keine Secrets, keine freien Tools, Dataset-Governance und Promotion-Gates.",
+        "Runbook deckt stuck job, Budgetabbruch, Providerfehler, Cache, inkompatibles Artefakt, Canary-Stop und Rollback ab.",
+        "Upgrade- und Exit-Anleitung beschreibt DSPy-Versionwechsel sowie native Nutzung exportierter PromptProgramme."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-039",
+      "title": "DSPy-Upstream-Kompatibilitaet und kontrollierte Upgrade-Pipeline etablieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "compatibility",
+      "milestone_id": "M7",
+      "depends_on": [
+        "DSPY-001",
+        "DSPY-011",
+        "DSPY-015",
+        "DSPY-016",
+        "DSPY-022",
+        "DSPY-023",
+        "DSPY-035",
+        "DSPY-037"
+      ],
+      "files": [
+        "worker/optimization/dspy/",
+        "tests/dspy_optimization/",
+        "docs/integrations/dspy-optimization-engine.md"
+      ],
+      "description": "Upstream-Aenderungen an BaseLM, Module State, Optimizer, Serialization und Dependencies frueh erkennen und ohne Big-Bang-Upgrade behandeln.",
+      "acceptance_criteria": [
+        "Eine Compatibility-Matrix bindet Ananta-Version, DSPy-Version, Python, Contract-Version und getestete Capabilities.",
+        "Adaptertests erkennen Legacy-/Typed-LM-, Response-, Tool-Call-, Usage-, Save-/Load- und Optimizer-API-Aenderungen.",
+        "Neue DSPy-Versionen laufen zuerst in isolierter CI und koennen keine bestehenden Promotion-Artefakte automatisch aktivieren.",
+        "Artefakt-Upcasts sind explizit, transaktional und behalten Originaldigest sowie Migrationsprovenienz.",
+        "Breaking Changes fuehren zu capability_degraded oder blocked statt stiller Verhaltensaenderung.",
+        "Rollback auf den vorherigen Dependency-Lock und vorherige Worker-Images ist dokumentiert und getestet."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "DSPY-040",
+      "title": "Produktionsabnahme mit Evidenzpaket und kontrolliertem Rollout abschliessen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "release",
+      "milestone_id": "M7",
+      "depends_on": [
+        "DSPY-025",
+        "DSPY-029",
+        "DSPY-033",
+        "DSPY-034",
+        "DSPY-036",
+        "DSPY-037",
+        "DSPY-038",
+        "DSPY-039"
+      ],
+      "files": [
+        "docs/operations/dspy-optimization-runbook.md",
+        "docs/integrations/dspy-optimization-engine.md"
+      ],
+      "description": "Alle technischen, organisatorischen, Security-, Kosten-, Qualitaets- und Rollback-Gates fuer einen ersten produktiven ProgramKind nachweisen.",
+      "acceptance_criteria": [
+        "Ein freigegebener DSPy-, Worker-Image-, Ananta-, Dataset-, Program-, Metric- und Provider-Digest ist im Evidenzpaket gebunden.",
+        "Schema-, Unit-, Security-, Integration-, Reproduzierbarkeits-, Failure-Recovery- und Rollback-Gates sind bestanden.",
+        "Baseline-Kandidat-Vergleich zeigt definierte Mindestverbesserung ohne unzulaessige Qualitaets-, Kosten-, Latenz- oder Policy-Regression.",
+        "Canary besitzt Owner, Zeitfenster, Stop-Kriterien, Monitoring, Incident-Pfad und getesteten manuellen Kill-Switch.",
+        "Promotion wird explizit bestaetigt; automatische Vollaktivierung bleibt ausgeschlossen.",
+        "Release-Claims werden nur mit bereitgestellten SRC_* und RUN_* IDs als verified markiert; andernfalls bleibt der Track partial oder blocked."
+      ],
+      "progress_percent": 0
+    }
+  ],
+  "critical_path_tasks": [
+    "DSPY-001",
+    "DSPY-002",
+    "DSPY-003",
+    "DSPY-005",
+    "DSPY-006",
+    "DSPY-007",
+    "DSPY-009",
+    "DSPY-011",
+    "DSPY-012",
+    "DSPY-014",
+    "DSPY-015",
+    "DSPY-016",
+    "DSPY-017",
+    "DSPY-018",
+    "DSPY-019",
+    "DSPY-020",
+    "DSPY-021",
+    "DSPY-022",
+    "DSPY-024",
+    "DSPY-025",
+    "DSPY-034",
+    "DSPY-035",
+    "DSPY-036",
+    "DSPY-037",
+    "DSPY-040"
+  ],
+  "definition_of_done": [
+    "DSPy ist optional, default-off und aus Core-, Hub- sowie Standard-Worker-Abhaengigkeiten entfernt.",
+    "Ananta bleibt Control Plane; alle LM-, Retrieval-, Budget-, Policy-, Audit-, Evaluation-, Promotion- und Rollbackentscheidungen laufen ueber Ananta-Ports.",
+    "Mindestens ein produktiver ProgramKind ist mit reproduzierbarem Baseline-Kandidaten-Vergleich, sicherem JSON-Artefakt, Canary und Rollback nachgewiesen.",
+    "Pickle, freie Pythonmodule, direkte Providerzugriffe, freie Tools, MCP und Worker-Orchestrierung sind fuer Phase 1 technisch blockiert.",
+    "CodeCompass bleibt einzige produktive Retriever-Quelle und JSONVectorStore/Qdrant bleiben austauschbar.",
+    "Alle Security-, Contract-, Integration-, Reproduzierbarkeits-, Failure-Recovery- und Release-Gates sind bestanden.",
+    "Verified Release-Claims besitzen bereitgestellte, unveraenderliche SRC_* und RUN_* Evidenz-IDs."
+  ],
+  "tasks_status_summary": {
+    "total": 40,
+    "by_status": {
+      "todo": 40,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 27,
+      "P1": 13,
+      "P2": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 5,
+      "high": 26,
+      "critical": 9
+    },
+    "critical_path": {
+      "total": 25,
+      "done": 0,
+      "remaining": 25
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 7,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 40,
+    "by_type": {
+      "analysis": 1,
+      "architecture": 5,
+      "security": 5,
+      "contract": 2,
+      "dependency": 1,
+      "configuration": 1,
+      "integration": 13,
+      "runtime": 1,
+      "governance": 2,
+      "api": 1,
+      "frontend": 1,
+      "observability": 1,
+      "testing": 2,
+      "release": 2,
+      "documentation": 1,
+      "compatibility": 1
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 40,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "execution_stage_summary": {
+    "current_stage": "planning",
+    "next_gate": "architecture_and_security_review",
+    "release_eligibility": "not_eligible",
+    "reason": "No implementation or supplied source/run evidence exists for this track."
+  },
+  "summary_notes": [
+    "DSPy ist fuer Ananta besonders als Offline-/Pre-Inference-Optimierungs- und Evaluationsschicht sinnvoll, nicht als Ersatz fuer die Hub-Worker-Runtime.",
+    "Der wichtigste Integrationspunkt ist ein eigener AnantaBaseLM-Bridge, damit DSPy niemals Provider-Routing, Endpoints, Credentials oder Budgets selbst bestimmt.",
+    "Der zweite zentrale Punkt ist ein DSPy-unabhaengiges JSON PromptProgram, damit optimierte Ergebnisse ohne dauerhafte Runtime-Kopplung genutzt werden koennen.",
+    "BootstrapFewShot und LabeledFewShot bilden den risikoarmen ersten Schnitt; MIPROv2 und GEPA benoetigen spaeter separate Kosten- und Datenfreigaben.",
+    "Fine-Tuning bleibt im Unsloth-Track und wird nur ueber einen expliziten Dataset-Handoff verbunden."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "target_architecture",
+      "title": "Zielarchitektur",
+      "items": [
+        "Ananta Hub: Job, ProviderBinding, Authorization, Budget, Evaluation, Promotion und Rollback.",
+        "DSPy Optimization Worker: begrenzte Optimierung eines allowlist-faehigen Programms.",
+        "CodeCompass/Hybrid Retrieval: einzige autorisierte produktive Kontextquelle.",
+        "Ananta PromptProgram: JSON-only, content-addressed, DSPy-unabhaengiger Runtime-Artefaktvertrag.",
+        "Unsloth: separater kanonischer Pfad fuer optionales Fine-Tuning."
+      ]
+    },
+    {
+      "summary_id": "first_implementation_slice",
+      "title": "Empfohlener erster Umsetzungsschnitt",
+      "items": [
+        "ADR, Threat Model, Contracts und optionales Dependency-Profil fertigstellen.",
+        "AnantaBaseLM, CodeCompassRetrieverBridge und BootstrapFewShot mit Fake-LM implementieren.",
+        "PlanningStructuredTasks als ersten Dataset-/Metric-basierten Use Case anbinden.",
+        "JSON-only Kandidatenartefakt, Baselinevergleich, manuelle Promotion und Rollback nachweisen.",
+        "Erst danach MIPROv2, GEPA, UI-Ausbau und Unsloth-Handoff aktivieren."
+      ]
+    }
+  ]
+}

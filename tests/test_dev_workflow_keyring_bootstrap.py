@@ -20,6 +20,9 @@ from ananta_contracts.runtime_authorization_crypto import (
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/bootstrap-dev-workflow-keyrings.py"
 COMPOSE = ROOT / "docker/compose-next/compose.dev.ollama.yml"
+DEV_AUTH_COMPOSE = (
+    ROOT / "docker/compose-next/compose.workflow-runtime.dev-auth.yml"
+)
 COMPOSE_BASE = ROOT / "docker/compose-next/compose.base.yml"
 DOCKERIGNORE = ROOT / ".dockerignore"
 
@@ -149,6 +152,7 @@ def test_bootstrap_creates_disjoint_valid_keyrings_and_reuses_them(tmp_path):
         assert {
             "retrieval",
             "index_write",
+            "source_analysis",
             "vector_index_operation",
         }.issubset(row["allowed_capabilities"])
     assert stat.S_IMODE(registration_path.stat().st_mode) == 0o600
@@ -293,6 +297,50 @@ def test_bootstrap_adds_vector_capabilities_without_rotating_credentials(
     )
 
 
+def test_bootstrap_adds_source_analysis_without_rotating_credentials(
+    tmp_path,
+):
+    root = (tmp_path / "workflow-secrets").resolve()
+    assert _run(root).returncode == 0
+    registration_path = root / "hub/worker-registration-keyring.json"
+    registration = json.loads(
+        registration_path.read_text(encoding="utf-8")
+    )
+    for row in registration["workers"].values():
+        row["allowed_capabilities"].remove("source_analysis")
+    registration_path.write_text(
+        json.dumps(
+            registration,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    registration_path.chmod(0o600)
+    private_paths = tuple(
+        path
+        for path in root.rglob("*")
+        if path.is_file() and path != registration_path
+    )
+    before = {path: _digest(path) for path in private_paths}
+
+    upgraded = _run(root)
+
+    assert upgraded.returncode == 0, upgraded.stderr
+    assert upgraded.stdout.strip() == "development workflow keyrings upgraded"
+    assert {path: _digest(path) for path in private_paths} == before
+    upgraded_registration = json.loads(
+        registration_path.read_text(encoding="utf-8")
+    )
+    for row in upgraded_registration["workers"].values():
+        assert "source_analysis" in row["allowed_capabilities"]
+
+    reused = _run(root)
+    assert reused.returncode == 0, reused.stderr
+    assert reused.stdout.strip() == "development workflow keyrings reused"
+
+
 def test_bootstrap_does_not_upgrade_an_unknown_capability_edit(
     tmp_path,
 ):
@@ -395,6 +443,9 @@ def test_ollama_dev_compose_bootstraps_least_privilege_workflow_keyrings():
     ]
 
     hub = services["ai-agent-hub"]
+    assert hub["environment"]["CORS_ORIGINS"] == (
+        "${CORS_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200}"
+    )
     assert hub["environment"]["ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE"].endswith(
         "/workflow-auth-signing-keyring.json"
     )
@@ -476,6 +527,46 @@ def test_ollama_dev_compose_bootstraps_least_privilege_workflow_keyrings():
         assert public_mount["read_only"] is True
         assert private_mount["source"].endswith(f"/{private_dir}")
         assert private_mount["read_only"] is True
+
+
+def test_stack_dev_auth_overlay_prepares_unprivileged_runtime_ownership():
+    compose = yaml.safe_load(
+        DEV_AUTH_COMPOSE.read_text(encoding="utf-8")
+    )
+    services = compose["services"]
+    runtime = services["runtime-data-bootstrap"]
+
+    assert runtime["user"] == "0:0"
+    assert runtime["network_mode"] == "none"
+    assert runtime["read_only"] is True
+    assert set(runtime["cap_drop"]) == {"ALL"}
+    assert set(runtime["cap_add"]) == {"CHOWN", "DAC_READ_SEARCH"}
+    assert runtime["entrypoint"] == [
+        "python",
+        "/app/scripts/bootstrap-dev-runtime-ownership.py",
+    ]
+    assert set(compose["volumes"]) == {"frontend-angular-cache"}
+
+    for name in ("ai-agent-hub", "ai-agent-alpha", "ai-agent-beta"):
+        service = services[name]
+        assert service["user"] == (
+            "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
+        )
+        assert service["environment"]["HOME"] == "/app/data/home"
+        assert service["environment"]["XDG_CACHE_HOME"] == (
+            "/app/data/cache"
+        )
+        assert service["depends_on"]["runtime-data-bootstrap"] == {
+            "condition": "service_completed_successfully"
+        }
+
+    hub = services["ai-agent-hub"]
+    assert hub["environment"]["CORS_ORIGINS"] == (
+        "${CORS_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200}"
+    )
+    assert services["workflow-keyring-bootstrap"]["depends_on"][
+        "runtime-data-bootstrap"
+    ] == {"condition": "service_completed_successfully"}
 
 
 def test_ollama_dev_compose_effectively_clears_inherited_worker_secrets():

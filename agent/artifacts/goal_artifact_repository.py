@@ -22,11 +22,19 @@ class GoalArtifactRepository:
         return self._root / f"{normalized}.json"
 
     def get_graph(self, goal_id: str) -> dict[str, Any]:
+        existing = self.find_graph(goal_id)
+        if existing is not None:
+            return existing
+        graph = build_empty_goal_artifact_graph(goal_id=goal_id)
+        self.save_graph(graph)
+        return graph
+
+    def find_graph(self, goal_id: str) -> dict[str, Any] | None:
+        """Read an existing graph without creating state on a lookup miss."""
+
         path = self._path_for_goal(goal_id)
         if not path.exists():
-            graph = build_empty_goal_artifact_graph(goal_id=goal_id)
-            self.save_graph(graph)
-            return graph
+            return None
         payload = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("goal_artifact_graph_invalid")

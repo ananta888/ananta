@@ -8,7 +8,11 @@ agent/services/blueprint_serializer.py (SPLIT-012).
 from flask import Blueprint, g, request
 from sqlmodel import Session, select
 
-from agent.auth import admin_required, check_auth
+from agent.auth import (
+    admin_required,
+    check_auth,
+    get_authenticated_source_control_principal,
+)
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.database import engine
@@ -42,9 +46,10 @@ from agent.services.blueprint_serializer import (
     _user_lifecycle_state_from_metadata,
 )
 from agent.services.repository_registry import get_repository_registry
-from agent.services.recovery_task_mutation_policy import (
-    RecoveryTaskMutationConflict,
-    ensure_external_recovery_mutation_allowed,
+from agent.services.organization_team_deletion_service import (
+    OrganizationTeamDeletionError,
+    OrganizationTeamDeletionPrincipal,
+    OrganizationTeamDeletionService,
 )
 from agent.services.team_definition_version_service import (
     build_team_blueprint_diff,
@@ -470,35 +475,34 @@ def delete_role(role_id):
 @check_auth
 @admin_required
 def delete_team(team_id):
-    repos = _repos()
-    team = repos.team_repo.get_by_id(team_id)
-    if not team:
-        return _team_error("not_found", 404)
-
     try:
-        for task in repos.task_repo.get_all():
-            if str(getattr(task, "team_id", "") or "") == team_id:
-                ensure_external_recovery_mutation_allowed(
-                    task,
-                    action="team_delete",
-                )
-    except RecoveryTaskMutationConflict as exc:
+        authenticated = get_authenticated_source_control_principal()
+        result = OrganizationTeamDeletionService().delete(
+            team_id=team_id,
+            principal=OrganizationTeamDeletionPrincipal(
+                principal_id=authenticated.subject_id,
+                tenant_id=authenticated.tenant_id,
+                project_id=authenticated.project_id,
+                is_hub_admin=authenticated.is_admin,
+            ),
+        )
+    except OrganizationTeamDeletionError as exc:
         return api_response(
             status="error",
             message=exc.reason_code,
-            data=exc.as_data(),
-            code=409,
+            data=exc.details,
+            code=exc.public_status,
         )
-
-    # Team-Mitglieder zuerst entfernen, damit FK-Constraints das Team-Delete nicht blockieren.
-    repos.team_member_repo.delete_by_team(team_id)
-    repos.task_repo.clear_team_assignments(team_id)
-    repos.goal_repo.clear_team_assignments(team_id)
-
-    if repos.team_repo.delete(team_id):
-        log_audit("team_deleted", {"team_id": team_id})
-        return api_response(data={"status": "deleted"})
-    return _team_error("not_found", 404)
+    log_audit(
+        "team_deleted",
+        {
+            "team_id": result.team_id,
+            "deleted_members": result.deleted_members,
+            "cleared_tasks": result.cleared_tasks,
+            "cleared_goals": result.cleared_goals,
+        },
+    )
+    return api_response(data={"status": "deleted", "team_id": result.team_id})
 
 
 @teams_bp.route("/teams/<team_id>/activate", methods=["POST"])

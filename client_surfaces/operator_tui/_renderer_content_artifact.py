@@ -13,10 +13,150 @@ from __future__ import annotations
 
 import re
 
-from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artifact_view
 from client_surfaces.operator_tui._renderer_utils import _clip
+from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artifact_view
 
 _ANSI_STRIP = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def _organization_content_lines(payload: dict, *, width: int, compact: bool) -> list[str]:
+    """Render bounded Organization read models without exposing prompt or secret fields."""
+
+    view = str(payload.get("view") or "status")
+    lines = [f"  Organizations · {view}"]
+    if view == "status":
+        organizations = [dict(item) for item in list(payload.get("organizations") or []) if isinstance(item, dict)]
+        blueprints = [dict(item) for item in list(payload.get("blueprints") or []) if isinstance(item, dict)]
+        lines.append(f"  Instances={len(organizations)}  Blueprints={len(blueprints)}")
+        for item in organizations[: 8 if compact else 16]:
+            lines.append(
+                _clip(
+                    f"    {item.get('id') or '?'} [{item.get('lifecycle') or item.get('status') or '?'}] "
+                    f"teams={item.get('team_count', '?')} {item.get('title') or item.get('key') or ''}",
+                    width,
+                )
+            )
+        return lines
+    if view == "blueprints":
+        for item in list(payload.get("items") or [])[: 10 if compact else 20]:
+            if not isinstance(item, dict) or bool(item.get("test_only")):
+                continue
+            marker = "*" if bool(item.get("recommended")) else "-"
+            lines.append(
+                _clip(
+                    f"  {marker} {item.get('key') or '?'} v{item.get('version') or '?'} "
+                    f"teams={item.get('team_count', '?')} {item.get('title') or ''}",
+                    width,
+                )
+            )
+        return lines
+    if view == "topology":
+        topology = dict(payload.get("topology") or {})
+        nodes = [dict(item) for item in list(topology.get("nodes") or []) if isinstance(item, dict)]
+        edges = [dict(item) for item in list(topology.get("edges") or []) if isinstance(item, dict)]
+        runtime = dict(topology.get("runtime_overlay") or {})
+        status_by_node = {
+            str(item.get("node_id") or ""): str(dict(item.get("status") or {}).get("label") or "")
+            for item in list(runtime.get("nodes") or [])
+            if isinstance(item, dict)
+        }
+        lines.append(
+            _clip(
+                f"  organization={payload.get('organization_id') or topology.get('organization_id') or '?'} "
+                f"revision={topology.get('definition_revision') or '?'} nodes={len(nodes)} edges={len(edges)} "
+                f"truncated={bool(topology.get('truncated'))}",
+                width,
+            )
+        )
+        for node in nodes[: 12 if compact else 24]:
+            depth = max(0, min(10, int(node.get("depth") or 0)))
+            label = str(node.get("label") or node.get("stable_key") or node.get("id") or "?")
+            runtime_label = status_by_node.get(str(node.get("id") or "")) or "-"
+            lines.append(_clip(f"    {'  ' * depth}{node.get('kind') or '?'}: {label} [{runtime_label}]", width))
+        namespaces: dict[str, int] = {}
+        for edge in edges:
+            namespace = str(edge.get("namespace") or "unknown")
+            namespaces[namespace] = namespaces.get(namespace, 0) + 1
+        lines.append(
+            _clip(
+                f"  Edge namespaces: {', '.join(f'{key}={value}' for key, value in sorted(namespaces.items())) or '-'}",
+                width,
+            )
+        )
+        return lines
+    if view in {"planning", "proposals"}:
+        nodes = [dict(item) for item in list(payload.get("nodes") or []) if isinstance(item, dict)]
+        proposals = [dict(item) for item in list(payload.get("proposals") or []) if isinstance(item, dict)]
+        if view == "planning":
+            lines.append(f"  Lineage nodes={len(nodes)} proposals={len(proposals)}")
+            for item in nodes[: 12 if compact else 24]:
+                lines.append(
+                    _clip(
+                        f"    {item.get('kind') or '?'} {item.get('id') or '?'} [{item.get('status') or '?'}] "
+                        f"rev={item.get('revision') or '-'} {item.get('label') or ''}",
+                        width,
+                    )
+                )
+        lines.append("  [Worker task proposals]")
+        for item in proposals[: 10 if compact else 20]:
+            lines.append(
+                _clip(
+                    f"    {item.get('proposal_id') or '?'} [{item.get('status') or '?'}] "
+                    f"source={item.get('source_task_id') or '?'} role={item.get('proposer_role_slot_id') or '?'} "
+                    f"hub-team={item.get('selected_team_id') or '-'}",
+                    width,
+                )
+            )
+        if not proposals:
+            lines.append("    - none")
+        return lines
+    if view == "compile":
+        lines.extend(
+            [
+                _clip(
+                    f"  blueprint={payload.get('blueprint_key') or '?'} v{payload.get('blueprint_version') or '?'} "
+                    f"teams={payload.get('team_count', '?')} units={payload.get('unit_count', '?')}",
+                    width,
+                ),
+                _clip(
+                    f"  hierarchy={payload.get('hierarchy_edge_count', '?')} "
+                    f"relations={payload.get('relation_edge_count', '?')} "
+                    f"slots={payload.get('role_slot_count', '?')}",
+                    width,
+                ),
+                _clip(f"  plan-digest={payload.get('plan_digest') or '-'}", width),
+            ]
+        )
+        blockers = [dict(item) for item in list(payload.get("diagnostics") or []) if isinstance(item, dict)]
+        for item in blockers[:8]:
+            lines.append(_clip(f"    {item.get('severity')}: {item.get('reason_code')} {item.get('message')}", width))
+        lines.append("  Apply only after review: :org instantiate --confirm")
+        return lines
+    if view == "bundle":
+        bundle = dict(payload.get("bundle") or {})
+        lines.append(
+            _clip(
+                f"  Bundle organization={payload.get('organization_id') or '?'} "
+                f"version={bundle.get('version') or bundle.get('schema_version') or '?'}",
+                width,
+            )
+        )
+        lines.append("  Export is redacted by the Hub; use --json for the complete portable payload.")
+        return lines
+    if view == "instantiate":
+        organization = dict(payload.get("organization") or {})
+        lines.append(
+            _clip(
+                f"  instantiated={organization.get('id') or payload.get('organization_id') or '?'} "
+                f"teams={organization.get('team_count') or len(list(payload.get('team_ids') or []))} "
+                f"replayed={bool(payload.get('replayed'))}",
+                width,
+            )
+        )
+        lines.append("  No workers or tasks were started by instantiation.")
+        return lines
+    lines.append("  unsupported organization projection")
+    return lines
 
 
 def _planning_track_content_lines(payload: dict, *, width: int, compact: bool) -> list[str]:
@@ -59,9 +199,7 @@ def _planning_track_content_lines(payload: dict, *, width: int, compact: bool) -
     context_refs = [str(item) for item in list(selected_track.get("context_references") or []) if str(item).strip()]
     raw_summary_status = str(selected_track.get("summary_recalculation_status") or "not_needed")
     summary_status = (
-        "repaired"
-        if raw_summary_status == "repaired"
-        else ("invalid" if raw_summary_status == "failed" else "fresh")
+        "repaired" if raw_summary_status == "repaired" else ("invalid" if raw_summary_status == "failed" else "fresh")
     )
     repaired_fields = [str(item) for item in list(selected_track.get("repaired_fields") or []) if str(item).strip()]
     lines.append(f"  Header: owner={owner} track={track} goal={goal}")
@@ -152,7 +290,8 @@ def _planning_track_content_lines(payload: dict, *, width: int, compact: bool) -
     if provenance:
         lines.append(
             _clip(
-                f"  Provenance: {provenance.get('provenance_id') or '-'} model={dict(provenance.get('model_ref') or {}).get('model_id') or '-'}",
+                f"  Provenance: {provenance.get('provenance_id') or '-'} "
+                f"model={dict(provenance.get('model_ref') or {}).get('model_id') or '-'}",
                 width,
             )
         )
@@ -222,7 +361,12 @@ def _helpcenter_content_lines(payload: dict, *, width: int, compact: bool) -> li
     lines.append(
         _clip(
             f"  Source: kind={selected_report.get('source_kind') or '-'} "
-            f"ref={selected_analysis.get('source_refs', ['-'])[0] if isinstance(selected_analysis.get('source_refs'), list) and selected_analysis.get('source_refs') else '-'}",
+            "ref="
+            + (
+                selected_analysis.get("source_refs", ["-"])[0]
+                if isinstance(selected_analysis.get("source_refs"), list) and selected_analysis.get("source_refs")
+                else "-"
+            ),
             width,
         )
     )
@@ -271,7 +415,8 @@ def _mail_content_lines(payload: dict, *, width: int, compact: bool) -> list[str
         f"  Filters: {', '.join([f'{k}={v}' for k, v in filters.items()]) if filters else 'none'}",
         f"  Messages: showing={len(rows)} total={total_messages} offset={int(payload.get('list_offset') or 0)}",
         f"  Search: query={last_search_query or '-'} refs={len(search_refs)}",
-        f"  Notes={len(notes)} linked-goals={len(linked_goal_refs)} artifacts={int(payload.get('artifact_count') or 0)}",
+        f"  Notes={len(notes)} linked-goals={len(linked_goal_refs)} "
+        f"artifacts={int(payload.get('artifact_count') or 0)}",
     ]
     if accounts:
         lines.append("  [Accounts]")
@@ -312,7 +457,9 @@ def _mail_content_lines(payload: dict, *, width: int, compact: bool) -> list[str
     lines.append("  [Detail]")
     detail_ref = dict(detail.get("message_ref") or {})
     detail_header = dict(detail.get("header_meta") or {})
-    lines.append(_clip(f"  Message: id={detail_ref.get('message_id') or '-'} uid={detail_ref.get('uid') or '-'}", width))
+    lines.append(
+        _clip(f"  Message: id={detail_ref.get('message_id') or '-'} uid={detail_ref.get('uid') or '-'}", width)
+    )
     lines.append(_clip(f"  Subject: {detail_header.get('subject') or '-'}", width))
     lines.append(
         _clip(
@@ -384,7 +531,9 @@ def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -
                 )
             )
         for usage in usages[:5]:
-            lines.append(_clip(f"  • usage {_safe(usage.get('usage_id'))} -> {_safe(usage.get('artifact_ref'))}", width))
+            lines.append(
+                _clip(f"  • usage {_safe(usage.get('usage_id'))} -> {_safe(usage.get('artifact_ref'))}", width)
+            )
         for output in outputs[:6]:
             provenance_note = " provenance-missing" if not _safe(output.get("provenance_id")) else ""
             lines.append(
@@ -399,7 +548,6 @@ def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -
         if not grants and not usages and not outputs:
             lines.append("  (empty goal artifact graph)")
         return lines
-
 
     lines.append("  [Freigegeben]")
     if not grants:
@@ -433,12 +581,17 @@ def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -
     if not outputs:
         lines.append("    - none")
     for output in outputs[:10]:
-        provenance_note = "provenance missing" if not _safe(output.get("provenance_id")) else f"prov={_safe(output.get('provenance_id'))}"
+        provenance_note = (
+            "provenance missing"
+            if not _safe(output.get("provenance_id"))
+            else f"prov={_safe(output.get('provenance_id'))}"
+        )
         lines.append(
             _clip(
                 f"    {_safe(output.get('output_artifact_id'))} type={_safe(output.get('artifact_type'))} "
                 f"status={_safe(output.get('status'))} task={_safe(output.get('task_id'))} "
-                f"worker={_safe(output.get('worker_id'))} {provenance_note} created_at={_safe(output.get('created_at'))}",
+                f"worker={_safe(output.get('worker_id'))} {provenance_note} "
+                f"created_at={_safe(output.get('created_at'))}",
                 width,
             )
         )
@@ -488,7 +641,9 @@ def _diff3_content_lines(payload: dict, *, width: int) -> list[str]:
         if stats:
             lines.append(
                 _clip(
-                    f"  stats: files={stats.get('files',0)} hunks={stats.get('hunks',0)} truncated={stats.get('truncated',False)}",
+                    f"  stats: files={stats.get('files', 0)} "
+                    f"hunks={stats.get('hunks', 0)} "
+                    f"truncated={stats.get('truncated', False)}",
                     width,
                 )
             )

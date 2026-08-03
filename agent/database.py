@@ -37,10 +37,41 @@ engine = create_engine(DATABASE_URL, **engine_kwargs)
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     if DATABASE_URL.startswith("sqlite"):
-        cursor = dbapi_connection.cursor()
+        configure_sqlite_connection(dbapi_connection)
+
+
+def configure_sqlite_connection(dbapi_connection) -> None:
+    """Enable SQLite integrity controls on every production connection."""
+
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA foreign_keys")
+        enabled = cursor.fetchone()
+        if not enabled or int(enabled[0]) != 1:
+            raise RuntimeError("sqlite_foreign_keys_not_enabled")
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA synchronous=NORMAL")
+    finally:
         cursor.close()
+
+
+def verify_sqlite_foreign_key_integrity() -> None:
+    """Run the potentially expensive orphan scan once during Hub startup."""
+
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+    with engine.connect() as connection:
+        violations = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchmany(10)
+    if violations:
+        sample = [tuple(row) for row in violations]
+        raise RuntimeError(f"sqlite_foreign_key_orphan_preflight_failed:{sample!r}")
+
+
+def _finalize_database_initialization() -> None:
+    _ensure_schema_compat()
+    verify_sqlite_foreign_key_integrity()
+    ensure_default_user()
 
 
 def _is_in_memory_sqlite(url: str) -> bool:
@@ -89,8 +120,7 @@ def init_db():
     # In-memory SQLite is process-local and does not require file locking.
     if _is_in_memory_sqlite(DATABASE_URL):
         SQLModel.metadata.create_all(engine)
-        _ensure_schema_compat()
-        ensure_default_user()
+        _finalize_database_initialization()
         return
 
     # Ensure data directory exists for the lock file
@@ -109,8 +139,7 @@ def init_db():
         if settings.role == "hub":
             SQLModel.metadata.create_all(engine)
         _wait_for_required_schema(max_retries=max_retries, retry_delay=retry_delay)
-        _ensure_schema_compat()
-        ensure_default_user()
+        _finalize_database_initialization()
         return
 
     for i in range(max_retries):
@@ -123,8 +152,7 @@ def init_db():
 
                     try:
                         SQLModel.metadata.create_all(engine)
-                        _ensure_schema_compat()
-                        ensure_default_user()
+                        _finalize_database_initialization()
                         return
                     except Exception as inner_e:
                         logging.error(f"Error during metadata creation: {inner_e}")

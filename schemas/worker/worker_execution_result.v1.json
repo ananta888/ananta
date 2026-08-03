@@ -86,7 +86,49 @@
         "patch_hash": { "type": "string" }
       },
       "additionalProperties": false
+    },
+    "task_proposals": {
+      "$ref": "#/$defs/task_proposals_carrier",
+      "description": "Optional untrusted follow-up proposals. Their presence never creates Hub tasks or queue entries."
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "task_proposals_carrier": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema", "payload_digest", "proposals"],
+          "properties": {
+            "schema": { "type": "string", "const": "worker_task_proposals.v1" },
+            "payload_digest": { "$ref": "#/$defs/digest" },
+            "proposals": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "items": {
+                "$ref": "https://ananta.local/schemas/worker/task_followup_proposal.v1.json"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema", "artifact_version_ref", "payload_digest", "proposal_count"],
+          "properties": {
+            "schema": { "type": "string", "const": "worker_task_proposals_ref.v1" },
+            "artifact_version_ref": { "type": "string", "minLength": 1, "maxLength": 240 },
+            "payload_digest": { "$ref": "#/$defs/digest" },
+            "proposal_count": { "type": "integer", "minimum": 1, "maximum": 100 }
+          }
+        }
+      ]
+    }
+  }
 }

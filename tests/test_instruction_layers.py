@@ -424,7 +424,12 @@ def test_instruction_overlay_attach_detach_and_select_flow(client, user_auth_hea
     assert detach_res.get_json()["data"]["attachment_id"] is None
 
 
-def test_task_read_model_exposes_selected_overlay_summary(client, user_auth_header, app):
+def test_task_read_model_exposes_selected_overlay_summary(
+    client,
+    user_auth_header,
+    admin_auth_header,
+    app,
+):
     with app.app_context():
         repos = get_repository_registry()
         repos.task_repo.save(TaskDB(id="inst-task-read-model", title="Read model task", status="todo"))
@@ -457,7 +462,10 @@ def test_task_read_model_exposes_selected_overlay_summary(client, user_auth_head
     )
     assert selection_res.status_code == 200
 
-    task_res = client.get("/tasks/inst-task-read-model", headers=user_auth_header)
+    task_res = client.get(
+        "/tasks/inst-task-read-model",
+        headers=admin_auth_header,
+    )
     assert task_res.status_code == 200
     layers = task_res.get_json()["data"]["instruction_layers"]
     assert layers["selected_profile"]["id"] == profile_id
@@ -682,6 +690,10 @@ def test_effective_stack_suppresses_incompatible_profile_when_enforcement_enable
     data = effective_res.get_json()["data"]
     diagnostics = dict(data.get("diagnostics") or {})
     suppressed = list(diagnostics.get("suppressed_layers") or [])
-    assert any(item.get("layer") == "user_profile" and item.get("reason") == "template_incompatible" for item in suppressed)
+    assert any(
+        item.get("layer") == "user_profile"
+        and item.get("reason") == "template_incompatible"
+        for item in suppressed
+    )
     rendered = str(data.get("rendered_system_prompt") or "")
     assert "[USER PROFILE]" not in rendered

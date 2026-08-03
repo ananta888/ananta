@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/blueprints/organization_blueprint_fragment.v1.json",
+  "title": "Organization blueprint catalog fragment v1",
+  "description": "Closed source fragment merged by the Hub with role-template, team-blueprint, workflow and policy fragments before aggregate validation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "metadata",
+    "organization_blueprints",
+    "handoff_definitions",
+    "acceptance_fixtures",
+    "test_only_fixtures",
+    "limit_profiles",
+    "policy_refs",
+    "workflow_refs"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "organization_blueprint_fragment.v1" },
+    "metadata": {
+      "$ref": "https://ananta.local/schemas/blueprints/organization_blueprint_catalog.v1.json#/$defs/metadata"
+    },
+    "organization_blueprints": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "https://ananta.local/schemas/blueprints/organization_blueprint_catalog.v1.json#/$defs/organization_blueprint"
+      }
+    },
+    "handoff_definitions": {
+      "type": "array",
+      "items": {
+        "$ref": "https://ananta.local/schemas/blueprints/organization_blueprint_catalog.v1.json#/$defs/handoff_definition"
+      }
+    },
+    "acceptance_fixtures": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "$ref": "https://ananta.local/schemas/blueprints/organization_blueprint_catalog.v1.json#/$defs/acceptance_fixture"
+      }
+    },
+    "test_only_fixtures": {
+      "type": "array",
+      "items": {
+        "$ref": "https://ananta.local/schemas/blueprints/organization_blueprint_catalog.v1.json#/$defs/test_only_fixture"
+      }
+    },
+    "limit_profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "https://ananta.local/schemas/blueprints/organization_blueprint_catalog.v1.json#/$defs/limit_profile"
+      }
+    },
+    "policy_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "https://ananta.local/schemas/blueprints/organization_blueprint_catalog.v1.json#/$defs/versioned_ref"
+      },
+      "uniqueItems": true
+    },
+    "workflow_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "https://ananta.local/schemas/blueprints/organization_blueprint_catalog.v1.json#/$defs/versioned_ref"
+      },
+      "uniqueItems": true
+    }
+  }
+}

@@ -1,0 +1,410 @@
+{
+  "evidence_policy": {
+    "source_and_run_identifiers": "Only assignment-provided allowlisted identifiers are valid; this report asserts none.",
+    "stdout_and_stderr": "Stored as SHA-256 digests only to avoid leaking secrets."
+  },
+  "execution_policy": {
+    "approval_environment_variable": "ANANTA_APPROVE_COMPLEX_ORGANIZATION_TESTS",
+    "approval_observed": false,
+    "complex_tests_require_explicit_approval": true
+  },
+  "gate_id": "ESORG-QA-006",
+  "input_hashes": [
+    {
+      "path": "config/blueprints/standard/blueprints.d/architecture-governance.json",
+      "sha256": "5ebc279306cc028c7d3ce5789b30c594edcba643aa941aeef665446d61947bc1"
+    },
+    {
+      "path": "config/blueprints/standard/blueprints.d/enterprise-product-delivery-scrum.json",
+      "sha256": "cdcacaaa7c415df83b4f0c123a71c5718e3d8a0ea52c39df3995a1e3245a0351"
+    },
+    {
+      "path": "config/blueprints/standard/blueprints.d/platform-devops-sre.json",
+      "sha256": "06807170033a4bf6a7e3f271da23571ba3716665013e0d303b4e73eee62a9f3d"
+    },
+    {
+      "path": "config/blueprints/standard/blueprints.d/portfolio-product-coordination.json",
+      "sha256": "ca4f92a21b5d85b4c13cf999a72d9e3f1ea74641bf0a58506e55187e23190313"
+    },
+    {
+      "path": "config/blueprints/standard/blueprints.d/proof-of-concept.json",
+      "sha256": "daacbc1cb099bd9ba25133627cd958e49deb16bf67e76a4de9fa3c28d6a59548"
+    },
+    {
+      "path": "config/blueprints/standard/blueprints.d/quality-security-release.json",
+      "sha256": "1bc3b96b610a9baf483352e34b75aef07677606debcd4842b9db2cad05962763"
+    },
+    {
+      "path": "config/blueprints/standard/blueprints.d/research-and-discovery.json",
+      "sha256": "51c4e566ff516d10d696c7cc686743795097a8b2b8795f68a4b78a3a674a81aa"
+    },
+    {
+      "path": "config/blueprints/standard/blueprints.d/story-domain-implementation.json",
+      "sha256": "12124e0c1aa282c5042caf859789eaabef5381d04ba46078739392f786f13e01"
+    },
+    {
+      "path": "config/blueprints/standard/organizations.d/enterprise-scrum-organization.json",
+      "sha256": "e5af78613976449baccad3e9aa6e8ef821c9b5c80cfa77ab6997d308d80bf373"
+    },
+    {
+      "path": "config/blueprints/standard/policies.d/coordination-task-proposals.json",
+      "sha256": "c92601057371dbecb8e844319dd20fac1e7ba638c3a127f40aa3df0207b52cf1"
+    },
+    {
+      "path": "config/blueprints/standard/policies.d/delivery-task-proposals.json",
+      "sha256": "30da21c7f074f64f3600b4de3f71de5d8e8d9f15426733ac7948675543ac985a"
+    },
+    {
+      "path": "config/blueprints/standard/policies.d/deny-task-proposals.json",
+      "sha256": "8f5976fe06a16e6c2b050ec6e0728d75b3e23be056e34e6960e3cdda49d941e0"
+    },
+    {
+      "path": "config/blueprints/standard/policies.d/enterprise-organization-policies.json",
+      "sha256": "11489d034042af130862f33057b8fc1c77c79deec3e0fc5eeb41a16c637a74ab"
+    },
+    {
+      "path": "config/blueprints/standard/policies.d/governance-task-proposals.json",
+      "sha256": "bde4dc298588220f10acc1e9e60f4f515c1598cc4f904c3e6969f7a73cb28ba0"
+    },
+    {
+      "path": "config/blueprints/standard/policies.d/research-task-proposals.json",
+      "sha256": "e8d291569b250b5a89ef5df2cecadfffe6f5aa79530e2df2d98058460c9db24f"
+    },
+    {
+      "path": "config/blueprints/standard/policies.d/review-task-proposals.json",
+      "sha256": "29dff038c7021f6714de63fab4e2c9bdd896a6263a56ef2194f68b91cd335fda"
+    },
+    {
+      "path": "config/blueprints/standard/templates.d/engineering-roles.json",
+      "sha256": "982711c5d781e7c976a4be6f9e83a18322689c5283cc0f774e39b3ff5f11bf53"
+    },
+    {
+      "path": "config/blueprints/standard/templates.d/governance-roles.json",
+      "sha256": "db1e2235588bc3c8ef4bfc3d7dd29c972e2c02b2d8c18724cd1645e576601e75"
+    },
+    {
+      "path": "config/blueprints/standard/templates.d/platform-devops-sre-roles.json",
+      "sha256": "71c6f46b7b2f1ea52022e18ca4c4c1511167d3e52bf6ab455cacf6a956b5ab63"
+    },
+    {
+      "path": "config/blueprints/standard/templates.d/poc-roles.json",
+      "sha256": "6e95c5b5ba7962b54a25c637d8095ae1c11d7cfa0809dfd646ecbbc0707a0baf"
+    },
+    {
+      "path": "config/blueprints/standard/templates.d/product-quality-roles.json",
+      "sha256": "ee852a0d350fffc1223b3b229b54ce72948559eff4fe9130cca0634cf45c7ef5"
+    },
+    {
+      "path": "config/blueprints/standard/templates.d/research-roles.json",
+      "sha256": "e4e8caf6b216bacdad266fb5474edf2711d171159100137640f23a7e9de9ed20"
+    },
+    {
+      "path": "config/blueprints/standard/templates.d/story-domain-implementation.json",
+      "sha256": "f38a3ab5224573bd12e1189241c3bf8a0b2d22106b69d8a2772b1f6e9820b7c2"
+    },
+    {
+      "path": "config/blueprints/standard/workflows.d/enterprise-product-evolution.json",
+      "sha256": "df233b13852026ec4c78e85c475cf4f887ecce510ac875e480e5a85e3f7f31ec"
+    },
+    {
+      "path": "config/test-profiles/enterprise-organizations/release-gate.v1.json",
+      "sha256": "69f9b2995760acb39735d5c1cb97a74fb46c41b883da2924404c60294d1a8202"
+    },
+    {
+      "path": "schemas/blueprints/organization_blueprint_catalog.v1.json",
+      "sha256": "0e440e3431f05a2cab654b52fca67b6119c398b275912664e19a3f2ca19128e2"
+    },
+    {
+      "path": "schemas/blueprints/organization_blueprint_fragment.v1.json",
+      "sha256": "53fc3c548aa236ab8c32e9efdf445965e5a832bfb8db41a9cd57273a9338745b"
+    },
+    {
+      "path": "schemas/blueprints/organization_topology_projection.v1.json",
+      "sha256": "f9324c2bd26f3a82a4def976b3eae6d4e15d58026aced36a43f786e0689607c5"
+    },
+    {
+      "path": "schemas/blueprints/organization_workflow_catalog.v1.json",
+      "sha256": "bc919c31c22a276606d94c01e2e6529e8c4b06811d71c58b08d5e17ffb46c734"
+    },
+    {
+      "path": "schemas/blueprints/team_handoff.v1.json",
+      "sha256": "34c7390d5e6e362dbc737e5a3eadfd3ac09c47d581e0d7edc4b96e924607bc95"
+    },
+    {
+      "path": "schemas/planning/category_todo_quality_profile.v1.json",
+      "sha256": "892aea356264858222d864d36d8988dd3e5d7d2704a75031b718ddb376bf24fb"
+    },
+    {
+      "path": "schemas/planning/model_response_behavior_profile.v1.json",
+      "sha256": "42c8f288f419f21923f7ba4c6ddcde372f8af19525cf99d9c307fbc9d69b323c"
+    },
+    {
+      "path": "schemas/planning/planning_prompt_version.v1.json",
+      "sha256": "bdc29647ab2bcaf57419571eeb40a6c09fc7aa71db045d5f7f4fdf7d943866a4"
+    },
+    {
+      "path": "schemas/planning/planning_template_catalog.v1.json",
+      "sha256": "7c1b1a445ee4333775c93a7eee458bca3ccc88517ad9effaff1d4261400f87a2"
+    },
+    {
+      "path": "schemas/policies/organization_policy_catalog.v1.json",
+      "sha256": "c9945a52de081d2b4cc1618dd78a465d8236856ac69fd5000e27ff331c726a3d"
+    },
+    {
+      "path": "schemas/policies/worker_task_proposal_policy.v1.json",
+      "sha256": "fde64bae0c3cfa8077eda89e4c90f12cacf5971d8159e25c141edac844c1eec7"
+    },
+    {
+      "path": "schemas/worker/task_followup_proposal.v1.json",
+      "sha256": "0c037609b22898e87612614779efe8d2de7383f20933a432bba504b4488155fd"
+    },
+    {
+      "path": "todos/active/todo.enterprise-agentic-scrum-organization-blueprints.json",
+      "sha256": "31db71a71f56fd0012261376285900ea878b26faa6bec6a8556d11ac6606d99e"
+    },
+    {
+      "path": "todos/todo.schema.json",
+      "sha256": "c1cfd91427a1a6484521e189ea6efda3347f13aca4f55e70e418219b36fa6ce1"
+    },
+    {
+      "path": "todos/todo.track.schema.json",
+      "sha256": "f20ba477ad89f5c88f95269d9bf1d7fe90e4b556198f21b67e87ed44b2068c69"
+    }
+  ],
+  "input_set_sha256": "e4179f6cda6ad7460ff2d5961a5ae3365d9b8b4b8394233219a1cbcfcffde830",
+  "known_residual_risks": [
+    "Complex integration, browser, accessibility, and performance evidence is not accepted until the full gate runs with explicit approval.",
+    "A dirty working tree is implementation state, not immutable release evidence."
+  ],
+  "mode": "static",
+  "produced_at": "2026-08-03T12:56:17.071904Z",
+  "reason_codes": [
+    "complex_tests_deferred_pending_user_approval",
+    "release_predecessors_incomplete",
+    "required_suites_not_executed"
+  ],
+  "schema": "ananta.enterprise-organization.release-result.v1",
+  "status": "deferred",
+  "suites": [
+    {
+      "command": [
+        "python",
+        "-m",
+        "compileall",
+        "-q",
+        "agent/db_models/organizations.py",
+        "agent/models/organization_models.py",
+        "agent/repositories/organizations",
+        "agent/services",
+        "agent/routes"
+      ],
+      "cwd": ".",
+      "duration_ms": 5326,
+      "exit_code": 0,
+      "id": "python-static",
+      "reason_code": null,
+      "status": "passed",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tier": "static",
+      "timeout_seconds": 120
+    },
+    {
+      "command": [
+        "npx",
+        "ngc",
+        "-p",
+        "tsconfig.app.json"
+      ],
+      "cwd": "frontend-angular",
+      "duration_ms": 39941,
+      "exit_code": 0,
+      "id": "angular-static",
+      "reason_code": null,
+      "status": "passed",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tier": "static",
+      "timeout_seconds": 180
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_organization_blueprint_catalog_schema.py",
+        "tests/test_organization_role_templates.py",
+        "tests/test_seed_catalog_fragments.py"
+      ],
+      "cwd": ".",
+      "id": "schema-catalog-role-contracts",
+      "reason_code": "complex_tests_awaiting_approval",
+      "status": "not_run",
+      "tier": "complex",
+      "timeout_seconds": 600
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_organization_bundle_service.py",
+        "tests/test_organization_bundle_migration.py",
+        "tests/test_organization_definition_versions.py",
+        "tests/test_organization_unit_of_work.py"
+      ],
+      "cwd": ".",
+      "id": "bundle-migration-revision",
+      "reason_code": "complex_tests_awaiting_approval",
+      "status": "not_run",
+      "tier": "complex",
+      "timeout_seconds": 900
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/integration/test_small_organization_runtime_matrix.py",
+        "tests/integration/test_team_handoff_runtime.py",
+        "tests/integration/test_worker_task_proposals.py",
+        "tests/test_organization_runtime_services.py",
+        "tests/test_organization_security_and_routing.py"
+      ],
+      "cwd": ".",
+      "id": "small-runtime-matrix",
+      "reason_code": "complex_tests_awaiting_approval",
+      "status": "not_run",
+      "tier": "complex",
+      "timeout_seconds": 1200
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_planning_category_todo_pipeline_service.py",
+        "tests/test_category_to_planning_track_service.py",
+        "tests/test_planning_hierarchy_lineage.py",
+        "tests/test_enterprise_planning_contracts.py"
+      ],
+      "cwd": ".",
+      "id": "planning-lineage",
+      "reason_code": "complex_tests_awaiting_approval",
+      "status": "not_run",
+      "tier": "complex",
+      "timeout_seconds": 900
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/security/test_organization_authorization_matrix.py",
+        "tests/security/test_organization_grounding.py",
+        "tests/security/test_worker_task_proposal_policy.py",
+        "tests/security/test_worker_callback_capability.py"
+      ],
+      "cwd": ".",
+      "id": "authorization-security",
+      "reason_code": "complex_tests_awaiting_approval",
+      "status": "not_run",
+      "tier": "complex",
+      "timeout_seconds": 1200
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_organization_lifecycle.py",
+        "tests/test_organization_team_delete_guard.py",
+        "tests/test_organization_reconciliation.py"
+      ],
+      "cwd": ".",
+      "id": "lifecycle-delete-reconcile",
+      "reason_code": "complex_tests_awaiting_approval",
+      "status": "not_run",
+      "tier": "complex",
+      "timeout_seconds": 900
+    },
+    {
+      "command": [
+        "npx",
+        "vitest",
+        "run",
+        "src/app/features/organizations"
+      ],
+      "cwd": "frontend-angular",
+      "id": "angular-unit-accessibility",
+      "reason_code": "complex_tests_awaiting_approval",
+      "status": "not_run",
+      "tier": "complex",
+      "timeout_seconds": 900
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/performance/test_n_team_organization_projection.py"
+      ],
+      "cwd": ".",
+      "id": "n-team-performance",
+      "reason_code": "complex_tests_awaiting_approval",
+      "status": "not_run",
+      "tier": "complex",
+      "timeout_seconds": 1800
+    },
+    {
+      "command": [
+        "npx",
+        "playwright",
+        "test",
+        "tests/enterprise-organization-medium-eight-team.spec.ts"
+      ],
+      "cwd": "frontend-angular",
+      "id": "medium-eight-team-e2e",
+      "reason_code": "complex_tests_awaiting_approval",
+      "status": "not_run",
+      "tier": "full_e2e",
+      "timeout_seconds": 1800
+    }
+  ],
+  "task_graph": {
+    "expected_transitive_predecessor_count": 90,
+    "incomplete_predecessor_ids": [
+      "ESORG-QA-001",
+      "ESORG-QA-002",
+      "ESORG-QA-003",
+      "ESORG-QA-004",
+      "ESORG-QA-005",
+      "ESORG-QA-007",
+      "ESORG-QA-008",
+      "ESORG-QA-009",
+      "ESORG-UI-010"
+    ],
+    "reason_codes": [
+      "release_predecessors_incomplete"
+    ],
+    "status": "failed",
+    "summary": {
+      "edges": 313,
+      "leaves": [
+        "ESORG-QA-006"
+      ],
+      "nodes": 91,
+      "roots": [
+        "ESORG-ARCH-001"
+      ]
+    },
+    "transitive_predecessor_count": 90
+  }
+}

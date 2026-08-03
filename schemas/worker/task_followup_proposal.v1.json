@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/task_followup_proposal.v1.json",
+  "title": "Assignment-bound worker task follow-up proposal v1",
+  "description": "Untrusted worker evidence submitted for Hub classification. A valid proposal is not a Task, queue item, approval, routing decision, or worker address.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "proposal_id",
+    "idempotency_key",
+    "source_goal_id",
+    "source_task_id",
+    "source_category_item_ids",
+    "organization_id",
+    "unit_id",
+    "team_id",
+    "role_slot_id",
+    "assignment_id",
+    "dispatch_lease_id",
+    "proposing_role_template_ref",
+    "proposal_policy_hash",
+    "payload_digest",
+    "proposal_state",
+    "payload"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "task_followup_proposal.v1" },
+    "proposal_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "idempotency_key": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "source_goal_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "source_task_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "source_category_item_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": { "type": "string", "minLength": 1, "maxLength": 160 },
+      "uniqueItems": true
+    },
+    "organization_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "unit_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "team_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "role_slot_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "assignment_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "dispatch_lease_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "proposing_role_template_ref": { "$ref": "#/$defs/versioned_ref" },
+    "proposal_policy_hash": { "$ref": "#/$defs/digest" },
+    "payload_digest": { "$ref": "#/$defs/digest" },
+    "proposal_state": { "type": "string", "const": "submitted" },
+    "payload": { "$ref": "#/$defs/proposal_payload" }
+  },
+  "$defs": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "maxLength": 128
+    },
+    "versioned_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*@[1-9][0-9]*$",
+      "maxLength": 160
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "bounded_text_list": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": { "type": "string", "minLength": 1, "maxLength": 2000 },
+      "uniqueItems": true
+    },
+    "bounded_ref_list": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "type": "string", "minLength": 1, "maxLength": 240 },
+      "uniqueItems": true
+    },
+    "grounding_ref": {
+      "type": "string",
+      "pattern": "^(SRC|RUN)_[0-9]{4}$",
+      "maxLength": 240
+    },
+    "proposal_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "description",
+        "task_kind",
+        "rationale",
+        "acceptance_criteria",
+        "expected_outputs",
+        "dependency_refs",
+        "required_capabilities",
+        "suggested_role_refs",
+        "suggested_team_refs",
+        "suggested_agent_refs",
+        "context_refs",
+        "evidence_refs",
+        "risk",
+        "priority_hint",
+        "budget_estimate"
+      ],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "task_kind": {
+          "type": "string",
+          "enum": ["planning", "research", "prototype", "coding", "review", "testing", "documentation", "handoff", "gate_review", "release"]
+        },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "acceptance_criteria": { "$ref": "#/$defs/bounded_text_list" },
+        "expected_outputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/key" },
+          "uniqueItems": true
+        },
+        "dependency_refs": { "$ref": "#/$defs/bounded_ref_list" },
+        "required_capabilities": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/key" },
+          "uniqueItems": true
+        },
+        "suggested_role_refs": { "$ref": "#/$defs/bounded_ref_list" },
+        "suggested_team_refs": { "$ref": "#/$defs/bounded_ref_list" },
+        "suggested_agent_refs": { "$ref": "#/$defs/bounded_ref_list" },
+        "context_refs": { "$ref": "#/$defs/bounded_ref_list" },
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/grounding_ref" },
+          "uniqueItems": true
+        },
+        "risk": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "priority_hint": { "type": "string", "enum": ["P0", "P1", "P2", "P3"] },
+        "budget_estimate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["estimated_tokens", "estimated_seconds", "estimated_cost_units"],
+          "properties": {
+            "estimated_tokens": { "type": "integer", "minimum": 0, "maximum": 10000000 },
+            "estimated_seconds": { "type": "integer", "minimum": 0, "maximum": 31536000 },
+            "estimated_cost_units": { "type": "number", "minimum": 0, "maximum": 1000000 }
+          }
+        }
+      }
+    }
+  }
+}

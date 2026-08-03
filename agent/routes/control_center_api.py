@@ -25,12 +25,16 @@ from agent.routes.control_center_task_mutations import (
 )
 from agent.routes.source_control_access import authorize_route_request
 from agent.routes.tasks.status import normalize_task_status
+from agent.routes.tasks.task_read_access import require_task_read
 from agent.routes.tasks.vector_admin_boundary import (
     reserved_vector_mutation_response,
 )
 from agent.services.repository_registry import get_repository_registry
 from agent.services.share_session_service import get_share_session_service
 from agent.services.source_control_access_policy import SourceControlAction
+from agent.services.task_read_projection_service import (
+    get_task_read_projection_service,
+)
 from agent.services.user_token_scope import (
     CONTROL_CENTER_STREAM_TOKEN_USE,
     control_center_stream_identity_is_bound,
@@ -74,25 +78,29 @@ def _project_item(team: Any) -> dict[str, Any]:
 
 
 def _task_item(task: Any) -> dict[str, Any]:
-    verification_status = dict(getattr(task, "verification_status", None) or {})
-    return {
-        "id": str(getattr(task, "id", "") or ""),
-        "title": str(getattr(task, "title", "") or ""),
-        "description": str(getattr(task, "description", "") or ""),
-        "status": normalize_task_status(str(getattr(task, "status", "todo") or "todo")),
-        "priority": str(getattr(task, "priority", "Medium") or "Medium"),
-        "project_id": str(
-            getattr(task, "project_id", None)
-            or getattr(task, "team_id", "")
-            or ""
-        ),
-        "team_id": str(getattr(task, "team_id", "") or ""),
-        "assigned_agent_url": str(getattr(task, "assigned_agent_url", "") or ""),
-        "goal_id": str(getattr(task, "goal_id", "") or "") or None,
-        "verification_status": verification_status,
-        "created_at": float(getattr(task, "created_at", 0.0) or 0.0),
-        "updated_at": float(getattr(task, "updated_at", 0.0) or 0.0),
-    }
+    projection = get_task_read_projection_service()
+    item = projection.summary(task)
+    item.update(
+        {
+            "id": str(item.get("id") or ""),
+            "title": str(item.get("title") or ""),
+            "description": str(item.get("description") or ""),
+            "status": normalize_task_status(str(item.get("status") or "todo")),
+            "priority": str(item.get("priority") or "Medium"),
+            "project_id": str(
+                item.get("project_id") or item.get("team_id") or ""
+            ),
+            "team_id": str(item.get("team_id") or ""),
+            "assigned_agent_url": str(item.get("assigned_agent_url") or ""),
+            "goal_id": str(item.get("goal_id") or "") or None,
+            "verification_status": projection.verification_summary(
+                getattr(task, "verification_status", None)
+            ),
+            "created_at": float(item.get("created_at") or 0.0),
+            "updated_at": float(item.get("updated_at") or 0.0),
+        }
+    )
+    return item
 
 
 _ALLOWED_AGENT_SESSION_STATUSES = {
@@ -186,11 +194,26 @@ def _policy_snapshot_item(snapshot: PolicySnapshotDB) -> dict[str, Any]:
 
 def _artifact_item(artifact: Any) -> dict[str, Any]:
     metadata = dict(getattr(artifact, "artifact_metadata", None) or {})
+    safe_metadata_fields = (
+        "content_hash",
+        "project_id",
+        "session_id",
+        "task_id",
+        "type",
+    )
     return {
         "id": str(getattr(artifact, "id", "") or ""),
         "latest_media_type": str(getattr(artifact, "latest_media_type", "") or "") or None,
         "latest_filename": str(getattr(artifact, "latest_filename", "") or "") or None,
-        "artifact_metadata": metadata,
+        "artifact_metadata": {
+            key: value
+            for key in safe_metadata_fields
+            if key in metadata
+            and (
+                (value := metadata.get(key)) is None
+                or isinstance(value, (str, int, float, bool))
+            )
+        },
         "created_at": float(getattr(artifact, "created_at", 0.0) or 0.0),
         "updated_at": float(getattr(artifact, "updated_at", 0.0) or 0.0),
     }
@@ -354,8 +377,13 @@ def get_task_detail(task_id: str):
     task = _repos().task_repo.get_by_id(task_id)
     if task is None:
         return api_response(status="error", message="not_found", code=404)
+    raw_task, access_error = require_task_read(task)
+    if access_error is not None:
+        return access_error
 
-    t = _task_item(task)
+    projection = get_task_read_projection_service()
+    t = projection.detail(raw_task)
+    t["status"] = normalize_task_status(str(t.get("status") or "todo"))
     linked_sessions = _repos().agent_session_repo.get_by_task_id(task_id)
     primary_session = linked_sessions[0] if linked_sessions else None
     session_payload = _agent_session_item(primary_session) if primary_session else None
@@ -366,7 +394,6 @@ def get_task_detail(task_id: str):
             "decision_type": str(getattr(p, "decision_type", "") or ""),
             "status": str(getattr(p, "status", "") or ""),
             "reasons": list(getattr(p, "reasons", None) or []),
-            "details": dict(getattr(p, "details", None) or {}),
             "created_at": float(getattr(p, "created_at", 0.0) or 0.0),
         }
         for p in (_repos().policy_decision_repo.get_all() or [])
@@ -386,7 +413,9 @@ def get_task_detail(task_id: str):
             "policy_decisions": policy_decisions,
             "artifacts": artifacts,
             "sessions": [_agent_session_item(s) for s in linked_sessions],
-            "verification": dict(getattr(task, "verification_status", None) or {}),
+            "verification": projection.verification_summary(
+                raw_task.get("verification_status")
+            ),
         }
     )
 
@@ -477,6 +506,9 @@ def create_task_session(task_id: str):
     task = _repos().task_repo.get_by_id(task_id)
     if task is None:
         return api_response(status="error", message="task_not_found", code=404)
+    _raw_task, access_error = require_task_read(task)
+    if access_error is not None:
+        return access_error
     vector_error = reserved_vector_mutation_response(task)
     if vector_error is not None:
         return vector_error
