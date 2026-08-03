@@ -50,11 +50,28 @@ class _EngineBoundRepository:
 
 
 class ArchivedTaskRepositoryMixin(_EngineBoundRepository):
-    def get_all(self, limit: int = 100, offset: int = 0):
+    def get_all(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        *,
+        tenant_id: str | None = None,
+        project_id: str | None = None,
+    ):
         dependencies = self._dependencies()
         model = dependencies.archived_task_model
         with dependencies.session_factory(self._engine()) as session:
-            statement = dependencies.select(model).order_by(model.archived_at.desc()).offset(offset).limit(limit)
+            statement = dependencies.select(model)
+            if tenant_id is not None:
+                statement = statement.where(model.tenant_id == tenant_id)
+            if project_id is not None:
+                statement = statement.where(model.project_id == project_id)
+            statement = (
+                statement
+                .order_by(model.archived_at.desc(), model.id.asc())
+                .offset(offset)
+                .limit(limit)
+            )
             return session.exec(statement).all()
 
     def get_by_id(

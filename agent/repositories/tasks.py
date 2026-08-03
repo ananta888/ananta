@@ -2641,6 +2641,8 @@ class TaskRepository:
         agent: str = None,
         since: float = None,
         until: float = None,
+        tenant_id: str | None = None,
+        project_id: str | None = None,
     ):
         with Session(_engine()) as session:
             statement = select(TaskDB)
@@ -2654,8 +2656,19 @@ class TaskRepository:
                 statement = statement.where(TaskDB.created_at >= since)
             if until:
                 statement = statement.where(TaskDB.created_at <= until)
+            if tenant_id is not None:
+                statement = statement.where(TaskDB.tenant_id == tenant_id)
+            if project_id is not None:
+                statement = statement.where(TaskDB.project_id == project_id)
 
-            statement = statement.order_by(TaskDB.updated_at.desc()).offset(offset).limit(limit)
+            statement = (
+                statement.order_by(
+                    TaskDB.updated_at.desc(),
+                    TaskDB.id.asc(),
+                )
+                .offset(offset)
+                .limit(limit)
+            )
             return session.exec(statement).all()
 
 

@@ -136,6 +136,36 @@ def _artifact_summaries(artifact_ids: list[str], *, repos) -> list[dict]:
     return summaries
 
 
+def _rag_metadata_summary(raw: dict | None) -> dict:
+    """Project retrieval metadata without content or Source authority."""
+
+    payload = dict(raw or {})
+    allowed = (
+        "artifact_id",
+        "artifact_version_id",
+        "collection_id",
+        "content_hash",
+        "extracted_document_id",
+        "filename",
+        "line_end",
+        "line_start",
+        "media_type",
+        "path",
+        "record_id",
+        "task_id",
+        "worker_job_id",
+    )
+    return {
+        key: value
+        for key in allowed
+        if key in payload
+        and (
+            (value := payload.get(key)) is None
+            or isinstance(value, (str, int, float, bool))
+        )
+    }
+
+
 def _resolve_assignment_summary(*, task: dict, repos, worker_url: str | None = None) -> dict:
     assigned_agent_url = str(task.get("assigned_agent_url") or worker_url or "").strip() or None
     assigned_role_id = str(task.get("assigned_role_id") or "").strip() or None
@@ -252,7 +282,11 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
 
             result_rows = repos.worker_result_repo.get_by_worker_job(job.id)
             payload["counts"]["worker_results"] += len(result_rows)
-            memory_rows = [entry for entry in task_memory_entries if str(entry.worker_job_id or "").strip() == str(job.id)]
+            memory_rows = [
+                entry
+                for entry in task_memory_entries
+                if str(entry.worker_job_id or "").strip() == str(job.id)
+            ]
             returned_refs: list[dict] = []
             for entry in memory_rows:
                 refs = list(entry.artifact_refs or [])
@@ -283,7 +317,12 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
                     "returned_refs": [
                         {
                             **dict(ref or {}),
-                            "artifact": _artifact_summary(str((ref or {}).get("artifact_id") or "").strip(), repos=repos)
+                            "artifact": _artifact_summary(
+                                str(
+                                    (ref or {}).get("artifact_id") or ""
+                                ).strip(),
+                                repos=repos,
+                            )
                             if str((ref or {}).get("artifact_id") or "").strip()
                             else None,
                         }
@@ -331,7 +370,9 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
                         item = {
                             "source": row.source,
                             "score": row.score,
-                            "metadata": dict(row.metadata or {}),
+                            "metadata": _rag_metadata_summary(
+                                dict(row.metadata or {})
+                            ),
                         }
                         if effective["rag_include_content"]:
                             item["content"] = row.content
@@ -378,17 +419,32 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
             (
                 {
                     **group,
-                    "artifact_ids": [str(item.get("artifact_id") or "").strip() for item in group.get("artifacts") or [] if str(item.get("artifact_id") or "").strip()],
+                    "artifact_ids": [
+                        str(item.get("artifact_id") or "").strip()
+                        for item in group.get("artifacts") or []
+                        if str(item.get("artifact_id") or "").strip()
+                    ],
                 }
                 for group in worker_groups.values()
             ),
-            key=lambda group: (-(len(group.get("artifacts") or [])), str(group.get("worker_name") or group.get("worker_url") or "")),
+            key=lambda group: (
+                -(len(group.get("artifacts") or [])),
+                str(
+                    group.get("worker_name")
+                    or group.get("worker_url")
+                    or ""
+                ),
+            ),
         ),
         "by_assignment": sorted(
             (
                 {
                     **group,
-                    "artifact_ids": [str(item.get("artifact_id") or "").strip() for item in group.get("artifacts") or [] if str(item.get("artifact_id") or "").strip()],
+                    "artifact_ids": [
+                        str(item.get("artifact_id") or "").strip()
+                        for item in group.get("artifacts") or []
+                        if str(item.get("artifact_id") or "").strip()
+                    ],
                 }
                 for group in assignment_groups.values()
             ),
@@ -403,7 +459,16 @@ def build_artifact_flow_read_model(*, overrides: dict | None = None) -> dict:
     return payload
 
 
-def _touch_worker_group(worker_groups: dict, *, worker_url: str | None, worker_name: str | None, task_id: str, worker_job_id: str | None, artifacts: list[dict], assignment: dict | None) -> None:
+def _touch_worker_group(
+    worker_groups: dict,
+    *,
+    worker_url: str | None,
+    worker_name: str | None,
+    task_id: str,
+    worker_job_id: str | None,
+    artifacts: list[dict],
+    assignment: dict | None,
+) -> None:
     key = str(worker_url or "").strip()
     if not key:
         return
@@ -432,7 +497,14 @@ def _touch_worker_group(worker_groups: dict, *, worker_url: str | None, worker_n
     _accumulate_group_artifacts(group, artifacts)
 
 
-def _touch_assignment_group(assignment_groups: dict, *, assignment: dict | None, task_id: str, worker_job_id: str | None, artifacts: list[dict]) -> None:
+def _touch_assignment_group(
+    assignment_groups: dict,
+    *,
+    assignment: dict | None,
+    task_id: str,
+    worker_job_id: str | None,
+    artifacts: list[dict],
+) -> None:
     payload_assignment = dict(assignment or {})
     key = "::".join(
         [

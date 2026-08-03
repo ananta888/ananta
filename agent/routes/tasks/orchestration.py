@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import uuid
 
-from flask import Blueprint, request
+from flask import Blueprint, g, request
 
-from agent.auth import check_auth
+from agent.auth import admin_required, check_auth
 from agent.common.errors import api_response
 from agent.config import settings
 from agent.models import TaskClaimRequest, TaskCreateRequest, TaskDelegationRequest
@@ -33,6 +33,11 @@ _policy = DelegationPolicy(role_provider=settings, required_role="hub")
 
 def _services():
     return get_core_services()
+
+
+def _actor_username() -> str:
+    user = getattr(g, "user", {}) or {}
+    return str(user.get("sub") or user.get("username") or "system")
 
 
 def _parse_bool(value: str | None) -> bool | None:
@@ -71,7 +76,12 @@ def delegate_task(tid):
         verification_service=_services().verification_service,
     )
     if result.get("error"):
-        return api_response(status="error", message=result["error"], data=result.get("data"), code=result.get("code", 400))
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result.get("data"),
+            code=result.get("code", 400),
+        )
     return api_response(data=result["data"])
 
 
@@ -141,8 +151,11 @@ def ingest_task():
             else None,
         }
     )
-    source = str(payload.get("source") or "ui").strip().lower()
-    created_by = str(payload.get("created_by") or "unknown").strip()
+    # The authenticated Hub context owns ingest provenance.  Body-provided
+    # actor/channel claims are not authority and must never become the root of
+    # trust for a persisted source catalog.
+    source = "api"
+    created_by = _actor_username()
     result = _services().task_management_service.create_task(
         data=task_request,
         source=source,
@@ -175,7 +188,12 @@ def claim_task():
         task_queue_service=_services().task_queue_service,
     )
     if result.get("error"):
-        return api_response(status="error", message=result["error"], data=result.get("data"), code=result.get("code", 400))
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result.get("data"),
+            code=result.get("code", 400),
+        )
     return api_response(data=result["data"])
 
 
@@ -198,13 +216,36 @@ def complete_task():
         evolution_service=_services().evolution_service,
     )
     if result.get("error"):
-        return api_response(status="error", message=result["error"], data=result.get("data"), code=result.get("code", 400))
+        return api_response(
+            status="error",
+            message=result["error"],
+            data=result.get("data"),
+            code=result.get("code", 400),
+        )
     return api_response(data=result["data"])
 
 
 @orchestration_bp.route("/tasks/orchestration/read-model", methods=["GET"])
 @check_auth
+@admin_required
 def orchestration_read_model():
+    raw_rag_include_content = request.args.get(
+        "artifact_flow_rag_include_content"
+    )
+    rag_include_content = _parse_bool(raw_rag_include_content)
+    if raw_rag_include_content is not None and rag_include_content is None:
+        return api_response(
+            status="error",
+            message="artifact_flow_rag_include_content_invalid",
+            code=400,
+        )
+    if rag_include_content is True:
+        return api_response(
+            status="error",
+            message="artifact_flow_rag_content_forbidden",
+            code=403,
+        )
+
     payload = _services().task_claim_service.orchestration_read_model(task_queue_service=_services().task_queue_service)
     tracking_service = get_task_execution_tracking_service()
     payload["worker_execution_reconciliation"] = tracking_service.build_execution_reconciliation_snapshot()
@@ -216,9 +257,9 @@ def orchestration_read_model():
     rag_enabled = _parse_bool(request.args.get("artifact_flow_rag_enabled"))
     if rag_enabled is not None:
         overrides["rag_enabled"] = rag_enabled
-    rag_include_content = _parse_bool(request.args.get("artifact_flow_rag_include_content"))
-    if rag_include_content is not None:
-        overrides["rag_include_content"] = rag_include_content
+    # The global orchestration surface is metadata-only regardless of the
+    # configured artifact-flow default or caller-supplied false value.
+    overrides["rag_include_content"] = False
     for query_key, cfg_key in (
         ("artifact_flow_rag_top_k", "rag_top_k"),
         ("artifact_flow_max_tasks", "max_tasks"),

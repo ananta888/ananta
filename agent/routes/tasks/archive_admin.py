@@ -9,6 +9,10 @@ from flask import Blueprint, request
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
+from agent.routes.tasks.task_read_access import (
+    task_read_access_context,
+    task_read_error_response,
+)
 from agent.routes.tasks.vector_admin_boundary import (
     request_vector_authorization,
     vector_permission_error,
@@ -17,6 +21,7 @@ from agent.services.service_registry import get_core_services
 from agent.services.task_admin_service import (
     RecoveryChildAdminMutationConflict,
 )
+from agent.services.task_read_access_service import TaskReadAccessError
 
 
 def _parse_status_filters(raw: object) -> set[str]:
@@ -99,13 +104,17 @@ def _uniform_batch_error(
 def list_archived_tasks():
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
-    data = (
-        get_core_services()
-        .task_query_service.list_archived_tasks(
-            limit=limit,
-            offset=offset,
+    try:
+        data = (
+            get_core_services()
+            .task_query_service.list_archived_tasks(
+                limit=limit,
+                offset=offset,
+                access=task_read_access_context(),
+            )
         )
-    )
+    except TaskReadAccessError as exc:
+        return task_read_error_response(exc)
     return api_response(data=data)
 
 

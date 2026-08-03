@@ -116,7 +116,20 @@ class TaskClaimService:
         repos = get_repository_registry()
         tasks = [task.model_dump() for task in repos.task_repo.get_all()]
         model = build_orchestration_read_model(tasks)
-        model["recent_policy_decisions"] = [item.model_dump() for item in repos.policy_decision_repo.get_all(limit=50)]
+        model["recent_policy_decisions"] = [
+            {
+                "id": item.id,
+                "decision_type": item.decision_type,
+                "status": item.status,
+                "policy_name": item.policy_name,
+                "policy_version": item.policy_version,
+                "reasons": list(item.reasons or []),
+                "task_id": item.task_id,
+                "worker_url": item.worker_url,
+                "created_at": item.created_at,
+            }
+            for item in repos.policy_decision_repo.get_all(limit=50)
+        ]
         return model
 
 

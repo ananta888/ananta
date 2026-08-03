@@ -69,6 +69,37 @@ def test_boundary_auth_rejects_missing_invalid_and_non_admin_requests(client, us
     assert non_admin.status_code == 403
 
 
+@pytest.mark.parametrize("path", ["/tasks", "/tasks/orchestration/ingest"])
+def test_generic_task_ingest_ignores_spoofed_actor_and_source(
+    client,
+    auth_header,
+    path,
+):
+    task_id = "SEC-INGEST-PROVENANCE-" + path.rsplit("/", 1)[-1].upper()
+    response = client.post(
+        path,
+        headers=auth_header,
+        json={
+            "id": task_id,
+            "description": "verify authenticated ingest provenance",
+            "source": "system",
+            "created_by": "spoofed-owner",
+        },
+    )
+
+    assert response.status_code in {200, 201}
+    task_response = client.get(f"/tasks/{task_id}", headers=auth_header)
+    assert task_response.status_code == 200
+    events = [
+        event
+        for event in task_response.get_json()["data"].get("history", [])
+        if event.get("event_type") == "task_ingested"
+    ]
+    assert len(events) == 1
+    assert events[0]["actor"] != "spoofed-owner"
+    assert events[0]["details"]["source"] == "api"
+
+
 @pytest.mark.parametrize(
     "path",
     [

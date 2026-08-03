@@ -12,6 +12,11 @@ from agent.auth import (
 from agent.common.errors import api_response
 from agent.common.logging import get_correlation_id
 from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
+from agent.routes.tasks.task_read_access import (
+    require_task_read,
+    task_read_access_context,
+    task_read_error_response,
+)
 from agent.routes.tasks.vector_admin_boundary import (
     guard_vector_control_mutation,
 )
@@ -33,6 +38,10 @@ from agent.services.retrieval_vector_scope_ingress_policy import (
     reserved_retrieval_vector_scope_ingress_error,
 )
 from agent.services.service_registry import get_core_services
+from agent.services.task_read_access_service import TaskReadAccessError
+from agent.services.task_read_projection_service import (
+    get_task_read_projection_service,
+)
 from agent.services.vector_index_task_ingress_policy import (
     find_reserved_vector_index_marker,
     reserved_vector_index_ingress_error,
@@ -162,16 +171,19 @@ def list_tasks():
     until_filter = request.args.get("until", type=float)
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
-    return api_response(
-        data=get_core_services().task_query_service.list_tasks(
+    try:
+        data = get_core_services().task_query_service.list_tasks(
             status_filter=status_filter,
             agent_filter=agent_filter,
             since_filter=since_filter,
             until_filter=until_filter,
             limit=limit,
             offset=offset,
+            access=task_read_access_context(),
         )
-    )
+    except TaskReadAccessError as exc:
+        return task_read_error_response(exc)
+    return api_response(data=data)
 
 
 @management_bp.route("/tasks/timeline", methods=["GET"])
@@ -188,16 +200,19 @@ def tasks_timeline():
     since_filter = request.args.get("since", type=float)
     limit = max(1, min(request.args.get("limit", 200, type=int), 2000))
 
-    return api_response(
-        data=get_core_services().task_query_service.timeline(
+    try:
+        data = get_core_services().task_query_service.timeline(
             team_id_filter=team_id_filter,
             agent_filter=agent_filter,
             status_filter=status_filter,
             error_only=error_only,
             since_filter=since_filter,
             limit=limit,
+            access=task_read_access_context(),
         )
-    )
+    except TaskReadAccessError as exc:
+        return task_read_error_response(exc)
+    return api_response(data=data)
 
 
 @management_bp.route("/tasks/<tid>/tree", methods=["GET"])
@@ -211,12 +226,16 @@ def task_tree_route(tid):
     """
     include_archived = str(request.args.get("include_archived", "1")).strip().lower() in {"1", "true", "yes"}
     max_depth = max(1, min(int(request.args.get("max_depth", 10)), 50))
-    tree = get_core_services().task_query_service.task_tree(
-        root_id=tid,
-        include_archived=include_archived,
-        max_depth=max_depth,
-        task_admin_service=get_core_services().task_admin_service,
-    )
+    try:
+        tree = get_core_services().task_query_service.task_tree(
+            root_id=tid,
+            include_archived=include_archived,
+            max_depth=max_depth,
+            task_admin_service=get_core_services().task_admin_service,
+            access=task_read_access_context(),
+        )
+    except TaskReadAccessError as exc:
+        return task_read_error_response(exc)
     if not tree:
         return api_response(status="error", message="not_found", code=404)
     return api_response(data={"root_task_id": tid, "include_archived": include_archived, "tree": tree})
@@ -227,12 +246,16 @@ def task_tree_route(tid):
 def task_hierarchy_view(tid):
     include_archived = str(request.args.get("include_archived", "1")).strip().lower() in {"1", "true", "yes"}
     max_depth = max(1, min(int(request.args.get("max_depth", 10)), 50))
-    data = get_core_services().task_query_service.task_hierarchy_view(
-        root_id=tid,
-        include_archived=include_archived,
-        max_depth=max_depth,
-        task_admin_service=get_core_services().task_admin_service,
-    )
+    try:
+        data = get_core_services().task_query_service.task_hierarchy_view(
+            root_id=tid,
+            include_archived=include_archived,
+            max_depth=max_depth,
+            task_admin_service=get_core_services().task_admin_service,
+            access=task_read_access_context(),
+        )
+    except TaskReadAccessError as exc:
+        return task_read_error_response(exc)
     if not data:
         return api_response(status="error", message="not_found", code=404)
     return api_response(data=data)
@@ -298,8 +321,12 @@ def create_task():
             code=result["code"],
         )
     data: TaskCreateRequest = g.validated_data
-    source = str(payload.get("source") or "ui").strip().lower()
-    created_by = str(payload.get("created_by") or "unknown").strip()
+    # Task-ingest provenance is a Hub security boundary.  Request fields are
+    # intentionally ignored here: callers may describe task intent, but they
+    # cannot choose the authoritative actor or transport channel later used by
+    # source-catalog ownership checks.
+    source = "api"
+    created_by = _actor_username()
     if data.commit_metadata is None and str(data.task_kind or "").strip().lower() in ("coding", "ops", ""):
         data = data.model_copy(update={
             "commit_metadata": get_commit_metadata_inferrer().infer(
@@ -339,9 +366,19 @@ def get_task(tid):
     task = get_core_services().task_runtime_service.get_local_task_status(tid)
     if not task:
         return api_response(status="error", message="not_found", code=404)
-    task = dict(task)
-    task["instruction_layers"] = get_instruction_layer_service().task_selection_summary(task)
-    return api_response(data=task)
+    task, access_error = require_task_read(task)
+    if access_error is not None:
+        return access_error
+    assert task is not None
+    instruction_layers = get_instruction_layer_service().task_selection_summary(
+        task
+    )
+    return api_response(
+        data=get_task_read_projection_service().detail(
+            task,
+            instruction_layers=instruction_layers,
+        )
+    )
 
 
 @management_bp.route("/tasks/<tid>/workspace/files", methods=["GET"])

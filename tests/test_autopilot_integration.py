@@ -136,13 +136,14 @@ class TestFullAutopilotLoop:
                 "in_progress",
                 title="Quality Gate Test",
                 last_output="[quality_gate] failed: Tests not passing",
-                exit_code=1,
+                last_exit_code=1,
             )
 
         response = client.get("/tasks/quality-test-1", headers=admin_auth_header)
         assert response.status_code == 200
         task = response.json["data"]
-        assert "quality_gate] failed" in (task.get("last_output") or "")
+        assert "last_output" not in task
+        assert task["last_exit_code"] == 1
 
     def test_dependency_chain_unblocks(self, client, app, admin_auth_header):
         with app.app_context():
