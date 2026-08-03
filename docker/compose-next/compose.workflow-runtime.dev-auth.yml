@@ -4,8 +4,12 @@
 # access; runtime services receive only their own read-only subtree.
 services:
   ai-agent-hub:
+    user: "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
     environment:
       SECRET_KEY: ""
+      HOME: /app/data/home
+      XDG_CACHE_HOME: /app/data/cache
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200}
       ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE: /run/ananta-dev-workflow/workflow-auth-signing-keyring.json
       ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE: /run/ananta-dev-workflow/workflow-dispatch-keyring.json
       ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH: "1"
@@ -23,10 +27,15 @@ services:
     depends_on:
       workflow-keyring-bootstrap:
         condition: service_completed_successfully
+      runtime-data-bootstrap:
+        condition: service_completed_successfully
 
   ai-agent-alpha:
+    user: "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
     environment:
       SECRET_KEY: ""
+      HOME: /app/data/home
+      XDG_CACHE_HOME: /app/data/cache
       ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE: /run/ananta-dev-workflow/public/workflow-auth-verification-keyring.json
       ANANTA_WORKFLOW_HUB_URL: http://ai-agent-hub:5000
       ANANTA_WORKFLOW_HUB_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
@@ -53,10 +62,15 @@ services:
     depends_on:
       workflow-keyring-bootstrap:
         condition: service_completed_successfully
+      runtime-data-bootstrap:
+        condition: service_completed_successfully
 
   ai-agent-beta:
+    user: "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
     environment:
       SECRET_KEY: ""
+      HOME: /app/data/home
+      XDG_CACHE_HOME: /app/data/cache
       ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE: /run/ananta-dev-workflow/public/workflow-auth-verification-keyring.json
       ANANTA_WORKFLOW_HUB_URL: http://ai-agent-hub:5000
       ANANTA_WORKFLOW_HUB_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
@@ -82,6 +96,8 @@ services:
           create_host_path: false
     depends_on:
       workflow-keyring-bootstrap:
+        condition: service_completed_successfully
+      runtime-data-bootstrap:
         condition: service_completed_successfully
 
   workflow-keyring-bootstrap:
@@ -122,3 +138,56 @@ services:
         target: /run/ananta-dev-workflow
         bind:
           create_host_path: false
+    depends_on:
+      runtime-data-bootstrap:
+        condition: service_completed_successfully
+
+  runtime-data-bootstrap:
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+      args:
+        ANANTA_RUNTIME_UID: ${ANANTA_HOST_UID:-1000}
+        ANANTA_RUNTIME_GID: ${ANANTA_HOST_GID:-1000}
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
+    restart: "no"
+    user: "0:0"
+    network_mode: "none"
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_READ_SEARCH
+    security_opt:
+      - no-new-privileges:true
+    working_dir: /app
+    entrypoint:
+      - python
+      - /app/scripts/bootstrap-dev-runtime-ownership.py
+    command:
+      - --data-root
+      - /run/ananta-dev-data
+      - --workspace-root
+      - /project-workspaces
+      - --credential-root
+      - /run/ananta-dev-workflow
+      - --owner-uid
+      - ${ANANTA_HOST_UID:-1000}
+      - --owner-gid
+      - ${ANANTA_HOST_GID:-1000}
+    volumes:
+      - ../../scripts/bootstrap-dev-runtime-ownership.py:/app/scripts/bootstrap-dev-runtime-ownership.py:ro
+      - ../../project-workspaces:/project-workspaces
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}
+        target: /run/ananta-dev-workflow
+        bind:
+          create_host_path: false
+      - hub-data:/run/ananta-dev-data/hub
+      - alpha-data:/run/ananta-dev-data/alpha
+      - beta-data:/run/ananta-dev-data/beta
+      - frontend-angular-cache:/run/ananta-dev-data/frontend-angular-cache
+
+volumes:
+  frontend-angular-cache: {}
