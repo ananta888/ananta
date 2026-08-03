@@ -1,5 +1,5 @@
 {
-  "$schema": "./todo.schema.json",
+  "$schema": "../todo.schema.json",
   "version": 1,
   "created": "2026-08-02",
   "updated": "2026-08-02",
