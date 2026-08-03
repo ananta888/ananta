@@ -15,6 +15,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from collections import deque
 from datetime import UTC, datetime
@@ -22,7 +23,10 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_TODO = ROOT / "todos/todo.enterprise-agentic-scrum-organization-blueprints.json"
+DEFAULT_TODO = (
+    ROOT
+    / "todos/active/todo.enterprise-agentic-scrum-organization-blueprints.json"
+)
 DEFAULT_PROFILE = ROOT / "config/test-profiles/enterprise-organizations/release-gate.v1.json"
 DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/enterprise-agentic-scrum-organization-release.json"
 REPORT_SCHEMA = "ananta.enterprise-organization.release-result.v1"
@@ -262,16 +266,21 @@ def _hash_inputs(todo_path: Path, profile_path: Path) -> list[dict[str, str]]:
 def _run_suite(suite: Mapping[str, Any]) -> dict[str, Any]:
     started = time.monotonic()
     try:
-        completed = subprocess.run(
-            list(suite["command"]),
-            cwd=ROOT / str(suite["cwd"]),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-            timeout=int(suite["timeout_seconds"]),
-            env=os.environ.copy(),
-        )
+        with tempfile.TemporaryDirectory(
+            prefix="ananta-enterprise-gate-pycache-"
+        ) as pycache_dir:
+            process_env = os.environ.copy()
+            process_env["PYTHONPYCACHEPREFIX"] = pycache_dir
+            completed = subprocess.run(
+                list(suite["command"]),
+                cwd=ROOT / str(suite["cwd"]),
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=int(suite["timeout_seconds"]),
+                env=process_env,
+            )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return {
             **suite,
