@@ -8,6 +8,7 @@ import {
   OrganizationCompilePlan,
   OrganizationCompileRequest,
   OrganizationEdgeNamespace,
+  OrganizationInstantiationGrant,
   OrganizationInstantiateRequest,
   OrganizationLayoutPreference,
   OrganizationNodeKind,
@@ -26,6 +27,8 @@ import { OrganizationApiClient, OrganizationPage } from './organization-api.clie
 
 const DEFAULT_PAGE_SIZE = 100;
 const DEFAULT_DEPTH = 3;
+const DEFAULT_INSTANTIATION_GRANT_TTL_SECONDS = 900;
+const INSTANTIATION_GRANT_EXPIRY_SKEW_SECONDS = 5;
 
 @Injectable()
 export class OrganizationTopologyStateService {
@@ -35,6 +38,7 @@ export class OrganizationTopologyStateService {
   private readonly destroyRef = inject(DestroyRef);
   private readonly projectScopeChanged = new Subject<void>();
   private readonly organizationScopeChanged = new Subject<void>();
+  private readonly compileScopeChanged = new Subject<void>();
   private initializationSequence = 0;
 
   readonly hubUrl = signal('');
@@ -57,10 +61,13 @@ export class OrganizationTopologyStateService {
   readonly inspectorOpen = signal(true);
   readonly loading = signal(false);
   readonly mutating = signal(false);
+  readonly instantiationPending = signal(false);
+  readonly instantiationOutcomeUncertain = signal(false);
   readonly loaded = signal(false);
   readonly error = signal('');
   readonly errorReasonCode = signal('');
   readonly compilePlan = signal<OrganizationCompilePlan | null>(null);
+  readonly instantiationGrant = signal<OrganizationInstantiationGrant | null>(null);
   readonly patchPreview = signal<OrganizationPatchPreview | null>(null);
   readonly topologyPatchGrant = signal<OrganizationTopologyPatchGrant | null>(null);
   readonly planning = signal<OrganizationPlanningReadModel | null>(null);
@@ -68,6 +75,11 @@ export class OrganizationTopologyStateService {
   readonly organizationAdminGrants = signal<ReadonlyMap<string, string>>(new Map());
   private readonly topologyPatchGrantIssueKey = signal('');
   private readonly topologyPatchApplyKey = signal('');
+  private readonly instantiationGrantIssueKey = signal('');
+  private readonly instantiationApplyKey = signal('');
+  private readonly validityClockSeconds = signal(Date.now() / 1000);
+  private validityTimer: ReturnType<typeof setTimeout> | null = null;
+  private releaseProjectSelectionLock: (() => void) | null = null;
   private observedProjectId = this.projectId();
 
   readonly selectedOrganization = computed(() => this.organizations().find(
@@ -76,6 +88,17 @@ export class OrganizationTopologyStateService {
   readonly selectedOrganizationAdminGrant = computed(() => {
     const organizationId = this.selectedOrganizationId();
     return organizationId ? this.organizationAdminGrants().get(organizationId) ?? '' : '';
+  });
+  private readonly instantiationGrantValid = computed(() => {
+    const plan = this.compilePlan();
+    const grant = this.instantiationGrant();
+    const projectId = this.projectId();
+    return Boolean(
+      plan
+      && grant
+      && projectId
+      && isInstantiationGrantBound(grant, plan, projectId, this.validityClockSeconds())
+    );
   });
   readonly selectedNode = computed(() => this.topology()?.nodes.find(
     node => node.id === this.selectedNodeId(),
@@ -139,6 +162,10 @@ export class OrganizationTopologyStateService {
       this.projectScopeChanged.complete();
       this.organizationScopeChanged.next();
       this.organizationScopeChanged.complete();
+      this.compileScopeChanged.next();
+      this.compileScopeChanged.complete();
+      this.clearValidityTimer();
+      this.releaseInstantiationProjectLock();
     });
     effect(() => {
       const projectId = this.projectId();
@@ -340,13 +367,14 @@ export class OrganizationTopologyStateService {
     }
     if (!hubUrl || this.mutating()) return;
     this.resetError();
-    this.compilePlan.set(null);
+    if (!this.discardCompilePlan()) return;
     this.mutating.set(true);
     this.api.compileBlueprint(hubUrl, projectId, request).pipe(
       takeUntil(this.projectScopeChanged),
+      takeUntil(this.compileScopeChanged),
       finalize(() => this.mutating.set(false)),
     ).subscribe({
-      next: plan => this.compilePlan.set(plan),
+      next: plan => this.acceptCompilePlan(plan),
       error: error => this.captureError(error, 'Dry-run konnte nicht erstellt werden.'),
     });
   }
@@ -366,7 +394,7 @@ export class OrganizationTopologyStateService {
     }
     if (!hubUrl || this.mutating()) return;
     this.resetError();
-    this.compilePlan.set(null);
+    if (!this.discardCompilePlan()) return;
     this.mutating.set(true);
     this.api.issueAdmissionException(
       hubUrl,
@@ -393,9 +421,10 @@ export class OrganizationTopologyStateService {
         });
       }),
       takeUntil(this.projectScopeChanged),
+      takeUntil(this.compileScopeChanged),
       finalize(() => this.mutating.set(false)),
     ).subscribe({
-      next: plan => this.compilePlan.set(plan),
+      next: plan => this.acceptCompilePlan(plan),
       error: error => this.captureError(
         error,
         'Custom-N-Ausnahme oder Dry-run konnte nicht erstellt werden.',
@@ -403,7 +432,8 @@ export class OrganizationTopologyStateService {
     });
   }
 
-  instantiate(adminGrant: string): void {
+  issueInstantiationGrant(ttlSeconds = DEFAULT_INSTANTIATION_GRANT_TTL_SECONDS): void {
+    this.refreshValidityClockAndSchedule();
     const plan = this.compilePlan();
     const hubUrl = this.hubUrl();
     const projectId = this.projectId();
@@ -411,16 +441,133 @@ export class OrganizationTopologyStateService {
       this.setProjectRequiredError();
       return;
     }
-    if (!plan || !hubUrl || !adminGrant.trim() || this.mutating()) return;
+    if (!plan) {
+      this.captureError(
+        new Error('organization_compile_plan_required'),
+        'Bitte zuerst einen aktuellen Dry-run erstellen.',
+      );
+      return;
+    }
+    if (!isCompilePlanFresh(plan, this.validityClockSeconds())) {
+      this.resetInstantiationGrantBinding();
+      this.captureError(
+        new Error('organization_compile_plan_expired'),
+        'Der Dry-run ist abgelaufen. Bitte die Komposition erneut prüfen und kompilieren.',
+      );
+      return;
+    }
+    if (!hubUrl || this.mutating()) return;
+    if (this.hasValidInstantiationGrant()) return;
+    if (this.instantiationGrant()) this.resetInstantiationGrantBinding();
+
+    const issueKey = this.instantiationGrantIssueKey()
+      || createIdempotencyKey('organization-instantiation-grant');
+    this.instantiationGrantIssueKey.set(issueKey);
+    this.resetError();
+    this.mutating.set(true);
+    this.api.issueInstantiationGrant(
+      hubUrl,
+      projectId,
+      plan,
+      issueKey,
+      ttlSeconds,
+    ).pipe(
+      takeUntil(this.projectScopeChanged),
+      takeUntil(this.compileScopeChanged),
+      finalize(() => this.mutating.set(false)),
+    ).subscribe({
+      next: grant => {
+        const currentPlan = this.compilePlan();
+        if (
+          !currentPlan
+          || currentPlan.plan_digest !== plan.plan_digest
+          || !isInstantiationGrantBound(
+            grant,
+            currentPlan,
+            projectId,
+            this.validityClockSeconds(),
+          )
+        ) {
+          this.resetInstantiationGrantBinding();
+          this.captureError(
+            new Error('organization_instantiation_grant_binding_invalid'),
+            'Der Hub hat keine gültig gebundene Instanziierungsfreigabe geliefert.',
+          );
+          return;
+        }
+        this.instantiationGrant.set(grant);
+        this.instantiationApplyKey.set('');
+        this.refreshValidityClockAndSchedule();
+      },
+      error: error => {
+        const status = Number((error as { status?: number })?.status || 0);
+        const reasonCode = errorReasonCode(error);
+        if (requiresFreshCompilePlan(reasonCode)) {
+          this.discardCompilePlan();
+        } else if (status >= 400 && status < 500 && !isAmbiguousRetryStatus(status)) {
+          this.resetInstantiationGrantBinding();
+        }
+        this.captureError(
+          error,
+          requiresFreshCompilePlan(reasonCode)
+            ? 'Der Dry-run ist nicht mehr aktuell. Bitte die Komposition erneut prüfen und kompilieren.'
+            : 'Instanziierungsfreigabe konnte nicht ausgestellt werden.',
+        );
+      },
+    });
+  }
+
+  hasValidInstantiationGrant(): boolean {
+    return this.instantiationGrantValid();
+  }
+
+  discardCompilePlan(): boolean {
+    if (this.instantiationPending()) {
+      this.captureError(
+        new Error('organization_instantiation_outcome_pending'),
+        'Der Instanziierungsausgang ist noch nicht sicher. Bitte den identischen Vorgang erneut abrufen.',
+      );
+      return false;
+    }
+    this.compileScopeChanged.next();
+    this.clearCompileReceipt();
+    return true;
+  }
+
+  instantiate(): void {
+    this.refreshValidityClockAndSchedule();
+    const plan = this.compilePlan();
+    const grant = this.instantiationGrant();
+    const hubUrl = this.hubUrl();
+    const projectId = this.projectId();
+    if (!projectId) {
+      this.setProjectRequiredError();
+      return;
+    }
+    const uncertainReplay = this.instantiationOutcomeUncertain();
+    if (!plan || !grant || (!uncertainReplay && !this.hasValidInstantiationGrant())) {
+      this.resetInstantiationGrantBinding();
+      this.captureError(
+        new Error('organization_instantiation_grant_required'),
+        'Bitte eine aktuelle, an diesen Dry-run gebundene Instanziierungsfreigabe anfordern.',
+      );
+      return;
+    }
+    if (!hubUrl || this.mutating()) return;
     const request: OrganizationInstantiateRequest = {
       compile_plan: plan,
       title: plan.title,
-      admin_grant: adminGrant.trim(),
+      admin_grant: grant.grant_id,
     };
     this.resetError();
     this.mutating.set(true);
-    this.api.instantiate(hubUrl, projectId, request, createIdempotencyKey('organization-instantiate')).pipe(
+    const applyKey = this.instantiationApplyKey()
+      || createIdempotencyKey('organization-instantiate');
+    this.instantiationApplyKey.set(applyKey);
+    this.ensureInstantiationProjectLock();
+    this.api.instantiate(hubUrl, projectId, request, applyKey).pipe(
       takeUntil(this.projectScopeChanged),
+      takeUntil(this.compileScopeChanged),
       finalize(() => this.mutating.set(false)),
     ).subscribe({
       next: result => {
@@ -433,10 +580,36 @@ export class OrganizationTopologyStateService {
           result.organization,
           ...current.filter(item => item.id !== result.organization.id),
         ]);
-        this.compilePlan.set(null);
+        this.clearCompileReceipt();
         this.selectOrganization(result.organization.id);
+        this.releaseInstantiationProjectLock();
       },
-      error: error => this.captureError(error, 'Organisation konnte nicht instanziiert werden.'),
+      error: error => {
+        const reasonCode = errorReasonCode(error);
+        if (requiresFreshCompilePlan(reasonCode)) {
+          this.forceDiscardCompilePlan();
+          this.releaseInstantiationProjectLock();
+        } else if ([
+          'project_plan_grant_invalid',
+          'organization_precreation_admin_grant_invalid',
+          'organization_admin_grant_invalid',
+        ].includes(reasonCode)) {
+          this.resetInstantiationGrantBinding();
+          this.releaseInstantiationProjectLock();
+        } else if (isAmbiguousMutationOutcome(error, reasonCode)) {
+          this.instantiationOutcomeUncertain.set(true);
+        } else {
+          this.releaseInstantiationProjectLock();
+        }
+        this.captureError(
+          error,
+          requiresFreshCompilePlan(reasonCode)
+            ? 'Der Dry-run ist nicht mehr aktuell. Bitte die Komposition erneut prüfen und kompilieren.'
+            : isAmbiguousMutationOutcome(error, reasonCode)
+              ? 'Der Ausgang ist noch unklar. Bitte denselben Vorgang erneut abrufen; Projektwechsel und Navigation bleiben bis dahin gesperrt.'
+              : 'Organisation konnte nicht instanziiert werden.',
+        );
+      },
     });
   }
 
@@ -583,11 +756,13 @@ export class OrganizationTopologyStateService {
   }
 
   private resolveHub(): string {
+    if (this.instantiationPending()) return this.hubUrl();
     const hub = this.directory.list().find(agent => agent.role === 'hub')
       ?? this.directory.list().find(agent => agent.name === 'hub');
     const normalized = normalizeHubOrigin(hub?.url || '');
     if (this.hubUrl() && this.hubUrl() !== (normalized ?? '')) {
       this.organizationAdminGrants.set(new Map());
+      this.discardCompilePlan();
       this.topologyPatchGrant.set(null);
       this.resetTopologyPatchKeys();
     }
@@ -599,16 +774,13 @@ export class OrganizationTopologyStateService {
     const record = error as { status?: number; error?: { reason_code?: string; message?: string }; message?: string };
     const serverMessage = String(record?.error?.message || '').trim();
     const messageIsReasonCode = /^[a-z][a-z0-9_.-]*$/.test(serverMessage);
-    this.errorReasonCode.set(
-      record?.error?.reason_code
-      || (messageIsReasonCode ? serverMessage : '')
-      || (record?.status ? `http_${record.status}` : 'organization_request_failed'),
-    );
+    this.errorReasonCode.set(errorReasonCode(error));
     this.error.set(messageIsReasonCode ? fallback : serverMessage || fallback);
   }
 
   private resetProjectState(): void {
     this.projectScopeChanged.next();
+    this.compileScopeChanged.next();
     this.initializationSequence += 1;
     this.blueprints.set([]);
     this.organizations.set([]);
@@ -617,12 +789,13 @@ export class OrganizationTopologyStateService {
     this.selectedNodeId.set(null);
     this.selectedEdgeId.set(null);
     this.focusedSubgraphId.set(null);
-    this.compilePlan.set(null);
+    this.clearCompileReceipt();
     this.patchPreview.set(null);
     this.topologyPatchGrant.set(null);
     this.planning.set(null);
     this.layoutPreferences.set(new Map());
     this.organizationAdminGrants.set(new Map());
+    this.releaseInstantiationProjectLock();
     this.loading.set(false);
     this.mutating.set(false);
     this.loaded.set(false);
@@ -638,6 +811,67 @@ export class OrganizationTopologyStateService {
   private resetTopologyPatchKeys(): void {
     this.topologyPatchGrantIssueKey.set('');
     this.topologyPatchApplyKey.set('');
+  }
+
+  private clearCompileReceipt(): void {
+    this.compilePlan.set(null);
+    this.resetInstantiationGrantBinding();
+  }
+
+  private resetInstantiationGrantBinding(): void {
+    this.instantiationGrant.set(null);
+    this.instantiationGrantIssueKey.set('');
+    this.instantiationApplyKey.set('');
+    this.refreshValidityClockAndSchedule();
+  }
+
+  private acceptCompilePlan(plan: OrganizationCompilePlan): void {
+    this.compilePlan.set(plan);
+    this.refreshValidityClockAndSchedule();
+  }
+
+  private refreshValidityClockAndSchedule(): void {
+    const nowSeconds = Date.now() / 1000;
+    this.validityClockSeconds.set(nowSeconds);
+    this.clearValidityTimer();
+    const planExpiry = Date.parse(String(this.compilePlan()?.expires_at || '')) / 1000;
+    const grantExpiry = Number(this.instantiationGrant()?.expires_at);
+    const expiries = [planExpiry, grantExpiry].filter(Number.isFinite);
+    if (!expiries.length) return;
+    const transitionAt = Math.min(...expiries) - INSTANTIATION_GRANT_EXPIRY_SKEW_SECONDS;
+    if (transitionAt <= nowSeconds) return;
+    const delayMs = Math.min(
+      Math.ceil((transitionAt - nowSeconds) * 1000) + 10,
+      2_147_000_000,
+    );
+    this.validityTimer = setTimeout(() => this.refreshValidityClockAndSchedule(), delayMs);
+  }
+
+  private clearValidityTimer(): void {
+    if (this.validityTimer === null) return;
+    clearTimeout(this.validityTimer);
+    this.validityTimer = null;
+  }
+
+  private releaseInstantiationProjectLock(): void {
+    this.releaseProjectSelectionLock?.();
+    this.releaseProjectSelectionLock = null;
+    this.instantiationPending.set(false);
+    this.instantiationOutcomeUncertain.set(false);
+  }
+
+  private ensureInstantiationProjectLock(): void {
+    if (this.releaseProjectSelectionLock) return;
+    this.releaseProjectSelectionLock = this.projectContext.acquireSelectionLock(
+      'organization-instantiation',
+      'Der Projektwechsel ist gesperrt, bis die Organisation sicher instanziiert wurde.',
+    );
+    this.instantiationPending.set(true);
+  }
+
+  private forceDiscardCompilePlan(): void {
+    this.compileScopeChanged.next();
+    this.clearCompileReceipt();
   }
 }
 
@@ -699,4 +933,68 @@ function createIdempotencyKey(prefix: string): string {
     ? globalThis.crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return `${prefix}:${suffix}`;
+}
+
+function isInstantiationGrantBound(
+  grant: OrganizationInstantiationGrant,
+  plan: OrganizationCompilePlan,
+  projectId: string,
+  nowSeconds: number,
+): boolean {
+  const expiresAt = Number(grant.expires_at);
+  return Boolean(
+    String(grant.grant_id || '').trim()
+    && grant.grant_kind === 'instantiate'
+    && String(grant.tenant_id || '').trim()
+    && String(grant.principal_id || '').trim()
+    && grant.project_id === projectId
+    && grant.plan_digest === plan.plan_digest
+    && grant.policy_hash === plan.admin_policy_hash
+    && isCompilePlanFresh(plan, nowSeconds)
+    && Number.isFinite(expiresAt)
+    && expiresAt > nowSeconds + INSTANTIATION_GRANT_EXPIRY_SKEW_SECONDS
+  );
+}
+
+function isCompilePlanFresh(plan: OrganizationCompilePlan, nowSeconds: number): boolean {
+  const expiresAt = Date.parse(String(plan.expires_at || '')) / 1000;
+  return Number.isFinite(expiresAt)
+    && expiresAt > nowSeconds + INSTANTIATION_GRANT_EXPIRY_SKEW_SECONDS;
+}
+
+function errorReasonCode(error: unknown): string {
+  const record = error as { status?: number; error?: { reason_code?: string; message?: string }; message?: string };
+  const serverMessage = String(record?.error?.message || record?.message || '').trim();
+  const messageIsReasonCode = /^[a-z][a-z0-9_.-]*$/.test(serverMessage);
+  return String(
+    record?.error?.reason_code
+    || (messageIsReasonCode ? serverMessage : '')
+    || (record?.status ? `http_${record.status}` : 'organization_request_failed'),
+  );
+}
+
+function requiresFreshCompilePlan(reasonCode: string): boolean {
+  return [
+    'organization_blueprint_selector_mismatch',
+    'organization_compile_plan_expired',
+    'organization_compile_scope_mismatch',
+    'organization_compile_token_invalid',
+    'organization_compile_token_required',
+    'organization_plan_blocked',
+    'organization_title_binding_invalid',
+  ].includes(reasonCode)
+    || /^organization_.+_(?:binding_invalid|stale)$/.test(reasonCode)
+    || /^organization_admission_exception_(?:invalid|required)$/.test(reasonCode);
+}
+
+function isAmbiguousRetryStatus(status: number): boolean {
+  return [408, 425, 429].includes(status);
+}
+
+function isAmbiguousMutationOutcome(error: unknown, reasonCode: string): boolean {
+  const status = Number((error as { status?: number })?.status || 0);
+  return status === 0
+    || status >= 500
+    || isAmbiguousRetryStatus(status)
+    || reasonCode === 'organization_instantiation_in_progress';
 }

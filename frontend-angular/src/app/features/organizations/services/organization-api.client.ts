@@ -12,6 +12,7 @@ import {
   OrganizationDefinitionGraphBundle,
   OrganizationCompilePlan,
   OrganizationCompileRequest,
+  OrganizationInstantiationGrant,
   OrganizationInstantiateRequest,
   OrganizationInstantiateResult,
   OrganizationLayoutPreference,
@@ -83,6 +84,35 @@ export class OrganizationApiClient extends ApiBaseService {
     );
   }
 
+  issueInstantiationGrant(
+    hubUrl: string,
+    projectId: string,
+    plan: OrganizationCompilePlan,
+    idempotencyKey: string,
+    ttlSeconds = 900,
+  ): Observable<OrganizationInstantiationGrant> {
+    return this.core.request<OrganizationInstantiationGrant>(
+      'POST',
+      this.endpoint(
+        hubUrl,
+        `/api/organization-blueprints/${encodeURIComponent(plan.blueprint_key)}/precreation-admin-grants`,
+      ),
+      hubUrl,
+      {
+        body: {
+          compile_plan: plan,
+          project_id: projectId,
+          ttl_seconds: clamp(ttlSeconds, 60, 3600),
+        },
+        headers: {
+          'Idempotency-Key': idempotencyKey,
+          'If-Match': quoteEtag(plan.definition_revision),
+        },
+        timeoutMs: 30_000,
+      },
+    );
+  }
+
   listOrganizations(
     hubUrl: string,
     projectId: string,
@@ -108,16 +138,18 @@ export class OrganizationApiClient extends ApiBaseService {
     request: OrganizationInstantiateRequest,
     idempotencyKey: string,
   ): Observable<OrganizationInstantiateResult> {
+    const { admin_grant: adminGrant, compile_plan: compilePlan, title } = request;
     return this.core.request<OrganizationInstantiateResult>(
       'POST',
       this.endpoint(hubUrl, '/api/organizations'),
       hubUrl,
       {
-        body: { ...request, project_id: projectId },
+        body: { compile_plan: compilePlan, title, project_id: projectId },
         headers: {
           'Idempotency-Key': idempotencyKey,
-          'If-Match': quoteEtag(request.compile_plan.definition_revision),
-          'X-Organization-Admin-Grant': request.admin_grant,
+          'If-Match': quoteEtag(compilePlan.definition_revision),
+          'X-Organization-Admin-Grant': adminGrant,
+          'X-Plan-Digest': compilePlan.plan_digest,
         },
         timeoutMs: 30_000,
       },

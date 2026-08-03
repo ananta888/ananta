@@ -3,7 +3,11 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { describe, expect, it, vi } from 'vitest';
 
-import { OrganizationBlueprintSummary } from '../models/organization-topology.models';
+import {
+  OrganizationBlueprintSummary,
+  OrganizationCompilePlan,
+  OrganizationInstantiationGrant,
+} from '../models/organization-topology.models';
 import { OrganizationTopologyStateService } from '../services/organization-topology-state.service';
 import { OrganizationSetupComponent } from './organization-setup.component';
 
@@ -69,12 +73,70 @@ describe('OrganizationSetupComponent standard selector binding', () => {
   });
 });
 
-function createComponent(): {
-  component: OrganizationSetupComponent;
-  fixture: ComponentFixture<OrganizationSetupComponent>;
-  blueprints: readonly OrganizationBlueprintSummary[];
-  compile: ReturnType<typeof vi.fn>;
-} {
+describe('OrganizationSetupComponent instantiation grant flow', () => {
+  it('does not expose a manual grant field and requests a bound grant', () => {
+    const harness = createComponent();
+    enterCompilePreview(harness);
+
+    expect(harness.fixture.debugElement.query(By.css('input[type="password"]'))).toBeNull();
+    expect(harness.fixture.nativeElement.textContent).not.toContain(
+      'Gebundener Organization-Admin-Grant',
+    );
+
+    clickButton(harness.fixture, 'Freigabe anfordern');
+
+    expect(harness.state.issueInstantiationGrant).toHaveBeenCalledOnce();
+    expect(harness.state.issueInstantiationGrant).toHaveBeenCalledWith();
+  });
+
+  it('requires a valid receipt before confirmation can instantiate without arguments', () => {
+    const harness = createComponent();
+    const plan = enterCompilePreview(harness);
+
+    expect(harness.component.step).toBe(2);
+    expect(harness.fixture.nativeElement.textContent).not.toContain(
+      'Bewusst instanziieren',
+    );
+
+    harness.state.instantiationGrant.set(instantiationGrant(plan));
+    harness.fixture.detectChanges();
+
+    expect(harness.component.step).toBe(3);
+    expect(harness.fixture.nativeElement.textContent).toContain(
+      'Bewusst instanziieren',
+    );
+    expect(harness.fixture.debugElement.query(By.css('input[type="password"]'))).toBeNull();
+    expect(harness.fixture.nativeElement.textContent).not.toContain(
+      'Gebundener Organization-Admin-Grant',
+    );
+    expect(harness.state.hasValidInstantiationGrant).toHaveReturnedWith(true);
+
+    harness.component.confirmed = true;
+    harness.fixture.changeDetectorRef.detectChanges();
+    const instantiateButton = buttonByText(
+      harness.fixture,
+      'Organisation instanziieren',
+    );
+    expect(instantiateButton.disabled).toBe(false);
+    instantiateButton.click();
+
+    expect(harness.state.instantiate).toHaveBeenCalledOnce();
+    expect(harness.state.instantiate).toHaveBeenCalledWith();
+  });
+
+  it('discards the bound compile plan through the state boundary', () => {
+    const harness = createComponent();
+    enterCompilePreview(harness);
+    harness.state.discardCompilePlan.mockClear();
+
+    clickButton(harness.fixture, 'Ändern');
+
+    expect(harness.state.discardCompilePlan).toHaveBeenCalledOnce();
+    expect(harness.state.discardCompilePlan).toHaveBeenCalledWith();
+  });
+});
+
+function createComponent() {
   const blueprints = [
     blueprint('alternative', 5),
     blueprint('enterprise', 5),
@@ -82,13 +144,36 @@ function createComponent(): {
     blueprint('enterprise', 8, true),
   ];
   const compile = vi.fn();
+  const compilePlan = signal<OrganizationCompilePlan | null>(null);
+  const instantiationGrant = signal<OrganizationInstantiationGrant | null>(null);
   const state = {
     projectId: signal('project-alpha'),
     blueprints: signal<readonly OrganizationBlueprintSummary[]>(blueprints),
-    compilePlan: signal(null),
+    compilePlan,
+    instantiationGrant,
     mutating: signal(false),
+    instantiationPending: signal(false),
+    instantiationOutcomeUncertain: signal(false),
     compile,
     compileCustom: vi.fn(),
+    hasValidInstantiationGrant: vi.fn(() => {
+      const plan = compilePlan();
+      const grant = instantiationGrant();
+      return Boolean(
+        plan
+        && grant
+        && grant.grant_kind === 'instantiate'
+        && grant.project_id === 'project-alpha'
+        && grant.plan_digest === plan.plan_digest
+        && grant.policy_hash === plan.admin_policy_hash
+        && grant.expires_at > 2_000_000_000,
+      );
+    }),
+    issueInstantiationGrant: vi.fn(),
+    discardCompilePlan: vi.fn(() => {
+      compilePlan.set(null);
+      instantiationGrant.set(null);
+    }),
     instantiate: vi.fn(),
   };
   TestBed.configureTestingModule({
@@ -97,7 +182,94 @@ function createComponent(): {
   });
   const fixture = TestBed.createComponent(OrganizationSetupComponent);
   fixture.detectChanges();
-  return { component: fixture.componentInstance, fixture, blueprints, compile };
+  return {
+    component: fixture.componentInstance,
+    fixture,
+    blueprints,
+    compile,
+    state,
+  };
+}
+
+function enterCompilePreview(harness: ReturnType<typeof createComponent>): OrganizationCompilePlan {
+  const plan = compilePlan();
+  harness.state.compilePlan.set(plan);
+  harness.fixture.detectChanges();
+  return plan;
+}
+
+function clickButton(
+  fixture: ComponentFixture<OrganizationSetupComponent>,
+  label: string,
+): void {
+  buttonByText(fixture, label).click();
+}
+
+function buttonByText(
+  fixture: ComponentFixture<OrganizationSetupComponent>,
+  label: string,
+): HTMLButtonElement {
+  const button = Array.from(
+    fixture.nativeElement.querySelectorAll('button'),
+  ).find(candidate => candidate.textContent?.includes(label));
+  expect(button, `button containing "${label}"`).toBeTruthy();
+  return button as HTMLButtonElement;
+}
+
+function compilePlan(): OrganizationCompilePlan {
+  return {
+    blueprint_key: 'enterprise:standard:8',
+    blueprint_version: '1',
+    title: 'Enterprise Produktorganisation',
+    organization_id: 'organization-alpha',
+    definition_ref: 'enterprise@1',
+    definition_revision: 'definition-revision-alpha',
+    plan_digest: 'plan-digest-alpha',
+    compile_token: 'compile-token-alpha',
+    expires_at: '2033-05-18T03:33:20Z',
+    admin_policy_hash: 'admin-policy-alpha',
+    composition_mode: 'standard',
+    team_count: 8,
+    unit_count: 9,
+    hierarchy_edge_count: 8,
+    relation_edge_count: 4,
+    role_slot_count: 16,
+    planned_writes: ['organization', 'teams', 'role_slots'],
+    capability_gaps: [],
+    unfilled_required_slots: [],
+    budget_assumptions: {},
+    diagnostics: [],
+    limits: {
+      revision: 'limit-revision-alpha',
+      policy_hash: 'limit-policy-alpha',
+      max_teams: 10,
+      max_units: 32,
+      max_role_slots: 64,
+      max_assignments: 128,
+      max_relations: 128,
+      max_patch_operations: 32,
+      max_page_size: 100,
+      max_depth: 8,
+      max_render_nodes: 500,
+      max_render_edges: 1_000,
+    },
+  };
+}
+
+function instantiationGrant(
+  plan: OrganizationCompilePlan,
+): OrganizationInstantiationGrant {
+  return {
+    grant_id: 'instantiation-grant-alpha',
+    grant_kind: 'instantiate',
+    tenant_id: 'tenant-alpha',
+    project_id: 'project-alpha',
+    principal_id: 'operator-alpha',
+    plan_digest: plan.plan_digest,
+    policy_hash: plan.admin_policy_hash,
+    expires_at: 2_000_000_001,
+    replayed: false,
+  };
 }
 
 function blueprint(

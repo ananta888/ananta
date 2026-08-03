@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { OrganizationBlueprintSummary } from '../models/organization-topology.models';
@@ -159,9 +159,18 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
           }
 
           <p class="digest"><strong>Plan-Digest:</strong> <code>{{ plan.plan_digest }}</code></p>
+          @if (state.instantiationGrant() && !state.hasValidInstantiationGrant() && !state.instantiationPending()) {
+            <p class="warning">Die bisherige Instanziierungsfreigabe ist abgelaufen oder nicht mehr an diesen Plan gebunden.</p>
+          }
           <div class="actions">
-            <button type="button" class="secondary" (click)="step = 1">Ändern</button>
-            <button type="button" (click)="step = 3" [disabled]="hasBlockers()">Zur Bestätigung</button>
+            <button type="button" class="secondary" (click)="editComposition()" [disabled]="state.mutating() || state.instantiationPending()">Ändern</button>
+            <button
+              type="button"
+              (click)="requestInstantiationGrant()"
+              [disabled]="hasBlockers() || state.mutating() || state.instantiationPending()"
+            >
+              {{ state.hasValidInstantiationGrant() ? 'Zur Bestätigung' : state.instantiationGrant() ? 'Freigabe erneuern' : 'Freigabe anfordern' }}
+            </button>
           </div>
         </section>
       }
@@ -169,19 +178,30 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
       @if (step === 3 && state.compilePlan(); as plan) {
         <section class="confirmation" aria-labelledby="instantiate-heading">
           <h3 id="instantiate-heading">Bewusst instanziieren</h3>
-          <p>Es werden Definition und Instanzen geschrieben. Worker oder Tasks werden dadurch nicht gestartet.</p>
-          <label>
-            Gebundener Organization-Admin-Grant
-            <input type="password" [(ngModel)]="adminGrant" autocomplete="off" />
-          </label>
+          <p>Der Hub schreibt die geprüfte Definition und ihre Instanzen erst nach deiner Bestätigung. Worker oder Tasks werden dadurch nicht gestartet.</p>
+          <article class="grant-status" aria-live="polite">
+            <h4>Kurzlebiger Instanziierungs-Grant</h4>
+            @if (state.instantiationGrant(); as grant) {
+              @if (state.instantiationOutcomeUncertain()) {
+                <p class="warning">Der Hub könnte den Vorgang bereits abgeschlossen haben. Nur der identische Replay mit demselben Plan, Grant und Idempotency-Key löst diesen Zustand sicher auf.</p>
+              } @else {
+                <p class="ok">Vom Hub an Projekt, Principal, Plan-Digest und Policy gebunden; einmalig verwendbar bis {{ grantExpiryLabel(grant.expires_at) }}.</p>
+              }
+            }
+            <p>Der widerrufbare, organisationsgebundene Admin-Grant entsteht erst bei erfolgreicher Instanziierung und wird für spätere Verwaltungsaktionen verwendet.</p>
+          </article>
           <label class="confirm">
             <input type="checkbox" [(ngModel)]="confirmed" />
             Ich bestätige Revision <code>{{ plan.definition_revision }}</code> und den angezeigten Dry-run.
           </label>
           <div class="actions">
-            <button type="button" class="secondary" (click)="step = 2">Zurück</button>
-            <button type="button" (click)="instantiate()" [disabled]="!confirmed || !adminGrant.trim() || state.mutating()">
-              Organisation instanziieren
+            <button type="button" class="secondary" (click)="step = 2" [disabled]="state.instantiationPending()">Zurück</button>
+            <button
+              type="button"
+              (click)="instantiate()"
+              [disabled]="!confirmed || (!state.hasValidInstantiationGrant() && !state.instantiationOutcomeUncertain()) || state.mutating()"
+            >
+              {{ state.instantiationOutcomeUncertain() ? 'Ergebnis sicher abrufen' : 'Organisation instanziieren' }}
             </button>
           </div>
         </section>
@@ -217,6 +237,8 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
     .diagnostics li[data-severity='warning'], .warning { border-color: #f0b44c; color: #ffdda0; }
     .diagnostics small { display: block; color: #8ea3c6; }
     .ok { color: #77d6a2; } .digest { overflow-wrap: anywhere; }
+    .grant-status { background: #0c1424; border-left: 4px solid #5c9dff; padding: .8rem; }
+    .grant-status h4, .grant-status p:last-child { margin-bottom: 0; }
     .confirmation { display: grid; gap: 1rem; } .confirm { display: flex; align-items: flex-start; font-weight: 400; }
     @media (max-width: 760px) { .form-grid, .columns { grid-template-columns: 1fr; } }
   `],
@@ -236,7 +258,6 @@ export class OrganizationSetupComponent {
     return [...new Set(fromServer.length ? fromServer : [5, 6, 7, 8, 9, 10])].sort((left, right) => left - right);
   });
 
-  step = 1;
   title = 'Enterprise Produktorganisation';
   compositionMode: 'standard' | 'custom' = 'standard';
   teamCount = 8;
@@ -244,9 +265,25 @@ export class OrganizationSetupComponent {
   customDefinitionKey = '';
   customCounts: Record<string, number> = {};
   customReason = 'Bewusste benutzerdefinierte Teamzusammensetzung';
-  adminGrant = '';
   confirmed = false;
+  private readonly confirmationDismissed = signal(false);
   private observedProjectId = this.state.projectId();
+
+  get step(): number {
+    if (!this.state.compilePlan()) return 1;
+    return (
+      this.state.instantiationOutcomeUncertain()
+      || (this.state.hasValidInstantiationGrant() && !this.confirmationDismissed())
+    ) ? 3 : 2;
+  }
+
+  set step(value: number) {
+    if (value === 2) {
+      this.confirmationDismissed.set(true);
+    } else {
+      this.confirmationDismissed.set(false);
+    }
+  }
 
   constructor() {
     effect(() => {
@@ -273,16 +310,13 @@ export class OrganizationSetupComponent {
           ?? plans[0];
         this.applyStandardBlueprint(recommended);
       }
-      if (this.state.compilePlan()) this.step = Math.max(this.step, 2);
     });
   }
 
   private resetForProjectChange(): void {
-    this.step = 1;
     this.blueprintKey = '';
     this.customDefinitionKey = '';
     this.customCounts = {};
-    this.adminGrant = '';
     this.confirmed = false;
   }
 
@@ -391,8 +425,8 @@ export class OrganizationSetupComponent {
 
   compile(): void {
     if (!this.canCompile()) return;
+    this.confirmationDismissed.set(false);
     this.confirmed = false;
-    this.adminGrant = '';
     if (this.compositionMode === 'standard') {
       const blueprint = this.selectedBlueprint();
       if (!blueprint) return;
@@ -420,8 +454,34 @@ export class OrganizationSetupComponent {
   }
 
   instantiate(): void {
-    if (!this.confirmed) return;
-    this.state.instantiate(this.adminGrant);
+    if (
+      !this.confirmed
+      || (!this.state.hasValidInstantiationGrant() && !this.state.instantiationOutcomeUncertain())
+    ) return;
+    this.state.instantiate();
+  }
+
+  requestInstantiationGrant(): void {
+    if (this.hasBlockers() || this.state.mutating() || this.state.instantiationPending()) return;
+    this.confirmationDismissed.set(false);
+    this.confirmed = false;
+    if (!this.state.hasValidInstantiationGrant()) this.state.issueInstantiationGrant();
+  }
+
+  editComposition(): void {
+    if (this.state.mutating() || this.state.instantiationPending()) return;
+    this.state.discardCompilePlan();
+    this.confirmed = false;
+  }
+
+  grantExpiryLabel(expiresAt: number): string {
+    const timestamp = Number(expiresAt) * 1000;
+    if (!Number.isFinite(timestamp)) return 'unbekannt';
+    return new Intl.DateTimeFormat('de-DE', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).format(new Date(timestamp));
   }
 
   hasBlockers(): boolean {
@@ -441,9 +501,7 @@ export class OrganizationSetupComponent {
   }
 
   private invalidateCompilePlan(): void {
-    this.state.compilePlan.set(null);
-    this.step = 1;
-    this.adminGrant = '';
+    this.state.discardCompilePlan();
     this.confirmed = false;
   }
 }

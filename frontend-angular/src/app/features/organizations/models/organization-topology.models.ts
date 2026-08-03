@@ -240,6 +240,18 @@ export interface OrganizationCompilePlan {
   admission_exception_ref?: string;
 }
 
+export interface OrganizationInstantiationGrant {
+  grant_id: string;
+  grant_kind: 'instantiate';
+  tenant_id: string;
+  project_id: string;
+  principal_id: string;
+  plan_digest: string;
+  policy_hash: string;
+  expires_at: number;
+  replayed: boolean;
+}
+
 export interface OrganizationInstantiateRequest {
   compile_plan: OrganizationCompilePlan;
   title: string;
@@ -250,7 +262,10 @@ export interface OrganizationInstantiateResult {
   organization: OrganizationSummary;
   unit_ids: readonly string[];
   team_ids: readonly string[];
+  role_slot_ids: readonly string[];
+  relation_ids: readonly string[];
   organization_admin_grant_id: string;
+  topology_snapshot_hash: string;
   replayed: boolean;
 }
 

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { OrganizationBundleWorkbenchComponent } from '../bundle-workbench/organization-bundle-workbench.component';
@@ -160,5 +160,16 @@ export class OrganizationShellComponent implements OnInit {
 
   selectOrganization(organizationId: string): void {
     if (organizationId) this.state.selectOrganization(organizationId);
+  }
+
+  canLeaveOrganizations(): boolean {
+    return !this.state.instantiationPending();
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  preventUnsafeUnload(event: BeforeUnloadEvent): void {
+    if (this.canLeaveOrganizations()) return;
+    event.preventDefault();
+    event.returnValue = '';
   }
 }

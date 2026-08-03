@@ -81,8 +81,9 @@ describe('OrganizationApiClient project scope', () => {
     });
     admission.flush(envelope({}));
 
+    const plan = compilePlan();
     const instantiateRequest = {
-      compile_plan: { definition_revision: 'revision-1' } as OrganizationCompilePlan,
+      compile_plan: plan,
       title: 'Enterprise Organization',
       admin_grant: 'grant-1',
     } as OrganizationInstantiateRequest;
@@ -94,11 +95,52 @@ describe('OrganizationApiClient project scope', () => {
     ).subscribe();
     const instantiate = http.expectOne('https://hub.example/api/organizations');
     expect(instantiate.request.body).toEqual({
-      ...instantiateRequest,
+      compile_plan: plan,
+      title: 'Enterprise Organization',
       project_id: 'project-alpha',
     });
     expect(instantiate.request.headers.get('If-Match')).toBe('"revision-1"');
+    expect(instantiate.request.headers.get('Idempotency-Key')).toBe('organization-instantiate:test');
+    expect(instantiate.request.headers.get('X-Organization-Admin-Grant')).toBe('grant-1');
+    expect(instantiate.request.headers.get('X-Plan-Digest')).toBe(plan.plan_digest);
     instantiate.flush(envelope({}));
+  });
+
+  it('issues a plan-bound instantiation grant with project, revision and retry bindings', () => {
+    const plan = compilePlan();
+
+    client.issueInstantiationGrant(
+      'https://hub.example',
+      'project-alpha',
+      plan,
+      'organization-instantiation-grant:test',
+    ).subscribe();
+
+    const issue = http.expectOne(
+      'https://hub.example/api/organization-blueprints/enterprise_scrum_organization/precreation-admin-grants',
+    );
+    expect(issue.request.method).toBe('POST');
+    expect(issue.request.body).toEqual({
+      compile_plan: plan,
+      project_id: 'project-alpha',
+      ttl_seconds: 900,
+    });
+    expect(issue.request.headers.get('If-Match')).toBe('"revision-1"');
+    expect(issue.request.headers.get('Idempotency-Key')).toBe(
+      'organization-instantiation-grant:test',
+    );
+    expect(issue.request.headers.has('X-Organization-Admin-Grant')).toBe(false);
+    issue.flush(envelope({
+      grant_id: 'opgrant-precreation-1',
+      grant_kind: 'instantiate',
+      tenant_id: 'tenant-alpha',
+      project_id: 'project-alpha',
+      principal_id: 'principal-alpha',
+      plan_digest: plan.plan_digest,
+      policy_hash: plan.admin_policy_hash,
+      expires_at: Math.floor(Date.now() / 1000) + 900,
+      replayed: false,
+    }));
   });
 
   it('uses the bundle preview snake-case project contract', () => {
@@ -126,4 +168,44 @@ describe('OrganizationApiClient project scope', () => {
 
 function envelope(data: unknown): unknown {
   return { status: 'success', data };
+}
+
+function compilePlan(): OrganizationCompilePlan {
+  return {
+    blueprint_key: 'enterprise_scrum_organization',
+    blueprint_version: '1',
+    title: 'Enterprise Organization',
+    organization_id: 'organization-candidate-1',
+    definition_ref: 'enterprise_scrum_organization@1',
+    definition_revision: 'revision-1',
+    plan_digest: 'a'.repeat(64),
+    compile_token: 'compile-token-1',
+    expires_at: '2099-01-01T00:00:00Z',
+    admin_policy_hash: 'b'.repeat(64),
+    composition_mode: 'standard',
+    team_count: 8,
+    unit_count: 12,
+    hierarchy_edge_count: 11,
+    relation_edge_count: 7,
+    role_slot_count: 16,
+    planned_writes: ['organization_instance'],
+    capability_gaps: [],
+    unfilled_required_slots: [],
+    budget_assumptions: {},
+    diagnostics: [],
+    limits: {
+      revision: 'limits-1',
+      policy_hash: 'c'.repeat(64),
+      max_teams: 10,
+      max_units: 20,
+      max_role_slots: 100,
+      max_assignments: 100,
+      max_relations: 100,
+      max_patch_operations: 50,
+      max_page_size: 100,
+      max_depth: 10,
+      max_render_nodes: 500,
+      max_render_edges: 1_000,
+    },
+  };
 }
