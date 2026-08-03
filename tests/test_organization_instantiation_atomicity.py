@@ -46,6 +46,7 @@ _KEY_FIELDS = {
 class TransactionState:
     def __init__(self) -> None:
         self.rows = {name: [] for name in _REPOSITORIES}
+        self.flush_snapshots: list[dict[str, list[tuple[str, str | None]]]] = []
 
     def counts(self) -> dict[str, int]:
         return {name: len(rows) for name, rows in self.rows.items()}
@@ -175,7 +176,19 @@ class TransactionalOrganizationUow:
         return self
 
     def flush(self) -> None:
-        return None
+        assert self._working is not None
+        self._state.flush_snapshots.append(
+            {
+                name: [
+                    (
+                        str(getattr(row, _KEY_FIELDS[name])),
+                        getattr(row, "organization_id", None),
+                    )
+                    for row in self._working[name]
+                ]
+                for name in _REPOSITORIES
+            }
+        )
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
         del exc_value, traceback
@@ -273,6 +286,28 @@ def test_successful_replay_reuses_one_complete_aggregate_without_duplicates() ->
         "snapshots": 1,
         "audit_outbox": 1,
     }
+
+
+def test_flush_sequence_reserves_operation_then_persists_fk_parents() -> None:
+    plan = _compiled_plan()
+    state = TransactionState()
+
+    _instantiate(_service(state, plan), plan)
+
+    assert len(state.flush_snapshots) == 5
+    operation_reservation, organization_root, units, teams, team_links = state.flush_snapshots
+    assert len(operation_reservation["operations"]) == 1
+    operation_id = operation_reservation["operations"][0][0]
+    assert operation_reservation["operations"] == [(operation_id, None)]
+    assert operation_reservation["instances"] == []
+    assert organization_root["operations"] == [(operation_id, None)]
+    assert organization_root["instances"] == [(plan.organization_id, plan.organization_id)]
+    assert units["operations"] == [(operation_id, plan.organization_id)]
+    assert len(units["units"]) == len(plan.units)
+    assert len(teams["teams"]) == plan.requested_team_count
+    assert teams["team_links"] == []
+    assert len(team_links["teams"]) == plan.requested_team_count
+    assert len(team_links["team_links"]) == plan.requested_team_count
 
 
 def test_completed_instantiation_can_be_recovered_without_a_compiled_plan() -> None:

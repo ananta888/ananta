@@ -376,7 +376,10 @@ class OrganizationBlueprintInstantiationService:
         operation = OrganizationOperationDB(
             tenant_id=plan.tenant_id,
             project_id=plan.project_id,
-            organization_id=plan.organization_id,
+            # Reserve the scoped idempotency key before materializing the
+            # aggregate.  The nullable FK deliberately keeps this reservation
+            # independent of the not-yet-persisted Organization root.
+            organization_id=None,
             operation_kind="instantiate",
             idempotency_key=idempotency_key,
             request_digest=request_digest,
@@ -385,6 +388,7 @@ class OrganizationBlueprintInstantiationService:
             status="pending",
         )
         uow.operations.add(operation)
+        uow.flush()
         self._fault_injector("operation")
 
         organization = OrganizationInstanceDB(
@@ -405,7 +409,14 @@ class OrganizationBlueprintInstantiationService:
             created_by=principal_id,
         )
         uow.instances.add(organization)
+        # SQLModel rows do not declare ORM relationships, so SQLAlchemy cannot
+        # infer aggregate insert order from relationship dependency processors.
+        # Persist the root before staging any row with an Organization FK.
+        uow.flush()
         self._fault_injector("organization")
+
+        operation.organization_id = plan.organization_id
+        uow.operations.add(operation)
 
         # Access ownership is part of the aggregate creation transaction.  The
         # creator can therefore never observe an organization that has no
@@ -458,6 +469,7 @@ class OrganizationBlueprintInstantiationService:
         self._fault_injector("units")
 
         team_ids: list[str] = []
+        team_links: list[OrganizationTeamLinkDB] = []
         for compiled in plan.units:
             if not compiled.team_blueprint_ref:
                 continue
@@ -486,7 +498,7 @@ class OrganizationBlueprintInstantiationService:
                     },
                 )
             )
-            uow.team_links.add(
+            team_links.append(
                 OrganizationTeamLinkDB(
                     tenant_id=plan.tenant_id,
                     project_id=plan.project_id,
@@ -496,6 +508,12 @@ class OrganizationBlueprintInstantiationService:
                     lifecycle="planned",
                 )
             )
+        # TeamDB is a legacy, globally keyed aggregate without ORM
+        # relationships to OrganizationTeamLinkDB.  Flush all Team rows first
+        # so the link FK never depends on mapper ordering.
+        uow.flush()
+        uow.team_links.add_many(team_links)
+        uow.flush()
         self._fault_injector("teams")
 
         for compiled in plan.role_slots:
