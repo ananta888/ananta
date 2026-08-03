@@ -153,6 +153,36 @@ claim/evidence references against the exact assignment allowlists and requests
 a revision/digest-bound promotion decision. No source identifier is inferred:
 missing or unknown `SRC_*`/`RUN_*` values remain unverified.
 
+Organization Goal intake is an explicit passive Hub transition before that
+research phase. `POST /api/organizations/<organization_id>/goals` creates only
+one idempotent root Goal with server-owned tenant, project, Organization and
+principal bindings. It does not invoke the legacy planner, create Tasks or
+write to the dispatch queue. A separate Category-research request binds the
+Goal to an authoritative source catalog and an Organization role slot.
+
+The Organization Source Catalog is itself published by the Hub from bounded
+queries against one active, admitted Knowledge Index. Callers supply only the
+connection, query intent and result limit; the Hub revalidates the exact source
+revision, admission receipt, index run and on-disk manifest before assigning
+deterministic `SRC_*` identities. The persisted Catalog and its publication
+binding are content-free. At research-Task creation, the Hub locks that exact
+Catalog Task, revalidates the still-active lineage, hydrates only the immutable
+record selectors and verifies each content digest. Content exists only in the
+task-bound `ContextBundle`; stale lineage, tampering or readiness failure rolls
+back the Task, retrieval run and bundle together.
+
+Category-research readiness and Task creation resolve one concrete active
+Organization Role Assignment and registered Agent with `planning`, `research`
+and `source_analysis` capability. That binding is persisted by the Hub and is
+revalidated together with lifecycle, topology, capacity and the WorkerJob
+lease immediately before forwarding; Organization Tasks never fall back to a
+global Worker. The destination uses a Worker-only intake and accepts only the
+exact payload and ContextBundle protected by a short-lived capability signed
+with the Hub-private Ed25519 key. The Worker service token authenticates only
+the transport; the Worker receives a public verification keyring and cannot
+mint Hub authority. The Worker executes the delegated Task and cannot reroute
+it.
+
 Only the promoted Category revision can be transformed into one or more
 Planning Tracks. The normal second phase creates exactly one deterministic,
 role-bound `planning_track_task` for that immutable revision and the complete

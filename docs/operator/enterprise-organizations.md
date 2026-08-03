@@ -91,8 +91,11 @@ admission exception is missing/consumed. Retry the identical payload with the
 same idempotency key. For a changed payload, compile a new plan and use a new
 key.
 
-Instantiation creates definitions, units, links, role slots, assignments and
-snapshots atomically. It starts neither Workers nor Tasks.
+Instantiation creates definitions, planned units, team links, inactive teams,
+planned role slots, relations and snapshots atomically. A later Organization
+lifecycle transition to `active` promotes that materialized topology in the
+same transaction. Agent assignments remain a separate Hub-governed operation;
+neither step starts Workers or Tasks.
 The Angular client keeps the returned organization grant in memory only and
 clears it when the Hub changes. Other clients must transfer it directly into a
 secret store; never print it, persist it in layout state or pass it as a command
@@ -126,6 +129,94 @@ Before assigning an agent to a Role Slot, inspect required capabilities,
 capacity, multi-team limits and separation-of-duties conflicts. Assignment
 uses the same policy resolver as Hub routing.
 
+### Publish a planning Source Catalog
+
+The first planning phase needs a Hub-owned, Organization-scoped Source
+Catalog. Its input is retrieval intent, not evidence identity:
+
+```http
+POST /api/organizations/<organization-id>/source-catalogs
+Authorization: Bearer <operator token>
+Idempotency-Key: <stable-publish-key>
+Content-Type: application/json
+
+{
+  "connection_id": "<active-source-connection>",
+  "queries": ["HRM architecture", "training safety and evaluation"],
+  "limit": 20
+}
+```
+
+The caller must not submit source IDs, URLs, repository revisions, manifests,
+hashes, tenant scope or an allowlist. The Hub queries only the connection's
+active admitted index, revalidates its exact revision/run/manifest lineage,
+assigns deterministic `SRC_*` identities and commits one completed,
+content-free Catalog Task with its operation and audit receipt. Queries and
+retrieved content are not persisted in that Task; only bounded selectors and
+digests are stored. An unchanged retry with the same key returns the same
+Catalog, while changed input or a changed active index fails closed.
+
+Keep the returned Catalog Task ID for readiness. At Category-research start,
+the Hub locks that exact Task, revalidates the active source/index lineage and
+reads only its bound records. Every reconstructed record must match its
+cataloged content hash. Retrieved content is then written only into the new
+research Task's `ContextBundle`; it is never copied into the Catalog Task,
+operation, audit event, retrieval-run metadata or Worker routing fields. A
+stale index, modified record or partial context write rolls back the complete
+research-Task transaction.
+
+### Category-research readiness and start
+
+Before starting the first Organization planning phase, call the read-only
+readiness endpoint with only the target identifiers and the persisted Source
+Catalog Task selector:
+
+```text
+GET /api/organizations/<organization-id>/goals/<goal-id>/planning/category-research/readiness
+    ?unit_id=<unit-id>&team_id=<team-id>&role_slot_id=<slot-id>&catalog_task_id=<catalog-task-id>
+```
+
+The Hub checks the scoped Organization Goal, active Organization/Team/Role
+Slot, and at least one active eligible assignment. Eligibility is the union of
+the Role-Slot policy and the mandatory `research`, `planning` and
+`source_analysis` capabilities, including current registration, availability
+and capacity. The response never contains an Agent URL. It is explicitly
+read-only and reports `task_write=false` and `queue_write=false`.
+
+The browser must not construct hashes, revisions, scopes, source IDs or an
+allowlist. The Hub derives the complete `source_catalog_binding` from the
+selected persisted Catalog Task and re-runs the normal source authority checks.
+Every released source reference must carry the exact
+`organization:<organization-id>` scope; repository-global or foreign
+Organization scopes are not valid for this planning assignment.
+Pass that returned binding unchanged to:
+
+```text
+POST /api/organizations/<organization-id>/goals/<goal-id>/planning/category-research
+Idempotency-Key: <fresh-operation-key>
+```
+
+Readiness is a snapshot, not a reservation. Immediately before inserting the
+research Task, the Hub locks where supported and revalidates Organization,
+non-terminal Goal, Team, Role Slot, current Source Catalog, active assignment,
+required capabilities and capacity inside the Task transaction. A lifecycle,
+Catalog, capability or capacity change fails closed without a Task or queue
+write. Retry readiness after fixing the reported blocker; never edit its
+server-resolved binding client-side.
+
+The created Task persists the Hub-selected Assignment and Agent binding; an
+Organization Task never falls back to global Worker selection. Immediately
+before forwarding, the Hub revalidates the Organization lifecycle, topology,
+Assignment, Agent registration, capability set, capacity and WorkerJob lease.
+The destination Worker accepts the payload only through its service-only
+local intake after verifying the payload-bound, short-lived Hub capability
+against its public Ed25519 verification keyring and recomputing the
+ContextBundle digest. The Worker service token authenticates only the request
+transport; only the Hub holds private signing material. Workers execute this
+exact delegation but never select or contact another Worker. A Worker without
+a canonical configured `AGENT_URL` or public verification keyring rejects the
+intake as unavailable.
+
 Proposal triage:
 
 1. Open `:org proposals <organization-id>` or the Planning panel.
@@ -139,9 +230,45 @@ Proposal triage:
 
 Role/team/agent fields sent by a Worker are hints. The Hub is authoritative.
 
+## Organization Goal intake
+
+Create a passive Organization Goal before starting Category research. The
+authenticated Organization administrator needs project `MANAGE`, an active
+`organization_admin` or `planning:goal_create` grant and a fresh
+`Idempotency-Key`. The request accepts only `goal`, `summary`, `constraints`
+and `acceptance_criteria`; scope, lifecycle, creator and Goal kind are always
+set by the Hub.
+
+```http
+POST /api/organizations/<organization-id>/goals
+Authorization: Bearer <operator token>
+Idempotency-Key: <stable retry key>
+Content-Type: application/json
+
+{
+  "goal": "Produce a grounded HRM Category-Todo",
+  "summary": "Research the HRM experiment workbench",
+  "constraints": ["Use only assignment-bound SRC_*/RUN_* references"],
+  "acceptance_criteria": ["The result conforms to todos/todo.schema.json"]
+}
+```
+
+An unchanged retry returns the original Goal. Reusing the key for different
+content fails closed. Goal intake starts no Worker and creates no Task; use
+the separate Category-research endpoint only after the source catalog and the
+Organization research-role binding are authoritative.
+
 ## Pause, archive and recovery
 
-Pause blocks new dispatch and preserves in-flight lineage. Before archive,
+Pause atomically marks the routing topology as draining, suspends active Role
+assignments with an `organization_pause` provenance marker and blocks every
+new Organization Task claim/Autopilot dispatch; queued and in-flight Tasks
+keep their identity and lineage. Resume reactivates that topology and only the
+assignments suspended by this lifecycle operation; assignments that were
+already inactive stay inactive. Completion and archive re-read all
+non-terminal Tasks, including queued Tasks, under the lifecycle transaction
+and require the declared drain/migrate/cancel strategy before closing them.
+Before archive,
 resolve or explicitly drain active Tasks, leases, gates and handoffs. Archive
 retains all snapshots, mappings, dependencies, assignments, artifacts and
 audit events.

@@ -429,9 +429,28 @@ nicht selbst erhoehen.
 
 ### Zweistufige Planung und Worker-Vorschläge
 
+- `POST /api/organizations/<id>/goals` persistiert mit `Idempotency-Key` ein
+  passives Root-Ziel im autoritativen Organization-/Tenant-/Project-Scope. Der
+  geschlossene Body akzeptiert nur `goal`, `summary`, `constraints` und
+  `acceptance_criteria`; Scope, Ersteller, Typ und Status werden ausschließlich
+  serverseitig gesetzt. Der Aufruf startet weder Planung noch Worker-Dispatch
+  und schreibt keine Queue.
+- `POST /api/organizations/<id>/source-catalogs` akzeptiert ausschließlich
+  `connection_id`, `queries` und `limit`. Der Hub fragt damit einen aktiven,
+  zugelassenen Knowledge Index im aktuellen Organization-Scope ab, validiert
+  Revision, Admission, Index-Run und Manifest erneut und weist die
+  `SRC_*`-/`RUN_*`-Referenzen selbst zu. Persistiert wird ein inhaltsfreier,
+  idempotenter Katalog; vom Aufrufer gelieferte Source-IDs sind keine
+  Autorität.
 - `GET /api/organizations/<id>/planning` liefert die paginierte Lineage
   Goal → Category-Todo-Revision → Planning-Track-Revision → Milestone → Task
   sowie passive Worker-Task-Proposals.
+- `GET /api/organizations/<id>/goals/<goal-id>/planning/category-research/readiness`
+  verlangt die Query-Parameter `unit_id`, `team_id`, `role_slot_id` und
+  `catalog_task_id`. Die Projektion prüft den aktuellen Lifecycle, Scope,
+  Membership, Topologie, eine konkrete eligible Assignment-/Agent-Bindung,
+  Capability, Kapazität und den exakten Source Catalog, ohne dabei Tasks oder
+  Queue-Einträge zu erzeugen.
 - `POST /api/organizations/<id>/planning/<revision-id>/promote|adopt` verlangt
   `{expected_revision, expected_digest}` und führt ausschließlich die exakte,
   Hub-autorisierte CAS-Transition aus. Promotion erzeugt keine Tracks;
@@ -441,7 +460,17 @@ nicht selbst erhoehen.
   geschlossene `source_catalog_binding` identifiziert nur einen bereits
   persistierten, principal-/tenant-/scopegebundenen Katalog; Browserdaten
   dürfen keine `SRC_*`-/`RUN_*`-IDs autorisieren. Die Task erzeugt noch keine
-  Category-Revision, Tracks oder ausführbaren Track-Tasks.
+  Category-Revision, Tracks oder ausführbaren Track-Tasks. Der Hub persistiert
+  dabei eine konkrete aktive Role-Assignment-/Agent-Bindung mit `planning`,
+  `research` und `source_analysis`; es gibt keinen globalen Worker-Fallback.
+  Vor dem Forward werden Lifecycle, Topologie, Registrierung, Kapazität und
+  WorkerJob-Lease erneut geprüft. Der Ziel-Worker akzeptiert nur den exakten,
+  kurzlebig und payloadgebunden mit dem privaten Hub-Ed25519-Key signierten
+  Transport an seinem service-only Intake. Der Worker besitzt nur den
+  öffentlichen Verifikations-Keyring; sein Service-Token authentifiziert den
+  HTTP-Transport, verleiht aber keine Hub-Autorität. Ohne kanonische
+  `AGENT_URL` oder Verifikations-Keyring lehnt er geschlossen ab und routet
+  selbst keine weitere Arbeit.
 - `POST /api/worker-results/tasks/<task-id>/assignments/<assignment-id>/planning/category`
   nimmt die geschlossene Category-Ausgabe ausschließlich mit der exakten
   Worker-Result-Capability, Assignment-ID, Dispatch-Lease, Payload-Digest und
