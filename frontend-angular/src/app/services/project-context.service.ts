@@ -24,6 +24,11 @@ import { UserAuthService } from './user-auth.service';
 const PROJECT_QUERY_KEY = 'projectId';
 const LEGACY_PROJECT_QUERY_KEY = 'project_id';
 
+interface ProjectSelectionLock {
+  readonly message: string;
+  readonly count: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ProjectContextService {
   private readonly router = inject(Router);
@@ -31,6 +36,7 @@ export class ProjectContextService {
   private readonly catalog = inject(PROJECT_CATALOG);
   private loadInFlight$: Observable<ProjectContextSnapshot> | null = null;
   private identity = '';
+  private readonly selectionLocks = signal<ReadonlyMap<string, ProjectSelectionLock>>(new Map());
 
   readonly projects = signal<readonly ProjectSummary[]>([]);
   readonly selectedProjectId = signal('');
@@ -42,6 +48,11 @@ export class ProjectContextService {
     this.projects().find((project) => project.id === this.selectedProjectId()) ?? null,
   );
   readonly hasProject = computed(() => this.selectedProject() !== null);
+  readonly selectionBlocked = computed(() => this.selectionLocks().size > 0);
+  readonly selectionBlockMessage = computed(() => (
+    this.selectionLocks().values().next().value?.message
+    ?? 'Der Projektwechsel ist während einer laufenden Aktion gesperrt.'
+  ));
 
   constructor() {
     this.auth.user$
@@ -103,6 +114,10 @@ export class ProjectContextService {
 
   selectProject(projectId: string, synchronizeUrl = true): boolean {
     const normalized = projectId.trim();
+    if (normalized !== this.selectedProjectId() && this.selectionBlocked()) {
+      this.error.set(this.selectionBlockMessage());
+      return false;
+    }
     const project = this.projects().find(
       (candidate) => candidate.id === normalized && candidate.status === 'active',
     );
@@ -121,6 +136,37 @@ export class ProjectContextService {
       void this.synchronizeUrl(project.id);
     }
     return true;
+  }
+
+  acquireSelectionLock(key: string, message: string): () => void {
+    const normalizedKey = String(key || '').trim();
+    const normalizedMessage = String(message || '').trim();
+    if (!normalizedKey) throw new Error('project_selection_lock_key_required');
+    this.selectionLocks.update((current) => {
+      const next = new Map(current);
+      const existing = next.get(normalizedKey);
+      next.set(normalizedKey, {
+        message: normalizedMessage || existing?.message || 'Der Projektwechsel ist vorübergehend gesperrt.',
+        count: (existing?.count ?? 0) + 1,
+      });
+      return next;
+    });
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.selectionLocks.update((current) => {
+        const existing = current.get(normalizedKey);
+        if (!existing) return current;
+        const next = new Map(current);
+        if (existing.count > 1) {
+          next.set(normalizedKey, { ...existing, count: existing.count - 1 });
+        } else {
+          next.delete(normalizedKey);
+        }
+        return next;
+      });
+    };
   }
 
   createProject(request: ProjectCreateRequest): Observable<ProjectSummary> {
@@ -166,6 +212,7 @@ export class ProjectContextService {
     this.loading.set(false);
     this.ready.set(false);
     this.error.set('');
+    this.selectionLocks.set(new Map());
     this.loadInFlight$ = null;
   }
 
@@ -196,8 +243,12 @@ export class ProjectContextService {
       return;
     }
     const requested = this.routeProjectId();
-    if (requested && requested !== this.selectedProjectId()) {
-      this.selectProject(requested, false);
+    const selected = this.selectedProjectId();
+    if (requested && requested !== selected) {
+      const accepted = this.selectProject(requested, false);
+      if (!accepted && selected && this.selectionBlocked()) {
+        void this.synchronizeUrl(selected);
+      }
     }
   }
 

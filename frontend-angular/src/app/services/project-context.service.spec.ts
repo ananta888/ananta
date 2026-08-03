@@ -66,6 +66,50 @@ describe('ProjectContextService', () => {
     expect(created.id).toBe('project-c');
     expect(context.selectedProjectId()).toBe('project-c');
   });
+
+  it('blocks only cross-project selection until the owner releases its lock', async () => {
+    const context = TestBed.inject(ProjectContextService);
+    await firstValueFrom(context.ensureLoaded());
+    expect(context.selectProject('project-a', false)).toBeTruthy();
+
+    const release = context.acquireSelectionLock(
+      'organization-instantiation',
+      'Die Organisation wird gerade instanziiert.',
+    );
+
+    expect(context.selectionBlocked()).toBe(true);
+    expect(context.selectProject('project-a', false)).toBe(true);
+    expect(context.selectedProjectId()).toBe('project-a');
+
+    expect(context.selectProject('project-b', false)).toBe(false);
+    expect(context.selectedProjectId()).toBe('project-a');
+    expect(context.error()).toBe('Die Organisation wird gerade instanziiert.');
+
+    release();
+
+    expect(context.selectionBlocked()).toBe(false);
+    expect(context.selectProject('project-b', false)).toBe(true);
+    expect(context.selectedProjectId()).toBe('project-b');
+  });
+
+  it('canonicalizes a rejected query-only project change back to the selected project', async () => {
+    const context = TestBed.inject(ProjectContextService);
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/');
+    await firstValueFrom(context.ensureLoaded());
+    expect(context.selectProject('project-a', false)).toBe(true);
+    context.acquireSelectionLock(
+      'organization-instantiation',
+      'Die Organisation wird gerade instanziiert.',
+    );
+
+    await router.navigateByUrl('/?projectId=project-b');
+
+    await vi.waitFor(() => expect(router.url).toContain('projectId=project-a'));
+    expect(router.url).not.toContain('projectId=project-b');
+    expect(context.selectedProjectId()).toBe('project-a');
+    expect(context.error()).toBe('Die Organisation wird gerade instanziiert.');
+  });
 });
 
 function project(id: string, name: string): ProjectSummary {

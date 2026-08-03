@@ -16,7 +16,8 @@ import { ProjectContextService } from '../services/project-context.service';
         id="global-project-select"
         [ngModel]="context.selectedProjectId()"
         (ngModelChange)="selectProject($event)"
-        [disabled]="context.loading()"
+        [disabled]="context.loading() || context.selectionBlocked()"
+        [attr.title]="context.selectionBlocked() ? context.selectionBlockMessage() : null"
       >
         <option value="">Projekt auswaehlen</option>
         @for (project of context.projects(); track project.id) {

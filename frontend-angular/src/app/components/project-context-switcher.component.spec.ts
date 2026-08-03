@@ -17,6 +17,8 @@ describe('ProjectContextSwitcherComponent', () => {
       ]),
       selectedProjectId: signal('active'),
       loading: signal(false),
+      selectionBlocked: signal(false),
+      selectionBlockMessage: signal(''),
       error: signal(''),
       ensureLoaded: vi.fn(() => of({})),
       selectProject,
@@ -38,5 +40,46 @@ describe('ProjectContextSwitcherComponent', () => {
     expect(selectProject).toHaveBeenCalledWith('active');
     expect(fixture.nativeElement.textContent).toContain('Archived (archiviert)');
     expect(fixture.nativeElement.textContent).toContain('Neues Projekt');
+  });
+
+  it('disables project selection while a context owner holds a lock', async () => {
+    const selectionBlocked = signal(true);
+    const selectionBlockMessage = signal('Die Organisation wird gerade instanziiert.');
+    const context = {
+      projects: signal([
+        { id: 'active', name: 'Active', status: 'active' },
+        { id: 'other', name: 'Other', status: 'active' },
+      ]),
+      selectedProjectId: signal('active'),
+      loading: signal(false),
+      selectionBlocked,
+      selectionBlockMessage,
+      error: signal(''),
+      ensureLoaded: vi.fn(() => of({})),
+      selectProject: vi.fn(),
+    };
+    await TestBed.configureTestingModule({
+      imports: [ProjectContextSwitcherComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ProjectContextService, useValue: context },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ProjectContextSwitcherComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector('select') as HTMLSelectElement;
+    expect(select.disabled).toBe(true);
+    expect(select.title).toBe('Die Organisation wird gerade instanziiert.');
+
+    selectionBlocked.set(false);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(select.disabled).toBe(false);
+    expect(select.hasAttribute('title')).toBe(false);
   });
 });
