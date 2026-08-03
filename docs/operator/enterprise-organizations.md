@@ -33,9 +33,13 @@ as a command argument.
 
 ## Compile and instantiate
 
-1. List production Organization Blueprints.
-2. Compile the selected definition with a team count. Eight is the default;
-   five through ten are standard. Two-/three-team test fixtures are not listed.
+1. List production Organization Blueprints and select an Organization family.
+2. Compile the selected definition with one of its server-declared sizes. Lean
+   Company is the setup default and offers 2--6 teams with exactly 5, 8, 12,
+   16 or 20 role slots; 4 teams/12 role slots is the recommended compact
+   reference. Enterprise remains available with 5--10 teams and recommends
+   eight teams. The old reduced Enterprise test fixtures are not production
+   presets and are not mixed into either family selector.
 3. Confirm exact team/unit/relation/slot counts, capability gaps, budgets,
    blockers, effective limits and planned writes.
 4. Treat the returned plan digest, definition revision, limit-profile revision
@@ -137,6 +141,77 @@ and never deletes a seed or runtime record blindly.
 
 Layout changes use the presentation-only layout endpoint. They may be retried
 without changing definition or runtime revisions.
+
+## Activation, handoffs and the 3D view
+
+Open **Aktivierung & Uebergaben** to answer two separate questions without
+mixing definition intent with observed execution:
+
+1. Which workflow step is owned by which role, which predecessor outputs and
+   handoffs it declares, and which independent gate must approve it?
+2. Does the current topology contain a matching role slot and how many active
+   assignment rows are attached to the bound slots?
+
+The read-only endpoint is scoped to the authenticated tenant, project and
+Organization:
+
+```text
+GET /api/organizations/<organization-id>/role-activation-map
+```
+
+The response is bound to the Organization definition revision and latest
+topology snapshot. Treat `stale=true`, a missing snapshot, or a revision
+mismatch as a reason to refresh/reconcile before making an operational
+decision. Assignment coverage counts active assignment records only. It does
+not prove current Agent registration, capability eligibility, free capacity,
+separation-of-duties eligibility or Worker liveness.
+
+The UI and read model keep all five lifecycle levels distinct:
+
+1. role slot exists in the active topology;
+2. active assignment rows cover none, the minimum or the desired cardinality;
+3. local Task readiness is observed from an exactly bound Task and its
+   complete, same-scope `depends_on` set; external inputs and handoff
+   acceptance remain separate Hub facts;
+4. Hub routing is observed from the Task's valid planning-dispatch record,
+   persisted assignment and routed status;
+5. Worker execution is observed only from the matching current running
+   WorkerJob and an active, unexpired Task/job-bound lease.
+
+The last three states require an exact persisted binding to the current
+Organization revision, workflow content, step, Team, role slot, gate, handoff,
+failure policy and verification specification. Missing, stale, conflicting or
+out-of-scope evidence is `unknown`; an exact negative observation is
+`observed_false`. Worker addresses and job or lease identifiers are never
+returned. A role does not call or wake another role directly: a producer
+submits its output to the Hub; only the Hub evaluates dependencies, the
+versioned handoff, gates, policy and current routing eligibility before
+creating or routing downstream work. Worker proposals are shown as a possible
+advisory path and never as already accepted Tasks.
+
+Use **Warum diese Rolle?** to inspect the Hub rule, candidate/bound slot IDs,
+external inputs and versioned cross-team source relation. Filters are
+presentation-only and do not alter routing.
+
+For a Lean Delivery workflow with more than one matching Delivery Cell, send
+the concrete stable unit ID as `target_unit_id` to the reference-workflow
+preview and derive endpoints. The Hub binds all steps to that Team; omitting
+the unit in an ambiguous topology returns
+`ORGANIZATION_WORKFLOW_TARGET_UNIT_REQUIRED` instead of choosing a Team by
+list position.
+
+Hierarchy, 2D and 3D are synchronized projections. In 3D an operator can set
+leadership scope, presentation importance, node size/color metrics and edge
+color/width for explicit stable role-slot keys. The validated profile format
+also accepts role-template defaults; the current settings panel edits the
+concrete slots. These settings are session presentation state only; they do not change permissions,
+Task priority, assignment capacity, activation or Hub routing. The legend
+shows the active color metric, size samples and minimum/median/maximum edge
+strength. The synchronized DOM list remains the accessible fallback when
+WebGL is unavailable. With reduced motion, the moving 3D simulation is
+deliberately replaced by the static synchronized list, hierarchy or 2D
+projection. Graphs above 500 nodes or 2,000 edges are rejected with an explicit
+limit message rather than silently truncated.
 
 ## Assignment and proposals
 
@@ -398,12 +473,15 @@ When execution stalls:
 
 ## Verification boundary
 
-The single complete acceptance scenario is the medium eight-team reference.
-Small two-/three-team matrices use repository/Hub/Worker fakes without a
-browser or real Workers. Performance tests use synthetic minimal graphs and
-must record hardware, data size, warmup, samples and bottleneck. A release
-report may claim a gate only after its command actually ran; absent source/run
-allowlists remain unverified and no evidence identifier may be invented.
+The single complete Enterprise acceptance scenario remains the medium
+eight-team reference. Productive Lean definitions cover 2--6 teams and 5--20
+role slots with focused compiler, schema, handoff and separation-of-duties
+contracts. Additional reduced Enterprise two-/three-team matrices continue to
+use repository/Hub/Worker fakes without a browser or real Workers. Performance
+tests use synthetic minimal graphs and must record hardware, data size, warmup,
+samples and bottleneck. A release report may claim a gate only after its
+command actually ran; absent source/run allowlists remain unverified and no
+evidence identifier may be invented.
 
 ### Performance evidence contract
 

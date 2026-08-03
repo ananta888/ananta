@@ -39,6 +39,12 @@ teams. Eight is the default and the sole full acceptance reference. The same
 compiler expands every size; there are no service or UI branches for a
 particular team count.
 
+This Enterprise family is intentionally comprehensive. Its eight-team
+reference contains 82 role slots and a default assignment capacity of 73. A
+role slot is a responsibility and assignment position, not an implicit demand
+for one distinct human or Agent. One compatible principal may hold several
+explicitly permitted slots; capacity and separation of duties still apply.
+
 | Count | Composition change |
 | --- | --- |
 | 5 | Portfolio coordination, two product-delivery teams, research/discovery and platform/SRE |
@@ -62,9 +68,67 @@ teams and one instance of every other type. It contains one coordination unit,
 three value streams, twelve hierarchy `contains` edges and eight active
 organization relations.
 
-Four two-/three-team compositions exist only in the injected test catalog.
-They are useful for cheap contract and fake-runtime verification, but are not
-production presets and do not appear in the setup UI. Each requires a fresh,
+## Lean company profiles
+
+The additive `lean_company_organization@1` production family is intended for
+small companies that do not need the full Enterprise role catalog. It uses the
+same deterministic compiler, Hub policies, grants and atomic instantiation
+path. It does not weaken or replace the five-to-ten-team Enterprise family.
+
+| Roles | Teams | Composition |
+| ---: | ---: | --- |
+| 5 | 2 | Direction plus one four-role Delivery Cell |
+| 8 | 3 | Add three-role Discovery |
+| 12 | 4 | Add four-role Enablement |
+| 16 | 5 | Add a second Delivery Cell |
+| 20 | 6 | Add a third Delivery Cell |
+
+All Lean role slots have a default cardinality of one, so the displayed role
+slot count and default assignment capacity are identical. The number of
+distinct assigned Agents may still be lower where an assignment is compatible,
+within capacity and allowed by separation-of-duties policy. The setup UI
+therefore reports all three concepts separately:
+
+- **Teams** are materialized Team Blueprint instances.
+- **Role slots** are explicit responsibility and assignment positions.
+- **Default assignments** are the planned sum of slot cardinalities, not a
+  count of unique principals.
+
+Direction owns the company Product Goal and decision boundaries. Each Delivery
+Cell owns a bounded product slice. Discovery produces grounded research and an
+independent review. Enablement covers platform, reliability, security and
+release evidence. These roles exchange artifacts and proposals only through
+the Hub; a compact organization never enables Worker-to-Worker orchestration.
+
+The Lean workflows make the activation chain concrete. “Reacts to” means that
+the Hub has received and accepted the declared predecessor/input; it never means
+that one role invokes another role directly.
+
+| Role | Hub-routed task | Declared trigger/input | Output or gate |
+| --- | --- | --- | --- |
+| Portfolio Product Owner | prioritize company goal | Organization Goal intake plus allowed evidence | company goal, priority decision and accepted requirements |
+| Delivery Product Lead | plan increment | accepted company goal/requirements from a versioned Hub handoff | delivery plan and optional enablement need |
+| Delivery Technical Lead | define solution boundary | completed delivery plan | solution boundary |
+| Product Engineer | implement vertical slice | delivery plan and solution boundary | product increment and test evidence |
+| Quality Engineer | independently verify increment | completed implementation and test evidence | quality report; independent Product Lead approval gate |
+| Research Lead | frame delegated research | Hub-selected research question and company goal | research brief |
+| Requirements Analyst | analyze requirements | completed research brief | requirements brief |
+| Evidence Reviewer | independently review evidence | completed requirements analysis | evidence review and accepted requirements; independent Research Lead approval gate |
+| Platform Lead | plan enablement | delivery need and company goal accepted by the Hub | platform plan |
+| Platform Engineer | build enablement | completed platform plan | platform capability and deployment evidence |
+| Reliability Engineer | verify readiness | platform capability and deployment evidence | operational readiness; independent Security approval gate |
+| Security Engineer | verify release controls | completed readiness verification | security evidence and readiness handoff; independent Reliability approval gate |
+
+Only rows whose Team Blueprint is present in the selected 2--6-team profile are
+materialized. A missing optional Discovery or Enablement team therefore leaves
+no hidden Worker or direct-call fallback; the Hub uses only the inputs and
+routes admitted by the active profile.
+
+Four reduced Enterprise two-/three-team compositions exist only in the
+injected test catalog. They are useful for cheap contract and fake-runtime
+verification, but are not production presets and do not appear in the setup
+UI. The productive Lean two-/three-team definitions above are distinct,
+complete presets. A reduced Enterprise custom composition requires a fresh,
 one-shot admission exception bound to principal, tenant/project scope,
 composition digest, policy revision and expiry. Missing platform, quality or
 governance capabilities remain visible as dry-run gaps.
@@ -194,20 +258,85 @@ versioned handoff definition must also match an active Organization relation.
 Runtime records contain only references and redacted payloads, never prompts,
 credentials or artifact bodies.
 
+## When a role becomes active
+
+An active role slot means only that the structural position exists. It does
+not mean that an Agent is currently working. The read-only role-activation
+projection keeps these five levels separate:
+
+1. **Slot active** — the role position belongs to the current Organization
+   revision and its Team is eligible for work.
+2. **Assignment recorded** — active assignment rows cover none, the minimum or
+   the desired cardinality of the bound slots. This count does not prove Agent
+   registration, capabilities, free capacity, separation-of-duties eligibility
+   or Worker liveness.
+3. **Local Task readiness** — an exactly bound Task is in a pre-routing state
+   and every persisted `depends_on` Task is complete in the same scoped read.
+   Declared external inputs and handoffs remain a separate Hub decision and
+   are not implied by this local fact.
+4. **Hub routed** — that Task carries a valid Hub planning-dispatch record and
+   a persisted assignment while its Task status is routed.
+5. **Worker executing** — the Task's current WorkerJob is running, has started,
+   matches the assigned Worker and is protected by the matching, active,
+   unexpired lease.
+
+Levels three through five are projected only when the Task binding matches the
+current Organization revision, workflow reference and content hash, step,
+Team, role slot, gate, handoff, failure policy and verification specification.
+Tasks are queried with exact tenant, project and Organization scope; jobs and
+leases are accepted only through those Task IDs. Missing, stale, conflicting
+or out-of-scope evidence remains `unknown`. An exact negative observation is
+reported separately as `observed_false`; it is never inferred from a role slot
+or assignment row. Worker addresses and job or lease identifiers are not
+returned.
+
+A role never reacts directly to another role. An upstream role produces a
+versioned output; the Hub evaluates the declared workflow dependency, required
+inputs, gate and current routing policy and may then assign the downstream
+Task. The `role-activation-map` view shows this desired workflow separately
+from assignment coverage and the three runtime facts. Unbound steps remain
+`unknown`, never inferred from a structurally active slot.
+
+When a workflow can target several identical Delivery Cells, the Lean
+Delivery definition requires an explicit `target_unit_id` in reference-
+workflow preview/derive requests. The Hub validates that unit against the
+workflow selector and binds every generated step to that exact Team. An
+ambiguous request fails closed instead of silently selecting the first Team.
+
+Worker Task Proposals form a separate advisory lane. They show the proposer and
+target hints, followed by Hub classification, approval, Track amendment,
+materialization and final routing. A hint is never rendered as an assignment.
+
 ## Management UI
 
-`/organizations` is a dedicated Angular feature. The setup wizard starts at
-eight teams and exposes server-provided standard sizes from five through ten.
-Compile is always dry-run first and shows topology counts, role slots,
-capability gaps, effective limits, planned writes, warnings, blockers and the
-exact plan digest.
+`/organizations` is a dedicated Angular feature. The setup wizard first selects
+the Organization family. Enterprise exposes its server-provided five-to-ten
+team band and recommends eight teams; Lean Company exposes 5, 8, 12, 16 or 20
+role slots. Compile is always dry-run first and shows topology counts, role
+slots, default assignment capacity, capability gaps, effective limits, planned
+writes, warnings, blockers and the exact plan digest.
 
-Hierarchy and graph are synchronized projections of the same definition
-revision and runtime overlay. Selection, focus and filters survive switching
-views. Hierarchy supports keyboard navigation and lazy children. The graph
-uses the Visual Process interaction vocabulary for pan, zoom, fit, focus and
-layout-only drag. Text labels and status attributes remain available without
-color. Runtime edges are read-only.
+Hierarchy, 2D graph and 3D graph are synchronized projections of the same
+definition revision and runtime overlay. Selection, focus and filters survive
+switching views. Hierarchy supports keyboard navigation and lazy children. The
+graphs use the Visual Process interaction vocabulary for pan, zoom, fit, focus
+and layout-only movement. Text labels and status attributes remain available
+without color. Runtime edges are read-only.
+
+The 3D graph renders every loaded role slot and assignment. Operators may set
+an explicit leadership scope and presentation importance for stable role keys,
+choose node-size and node-color metrics and configure edge colors and widths.
+No leadership level is guessed from words such as “Chief”, “Lead” or
+“Manager”. The settings are presentation-only and do not change rights,
+capacity, Task priority or Hub routing. A visible legend explains the active
+color metric, small/medium/large node sizes, edge kinds and minimum/median/
+maximum edge strength. A synchronized DOM list and automatic WebGL fallback
+preserve the same information for keyboard and assistive-technology users.
+When reduced motion is requested, the moving 3D simulation is deliberately
+replaced by the static synchronized list, hierarchy or 2D projection.
+The interactive settings panel edits concrete stable role-slot keys. The
+validated profile contract also supports template-wide defaults, which are
+currently supplied through a profile rather than edited in that panel.
 
 Typed add/remove/reparent/connect/assign edits first create a draft plan.
 Apply requires the exact definition revision, patch digest, limit-profile
