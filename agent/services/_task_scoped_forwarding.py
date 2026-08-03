@@ -185,6 +185,22 @@ def forward_task_request_if_remote(
     # and never re-forward step endpoints to avoid forwarding loops.
     if str(getattr(settings, "role", "") or "").strip().lower() != "hub":
         return None
+    from agent.services.organization_task_dispatch_gate_service import (
+        organization_research_requires_secure_delegation,
+    )
+
+    if organization_research_requires_secure_delegation(task):
+        reason_code = "organization_research_secure_delegation_required"
+        return TaskScopedRouteResponse(
+            data={
+                "status": "denied",
+                "reason_code": reason_code,
+                "task_id": tid,
+            },
+            status="denied",
+            message=reason_code,
+            code=409,
+        )
     worker_url = task.get("assigned_agent_url")
     if not worker_url:
         return None

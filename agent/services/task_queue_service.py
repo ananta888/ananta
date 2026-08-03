@@ -2,6 +2,9 @@ import time
 from typing import Any, Callable, Dict, List, Optional
 
 from agent.repository import goal_repo, task_repo
+from agent.services.organization_task_dispatch_gate_service import (
+    get_organization_task_dispatch_gate_service,
+)
 from agent.services.recovery_dispatch_gate_service import (
     get_recovery_dispatch_gate_service,
 )
@@ -62,10 +65,12 @@ class TaskQueueService:
         from agent.routes.tasks.orchestration_policy.routing import build_dispatch_queue
 
         gate = get_recovery_dispatch_gate_service()
+        organization_gate = get_organization_task_dispatch_gate_service()
         tasks = [
             task.model_dump()
             for task in task_repo.get_all()
             if gate.evaluate_task(task).allowed
+            and organization_gate.evaluate(task).allowed
         ]
         queue = build_dispatch_queue(tasks)
         if limit:
@@ -84,6 +89,7 @@ class TaskQueueService:
         if team_id:
             tasks = [task for task in tasks if str(task.team_id or "") == str(team_id)]
         gate = get_recovery_dispatch_gate_service()
+        organization_gate = get_organization_task_dispatch_gate_service()
         candidate_map = {
             task.id: task
             for task in tasks
@@ -92,6 +98,7 @@ class TaskQueueService:
                 manual_override_active=bool((getattr(task, "manual_override_until", None) or 0) > now),
             )
             and gate.evaluate_task(task).allowed
+            and organization_gate.evaluate(task).allowed
         }
         queue = build_dispatch_queue([task.model_dump() for task in candidate_map.values()])
         return [
@@ -112,7 +119,13 @@ class TaskQueueService:
             "failed": 0,
         }
         by_agent: Dict[str, int] = {}
-        by_source: Dict[str, int] = {"ui": 0, "agent": 0, "system": 0, "unknown": 0}
+        by_source: Dict[str, int] = {
+            "ui": 0,
+            "api": 0,
+            "agent": 0,
+            "system": 0,
+            "unknown": 0,
+        }
 
         for task_obj in tasks:
             task = task_obj.model_dump()
@@ -381,6 +394,11 @@ class TaskQueueService:
                     return False
             gate_decision = gate.evaluate_task(current)
             if not gate_decision.allowed:
+                return False
+            organization_decision = (
+                get_organization_task_dispatch_gate_service().evaluate(current)
+            )
+            if not organization_decision.allowed:
                 return False
             current_status = normalize_task_status(
                 getattr(current, "status", None),

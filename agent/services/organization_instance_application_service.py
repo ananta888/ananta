@@ -42,6 +42,10 @@ from agent.services.organization_lifecycle_service import (
     OrganizationActivitySnapshot,
     OrganizationLifecycleService,
 )
+from agent.services.organization_topology_lifecycle_service import (
+    OrganizationTopologyLifecyclePort,
+    SqlOrganizationTopologyLifecycleService,
+)
 from agent.services.organization_unit_of_work import OrganizationUnitOfWork
 
 _PRECREATION_GRANT_KINDS = frozenset({"instantiate", "organization_instantiation", "organization_admin"})
@@ -160,10 +164,14 @@ class OrganizationInstanceApplicationService:
         catalog: OrganizationDefinitionCatalogService,
         session_factory=None,
         active_work: SqlOrganizationActiveWorkService | None = None,
+        topology_lifecycle: OrganizationTopologyLifecyclePort | None = None,
     ) -> None:
         self._catalog = catalog
         self._session_factory = session_factory
         self._active_work = active_work or SqlOrganizationActiveWorkService()
+        self._topology_lifecycle = (
+            topology_lifecycle or SqlOrganizationTopologyLifecycleService()
+        )
 
     def instantiate(
         self,
@@ -315,7 +323,10 @@ class OrganizationInstanceApplicationService:
             uow.operations.add(operation)
             now = time.time()
             active_work_result: dict[str, Any] | None = None
-            if locked_activity.has_active_work:
+            if (
+                locked_activity.has_active_work
+                and lifecycle_plan.to_state in {"completed", "archived"}
+            ):
                 try:
                     active_work_result = self._active_work.execute(
                         session=uow.session,
@@ -326,10 +337,32 @@ class OrganizationInstanceApplicationService:
                         operation_key=operation.operation_id,
                         principal_id=principal_id,
                         migration_target=migration_target,
+                        include_queued=True,
                         now=now,
                     ).as_dict()
                 except OrganizationActiveWorkError as exc:
                     raise OrganizationInstantiationError(exc.reason_code) from exc
+            topology_projection: dict[str, int | str] | None = None
+            if lifecycle_plan.to_state in {
+                "active",
+                "paused",
+                "completed",
+                "archived",
+                "validated",
+            }:
+                topology_projection = self._topology_lifecycle.project_transition(
+                    session=uow.session,
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                    target_state=lifecycle_plan.to_state,
+                    now=now,
+                )
+            topology_activation = (
+                topology_projection
+                if lifecycle_plan.to_state == "active"
+                else None
+            )
             organization.lifecycle = lifecycle_plan.to_state
             organization.lock_version += 1
             organization.updated_at = now
@@ -351,6 +384,8 @@ class OrganizationInstanceApplicationService:
                 "snapshot_hash": snapshot_hash,
                 "preserves_lineage": list(lifecycle_plan.preserves_lineage),
                 "active_work": active_work_result,
+                "topology_activation": topology_activation,
+                "topology_projection": topology_projection,
                 "starts_workers": False,
                 "reruns_tasks": False,
                 "replayed": False,

@@ -92,6 +92,13 @@ class OrganizationLifecycleService:
                 )
         if target == "archived":
             operations.append("seal_immutable_archive_snapshot")
+            operations.append("archive_topology")
+        if target == "active":
+            operations.append("activate_planned_topology")
+        if target == "paused":
+            operations.append("pause_dispatch_topology")
+        if target == "completed":
+            operations.append("close_dispatch_topology")
         if source == "archived" and target == "validated":
             operations.append("create_new_activation_candidate")
             reason = "organization_recovery_requires_new_activation"
