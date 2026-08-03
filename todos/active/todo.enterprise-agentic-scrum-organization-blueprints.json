@@ -1,6 +1,6 @@
 {
   "$schema": "../todo.schema.json",
-  "version": 1,
+  "version": 2,
   "created": "2026-08-02",
   "updated": "2026-08-03",
   "project": "ananta",
@@ -9,8 +9,8 @@
   "status": "partial",
   "priority": "P0",
   "review_basis": {
-    "reviewed_commit_range": "main@cc7864c1addd58fcc3f29e8ff016e1c9d563c81d",
-    "review_goal": "Die vorhandenen Rollen-, Template-, Team-, Blueprint- und Planning-Track-Funktionen zu einem datengetriebenen Standardorganisationsmodell mit fünf bis zehn Teaminstanzen ausbauen, eine mittlere Acht-Team-Referenz vollständig abnehmen, mehrere kleine Zwei-/Drei-Team-Varianten günstig validieren, Research zuerst als Category-Todo und danach als Planning Tracks planen sowie assignment-bound Worker-Task-Proposals ausschließlich Hub-seitig einordnen und routen.",
+    "reviewed_commit_range": "main@675a1f124b23cca6848ed52e84b55565de173487",
+    "review_goal": "Die bestehende Enterprise-Organisation unverändert erhalten, zusätzlich produktive kleine Firmenbeispiele mit insgesamt fünf bis zwanzig Rollenplätzen bereitstellen, Rollenaktivierung und Hub-Routing als nachvollziehbaren Soll-/Ist-Fluss erklären und dieselbe revisionsgebundene Organisation in einer konfigurierbaren barrierearmen 3D-Ansicht mit expliziter Führungs-, Wichtigkeits-, Farb- und Kantenlegende darstellen.",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
     "grounding_status": "unverified",
@@ -190,10 +190,11 @@
     ],
     "implementation_completed_unverified": [
       "Der additive Organization-Control-Plane-Vertrag unterstützt hierarchische und graphförmige N-Team-Topologien mit cardinality-basierten Role Slots, Hub-Routing, Handoffs, Policies und Lifecycle.",
-      "Der Standardkatalog enthält 67 Rollen, sieben Team-Blueprints, acht Workflows und referenzierte Organisationsgrößen mit fünf, acht und zehn Teams; vier isolierte kleine 2er-/3er-Testkompositionen ergänzen die mittlere Acht-Team-Abnahme.",
+      "Der Standardkatalog enthält 67 Rollen, elf Team-Blueprints, zwölf Workflows, die unveränderte Enterprise-Familie sowie fünf produktive Lean-Größen mit fünf bis zwanzig Rollenplätzen; vier isolierte kleine Enterprise-2er-/3er-Testkompositionen ergänzen die mittlere Acht-Team-Abnahme.",
       "Die Planning-Pipeline erzeugt zuerst eine Category-Todo nach todos/todo.schema.json und delegiert anschließend genau eine gebundene Track-Planungsaufgabe nach todos/todo.track.schema.json an einen Worker; nur der Hub validiert, persistiert, adoptiert und materialisiert.",
       "Workerrollen können assignment- und lease-gebundene Folgeaufgaben vorschlagen; ausschließlich der Hub ordnet Vorschläge ein und weist sie Rollen, Agenten oder Teams zu.",
-      "Normalisierte Persistenz, atomare Unit-of-Work-Grenzen, Organizations-Bundle-v2, Approval/Grant-Sicherheit, REST/TUI sowie Angular-Hierarchie-, Graph-, Editor- und Planning-Ansichten sind implementiert.",
+      "Normalisierte Persistenz, atomare Unit-of-Work-Grenzen, Organizations-Bundle-v2, Approval/Grant-Sicherheit, REST/TUI sowie Angular-Hierarchie-, 2D-/3D-Graph-, Rollenaktivierungs-, Editor- und Planning-Ansichten sind implementiert.",
+      "Die Rollenaktivierungsprojektion beobachtet exakt revisions- und workflowgebundene Task-Readiness, Hub-Dispatch, WorkerJob und Lease; ohne passende autoritative Bindung bleibt der jeweilige Ist-Fakt unknown.",
       "Der lokale Compose-Next-Rollout wurde datenwahrend auf Alembic-Head 5a0e2b4c6d8f aktualisiert; Hub und zwei strikt registrierte Worker laufen mit source_analysis-Autorisierung. Diese lokale Betriebsprüfung ist ohne erlaubte RUN_*-Referenz weiterhin kein Promotionsnachweis."
     ],
     "review_gaps_unverified": [
@@ -648,10 +649,18 @@
     },
     {
       "id": "M5",
+      "title": "Lean-Company, Rollenaktivierung und 3D-Organisation",
+      "status": "completed",
+      "priority": "P1",
+      "exit_gate": "Produktive Lean-Größen mit fünf bis zwanzig Rollenplätzen, revisionsgebundene Rollenaktivierung und die zugängliche 3D-Projektion sind fokussiert geprüft und dokumentiert.",
+      "task_ids": ["ESORG-SME-001", "ESORG-SME-002", "ESORG-SME-003", "ESORG-SME-004", "ESORG-ACT-001", "ESORG-ACT-002", "ESORG-VIS-001", "ESORG-VIS-002", "ESORG-VIS-003", "ESORG-DOC-002", "ESORG-QA-010"]
+    },
+    {
+      "id": "M6",
       "title": "Globales Release-Konvergenzgate",
       "status": "open",
       "priority": "P2",
-      "exit_gate": "Alle 90 Vorgängertasks sind abgeschlossen und das reproduzierbare globale Gate ist grün.",
+      "exit_gate": "Alle 101 Vorgängertasks sind abgeschlossen und das reproduzierbare globale Gate ist grün.",
       "task_ids": ["ESORG-QA-006"]
     }
   ],
@@ -2071,12 +2080,22 @@
         {
           "id": "ESORG-SEC-007",
           "title": "Separation of Duties bei Routing, Handoffs und Gates durchsetzen",
-          "status": "completed",
+          "status": "partial",
           "priority": "P1",
           "risk": "critical",
           "type": "security",
           "depends_on": ["ESORG-SEC-002", "ESORG-RUN-002", "ESORG-RUN-004"],
-          "paths": ["agent/services/separation_of_duties_service.py", "agent/services/organization_routing_service.py", "agent/services/team_handoff_service.py"],
+          "paths": ["agent/services/separation_of_duties_service.py", "agent/services/organization_slot_separation_service.py", "agent/services/organization_routing_service.py", "agent/services/team_handoff_service.py", "agent/services/organization_workflow_completion_policy_service.py"],
+          "implemented_scope": [
+            "Assignment, Handoff und Required-Gate-Completion prüfen aktive revisionsgebundene Slots und Principal-Trennung fail-closed.",
+            "Request-Body gate_results oder actor erzeugen keine Abschlussautorität; ohne exakten Hub-VerificationRecord und gebundene Approval bleibt der Task waiting_for_review.",
+            "Neue registrierte Agent-Assignments speichern eine kanonische Principal-Bindung aus der Hub-Agent-Registry."
+          ],
+          "remaining_work": [
+            "Einen atomaren Hub-Issuance-Pfad für organization.workflow_gate.complete samt Task-Referenz und Idempotenz implementieren.",
+            "Rollenautorisierte Agent-Decision und optional ein echtes Human-Assignment-/Accountability-Modell ergänzen; Organization-Admins dürfen nicht implizit Reviewer sein.",
+            "Reconciliation, Parallel-CAS sowie direkte und indirekte Multi-Team-SoD-Negativtests fokussiert und anschließend im freigegebenen komplexen Gate abdecken."
+          ],
           "acceptance_criteria": [
             "Routing, Handoff-Acceptance und Gate Approval prüfen dieselbe revisionsgebundene SoD-Policy serverseitig.",
             "Implementer, Security-Change-Author und Release-Executor können ihre jeweils unabhängigen Prüfungen in strict mode nicht selbst bestätigen.",
@@ -2315,13 +2334,195 @@
           "priority": "P2",
           "risk": "critical",
           "type": "test",
-          "depends_on": ["ESORG-QA-001", "ESORG-QA-002", "ESORG-QA-003", "ESORG-QA-004", "ESORG-QA-005", "ESORG-QA-007", "ESORG-QA-008", "ESORG-QA-009", "ESORG-DOC-001", "ESORG-UI-010"],
+          "depends_on": ["ESORG-QA-001", "ESORG-QA-002", "ESORG-QA-003", "ESORG-QA-004", "ESORG-QA-005", "ESORG-QA-007", "ESORG-QA-008", "ESORG-QA-009", "ESORG-QA-010", "ESORG-DOC-001", "ESORG-UI-010"],
           "paths": ["artifacts/test-gates/enterprise-agentic-scrum-organization-release.json", "scripts/"],
           "acceptance_criteria": [
             "Gate ist der einzige DAG-Endknoten und alle Tasks dieses Plans sind transitive Vorgänger; fehlende oder übersprungene Arbeit lässt es fehlschlagen.",
             "Backend-, Category-/Track-Schema-, Summary-, Catalog-, Migration-, Bundle-, Runtime-, Proposal-, Authorization-, Grounding-, Security-, Angular-, Accessibility-, Performance- und Dokumentationsgates sind grün.",
             "Genau ein vollständiger Acht-Team-E2E ist grün; die Zwei-/Drei-Team-Matrix bleibt auf Contract-, Dry-run- und isolierte Integration begrenzt.",
             "Releasebericht enthält reproduzierbare Testkommandos, Schema-/Policy-Hashes, bekannte Restrisiken und keine Secrets oder erfundenen SRC_*/RUN_*-Referenzen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lean_company_activation_and_3d",
+      "label": "Kleine Firmen, erklärbare Rollenaktivierung und 3D-Organisation",
+      "items": [
+        {
+          "id": "ESORG-SME-001",
+          "title": "Definitionsgetriebene Organisationsgrößen und Rollenplatz-Kennzahlen vertraglich trennen",
+          "status": "completed",
+          "priority": "P0",
+          "risk": "high",
+          "type": "contract",
+          "depends_on": ["ESORG-ORG-001", "ESORG-UI-001"],
+          "paths": ["agent/models/organization_models.py", "schemas/blueprints/organization_blueprint_catalog.v1.json", "agent/services/organization_compile_application_service.py"],
+          "acceptance_criteria": [
+            "Jede Organization-Definition liefert ihr eigenes Standardband; die Enterprise-Definition bleibt exakt bei fünf bis zehn Teams, während weitere Produktionsfamilien kleinere Bänder deklarieren dürfen.",
+            "Katalog und Dry-run unterscheiden Teaminstanzen, Rollenplätze, Standardbesetzungen und tatsächliche eindeutige Agents; kein Wert wird aus Anzeigenamen oder UI-Heuristiken abgeleitet.",
+            "Additive Summary-Felder enthalten Profilfamilie, Profilbezeichnung, role_slot_count, default_assignment_capacity und eine verständliche Größenbezeichnung.",
+            "Bestehende Compile-Requests, Selector-Keys und Enterprise-Responses bleiben kompatibel."
+          ]
+        },
+        {
+          "id": "ESORG-SME-002",
+          "title": "Lean-Company-Rollen, Teams und Hub-kontrollierte Workflows bereitstellen",
+          "status": "completed",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "content",
+          "depends_on": ["ESORG-SME-001", "ESORG-ROLE-001"],
+          "paths": ["config/blueprints/standard/templates.d/", "config/blueprints/standard/blueprints.d/", "config/blueprints/standard/workflows.d/"],
+          "acceptance_criteria": [
+            "Direction besitzt einen expliziten Founder/Portfolio-Product-Lead-Slot; jede Delivery Cell besitzt vier klar abgegrenzte Rollenplätze; Discovery ergänzt drei und Enablement vier Rollenplätze.",
+            "Kombinierte Kleinunternehmensrollen nennen ihre Mehrfachzuständigkeit, Grenzen, Inputs, Outputs, Verifikation, Eskalation und Hub-Handoffs explizit.",
+            "Workflow-Schritte deklarieren task_kind, owner_role_ref, Zielteam, Vorgänger, Inputs, Outputs und Gates; Worker-Orchestrierung und Queue-Writes bleiben verboten.",
+            "Alle Lean-Rollenplätze haben default_count=1, sodass Rollenplätze und Standardbesetzungen in den Beispielen exakt übereinstimmen."
+          ]
+        },
+        {
+          "id": "ESORG-SME-003",
+          "title": "Produktive Lean-Company-Familie mit fünf bis zwanzig Rollenplätzen kompilieren",
+          "status": "completed",
+          "priority": "P0",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": ["ESORG-SME-001", "ESORG-SME-002"],
+          "paths": ["config/blueprints/standard/organizations.d/", "agent/services/organization_blueprint_compiler.py"],
+          "acceptance_criteria": [
+            "Die Produktionsdefinition lean_company_organization@1 kompiliert datengetrieben zu (2 Teams, 5 Rollenplätzen), (3, 8), (4, 12), (5, 16) und (6, 20).",
+            "Baseline besteht aus Direction und einer Delivery Cell; Discovery und Enablement werden geordnet aktiviert; anschließend skaliert ausschließlich die Delivery-Cell-Gruppe.",
+            "Profile sind produktive Katalogeinträge und keine test-only Admission-Ausnahmen; Enterprise-Standard, Acht-Team-Referenz und kleine bestehende Test-Fixtures bleiben unverändert.",
+            "Stable Keys, Relationen, Workflows, Limits, Capabilities und Hub-only-Orchestrierung werden durch denselben Compiler und dieselben Validatoren wie Enterprise geprüft."
+          ]
+        },
+        {
+          "id": "ESORG-SME-004",
+          "title": "Setup-Wizard nach Organisationsfamilie und verständlicher Rollenplatzgröße führen",
+          "status": "completed",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "implementation",
+          "depends_on": ["ESORG-SME-003", "ESORG-UI-001"],
+          "paths": ["frontend-angular/src/app/features/organizations/setup/", "frontend-angular/src/app/features/organizations/models/organization-topology.models.ts"],
+          "acceptance_criteria": [
+            "Nutzer wählen zuerst Enterprise oder Kleines Unternehmen und anschließend ausschließlich Größen derselben Definition; Teamzahlen verschiedener Familien werden nicht vermischt.",
+            "Lean-Optionen heißen sichtbar 5, 8, 12, 16 oder 20 Rollenplätze und zeigen zusätzlich die jeweilige Teamzahl; Enterprise bleibt als fünf bis zehn Teams beschrieben.",
+            "Dry-run erklärt Rollenplätze, Standardbesetzungen und die mögliche geringere Anzahl eindeutiger Agents durch kontrolliertes Dual-Hatting.",
+            "Die Profilwahl verändert nur die deklarative Blueprint-Auswahl und umgeht weder Compile-Bindung noch Grant, Bestätigung oder atomare Instanziierung."
+          ]
+        },
+        {
+          "id": "ESORG-ACT-001",
+          "title": "Revisionsgebundenes Rollenaktivierungs-Read-Model aus Hub-Wahrheiten projizieren",
+          "status": "completed",
+          "priority": "P0",
+          "risk": "high",
+          "type": "contract",
+          "depends_on": ["ESORG-ORG-004", "ESORG-RUN-007", "ESORG-PLAN-005"],
+          "paths": ["agent/services/organization_role_activation_read_service.py", "agent/routes/organization_role_activation.py", "schemas/blueprints/organization_workflow_catalog.v1.json"],
+          "acceptance_criteria": [
+            "GET /api/organizations/{organization_id}/role-activation-map liefert Definition und Runtime getrennt sowie Organization-Revision, Snapshot-Hash und Staleness.",
+            "Jeder Soll-Schritt zeigt Workflow, task_kind, owner role, Zielteam, Vorgänger, Inputs, Outputs, Gate, Approval-Rolle, Handoff und Failure Policy; typisierte Kanten erklären unblocks, produces_input und requires_gate.",
+            "Ist-Zustände trennen strukturell aktiven Slot, aktive Assignment-Zeilen, task-ready, Hub-routed und Worker-executing; Eignung, freie Kapazität, Routingbereitschaft und fehlende autoritative Daten bleiben unknown statt erfunden.",
+            "Response nennt router_owner=hub, enthält keine Agent-URLs, Tokens oder Lease-Secrets und verleiht weder Worker noch UI Schreib- oder Routingrechte."
+          ]
+        },
+        {
+          "id": "ESORG-ACT-002",
+          "title": "Ansicht Aktivierung und Übergaben mit Soll-, Ist- und Proposal-Lanes bauen",
+          "status": "completed",
+          "priority": "P1",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": ["ESORG-ACT-001", "ESORG-UI-011"],
+          "paths": ["frontend-angular/src/app/features/organizations/role-activation/", "frontend-angular/src/app/features/organizations/organization-shell/"],
+          "acceptance_criteria": [
+            "Ein eigener Tab erklärt für jede Rolle: worauf sie reagiert, welche Task-Art der Hub erzeugt, welche Inputs/Vorgänger nötig sind und welche Outputs/Gates folgen.",
+            "Definition, konkrete Runtime und unverbindliche Worker-Proposals sind visuell getrennt; advisory Hints werden niemals wie autoritative Hub-Zuweisungen dargestellt.",
+            "Warum-diese-Rolle-Details zeigen Readiness, Blocker, Hub-Entscheidung, ausgewählten Slot/Assignment soweit autorisiert und vollständige Lineage.",
+            "Filter für Workflow, Team, Rolle, task_kind und Status sowie eine textuelle, tastaturbedienbare Flowdarstellung sind vorhanden."
+          ]
+        },
+        {
+          "id": "ESORG-VIS-001",
+          "title": "Expliziten visuellen Führungs-, Wichtigkeits- und Kantenprofilvertrag definieren",
+          "status": "completed",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "contract",
+          "depends_on": ["ESORG-ORG-004", "ESORG-ROLE-001"],
+          "paths": ["frontend-angular/src/app/features/organizations/visualization/organization-visual-profile.models.ts", "frontend-angular/src/app/features/organizations/visualization/organization-visual-profile.service.ts"],
+          "acceptance_criteria": [
+            "Führungsebene none/team/multi_team/organization und Wichtigkeit 0..100 werden explizit pro role_template_ref oder stable_key zugeordnet und nie aus Namen wie Chief, Lead oder Manager geraten.",
+            "Nutzer können Knoten-Größenmetrik, Farbmetrik, sichere Farbtokens, Größenbereich, Kantenfarbgruppen, Kantenstärkenmetrik und Breitenbereich konfigurieren.",
+            "Visuelle Gewichtung ist presentation-only und zeigt ausdrücklich, dass sie Rechte, Taskpriorität, Kapazität und Hub-Routing nicht verändert.",
+            "Validator begrenzt Profilgröße, numerische Bereiche, Schlüssel und Farben und weist unbekannte beziehungsweise prototype-polluting Eingaben ab."
+          ]
+        },
+        {
+          "id": "ESORG-VIS-002",
+          "title": "Renderer-neutralen lazy geladenen ForceGraph3D-Port extrahieren",
+          "status": "completed",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "implementation",
+          "depends_on": ["ESORG-VIS-001", "ESORG-UI-007"],
+          "paths": ["frontend-angular/src/app/features/graph-rendering/", "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/"],
+          "acceptance_criteria": [
+            "Ein renderer-neutraler Graphvertrag und Factory-Port kapseln WebGL-Erkennung, dynamischen 3d-force-graph-Import, Resize, Auswahl, Refresh und Destruktor.",
+            "CodeCompass und Organization verwenden schmale Adapter und importieren keine Fachmodelle des jeweils anderen Features.",
+            "Reine Auswahl- oder Stiländerungen bauen die WebGL-Szene nicht unnötig neu; Renderer und ResizeObserver werden beim Verlassen sicher zerstört.",
+            "Bei fehlendem WebGL oder reduced motion existiert ein deterministischer, erklärter Fallback."
+          ]
+        },
+        {
+          "id": "ESORG-VIS-003",
+          "title": "Konfigurierbare 3D-Organisationsansicht mit vollständiger Legende umsetzen",
+          "status": "completed",
+          "priority": "P1",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": ["ESORG-VIS-001", "ESORG-VIS-002", "ESORG-ACT-001", "ESORG-UI-002"],
+          "paths": ["frontend-angular/src/app/features/organizations/visualization/", "frontend-angular/src/app/features/organizations/organization-shell/"],
+          "acceptance_criteria": [
+            "Umschalter Hierarchie | 2D | 3D behält dieselbe Revision, Filter, Auswahl und Inspector-ID; jeder geladene Role Slot und jedes Assignment erscheint als eigener Knoten.",
+            "Knotengröße und -farbe zeigen die gewählte Metrik, Kantenfarbe die Art und Kantenbreite die konfigurierte beziehungsweise aus Runtime-Provenienz normalisierte Stärke.",
+            "Legende erklärt gleichzeitig Farbe, kleine/mittlere/große Knotengröße, aktive Metrik, jede sichtbare Kantenart sowie Minimum/Median/Maximum der Kantenstärke.",
+            "Eine synchronisierte DOM-Liste, Textstatus für Unterbesetzung und WebGL-Fallback verhindern rein farb- oder canvasgebundene Information; 500/2000-Limits schneiden nichts still ab."
+          ]
+        },
+        {
+          "id": "ESORG-DOC-002",
+          "title": "Lean-Profile, Rollenaktivierung und visuelle 3D-Semantik dokumentieren",
+          "status": "completed",
+          "priority": "P2",
+          "risk": "low",
+          "type": "documentation",
+          "depends_on": ["ESORG-SME-004", "ESORG-ACT-002", "ESORG-VIS-003"],
+          "paths": ["docs/enterprise-agentic-scrum-organizations.md", "docs/standard-blueprints.md", "docs/operator/"],
+          "acceptance_criteria": [
+            "Dokumentation erklärt die fünf Lean-Größen, Rollenplatz versus eindeutigen Agent und die unveränderte Enterprise-Familie.",
+            "Ein Ablaufbeispiel erklärt Slot active, aktive Assignment-Zeilen, Task ready, Hub routed und Worker executing sowie Reaktion über Outputs, Dependencies, Gates und Handoffs; Eignung, freie Kapazität und Routingbereitschaft bleiben ohne autoritative Fakten unknown.",
+            "3D-Größe, Farbe und Kantenstärke werden als frei konfigurierbare Darstellung ohne Autoritätswirkung erklärt; Legende und Accessibility-Fallback sind dokumentiert.",
+            "Keine Source- oder Run-ID wird erfunden; fehlende Grounding-Evidenz bleibt ausdrücklich unverified."
+          ]
+        },
+        {
+          "id": "ESORG-QA-010",
+          "title": "Lean-Matrix, Aktivierungsvertrag und 3D-Projektion fokussiert absichern",
+          "status": "completed",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "test",
+          "depends_on": ["ESORG-SME-003", "ESORG-SME-004", "ESORG-ACT-002", "ESORG-VIS-003", "ESORG-DOC-002"],
+          "paths": ["tests/test_organization_blueprint_catalog_schema.py", "tests/test_organization_role_activation_read_service.py", "frontend-angular/src/app/features/organizations/"],
+          "acceptance_criteria": [
+            "Realer Produktionskatalog kompiliert Lean exakt als (2,5), (3,8), (4,12), (5,16), (6,20) und Enterprise acht weiterhin als 82 Rollenplätze mit 73 Standardbesetzungen.",
+            "Aktivierungs-Tests prüfen Scope, Revision, Workflow-Schritt- und Vorgängerkanten, router_owner=hub, unknown statt erfundener Runtime und das Fehlen sensitiver Worker-Daten.",
+            "Frontend-Tests prüfen Familienauswahl, Projektion jedes Slots/Assignments, explizite statt namensbasierte Führung, sichere Profilvalidierung, Legende, synchronisierte Auswahl und WebGL-Fallback.",
+            "In dieser Implementierungsphase laufen nur fokussierte Unit-, Contract-, Schema- und statische Prüfungen; Browser-, Performance-, Accessibility- und Voll-E2E-Suiten bleiben bis zur ausdrücklichen Freigabe deferred."
           ]
         }
       ]
@@ -2334,6 +2535,7 @@
     "Der deklarative Standardbereich umfasst fünf bis zehn materialisierte Teaminstanzen; Baseline, Activation Order und Scale-out-Gruppe werden aus Daten kompiliert und nicht durch count-spezifische Service- oder UI-Zweige.",
     "Genau eine vollständig abgenommene mittlere Referenz instanziiert acht Teams: Portfolio, Research, PoC, Platform/DevOps/SRE, Architecture, Quality/Security/Release und zwei Product Delivery Teams.",
     "Vier deterministische Zwei-/Drei-Team-Varianten werden ausschließlich als injizierte test-only Fixtures für Contract-, Dry-run- und isolierte Integrationstests verwendet und niemals als Produktionspresets geseedet.",
+    "Eine additive produktive Lean-Company-Familie bietet exakt fünf, acht, zwölf, sechzehn und zwanzig Rollenplätze, ohne das Enterprise-Standardband oder dessen Acht-Team-Referenz zu verändern.",
     "Derselbe Organization Blueprint unterstützt benutzerdefinierte N Teaminstanzen bis zum endlichen revisionsgebundenen Hub-Limit; Abweichungen vom Standardband liefern explizite Admission- und Capability-Diagnosen.",
     "Scrum-Semantik bleibt korrekt: zusätzliche Berufsrollen sind Spezialisierungen innerhalb oder außerhalb der drei Accountabilities und werden nicht als neue Scrum-Accountabilities ausgegeben.",
     "Jedes Organisationsziel erzeugt zuerst ein research-grounded planning_category_todo-Artefakt nach todos/todo.schema.json und erst nach Promotion daraus lineage-gebundene Planning Tracks nach todos/todo.track.schema.json.",
@@ -2345,22 +2547,24 @@
     "Separation of Duties, Least Privilege, Context Isolation, Budgets und menschliche Freigaben werden serverseitig und fail-closed durchgesetzt.",
     "Bundle v2 exportiert und importiert komplette Organisationen verlustfrei, unterstützt Dry-run, Konfliktstrategien, Redaction, atomare Writes und v1-Kompatibilität.",
     "Revision und Drift umfassen Role Templates, Slots, Workflows, Teams, Relationen, Policies und Blueprint-Parameter.",
-    "Angular bietet Setup-Wizard, synchronisierte Hierarchie-/Graphverwaltung, Planning-Lineage, Proposal-Triage, Assignment-Konfliktprüfung und Bundle-Workbench; TUI liefert kompakte Operator-Sichten.",
+    "Angular bietet Setup-Wizard, synchronisierte Hierarchie-/2D-/3D-Graphverwaltung, erklärbare Rollenaktivierung, Planning-Lineage, Proposal-Triage, Assignment-Konfliktprüfung und Bundle-Workbench; TUI liefert kompakte Operator-Sichten.",
+    "Die Rollenaktivierungsansicht trennt strukturell aktiven Slot, aktive Assignment-Zeilen, task-ready, Hub-routed und Worker-executing und erklärt jede Reaktion über autoritative Workflow-Vorgänger, Inputs, Outputs, Gates und Handoffs; Eignung, freie Kapazität und Routingbereitschaft bleiben ohne autoritative Fakten unknown.",
+    "Die 3D-Ansicht stellt jeden Rollenplatz und jede Zuweisung dar, verwendet nur explizite Führungs-/Wichtigkeitszuordnungen, macht Größe, Farbe und Kantenstärke konfigurierbar und erklärt sie vollständig in Legende und zugänglichem Textfallback.",
     "Genau ein vollständiger Runtime-/Browser-/Bundle-/Demo-E2E verwendet die Acht-Team-Referenz; N-Fähigkeit wird ergänzend durch Standard-Boundary-, Zwei-/Drei-Team-, generative und workerlose Projektions-/Limit-Tests abgesichert.",
     "Ein einziges globales Release-Gate konvergiert alle Schema-, Planning-, Migration-, Runtime-, Security-, Angular-, Accessibility-, Performance- und Dokumentationsprüfungen."
   ],
   "meta": {
-    "total_items": 91,
+    "total_items": 102,
     "by_status": {
-      "completed": 81,
-      "partial": 9,
+      "completed": 91,
+      "partial": 10,
       "open": 1
     },
-    "by_priority": {"P0": 31, "P1": 55, "P2": 5},
-    "by_risk": {"critical": 36, "high": 27, "medium": 26, "low": 2},
-    "by_type": {"architecture": 4, "contract": 8, "implementation": 48, "migration": 5, "content": 7, "configuration": 1, "test": 10, "security": 7, "documentation": 1},
-    "phase_summary": {"total": 6, "open": 1, "partial": 4, "completed": 1},
-    "dag_summary": {"nodes": 91, "edges": 313, "roots": ["ESORG-ARCH-001"], "leaves": ["ESORG-QA-006"], "maximum_dependency_depth": 27},
+    "by_priority": {"P0": 34, "P1": 62, "P2": 6},
+    "by_risk": {"critical": 36, "high": 32, "medium": 31, "low": 3},
+    "by_type": {"architecture": 4, "contract": 11, "implementation": 53, "migration": 5, "content": 8, "configuration": 1, "test": 11, "security": 7, "documentation": 2},
+    "phase_summary": {"total": 7, "open": 1, "partial": 4, "completed": 2},
+    "dag_summary": {"nodes": 102, "edges": 343, "roots": ["ESORG-ARCH-001"], "leaves": ["ESORG-QA-006"], "maximum_dependency_depth": 29},
     "promotion_status": "non_promotable_unverified_sources",
     "notes": [
       "Die Todo baut bewusst auf Team Blueprints, Role Templates, Instruction Layers, Workflow Gates, Visual Process, Task Dependencies und Bundle-Import/Export auf.",
@@ -2374,6 +2578,9 @@
       "Die aktuelle Todo ist mangels bereitgestellter SRC_*/RUN_*-IDs unverified und non_promotable; existing_evidence bleibt Arbeitshinweis, bis eine Hub-gebundene Research-Ausführung autoritative Source-Refs liefert.",
       "Die genaue Anzahl realer Agenten ist nicht gleich der Anzahl Role Slots: ein Agent darf kontrolliert mehrere kompatible Slots halten, wobei Kapazität und Separation of Duties serverseitig geprüft werden.",
       "Hierarchie, fachlicher Relationsgraph und Runtime-Dependency-Overlay sind getrennte Projektionen derselben Hub-eigenen Organisation; Canvas-Positionen und Collapse-State sind keine Orchestrierungs- oder Topologiewahrheit.",
+      "Die Enterprise-Acht-Team-Referenz umfasst 82 Rollenplätze und 73 Standardbesetzungen; dies sind Rollenpositionen und keine implizite Forderung nach 82 eindeutigen Agents.",
+      "Die Lean-Company-Familie ergänzt produktive Größen mit fünf bis zwanzig Rollenplätzen; sie ersetzt oder verkleinert die bewusst umfassende Enterprise-Familie nicht.",
+      "Führung, Wichtigkeit, Farbe, Knotengröße und Kantenstärke in 3D sind ausschließlich explizite Darstellungseigenschaften und niemals Routing-, Policy-, Kapazitäts- oder Prioritätsautorität.",
       "Fokussierte Unit-, Security- und statische Release-Prüfungen sowie das lokale PostgreSQL-Upgrade sind grün. Komplexe Integration-, Browser-, Accessibility-, Performance-, Provider- und Voll-E2E-Suiten bleiben bis zur ausdrücklichen Freigabe not_run; das globale Gate bleibt deshalb deferred/open."
     ],
     "recommended_order": [
@@ -2467,6 +2674,17 @@
       "ESORG-UI-010",
       "ESORG-QA-005",
       "ESORG-DOC-001",
+      "ESORG-SME-001",
+      "ESORG-SME-002",
+      "ESORG-SME-003",
+      "ESORG-SME-004",
+      "ESORG-ACT-001",
+      "ESORG-ACT-002",
+      "ESORG-VIS-001",
+      "ESORG-VIS-002",
+      "ESORG-VIS-003",
+      "ESORG-DOC-002",
+      "ESORG-QA-010",
       "ESORG-QA-006"
     ]
   }
