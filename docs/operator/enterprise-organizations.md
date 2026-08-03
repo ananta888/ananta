@@ -38,9 +38,24 @@ as a command argument.
    five through ten are standard. Two-/three-team test fixtures are not listed.
 3. Confirm exact team/unit/relation/slot counts, capability gaps, budgets,
    blockers, effective limits and planned writes.
-4. Store the returned plan digest, definition revision, limit-profile revision
+4. Treat the returned plan digest, definition revision, limit-profile revision
    and hash as one inseparable receipt.
-5. Apply with a new idempotency key and the operation-bound admin grant.
+5. Request a short-lived Instantiation Grant for that exact receipt.
+6. Confirm deliberately, then apply with a stable operation idempotency key.
+
+In Angular, the Hub-issued Instantiation Grant is requested automatically when
+the operator proceeds from the Dry-run to confirmation. It is held only in
+memory, never rendered as a secret input and invalidated when the plan, project
+or Hub changes. "Bewusst instanziieren" is the human confirmation boundary for
+the control-plane writes; it does not activate the organization and does not
+start Workers or Tasks. On success the Hub returns a different, revocable
+Organization Admin Grant for later management operations.
+
+While the final write is in flight, Angular blocks project changes and route
+navigation. If a timeout or another ambiguous transport failure occurs, that
+lock, the exact plan and both idempotency bindings remain in memory. Use
+"Ergebnis sicher abrufen" to replay the identical request; do not navigate away
+or compile a replacement plan until the Hub returns a definitive result.
 
 ```text
 :org validate enterprise_scrum_organization --teams 8
