@@ -116,6 +116,8 @@
       "parameter_overrides": {"composition_mode": "standard", "team_count": 8},
       "expected_team_blueprint_counts": {"enterprise_product_delivery_scrum": 2, "portfolio_product_coordination": 1, "research_and_discovery": 1, "proof_of_concept": 1, "platform_devops_sre": 1, "architecture_governance": 1, "quality_security_release": 1},
       "expected_total_team_count": 8,
+      "expected_role_slot_count": 82,
+      "expected_default_assignment_capacity": 73,
       "expected_hierarchy_node_counts": {"organization": 1, "coordination_unit": 1, "value_stream": 3, "team": 8},
       "expected_edge_counts": {"contains": 12, "organization": 8},
       "test_scope": ["schema", "dry_run", "repository_integration", "planning", "runtime", "browser", "bundle", "demo"]

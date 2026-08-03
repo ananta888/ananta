@@ -343,6 +343,16 @@ class FakeDefinitionCatalog:
             "release_handoff",
         }
 
+    def get_handoff_definition(self, key, version):
+        if not self.has_handoff_definition(key, version):
+            return None
+        return {
+            "key": key,
+            "version": version,
+            "required_artifact_kinds": ["result"],
+            "acceptance_gate_ref": "execution_policy@1",
+        }
+
     def has_policy(self, portable_ref):
         self.reads += 1
         return portable_ref in {"organization_limits@1", "execution_policy@1", "budget_policy@1"}

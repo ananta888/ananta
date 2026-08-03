@@ -41,7 +41,6 @@
     "acceptance_fixtures": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 1,
       "items": { "$ref": "#/$defs/acceptance_fixture" }
     },
     "test_only_fixtures": {
@@ -101,6 +100,28 @@
         "description": { "type": "string", "minLength": 1 },
         "orchestration_owner": { "type": "string", "const": "hub" },
         "portable_references": { "type": "boolean", "const": true }
+      }
+    },
+    "organization_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "label", "sizes"],
+      "properties": {
+        "family": { "$ref": "#/$defs/key" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 191 },
+        "sizes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["team_count", "label"],
+            "properties": {
+              "team_count": { "type": "integer", "minimum": 2 },
+              "label": { "type": "string", "minLength": 1, "maxLength": 191 }
+            }
+          }
+        }
       }
     },
     "role_template": {
@@ -344,6 +365,7 @@
         "key": { "$ref": "#/$defs/key" },
         "version": { "$ref": "#/$defs/version" },
         "description": { "type": "string", "minLength": 1 },
+        "profile": { "$ref": "#/$defs/organization_profile" },
         "parameter_schema": { "$ref": "#/$defs/organization_parameter_schema" },
         "standard_composition": { "$ref": "#/$defs/standard_composition" },
         "unit_groups": {
@@ -438,8 +460,8 @@
               "required": ["type", "minimum", "maximum"],
               "properties": {
                 "type": { "type": "string", "const": "integer" },
-                "minimum": { "type": "integer", "const": 5 },
-                "maximum": { "type": "integer", "const": 10 }
+                "minimum": { "type": "integer", "minimum": 2 },
+                "maximum": { "type": "integer", "minimum": 2 }
               }
             }
           }
@@ -545,9 +567,9 @@
           "additionalProperties": false,
           "required": ["minimum", "default", "maximum"],
           "properties": {
-            "minimum": { "type": "integer", "const": 5 },
-            "default": { "type": "integer", "minimum": 5, "maximum": 10 },
-            "maximum": { "type": "integer", "const": 10 }
+            "minimum": { "type": "integer", "minimum": 2 },
+            "default": { "type": "integer", "minimum": 2 },
+            "maximum": { "type": "integer", "minimum": 2 }
           }
         },
         "baseline_singleton_team_refs": { "$ref": "#/$defs/key_list" },
@@ -646,7 +668,11 @@
         "key": { "$ref": "#/$defs/key" },
         "version": { "$ref": "#/$defs/version" },
         "required_artifact_kinds": { "$ref": "#/$defs/key_list" },
-        "acceptance_gate_ref": { "$ref": "#/$defs/versioned_ref" }
+        "acceptance_gate_ref": { "$ref": "#/$defs/versioned_ref" },
+        "artifact_source": {
+          "type": "string",
+          "enum": ["workflow_step_outputs"]
+        }
       }
     },
     "acceptance_fixture": {
@@ -658,7 +684,9 @@
         "organization_blueprint_ref": { "$ref": "#/$defs/versioned_ref" },
         "parameter_overrides": { "$ref": "#/$defs/standard_composition_request" },
         "expected_team_blueprint_counts": { "$ref": "#/$defs/team_blueprint_counts" },
-        "expected_total_team_count": { "type": "integer", "minimum": 5, "maximum": 10 },
+        "expected_total_team_count": { "type": "integer", "minimum": 2 },
+        "expected_role_slot_count": { "type": "integer", "minimum": 1 },
+        "expected_default_assignment_capacity": { "type": "integer", "minimum": 1 },
         "expected_hierarchy_node_counts": { "$ref": "#/$defs/hierarchy_counts" },
         "expected_edge_counts": { "$ref": "#/$defs/edge_counts" },
         "test_scope": { "$ref": "#/$defs/test_scope" }
@@ -689,7 +717,7 @@
       "required": ["composition_mode", "team_count"],
       "properties": {
         "composition_mode": { "type": "string", "const": "standard" },
-        "team_count": { "type": "integer", "minimum": 5, "maximum": 10 }
+        "team_count": { "type": "integer", "minimum": 2 }
       }
     },
     "custom_composition_fixture_request": {
@@ -750,6 +778,10 @@
         "key": { "$ref": "#/$defs/key" },
         "version": { "$ref": "#/$defs/version" },
         "mode": { "type": "string", "enum": ["gated", "strict_gated"] },
+        "targeting_policy": {
+          "type": "string",
+          "enum": ["stable_cardinality", "explicit_unit_when_ambiguous"]
+        },
         "default_failure_policy": { "type": "string", "enum": ["block", "manual"] },
         "steps": {
           "type": "array",

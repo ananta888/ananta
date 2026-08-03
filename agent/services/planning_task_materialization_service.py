@@ -36,6 +36,10 @@ from agent.services.organization_routing_service import (
     OrganizationRoutingService,
     infer_organization_assignment_duties,
 )
+from agent.services.organization_workflow_task_binding_service import (
+    OrganizationWorkflowTaskBindingPort,
+    OrganizationWorkflowTaskBindingService,
+)
 from agent.services.planning_artifact_transition_service import (
     TRACK_MATERIALIZE_TOOL,
     PlanningOperationContext,
@@ -73,12 +77,14 @@ class PlanningTaskMaterializationService:
         organization_adapter: OrganizationPlanningAdapter | None = None,
         routing_service: OrganizationRoutingService | None = None,
         assignment_eligibility: OrganizationAssignmentEligibilityService | None = None,
+        workflow_task_bindings: OrganizationWorkflowTaskBindingPort | None = None,
     ) -> None:
         self._uow_factory = uow_factory or PlanningControlUnitOfWork
         self._approvals = approval_service or ApprovalRequestService()
         self._organization_adapter = organization_adapter or OrganizationPlanningAdapter()
         self._routing = routing_service or OrganizationRoutingService()
         self._assignment_eligibility = assignment_eligibility or OrganizationAssignmentEligibilityService()
+        self._workflow_task_bindings = workflow_task_bindings or OrganizationWorkflowTaskBindingService()
 
     def materialize(
         self,
@@ -122,6 +128,8 @@ class PlanningTaskMaterializationService:
             if str(track.execution_provenance.get("source_category_digest") or "") != category.content_digest:
                 raise PlanningTransitionError("planning_category_lineage_stale")
 
+            tasks = [dict(row) for row in list(track.payload.get("tasks") or []) if isinstance(row, Mapping)]
+
             intent = canonical_approval_intent_key(
                 tenant_id=track.tenant_id,
                 project_id=track.project_id,
@@ -137,11 +145,21 @@ class PlanningTaskMaterializationService:
                 operation="track_materialize",
             )
             if prior_receipt is not None:
+                runtime_contracts = self._workflow_task_bindings.contracts(
+                    track=track,
+                    tasks=tasks,
+                    current_definition_revision=(
+                        str(track.payload.get("definition_revision") or "")
+                        if any("organization_workflow_step_binding" in task for task in tasks)
+                        else None
+                    ),
+                )
                 mappings = uow.planning.list_mappings(track.id)
                 self._verify_committed_materialization(
                     uow=uow,
                     receipt=prior_receipt,
                     mappings=mappings,
+                    runtime_contracts=runtime_contracts,
                     expected_plan_task_ids={
                         str(row.get("id") or "")
                         for row in list(track.payload.get("tasks") or [])
@@ -149,6 +167,20 @@ class PlanningTaskMaterializationService:
                     },
                 )
                 return self._materialization_response(prior_receipt, mappings)
+
+            current_definition_revision = (
+                self._workflow_task_bindings.current_definition_revision(
+                    session=uow.session,
+                    track=track,
+                )
+                if any("organization_workflow_step_binding" in task for task in tasks)
+                else None
+            )
+            runtime_contracts = self._workflow_task_bindings.contracts(
+                track=track,
+                tasks=tasks,
+                current_definition_revision=current_definition_revision,
+            )
 
             grant = self._approvals.consume_bound_request_in_session(
                 uow.session,
@@ -166,7 +198,6 @@ class PlanningTaskMaterializationService:
             )
             if sod_reason is not None:
                 raise PlanningTransitionError(sod_reason)
-            tasks = [dict(row) for row in list(track.payload.get("tasks") or []) if isinstance(row, Mapping)]
             lineage: dict[str, list[Any]] = {}
             for row in uow.planning.list_lineage_for_track(track.id):
                 lineage.setdefault(row.plan_task_id, []).append(row)
@@ -282,7 +313,11 @@ class PlanningTaskMaterializationService:
                 )
                 existing_task = uow.session.get(TaskDB, mapping.internal_task_id)
                 if existing_task is not None:
-                    self._verify_existing_task(existing_task, mapping)
+                    self._verify_existing_task(
+                        existing_task,
+                        mapping,
+                        runtime_contract=runtime_contracts[plan_task_id],
+                    )
                     created_ids.append(existing_task.id)
                 else:
                     proposal_policy = dict(
@@ -368,7 +403,17 @@ class PlanningTaskMaterializationService:
                                 team_id=str(mapping.team_id or ""),
                                 proposal_policy=proposal_policy,
                             ),
+                            **(
+                                {
+                                    "organization_workflow_step_binding": runtime_contracts[plan_task_id][
+                                        "workflow_binding"
+                                    ]
+                                }
+                                if runtime_contracts[plan_task_id]["workflow_binding"] is not None
+                                else {}
+                            ),
                         },
+                        verification_spec=runtime_contracts[plan_task_id]["verification_spec"],
                         history=[
                             {
                                 "timestamp": time.time(),
@@ -1027,12 +1072,31 @@ class PlanningTaskMaterializationService:
         }
 
     @staticmethod
-    def _verify_existing_task(task: TaskDB, mapping: PlanningTaskMappingDB) -> None:
+    def _verify_existing_task(
+        task: TaskDB | ArchivedTaskDB,
+        mapping: PlanningTaskMappingDB,
+        *,
+        runtime_contract: Mapping[str, Any],
+    ) -> None:
         if not PlanningTaskMaterializationService._runtime_task_binding_matches(
             task,
             mapping,
         ):
             raise PlanningTransitionError("planning_materialized_task_binding_conflict")
+        expected_workflow_binding = runtime_contract.get("workflow_binding")
+        actual_workflow_binding = dict(task.worker_execution_context or {}).get("organization_workflow_step_binding")
+        if (
+            (expected_workflow_binding is None and actual_workflow_binding is not None)
+            or (
+                expected_workflow_binding is not None
+                and (
+                    not isinstance(actual_workflow_binding, Mapping)
+                    or dict(actual_workflow_binding) != dict(expected_workflow_binding)
+                )
+            )
+            or dict(task.verification_spec or {}) != dict(runtime_contract.get("verification_spec") or {})
+        ):
+            raise PlanningTransitionError("planning_materialized_task_runtime_contract_conflict")
 
     @staticmethod
     def _runtime_task_binding_matches(
@@ -1055,6 +1119,7 @@ class PlanningTaskMaterializationService:
         uow: PlanningControlUnitOfWork,
         receipt: PlanningOperationReceiptDB,
         mappings: list[PlanningTaskMappingDB],
+        runtime_contracts: Mapping[str, Mapping[str, Any]],
         expected_plan_task_ids: set[str],
     ) -> None:
         assert uow.session is not None
@@ -1068,11 +1133,17 @@ class PlanningTaskMaterializationService:
             task = uow.session.get(TaskDB, mapping.internal_task_id)
             if task is None:
                 task = uow.session.get(ArchivedTaskDB, mapping.internal_task_id)
-            if task is None or not PlanningTaskMaterializationService._runtime_task_binding_matches(
-                task,
-                mapping,
-            ):
+            runtime_contract = runtime_contracts.get(mapping.plan_task_id)
+            if task is None or runtime_contract is None:
                 raise PlanningTransitionError("planning_materialization_receipt_incomplete")
+            try:
+                PlanningTaskMaterializationService._verify_existing_task(
+                    task,
+                    mapping,
+                    runtime_contract=runtime_contract,
+                )
+            except PlanningTransitionError as exc:
+                raise PlanningTransitionError("planning_materialization_receipt_incomplete") from exc
 
     @staticmethod
     def _mark_replaced_source_tasks(

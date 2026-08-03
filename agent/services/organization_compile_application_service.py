@@ -92,7 +92,22 @@ class OrganizationCompileApplicationService:
                     definition,
                     limits.max_team_instances_per_organization,
                 )
+                supported_team_counts = list(range(standard.minimum, standard.maximum + 1))
                 for team_count in range(standard.minimum, standard.maximum + 1):
+                    summary_plan = self._compiler(
+                        definitions=definitions,
+                        limit_profiles=limits_port,
+                    ).compile(
+                        OrganizationCompileRequest(
+                            tenant_id=tenant_id,
+                            project_id=project_id,
+                            organization_id=f"summary-{definition.key}-{team_count}",
+                            definition_ref=f"{definition.key}@{definition.version}",
+                            composition_mode="standard",
+                            team_count=team_count,
+                        )
+                    )
+                    profile = definition.profile
                     summaries.append(
                         {
                             "key": self.selector(definition.key, team_count),
@@ -111,7 +126,19 @@ class OrganizationCompileApplicationService:
                                 definitions=definitions,
                             ),
                             "revision": revision,
-                            "supported_team_counts": list(range(standard.minimum, standard.maximum + 1)),
+                            "profile_family": profile.family if profile is not None else definition.key,
+                            "profile_label": (
+                                profile.label if profile is not None else definition.key.replace("_", " ").title()
+                            ),
+                            "size_label": profile.size_label(team_count) if profile is not None else None,
+                            "role_slot_count": len(summary_plan.role_slots),
+                            "default_assignment_capacity": int(
+                                summary_plan.expected_counts.get("assignment_capacity_default", 0)
+                            ),
+                            "supported_team_counts": supported_team_counts,
+                            "supported_team_count_min": standard.minimum,
+                            "supported_team_count_default": standard.default,
+                            "supported_team_count_max": standard.maximum,
                             "custom_team_count_min": 2,
                             "custom_team_count_max": limits.max_team_instances_per_organization,
                             "custom_team_blueprints": custom_blueprints,
@@ -621,6 +648,7 @@ class OrganizationCompileApplicationService:
                 "minimum_when_selected": 1,
                 "maximum": 1,
                 "standard_baseline": unit.unit_key in standard.baseline_singleton_team_refs,
+                "standard_default_count": (1 if unit.unit_key in standard.baseline_singleton_team_refs else 0),
             }
         for group in definition.unit_groups:
             ref = VersionedDefinitionRef.parse(group.team_blueprint_ref)
@@ -635,6 +663,7 @@ class OrganizationCompileApplicationService:
                     int(maximum_team_count),
                 ),
                 "standard_baseline": group.group_id in standard.baseline_group_counts,
+                "standard_default_count": int(standard.baseline_group_counts.get(group.group_id, 0)),
             }
         return [options[key] for key in sorted(options)]
 

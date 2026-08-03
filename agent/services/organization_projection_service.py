@@ -144,6 +144,7 @@ class OrganizationProjectionService:
                     "role_slot_id": slot_id,
                     "metadata": {
                         "role_template_ref": slot.get("role_template_ref"),
+                        "default_count": slot.get("default_count"),
                         "selection_target": {
                             "organization_id": organization_id,
                             "unit_id": parent_id,

@@ -601,6 +601,25 @@ class OrganizationBlueprintValidationService:
                             "WORKFLOW_HANDOFF_NOT_FOUND",
                             "Workflow handoff definition is missing.",
                         )
+                    else:
+                        handoff = catalog.get_handoff_definition(handoff_ref.key, handoff_ref.version)
+                        # Existing handoff contracts predate strict producer
+                        # declarations.  New definitions opt in explicitly so
+                        # validation can harden additively without changing a
+                        # published @1 workflow's canonical content.
+                        if (handoff or {}).get("artifact_source") == "workflow_step_outputs":
+                            required_artifacts = {
+                                str(value) for value in list((handoff or {}).get("required_artifact_kinds") or [])
+                            }
+                            produced_artifacts = {str(value) for value in list(step.get("outputs") or [])}
+                            missing_artifacts = sorted(required_artifacts - produced_artifacts)
+                            if missing_artifacts:
+                                blocker(
+                                    f"{step_path}.handoff_ref",
+                                    "WORKFLOW_HANDOFF_ARTIFACT_NOT_PRODUCED",
+                                    "Workflow step does not produce every artifact required by its handoff.",
+                                    artifact_kinds=missing_artifacts,
+                                )
 
         cycle = _first_directed_cycle(dependency_graph)
         if cycle:

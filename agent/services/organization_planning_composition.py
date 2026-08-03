@@ -539,6 +539,7 @@ class OrganizationPlanningComposition:
         workflow_version: int,
         goal: str,
         source_category_item_ids: list[str],
+        target_unit_id: str | None = None,
     ) -> dict[str, Any]:
         organization = self._organization(
             principal=principal,
@@ -562,6 +563,7 @@ class OrganizationPlanningComposition:
             goal=goal,
             source_category_item_ids=source_category_item_ids,
             owner=canonical_planning_actor_id(principal.principal_id),
+            target_unit_id=target_unit_id,
         )
         return {
             **candidate,
@@ -587,6 +589,7 @@ class OrganizationPlanningComposition:
         source_category_item_ids: list[str],
         exclusions: Mapping[str, str],
         idempotency_key: str,
+        target_unit_id: str | None = None,
     ) -> dict[str, Any]:
         preview = self.preview_reference_workflow(
             principal=principal,
@@ -599,6 +602,7 @@ class OrganizationPlanningComposition:
             workflow_version=workflow_version,
             goal=goal,
             source_category_item_ids=source_category_item_ids,
+            target_unit_id=target_unit_id,
         )
         result = self.derive_tracks(
             principal=principal,

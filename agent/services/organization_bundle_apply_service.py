@@ -58,6 +58,10 @@ from agent.services.organization_custom_composition_service import (
 from agent.services.organization_definition_catalog_service import (
     FileCatalogDefinitionRepositoryAdapter,
 )
+from agent.services.organization_slot_separation_service import (
+    OrganizationSlotSeparationPolicy,
+    evaluate_organization_slot_separation,
+)
 from agent.services.organization_template_security_service import (
     OrganizationTemplateSecurityService,
     installed_template_appendix_refs,
@@ -508,37 +512,46 @@ class OrganizationBundleApplyService:
             )
             if slot.max_count is not None and current_slot_count >= int(slot.max_count):
                 raise OrganizationBundleApplyError("organization_bundle_assignment_slot_capacity_exceeded")
-            separation = SeparationOfDutiesDefinition.model_validate(dict(slot.separation_of_duties or {}))
-            peer_slot_ids = (
-                tuple(
-                    value.id
-                    for value in uow.session.exec(
-                        select(OrganizationRoleSlotDB)
-                        .where(OrganizationRoleSlotDB.tenant_id == plan.tenant_id)
-                        .where(OrganizationRoleSlotDB.project_id == plan.project_id)
-                        .where(OrganizationRoleSlotDB.organization_id == organization_id)
-                        .where(OrganizationRoleSlotDB.unit_id == unit.id)
-                        .where(OrganizationRoleSlotDB.slot_key.in_(tuple(separation.independent_from_slot_ids)))
-                    ).all()
-                )
-                if separation.independent_from_slot_ids
-                else ()
+            unit_slots = tuple(
+                uow.session.exec(
+                    select(OrganizationRoleSlotDB)
+                    .where(OrganizationRoleSlotDB.tenant_id == plan.tenant_id)
+                    .where(OrganizationRoleSlotDB.project_id == plan.project_id)
+                    .where(OrganizationRoleSlotDB.organization_id == organization_id)
+                    .where(OrganizationRoleSlotDB.unit_id == unit.id)
+                    .where(OrganizationRoleSlotDB.lifecycle != "archived")
+                ).all()
             )
-            peer_conflict = bool(
-                peer_slot_ids
-                and uow.session.exec(
-                    select(OrganizationRoleAssignmentDB.id).where(
+            assigned_slot_ids = tuple(
+                value.role_slot_id
+                for value in uow.session.exec(
+                    select(OrganizationRoleAssignmentDB).where(
                         OrganizationRoleAssignmentDB.tenant_id == plan.tenant_id,
                         OrganizationRoleAssignmentDB.project_id == plan.project_id,
                         OrganizationRoleAssignmentDB.organization_id == organization_id,
                         OrganizationRoleAssignmentDB.agent_url == agent_url,
-                        OrganizationRoleAssignmentDB.role_slot_id.in_(peer_slot_ids),
                         OrganizationRoleAssignmentDB.lifecycle.in_(("proposed", "active")),
                     )
-                ).first()
+                ).all()
             )
-            external_conflicts = set(separation.independent_from_external_duties) & set(eligibility.capabilities)
-            if separation.enforcement == "strict" and (peer_conflict or external_conflicts):
+            separation = evaluate_organization_slot_separation(
+                target=OrganizationSlotSeparationPolicy(
+                    slot_id=slot.id,
+                    slot_key=slot.slot_key,
+                    definition=SeparationOfDutiesDefinition.model_validate(dict(slot.separation_of_duties or {})),
+                ),
+                peers=(
+                    OrganizationSlotSeparationPolicy(
+                        slot_id=value.id,
+                        slot_key=value.slot_key,
+                        definition=SeparationOfDutiesDefinition.model_validate(dict(value.separation_of_duties or {})),
+                    )
+                    for value in unit_slots
+                ),
+                assigned_slot_ids=assigned_slot_ids,
+                agent_capabilities=eligibility.capabilities,
+            )
+            if separation.has_conflict and separation.enforcement == "strict":
                 raise OrganizationBundleApplyError("organization_bundle_assignment_sod_conflict")
             assignment_id = str(
                 uuid.uuid5(
@@ -559,6 +572,8 @@ class OrganizationBundleApplyService:
                         "source": "organization_bundle_v2",
                         "bundle_plan_digest": plan.plan_digest,
                         "portable_principal_ref": assignment.principal_ref,
+                        "principal_kind": "registered_worker",
+                        "principal_id": agent_url,
                     },
                 )
             )

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from agent.services.organization_topology_apply_service import (
     OrganizationPatchState,
     OrganizationTopologyApplyService,
@@ -22,7 +24,13 @@ def _unit(unit_id: str, kind: str, parent_id: str | None = None):
     )
 
 
-def _slot(slot_id: str, unit_id: str):
+def _slot(
+    slot_id: str,
+    unit_id: str,
+    *,
+    enforcement: str = "none",
+    independent_from_slot_ids: tuple[str, ...] = (),
+):
     return SimpleNamespace(
         id=slot_id,
         unit_id=unit_id,
@@ -37,8 +45,8 @@ def _slot(slot_id: str, unit_id: str):
             "write_access_required": False,
         },
         separation_of_duties={
-            "enforcement": "none",
-            "independent_from_slot_ids": [],
+            "enforcement": enforcement,
+            "independent_from_slot_ids": list(independent_from_slot_ids),
             "independent_from_external_duties": [],
         },
         lifecycle="active",
@@ -309,3 +317,53 @@ def test_assignment_rejects_invalid_execution_limit_instead_of_guessing_capacity
 
     assert preview.applicable is False
     assert "ORGANIZATION_ASSIGNMENT_AGENT_CAPACITY_EXHAUSTED" in _reason_codes(preview)
+
+
+@pytest.mark.parametrize(
+    "assignment_order",
+    (("author", "reviewer"), ("reviewer", "author")),
+)
+def test_strict_slot_separation_blocks_both_assignment_orders(assignment_order: tuple[str, str]) -> None:
+    slots = {
+        "author": _slot("author", "team-a"),
+        "reviewer": _slot(
+            "reviewer",
+            "team-a",
+            enforcement="strict",
+            independent_from_slot_ids=("author",),
+        ),
+    }
+
+    preview = _preview(
+        _state(role_slots=tuple(slots.values()), agent=_agent()),
+        [{"op": "assign", "role_slot_id": slots[key].id, "agent_id": "agent-a"} for key in assignment_order],
+    )
+
+    assert preview.applicable is False
+    assert "ORGANIZATION_ASSIGNMENT_SOD_CONFLICT" in _reason_codes(preview)
+    assert sum(write.startswith("assignment:create:") for write in preview.planned_writes) == 1
+
+
+@pytest.mark.parametrize(
+    "assignment_order",
+    (("author", "reviewer"), ("reviewer", "author")),
+)
+def test_warn_slot_separation_reports_both_assignment_orders(assignment_order: tuple[str, str]) -> None:
+    slots = {
+        "author": _slot("author", "team-a"),
+        "reviewer": _slot(
+            "reviewer",
+            "team-a",
+            enforcement="warn",
+            independent_from_slot_ids=("author",),
+        ),
+    }
+
+    preview = _preview(
+        _state(role_slots=tuple(slots.values()), agent=_agent()),
+        [{"op": "assign", "role_slot_id": slots[key].id, "agent_id": "agent-a"} for key in assignment_order],
+    )
+
+    assert preview.applicable is True
+    assert "ORGANIZATION_ASSIGNMENT_SOD_WARNING" in _reason_codes(preview)
+    assert sum(write.startswith("assignment:create:") for write in preview.planned_writes) == 2

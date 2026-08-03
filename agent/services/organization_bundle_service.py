@@ -573,6 +573,9 @@ class _BundleCatalogOverlay:
     def has_handoff_definition(self, key, version):
         return self._definition("handoff_definitions", "get_handoff", key, version) is not None
 
+    def get_handoff_definition(self, key, version):
+        return self._definition("handoff_definitions", "get_handoff", key, version)
+
     def has_policy(self, portable_ref):
         try:
             ref = VersionedDefinitionRef.parse(portable_ref)

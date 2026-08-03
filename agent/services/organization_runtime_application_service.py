@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterable
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from decimal import Decimal
 from typing import Protocol
 
@@ -12,7 +12,6 @@ from sqlmodel import Session, select
 
 from agent.db_models.organizations import (
     CrossTeamTaskDependencyDB,
-    OrganizationHandoffDefinitionRevisionDB,
     OrganizationInstanceDB,
     OrganizationRelationDB,
     OrganizationRoleAssignmentDB,
@@ -23,6 +22,7 @@ from agent.db_models.organizations import (
 )
 from agent.db_models.tasks import TaskDB
 from agent.db_models.workers import WorkerJobDB, WorkerSlotLeaseDB
+from agent.models.organization_models import canonical_definition_sha256
 from agent.repositories.organization_runtime import (
     SqlArtifactVersionReader,
     SqlAssignmentEvidenceVerifier,
@@ -31,11 +31,19 @@ from agent.repositories.organization_runtime import (
     SqlOrganizationEventStore,
     SqlOrganizationWorkflowLoopStore,
 )
+from agent.repositories.organizations.definitions import (
+    SqlOrganizationDefinitionRepository,
+)
 from agent.services.organization_budget_service import (
     OrganizationBudgetDecision,
     OrganizationBudgetLimit,
     OrganizationBudgetRequest,
     OrganizationBudgetService,
+)
+from agent.services.organization_definition_catalog_service import (
+    FileCatalogDefinitionRepositoryAdapter,
+    OrganizationDefinitionCatalogService,
+    get_organization_definition_catalog,
 )
 from agent.services.organization_event_service import OrganizationEventService
 from agent.services.organization_workflow_loop_application_service import (
@@ -45,6 +53,7 @@ from agent.services.organization_workflow_loop_application_service import (
 )
 from agent.services.separation_of_duties_service import DutyAssignment
 from agent.services.team_handoff_service import (
+    TeamHandoffAcceptanceCheck,
     TeamHandoffContract,
     TeamHandoffDecision,
     TeamHandoffService,
@@ -86,10 +95,12 @@ class OrganizationRuntimeApplicationService:
         tenant_id: str,
         project_id: str,
         organization_id: str,
+        catalog: OrganizationDefinitionCatalogService | None = None,
     ) -> None:
         self.tenant_id = tenant_id
         self.project_id = project_id
         self.organization_id = organization_id
+        self._catalog = catalog or get_organization_definition_catalog()
         self._budget_ledger = SqlOrganizationBudgetLedger(
             tenant_id=tenant_id,
             project_id=project_id,
@@ -193,7 +204,7 @@ class OrganizationRuntimeApplicationService:
         # the dispatch lease has since completed.  Only a first insert needs
         # the live topology/lease checks below.
         if self.handoff_store.get(contract.handoff_id) is None:
-            self.validate_handoff_contract(
+            contract = self.validate_handoff_contract(
                 contract,
                 assignment_id=assignment_id,
                 dispatch_lease_id=dispatch_lease_id,
@@ -211,11 +222,12 @@ class OrganizationRuntimeApplicationService:
         *,
         assignment_id: str,
         dispatch_lease_id: str,
-    ) -> None:
+    ) -> TeamHandoffContract:
         """Validate every runtime endpoint against the scoped topology/task truth."""
 
         if contract.organization_id != self.organization_id:
             raise OrganizationRuntimeApplicationError("handoff_organization_scope_mismatch")
+        bound_contract = contract
         with Session(_engine()) as session:
             producer = self._task(session, contract.producer_task_id)
             consumer = self._task(session, contract.consumer_task_id)
@@ -300,14 +312,14 @@ class OrganizationRuntimeApplicationService:
                 if not raw_version.isdigit():
                     raise OrganizationRuntimeApplicationError("handoff_definition_ref_invalid")
                 definition_version = int(raw_version)
-                definition = session.exec(
-                    select(OrganizationHandoffDefinitionRevisionDB)
-                    .where(OrganizationHandoffDefinitionRevisionDB.tenant_id == self.tenant_id)
-                    .where(OrganizationHandoffDefinitionRevisionDB.project_id == self.project_id)
-                    .where(OrganizationHandoffDefinitionRevisionDB.definition_key == definition_key)
-                    .where(OrganizationHandoffDefinitionRevisionDB.version == definition_version)
-                    .where(OrganizationHandoffDefinitionRevisionDB.lifecycle == "active")
-                ).first()
+                definitions = self._definition_repository(session)
+                definition = definitions.get_handoff(
+                    self.tenant_id,
+                    self.project_id,
+                    definition_key,
+                    definition_version,
+                )
+                definition_payload = self._active_definition_payload(definition)
                 scoped_units = session.exec(
                     select(OrganizationUnitDB)
                     .where(OrganizationUnitDB.tenant_id == self.tenant_id)
@@ -335,12 +347,177 @@ class OrganizationRuntimeApplicationService:
                     .where(OrganizationRelationDB.lifecycle == "active")
                 ).first()
                 artifact_kinds = {row.artifact_kind for row in contract.artifact_refs}
-                if (
-                    definition is None
-                    or relation is None
-                    or not set(definition.required_artifact_kinds).issubset(artifact_kinds)
-                ):
+                required_artifact_kinds = {
+                    str(value) for value in list(definition_payload.get("required_artifact_kinds") or [])
+                }
+                if not definition_payload or relation is None or not required_artifact_kinds.issubset(artifact_kinds):
                     raise OrganizationRuntimeApplicationError("handoff_definition_binding_invalid")
+                gate_ref = str(
+                    definition_payload.get("acceptance_gate_ref")
+                    or getattr(definition, "acceptance_gate_ref", "")
+                    or ""
+                )
+                if "@" not in gate_ref:
+                    raise OrganizationRuntimeApplicationError("handoff_acceptance_gate_ref_invalid")
+                gate_key, gate_version_value = gate_ref.rsplit("@", 1)
+                if not gate_version_value.isdigit() or int(gate_version_value) < 1:
+                    raise OrganizationRuntimeApplicationError("handoff_acceptance_gate_ref_invalid")
+                gate = definitions.get_policy(
+                    self.tenant_id,
+                    self.project_id,
+                    gate_key,
+                    int(gate_version_value),
+                )
+                gate_definition = self._active_definition_payload(gate)
+                gate_artifacts = {str(value) for value in list(gate_definition.get("required_artifact_kinds") or [])}
+                allowed_decisions = tuple(
+                    sorted(
+                        {
+                            str(value).strip().lower()
+                            for value in list(gate_definition.get("allowed_decisions") or [])
+                            if str(value).strip()
+                        }
+                    )
+                )
+                if (
+                    gate is None
+                    or gate_definition.get("policy_type") != "acceptance_gate"
+                    or not gate_artifacts.issubset(artifact_kinds)
+                    or not allowed_decisions
+                ):
+                    raise OrganizationRuntimeApplicationError("handoff_acceptance_gate_binding_invalid")
+                authoritative_checks = (
+                    tuple(
+                        TeamHandoffAcceptanceCheck(
+                            check_id=f"artifact-present:{kind}",
+                            check_kind="artifact_present",
+                            expected=kind,
+                            status="pending",
+                        )
+                        for kind in sorted(required_artifact_kinds)
+                    )
+                    + tuple(
+                        TeamHandoffAcceptanceCheck(
+                            check_id=(
+                                "digest-matches:"
+                                + canonical_definition_sha256(
+                                    {
+                                        "artifact_id": reference.artifact_id,
+                                        "version": reference.version,
+                                    }
+                                )[:16]
+                            ),
+                            check_kind="digest_matches",
+                            expected=reference.digest,
+                            status="pending",
+                        )
+                        for reference in sorted(
+                            contract.artifact_refs,
+                            key=lambda value: (value.artifact_id, value.version),
+                        )
+                    )
+                    + (
+                        TeamHandoffAcceptanceCheck(
+                            check_id="evidence-verified",
+                            check_kind="evidence_verified",
+                            expected="hub_verified",
+                            status="pending",
+                        ),
+                        TeamHandoffAcceptanceCheck(
+                            check_id="policy-gate",
+                            check_kind="policy_gate",
+                            expected=gate_ref,
+                            status="pending",
+                        ),
+                    )
+                )
+                bound_contract = replace(
+                    contract,
+                    acceptance_checks=authoritative_checks,
+                    acceptance_gate_ref=gate_ref,
+                    acceptance_gate_hash=str(gate.content_hash or ""),
+                    acceptance_gate_allowed_decisions=allowed_decisions,
+                    acceptance_gate_self_approval_allowed=bool(gate_definition.get("self_approval_allowed", False)),
+                )
+        return bound_contract
+
+    def validate_handoff_acceptance_binding(self, *, handoff_id: str) -> None:
+        """Re-read the immutable gate binding before a positive decision."""
+
+        state = self.handoff_store.get(handoff_id)
+        contract = dict((state or {}).get("contract") or {})
+        definition_ref = str(contract.get("handoff_definition_ref") or "")
+        gate_ref = str(contract.get("acceptance_gate_ref") or "")
+        gate_hash = str(contract.get("acceptance_gate_hash") or "")
+        if not definition_ref or not gate_ref or not gate_hash:
+            raise OrganizationRuntimeApplicationError("handoff_acceptance_gate_binding_missing")
+        try:
+            definition_key, definition_version_value = definition_ref.rsplit("@", 1)
+            gate_key, gate_version_value = gate_ref.rsplit("@", 1)
+            definition_version = int(definition_version_value)
+            gate_version = int(gate_version_value)
+        except (TypeError, ValueError) as exc:
+            raise OrganizationRuntimeApplicationError("handoff_acceptance_gate_binding_invalid") from exc
+        with Session(_engine()) as session:
+            definitions = self._definition_repository(session)
+            definition = definitions.get_handoff(
+                self.tenant_id,
+                self.project_id,
+                definition_key,
+                definition_version,
+            )
+            gate = definitions.get_policy(
+                self.tenant_id,
+                self.project_id,
+                gate_key,
+                gate_version,
+            )
+            definition_payload = self._active_definition_payload(definition)
+            gate_definition = self._active_definition_payload(gate)
+        current_decisions = sorted(
+            {
+                str(value).strip().lower()
+                for value in list(gate_definition.get("allowed_decisions") or [])
+                if str(value).strip()
+            }
+        )
+        if (
+            not definition_payload
+            or not gate_definition
+            or str(
+                definition_payload.get("acceptance_gate_ref") or getattr(definition, "acceptance_gate_ref", "") or ""
+            )
+            != gate_ref
+            or str(gate.content_hash or "") != gate_hash
+            or gate_definition.get("policy_type") != "acceptance_gate"
+            or current_decisions != sorted(contract.get("acceptance_gate_allowed_decisions") or [])
+            or bool(gate_definition.get("self_approval_allowed", False))
+            != bool(contract.get("acceptance_gate_self_approval_allowed", False))
+        ):
+            raise OrganizationRuntimeApplicationError("handoff_acceptance_gate_binding_stale")
+
+    def _definition_repository(self, session: Session):
+        """Resolve tenant overrides first and production-file definitions second."""
+
+        return FileCatalogDefinitionRepositoryAdapter(
+            SqlOrganizationDefinitionRepository(session),
+            self._catalog,
+            session,
+        )
+
+    @staticmethod
+    def _active_definition_payload(row) -> dict:
+        """Fail closed for inactive or content-tampered definition revisions."""
+
+        if row is None or str(getattr(row, "lifecycle", "")) != "active":
+            return {}
+        payload = dict(getattr(row, "definition_json", None) or {})
+        expected_hash = str(getattr(row, "content_hash", "") or "")
+        if not payload or not expected_hash:
+            return {}
+        if canonical_definition_sha256(payload) != expected_hash:
+            raise OrganizationRuntimeApplicationError("organization_referenced_definition_hash_mismatch")
+        return payload
 
     def handoff_decision_assignments(
         self,

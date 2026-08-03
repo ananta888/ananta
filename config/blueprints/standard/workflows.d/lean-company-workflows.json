@@ -1,0 +1,187 @@
+{
+  "schema": "organization_workflow_catalog.v1",
+  "version": 1,
+  "workflow_definitions": [
+    {
+      "key": "lean_company_direction_workflow",
+      "version": 1,
+      "mode": "gated",
+      "default_failure_policy": "block",
+      "steps": [
+        {
+          "step_id": "prioritize_company_goal",
+          "title": "Prioritize the Hub-owned company goal",
+          "task_kind": "planning",
+          "owner_role_ref": "portfolio_product_owner@1",
+          "target_team_selector": {"team_blueprint_ref": "lean_company_direction@1", "cardinality": 1, "routing": "single"},
+          "depends_on": [],
+          "inputs": ["goal_request", "verified_evidence"],
+          "outputs": ["company_goal", "priority_decision", "accepted_requirements"],
+          "handoff_ref": "lean_direction_goal_handoff@1",
+          "gate": {"required": false, "acceptance_checks": [], "approval_role_ref": null, "independent_principal_required": false},
+          "failure_policy": "manual"
+        }
+      ]
+    },
+    {
+      "key": "lean_delivery_cell_workflow",
+      "version": 1,
+      "mode": "gated",
+      "targeting_policy": "explicit_unit_when_ambiguous",
+      "default_failure_policy": "block",
+      "steps": [
+        {
+          "step_id": "plan_increment",
+          "title": "Plan the delegated product increment",
+          "task_kind": "planning",
+          "owner_role_ref": "scrum_product_owner@1",
+          "target_team_selector": {"team_blueprint_ref": "lean_delivery_cell@1", "cardinality": 1, "routing": "single"},
+          "depends_on": [],
+          "inputs": ["company_goal", "accepted_requirements"],
+          "outputs": ["delivery_plan", "delivery_need"],
+          "handoff_ref": "lean_delivery_need_handoff@1",
+          "gate": {"required": false, "acceptance_checks": [], "approval_role_ref": null, "independent_principal_required": false},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "define_solution_boundary",
+          "title": "Define the technical boundary for the delegated increment",
+          "task_kind": "planning",
+          "owner_role_ref": "solution_architect_technical_lead@1",
+          "target_team_selector": {"team_blueprint_ref": "lean_delivery_cell@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["plan_increment"],
+          "inputs": ["delivery_plan"],
+          "outputs": ["solution_boundary"],
+          "gate": {"required": false, "acceptance_checks": [], "approval_role_ref": null, "independent_principal_required": false},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "implement_increment",
+          "title": "Implement the delegated vertical slice",
+          "task_kind": "coding",
+          "owner_role_ref": "fullstack_engineer@1",
+          "target_team_selector": {"team_blueprint_ref": "lean_delivery_cell@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["define_solution_boundary"],
+          "inputs": ["delivery_plan", "solution_boundary"],
+          "outputs": ["product_increment", "test_evidence"],
+          "gate": {"required": false, "acceptance_checks": [], "approval_role_ref": null, "independent_principal_required": false},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "verify_increment",
+          "title": "Independently verify the product increment",
+          "task_kind": "testing",
+          "owner_role_ref": "qa_engineer@1",
+          "target_team_selector": {"team_blueprint_ref": "lean_delivery_cell@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["implement_increment"],
+          "inputs": ["product_increment", "test_evidence"],
+          "outputs": ["quality_report"],
+          "gate": {"required": true, "acceptance_checks": ["acceptance_criteria_verified", "regression_evidence_present"], "approval_role_ref": "scrum_product_owner@1", "independent_principal_required": true},
+          "failure_policy": "block"
+        }
+      ]
+    },
+    {
+      "key": "lean_discovery_workflow",
+      "version": 1,
+      "mode": "gated",
+      "default_failure_policy": "block",
+      "steps": [
+        {
+          "step_id": "frame_research",
+          "title": "Frame the delegated research question",
+          "task_kind": "research",
+          "owner_role_ref": "research_lead@1",
+          "target_team_selector": {"team_blueprint_ref": "lean_discovery@1", "cardinality": 1, "routing": "single"},
+          "depends_on": [],
+          "inputs": ["company_goal", "research_question"],
+          "outputs": ["research_brief"],
+          "gate": {"required": false, "acceptance_checks": [], "approval_role_ref": null, "independent_principal_required": false},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "analyze_requirements",
+          "title": "Derive bounded requirements from allowed evidence",
+          "task_kind": "research",
+          "owner_role_ref": "domain_requirements_analyst@1",
+          "target_team_selector": {"team_blueprint_ref": "lean_discovery@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["frame_research"],
+          "inputs": ["research_brief"],
+          "outputs": ["requirements_brief"],
+          "gate": {"required": false, "acceptance_checks": [], "approval_role_ref": null, "independent_principal_required": false},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "review_discovery_evidence",
+          "title": "Independently review grounding and requirement evidence",
+          "task_kind": "gate_review",
+          "owner_role_ref": "independent_research_reviewer@1",
+          "target_team_selector": {"team_blueprint_ref": "lean_discovery@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["analyze_requirements"],
+          "inputs": ["requirements_brief"],
+          "outputs": ["evidence_review", "accepted_requirements"],
+          "handoff_ref": "lean_discovery_evidence_handoff@1",
+          "gate": {"required": true, "acceptance_checks": ["source_allowlist_respected", "claims_traceable", "uncertainty_recorded"], "approval_role_ref": "research_lead@1", "independent_principal_required": true},
+          "failure_policy": "manual"
+        }
+      ]
+    },
+    {
+      "key": "lean_enablement_workflow",
+      "version": 1,
+      "mode": "gated",
+      "default_failure_policy": "block",
+      "steps": [
+        {
+          "step_id": "plan_enablement",
+          "title": "Plan the delegated platform capability",
+          "task_kind": "planning",
+          "owner_role_ref": "platform_service_owner@1",
+          "target_team_selector": {"team_blueprint_ref": "lean_enablement@1", "cardinality": 1, "routing": "single"},
+          "depends_on": [],
+          "inputs": ["delivery_need", "company_goal"],
+          "outputs": ["platform_plan"],
+          "gate": {"required": false, "acceptance_checks": [], "approval_role_ref": null, "independent_principal_required": false},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "build_enablement",
+          "title": "Build the approved platform capability",
+          "task_kind": "coding",
+          "owner_role_ref": "platform_engineer@1",
+          "target_team_selector": {"team_blueprint_ref": "lean_enablement@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["plan_enablement"],
+          "inputs": ["platform_plan"],
+          "outputs": ["platform_capability", "deployment_evidence"],
+          "gate": {"required": false, "acceptance_checks": [], "approval_role_ref": null, "independent_principal_required": false},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "verify_readiness",
+          "title": "Verify reliability and security readiness",
+          "task_kind": "gate_review",
+          "owner_role_ref": "site_reliability_engineer@1",
+          "target_team_selector": {"team_blueprint_ref": "lean_enablement@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["build_enablement"],
+          "inputs": ["platform_capability", "deployment_evidence"],
+          "outputs": ["operational_readiness"],
+          "gate": {"required": true, "acceptance_checks": ["rollback_proven", "observability_actionable"], "approval_role_ref": "devsecops_engineer@1", "independent_principal_required": true},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "security_release_gate",
+          "title": "Verify security controls before release handoff",
+          "task_kind": "gate_review",
+          "owner_role_ref": "devsecops_engineer@1",
+          "target_team_selector": {"team_blueprint_ref": "lean_enablement@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["verify_readiness"],
+          "inputs": ["platform_capability", "operational_readiness"],
+          "outputs": ["operational_readiness", "security_evidence"],
+          "handoff_ref": "lean_enablement_readiness_handoff@1",
+          "gate": {"required": true, "acceptance_checks": ["security_controls_verified", "release_boundary_preserved"], "approval_role_ref": "site_reliability_engineer@1", "independent_principal_required": true},
+          "failure_policy": "block"
+        }
+      ]
+    }
+  ]
+}

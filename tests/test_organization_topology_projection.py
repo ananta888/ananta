@@ -42,7 +42,7 @@ class BatchTopologyReader:
                 },
             ],
             "role_slots": [
-                {"id": "slot-a", "unit_id": "team-a-unit", "slot_key": "developer"},
+                {"id": "slot-a", "unit_id": "team-a-unit", "slot_key": "developer", "default_count": 2},
             ],
             "assignments": [
                 {"id": "assignment-a", "role_slot_id": "slot-a", "agent_url": "worker-a"},
@@ -89,6 +89,8 @@ def test_projection_derives_hierarchy_and_keeps_runtime_graph_read_only():
     assert len(hierarchy) == len(result["nodes"]) - 1
     assert all("id" in node and "node_id" not in node for node in result["nodes"])
     assert all("source_id" in edge and "target_id" in edge for edge in [*result["edges"], runtime])
+    role_slot = next(node for node in result["nodes"] if node["kind"] == "role_slot")
+    assert role_slot["metadata"]["default_count"] == 2
     assert declared["namespace"] == "organization"
     assert declared["kind"] == "declared_dependency"
     assert runtime["namespace"] == "runtime"

@@ -205,15 +205,36 @@ class TeamBlueprintDefinition(ClosedContract):
 
 
 class TeamCountRange(ClosedContract):
-    minimum: Literal[5]
-    default: StrictInt = Field(ge=5, le=10)
-    maximum: Literal[10]
+    minimum: StrictInt = Field(ge=2)
+    default: StrictInt = Field(ge=2)
+    maximum: StrictInt = Field(ge=2)
 
     @model_validator(mode="after")
     def validate_band(self) -> "TeamCountRange":
         if not self.minimum <= self.default <= self.maximum:
             raise ValueError("standard_team_count_band_invalid")
         return self
+
+
+class OrganizationProfileSizeDefinition(ClosedContract):
+    team_count: StrictInt = Field(ge=2)
+    label: str = Field(min_length=1, max_length=191)
+
+
+class OrganizationProfileDefinition(ClosedContract):
+    family: str = Field(pattern=r"^[a-z][a-z0-9_]*$", min_length=1, max_length=128)
+    label: str = Field(min_length=1, max_length=191)
+    sizes: list[OrganizationProfileSizeDefinition] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_sizes(self) -> "OrganizationProfileDefinition":
+        counts = [size.team_count for size in self.sizes]
+        if len(counts) != len(set(counts)):
+            raise ValueError("organization_profile_team_count_duplicate")
+        return self
+
+    def size_label(self, team_count: int) -> str | None:
+        return next((size.label for size in self.sizes if size.team_count == team_count), None)
 
 
 class StandardCompositionDefinition(ClosedContract):
@@ -343,6 +364,7 @@ class OrganizationBlueprintDefinition(ClosedContract):
     key: str = Field(min_length=1, max_length=191)
     version: StrictInt = Field(ge=1)
     description: str = Field(min_length=1)
+    profile: OrganizationProfileDefinition | None = None
     parameter_schema: dict[str, Any]
     standard_composition: StandardCompositionDefinition
     unit_groups: list[OrganizationUnitGroupDefinition] = Field(min_length=1)
@@ -357,6 +379,11 @@ class OrganizationBlueprintDefinition(ClosedContract):
     @model_validator(mode="after")
     def validate_limit_ref(self) -> "OrganizationBlueprintDefinition":
         VersionedDefinitionRef.parse(self.limit_policy_ref)
+        if self.profile is not None:
+            configured_counts = sorted(size.team_count for size in self.profile.sizes)
+            supported_counts = list(range(self.standard_composition.minimum, self.standard_composition.maximum + 1))
+            if configured_counts != supported_counts:
+                raise ValueError("organization_profile_size_band_mismatch")
         return self
 
 
@@ -556,6 +583,8 @@ __all__ = [
     "OrganizationInstantiationResult",
     "OrganizationGovernanceDefinition",
     "OrganizationOrchestrationDefinition",
+    "OrganizationProfileDefinition",
+    "OrganizationProfileSizeDefinition",
     "OrganizationRelationDefinition",
     "OrganizationReconciliationChange",
     "OrganizationReconciliationPlan",

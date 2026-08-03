@@ -7,7 +7,6 @@
   "additionalProperties": false,
   "required": [
     "schema",
-    "metadata",
     "organization_blueprints",
     "handoff_definitions",
     "acceptance_fixtures",
@@ -36,8 +35,6 @@
     },
     "acceptance_fixtures": {
       "type": "array",
-      "minItems": 1,
-      "maxItems": 1,
       "items": {
         "$ref": "https://ananta.local/schemas/blueprints/organization_blueprint_catalog.v1.json#/$defs/acceptance_fixture"
       }
@@ -50,7 +47,6 @@
     },
     "limit_profiles": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "$ref": "https://ananta.local/schemas/blueprints/organization_blueprint_catalog.v1.json#/$defs/limit_profile"
       }

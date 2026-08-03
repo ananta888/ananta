@@ -18,6 +18,10 @@ from agent.services.organization_research_delegation_policy_service import (
     OrganizationResearchDelegationPolicyService,
     get_organization_research_delegation_policy_service,
 )
+from agent.services.organization_workflow_completion_policy_service import (
+    ORGANIZATION_WORKFLOW_APPROVAL_REF_FIELD,
+    ORGANIZATION_WORKFLOW_WAITING_REASON,
+)
 from agent.services.recovery_task_mutation_policy import (
     RecoveryTaskMutationConflict,
     ensure_external_recovery_mutation_allowed,
@@ -95,15 +99,10 @@ class TaskOrchestrationService:
         self,
         dependencies: TaskOrchestrationDependencies | None = None,
         *,
-        research_delegation_policy: (
-            OrganizationResearchDelegationPolicyService | None
-        ) = None,
+        research_delegation_policy: (OrganizationResearchDelegationPolicyService | None) = None,
     ) -> None:
         self.dependencies = dependencies or _default_dependencies()
-        policy = (
-            research_delegation_policy
-            or get_organization_research_delegation_policy_service()
-        )
+        policy = research_delegation_policy or get_organization_research_delegation_policy_service()
         self.delegation_planner = TaskDelegationPlanner(self.dependencies)
         self.execution_context_factory = WorkerExecutionContextFactory(
             self.dependencies,
@@ -257,6 +256,7 @@ class TaskOrchestrationService:
             record=record,
             all_passed=outcome.gates_passed,
             memory_entry=memory_entry,
+            existing_verification_status=dict(task.get("verification_status") or {}),
         )
         self._apply_completion_status_update(
             task_id=task_id,
@@ -269,6 +269,22 @@ class TaskOrchestrationService:
             trace_id=payload.get("trace_id"),
             worker_job_id=worker_job_id,
         )
+        persisted_task = self.dependencies.get_task_status(task_id) or {}
+        if (
+            outcome.final_status == TaskStatus.COMPLETED.value
+            and str(persisted_task.get("status") or "") == TaskStatus.WAITING_FOR_REVIEW.value
+            and str(persisted_task.get("status_reason_code") or "") == ORGANIZATION_WORKFLOW_WAITING_REASON
+        ):
+            return {
+                "error": ORGANIZATION_WORKFLOW_WAITING_REASON,
+                "code": 409,
+                "data": {
+                    "task_id": task_id,
+                    "status": TaskStatus.WAITING_FOR_REVIEW.value,
+                    "reason_code": ORGANIZATION_WORKFLOW_WAITING_REASON,
+                    "verification_status": dict(persisted_task.get("verification_status") or {}),
+                },
+            }
         evolution_trigger = self._trigger_evolution_if_configured(
             task_id=task_id,
             evolution_service=evolution_service,
@@ -292,10 +308,7 @@ class TaskOrchestrationService:
 
     @staticmethod
     def _resolve_worker_job_id(task: dict[str, Any], payload: dict[str, Any]) -> str | None:
-        return (
-            str(payload.get("worker_job_id") or task.get("current_worker_job_id") or "").strip()
-            or None
-        )
+        return str(payload.get("worker_job_id") or task.get("current_worker_job_id") or "").strip() or None
 
     @staticmethod
     def _persist_verification_record(
@@ -368,16 +381,21 @@ class TaskOrchestrationService:
             title=task.get("title"),
             output=output,
             artifact_refs=list(
-                payload_artifacts
-                or [{"kind": "task_output", "task_id": task_id, "worker_job_id": worker_job_id}]
+                payload_artifacts or [{"kind": "task_output", "task_id": task_id, "worker_job_id": worker_job_id}]
             ),
             retrieval_tags=retrieval_tags,
             metadata={"gate_results": gate, "actor": actor},
         )
 
     @staticmethod
-    def _build_verification_status(*, record, all_passed: bool, memory_entry) -> dict[str, Any]:
-        return {
+    def _build_verification_status(
+        *,
+        record,
+        all_passed: bool,
+        memory_entry,
+        existing_verification_status: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        status = {
             "record_id": record.id if record else None,
             "status": record.status if record else ("passed" if all_passed else "failed"),
             "retry_count": record.retry_count if record else 0,
@@ -387,6 +405,14 @@ class TaskOrchestrationService:
                 getattr(memory_entry, "id", None) if memory_entry else None
             ),
         }
+        # The JSON value is only an opaque reference.  Task completion still
+        # validates its persisted Hub ApprovalRequest and active role binding
+        # at the repository boundary; request-body gate results cannot create
+        # completion authority.
+        existing_approval = dict(existing_verification_status or {}).get(ORGANIZATION_WORKFLOW_APPROVAL_REF_FIELD)
+        if isinstance(existing_approval, dict):
+            status[ORGANIZATION_WORKFLOW_APPROVAL_REF_FIELD] = dict(existing_approval)
+        return status
 
     @staticmethod
     def _json_safe_identifier(value: Any) -> str | None:

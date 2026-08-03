@@ -151,6 +151,7 @@ def test_repository_respects_each_explicit_node_kind_server_side() -> None:
     assert coordination["assignments"] == []
     assert role_slot["units"] == []
     assert [slot["id"] for slot in role_slot["role_slots"]] == ["slot-a"]
+    assert role_slot["role_slots"][0]["default_count"] == 1
     assert role_slot["assignments"] == []
     assert assignment["units"] == []
     assert assignment["role_slots"] == []
@@ -284,7 +285,14 @@ def test_runtime_nodes_are_revision_bound_and_derived_from_scoped_metadata() -> 
         latest_version_id="artifact-version-a",
         latest_sha256="a" * 64,
         latest_filename="review.json",
-        artifact_metadata={"secret": "must-not-be-selected"},
+        artifact_metadata={
+            "organization_binding": {
+                "tenant_id": "tenant-a",
+                "project_id": "project-a",
+                "organization_id": "organization-a",
+            },
+            "secret": "must-not-be-selected",
+        },
     )
     artifact_version = ArtifactVersionDB(
         id="artifact-version-a",
@@ -372,7 +380,15 @@ def test_runtime_nodes_are_revision_bound_and_derived_from_scoped_metadata() -> 
     assert "tasks.last_output" not in task_sql
     assert "tasks.worker_execution_context" not in task_sql
     assert "tasks.verification_status" not in task_sql
-    artifact_sql = "\n".join(statements_by_entity[ArtifactDB])
-    version_sql = "\n".join(statements_by_entity[ArtifactVersionDB])
-    assert "artifacts.artifact_metadata" not in artifact_sql
-    assert "artifact_versions.storage_path" not in version_sql
+    artifact_statements = [
+        statement for statement in session.statements if statement.column_descriptions[0]["entity"] is ArtifactDB
+    ]
+    version_statements = [
+        statement for statement in session.statements if statement.column_descriptions[0]["entity"] is ArtifactVersionDB
+    ]
+    assert all("artifact_metadata" not in statement.selected_columns.keys() for statement in artifact_statements)
+    assert all(
+        "storage_path" not in statement.selected_columns.keys()
+        and "version_metadata" not in statement.selected_columns.keys()
+        for statement in version_statements
+    )

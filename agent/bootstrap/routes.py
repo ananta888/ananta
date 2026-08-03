@@ -64,6 +64,7 @@ from agent.routes.organization_bundles import organization_bundles_bp
 from agent.routes.organization_goals import organization_goals_bp
 from agent.routes.organization_instances import organization_instances_bp
 from agent.routes.organization_planning import organization_planning_bp
+from agent.routes.organization_role_activation import organization_role_activation_bp
 from agent.routes.organization_runtime import organization_runtime_bp
 from agent.routes.organization_source_catalogs import organization_source_catalogs_bp
 from agent.routes.organization_topology import organization_topology_bp
@@ -163,6 +164,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(organization_goals_bp)
     app.register_blueprint(organization_source_catalogs_bp)
     app.register_blueprint(organization_planning_bp)
+    app.register_blueprint(organization_role_activation_bp)
     app.register_blueprint(organization_runtime_bp)
     app.register_blueprint(organization_topology_bp)
     app.register_blueprint(organization_topology_patches_bp)

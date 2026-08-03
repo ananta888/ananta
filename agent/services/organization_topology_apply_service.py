@@ -64,6 +64,10 @@ from agent.services.organization_blueprint_validation_service import (
 from agent.services.organization_definition_catalog_service import (
     FileCatalogDefinitionRepositoryAdapter,
 )
+from agent.services.organization_slot_separation_service import (
+    OrganizationSlotSeparationPolicy,
+    evaluate_organization_slot_separation,
+)
 from agent.services.organization_unit_of_work import OrganizationUnitOfWork
 
 _TERMINAL_TASK_STATES = frozenset({"completed", "failed", "cancelled", "archived", "rejected"})
@@ -1579,34 +1583,41 @@ class OrganizationTopologyApplyService:
                 if slot["max_count"] is not None and len(existing_for_slot) >= int(slot["max_count"]):
                     issue(path, "ORGANIZATION_ROLE_SLOT_CAPACITY_EXCEEDED", "Role-slot assignment maximum is reached.")
                     continue
-                sod = SeparationOfDutiesDefinition.model_validate(slot["sod"])
-                independent_keys = set(sod.independent_from_slot_ids)
-                external_conflicts = set(sod.independent_from_external_duties) & set(eligibility.capabilities)
-                peer_slot_ids = {
-                    row["id"]
-                    for row in slots.values()
-                    if row["unit_id"] == slot["unit_id"] and row["key"] in independent_keys
-                }
-                conflicting = [
-                    row
-                    for row in assignments
-                    if row["agent_id"] == operation.agent_id and row["slot_id"] in peer_slot_ids
-                ]
-                if (conflicting or external_conflicts) and sod.enforcement == "strict":
+                separation = evaluate_organization_slot_separation(
+                    target=OrganizationSlotSeparationPolicy(
+                        slot_id=slot["id"],
+                        slot_key=slot["key"],
+                        definition=SeparationOfDutiesDefinition.model_validate(slot["sod"]),
+                    ),
+                    peers=(
+                        OrganizationSlotSeparationPolicy(
+                            slot_id=row["id"],
+                            slot_key=row["key"],
+                            definition=SeparationOfDutiesDefinition.model_validate(row["sod"]),
+                        )
+                        for row in slots.values()
+                        if row["unit_id"] == slot["unit_id"]
+                    ),
+                    assigned_slot_ids=(row["slot_id"] for row in assignments if row["agent_id"] == operation.agent_id),
+                    agent_capabilities=eligibility.capabilities,
+                )
+                if separation.has_conflict and separation.enforcement == "strict":
                     issue(
                         path,
                         "ORGANIZATION_ASSIGNMENT_SOD_CONFLICT",
                         "Assignment violates strict separation of duties.",
-                        external_duties=sorted(external_conflicts),
+                        conflicting_role_slot_ids=list(separation.conflicting_slot_ids),
+                        external_duties=list(separation.external_duties),
                     )
                     continue
-                if (conflicting or external_conflicts) and sod.enforcement == "warn":
+                if separation.has_conflict and separation.enforcement == "warn":
                     issue(
                         path,
                         "ORGANIZATION_ASSIGNMENT_SOD_WARNING",
                         "Assignment has a declared separation-of-duties conflict.",
                         severity="warning",
-                        external_duties=sorted(external_conflicts),
+                        conflicting_role_slot_ids=list(separation.conflicting_slot_ids),
+                        external_duties=list(separation.external_duties),
                     )
                 assignment_id = (
                     historical.id
@@ -1699,7 +1710,11 @@ class OrganizationTopologyApplyService:
             "effective_limit_profile_hash": limits.content_hash(),
             "effective_policy_hash": state.effective_policy_hash,
             "budget_policy_hash": state.budget_policy_hash or "missing",
-            "operations": [row.model_dump(mode="json") for row in document.operations],
+            # Preserve the request's field-presence contract.  Serializing
+            # defaulted ``None`` role-slot fields into structural add
+            # operations would make a valid document fail its second model
+            # validation when the preview is constructed.
+            "operations": [row.model_dump(mode="json", exclude_unset=True) for row in document.operations],
             "planned_writes": sorted(set(planned_writes)),
             "diagnostics": diagnostic_payload,
             "limits": _angular_limits(limits),
@@ -1976,6 +1991,19 @@ class OrganizationTopologyApplyService:
                         role_slot_id=operation.role_slot_id,
                         agent_url=operation.agent_id,
                     )
+                # ``agent_id`` has already been resolved against the Hub's
+                # validated Agent registry during preview and revalidation.
+                # Persist that canonical identity so later routing and
+                # separation-of-duties decisions never infer a principal from
+                # a display label or request-body claim.
+                metadata = dict(row.assignment_metadata or {})
+                metadata.update(
+                    {
+                        "principal_kind": "registered_worker",
+                        "principal_id": operation.agent_id,
+                    }
+                )
+                row.assignment_metadata = metadata
                 row.lifecycle = "active"
                 row.ended_at = None
                 row.assigned_at = self._clock()

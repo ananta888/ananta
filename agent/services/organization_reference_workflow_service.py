@@ -19,6 +19,7 @@ from agent.db_models.organizations import (
     OrganizationTeamLinkDB,
     OrganizationUnitDB,
 )
+from agent.models.organization_models import canonical_definition_sha256
 from agent.services.organization_definition_catalog_service import (
     OrganizationDefinitionCatalogService,
 )
@@ -65,13 +66,17 @@ class OrganizationReferenceWorkflowService:
         goal: str,
         source_category_item_ids: Sequence[str],
         owner: str,
+        target_unit_id: str | None = None,
     ) -> dict[str, Any]:
         workflow = self._catalog.get_workflow_definition(workflow_key, workflow_version)
         if workflow is None:
             raise OrganizationReferenceWorkflowError("organization_reference_workflow_not_found")
+        workflow_ref = f"{workflow_key}@{workflow_version}"
+        workflow_content_hash = canonical_definition_sha256(workflow)
         source_ids = tuple(dict.fromkeys(str(value or "").strip() for value in source_category_item_ids))
         if not source_ids or any(not value for value in source_ids):
             raise OrganizationReferenceWorkflowError("organization_workflow_category_lineage_required")
+        selected_target_unit_id = str(target_unit_id or "").strip() or None
         with self._session_factory() as session:
             organization = session.exec(
                 select(OrganizationInstanceDB)
@@ -130,6 +135,18 @@ class OrganizationReferenceWorkflowService:
                 for unit in units
                 if f"{unit.team_blueprint_key}@{unit.team_blueprint_version}" == target_ref and unit.id in links
             ]
+            if selected_target_unit_id is not None:
+                candidates = [unit for unit in candidates if unit.id == selected_target_unit_id]
+            elif workflow.get("targeting_policy") == "explicit_unit_when_ambiguous" and len(candidates) > cardinality:
+                blockers.append(
+                    {
+                        "reason_code": ("ORGANIZATION_WORKFLOW_TARGET_UNIT_REQUIRED"),
+                        "step_id": step_id,
+                        "team_blueprint_ref": target_ref,
+                        "available_unit_ids": [unit.id for unit in candidates],
+                    }
+                )
+                continue
             selected = candidates[:cardinality]
             if not step_id or cardinality < 1 or len(selected) != cardinality:
                 blockers.append(
@@ -201,6 +218,27 @@ class OrganizationReferenceWorkflowService:
                         "team_id": links[unit.id].team_id,
                         "role_slot_id": role_slot.id,
                     },
+                    "organization_workflow_step_binding": {
+                        "schema": "organization_workflow_step_binding.v1",
+                        "organization_id": organization_id,
+                        "definition_revision": organization.definition_revision,
+                        "workflow_ref": workflow_ref,
+                        "workflow_content_hash": workflow_content_hash,
+                        "step_id": step_id,
+                        "team_unit_id": unit.id,
+                        "team_id": links[unit.id].team_id,
+                        "role_slot_id": role_slot.id,
+                        "gate": {
+                            "required": bool(gate.get("required")),
+                            "acceptance_checks": list(gate.get("acceptance_checks") or []),
+                            "approval_role_ref": gate.get("approval_role_ref"),
+                            "independent_principal_required": bool(gate.get("independent_principal_required")),
+                        },
+                        "handoff_ref": (str(step.get("handoff_ref")) if step.get("handoff_ref") else None),
+                        "failure_policy": str(
+                            step.get("failure_policy") or workflow.get("default_failure_policy") or "block"
+                        ),
+                    },
                     "gate": bool(gate.get("required")),
                     "verification_spec": {
                         "acceptance_checks": list(gate.get("acceptance_checks") or []),
@@ -240,7 +278,7 @@ class OrganizationReferenceWorkflowService:
             "source_category_item_ids": list(source_ids),
             "organization_id": organization_id,
             "definition_revision": organization.definition_revision,
-            "workflow_ref": f"{workflow_key}@{workflow_version}",
+            "workflow_ref": workflow_ref,
             "milestones": milestones,
             "tasks": tasks,
             "critical_path_tasks": self._critical_path(tasks),
@@ -260,10 +298,19 @@ class OrganizationReferenceWorkflowService:
                 details={"issues": blocking[:100]},
             )
         return {
-            "artifact_id": f"organization-workflow:{organization_id}:{workflow_key}",
+            "artifact_id": ":".join(
+                part
+                for part in (
+                    "organization-workflow",
+                    organization_id,
+                    workflow_key,
+                    selected_target_unit_id,
+                )
+                if part
+            ),
             "payload": payload,
             "definition_revision": organization.definition_revision,
-            "workflow_ref": f"{workflow_key}@{workflow_version}",
+            "workflow_ref": workflow_ref,
             "team_blueprint_counts": dict(
                 sorted(
                     Counter(

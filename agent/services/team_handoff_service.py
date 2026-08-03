@@ -5,9 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from agent.ports.artifact_handoff import ArtifactVersionReader, EvidenceManifestVerifier, HandoffStateStore
 from agent.services.separation_of_duties_service import (
@@ -54,6 +54,10 @@ class TeamHandoffContract:
     due_at: str
     sla_seconds: int
     handoff_definition_ref: str = ""
+    acceptance_gate_ref: str = ""
+    acceptance_gate_hash: str = ""
+    acceptance_gate_allowed_decisions: tuple[str, ...] = ()
+    acceptance_gate_self_approval_allowed: bool = False
     grounding_policy_ref: str = ""
     allowed_source_refs: tuple[str, ...] = ()
     allowed_run_refs: tuple[str, ...] = ()
@@ -77,6 +81,7 @@ class TeamHandoffService:
 
     FINAL_STATUSES = frozenset({"accepted", "rejected", "needs_changes", "cancelled"})
     _VERSIONED_REF = re.compile(r"^[a-z][a-z0-9_]*@[1-9][0-9]*$")
+    _CONTENT_HASH = re.compile(r"^[a-f0-9]{64}$")
     _GROUNDING_REF = re.compile(r"^(?:SRC|RUN)_[0-9]{4}$")
     _REASON_CODE = re.compile(r"^[a-z][a-z0-9_.:-]{0,190}$")
     _CHECK_KINDS = frozenset(
@@ -110,13 +115,23 @@ class TeamHandoffService:
         dispatch_lease_id: str,
         idempotency_key: str,
     ) -> TeamHandoffDecision:
+        if contract.handoff_definition_ref:
+            contract = replace(
+                contract,
+                acceptance_checks=tuple(
+                    replace(check, status="pending") if isinstance(check, TeamHandoffAcceptanceCheck) else check
+                    for check in contract.acceptance_checks
+                ),
+            )
         issues = self._validate_contract(contract)
         if not str(idempotency_key or "").strip():
             issues.append("handoff_idempotency_key_missing")
         contract_payload = self._contract_payload(contract)
         existing = self._store.get(contract.handoff_id)
         if existing:
-            if str(existing.get("idempotency_key")) == idempotency_key and existing.get("contract") == contract_payload:
+            if str(existing.get("idempotency_key")) == idempotency_key and self._same_client_contract(
+                existing.get("contract"), contract_payload
+            ):
                 return self._decision_from_state(
                     contract.handoff_id,
                     existing,
@@ -180,6 +195,20 @@ class TeamHandoffService:
                 event_id=self._event_id(contract.handoff_id, idempotency_key, "blocked"),
                 artifact_digests=tuple(sorted(verified_digests)),
             )
+        if contract.handoff_definition_ref:
+            # Status values in the HTTP contract are advisory input only.  A
+            # definition-bound handoff reaches this point exclusively after
+            # the Hub artifact reader, digest comparison and evidence verifier
+            # succeeded, so the persisted gate checks are server-owned facts.
+            contract = replace(
+                contract,
+                acceptance_checks=tuple(
+                    replace(check, status="passed")
+                    for check in contract.acceptance_checks
+                    if isinstance(check, TeamHandoffAcceptanceCheck)
+                ),
+            )
+            contract_payload = self._contract_payload(contract)
         payload = {
             "contract": contract_payload,
             "status": "pending_acceptance",
@@ -272,6 +301,50 @@ class TeamHandoffService:
                 self._event_id(handoff_id, idempotency_key, "stale"),
                 tuple(current.get("artifact_digests") or ()),
             )
+        contract = dict(current.get("contract") or {})
+        handoff_definition_ref = str(contract.get("handoff_definition_ref") or "")
+        if handoff_definition_ref:
+            allowed_decisions = {
+                str(value).strip().lower()
+                for value in list(contract.get("acceptance_gate_allowed_decisions") or [])
+                if str(value).strip()
+            }
+            decision_allowed = normalized_decision in allowed_decisions or (
+                normalized_decision == "accepted" and "pass" in allowed_decisions
+            )
+            if not decision_allowed:
+                return TeamHandoffDecision(
+                    handoff_id,
+                    "blocked",
+                    "handoff_acceptance_gate_decision_not_allowed",
+                    expected_revision,
+                    self._event_id(handoff_id, idempotency_key, "gate-decision"),
+                    tuple(current.get("artifact_digests") or ()),
+                )
+            if normalized_decision == "accepted":
+                gate_ref = str(contract.get("acceptance_gate_ref") or "")
+                checks = list(contract.get("acceptance_checks") or [])
+                structured_checks = [value for value in checks if isinstance(value, dict)]
+                policy_checks = [
+                    value
+                    for value in structured_checks
+                    if str(value.get("check_kind") or "") == "policy_gate"
+                    and str(value.get("expected") or "") == gate_ref
+                ]
+                if (
+                    len(structured_checks) != len(checks)
+                    or not structured_checks
+                    or any(str(value.get("status") or "") != "passed" for value in structured_checks)
+                    or not policy_checks
+                ):
+                    return TeamHandoffDecision(
+                        handoff_id,
+                        "blocked",
+                        "handoff_acceptance_gate_checks_not_passed",
+                        expected_revision,
+                        self._event_id(handoff_id, idempotency_key, "gate-checks"),
+                        tuple(current.get("artifact_digests") or ()),
+                    )
         sod = self._sod.enforce_runtime_operation(
             operation="handoff_accept",
             actor_principal_id=actor_principal_id,
@@ -361,6 +434,24 @@ class TeamHandoffService:
             and TeamHandoffService._VERSIONED_REF.fullmatch(contract.handoff_definition_ref) is None
         ):
             issues.append("handoff_definition_ref_invalid")
+        if contract.handoff_definition_ref:
+            if (
+                TeamHandoffService._VERSIONED_REF.fullmatch(contract.acceptance_gate_ref) is None
+                or TeamHandoffService._CONTENT_HASH.fullmatch(contract.acceptance_gate_hash) is None
+                or not contract.acceptance_gate_allowed_decisions
+            ):
+                issues.append("handoff_acceptance_gate_binding_invalid")
+            if any(not isinstance(check, TeamHandoffAcceptanceCheck) for check in contract.acceptance_checks):
+                issues.append("handoff_acceptance_gate_checks_unstructured")
+            policy_checks = [
+                check
+                for check in contract.acceptance_checks
+                if isinstance(check, TeamHandoffAcceptanceCheck)
+                and check.check_kind == "policy_gate"
+                and check.expected == contract.acceptance_gate_ref
+            ]
+            if len(policy_checks) != 1:
+                issues.append("handoff_acceptance_gate_policy_check_invalid")
         grounding_values = (
             contract.grounding_policy_ref,
             contract.allowed_source_refs,
@@ -414,6 +505,22 @@ class TeamHandoffService:
         # A SQL JSON round-trip normalizes tuples to arrays.  Canonicalize at
         # the domain boundary so idempotency comparison is adapter-neutral.
         return json.loads(json.dumps(asdict(contract), sort_keys=True))
+
+    @staticmethod
+    def _same_client_contract(existing: Any, incoming: Mapping[str, Any]) -> bool:
+        if not isinstance(existing, Mapping):
+            return False
+        server_fields = {
+            "acceptance_gate_ref",
+            "acceptance_gate_hash",
+            "acceptance_gate_allowed_decisions",
+            "acceptance_gate_self_approval_allowed",
+        }
+        if str(existing.get("handoff_definition_ref") or ""):
+            server_fields.add("acceptance_checks")
+        existing_client = {key: value for key, value in existing.items() if key not in server_fields}
+        incoming_client = {key: value for key, value in incoming.items() if key not in server_fields}
+        return existing_client == incoming_client
 
     @staticmethod
     def _event_id(handoff_id: str, idempotency_key: str, status: str) -> str:

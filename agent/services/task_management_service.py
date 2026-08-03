@@ -66,9 +66,7 @@ class TaskManagementService:
     def _vector_admin_error(
         task: Any,
         *,
-        authorization: (
-            VectorAdminAuthorizationContext | None
-        ),
+        authorization: (VectorAdminAuthorizationContext | None),
     ) -> dict[str, Any] | None:
         if not has_reserved_vector_index_marker(task):
             return None
@@ -147,16 +145,20 @@ class TaskManagementService:
             task=dict(task or {}),
             agent_cfg=cfg,
         )
-        decision = get_mutation_gate_service().evaluate(
-            command=None,
-            tool_calls=tool_calls,
-            task=dict(task or {}),
-            agent_cfg=cfg,
-            approval_decision=approval,
-            risk_decision=risk,
-            trace_id=str((task or {}).get("goal_trace_id") or "").strip() or None,
-            actor=self.actor_username(),
-        ).as_dict()
+        decision = (
+            get_mutation_gate_service()
+            .evaluate(
+                command=None,
+                tool_calls=tool_calls,
+                task=dict(task or {}),
+                agent_cfg=cfg,
+                approval_decision=approval,
+                risk_decision=risk,
+                trace_id=str((task or {}).get("goal_trace_id") or "").strip() or None,
+                actor=self.actor_username(),
+            )
+            .as_dict()
+        )
         get_execution_audit_service().emit(
             operation_type="mutation_gate_decision",
             outcome=str(decision.get("classification") or "unknown"),
@@ -294,18 +296,12 @@ class TaskManagementService:
         reserved_marker = find_reserved_vector_index_marker(input_data, source=source)
         if reserved_marker:
             return reserved_vector_index_ingress_error(reserved_marker)
-        reserved_scope_marker = (
-            find_reserved_retrieval_vector_scope_marker(input_data)
-        )
+        reserved_scope_marker = find_reserved_retrieval_vector_scope_marker(input_data)
         if reserved_scope_marker:
-            return reserved_retrieval_vector_scope_ingress_error(
-                reserved_scope_marker
-            )
+            return reserved_retrieval_vector_scope_ingress_error(reserved_scope_marker)
         reserved_context_marker = find_reserved_context_bundle_marker(input_data)
         if reserved_context_marker:
-            return reserved_context_bundle_ingress_error(
-                reserved_context_marker
-            )
+            return reserved_context_bundle_ingress_error(reserved_context_marker)
         task_id = data.id or str(uuid.uuid4())
         if data.id:
             repos = get_repository_registry()
@@ -339,9 +335,7 @@ class TaskManagementService:
                 task={
                     "id": task_id,
                     "goal_id": safe_data.get("goal_id"),
-                    "worker_execution_context": safe_data.get(
-                        "worker_execution_context"
-                    ),
+                    "worker_execution_context": safe_data.get("worker_execution_context"),
                 },
                 base_prompt=str(safe_data.get("description") or safe_data.get("title") or ""),
                 system_prompt=None,
@@ -377,18 +371,12 @@ class TaskManagementService:
         reserved_marker = find_reserved_vector_index_marker(update_data)
         if reserved_marker:
             return reserved_vector_index_ingress_error(reserved_marker)
-        reserved_scope_marker = (
-            find_reserved_retrieval_vector_scope_marker(update_data)
-        )
+        reserved_scope_marker = find_reserved_retrieval_vector_scope_marker(update_data)
         if reserved_scope_marker:
-            return reserved_retrieval_vector_scope_ingress_error(
-                reserved_scope_marker
-            )
+            return reserved_retrieval_vector_scope_ingress_error(reserved_scope_marker)
         reserved_context_marker = find_reserved_context_bundle_marker(update_data)
         if reserved_context_marker:
-            return reserved_context_bundle_ingress_error(
-                reserved_context_marker
-            )
+            return reserved_context_bundle_ingress_error(reserved_context_marker)
         existing = get_local_task_status(task_id)
         if not existing:
             return {"error": "not_found", "code": 404}
@@ -432,6 +420,23 @@ class TaskManagementService:
         update_local_task_status(task_id, status, **update_data)
         if status == "completed":
             task = get_local_task_status(task_id) or {}
+            from agent.services.organization_workflow_completion_policy_service import (
+                ORGANIZATION_WORKFLOW_WAITING_REASON,
+            )
+
+            if (
+                str(task.get("status") or "") == "waiting_for_review"
+                and str(task.get("status_reason_code") or "") == ORGANIZATION_WORKFLOW_WAITING_REASON
+            ):
+                return {
+                    "error": ORGANIZATION_WORKFLOW_WAITING_REASON,
+                    "code": 409,
+                    "data": {
+                        "id": task_id,
+                        "status": "waiting_for_review",
+                        "reason_code": ORGANIZATION_WORKFLOW_WAITING_REASON,
+                    },
+                }
             maybe_create_git_commit_followup(
                 task=task,
                 task_queue_service=get_task_queue_service(),
@@ -445,9 +450,7 @@ class TaskManagementService:
         task_id: str,
         action: str,
         comment: str | None,
-        vector_authorization: (
-            VectorAdminAuthorizationContext | None
-        ) = None,
+        vector_authorization: (VectorAdminAuthorizationContext | None) = None,
     ) -> dict[str, Any]:
         task = get_local_task_status(task_id)
         if not task:
@@ -460,15 +463,9 @@ class TaskManagementService:
             if vector_error is not None:
                 return vector_error
             return {
-                "error": (
-                    "vector_index_task_intervention_forbidden"
-                ),
+                "error": ("vector_index_task_intervention_forbidden"),
                 "code": 409,
-                "data": {
-                    "reason_code": (
-                        "vector_index_task_intervention_forbidden"
-                    )
-                },
+                "data": {"reason_code": ("vector_index_task_intervention_forbidden")},
             }
         recovery_conflict = self._recovery_mutation_conflict(
             task,
@@ -530,9 +527,7 @@ class TaskManagementService:
         *,
         task_id: str,
         data: Any,
-        vector_authorization: (
-            VectorAdminAuthorizationContext | None
-        ) = None,
+        vector_authorization: (VectorAdminAuthorizationContext | None) = None,
     ) -> dict[str, Any]:
         task = get_local_task_status(task_id)
         if not task:
@@ -544,21 +539,11 @@ class TaskManagementService:
         )
         if vector_error is not None:
             return vector_error
-        if vector_task and (
-            data.token
-            or data.task_kind
-            or data.required_capabilities
-        ):
+        if vector_task and (data.token or data.task_kind or data.required_capabilities):
             return {
-                "error": (
-                    "vector_index_task_assignment_override_forbidden"
-                ),
+                "error": ("vector_index_task_assignment_override_forbidden"),
                 "code": 409,
-                "data": {
-                    "reason_code": (
-                        "vector_index_task_assignment_override_forbidden"
-                    )
-                },
+                "data": {"reason_code": ("vector_index_task_assignment_override_forbidden")},
             }
         recovery_conflict = self._recovery_mutation_conflict(
             task,
@@ -566,15 +551,9 @@ class TaskManagementService:
         )
         if recovery_conflict:
             return recovery_conflict
-        effective_task_kind = (
-            task.get("task_kind")
-            if vector_task
-            else data.task_kind
-        )
+        effective_task_kind = task.get("task_kind") if vector_task else data.task_kind
         effective_required_capabilities = (
-            task.get("required_capabilities")
-            if vector_task
-            else data.required_capabilities
+            task.get("required_capabilities") if vector_task else data.required_capabilities
         )
         can_assign, reasons, _worker = enforce_assignment_policy(
             task,
@@ -591,9 +570,7 @@ class TaskManagementService:
             reasons=reasons,
             details={
                 "task_kind": effective_task_kind,
-                "required_capabilities": (
-                    effective_required_capabilities
-                ),
+                "required_capabilities": (effective_required_capabilities),
                 "manual_override": True,
             },
             task_id=task_id,
@@ -611,13 +588,8 @@ class TaskManagementService:
             assigned_agent_url=data.agent_url,
             assigned_agent_token=data.token,
             manual_override_until=time.time() + 600,
-            task_kind=(
-                effective_task_kind or task.get("task_kind")
-            ),
-            required_capabilities=(
-                effective_required_capabilities
-                or task.get("required_capabilities")
-            ),
+            task_kind=(effective_task_kind or task.get("task_kind")),
+            required_capabilities=(effective_required_capabilities or task.get("required_capabilities")),
             event_type="task_assigned",
             event_actor="system",
             event_details={"agent_url": data.agent_url, "policy_reasons": reasons},
@@ -631,9 +603,7 @@ class TaskManagementService:
         payload: dict[str, Any],
         agent_registry_service,
         worker_contract_service,
-        vector_authorization: (
-            VectorAdminAuthorizationContext | None
-        ) = None,
+        vector_authorization: (VectorAdminAuthorizationContext | None) = None,
     ) -> dict[str, Any]:
         task = get_local_task_status(task_id)
         if not task:
@@ -645,20 +615,11 @@ class TaskManagementService:
         )
         if vector_error is not None:
             return vector_error
-        if vector_task and (
-            "task_kind" in payload
-            or "required_capabilities" in payload
-        ):
+        if vector_task and ("task_kind" in payload or "required_capabilities" in payload):
             return {
-                "error": (
-                    "vector_index_task_assignment_override_forbidden"
-                ),
+                "error": ("vector_index_task_assignment_override_forbidden"),
                 "code": 409,
-                "data": {
-                    "reason_code": (
-                        "vector_index_task_assignment_override_forbidden"
-                    )
-                },
+                "data": {"reason_code": ("vector_index_task_assignment_override_forbidden")},
             }
         recovery_conflict = self._recovery_mutation_conflict(
             task,
@@ -667,10 +628,7 @@ class TaskManagementService:
         if recovery_conflict:
             return recovery_conflict
         effective_task_kind = (
-            task.get("task_kind")
-            if vector_task
-            else payload.get("task_kind")
-            or task.get("task_kind")
+            task.get("task_kind") if vector_task else payload.get("task_kind") or task.get("task_kind")
         )
         effective_required_capabilities = (
             task.get("required_capabilities")
@@ -743,9 +701,7 @@ class TaskManagementService:
         self,
         *,
         task_id: str,
-        vector_authorization: (
-            VectorAdminAuthorizationContext | None
-        ) = None,
+        vector_authorization: (VectorAdminAuthorizationContext | None) = None,
     ) -> dict[str, Any]:
         task = get_local_task_status(task_id)
         if not task:
@@ -777,9 +733,7 @@ class TaskManagementService:
         *,
         task_id: str,
         payload: dict[str, Any],
-        vector_authorization: (
-            VectorAdminAuthorizationContext | None
-        ) = None,
+        vector_authorization: (VectorAdminAuthorizationContext | None) = None,
     ) -> dict[str, Any]:
         subtask_id = payload.get("id")
         new_status = payload.get("status")
@@ -796,15 +750,9 @@ class TaskManagementService:
             if vector_error is not None:
                 return vector_error
             return {
-                "error": (
-                    "vector_index_task_intervention_forbidden"
-                ),
+                "error": ("vector_index_task_intervention_forbidden"),
                 "code": 409,
-                "data": {
-                    "reason_code": (
-                        "vector_index_task_intervention_forbidden"
-                    )
-                },
+                "data": {"reason_code": ("vector_index_task_intervention_forbidden")},
             }
         recovery_conflict = self._recovery_mutation_conflict(
             parent_task,
@@ -837,9 +785,7 @@ class TaskManagementService:
         *,
         task_id: str,
         data: Any,
-        vector_authorization: (
-            VectorAdminAuthorizationContext | None
-        ) = None,
+        vector_authorization: (VectorAdminAuthorizationContext | None) = None,
     ) -> dict[str, Any]:
         parent_task = get_local_task_status(task_id)
         if not parent_task:
@@ -852,15 +798,9 @@ class TaskManagementService:
             if vector_error is not None:
                 return vector_error
             return {
-                "error": (
-                    "vector_index_task_intervention_forbidden"
-                ),
+                "error": ("vector_index_task_intervention_forbidden"),
                 "code": 409,
-                "data": {
-                    "reason_code": (
-                        "vector_index_task_intervention_forbidden"
-                    )
-                },
+                "data": {"reason_code": ("vector_index_task_intervention_forbidden")},
             }
         recovery_conflict = self._recovery_mutation_conflict(
             parent_task,

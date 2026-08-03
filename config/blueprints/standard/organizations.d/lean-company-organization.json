@@ -1,0 +1,218 @@
+{
+  "schema": "organization_blueprint_fragment.v1",
+  "organization_blueprints": [
+    {
+      "key": "lean_company_organization",
+      "version": 1,
+      "description": "Small-company organization family with five to twenty explicit role slots across two to six Hub-routed teams.",
+      "profile": {
+        "family": "lean_company",
+        "label": "Lean Company",
+        "sizes": [
+          {"team_count": 2, "label": "Mikro · 5 Rollenplätze"},
+          {"team_count": 3, "label": "Klein · 8 Rollenplätze"},
+          {"team_count": 4, "label": "Kompakt · 12 Rollenplätze"},
+          {"team_count": 5, "label": "Wachsend · 16 Rollenplätze"},
+          {"team_count": 6, "label": "Ausgebaut · 20 Rollenplätze"}
+        ]
+      },
+      "parameter_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "discriminator": "composition_mode",
+        "oneOf": [
+          {
+            "properties": {
+              "composition_mode": {"const": "standard"},
+              "team_count": {"type": "integer", "minimum": 2, "maximum": 6}
+            },
+            "required": ["composition_mode", "team_count"],
+            "not": {
+              "anyOf": [
+                {"required": ["custom_composition"]},
+                {"required": ["admission_exception_ref"]}
+              ]
+            }
+          },
+          {
+            "properties": {
+              "composition_mode": {"const": "custom"},
+              "custom_composition": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["team_blueprint_counts"],
+                "properties": {
+                  "team_blueprint_counts": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {"type": "integer", "minimum": 1}
+                  }
+                }
+              },
+              "admission_exception_ref": {"type": "string", "minLength": 1}
+            },
+            "required": ["composition_mode", "custom_composition", "admission_exception_ref"],
+            "not": {"required": ["team_count"]}
+          }
+        ]
+      },
+      "standard_composition": {
+        "team_count_range": {"minimum": 2, "default": 4, "maximum": 6},
+        "baseline_singleton_team_refs": ["lean_direction"],
+        "baseline_group_counts": {"delivery_cell": 1},
+        "activation_order": ["lean_discovery", "lean_enablement"],
+        "scale_out_group": "delivery_cell"
+      },
+      "unit_groups": [
+        {
+          "group_id": "delivery_cell",
+          "team_blueprint_ref": "lean_delivery_cell@1",
+          "parent_unit_ref": "product_delivery",
+          "min_count": 1,
+          "default_count": 1,
+          "max_count": null,
+          "capacity_rule": {"formula": "effective_max_team_instances_minus_active_singleton_teams", "minimum_remaining": 1},
+          "limit_policy_ref": "organization_limits@1",
+          "naming_policy": "stable_group_ordinal",
+          "overrides": {}
+        }
+      ],
+      "units": [
+        {"unit_key": "lean_company", "unit_kind": "coordination_unit", "materialization_kind": "structural_unit", "parent_unit_ref": null, "activation_policy": "always"},
+        {"unit_key": "company_direction", "unit_kind": "value_stream", "materialization_kind": "structural_unit", "parent_unit_ref": "lean_company", "activation_policy": "always"},
+        {"unit_key": "product_delivery", "unit_kind": "value_stream", "materialization_kind": "structural_unit", "parent_unit_ref": "lean_company", "activation_policy": "always"},
+        {"unit_key": "company_enablement", "unit_kind": "value_stream", "materialization_kind": "structural_unit", "parent_unit_ref": "lean_company", "activation_policy": "always"},
+        {"unit_key": "lean_direction", "unit_kind": "team", "materialization_kind": "team_instance", "team_blueprint_ref": "lean_company_direction@1", "parent_unit_ref": "company_direction", "activation_policy": "baseline"},
+        {"unit_key": "lean_discovery", "unit_kind": "team", "materialization_kind": "team_instance", "team_blueprint_ref": "lean_discovery@1", "parent_unit_ref": "company_direction", "activation_policy": "ordered_optional"},
+        {"unit_key": "lean_enablement", "unit_kind": "team", "materialization_kind": "team_instance", "team_blueprint_ref": "lean_enablement@1", "parent_unit_ref": "company_enablement", "activation_policy": "ordered_optional"}
+      ],
+      "relations": [
+        {"relation_id": "direction_governs_delivery", "namespace": "organization", "source_unit_ref": "lean_direction", "target_unit_ref": "product_delivery", "kind": "governs", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": "lean_direction_goal_handoff@1", "dependency_policy": "declared", "escalation_policy": "hub"},
+        {"relation_id": "direction_governs_discovery", "namespace": "organization", "source_unit_ref": "lean_direction", "target_unit_ref": "lean_discovery", "kind": "governs", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": "lean_direction_goal_handoff@1", "dependency_policy": "declared", "escalation_policy": "hub"},
+        {"relation_id": "direction_governs_enablement", "namespace": "organization", "source_unit_ref": "lean_direction", "target_unit_ref": "lean_enablement", "kind": "governs", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": "lean_direction_goal_handoff@1", "dependency_policy": "declared", "escalation_policy": "hub"},
+        {"relation_id": "delivery_requests_enablement", "namespace": "organization", "source_unit_ref": "product_delivery", "target_unit_ref": "lean_enablement", "kind": "declared_dependency", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": "lean_delivery_need_handoff@1", "dependency_policy": "declared", "escalation_policy": "hub"},
+        {"relation_id": "discovery_supplies_delivery", "namespace": "organization", "source_unit_ref": "lean_discovery", "target_unit_ref": "product_delivery", "kind": "supplies_research_to", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": "lean_discovery_evidence_handoff@1", "dependency_policy": "declared", "escalation_policy": "hub"},
+        {"relation_id": "enablement_supports_delivery", "namespace": "organization", "source_unit_ref": "lean_enablement", "target_unit_ref": "product_delivery", "kind": "enables", "activation_condition": "both_endpoints_materialized", "handoff_contract_ref": "lean_enablement_readiness_handoff@1", "dependency_policy": "advisory", "escalation_policy": "hub"}
+      ],
+      "shared_product_model": {"goal_scope": "organization", "team_backlogs": "derived"},
+      "orchestration": {"owner": "hub", "workers_may_orchestrate": false},
+      "governance": {"admission_policy": "standard_or_explicit_custom", "separation_of_duties": "strict"},
+      "budgets": {"policy_ref": "organization_budget_defaults@1"},
+      "limit_policy_ref": "organization_limits@1"
+    }
+  ],
+  "handoff_definitions": [
+    {
+      "key": "lean_direction_goal_handoff",
+      "version": 1,
+      "required_artifact_kinds": ["company_goal", "priority_decision", "accepted_requirements"],
+      "acceptance_gate_ref": "lean_direction_goal_accepted@1",
+      "artifact_source": "workflow_step_outputs"
+    },
+    {
+      "key": "lean_delivery_need_handoff",
+      "version": 1,
+      "required_artifact_kinds": ["delivery_need"],
+      "acceptance_gate_ref": "lean_delivery_need_accepted@1",
+      "artifact_source": "workflow_step_outputs"
+    },
+    {
+      "key": "lean_discovery_evidence_handoff",
+      "version": 1,
+      "required_artifact_kinds": ["evidence_review", "accepted_requirements"],
+      "acceptance_gate_ref": "lean_discovery_evidence_accepted@1",
+      "artifact_source": "workflow_step_outputs"
+    },
+    {
+      "key": "lean_enablement_readiness_handoff",
+      "version": 1,
+      "required_artifact_kinds": ["operational_readiness", "security_evidence"],
+      "acceptance_gate_ref": "lean_enablement_readiness_accepted@1",
+      "artifact_source": "workflow_step_outputs"
+    }
+  ],
+  "acceptance_fixtures": [
+    {
+      "key": "lean_company_micro_five_roles",
+      "organization_blueprint_ref": "lean_company_organization@1",
+      "parameter_overrides": {"composition_mode": "standard", "team_count": 2},
+      "expected_team_blueprint_counts": {"lean_company_direction": 1, "lean_delivery_cell": 1},
+      "expected_total_team_count": 2,
+      "expected_role_slot_count": 5,
+      "expected_default_assignment_capacity": 5,
+      "expected_hierarchy_node_counts": {"organization": 1, "coordination_unit": 1, "value_stream": 3, "team": 2},
+      "expected_edge_counts": {"contains": 6, "organization": 1},
+      "test_scope": ["schema", "dry_run", "planning", "runtime", "browser", "demo"]
+    },
+    {
+      "key": "lean_company_small_eight_roles",
+      "organization_blueprint_ref": "lean_company_organization@1",
+      "parameter_overrides": {"composition_mode": "standard", "team_count": 3},
+      "expected_team_blueprint_counts": {"lean_company_direction": 1, "lean_delivery_cell": 1, "lean_discovery": 1},
+      "expected_total_team_count": 3,
+      "expected_role_slot_count": 8,
+      "expected_default_assignment_capacity": 8,
+      "expected_hierarchy_node_counts": {"organization": 1, "coordination_unit": 1, "value_stream": 3, "team": 3},
+      "expected_edge_counts": {"contains": 7, "organization": 3},
+      "test_scope": ["schema", "dry_run", "planning", "runtime", "browser", "demo"]
+    },
+    {
+      "key": "lean_company_compact_twelve_roles",
+      "organization_blueprint_ref": "lean_company_organization@1",
+      "parameter_overrides": {"composition_mode": "standard", "team_count": 4},
+      "expected_team_blueprint_counts": {"lean_company_direction": 1, "lean_delivery_cell": 1, "lean_discovery": 1, "lean_enablement": 1},
+      "expected_total_team_count": 4,
+      "expected_role_slot_count": 12,
+      "expected_default_assignment_capacity": 12,
+      "expected_hierarchy_node_counts": {"organization": 1, "coordination_unit": 1, "value_stream": 3, "team": 4},
+      "expected_edge_counts": {"contains": 8, "organization": 6},
+      "test_scope": ["schema", "dry_run", "planning", "runtime", "browser", "demo"]
+    },
+    {
+      "key": "lean_company_growing_sixteen_roles",
+      "organization_blueprint_ref": "lean_company_organization@1",
+      "parameter_overrides": {"composition_mode": "standard", "team_count": 5},
+      "expected_team_blueprint_counts": {"lean_company_direction": 1, "lean_delivery_cell": 2, "lean_discovery": 1, "lean_enablement": 1},
+      "expected_total_team_count": 5,
+      "expected_role_slot_count": 16,
+      "expected_default_assignment_capacity": 16,
+      "expected_hierarchy_node_counts": {"organization": 1, "coordination_unit": 1, "value_stream": 3, "team": 5},
+      "expected_edge_counts": {"contains": 9, "organization": 6},
+      "test_scope": ["schema", "dry_run", "planning", "runtime", "browser", "demo"]
+    },
+    {
+      "key": "lean_company_scaled_twenty_roles",
+      "organization_blueprint_ref": "lean_company_organization@1",
+      "parameter_overrides": {"composition_mode": "standard", "team_count": 6},
+      "expected_team_blueprint_counts": {"lean_company_direction": 1, "lean_delivery_cell": 3, "lean_discovery": 1, "lean_enablement": 1},
+      "expected_total_team_count": 6,
+      "expected_role_slot_count": 20,
+      "expected_default_assignment_capacity": 20,
+      "expected_hierarchy_node_counts": {"organization": 1, "coordination_unit": 1, "value_stream": 3, "team": 6},
+      "expected_edge_counts": {"contains": 10, "organization": 6},
+      "test_scope": ["schema", "dry_run", "planning", "runtime", "browser", "demo"]
+    }
+  ],
+  "test_only_fixtures": [],
+  "limit_profiles": [],
+  "policy_refs": [
+    "assignment_grounding@1",
+    "organization_limits@1",
+    "organization_budget_defaults@1",
+    "coordination_task_proposals@1",
+    "delivery_task_proposals@1",
+    "research_task_proposals@1",
+    "review_task_proposals@1",
+    "portfolio_decision_boundaries@1",
+    "lean_direction_goal_accepted@1",
+    "lean_delivery_need_accepted@1",
+    "lean_discovery_evidence_accepted@1",
+    "lean_enablement_readiness_accepted@1"
+  ],
+  "workflow_refs": [
+    "lean_company_direction_workflow@1",
+    "lean_delivery_cell_workflow@1",
+    "lean_discovery_workflow@1",
+    "lean_enablement_workflow@1"
+  ]
+}

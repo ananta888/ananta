@@ -72,6 +72,25 @@ class SqlOrganizationDefinitionCatalogAdapter:
             )
         )
 
+    def get_handoff_definition(self, key: str, version: int):
+        row = self._repository.get_handoff(
+            self._tenant_id,
+            self._project_id,
+            key,
+            version,
+        )
+        if not self._is_active_reference(row):
+            return None
+        definition_json = getattr(row, "definition_json", None)
+        if definition_json:
+            return dict(definition_json)
+        return {
+            "key": row.definition_key,
+            "version": row.version,
+            "required_artifact_kinds": list(row.required_artifact_kinds or []),
+            "acceptance_gate_ref": row.acceptance_gate_ref,
+        }
+
     def has_policy(self, portable_ref: str) -> bool:
         try:
             ref = VersionedDefinitionRef.parse(portable_ref)

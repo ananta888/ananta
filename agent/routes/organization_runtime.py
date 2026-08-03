@@ -12,6 +12,7 @@ from agent.common.errors import api_response
 from agent.routes.organization_route_support import (
     OrganizationRouteError,
     organization_boundary,
+    organization_catalog,
     request_payload,
     require_idempotency_key,
     require_if_match_header,
@@ -139,6 +140,8 @@ def decide_organization_handoff(organization_id: str, handoff_id: str):
     decision_assignment_id = _required_string(payload, "decision_assignment_id")
     idempotency_key = require_idempotency_key()
     runtime = _runtime_service(scope)
+    if decision_value == "accepted":
+        runtime.validate_handoff_acceptance_binding(handoff_id=handoff_id)
     assignments = runtime.handoff_decision_assignments(
         handoff_id=handoff_id,
         decision_assignment_id=decision_assignment_id,
@@ -183,6 +186,7 @@ def _runtime_service(scope) -> OrganizationRuntimeApplicationService:
         tenant_id=scope.tenant_id,
         project_id=scope.project_id,
         organization_id=scope.organization_id,
+        catalog=organization_catalog(),
     )
 
 

@@ -192,6 +192,10 @@ class OrganizationDefinitionCatalogService:
     def has_handoff_definition(self, key: str, version: int) -> bool:
         return (str(key), int(version)) in self.snapshot().handoffs
 
+    def get_handoff_definition(self, key: str, version: int) -> dict[str, Any] | None:
+        value = self.snapshot().handoffs.get((str(key), int(version)))
+        return copy.deepcopy(value) if value is not None else None
+
     def has_policy(self, portable_ref: str) -> bool:
         try:
             ref = VersionedDefinitionRef.parse(portable_ref)
@@ -281,12 +285,19 @@ class OrganizationDefinitionCatalogService:
             config_root=config_root,
             schema=seed_blueprint_schema,
         )
-        organization_items, handoff_items, acceptance_fixtures, source_test_fixtures, limit_items, metadata = (
-            self._load_organization_fragments(
-                config_root=config_root,
-                schema=fragment_schema,
-                registry=registry,
-            )
+        (
+            organization_items,
+            handoff_items,
+            acceptance_fixtures,
+            source_test_fixtures,
+            limit_items,
+            metadata,
+            declared_policy_refs,
+            declared_workflow_refs,
+        ) = self._load_organization_fragments(
+            config_root=config_root,
+            schema=fragment_schema,
+            registry=registry,
         )
         workflow_items = self._load_workflows(
             config_root=config_root,
@@ -367,6 +378,19 @@ class OrganizationDefinitionCatalogService:
                 version_field="revision",
             )
             limits[ref] = OrganizationLimitProfile.model_validate(item)
+
+        self._validate_fragment_manifests(
+            declared_policy_refs=declared_policy_refs,
+            declared_workflow_refs=declared_workflow_refs,
+            policies=policies,
+            limits=limits,
+            workflows=workflows,
+        )
+        self._validate_handoff_definitions(
+            handoffs=handoffs,
+            policies=policies,
+            declared_policy_refs=declared_policy_refs,
+        )
 
         catalog_view = _CatalogValidationView(
             organizations=organizations,
@@ -462,6 +486,8 @@ class OrganizationDefinitionCatalogService:
         list[dict[str, Any]],
         list[dict[str, Any]],
         dict[str, Any],
+        list[str],
+        list[str],
     ]:
         paths = sorted((config_root / "organizations.d").glob("*.json"))
         if not paths:
@@ -471,21 +497,101 @@ class OrganizationDefinitionCatalogService:
         acceptance: list[dict[str, Any]] = []
         test_only: list[dict[str, Any]] = []
         limits: list[dict[str, Any]] = []
+        policy_refs: list[str] = []
+        workflow_refs: list[str] = []
         metadata: dict[str, Any] | None = None
         for path in paths:
             document = _load_json(path)
             _validate_instance(instance=document, schema=schema, label=str(path), registry=registry)
-            current_metadata = dict(document["metadata"])
-            if metadata is None:
-                metadata = current_metadata
-            elif current_metadata != metadata:
-                raise OrganizationDefinitionCatalogError("organization_catalog_metadata_conflict")
-            organizations.extend(copy.deepcopy(list(document["organization_blueprints"])))
-            handoffs.extend(copy.deepcopy(list(document["handoff_definitions"])))
-            acceptance.extend(copy.deepcopy(list(document["acceptance_fixtures"])))
-            test_only.extend(copy.deepcopy(list(document["test_only_fixtures"])))
-            limits.extend(copy.deepcopy(list(document["limit_profiles"])))
-        return organizations, handoffs, acceptance, test_only, limits, dict(metadata or {})
+            if document.get("metadata") is not None:
+                current_metadata = dict(document["metadata"])
+                if metadata is None:
+                    metadata = current_metadata
+                else:
+                    raise OrganizationDefinitionCatalogError("organization_catalog_metadata_duplicate")
+            organizations.extend(copy.deepcopy(list(document.get("organization_blueprints") or [])))
+            handoffs.extend(copy.deepcopy(list(document.get("handoff_definitions") or [])))
+            acceptance.extend(copy.deepcopy(list(document.get("acceptance_fixtures") or [])))
+            test_only.extend(copy.deepcopy(list(document.get("test_only_fixtures") or [])))
+            limits.extend(copy.deepcopy(list(document.get("limit_profiles") or [])))
+            policy_refs.extend(str(value) for value in list(document.get("policy_refs") or []))
+            workflow_refs.extend(str(value) for value in list(document.get("workflow_refs") or []))
+        if metadata is None:
+            raise OrganizationDefinitionCatalogError("organization_catalog_metadata_missing")
+        return (
+            organizations,
+            handoffs,
+            acceptance,
+            test_only,
+            limits,
+            dict(metadata or {}),
+            policy_refs,
+            workflow_refs,
+        )
+
+    @staticmethod
+    def _validate_fragment_manifests(
+        *,
+        declared_policy_refs: list[str],
+        declared_workflow_refs: list[str],
+        policies: Mapping[tuple[str, int], Mapping[str, Any]],
+        limits: Mapping[tuple[str, int], OrganizationLimitProfile],
+        workflows: Mapping[tuple[str, int], Mapping[str, Any]],
+    ) -> None:
+        for portable_ref in sorted(set(declared_policy_refs)):
+            ref = VersionedDefinitionRef.parse(portable_ref)
+            if (ref.key, ref.version) not in policies and (ref.key, ref.version) not in limits:
+                raise OrganizationDefinitionCatalogError(
+                    "organization_catalog_manifest_policy_not_found",
+                    details={"reference": portable_ref},
+                )
+        for portable_ref in sorted(set(declared_workflow_refs)):
+            ref = VersionedDefinitionRef.parse(portable_ref)
+            if (ref.key, ref.version) not in workflows:
+                raise OrganizationDefinitionCatalogError(
+                    "organization_catalog_manifest_workflow_not_found",
+                    details={"reference": portable_ref},
+                )
+
+    @staticmethod
+    def _validate_handoff_definitions(
+        *,
+        handoffs: Mapping[tuple[str, int], Mapping[str, Any]],
+        policies: Mapping[tuple[str, int], Mapping[str, Any]],
+        declared_policy_refs: list[str],
+    ) -> None:
+        declared = set(declared_policy_refs)
+        for (handoff_key, handoff_version), handoff in sorted(handoffs.items()):
+            gate_ref_value = str(handoff.get("acceptance_gate_ref") or "")
+            gate_ref = VersionedDefinitionRef.parse(gate_ref_value)
+            policy = policies.get((gate_ref.key, gate_ref.version))
+            details = {
+                "handoff_reference": f"{handoff_key}@{handoff_version}",
+                "acceptance_gate_ref": gate_ref_value,
+            }
+            if gate_ref_value not in declared:
+                raise OrganizationDefinitionCatalogError(
+                    "organization_handoff_acceptance_gate_not_declared",
+                    details=details,
+                )
+            if policy is None:
+                raise OrganizationDefinitionCatalogError(
+                    "organization_handoff_acceptance_gate_not_found",
+                    details=details,
+                )
+            if str(policy.get("policy_type") or "") != "acceptance_gate":
+                raise OrganizationDefinitionCatalogError(
+                    "organization_handoff_acceptance_gate_type_invalid",
+                    details=details,
+                )
+            handoff_artifacts = {str(value) for value in list(handoff.get("required_artifact_kinds") or [])}
+            gate_artifacts = {str(value) for value in list(policy.get("required_artifact_kinds") or [])}
+            missing = sorted(gate_artifacts - handoff_artifacts)
+            if missing:
+                raise OrganizationDefinitionCatalogError(
+                    "organization_handoff_acceptance_gate_artifacts_missing",
+                    details={**details, "missing_artifact_kinds": missing},
+                )
 
     @staticmethod
     def _load_workflows(
@@ -579,6 +685,12 @@ class _CatalogValidationView:
 
     def has_handoff_definition(self, key, version):
         return (key, version) in self._handoffs
+
+    def get_handoff_definition(self, key, version):
+        return self._handoffs.get((key, version))
+
+    def get_policy(self, key, version):
+        return self._policies.get((key, version))
 
     def has_policy(self, portable_ref):
         try:

@@ -50,6 +50,11 @@ class _Result:
             raise AssertionError("expected at most one row")
         return self.first()
 
+    def one(self):
+        if len(self._rows) != 1:
+            raise AssertionError("expected exactly one row")
+        return self._rows[0]
+
 
 class _Session:
     def __init__(self, baseline_limit) -> None:
@@ -69,6 +74,56 @@ class _Session:
         if "organization_limit_profile_revisions" in rendered:
             return _Result([self.baseline_limit])
         return _Result([])
+
+
+class _AssignmentSession:
+    def __init__(self, *, slots: tuple[SimpleNamespace, ...]) -> None:
+        self.unit = SimpleNamespace(id="unit-one", unit_key="team-one", lifecycle="active")
+        self.slots = slots
+        self.assignments: list = []
+        self.agent = SimpleNamespace(
+            url="agent-a",
+            registration_validated=True,
+            status="online",
+            authorized_capabilities=["code"],
+            capabilities=[],
+            execution_limits={"max_assignments": 4},
+        )
+
+    def get(self, _model, key):
+        return self.agent if key == self.agent.url else None
+
+    def exec(self, statement):
+        rendered = str(statement)
+        parameters = statement.compile().params
+        if "FROM organization_units" in rendered:
+            return _Result([self.unit] if parameters.get("unit_key_1") == self.unit.unit_key else [])
+        if "FROM organization_role_slots" in rendered and "slot_key =" in rendered:
+            slot_key = parameters.get("slot_key_1")
+            return _Result([slot for slot in self.slots if slot.slot_key == slot_key])
+        if "FROM organization_role_slots" in rendered:
+            return _Result(list(self.slots))
+        if "count(organization_role_assignments.id)" in rendered:
+            rows = self._matching_assignments(parameters)
+            if "role_slot_id =" in rendered:
+                rows = [row for row in rows if row.role_slot_id == parameters.get("role_slot_id_1")]
+            return _Result([len(rows)])
+        if "FROM organization_role_assignments" in rendered:
+            return _Result(self._matching_assignments(parameters))
+        raise AssertionError(f"unexpected assignment query: {rendered}")
+
+    def _matching_assignments(self, parameters: dict) -> list:
+        agent_url = parameters.get("agent_url_1")
+        return [row for row in self.assignments if agent_url is None or row.agent_url == agent_url]
+
+
+class _AssignmentRepository:
+    def __init__(self, session: _AssignmentSession) -> None:
+        self._session = session
+
+    def add(self, row):
+        self._session.assignments.append(row)
+        return row
 
 
 class _PlanGrantService:
@@ -444,3 +499,121 @@ def test_target_revision_and_limit_profile_drift_fail_closed_without_partial_sta
         _apply(service, bundle, drifted_plan)
     assert stale_limits.value.reason_code == "organization_bundle_limit_profile_stale"
     assert state.counts() == (0, 0, 0)
+
+
+def _assignment_slot(
+    slot_key: str,
+    *,
+    enforcement: str = "none",
+    independent_from_slot_ids: tuple[str, ...] = (),
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=f"slot-{slot_key}",
+        unit_id="unit-one",
+        slot_key=slot_key,
+        max_count=1,
+        lifecycle="active",
+        assignment_policy={
+            "principal_kinds": ["agent"],
+            "required_capabilities": ["code"],
+            "forbidden_capabilities": [],
+            "write_access_required": False,
+        },
+        separation_of_duties={
+            "enforcement": enforcement,
+            "independent_from_slot_ids": list(independent_from_slot_ids),
+            "independent_from_external_duties": [],
+        },
+    )
+
+
+def _assignment_stage_context(
+    *,
+    assignment_order: tuple[str, str],
+    enforcement: str,
+) -> tuple[_AssignmentSession, SimpleNamespace, SimpleNamespace, SimpleNamespace, dict]:
+    slots = {
+        "author": _assignment_slot("author"),
+        "reviewer": _assignment_slot(
+            "reviewer",
+            enforcement=enforcement,
+            independent_from_slot_ids=("author",),
+        ),
+    }
+    session = _AssignmentSession(slots=tuple(slots.values()))
+    uow = SimpleNamespace(session=session, assignments=_AssignmentRepository(session))
+    principal_ref = "same-principal"
+    bundle = SimpleNamespace(
+        assignments=[
+            SimpleNamespace(
+                instance_key="instance-one",
+                unit_key="team-one",
+                role_slot_key=role_slot_key,
+                principal_ref=principal_ref,
+            )
+            for role_slot_key in assignment_order
+        ]
+    )
+    plan = SimpleNamespace(
+        tenant_id="tenant-apply",
+        project_id="project-apply",
+        plan_digest="plan-digest",
+        instance_organization_ids={"instance-one": "organization-one"},
+        assignment_rebindings={principal_ref: "agent-a"},
+    )
+    item_by_identity = {
+        (
+            "assignments",
+            f"instance-one:team-one:{role_slot_key}:{principal_ref}",
+            1,
+        ): SimpleNamespace(action="create")
+        for role_slot_key in assignment_order
+    }
+    return session, uow, bundle, plan, item_by_identity
+
+
+@pytest.mark.parametrize(
+    "assignment_order",
+    (("author", "reviewer"), ("reviewer", "author")),
+)
+def test_bundle_strict_slot_separation_blocks_both_assignment_orders(
+    assignment_order: tuple[str, str],
+) -> None:
+    session, uow, bundle, plan, item_by_identity = _assignment_stage_context(
+        assignment_order=assignment_order,
+        enforcement="strict",
+    )
+
+    with pytest.raises(OrganizationBundleApplyError) as exc:
+        OrganizationBundleApplyService._stage_assignments(  # noqa: SLF001 - focused apply-path contract test
+            uow=uow,
+            bundle=bundle,
+            plan=plan,
+            item_by_identity=item_by_identity,
+        )
+
+    assert exc.value.reason_code == "organization_bundle_assignment_sod_conflict"
+    assert len(session.assignments) == 1
+
+
+@pytest.mark.parametrize(
+    "assignment_order",
+    (("author", "reviewer"), ("reviewer", "author")),
+)
+def test_bundle_warn_slot_separation_allows_both_assignment_orders(
+    assignment_order: tuple[str, str],
+) -> None:
+    session, uow, bundle, plan, item_by_identity = _assignment_stage_context(
+        assignment_order=assignment_order,
+        enforcement="warn",
+    )
+
+    applied = OrganizationBundleApplyService._stage_assignments(  # noqa: SLF001 - focused apply-path test
+        uow=uow,
+        bundle=bundle,
+        plan=plan,
+        item_by_identity=item_by_identity,
+    )
+
+    assert applied == 2
+    assert len(session.assignments) == 2

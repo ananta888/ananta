@@ -1,0 +1,249 @@
+{
+  "schema": "seed_blueprint_catalog.v1",
+  "version": "1.0.0",
+  "blueprints": [
+    {
+      "name": "Lean-Company-Direction",
+      "description": "One accountable direction role that owns the company goal and delegates execution exclusively through the Hub.",
+      "base_team_type_name": null,
+      "key": "lean_company_direction",
+      "version": 1,
+      "team_kind": "coordination",
+      "role_slots": [
+        {
+          "slot_id": "company_director",
+          "role_template_ref": "portfolio_product_owner@1",
+          "required": true,
+          "min_count": 1,
+          "default_count": 1,
+          "max_count": 1,
+          "assignment_policy": {"principal_kinds": ["agent"], "required_capabilities": ["planning", "portfolio"], "forbidden_capabilities": ["worker_orchestration", "queue_write"], "write_access_required": false},
+          "separation_of_duties": {"enforcement": "none", "independent_from_slot_ids": []},
+          "overlays": []
+        }
+      ],
+      "artifact_contracts": [
+        {"kind": "company_goal", "required": true, "portable": true},
+        {"kind": "priority_decision", "required": true, "portable": true},
+        {"kind": "accepted_requirements", "required": true, "portable": true}
+      ],
+      "workflow_ref": "lean_company_direction_workflow@1",
+      "policies": ["assignment_grounding@1", "coordination_task_proposals@1", "portfolio_decision_boundaries@1"],
+      "capacity_defaults": {"min_agents": 1, "default_agents": 1, "max_agents": 1},
+      "roles": [
+        {"name": "Company Director / Product Lead", "description": "Owns the company goal and priority decisions; the Hub owns all task routing.", "template_name": "Governance - Portfolio Product Owner", "sort_order": 10, "is_required": true, "config": {"slot_id": "company_director", "min_count": 1, "default_count": 1, "max_count": 1}}
+      ],
+      "artifacts": [
+        {"kind": "task", "title": "Company Goal", "description": "Define and prioritize the bounded company goal delegated through the Hub.", "sort_order": 10, "payload": {"status": "todo", "priority": "High"}},
+        {"kind": "policy", "title": "Hub Routing Boundary", "description": "Roles propose bounded follow-up work; only the Hub classifies, creates and assigns tasks.", "sort_order": 100, "payload": {"orchestration_owner": "hub", "workers_may_orchestrate": false}}
+      ]
+    },
+    {
+      "name": "Lean-Delivery-Cell",
+      "description": "Four-role product cell combining product ownership, technical leadership, vertical-slice delivery and independent quality verification.",
+      "base_team_type_name": null,
+      "key": "lean_delivery_cell",
+      "version": 1,
+      "team_kind": "delivery",
+      "role_slots": [
+        {
+          "slot_id": "product_lead",
+          "role_template_ref": "scrum_product_owner@1",
+          "required": true,
+          "min_count": 1,
+          "default_count": 1,
+          "max_count": 1,
+          "assignment_policy": {"principal_kinds": ["agent"], "required_capabilities": ["planning", "backlog"], "forbidden_capabilities": ["worker_orchestration", "queue_write"], "write_access_required": false},
+          "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["quality_engineer"]},
+          "overlays": []
+        },
+        {
+          "slot_id": "technical_lead",
+          "role_template_ref": "solution_architect_technical_lead@1",
+          "required": true,
+          "min_count": 1,
+          "default_count": 1,
+          "max_count": 1,
+          "assignment_policy": {"principal_kinds": ["agent"], "required_capabilities": ["architecture", "analysis"], "forbidden_capabilities": ["worker_orchestration", "release_approval"], "write_access_required": false},
+          "separation_of_duties": {"enforcement": "warn", "independent_from_slot_ids": ["quality_engineer"]},
+          "overlays": []
+        },
+        {
+          "slot_id": "product_engineer",
+          "role_template_ref": "fullstack_engineer@1",
+          "required": true,
+          "min_count": 1,
+          "default_count": 1,
+          "max_count": 1,
+          "assignment_policy": {"principal_kinds": ["agent"], "required_capabilities": ["coding", "testing"], "forbidden_capabilities": ["worker_orchestration", "self_approval"], "write_access_required": true},
+          "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["quality_engineer"]},
+          "overlays": []
+        },
+        {
+          "slot_id": "quality_engineer",
+          "role_template_ref": "qa_engineer@1",
+          "required": true,
+          "min_count": 1,
+          "default_count": 1,
+          "max_count": 1,
+          "assignment_policy": {"principal_kinds": ["agent"], "required_capabilities": ["testing", "verification"], "forbidden_capabilities": ["worker_orchestration", "self_approval"], "write_access_required": false},
+          "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["product_lead", "technical_lead", "product_engineer"]},
+          "overlays": []
+        }
+      ],
+      "artifact_contracts": [
+        {"kind": "delivery_plan", "required": true, "portable": true},
+        {"kind": "delivery_need", "required": true, "portable": true},
+        {"kind": "solution_boundary", "required": true, "portable": true},
+        {"kind": "product_increment", "required": true, "portable": true},
+        {"kind": "quality_report", "required": true, "portable": true}
+      ],
+      "workflow_ref": "lean_delivery_cell_workflow@1",
+      "policies": ["assignment_grounding@1", "delivery_task_proposals@1", "review_task_proposals@1"],
+      "capacity_defaults": {"min_agents": 4, "default_agents": 4, "max_agents": 4},
+      "roles": [
+        {"name": "Product Lead", "description": "Owns the cell outcome and backlog ordering.", "template_name": "Scrum - Product Owner", "sort_order": 10, "is_required": true, "config": {"slot_id": "product_lead", "min_count": 1, "default_count": 1, "max_count": 1}},
+        {"name": "Technical Lead", "description": "Owns local architecture and technical trade-offs.", "template_name": "Enterprise Delivery - Solution Architect", "sort_order": 20, "is_required": true, "config": {"slot_id": "technical_lead", "min_count": 1, "default_count": 1, "max_count": 1}},
+        {"name": "Product Engineer", "description": "Implements the delegated vertical slice.", "template_name": "Enterprise Delivery - Full-Stack Engineer", "sort_order": 30, "is_required": true, "config": {"slot_id": "product_engineer", "min_count": 1, "default_count": 1, "max_count": 1}},
+        {"name": "Quality Engineer", "description": "Independently verifies the product increment.", "template_name": "Product Quality - QA Engineer", "sort_order": 40, "is_required": true, "config": {"slot_id": "quality_engineer", "min_count": 1, "default_count": 1, "max_count": 1}}
+      ],
+      "artifacts": [
+        {"kind": "task", "title": "Deliver Product Increment", "description": "Plan, implement and independently verify one Hub-delegated increment.", "sort_order": 10, "payload": {"status": "todo", "priority": "High"}},
+        {"kind": "policy", "title": "Cell Delegation Boundary", "description": "The cell reacts only to Hub assignments and returns artifacts or bounded proposals to the Hub.", "sort_order": 100, "payload": {"orchestration_owner": "hub", "workers_may_orchestrate": false}}
+      ]
+    },
+    {
+      "name": "Lean-Discovery",
+      "description": "Three-role discovery team for research framing, requirements analysis and user evidence.",
+      "base_team_type_name": null,
+      "key": "lean_discovery",
+      "version": 1,
+      "team_kind": "research",
+      "role_slots": [
+        {
+          "slot_id": "research_lead",
+          "role_template_ref": "research_lead@1",
+          "required": true,
+          "min_count": 1,
+          "default_count": 1,
+          "max_count": 1,
+          "assignment_policy": {"principal_kinds": ["agent"], "required_capabilities": ["research", "analysis"], "forbidden_capabilities": ["worker_orchestration", "production_write"], "write_access_required": false},
+          "separation_of_duties": {"enforcement": "none", "independent_from_slot_ids": []},
+          "overlays": []
+        },
+        {
+          "slot_id": "requirements_analyst",
+          "role_template_ref": "domain_requirements_analyst@1",
+          "required": true,
+          "min_count": 1,
+          "default_count": 1,
+          "max_count": 1,
+          "assignment_policy": {"principal_kinds": ["agent"], "required_capabilities": ["requirements", "analysis"], "forbidden_capabilities": ["worker_orchestration", "backlog_ordering"], "write_access_required": false},
+          "separation_of_duties": {"enforcement": "none", "independent_from_slot_ids": []},
+          "overlays": []
+        },
+        {
+          "slot_id": "evidence_reviewer",
+          "role_template_ref": "independent_research_reviewer@1",
+          "required": true,
+          "min_count": 1,
+          "default_count": 1,
+          "max_count": 1,
+          "assignment_policy": {"principal_kinds": ["agent"], "required_capabilities": ["research", "review", "verification"], "forbidden_capabilities": ["worker_orchestration", "self_approval", "coding"], "write_access_required": false},
+          "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["research_lead", "requirements_analyst"]},
+          "overlays": []
+        }
+      ],
+      "artifact_contracts": [
+        {"kind": "research_brief", "required": true, "portable": true},
+        {"kind": "requirements_brief", "required": true, "portable": true},
+        {"kind": "evidence_review", "required": true, "portable": true},
+        {"kind": "accepted_requirements", "required": true, "portable": true}
+      ],
+      "workflow_ref": "lean_discovery_workflow@1",
+      "policies": ["assignment_grounding@1", "research_task_proposals@1"],
+      "capacity_defaults": {"min_agents": 3, "default_agents": 3, "max_agents": 3},
+      "roles": [
+        {"name": "Research Lead", "description": "Frames and synthesizes grounded research.", "template_name": "Enterprise Research - Research Lead", "sort_order": 10, "is_required": true, "config": {"slot_id": "research_lead", "min_count": 1, "default_count": 1, "max_count": 1}},
+        {"name": "Requirements Analyst", "description": "Turns evidence into bounded requirements.", "template_name": "Enterprise Research - Domain and Requirements Analyst", "sort_order": 20, "is_required": true, "config": {"slot_id": "requirements_analyst", "min_count": 1, "default_count": 1, "max_count": 1}},
+        {"name": "Independent Evidence Reviewer", "description": "Independently checks grounding, uncertainty and requirement evidence.", "template_name": "Enterprise Research - Independent Reviewer", "sort_order": 30, "is_required": true, "config": {"slot_id": "evidence_reviewer", "min_count": 1, "default_count": 1, "max_count": 1, "independent_from": ["research_lead", "requirements_analyst"]}}
+      ],
+      "artifacts": [
+        {"kind": "task", "title": "Discover Product Need", "description": "Produce grounded evidence and requirements for a Hub-routed goal.", "sort_order": 10, "payload": {"status": "todo", "priority": "High"}},
+        {"kind": "policy", "title": "Grounded Discovery", "description": "Only Hub-allowlisted source and run identifiers may support claims.", "sort_order": 100, "payload": {"grounding_policy_ref": "assignment_grounding@1", "orchestration_owner": "hub"}}
+      ]
+    },
+    {
+      "name": "Lean-Enablement",
+      "description": "Four-role enablement team for platform ownership, engineering, reliability and delivery security.",
+      "base_team_type_name": null,
+      "key": "lean_enablement",
+      "version": 1,
+      "team_kind": "shared_service",
+      "role_slots": [
+        {
+          "slot_id": "platform_lead",
+          "role_template_ref": "platform_service_owner@1",
+          "required": true,
+          "min_count": 1,
+          "default_count": 1,
+          "max_count": 1,
+          "assignment_policy": {"principal_kinds": ["agent"], "required_capabilities": ["platform", "planning"], "forbidden_capabilities": ["worker_orchestration", "queue_write"], "write_access_required": false},
+          "separation_of_duties": {"enforcement": "none", "independent_from_slot_ids": []},
+          "overlays": []
+        },
+        {
+          "slot_id": "platform_engineer",
+          "role_template_ref": "platform_engineer@1",
+          "required": true,
+          "min_count": 1,
+          "default_count": 1,
+          "max_count": 1,
+          "assignment_policy": {"principal_kinds": ["agent"], "required_capabilities": ["platform", "coding"], "forbidden_capabilities": ["worker_orchestration", "unapproved_production_write"], "write_access_required": true},
+          "separation_of_duties": {"enforcement": "warn", "independent_from_slot_ids": ["reliability_engineer"]},
+          "overlays": []
+        },
+        {
+          "slot_id": "reliability_engineer",
+          "role_template_ref": "site_reliability_engineer@1",
+          "required": true,
+          "min_count": 1,
+          "default_count": 1,
+          "max_count": 1,
+          "assignment_policy": {"principal_kinds": ["agent"], "required_capabilities": ["reliability", "observability"], "forbidden_capabilities": ["worker_orchestration", "unapproved_production_write"], "write_access_required": false},
+          "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["platform_engineer", "security_engineer"]},
+          "overlays": []
+        },
+        {
+          "slot_id": "security_engineer",
+          "role_template_ref": "devsecops_engineer@1",
+          "required": true,
+          "min_count": 1,
+          "default_count": 1,
+          "max_count": 1,
+          "assignment_policy": {"principal_kinds": ["agent"], "required_capabilities": ["security", "automation"], "forbidden_capabilities": ["worker_orchestration", "self_approval"], "write_access_required": true},
+          "separation_of_duties": {"enforcement": "strict", "independent_from_slot_ids": ["platform_engineer", "reliability_engineer"]},
+          "overlays": []
+        }
+      ],
+      "artifact_contracts": [
+        {"kind": "platform_plan", "required": true, "portable": true},
+        {"kind": "operational_readiness", "required": true, "portable": true},
+        {"kind": "security_evidence", "required": true, "portable": true}
+      ],
+      "workflow_ref": "lean_enablement_workflow@1",
+      "policies": ["assignment_grounding@1", "delivery_task_proposals@1", "review_task_proposals@1"],
+      "capacity_defaults": {"min_agents": 4, "default_agents": 4, "max_agents": 4},
+      "roles": [
+        {"name": "Platform Lead", "description": "Owns enablement priorities and service outcomes.", "template_name": "Platform - Service Owner", "sort_order": 10, "is_required": true, "config": {"slot_id": "platform_lead", "min_count": 1, "default_count": 1, "max_count": 1}},
+        {"name": "Platform Engineer", "description": "Builds reusable platform capabilities.", "template_name": "Platform - Platform Engineer", "sort_order": 20, "is_required": true, "config": {"slot_id": "platform_engineer", "min_count": 1, "default_count": 1, "max_count": 1}},
+        {"name": "Reliability Engineer", "description": "Verifies reliability and operational readiness.", "template_name": "Platform - Site Reliability Engineer", "sort_order": 30, "is_required": true, "config": {"slot_id": "reliability_engineer", "min_count": 1, "default_count": 1, "max_count": 1}},
+        {"name": "Security Engineer", "description": "Integrates security controls and evidence.", "template_name": "Platform - DevSecOps Engineer", "sort_order": 40, "is_required": true, "config": {"slot_id": "security_engineer", "min_count": 1, "default_count": 1, "max_count": 1}}
+      ],
+      "artifacts": [
+        {"kind": "task", "title": "Enable Safe Delivery", "description": "Build and verify Hub-delegated platform, reliability and security capabilities.", "sort_order": 10, "payload": {"status": "todo", "priority": "High"}},
+        {"kind": "policy", "title": "Production Safety", "description": "No production mutation occurs without explicit Hub authorization and verification.", "sort_order": 100, "payload": {"orchestration_owner": "hub", "unapproved_production_write": false}}
+      ]
+    }
+  ]
+}

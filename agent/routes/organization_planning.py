@@ -110,9 +110,7 @@ def get_organization_category_research_readiness(organization_id: str, goal_id: 
     """Resolve the Category-research selector and project current readiness."""
 
     try:
-        selector = _closed_query_identifiers(
-            {"unit_id", "team_id", "role_slot_id", "catalog_task_id"}
-        )
+        selector = _closed_query_identifiers({"unit_id", "team_id", "role_slot_id", "catalog_task_id"})
         payload = get_organization_planning_composition().get_category_research_readiness(
             principal=_operator_principal(
                 organization_id,
@@ -262,6 +260,7 @@ def preview_organization_reference_workflow(
             workflow_version=_positive_integer(body, "workflow_version"),
             goal=_required_free_text(body, "goal", maximum=2000),
             source_category_item_ids=list(body["source_category_item_ids"]),
+            target_unit_id=_optional_identifier(body, "target_unit_id"),
         )
     except (TypeError, ValueError) as exc:
         return _operator_error(exc)
@@ -301,6 +300,7 @@ def derive_organization_reference_workflow(
             source_category_item_ids=list(body["source_category_item_ids"]),
             exclusions=dict(body.get("exclusions") or {}),
             idempotency_key=_required_idempotency_header(),
+            target_unit_id=_optional_identifier(body, "target_unit_id"),
         )
     except (TypeError, ValueError) as exc:
         return _operator_error(exc)
@@ -754,6 +754,15 @@ def _required_identifier(body: dict[str, Any], field: str) -> str:
     return _required_text(body, field, maximum=191)
 
 
+def _optional_identifier(
+    body: dict[str, Any],
+    field: str,
+) -> str | None:
+    if field not in body or body[field] is None:
+        return None
+    return _required_identifier(body, field)
+
+
 def _closed_query_identifiers(fields: set[str]) -> dict[str, str]:
     if set(request.args) != fields or any(len(request.args.getlist(field)) != 1 for field in fields):
         raise OrganizationPlanningCompositionError(
@@ -762,8 +771,7 @@ def _closed_query_identifiers(fields: set[str]) -> dict[str, str]:
         )
     values = {field: str(request.args.get(field) or "").strip() for field in fields}
     if any(
-        not value or len(value) > 191 or any(character.isspace() for character in value)
-        for value in values.values()
+        not value or len(value) > 191 or any(character.isspace() for character in value) for value in values.values()
     ):
         raise OrganizationPlanningCompositionError(
             "category_research_readiness_selector_invalid",
@@ -865,6 +873,7 @@ def _reference_workflow_body(*, include_exclusions: bool) -> dict[str, Any]:
         "workflow_version",
         "goal",
         "source_category_item_ids",
+        "target_unit_id",
     }
     if include_exclusions:
         fields.add("exclusions")

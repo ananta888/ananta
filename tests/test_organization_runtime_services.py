@@ -32,6 +32,7 @@ from agent.services.organization_workflow_loop_service import (
 from agent.services.separation_of_duties_service import DutyAssignment, SeparationOfDutiesPolicy
 from agent.services.team_handoff_service import (
     InMemoryHandoffStateStore,
+    TeamHandoffAcceptanceCheck,
     TeamHandoffArtifactRef,
     TeamHandoffContract,
     TeamHandoffService,
@@ -107,12 +108,25 @@ def test_dependency_release_requires_completed_source_and_verified_artifact() ->
 
 class _ArtifactReader:
     def get_verified_version(self, *, goal_id: str, artifact_id: str, version: str):
-        return VerifiedArtifactVersion(artifact_id, version, "digest-1", "verified", (), ("handoff",))
+        return VerifiedArtifactVersion(
+            artifact_id,
+            version,
+            "digest-1",
+            "verified",
+            (),
+            ("handoff",),
+            producer_task_id="task-a",
+        )
 
 
 class _EvidenceVerifier:
     def verify(self, **kwargs):
         return True, ()
+
+
+class _RejectingEvidenceVerifier:
+    def verify(self, **kwargs):
+        return False, ("artifact_evidence_not_allowed",)
 
 
 def test_handoff_is_idempotent_and_consumer_decision_is_structured() -> None:
@@ -178,6 +192,132 @@ def test_handoff_is_idempotent_and_consumer_decision_is_structured() -> None:
     assert accepted.revision == 2
     assert decision_replay.replayed is True
     assert decision_replay.revision == 2
+
+
+def test_definition_bound_handoff_ignores_spoofed_passed_checks_when_evidence_fails() -> None:
+    store = InMemoryHandoffStateStore()
+    service = TeamHandoffService(
+        artifacts=_ArtifactReader(),
+        evidence=_RejectingEvidenceVerifier(),
+        store=store,
+    )
+    contract = TeamHandoffContract(
+        handoff_id="handoff-bound",
+        correlation_id="correlation-bound",
+        organization_id="org-1",
+        goal_id="goal-1",
+        producer_unit_id="unit-a",
+        producer_team_id="team-a",
+        producer_role_slot_id="developer-slot",
+        producer_task_id="task-a",
+        consumer_unit_id="unit-b",
+        consumer_team_id="team-b",
+        consumer_role_slot_id="review-slot",
+        consumer_task_id="task-b",
+        artifact_refs=(TeamHandoffArtifactRef("artifact-1", "1", "digest-1"),),
+        acceptance_checks=(
+            TeamHandoffAcceptanceCheck(
+                check_id="gate-check",
+                check_kind="policy_gate",
+                expected="quality_gate@1",
+                status="passed",
+            ),
+        ),
+        due_at="2030-01-01T00:00:00Z",
+        sla_seconds=3600,
+        handoff_definition_ref="quality_handoff@1",
+        acceptance_gate_ref="quality_gate@1",
+        acceptance_gate_hash="a" * 64,
+        acceptance_gate_allowed_decisions=("accepted", "rejected", "needs_changes"),
+    )
+
+    submitted = service.submit(
+        contract=contract,
+        assignment_id="assignment-a",
+        dispatch_lease_id="lease-a",
+        idempotency_key="bound-submit",
+    )
+    assert submitted.status == "blocked"
+    assert submitted.reason_code == "artifact_evidence_not_allowed"
+    assert store.get(contract.handoff_id) is None
+
+
+def test_definition_bound_handoff_accepts_passed_gate_and_replays_unbound_request() -> None:
+    store = InMemoryHandoffStateStore()
+    service = TeamHandoffService(
+        artifacts=_ArtifactReader(),
+        evidence=_EvidenceVerifier(),
+        store=store,
+    )
+    bound = TeamHandoffContract(
+        handoff_id="handoff-passed",
+        correlation_id="correlation-passed",
+        organization_id="org-1",
+        goal_id="goal-1",
+        producer_unit_id="unit-a",
+        producer_team_id="team-a",
+        producer_role_slot_id="developer-slot",
+        producer_task_id="task-a",
+        consumer_unit_id="unit-b",
+        consumer_team_id="team-b",
+        consumer_role_slot_id="review-slot",
+        consumer_task_id="task-b",
+        artifact_refs=(TeamHandoffArtifactRef("artifact-1", "1", "digest-1"),),
+        acceptance_checks=(
+            TeamHandoffAcceptanceCheck(
+                check_id="gate-check",
+                check_kind="policy_gate",
+                expected="quality_gate@1",
+                status="passed",
+            ),
+        ),
+        due_at="2030-01-01T00:00:00Z",
+        sla_seconds=3600,
+        handoff_definition_ref="quality_handoff@1",
+        acceptance_gate_ref="quality_gate@1",
+        acceptance_gate_hash="b" * 64,
+        acceptance_gate_allowed_decisions=("accepted", "rejected", "needs_changes"),
+    )
+    submitted = service.submit(
+        contract=bound,
+        assignment_id="assignment-a",
+        dispatch_lease_id="lease-a",
+        idempotency_key="passed-submit",
+    )
+    replay = service.submit(
+        contract=replace(
+            bound,
+            acceptance_gate_ref="",
+            acceptance_gate_hash="",
+            acceptance_gate_allowed_decisions=(),
+        ),
+        assignment_id="assignment-a",
+        dispatch_lease_id="stale-lease-is-irrelevant-for-replay",
+        idempotency_key="passed-submit",
+    )
+    accepted = service.decide(
+        handoff_id=bound.handoff_id,
+        decision="accepted",
+        reason_code="gate_checked",
+        actor_principal_id="reviewer",
+        expected_revision=1,
+        idempotency_key="passed-decision",
+        duty_assignments=(DutyAssignment("reviewer", "review-slot", "team-b", frozenset()),),
+        sod_policy=SeparationOfDutiesPolicy.enterprise_default(),
+    )
+
+    assert submitted.status == "pending_acceptance"
+    assert replay.replayed is True
+    assert accepted.status == "accepted"
+    persisted_checks = list((store.get(bound.handoff_id) or {})["contract"]["acceptance_checks"])
+    assert persisted_checks == [
+        {
+            "check_id": "gate-check",
+            "check_kind": "policy_gate",
+            "expected": "quality_gate@1",
+            "status": "passed",
+        }
+    ]
 
 
 def test_budget_reservation_is_atomic_idempotent_and_bounded() -> None:

@@ -291,6 +291,7 @@ class SqlOrganizationTopologyReadRepository:
                     "slot_key": slot.slot_key,
                     "name": slot.slot_key,
                     "role_template_ref": f"{slot.role_template_key}@{slot.role_template_version}",
+                    "default_count": slot.default_count,
                 }
                 for slot in slots
             ],
@@ -585,7 +586,7 @@ class SqlOrganizationTopologyReadRepository:
                     ArtifactVersionDB.sha256,
                     ArtifactVersionDB.original_filename,
                     ArtifactVersionDB.created_at,
-                    ArtifactVersionDB.version_metadata,
+                    *_artifact_scope_projection(ArtifactVersionDB.version_metadata),
                 ).where(ArtifactVersionDB.id.in_(refs))
             ).all()
         )
@@ -598,7 +599,7 @@ class SqlOrganizationTopologyReadRepository:
                     ArtifactDB.latest_sha256,
                     ArtifactDB.latest_filename,
                     ArtifactDB.updated_at,
-                    ArtifactDB.artifact_metadata,
+                    *_artifact_scope_projection(ArtifactDB.artifact_metadata),
                 ).where(ArtifactDB.id.in_(artifact_ids))
             ).all()
         )
@@ -615,7 +616,7 @@ class SqlOrganizationTopologyReadRepository:
                         ArtifactVersionDB.sha256,
                         ArtifactVersionDB.original_filename,
                         ArtifactVersionDB.created_at,
-                        ArtifactVersionDB.version_metadata,
+                        *_artifact_scope_projection(ArtifactVersionDB.version_metadata),
                     ).where(ArtifactVersionDB.id.in_(latest_version_ids))
                 ).all()
             )
@@ -631,19 +632,21 @@ class SqlOrganizationTopologyReadRepository:
             latest_version_id = str(artifact.latest_version_id or "")
             version = version_by_id.get(latest_version_id)
             if not (
-                _artifact_scope_matches(
-                    artifact.artifact_metadata,
+                _projected_artifact_scope_matches(
+                    artifact,
                     tenant_id=tenant_id,
                     project_id=project_id,
                     organization_id=organization_id,
+                    metadata_fallback_field="artifact_metadata",
                 )
                 or (
                     version is not None
-                    and _artifact_scope_matches(
-                        version.version_metadata,
+                    and _projected_artifact_scope_matches(
+                        version,
                         tenant_id=tenant_id,
                         project_id=project_id,
                         organization_id=organization_id,
+                        metadata_fallback_field="version_metadata",
                     )
                 )
             ):
@@ -735,6 +738,61 @@ def _artifact_scope_matches(
         and str(candidate.get("project_id") or "") == project_id
         and str(candidate.get("organization_id") or "") == organization_id
         for candidate in candidates
+    )
+
+
+_ARTIFACT_SCOPE_CONTAINERS = (
+    "direct",
+    "organization_scope",
+    "organization_binding",
+    "scope",
+)
+
+
+def _artifact_scope_projection(column: Any) -> tuple[Any, ...]:
+    """Select only scope identifiers from artifact JSON, never its payload."""
+
+    expressions: list[Any] = []
+    for container in _ARTIFACT_SCOPE_CONTAINERS:
+        candidate = column if container == "direct" else column[container]
+        for field in ("tenant_id", "project_id", "organization_id"):
+            expressions.append(candidate[field].as_string().label(f"artifact_scope_{container}_{field}"))
+    return tuple(expressions)
+
+
+def _projected_artifact_scope_matches(
+    row: Any,
+    *,
+    tenant_id: str,
+    project_id: str,
+    organization_id: str,
+    metadata_fallback_field: str,
+) -> bool:
+    """Validate projected identifiers; the fallback supports test adapters."""
+
+    expected = (tenant_id, project_id, organization_id)
+    for container in _ARTIFACT_SCOPE_CONTAINERS:
+        actual = tuple(
+            str(
+                getattr(
+                    row,
+                    f"artifact_scope_{container}_{field}",
+                    "",
+                )
+                or ""
+            )
+            for field in ("tenant_id", "project_id", "organization_id")
+        )
+        if actual == expected:
+            return True
+
+    # Lightweight repository fakes may return ORM objects even for projected
+    # column queries.  Production SQL rows use the bounded fields above.
+    return _artifact_scope_matches(
+        getattr(row, metadata_fallback_field, None),
+        tenant_id=tenant_id,
+        project_id=project_id,
+        organization_id=organization_id,
     )
 
 
