@@ -2,7 +2,7 @@
   "$schema": "../todo.schema.json",
   "version": 1,
   "created": "2026-08-02",
-  "updated": "2026-08-02",
+  "updated": "2026-08-03",
   "project": "ananta",
   "owner": "Ananta maintainers",
   "track": "enterprise_agentic_scrum_organization_blueprints",
@@ -193,11 +193,12 @@
       "Der Standardkatalog enthält 67 Rollen, sieben Team-Blueprints, acht Workflows und referenzierte Organisationsgrößen mit fünf, acht und zehn Teams; vier isolierte kleine 2er-/3er-Testkompositionen ergänzen die mittlere Acht-Team-Abnahme.",
       "Die Planning-Pipeline erzeugt zuerst eine Category-Todo nach todos/todo.schema.json und delegiert anschließend genau eine gebundene Track-Planungsaufgabe nach todos/todo.track.schema.json an einen Worker; nur der Hub validiert, persistiert, adoptiert und materialisiert.",
       "Workerrollen können assignment- und lease-gebundene Folgeaufgaben vorschlagen; ausschließlich der Hub ordnet Vorschläge ein und weist sie Rollen, Agenten oder Teams zu.",
-      "Normalisierte Persistenz, atomare Unit-of-Work-Grenzen, Organizations-Bundle-v2, Approval/Grant-Sicherheit, REST/TUI sowie Angular-Hierarchie-, Graph-, Editor- und Planning-Ansichten sind implementiert."
+      "Normalisierte Persistenz, atomare Unit-of-Work-Grenzen, Organizations-Bundle-v2, Approval/Grant-Sicherheit, REST/TUI sowie Angular-Hierarchie-, Graph-, Editor- und Planning-Ansichten sind implementiert.",
+      "Der lokale Compose-Next-Rollout wurde datenwahrend auf Alembic-Head 5a0e2b4c6d8f aktualisiert; Hub und zwei strikt registrierte Worker laufen mit source_analysis-Autorisierung. Diese lokale Betriebsprüfung ist ohne erlaubte RUN_*-Referenz weiterhin kein Promotionsnachweis."
     ],
     "review_gaps_unverified": [
-      "Die komplexen Unit-, Integrations-, Security-, Browser-, Accessibility-, Performance- und realen Worker-Tests sind auf ausdrückliche Anweisung bis zur Freigabe nur definiert, aber nicht ausgeführt.",
-      "Alembic Upgrade/Downgrade gegen reale Datenbanken und das globale Release-Konvergenzgate wurden nicht ausgeführt; der Release-Nachweis unter artifacts/test-gates/ fehlt daher bewusst.",
+      "Fokussierte Unit-, Security- und statische Tests sind grün; die komplexen Integrations-, Browser-, Accessibility-, Performance-, Provider- und vollständigen Worker-Suiten bleiben auf ausdrückliche Anweisung bis zur Freigabe unausgeführt.",
+      "Das Alembic-Upgrade gegen die lokale PostgreSQL-Instanz ist auf Head ausgeführt und das statische Release-Gate unter artifacts/test-gates/ dokumentiert; Downgrade-, Voll-E2E- und komplexe Konvergenzprüfungen bleiben not_run, daher ist das Gesamtgate weiterhin deferred/open.",
       "Mangels bereitgestellter autoritativer SRC_*/RUN_*-IDs bleibt die Implementierung unverified und non_promotable; es wurden keine Quellen- oder Lauf-IDs erfunden."
     ]
   },
@@ -2373,7 +2374,7 @@
       "Die aktuelle Todo ist mangels bereitgestellter SRC_*/RUN_*-IDs unverified und non_promotable; existing_evidence bleibt Arbeitshinweis, bis eine Hub-gebundene Research-Ausführung autoritative Source-Refs liefert.",
       "Die genaue Anzahl realer Agenten ist nicht gleich der Anzahl Role Slots: ein Agent darf kontrolliert mehrere kompatible Slots halten, wobei Kapazität und Separation of Duties serverseitig geprüft werden.",
       "Hierarchie, fachlicher Relationsgraph und Runtime-Dependency-Overlay sind getrennte Projektionen derselben Hub-eigenen Organisation; Canvas-Positionen und Collapse-State sind keine Orchestrierungs- oder Topologiewahrheit.",
-      "Komplexe Tests und das Release-Konvergenzgate bleiben bis zur ausdrücklichen Freigabe unausgeführt; ihre Definitionen zählen daher als partial und das globale Gate als open."
+      "Fokussierte Unit-, Security- und statische Release-Prüfungen sowie das lokale PostgreSQL-Upgrade sind grün. Komplexe Integration-, Browser-, Accessibility-, Performance-, Provider- und Voll-E2E-Suiten bleiben bis zur ausdrücklichen Freigabe not_run; das globale Gate bleibt deshalb deferred/open."
     ],
     "recommended_order": [
       "ESORG-ARCH-001",
