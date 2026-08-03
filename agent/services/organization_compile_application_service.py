@@ -202,24 +202,13 @@ class OrganizationCompileApplicationService:
         principal_id: str,
         client_plan: Mapping[str, Any],
     ) -> tuple[CompiledOrganizationPlan, dict[str, Any]]:
-        token = str(client_plan.get("compile_token") or "").strip()
-        if not token:
-            raise OrganizationCompileBindingError("organization_compile_token_required")
-        try:
-            bound = self._signer.loads(token, max_age=self._ttl)
-        except SignatureExpired as exc:
-            raise OrganizationCompileBindingError("organization_compile_plan_expired") from exc
-        except BadData as exc:
-            raise OrganizationCompileBindingError("organization_compile_token_invalid") from exc
-        if not isinstance(bound, dict) or bound.get("schema") != "organization_compile_token.v1":
-            raise OrganizationCompileBindingError("organization_compile_token_invalid")
-        expected_scope = {
-            "tenant_id": tenant_id,
-            "project_id": project_id,
-            "principal_id": principal_id,
-        }
-        if any(str(bound.get(key) or "") != value for key, value in expected_scope.items()):
-            raise OrganizationCompileBindingError("organization_compile_scope_mismatch")
+        bound = self._decode_bound_plan(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            principal_id=principal_id,
+            client_plan=client_plan,
+            enforce_ttl=True,
+        )
         definition_ref = VersionedDefinitionRef.parse(str(bound.get("definition_ref") or ""))
         request = OrganizationCompileRequest(
             tenant_id=tenant_id,
@@ -243,10 +232,63 @@ class OrganizationCompileApplicationService:
         for key, current_value in checks.items():
             if str(bound.get(key) or "") != str(current_value):
                 raise OrganizationCompileBindingError(f"organization_{key}_stale")
+        return current, bound
+
+    def verify_replay_binding(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        principal_id: str,
+        client_plan: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Verify a historical compile binding without granting a new write.
+
+        Signature, schema, authenticated scope, and mirrored client fields are
+        still mandatory.  Only token age is ignored so the caller can look up
+        an already committed idempotency receipt; a missing receipt must return
+        to ``recompile_bound_plan`` and its normal TTL/catalog checks.
+        """
+
+        return self._decode_bound_plan(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            principal_id=principal_id,
+            client_plan=client_plan,
+            enforce_ttl=False,
+        )
+
+    def _decode_bound_plan(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        principal_id: str,
+        client_plan: Mapping[str, Any],
+        enforce_ttl: bool,
+    ) -> dict[str, Any]:
+        token = str(client_plan.get("compile_token") or "").strip()
+        if not token:
+            raise OrganizationCompileBindingError("organization_compile_token_required")
+        try:
+            bound = self._signer.loads(token, max_age=self._ttl if enforce_ttl else None)
+        except SignatureExpired as exc:
+            raise OrganizationCompileBindingError("organization_compile_plan_expired") from exc
+        except BadData as exc:
+            raise OrganizationCompileBindingError("organization_compile_token_invalid") from exc
+        if not isinstance(bound, dict) or bound.get("schema") != "organization_compile_token.v1":
+            raise OrganizationCompileBindingError("organization_compile_token_invalid")
+        expected_scope = {
+            "tenant_id": tenant_id,
+            "project_id": project_id,
+            "principal_id": principal_id,
+        }
+        if any(str(bound.get(key) or "") != value for key, value in expected_scope.items()):
+            raise OrganizationCompileBindingError("organization_compile_scope_mismatch")
         for key in ("organization_id", "definition_revision", "plan_digest", "admin_policy_hash"):
             if str(client_plan.get(key) or "") != str(bound.get(key) or ""):
                 raise OrganizationCompileBindingError(f"organization_{key}_binding_invalid")
-        return current, bound
+        return bound
 
     def _compiler(self, *, definitions=None, limit_profiles=None) -> OrganizationBlueprintCompiler:
         return OrganizationBlueprintCompiler(

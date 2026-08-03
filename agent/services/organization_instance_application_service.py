@@ -22,7 +22,11 @@ from agent.db_models.organizations import (
     OrganizationOperationDB,
     OrganizationTopologySnapshotDB,
 )
-from agent.models.organization_models import CompiledOrganizationPlan, canonical_sha256
+from agent.models.organization_models import (
+    CompiledOrganizationPlan,
+    OrganizationInstantiationResult,
+    canonical_sha256,
+)
 from agent.services.organization_active_work_service import (
     OrganizationActiveWorkError,
     SqlOrganizationActiveWorkService,
@@ -173,6 +177,38 @@ class OrganizationInstanceApplicationService:
             topology_lifecycle or SqlOrganizationTopologyLifecycleService()
         )
 
+    def recover_applied_instantiation(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        plan_digest: str,
+        name: str,
+        idempotency_key: str,
+        principal_id: str,
+        expected_organization_id: str,
+        expected_definition_revision: str,
+        grant_id: str,
+    ) -> OrganizationInstantiationResult | None:
+        """Recover a completed idempotent create before compile-token checks."""
+
+        return OrganizationBlueprintInstantiationService(
+            limit_profiles=self._catalog,
+            uow_factory=lambda: OrganizationUnitOfWork(
+                session_factory=self._session_factory,
+            ),
+        ).recover_applied_instantiation(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            plan_digest=plan_digest,
+            name=name,
+            idempotency_key=idempotency_key,
+            principal_id=principal_id,
+            expected_organization_id=expected_organization_id,
+            expected_definition_revision=expected_definition_revision,
+            authorization_ref=grant_id,
+        )
+
     def instantiate(
         self,
         *,
@@ -226,6 +262,7 @@ class OrganizationInstanceApplicationService:
             expected_definition_revision=definition_revision,
             expected_plan_digest=plan_digest,
             principal_id=principal_id,
+            authorization_ref=grant_id,
         )
 
     def transition_lifecycle(

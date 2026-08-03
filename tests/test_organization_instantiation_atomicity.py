@@ -210,7 +210,7 @@ def _service(state: TransactionState, plan, *, fail_at: str | None = None):
     )
 
 
-def _instantiate(service, plan):
+def _instantiate(service, plan, *, authorization_ref: str | None = None):
     return service.instantiate(
         plan=plan,
         name="Atomic Organization",
@@ -218,6 +218,7 @@ def _instantiate(service, plan):
         expected_definition_revision=plan.definition_revision,
         expected_plan_digest=plan.plan_digest,
         principal_id="organization-operator",
+        authorization_ref=authorization_ref,
     )
 
 
@@ -272,6 +273,141 @@ def test_successful_replay_reuses_one_complete_aggregate_without_duplicates() ->
         "snapshots": 1,
         "audit_outbox": 1,
     }
+
+
+def test_completed_instantiation_can_be_recovered_without_a_compiled_plan() -> None:
+    plan = _compiled_plan()
+    state = TransactionState()
+    service = _service(state, plan)
+    created = _instantiate(service, plan)
+
+    recovered = service.recover_applied_instantiation(
+        tenant_id=plan.tenant_id,
+        project_id=plan.project_id,
+        plan_digest=plan.plan_digest,
+        name="Atomic Organization",
+        idempotency_key="instantiate-atomic-one",
+        principal_id="organization-operator",
+        expected_organization_id=plan.organization_id,
+        expected_definition_revision=plan.definition_revision,
+    )
+
+    assert recovered is not None
+    assert recovered.idempotent_replay is True
+    assert recovered.organization_id == created.organization_id
+
+
+@pytest.mark.parametrize(
+    "changed_binding",
+    (
+        {"plan_digest": "f" * 64},
+        {"name": "Different Organization"},
+        {"principal_id": "different-operator"},
+    ),
+)
+def test_precompile_recovery_rejects_any_changed_request_binding(
+    changed_binding: dict[str, str],
+) -> None:
+    plan = _compiled_plan()
+    state = TransactionState()
+    service = _service(state, plan)
+    _instantiate(service, plan)
+    binding = {
+        "tenant_id": plan.tenant_id,
+        "project_id": plan.project_id,
+        "plan_digest": plan.plan_digest,
+        "name": "Atomic Organization",
+        "idempotency_key": "instantiate-atomic-one",
+        "principal_id": "organization-operator",
+        "expected_organization_id": plan.organization_id,
+        "expected_definition_revision": plan.definition_revision,
+    }
+    binding.update(changed_binding)
+
+    with pytest.raises(OrganizationInstantiationError) as exc:
+        service.recover_applied_instantiation(**binding)
+
+    assert exc.value.reason_code == "organization_idempotency_key_conflict"
+
+
+def test_precompile_recovery_fails_closed_for_unfinished_operation() -> None:
+    plan = _compiled_plan()
+    state = TransactionState()
+    service = _service(state, plan)
+    _instantiate(service, plan)
+    state.rows["operations"][0].status = "pending"
+
+    with pytest.raises(OrganizationInstantiationError) as exc:
+        service.recover_applied_instantiation(
+            tenant_id=plan.tenant_id,
+            project_id=plan.project_id,
+            plan_digest=plan.plan_digest,
+            name="Atomic Organization",
+            idempotency_key="instantiate-atomic-one",
+            principal_id="organization-operator",
+            expected_organization_id=plan.organization_id,
+            expected_definition_revision=plan.definition_revision,
+        )
+
+    assert exc.value.reason_code == "organization_instantiation_in_progress"
+
+
+def test_precompile_recovery_returns_none_when_operation_is_missing() -> None:
+    plan = _compiled_plan()
+    state = TransactionState()
+
+    recovered = _service(state, plan).recover_applied_instantiation(
+        tenant_id=plan.tenant_id,
+        project_id=plan.project_id,
+        plan_digest=plan.plan_digest,
+        name="Atomic Organization",
+        idempotency_key="instantiate-atomic-one",
+        principal_id="organization-operator",
+        expected_organization_id=plan.organization_id,
+        expected_definition_revision=plan.definition_revision,
+    )
+
+    assert recovered is None
+    assert state.counts() == {name: 0 for name in _REPOSITORIES}
+
+
+def test_receipt_binds_the_consumed_precreation_grant_and_stabilizes_replay() -> None:
+    plan = _compiled_plan()
+    state = TransactionState()
+    service = _service(state, plan)
+    created = _instantiate(service, plan, authorization_ref="precreation-grant-1")
+    state.rows["snapshots"][0].snapshot_hash = "changed-after-instantiation"
+
+    recovered = service.recover_applied_instantiation(
+        tenant_id=plan.tenant_id,
+        project_id=plan.project_id,
+        plan_digest=plan.plan_digest,
+        name="Atomic Organization",
+        idempotency_key="instantiate-atomic-one",
+        principal_id="organization-operator",
+        expected_organization_id=plan.organization_id,
+        expected_definition_revision=plan.definition_revision,
+        authorization_ref="precreation-grant-1",
+    )
+
+    assert recovered is not None
+    assert recovered.topology_snapshot_hash == created.topology_snapshot_hash
+    assert state.rows["operations"][0].result_json["schema"] == "organization_instantiation_receipt.v1"
+
+    with pytest.raises(OrganizationInstantiationError) as exc:
+        service.recover_applied_instantiation(
+            tenant_id=plan.tenant_id,
+            project_id=plan.project_id,
+            plan_digest=plan.plan_digest,
+            name="Atomic Organization",
+            idempotency_key="instantiate-atomic-one",
+            principal_id="organization-operator",
+            expected_organization_id=plan.organization_id,
+            expected_definition_revision=plan.definition_revision,
+            authorization_ref="different-precreation-grant",
+        )
+
+    assert exc.value.reason_code == "organization_idempotency_admin_grant_conflict"
 
 
 def test_stale_plan_digest_fails_before_opening_the_transaction() -> None:

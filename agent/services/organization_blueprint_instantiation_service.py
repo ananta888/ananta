@@ -28,6 +28,8 @@ from agent.models.organization_models import (
 from agent.ports.organization_definitions import OrganizationLimitProfilePort
 from agent.services.organization_unit_of_work import OrganizationUnitOfWork
 
+_INSTANTIATION_RECEIPT_SCHEMA = "organization_instantiation_receipt.v1"
+
 
 class OrganizationInstantiationError(RuntimeError):
     def __init__(self, reason_code: str) -> None:
@@ -56,6 +58,7 @@ class OrganizationBlueprintInstantiationService:
         expected_definition_revision: str,
         expected_plan_digest: str,
         principal_id: str,
+        authorization_ref: str | None = None,
     ) -> OrganizationInstantiationResult:
         if canonical_sha256(plan.digest_payload()) != plan.plan_digest or plan.plan_digest != expected_plan_digest:
             raise OrganizationInstantiationError("organization_plan_digest_stale")
@@ -66,96 +69,84 @@ class OrganizationBlueprintInstantiationService:
         if not idempotency_key or not name.strip():
             raise OrganizationInstantiationError("organization_instantiation_binding_invalid")
 
-        request_digest = canonical_sha256(
-            {
-                "plan_digest": plan.plan_digest,
-                "name": name.strip(),
-                "idempotency_key": idempotency_key,
-                "principal_id": principal_id,
-            }
+        normalized_name = name.strip()
+        request_digest = self._request_digest(
+            plan_digest=plan.plan_digest,
+            name=normalized_name,
+            idempotency_key=idempotency_key,
+            principal_id=principal_id,
         )
         result: OrganizationInstantiationResult | None = None
         with self._uow_factory() as uow:
-            existing_operation = uow.operations.get_by_idempotency_key(
-                plan.tenant_id,
-                plan.project_id,
-                "instantiate",
-                idempotency_key,
-                for_update=True,
+            result = self._recover_applied_in_uow(
+                uow=uow,
+                tenant_id=plan.tenant_id,
+                project_id=plan.project_id,
+                plan_digest=plan.plan_digest,
+                name=normalized_name,
+                idempotency_key=idempotency_key,
+                principal_id=principal_id,
+                request_digest=request_digest,
+                expected_organization_id=plan.organization_id,
+                expected_definition_revision=plan.definition_revision,
+                authorization_ref=authorization_ref,
             )
-            if existing_operation is not None:
-                if (
-                    existing_operation.request_digest != request_digest
-                    or existing_operation.plan_digest != plan.plan_digest
-                ):
-                    raise OrganizationInstantiationError("organization_idempotency_key_conflict")
-                if existing_operation.status != "applied" or not existing_operation.result_ref:
-                    raise OrganizationInstantiationError("organization_instantiation_in_progress")
-                existing = uow.instances.get_scoped(
-                    plan.tenant_id,
-                    plan.project_id,
-                    existing_operation.result_ref,
-                )
-                if existing is None:
-                    raise OrganizationInstantiationError("organization_idempotency_result_missing")
-                snapshot = uow.snapshots.latest(plan.tenant_id, plan.project_id, existing.organization_id)
-                units = uow.units.list_for_organization(plan.tenant_id, plan.project_id, existing.organization_id)
-                admin_grant = next(
-                    (
-                        row
-                        for row in uow.admin_grants.list_for_organization(
-                            plan.tenant_id,
-                            plan.project_id,
-                            existing.organization_id,
-                        )
-                        if row.principal_id == principal_id
-                        and row.grant_kind == "organization_admin"
-                        and row.policy_hash == existing.plan_digest
-                        and row.revoked_at is None
-                    ),
-                    None,
-                )
-                if admin_grant is None:
-                    raise OrganizationInstantiationError("organization_idempotency_admin_grant_missing")
-                result = OrganizationInstantiationResult(
-                    organization_id=existing.organization_id,
-                    definition_revision=existing.definition_revision,
-                    plan_digest=existing.plan_digest,
-                    topology_snapshot_hash=snapshot.snapshot_hash if snapshot else existing.plan_digest,
-                    team_ids=[
-                        row.team_id
-                        for row in uow.team_links.list_for_organization(
-                            plan.tenant_id, plan.project_id, existing.organization_id
-                        )
-                    ],
-                    unit_ids=[row.id for row in units],
-                    role_slot_ids=[
-                        row.id
-                        for row in uow.role_slots.list_for_organization(
-                            plan.tenant_id, plan.project_id, existing.organization_id
-                        )
-                    ],
-                    relation_ids=[
-                        row.id
-                        for row in uow.relations.list_for_organization(
-                            plan.tenant_id, plan.project_id, existing.organization_id
-                        )
-                    ],
-                    organization_admin_grant_id=admin_grant.grant_id,
-                    idempotent_replay=True,
-                )
-            else:
+            if result is None:
                 result = self._stage_new(
                     uow=uow,
                     plan=plan,
-                    name=name.strip(),
+                    name=normalized_name,
                     idempotency_key=idempotency_key,
                     request_digest=request_digest,
                     principal_id=principal_id,
+                    authorization_ref=authorization_ref,
                 )
         if result is None:
             raise OrganizationInstantiationError("organization_instantiation_result_missing")
         return result
+
+    def recover_applied_instantiation(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        plan_digest: str,
+        name: str,
+        idempotency_key: str,
+        principal_id: str,
+        expected_organization_id: str,
+        expected_definition_revision: str,
+        authorization_ref: str | None = None,
+    ) -> OrganizationInstantiationResult | None:
+        """Recover one completed instantiate operation without recompiling its plan.
+
+        The caller supplies only authenticated scope plus the immutable request
+        binding persisted with the operation.  A missing operation is not an
+        error and lets the caller continue through the normal compile path;
+        every present but non-matching or incomplete operation fails closed.
+        """
+
+        normalized_name = name.strip()
+        request_digest = self._request_digest(
+            plan_digest=plan_digest,
+            name=normalized_name,
+            idempotency_key=idempotency_key,
+            principal_id=principal_id,
+        )
+        with self._uow_factory() as uow:
+            return self._recover_applied_in_uow(
+                uow=uow,
+                tenant_id=tenant_id,
+                project_id=project_id,
+                plan_digest=plan_digest,
+                name=normalized_name,
+                idempotency_key=idempotency_key,
+                principal_id=principal_id,
+                request_digest=request_digest,
+                expected_organization_id=expected_organization_id,
+                expected_definition_revision=expected_definition_revision,
+                authorization_ref=authorization_ref,
+            )
 
     def stage_in_uow(
         self,
@@ -188,13 +179,11 @@ class OrganizationBlueprintInstantiationService:
             is not None
         ):
             raise OrganizationInstantiationError("organization_instance_conflict")
-        request_digest = canonical_sha256(
-            {
-                "plan_digest": plan.plan_digest,
-                "name": name.strip(),
-                "idempotency_key": idempotency_key,
-                "principal_id": principal_id,
-            }
+        request_digest = self._request_digest(
+            plan_digest=plan.plan_digest,
+            name=name.strip(),
+            idempotency_key=idempotency_key,
+            principal_id=principal_id,
         )
         return self._stage_new(
             uow=uow,
@@ -203,9 +192,165 @@ class OrganizationBlueprintInstantiationService:
             idempotency_key=idempotency_key,
             request_digest=request_digest,
             principal_id=principal_id,
+            authorization_ref=None,
         )
 
-    def _stage_new(self, *, uow, plan, name, idempotency_key, request_digest, principal_id):
+    @staticmethod
+    def _request_digest(
+        *,
+        plan_digest: str,
+        name: str,
+        idempotency_key: str,
+        principal_id: str,
+    ) -> str:
+        return canonical_sha256(
+            {
+                "plan_digest": plan_digest,
+                "name": name,
+                "idempotency_key": idempotency_key,
+                "principal_id": principal_id,
+            }
+        )
+
+    @staticmethod
+    def _recover_applied_in_uow(
+        *,
+        uow: OrganizationUnitOfWork,
+        tenant_id: str,
+        project_id: str,
+        plan_digest: str,
+        name: str,
+        idempotency_key: str,
+        principal_id: str,
+        request_digest: str,
+        expected_organization_id: str,
+        expected_definition_revision: str,
+        authorization_ref: str | None,
+    ) -> OrganizationInstantiationResult | None:
+        existing_operation = uow.operations.get_by_idempotency_key(
+            tenant_id,
+            project_id,
+            "instantiate",
+            idempotency_key,
+            for_update=True,
+        )
+        if existing_operation is None:
+            return None
+        if (
+            existing_operation.request_digest != request_digest
+            or existing_operation.plan_digest != plan_digest
+            or existing_operation.organization_id != expected_organization_id
+            or existing_operation.expected_revision != expected_definition_revision
+        ):
+            raise OrganizationInstantiationError("organization_idempotency_key_conflict")
+        if existing_operation.status != "applied" or not existing_operation.result_ref:
+            raise OrganizationInstantiationError("organization_instantiation_in_progress")
+
+        existing = uow.instances.get_scoped(
+            tenant_id,
+            project_id,
+            existing_operation.result_ref,
+        )
+        if existing is None:
+            raise OrganizationInstantiationError("organization_idempotency_result_missing")
+        if (
+            existing.organization_id != expected_organization_id
+            or existing.idempotency_key != idempotency_key
+            or existing.plan_digest != plan_digest
+            or existing.definition_revision != expected_definition_revision
+            or existing.name != name
+            or existing.created_by != principal_id
+        ):
+            raise OrganizationInstantiationError("organization_idempotency_key_conflict")
+
+        receipt = dict(existing_operation.result_json or {})
+        receipt_result: OrganizationInstantiationResult | None = None
+        if receipt:
+            if receipt.get("schema") != _INSTANTIATION_RECEIPT_SCHEMA:
+                raise OrganizationInstantiationError("organization_idempotency_result_missing")
+            stored_authorization_ref = str(receipt.get("precreation_admin_grant_id") or "").strip()
+            if stored_authorization_ref and stored_authorization_ref != str(authorization_ref or "").strip():
+                raise OrganizationInstantiationError("organization_idempotency_admin_grant_conflict")
+            try:
+                receipt_result = OrganizationInstantiationResult.model_validate(receipt.get("result"))
+            except (TypeError, ValueError) as exc:
+                raise OrganizationInstantiationError("organization_idempotency_result_missing") from exc
+            if (
+                receipt_result.organization_id != existing.organization_id
+                or receipt_result.definition_revision != existing.definition_revision
+                or receipt_result.plan_digest != existing.plan_digest
+                or receipt_result.idempotent_replay
+            ):
+                raise OrganizationInstantiationError("organization_idempotency_result_missing")
+
+        snapshot = uow.snapshots.latest(tenant_id, project_id, existing.organization_id)
+        units = uow.units.list_for_organization(tenant_id, project_id, existing.organization_id)
+        admin_grant = next(
+            (
+                row
+                for row in uow.admin_grants.list_for_organization(
+                    tenant_id,
+                    project_id,
+                    existing.organization_id,
+                )
+                if row.principal_id == principal_id
+                and row.grant_kind == "organization_admin"
+                and row.policy_hash == existing.plan_digest
+                and row.revoked_at is None
+            ),
+            None,
+        )
+        if admin_grant is None:
+            raise OrganizationInstantiationError("organization_idempotency_admin_grant_missing")
+        if receipt_result is not None:
+            if receipt_result.organization_admin_grant_id != admin_grant.grant_id:
+                raise OrganizationInstantiationError("organization_idempotency_result_missing")
+            return receipt_result.model_copy(update={"idempotent_replay": True})
+        return OrganizationInstantiationResult(
+            organization_id=existing.organization_id,
+            definition_revision=existing.definition_revision,
+            plan_digest=existing.plan_digest,
+            topology_snapshot_hash=snapshot.snapshot_hash if snapshot else existing.plan_digest,
+            team_ids=[
+                row.team_id
+                for row in uow.team_links.list_for_organization(
+                    tenant_id,
+                    project_id,
+                    existing.organization_id,
+                )
+            ],
+            unit_ids=[row.id for row in units],
+            role_slot_ids=[
+                row.id
+                for row in uow.role_slots.list_for_organization(
+                    tenant_id,
+                    project_id,
+                    existing.organization_id,
+                )
+            ],
+            relation_ids=[
+                row.id
+                for row in uow.relations.list_for_organization(
+                    tenant_id,
+                    project_id,
+                    existing.organization_id,
+                )
+            ],
+            organization_admin_grant_id=admin_grant.grant_id,
+            idempotent_replay=True,
+        )
+
+    def _stage_new(
+        self,
+        *,
+        uow,
+        plan,
+        name,
+        idempotency_key,
+        request_digest,
+        principal_id,
+        authorization_ref,
+    ):
         current_limits = self._limit_profiles.resolve_limit_profile(
             tenant_id=plan.tenant_id,
             project_id=plan.project_id,
@@ -439,12 +584,7 @@ class OrganizationBlueprintInstantiationService:
                 },
             )
         )
-        operation.status = "applied"
-        operation.result_ref = plan.organization_id
-        operation.applied_at = time.time()
-        uow.operations.add(operation)
-        self._fault_injector("audit_outbox")
-        return OrganizationInstantiationResult(
+        result = OrganizationInstantiationResult(
             organization_id=plan.organization_id,
             definition_revision=plan.definition_revision,
             plan_digest=plan.plan_digest,
@@ -455,6 +595,17 @@ class OrganizationBlueprintInstantiationService:
             relation_ids=[item.planned_id for item in plan.relations],
             organization_admin_grant_id=instance_admin_grant.grant_id,
         )
+        operation.status = "applied"
+        operation.result_ref = plan.organization_id
+        operation.result_json = {
+            "schema": _INSTANTIATION_RECEIPT_SCHEMA,
+            "precreation_admin_grant_id": str(authorization_ref or "").strip() or None,
+            "result": result.model_dump(mode="json"),
+        }
+        operation.applied_at = time.time()
+        uow.operations.add(operation)
+        self._fault_injector("audit_outbox")
+        return result
 
     @staticmethod
     def _enforce_concrete_limits(plan, limits) -> None:

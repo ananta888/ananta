@@ -8,6 +8,7 @@ from flask import Blueprint, current_app, request
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
+from agent.models.organization_models import OrganizationInstantiationResult
 from agent.routes.organization_route_support import (
     OrganizationRouteError,
     organization_boundary,
@@ -71,25 +72,61 @@ def instantiate_organization():
         raise OrganizationRouteError("organization_compile_plan_required", status_code=400)
     idempotency_key = require_idempotency_key()
     grant_id = require_admin_grant_header(body_value=payload.get("admin_grant"))
+    title = str(payload.get("title") or "").strip()
+    supplied_digest = str(request.headers.get("X-Plan-Digest") or "").strip()
+
+    compile_service = organization_compile_service()
+    replay_bound = compile_service.verify_replay_binding(
+        tenant_id=project.tenant_id,
+        project_id=project.project_id,
+        principal_id=principal.subject_id,
+        client_plan=client_plan,
+    )
+    replay_plan_digest = str(replay_bound.get("plan_digest") or "")
+    replay_definition_revision = str(replay_bound.get("definition_revision") or "")
+    replay_organization_id = str(replay_bound.get("organization_id") or "")
+    if not title or len(title) > 255 or title != str(replay_bound.get("title") or ""):
+        raise OrganizationRouteError("organization_title_binding_invalid", status_code=422)
+    require_if_match(replay_definition_revision)
+    if supplied_digest and supplied_digest != replay_plan_digest:
+        raise OrganizationRouteError("organization_plan_digest_stale", status_code=412)
+
+    instance_service = _instance_service()
+    replayed = instance_service.recover_applied_instantiation(
+        tenant_id=project.tenant_id,
+        project_id=project.project_id,
+        plan_digest=replay_plan_digest,
+        name=title,
+        idempotency_key=idempotency_key,
+        principal_id=principal.subject_id,
+        expected_organization_id=replay_organization_id,
+        expected_definition_revision=replay_definition_revision,
+        grant_id=grant_id,
+    )
+    if replayed is not None:
+        return _instantiation_response(
+            result=replayed,
+            tenant_id=project.tenant_id,
+            project_id=project.project_id,
+            idempotency_key=idempotency_key,
+        )
 
     # Security boundary: the client plan is never materialized directly.  Its
     # signed binding is decoded for authenticated scope, then the current
     # server catalog is compiled again immediately before the guarded write.
-    plan, bound = organization_compile_service().recompile_bound_plan(
+    plan, bound = compile_service.recompile_bound_plan(
         tenant_id=project.tenant_id,
         project_id=project.project_id,
         principal_id=principal.subject_id,
         client_plan=client_plan,
     )
     require_if_match(plan.definition_revision)
-    supplied_digest = str(request.headers.get("X-Plan-Digest") or "").strip()
     if supplied_digest and supplied_digest != plan.plan_digest:
         raise OrganizationRouteError("organization_plan_digest_stale", status_code=412)
-    title = str(payload.get("title") or "").strip()
     if not title or len(title) > 255 or title != str(bound.get("title") or ""):
         raise OrganizationRouteError("organization_title_binding_invalid", status_code=422)
 
-    result = _instance_service().instantiate(
+    result = instance_service.instantiate(
         plan=plan,
         name=title,
         idempotency_key=idempotency_key,
@@ -105,20 +142,35 @@ def instantiate_organization():
             else None
         ),
     )
-    summary = _read_service().organization_summary(
+    return _instantiation_response(
+        result=result,
         tenant_id=project.tenant_id,
         project_id=project.project_id,
+        idempotency_key=idempotency_key,
+    )
+
+
+def _instantiation_response(
+    *,
+    result: OrganizationInstantiationResult,
+    tenant_id: str,
+    project_id: str,
+    idempotency_key: str,
+):
+    summary = _read_service().organization_summary(
+        tenant_id=tenant_id,
+        project_id=project_id,
         organization_id=result.organization_id,
     )
     OrganizationRuntimeApplicationService(
-        tenant_id=project.tenant_id,
-        project_id=project.project_id,
+        tenant_id=tenant_id,
+        project_id=project_id,
         organization_id=result.organization_id,
     ).emit_event(
         event_type="organization_instantiated",
         correlation_id=result.organization_id,
         idempotency_key=f"organization-instantiation:{idempotency_key}",
-        definition_revision=plan.definition_revision,
+        definition_revision=result.definition_revision,
         snapshot_hash=result.topology_snapshot_hash,
         payload={
             "status": "draft",
