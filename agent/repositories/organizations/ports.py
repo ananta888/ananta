@@ -77,6 +77,43 @@ class OrganizationOperationRepositoryPort(Protocol):
     def add(self, row: Any) -> Any: ...
 
 
+class OrganizationGoalRepositoryPort(Protocol):
+    def get_scoped(
+        self,
+        tenant_id: str,
+        project_id: str,
+        organization_id: str,
+        goal_id: str,
+        *,
+        for_update: bool = False,
+    ): ...
+    def add(self, row: Any) -> Any: ...
+
+
+class OrganizationMembershipRepositoryPort(Protocol):
+    def get_for_principal(
+        self,
+        tenant_id: str,
+        project_id: str,
+        organization_id: str,
+        principal_id: str,
+        *,
+        for_update: bool = False,
+    ): ...
+
+
+class OrganizationAdminGrantRepositoryPort(Protocol):
+    def list_for_principal(
+        self,
+        tenant_id: str,
+        project_id: str,
+        organization_id: str,
+        principal_id: str,
+        *,
+        for_update: bool = False,
+    ) -> list[Any]: ...
+
+
 class OrganizationUnitOfWorkPort(Protocol):
     definitions: OrganizationDefinitionRepositoryPort
     definition_impacts: OrganizationDefinitionImpactRepositoryPort
@@ -84,6 +121,10 @@ class OrganizationUnitOfWorkPort(Protocol):
     units: OrganizationUnitRepositoryPort
     topology: OrganizationTopologyRepositoryPort
     operations: OrganizationOperationRepositoryPort
+    goals: OrganizationGoalRepositoryPort
+    memberships: OrganizationMembershipRepositoryPort
+    admin_grants: OrganizationAdminGrantRepositoryPort
+    audit_outbox: AddPort[Any]
 
     def __enter__(self): ...
     def __exit__(self, exc_type, exc_value, traceback) -> None: ...
@@ -94,7 +135,10 @@ __all__ = [
     "AddPort",
     "OrganizationDefinitionRepositoryPort",
     "OrganizationDefinitionImpactRepositoryPort",
+    "OrganizationAdminGrantRepositoryPort",
     "OrganizationInstanceRepositoryPort",
+    "OrganizationGoalRepositoryPort",
+    "OrganizationMembershipRepositoryPort",
     "OrganizationOperationRepositoryPort",
     "OrganizationTopologyRepositoryPort",
     "OrganizationUnitOfWorkPort",

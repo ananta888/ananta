@@ -14,6 +14,7 @@ from agent.repositories.organizations import (
     SqlOrganizationAuditOutboxRepository,
     SqlOrganizationDefinitionImpactRepository,
     SqlOrganizationDefinitionRepository,
+    SqlOrganizationGoalRepository,
     SqlOrganizationInstanceRepository,
     SqlOrganizationLayoutRepository,
     SqlOrganizationMembershipRepository,
@@ -50,6 +51,7 @@ class OrganizationUnitOfWork:
         self.definitions = SqlOrganizationDefinitionRepository(self.session)
         self.definition_impacts = SqlOrganizationDefinitionImpactRepository(self.session)
         self.instances = SqlOrganizationInstanceRepository(self.session)
+        self.goals = SqlOrganizationGoalRepository(self.session)
         self.units = SqlOrganizationUnitRepository(self.session)
         self.team_links = SqlOrganizationTeamLinkRepository(self.session)
         self.teams = SqlOrganizationTeamMaterializationRepository(self.session)

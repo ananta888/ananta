@@ -61,9 +61,11 @@ from agent.routes.openai_compat import openai_compat_bp
 from agent.routes.ops import ops_bp
 from agent.routes.organization_blueprints import organization_blueprints_bp
 from agent.routes.organization_bundles import organization_bundles_bp
+from agent.routes.organization_goals import organization_goals_bp
 from agent.routes.organization_instances import organization_instances_bp
 from agent.routes.organization_planning import organization_planning_bp
 from agent.routes.organization_runtime import organization_runtime_bp
+from agent.routes.organization_source_catalogs import organization_source_catalogs_bp
 from agent.routes.organization_topology import organization_topology_bp
 from agent.routes.organization_topology_patches import organization_topology_patches_bp
 from agent.routes.pair_groups import pair_groups_bp
@@ -158,6 +160,8 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(organization_blueprints_bp)
     app.register_blueprint(organization_bundles_bp)
     app.register_blueprint(organization_instances_bp)
+    app.register_blueprint(organization_goals_bp)
+    app.register_blueprint(organization_source_catalogs_bp)
     app.register_blueprint(organization_planning_bp)
     app.register_blueprint(organization_runtime_bp)
     app.register_blueprint(organization_topology_bp)

@@ -148,10 +148,48 @@ class SqlOrganizationMembershipRepository(_ScopedChildRepository[OrganizationMem
     def __init__(self, session: Session) -> None:
         super().__init__(session, OrganizationMembershipDB)
 
+    def get_for_principal(
+        self,
+        tenant_id: str,
+        project_id: str,
+        organization_id: str,
+        principal_id: str,
+        *,
+        for_update: bool = False,
+    ) -> OrganizationMembershipDB | None:
+        statement = select(OrganizationMembershipDB).where(
+            OrganizationMembershipDB.tenant_id == tenant_id,
+            OrganizationMembershipDB.project_id == project_id,
+            OrganizationMembershipDB.organization_id == organization_id,
+            OrganizationMembershipDB.principal_id == principal_id,
+        )
+        if for_update:
+            statement = statement.with_for_update()
+        return self._session.exec(statement).one_or_none()
+
 
 class SqlOrganizationAdminGrantRepository(_ScopedChildRepository[OrganizationAdminGrantDB]):
     def __init__(self, session: Session) -> None:
         super().__init__(session, OrganizationAdminGrantDB)
+
+    def list_for_principal(
+        self,
+        tenant_id: str,
+        project_id: str,
+        organization_id: str,
+        principal_id: str,
+        *,
+        for_update: bool = False,
+    ) -> list[OrganizationAdminGrantDB]:
+        statement = select(OrganizationAdminGrantDB).where(
+            OrganizationAdminGrantDB.tenant_id == tenant_id,
+            OrganizationAdminGrantDB.project_id == project_id,
+            OrganizationAdminGrantDB.organization_id == organization_id,
+            OrganizationAdminGrantDB.principal_id == principal_id,
+        )
+        if for_update:
+            statement = statement.with_for_update()
+        return list(self._session.exec(statement).all())
 
 
 class SqlOrganizationTopologyPatchGrantRepository(_ScopedChildRepository[OrganizationTopologyPatchGrantDB]):

@@ -17,6 +17,10 @@ from agent.db_models.visual_process_assistant import VisualProcessAssistantReque
 from agent.repository import task_repo
 from agent.services.chat_process_binding import bind_graph_owner
 from agent.services.chat_session_security import ChatSessionPrincipal
+from agent.services.source_catalog_service import (
+    calculate_source_catalog_hash,
+    calculate_source_catalog_id,
+)
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.task_runtime_service import update_local_task_status
 from agent.services.visual_process_assistant_service import (
@@ -110,7 +114,6 @@ def _persist_source_catalog(
     source_id: str,
 ) -> tuple[dict[str, str], dict[str, Any]]:
     catalog_task_id = f"catalog-task-{uuid.uuid4().hex}"
-    catalog_id = f"catalog-{uuid.uuid4().hex}"
     provenance = {
         "source_id": source_id,
         "source_version": REPOSITORY_REVISION,
@@ -123,6 +126,7 @@ def _persist_source_catalog(
     ).hexdigest()
     source = {
         "source_ref": {
+            "schema": "ananta.source_ref.v2",
             "source_id": source_id,
             "source_version": REPOSITORY_REVISION,
             "tenant_id": principal.tenant_id,
@@ -134,16 +138,30 @@ def _persist_source_catalog(
         "tenant_id": principal.tenant_id,
         "scope": "repository",
         "provenance_digest": provenance_digest,
-        "source_type": "repo_symbol",
+        "source_type": "repo_file",
         "path": "agent/visual_process/models.py",
         "record_id": "visual-process-graph",
+        "line_start": 1,
+        "line_end": 40,
         "content_hash": hashlib.sha256(b"VisualProcessGraph").hexdigest(),
         "manifest_hash": MANIFEST_HASH,
         "sensitivity": "internal",
         "allowed_for_llm_scope": True,
         "task_id": catalog_task_id,
     }
-    catalog_hash = hashlib.sha256(json.dumps(source, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    trace_id = f"trace-{uuid.uuid4().hex}"
+    context_hash = hashlib.sha256(b"vpa-matrix-context").hexdigest()
+    catalog_hash = calculate_source_catalog_hash(
+        {
+            "task_id": catalog_task_id,
+            "retrieval_trace_id": trace_id,
+            "retrieval_context_hash": context_hash,
+            "retrieval_manifest_hash": MANIFEST_HASH,
+            "sources": [source],
+            "rejected_candidates": [],
+        }
+    )
+    catalog_id = calculate_source_catalog_id(catalog_hash)
     catalog = {
         "schema": "source_catalog.v2",
         "source_catalog_id": catalog_id,
@@ -151,8 +169,8 @@ def _persist_source_catalog(
         "catalog_state": "current",
         "source_count": 1,
         "rejected_count": 0,
-        "retrieval_trace_id": f"trace-{uuid.uuid4().hex}",
-        "retrieval_context_hash": hashlib.sha256(b"vpa-matrix-context").hexdigest(),
+        "retrieval_trace_id": trace_id,
+        "retrieval_context_hash": context_hash,
         "retrieval_manifest_hash": MANIFEST_HASH,
         "sources": [source],
     }
@@ -164,7 +182,10 @@ def _persist_source_catalog(
         source="visual_process",
         event_type="task_ingested",
         event_channel="hub_task_queue",
-        extra_fields={"task_kind": "codecompass_fts_search"},
+        extra_fields={
+            "task_kind": "codecompass_fts_search",
+            "tenant_id": principal.tenant_id,
+        },
     )
     update_local_task_status(
         catalog_task_id,

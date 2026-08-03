@@ -82,6 +82,16 @@ def authorization() -> tuple[OrganizationMembershipService, object]:
                     granted_by="security-test",
                 ),
                 OrganizationAdminGrantDB(
+                    grant_id="grant-goal-create",
+                    tenant_id="tenant-a",
+                    project_id="project-a",
+                    organization_id="organization-a",
+                    principal_id="admin-a",
+                    grant_kind="planning:goal_create",
+                    policy_hash="policy-a",
+                    granted_by="security-test",
+                ),
+                OrganizationAdminGrantDB(
                     grant_id="grant-service",
                     tenant_id="tenant-a",
                     project_id="project-a",
@@ -165,6 +175,16 @@ def test_mutation_requires_admin_membership_and_the_exact_active_grant(
             project_id="project-a",
             organization_id="organization-a",
             grant_kind="approval:track_adopt",
+        )
+        is True
+    )
+    assert (
+        service.can_mutate(
+            principal=admin,
+            tenant_id="tenant-a",
+            project_id="project-a",
+            organization_id="organization-a",
+            grant_kind="planning:goal_create",
         )
         is True
     )

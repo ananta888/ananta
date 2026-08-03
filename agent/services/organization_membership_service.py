@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from typing import Any
 
 from sqlmodel import Session, select
 
@@ -63,16 +64,15 @@ class OrganizationMembershipService:
             principal=principal, tenant_id=tenant_id, project_id=project_id, organization_id=organization_id
         ):
             return False
+        now = time.time()
         with self._session_factory() as session:
             membership = self._membership(
                 session=session,
                 principal=principal,
                 project_id=project_id,
                 organization_id=organization_id,
+                now=now,
             )
-            if membership is None or membership.membership_kind != "organization_admin":
-                return False
-            now = time.time()
             grants = session.exec(
                 select(OrganizationAdminGrantDB).where(
                     OrganizationAdminGrantDB.tenant_id == tenant_id,
@@ -82,11 +82,66 @@ class OrganizationMembershipService:
                     OrganizationAdminGrantDB.revoked_at.is_(None),  # type: ignore[union-attr]
                 )
             ).all()
-            return any(
-                (row.expires_at is None or float(row.expires_at) >= now)
-                and row.grant_kind in {grant_kind, "organization_admin", "*"}
-                for row in grants
+            return self.mutation_allowed(
+                principal=principal,
+                tenant_id=tenant_id,
+                project_id=project_id,
+                organization_id=organization_id,
+                grant_kind=grant_kind,
+                membership=membership,
+                grants=grants,
+                now=now,
             )
+
+    @classmethod
+    def mutation_allowed(
+        cls,
+        *,
+        principal: OrganizationAccessPrincipal,
+        tenant_id: str,
+        project_id: str,
+        organization_id: str,
+        grant_kind: str,
+        membership: Any | None,
+        grants: Iterable[Any],
+        now: float,
+    ) -> bool:
+        """Evaluate already-read authority rows without opening another Session."""
+
+        if not cls._scope_matches(
+            principal=principal,
+            tenant_id=tenant_id,
+            project_id=project_id,
+            organization_id=organization_id,
+        ):
+            return False
+        if (
+            membership is None
+            or str(getattr(membership, "tenant_id", "")) != tenant_id
+            or str(getattr(membership, "project_id", "")) != project_id
+            or str(getattr(membership, "organization_id", "")) != organization_id
+            or str(getattr(membership, "principal_id", "")) != principal.principal_id
+            or str(getattr(membership, "membership_kind", "")) != "organization_admin"
+            or (
+                getattr(membership, "expires_at", None) is not None
+                and float(membership.expires_at) < now
+            )
+        ):
+            return False
+        allowed_grant_kinds = {str(grant_kind or ""), "organization_admin", "*"}
+        return any(
+            str(getattr(row, "tenant_id", "")) == tenant_id
+            and str(getattr(row, "project_id", "")) == project_id
+            and str(getattr(row, "organization_id", "")) == organization_id
+            and str(getattr(row, "principal_id", "")) == principal.principal_id
+            and str(getattr(row, "grant_kind", "")) in allowed_grant_kinds
+            and getattr(row, "revoked_at", None) is None
+            and (
+                getattr(row, "expires_at", None) is None
+                or float(row.expires_at) >= now
+            )
+            for row in grants
+        )
 
     def authorized_organization_ids(
         self,
@@ -121,6 +176,7 @@ class OrganizationMembershipService:
         principal: OrganizationAccessPrincipal,
         project_id: str,
         organization_id: str,
+        now: float | None = None,
     ) -> OrganizationMembershipDB | None:
         row = session.exec(
             select(OrganizationMembershipDB).where(
@@ -130,7 +186,8 @@ class OrganizationMembershipService:
                 OrganizationMembershipDB.principal_id == principal.principal_id,
             )
         ).one_or_none()
-        if row is None or (row.expires_at is not None and float(row.expires_at) < time.time()):
+        effective_now = time.time() if now is None else float(now)
+        if row is None or (row.expires_at is not None and float(row.expires_at) < effective_now):
             return None
         return row
 

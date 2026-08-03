@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from agent.repositories.organizations.goals import SqlOrganizationGoalRepository
 from agent.services.organization_unit_of_work import OrganizationUnitOfWork
 
 
@@ -32,6 +33,7 @@ def test_uow_commits_and_closes_exactly_once() -> None:
     session = RecordingSession()
 
     with OrganizationUnitOfWork(session_factory=lambda: session) as uow:
+        assert isinstance(uow.goals, SqlOrganizationGoalRepository)
         uow.flush()
 
     assert (session.commits, session.rollbacks, session.closes, session.flushes) == (1, 0, 1, 1)

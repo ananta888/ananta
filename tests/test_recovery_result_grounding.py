@@ -77,11 +77,18 @@ def _worker_execution_context() -> dict[str, Any]:
                     "record_id": "record-1",
                     "metadata": {
                         "source_id": "SRC_0001",
+                        "source_id_verified": True,
+                        "source_id_verification": {
+                            "status": "verified",
+                            "reason_code": "source_id_verified",
+                            "verified": True,
+                        },
                         "source_version": "rev-1",
                         "tenant_id": "tenant-1",
                         "source_scope": "recovery",
                         "provenance_digest": "a" * 64,
                         "source_manifest_hash": "c" * 64,
+                        "content_hash": "d" * 64,
                         "record_id": "record-1",
                         "file": "src/recovery.py",
                         "record_kind": "repo_file",
@@ -115,6 +122,9 @@ def _task_source_catalog(
     assert isinstance(catalog, dict)
     sources = list(catalog.get("sources") or [])
     rejected = list(catalog.get("rejected_candidates") or [])
+    assert catalog.get("catalog_state") == "current"
+    assert rejected == []
+    assert sources[0]["content_hash"] == "d" * 64
     return {
         "schema": catalog.get("schema"),
         "source_catalog_id": catalog.get("catalog_id"),
@@ -131,6 +141,31 @@ def _task_source_catalog(
         ),
         "sources": sources,
     }
+
+
+def test_catalog_restores_retrieval_trace_from_persisted_selection_trace() -> None:
+    context = _worker_execution_context()
+    bundle_metadata = context["context"]["bundle_metadata"]
+    trace = bundle_metadata.pop("retrieval_trace")
+    bundle_metadata["selection_trace"] = {
+        "retrieval_trace_id": trace["trace_id"],
+        "context_hash": trace["context_hash"],
+        "manifest_hash": trace["manifest_hash"],
+    }
+    task = SimpleNamespace(
+        id="recovery-selection-trace",
+        worker_execution_context=context,
+    )
+
+    catalog = build_source_catalog_from_execution_context(
+        tid=task.id,
+        task=dict(vars(task)),
+    )
+
+    assert catalog is not None
+    assert catalog["catalog_state"] == "current"
+    assert catalog["retrieval_trace_id"] == "trace-1"
+    assert catalog["rejected_candidates"] == []
 
 
 def _run(task_id: str) -> dict[str, Any]:

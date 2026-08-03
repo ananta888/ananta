@@ -8,6 +8,7 @@ and an explicit :class:`OrganizationUnitOfWork` transaction boundary.
 from .adapters import SqlOrganizationDefinitionCatalogAdapter, SqlOrganizationLimitProfileAdapter
 from .definition_impacts import SqlOrganizationDefinitionImpactRepository
 from .definitions import SqlOrganizationDefinitionRepository
+from .goals import SqlOrganizationGoalRepository
 from .instances import (
     SqlCrossTeamDependencyRepository,
     SqlOrganizationAdminGrantRepository,
@@ -34,6 +35,7 @@ __all__ = [
     "SqlOrganizationDefinitionCatalogAdapter",
     "SqlOrganizationDefinitionImpactRepository",
     "SqlOrganizationDefinitionRepository",
+    "SqlOrganizationGoalRepository",
     "SqlOrganizationInstanceRepository",
     "SqlOrganizationLayoutRepository",
     "SqlOrganizationLimitProfileAdapter",
