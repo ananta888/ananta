@@ -53,15 +53,21 @@ describe('graph renderer projection adapters', () => {
     threeD.visualProjection = PROJECTION;
     simple.visualProjection = PROJECTION;
     threeD.graph = GRAPH;
+    (threeD as any).projectGraph();
+    (threeD as any).projectStyles();
 
     for (const node of GRAPH.nodes) {
       expect((twoD as any)._nodeVisual(node, 99)).toBe(PROJECTION.nodeStyles[node.id]);
-      expect((threeD as any)._nodeVisual(node.id)).toBe(PROJECTION.nodeStyles[node.id]);
+      expect(threeD.renderNodeStyles[node.id]).toEqual({
+        color: PROJECTION.nodeStyles[node.id].baseColor,
+        size: PROJECTION.nodeStyles[node.id].baseSize,
+        highlightFactors: PROJECTION.nodeStyles[node.id].highlightFactors,
+      });
       expect(simple.nodeStyle(node)).toBe(PROJECTION.nodeStyles[node.id]);
     }
     expect((twoD as any)._nodeVisual(GRAPH.nodes[1], 99).baseSize)
       .toBeGreaterThan((twoD as any)._nodeVisual(GRAPH.nodes[0], 99).baseSize);
-    expect((threeD as any)._nodeValue('large')).toBeGreaterThan((threeD as any)._nodeValue('small'));
+    expect(threeD.renderNodeStyles['large'].size).toBeGreaterThan(threeD.renderNodeStyles['small'].size);
     expect(simple.edgeStyle(GRAPH.edges[0])).toBe(PROJECTION.edgeStyles['edge']);
   });
 
@@ -70,9 +76,12 @@ describe('graph renderer projection adapters', () => {
     const component = TestBed.createComponent(Graph3dViewComponent).componentInstance;
     component.graph = GRAPH;
     component.visualProjection = PROJECTION;
-    component.highlightedNodeIds = new Set(['small', 'large']);
-    expect((component as any)._nodeValue('small')).toBe(6);
-    expect((component as any)._nodeValue('large')).toBeCloseTo(14.4, 12);
-    expect((component as any)._nodeValue('large')).toBeGreaterThan((component as any)._nodeValue('small'));
+    (component as any).projectGraph();
+    (component as any).projectStyles();
+    const small = component.renderNodeStyles['small'];
+    const large = component.renderNodeStyles['large'];
+    expect(small.size * small.highlightFactors!.hover).toBe(6);
+    expect(large.size * large.highlightFactors!.hover).toBeCloseTo(14.4, 12);
+    expect(large.size).toBeGreaterThan(small.size);
   });
 });

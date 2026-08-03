@@ -133,6 +133,7 @@ import {
                 [selectedEdge]="state.selectedEdge()"
                 (nodeSelected)="state.selectNode($event)"
                 (edgeSelected)="state.selectEdge($event)"
+                (selectionCleared)="state.clearSelection()"
               />
             }
           }

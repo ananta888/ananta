@@ -6,6 +6,7 @@ import { MOCK_DOMAIN_GRAPH_ARTIFACT } from '../../testing/mock-codecompass-graph
 import { GraphVisualProfileFacade } from '../../services/graph-visual-profile.facade';
 import { GraphToolbarComponent } from '../graph-toolbar/graph-toolbar.component';
 import { GraphEdgeLegendComponent } from '../graph-legend/graph-edge-legend.component';
+import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
 
 describe('GraphViewerComponent', () => {
   let fixture: ComponentFixture<GraphViewerComponent>;
@@ -76,6 +77,21 @@ describe('GraphViewerComponent', () => {
     fixture.detectChanges();
     const panel = fixture.nativeElement.querySelector('app-graph-detail-panel');
     expect(panel).toBeNull();
+  });
+
+  it('clears shared selection when the 3d background is selected', () => {
+    fixture.componentRef.setInput('rawGraphData', MOCK_DOMAIN_GRAPH_ARTIFACT);
+    fixture.detectChanges();
+    state.selectNode(state.graph()!.nodes[0]);
+    state.setViewMode('3d');
+    fixture.detectChanges();
+    const view = fixture.debugElement.query(By.directive(Graph3dViewComponent))
+      .componentInstance as Graph3dViewComponent;
+
+    view.selectionCleared.emit();
+
+    expect(state.selectedNode()).toBeNull();
+    expect(state.selectedEdge()).toBeNull();
   });
 
   it('provides isolated graph and profile state for two viewers', () => {

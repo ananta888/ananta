@@ -14,7 +14,8 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
       <header>
         <p class="eyebrow">Definition &amp; Dry-run</p>
         <h2 id="organization-setup-heading">Organisation einrichten</h2>
-        <p>Standardmäßig wird die mittlere Acht-Team-Komposition verwendet. Alternativ ist eine explizit freigegebene Custom-N-Komposition bis zum servergelieferten Limit möglich.</p>
+        <p>Für kleine Firmen stehen Lean-Profile mit 2 bis 6 Teams und insgesamt 5 bis 20 Rollenplätzen bereit. Enterprise Scrum bleibt als 5- bis 10-Team-Familie verfügbar.</p>
+        <p class="concept-note"><strong>Wichtig:</strong> Ein Team enthält mehrere Rollenplätze. Ein Rollenplatz beschreibt Verantwortung und Kapazität; er ist nicht automatisch ein eigener Agent. Erst Assignments verbinden Agenten oder Menschen mit diesen Plätzen.</p>
       </header>
 
       <div class="steps" aria-label="Einrichtungsschritte">
@@ -32,17 +33,27 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
           <label>
             Kompositionsmodus
             <select name="composition-mode" [ngModel]="compositionMode" (ngModelChange)="changeCompositionMode($event)">
-              <option value="standard">Standard · 5 bis 10 Teams</option>
+              <option value="standard">Vordefinierte Größenprofile</option>
               <option value="custom">Custom N · 2 bis Serverlimit</option>
             </select>
           </label>
 
           @if (compositionMode === 'standard') {
             <label>
-              Standardgröße
+              Organisationsfamilie
+              <select name="profile-family" [ngModel]="profileFamily" (ngModelChange)="selectProfileFamily($event)">
+                @for (profile of profileFamilies(); track profile.key) {
+                  <option [value]="profile.key">{{ profile.label }}</option>
+                }
+              </select>
+            </label>
+            <label>
+              Größe
               <select name="team-count" [ngModel]="teamCount" (ngModelChange)="selectForCount($event)">
-                @for (count of supportedCounts(); track count) {
-                  <option [ngValue]="count">{{ count }} Teams{{ count === 8 ? ' · empfohlen' : '' }}</option>
+                @for (blueprint of sizeOptions(); track blueprint.key) {
+                  <option [ngValue]="blueprint.team_count">
+                    {{ blueprint.size_label || (blueprint.team_count + ' Teams') }} · {{ blueprint.role_slot_count ?? '?' }} Rollenplätze{{ blueprint.recommended ? ' · empfohlen' : '' }}
+                  </option>
                 }
               </select>
             </label>
@@ -50,7 +61,7 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
               Blueprint
               <select name="blueprint" [ngModel]="blueprintKey" (ngModelChange)="selectBlueprint($event)" required>
                 @for (blueprint of standardBlueprintOptions(); track blueprint.key + ':' + blueprint.version) {
-                  <option [value]="blueprint.key">{{ blueprint.title }} · v{{ blueprint.version }}</option>
+                  <option [value]="blueprint.key">{{ blueprint.title }} · {{ blueprint.role_slot_count ?? '?' }} Rollenplätze · v{{ blueprint.version }}</option>
                 }
               </select>
             </label>
@@ -96,6 +107,9 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
           @if (selectedBlueprint(); as blueprint) {
             <article class="impact wide">
               <h3>Aktivierungs- und Scale-out-Auswirkung</h3>
+              @if (compositionMode === 'standard') {
+                <p><strong>{{ blueprint.team_count }} Teams · {{ blueprint.role_slot_count ?? 'unbekannt' }} Rollenplätze · {{ blueprint.default_assignment_capacity ?? 'unbekannte' }} Standardbelegungen.</strong> Eine Person oder ein Agent darf – soweit Policy und Trennungspflichten es erlauben – mehrere Rollenplätze abdecken.</p>
+              }
               <p>{{ blueprint.description || 'Die Komposition wird serverseitig gegen Fähigkeiten, Rollen, Grenzen und Policies geprüft.' }}</p>
               <ul>
                 @for (item of blueprint.activation_summary || []; track item) { <li>{{ item }}</li> }
@@ -119,6 +133,7 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
             <div><dt>Hierarchiekanten</dt><dd>{{ plan.hierarchy_edge_count }}</dd></div>
             <div><dt>Organisationskanten</dt><dd>{{ plan.relation_edge_count }}</dd></div>
             <div><dt>Role Slots</dt><dd>{{ plan.role_slot_count }}</dd></div>
+            <div><dt>Standardbelegungen</dt><dd>{{ budgetValue(plan.budget_assumptions, 'default_assignment_capacity') }}</dd></div>
           </dl>
 
           <div class="columns">
@@ -212,6 +227,7 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
     .setup { display: grid; gap: 1rem; max-width: 1080px; }
     h2, h3, h4, p { margin-top: 0; }
     .eyebrow { color: #76a9ff; font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .concept-note { color: #aebfda; margin-bottom: 0; max-width: 78ch; }
     .steps { display: flex; flex-wrap: wrap; gap: .5rem; }
     .steps span { border: 1px solid #344567; border-radius: 999px; color: #a8b8d8; padding: .35rem .75rem; }
     .steps .active { background: #173a6b; border-color: #5c9dff; color: #fff; }
@@ -253,14 +269,26 @@ export class OrganizationSetupComponent {
     }
     return [...unique.values()];
   });
+  readonly profileFamilies = computed(() => {
+    const profiles = new Map<string, string>();
+    for (const blueprint of this.productionBlueprints()) {
+      const key = this.profileKey(blueprint);
+      if (!profiles.has(key)) profiles.set(key, blueprint.profile_label || blueprint.definition_key);
+    }
+    return [...profiles].map(([key, label]) => ({ key, label }));
+  });
+  readonly familyBlueprints = computed(() => (
+    this.productionBlueprints().filter(item => this.profileKey(item) === this.profileFamily)
+  ));
   readonly supportedCounts = computed(() => {
-    const fromServer = this.productionBlueprints().map(item => item.team_count).filter(count => count >= 5 && count <= 10);
-    return [...new Set(fromServer.length ? fromServer : [5, 6, 7, 8, 9, 10])].sort((left, right) => left - right);
+    const fromServer = this.familyBlueprints().map(item => item.team_count);
+    return [...new Set(fromServer)].sort((left, right) => left - right);
   });
 
-  title = 'Enterprise Produktorganisation';
+  title = 'Produktorganisation';
   compositionMode: 'standard' | 'custom' = 'standard';
-  teamCount = 8;
+  profileFamily = 'lean_company';
+  teamCount = 4;
   blueprintKey = '';
   customDefinitionKey = '';
   customCounts: Record<string, number> = {};
@@ -294,19 +322,31 @@ export class OrganizationSetupComponent {
         this.resetForProjectChange();
       }
       const selected = plans.find(item => item.key === this.blueprintKey);
+      if (plans.length && !plans.some(item => this.profileKey(item) === this.profileFamily)) {
+        this.profileFamily = this.profileKey(
+          plans.find(item => item.profile_family === 'lean_company' && item.recommended)
+            ?? plans.find(item => item.recommended)
+            ?? plans[0],
+        );
+      }
       if (plans.length && (
         !selected
-        || (this.compositionMode === 'standard' && selected.team_count !== Number(this.teamCount))
+        || (this.compositionMode === 'standard' && (
+          selected.team_count !== Number(this.teamCount)
+          || this.profileKey(selected) !== this.profileFamily
+        ))
       )) {
+        const familyPlans = plans.filter(item => this.profileKey(item) === this.profileFamily);
         const matchingSelection = selected
-          ? plans.find(item => (
+          ? familyPlans.find(item => (
             item.definition_key === selected.definition_key
             && item.team_count === Number(this.teamCount)
           ))
           : null;
         const recommended = matchingSelection
+          ?? familyPlans.find(item => item.recommended)
+          ?? familyPlans[0]
           ?? plans.find(item => item.recommended)
-          ?? plans.find(item => item.team_count === 8)
           ?? plans[0];
         this.applyStandardBlueprint(recommended);
       }
@@ -324,9 +364,9 @@ export class OrganizationSetupComponent {
     const teamCount = Number(value);
     if (!Number.isInteger(teamCount)) return;
     const definitionKey = this.selectedBlueprint()?.definition_key;
-    const candidate = this.productionBlueprints().find(item => (
+    const candidate = this.familyBlueprints().find(item => (
       item.team_count === teamCount && item.definition_key === definitionKey
-    )) ?? this.productionBlueprints().find(item => item.team_count === teamCount);
+    )) ?? this.familyBlueprints().find(item => item.team_count === teamCount);
     if (candidate) {
       this.applyStandardBlueprint(candidate);
       return;
@@ -346,8 +386,24 @@ export class OrganizationSetupComponent {
     this.applyStandardBlueprint(blueprint);
   }
 
+  selectProfileFamily(value: unknown): void {
+    const family = String(value || '');
+    const candidates = this.productionBlueprints().filter(item => this.profileKey(item) === family);
+    if (!candidates.length) return;
+    this.profileFamily = family;
+    this.applyStandardBlueprint(candidates.find(item => item.recommended) ?? candidates[0]);
+  }
+
+  sizeOptions(): readonly OrganizationBlueprintSummary[] {
+    const unique = new Map<number, OrganizationBlueprintSummary>();
+    for (const blueprint of this.familyBlueprints()) {
+      if (!unique.has(blueprint.team_count)) unique.set(blueprint.team_count, blueprint);
+    }
+    return [...unique.values()].sort((left, right) => left.team_count - right.team_count);
+  }
+
   standardBlueprintOptions(): readonly OrganizationBlueprintSummary[] {
-    return this.productionBlueprints().filter(item => item.team_count === Number(this.teamCount));
+    return this.familyBlueprints().filter(item => item.team_count === Number(this.teamCount));
   }
 
   changeCompositionMode(value: unknown): void {
@@ -368,7 +424,8 @@ export class OrganizationSetupComponent {
     this.customCounts = Object.fromEntries(
       this.customOptions().map(option => [
         option.key,
-        option.key === 'enterprise_product_delivery_scrum' ? 2 : 0,
+        option.standard_default_count
+          ?? (option.standard_baseline ? option.minimum_when_selected : 0),
       ]),
     );
     this.invalidateCompilePlan();
@@ -400,8 +457,9 @@ export class OrganizationSetupComponent {
       architecture_governance: 'Architecture Governance',
       proof_of_concept: 'Proof of Concept',
     };
+    const availableKeys = new Set(this.customOptions().map(option => option.key));
     return Object.entries(labels)
-      .filter(([key]) => Number(this.customCounts[key] || 0) < 1)
+      .filter(([key]) => availableKeys.has(key) && Number(this.customCounts[key] || 0) < 1)
       .map(([, label]) => label);
   }
 
@@ -493,9 +551,14 @@ export class OrganizationSetupComponent {
     return Object.entries(value);
   }
 
+  budgetValue(value: Readonly<Record<string, number>>, key: string): number | string {
+    return Number.isFinite(value[key]) ? value[key] : '–';
+  }
+
   private applyStandardBlueprint(blueprint: OrganizationBlueprintSummary): void {
     this.blueprintKey = blueprint.key;
     this.customDefinitionKey = blueprint.definition_key;
+    this.profileFamily = this.profileKey(blueprint);
     this.teamCount = blueprint.team_count;
     this.invalidateCompilePlan();
   }
@@ -503,5 +566,9 @@ export class OrganizationSetupComponent {
   private invalidateCompilePlan(): void {
     this.state.discardCompilePlan();
     this.confirmed = false;
+  }
+
+  private profileKey(blueprint: OrganizationBlueprintSummary): string {
+    return blueprint.profile_family || blueprint.definition_key;
   }
 }

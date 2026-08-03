@@ -25,6 +25,7 @@ import {
   OrganizationTopologyPatchGrant,
   OrganizationTopologyQuery,
 } from '../models/organization-topology.models';
+import { OrganizationRoleActivationMap } from '../role-activation/organization-role-activation.models';
 
 export interface OrganizationPage<T> {
   items: readonly T[];
@@ -174,6 +175,21 @@ export class OrganizationApiClient extends ApiBaseService {
       this.endpoint(
         hubUrl,
         `/api/organizations/${encodeURIComponent(organizationId)}/topology?${params.toString()}`,
+      ),
+      hubUrl,
+      undefined,
+      false,
+    );
+  }
+
+  roleActivationMap(
+    hubUrl: string,
+    organizationId: string,
+  ): Observable<OrganizationRoleActivationMap> {
+    return this.core.get<OrganizationRoleActivationMap>(
+      this.endpoint(
+        hubUrl,
+        `/api/organizations/${encodeURIComponent(organizationId)}/role-activation-map`,
       ),
       hubUrl,
       undefined,

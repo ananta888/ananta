@@ -12,6 +12,39 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
 import { OrganizationSetupComponent } from './organization-setup.component';
 
 describe('OrganizationSetupComponent standard selector binding', () => {
+  it('offers the lean family as a compact default with server-derived role counts', () => {
+    const { component, fixture } = createComponent(true);
+
+    expect(component.profileFamily).toBe('lean_company');
+    expect(component.teamCount).toBe(4);
+    expect(component.selectedBlueprint()?.role_slot_count).toBe(12);
+    expect(fixture.nativeElement.textContent).toContain('4 Teams · 12 Rollenplätze');
+
+    fixture.debugElement.query(By.css('select[name="team-count"]'))
+      .triggerEventHandler('ngModelChange', 2);
+    fixture.detectChanges();
+
+    expect(component.teamCount).toBe(2);
+    expect(component.selectedBlueprint()?.role_slot_count).toBe(5);
+
+    component.selectProfileFamily('enterprise_scrum');
+    expect(component.teamCount).toBe(8);
+    expect(component.selectedBlueprint()?.role_slot_count).toBe(82);
+  });
+
+  it('derives custom defaults from the selected definition without Enterprise key heuristics', () => {
+    const { component } = createComponent(true);
+
+    component.changeCompositionMode('custom');
+
+    expect(component.customCounts).toEqual({
+      lean_company_direction: 1,
+      lean_delivery_cell: 1,
+    });
+    expect(component.missingCustomCapabilities()).toEqual([]);
+    expect(component.customTeamCount()).toBe(2);
+  });
+
   it('keeps blueprint and team count synchronized in both selection directions', () => {
     const { component, blueprints } = createComponent();
     const enterprise5 = blueprints.find(item => item.key === 'enterprise:standard:5')!;
@@ -51,7 +84,7 @@ describe('OrganizationSetupComponent standard selector binding', () => {
 
     expect(compile).toHaveBeenCalledWith({
       blueprint_key: 'enterprise:standard:5',
-      title: 'Enterprise Produktorganisation',
+      title: 'Produktorganisation',
       team_count: 5,
     });
     expect(component.teamCount).toBe(5);
@@ -136,12 +169,19 @@ describe('OrganizationSetupComponent instantiation grant flow', () => {
   });
 });
 
-function createComponent() {
+function createComponent(includeLean = false) {
   const blueprints = [
     blueprint('alternative', 5),
     blueprint('enterprise', 5),
     blueprint('alternative', 8),
     blueprint('enterprise', 8, true),
+    ...(includeLean ? [
+      blueprint('lean', 2, false, 'lean_company', 5),
+      blueprint('lean', 3, false, 'lean_company', 8),
+      blueprint('lean', 4, true, 'lean_company', 12),
+      blueprint('lean', 5, false, 'lean_company', 16),
+      blueprint('lean', 6, false, 'lean_company', 20),
+    ] : []),
   ];
   const compile = vi.fn();
   const compilePlan = signal<OrganizationCompilePlan | null>(null);
@@ -276,6 +316,8 @@ function blueprint(
   definitionKey: string,
   teamCount: number,
   recommended = false,
+  profileFamily = 'enterprise_scrum',
+  roleSlotCount = teamCount === 8 ? 82 : 52,
 ): OrganizationBlueprintSummary {
   return {
     key: `${definitionKey}:standard:${teamCount}`,
@@ -287,9 +329,23 @@ function blueprint(
     recommended,
     test_only: false,
     revision: `${definitionKey}-revision`,
+    profile_family: profileFamily,
+    profile_label: profileFamily === 'lean_company' ? 'Lean Company' : 'Enterprise Scrum',
+    size_label: `${teamCount} Teams`,
+    role_slot_count: roleSlotCount,
+    default_assignment_capacity: roleSlotCount,
     supported_team_counts: [5, 8],
     custom_team_count_min: 2,
     custom_team_count_max: 10,
-    custom_team_blueprints: [],
+    custom_team_blueprints: profileFamily === 'lean_company' ? [
+      {
+        key: 'lean_company_direction', version: '1', title: 'Direction', repeatable: false,
+        minimum_when_selected: 1, maximum: 1, standard_baseline: true, standard_default_count: 1,
+      },
+      {
+        key: 'lean_delivery_cell', version: '1', title: 'Delivery Cell', repeatable: true,
+        minimum_when_selected: 1, maximum: 6, standard_baseline: true, standard_default_count: 1,
+      },
+    ] : [],
   };
 }

@@ -7,13 +7,16 @@ import { OrganizationGraphComponent } from '../components/organization-graph/org
 import { OrganizationHierarchyComponent } from '../components/organization-hierarchy/organization-hierarchy.component';
 import { OrganizationInspectorComponent } from '../inspector/organization-inspector.component';
 import { OrganizationPlanningHierarchyComponent } from '../planning-hierarchy/organization-planning-hierarchy.component';
+import { OrganizationRoleActivationComponent } from '../role-activation/organization-role-activation.component';
 import { RoleSlotEditorComponent } from '../role-slot-editor/role-slot-editor.component';
 import { OrganizationRuntimeOverlayComponent } from '../runtime-overlay/organization-runtime-overlay.component';
 import { OrganizationTopologyStateService } from '../services/organization-topology-state.service';
 import { OrganizationSetupComponent } from '../setup/organization-setup.component';
 import { OrganizationTopologyEditorComponent } from '../topology-editor/organization-topology-editor.component';
+import { OrganizationGraph3dComponent } from '../visualization/organization-graph-3d.component';
+import { OrganizationVisualProfileService } from '../visualization/organization-visual-profile.service';
 
-type OrganizationSection = 'topology' | 'setup' | 'edit' | 'roles' | 'planning' | 'bundles';
+type OrganizationSection = 'topology' | 'setup' | 'edit' | 'roles' | 'activation' | 'planning' | 'bundles';
 
 @Component({
   selector: 'app-organization-shell',
@@ -23,15 +26,17 @@ type OrganizationSection = 'topology' | 'setup' | 'edit' | 'roles' | 'planning' 
     FormsModule,
     OrganizationBundleWorkbenchComponent,
     OrganizationGraphComponent,
+    OrganizationGraph3dComponent,
     OrganizationHierarchyComponent,
     OrganizationInspectorComponent,
     OrganizationPlanningHierarchyComponent,
+    OrganizationRoleActivationComponent,
     OrganizationRuntimeOverlayComponent,
     OrganizationSetupComponent,
     OrganizationTopologyEditorComponent,
     RoleSlotEditorComponent,
   ],
-  providers: [OrganizationTopologyStateService],
+  providers: [OrganizationTopologyStateService, OrganizationVisualProfileService],
   template: `
     <main class="organization-shell">
       <header class="page-header">
@@ -72,7 +77,8 @@ type OrganizationSection = 'topology' | 'setup' | 'edit' | 'roles' | 'planning' 
           <section class="topology-controls" aria-label="Topologiefilter">
             <div class="view-switch" role="tablist" aria-label="Darstellung">
               <button type="button" role="tab" [attr.aria-selected]="state.mode() === 'hierarchy'" (click)="state.setMode('hierarchy')">Hierarchie</button>
-              <button type="button" role="tab" [attr.aria-selected]="state.mode() === 'graph'" (click)="state.setMode('graph')">Graph</button>
+              <button type="button" role="tab" [attr.aria-selected]="state.mode() === 'graph'" (click)="state.setMode('graph')">2D</button>
+              <button type="button" role="tab" [attr.aria-selected]="state.mode() === 'graph3d'" (click)="state.setMode('graph3d')">3D</button>
             </div>
             <label>Suche <input type="search" [ngModel]="state.search()" (ngModelChange)="state.setSearch($event)" maxlength="128" /></label>
             <fieldset>
@@ -87,7 +93,8 @@ type OrganizationSection = 'topology' | 'setup' | 'edit' | 'roles' | 'planning' 
           <div class="topology-layout" [class.without-inspector]="!state.inspectorOpen()">
             <section class="renderer">
               @if (state.mode() === 'hierarchy') { <app-organization-hierarchy /> }
-              @else { <app-organization-graph /> }
+              @else if (state.mode() === 'graph') { <app-organization-graph /> }
+              @else { <app-organization-graph-3d /> }
             </section>
             @if (state.inspectorOpen()) { <app-organization-inspector /> }
             @else { <button type="button" class="open-inspector" (click)="state.inspectorOpen.set(true)">Inspector öffnen</button> }
@@ -95,7 +102,7 @@ type OrganizationSection = 'topology' | 'setup' | 'edit' | 'roles' | 'planning' 
         } @else if (state.loaded()) {
           <section class="empty-state">
             <h2>Noch keine Organisation</h2>
-            <p>Starte mit der empfohlenen Acht-Team-Komposition oder einer Standardgröße von fünf bis zehn.</p>
+            <p>Starte kompakt mit 5 bis 20 Rollenplätzen oder wähle Enterprise Scrum mit 5 bis 10 Teams.</p>
             <button type="button" (click)="openSection('setup')">Einrichtung öffnen</button>
           </section>
         }
@@ -104,6 +111,7 @@ type OrganizationSection = 'topology' | 'setup' | 'edit' | 'roles' | 'planning' 
       @if (section() === 'setup') { <app-organization-setup /> }
       @if (section() === 'edit') { <app-organization-topology-editor /> }
       @if (section() === 'roles') { <app-role-slot-editor /> }
+      @if (section() === 'activation') { <app-organization-role-activation /> }
       @if (section() === 'planning') { <app-organization-planning-hierarchy /> }
       @if (section() === 'bundles') { <app-organization-bundle-workbench /> }
 
@@ -125,7 +133,8 @@ type OrganizationSection = 'topology' | 'setup' | 'edit' | 'roles' | 'planning' 
     .error { align-items: center; background: #401d26; border-left: 4px solid #e56c77; display: flex; gap: .8rem; padding: .65rem; }
     .error small { color: #f2aeb5; } .error button, .empty-state button, .topology-controls > button, .open-inspector { background: #2a6ec5; border: 0; border-radius: .4rem; color: white; cursor: pointer; padding: .45rem .65rem; }
     .topology-controls { align-items: center; background: #0d1728; border: 1px solid #2c4161; border-radius: .6rem; display: flex; flex-wrap: wrap; gap: .7rem; padding: .55rem; }
-    .view-switch { display: flex; } .view-switch button { background: #1e304c; border: 1px solid #405a80; color: #cbd8eb; padding: .45rem .7rem; }
+    .view-switch { display: flex; } .view-switch button { background: #1e304c; border: 1px solid #405a80; color: #cbd8eb; margin-left: -1px; padding: .45rem .7rem; }
+    .view-switch button:first-child { margin-left: 0; }
     .view-switch button:first-child { border-radius: .4rem 0 0 .4rem; } .view-switch button:last-child { border-radius: 0 .4rem .4rem 0; }
     .view-switch button[aria-selected='true'] { background: #286abb; color: white; }
     .topology-controls > label { align-items: center; display: flex; gap: .4rem; }
@@ -144,6 +153,7 @@ export class OrganizationShellComponent implements OnInit {
     { id: 'setup', label: 'Einrichten' },
     { id: 'edit', label: 'Ändern' },
     { id: 'roles', label: 'Rollen & Assignments' },
+    { id: 'activation', label: 'Aktivierung & Übergaben' },
     { id: 'planning', label: 'Planung & Proposals' },
     { id: 'bundles', label: 'Import / Export' },
   ];

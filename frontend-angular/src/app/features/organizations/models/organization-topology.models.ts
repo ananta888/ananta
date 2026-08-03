@@ -6,7 +6,7 @@ export type OrganizationLifecycle =
   | 'completed'
   | 'archived';
 
-export type OrganizationViewMode = 'hierarchy' | 'graph';
+export type OrganizationViewMode = 'hierarchy' | 'graph' | 'graph3d';
 export type OrganizationNodeKind =
   | 'organization'
   | 'coordination_unit'
@@ -60,7 +60,15 @@ export interface OrganizationBlueprintSummary {
   activation_summary?: readonly string[];
   capabilities?: readonly string[];
   revision: string;
+  profile_family?: string | null;
+  profile_label?: string | null;
+  size_label?: string | null;
+  role_slot_count?: number;
+  default_assignment_capacity?: number;
   supported_team_counts: readonly number[];
+  supported_team_count_min?: number;
+  supported_team_count_default?: number;
+  supported_team_count_max?: number;
   custom_team_count_min: number;
   custom_team_count_max: number;
   custom_team_blueprints: readonly OrganizationCustomTeamBlueprintOption[];
@@ -74,6 +82,7 @@ export interface OrganizationCustomTeamBlueprintOption {
   minimum_when_selected: number;
   maximum: number;
   standard_baseline: boolean;
+  standard_default_count?: number;
 }
 
 export interface OrganizationSummary {
