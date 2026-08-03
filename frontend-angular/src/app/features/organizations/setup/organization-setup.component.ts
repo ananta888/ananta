@@ -31,7 +31,7 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
           </label>
           <label>
             Kompositionsmodus
-            <select name="composition-mode" [(ngModel)]="compositionMode" (ngModelChange)="changeCompositionMode()">
+            <select name="composition-mode" [ngModel]="compositionMode" (ngModelChange)="changeCompositionMode($event)">
               <option value="standard">Standard · 5 bis 10 Teams</option>
               <option value="custom">Custom N · 2 bis Serverlimit</option>
             </select>
@@ -40,7 +40,7 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
           @if (compositionMode === 'standard') {
             <label>
               Standardgröße
-              <select name="team-count" [(ngModel)]="teamCount" (ngModelChange)="selectForCount()">
+              <select name="team-count" [ngModel]="teamCount" (ngModelChange)="selectForCount($event)">
                 @for (count of supportedCounts(); track count) {
                   <option [ngValue]="count">{{ count }} Teams{{ count === 8 ? ' · empfohlen' : '' }}</option>
                 }
@@ -48,8 +48,8 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
             </label>
             <label class="wide">
               Blueprint
-              <select name="blueprint" [(ngModel)]="blueprintKey" required>
-                @for (blueprint of productionBlueprints(); track blueprint.key + ':' + blueprint.version) {
+              <select name="blueprint" [ngModel]="blueprintKey" (ngModelChange)="selectBlueprint($event)" required>
+                @for (blueprint of standardBlueprintOptions(); track blueprint.key + ':' + blueprint.version) {
                   <option [value]="blueprint.key">{{ blueprint.title }} · v{{ blueprint.version }}</option>
                 }
               </select>
@@ -57,7 +57,7 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
           } @else {
             <label class="wide">
               Organisationsdefinition
-              <select name="custom-blueprint" [(ngModel)]="customDefinitionKey" (ngModelChange)="resetCustomCounts()" required>
+              <select name="custom-blueprint" [ngModel]="customDefinitionKey" (ngModelChange)="selectCustomDefinition($event)" required>
                 @for (blueprint of baseBlueprints(); track blueprint.definition_key + ':' + blueprint.version) {
                   <option [value]="blueprint.definition_key">{{ blueprint.definition_key }} · v{{ blueprint.version }}</option>
                 }
@@ -256,13 +256,22 @@ export class OrganizationSetupComponent {
         this.observedProjectId = projectId;
         this.resetForProjectChange();
       }
-      if (plans.length && !plans.some(item => item.key === this.blueprintKey)) {
-        const recommended = plans.find(item => item.recommended)
+      const selected = plans.find(item => item.key === this.blueprintKey);
+      if (plans.length && (
+        !selected
+        || (this.compositionMode === 'standard' && selected.team_count !== Number(this.teamCount))
+      )) {
+        const matchingSelection = selected
+          ? plans.find(item => (
+            item.definition_key === selected.definition_key
+            && item.team_count === Number(this.teamCount)
+          ))
+          : null;
+        const recommended = matchingSelection
+          ?? plans.find(item => item.recommended)
           ?? plans.find(item => item.team_count === 8)
           ?? plans[0];
-        this.blueprintKey = recommended.key;
-        this.customDefinitionKey = recommended.definition_key;
-        this.teamCount = recommended.team_count || 8;
+        this.applyStandardBlueprint(recommended);
       }
       if (this.state.compilePlan()) this.step = Math.max(this.step, 2);
     });
@@ -277,17 +286,48 @@ export class OrganizationSetupComponent {
     this.confirmed = false;
   }
 
-  selectForCount(): void {
-    const candidate = this.productionBlueprints().find(item => item.team_count === Number(this.teamCount));
-    if (candidate) this.blueprintKey = candidate.key;
-    this.state.compilePlan.set(null);
-    this.step = 1;
+  selectForCount(value: unknown): void {
+    const teamCount = Number(value);
+    if (!Number.isInteger(teamCount)) return;
+    const definitionKey = this.selectedBlueprint()?.definition_key;
+    const candidate = this.productionBlueprints().find(item => (
+      item.team_count === teamCount && item.definition_key === definitionKey
+    )) ?? this.productionBlueprints().find(item => item.team_count === teamCount);
+    if (candidate) {
+      this.applyStandardBlueprint(candidate);
+      return;
+    }
+    this.teamCount = teamCount;
+    this.blueprintKey = '';
+    this.invalidateCompilePlan();
   }
 
-  changeCompositionMode(): void {
-    this.state.compilePlan.set(null);
-    this.step = 1;
+  selectBlueprint(value: unknown): void {
+    const blueprint = this.productionBlueprints().find(item => item.key === String(value || ''));
+    if (!blueprint) {
+      this.blueprintKey = '';
+      this.invalidateCompilePlan();
+      return;
+    }
+    this.applyStandardBlueprint(blueprint);
+  }
+
+  standardBlueprintOptions(): readonly OrganizationBlueprintSummary[] {
+    return this.productionBlueprints().filter(item => item.team_count === Number(this.teamCount));
+  }
+
+  changeCompositionMode(value: unknown): void {
+    if (value !== 'standard' && value !== 'custom') return;
+    this.compositionMode = value;
+    this.invalidateCompilePlan();
     if (this.compositionMode === 'custom') this.resetCustomCounts();
+  }
+
+  selectCustomDefinition(value: unknown): void {
+    const definitionKey = String(value || '');
+    if (!this.baseBlueprints().some(item => item.definition_key === definitionKey)) return;
+    this.customDefinitionKey = definitionKey;
+    this.resetCustomCounts();
   }
 
   resetCustomCounts(): void {
@@ -297,8 +337,7 @@ export class OrganizationSetupComponent {
         option.key === 'enterprise_product_delivery_scrum' ? 2 : 0,
       ]),
     );
-    this.state.compilePlan.set(null);
-    this.step = 1;
+    this.invalidateCompilePlan();
   }
 
   selectedBlueprint() {
@@ -334,7 +373,13 @@ export class OrganizationSetupComponent {
 
   canCompile(): boolean {
     if (!this.title.trim()) return false;
-    if (this.compositionMode === 'standard') return Boolean(this.blueprintKey);
+    if (this.compositionMode === 'standard') {
+      const blueprint = this.selectedBlueprint();
+      return Boolean(
+        blueprint?.standard
+        && blueprint.team_count === Number(this.teamCount)
+      );
+    }
     const total = this.customTeamCount();
     return Boolean(
       this.customDefinitionKey
@@ -349,10 +394,12 @@ export class OrganizationSetupComponent {
     this.confirmed = false;
     this.adminGrant = '';
     if (this.compositionMode === 'standard') {
+      const blueprint = this.selectedBlueprint();
+      if (!blueprint) return;
       this.state.compile({
-        blueprint_key: this.blueprintKey,
+        blueprint_key: blueprint.key,
         title: this.title.trim(),
-        team_count: Number(this.teamCount),
+        team_count: blueprint.team_count,
       });
       return;
     }
@@ -384,5 +431,19 @@ export class OrganizationSetupComponent {
 
   budgetEntries(value: Readonly<Record<string, number>>): readonly [string, number][] {
     return Object.entries(value);
+  }
+
+  private applyStandardBlueprint(blueprint: OrganizationBlueprintSummary): void {
+    this.blueprintKey = blueprint.key;
+    this.customDefinitionKey = blueprint.definition_key;
+    this.teamCount = blueprint.team_count;
+    this.invalidateCompilePlan();
+  }
+
+  private invalidateCompilePlan(): void {
+    this.state.compilePlan.set(null);
+    this.step = 1;
+    this.adminGrant = '';
+    this.confirmed = false;
   }
 }
