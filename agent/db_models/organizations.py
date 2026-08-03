@@ -484,7 +484,7 @@ class OrganizationRoleSlotDB(SQLModel, table=True):
     required: bool = True
     min_count: int = Field(default=1, ge=0)
     default_count: int = Field(default=1, ge=0)
-    max_count: int | None = Field(default=1, ge=0)
+    max_count: int | None = Field(default=None, ge=0)
     assignment_policy: dict[str, Any] = Field(default_factory=dict, sa_column=_json_column(dict))
     separation_of_duties: dict[str, Any] = Field(default_factory=dict, sa_column=_json_column(dict))
     overlays: list[str] = Field(default_factory=list, sa_column=_json_column(list))

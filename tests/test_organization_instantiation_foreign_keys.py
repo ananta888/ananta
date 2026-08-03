@@ -82,8 +82,8 @@ class _ForeignKeyOrganizationUow(OrganizationUnitOfWork):
         return self
 
 
-def _compiled_plan():
-    return organization_compiler().compile(
+def _compiled_plan(*, catalog: FakeDefinitionCatalog | None = None):
+    return organization_compiler(catalog).compile(
         OrganizationCompileRequest(
             tenant_id="tenant-foreign-key",
             project_id="project-foreign-key",
@@ -129,8 +129,14 @@ def _database(plan):
     return database
 
 
-def _service(database, plan, *, fail_at: str | None = None):
-    catalog = FakeDefinitionCatalog()
+def _service(
+    database,
+    plan,
+    *,
+    catalog: FakeDefinitionCatalog | None = None,
+    fail_at: str | None = None,
+):
+    catalog = catalog or FakeDefinitionCatalog()
 
     def inject(step: str) -> None:
         if step == fail_at:
@@ -172,6 +178,26 @@ def test_instantiation_persists_fk_parents_before_children() -> None:
         assert len(session.exec(select(TeamDB)).all()) == plan.requested_team_count
         assert len(session.exec(select(OrganizationTeamLinkDB)).all()) == plan.requested_team_count
         assert len(session.exec(select(OrganizationAdminGrantDB)).all()) == 1
+
+
+def test_instantiation_preserves_unbounded_role_slot_maximum() -> None:
+    catalog = FakeDefinitionCatalog()
+    blueprint = catalog.team_blueprints["platform_devops_sre"]
+    role_slot = blueprint.role_slots[0].model_copy(update={"default_count": 2, "max_count": None})
+    catalog.team_blueprints["platform_devops_sre"] = blueprint.model_copy(update={"role_slots": [role_slot]})
+    plan = _compiled_plan(catalog=catalog)
+    database = _database(plan)
+
+    _instantiate(_service(database, plan, catalog=catalog), plan)
+
+    with Session(database) as session:
+        persisted = session.exec(
+            select(OrganizationRoleSlotDB).where(
+                OrganizationRoleSlotDB.slot_key == "lead",
+                OrganizationRoleSlotDB.default_count == 2,
+            )
+        ).one()
+        assert persisted.max_count is None
 
 
 @pytest.mark.parametrize("fault_step", ("operation", "organization", "teams"))
