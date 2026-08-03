@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { finalize, Subject, takeUntil } from 'rxjs';
 
 import { OrganizationBundlePreview } from '../models/organization-topology.models';
 import { OrganizationApiClient } from '../services/organization-api.client';
@@ -136,6 +136,9 @@ export class OrganizationBundleWorkbenchComponent {
   readonly CLIENT_FILE_LIMIT_BYTES = CLIENT_FILE_LIMIT_BYTES;
   readonly state = inject(OrganizationTopologyStateService);
   private readonly api = inject(OrganizationApiClient);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly projectScopeChanged = new Subject<void>();
+  private observedProjectId = this.state.projectId();
   readonly bundle = signal<unknown | null>(null);
   readonly preview = signal<OrganizationBundlePreview | null>(null);
   readonly busy = signal(false);
@@ -148,6 +151,27 @@ export class OrganizationBundleWorkbenchComponent {
   exportAssignments = false;
   assignmentRebindings: Record<string, string> = {};
   instanceAdmissionExceptionRefs: Record<string, string> = {};
+
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.projectScopeChanged.next();
+      this.projectScopeChanged.complete();
+    });
+    effect(() => {
+      const projectId = this.state.projectId();
+      if (projectId === this.observedProjectId) return;
+      this.observedProjectId = projectId;
+      this.projectScopeChanged.next();
+      this.preview.set(null);
+      this.adminGrant = '';
+      this.confirmed = false;
+      this.assignmentRebindings = {};
+      this.instanceAdmissionExceptionRefs = {};
+      this.busy.set(false);
+      this.error.set('');
+      this.message.set('');
+    });
+  }
 
   readFile(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -174,29 +198,44 @@ export class OrganizationBundleWorkbenchComponent {
 
   previewImport(): void {
     const hubUrl = this.state.hubUrl();
+    const projectId = this.state.projectId();
     const bundle = this.bundle();
-    if (!hubUrl || !bundle || this.busy()) return;
+    if (!hubUrl || !projectId || !bundle || this.busy()) return;
     this.busy.set(true); this.error.set(''); this.message.set('');
     this.api.previewBundle(
       hubUrl,
+      projectId,
       bundle,
       this.conflictStrategy,
       this.assignmentRebindings,
       this.instanceAdmissionExceptionRefs,
     ).pipe(
+      takeUntil(this.projectScopeChanged),
       finalize(() => this.busy.set(false)),
     ).subscribe({
-      next: preview => this.preview.set(preview),
+      next: preview => {
+        if (preview.project_id !== this.state.projectId()) {
+          this.rejectStalePreview();
+          return;
+        }
+        this.preview.set(preview);
+      },
       error: () => this.error.set('Bundle-Schema oder Semantik wurde vom Hub abgewiesen.'),
     });
   }
 
   applyImport(): void {
     const hubUrl = this.state.hubUrl();
+    const projectId = this.state.projectId();
     const preview = this.preview();
-    if (!hubUrl || !preview?.applicable || !this.confirmed || !this.adminGrant.trim()) return;
+    if (!hubUrl || !projectId || !preview?.applicable || !this.confirmed || !this.adminGrant.trim()) return;
+    if (preview.project_id !== projectId) {
+      this.rejectStalePreview();
+      return;
+    }
     this.busy.set(true); this.error.set('');
     this.api.applyBundle(hubUrl, preview, this.adminGrant.trim(), idempotencyKey('organization-bundle')).pipe(
+      takeUntil(this.projectScopeChanged),
       finalize(() => this.busy.set(false)),
     ).subscribe({
       next: result => {
@@ -210,14 +249,22 @@ export class OrganizationBundleWorkbenchComponent {
 
   issueGrant(): void {
     const hubUrl = this.state.hubUrl();
+    const projectId = this.state.projectId();
     const preview = this.preview();
-    if (!hubUrl || !preview?.applicable || !this.confirmed || this.busy()) return;
+    if (!hubUrl || !projectId || !preview?.applicable || !this.confirmed || this.busy()) return;
+    if (preview.project_id !== projectId) {
+      this.rejectStalePreview();
+      return;
+    }
     this.busy.set(true); this.error.set('');
     this.api.issueBundleGrant(
       hubUrl,
       preview,
       idempotencyKey('organization-bundle-grant'),
-    ).pipe(finalize(() => this.busy.set(false))).subscribe({
+    ).pipe(
+      takeUntil(this.projectScopeChanged),
+      finalize(() => this.busy.set(false)),
+    ).subscribe({
       next: grant => {
         this.adminGrant = grant.grant_id;
         this.message.set('Der one-shot Import-Grant ist exakt an Plan-, Policy- und Zieldigest gebunden.');
@@ -228,16 +275,27 @@ export class OrganizationBundleWorkbenchComponent {
 
   exportSelected(): void {
     const hubUrl = this.state.hubUrl();
+    const projectId = this.state.projectId();
     const organizationId = this.state.selectedOrganizationId();
-    if (!hubUrl || !organizationId || this.busy()) return;
+    if (!hubUrl || !projectId || !organizationId || this.busy()) return;
     this.busy.set(true); this.error.set('');
     this.api.exportBundle(
       hubUrl,
       organizationId,
       this.exportInstances,
       this.exportAssignments,
-    ).pipe(finalize(() => this.busy.set(false))).subscribe({
+    ).pipe(
+      takeUntil(this.projectScopeChanged),
+      finalize(() => this.busy.set(false)),
+    ).subscribe({
       next: bundle => {
+        if (
+          projectId !== this.state.projectId()
+          || organizationId !== this.state.selectedOrganizationId()
+        ) {
+          this.error.set('Projekt oder Organisation wurde während des Exports gewechselt. Bitte erneut exportieren.');
+          return;
+        }
         const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement('a');
@@ -252,6 +310,11 @@ export class OrganizationBundleWorkbenchComponent {
 
   discardPreview(): void {
     this.preview.set(null); this.confirmed = false; this.adminGrant = '';
+  }
+
+  private rejectStalePreview(): void {
+    this.discardPreview();
+    this.error.set('Der Importplan gehört nicht zum aktuell ausgewählten Projekt. Bitte erneut prüfen.');
   }
 
   assignmentExportChanged(enabled: boolean): void {

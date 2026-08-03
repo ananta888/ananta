@@ -246,11 +246,17 @@ export class OrganizationSetupComponent {
   customReason = 'Bewusste benutzerdefinierte Teamzusammensetzung';
   adminGrant = '';
   confirmed = false;
+  private observedProjectId = this.state.projectId();
 
   constructor() {
     effect(() => {
+      const projectId = this.state.projectId();
       const plans = this.productionBlueprints();
-      if (!this.blueprintKey && plans.length) {
+      if (projectId !== this.observedProjectId) {
+        this.observedProjectId = projectId;
+        this.resetForProjectChange();
+      }
+      if (plans.length && !plans.some(item => item.key === this.blueprintKey)) {
         const recommended = plans.find(item => item.recommended)
           ?? plans.find(item => item.team_count === 8)
           ?? plans[0];
@@ -260,6 +266,15 @@ export class OrganizationSetupComponent {
       }
       if (this.state.compilePlan()) this.step = Math.max(this.step, 2);
     });
+  }
+
+  private resetForProjectChange(): void {
+    this.step = 1;
+    this.blueprintKey = '';
+    this.customDefinitionKey = '';
+    this.customCounts = {};
+    this.adminGrant = '';
+    this.confirmed = false;
   }
 
   selectForCount(): void {

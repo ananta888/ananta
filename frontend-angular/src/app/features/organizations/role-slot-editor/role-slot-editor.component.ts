@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { finalize, Subject, takeUntil } from 'rxjs';
 
 import {
   OrganizationAssignmentCandidate,
@@ -107,17 +107,34 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
 export class RoleSlotEditorComponent {
   readonly state = inject(OrganizationTopologyStateService);
   private readonly api = inject(OrganizationApiClient);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly organizationScopeChanged = new Subject<void>();
+  private readonly slotSelectionChanged = new Subject<void>();
   readonly slots = signal<readonly OrganizationRoleSlot[]>([]);
   readonly selectedSlot = signal<OrganizationRoleSlot | null>(null);
   readonly candidates = signal<readonly OrganizationAssignmentCandidate[]>([]);
-  readonly loading = signal(false);
+  private readonly slotsLoading = signal(false);
+  private readonly candidatesLoading = signal(false);
+  readonly loading = computed(() => this.slotsLoading() || this.candidatesLoading());
   readonly error = signal('');
   selectedAgentId = '';
   adminGrant = '';
   confirmed = false;
+  private observedScope: string | null = null;
 
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.organizationScopeChanged.next();
+      this.organizationScopeChanged.complete();
+      this.slotSelectionChanged.next();
+      this.slotSelectionChanged.complete();
+    });
     effect(() => {
+      const scope = this.scopeKey();
+      if (scope === this.observedScope) return;
+      this.observedScope = scope;
+      this.organizationScopeChanged.next();
+      this.resetLocalState();
       if (this.state.selectedOrganizationId() && this.state.hubUrl()) this.loadSlots();
     });
   }
@@ -126,9 +143,13 @@ export class RoleSlotEditorComponent {
     const hubUrl = this.state.hubUrl();
     const organizationId = this.state.selectedOrganizationId();
     if (!hubUrl || !organizationId || this.loading()) return;
-    this.loading.set(true); this.error.set('');
-    this.api.roleSlots(hubUrl, organizationId).pipe(finalize(() => this.loading.set(false))).subscribe({
+    this.slotsLoading.set(true); this.error.set('');
+    this.api.roleSlots(hubUrl, organizationId).pipe(
+      takeUntil(this.organizationScopeChanged),
+      finalize(() => this.slotsLoading.set(false)),
+    ).subscribe({
       next: slots => {
+        if (organizationId !== this.state.selectedOrganizationId()) return;
         this.slots.set(slots);
         if (slots.length) this.selectSlot(slots[0]);
       },
@@ -137,17 +158,27 @@ export class RoleSlotEditorComponent {
   }
 
   selectSlot(slot: OrganizationRoleSlot): void {
+    this.slotSelectionChanged.next();
     this.selectedSlot.set(slot);
     this.selectedAgentId = '';
     this.candidates.set(slot.assignments ?? []);
     const hubUrl = this.state.hubUrl();
     const organizationId = this.state.selectedOrganizationId();
     if (!hubUrl || !organizationId) return;
-    this.loading.set(true);
+    this.candidatesLoading.set(true);
     this.api.assignmentCandidates(hubUrl, organizationId, slot.id).pipe(
-      finalize(() => this.loading.set(false)),
+      takeUntil(this.organizationScopeChanged),
+      takeUntil(this.slotSelectionChanged),
+      finalize(() => this.candidatesLoading.set(false)),
     ).subscribe({
-      next: candidates => this.candidates.set(candidates),
+      next: candidates => {
+        if (
+          organizationId === this.state.selectedOrganizationId()
+          && slot.id === this.selectedSlot()?.id
+        ) {
+          this.candidates.set(candidates);
+        }
+      },
       error: () => this.error.set('Assignment-Kandidaten konnten nicht geprüft werden.'),
     });
   }
@@ -158,5 +189,26 @@ export class RoleSlotEditorComponent {
     this.confirmed = false;
     this.adminGrant = this.state.selectedOrganizationAdminGrant();
     this.state.previewOperations([{ op: 'assign', role_slot_id: slot.id, agent_id: this.selectedAgentId }]);
+  }
+
+  private scopeKey(): string {
+    return [
+      this.state.projectId(),
+      this.state.hubUrl(),
+      this.state.selectedOrganizationId() || '',
+    ].join('|');
+  }
+
+  private resetLocalState(): void {
+    this.slotSelectionChanged.next();
+    this.slots.set([]);
+    this.selectedSlot.set(null);
+    this.candidates.set([]);
+    this.selectedAgentId = '';
+    this.adminGrant = '';
+    this.confirmed = false;
+    this.slotsLoading.set(false);
+    this.candidatesLoading.set(false);
+    this.error.set('');
   }
 }

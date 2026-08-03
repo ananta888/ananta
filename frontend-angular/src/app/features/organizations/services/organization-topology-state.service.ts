@@ -1,7 +1,8 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
-import { finalize, forkJoin, switchMap, throwError } from 'rxjs';
+import { computed, DestroyRef, effect, inject, Injectable, signal, untracked } from '@angular/core';
+import { finalize, forkJoin, Subject, switchMap, takeUntil, throwError } from 'rxjs';
 
 import { AgentDirectoryService, normalizeHubOrigin } from '../../../services/agent-directory.service';
+import { ProjectContextService } from '../../../services/project-context.service';
 import {
   OrganizationBlueprintSummary,
   OrganizationCompilePlan,
@@ -30,8 +31,14 @@ const DEFAULT_DEPTH = 3;
 export class OrganizationTopologyStateService {
   private readonly api = inject(OrganizationApiClient);
   private readonly directory = inject(AgentDirectoryService);
+  private readonly projectContext = inject(ProjectContextService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly projectScopeChanged = new Subject<void>();
+  private readonly organizationScopeChanged = new Subject<void>();
+  private initializationSequence = 0;
 
   readonly hubUrl = signal('');
+  readonly projectId = computed(() => String(this.projectContext.selectedProjectId() || '').trim());
   readonly blueprints = signal<readonly OrganizationBlueprintSummary[]>([]);
   readonly organizations = signal<readonly OrganizationSummary[]>([]);
   readonly selectedOrganizationId = signal<string | null>(null);
@@ -61,6 +68,7 @@ export class OrganizationTopologyStateService {
   readonly organizationAdminGrants = signal<ReadonlyMap<string, string>>(new Map());
   private readonly topologyPatchGrantIssueKey = signal('');
   private readonly topologyPatchApplyKey = signal('');
+  private observedProjectId = this.projectId();
 
   readonly selectedOrganization = computed(() => this.organizations().find(
     organization => organization.id === this.selectedOrganizationId(),
@@ -126,25 +134,58 @@ export class OrganizationTopologyStateService {
 
   constructor() {
     this.resolveHub();
+    this.destroyRef.onDestroy(() => {
+      this.projectScopeChanged.next();
+      this.projectScopeChanged.complete();
+      this.organizationScopeChanged.next();
+      this.organizationScopeChanged.complete();
+    });
+    effect(() => {
+      const projectId = this.projectId();
+      if (projectId === this.observedProjectId) return;
+      this.observedProjectId = projectId;
+      untracked(() => {
+        this.resetProjectState();
+        if (projectId) this.initialize();
+        else this.setProjectRequiredError();
+      });
+    });
   }
 
   initialize(): void {
     const hubUrl = this.resolveHub();
+    const projectId = this.projectId();
+    if (!projectId) {
+      this.setProjectRequiredError();
+      return;
+    }
     if (!hubUrl || this.loading()) {
       if (!hubUrl) this.captureError(new Error('organization_hub_unconfigured'), 'Kein Hub konfiguriert.');
       return;
     }
+    const sequence = ++this.initializationSequence;
+    let catalogResponseHandled = false;
     this.resetError();
     this.loading.set(true);
     forkJoin({
-      blueprints: this.api.listBlueprints(hubUrl),
-      organizations: this.api.listOrganizations(hubUrl, '', 100),
-    }).pipe(finalize(() => this.loading.set(false))).subscribe({
+      blueprints: this.api.listBlueprints(hubUrl, projectId),
+      organizations: this.api.listOrganizations(hubUrl, projectId, '', 100),
+    }).pipe(
+      takeUntil(this.projectScopeChanged),
+      finalize(() => {
+        if (!catalogResponseHandled && sequence === this.initializationSequence) {
+          this.loading.set(false);
+        }
+      }),
+    ).subscribe({
       next: ({ blueprints, organizations }) => {
+        if (sequence !== this.initializationSequence || projectId !== this.projectId()) return;
+        catalogResponseHandled = true;
         this.blueprints.set(normalizePage(blueprints).items.filter(item => !item.test_only));
         const instances = normalizePage(organizations).items;
         this.organizations.set(instances);
         this.loaded.set(true);
+        this.loading.set(false);
         const selected = this.selectedOrganizationId();
         if (selected && instances.some(item => item.id === selected)) {
           this.loadTopology(selected);
@@ -152,7 +193,11 @@ export class OrganizationTopologyStateService {
           this.selectOrganization(instances[0].id);
         }
       },
-      error: error => this.captureError(error, 'Organisationskatalog konnte nicht geladen werden.'),
+      error: error => {
+        if (sequence === this.initializationSequence && projectId === this.projectId()) {
+          this.captureError(error, 'Organisationskatalog konnte nicht geladen werden.');
+        }
+      },
     });
   }
 
@@ -160,8 +205,9 @@ export class OrganizationTopologyStateService {
     const normalized = normalizeId(organizationId);
     if (!normalized) return;
     const changed = normalized !== this.selectedOrganizationId();
-    this.selectedOrganizationId.set(normalized);
     if (changed) {
+      this.organizationScopeChanged.next();
+      this.topology.set(null);
       this.selectedNodeId.set(null);
       this.selectedEdgeId.set(null);
       this.focusedSubgraphId.set(null);
@@ -169,7 +215,9 @@ export class OrganizationTopologyStateService {
       this.topologyPatchGrant.set(null);
       this.resetTopologyPatchKeys();
       this.planning.set(null);
+      this.layoutPreferences.set(new Map());
     }
+    this.selectedOrganizationId.set(normalized);
     this.loadTopology(normalized);
   }
 
@@ -232,6 +280,8 @@ export class OrganizationTopologyStateService {
     if (!organizationId || !hubUrl) return;
     this.loading.set(true);
     this.api.planning(hubUrl, organizationId).pipe(
+      takeUntil(this.projectScopeChanged),
+      takeUntil(this.organizationScopeChanged),
       finalize(() => this.loading.set(false)),
     ).subscribe({
       next: planning => this.planning.set(planning),
@@ -251,6 +301,8 @@ export class OrganizationTopologyStateService {
     this.resetError();
     this.mutating.set(true);
     this.api.transitionPlanningArtifact(hubUrl, organizationId, nodeId, operation, revision, digest).pipe(
+      takeUntil(this.projectScopeChanged),
+      takeUntil(this.organizationScopeChanged),
       finalize(() => this.mutating.set(false)),
     ).subscribe({
       next: planning => this.planning.set(planning),
@@ -270,6 +322,8 @@ export class OrganizationTopologyStateService {
     this.resetError();
     this.mutating.set(true);
     this.api.decideProposal(hubUrl, organizationId, proposalId, operation, revision, digest).pipe(
+      takeUntil(this.projectScopeChanged),
+      takeUntil(this.organizationScopeChanged),
       finalize(() => this.mutating.set(false)),
     ).subscribe({
       next: planning => this.planning.set(planning),
@@ -279,11 +333,17 @@ export class OrganizationTopologyStateService {
 
   compile(request: OrganizationCompileRequest): void {
     const hubUrl = this.hubUrl() || this.resolveHub();
+    const projectId = this.projectId();
+    if (!projectId) {
+      this.setProjectRequiredError();
+      return;
+    }
     if (!hubUrl || this.mutating()) return;
     this.resetError();
     this.compilePlan.set(null);
     this.mutating.set(true);
-    this.api.compileBlueprint(hubUrl, request).pipe(
+    this.api.compileBlueprint(hubUrl, projectId, request).pipe(
+      takeUntil(this.projectScopeChanged),
       finalize(() => this.mutating.set(false)),
     ).subscribe({
       next: plan => this.compilePlan.set(plan),
@@ -299,12 +359,18 @@ export class OrganizationTopologyStateService {
     reason: string,
   ): void {
     const hubUrl = this.hubUrl() || this.resolveHub();
+    const projectId = this.projectId();
+    if (!projectId) {
+      this.setProjectRequiredError();
+      return;
+    }
     if (!hubUrl || this.mutating()) return;
     this.resetError();
     this.compilePlan.set(null);
     this.mutating.set(true);
     this.api.issueAdmissionException(
       hubUrl,
+      projectId,
       blueprintKey,
       {
         blueprint_version: blueprintVersion,
@@ -318,7 +384,7 @@ export class OrganizationTopologyStateService {
         if (admission.status !== 'issued') {
           return throwError(() => new Error('organization_admission_exception_not_issued'));
         }
-        return this.api.compileBlueprint(hubUrl, {
+        return this.api.compileBlueprint(hubUrl, projectId, {
           blueprint_key: blueprintKey,
           blueprint_version: blueprintVersion,
           title,
@@ -326,6 +392,7 @@ export class OrganizationTopologyStateService {
           parameters: { team_blueprint_counts: teamBlueprintCounts },
         });
       }),
+      takeUntil(this.projectScopeChanged),
       finalize(() => this.mutating.set(false)),
     ).subscribe({
       next: plan => this.compilePlan.set(plan),
@@ -339,6 +406,11 @@ export class OrganizationTopologyStateService {
   instantiate(adminGrant: string): void {
     const plan = this.compilePlan();
     const hubUrl = this.hubUrl();
+    const projectId = this.projectId();
+    if (!projectId) {
+      this.setProjectRequiredError();
+      return;
+    }
     if (!plan || !hubUrl || !adminGrant.trim() || this.mutating()) return;
     const request: OrganizationInstantiateRequest = {
       compile_plan: plan,
@@ -347,7 +419,8 @@ export class OrganizationTopologyStateService {
     };
     this.resetError();
     this.mutating.set(true);
-    this.api.instantiate(hubUrl, request, createIdempotencyKey('organization-instantiate')).pipe(
+    this.api.instantiate(hubUrl, projectId, request, createIdempotencyKey('organization-instantiate')).pipe(
+      takeUntil(this.projectScopeChanged),
       finalize(() => this.mutating.set(false)),
     ).subscribe({
       next: result => {
@@ -378,6 +451,8 @@ export class OrganizationTopologyStateService {
     this.resetTopologyPatchKeys();
     this.mutating.set(true);
     this.api.previewPatch(hubUrl, organizationId, revision, operations).pipe(
+      takeUntil(this.projectScopeChanged),
+      takeUntil(this.organizationScopeChanged),
       finalize(() => this.mutating.set(false)),
     ).subscribe({
       next: preview => {
@@ -404,7 +479,11 @@ export class OrganizationTopologyStateService {
       preview,
       parentAdminGrant.trim(),
       issueKey,
-    ).pipe(finalize(() => this.mutating.set(false))).subscribe({
+    ).pipe(
+      takeUntil(this.projectScopeChanged),
+      takeUntil(this.organizationScopeChanged),
+      finalize(() => this.mutating.set(false)),
+    ).subscribe({
       next: grant => {
         this.topologyPatchGrant.set(grant);
         this.topologyPatchApplyKey.set('');
@@ -437,7 +516,11 @@ export class OrganizationTopologyStateService {
       preview,
       grant.grant_id,
       applyKey,
-    ).pipe(finalize(() => this.mutating.set(false))).subscribe({
+    ).pipe(
+      takeUntil(this.projectScopeChanged),
+      takeUntil(this.organizationScopeChanged),
+      finalize(() => this.mutating.set(false)),
+    ).subscribe({
       next: page => {
         this.topology.set(page);
         this.patchPreview.set(null);
@@ -460,7 +543,10 @@ export class OrganizationTopologyStateService {
     const hubUrl = this.hubUrl();
     const organizationId = this.selectedOrganizationId();
     if (!hubUrl || !organizationId || this.layoutPreferences().size === 0) return;
-    this.api.saveLayout(hubUrl, organizationId, [...this.layoutPreferences().values()]).subscribe({
+    this.api.saveLayout(hubUrl, organizationId, [...this.layoutPreferences().values()]).pipe(
+      takeUntil(this.projectScopeChanged),
+      takeUntil(this.organizationScopeChanged),
+    ).subscribe({
       error: error => this.captureError(error, 'Layout-Einstellungen konnten nicht gespeichert werden.'),
     });
   }
@@ -486,7 +572,11 @@ export class OrganizationTopologyStateService {
       depth: DEFAULT_DEPTH,
       subgraph_root_id: subgraphRootId ?? undefined,
       include_runtime: true,
-    }).pipe(finalize(() => this.loading.set(false))).subscribe({
+    }).pipe(
+      takeUntil(this.projectScopeChanged),
+      takeUntil(this.organizationScopeChanged),
+      finalize(() => this.loading.set(false)),
+    ).subscribe({
       next: page => this.topology.set(append ? mergeTopologyPages(this.topology(), page) : page),
       error: error => this.captureError(error, 'Organisationstopologie konnte nicht geladen werden.'),
     });
@@ -507,8 +597,42 @@ export class OrganizationTopologyStateService {
 
   private captureError(error: unknown, fallback: string): void {
     const record = error as { status?: number; error?: { reason_code?: string; message?: string }; message?: string };
-    this.errorReasonCode.set(record?.error?.reason_code || (record?.status ? `http_${record.status}` : 'organization_request_failed'));
-    this.error.set(record?.error?.message || fallback);
+    const serverMessage = String(record?.error?.message || '').trim();
+    const messageIsReasonCode = /^[a-z][a-z0-9_.-]*$/.test(serverMessage);
+    this.errorReasonCode.set(
+      record?.error?.reason_code
+      || (messageIsReasonCode ? serverMessage : '')
+      || (record?.status ? `http_${record.status}` : 'organization_request_failed'),
+    );
+    this.error.set(messageIsReasonCode ? fallback : serverMessage || fallback);
+  }
+
+  private resetProjectState(): void {
+    this.projectScopeChanged.next();
+    this.initializationSequence += 1;
+    this.blueprints.set([]);
+    this.organizations.set([]);
+    this.selectedOrganizationId.set(null);
+    this.topology.set(null);
+    this.selectedNodeId.set(null);
+    this.selectedEdgeId.set(null);
+    this.focusedSubgraphId.set(null);
+    this.compilePlan.set(null);
+    this.patchPreview.set(null);
+    this.topologyPatchGrant.set(null);
+    this.planning.set(null);
+    this.layoutPreferences.set(new Map());
+    this.organizationAdminGrants.set(new Map());
+    this.loading.set(false);
+    this.mutating.set(false);
+    this.loaded.set(false);
+    this.resetTopologyPatchKeys();
+    this.resetError();
+  }
+
+  private setProjectRequiredError(): void {
+    this.error.set('Bitte zuerst ein aktives Projekt auswählen.');
+    this.errorReasonCode.set('project_id_required');
   }
 
   private resetTopologyPatchKeys(): void {

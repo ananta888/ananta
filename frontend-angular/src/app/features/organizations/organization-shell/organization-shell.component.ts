@@ -45,7 +45,7 @@ type OrganizationSection = 'topology' | 'setup' | 'edit' | 'roles' | 'planning' 
           <select
             [ngModel]="state.selectedOrganizationId()"
             (ngModelChange)="selectOrganization($event)"
-            [disabled]="state.loading()">
+            [disabled]="state.loading() || state.mutating()">
             @for (organization of state.organizations(); track organization.id) {
               <option [value]="organization.id">{{ organization.title }} · {{ organization.team_count }} Teams · {{ organization.lifecycle }}</option>
             }

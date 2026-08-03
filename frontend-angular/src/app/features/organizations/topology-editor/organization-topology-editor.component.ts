@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, effect, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { OrganizationPatchOperation } from '../models/organization-topology.models';
@@ -191,6 +191,16 @@ export class OrganizationTopologyEditorComponent {
   agentId = '';
   adminGrant = '';
   confirmed = false;
+  private observedScope = this.scopeKey();
+
+  constructor() {
+    effect(() => {
+      const scope = this.scopeKey();
+      if (scope === this.observedScope) return;
+      this.observedScope = scope;
+      this.resetForScopeChange();
+    });
+  }
 
   canPreview(): boolean {
     if (this.operationKind === 'add') {
@@ -246,6 +256,30 @@ export class OrganizationTopologyEditorComponent {
     this.state.topologyPatchGrant.set(null);
     this.confirmed = false;
     this.adminGrant = '';
+  }
+
+  private scopeKey(): string {
+    return `${this.state.projectId()}|${this.state.selectedOrganizationId() || ''}`;
+  }
+
+  private resetForScopeChange(): void {
+    this.nodeId = '';
+    this.parentId = '';
+    this.stableKey = '';
+    this.label = '';
+    this.teamBlueprintRef = '';
+    this.roleTemplateRef = '';
+    this.independentSlotIds = '';
+    this.migrationOrganizationId = '';
+    this.migrationUnitId = '';
+    this.migrationTeamId = '';
+    this.migrationRoleSlotId = '';
+    this.sourceId = '';
+    this.targetId = '';
+    this.roleSlotId = '';
+    this.agentId = '';
+    this.adminGrant = '';
+    this.confirmed = false;
   }
 
   private buildOperation(): OrganizationPatchOperation | null {

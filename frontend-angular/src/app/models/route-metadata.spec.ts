@@ -96,6 +96,10 @@ describe('route metadata', () => {
 
     expect(advanced).toContain('/organizations');
     expect(simple).not.toContain('/organizations');
-    expect(APP_ROUTE_META.organizations).toMatchObject({ area: 'Configure', expertOnly: true });
+    expect(APP_ROUTE_META.organizations).toMatchObject({
+      area: 'Configure',
+      expertOnly: true,
+      projectScoped: true,
+    });
   });
 });

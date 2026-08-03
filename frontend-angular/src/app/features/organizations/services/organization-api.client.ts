@@ -32,9 +32,16 @@ export interface OrganizationPage<T> {
 
 @Injectable({ providedIn: 'root' })
 export class OrganizationApiClient extends ApiBaseService {
-  listBlueprints(hubUrl: string): Observable<OrganizationPage<OrganizationBlueprintSummary>> {
+  listBlueprints(
+    hubUrl: string,
+    projectId: string,
+  ): Observable<OrganizationPage<OrganizationBlueprintSummary>> {
+    const query = new URLSearchParams({
+      project_id: projectId,
+      page_size: '100',
+    });
     return this.core.get<OrganizationPage<OrganizationBlueprintSummary>>(
-      this.endpoint(hubUrl, '/api/organization-blueprints?page_size=100'),
+      this.endpoint(hubUrl, `/api/organization-blueprints?${query.toString()}`),
       hubUrl,
       undefined,
       false,
@@ -43,18 +50,20 @@ export class OrganizationApiClient extends ApiBaseService {
 
   compileBlueprint(
     hubUrl: string,
+    projectId: string,
     request: OrganizationCompileRequest,
   ): Observable<OrganizationCompilePlan> {
     return this.core.request<OrganizationCompilePlan>(
       'POST',
       this.endpoint(hubUrl, `/api/organization-blueprints/${encodeURIComponent(request.blueprint_key)}/compile`),
       hubUrl,
-      { body: request, timeoutMs: 30_000 },
+      { body: { ...request, project_id: projectId }, timeoutMs: 30_000 },
     );
   }
 
   issueAdmissionException(
     hubUrl: string,
+    projectId: string,
     blueprintKey: string,
     request: OrganizationAdmissionExceptionRequest,
     idempotencyKey: string,
@@ -67,15 +76,23 @@ export class OrganizationApiClient extends ApiBaseService {
       ),
       hubUrl,
       {
-        body: request,
+        body: { ...request, project_id: projectId },
         headers: { 'Idempotency-Key': idempotencyKey },
         timeoutMs: 30_000,
       },
     );
   }
 
-  listOrganizations(hubUrl: string, cursor = '', pageSize = 50): Observable<OrganizationPage<OrganizationSummary>> {
-    const query = new URLSearchParams({ page_size: String(clamp(pageSize, 1, 100)) });
+  listOrganizations(
+    hubUrl: string,
+    projectId: string,
+    cursor = '',
+    pageSize = 50,
+  ): Observable<OrganizationPage<OrganizationSummary>> {
+    const query = new URLSearchParams({
+      project_id: projectId,
+      page_size: String(clamp(pageSize, 1, 100)),
+    });
     if (cursor) query.set('cursor', cursor);
     return this.core.get<OrganizationPage<OrganizationSummary>>(
       this.endpoint(hubUrl, `/api/organizations?${query.toString()}`),
@@ -87,6 +104,7 @@ export class OrganizationApiClient extends ApiBaseService {
 
   instantiate(
     hubUrl: string,
+    projectId: string,
     request: OrganizationInstantiateRequest,
     idempotencyKey: string,
   ): Observable<OrganizationInstantiateResult> {
@@ -95,7 +113,7 @@ export class OrganizationApiClient extends ApiBaseService {
       this.endpoint(hubUrl, '/api/organizations'),
       hubUrl,
       {
-        body: request,
+        body: { ...request, project_id: projectId },
         headers: {
           'Idempotency-Key': idempotencyKey,
           'If-Match': quoteEtag(request.compile_plan.definition_revision),
@@ -238,6 +256,7 @@ export class OrganizationApiClient extends ApiBaseService {
 
   previewBundle(
     hubUrl: string,
+    projectId: string,
     bundle: unknown,
     conflictStrategy: string,
     assignmentRebindings: Readonly<Record<string, string>> = {},
@@ -250,6 +269,7 @@ export class OrganizationApiClient extends ApiBaseService {
       {
         body: {
           bundle,
+          project_id: projectId,
           conflict_strategy: conflictStrategy,
           assignment_rebindings: assignmentRebindings,
           instance_admission_exception_refs: instanceAdmissionExceptionRefs,
