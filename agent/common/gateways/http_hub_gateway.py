@@ -3,6 +3,9 @@ from typing import Any, Optional
 
 from agent.common.http import HttpClient
 from agent.config import settings
+from ananta_contracts.general_worker_capabilities import (
+    GENERAL_PURPOSE_WORKER_CAPABILITIES,
+)
 
 
 class HttpHubGateway:
@@ -19,17 +22,12 @@ class HttpHubGateway:
         if role == "worker":
             # Hub registration contract requires at least one worker role or capability.
             payload["worker_roles"] = ["planner", "researcher", "coder", "reviewer", "tester"]
-            payload["capabilities"] = [
-                "planning",
-                "analysis",
-                "research",
-                "coding",
-                "implementation",
-                "review",
-                "testing",
-                "verification",
-            ]
-            payload["execution_limits"] = {"max_parallel_tasks": 2, "max_runtime_seconds": 1800, "max_workspace_mb": 2048}
+            payload["capabilities"] = list(GENERAL_PURPOSE_WORKER_CAPABILITIES)
+            payload["execution_limits"] = {
+                "max_parallel_tasks": 2,
+                "max_runtime_seconds": 1800,
+                "max_workspace_mb": 2048,
+            }
         if settings.registration_token:
             payload["registration_token"] = settings.registration_token
         try:

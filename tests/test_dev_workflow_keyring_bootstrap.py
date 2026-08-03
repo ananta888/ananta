@@ -149,6 +149,7 @@ def test_bootstrap_creates_disjoint_valid_keyrings_and_reuses_them(tmp_path):
         assert {
             "retrieval",
             "index_write",
+            "source_analysis",
             "vector_index_operation",
         }.issubset(row["allowed_capabilities"])
     assert stat.S_IMODE(registration_path.stat().st_mode) == 0o600
@@ -291,6 +292,50 @@ def test_bootstrap_adds_vector_capabilities_without_rotating_credentials(
     assert reused.stdout.strip() == (
         "development workflow keyrings reused"
     )
+
+
+def test_bootstrap_adds_source_analysis_without_rotating_credentials(
+    tmp_path,
+):
+    root = (tmp_path / "workflow-secrets").resolve()
+    assert _run(root).returncode == 0
+    registration_path = root / "hub/worker-registration-keyring.json"
+    registration = json.loads(
+        registration_path.read_text(encoding="utf-8")
+    )
+    for row in registration["workers"].values():
+        row["allowed_capabilities"].remove("source_analysis")
+    registration_path.write_text(
+        json.dumps(
+            registration,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    registration_path.chmod(0o600)
+    private_paths = tuple(
+        path
+        for path in root.rglob("*")
+        if path.is_file() and path != registration_path
+    )
+    before = {path: _digest(path) for path in private_paths}
+
+    upgraded = _run(root)
+
+    assert upgraded.returncode == 0, upgraded.stderr
+    assert upgraded.stdout.strip() == "development workflow keyrings upgraded"
+    assert {path: _digest(path) for path in private_paths} == before
+    upgraded_registration = json.loads(
+        registration_path.read_text(encoding="utf-8")
+    )
+    for row in upgraded_registration["workers"].values():
+        assert "source_analysis" in row["allowed_capabilities"]
+
+    reused = _run(root)
+    assert reused.returncode == 0, reused.stderr
+    assert reused.stdout.strip() == "development workflow keyrings reused"
 
 
 def test_bootstrap_does_not_upgrade_an_unknown_capability_edit(

@@ -77,6 +77,7 @@ NATIVE_ALLOWED_CAPABILITIES = [
     "planning",
     "analysis",
     "research",
+    "source_analysis",
     "coding",
     "implementation",
     "review",
@@ -351,7 +352,12 @@ def test_native_worker_profile_is_typed_and_matches_runtime_capabilities() -> No
     profile = load_workflow_adapter_worker_profile(str(PROFILE))
     native = profile.worker_runtime.native_graph
     assert native is not None and native.enabled
-    assert {"coding", "testing", "verification"} <= set(native.allowed_task_types)
+    assert {
+        "coding",
+        "planning_research",
+        "testing",
+        "verification",
+    } <= set(native.allowed_task_types)
     assert {
         "approval",
         "bounded_parallel",
@@ -359,6 +365,7 @@ def test_native_worker_profile_is_typed_and_matches_runtime_capabilities() -> No
         "deterministic_merge",
         "resume",
         "retrieval",
+        "source_analysis",
         "structured_output",
         "tool_calling",
     } <= set(native.capabilities)

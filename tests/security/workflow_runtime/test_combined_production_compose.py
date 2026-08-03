@@ -43,6 +43,7 @@ BASE_ALLOWED_CAPABILITIES = [
     "planning",
     "analysis",
     "research",
+    "source_analysis",
     "coding",
     "implementation",
     "review",

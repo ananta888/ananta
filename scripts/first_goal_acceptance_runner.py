@@ -13,6 +13,10 @@ from typing import Any
 
 import requests
 
+from ananta_contracts.general_worker_capabilities import (
+    GENERAL_PURPOSE_WORKER_CAPABILITIES,
+)
+
 TERMINAL_STATUSES = {"completed", "failed", "cancelled", "aborted", "timeout"}
 ACTIVE_STATUSES = {"assigned", "proposing", "in_progress", "running"}
 BLOCKED_SET = {"todo", "blocked_by_dependency"}
@@ -167,7 +171,7 @@ class AcceptanceRunner:
                     return [dict(item) for item in data if isinstance(item, dict)]
             except Exception:
                 pass
-        caps = ["planning", "analysis", "research", "coding", "implementation", "review", "testing", "verification"]
+        caps = list(GENERAL_PURPOSE_WORKER_CAPABILITIES)
         return [
             {"name": "ananta-worker-1", "url": "http://ananta-ai-agent-alpha-1:5000", "role": "worker", "capabilities": caps, "token": ""},
             {"name": "ananta-worker-2", "url": "http://ananta-ai-agent-beta-1:5000", "role": "worker", "capabilities": caps, "token": ""},

@@ -61,7 +61,7 @@ Hub-side allowlist (the Worker cannot expand it through self-reporting):
 
 ```json
 "allowed_capabilities": [
-  "planning", "analysis", "research", "coding", "implementation",
+  "planning", "analysis", "research", "source_analysis", "coding", "implementation",
   "review", "testing", "verification", "workflow.adapter.langgraph"
 ]
 ```

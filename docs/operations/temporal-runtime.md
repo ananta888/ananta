@@ -147,7 +147,7 @@ alpha_session = token()
 beta_session = token()
 temporal_service = token()
 native_capabilities = [
-    "planning", "analysis", "research", "coding", "implementation",
+    "planning", "analysis", "research", "source_analysis", "coding", "implementation",
     "review", "testing", "verification", "workflow.adapter.native",
     "approval", "bounded_parallel", "checkpoint", "deterministic_merge",
     "resume", "retrieval", "stream", "structured_output", "subgraphs",

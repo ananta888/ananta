@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import json
-import sys
 import pathlib
+import sys
+
 import pytest
 
 
@@ -59,6 +60,17 @@ class TestCriteriaLogic:
         }
         actual = set(mod._CRITERION_STABLE_IDS.values())
         assert expected.issubset(actual)
+
+
+class TestWorkerRegistrationDefaults:
+    def test_default_workers_advertise_source_analysis(self, mod, monkeypatch):
+        monkeypatch.delenv("ACCEPTANCE_WORKERS_JSON", raising=False)
+        runner = object.__new__(mod.AcceptanceRunner)
+
+        payloads = runner._default_worker_registration_payloads()
+
+        assert len(payloads) == 2
+        assert all("source_analysis" in payload["capabilities"] for payload in payloads)
 
 
 # Scenario loading (delegates to test_acceptance_runner_scenarios.py,

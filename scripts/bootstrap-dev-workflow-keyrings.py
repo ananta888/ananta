@@ -4,7 +4,7 @@
 This bootstrap is intentionally limited to development.  It creates a private
 Hub directory, one public verification directory, and a private identity
 directory for each Worker. Existing complete credentials are validated and
-reused; the one known capability-only legacy document is upgraded without
+reused; known additive capability-only legacy documents are upgraded without
 rotating credentials. An incomplete set fails closed instead of rotating keys
 behind active workflow runs.
 """
@@ -47,7 +47,9 @@ from ananta_contracts.runtime_authorization_crypto import (  # noqa: E402
 from scripts import dev_workflow_identity_documents as _identity_documents  # noqa: E402
 
 _WORKER_CAPABILITIES = _identity_documents.WORKER_CAPABILITIES
-_LEGACY_WORKER_CAPABILITIES = _identity_documents.LEGACY_WORKER_CAPABILITIES
+_UPGRADABLE_WORKER_CAPABILITY_SETS = (
+    _identity_documents.UPGRADABLE_WORKER_CAPABILITY_SETS
+)
 WorkerRegistrationSpec = _identity_documents.WorkerRegistrationSpec
 _registration_document = _identity_documents.registration_document
 _sha256_text = _identity_documents._sha256_text
@@ -616,12 +618,14 @@ def _validate(
     )
     if registration == expected_registration:
         return False
-    if allow_legacy_registration and registration == _registration_document(
-        secrets_by_name,
-        worker_specs=worker_specs,
-        capabilities=_LEGACY_WORKER_CAPABILITIES,
-    ):
-        return True
+    if allow_legacy_registration:
+        for capabilities in _UPGRADABLE_WORKER_CAPABILITY_SETS:
+            if registration == _registration_document(
+                secrets_by_name,
+                worker_specs=worker_specs,
+                capabilities=list(capabilities),
+            ):
+                return True
     raise DevWorkflowKeyringBootstrapError(
         "development Worker registration keyring does not match credentials"
     )

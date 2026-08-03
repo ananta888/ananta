@@ -235,6 +235,7 @@ def test_worker_registration_adds_workflow_runtime_health_metadata(monkeypatch) 
             }
         ],
     )
+    assert "source_analysis" in captured["capabilities"]
     assert "workflow.adapter.langgraph" in captured["capabilities"]
     assert captured["runtime_targets"][0]["runtime_id"] == "langgraph"
 

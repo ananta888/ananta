@@ -387,14 +387,17 @@ Session-Keys müssen Secret-Datei und Fingerprint atomar gemeinsam aktualisiert
 und Hub sowie betroffener Worker anschließend neu gestartet werden; ein
 Mischstand wird fail-closed abgelehnt. `allowed_capabilities` ist
 die vollständige Hub-Allowlist, nicht die Selbstauskunft des Workers. Alpha und
-Beta erhalten exakt `planning, analysis, research, coding, implementation,
+Beta erhalten exakt `planning, analysis, research, source_analysis, coding, implementation,
 review, testing, verification, workflow.adapter.native, approval,
 bounded_parallel, checkpoint, deterministic_merge, resume, retrieval, stream,
 index_write, structured_output, subgraphs, tool_calling,
-vector_index_operation`. `vector_index_operation` wird vom Worker nur
+vector_index_operation`. `source_analysis` bezeichnet ausschließlich die
+Analyse des vom Hub freigegebenen, task-gebundenen Quellenkontexts und erteilt
+weder Source-ID-Erzeugung noch Netzwerk- oder Orchestrierungsrechte.
+`vector_index_operation` wird vom Worker nur
 angemeldet, wenn der öffentliche Attestierungs-Keyring und die
 Hub-Dispatch-Zulassung erfolgreich zusammengesetzt wurden. Der dedizierte LangGraph-Worker
-erhält nur die ersten acht Basis-Capabilities plus
+erhält nur dieselben semantischen Basis-Capabilities plus
 `workflow.adapter.langgraph`. Erfolgreiche strikte Registrierung wird als
 `strict_registration_keyring_v1` persistiert. Legacy-/Default-Datenbankzeilen
 mit Provenienz `legacy` dürfen niemals scoped Worker-Routen authentifizieren.
