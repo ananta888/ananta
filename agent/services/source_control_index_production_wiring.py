@@ -6,7 +6,7 @@ import hashlib
 import os
 import stat
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -670,7 +670,10 @@ def build_source_control_index_production_composition(
     source_access_manifest_verifier: Any | None = None,
 ) -> SourceControlIndexProductionComposition:
     from agent.services.repository_registry import get_repository_registry
-    from agent.services.service_registry import get_core_services
+    from agent.services.service_registry import (
+        get_core_services,
+        register_core_service_override,
+    )
 
     repositories = get_repository_registry(app)
     core = get_core_services(app)
@@ -752,12 +755,10 @@ def build_source_control_index_production_composition(
             engine, allow_legacy_reusable_grants=False
         ),
     )
-    app.extensions["core_services"] = replace(
-        core,
-        knowledge=replace(
-            core.knowledge,
-            knowledge_index_job_service=job_service,
-        ),
+    register_core_service_override(
+        app,
+        service_field_name="knowledge_index_job_service",
+        service=job_service,
     )
     return SourceControlIndexProductionComposition(
         planner=planner,

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -24,6 +23,7 @@ from agent.services.knowledge_index_execution_binding_service import (
     KnowledgeIndexExecutionBindingService,
 )
 from agent.services.knowledge_index_job_service import KnowledgeIndexJobService
+from agent.services.service_registry import initialize_core_services
 from agent.services.source_access_enforcement import source_access_grant_digest
 from agent.services.source_access_manifest_signing import SourceAccessSigningKey
 from agent.services.source_admission_service import SourceAdmissionBudgets
@@ -337,7 +337,9 @@ class _CoreServices:
     ingestion_service: object
 
 
-def test_production_composition_replaces_only_the_app_local_job_service() -> None:
+def test_production_composition_job_service_survives_late_registry_rebuild(
+    monkeypatch,
+) -> None:
     app = Flask(__name__)
     original = object()
     app.extensions["core_services"] = _CoreServices(
@@ -386,3 +388,22 @@ def test_production_composition_replaces_only_the_app_local_job_service() -> Non
         is composition.job_service
     )
     assert original is not composition.job_service
+
+    rebuilt_queue = object()
+    rebuilt = _CoreServices(
+        knowledge=_KnowledgeServices(object()),
+        task_queue_service=rebuilt_queue,
+        ingestion_service=object(),
+    )
+    monkeypatch.setattr(
+        "agent.services.service_registry.build_core_service_registry",
+        lambda app: rebuilt,
+    )
+
+    reinitialized = initialize_core_services(app)
+
+    assert reinitialized.task_queue_service is rebuilt_queue
+    assert (
+        reinitialized.knowledge.knowledge_index_job_service
+        is composition.job_service
+    )

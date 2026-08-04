@@ -1,52 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, fields
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass, fields, replace
+from typing import Any
 
 from flask import Flask, current_app
-
-if TYPE_CHECKING:
-    from agent.services.agent_health_monitor_service import AgentHealthMonitorService
-    from agent.services.agent_registry_service import AgentRegistryService
-    from agent.services.auto_planner_runtime_service import AutoPlannerRuntimeService
-    from agent.services.autopilot_decision_service import AutopilotDecisionService
-    from agent.services.autopilot_runtime_service import AutopilotRuntimeService
-    from agent.services.autopilot_support_service import AutopilotSupportService
-    from agent.services.automation_snapshot_service import AutomationSnapshotService
-    from agent.services.config_read_model_service import ConfigReadModelService
-    from agent.services.cost_aggregation_service import CostAggregationService
-    from agent.services.goal_service import GoalService
-    from agent.services.integration_registry_service import IntegrationRegistryService
-    from agent.services.lifecycle_service import GoalLifecycleService
-    from agent.services.log_service import LogService
-    from agent.services.mcp_registry_service import MCPRegistryService
-    from agent.services.openai_compat_service import OpenAICompatService
-    from agent.services.planning_service import PlanningService
-    from agent.services.rag_service import RagService
-    from agent.services.rate_limit_service import RateLimitService
-    from agent.services.ingestion_service import IngestionService
-    from agent.services.knowledge_index_job_service import KnowledgeIndexJobService
-    from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
-    from agent.services.rag_helper_index_service import RagHelperIndexService
-    from agent.services.result_memory_service import ResultMemoryService
-    from agent.services.scheduler_runtime_service import SchedulerRuntimeService
-    from agent.services.system_contract_service import SystemContractService
-    from agent.services.system_stats_service import SystemStatsService
-    from agent.services.task_handler_registry import TaskHandlerRegistry
-    from agent.services.task_claim_service import TaskClaimService
-    from agent.services.task_execution_tracking_service import TaskExecutionTrackingService
-    from agent.services.task_execution_service import TaskExecutionService
-    from agent.services.task_scoped_execution_service import TaskScopedExecutionService
-    from agent.services.task_management_service import TaskManagementService
-    from agent.services.task_orchestration_service import TaskOrchestrationService
-    from agent.services.task_admin_service import TaskAdminService
-    from agent.services.task_query_service import TaskQueryService
-    from agent.services.task_queue_service import TaskQueueService
-    from agent.services.task_runtime_service import TaskRuntimeService
-    from agent.services.trigger_runtime_service import TriggerRuntimeService
-    from agent.services.verification_service import VerificationService
-    from agent.services.worker_contract_service import WorkerContractService
-    from agent.services.worker_job_service import WorkerJobService
 
 
 @dataclass(frozen=True)
@@ -133,6 +90,7 @@ class RuntimeServices:
 
 
 _SUB_REGISTRY_FIELDS = ("tasks", "governance", "knowledge", "integrations", "runtime")
+_CORE_SERVICE_OVERRIDES_EXTENSION = "core_service_overrides"
 
 
 @dataclass(frozen=True)
@@ -163,58 +121,143 @@ class CoreServiceRegistry:
         )
 
 
+def _build_core_service_field_owners() -> dict[str, str]:
+    """Map every unique flat service field to its owning sub-registry."""
+
+    owners: dict[str, str] = {}
+    for sub_name, sub_cls in (
+        ("tasks", TaskServices),
+        ("governance", GovernanceServices),
+        ("knowledge", KnowledgeServices),
+        ("integrations", IntegrationServices),
+        ("runtime", RuntimeServices),
+    ):
+        for field in fields(sub_cls):
+            if field.name in owners:
+                raise RuntimeError(
+                    "CoreServiceRegistry field collision: "
+                    f"{field.name!r} lebt sowohl in {owners[field.name]!r} "
+                    f"als auch in {sub_name!r}"
+                )
+            owners[field.name] = sub_name
+    return owners
+
+
+_CORE_SERVICE_FIELD_OWNERS = _build_core_service_field_owners()
+
+
+def _apply_core_service_overrides(
+    registry: CoreServiceRegistry,
+    overrides: dict[str, Any],
+) -> CoreServiceRegistry:
+    """Return an immutable registry projection with app-local overrides."""
+
+    if not overrides:
+        return registry
+    grouped: dict[str, dict[str, Any]] = {}
+    for service_field_name, service in overrides.items():
+        owner = _CORE_SERVICE_FIELD_OWNERS.get(service_field_name)
+        if owner is None:
+            raise ValueError("core_service_override_field_unknown")
+        grouped.setdefault(owner, {})[service_field_name] = service
+    projected = registry
+    for owner, owner_overrides in grouped.items():
+        projected = replace(
+            projected,
+            **{
+                owner: replace(
+                    getattr(projected, owner),
+                    **owner_overrides,
+                )
+            },
+        )
+    return projected
+
+
+def register_core_service_override(
+    app: Flask,
+    *,
+    service_field_name: str,
+    service: Any,
+) -> None:
+    """Register one bootstrap-only app service override by flat field name.
+
+    Registration updates an already composed registry immediately.  The stored
+    override is also applied again when the normal late bootstrap rebuilds the
+    registry, so domain compositions do not depend on bootstrap ordering.  It
+    is intentionally not a runtime mutation API and therefore uses no locking.
+    """
+
+    normalized_field_name = str(service_field_name or "").strip()
+    if normalized_field_name not in _CORE_SERVICE_FIELD_OWNERS:
+        raise ValueError("core_service_override_field_unknown")
+    overrides = dict(
+        app.extensions.get(_CORE_SERVICE_OVERRIDES_EXTENSION) or {}
+    )
+    overrides[normalized_field_name] = service
+    existing_registry = app.extensions.get("core_services")
+    projected_registry = (
+        _apply_core_service_overrides(existing_registry, overrides)
+        if existing_registry is not None
+        else None
+    )
+    app.extensions[_CORE_SERVICE_OVERRIDES_EXTENSION] = overrides
+    if projected_registry is not None:
+        app.extensions["core_services"] = projected_registry
+
+
 def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry:
     from agent.services.agent_health_monitor_service import get_agent_health_monitor_service
     from agent.services.agent_registry_service import get_agent_registry_service
     from agent.services.auto_planner_runtime_service import get_auto_planner_runtime_service
+    from agent.services.automation_snapshot_service import get_automation_snapshot_service
     from agent.services.autopilot_decision_service import get_autopilot_decision_service
     from agent.services.autopilot_runtime_service import get_autopilot_runtime_service
     from agent.services.autopilot_support_service import get_autopilot_support_service
-    from agent.services.automation_snapshot_service import get_automation_snapshot_service
+    from agent.services.citation_verification_service import get_citation_verification_service
     from agent.services.config_read_model_service import get_config_read_model_service
     from agent.services.cost_aggregation_service import get_cost_aggregation_service
     from agent.services.evolution_service import get_evolution_service
     from agent.services.goal_service import get_goal_service
-    from agent.services.integration_registry_service import get_integration_registry_service
+    from agent.services.hint_routing_service import get_hint_routing_service
     from agent.services.ingestion_service import get_ingestion_service
+    from agent.services.integration_registry_service import get_integration_registry_service
     from agent.services.knowledge_index_job_service import get_knowledge_index_job_service
     from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
     from agent.services.lifecycle_service import get_goal_lifecycle_service
     from agent.services.log_service import get_log_service
     from agent.services.mcp_registry_service import get_mcp_registry_service
-    from agent.services.openai_compat_service import get_openai_compat_service
-    from agent.services.planning_service import get_planning_service
-    from agent.services.rag_service import get_rag_service
-    from agent.services.rate_limit_service import get_rate_limit_service
-    from agent.services.rag_helper_index_service import get_rag_helper_index_service
-    from agent.services.result_memory_service import get_result_memory_service
+    from agent.services.memory_tree_retrieval_service import get_memory_tree_retrieval_service
     from agent.services.memory_tree_store_service import get_memory_tree_store_service
     from agent.services.memory_tree_summary_service import get_memory_tree_summary_service
-    from agent.services.memory_tree_retrieval_service import get_memory_tree_retrieval_service
-    from agent.services.tool_output_compaction_service import _build_from_config as get_tool_output_compaction_service
     from agent.services.memory_vault_export_service import get_memory_vault_export_service
-    from agent.services.source_catalog_service import get_source_catalog_service
-    from agent.services.tool_run_catalog_service import get_tool_run_catalog_service
-    from agent.services.citation_verification_service import get_citation_verification_service
+    from agent.services.openai_compat_service import get_openai_compat_service
+    from agent.services.planning_service import get_planning_service
+    from agent.services.rag_helper_index_service import get_rag_helper_index_service
+    from agent.services.rag_service import get_rag_service
+    from agent.services.rate_limit_service import get_rate_limit_service
+    from agent.services.result_memory_service import get_result_memory_service
     from agent.services.scheduler_runtime_service import get_scheduler_runtime_service
+    from agent.services.source_catalog_service import get_source_catalog_service
     from agent.services.system_contract_service import get_system_contract_service
     from agent.services.system_stats_service import get_system_stats_service
-    from agent.services.task_handler_registry import get_task_handler_registry
+    from agent.services.task_admin_service import get_task_admin_service
     from agent.services.task_claim_service import get_task_claim_service
-    from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
     from agent.services.task_execution_service import get_task_execution_service
-    from agent.services.task_scoped_execution_service import get_task_scoped_execution_service
+    from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
+    from agent.services.task_handler_registry import get_task_handler_registry
     from agent.services.task_management_service import get_task_management_service
     from agent.services.task_orchestration_service import get_task_orchestration_service
-    from agent.services.task_admin_service import get_task_admin_service
     from agent.services.task_query_service import get_task_query_service
     from agent.services.task_queue_service import get_task_queue_service
     from agent.services.task_runtime_service import get_task_runtime_service
+    from agent.services.task_scoped_execution_service import get_task_scoped_execution_service
+    from agent.services.tool_output_compaction_service import _build_from_config as get_tool_output_compaction_service
+    from agent.services.tool_run_catalog_service import get_tool_run_catalog_service
     from agent.services.trigger_runtime_service import get_trigger_runtime_service
     from agent.services.verification_service import get_verification_service
     from agent.services.worker_contract_service import get_worker_contract_service
     from agent.services.worker_job_service import get_worker_job_service
-    from agent.services.hint_routing_service import get_hint_routing_service
 
     tasks = TaskServices(
         task_handler_registry=get_task_handler_registry(app),
@@ -289,6 +332,10 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
 
 def initialize_core_services(app: Flask) -> CoreServiceRegistry:
     registry = build_core_service_registry(app)
+    registry = _apply_core_service_overrides(
+        registry,
+        dict(app.extensions.get(_CORE_SERVICE_OVERRIDES_EXTENSION) or {}),
+    )
     app.extensions["core_services"] = registry
     return registry
 
@@ -319,26 +366,3 @@ def get_integration_services(app: Flask | None = None) -> IntegrationServices:
 
 def get_runtime_services(app: Flask | None = None) -> RuntimeServices:
     return get_core_services(app).runtime
-
-
-def _assert_unique_flat_field_names() -> None:
-    """Guard: Feldnamen dürfen sich zwischen Teil-Registries nicht überlappen."""
-
-    seen: dict[str, str] = {}
-    for sub_name, sub_cls in (
-        ("tasks", TaskServices),
-        ("governance", GovernanceServices),
-        ("knowledge", KnowledgeServices),
-        ("integrations", IntegrationServices),
-        ("runtime", RuntimeServices),
-    ):
-        for f in fields(sub_cls):
-            if f.name in seen:
-                raise RuntimeError(
-                    "CoreServiceRegistry field collision: "
-                    f"{f.name!r} lebt sowohl in {seen[f.name]!r} als auch in {sub_name!r}"
-                )
-            seen[f.name] = sub_name
-
-
-_assert_unique_flat_field_names()
