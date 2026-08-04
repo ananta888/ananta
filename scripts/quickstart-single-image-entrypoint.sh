@@ -48,13 +48,36 @@ prepare_runtime_directories() {
   done
 }
 
+run_db_migrations_if_enabled() {
+  local enabled
+  enabled="$(normalize_lower "${ANANTA_RUN_DB_MIGRATIONS-1}")"
+  case "${enabled}" in
+    1|true|yes|on)
+      log "Applying database migrations"
+      alembic upgrade head
+      ;;
+    0|false|no|off)
+      log "Skipping database migrations"
+      ;;
+    *)
+      error_exit "ANANTA_RUN_DB_MIGRATIONS must be a boolean value."
+      ;;
+  esac
+}
+
+run_explicit_db_migrations_if_configured() {
+  if [[ -v ANANTA_RUN_DB_MIGRATIONS ]]; then
+    run_db_migrations_if_enabled
+  fi
+}
+
 run_hub() {
   require_openai_key_if_needed
   export ROLE=hub
   export PORT="${PORT:-5000}"
   log "Starting hub on port ${PORT}"
   prepare_runtime_directories
-  alembic upgrade head
+  run_db_migrations_if_enabled
   exec python -m agent.ai_agent
 }
 
@@ -64,7 +87,7 @@ run_worker() {
   export PORT="${PORT:-5000}"
   log "Starting worker '${AGENT_NAME:-worker}' on port ${PORT}"
   prepare_runtime_directories
-  alembic upgrade head
+  run_db_migrations_if_enabled
   exec python -m agent.ai_agent
 }
 
@@ -134,13 +157,17 @@ run_ml_intern_runner() {
 
 run_agent_only() {
   require_openai_key_if_needed
+  run_explicit_db_migrations_if_configured
   if [[ "$#" -gt 0 ]]; then
     log "Agent-only passthrough command: $*"
     exec "$@"
   fi
   log "Agent-only fallback command (hub bootstrap)"
   prepare_runtime_directories
-  exec sh -c "alembic upgrade head && exec python -m agent.ai_agent"
+  if [[ ! -v ANANTA_RUN_DB_MIGRATIONS ]]; then
+    run_db_migrations_if_enabled
+  fi
+  exec python -m agent.ai_agent
 }
 
 declare -a CHILD_PIDS=()
@@ -171,6 +198,7 @@ run_single_container() {
   frontend_poll="${FRONTEND_POLL_MS:-2000}"
   require_openai_key_if_needed
   prepare_runtime_directories
+  run_explicit_db_migrations_if_configured
 
   trap cleanup_children INT TERM
 
@@ -216,4 +244,6 @@ main() {
   esac
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

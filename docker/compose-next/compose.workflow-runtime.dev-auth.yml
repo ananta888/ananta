@@ -5,7 +5,12 @@
 services:
   ai-agent-hub:
     user: "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
+    # This overlay is used with a shared PostgreSQL runtime: only the Hub owns
+    # schema migration. Keep the application command free of schema writes;
+    # the image entrypoint applies the explicit migration policy below.
+    command: python -m agent.ai_agent
     environment:
+      ANANTA_RUN_DB_MIGRATIONS: "1"
       SECRET_KEY: ""
       HOME: /app/data/home
       XDG_CACHE_HOME: /app/data/cache
@@ -40,7 +45,10 @@ services:
 
   ai-agent-alpha:
     user: "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
+    # Workers wait for the healthy Hub and never write the shared schema.
+    command: python -m agent.ai_agent
     environment:
+      ANANTA_RUN_DB_MIGRATIONS: "0"
       SECRET_KEY: ""
       HOME: /app/data/home
       XDG_CACHE_HOME: /app/data/cache
@@ -77,7 +85,10 @@ services:
 
   ai-agent-beta:
     user: "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
+    # Workers wait for the healthy Hub and never write the shared schema.
+    command: python -m agent.ai_agent
     environment:
+      ANANTA_RUN_DB_MIGRATIONS: "0"
       SECRET_KEY: ""
       HOME: /app/data/home
       XDG_CACHE_HOME: /app/data/cache

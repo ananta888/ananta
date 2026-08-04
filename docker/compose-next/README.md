@@ -171,12 +171,21 @@ Der Bootstrap überträgt die Besitzrechte anschließend an
 WSL-Benutzer sind beide Werte in `.env` auf die Ausgabe von `id -u` und
 `id -g` zu setzen; die privaten Dateimodi bleiben dabei `0600`.
 
-Alpha und Beta verwenden zudem jeweils eine eigene SQLite-Datenbank im
-zugehörigen `alpha-data`- beziehungsweise `beta-data`-Volume. Nur der Hub
-besitzt den PostgreSQL-Zugang und damit die autoritativen Tasks. Das
-rollenbasierte Image führt `alembic upgrade head` auch für jeden Worker vor
-dem Prozessstart aus, damit ein wiederverwendetes Worker-Volume nicht mit
-einem veralteten Schema startet. Das
+Im lokalen Ollama-Stack verwenden Alpha und Beta jeweils eine eigene
+SQLite-Datenbank im zugehörigen `alpha-data`- beziehungsweise
+`beta-data`-Volume. Ohne explizite Migrationsvorgabe bleibt das bisherige
+Entrypoint-Verhalten dieses und anderer Stacks erhalten.
+
+Die aktuell verwendete Kombination aus `compose.tests.lmstudio.yml` und
+`compose.workflow-runtime.dev-auth.yml` bindet Hub und Worker dagegen an
+dieselbe PostgreSQL-Datenbank. In diesem Overlay ist ausschließlich der Hub
+Schema-Owner: `ANANTA_RUN_DB_MIGRATIONS=1` lässt ihn vor dem Start
+`alembic upgrade head` ausführen; für Alpha und Beta verhindert der Wert `0`
+parallele Schema-Writes. Die im Overlay gesetzten `command`-Werte enthalten
+keine Schema-Writes. Alpha und Beta führen sie im effektiven Modus
+`agent-only` direkt aus. Der Hub läuft im Modus `role`, ignoriert `command`
+vollständig und startet die Anwendung nach seiner Entrypoint-Migrationsphase;
+Rolle und Startpfad bestimmt ausschließlich `ANANTA_QUICKSTART_ROLE`. Das
 Credential-Verzeichnis ist über `.gitignore` ausgeschlossen, gehört aber zu
 einer vollständigen lokalen Laufzeitsicherung. `.dockerignore` schließt es
 zusätzlich aus jedem Image-Build-Kontext aus. Diese automatisch erzeugten
