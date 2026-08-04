@@ -682,6 +682,11 @@ class RagHelperKnowledgeIndexExecution:
                 profile_name=self._profile_name(job),
                 source_metadata=dict(payload.get("source_metadata") or {}),
                 codecompass_prerender=bool(payload.get("codecompass_prerender", False)),
+                **(
+                    {"persist_control_plane_records": False}
+                    if str(job.get("schema") or "") == BOUND_JOB_SCHEMA
+                    else {}
+                ),
                 **deadline_kwargs,
             )
             self._checkpoint(execution_deadline)

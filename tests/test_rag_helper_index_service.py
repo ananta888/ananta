@@ -1,10 +1,17 @@
 import json
 from pathlib import Path
 
-from agent.db_models import KnowledgeIndexDB
+import pytest
+
+from agent.db_models import KnowledgeIndexDB, KnowledgeIndexRunDB
 from agent.repository import knowledge_index_repo
+from agent.services import rag_helper_index_service as rag_helper_index_module
 from agent.services.ingestion_service import IngestionService
 from agent.services.rag_helper_index_service import RagHelperIndexService
+from worker.retrieval.knowledge_index_job_handler import (
+    BOUND_JOB_SCHEMA,
+    RagHelperKnowledgeIndexExecution,
+)
 
 
 def test_rag_helper_index_service_runs_against_markdown_artifact():
@@ -191,6 +198,190 @@ def test_rag_helper_index_service_indexes_source_records_in_scope_layout():
     parsed = [json.loads(line) for line in lines]
     assert parsed[0]["kind"] == "wiki_section_chunk"
     assert parsed[0]["chunk_id"].startswith("wiki:")
+
+
+def test_source_records_can_build_worker_outputs_without_hub_projection_persistence(
+    tmp_path,
+    monkeypatch,
+):
+    class ForbiddenControlPlaneRepository:
+        def __getattr__(self, name):
+            def fail(*_args, **_kwargs):
+                pytest.fail(f"worker called control-plane repository: {name}")
+
+            return fail
+
+    monkeypatch.setattr(
+        rag_helper_index_module,
+        "knowledge_index_repo",
+        ForbiddenControlPlaneRepository(),
+    )
+    monkeypatch.setattr(
+        rag_helper_index_module,
+        "knowledge_index_run_repo",
+        ForbiddenControlPlaneRepository(),
+    )
+    service = RagHelperIndexService()
+    service._knowledge_output_root = (
+        lambda *, source_scope: tmp_path / "worker" / source_scope
+    )
+
+    knowledge_index, run = service.index_source_records(
+        source_scope="repo_path",
+        source_id="delegated-source-revision",
+        records=[
+            {
+                "id": "src/example.py",
+                "content": "def example():\n    return True\n",
+                "metadata": {"relative_path": "src/example.py"},
+            }
+        ],
+        created_by="hub",
+        persist_control_plane_records=False,
+    )
+
+    assert knowledge_index.status == "completed"
+    assert run.status == "completed"
+    assert run.knowledge_index_id == knowledge_index.id
+    assert knowledge_index.latest_run_id == run.id
+    output_dir = Path(str(run.output_dir))
+    assert (output_dir / "manifest.json").is_file()
+    assert (output_dir / "index.jsonl").is_file()
+
+
+def test_source_records_persist_hub_projection_by_default(tmp_path, monkeypatch):
+    class TrackingIndexRepository:
+        def __init__(self):
+            self.get_calls = []
+            self.saved = []
+
+        def get_by_scope(self, *, source_scope, scope_id):
+            self.get_calls.append((source_scope, scope_id))
+            return None
+
+        def save(self, value):
+            self.saved.append(value)
+            return value
+
+    class TrackingRunRepository:
+        def __init__(self):
+            self.saved = []
+
+        def save(self, value):
+            self.saved.append(value)
+            return value
+
+    index_repository = TrackingIndexRepository()
+    run_repository = TrackingRunRepository()
+    monkeypatch.setattr(
+        rag_helper_index_module,
+        "knowledge_index_repo",
+        index_repository,
+    )
+    monkeypatch.setattr(
+        rag_helper_index_module,
+        "knowledge_index_run_repo",
+        run_repository,
+    )
+    service = RagHelperIndexService()
+    service._knowledge_output_root = (
+        lambda *, source_scope: tmp_path / "hub" / source_scope
+    )
+
+    knowledge_index, run = service.index_source_records(
+        source_scope="repo_path",
+        source_id="hub-owned-source",
+        records=[{"id": "README.md", "content": "Hub-owned index"}],
+        created_by="hub",
+    )
+
+    assert knowledge_index.status == "completed"
+    assert run.status == "completed"
+    assert index_repository.get_calls == [
+        ("repo_path", "hub-owned-source")
+    ]
+    assert len(index_repository.saved) == 3
+    assert len(run_repository.saved) == 2
+
+
+def test_bound_v2_source_records_disable_worker_projection_persistence():
+    captured = {}
+
+    class IndexService:
+        def index_source_records(self, **kwargs):
+            captured.update(kwargs)
+            return (
+                KnowledgeIndexDB(id="worker-index", status="completed"),
+                KnowledgeIndexRunDB(
+                    id="worker-run",
+                    knowledge_index_id="worker-index",
+                    status="completed",
+                ),
+            )
+
+    class Publisher:
+        def publish(self, **_kwargs):
+            return [{"role": "manifest"}, {"role": "index"}]
+
+    result = RagHelperKnowledgeIndexExecution(
+        IndexService(),
+        artifact_publisher=Publisher(),
+    ).execute(
+        {
+            "schema": BOUND_JOB_SCHEMA,
+            "job_id": "bound-job",
+            "job_type": "source_records",
+            "created_by": "hub",
+            "payload": {
+                "source_scope": "repo_path",
+                "source_id": "revision-1",
+                "records": [{"id": "README.md", "content": "bound"}],
+            },
+        }
+    )
+
+    assert result["status"] == "completed"
+    assert captured["persist_control_plane_records"] is False
+
+
+def test_legacy_source_records_keep_default_persistence_contract():
+    captured = {}
+
+    class LegacyIndexService:
+        def index_source_records(self, **kwargs):
+            captured.update(kwargs)
+            return (
+                KnowledgeIndexDB(id="legacy-index", status="completed"),
+                KnowledgeIndexRunDB(
+                    id="legacy-run",
+                    knowledge_index_id="legacy-index",
+                    status="completed",
+                ),
+            )
+
+    class Publisher:
+        def publish(self, **_kwargs):
+            return [{"role": "manifest"}, {"role": "index"}]
+
+    result = RagHelperKnowledgeIndexExecution(
+        LegacyIndexService(),
+        artifact_publisher=Publisher(),
+    ).execute(
+        {
+            "schema": "ananta.knowledge_index_job.v1",
+            "job_id": "legacy-job",
+            "job_type": "source_records",
+            "created_by": "hub",
+            "payload": {
+                "source_scope": "repo_path",
+                "source_id": "legacy-source",
+                "records": [{"id": "README.md", "content": "legacy"}],
+            },
+        }
+    )
+
+    assert result["status"] == "completed"
+    assert "persist_control_plane_records" not in captured
 
 
 def test_repo_source_records_build_deterministic_deep_code_graph(tmp_path):

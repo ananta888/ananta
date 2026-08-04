@@ -1027,7 +1027,16 @@ class RagHelperIndexService:
         links_path=None,
         records_path=None,
         execution_deadline: RagHelperExecutionDeadlinePort | None = None,
+        persist_control_plane_records: bool = True,
     ) -> tuple[KnowledgeIndexDB, KnowledgeIndexRunDB]:
+        """Build source-record outputs and optionally persist Hub projections.
+
+        ``persist_control_plane_records`` only controls the two Hub-owned
+        database projections; output generation and returned models are
+        unchanged. Bound v2 Worker execution disables that persistence because
+        the Hub is their sole owner. The default preserves the legacy/Hub
+        behavior for direct callers.
+        """
         from pathlib import Path as _Path
         _checkpoint(execution_deadline)
         normalized_scope = self._normalize_source_scope(source_scope)
@@ -1062,32 +1071,43 @@ class RagHelperIndexService:
         profile = self._resolve_profile(profile_name, None)
         index_artifact_id = normalized_source_id if normalized_scope == "artifact" else None
         index_collection_id = normalized_source_id if normalized_scope != "artifact" else None
-        knowledge_index = self._build_or_create_index(
-            source_scope=normalized_scope,
-            scope_id=normalized_source_id,
-            artifact_id=index_artifact_id,
-            collection_id=index_collection_id,
-            created_by=created_by,
-        )
-
-        run = knowledge_index_run_repo.save(
-            KnowledgeIndexRunDB(
-                knowledge_index_id=knowledge_index.id,
+        if persist_control_plane_records:
+            knowledge_index = self._build_or_create_index(
+                source_scope=normalized_scope,
+                scope_id=normalized_source_id,
                 artifact_id=index_artifact_id,
                 collection_id=index_collection_id,
-                profile_name=profile["name"],
-                status="running",
-                source_path=normalized_source_id,
-                run_metadata={
-                    "requested_by": created_by,
-                    "profile": profile,
-                    "source_scope": normalized_scope,
-                    "source_id": normalized_source_id,
-                    **(source_metadata or {}),
-                },
-                started_at=time.time(),
+                created_by=created_by,
             )
+        else:
+            knowledge_index = KnowledgeIndexDB(
+                artifact_id=index_artifact_id,
+                collection_id=index_collection_id,
+                source_scope=normalized_scope,
+                profile_name=self.DEFAULT_PROFILE_NAME,
+                status="pending",
+                created_by=created_by,
+                index_metadata={"source_id": normalized_source_id},
+            )
+
+        run = KnowledgeIndexRunDB(
+            knowledge_index_id=knowledge_index.id,
+            artifact_id=index_artifact_id,
+            collection_id=index_collection_id,
+            profile_name=profile["name"],
+            status="running",
+            source_path=normalized_source_id,
+            run_metadata={
+                "requested_by": created_by,
+                "profile": profile,
+                "source_scope": normalized_scope,
+                "source_id": normalized_source_id,
+                **(source_metadata or {}),
+            },
+            started_at=time.time(),
         )
+        if persist_control_plane_records:
+            run = knowledge_index_run_repo.save(run)
 
         output_dir = self._knowledge_output_root(source_scope=normalized_scope) / knowledge_index.id / run.id
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -1108,7 +1128,8 @@ class RagHelperIndexService:
             "last_requested_by": created_by,
             **(source_metadata or {}),
         }
-        knowledge_index = knowledge_index_repo.save(knowledge_index)
+        if persist_control_plane_records:
+            knowledge_index = knowledge_index_repo.save(knowledge_index)
 
         started = time.perf_counter()
         try:
@@ -1239,7 +1260,8 @@ class RagHelperIndexService:
             run.duration_ms = duration_ms
             run.finished_at = time.time()
             run.run_metadata = {**(run.run_metadata or {}), "manifest": manifest}
-            run = knowledge_index_run_repo.save(run)
+            if persist_control_plane_records:
+                run = knowledge_index_run_repo.save(run)
 
             knowledge_index.status = "completed"
             knowledge_index.latest_run_id = run.id
@@ -1257,7 +1279,8 @@ class RagHelperIndexService:
                 },
                 "available_outputs": manifest.get("partitioned_outputs", {}),
             }
-            knowledge_index = knowledge_index_repo.save(knowledge_index)
+            if persist_control_plane_records:
+                knowledge_index = knowledge_index_repo.save(knowledge_index)
             KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope=normalized_scope, status="completed", profile=profile["name"]).inc()
             KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=normalized_scope, profile=profile["name"]).observe(
                 duration_ms / 1000.0
@@ -1287,7 +1310,8 @@ class RagHelperIndexService:
             run.duration_ms = duration_ms
             run.error_message = str(exc)
             run.finished_at = time.time()
-            run = knowledge_index_run_repo.save(run)
+            if persist_control_plane_records:
+                run = knowledge_index_run_repo.save(run)
 
             knowledge_index.status = "failed"
             knowledge_index.latest_run_id = run.id
@@ -1298,7 +1322,8 @@ class RagHelperIndexService:
                 **(knowledge_index.index_metadata or {}),
                 "last_error": str(exc),
             }
-            knowledge_index = knowledge_index_repo.save(knowledge_index)
+            if persist_control_plane_records:
+                knowledge_index = knowledge_index_repo.save(knowledge_index)
             KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope=normalized_scope, status="failed", profile=profile["name"]).inc()
             KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=normalized_scope, profile=profile["name"]).observe(
                 duration_ms / 1000.0
