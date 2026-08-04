@@ -1,6 +1,9 @@
 import hashlib
 import json
+import threading
 import urllib.request
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
 import pytest
@@ -38,6 +41,41 @@ WORKER_TOKEN = "index-worker-service-token-0123456789abcdef"
 HUB_TOKEN = "hub-service-token-0123456789abcdef"
 REGISTRATION_TOKEN = "index-worker-registration-token-0123456789abcdef"
 SESSION_SIGNING_KEY = "index-worker-session-key-0123456789abcdef"
+
+
+@contextmanager
+def _payload_response_server(
+    body: bytes,
+    *,
+    declared_length: int | None = None,
+):
+    class PayloadHandler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header(
+                "Content-Length",
+                str(len(body) if declared_length is None else declared_length),
+            )
+            self.send_header("X-Artifact-SHA256", hashlib.sha256(body).hexdigest())
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, _format: str, *_args) -> None:
+            return None
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), PayloadHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
 
 
 def _sha256(value: str) -> str:
@@ -548,6 +586,70 @@ def test_governed_payload_read_enforces_absolute_slow_drip_deadline() -> None:
         )
 
     assert socket_timeouts == pytest.approx([1.0, 0.4])
+
+
+def test_governed_payload_accepts_complete_connection_close_response(
+    monkeypatch,
+) -> None:
+    content = b"x" * 70_000
+    deadline = MonotonicKnowledgeIndexExecutionDeadline(
+        expires_at_monotonic=105.0,
+        monotonic_clock=lambda: 100.0,
+    )
+
+    with _payload_response_server(content) as hub_url:
+        monkeypatch.setattr(settings, "hub_url", hub_url)
+        monkeypatch.setattr(settings, "agent_name", "")
+        monkeypatch.setattr(settings, "agent_url", "")
+        monkeypatch.setattr(
+            "agent.auth.resolve_configured_agent_token",
+            lambda _config: WORKER_TOKEN,
+        )
+
+        loaded = HubArtifactKnowledgeIndexPayloadLoader._load_from_hub(
+            ARTIFACT_ID,
+            expected_size=len(content),
+            expected_sha256=hashlib.sha256(content).hexdigest(),
+            source_access_manifest=_manifest(),
+            execution_deadline=deadline,
+        )
+
+    assert loaded == content
+
+
+def test_governed_payload_rejects_connection_close_before_declared_length(
+    monkeypatch,
+) -> None:
+    content = b"x" * 70_000
+    declared_length = len(content) + 17
+    deadline = MonotonicKnowledgeIndexExecutionDeadline(
+        expires_at_monotonic=105.0,
+        monotonic_clock=lambda: 100.0,
+    )
+
+    with _payload_response_server(
+        content,
+        declared_length=declared_length,
+    ) as hub_url:
+        monkeypatch.setattr(settings, "hub_url", hub_url)
+        monkeypatch.setattr(settings, "agent_name", "")
+        monkeypatch.setattr(settings, "agent_url", "")
+        monkeypatch.setattr(
+            "agent.auth.resolve_configured_agent_token",
+            lambda _config: WORKER_TOKEN,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="knowledge_index_payload_artifact_size_mismatch",
+        ):
+            HubArtifactKnowledgeIndexPayloadLoader._load_from_hub(
+                ARTIFACT_ID,
+                expected_size=declared_length,
+                expected_sha256=hashlib.sha256(content).hexdigest(),
+                source_access_manifest=_manifest(),
+                execution_deadline=deadline,
+            )
 
 
 def test_governed_payload_loader_requires_worker_service_token(

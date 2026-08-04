@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import threading
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
 import pytest
@@ -14,6 +17,40 @@ from agent.services.worker_forward_transport import (
     WorkerForwardDeadlineExceeded,
     WorkerTransportDeadline,
 )
+
+
+@contextmanager
+def _artifact_response_server(
+    body: bytes,
+    *,
+    declared_length: int | None = None,
+):
+    class ArtifactHandler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header(
+                "Content-Length",
+                str(len(body) if declared_length is None else declared_length),
+            )
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, _format: str, *_args) -> None:
+            return None
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), ArtifactHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
 
 
 class Repository:
@@ -659,8 +696,92 @@ def test_default_http_downloader_streams_v1_over_generic_token_route(
     )
 
     assert destination.read_bytes() == content
-    assert len(response.read_sizes) >= 4
+    assert response.read_sizes == [1024 * 1024, 1024 * 1024, 18]
     assert max(response.read_sizes) <= 1024 * 1024
+
+
+@pytest.mark.parametrize("stream_to_path", [False, True])
+def test_default_http_downloader_accepts_complete_connection_close_response(
+    tmp_path,
+    stream_to_path: bool,
+) -> None:
+    content = b"x" * 70_000
+    reference_payload = {
+        "artifact_id": "artifact-index",
+        "size_bytes": len(content),
+        "sha256": hashlib.sha256(content).hexdigest(),
+    }
+    deadline = WorkerTransportDeadline.after_seconds(
+        5,
+        monotonic_clock=lambda: 100.0,
+    )
+
+    with _artifact_response_server(content) as worker_url:
+        downloader = HttpKnowledgeIndexWorkerArtifactDownloader()
+        if stream_to_path:
+            destination = tmp_path / "artifact.bin"
+            downloader.download_to_path(
+                worker_url=worker_url,
+                worker_token="worker-token",
+                reference=reference_payload,
+                destination=destination,
+                transfer_deadline=deadline,
+            )
+            downloaded = destination.read_bytes()
+        else:
+            downloaded = downloader.download(
+                worker_url=worker_url,
+                worker_token="worker-token",
+                reference=reference_payload,
+                transfer_deadline=deadline,
+            )
+
+    assert downloaded == content
+
+
+@pytest.mark.parametrize("stream_to_path", [False, True])
+def test_default_http_downloader_rejects_close_before_declared_length(
+    tmp_path,
+    stream_to_path: bool,
+) -> None:
+    content = b"x" * 70_000
+    declared_length = len(content) + 17
+    reference_payload = {
+        "artifact_id": "artifact-index",
+        "size_bytes": declared_length,
+        "sha256": hashlib.sha256(content).hexdigest(),
+    }
+    deadline = WorkerTransportDeadline.after_seconds(
+        5,
+        monotonic_clock=lambda: 100.0,
+    )
+
+    with _artifact_response_server(
+        content,
+        declared_length=declared_length,
+    ) as worker_url:
+        downloader = HttpKnowledgeIndexWorkerArtifactDownloader()
+        with pytest.raises(
+            ValueError,
+            match="knowledge_index_worker_artifact_size_mismatch",
+        ):
+            if stream_to_path:
+                downloader.download_to_path(
+                    worker_url=worker_url,
+                    worker_token="worker-token",
+                    reference=reference_payload,
+                    destination=tmp_path / "truncated.bin",
+                    transfer_deadline=deadline,
+                )
+            else:
+                downloader.download(
+                    worker_url=worker_url,
+                    worker_token="worker-token",
+                    reference=reference_payload,
+                    transfer_deadline=deadline,
+                )
+
+    assert not (tmp_path / "truncated.bin").exists()
 
 
 def test_default_http_downloader_enforces_absolute_slow_drip_deadline(

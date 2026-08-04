@@ -1270,6 +1270,8 @@ class HubArtifactKnowledgeIndexPayloadLoader:
             chunks: list[bytes] = []
             received = 0
             while True:
+                if declared is not None and received == expected_size:
+                    break
                 maximum = min(
                     _PAYLOAD_READ_CHUNK_BYTES,
                     expected_size - received + 1,

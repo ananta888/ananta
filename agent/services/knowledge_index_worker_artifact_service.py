@@ -164,6 +164,8 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
             if declared is not None and int(declared) != expected_size:
                 raise ValueError("knowledge_index_worker_artifact_size_mismatch")
             while True:
+                if declared is not None and received == expected_size:
+                    break
                 chunk = self._read_chunk(
                     response,
                     min(_DOWNLOAD_CHUNK_BYTES, expected_size - received + 1),
@@ -219,6 +221,8 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
                     raise ValueError("knowledge_index_worker_artifact_size_mismatch")
                 with destination.open("xb") as handle:
                     while True:
+                        if declared is not None and written == expected_size:
+                            break
                         chunk = self._read_chunk(
                             response,
                             min(
