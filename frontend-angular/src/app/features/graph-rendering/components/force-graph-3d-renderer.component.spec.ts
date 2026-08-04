@@ -22,6 +22,18 @@ const GRAPH: RenderGraph = {
   ],
 };
 
+const FOCUS_GRAPH: RenderGraph = {
+  nodes: [
+    { id: 'a', label: 'A', kind: 'team', tooltip: 'Team A' },
+    { id: 'b', label: 'B', kind: 'role', tooltip: 'Role B' },
+    { id: 'c', label: 'C', kind: 'role', tooltip: 'Role C' },
+  ],
+  edges: [
+    { id: 'ab', sourceId: 'a', targetId: 'b', kind: 'contains', label: 'contains', tooltip: 'A contains B' },
+    { id: 'bc', sourceId: 'b', targetId: 'c', kind: 'depends_on', label: 'depends on', tooltip: 'B depends on C' },
+  ],
+};
+
 describe('ForceGraph3dRendererComponent', () => {
   it('uses the renderer factory and forwards graph selection without owning domain objects', async () => {
     const fake = forceGraphFake();
@@ -82,6 +94,9 @@ describe('ForceGraph3dRendererComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('WebGL is not available');
+    expect(fixture.nativeElement.textContent).toContain('another available graph view');
+    expect(fixture.nativeElement.textContent).not.toContain('hierarchy');
+    expect(fixture.nativeElement.textContent).not.toContain('synchronized list');
     expect(available).toBe(false);
     expect(factory.create).not.toHaveBeenCalled();
   });
@@ -104,7 +119,9 @@ describe('ForceGraph3dRendererComponent', () => {
       fixture.detectChanges();
 
       expect(fixture.nativeElement.textContent).toContain('Reduced motion is enabled');
-      expect(fixture.nativeElement.textContent).toContain('synchronized static list');
+      expect(fixture.nativeElement.textContent).toContain('another available graph view');
+      expect(fixture.nativeElement.textContent).not.toContain('hierarchy');
+      expect(fixture.nativeElement.textContent).not.toContain('synchronized');
       expect(available).toBe(false);
       expect(factory.create).not.toHaveBeenCalled();
       fixture.destroy();
@@ -145,6 +162,45 @@ describe('ForceGraph3dRendererComponent', () => {
     expect(factory.create).toHaveBeenCalledOnce();
     expect(fake.destructor).not.toHaveBeenCalled();
     expect(refresh.mock.calls.length).toBeGreaterThan(refreshCount);
+  });
+
+  it('keeps shared selection separate from focus and strongly emphasizes focused edges', async () => {
+    const fake = forceGraphFake();
+    const factory: ForceGraph3dFactoryPort = {
+      webglAvailable: () => true,
+      create: vi.fn(async () => fake.renderer),
+    };
+    const fixture = await createFixture(factory);
+    const edgeStyles = {
+      ab: { color: '#123456', width: 2, highlightFactors: { hover: 1.2, selected: 1.5, connected: 1.1 } },
+      bc: { color: '#654321', width: 2, highlightFactors: { hover: 1.2, selected: 1.5, connected: 1.1 } },
+    };
+    fixture.componentRef.setInput('graph', FOCUS_GRAPH);
+    fixture.componentRef.setInput('edgeStyles', edgeStyles);
+    fixture.componentRef.setInput('selectedNodeId', 'a');
+    fixture.componentRef.setInput('focusedNodeId', null);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
+
+    let edgeColor = fake.calls.get('linkColor')!.mock.calls.at(-1)![0] as (
+      link: { id: string; source: string; target: string },
+    ) => string;
+    let edgeWidth = fake.calls.get('linkWidth')!.mock.calls.at(-1)![0] as (
+      link: { id: string; source: string; target: string },
+    ) => number;
+    expect(edgeColor({ id: 'ab', source: 'a', target: 'b' })).toBe('#123456');
+    expect(edgeColor({ id: 'bc', source: 'b', target: 'c' })).toBe('#654321');
+    expect(edgeWidth({ id: 'ab', source: 'a', target: 'b' })).toBe(2);
+
+    fixture.componentRef.setInput('focusedNodeId', 'a');
+    fixture.detectChanges();
+    edgeColor = fake.calls.get('linkColor')!.mock.calls.at(-1)![0] as typeof edgeColor;
+    edgeWidth = fake.calls.get('linkWidth')!.mock.calls.at(-1)![0] as typeof edgeWidth;
+
+    expect(edgeColor({ id: 'ab', source: 'a', target: 'b' })).toBe('#123456');
+    expect(edgeColor({ id: 'bc', source: 'b', target: 'c' })).toBe('rgba(148,163,184,0.12)');
+    expect(edgeWidth({ id: 'ab', source: 'a', target: 'b' })).toBe(3);
+    expect(edgeWidth({ id: 'bc', source: 'b', target: 'c' })).toBe(2);
   });
 
   it('keeps selection controlled by inputs and emits explicit clear intent', async () => {

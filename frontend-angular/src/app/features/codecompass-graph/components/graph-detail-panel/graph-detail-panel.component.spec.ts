@@ -68,4 +68,14 @@ describe('GraphDetailPanelComponent', () => {
     expect(component.localHops).toBe(0);
     expect(emitted).toEqual([0]);
   });
+
+  it('defines connection depth in visible-edge terms instead of an unexplained hop', () => {
+    fixture.componentRef.setInput('selectedNode', selectedNode);
+    fixture.componentRef.setInput('focusHopDepth', 1);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Verknüpfungstiefe');
+    expect(fixture.nativeElement.textContent).toContain('Eine Stufe = eine sichtbare Kante');
+    expect(fixture.nativeElement.textContent).not.toContain('Hop-Tiefe');
+  });
 });

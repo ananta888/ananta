@@ -1,6 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnChanges, ChangeDetectionStrategy } from '@angular/core';
 
 import { GraphNode, GraphEdge } from '../../models/graph.model';
+import { MAX_GRAPH_NEIGHBORHOOD_DEPTH } from '../../models/graph-neighborhood.model';
 
 @Component({
   standalone: true,
@@ -54,19 +55,20 @@ import { GraphNode, GraphEdge } from '../../models/graph.model';
           </div>
         }
 
-        <!-- Focus controls -->
+        <!-- Loaded-window neighbourhood controls -->
         <div class="focus-section">
           <div class="focus-row">
-            <span class="focus-label">Hop-Tiefe</span>
+            <span class="focus-label">Verknüpfungstiefe</span>
             <div class="hop-stepper">
               <button class="hop-btn" (click)="decHops()" [disabled]="localHops <= 0">−</button>
               <span class="hop-val">{{ localHops }}</span>
-              <button class="hop-btn" (click)="incHops()" [disabled]="localHops >= 6">+</button>
+              <button class="hop-btn" (click)="incHops()"
+                      [disabled]="localHops >= maxNeighborhoodDepth">+</button>
             </div>
           </div>
           <div class="focus-btns">
             <button class="btn-focus" (click)="focusRequested.emit(localHops)">
-              Anwenden
+              {{ localHops === 0 ? 'Gesamten Ausschnitt zeigen' : 'Tiefe anwenden' }}
             </button>
             @if (focusActive) {
               <button class="btn-clear-focus" (click)="focusCleared.emit()">
@@ -74,11 +76,19 @@ import { GraphNode, GraphEdge } from '../../models/graph.model';
               </button>
             }
           </div>
-          @if (focusActive) {
-            <p class="focus-hint">Zeigt {{ selectedNode.label }} + {{ localHops }}-Hop-Nachbarn</p>
+          @if (localHops === 0) {
+            <p class="focus-hint">Alle Knoten und Kanten des geladenen Ausschnitts.</p>
+          } @else if (focusActive) {
+            <p class="focus-hint">
+              {{ selectedNode.label }} plus Nachbarn über höchstens {{ localHops }}
+              {{ localHops === 1 ? 'sichtbare Kante' : 'sichtbare Kanten' }}.
+            </p>
           } @else {
-            <p class="focus-hint">0 zeigt den kompletten geladenen Graph</p>
+            <p class="focus-hint">Tiefe {{ localHops }} wird auf diesen Knoten angewendet.</p>
           }
+          <p class="focus-definition">
+            Eine Stufe = eine sichtbare Kante; die Kantenrichtung wird für diese Nachbarschaft ignoriert.
+          </p>
         </div>
       }
 
@@ -155,6 +165,7 @@ import { GraphNode, GraphEdge } from '../../models/graph.model';
     }
     .btn-clear-focus:hover { background: #f1f5f9; color: #333; }
     .focus-hint { margin: 0; font-size: .72rem; color: #7c3aed; font-style: italic; }
+    .focus-definition { margin: 0; font-size: .68rem; color: #64748b; line-height: 1.35; }
   `],
 })
 export class GraphDetailPanelComponent implements OnChanges {
@@ -170,13 +181,14 @@ export class GraphDetailPanelComponent implements OnChanges {
   @Output() wikiArticleRequested = new EventEmitter<void>();
 
   localHops = 0;
+  readonly maxNeighborhoodDepth = MAX_GRAPH_NEIGHBORHOOD_DEPTH;
 
   ngOnChanges(): void {
     this.localHops = this.focusHopDepth;
   }
 
   incHops(): void {
-    if (this.localHops >= 6) return;
+    if (this.localHops >= this.maxNeighborhoodDepth) return;
     this.localHops++;
     this.emitFocusDepthIfActive();
   }

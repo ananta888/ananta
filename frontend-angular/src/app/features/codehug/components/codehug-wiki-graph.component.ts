@@ -76,6 +76,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.error.set('');
     this.rawGraph.set(null);
+    this.metadata.set(null);
     this.service.getCodeCompassGraph(connectionId).subscribe({
       next: graph => {
         if (this.selectedConnectionId() !== connectionId) return;
@@ -114,6 +115,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     this.searchQuery.set(query);
     if (!query) {
       this.rawGraph.set(null);
+      this.metadata.set(null);
       this.expandedSlug.set('');
     }
     this.searchRequests.next(query);

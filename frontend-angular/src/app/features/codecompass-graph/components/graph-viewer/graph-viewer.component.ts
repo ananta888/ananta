@@ -51,12 +51,25 @@ import {
         [filter]="state.filter()"
         [nodeKinds]="state.nodeKindInventory()"
         [edgeTypes]="state.edgeTypeInventory()"
+        [domainOptions]="domainFilterOptions()"
+        [neighborhoodDepth]="state.focusHopDepth()"
+        [neighborhoodAnchorLabel]="state.focusNodeLabel()"
         [webglAvailable]="webglAvailable"
         (viewModeChange)="setViewMode($event)"
         (layoutModeChange)="layoutMode = $event"
         (filterChange)="state.updateFilter($event)"
         (filterReset)="state.resetFilter()"
+        (neighborhoodDepthChange)="state.setNeighborhoodDepth($event)"
       />
+
+      @if (graphWindowInfo(); as window) {
+        <div class="gv-window-info" data-testid="graph-window-info">
+          <strong>Geladener Topologie-Ausschnitt:</strong>
+          {{ window.loadedNodes }} von {{ window.totalNodes }} Knoten ·
+          {{ window.loadedEdges }} interne Kanten von {{ window.totalEdges }} insgesamt.
+          Filter und Verknüpfungstiefe wirken innerhalb dieses Ausschnitts.
+        </div>
+      }
 
       <div class="gv-visual-controls" aria-label="Graphvisualisierung">
         @if (profiles.activeProfile().legend.showDomains) {
@@ -133,7 +146,6 @@ import {
                 [selectedEdge]="state.selectedEdge()"
                 (nodeSelected)="state.selectNode($event)"
                 (edgeSelected)="state.selectEdge($event)"
-                (selectionCleared)="state.clearSelection()"
               />
             }
           }
@@ -184,6 +196,7 @@ import {
   styles: [`
     :host { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     .gv-shell { display: flex; flex-direction: column; flex: 1; min-height: 0; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
+    .gv-window-info { padding: .35rem .65rem; border-bottom: 1px solid #bae6fd; background: #f0f9ff; color: #0c4a6e; font-size: .75rem; line-height: 1.35; }
     .gv-visual-controls { display: flex; justify-content: flex-end; align-items: center; gap: .35rem; padding: .25rem .55rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
     .gv-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
     .gv-renderer { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
@@ -265,6 +278,27 @@ export class GraphViewerComponent implements OnChanges, OnInit {
     label: entry.label,
     color: entry.color,
   })));
+  readonly domainFilterOptions = computed(() => this.domainLegend().map(entry => ({
+    domainId: entry.domainId,
+    label: entry.label,
+    nodeCount: entry.totalNodes,
+  })));
+  readonly graphWindowInfo = computed(() => {
+    const graph = this.state.graph();
+    if (!graph) return null;
+    const totalNodes = this.metadataCount(graph.metadata['total_nodes']);
+    const totalEdges = this.metadataCount(graph.metadata['total_edges']);
+    const topologyView = graph.metadata['view'] === 'topology';
+    if (!topologyView && totalNodes <= graph.nodes.length && totalEdges <= graph.edges.length) {
+      return null;
+    }
+    return {
+      loadedNodes: graph.nodes.length.toLocaleString('de-DE'),
+      totalNodes: Math.max(totalNodes, graph.nodes.length).toLocaleString('de-DE'),
+      loadedEdges: graph.edges.length.toLocaleString('de-DE'),
+      totalEdges: Math.max(totalEdges, graph.edges.length).toLocaleString('de-DE'),
+    };
+  });
   readonly highlightedNodeIds = computed<ReadonlySet<string>>(() => {
     const domainId = this.state.hoveredDomainId();
     const graph = this.state.graph();
@@ -357,5 +391,10 @@ export class GraphViewerComponent implements OnChanges, OnInit {
       this.domainLegendOpen.set(false);
       this.edgeLegendOpen.set(false);
     }
+  }
+
+  private metadataCount(value: unknown): number {
+    const count = Number(value);
+    return Number.isFinite(count) && count >= 0 ? Math.floor(count) : 0;
   }
 }

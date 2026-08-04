@@ -64,12 +64,12 @@ export function renderGraphTooltipElement(text: string): HTMLElement {
     } @else if (webglUnavailable) {
       <section class="fallback-msg" role="status">
         <strong>WebGL is not available.</strong>
-        <span>Use the synchronized list, hierarchy, or 2D graph instead.</span>
+        <span>Use another available graph view instead.</span>
       </section>
     } @else if (reducedMotion) {
       <section class="fallback-msg" role="status">
         <strong>Reduced motion is enabled.</strong>
-        <span>The moving 3D simulation is replaced by the synchronized static list, hierarchy, or 2D graph.</span>
+        <span>The moving 3D simulation is disabled; use another available graph view instead.</span>
       </section>
     } @else if (error) {
       <p class="error-msg" role="alert">{{ error }}</p>
@@ -103,6 +103,11 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
   @Input() nodeStyles: Readonly<Record<string, Readonly<RenderNodeStyle>>> = {};
   @Input() edgeStyles: Readonly<Record<string, Readonly<RenderEdgeStyle>>> = {};
   @Input() selectedNodeId: string | null = null;
+  /**
+   * Optional visual focus, kept separate from the domain selection. Consumers
+   * that omit this input retain the legacy selection-as-focus behaviour.
+   */
+  @Input() focusedNodeId: string | null | undefined = undefined;
   @Input() selectedEdgeId: string | null = null;
   @Input() visibleNodeIds: ReadonlySet<string> | null = null;
   @Input() visibleEdgeIds: ReadonlySet<string> | null = null;
@@ -156,7 +161,9 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
       changes['nodeRenderLimit'] || changes['edgeRenderLimit'] || changes['limitStrategy'],
     );
     const selectedNodeChanged = Boolean(changes['selectedNodeId']);
-    const focusLimitNeedsRebuild = selectedNodeChanged
+    const focusedNodeChanged = Boolean(changes['focusedNodeId'])
+      || (this.focusedNodeId === undefined && selectedNodeChanged);
+    const focusLimitNeedsRebuild = focusedNodeChanged
       && this.limitStrategy === 'focus'
       && this.exceedsConfiguredLimit();
 
@@ -174,9 +181,10 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
       || changes['highlightedNodeIds']
       || changes['highlightedEdgeIds']
       || selectedNodeChanged
+      || focusedNodeChanged
       || changes['selectedEdgeId']
     ) {
-      this.setHighlightState(this.selectedNodeId);
+      this.setHighlightState(this.effectiveFocusedNodeId());
       this.applyVisualProjection();
     }
   }
@@ -200,7 +208,11 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
     this.edgeMap.clear();
     this.graph?.nodes.forEach(node => this.nodeMap.set(node.id, node));
     this.graph?.edges.forEach(edge => this.edgeMap.set(edge.id, edge));
-    this.setHighlightState(this.selectedNodeId);
+    this.setHighlightState(this.effectiveFocusedNodeId());
+  }
+
+  private effectiveFocusedNodeId(): string | null {
+    return this.focusedNodeId === undefined ? this.selectedNodeId : this.focusedNodeId;
   }
 
   private graphTopologyIdentity(): string {
@@ -243,7 +255,7 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
     if (this.highlightedNodeIds.size) {
       return this.highlightedNodeIds.has(id) ? base : 'rgba(100,116,139,0.2)';
     }
-    if (!this.focalNodeId) return base;
+    if (!this.focalNodeId) return id === this.selectedNodeId ? '#f59e0b' : base;
     if (id === this.focalNodeId) return '#f59e0b';
     if (this.neighbourIds.has(id)) return '#38bdf8';
     return 'rgba(100,116,139,0.25)';
@@ -253,7 +265,7 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
     const style = this.nodeStyle(id);
     const factors = style.highlightFactors ?? DEFAULT_RENDER_HIGHLIGHT_FACTORS;
     if (this.highlightedNodeIds.has(id)) return style.size * factors.hover;
-    if (id === this.focalNodeId) return style.size * factors.selected;
+    if (id === this.focalNodeId || id === this.selectedNodeId) return style.size * factors.selected;
     if (this.neighbourIds.has(id)) return style.size * factors.connected;
     return style.size;
   }
@@ -267,7 +279,7 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
     if (!this.focalNodeId) return style.width;
     const { source, target } = this.linkEndpoints(link);
     return source === this.focalNodeId || target === this.focalNodeId
-      ? style.width * factors.connected
+      ? style.width * factors.selected
       : style.width;
   }
 
@@ -361,10 +373,11 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
     let nodes = [...this.graph.nodes];
     if (nodeLimit && nodes.length > nodeLimit) {
       const selected = new Map<string, RenderGraphNode>();
-      if (this.selectedNodeId) {
-        const anchor = this.nodeMap.get(this.selectedNodeId);
+      const focusNodeId = this.effectiveFocusedNodeId();
+      if (focusNodeId) {
+        const anchor = this.nodeMap.get(focusNodeId);
         if (anchor) selected.set(anchor.id, anchor);
-        for (const neighbourId of neighbours.get(this.selectedNodeId) ?? []) {
+        for (const neighbourId of neighbours.get(focusNodeId) ?? []) {
           const neighbour = this.nodeMap.get(neighbourId);
           if (neighbour && selected.size < nodeLimit) selected.set(neighbour.id, neighbour);
         }
@@ -382,11 +395,12 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
     const kept = new Set(nodes.map(node => node.id));
     let edges = this.graph.edges.filter(edge => kept.has(edge.sourceId) && kept.has(edge.targetId));
     if (edgeLimit && edges.length > edgeLimit) {
+      const focusNodeId = this.effectiveFocusedNodeId();
       edges = [...edges].sort((left, right) => {
-        const leftSelected = this.selectedNodeId
-          && (left.sourceId === this.selectedNodeId || left.targetId === this.selectedNodeId) ? 1 : 0;
-        const rightSelected = this.selectedNodeId
-          && (right.sourceId === this.selectedNodeId || right.targetId === this.selectedNodeId) ? 1 : 0;
+        const leftSelected = focusNodeId
+          && (left.sourceId === focusNodeId || left.targetId === focusNodeId) ? 1 : 0;
+        const rightSelected = focusNodeId
+          && (right.sourceId === focusNodeId || right.targetId === focusNodeId) ? 1 : 0;
         return rightSelected - leftSelected || left.id.localeCompare(right.id);
       }).slice(0, edgeLimit);
     }

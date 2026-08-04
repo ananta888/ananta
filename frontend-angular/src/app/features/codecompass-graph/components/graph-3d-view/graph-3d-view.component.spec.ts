@@ -75,7 +75,7 @@ describe('Graph3dViewComponent renderer adapter', () => {
     expect(component.renderEdgeStyles[firstEdge.id]).toMatchObject({ color: '#445566', width: 3 });
   });
 
-  it('maps neutral selection ids back to CodeCompass domain objects', () => {
+  it('maps neutral selection ids and toggles a local 3D focus', () => {
     const graph = buildGraph();
     fixture.componentRef.setInput('graph', graph);
     fixture.detectChanges();
@@ -83,22 +83,74 @@ describe('Graph3dViewComponent renderer adapter', () => {
     const edgeListener = vi.fn();
     component.nodeSelected.subscribe(nodeListener);
     component.edgeSelected.subscribe(edgeListener);
+    const renderer = fixture.debugElement.query(By.directive(ForceGraph3dRendererComponent))
+      .componentInstance as ForceGraph3dRendererComponent;
 
-    component.selectNode(graph.nodes[0].id);
+    renderer.nodeSelected.emit(graph.nodes[0].id);
     component.selectEdge(graph.edges[0].id);
 
     expect(nodeListener).toHaveBeenCalledWith(graph.nodes[0]);
     expect(edgeListener).toHaveBeenCalledWith(graph.edges[0]);
+    expect(component.focusedNodeId).toBe(graph.nodes[0].id);
+
+    renderer.nodeSelected.emit(graph.nodes[0].id);
+
+    expect(nodeListener).toHaveBeenCalledTimes(2);
+    expect(component.focusedNodeId).toBeNull();
   });
 
-  it('forwards background selection clearing through the adapter', () => {
+  it('does not turn an existing shared selection into an initial 3D focus', () => {
+    const graph = buildGraph();
+    fixture.componentRef.setInput('graph', graph);
+    fixture.componentRef.setInput('selectedNode', graph.nodes[0]);
+    fixture.detectChanges();
+    const renderer = fixture.debugElement.query(By.directive(ForceGraph3dRendererComponent))
+      .componentInstance as ForceGraph3dRendererComponent;
+
+    expect(renderer.selectedNodeId).toBe(graph.nodes[0].id);
+    expect(renderer.focusedNodeId).toBeNull();
+    expect(component.focusedNodeId).toBeNull();
+  });
+
+  it('clears local focus, keeps shared input selection and preserves the clear output', () => {
+    const graph = buildGraph();
+    fixture.componentRef.setInput('graph', graph);
+    fixture.componentRef.setInput('selectedNode', graph.nodes[0]);
+    fixture.detectChanges();
     const listener = vi.fn();
     component.selectionCleared.subscribe(listener);
     const renderer = fixture.debugElement.query(By.directive(ForceGraph3dRendererComponent))
       .componentInstance as ForceGraph3dRendererComponent;
+    renderer.nodeSelected.emit(graph.nodes[0].id);
+    fixture.detectChanges();
+    expect(component.focusedNodeId).toBe(graph.nodes[0].id);
+    expect(renderer.focusedNodeId).toBe(graph.nodes[0].id);
 
     renderer.selectionCleared.emit();
+    fixture.detectChanges();
 
+    expect(component.focusedNodeId).toBeNull();
+    expect(renderer.focusedNodeId).toBeNull();
+    expect(component.selectedNode).toBe(graph.nodes[0]);
     expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it('clears a local 3D focus when filtering hides its node', () => {
+    const graph = buildGraph();
+    fixture.componentRef.setInput('graph', graph);
+    fixture.componentRef.setInput(
+      'visibleNodeIds',
+      new Set(graph.nodes.map(node => node.id)),
+    );
+    fixture.detectChanges();
+    component.selectNode(graph.nodes[0].id);
+
+    fixture.componentRef.setInput(
+      'visibleNodeIds',
+      new Set(graph.nodes.slice(1).map(node => node.id)),
+    );
+    fixture.detectChanges();
+
+    expect(component.focusedNodeId).toBeNull();
   });
 });

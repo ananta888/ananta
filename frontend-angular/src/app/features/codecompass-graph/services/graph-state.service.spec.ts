@@ -151,6 +151,90 @@ describe('GraphStateService', () => {
     expect(svc.filteredNodes().map(n => n.id)).toEqual(['a', 'b', 'c']);
   });
 
+  it('applies connection depth immediately and follows a newly selected anchor', () => {
+    const g = chainGraph();
+    svc.setGraph(g);
+    svc.selectNode(g.nodes[0]);
+
+    svc.setNeighborhoodDepth(1);
+    expect(svc.focusNodeId()).toBe('a');
+    expect(svc.filteredNodes().map(node => node.id)).toEqual(['a', 'b']);
+
+    svc.selectNode(g.nodes[2]);
+    expect(svc.focusNodeId()).toBe('c');
+    expect(svc.filteredNodes().map(node => node.id)).toEqual(['b', 'c', 'd']);
+  });
+
+  it('expands the graph when selection closes but preserves the chosen depth', () => {
+    const g = chainGraph();
+    svc.setGraph(g);
+    svc.selectNode(g.nodes[0]);
+    svc.setNeighborhoodDepth(2);
+
+    svc.clearSelection();
+
+    expect(svc.focusNodeId()).toBeNull();
+    expect(svc.focusHopDepth()).toBe(2);
+    expect(svc.filteredNodes().map(node => node.id)).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('does not traverse edge types hidden by the active filter', () => {
+    const g = chainGraph();
+    g.edges[1] = {
+      ...g.edges[1],
+      edgeType: 'related',
+      rawEdgeType: 'hidden_link',
+    };
+    svc.setGraph(g);
+    svc.selectNode(g.nodes[0]);
+    svc.updateFilter({ edgeTypes: { mode: 'subset', values: ['parent_child'] } });
+    svc.setNeighborhoodDepth(3);
+
+    expect(svc.filteredNodes().map(node => node.id)).toEqual(['a', 'b']);
+    expect(svc.filteredEdges().map(edge => edge.id)).toEqual(['ab']);
+  });
+
+  it('does not traverse nodes hidden by the active node filter', () => {
+    const g = chainGraph();
+    g.nodes[1] = { ...g.nodes[1], kind: 'java_type', rawNodeType: 'java_type' };
+    svc.setGraph(g);
+    svc.selectNode(g.nodes[0]);
+    svc.updateFilter({ nodeKinds: { mode: 'subset', values: ['python_function'] } });
+    svc.setNeighborhoodDepth(3);
+
+    expect(svc.filteredNodes().map(node => node.id)).toEqual(['a']);
+    expect(svc.filteredEdges()).toEqual([]);
+  });
+
+  it('clears a depth anchor when a node filter hides that anchor', () => {
+    const g = chainGraph();
+    svc.setGraph(g);
+    svc.selectNode(g.nodes[0]);
+    svc.setNeighborhoodDepth(2);
+
+    svc.updateFilter({ searchText: 'b' });
+
+    expect(svc.focusNodeId()).toBeNull();
+    expect(svc.focusHopDepth()).toBe(2);
+    expect(svc.focusNodeLabel()).toBe('');
+    expect(svc.filteredNodes().map(node => node.id)).toEqual(['b']);
+  });
+
+  it('does not restore a depth anchor while the selected node is filtered out', () => {
+    const g = chainGraph();
+    svc.setGraph(g);
+    svc.selectNode(g.nodes[0]);
+    svc.updateFilter({ searchText: 'b' });
+
+    svc.setNeighborhoodDepth(2);
+    svc.setFocus('a', 2);
+
+    expect(svc.selectedNode()).toBe(g.nodes[0]);
+    expect(svc.focusNodeId()).toBeNull();
+    expect(svc.focusHopDepth()).toBe(2);
+    expect(svc.filteredNodes().map(node => node.id)).toEqual(['b']);
+  });
+
   it('represents all, none, and subset without sentinel casts', () => {
     svc.setGraph(chainGraph());
     svc.updateFilter({ edgeTypes: { mode: 'none', values: [] } });

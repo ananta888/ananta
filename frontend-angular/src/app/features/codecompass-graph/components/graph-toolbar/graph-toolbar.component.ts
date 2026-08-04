@@ -7,11 +7,21 @@ import { GraphFilter, GraphFilterSelection, EMPTY_FILTER, graphSelectionContains
 import { GraphViewMode, GRAPH_VIEW_MODES, GRAPH_VIEW_MODE_LABELS } from '../../models/graph-view-mode';
 import { GraphLayoutMode, GRAPH_LAYOUT_MODES, GRAPH_LAYOUT_MODE_LABELS } from '../../models/graph-layout-mode';
 import { ALL_NODE_KINDS, ALL_EDGE_TYPES } from '../../models/graph-filter.model';
+import {
+  GRAPH_NEIGHBORHOOD_DEPTH_OPTIONS,
+  MAX_GRAPH_NEIGHBORHOOD_DEPTH,
+} from '../../models/graph-neighborhood.model';
 
 // ── Edge-type groups ──────────────────────────────────────────────────────────
 
 interface EdgeGroup { label: string; types: string[]; }
 interface NodeGroup { label: string; kinds: string[]; }
+
+export interface GraphDomainFilterOption {
+  readonly domainId: string;
+  readonly label: string;
+  readonly nodeCount: number;
+}
 
 const EDGE_GROUPS: EdgeGroup[] = [
   { label: 'Aufrufe',            types: ['calls_probable_target', 'returns'] },
@@ -207,6 +217,66 @@ const NODE_GROUPS: NodeGroup[] = [
         }
       </div>
 
+      <!-- ── Domain filter, independent from optional visual legends ── -->
+      <div class="toolbar-group filter-group" style="position:relative">
+        <button class="filter-btn" [class.active]="domainOpen()"
+                data-testid="graph-domain-filter"
+                [attr.aria-expanded]="domainOpen()"
+                [attr.aria-controls]="domainPanelId"
+                (click)="domainOpen.set(!domainOpen())">
+          Domains&nbsp;<span class="filter-count">{{ domainCountLabel() }}</span>
+          <span class="chevron">{{ domainOpen() ? '▲' : '▾' }}</span>
+        </button>
+
+        @if (domainOpen()) {
+          <div class="filter-panel domain-panel" [id]="domainPanelId" role="group"
+               [attr.aria-labelledby]="domainPanelTitleId"
+               (click)="$event.stopPropagation()">
+            <div class="panel-header">
+              <span class="panel-title" [id]="domainPanelTitleId">Domains im Ausschnitt</span>
+              <div class="panel-actions">
+                <button class="act-btn" (click)="setAllDomains(true)">Alle</button>
+                <button class="act-btn" (click)="setAllDomains(false)">Keine</button>
+                <button class="act-btn close-act" aria-label="Domainfilter schließen"
+                        (click)="domainOpen.set(false)">✕</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              @for (domain of domainOptions; track domain.domainId) {
+                <label class="cb-row domain-row">
+                  <input type="checkbox" [checked]="isDomainChecked(domain.domainId)"
+                         (change)="toggleDomain(domain.domainId, $any($event.target).checked)" />
+                  <span class="domain-label">{{ domain.label }}</span>
+                  <span class="domain-count">{{ domain.nodeCount }}</span>
+                </label>
+              } @empty {
+                <p class="panel-empty">Keine Domaininformationen im geladenen Ausschnitt.</p>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- ── Loaded-window neighbourhood depth ── -->
+      <div class="toolbar-group neighbourhood-group"
+           title="Eine Verknüpfungsstufe entspricht genau einer sichtbaren Kante. Die Kantenrichtung wird für die Nachbarschaft ignoriert.">
+        <span class="filter-label">Verknüpfungstiefe:</span>
+        <select class="depth-select" aria-label="Verknüpfungstiefe im geladenen Graph-Ausschnitt"
+                data-testid="graph-neighbourhood-depth"
+                [ngModel]="neighborhoodDepth"
+                (ngModelChange)="changeNeighborhoodDepth($event)">
+          <option [ngValue]="0">Alle geladenen</option>
+          @for (depth of neighborhoodDepths; track depth) {
+            <option [ngValue]="depth">{{ depth }} {{ depth === 1 ? 'Kante' : 'Kanten' }}</option>
+          }
+        </select>
+        @if (neighborhoodDepth > 0) {
+          <span class="depth-status" data-testid="graph-neighbourhood-status">
+            {{ neighborhoodAnchorLabel || 'Knoten wählen' }}
+          </span>
+        }
+      </div>
+
       <!-- ── Reset ── -->
       @if (hasFilters()) {
         <button class="reset-btn" (click)="filterReset.emit()">Zurücksetzen</button>
@@ -231,6 +301,9 @@ const NODE_GROUPS: NodeGroup[] = [
     /* Layout */
     .filter-label  { font-size: .8rem; color: #555; white-space: nowrap; }
     .layout-select { font-size: .8rem; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px 6px; background: #fff; }
+    .depth-select { font-size: .8rem; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px 6px; background: #fff; }
+    .neighbourhood-group { max-width: 380px; }
+    .depth-status { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .72rem; color: #7c3aed; }
 
     /* Filter button */
     .filter-btn {
@@ -284,6 +357,11 @@ const NODE_GROUPS: NodeGroup[] = [
     }
     .cb-row:hover { background: #f1f5f9; }
     .cb-label { font-family: ui-monospace, monospace; font-size: .72rem; }
+    .domain-panel { width: 320px; }
+    .domain-row { padding: 3px 2px; }
+    .domain-label { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+    .domain-count { color: #64748b; font-variant-numeric: tabular-nums; }
+    .panel-empty { margin: .35rem; font-size: .75rem; color: #64748b; }
     input[type=checkbox] { flex-shrink: 0; accent-color: #3b82f6; cursor: pointer; }
 
     /* Reset */
@@ -291,18 +369,24 @@ const NODE_GROUPS: NodeGroup[] = [
   `],
 })
 export class GraphToolbarComponent {
+  private static instanceSequence = 0;
+
   @Input() activeMode: GraphViewMode = 'simple';
   @Input() layoutMode: GraphLayoutMode = 'tier';
   @Input() filter: GraphFilter = EMPTY_FILTER;
   /** Inventory comes from the unfiltered canonical graph and includes unknown raw values. */
   @Input() nodeKinds: readonly string[] | null = null;
   @Input() edgeTypes: readonly string[] | null = null;
+  @Input() domainOptions: readonly GraphDomainFilterOption[] = [];
+  @Input() neighborhoodDepth = 0;
+  @Input() neighborhoodAnchorLabel = '';
   @Input() webglAvailable = true;
 
   @Output() viewModeChange   = new EventEmitter<GraphViewMode>();
   @Output() layoutModeChange = new EventEmitter<GraphLayoutMode>();
   @Output() filterChange     = new EventEmitter<Partial<GraphFilter>>();
   @Output() filterReset      = new EventEmitter<void>();
+  @Output() neighborhoodDepthChange = new EventEmitter<number>();
 
   readonly viewModes       = GRAPH_VIEW_MODES;
   readonly modeLabels      = GRAPH_VIEW_MODE_LABELS;
@@ -310,9 +394,13 @@ export class GraphToolbarComponent {
   readonly layoutModeLabels = GRAPH_LAYOUT_MODE_LABELS;
   readonly edgeGroups      = EDGE_GROUPS;
   readonly nodeGroups      = NODE_GROUPS;
+  readonly neighborhoodDepths = GRAPH_NEIGHBORHOOD_DEPTH_OPTIONS;
+  readonly domainPanelId = `graph-domain-filter-panel-${++GraphToolbarComponent.instanceSequence}`;
+  readonly domainPanelTitleId = `${this.domainPanelId}-title`;
 
   readonly edgeOpen = signal(false);
   readonly nodeOpen = signal(false);
+  readonly domainOpen = signal(false);
 
   edgeCountLabel(): string {
     const inventory = this._edgeInventory();
@@ -322,6 +410,10 @@ export class GraphToolbarComponent {
   nodeCountLabel(): string {
     const inventory = this._nodeInventory();
     return `${this._visibleCount(this.filter.nodeKinds, inventory)}/${inventory.length}`;
+  }
+
+  domainCountLabel(): string {
+    return `${this._visibleCount(this.filter.domains, this._domainInventory())}/${this.domainOptions.length}`;
   }
 
   // panels stay open across filter changes — no ngOnChanges sync needed
@@ -394,6 +486,38 @@ export class GraphToolbarComponent {
     this.filterChange.emit({ nodeKinds: checked ? { mode: 'all', values: [] } : { mode: 'none', values: [] } });
   }
 
+  // ── Domain helpers ───────────────────────────────────────────────────────────
+
+  isDomainChecked(domainId: string): boolean {
+    return graphSelectionContains(this.filter.domains, domainId);
+  }
+
+  toggleDomain(domainId: string, checked: boolean): void {
+    const inventory = this._domainInventory();
+    const filter = this.filter.domains;
+    const base = filter.mode === 'all'
+      ? [...inventory]
+      : filter.mode === 'none' ? [] : [...filter.values];
+    const next = checked
+      ? [...new Set([...base, domainId])]
+      : base.filter(value => value !== domainId);
+    this.filterChange.emit({ domains: graphSelectionFromVisible(next, inventory) });
+  }
+
+  setAllDomains(checked: boolean): void {
+    this.filterChange.emit({
+      domains: checked ? { mode: 'all', values: [] } : { mode: 'none', values: [] },
+    });
+  }
+
+  changeNeighborhoodDepth(value: number | string): void {
+    const parsed = Number(value);
+    const depth = Number.isFinite(parsed)
+      ? Math.max(0, Math.min(MAX_GRAPH_NEIGHBORHOOD_DEPTH, Math.floor(parsed)))
+      : 0;
+    this.neighborhoodDepthChange.emit(depth);
+  }
+
   // ── Search ───────────────────────────────────────────────────────────────────
 
   onSearch(text: string): void {
@@ -449,6 +573,10 @@ export class GraphToolbarComponent {
 
   private _nodeInventory(): readonly string[] {
     return this.nodeKinds ?? ALL_NODE_KINDS;
+  }
+
+  private _domainInventory(): readonly string[] {
+    return this.domainOptions.map(option => option.domainId);
   }
 
   private _visibleCount(selection: GraphFilterSelection<string>, inventory: readonly string[]): number {

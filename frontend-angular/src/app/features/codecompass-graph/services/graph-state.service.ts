@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
 import { GenericGraphModel, GraphEdge, GraphNode } from '../models/graph.model';
+import { MAX_GRAPH_NEIGHBORHOOD_DEPTH } from '../models/graph-neighborhood.model';
 import {
   EMPTY_FILTER,
   GraphFilter,
@@ -9,11 +10,13 @@ import {
 } from '../models/graph-filter.model';
 import { GraphViewMode } from '../models/graph-view-mode';
 import { GraphColorService } from './graph-color.service';
+import { GraphNeighborhoodProjectionService } from './graph-neighborhood-projection.service';
 
 /** Viewer-local interaction state. GraphViewer provides one instance per viewer. */
 @Injectable()
 export class GraphStateService {
   private readonly colors = inject(GraphColorService);
+  private readonly neighborhoods = inject(GraphNeighborhoodProjectionService);
   readonly viewMode = signal<GraphViewMode>('simple');
   readonly selectedNode = signal<GraphNode | null>(null);
   readonly selectedEdge = signal<GraphEdge | null>(null);
@@ -37,17 +40,35 @@ export class GraphStateService {
     this.graph()?.nodes.map(node => this._domainId(node)) ?? [],
   ));
 
-  readonly filteredNodes = computed<readonly GraphNode[]>(() => {
+  private readonly baseFilteredNodes = computed<readonly GraphNode[]>(() => {
     const graph = this.graph();
     if (!graph) return [];
     const filter = this.filter();
-    let nodes = graph.nodes.filter(node => this._matchesFilter(node, filter));
+    return graph.nodes.filter(node => this._matchesFilter(node, filter));
+  });
+  readonly focusNodeLabel = computed(() => {
+    const nodeId = this.focusNodeId();
+    return nodeId
+      ? this.baseFilteredNodes().find(node => node.id === nodeId)?.label ?? ''
+      : '';
+  });
+
+  readonly filteredNodes = computed<readonly GraphNode[]>(() => {
+    const graph = this.graph();
+    if (!graph) return [];
+    const nodes = this.baseFilteredNodes();
     const focusId = this.focusNodeId();
-    if (focusId) {
-      const inFocus = this._bfsIds(graph, focusId, this.focusHopDepth());
-      nodes = nodes.filter(node => inFocus.has(node.id));
-    }
-    return nodes;
+    const depth = this.focusHopDepth();
+    if (!focusId || depth === 0) return nodes;
+    if (!nodes.some(node => node.id === focusId)) return nodes;
+    const inFocus = this.neighborhoods.project({
+      graph,
+      anchorNodeId: focusId,
+      edgeDepth: depth,
+      allowedNodeIds: new Set(nodes.map(node => node.id)),
+      allowedEdgeTypes: this.filter().edgeTypes,
+    });
+    return nodes.filter(node => inFocus.has(node.id));
   });
 
   readonly filteredEdges = computed<readonly GraphEdge[]>(() => {
@@ -90,6 +111,11 @@ export class GraphStateService {
   selectNode(node: GraphNode | null): void {
     this.selectedNode.set(node);
     this.selectedEdge.set(null);
+    this.focusNodeId.set(
+      node && this.focusHopDepth() > 0 && this._isFocusable(node.id)
+        ? node.id
+        : null,
+    );
   }
 
   selectEdge(edge: GraphEdge | null): void {
@@ -98,13 +124,26 @@ export class GraphStateService {
   }
 
   setFocus(nodeId: string | null, hops = 0): void {
-    const depth = Math.max(0, Math.floor(hops));
+    const depth = this._boundedDepth(hops);
     this.focusHopDepth.set(depth);
-    this.focusNodeId.set(nodeId && depth > 0 ? nodeId : null);
+    this.focusNodeId.set(
+      nodeId && depth > 0 && this._isFocusable(nodeId) ? nodeId : null,
+    );
+  }
+
+  setNeighborhoodDepth(hops: number): void {
+    const depth = this._boundedDepth(hops);
+    const selectedNodeId = this.selectedNode()?.id ?? null;
+    this.focusHopDepth.set(depth);
+    this.focusNodeId.set(
+      depth > 0 && selectedNodeId && this._isFocusable(selectedNodeId)
+        ? selectedNodeId
+        : null,
+    );
   }
 
   updateFilter(patch: Partial<GraphFilter>): void {
-    this.filter.update(filter => Object.freeze({ ...filter, ...patch }));
+    this._setFilter(Object.freeze({ ...this.filter(), ...patch }));
   }
 
   setNodeKindVisible(rawNodeType: string, visible: boolean): void {
@@ -120,12 +159,13 @@ export class GraphStateService {
   }
 
   resetFilter(): void {
-    this.filter.set(EMPTY_FILTER);
+    this._setFilter(EMPTY_FILTER);
   }
 
   clearSelection(): void {
     this.selectedNode.set(null);
     this.selectedEdge.set(null);
+    this.focusNodeId.set(null);
   }
 
   clearHover(): void {
@@ -139,7 +179,8 @@ export class GraphStateService {
     visible: boolean,
     inventory: readonly string[],
   ): void {
-    this.filter.update(filter => ({
+    const filter = this.filter();
+    this._setFilter(Object.freeze({
       ...filter,
       [key]: graphSelectionToggle(filter[key], value, visible, inventory),
     }));
@@ -165,29 +206,24 @@ export class GraphStateService {
     return Object.freeze([...new Set(values)].sort((left, right) => left.localeCompare(right)));
   }
 
-  private _bfsIds(graph: GenericGraphModel, startId: string, hops: number): Set<string> {
-    const adjacent = new Map<string, string[]>();
-    for (const edge of graph.edges) {
-      if (!adjacent.has(edge.source)) adjacent.set(edge.source, []);
-      if (!adjacent.has(edge.target)) adjacent.set(edge.target, []);
-      adjacent.get(edge.source)!.push(edge.target);
-      adjacent.get(edge.target)!.push(edge.source);
+  private _boundedDepth(value: number): number {
+    return Number.isFinite(value)
+      ? Math.max(0, Math.min(MAX_GRAPH_NEIGHBORHOOD_DEPTH, Math.floor(value)))
+      : 0;
+  }
+
+  private _isFocusable(nodeId: string): boolean {
+    const node = this.graph()?.nodes.find(candidate => candidate.id === nodeId);
+    return Boolean(node && this._matchesFilter(node, this.filter()));
+  }
+
+  private _setFilter(filter: GraphFilter): void {
+    this.filter.set(filter);
+    const focusId = this.focusNodeId();
+    if (!focusId) return;
+    const focusNode = this.graph()?.nodes.find(node => node.id === focusId);
+    if (!focusNode || !this._matchesFilter(focusNode, filter)) {
+      this.focusNodeId.set(null);
     }
-    const visited = new Set<string>([startId]);
-    let frontier = [startId];
-    for (let hop = 0; hop < hops; hop++) {
-      const next: string[] = [];
-      for (const id of frontier) {
-        for (const neighbour of adjacent.get(id) ?? []) {
-          if (!visited.has(neighbour)) {
-            visited.add(neighbour);
-            next.push(neighbour);
-          }
-        }
-      }
-      frontier = next;
-      if (!frontier.length) break;
-    }
-    return visited;
   }
 }

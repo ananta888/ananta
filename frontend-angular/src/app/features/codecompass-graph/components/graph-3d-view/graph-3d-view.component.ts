@@ -33,6 +33,7 @@ import { graphVisualTooltipText } from '../graph-tooltip/graph-visual-tooltip';
       [nodeStyles]="renderNodeStyles"
       [edgeStyles]="renderEdgeStyles"
       [selectedNodeId]="selectedNode?.id ?? null"
+      [focusedNodeId]="focusedNodeId"
       [selectedEdgeId]="selectedEdge?.id ?? null"
       [visibleNodeIds]="visibleNodeIds"
       [visibleEdgeIds]="visibleEdgeIds"
@@ -43,7 +44,7 @@ import { graphVisualTooltipText } from '../graph-tooltip/graph-visual-tooltip';
       limitStrategy="focus"
       (nodeSelected)="selectNode($event)"
       (edgeSelected)="selectEdge($event)"
-      (selectionCleared)="selectionCleared.emit()"
+      (selectionCleared)="clearFocusAndNotify()"
       (availabilityChange)="webglUnavailable = !$event"
     />
   `,
@@ -71,6 +72,7 @@ export class Graph3dViewComponent implements OnChanges {
   renderGraph: RenderGraph | null = null;
   renderNodeStyles: Readonly<Record<string, Readonly<RenderNodeStyle>>> = {};
   renderEdgeStyles: Readonly<Record<string, Readonly<RenderEdgeStyle>>> = {};
+  focusedNodeId: string | null = null;
   webglUnavailable = false;
 
   private readonly nodeMap = new Map<string, GraphNode>();
@@ -78,12 +80,22 @@ export class Graph3dViewComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['graph']) this.projectGraph();
+    if (
+      (changes['graph'] || changes['visibleNodeIds'])
+      && this.focusedNodeId
+      && this.visibleNodeIds
+      && !this.visibleNodeIds.has(this.focusedNodeId)
+    ) {
+      this.focusedNodeId = null;
+    }
     if (changes['graph'] || changes['visualProjection']) this.projectStyles();
   }
 
   selectNode(nodeId: string): void {
     const node = this.nodeMap.get(nodeId);
-    if (node) this.nodeSelected.emit(node);
+    if (!node) return;
+    this.focusedNodeId = this.focusedNodeId === nodeId ? null : nodeId;
+    this.nodeSelected.emit(node);
   }
 
   selectEdge(edgeId: string): void {
@@ -91,9 +103,19 @@ export class Graph3dViewComponent implements OnChanges {
     if (edge) this.edgeSelected.emit(edge);
   }
 
+  clearFocus(): void {
+    this.focusedNodeId = null;
+  }
+
+  clearFocusAndNotify(): void {
+    this.clearFocus();
+    this.selectionCleared.emit();
+  }
+
   private projectGraph(): void {
     this.nodeMap.clear();
     this.edgeMap.clear();
+    this.focusedNodeId = null;
     if (!this.graph) {
       this.renderGraph = null;
       return;

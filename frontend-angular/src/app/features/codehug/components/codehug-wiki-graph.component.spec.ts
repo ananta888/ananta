@@ -88,4 +88,18 @@ describe('CodehugWikiGraphComponent', () => {
     expect(fixture.componentInstance.loading()).toBe(false);
     expect(fixture.componentInstance.error()).toContain('nicht geladen');
   });
+
+  it('clears stale graph metadata when the graph view is cleared', () => {
+    service.listKnowledgeIndexes.mockReturnValue(of([]));
+    const fixture = TestBed.createComponent(CodehugWikiGraphComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.rawGraph.set({ nodes: [{ node_id: 'old' }] });
+    fixture.componentInstance.metadata.set({ node_count: 1, edge_count: 0 });
+
+    fixture.componentInstance.search('');
+
+    expect(fixture.componentInstance.rawGraph()).toBeNull();
+    expect(fixture.componentInstance.metadata()).toBeNull();
+  });
+
 });

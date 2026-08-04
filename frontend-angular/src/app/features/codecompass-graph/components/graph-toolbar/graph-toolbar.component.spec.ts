@@ -100,4 +100,41 @@ describe('GraphToolbarComponent', () => {
     component.setAllEdges(false);
     expect(emitted?.edgeTypes).toEqual({ mode: 'none', values: [] });
   });
+
+  it('keeps the loaded-window domain filter accessible independently of visual legends', () => {
+    component.domainOptions = [
+      { domainId: 'orders', label: 'Orders', nodeCount: 7 },
+      { domainId: 'billing', label: 'Billing', nodeCount: 4 },
+    ];
+    component.domainOpen.set(true);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('[data-testid="graph-domain-filter"]');
+    expect(button).toBeTruthy();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(button.getAttribute('aria-controls')).toBe(component.domainPanelId);
+    expect(fixture.nativeElement.querySelector(`#${component.domainPanelId}`)).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain('Domains im Ausschnitt');
+    expect(fixture.nativeElement.textContent).toContain('Orders');
+    expect(fixture.nativeElement.textContent).toContain('Billing');
+
+    let emitted: Partial<GraphFilter> | null = null;
+    component.filterChange.subscribe(value => (emitted = value));
+    component.toggleDomain('billing', false);
+    expect(emitted?.domains).toEqual({ mode: 'subset', values: ['orders'] });
+  });
+
+  it('emits a bounded connection depth and explains a missing anchor', () => {
+    component.neighborhoodDepth = 2;
+    component.neighborhoodAnchorLabel = '';
+    fixture.detectChanges();
+    let emitted: number | null = null;
+    component.neighborhoodDepthChange.subscribe(value => (emitted = value));
+
+    component.changeNeighborhoodDepth(9);
+
+    expect(emitted).toBe(6);
+    expect(fixture.nativeElement.querySelector('[data-testid="graph-neighbourhood-status"]')
+      .textContent).toContain('Knoten wählen');
+  });
 });

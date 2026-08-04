@@ -79,7 +79,7 @@ describe('GraphViewerComponent', () => {
     expect(panel).toBeNull();
   });
 
-  it('clears shared selection when the 3d background is selected', () => {
+  it('keeps shared detail selection independent from local 3d focus clearing', () => {
     fixture.componentRef.setInput('rawGraphData', MOCK_DOMAIN_GRAPH_ARTIFACT);
     fixture.detectChanges();
     state.selectNode(state.graph()!.nodes[0]);
@@ -90,8 +90,39 @@ describe('GraphViewerComponent', () => {
 
     view.selectionCleared.emit();
 
-    expect(state.selectedNode()).toBeNull();
+    expect(state.selectedNode()).not.toBeNull();
     expect(state.selectedEdge()).toBeNull();
+  });
+
+  it('wires the visible connection-depth control to the viewer-local state', () => {
+    fixture.componentRef.setInput('rawGraphData', MOCK_DOMAIN_GRAPH_ARTIFACT);
+    fixture.detectChanges();
+    state.selectNode(state.graph()!.nodes[0]);
+    const toolbar = fixture.debugElement.query(By.directive(GraphToolbarComponent))
+      .componentInstance as GraphToolbarComponent;
+
+    toolbar.neighborhoodDepthChange.emit(2);
+    fixture.detectChanges();
+
+    expect(state.focusHopDepth()).toBe(2);
+    expect(state.focusNodeId()).toBe(state.selectedNode()!.id);
+  });
+
+  it('shows the loaded topology-window boundary explicitly', () => {
+    fixture.componentRef.setInput('rawGraphData', {
+      ...MOCK_DOMAIN_GRAPH_ARTIFACT,
+      metadata: {
+        ...(MOCK_DOMAIN_GRAPH_ARTIFACT.metadata ?? {}),
+        view: 'topology',
+        total_nodes: 10_618,
+        total_edges: 107_062,
+      },
+    });
+    fixture.detectChanges();
+
+    const info = fixture.nativeElement.querySelector('[data-testid="graph-window-info"]');
+    expect(info.textContent).toContain('20 von 10.618 Knoten');
+    expect(info.textContent).toContain('Verknüpfungstiefe');
   });
 
   it('provides isolated graph and profile state for two viewers', () => {
