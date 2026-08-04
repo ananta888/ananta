@@ -731,7 +731,7 @@ class KnowledgeIndexJobService:
         job_id: str,
         expected_lock_version: int,
     ) -> dict[str, Any]:
-        """Terminally project one expired Hub dispatch without replaying it."""
+        """Project one expired Hub assignment or dispatch without replay."""
 
         normalized_job_id = str(job_id or "").strip()
         if not normalized_job_id:

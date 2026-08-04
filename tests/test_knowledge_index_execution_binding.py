@@ -813,6 +813,76 @@ def test_pre_dispatch_reserve_allows_proposal_and_network_delay(
     assert claimed.state == "running"
 
 
+def test_unclaimed_assignment_reconciles_only_after_lease_without_transport(
+    tmp_path,
+) -> None:
+    now_ms = [10_000]
+    service, authority_port = _service(
+        tmp_path,
+        clock_ms=lambda: now_ms[0],
+    )
+    issued = _issue(service)
+    assert issued.state == "assigned"
+
+    with pytest.raises(
+        KnowledgeIndexExecutionBindingError,
+        match="dispatch_lease_active",
+    ):
+        service.reconcile_expired_dispatch(
+            job_id=issued.job.job_id,
+            expected_lock_version=issued.lock_version,
+        )
+
+    now_ms[0] = issued.job.assignment.lease_expires_epoch_ms
+    authority_port.current = replace(
+        _authority(),
+        policy_snapshot_digest="6" * 64,
+    )
+    failed = service.reconcile_expired_dispatch(
+        job_id=issued.job.job_id,
+        expected_lock_version=issued.lock_version,
+    )
+    with pytest.raises(
+        KnowledgeIndexExecutionBindingError,
+        match="reconcile_conflict",
+    ):
+        service.reconcile_expired_dispatch(
+            job_id=issued.job.job_id,
+            expected_lock_version=issued.lock_version,
+        )
+    replay = service.reconcile_expired_dispatch(
+        job_id=issued.job.job_id,
+        expected_lock_version=failed.lock_version,
+    )
+
+    assert failed == replay
+    assert failed.state == "failed"
+    assert failed.lock_version == issued.lock_version + 1
+    assert failed.completed_at_epoch_ms == now_ms[0]
+    assert failed.result_digest is not None
+    assert failed.job.authority_binding == issued.job.authority_binding
+    assert failed.job.assignment == issued.job.assignment
+
+    with pytest.raises(
+        KnowledgeIndexExecutionBindingError,
+        match="lease_stale",
+    ):
+        service.validate_result(
+            job_id=issued.job.job_id,
+            payload=_result(issued),
+            authenticated_worker_id="worker-index-01",
+        )
+    with pytest.raises(
+        KnowledgeIndexExecutionBindingError,
+        match="lease_stale",
+    ):
+        service.claim_dispatch(
+            job_id=issued.job.job_id,
+            authenticated_worker_id="worker-index-01",
+            expected_lock_version=failed.lock_version,
+        )
+
+
 def test_crash_after_claim_reconciles_only_after_lease_and_never_replays(
     tmp_path,
 ) -> None:

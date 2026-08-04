@@ -494,13 +494,14 @@ class KnowledgeIndexExecutionBindingService:
         job_id: str,
         expected_lock_version: int,
     ) -> KnowledgeIndexExecutionRecord:
-        """Close an expired running dispatch without executing it again.
+        """Close an expired assigned or running dispatch without redispatch.
 
-        A ``running`` record is the durable at-most-once dispatch claim.  If
-        the Hub crashes after claiming it, or loses the Worker response, that
-        claim remains exclusive until its assignment lease expires.  The Hub
-        may then CAS the record to a terminal failure tombstone.  Reconciliation
-        never creates a new assignment and never authorizes another transport.
+        An ``assigned`` record can expire before transport is claimed.  A
+        ``running`` record is the durable at-most-once dispatch claim and can
+        expire after a Hub crash or lost Worker response.  In either case the
+        expired lease makes further transport impossible, so the Hub may CAS
+        the record to a terminal failure tombstone.  Reconciliation never
+        creates a new assignment and never authorizes another transport.
 
         Current authority is deliberately not required for this closing
         transition: revocation or policy rotation must not leave an expired
@@ -515,7 +516,7 @@ class KnowledgeIndexExecutionBindingService:
             )
         if self._is_expired_dispatch_tombstone(current):
             return current
-        if current.state != "running":
+        if current.state not in {"assigned", "running"}:
             raise KnowledgeIndexExecutionBindingError(
                 "knowledge_index_execution_not_reconcilable"
             )
@@ -558,10 +559,10 @@ class KnowledgeIndexExecutionBindingService:
         record = self._require(job_id)
         job = record.job
         if self._is_expired_dispatch_tombstone(record):
-            # A reconciled lost-response claim is a permanent, non-replayable
-            # terminal authority decision.  It must never be confused with a
-            # Worker-produced failed result merely because both use the same
-            # lifecycle state.
+            # A reconciled expired assignment or lost-response claim is a
+            # permanent, non-replayable terminal authority decision.  It must
+            # never be confused with a Worker-produced failed result merely
+            # because both use the same lifecycle state.
             raise KnowledgeIndexExecutionBindingError(
                 "knowledge_index_execution_lease_stale"
             )
