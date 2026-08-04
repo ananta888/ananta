@@ -498,9 +498,20 @@ def test_hub_worker_graph_artifact_flow_crosses_only_artifact_port(
     published_artifacts = []
 
     class Ingestion:
-        def upload_artifact(self, *, filename, content, created_by, media_type):
+        def upload_artifact(
+            self,
+            *,
+            filename,
+            content,
+            created_by,
+            media_type,
+            artifact_metadata=None,
+        ):
             artifact_id = f"worker-artifact-{len(published_content) + 1}"
-            artifact = SimpleNamespace(id=artifact_id, artifact_metadata={})
+            artifact = SimpleNamespace(
+                id=artifact_id,
+                artifact_metadata=dict(artifact_metadata or {}),
+            )
             version = SimpleNamespace(
                 sha256=hashlib.sha256(content).hexdigest(),
                 media_type=media_type,
