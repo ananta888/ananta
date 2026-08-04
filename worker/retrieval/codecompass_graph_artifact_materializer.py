@@ -14,6 +14,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from ananta_contracts.codecompass_graph_limits import (
+    MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
+)
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 from worker.retrieval.codecompass_graph_visual_metrics import (
     materialize_graph_visual_metrics,
@@ -161,6 +164,19 @@ def _graph_export_required(
 class WorkerCodeCompassGraphArtifactMaterializer:
     """Build both graph artifacts from one completed worker index output."""
 
+    def __init__(
+        self,
+        *,
+        max_graph_artifact_bytes: int = MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
+    ) -> None:
+        normalized_limit = int(max_graph_artifact_bytes)
+        if (
+            normalized_limit <= 0
+            or normalized_limit > MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES
+        ):
+            raise ValueError("codecompass_graph_artifact_limit_invalid")
+        self._max_graph_artifact_bytes = normalized_limit
+
     def materialize(
         self,
         *,
@@ -170,12 +186,33 @@ class WorkerCodeCompassGraphArtifactMaterializer:
     ) -> dict[str, Any]:
         output_dir = self._resolve_output_dir(knowledge_index=knowledge_index, run=run)
         normalized_options = normalize_graph_visual_options(options)
-        loaded = CodeCompassOutputReader().load_from_output_dir(
-            output_dir=output_dir,
-            profile_name=str(run.get("profile_name") or knowledge_index.get("profile_name") or "default"),
-            source_scope=str(knowledge_index.get("source_scope") or "artifact"),
-            generated_at="not_recorded",
-        )
+        try:
+            loaded = CodeCompassOutputReader().load_from_output_dir(
+                output_dir=output_dir,
+                profile_name=str(
+                    run.get("profile_name")
+                    or knowledge_index.get("profile_name")
+                    or "default"
+                ),
+                source_scope=str(
+                    knowledge_index.get("source_scope") or "artifact"
+                ),
+                generated_at="not_recorded",
+                record_output_kinds=(
+                    "graph_nodes",
+                    "graph_edges",
+                    "semantic_nodes",
+                    "semantic_edges",
+                ),
+            )
+        except ValueError as exc:
+            raise RuntimeError("knowledge_index_graph_output_invalid") from exc
+        diagnostics = loaded.get("diagnostics")
+        if isinstance(diagnostics, Mapping) and (
+            diagnostics.get("malformed_line_count", 0)
+            or diagnostics.get("skipped_non_object_count", 0)
+        ):
+            raise RuntimeError("knowledge_index_graph_output_invalid")
         records = [
             _sanitize_record(item)
             for item in list(loaded.get("records") or [])
@@ -195,14 +232,33 @@ class WorkerCodeCompassGraphArtifactMaterializer:
             if isinstance(provenance, dict):
                 provenance["manifest_hash"] = revision
         records.sort(key=_canonical_json)
+        raw_manifest = loaded.get("manifest")
+        manifest = raw_manifest if isinstance(raw_manifest, Mapping) else {}
+        raw_semantic_budget = manifest.get("semantic_budget")
+        semantic_budget = (
+            dict(raw_semantic_budget)
+            if isinstance(raw_semantic_budget, Mapping)
+            else None
+        )
 
-        store = CodeCompassGraphStore(index_path=output_dir / GRAPH_INDEX_FILENAME)
-        store.rebuild_from_output_records(records=records, manifest_hash=revision)
+        store = CodeCompassGraphStore(
+            index_path=output_dir / GRAPH_INDEX_FILENAME,
+            max_artifact_bytes=self._max_graph_artifact_bytes,
+        )
+        store.rebuild_from_output_records(
+            records=records,
+            manifest_hash=revision,
+            semantic_budget=semantic_budget,
+        )
+        graph_index_path = output_dir / GRAPH_INDEX_FILENAME
+        self._assert_admissible_graph_artifact(graph_index_path)
         metrics = materialize_graph_visual_metrics(
             graph_store=store,
             include_advanced_metrics=normalized_options["include_advanced_metrics"],
             blast_radius_seeds=normalized_options["blast_radius_seeds"],
         )
+        visual_metrics_path = output_dir / GRAPH_VISUAL_METRICS_FILENAME
+        self._assert_admissible_graph_artifact(visual_metrics_path)
         graph_payload = store.load()
         actual_revision = str((graph_payload.get("state") or {}).get("manifest_hash") or "")
         if actual_revision != revision or str(metrics.get("graph_revision") or "") != revision:
@@ -212,11 +268,19 @@ class WorkerCodeCompassGraphArtifactMaterializer:
         return {
             "schema": "codecompass_graph_artifact_materialization.v1",
             "graph_revision": revision,
-            "graph_index_path": str(output_dir / GRAPH_INDEX_FILENAME),
-            "visual_metrics_path": str(output_dir / GRAPH_VISUAL_METRICS_FILENAME),
+            "graph_index_path": str(graph_index_path),
+            "visual_metrics_path": str(visual_metrics_path),
             "visual_metrics_content_hash": str(metrics.get("content_hash") or ""),
             "options": normalized_options,
         }
+
+    def _assert_admissible_graph_artifact(self, path: Path) -> None:
+        try:
+            size_bytes = path.stat().st_size
+        except OSError as exc:
+            raise RuntimeError("knowledge_index_graph_artifact_missing") from exc
+        if size_bytes < 0 or size_bytes > self._max_graph_artifact_bytes:
+            raise RuntimeError("knowledge_index_graph_artifact_too_large")
 
     @staticmethod
     def _resolve_output_dir(

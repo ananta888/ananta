@@ -344,6 +344,41 @@ def test_worker_result_validation_rejects_unbound_or_extended_payloads() -> None
             result={**result, "unexpected": True},
         )
 
+    oversized_graph_reference = {
+        "artifact_id": "graph-1",
+        "sha256": "a" * 64,
+        "media_type": "application/vnd.ananta.codecompass-graph-index+json",
+        "role": "graph_index",
+        "filename": "cc_graph_index.json",
+        "size_bytes": 32 * 1024 * 1024 + 1,
+        "knowledge_index_id": "idx-1",
+        "run_id": "run-1",
+        "artifact_schema": "codecompass_graph_index.v1",
+        "graph_revision": "sha256:" + "b" * 64,
+        "graph_content_hash": "sha256:" + "c" * 64,
+    }
+    oversized_result = {
+        **result,
+        "artifact_refs": [oversized_graph_reference],
+    }
+    with pytest.raises(ValueError, match="graph_artifact_ref_size_invalid"):
+        service.validate_worker_result(
+            job_id=job["job_id"],
+            result=oversized_result,
+        )
+
+    result_schema = json.loads(
+        (
+            Path(__file__).resolve().parents[1]
+            / "schemas"
+            / "worker"
+            / "knowledge_index_job_result.v1.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert list(
+        Draft202012Validator(result_schema).iter_errors(oversized_result)
+    )
+
 
 def test_internal_payload_route_serves_only_integrity_checked_system_artifact(
     monkeypatch,
@@ -425,3 +460,25 @@ def test_worker_output_publisher_creates_real_artifact_references(monkeypatch, t
         "manifest",
         "index",
     }
+
+
+def test_worker_publisher_preflights_graph_size_before_parsing(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    graph_path = tmp_path / "cc_graph_index.json"
+    metrics_path = tmp_path / "cc_graph_index.visual_metrics.json"
+    graph_path.write_bytes(b"x" * 33)
+    metrics_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        WorkerKnowledgeIndexArtifactPublisher,
+        "_MAX_GRAPH_OUTPUT_BYTES",
+        32,
+    )
+
+    with pytest.raises(RuntimeError, match="graph_artifact_too_large"):
+        WorkerKnowledgeIndexArtifactPublisher().publish(
+            job_id="knowledge-index-" + "a" * 32,
+            knowledge_index={"id": "idx-1", "output_dir": str(tmp_path)},
+            run={"id": "run-1", "output_dir": str(tmp_path)},
+        )

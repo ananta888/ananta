@@ -59,6 +59,31 @@ def test_hash_drift_is_fail_closed(tmp_path: Path) -> None:
         resolver.resolve(_index(path, digest="b" * 64))
 
 
+def test_visual_metrics_binding_is_reverified_before_hub_read(tmp_path: Path) -> None:
+    root = tmp_path / "indices"
+    graph_path = root / "index" / "run" / "cc_graph_index.json"
+    metrics_path = graph_path.with_name("cc_graph_index.visual_metrics.json")
+    graph_path.parent.mkdir(parents=True)
+    graph_path.write_text(json.dumps({"state": {}}), encoding="utf-8")
+    metrics_path.write_text(json.dumps({"schema": "graph_visual_metrics.v1"}), encoding="utf-8")
+    index = _index(
+        graph_path,
+        digest=hashlib.sha256(graph_path.read_bytes()).hexdigest(),
+    )
+    index.index_metadata["graph_artifacts"]["visual_metrics"] = {
+        "artifact_schema": "graph_visual_metrics.v1",
+        "filename": "cc_graph_index.visual_metrics.json",
+        "sha256": "b" * 64,
+        "local_path": str(metrics_path),
+    }
+
+    with pytest.raises(ValueError, match="hash_drift"):
+        CodeCompassGraphArtifactResolver(
+            artifact_root=root,
+            allow_legacy=False,
+        ).resolve_artifacts(index)
+
+
 def test_legacy_resolution_can_be_disabled(tmp_path: Path) -> None:
     root = tmp_path / "indices"
     path = root / "legacy" / "cc_graph_index.json"

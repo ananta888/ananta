@@ -22,6 +22,8 @@ class CodeCompassSqliteGraphStore(CodeCompassGraphStore):
     def __init__(self, *, db_path: str | Path):
         self._db_path = Path(db_path)
         self._cached_payload: dict[str, Any] | None = None
+        self._max_artifact_bytes: int | None = None
+        self._visual_metrics_path: Path | None = None
 
     def _connect(self) -> sqlite3.Connection:
         self._db_path.parent.mkdir(parents=True, exist_ok=True)

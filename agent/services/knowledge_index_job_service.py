@@ -9,6 +9,10 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
+from ananta_contracts.codecompass_graph_limits import (
+    MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
+)
+
 KNOWLEDGE_INDEX_JOB_SCHEMA = "ananta.knowledge_index_job.v1"
 KNOWLEDGE_INDEX_RESULT_SCHEMA = "ananta.knowledge_index_job_result.v1"
 KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA = (
@@ -200,6 +204,8 @@ def _validate_worker_artifact_reference(reference: Any) -> None:
     if not str(reference.get("run_id") or "").strip():
         raise ValueError("knowledge_index_result_artifact_ref_run_id_invalid")
     if role in _WORKER_GRAPH_ARTIFACT_SCHEMAS:
+        if size_bytes > MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES:
+            raise ValueError("knowledge_index_result_graph_artifact_ref_size_invalid")
         _validate_worker_graph_artifact_reference(reference, role=role)
     elif has_graph_metadata:
         raise ValueError("knowledge_index_result_graph_artifact_ref_unexpected")

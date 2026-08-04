@@ -128,6 +128,102 @@ def test_worker_graph_artifacts_are_deterministic_and_path_free(tmp_path) -> Non
     assert metrics["metric_capabilities"]["blast_radius"]["status"] == "approximate"
 
 
+def test_worker_materializer_enforces_hub_graph_size_before_publication(
+    tmp_path,
+) -> None:
+    output = tmp_path / "bounded-output"
+    _write_worker_outputs(output, volatile_manifest_value="worker")
+
+    with pytest.raises(RuntimeError, match="graph_artifact_too_large"):
+        WorkerCodeCompassGraphArtifactMaterializer(
+            max_graph_artifact_bytes=256,
+        ).materialize(
+            knowledge_index={"id": "idx-bounded", "source_scope": "repo_path"},
+            run={"id": "run-bounded", "output_dir": str(output)},
+        )
+
+    assert not (output / "cc_graph_index.json").exists()
+
+
+def test_worker_graph_artifact_preserves_semantic_nodes_and_edges(tmp_path) -> None:
+    output = tmp_path / "semantic-output"
+    _write_worker_outputs(output, volatile_manifest_value="worker")
+    (output / "semantic_nodes.jsonl").write_text(
+        "\n".join(
+            (
+                '{"id":"semantic:type:A","kind":"data_record","file":"a.py"}',
+                '{"id":"semantic:method:A.run","kind":"function_signature","file":"a.py"}',
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (output / "semantic_edges.jsonl").write_text(
+        '{"source":"semantic:type:A","target":"semantic:method:A.run","edge_type":"declares"}\n',
+        encoding="utf-8",
+    )
+    semantic_budget = {
+        "configured_max_records_per_partition": 5000,
+        "max_records_per_partition": 5000,
+        "max_bytes_per_partition": 4194304,
+        "configuration_clamped": False,
+        "truncated": True,
+        "truncated_node_count": 1,
+        "truncated_edge_count": 0,
+        "unresolved_edge_count": 2,
+        "semantic_node_bytes": (output / "semantic_nodes.jsonl").stat().st_size,
+        "semantic_edge_bytes": (output / "semantic_edges.jsonl").stat().st_size,
+        "candidate_edge_record_limit": 20000,
+        "candidate_edge_byte_limit": 16777216,
+        "candidate_edge_count": 4,
+        "candidate_edge_bytes": 384,
+        "truncated_candidate_edge_count": 0,
+    }
+    (output / "manifest.json").write_text(
+        json.dumps({"semantic_budget": semantic_budget}),
+        encoding="utf-8",
+    )
+
+    WorkerCodeCompassGraphArtifactMaterializer().materialize(
+        knowledge_index={"id": "idx-semantic", "source_scope": "repo_path"},
+        run={"id": "run-semantic", "output_dir": str(output)},
+    )
+
+    graph = json.loads((output / "cc_graph_index.json").read_text(encoding="utf-8"))
+    assert [node["id"] for node in graph["semantic_nodes"]] == [
+        "semantic:method:A.run",
+        "semantic:type:A",
+    ]
+    assert len(graph["semantic_edges"]) == 1
+    assert graph["semantic_edges"][0]["source_id"] == "semantic:type:A"
+    semantic_diagnostics = graph["diagnostics"]["semantic_translation"]
+    assert semantic_diagnostics["status"] == "degraded"
+    assert semantic_diagnostics["reason"] == "semantic_graph_partial"
+    assert semantic_diagnostics["semantic_budget"] == semantic_budget
+
+
+@pytest.mark.parametrize(
+    "invalid_row",
+    ("{broken-json}\n", "[]\n"),
+)
+def test_worker_graph_materializer_rejects_invalid_graph_rows(
+    tmp_path,
+    invalid_row,
+) -> None:
+    output = tmp_path / "invalid-graph-output"
+    _write_worker_outputs(output, volatile_manifest_value="worker")
+    with (output / "graph_edges.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(invalid_row)
+
+    with pytest.raises(RuntimeError, match="knowledge_index_graph_output_invalid"):
+        WorkerCodeCompassGraphArtifactMaterializer().materialize(
+            knowledge_index={"id": "idx-invalid", "source_scope": "repo_path"},
+            run={"id": "run-invalid", "output_dir": str(output)},
+        )
+
+    assert not (output / "cc_graph_index.json").exists()
+
+
 def test_graph_visual_options_are_strict_and_input_bounded() -> None:
     assert normalize_graph_visual_options(None)["include_advanced_metrics"] is True
     with pytest.raises(ValueError, match="fields_unknown"):

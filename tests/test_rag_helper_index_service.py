@@ -239,6 +239,8 @@ def test_repo_source_records_build_deterministic_deep_code_graph(tmp_path):
     assert manifest["detail_record_count"] >= 2
     assert manifest["relation_record_count"] >= 2
     assert manifest["chunking"]["strategy"] == "identity+codecompass_graph"
+    assert manifest["semantic_budget"]["max_records_per_partition"] > 0
+    assert manifest["semantic_budget"]["truncated"] is False
     for filename in (
         "graph_nodes.jsonl",
         "graph_edges.jsonl",

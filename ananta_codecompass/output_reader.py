@@ -2,9 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from ananta_contracts.codecompass_graph_limits import (
+    MAX_CODECOMPASS_SEMANTIC_BYTES_PER_PARTITION,
+    MAX_CODECOMPASS_SEMANTIC_EDGE_CANDIDATE_BYTES,
+    MAX_CODECOMPASS_SEMANTIC_EDGE_CANDIDATES,
+    MAX_CODECOMPASS_SEMANTIC_RECORDS_PER_PARTITION,
+)
 
 OUTPUT_FILENAME_BY_KEY = {
     "index": "index.jsonl",
@@ -14,7 +22,19 @@ OUTPUT_FILENAME_BY_KEY = {
     "relations": "relations.jsonl",
     "graph_nodes": "graph_nodes.jsonl",
     "graph_edges": "graph_edges.jsonl",
+    "semantic_nodes": "semantic_nodes.jsonl",
+    "semantic_edges": "semantic_edges.jsonl",
 }
+_DEFAULT_RECORD_OUTPUT_KEYS = (
+    "index",
+    "details",
+    "context",
+    "embedding",
+    "relations",
+    "graph_nodes",
+    "graph_edges",
+)
+_REQUIRED_OUTPUT_KEYS = frozenset(_DEFAULT_RECORD_OUTPUT_KEYS)
 
 # CWFH-002: Canonical field priority for extracting the relative file path from each record type.
 # First matching non-empty field wins.
@@ -26,6 +46,8 @@ _FILE_PATH_FIELD_PRIORITY: dict[str, list[str]] = {
     "relations":   ["file", "source_name", "path", "from_path"],
     "graph_nodes": ["file", "path", "source_path", "relative_path"],
     "graph_edges": ["source_path", "target_path", "path", "from_path"],
+    "semantic_nodes": ["file", "path", "relative_path", "source"],
+    "semantic_edges": ["source_path", "target_path", "path", "from_path"],
 }
 
 # Record kinds whose `path` field carries an XML/XPath node address
@@ -142,7 +164,7 @@ def _normalize_output_entry(path: Path) -> dict[str, Any]:
     }
 
 
-def _load_existing_file_type_evidence(directory: Path) -> dict[str, Any]:
+def _load_existing_manifest_evidence(directory: Path) -> dict[str, Any]:
     """Read additive evidence from the one existing manifest, if present."""
 
     manifest_path = directory / "manifest.json"
@@ -158,7 +180,12 @@ def _load_existing_file_type_evidence(directory: Path) -> dict[str, Any]:
         return {}
     return {
         key: payload[key]
-        for key in ("file_type_registry", "coverage", "file_type_capabilities")
+        for key in (
+            "file_type_registry",
+            "coverage",
+            "file_type_capabilities",
+            "semantic_budget",
+        )
         if key in payload
     }
 
@@ -277,13 +304,208 @@ def normalize_file_type_registry(metadata: dict[str, Any] | None) -> dict[str, s
 
 
 def _non_negative_int(value: object, *, field_name: str) -> int:
-    try:
-        normalized = int(value or 0)
-    except (TypeError, ValueError, OverflowError) as exc:
-        raise ValueError(f"invalid_{field_name}") from exc
-    if normalized < 0:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ValueError(f"invalid_{field_name}")
+    return value
+
+
+def _strict_bool(value: object, *, field_name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"invalid_{field_name}")
+    return value
+
+
+def normalize_semantic_budget(
+    budget: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    if budget is None:
+        return None
+    if not isinstance(budget, Mapping):
+        raise ValueError("invalid_semantic_budget")
+    raw = dict(budget)
+    required_fields = {
+        "configured_max_records_per_partition",
+        "max_records_per_partition",
+        "max_bytes_per_partition",
+        "configuration_clamped",
+        "truncated",
+        "truncated_node_count",
+        "truncated_edge_count",
+        "unresolved_edge_count",
+        "semantic_node_bytes",
+        "semantic_edge_bytes",
+    }
+    candidate_fields = {
+        "candidate_edge_record_limit",
+        "candidate_edge_byte_limit",
+        "candidate_edge_count",
+        "candidate_edge_bytes",
+        "truncated_candidate_edge_count",
+    }
+    if not required_fields.issubset(raw) or set(raw) - (
+        required_fields | candidate_fields
+    ):
+        raise ValueError("invalid_semantic_budget_fields")
+    configured_limit = _non_negative_int(
+        raw["configured_max_records_per_partition"],
+        field_name="configured_max_records_per_partition",
+    )
+    effective_limit = _non_negative_int(
+        raw["max_records_per_partition"],
+        field_name="max_records_per_partition",
+    )
+    max_bytes = _non_negative_int(
+        raw["max_bytes_per_partition"],
+        field_name="max_bytes_per_partition",
+    )
+    if configured_limit <= 0 or effective_limit <= 0 or max_bytes <= 0:
+        raise ValueError("invalid_semantic_budget_limit")
+    if (
+        effective_limit > MAX_CODECOMPASS_SEMANTIC_RECORDS_PER_PARTITION
+        or effective_limit > configured_limit
+    ):
+        raise ValueError("invalid_semantic_budget_record_limit")
+    if max_bytes > MAX_CODECOMPASS_SEMANTIC_BYTES_PER_PARTITION:
+        raise ValueError("invalid_semantic_budget_byte_limit")
+    normalized = {
+        "configured_max_records_per_partition": configured_limit,
+        "max_records_per_partition": effective_limit,
+        "max_bytes_per_partition": max_bytes,
+        "configuration_clamped": _strict_bool(
+            raw["configuration_clamped"],
+            field_name="configuration_clamped",
+        ),
+        "truncated": _strict_bool(
+            raw["truncated"],
+            field_name="truncated",
+        ),
+        "truncated_node_count": _non_negative_int(
+            raw["truncated_node_count"],
+            field_name="truncated_node_count",
+        ),
+        "truncated_edge_count": _non_negative_int(
+            raw["truncated_edge_count"],
+            field_name="truncated_edge_count",
+        ),
+        "unresolved_edge_count": _non_negative_int(
+            raw["unresolved_edge_count"],
+            field_name="unresolved_edge_count",
+        ),
+        "semantic_node_bytes": _non_negative_int(
+            raw["semantic_node_bytes"],
+            field_name="semantic_node_bytes",
+        ),
+        "semantic_edge_bytes": _non_negative_int(
+            raw["semantic_edge_bytes"],
+            field_name="semantic_edge_bytes",
+        ),
+    }
+    if normalized["configuration_clamped"] != (configured_limit != effective_limit):
+        raise ValueError("invalid_semantic_budget_clamp_state")
+    if normalized["semantic_node_bytes"] > max_bytes:
+        raise ValueError("semantic_node_byte_budget_exceeded")
+    if normalized["semantic_edge_bytes"] > max_bytes:
+        raise ValueError("semantic_edge_byte_budget_exceeded")
+    truncated = bool(
+        normalized["truncated_node_count"]
+        or normalized["truncated_edge_count"]
+    )
+    if normalized["truncated"] != truncated:
+        raise ValueError("invalid_semantic_budget_truncation_state")
+    present_candidate_fields = {
+        field for field in candidate_fields if field in raw
+    }
+    if present_candidate_fields:
+        if present_candidate_fields != set(candidate_fields):
+            raise ValueError("invalid_semantic_budget_candidate_fields")
+        candidate_record_limit = _non_negative_int(
+            raw.get("candidate_edge_record_limit"),
+            field_name="candidate_edge_record_limit",
+        )
+        candidate_byte_limit = _non_negative_int(
+            raw.get("candidate_edge_byte_limit"),
+            field_name="candidate_edge_byte_limit",
+        )
+        candidate_count = _non_negative_int(
+            raw.get("candidate_edge_count"),
+            field_name="candidate_edge_count",
+        )
+        candidate_bytes = _non_negative_int(
+            raw.get("candidate_edge_bytes"),
+            field_name="candidate_edge_bytes",
+        )
+        truncated_candidate_count = _non_negative_int(
+            raw.get("truncated_candidate_edge_count"),
+            field_name="truncated_candidate_edge_count",
+        )
+        if (
+            candidate_record_limit <= 0
+            or candidate_record_limit > MAX_CODECOMPASS_SEMANTIC_EDGE_CANDIDATES
+            or candidate_count > candidate_record_limit
+        ):
+            raise ValueError("invalid_semantic_budget_candidate_record_limit")
+        if (
+            candidate_byte_limit <= 0
+            or candidate_byte_limit
+            > MAX_CODECOMPASS_SEMANTIC_EDGE_CANDIDATE_BYTES
+            or candidate_bytes > candidate_byte_limit
+        ):
+            raise ValueError("invalid_semantic_budget_candidate_byte_limit")
+        if truncated_candidate_count > normalized["truncated_edge_count"]:
+            raise ValueError("invalid_semantic_budget_candidate_truncation")
+        normalized.update(
+            {
+                "candidate_edge_record_limit": candidate_record_limit,
+                "candidate_edge_byte_limit": candidate_byte_limit,
+                "candidate_edge_count": candidate_count,
+                "candidate_edge_bytes": candidate_bytes,
+                "truncated_candidate_edge_count": truncated_candidate_count,
+            }
+        )
     return normalized
+
+
+def _validate_semantic_partition_evidence(
+    *,
+    directory: Path,
+    outputs: Mapping[str, Mapping[str, Any] | None],
+    semantic_budget: Mapping[str, Any] | None,
+) -> None:
+    """Bind declared semantic budgets to the exact partitions on disk."""
+
+    max_records = (
+        int(semantic_budget["max_records_per_partition"])
+        if semantic_budget is not None
+        else MAX_CODECOMPASS_SEMANTIC_RECORDS_PER_PARTITION
+    )
+    max_bytes = (
+        int(semantic_budget["max_bytes_per_partition"])
+        if semantic_budget is not None
+        else MAX_CODECOMPASS_SEMANTIC_BYTES_PER_PARTITION
+    )
+    for output_kind, byte_field in (
+        ("semantic_nodes", "semantic_node_bytes"),
+        ("semantic_edges", "semantic_edge_bytes"),
+    ):
+        entry = outputs.get(output_kind)
+        if not isinstance(entry, Mapping):
+            if semantic_budget is not None:
+                raise ValueError("semantic_partition_evidence_missing")
+            continue
+        path = directory / OUTPUT_FILENAME_BY_KEY[output_kind]
+        try:
+            actual_bytes = path.stat().st_size
+        except OSError as exc:
+            raise ValueError("semantic_partition_evidence_missing") from exc
+        if int(entry["record_count"]) > max_records:
+            raise ValueError("semantic_partition_record_budget_exceeded")
+        if actual_bytes > max_bytes:
+            raise ValueError("semantic_partition_byte_budget_exceeded")
+        if (
+            semantic_budget is not None
+            and actual_bytes != int(semantic_budget[byte_field])
+        ):
+            raise ValueError("semantic_partition_byte_evidence_mismatch")
 
 
 def build_output_manifest(
@@ -296,11 +518,28 @@ def build_output_manifest(
     file_type_registry: dict[str, Any] | None = None,
     coverage: dict[str, Any] | None = None,
     file_type_capabilities: list[dict[str, Any]] | None = None,
+    semantic_budget: dict[str, Any] | None = None,
+    output_kinds: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     directory = Path(output_dir).resolve()
+    selected_output_kinds = tuple(
+        output_kinds if output_kinds is not None else OUTPUT_FILENAME_BY_KEY
+    )
+    if set(selected_output_kinds) - set(OUTPUT_FILENAME_BY_KEY):
+        raise ValueError("unknown_codecompass_output_kind")
+    if not _REQUIRED_OUTPUT_KEYS.issubset(selected_output_kinds):
+        raise ValueError("required_codecompass_output_kind_missing")
     outputs: dict[str, dict[str, Any] | None] = {}
-    for key, filename in OUTPUT_FILENAME_BY_KEY.items():
+    for key in selected_output_kinds:
+        filename = OUTPUT_FILENAME_BY_KEY[key]
         file_path = directory / filename
+        if (
+            key in {"semantic_nodes", "semantic_edges"}
+            and file_path.exists()
+            and file_path.stat().st_size
+            > MAX_CODECOMPASS_SEMANTIC_BYTES_PER_PARTITION
+        ):
+            raise ValueError("semantic_partition_byte_budget_exceeded")
         outputs[key] = _normalize_output_entry(file_path) if file_path.exists() else None
     manifest = {
         "schema": "codecompass_output_manifest.v1",
@@ -326,12 +565,20 @@ def build_output_manifest(
     normalized_registry = normalize_file_type_registry(file_type_registry)
     normalized_coverage = normalize_coverage(coverage)
     normalized_capabilities = normalize_file_type_capabilities(file_type_capabilities)
+    normalized_semantic_budget = normalize_semantic_budget(semantic_budget)
+    _validate_semantic_partition_evidence(
+        directory=directory,
+        outputs=outputs,
+        semantic_budget=normalized_semantic_budget,
+    )
     if normalized_registry is not None:
         manifest["file_type_registry"] = normalized_registry
     if normalized_coverage is not None:
         manifest["coverage"] = normalized_coverage
     if file_type_capabilities is not None:
         manifest["file_type_capabilities"] = normalized_capabilities
+    if normalized_semantic_budget is not None:
+        manifest["semantic_budget"] = normalized_semantic_budget
     manifest_hash = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode("utf-8")).hexdigest()
     manifest["manifest_hash"] = manifest_hash
     return manifest
@@ -349,15 +596,41 @@ class CodeCompassOutputReader:
         file_type_registry: dict[str, Any] | None = None,
         coverage: dict[str, Any] | None = None,
         file_type_capabilities: list[dict[str, Any]] | None = None,
+        semantic_budget: dict[str, Any] | None = None,
+        record_output_kinds: Sequence[str] | None = None,
     ) -> dict[str, Any]:
         directory = Path(output_dir).resolve()
-        existing_evidence = _load_existing_file_type_evidence(directory)
+        existing_evidence = _load_existing_manifest_evidence(directory)
         if file_type_registry is None:
             file_type_registry = existing_evidence.get("file_type_registry")
         if coverage is None:
             coverage = existing_evidence.get("coverage")
         if file_type_capabilities is None and "file_type_capabilities" in existing_evidence:
             file_type_capabilities = existing_evidence["file_type_capabilities"]
+        if semantic_budget is None:
+            semantic_budget = existing_evidence.get("semantic_budget")
+        selected_output_kinds = tuple(
+            record_output_kinds
+            if record_output_kinds is not None
+            else _DEFAULT_RECORD_OUTPUT_KEYS
+        )
+        unknown_output_kinds = set(selected_output_kinds) - set(OUTPUT_FILENAME_BY_KEY)
+        if unknown_output_kinds:
+            raise ValueError("unknown_codecompass_output_kind")
+        semantic_manifest_kinds = (
+            ("semantic_nodes", "semantic_edges")
+            if semantic_budget is not None
+            else ()
+        )
+        manifest_output_kinds = tuple(
+            dict.fromkeys(
+                [
+                    *_DEFAULT_RECORD_OUTPUT_KEYS,
+                    *selected_output_kinds,
+                    *semantic_manifest_kinds,
+                ]
+            )
+        )
         manifest = build_output_manifest(
             output_dir=directory,
             codecompass_version=codecompass_version,
@@ -367,15 +640,19 @@ class CodeCompassOutputReader:
             file_type_registry=file_type_registry,
             coverage=coverage,
             file_type_capabilities=file_type_capabilities,
+            semantic_budget=semantic_budget,
+            output_kinds=manifest_output_kinds,
         )
         records: list[dict[str, Any]] = []
         malformed_total = 0
         skipped_total = 0
         missing_outputs: list[str] = []
-        for key, filename in OUTPUT_FILENAME_BY_KEY.items():
+        for key in selected_output_kinds:
+            filename = OUTPUT_FILENAME_BY_KEY[key]
             file_path = directory / filename
             if not file_path.exists():
-                missing_outputs.append(key)
+                if key in _REQUIRED_OUTPUT_KEYS:
+                    missing_outputs.append(key)
                 continue
             loaded_records, malformed, skipped = _iter_jsonl_records(file_path)
             malformed_total += malformed

@@ -5,12 +5,16 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import time
 import urllib.parse
 import urllib.request
-import time
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Protocol
+
+from ananta_contracts.codecompass_graph_limits import (
+    MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
+)
 
 JOB_SCHEMA = "ananta.knowledge_index_job.v1"
 RESULT_SCHEMA = "ananta.knowledge_index_job_result.v1"
@@ -583,6 +587,8 @@ class WorkerKnowledgeIndexArtifactPublisher:
         ),
     }
     _MAX_OUTPUT_BYTES = 128 * 1024 * 1024
+    _MAX_GRAPH_OUTPUT_BYTES = MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES
+    _GRAPH_OUTPUT_ROLES = frozenset({"graph_index", "graph_visual_metrics"})
 
     def publish(
         self,
@@ -613,7 +619,15 @@ class WorkerKnowledgeIndexArtifactPublisher:
         graph_file_presence = tuple(path.exists() for path in graph_files)
         if any(graph_file_presence) and not all(graph_file_presence):
             raise RuntimeError("knowledge_index_graph_artifacts_incomplete")
-        graph_binding = self._load_graph_binding(resolved_output) if all(graph_file_presence) else {}
+        if all(graph_file_presence):
+            for graph_file in graph_files:
+                if graph_file.is_symlink() or not graph_file.is_file():
+                    raise RuntimeError("knowledge_index_output_artifact_invalid")
+                if graph_file.stat().st_size > self._MAX_GRAPH_OUTPUT_BYTES:
+                    raise RuntimeError("knowledge_index_graph_artifact_too_large")
+            graph_binding = self._load_graph_binding(resolved_output)
+        else:
+            graph_binding = {}
         references: list[dict[str, Any]] = []
         for role, (filename, media_type) in self._OUTPUTS.items():
             path = resolved_output / filename
@@ -622,6 +636,11 @@ class WorkerKnowledgeIndexArtifactPublisher:
             if path.is_symlink() or not path.is_file():
                 raise RuntimeError("knowledge_index_output_artifact_invalid")
             size_bytes = path.stat().st_size
+            if (
+                role in self._GRAPH_OUTPUT_ROLES
+                and size_bytes > self._MAX_GRAPH_OUTPUT_BYTES
+            ):
+                raise RuntimeError("knowledge_index_graph_artifact_too_large")
             if size_bytes < 0 or size_bytes > self._MAX_OUTPUT_BYTES:
                 raise RuntimeError("knowledge_index_output_artifact_too_large")
             content = path.read_bytes()

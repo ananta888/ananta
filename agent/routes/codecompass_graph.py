@@ -16,12 +16,12 @@ from flask import Blueprint, request
 
 from agent.auth import check_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
+from agent.routes.source_control_access import authorize_route_request
 from agent.services.codecompass_graph_artifact_resolver import (
     get_codecompass_graph_artifact_resolver,
 )
 from agent.services.codecompass_graph_projection_service import get_codecompass_graph_projection_service
 from agent.services.repository_registry import get_repository_registry
-from agent.routes.source_control_access import authorize_route_request
 from agent.services.source_control_access_policy import SourceControlAction
 
 codecompass_graph_bp = Blueprint("codecompass_graph", __name__)
@@ -50,7 +50,12 @@ def _resolve_index_path(knowledge_index_id: str) -> Path:
     if index is None:
         raise NotFoundError("knowledge_index_not_found")
     try:
-        return get_codecompass_graph_artifact_resolver().resolve(index)
+        resolver = get_codecompass_graph_artifact_resolver()
+        resolve_artifacts = getattr(resolver, "resolve_artifacts", None)
+        if callable(resolve_artifacts):
+            index_path, _metrics_path = resolve_artifacts(index)
+            return index_path
+        return resolver.resolve(index)
     except ValueError as exc:
         raise NotFoundError(str(exc)) from exc
 

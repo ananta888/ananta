@@ -1166,6 +1166,15 @@ class RagHelperIndexService:
                     "partitioned_outputs": dict(
                         graph_manifest.get("partitioned_outputs") or {}
                     ),
+                    **(
+                        {
+                            "semantic_budget": dict(
+                                graph_manifest["semantic_budget"]
+                            )
+                        }
+                        if graph_manifest.get("semantic_budget")
+                        else {}
+                    ),
                     "graph_export_mode": graph_export_mode,
                     "deterministic_order": "json_sort_keys",
                     "chunking": {

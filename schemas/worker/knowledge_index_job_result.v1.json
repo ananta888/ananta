@@ -65,7 +65,10 @@
               "required": ["role"]
             },
             "then": {
-              "required": ["artifact_schema", "graph_revision", "graph_content_hash"]
+              "required": ["artifact_schema", "graph_revision", "graph_content_hash"],
+              "properties": {
+                "size_bytes": {"maximum": 33554432}
+              }
             },
             "else": {
               "not": {

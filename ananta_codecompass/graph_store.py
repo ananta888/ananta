@@ -6,11 +6,35 @@ import math
 import os
 import tempfile
 from collections import Counter
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from ananta_contracts.codecompass_graph_limits import (
+    MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
+)
 
 _COMPACT_STORAGE_ENCODING = "compact_v2"
+
+
+class _BoundedUtf8Writer:
+    """Count serialized UTF-8 bytes before forwarding each JSON write."""
+
+    def __init__(self, handle: Any, *, maximum_bytes: int | None) -> None:
+        self._handle = handle
+        self._maximum_bytes = maximum_bytes
+        self.byte_count = 0
+
+    def write(self, value: str) -> int:
+        encoded_size = len(value.encode("utf-8"))
+        if (
+            self._maximum_bytes is not None
+            and self.byte_count + encoded_size > self._maximum_bytes
+        ):
+            raise RuntimeError("codecompass_graph_artifact_too_large")
+        written = self._handle.write(value)
+        self.byte_count += encoded_size
+        return written
 
 
 def _finite_non_negative(
@@ -75,9 +99,25 @@ def _stable_edge_id(
 
 
 class CodeCompassGraphStore:
-    def __init__(self, *, index_path: str | Path):
+    def __init__(
+        self,
+        *,
+        index_path: str | Path,
+        max_artifact_bytes: int | None = MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
+        visual_metrics_path: str | Path | None = None,
+    ):
         self._index_path = Path(index_path)
+        self._visual_metrics_path = (
+            Path(visual_metrics_path) if visual_metrics_path is not None else None
+        )
         self._cached_payload: dict[str, Any] | None = None
+        if max_artifact_bytes is None:
+            self._max_artifact_bytes = None
+        else:
+            normalized_limit = int(max_artifact_bytes)
+            if normalized_limit <= 0:
+                raise ValueError("codecompass_graph_artifact_limit_invalid")
+            self._max_artifact_bytes = normalized_limit
 
     def load(self) -> dict[str, Any]:
         if self._cached_payload is not None:
@@ -227,14 +267,16 @@ class CodeCompassGraphStore:
 
     @property
     def visual_metrics_path(self) -> Path:
+        explicit_path = getattr(self, "_visual_metrics_path", None)
+        if explicit_path is not None:
+            return Path(explicit_path)
         storage_path = getattr(self, "_index_path", None) or getattr(self, "_db_path", None)
         if storage_path is None:
             raise RuntimeError("graph_store_path_unavailable")
         path = Path(storage_path)
         return path.with_name(f"{path.stem}.visual_metrics.json")
 
-    @staticmethod
-    def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    def _atomic_write_json(self, path: Path, payload: dict[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         temp_path: Path | None = None
         try:
@@ -247,8 +289,18 @@ class CodeCompassGraphStore:
                 delete=False,
             ) as handle:
                 temp_path = Path(handle.name)
-                json.dump(payload, handle, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-                handle.write("\n")
+                bounded = _BoundedUtf8Writer(
+                    handle,
+                    maximum_bytes=self._max_artifact_bytes,
+                )
+                json.dump(
+                    payload,
+                    bounded,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                bounded.write("\n")
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(temp_path, path)
@@ -419,8 +471,16 @@ class CodeCompassGraphStore:
 
     def load_visual_metrics(self) -> dict[str, Any] | None:
         """Read a worker-produced sidecar without deriving missing metrics."""
+        path = self.visual_metrics_path
         try:
-            payload = json.loads(self.visual_metrics_path.read_text(encoding="utf-8"))
+            if path.is_symlink() or not path.is_file():
+                return None
+            if (
+                self._max_artifact_bytes is not None
+                and path.stat().st_size > self._max_artifact_bytes
+            ):
+                return None
+            payload = json.loads(path.read_text(encoding="utf-8"))
         except (FileNotFoundError, json.JSONDecodeError, OSError):
             return None
         return dict(payload) if isinstance(payload, dict) else None
@@ -434,6 +494,7 @@ class CodeCompassGraphStore:
         *,
         records: list[dict[str, Any]],
         manifest_hash: str,
+        semantic_budget: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         nodes: list[dict[str, Any]] = []
         edges: list[dict[str, Any]] = []
@@ -571,6 +632,7 @@ class CodeCompassGraphStore:
                 "node_count": len(nodes),
                 "edge_count": len(edges),
             }
+        normalized_semantic_budget = dict(semantic_budget or {})
         if semantic_nodes or semantic_edges or equivalence_rules or transform_artifacts:
             diagnostics["semantic_translation"] = {
                 "schema": "codecompass_semantic_translation_graph.v1",
@@ -586,6 +648,18 @@ class CodeCompassGraphStore:
                 "status": "degraded",
                 "reason": "semantic_translation_index_unavailable",
             }
+        if normalized_semantic_budget:
+            diagnostics["semantic_translation"]["semantic_budget"] = (
+                normalized_semantic_budget
+            )
+            if (
+                bool(normalized_semantic_budget.get("truncated"))
+                or int(normalized_semantic_budget.get("unresolved_edge_count") or 0)
+            ):
+                diagnostics["semantic_translation"]["status"] = "degraded"
+                diagnostics["semantic_translation"]["reason"] = (
+                    "semantic_graph_partial"
+                )
 
         if x86_nodes_list or x86_edges_list:
             # X86CC-020: expose x86 records as their own structure with a deterministic

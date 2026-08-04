@@ -19,6 +19,9 @@ from agent.db_models import KnowledgeIndexDB, KnowledgeIndexRunDB
 from agent.services.codecompass_artifact_manifest import (
     CodeCompassArtifactManifestProjector,
 )
+from ananta_contracts.codecompass_graph_limits import (
+    MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
+)
 from ananta_contracts.knowledge_index_worker_output_capability import (
     KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER,
     KNOWLEDGE_INDEX_OUTPUT_INDEX_ID_HEADER,
@@ -33,7 +36,7 @@ from ananta_contracts.knowledge_index_worker_output_capability import (
 
 _MAX_ARTIFACT_BYTES = 128 * 1024 * 1024
 _MAX_UNIT_ARTIFACT_BYTES = 384 * 1024 * 1024
-_MAX_GRAPH_JSON_BYTES = 32 * 1024 * 1024
+_MAX_GRAPH_JSON_BYTES = MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES
 _DOWNLOAD_CHUNK_BYTES = 1024 * 1024
 _OUTPUT_FILENAMES = {
     "manifest": "manifest.json",
