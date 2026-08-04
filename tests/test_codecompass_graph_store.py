@@ -38,6 +38,18 @@ def test_visual_metrics_sidecar_is_preflighted_before_read(tmp_path) -> None:
     assert store.load_visual_metrics() is None
 
 
+def test_graph_index_is_preflighted_before_read(tmp_path) -> None:
+    index_path = tmp_path / "cc_graph_index.json"
+    index_path.write_text("{" + ("x" * 128), encoding="utf-8")
+    store = CodeCompassGraphStore(
+        index_path=index_path,
+        max_artifact_bytes=64,
+    )
+
+    with pytest.raises(RuntimeError, match="graph_artifact_too_large"):
+        store.load()
+
+
 def test_codecompass_graph_store_loads_nodes_edges_and_indexes(tmp_path):
     store = CodeCompassGraphStore(index_path=tmp_path / "cc_graph_index.json")
     diagnostics = store.rebuild_from_output_records(

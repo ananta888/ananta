@@ -385,8 +385,9 @@ def test_deferred_reservoir_is_order_independent_for_variable_record_sizes() -> 
         }
         for index, evidence_size in enumerate((0, 8, 32, 160, 320))
     ]
+    emitted = [*candidates, candidates[0], candidates[-1]]
     snapshots: list[tuple[list[dict[str, Any]], int, int]] = []
-    for ordered in (candidates, list(reversed(candidates))):
+    for ordered in (emitted, list(reversed(emitted))):
         spool = _BoundedSemanticEdgeSpool(max_records=3, max_bytes=600)
         for edge in ordered:
             spool.append(edge)
@@ -399,7 +400,23 @@ def test_deferred_reservoir_is_order_independent_for_variable_record_sizes() -> 
         )
 
     assert snapshots[0] == snapshots[1]
+    assert snapshots[0][1] == len(candidates) - len(snapshots[0][0])
     assert snapshots[0][2] <= 600
+
+
+def test_deferred_reservoir_does_not_report_duplicates_as_truncated() -> None:
+    edge = {
+        "source": "semantic:a",
+        "target": "semantic:b",
+        "edge_type": "uses_type",
+    }
+    spool = _BoundedSemanticEdgeSpool(max_records=2, max_bytes=1024)
+
+    spool.append(edge)
+    spool.append(edge)
+
+    assert spool.record_count == 1
+    assert spool.truncated_edge_count == 0
 
 
 def test_bridge_binds_adapter_file_endpoint_to_grounded_repository_file_node(

@@ -99,3 +99,22 @@ def test_legacy_resolution_can_be_disabled(tmp_path: Path) -> None:
             artifact_root=root,
             allow_legacy=False,
         ).resolve(index)
+
+
+def test_legacy_tool_graph_cannot_bypass_an_admitted_binding(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "indices"
+    path = root / "index" / "run" / "cc_graph_index.json"
+    path.parent.mkdir(parents=True)
+    path.write_text("{}", encoding="utf-8")
+    index = _index(
+        path,
+        digest=hashlib.sha256(path.read_bytes()).hexdigest(),
+    )
+
+    with pytest.raises(ValueError, match="graph_artifact_binding_invalid"):
+        CodeCompassGraphArtifactResolver(
+            artifact_root=root,
+            allow_legacy=True,
+        ).resolve_legacy_tool_graph(index)

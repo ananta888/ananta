@@ -169,6 +169,13 @@ class CodeCompassGraphStore:
                 },
             }
             return self._cached_payload
+        if self._index_path.is_symlink() or not self._index_path.is_file():
+            raise RuntimeError("codecompass_graph_artifact_invalid")
+        if (
+            self._max_artifact_bytes is not None
+            and self._index_path.stat().st_size > self._max_artifact_bytes
+        ):
+            raise RuntimeError("codecompass_graph_artifact_too_large")
         payload = json.loads(self._index_path.read_text(encoding="utf-8"))
         state = dict(payload.get("state") or {})
         storage_encoding = str(state.get("storage_encoding") or "")

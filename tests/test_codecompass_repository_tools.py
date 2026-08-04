@@ -10,11 +10,10 @@ Tests assert:
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
+from types import SimpleNamespace
 
-import pytest
-
+from agent.services import codecompass_graph_artifact_resolver, repository_registry
 from agent.services.tools import codecompass_tools
 from agent.services.tools._evidence import TOOL_RESULT_SCHEMA
 
@@ -141,3 +140,52 @@ def test_tools_use_ananta_tool_result_schema():
         tool_call_id="t9",
     )
     assert res["schema"] == TOOL_RESULT_SCHEMA
+
+
+def test_graph_store_resolution_uses_governed_artifact_resolver(
+    monkeypatch,
+    tmp_path,
+):
+    admitted_index_path = _seed_rig_store(tmp_path / "admitted")
+    metrics_path = tmp_path / "admitted" / "cc_graph_index.visual_metrics.json"
+    knowledge_index = SimpleNamespace(
+        id="index-1",
+        output_dir=str(tmp_path / "must-not-be-read-directly"),
+        index_metadata={"graph_artifacts": {}},
+    )
+
+    class _Resolver:
+        def __init__(self):
+            self.resolved = []
+
+        def resolve_artifacts(self, candidate):
+            self.resolved.append(candidate)
+            return admitted_index_path, metrics_path
+
+        def resolve_legacy_tool_graph(self, candidate):
+            raise AssertionError("admitted artifacts must not use the legacy path")
+
+    resolver = _Resolver()
+    repository = SimpleNamespace(
+        get_by_id=lambda index_id: knowledge_index if index_id == "index-1" else None,
+        list_completed=lambda: [knowledge_index],
+    )
+
+    monkeypatch.setattr(
+        codecompass_graph_artifact_resolver,
+        "get_codecompass_graph_artifact_resolver",
+        lambda: resolver,
+    )
+    monkeypatch.setattr(
+        repository_registry,
+        "get_repository_registry",
+        lambda: SimpleNamespace(knowledge_index_repo=repository),
+    )
+
+    store, index_id = codecompass_tools._resolve_graph_store(
+        {"knowledge_index_id": "index-1"}
+    )
+
+    assert index_id == "index-1"
+    assert resolver.resolved == [knowledge_index]
+    assert store.load()["rig_index"]["node_count"] == 2

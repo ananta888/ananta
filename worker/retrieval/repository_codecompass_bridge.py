@@ -117,7 +117,8 @@ class _BoundedSemanticEdgeSpool:
         # Fixed slots make retention depend only on canonical hash priority,
         # never on arrival order or on a previously evicted variable-size row.
         self.max_record_bytes = max(1, self.max_bytes // self.max_records)
-        self.truncated_edge_count = 0
+        self._seen_candidate_hashes: set[bytes] = set()
+        self._candidate_identity_tracking_saturated = False
         self._records: dict[str, tuple[int, int]] = {}
         self._worst_first: list[tuple[int, str]] = []
         self._byte_count = 0
@@ -126,15 +127,20 @@ class _BoundedSemanticEdgeSpool:
         serialized = _canonical_json(edge)
         if serialized in self._records:
             return
+        digest = hashlib.sha256(serialized.encode("utf-8")).digest()
+        if digest in self._seen_candidate_hashes:
+            return
+        if len(self._seen_candidate_hashes) < MAX_CODECOMPASS_SEMANTIC_EDGE_CANDIDATES:
+            self._seen_candidate_hashes.add(digest)
+        else:
+            # Keep duplicate tracking bounded. Once saturated, the reported
+            # truncation count remains a deterministic lower bound.
+            self._candidate_identity_tracking_saturated = True
         serialized_bytes = len((serialized + "\n").encode("utf-8"))
         if serialized_bytes > self.max_record_bytes:
-            self.truncated_edge_count += 1
             return
 
-        priority = int.from_bytes(
-            hashlib.sha256(serialized.encode("utf-8")).digest(),
-            byteorder="big",
-        )
+        priority = int.from_bytes(digest, byteorder="big")
         self._records[serialized] = (priority, serialized_bytes)
         self._byte_count += serialized_bytes
         heapq.heappush(self._worst_first, (-priority, serialized))
@@ -142,7 +148,6 @@ class _BoundedSemanticEdgeSpool:
             _negated_priority, evicted = heapq.heappop(self._worst_first)
             _evicted_priority, evicted_bytes = self._records.pop(evicted)
             self._byte_count -= evicted_bytes
-            self.truncated_edge_count += 1
 
     def records(self) -> Iterator[dict[str, Any]]:
         ordered = sorted(
@@ -161,6 +166,15 @@ class _BoundedSemanticEdgeSpool:
     @property
     def byte_count(self) -> int:
         return self._byte_count
+
+    @property
+    def truncated_edge_count(self) -> int:
+        """Count distinct candidates lost to the bounded reservoir."""
+
+        distinct_candidate_count = len(self._seen_candidate_hashes)
+        if self._candidate_identity_tracking_saturated:
+            distinct_candidate_count += 1
+        return max(0, distinct_candidate_count - len(self._records))
 
     def __enter__(self) -> _BoundedSemanticEdgeSpool:
         return self

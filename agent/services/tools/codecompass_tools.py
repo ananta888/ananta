@@ -19,7 +19,6 @@ from agent.services.tools._evidence import (
     build_tool_result,
 )
 
-_GRAPH_INDEX_FILENAME = "codecompass-graph.jsonl"
 _MAX_SEARCH_LIMIT = 20
 _MAX_GRAPH_NODES = 40
 
@@ -295,9 +294,14 @@ def codecompass_plan_context(*, workspace_dir: str, arguments: dict[str, Any], t
 
 def _resolve_graph_store(arguments: dict[str, Any]):
     """Open the graph store for the requested or latest completed index."""
+    from agent.services.codecompass_graph_artifact_resolver import (
+        get_codecompass_graph_artifact_resolver,
+    )
     from agent.services.repository_registry import get_repository_registry
+    from ananta_codecompass.graph_store import CodeCompassGraphStore
 
     repo = get_repository_registry().knowledge_index_repo
+    resolver = get_codecompass_graph_artifact_resolver()
     requested = str((arguments or {}).get("knowledge_index_id") or "").strip()
     candidates = []
     if requested:
@@ -307,15 +311,22 @@ def _resolve_graph_store(arguments: dict[str, Any]):
     else:
         candidates = list(repo.list_completed() or [])
     for index in candidates:
-        output_dir = str(getattr(index, "output_dir", "") or "").strip()
-        if not output_dir:
+        try:
+            index_path, visual_metrics_path = resolver.resolve_artifacts(index)
+            if not index_path.exists():
+                index_path = resolver.resolve_legacy_tool_graph(index)
+                visual_metrics_path = None
+        except ValueError:
             continue
-        index_path = Path(output_dir) / _GRAPH_INDEX_FILENAME
         if not index_path.exists():
             continue
-        from ananta_codecompass.graph_store import CodeCompassGraphStore
-
-        return CodeCompassGraphStore(index_path=index_path), str(getattr(index, "id", "") or "")
+        return (
+            CodeCompassGraphStore(
+                index_path=index_path,
+                visual_metrics_path=visual_metrics_path,
+            ),
+            str(getattr(index, "id", "") or ""),
+        )
     return None, None
 
 

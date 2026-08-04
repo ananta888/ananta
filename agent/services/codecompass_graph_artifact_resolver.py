@@ -14,6 +14,7 @@ from ananta_contracts.codecompass_graph_limits import (
 
 GRAPH_INDEX_FILENAME = "cc_graph_index.json"
 GRAPH_VISUAL_METRICS_FILENAME = "cc_graph_index.visual_metrics.json"
+LEGACY_TOOL_GRAPH_FILENAME = "codecompass-graph.jsonl"
 GRAPH_BINDING_SCHEMA = "codecompass_graph_artifact_binding.v1"
 _MAX_GRAPH_BYTES = MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES
 
@@ -68,6 +69,22 @@ class CodeCompassGraphArtifactResolver:
                 directory / GRAPH_VISUAL_METRICS_FILENAME,
                 expected_filename=GRAPH_VISUAL_METRICS_FILENAME,
             ),
+        )
+
+    def resolve_legacy_tool_graph(self, knowledge_index: Any) -> Path:
+        """Contain the historical tool-only graph path behind legacy policy."""
+
+        metadata = getattr(knowledge_index, "index_metadata", None)
+        if isinstance(metadata, Mapping) and "graph_artifacts" in metadata:
+            raise ValueError("graph_artifact_binding_invalid")
+        if not self._allow_legacy:
+            raise ValueError("legacy_graph_artifact_binding_disabled")
+        output_dir = str(getattr(knowledge_index, "output_dir", None) or "").strip()
+        if not output_dir:
+            raise ValueError("graph_output_dir_not_set")
+        return self._validated_legacy_artifact_path(
+            Path(output_dir) / LEGACY_TOOL_GRAPH_FILENAME,
+            expected_filename=LEGACY_TOOL_GRAPH_FILENAME,
         )
 
     def _resolve_admitted_binding(self, raw_binding: Any) -> Path:
@@ -237,5 +254,6 @@ __all__ = [
     "GRAPH_BINDING_SCHEMA",
     "GRAPH_INDEX_FILENAME",
     "GRAPH_VISUAL_METRICS_FILENAME",
+    "LEGACY_TOOL_GRAPH_FILENAME",
     "get_codecompass_graph_artifact_resolver",
 ]
