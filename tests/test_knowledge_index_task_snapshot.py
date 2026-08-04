@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import copy
 import json
+import threading
 from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
 import pytest
@@ -37,6 +39,40 @@ from worker.retrieval.knowledge_index_task_snapshot import (
 _WORKER_ID = "worker-index-01"
 _WORKER_URL = "http://worker-index-01:8080"
 _OTHER_JOB_ID = f"knowledge-index-{'f' * 32}"
+
+
+@contextmanager
+def _snapshot_response_server(
+    body: bytes,
+    *,
+    declared_length: int | None = None,
+):
+    class SnapshotHandler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header(
+                "Content-Length",
+                str(len(body) if declared_length is None else declared_length),
+            )
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, _format: str, *_args) -> None:
+            return None
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), SnapshotHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
 
 
 def _job(
@@ -539,6 +575,53 @@ def test_hub_snapshot_rejects_failed_current_authority_validation() -> None:
 
     assert denied.value.status_code == 409
     assert binding.calls == [(job["job_id"], _WORKER_ID)]
+
+
+def test_worker_snapshot_accepts_complete_connection_close_response() -> None:
+    data = {
+        "task_id": "task-alpha",
+        "padding": "x" * 70_000,
+    }
+    encoded = json.dumps(
+        {"status": "success", "data": data},
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+    with _snapshot_response_server(encoded) as hub_url:
+        client = HubKnowledgeIndexTaskSnapshotClient(
+            hub_url=hub_url,
+            worker_id=_WORKER_ID,
+            worker_url=_WORKER_URL,
+            token_provider=lambda: "t" * 32,
+            timeout_seconds=2.0,
+        )
+
+        assert client.fetch(task_id="task-alpha") == data
+
+
+def test_worker_snapshot_rejects_connection_close_before_declared_length() -> None:
+    encoded = json.dumps(
+        {"status": "success", "data": {"task_id": "task-alpha"}},
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+    with _snapshot_response_server(
+        encoded,
+        declared_length=len(encoded) + 17,
+    ) as hub_url:
+        client = HubKnowledgeIndexTaskSnapshotClient(
+            hub_url=hub_url,
+            worker_id=_WORKER_ID,
+            worker_url=_WORKER_URL,
+            token_provider=lambda: "t" * 32,
+            timeout_seconds=2.0,
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="knowledge_index_task_snapshot_response_invalid",
+        ):
+            client.fetch(task_id="task-alpha")
 
 
 def test_worker_snapshot_absolute_deadline_rejects_slow_drip() -> None:

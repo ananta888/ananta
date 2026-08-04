@@ -145,13 +145,20 @@ class HubKnowledgeIndexTaskSnapshotClient:
         declared = headers.get("Content-Length") if isinstance(headers, Mapping) else None
         try:
             self._require_remaining(deadline_monotonic)
-            if declared is not None and int(declared) > _MAX_RESPONSE_BYTES:
-                raise RuntimeError("knowledge_index_task_snapshot_response_too_large")
+            declared_length = int(declared) if declared is not None else None
+            if declared_length is not None:
+                if declared_length < 0:
+                    raise RuntimeError("knowledge_index_task_snapshot_response_invalid")
+                if declared_length > _MAX_RESPONSE_BYTES:
+                    raise RuntimeError(
+                        "knowledge_index_task_snapshot_response_too_large"
+                    )
             chunks: list[bytes] = []
             total = 0
             for chunk in self._response_chunks(
                 response,
                 deadline_monotonic=deadline_monotonic,
+                declared_length=declared_length,
             ):
                 if not isinstance(chunk, bytes):
                     raise RuntimeError("knowledge_index_task_snapshot_response_invalid")
@@ -171,6 +178,7 @@ class HubKnowledgeIndexTaskSnapshotClient:
         response: Any,
         *,
         deadline_monotonic: float,
+        declared_length: int | None,
     ):
         """Yield bounded reads while shrinking the real socket deadline.
 
@@ -196,16 +204,39 @@ class HubKnowledgeIndexTaskSnapshotClient:
                 raise RuntimeError(
                     "knowledge_index_task_snapshot_deadline_transport_unsupported"
                 )
+            # Reading through ``_fp`` bypasses urllib3's
+            # ``length_remaining`` bookkeeping. Count the bytes here so a
+            # response that closes exactly at Content-Length is still proven
+            # complete without requiring one more socket operation.
+            bytes_read = 0
             while True:
                 remaining = self._require_remaining(deadline_monotonic)
+                if declared_length is not None and bytes_read == declared_length:
+                    return
+                if declared_length is None and self._response_is_complete(response):
+                    return
                 if not self._set_socket_timeout(response, remaining):
                     raise RuntimeError(
                         "knowledge_index_task_snapshot_deadline_transport_unsupported"
                     )
-                chunk = reader(65_536)
+                read_size = (
+                    min(65_536, declared_length - bytes_read)
+                    if declared_length is not None
+                    else 65_536
+                )
+                chunk = reader(read_size)
                 self._require_remaining(deadline_monotonic)
                 if not chunk:
+                    if declared_length is not None and bytes_read != declared_length:
+                        raise RuntimeError(
+                            "knowledge_index_task_snapshot_response_invalid"
+                        )
                     return
+                bytes_read += len(chunk)
+                if declared_length is not None and bytes_read > declared_length:
+                    raise RuntimeError(
+                        "knowledge_index_task_snapshot_response_invalid"
+                    )
                 yield chunk
             return
 
@@ -244,6 +275,24 @@ class HubKnowledgeIndexTaskSnapshotClient:
             setter = getattr(candidate, "settimeout", None)
             if callable(setter):
                 setter(timeout)
+                return True
+        return False
+
+    @staticmethod
+    def _response_is_complete(response: Any) -> bool:
+        raw = getattr(response, "raw", None)
+        http_response = getattr(raw, "_fp", None)
+        if getattr(raw, "length_remaining", None) == 0:
+            return True
+        for candidate in (raw, http_response):
+            isclosed = getattr(candidate, "isclosed", None)
+            if callable(isclosed):
+                try:
+                    if bool(isclosed()):
+                        return True
+                except (AttributeError, OSError, TypeError, ValueError):
+                    pass
+            if getattr(candidate, "closed", False) is True:
                 return True
         return False
 
