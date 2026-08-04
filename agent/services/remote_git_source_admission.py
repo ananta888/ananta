@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
-import time
 from typing import Any, Mapping
 
 from sqlmodel import Session, select
@@ -15,6 +15,7 @@ from sqlmodel import Session, select
 from agent.db_models.source_control import (
     SourceConnectionDB,
     SourceConnectionSelectorDB,
+    SourceRevisionDB,
 )
 from agent.repositories.source_admission_receipt_repository import (
     SourceAdmissionCounters,
@@ -42,7 +43,6 @@ from agent.services.source_admission_service import (
 from agent.sources.git_source_connector_common import GitSourceScope
 from agent.sources.source_connectors import SourceConnectorError
 from ananta_contracts.source_control import SourceRevision, derive_source_revision_id
-
 
 _REMOTE_TYPES = frozenset({"generic_git", "github_repository"})
 _CONTRACT_CONNECTOR_TYPES = {
@@ -177,10 +177,24 @@ class RemoteGitSourceAdmissionService:
             scan=scan,
             budgets=self._budgets,
         )
+        with Session(self._engine) as db:
+            existing_revision = db.exec(
+                select(SourceRevisionDB).where(
+                    SourceRevisionDB.connection_id
+                    == connection.connection_id,
+                    SourceRevisionDB.revision_digest
+                    == payload.source_revision_digest,
+                )
+            ).first()
         captured_at = datetime.fromtimestamp(
-            float(self._clock()), tz=timezone.utc
+            (
+                existing_revision.captured_at_epoch
+                if existing_revision is not None
+                else float(self._clock())
+            ),
+            tz=timezone.utc,
         )
-        persisted = self._revisions.append_revision(
+        self._revisions.append_revision(
             SourceRevision.create(
                 connection_id=connection.connection_id,
                 tenant_id=scope.tenant_id,

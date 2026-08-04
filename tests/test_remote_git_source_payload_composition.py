@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from agent.db_models.source_control import (
     SourceConnectionDB,
     SourceConnectionSelectorDB,
+    SourceRevisionDB,
 )
 from agent.repositories.source_admission_receipt_repository import (
     SQLSourceAdmissionReceiptRepository,
@@ -43,13 +43,12 @@ from agent.sources.git_source_connector_common import (
     GitRepositoryBudgets,
     GitRepositoryMaterialization,
     GitRepositoryMetrics,
-    GitStoredPayloadQuery,
     GitSourceScope,
+    GitStoredPayloadQuery,
     git_source_revision_digest,
 )
 from agent.sources.hub_git_connector_providers import HubGitContentProvider
 from agent.sources.source_connectors import SourceConnectorError
-
 
 COMMIT = "a" * 40
 CONTENT = b"remote payload\n"
@@ -315,6 +314,7 @@ def test_git_fetch_scan_and_run_share_one_content_addressed_payload(tmp_path: Pa
         revision_repository=SQLSourceControlRepository(engine),
         receipt_repository=SQLSourceAdmissionReceiptRepository(engine),
         budgets=SourceAdmissionBudgets(),
+        clock=iter((100.0, 101.0, 200.0)).__next__,
     )
     with pytest.raises(
         SourceConnectorError,
@@ -346,6 +346,19 @@ def test_git_fetch_scan_and_run_share_one_content_addressed_payload(tmp_path: Pa
         ),
         inventory=SimpleNamespace(manifest_digest=metrics.manifest_digest),
     )
+    replay = admission.scan_source(
+        descriptor=descriptor,
+        revision=SimpleNamespace(
+            revision_digest=revision_digest,
+            metadata={"commit_sha": COMMIT},
+        ),
+        inventory=SimpleNamespace(manifest_digest=metrics.manifest_digest),
+    )
+    assert replay == result
+    with Session(engine) as db:
+        revisions = db.exec(select(SourceRevisionDB)).all()
+    assert len(revisions) == 1
+    assert revisions[0].captured_at_epoch == 100.0
     authority = BoundSourceRevisionAuthority(
         tenant_id=scope.tenant_id,
         project_id=scope.project_id,
