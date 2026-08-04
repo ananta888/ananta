@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import hashlib
 import json
 import os
@@ -37,6 +38,12 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (  # noqa: E402
     Ed25519PrivateKey,
 )
 
+from agent.services.source_access_manifest_keyring import (  # noqa: E402
+    SOURCE_ACCESS_KEYRING_SCHEMA,
+)
+from agent.services.source_access_manifest_signing import (  # noqa: E402
+    SourceAccessSigningKey,
+)
 from ananta_contracts.file_credentials import read_file_managed_bytes  # noqa: E402
 from ananta_contracts.runtime_authorization_crypto import (  # noqa: E402
     ED25519_ALGORITHM,
@@ -65,6 +72,8 @@ _HUB_SESSION_KEY_FILENAME = "hub-session-signing-key"
 _WORKER_SERVICE_TOKEN_FILENAME = "worker-service-token"
 _WORKER_REGISTRATION_TOKEN_FILENAME = "worker-registration-token"
 _WORKER_SESSION_KEY_FILENAME = "worker-session-signing-key"
+_SOURCE_ACCESS_KEYRING_FILENAME = "source-access-hmac-keyring.json"
+_SOURCE_ACCESS_KEY_ID = "dev-source-access-v1"
 _TRANSACTION_FILENAME = ".bootstrap-transaction.json"
 _TRANSACTION_SCHEMA = "ananta.dev-workflow-bootstrap-transaction.v1"
 _STAGING_PREFIX = ".bootstrap-staging-"
@@ -85,7 +94,9 @@ _IDENTITY_DOCUMENTS = frozenset(
         "beta_session_key",
     }
 )
-_ALL_DOCUMENTS = _AUTHORIZATION_DOCUMENTS | _IDENTITY_DOCUMENTS
+_SOURCE_ACCESS_DOCUMENTS = frozenset({"source_access_keyring"})
+_LEGACY_ALL_DOCUMENTS = _AUTHORIZATION_DOCUMENTS | _IDENTITY_DOCUMENTS
+_ALL_DOCUMENTS = _LEGACY_ALL_DOCUMENTS | _SOURCE_ACCESS_DOCUMENTS
 
 
 class DevWorkflowKeyringBootstrapError(RuntimeError):
@@ -117,25 +128,28 @@ def bootstrap(
     }
 
     if existing == _ALL_DOCUMENTS:
-        registration_upgrade_required = _validate(
+        if _upgrade_known_worker_registration(
             paths,
             worker_specs=worker_specs,
-            allow_legacy_registration=True,
-        )
-        if registration_upgrade_required:
-            secrets_by_name = _read_identity_secrets(paths)
-            _atomic_write_json(
-                paths["registration_keyring"],
-                _registration_document(
-                    secrets_by_name,
-                    worker_specs=worker_specs,
-                ),
-                mode=0o600,
-            )
-            _validate(paths, worker_specs=worker_specs)
+            allow_missing_source_access=False,
+        ):
             return "upgraded"
         return "reused"
-    if existing == _AUTHORIZATION_DOCUMENTS:
+    if existing == _LEGACY_ALL_DOCUMENTS:
+        _upgrade_known_worker_registration(
+            paths,
+            worker_specs=worker_specs,
+            allow_missing_source_access=True,
+        )
+        _stage_validate_and_publish(
+            paths,
+            documents=_generate_source_access_documents(),
+            target_names=_SOURCE_ACCESS_DOCUMENTS,
+            mode="source_access_upgrade",
+            worker_specs=worker_specs,
+        )
+        return "upgraded"
+    if existing == (_AUTHORIZATION_DOCUMENTS | _SOURCE_ACCESS_DOCUMENTS):
         documents = _generate_worker_identity_documents(
             worker_specs=worker_specs
         )
@@ -144,6 +158,23 @@ def bootstrap(
             documents=documents,
             target_names=_IDENTITY_DOCUMENTS,
             mode="legacy_upgrade",
+            worker_specs=worker_specs,
+        )
+        return "upgraded"
+    if existing == _AUTHORIZATION_DOCUMENTS:
+        documents = {
+            **_generate_worker_identity_documents(
+                worker_specs=worker_specs
+            ),
+            **_generate_source_access_documents(),
+        }
+        _stage_validate_and_publish(
+            paths,
+            documents=documents,
+            target_names=(
+                _IDENTITY_DOCUMENTS | _SOURCE_ACCESS_DOCUMENTS
+            ),
+            mode="legacy_full_upgrade",
             worker_specs=worker_specs,
         )
         return "upgraded"
@@ -162,6 +193,37 @@ def bootstrap(
         worker_specs=worker_specs,
     )
     return "created"
+
+
+def _upgrade_known_worker_registration(
+    paths: dict[str, Path],
+    *,
+    worker_specs: tuple[WorkerRegistrationSpec, ...],
+    allow_missing_source_access: bool,
+) -> bool:
+    upgrade_required = _validate(
+        paths,
+        worker_specs=worker_specs,
+        allow_legacy_registration=True,
+        allow_missing_source_access=allow_missing_source_access,
+    )
+    if not upgrade_required:
+        return False
+    secrets_by_name = _read_identity_secrets(paths)
+    _atomic_write_json(
+        paths["registration_keyring"],
+        _registration_document(
+            secrets_by_name,
+            worker_specs=worker_specs,
+        ),
+        mode=0o600,
+    )
+    _validate(
+        paths,
+        worker_specs=worker_specs,
+        allow_missing_source_access=allow_missing_source_access,
+    )
+    return True
 
 
 def _paths(root: Path) -> dict[str, Path]:
@@ -213,6 +275,9 @@ def _paths(root: Path) -> dict[str, Path]:
         "beta_session_key": (
             normalized / "beta" / _WORKER_SESSION_KEY_FILENAME
         ),
+        "source_access_keyring": (
+            normalized / "worker" / _SOURCE_ACCESS_KEYRING_FILENAME
+        ),
     }
 
 
@@ -262,7 +327,10 @@ def _assert_expected_entries(paths: dict[str, Path]) -> None:
             _HUB_SERVICE_TOKEN_FILENAME,
             _HUB_SESSION_KEY_FILENAME,
         },
-        "worker_dir": {_VERIFICATION_FILENAME},
+        "worker_dir": {
+            _VERIFICATION_FILENAME,
+            _SOURCE_ACCESS_KEYRING_FILENAME,
+        },
         "alpha_dir": {
             _WORKER_SERVICE_TOKEN_FILENAME,
             _WORKER_REGISTRATION_TOKEN_FILENAME,
@@ -331,6 +399,7 @@ def _generate_documents(
         **_generate_worker_identity_documents(
             worker_specs=worker_specs
         ),
+        **_generate_source_access_documents(),
     }
 
 
@@ -355,6 +424,21 @@ def _generate_worker_identity_documents(
     return tokens
 
 
+def _generate_source_access_documents() -> dict[str, Any]:
+    keyring = {
+        "schema": SOURCE_ACCESS_KEYRING_SCHEMA,
+        "active_key_id": _SOURCE_ACCESS_KEY_ID,
+        "keys": {
+            _SOURCE_ACCESS_KEY_ID: _encode_base64(
+                secrets.token_bytes(32)
+            )
+        },
+    }
+    return {
+        "source_access_keyring": keyring,
+    }
+
+
 def _write_documents(
     paths: dict[str, Path],
     documents: dict[str, Any],
@@ -366,6 +450,7 @@ def _write_documents(
         "verification",
         "dispatch",
         "registration_keyring",
+        "source_access_keyring",
     }
     for name in sorted(target_names):
         if name not in documents:
@@ -394,13 +479,19 @@ def _stage_validate_and_publish(
     mode: str,
     worker_specs: tuple[WorkerRegistrationSpec, ...],
 ) -> None:
-    if mode not in {"create", "legacy_upgrade"}:
+    targets_by_mode = {
+        "create": _ALL_DOCUMENTS,
+        "legacy_upgrade": _IDENTITY_DOCUMENTS,
+        "legacy_full_upgrade": (
+            _IDENTITY_DOCUMENTS | _SOURCE_ACCESS_DOCUMENTS
+        ),
+        "source_access_upgrade": _SOURCE_ACCESS_DOCUMENTS,
+    }
+    if mode not in targets_by_mode:
         raise DevWorkflowKeyringBootstrapError(
             "development workflow transaction mode is invalid"
         )
-    expected_targets = (
-        _ALL_DOCUMENTS if mode == "create" else _IDENTITY_DOCUMENTS
-    )
+    expected_targets = targets_by_mode[mode]
     if target_names != expected_targets:
         raise DevWorkflowKeyringBootstrapError(
             "development workflow transaction target set is invalid"
@@ -499,14 +590,22 @@ def _recover_interrupted_transaction(
         description="development workflow transaction journal",
     )
     mode = str(journal.get("mode") or "")
-    expected_targets = (
-        _ALL_DOCUMENTS
-        if mode == "create"
-        else _IDENTITY_DOCUMENTS
-        if mode == "legacy_upgrade"
+    target_hashes = journal.get("target_hashes")
+    declared_targets = (
+        frozenset(target_hashes)
+        if isinstance(target_hashes, dict)
         else frozenset()
     )
-    target_hashes = journal.get("target_hashes")
+    expected_targets = {
+        "create": _ALL_DOCUMENTS,
+        "legacy_upgrade": _IDENTITY_DOCUMENTS,
+        "legacy_full_upgrade": (
+            _IDENTITY_DOCUMENTS | _SOURCE_ACCESS_DOCUMENTS
+        ),
+        "source_access_upgrade": _SOURCE_ACCESS_DOCUMENTS,
+    }.get(mode, frozenset())
+    if mode == "create" and declared_targets == _LEGACY_ALL_DOCUMENTS:
+        expected_targets = _LEGACY_ALL_DOCUMENTS
     staging_name = str(journal.get("staging_name") or "")
     if (
         journal.get("schema") != _TRANSACTION_SCHEMA
@@ -549,7 +648,20 @@ def _recover_interrupted_transaction(
 
     staging_root = paths["root"] / staging_name
     if len(published) == len(expected_targets):
-        _validate(paths, worker_specs=worker_specs)
+        legacy_create = (
+            mode == "create"
+            and expected_targets == _LEGACY_ALL_DOCUMENTS
+        )
+        _validate(
+            paths,
+            worker_specs=worker_specs,
+            allow_legacy_registration=(
+                mode in {"create", "legacy_upgrade"}
+            ),
+            allow_missing_source_access=(
+                mode == "legacy_upgrade" or legacy_create
+            ),
+        )
     else:
         for name in published:
             paths[name].unlink()
@@ -569,8 +681,16 @@ def _validate(
     *,
     worker_specs: tuple[WorkerRegistrationSpec, ...],
     allow_legacy_registration: bool = False,
+    allow_missing_source_access: bool = False,
 ) -> bool:
-    _assert_credential_modes(paths)
+    _assert_credential_modes(
+        paths,
+        document_names=(
+            _LEGACY_ALL_DOCUMENTS
+            if allow_missing_source_access
+            else _ALL_DOCUMENTS
+        ),
+    )
     signing = _read_json(paths["signing"], description="development signing keyring")
     verification = _read_json(
         paths["verification"],
@@ -602,6 +722,15 @@ def _validate(
         raise DevWorkflowKeyringBootstrapError(
             "development workflow dispatch keyring is invalid"
         ) from exc
+
+    if not allow_missing_source_access:
+        source_access_keyring = _read_json(
+            paths["source_access_keyring"],
+            description="development source-access keyring",
+        )
+        _validate_source_access_keyring(
+            source_access_keyring,
+        )
 
     secrets_by_name = _read_identity_secrets(paths)
     if len(set(secrets_by_name.values())) != len(secrets_by_name):
@@ -650,8 +779,43 @@ def _read_identity_secrets(
     return secrets_by_name
 
 
-def _assert_credential_modes(paths: dict[str, Path]) -> None:
-    for name in _ALL_DOCUMENTS:
+def _validate_source_access_keyring(
+    document: dict[str, Any],
+) -> None:
+    if set(document) != {"schema", "active_key_id", "keys"}:
+        raise DevWorkflowKeyringBootstrapError(
+            "development source-access keyring is invalid"
+        )
+    if document.get("schema") != SOURCE_ACCESS_KEYRING_SCHEMA:
+        raise DevWorkflowKeyringBootstrapError(
+            "development source-access keyring is invalid"
+        )
+    active_key_id = str(document.get("active_key_id") or "")
+    raw_keys = document.get("keys")
+    if not isinstance(raw_keys, dict) or active_key_id not in raw_keys:
+        raise DevWorkflowKeyringBootstrapError(
+            "development source-access keyring is incomplete"
+        )
+    try:
+        for raw_key_id, encoded_secret in raw_keys.items():
+            if not isinstance(encoded_secret, str):
+                raise ValueError("source-access key material must be text")
+            SourceAccessSigningKey(
+                key_id=str(raw_key_id),
+                secret=base64.b64decode(encoded_secret, validate=True),
+            )
+    except (ValueError, binascii.Error) as exc:
+        raise DevWorkflowKeyringBootstrapError(
+            "development source-access keyring is invalid"
+        ) from exc
+
+
+def _assert_credential_modes(
+    paths: dict[str, Path],
+    *,
+    document_names: frozenset[str] = _ALL_DOCUMENTS,
+) -> None:
+    for name in document_names:
         path = paths[name]
         try:
             metadata = path.lstat()

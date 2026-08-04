@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import json
+
 import pytest
 
 import agent.ai_agent as ai_agent
@@ -19,6 +22,40 @@ def test_worker_bootstrap_builds_authenticated_governed_handler(monkeypatch) -> 
     monkeypatch.setenv(
         "SECRET_KEY", "worker-compose-secret-with-at-least-32-bytes"
     )
+    monkeypatch.setenv("ANANTA_KNOWLEDGE_INDEX_WORKER_ID", "worker-alpha")
+
+    handler = ai_agent._build_governed_knowledge_index_handler_from_environment()
+
+    assert handler._worker_id == "worker-alpha"
+    assert handler._source_access_manifest_verifier is not None
+    assert handler._allow_legacy_unsigned_source_dispatch is False
+
+
+def test_worker_bootstrap_uses_file_managed_source_access_keyring(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    keyring_path = tmp_path / "source-access-hmac-keyring.json"
+    keyring_path.write_text(
+        json.dumps(
+            {
+                "schema": "ananta.source-access-hmac-keyring.v1",
+                "active_key_id": "test-source-access-v1",
+                "keys": {
+                    "test-source-access-v1": base64.b64encode(
+                        b"test-source-access-secret-material"
+                    ).decode("ascii")
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    keyring_path.chmod(0o600)
+    monkeypatch.setenv("ANANTA_SOURCE_ACCESS_KEYRING_FILE", str(keyring_path))
+    monkeypatch.setenv(
+        "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION", "0"
+    )
+    monkeypatch.setenv("SECRET_KEY", "")
     monkeypatch.setenv("ANANTA_KNOWLEDGE_INDEX_WORKER_ID", "worker-alpha")
 
     handler = ai_agent._build_governed_knowledge_index_handler_from_environment()

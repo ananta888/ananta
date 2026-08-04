@@ -319,6 +319,12 @@ def test_qdrant_quickstart_identity_overlay_is_strict_and_worker_private() -> No
 
     hub = services["ai-agent-hub"]
     assert hub["environment"]["SECRET_KEY"] == ""
+    assert hub["environment"][
+        "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
+    ] == "0"
+    assert hub["environment"]["ANANTA_SOURCE_ACCESS_KEYRING_FILE"] == (
+        "/run/ananta-source-access/source-access-hmac-keyring.json"
+    )
     assert (
         hub["environment"][
             "ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH"
@@ -346,6 +352,14 @@ def test_qdrant_quickstart_identity_overlay_is_strict_and_worker_private() -> No
     assert hub_mount["source"].endswith("/hub")
     assert hub_mount["read_only"] is True
     assert hub_mount["bind"]["create_host_path"] is False
+    source_access_mount = next(
+        mount
+        for mount in hub["volumes"]
+        if mount["target"] == "/run/ananta-source-access"
+    )
+    assert source_access_mount["source"].endswith("/worker")
+    assert source_access_mount["read_only"] is True
+    assert source_access_mount["bind"]["create_host_path"] is False
 
     private_sources: set[str] = set()
     for worker_name, private_dir in (
@@ -355,6 +369,13 @@ def test_qdrant_quickstart_identity_overlay_is_strict_and_worker_private() -> No
         worker = services[worker_name]
         environment = worker["environment"]
         assert environment["SECRET_KEY"] == ""
+        assert environment[
+            "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
+        ] == "0"
+        assert environment["ANANTA_SOURCE_ACCESS_KEYRING_FILE"] == (
+            "/run/ananta-dev-workflow/public/"
+            "source-access-hmac-keyring.json"
+        )
         assert environment["DISABLE_INITIAL_ADMIN"] == "1"
         assert environment["INITIAL_ADMIN_USER"] == ""
         assert environment["INITIAL_ADMIN_PASSWORD"] == ""

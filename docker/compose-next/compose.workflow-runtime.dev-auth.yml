@@ -14,6 +14,8 @@ services:
       ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE: /run/ananta-dev-workflow/workflow-dispatch-keyring.json
       ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH: "1"
       ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE: /run/ananta-dev-workflow/worker-registration-keyring.json
+      ANANTA_SOURCE_ACCESS_KEYRING_FILE: /run/ananta-source-access/source-access-hmac-keyring.json
+      ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION: "0"
       AGENT_TOKEN_FILE: /run/ananta-dev-workflow/hub-service-token
       SECRET_KEY_FILE: /run/ananta-dev-workflow/hub-session-signing-key
       AGENT_TOKEN_PERSISTENCE: "0"
@@ -21,6 +23,12 @@ services:
       - type: bind
         source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}/hub
         target: /run/ananta-dev-workflow
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${ANANTA_DEV_WORKFLOW_SECRET_DIR:-../../../ananta-data/workflow-runtime-dev}/worker
+        target: /run/ananta-source-access
         read_only: true
         bind:
           create_host_path: false
@@ -39,6 +47,8 @@ services:
       ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE: /run/ananta-dev-workflow/public/workflow-auth-verification-keyring.json
       ANANTA_WORKFLOW_HUB_URL: http://ai-agent-hub:5000
       ANANTA_WORKFLOW_HUB_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
+      ANANTA_SOURCE_ACCESS_KEYRING_FILE: /run/ananta-dev-workflow/public/source-access-hmac-keyring.json
+      ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION: "0"
       AGENT_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
       SECRET_KEY_FILE: /run/ananta-dev-workflow/private/worker-session-signing-key
       REGISTRATION_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-registration-token
@@ -74,6 +84,8 @@ services:
       ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE: /run/ananta-dev-workflow/public/workflow-auth-verification-keyring.json
       ANANTA_WORKFLOW_HUB_URL: http://ai-agent-hub:5000
       ANANTA_WORKFLOW_HUB_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
+      ANANTA_SOURCE_ACCESS_KEYRING_FILE: /run/ananta-dev-workflow/public/source-access-hmac-keyring.json
+      ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION: "0"
       AGENT_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-service-token
       SECRET_KEY_FILE: /run/ananta-dev-workflow/private/worker-session-signing-key
       REGISTRATION_TOKEN_FILE: /run/ananta-dev-workflow/private/worker-registration-token

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import importlib.util
 import json
@@ -12,6 +13,11 @@ from pathlib import Path
 import yaml
 from cryptography.fernet import Fernet
 
+from agent.services.source_access_manifest_signing import (
+    HubSourceAccessManifestSigner,
+    SourceAccessSigningKey,
+    WorkerSourceAccessManifestVerifier,
+)
 from ananta_contracts.runtime_authorization_crypto import (
     Ed25519SigningKeyRing,
     Ed25519VerificationKeyRing,
@@ -67,7 +73,10 @@ def test_bootstrap_creates_disjoint_valid_keyrings_and_reuses_them(tmp_path):
         "hub-service-token",
         "hub-session-signing-key",
     }
-    assert worker_files == {"workflow-auth-verification-keyring.json"}
+    assert worker_files == {
+        "workflow-auth-verification-keyring.json",
+        "source-access-hmac-keyring.json",
+    }
     assert {path.name for path in (root / "alpha").iterdir()} == {
         "worker-service-token",
         "worker-registration-token",
@@ -85,6 +94,10 @@ def test_bootstrap_creates_disjoint_valid_keyrings_and_reuses_them(tmp_path):
     signing = json.loads(signing_path.read_text(encoding="utf-8"))
     verification = json.loads(verification_path.read_text(encoding="utf-8"))
     dispatch = json.loads(dispatch_path.read_text(encoding="utf-8"))
+    source_access_path = root / "worker/source-access-hmac-keyring.json"
+    source_access = json.loads(
+        source_access_path.read_text(encoding="utf-8")
+    )
     signer = Ed25519SigningKeyRing.from_mapping(signing)
     verifier = Ed25519VerificationKeyRing.from_mapping(verification)
     key_id, signature = signer.sign(namespace="test", payload={"value": 1})
@@ -97,9 +110,32 @@ def test_bootstrap_creates_disjoint_valid_keyrings_and_reuses_them(tmp_path):
     )
     dispatch_key_id = dispatch["active_key_id"]
     Fernet(dispatch["keys"][dispatch_key_id].encode("ascii"))
+    assert source_access["schema"] == (
+        "ananta.source-access-hmac-keyring.v1"
+    )
+    source_access_key_id = source_access["active_key_id"]
+    source_access_secret = base64.b64decode(
+        source_access["keys"][source_access_key_id],
+        validate=True,
+    )
+    assert len(source_access_secret) >= 32
+    source_access_digest = "a" * 64
+    source_access_signature = HubSourceAccessManifestSigner(
+        SourceAccessSigningKey(
+            key_id=source_access_key_id,
+            secret=source_access_secret,
+        )
+    ).sign(manifest_digest=source_access_digest)
+    assert WorkerSourceAccessManifestVerifier(
+        {source_access_key_id: source_access_secret}
+    ).verify(
+        manifest_digest=source_access_digest,
+        signature=source_access_signature,
+    )
     assert stat.S_IMODE(signing_path.stat().st_mode) == 0o600
     assert stat.S_IMODE(dispatch_path.stat().st_mode) == 0o600
     assert stat.S_IMODE(verification_path.stat().st_mode) == 0o444
+    assert stat.S_IMODE(source_access_path.stat().st_mode) == 0o600
 
     private_paths = [
         root / "hub/hub-service-token",
@@ -163,6 +199,7 @@ def test_bootstrap_creates_disjoint_valid_keyrings_and_reuses_them(tmp_path):
             signing_path,
             verification_path,
             dispatch_path,
+            source_access_path,
             registration_path,
             *private_paths,
         )
@@ -229,6 +266,111 @@ def test_bootstrap_upgrades_legacy_authorization_keyrings_without_rotation(
     assert (
         root / "hub/worker-registration-keyring.json"
     ).is_file()
+
+
+def test_bootstrap_adds_source_access_keyring_without_rotating_credentials(
+    tmp_path,
+):
+    root = (tmp_path / "workflow-secrets").resolve()
+    assert _run(root).returncode == 0
+    source_access_path = root / "worker/source-access-hmac-keyring.json"
+    source_access_path.unlink()
+    stable_paths = tuple(path for path in root.rglob("*") if path.is_file())
+    before = {path: _digest(path) for path in stable_paths}
+
+    upgraded = _run(root)
+
+    assert upgraded.returncode == 0, upgraded.stderr
+    assert upgraded.stdout.strip() == "development workflow keyrings upgraded"
+    assert {path: _digest(path) for path in stable_paths} == before
+    assert source_access_path.is_file()
+
+
+def test_bootstrap_recovers_legacy_create_before_source_access_upgrade(
+    tmp_path,
+):
+    root = (tmp_path / "workflow-secrets").resolve()
+    assert _run(root).returncode == 0
+    (root / "worker/source-access-hmac-keyring.json").unlink()
+    spec = importlib.util.spec_from_file_location(
+        "bootstrap_dev_workflow_keyrings_recovery_test",
+        SCRIPT,
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    paths = module._paths(root)
+    transaction_path = root / ".bootstrap-transaction.json"
+    transaction_path.write_text(
+        json.dumps(
+            {
+                "schema": "ananta.dev-workflow-bootstrap-transaction.v1",
+                "mode": "create",
+                "staging_name": ".bootstrap-staging-legacy-create",
+                "target_hashes": {
+                    name: _digest(paths[name])
+                    for name in module._LEGACY_ALL_DOCUMENTS
+                },
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    transaction_path.chmod(0o600)
+
+    recovered = _run(root)
+
+    assert recovered.returncode == 0, recovered.stderr
+    assert recovered.stdout.strip() == "development workflow keyrings upgraded"
+    assert not transaction_path.exists()
+    assert (root / "worker/source-access-hmac-keyring.json").is_file()
+
+
+def test_bootstrap_upgrades_known_capabilities_before_source_access(
+    tmp_path,
+):
+    root = (tmp_path / "workflow-secrets").resolve()
+    assert _run(root).returncode == 0
+    source_access_path = root / "worker/source-access-hmac-keyring.json"
+    source_access_path.unlink()
+    registration_path = root / "hub/worker-registration-keyring.json"
+    registration = json.loads(
+        registration_path.read_text(encoding="utf-8")
+    )
+    for row in registration["workers"].values():
+        row["allowed_capabilities"].remove("source_analysis")
+    registration_path.write_text(
+        json.dumps(
+            registration,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    registration_path.chmod(0o600)
+    stable_paths = tuple(
+        path
+        for path in root.rglob("*")
+        if path.is_file() and path != registration_path
+    )
+    before = {path: _digest(path) for path in stable_paths}
+
+    upgraded = _run(root)
+
+    assert upgraded.returncode == 0, upgraded.stderr
+    assert upgraded.stdout.strip() == "development workflow keyrings upgraded"
+    assert {path: _digest(path) for path in stable_paths} == before
+    assert source_access_path.is_file()
+    upgraded_registration = json.loads(
+        registration_path.read_text(encoding="utf-8")
+    )
+    assert all(
+        "source_analysis" in row["allowed_capabilities"]
+        for row in upgraded_registration["workers"].values()
+    )
 
 
 def test_bootstrap_adds_vector_capabilities_without_rotating_credentials(
@@ -459,6 +601,12 @@ def test_ollama_dev_compose_bootstraps_least_privilege_workflow_keyrings():
     assert hub["environment"][
         "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE"
     ].endswith("/worker-registration-keyring.json")
+    assert hub["environment"]["ANANTA_SOURCE_ACCESS_KEYRING_FILE"] == (
+        "/run/ananta-source-access/source-access-hmac-keyring.json"
+    )
+    assert hub["environment"][
+        "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
+    ] == "0"
     assert hub["environment"]["AGENT_TOKEN_FILE"].endswith(
         "/hub-service-token"
     )
@@ -478,6 +626,14 @@ def test_ollama_dev_compose_bootstraps_least_privilege_workflow_keyrings():
     )
     assert hub_mount["source"].endswith("/hub")
     assert hub_mount["read_only"] is True
+    source_access_mount = next(
+        mount
+        for mount in hub["volumes"]
+        if isinstance(mount, dict)
+        and mount["target"] == "/run/ananta-source-access"
+    )
+    assert source_access_mount["source"].endswith("/worker")
+    assert source_access_mount["read_only"] is True
 
     for name, private_dir in (
         ("ai-agent-alpha", "alpha"),
@@ -494,6 +650,13 @@ def test_ollama_dev_compose_bootstraps_least_privilege_workflow_keyrings():
             "/run/ananta-dev-workflow/public/"
             "workflow-auth-verification-keyring.json"
         )
+        assert worker["environment"]["ANANTA_SOURCE_ACCESS_KEYRING_FILE"] == (
+            "/run/ananta-dev-workflow/public/"
+            "source-access-hmac-keyring.json"
+        )
+        assert worker["environment"][
+            "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
+        ] == "0"
         assert worker["environment"]["AGENT_TOKEN_FILE"] == (
             "/run/ananta-dev-workflow/private/worker-service-token"
         )
@@ -564,6 +727,30 @@ def test_stack_dev_auth_overlay_prepares_unprivileged_runtime_ownership():
     assert hub["environment"]["CORS_ORIGINS"] == (
         "${CORS_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200}"
     )
+    assert hub["environment"]["ANANTA_SOURCE_ACCESS_KEYRING_FILE"] == (
+        "/run/ananta-source-access/source-access-hmac-keyring.json"
+    )
+    assert hub["environment"][
+        "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
+    ] == "0"
+    source_access_mount = next(
+        mount
+        for mount in hub["volumes"]
+        if mount["target"] == "/run/ananta-source-access"
+    )
+    assert source_access_mount["source"].endswith("/worker")
+    assert source_access_mount["read_only"] is True
+    assert source_access_mount["bind"]["create_host_path"] is False
+    for worker_name in ("ai-agent-alpha", "ai-agent-beta"):
+        assert services[worker_name]["environment"][
+            "ANANTA_SOURCE_ACCESS_KEYRING_FILE"
+        ] == (
+            "/run/ananta-dev-workflow/public/"
+            "source-access-hmac-keyring.json"
+        )
+        assert services[worker_name]["environment"][
+            "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
+        ] == "0"
     assert services["workflow-keyring-bootstrap"]["depends_on"][
         "runtime-data-bootstrap"
     ] == {"condition": "service_completed_successfully"}
