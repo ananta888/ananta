@@ -16,10 +16,13 @@ from agent.db_models.source_control import (
     SourceConnectionDB,
     SourceRevisionDB,
 )
+from agent.services.codecompass_graph_window_service import (
+    CodeCompassGraphWindowService,
+)
 from agent.services.source_control_production_adapters import (
     ContainedArtifactDeletionService,
-    HubSourceControlOperationsAdapter,
     HubBoundSourceIndexSubmissionAdapter,
+    HubSourceControlOperationsAdapter,
     ScopedWorkerModelDestinationCatalog,
     SourceControlProductionAdapterError,
     build_scoped_effective_access_service,
@@ -70,6 +73,14 @@ def test_active_graph_projects_codecompass_edge_identifiers() -> None:
                         "edge_type": "declares",
                     }
                 ],
+                "semantic_nodes": [{"id": "semantic:n1"}],
+                "semantic_edges": [
+                    {
+                        "source_id": "n1",
+                        "target_id": "semantic:n1",
+                        "edge_type": "semantic_declares",
+                    }
+                ],
             }
 
         def load_visual_metrics(self):
@@ -77,9 +88,11 @@ def test_active_graph_projects_codecompass_edge_identifiers() -> None:
 
     class _Projection:
         def __init__(self) -> None:
+            self.nodes = []
             self.edges = []
 
         def project(self, **kwargs):
+            self.nodes = list(kwargs["nodes"])
             self.edges = list(kwargs["edges"])
             return {"metadata": dict(kwargs["metadata"])}
 
@@ -92,6 +105,7 @@ def test_active_graph_projects_codecompass_edge_identifiers() -> None:
 
     result = adapter.graph(parameters={"limit": 100})
 
+    assert projection.nodes == [{"id": "n1"}, {"id": "n2"}]
     assert projection.edges == [
         {
             "source_id": "n1",
@@ -100,6 +114,150 @@ def test_active_graph_projects_codecompass_edge_identifiers() -> None:
         }
     ]
     assert result["text_alternative"] == "Graph with 2 nodes and 1 edges."
+
+
+def test_topology_graph_view_uses_injected_connected_window() -> None:
+    class _Store:
+        def load(self):
+            return {
+                "state": {"manifest_hash": "sha256:graph"},
+                "nodes": [
+                    {"id": "isolated"},
+                    {"id": "leaf-b"},
+                    {"id": "hub"},
+                    {"id": "leaf-a"},
+                ],
+                "edges": [
+                    {
+                        "edge_id": "hub-a",
+                        "source_id": "hub",
+                        "target_id": "leaf-a",
+                        "edge_type": "declares",
+                    },
+                    {
+                        "edge_id": "hub-b",
+                        "source_id": "hub",
+                        "target_id": "leaf-b",
+                        "edge_type": "declares",
+                    },
+                    {
+                        "edge_id": "leaf-semantic",
+                        "source_id": "leaf-a",
+                        "target_id": "semantic:service",
+                        "edge_type": "declares",
+                    },
+                    {
+                        "edge_id": "dangling",
+                        "source_id": "hub",
+                        "target_id": "semantic:missing",
+                        "edge_type": "declares",
+                    },
+                ],
+                "semantic_nodes": [{"id": "semantic:service"}],
+                "semantic_edges": [
+                    {
+                        "edge_id": "semantic-hub",
+                        "source_id": "semantic:service",
+                        "target_id": "hub",
+                        "edge_type": "implements",
+                    }
+                ],
+                "diagnostics": {
+                    "semantic_translation": {
+                        "status": "degraded",
+                        "reason": "semantic_graph_partial",
+                        "semantic_budget": {
+                            "configured_max_records_per_partition": 5000,
+                            "max_records_per_partition": 5000,
+                            "max_bytes_per_partition": 4194304,
+                            "configuration_clamped": False,
+                            "truncated": True,
+                            "truncated_node_count": 3,
+                            "truncated_edge_count": 1,
+                            "unresolved_edge_count": 2,
+                            "semantic_node_bytes": 100,
+                            "semantic_edge_bytes": 50,
+                        },
+                    }
+                },
+            }
+
+        def load_visual_metrics(self):
+            return None
+
+    class _Projection:
+        def __init__(self) -> None:
+            self.kwargs = {}
+
+        def project(self, **kwargs):
+            self.kwargs = kwargs
+            return {"metadata": dict(kwargs["metadata"])}
+
+    projection = _Projection()
+    adapter = object.__new__(HubSourceControlOperationsAdapter)
+    adapter._projection = projection
+    adapter._graph_window = CodeCompassGraphWindowService()
+    adapter._active_index = (
+        lambda **_kwargs: type("Index", (), {"id": "index-1"})()
+    )
+    adapter._graph_store = lambda _index: _Store()
+    adapter._artifact_projection = lambda _index: {"status": "verified"}
+
+    result = adapter.graph(
+        parameters={"limit": 4, "view": "topology", "max_edges": 4}
+    )
+
+    assert [node["id"] for node in projection.kwargs["nodes"]] == [
+        "hub",
+        "leaf-a",
+        "semantic:service",
+        "leaf-b",
+    ]
+    assert [edge["edge_id"] for edge in projection.kwargs["edges"]] == [
+        "hub-a",
+        "hub-b",
+        "leaf-semantic",
+        "semantic-hub",
+    ]
+    assert projection.kwargs["derive_projection_revision"] is True
+    assert result["metadata"] == {
+        "knowledge_index_id": "index-1",
+        "view": "topology",
+        "next_cursor": None,
+        "total_nodes": 5,
+        "total_edges": 4,
+        "source_edge_count": 5,
+        "unresolved_edge_count": 1,
+        "internal_edge_count": 4,
+        "edge_capped": False,
+        "max_edges": 4,
+        "semantic_budget": {
+            "configured_max_records_per_partition": 5000,
+            "max_records_per_partition": 5000,
+            "max_bytes_per_partition": 4194304,
+            "configuration_clamped": False,
+            "truncated": True,
+            "truncated_node_count": 3,
+            "truncated_edge_count": 1,
+            "unresolved_edge_count": 2,
+            "semantic_node_bytes": 100,
+            "semantic_edge_bytes": 50,
+        },
+    }
+    assert result["text_alternative"] == (
+        "Topology graph window with 4 nodes and 4 edges out of 5 nodes."
+    )
+    assert projection.kwargs["warnings"] == [
+        "1 graph relation was excluded because a source or target node is "
+        "unavailable. Reindex the source to materialize current semantic nodes.",
+        "The semantic graph reached its configured record budget; the topology "
+        "is a documented partial view.",
+        "2 semantic graph relations were not materialized because no "
+        "source-grounded endpoint was available.",
+    ]
+    assert projection.kwargs["diagnostics"]["semantic_translation"]["status"] == (
+        "degraded"
+    )
 
 
 def test_destination_catalog_requires_server_scope_and_model_evidence() -> None:

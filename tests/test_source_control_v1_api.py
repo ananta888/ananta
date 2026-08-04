@@ -63,6 +63,10 @@ class _Api:
             "result": {"version": 2},
         }
 
+    def graph(self, **kwargs):
+        self.calls.append(("graph", kwargs))
+        return {"parameters": dict(kwargs["parameters"])}
+
     def access_preview(self, **kwargs):
         return {"decision": "deny", "reason_codes": ["policy_denied"]}
 
@@ -105,6 +109,49 @@ def test_detail_uses_exact_v1_envelope_and_projection_etag(monkeypatch) -> None:
         == "ananta.source-control.api-response.v1"
     )
     assert response.headers["ETag"] == "a" * 64
+
+
+def test_graph_route_forwards_topology_window_parameters(monkeypatch) -> None:
+    app = _app(monkeypatch)
+
+    response = app.test_client().get(
+        "/api/source-control/v1/connections/conn-example/graph"
+        "?view=topology&limit=500&max_edges=2000"
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["data"]["parameters"] == {
+        "cursor": None,
+        "limit": 500,
+        "view": "topology",
+        "max_edges": 2000,
+    }
+
+
+def test_graph_route_rejects_out_of_budget_max_edges(monkeypatch) -> None:
+    app = _app(monkeypatch)
+
+    response = app.test_client().get(
+        "/api/source-control/v1/connections/conn-example/graph"
+        "?view=topology&max_edges=2001"
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["error"]["code"] == "max_edges_invalid"
+
+
+def test_graph_route_rejects_cursor_for_single_topology_window(monkeypatch) -> None:
+    app = _app(monkeypatch)
+
+    response = app.test_client().get(
+        "/api/source-control/v1/connections/conn-example/graph"
+        "?view=topology&cursor=b2Zmc2V0OjUwMA"
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["error"]["code"] == (
+        "graph_topology_cursor_unsupported"
+    )
 
 
 def test_unknown_object_is_uniform_404_not_success(monkeypatch) -> None:

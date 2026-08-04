@@ -25,6 +25,30 @@ describe('SourceControlV1ApiClient security DTOs', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
+  it('encodes the bounded topology graph window query', () => {
+    client.loadGraph('connection-example', {
+      limit: 500,
+      view: 'topology',
+      maxEdges: 2_000,
+    }).subscribe();
+
+    const request = http.expectOne(
+      '/api/source-control/v1/connections/connection-example/graph?limit=500&view=topology&max_edges=2000',
+    );
+    expect(request.request.method).toBe('GET');
+  });
+
+  it('rejects an oversized graph edge window before issuing a request', () => {
+    expect(() => client.loadGraph('connection-example', {
+      view: 'topology',
+      maxEdges: 2_001,
+    })).toThrow('max_edges_invalid');
+
+    http.expectNone(
+      '/api/source-control/v1/connections/connection-example/graph',
+    );
+  });
+
   it('sends only a server workspace id and safe relative path for validation', () => {
     client.validateConnection({
       connector_type: 'registered_workspace',

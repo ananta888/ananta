@@ -222,7 +222,11 @@ export class InternalsService {
   }
 
   getCodeCompassGraph(connectionId: string): Observable<CodeCompassGraphV1> {
-    return this.sourceControlApi.loadGraph(connectionId).pipe(
+    return this.sourceControlApi.loadGraph(connectionId, {
+      limit: 500,
+      view: 'topology',
+      maxEdges: 2_000,
+    }).pipe(
       map(graph => graph as unknown as CodeCompassGraphV1),
     );
   }

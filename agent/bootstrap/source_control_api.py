@@ -55,6 +55,9 @@ from agent.services.codecompass_graph_artifact_resolver import (
 from agent.services.codecompass_graph_projection_service import (
     get_codecompass_graph_projection_service,
 )
+from agent.services.codecompass_graph_window_service import (
+    get_codecompass_graph_window_service,
+)
 from agent.services.codehug_mutation_composition import (
     CodeHugMutationCompositionService,
 )
@@ -744,6 +747,10 @@ def register_source_control_api(app) -> None:
             index_submission=index_submission,
             graph_resolver=get_codecompass_graph_artifact_resolver(),
             graph_projection=get_codecompass_graph_projection_service(),
+            graph_window=(
+                app.extensions.get("codecompass_graph_window_service")
+                or get_codecompass_graph_window_service()
+            ),
             scanner=app.extensions.get("source_scan_service"),
         )
         app.extensions["source_control_v1_operations"] = operations

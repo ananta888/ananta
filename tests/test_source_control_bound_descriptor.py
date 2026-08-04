@@ -73,6 +73,7 @@ def test_operations_resolve_persistent_selector_before_legacy_registry() -> None
         index_submission=None,
         graph_resolver=object(),
         graph_projection=object(),
+        graph_window=object(),
     )
 
     result = operations.refresh(

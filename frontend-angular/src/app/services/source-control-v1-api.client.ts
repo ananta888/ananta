@@ -133,6 +133,7 @@ export interface SourceControlGraphQuery {
   readonly cursor?: string;
   readonly limit?: number;
   readonly view?: string;
+  readonly maxEdges?: number;
 }
 
 export interface SourceControlQueryRequest {
@@ -553,6 +554,10 @@ export class SourceControlV1ApiClient
     if (query.view !== undefined) {
       assertSourceControlOpaqueId(query.view, 'view');
       params = params.set('view', query.view);
+    }
+    if (query.maxEdges !== undefined) {
+      this.assertInteger(query.maxEdges, 'max_edges', 1, 2000);
+      params = params.set('max_edges', query.maxEdges);
     }
     return this.handle(
       this.http

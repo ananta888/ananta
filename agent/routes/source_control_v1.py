@@ -44,6 +44,7 @@ from agent.services.source_control_artifact_download import (
 
 _SUCCESS_SCHEMA = "ananta.source-control.api-response.v1"
 _ERROR_SCHEMA = "ananta.source-control.error.v1"
+_SOURCE_GRAPH_MAX_EDGES = 2_000
 _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$")
 _CONNECTION_FILTERS = frozenset(
     {
@@ -1486,8 +1487,21 @@ def create_source_control_v1_blueprint(
         )
         if denied is not None:
             return denied
-        if set(request.args) - {"project_id", "cursor", "limit", "view"}:
+        if set(request.args) - {
+            "project_id",
+            "cursor",
+            "limit",
+            "view",
+            "max_edges",
+        }:
             raise SourceControlApiError("graph_parameters_invalid")
+        raw_max_edges = request.args.get("max_edges")
+        requested_view = request.args.get("view", "default")
+        if (
+            str(requested_view).strip().lower() == "topology"
+            and request.args.get("cursor") is not None
+        ):
+            raise SourceControlApiError("graph_topology_cursor_unsupported")
         parameters = {
             "cursor": request.args.get("cursor"),
             "limit": _bounded_int(
@@ -1497,7 +1511,18 @@ def create_source_control_v1_blueprint(
                 minimum=1,
                 maximum=500,
             ),
-            "view": request.args.get("view", "default"),
+            "view": requested_view,
+            "max_edges": (
+                _bounded_int(
+                    raw_max_edges,
+                    field="max_edges",
+                    default=_SOURCE_GRAPH_MAX_EDGES,
+                    minimum=1,
+                    maximum=_SOURCE_GRAPH_MAX_EDGES,
+                )
+                if raw_max_edges is not None
+                else None
+            ),
         }
         return _success(
             api.graph(
