@@ -20,7 +20,6 @@ from agent.services.source_destination_resolution import (
 )
 from ananta_contracts.knowledge_index_execution import (
     KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS,
-    KNOWLEDGE_INDEX_PRE_DISPATCH_RESERVE_SECONDS,
     KnowledgeIndexExecutionAssignment,
     KnowledgeIndexFileManifest,
     KnowledgeIndexResourceBudget,
@@ -288,14 +287,18 @@ class BoundSourceRevisionAuthorityPlanner:
             raise BoundSourceRevisionPlanningError(
                 "source_index_assignment_lease_inactive"
             )
-        required_planning_window_ms = (
+        # The authority issuer adds the pre-dispatch reserve to the lease and
+        # grant budget so proposal, persistence, and network latency may
+        # consume it.  At this boundary the fail-closed invariant is the same
+        # one enforced at dispatch: the complete Worker runtime plus result
+        # transfer margin must still remain.
+        required_dispatch_window_ms = (
             planned.resources.max_runtime_seconds
             + KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
-            + KNOWLEDGE_INDEX_PRE_DISPATCH_RESERVE_SECONDS
         ) * 1000
         if (
             planned.assignment.lease_expires_epoch_ms - now_ms
-            < required_planning_window_ms
+            < required_dispatch_window_ms
         ):
             raise BoundSourceRevisionPlanningError(
                 "source_index_assignment_runtime_window_insufficient"
@@ -347,7 +350,7 @@ class BoundSourceRevisionAuthorityPlanner:
                 "source_index_grant_binding_mismatch"
             )
         if int((grant.expires_at - now).total_seconds() * 1000) < (
-            required_planning_window_ms
+            required_dispatch_window_ms
         ):
             raise BoundSourceRevisionPlanningError(
                 "source_index_grant_runtime_window_insufficient"

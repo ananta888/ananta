@@ -178,6 +178,7 @@ def _planner_fixture(
     *,
     grant_lifetime: timedelta = timedelta(hours=1),
     lease_lifetime: timedelta = timedelta(minutes=8),
+    planning_delay: timedelta = timedelta(),
 ):
     revision = BoundSourceRevisionAuthority(
         tenant_id="tenant-example",
@@ -280,7 +281,7 @@ def _planner_fixture(
         authority=_AuthorityPort(authority),
         destinations=destinations,
         grants=grants,
-        clock=lambda: NOW,
+        clock=lambda: NOW + planning_delay,
     )
     return planner, revision, grants
 
@@ -392,6 +393,53 @@ def test_planner_rejects_grant_without_runtime_transport_margin() -> None:
 
     assert raised.value.reason_code == (
         "source_index_grant_runtime_window_insufficient"
+    )
+
+
+def test_planner_allows_pre_dispatch_reserve_to_absorb_clock_drift() -> None:
+    planner, revision, _grants = _planner_fixture(
+        grant_lifetime=timedelta(seconds=450),
+        lease_lifetime=timedelta(seconds=450),
+        planning_delay=timedelta(seconds=60),
+    )
+
+    plan = planner.plan_bound_source_revision(
+        tenant_id=revision.tenant_id,
+        project_id=revision.project_id,
+        actor_id="actor-example",
+        connection_id=revision.connection_id,
+        source_revision_id=revision.source_revision_id,
+        source_revision_digest=revision.source_revision_digest,
+        content_manifest_digest=revision.content_manifest_digest,
+        descriptor={"source_id": revision.source_id},
+        idempotency_key="index-example",
+    )
+
+    assert plan["resource_budget"]["max_runtime_seconds"] == 300
+
+
+def test_planner_fails_closed_after_pre_dispatch_reserve_is_consumed() -> None:
+    planner, revision, _grants = _planner_fixture(
+        grant_lifetime=timedelta(seconds=450),
+        lease_lifetime=timedelta(seconds=450),
+        planning_delay=timedelta(seconds=121),
+    )
+
+    with pytest.raises(BoundSourceRevisionPlanningError) as raised:
+        planner.plan_bound_source_revision(
+            tenant_id=revision.tenant_id,
+            project_id=revision.project_id,
+            actor_id="actor-example",
+            connection_id=revision.connection_id,
+            source_revision_id=revision.source_revision_id,
+            source_revision_digest=revision.source_revision_digest,
+            content_manifest_digest=revision.content_manifest_digest,
+            descriptor={"source_id": revision.source_id},
+            idempotency_key="index-example",
+        )
+
+    assert raised.value.reason_code == (
+        "source_index_assignment_runtime_window_insufficient"
     )
 
 
