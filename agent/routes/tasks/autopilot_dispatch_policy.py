@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
+
+from agent.services.knowledge_index_forward_timeout import (
+    resolve_knowledge_index_forward_budget_seconds,
+)
+
+KNOWLEDGE_INDEX_SUPERVISOR_GRACE_SECONDS = 30
 
 
 def _safe_int(value: Any, default: int) -> int:
@@ -35,7 +42,12 @@ def resolve_dispatch_hard_timeout(
     tasks: list[Any],
     security_policy: dict[str, Any],
 ) -> int:
-    """Resolve a bounded Hub wait window from signed worker job budgets."""
+    """Resolve a Hub wait window from signed worker job budgets.
+
+    The supervisor receives a small grace after the worker transport deadline
+    so the transport owner can close the response and publish the terminal
+    state before the generic Autopilot timeout path intervenes.
+    """
 
     propose_timeout = max(
         1,
@@ -47,27 +59,44 @@ def resolve_dispatch_hard_timeout(
     )
     timeout = propose_timeout + execute_timeout + 30
     for task in tasks:
-        if str(getattr(task, "task_kind", "") or "").strip().lower() != "codecompass_index_build":
+        if hasattr(task, "model_dump"):
+            raw_task = task.model_dump()
+        elif isinstance(task, Mapping):
+            raw_task = dict(task)
+        else:
+            raw_task = dict(vars(task))
+        if (
+            str(raw_task.get("task_kind") or "").strip().lower()
+            != "codecompass_index_build"
+        ):
             continue
-        context = getattr(task, "worker_execution_context", None)
-        if not isinstance(context, dict):
+        try:
+            transport_budget_seconds = (
+                resolve_knowledge_index_forward_budget_seconds(
+                    raw_task,
+                    dispatch_phase="execute",
+                )
+            )
+        except ValueError:
+            # Invalid bindings fail in the governed dispatch gate.  They must
+            # not inflate the supervisory wait window for unrelated tasks.
             continue
-        job = context.get("knowledge_index_job")
-        if not isinstance(job, dict) or job.get("schema") != "ananta.knowledge_index_execution_job.v2":
-            continue
-        resources = job.get("resources")
-        if not isinstance(resources, dict):
-            continue
-        max_runtime_seconds = max(
-            execute_timeout,
-            min(_safe_int(resources.get("max_runtime_seconds"), execute_timeout), 3600),
-        )
-        timeout = max(timeout, propose_timeout + max_runtime_seconds + 30)
+        if transport_budget_seconds is not None:
+            timeout = max(
+                timeout,
+                propose_timeout
+                + transport_budget_seconds
+                + KNOWLEDGE_INDEX_SUPERVISOR_GRACE_SECONDS,
+            )
     return timeout
 
 
 def dispatch_queue_positions(dispatch_queue: list[dict[str, Any]]) -> dict[str, Any]:
-    return {str(item.get("task_id") or ""): item.get("queue_position") for item in dispatch_queue if item.get("task_id")}
+    return {
+        str(item.get("task_id") or ""): item.get("queue_position")
+        for item in dispatch_queue
+        if item.get("task_id")
+    }
 
 
 def resolve_target_worker_for_task(

@@ -2,11 +2,15 @@ from flask import Blueprint, current_app, g
 
 from agent.auth import check_auth
 from agent.cli_backends.sgpt import run_llm_cli_command
+from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.llm_integration import _call_llm
 from agent.metrics import TASK_COMPLETED, TASK_FAILED
 from agent.models import TaskStepExecuteRequest, TaskStepProposeRequest
 from agent.routes.tasks.utils import _forward_to_worker
+from agent.services.knowledge_index_dispatch_request_auth_policy import (
+    knowledge_index_dispatch_request_auth_policy,
+)
 from agent.services.service_registry import get_core_services
 from agent.tools import registry as tool_registry
 from agent.utils import validate_request
@@ -22,6 +26,44 @@ def _respond(outcome) -> object:
     if outcome.status == "success":
         return api_response(data=outcome.data, code=outcome.code)
     return api_response(status=outcome.status, message=outcome.message, data=outcome.data, code=outcome.code)
+
+
+def _knowledge_index_dispatch_auth_error(
+    data: TaskStepProposeRequest | TaskStepExecuteRequest,
+    *,
+    task_id: str,
+    phase: str,
+) -> object | None:
+    """Fence internal Worker dispatch before snapshot hydration or handlers."""
+
+    decision = knowledge_index_dispatch_request_auth_policy.evaluate(
+        data,
+        user_identity=getattr(g, "user", None),
+        service_identity=getattr(g, "auth_payload", None),
+    )
+    if decision.allowed:
+        return None
+    reason_code = str(decision.reason_code or "forbidden")
+    log_audit(
+        "knowledge_index_worker_dispatch_auth_denied",
+        {
+            "task_id": str(task_id or ""),
+            "phase": str(phase or ""),
+            "reason_code": reason_code,
+            "auth_mode": str(
+                dict(getattr(g, "auth_payload", {}) or {}).get(
+                    "auth_mode"
+                )
+                or "user_jwt"
+            ),
+        },
+    )
+    return api_response(
+        status="error",
+        message="forbidden",
+        data={"reason_code": reason_code},
+        code=403,
+    )
 
 
 @execution_bp.route("/step/propose", methods=["POST"])
@@ -92,6 +134,12 @@ def task_propose(tid):
         description: Vorschlag erhalten
     """
     data: TaskStepProposeRequest = g.validated_data
+    if error := _knowledge_index_dispatch_auth_error(
+        data,
+        task_id=tid,
+        phase="propose",
+    ):
+        return error
     outcome = _services().task_scoped_execution_service.propose_task_step(
         tid,
         data,
@@ -119,6 +167,12 @@ def task_execute(tid):
         description: Schritt ausgeführt
     """
     data: TaskStepExecuteRequest = g.validated_data
+    if error := _knowledge_index_dispatch_auth_error(
+        data,
+        task_id=tid,
+        phase="execute",
+    ):
+        return error
     outcome = _services().task_scoped_execution_service.execute_task_step(
         tid,
         data,

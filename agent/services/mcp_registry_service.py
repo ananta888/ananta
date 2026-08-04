@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from agent.services.artifact_visibility_policy import (
+    is_artifact_visible_on_generic_surfaces,
+)
 from agent.services.evolution import EvolutionTrigger, EvolutionTriggerType
 
 
@@ -223,7 +226,11 @@ class MCPRegistryService:
 
         if name == "artifacts.list":
             artifact_repo = context["artifact_repo"]
-            items = [item.model_dump() for item in artifact_repo.get_all()]
+            items = [
+                item.model_dump()
+                for item in artifact_repo.get_all()
+                if is_artifact_visible_on_generic_surfaces(item)
+            ]
             return {"content": [{"type": "json", "json": {"items": items, "count": len(items)}}]}
 
         if name == "knowledge.list_collections":
@@ -348,7 +355,11 @@ class MCPRegistryService:
                 ]
             }
         if normalized_uri == "ananta://artifacts/list":
-            items = [item.model_dump() for item in context["artifact_repo"].get_all()]
+            items = [
+                item.model_dump()
+                for item in context["artifact_repo"].get_all()
+                if is_artifact_visible_on_generic_surfaces(item)
+            ]
             return {
                 "contents": [
                     {

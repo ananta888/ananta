@@ -35,6 +35,7 @@ SOURCE_ACCESS_GRANT_SCHEMA = "ananta.source-control.source-access-grant.v1"
 DELEGATED_SOURCE_MANIFEST_REF_SCHEMA = (
     "ananta.source-control.delegated-source-manifest-ref.v1"
 )
+MAX_SOURCE_ADMISSION_FILES = 20_000
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _CONNECTION_ID_RE = re.compile(r"^conn_[0-9a-f]{64}$")

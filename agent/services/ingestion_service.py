@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import hashlib
 import bz2
 import gzip
+import hashlib
 import json
 import logging
 import re
@@ -12,9 +12,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from collections.abc import Mapping
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from agent.config import settings
 from agent.db_models import ArtifactDB, ArtifactVersionDB, ExtractedDocumentDB, KnowledgeCollectionDB, KnowledgeLinkDB
@@ -54,21 +55,38 @@ class IngestionService:
         created_by: str | None,
         media_type: str | None = None,
         collection_name: str | None = None,
+        execution_checkpoint: Callable[[], None] | None = None,
+        artifact_metadata: Mapping[str, Any] | None = None,
     ) -> tuple[ArtifactDB, ArtifactVersionDB, KnowledgeCollectionDB | None]:
+        if artifact_metadata is not None and not isinstance(
+            artifact_metadata,
+            Mapping,
+        ):
+            raise ValueError("artifact_metadata_invalid")
+        checkpoint = execution_checkpoint or (lambda: None)
+        checkpoint()
         artifact = artifact_repo.save(
             ArtifactDB(
                 created_by=created_by,
                 status="stored",
-                artifact_metadata={"ingestion_mode": "raw_artifact_store"},
+                artifact_metadata={
+                    "ingestion_mode": "raw_artifact_store",
+                    **dict(artifact_metadata or {}),
+                },
             )
         )
-        stored = self._artifact_store.store_bytes(
-            artifact_id=artifact.id,
-            version_number=1,
-            filename=filename,
-            content=content,
-            media_type=media_type,
-        )
+        checkpoint()
+        store_kwargs: dict[str, Any] = {
+            "artifact_id": artifact.id,
+            "version_number": 1,
+            "filename": filename,
+            "content": content,
+            "media_type": media_type,
+        }
+        if execution_checkpoint is not None:
+            store_kwargs["execution_checkpoint"] = execution_checkpoint
+        stored = self._artifact_store.store_bytes(**store_kwargs)
+        checkpoint()
         version = artifact_version_repo.save(
             ArtifactVersionDB(
                 artifact_id=artifact.id,
@@ -81,6 +99,7 @@ class IngestionService:
                 version_metadata={"versioning_ready": True},
             )
         )
+        checkpoint()
         artifact.latest_version_id = version.id
         artifact.latest_sha256 = version.sha256
         artifact.latest_media_type = version.media_type
@@ -88,6 +107,7 @@ class IngestionService:
         artifact.size_bytes = version.size_bytes
         artifact.updated_at = time.time()
         artifact = artifact_repo.save(artifact)
+        checkpoint()
 
         collection = None
         if collection_name:
@@ -105,6 +125,7 @@ class IngestionService:
                 )
             )
 
+        checkpoint()
         return artifact, version, collection
 
     def extract_artifact(self, artifact_id: str) -> tuple[ArtifactDB | None, ArtifactVersionDB | None, ExtractedDocumentDB | None]:

@@ -11,7 +11,7 @@ from pydantic import BaseModel, ValidationError
 
 from agent.common.errors import ValidationError as AnantaValidationError
 from agent.common.errors import api_response
-from agent.common.http import get_default_client
+from agent.common.http import HttpTimeout, get_default_client
 from agent.common.utils import archive_utils, extraction_utils, json_utils, network_utils
 from agent.config import settings
 from agent.metrics import HTTP_REQUEST_DURATION
@@ -137,12 +137,14 @@ def _http_post(
     data: dict | None = None,
     headers: dict | None = None,
     form: bool = False,
-    timeout: int | None = None,
+    timeout: HttpTimeout | None = None,
     return_response: bool = False,
     silent: bool = False,
     idempotency_key: Optional[str] = None,
     allow_redirects: bool = True,
     stream: bool = False,
+    deadline_monotonic: float | None = None,
+    raise_on_transport_error: bool = False,
 ) -> Any:
     if timeout is None:
         timeout = settings.http_timeout
@@ -159,6 +161,8 @@ def _http_post(
             idempotency_key=idempotency_key,
             allow_redirects=allow_redirects,
             stream=stream,
+            deadline_monotonic=deadline_monotonic,
+            raise_on_transport_error=raise_on_transport_error,
         )
 
 

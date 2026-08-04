@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import json
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Mapping
@@ -15,20 +16,54 @@ from typing import Any, Protocol
 from ananta_contracts.codecompass_graph_limits import (
     MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
 )
+from ananta_contracts.knowledge_index_execution import (
+    MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES,
+)
+from worker.retrieval.knowledge_index_execution_guard import (
+    DeadlineAwareKnowledgeIndexExecutionRunner,
+    KnowledgeIndexExecutionDeadlineError,
+    KnowledgeIndexExecutionDeadlinePort,
+    KnowledgeIndexExecutionGuardPort,
+    MonotonicKnowledgeIndexExecutionGuard,
+)
 
 JOB_SCHEMA = "ananta.knowledge_index_job.v1"
 RESULT_SCHEMA = "ananta.knowledge_index_job_result.v1"
 BOUND_JOB_SCHEMA = "ananta.knowledge_index_execution_job.v2"
 BOUND_RESULT_SCHEMA = "ananta.knowledge_index_execution_result.v2"
 PAYLOAD_MEDIA_TYPE = "application/vnd.ananta.knowledge-index-job+json"
-MAX_PAYLOAD_BYTES = 128 * 1024 * 1024
+MAX_PAYLOAD_BYTES = MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES
+_PAYLOAD_READ_CHUNK_BYTES = 1024 * 1024
 SOURCE_ACCESS_MANIFEST_FIELD = "source_access_enforcement_manifest"
+
+
+class _KnowledgeIndexPayloadNoRedirectHandler(
+    urllib.request.HTTPRedirectHandler
+):
+    """Keep a delegated payload capability on the configured Hub request."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> None:
+        del req, fp, code, msg, headers, newurl
+        return None
 
 
 class KnowledgeIndexExecutionPort(Protocol):
     """Infrastructure port implemented by the worker's rag-helper runtime."""
 
-    def execute(self, job: Mapping[str, Any]) -> Mapping[str, Any]: ...
+    def execute(
+        self,
+        job: Mapping[str, Any],
+        *,
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None = None,
+    ) -> Mapping[str, Any]: ...
 
 
 class KnowledgeIndexPayloadLoaderPort(Protocol):
@@ -42,6 +77,7 @@ class KnowledgeIndexArtifactPublisherPort(Protocol):
         job_id: str,
         knowledge_index: Mapping[str, Any],
         run: Mapping[str, Any],
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None = None,
     ) -> list[dict[str, Any]]: ...
 
 
@@ -54,6 +90,34 @@ class KnowledgeIndexGraphArtifactMaterializerPort(Protocol):
         knowledge_index: Mapping[str, Any],
         run: Mapping[str, Any],
         options: Mapping[str, Any] | None = None,
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None = None,
+    ) -> Mapping[str, Any]: ...
+
+
+class KnowledgeIndexWorkerDispatchAdmissionPort(Protocol):
+    """Worker-local preparation and atomic v2 execution claim."""
+
+    def prepare(
+        self,
+        *,
+        task: Mapping[str, Any],
+        job: Mapping[str, Any],
+        request_data: Any,
+        expected_phase: str,
+    ) -> Any: ...
+
+    def claim_execute(
+        self,
+        *,
+        task_id: str,
+        prepared: Any,
+    ) -> Any: ...
+
+    def complete_execute_result(
+        self,
+        *,
+        claimed: Any,
+        result_payload: Mapping[str, Any],
     ) -> Mapping[str, Any]: ...
 
 
@@ -67,6 +131,12 @@ class KnowledgeIndexWorkerTaskHandler:
         source_access_manifest_verifier: Any | None = None,
         worker_id: str | None = None,
         allow_legacy_unsigned_source_dispatch: bool = False,
+        worker_dispatch_admission: (
+            KnowledgeIndexWorkerDispatchAdmissionPort | None
+        ) = None,
+        require_bound_dispatch_marker: bool = False,
+        execution_guard: KnowledgeIndexExecutionGuardPort | None = None,
+        execution_runner: DeadlineAwareKnowledgeIndexExecutionRunner | None = None,
         clock_ms=lambda: int(time.time() * 1000),
     ) -> None:
         self._execution = execution
@@ -77,13 +147,30 @@ class KnowledgeIndexWorkerTaskHandler:
         self._allow_legacy_unsigned_source_dispatch = bool(
             allow_legacy_unsigned_source_dispatch
         )
+        self._worker_dispatch_admission = worker_dispatch_admission
+        self._require_bound_dispatch_marker = bool(
+            require_bound_dispatch_marker
+        )
+        self._execution_guard = (
+            execution_guard or MonotonicKnowledgeIndexExecutionGuard()
+        )
+        self._execution_runner = (
+            execution_runner or DeadlineAwareKnowledgeIndexExecutionRunner()
+        )
         self._clock_ms = clock_ms
 
     def propose(self, **kwargs: Any) -> dict[str, Any]:
         """Expose a non-shell executable marker for the deterministic pipeline."""
 
         job = self._resolve_job(None, kwargs)
-        self._validate_job(job)
+        prepared_dispatch = self._prepare_bound_dispatch(
+            job=job,
+            kwargs=kwargs,
+            phase="propose",
+        )
+        if prepared_dispatch is not None:
+            job = dict(prepared_dispatch.executable_job)
+        self._validate_job(job, require_source_access=False)
         return {
             "proposal_id": f"{job['job_id']}-proposal",
             "strategy_id": "deterministic_handler",
@@ -113,15 +200,74 @@ class KnowledgeIndexWorkerTaskHandler:
         **kwargs: Any,
     ) -> dict[str, Any]:
         job = self._resolve_job(envelope, kwargs)
-        self._validate_job(job)
+        prepared_dispatch = self._prepare_bound_dispatch(
+            job=job,
+            kwargs=kwargs,
+            phase="execute",
+        )
+        if prepared_dispatch is not None:
+            job = dict(prepared_dispatch.executable_job)
+        self._validate_job(job, require_source_access=True)
+        claimed_dispatch = None
+        if prepared_dispatch is not None:
+            claimed_dispatch = self._worker_dispatch_admission.claim_execute(
+                task_id=str(job.get("job_id") or ""),
+                prepared=prepared_dispatch,
+            )
+            job = dict(claimed_dispatch.executable_job)
+            self._apply_claimed_dispatch_to_request_task(
+                kwargs.get("task"),
+                job=job,
+            )
+            replayed_result = claimed_dispatch.replayed_result
+            if replayed_result is not None:
+                return dict(replayed_result)
         try:
-            raw_result = dict(self._execution.execute(job) or {})
+            if str(job.get("schema") or "") == BOUND_JOB_SCHEMA:
+                from ananta_contracts.knowledge_index_execution import (
+                    parse_execution_job,
+                )
+
+                parsed_job = parse_execution_job(
+                    self._bound_contract_payload(job)
+                )
+                execution_deadline = self._execution_guard.start(
+                    max_runtime_seconds=(
+                        parsed_job.resources.max_runtime_seconds
+                    ),
+                )
+                raw_result = dict(
+                    self._execution_runner.execute(
+                        self._execution,
+                        job,
+                        execution_deadline=execution_deadline,
+                    )
+                    or {}
+                )
+            else:
+                raw_result = dict(self._execution.execute(job) or {})
+        except KnowledgeIndexExecutionDeadlineError as exc:
+            return self._complete_claimed_result(
+                claimed_dispatch,
+                self._result(
+                    job,
+                    status="failed",
+                    reason_code=exc.reason_code,
+                    error=exc.reason_code,
+                ),
+            )
         except Exception as exc:
-            return self._result(
-                job,
-                status="failed",
-                reason_code=f"worker_execution_failed:{type(exc).__name__}",
-                error=str(exc)[:1000],
+            return self._complete_claimed_result(
+                claimed_dispatch,
+                self._result(
+                    job,
+                    status="failed",
+                    reason_code=(
+                        "worker_execution_failed:"
+                        f"{type(exc).__name__}"
+                    ),
+                    error=str(exc)[:1000],
+                ),
             )
         allowed_result_fields = {
             "status",
@@ -133,29 +279,65 @@ class KnowledgeIndexWorkerTaskHandler:
             "error",
         }
         if set(raw_result) - allowed_result_fields:
-            return self._result(
-                job,
-                status="failed",
-                reason_code="worker_result_fields_unknown",
-                error="execution port returned unauthorized fields",
+            return self._complete_claimed_result(
+                claimed_dispatch,
+                self._result(
+                    job,
+                    status="failed",
+                    reason_code="worker_result_fields_unknown",
+                    error=(
+                        "execution port returned unauthorized fields"
+                    ),
+                ),
             )
         status = str(raw_result.get("status") or "").strip().lower()
         if status not in {"completed", "failed"}:
-            return self._result(
-                job,
-                status="failed",
-                reason_code="worker_result_status_invalid",
-                error="execution port returned a non-terminal status",
+            return self._complete_claimed_result(
+                claimed_dispatch,
+                self._result(
+                    job,
+                    status="failed",
+                    reason_code="worker_result_status_invalid",
+                    error=(
+                        "execution port returned a non-terminal status"
+                    ),
+                ),
             )
-        return self._result(
-            job,
-            status=status,
-            reason_code=str(raw_result.get("reason_code") or "") or None,
-            knowledge_index=raw_result.get("knowledge_index"),
-            run=raw_result.get("run"),
-            results=raw_result.get("results"),
-            artifact_refs=list(raw_result.get("artifact_refs") or []),
-            error=str(raw_result.get("error") or "") or None,
+        return self._complete_claimed_result(
+            claimed_dispatch,
+            self._result(
+                job,
+                status=status,
+                reason_code=(
+                    str(raw_result.get("reason_code") or "") or None
+                ),
+                knowledge_index=raw_result.get("knowledge_index"),
+                run=raw_result.get("run"),
+                results=raw_result.get("results"),
+                artifact_refs=list(
+                    raw_result.get("artifact_refs") or []
+                ),
+                error=str(raw_result.get("error") or "") or None,
+            ),
+        )
+
+    def _complete_claimed_result(
+        self,
+        claimed_dispatch: Any | None,
+        result_payload: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        if claimed_dispatch is None:
+            return dict(result_payload)
+        admission = self._worker_dispatch_admission
+        if admission is None:
+            raise ValueError(
+                "knowledge_index_worker_dispatch_admission_unavailable"
+            )
+        return dict(
+            admission.complete_execute_result(
+                claimed=claimed_dispatch,
+                result_payload=result_payload,
+            )
         )
 
     @staticmethod
@@ -178,7 +360,53 @@ class KnowledgeIndexWorkerTaskHandler:
                     return dict(job)
         raise ValueError("knowledge_index_job_envelope_missing")
 
-    def _validate_job(self, job: Mapping[str, Any]) -> None:
+    def _prepare_bound_dispatch(
+        self,
+        *,
+        job: Mapping[str, Any],
+        kwargs: Mapping[str, Any],
+        phase: str,
+    ) -> Any | None:
+        if str(job.get("schema") or "") != BOUND_JOB_SCHEMA:
+            return None
+        admission = self._worker_dispatch_admission
+        if admission is None and not self._require_bound_dispatch_marker:
+            # Backward-compatible programmatic v2 path. Production Worker
+            # composition always enables the network dispatch boundary.
+            return None
+        if admission is None:
+            raise ValueError(
+                "knowledge_index_worker_dispatch_admission_unavailable"
+            )
+        task = kwargs.get("task")
+        if not isinstance(task, Mapping):
+            raise ValueError("knowledge_index_worker_dispatch_task_missing")
+        return admission.prepare(
+            task=task,
+            job=job,
+            request_data=kwargs.get("request_data"),
+            expected_phase=phase,
+        )
+
+    @staticmethod
+    def _apply_claimed_dispatch_to_request_task(
+        task: Any,
+        *,
+        job: Mapping[str, Any],
+    ) -> None:
+        if not isinstance(task, dict):
+            return
+        context = dict(task.get("worker_execution_context") or {})
+        context["knowledge_index_job"] = dict(job)
+        context.pop("knowledge_index_dispatch_receipt", None)
+        task["worker_execution_context"] = context
+
+    def _validate_job(
+        self,
+        job: Mapping[str, Any],
+        *,
+        require_source_access: bool,
+    ) -> None:
         if str(job.get("schema") or "") == BOUND_JOB_SCHEMA:
             from ananta_contracts.knowledge_index_execution import (
                 parse_execution_job,
@@ -192,7 +420,13 @@ class KnowledgeIndexWorkerTaskHandler:
                 >= parsed.assignment.lease_expires_epoch_ms
             ):
                 raise ValueError("knowledge_index_execution_lease_stale")
-            self._validate_source_access_manifest(job, parsed)
+            self._validate_bound_worker_assignment(parsed)
+            if require_source_access:
+                self._validate_source_access_manifest(job, parsed)
+            elif job.get(SOURCE_ACCESS_MANIFEST_FIELD) is not None:
+                raise ValueError(
+                    "knowledge_index_proposal_source_access_forbidden"
+                )
             return
         if str(job.get("schema") or "") != JOB_SCHEMA:
             raise ValueError("knowledge_index_job_schema_invalid")
@@ -205,6 +439,19 @@ class KnowledgeIndexWorkerTaskHandler:
             raise ValueError("knowledge_index_job_type_invalid")
         if not isinstance(job.get("payload"), Mapping):
             raise ValueError("knowledge_index_job_payload_invalid")
+
+    def _validate_bound_worker_assignment(self, parsed: Any) -> None:
+        if not self._worker_id:
+            raise ValueError(
+                "knowledge_index_authenticated_worker_missing"
+            )
+        if not hmac.compare_digest(
+            self._worker_id,
+            parsed.assignment.worker_id,
+        ):
+            raise ValueError(
+                "knowledge_index_assignment_worker_mismatch"
+            )
 
     def _validate_source_access_manifest(
         self,
@@ -221,17 +468,6 @@ class KnowledgeIndexWorkerTaskHandler:
         if not isinstance(raw_manifest, Mapping):
             raise ValueError(
                 "knowledge_index_source_access_manifest_invalid"
-            )
-        if not self._worker_id:
-            raise ValueError(
-                "knowledge_index_authenticated_worker_missing"
-            )
-        if not hmac.compare_digest(
-            self._worker_id,
-            parsed.assignment.worker_id,
-        ):
-            raise ValueError(
-                "knowledge_index_assignment_worker_mismatch"
             )
         verifier = self._source_access_manifest_verifier
         if verifier is None or not verifier.verify_manifest(raw_manifest):
@@ -363,8 +599,23 @@ class RagHelperKnowledgeIndexExecution:
         self._artifact_publisher = artifact_publisher
         self._graph_artifact_materializer = graph_artifact_materializer
 
-    def execute(self, job: Mapping[str, Any]) -> Mapping[str, Any]:
-        payload = self._resolve_payload(job)
+    def execute(
+        self,
+        job: Mapping[str, Any],
+        *,
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None = None,
+    ) -> Mapping[str, Any]:
+        self._checkpoint(execution_deadline)
+        payload = self._resolve_payload(
+            job,
+            execution_deadline=execution_deadline,
+        )
+        self._checkpoint(execution_deadline)
+        deadline_kwargs = (
+            {"execution_deadline": execution_deadline}
+            if execution_deadline is not None
+            else {}
+        )
         job_type = str(job.get("job_type") or "")
         if job_type == "artifact":
             knowledge_index, run = self._index_service.index_artifact(
@@ -372,19 +623,30 @@ class RagHelperKnowledgeIndexExecution:
                 created_by=self._created_by(job),
                 profile_name=self._profile_name(job),
                 profile_overrides=dict(payload.get("profile_overrides") or {}),
+                **deadline_kwargs,
             )
-            return self._single_result(job, payload, knowledge_index, run)
+            self._checkpoint(execution_deadline)
+            return self._single_result(
+                job,
+                payload,
+                knowledge_index,
+                run,
+                execution_deadline=execution_deadline,
+            )
         if job_type == "collection":
             results: list[dict[str, Any]] = []
             artifact_refs: list[dict[str, Any]] = []
             overall_status = "completed"
             for artifact_id in list(payload.get("artifact_ids") or []):
+                self._checkpoint(execution_deadline)
                 knowledge_index, run = self._index_service.index_artifact(
                     str(artifact_id),
                     created_by=self._created_by(job),
                     profile_name=self._profile_name(job),
                     profile_overrides=dict(payload.get("profile_overrides") or {}),
+                    **deadline_kwargs,
                 )
+                self._checkpoint(execution_deadline)
                 index_payload = self._model_dump(knowledge_index)
                 run_payload = self._model_dump(run)
                 results.append(
@@ -400,6 +662,7 @@ class RagHelperKnowledgeIndexExecution:
                         payload=payload,
                         knowledge_index=index_payload,
                         run=run_payload,
+                        execution_deadline=execution_deadline,
                     )
                 )
                 if self._is_failed(index_payload, run_payload):
@@ -419,11 +682,31 @@ class RagHelperKnowledgeIndexExecution:
                 profile_name=self._profile_name(job),
                 source_metadata=dict(payload.get("source_metadata") or {}),
                 codecompass_prerender=bool(payload.get("codecompass_prerender", False)),
+                **deadline_kwargs,
             )
-            return self._single_result(job, payload, knowledge_index, run)
+            self._checkpoint(execution_deadline)
+            return self._single_result(
+                job,
+                payload,
+                knowledge_index,
+                run,
+                execution_deadline=execution_deadline,
+            )
         raise ValueError("knowledge_index_job_type_invalid")
 
-    def _resolve_payload(self, job: Mapping[str, Any]) -> dict[str, Any]:
+    @staticmethod
+    def _checkpoint(
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None,
+    ) -> None:
+        if execution_deadline is not None:
+            execution_deadline.checkpoint()
+
+    def _resolve_payload(
+        self,
+        job: Mapping[str, Any],
+        *,
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None = None,
+    ) -> dict[str, Any]:
         payload = dict(job.get("payload") or {})
         raw_reference = payload.get("payload_artifact_ref")
         if raw_reference is None:
@@ -447,15 +730,23 @@ class RagHelperKnowledgeIndexExecution:
         loader = self._payload_loader or HubArtifactKnowledgeIndexPayloadLoader()
         authorized_load = getattr(loader, "load_authorized", None)
         source_access_manifest = job.get(SOURCE_ACCESS_MANIFEST_FIELD)
-        if (
-            str(job.get("schema") or "") == BOUND_JOB_SCHEMA
-            and isinstance(source_access_manifest, Mapping)
-            and callable(authorized_load)
-        ):
-            content = authorized_load(
-                reference,
-                source_access_manifest=source_access_manifest,
-            )
+        if str(job.get("schema") or "") == BOUND_JOB_SCHEMA:
+            if not isinstance(source_access_manifest, Mapping):
+                raise ValueError(
+                    "knowledge_index_payload_capability_required"
+                )
+            if not callable(authorized_load):
+                raise ValueError(
+                    "knowledge_index_authorized_payload_loader_required"
+                )
+            authorized_load_kwargs: dict[str, Any] = {
+                "source_access_manifest": source_access_manifest,
+            }
+            if execution_deadline is not None:
+                authorized_load_kwargs["execution_deadline"] = (
+                    execution_deadline
+                )
+            content = authorized_load(reference, **authorized_load_kwargs)
         else:
             content = loader.load(reference)
         if len(content) != size_bytes:
@@ -503,6 +794,7 @@ class RagHelperKnowledgeIndexExecution:
         payload: Mapping[str, Any],
         knowledge_index: Any,
         run: Any,
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None = None,
     ) -> dict[str, Any]:
         index_payload = self._model_dump(knowledge_index)
         run_payload = self._model_dump(run)
@@ -517,6 +809,7 @@ class RagHelperKnowledgeIndexExecution:
                 payload=payload,
                 knowledge_index=index_payload,
                 run=run_payload,
+                execution_deadline=execution_deadline,
             ),
             "error": str(run_payload.get("error_message") or "") or None,
         }
@@ -528,7 +821,9 @@ class RagHelperKnowledgeIndexExecution:
         payload: Mapping[str, Any],
         knowledge_index: Mapping[str, Any],
         run: Mapping[str, Any],
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None = None,
     ) -> list[dict[str, Any]]:
+        self._checkpoint(execution_deadline)
         if self._is_failed(knowledge_index, run):
             return []
         # A custom publisher without a graph materializer is the intentional
@@ -548,18 +843,32 @@ class RagHelperKnowledgeIndexExecution:
             raw_options = payload.get("graph_visual_metrics")
             if raw_options is not None and not isinstance(raw_options, Mapping):
                 raise ValueError("graph_visual_options_invalid")
+            materializer_kwargs = (
+                {"execution_deadline": execution_deadline}
+                if execution_deadline is not None
+                else {}
+            )
             materializer.materialize(
                 knowledge_index=knowledge_index,
                 run=run,
                 options=raw_options,
+                **materializer_kwargs,
             )
+            self._checkpoint(execution_deadline)
 
         publisher = self._artifact_publisher or WorkerKnowledgeIndexArtifactPublisher()
+        publisher_kwargs = (
+            {"execution_deadline": execution_deadline}
+            if execution_deadline is not None
+            else {}
+        )
         references = publisher.publish(
             job_id=str(job.get("job_id") or ""),
             knowledge_index=knowledge_index,
             run=run,
+            **publisher_kwargs,
         )
+        self._checkpoint(execution_deadline)
         roles = {str(item.get("role") or "") for item in references}
         required_roles = {"manifest", "index"}
         if graph_artifacts_required:
@@ -589,6 +898,7 @@ class WorkerKnowledgeIndexArtifactPublisher:
     _MAX_OUTPUT_BYTES = 128 * 1024 * 1024
     _MAX_GRAPH_OUTPUT_BYTES = MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES
     _GRAPH_OUTPUT_ROLES = frozenset({"graph_index", "graph_visual_metrics"})
+    _READ_CHUNK_BYTES = 1024 * 1024
 
     def publish(
         self,
@@ -596,10 +906,12 @@ class WorkerKnowledgeIndexArtifactPublisher:
         job_id: str,
         knowledge_index: Mapping[str, Any],
         run: Mapping[str, Any],
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None = None,
     ) -> list[dict[str, Any]]:
         from agent.repository import artifact_repo
         from agent.services.ingestion_service import get_ingestion_service
 
+        self._checkpoint(execution_deadline)
         output_dir_value = str(run.get("output_dir") or knowledge_index.get("output_dir") or "").strip()
         if not output_dir_value:
             raise RuntimeError("knowledge_index_output_directory_missing")
@@ -625,11 +937,15 @@ class WorkerKnowledgeIndexArtifactPublisher:
                     raise RuntimeError("knowledge_index_output_artifact_invalid")
                 if graph_file.stat().st_size > self._MAX_GRAPH_OUTPUT_BYTES:
                     raise RuntimeError("knowledge_index_graph_artifact_too_large")
-            graph_binding = self._load_graph_binding(resolved_output)
+            graph_binding = self._load_graph_binding(
+                resolved_output,
+                execution_deadline=execution_deadline,
+            )
         else:
             graph_binding = {}
         references: list[dict[str, Any]] = []
         for role, (filename, media_type) in self._OUTPUTS.items():
+            self._checkpoint(execution_deadline)
             path = resolved_output / filename
             if not path.exists():
                 continue
@@ -643,22 +959,42 @@ class WorkerKnowledgeIndexArtifactPublisher:
                 raise RuntimeError("knowledge_index_graph_artifact_too_large")
             if size_bytes < 0 or size_bytes > self._MAX_OUTPUT_BYTES:
                 raise RuntimeError("knowledge_index_output_artifact_too_large")
-            content = path.read_bytes()
+            content = self._read_bounded_file(
+                path,
+                expected_size=size_bytes,
+                execution_deadline=execution_deadline,
+            )
             if len(content) != size_bytes:
                 raise RuntimeError("knowledge_index_output_artifact_size_mismatch")
-            artifact, version, _collection = get_ingestion_service().upload_artifact(
-                filename=f"{job_id}-{run.get('id')}-{filename}",
-                content=content,
-                created_by="knowledge-index-worker",
-                media_type=media_type,
+            upload_kwargs = (
+                {"execution_checkpoint": execution_deadline.checkpoint}
+                if execution_deadline is not None
+                else {}
             )
-            artifact.artifact_metadata = {
-                **dict(artifact.artifact_metadata or {}),
+            initial_artifact_metadata = {
                 "system_artifact_kind": "knowledge_index_worker_output",
                 "knowledge_index_job_id": job_id,
                 "knowledge_index_id": str(knowledge_index.get("id") or ""),
                 "knowledge_index_run_id": str(run.get("id") or ""),
                 "output_role": role,
+                **(
+                    graph_binding.get(role, {})
+                    if role in self._GRAPH_OUTPUT_ROLES
+                    else {}
+                ),
+            }
+            artifact, version, _collection = get_ingestion_service().upload_artifact(
+                filename=f"{job_id}-{run.get('id')}-{filename}",
+                content=content,
+                created_by="knowledge-index-worker",
+                media_type=media_type,
+                artifact_metadata=initial_artifact_metadata,
+                **upload_kwargs,
+            )
+            self._checkpoint(execution_deadline)
+            artifact.artifact_metadata = {
+                **dict(artifact.artifact_metadata or {}),
+                **initial_artifact_metadata,
             }
             reference = {
                 "artifact_id": artifact.id,
@@ -680,15 +1016,31 @@ class WorkerKnowledgeIndexArtifactPublisher:
                 }
             artifact_repo.save(artifact)
             references.append(reference)
+        self._checkpoint(execution_deadline)
         return references
 
-    @staticmethod
-    def _load_graph_binding(output_dir: Path) -> dict[str, dict[str, str]]:
+    @classmethod
+    def _load_graph_binding(
+        cls,
+        output_dir: Path,
+        *,
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None,
+    ) -> dict[str, dict[str, str]]:
         graph_path = output_dir / "cc_graph_index.json"
         metrics_path = output_dir / "cc_graph_index.visual_metrics.json"
         try:
-            graph = json.loads(graph_path.read_text(encoding="utf-8"))
-            metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+            graph_bytes = cls._read_bounded_file(
+                graph_path,
+                expected_size=graph_path.stat().st_size,
+                execution_deadline=execution_deadline,
+            )
+            metrics_bytes = cls._read_bounded_file(
+                metrics_path,
+                expected_size=metrics_path.stat().st_size,
+                execution_deadline=execution_deadline,
+            )
+            graph = json.loads(graph_bytes)
+            metrics = json.loads(metrics_bytes)
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
             raise RuntimeError("knowledge_index_graph_artifacts_invalid") from exc
         if not isinstance(graph, dict) or not isinstance(metrics, dict):
@@ -717,7 +1069,7 @@ class WorkerKnowledgeIndexArtifactPublisher:
                 "artifact_schema": "codecompass_graph_index.v1",
                 "graph_revision": graph_revision,
                 "graph_content_hash": "sha256:"
-                + hashlib.sha256(graph_path.read_bytes()).hexdigest(),
+                + hashlib.sha256(graph_bytes).hexdigest(),
             },
             "graph_visual_metrics": {
                 "artifact_schema": "graph_visual_metrics.v1",
@@ -725,6 +1077,42 @@ class WorkerKnowledgeIndexArtifactPublisher:
                 "graph_content_hash": str(metrics.get("content_hash") or ""),
             },
         }
+
+    @staticmethod
+    def _checkpoint(
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None,
+    ) -> None:
+        if execution_deadline is not None:
+            execution_deadline.checkpoint()
+
+    @classmethod
+    def _read_bounded_file(
+        cls,
+        path: Path,
+        *,
+        expected_size: int,
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None,
+    ) -> bytes:
+        chunks: list[bytes] = []
+        received = 0
+        with path.open("rb") as handle:
+            while True:
+                cls._checkpoint(execution_deadline)
+                chunk = handle.read(cls._READ_CHUNK_BYTES)
+                cls._checkpoint(execution_deadline)
+                if not chunk:
+                    break
+                received += len(chunk)
+                if received > expected_size:
+                    raise RuntimeError(
+                        "knowledge_index_output_artifact_size_mismatch"
+                    )
+                chunks.append(chunk)
+        if received != expected_size:
+            raise RuntimeError(
+                "knowledge_index_output_artifact_size_mismatch"
+            )
+        return b"".join(chunks)
 
 
 class HubArtifactKnowledgeIndexPayloadLoader:
@@ -749,20 +1137,27 @@ class HubArtifactKnowledgeIndexPayloadLoader:
         reference: Mapping[str, Any],
         *,
         source_access_manifest: Mapping[str, Any],
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None = None,
     ) -> bytes:
         artifact_id = str(reference.get("artifact_id") or "").strip()
         expected_size = int(reference.get("size_bytes") or -1)
         if not artifact_id or expected_size < 0 or expected_size > MAX_PAYLOAD_BYTES:
             raise ValueError("knowledge_index_payload_artifact_ref_invalid")
-        local = self._load_local(artifact_id, expected_size=expected_size)
-        if local is not None:
-            return local
-        return self._load_from_hub(
-            artifact_id,
-            expected_size=expected_size,
-            expected_sha256=str(reference.get("sha256") or "").lower(),
-            source_access_manifest=source_access_manifest,
-        )
+        if not isinstance(source_access_manifest, Mapping):
+            raise ValueError(
+                "knowledge_index_payload_capability_required"
+            )
+        # Governed reads always return through the Hub so the signed,
+        # assignment-bound capability is revalidated against live authority.
+        # A shared filesystem must never bypass that control-plane decision.
+        hub_load_kwargs: dict[str, Any] = {
+            "expected_size": expected_size,
+            "expected_sha256": str(reference.get("sha256") or "").lower(),
+            "source_access_manifest": source_access_manifest,
+        }
+        if execution_deadline is not None:
+            hub_load_kwargs["execution_deadline"] = execution_deadline
+        return self._load_from_hub(artifact_id, **hub_load_kwargs)
 
     @staticmethod
     def _load_local(artifact_id: str, *, expected_size: int) -> bytes | None:
@@ -786,6 +1181,7 @@ class HubArtifactKnowledgeIndexPayloadLoader:
         expected_size: int,
         expected_sha256: str,
         source_access_manifest: Mapping[str, Any] | None = None,
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None = None,
     ) -> bytes:
         from agent.auth import resolve_configured_agent_token
         from agent.config import settings
@@ -800,7 +1196,13 @@ class HubArtifactKnowledgeIndexPayloadLoader:
                 "AGENT_TOKEN_FILE": settings.agent_token_file,
             }
         )
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        if source_access_manifest is not None and not token:
+            raise ValueError(
+                "knowledge_index_payload_worker_service_token_required"
+            )
+        headers: dict[str, str] = {}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
         identity = WorkflowServiceIdentity.optional(
             worker_id=settings.agent_name,
             worker_url=str(settings.agent_url or ""),
@@ -824,17 +1226,115 @@ class HubArtifactKnowledgeIndexPayloadLoader:
             headers=headers,
             method="GET",
         )
-        with urllib.request.urlopen(request, timeout=60) as response:
+        opener = urllib.request.build_opener(
+            _KnowledgeIndexPayloadNoRedirectHandler()
+        )
+        timeout = 60.0
+        if execution_deadline is not None:
+            execution_deadline.checkpoint()
+            timeout = min(
+                timeout,
+                execution_deadline.remaining_seconds(),
+            )
+        try:
+            response = opener.open(request, timeout=timeout)
+        except TimeoutError:
+            if execution_deadline is not None:
+                execution_deadline.checkpoint()
+            raise
+        except urllib.error.HTTPError as exc:
+            if 300 <= int(exc.code or 0) < 400:
+                exc.close()
+                raise ValueError(
+                    "knowledge_index_payload_redirect_forbidden"
+                ) from exc
+            raise
+        status = getattr(response, "status", None)
+        if status is None:
+            getcode = getattr(response, "getcode", None)
+            status = getcode() if callable(getcode) else None
+        if status is not None and 300 <= int(status) < 400:
+            response.close()
+            raise ValueError(
+                "knowledge_index_payload_redirect_forbidden"
+            )
+        with response:
+            if execution_deadline is not None:
+                execution_deadline.checkpoint()
             declared = response.headers.get("Content-Length")
             if declared is not None and int(declared) != expected_size:
                 raise ValueError("knowledge_index_payload_artifact_size_mismatch")
             declared_hash = str(response.headers.get("X-Artifact-SHA256") or "").lower()
             if declared_hash and declared_hash != expected_sha256:
                 raise ValueError("knowledge_index_payload_artifact_digest_mismatch")
-            content = response.read(min(MAX_PAYLOAD_BYTES, expected_size) + 1)
+            chunks: list[bytes] = []
+            received = 0
+            while True:
+                maximum = min(
+                    _PAYLOAD_READ_CHUNK_BYTES,
+                    expected_size - received + 1,
+                )
+                chunk = HubArtifactKnowledgeIndexPayloadLoader._read_chunk(
+                    response,
+                    maximum,
+                    execution_deadline=execution_deadline,
+                )
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                received += len(chunk)
+                if received > expected_size:
+                    raise ValueError(
+                        "knowledge_index_payload_artifact_size_mismatch"
+                    )
+            content = b"".join(chunks)
         if len(content) != expected_size:
             raise ValueError("knowledge_index_payload_artifact_size_mismatch")
         return content
+
+    @staticmethod
+    def _read_chunk(
+        response: Any,
+        maximum_bytes: int,
+        *,
+        execution_deadline: KnowledgeIndexExecutionDeadlinePort | None,
+    ) -> bytes:
+        if maximum_bytes <= 0:
+            return b""
+        if execution_deadline is not None:
+            execution_deadline.checkpoint()
+            if not HubArtifactKnowledgeIndexPayloadLoader._set_socket_timeout(
+                response,
+                min(60.0, execution_deadline.remaining_seconds()),
+            ):
+                raise KnowledgeIndexExecutionDeadlineError(
+                    "knowledge_index_worker_payload_deadline_transport_unsupported"
+                )
+        reader = getattr(response, "read1", None)
+        if not callable(reader):
+            reader = response.read
+        try:
+            chunk = reader(maximum_bytes)
+        except TimeoutError:
+            if execution_deadline is not None:
+                execution_deadline.checkpoint()
+            raise
+        if execution_deadline is not None:
+            execution_deadline.checkpoint()
+        if not isinstance(chunk, bytes):
+            raise ValueError("knowledge_index_payload_artifact_bytes_invalid")
+        return chunk
+
+    @staticmethod
+    def _set_socket_timeout(response: Any, timeout: float) -> bool:
+        fp = getattr(response, "fp", None)
+        raw = getattr(fp, "raw", None)
+        for candidate in (getattr(raw, "_sock", None), raw, fp):
+            setter = getattr(candidate, "settimeout", None)
+            if callable(setter):
+                setter(timeout)
+                return True
+        return False
 
 
 def build_knowledge_index_task_handler(
@@ -846,6 +1346,12 @@ def build_knowledge_index_task_handler(
     source_access_manifest_verifier: Any | None = None,
     worker_id: str | None = None,
     allow_legacy_unsigned_source_dispatch: bool = False,
+    worker_dispatch_admission: (
+        KnowledgeIndexWorkerDispatchAdmissionPort | None
+    ) = None,
+    require_bound_dispatch_marker: bool = False,
+    execution_guard: KnowledgeIndexExecutionGuardPort | None = None,
+    execution_runner: DeadlineAwareKnowledgeIndexExecutionRunner | None = None,
 ) -> KnowledgeIndexWorkerTaskHandler:
     """Composition hook used by the worker-only application bootstrap."""
 
@@ -865,6 +1371,10 @@ def build_knowledge_index_task_handler(
         allow_legacy_unsigned_source_dispatch=(
             allow_legacy_unsigned_source_dispatch
         ),
+        worker_dispatch_admission=worker_dispatch_admission,
+        require_bound_dispatch_marker=require_bound_dispatch_marker,
+        execution_guard=execution_guard,
+        execution_runner=execution_runner,
     )
 
 
@@ -873,8 +1383,10 @@ __all__ = [
     "KnowledgeIndexPayloadLoaderPort",
     "KnowledgeIndexArtifactPublisherPort",
     "KnowledgeIndexGraphArtifactMaterializerPort",
+    "KnowledgeIndexWorkerDispatchAdmissionPort",
     "KnowledgeIndexWorkerTaskHandler",
     "HubArtifactKnowledgeIndexPayloadLoader",
+    "_KnowledgeIndexPayloadNoRedirectHandler",
     "WorkerKnowledgeIndexArtifactPublisher",
     "RagHelperKnowledgeIndexExecution",
     "build_knowledge_index_task_handler",

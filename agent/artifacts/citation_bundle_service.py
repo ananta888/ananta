@@ -31,8 +31,14 @@ class GoalCitationBundleService:
         self._source_registry = source_registry or SourceRegistry()
         self._source_snapshots = source_snapshots or SourceSnapshotStore()
 
-    def build_bundle(self, *, goal_id: str) -> dict[str, Any]:
-        graph = self._goal_artifact_service.get_goal_graph(goal_id)
+    def build_bundle(
+        self,
+        *,
+        goal_id: str,
+        graph: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if graph is None:
+            graph = self._goal_artifact_service.get_goal_graph(goal_id)
         usages = list(graph.get("source_usages") or [])
         outputs = list(graph.get("output_artifacts") or [])
         grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)

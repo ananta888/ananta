@@ -14,12 +14,17 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from flask import Blueprint, request
+from flask import Blueprint, g, request
 
 from agent.auth import check_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
-from agent.services.repository_registry import get_repository_registry
+from agent.routes.source_control_access import authorize_route_request
 from agent.services import wiki_article_graph_service as _svc
+from agent.services.knowledge_index_consumption_policy import (
+    get_knowledge_index_consumption_policy,
+)
+from agent.services.repository_registry import get_repository_registry
+from agent.services.source_control_access_policy import SourceControlAction
 
 wiki_graph_bp = Blueprint("wiki_graph", __name__)
 
@@ -31,10 +36,68 @@ def _resolve_output_dir(index_id: str) -> Path:
     idx = repo.get_by_id(index_id)
     if idx is None:
         raise NotFoundError("knowledge_index_not_found")
+    allowed_index_ids = getattr(
+        g,
+        "source_control_authorized_knowledge_index_ids",
+        frozenset(),
+    )
+    if not get_knowledge_index_consumption_policy().can_consume(
+        idx,
+        allowed_index_ids=allowed_index_ids,
+    ):
+        raise NotFoundError("knowledge_index_not_found")
     output_dir = str(idx.output_dir or "").strip()
     if not output_dir:
         raise NotFoundError("output_dir_not_set")
     return Path(output_dir)
+
+
+_WIKI_GRAPH_ACTIONS = {
+    "wiki_graph_status": SourceControlAction.graph,
+    "wiki_graph_build": SourceControlAction.index,
+    "wiki_graph_search": SourceControlAction.query,
+    "wiki_graph_expand": SourceControlAction.graph,
+    "wiki_graph_domain_status": SourceControlAction.graph,
+    "wiki_graph_build_domains": SourceControlAction.index,
+    "wiki_graph_domains": SourceControlAction.graph,
+    "wiki_graph_content_status": SourceControlAction.graph,
+    "wiki_graph_build_content": SourceControlAction.index,
+    "wiki_graph_article_content": SourceControlAction.query,
+    "wiki_graph_domain_graph": SourceControlAction.graph,
+    "wiki_graph_domain_articles": SourceControlAction.graph,
+}
+
+
+@wiki_graph_bp.before_request
+@check_auth
+def _authorize_wiki_graph_surface():
+    endpoint = str(request.endpoint or "").rsplit(".", 1)[-1]
+    action = _WIKI_GRAPH_ACTIONS.get(endpoint)
+    if action is None:
+        return None
+    body = request.get_json(silent=True) if request.method == "POST" else None
+    index_id = str(
+        (
+            (body or {}).get("index_id")
+            if request.method == "POST" and isinstance(body, dict)
+            else request.args.get("index_id")
+        )
+        or ""
+    ).strip()
+    if not index_id:
+        return None
+    repo = get_repository_registry().knowledge_index_repo
+    authorization_response = authorize_route_request(
+        action=action,
+        resource_kind="knowledge_index",
+        resource=repo.get_by_id(index_id),
+        object_id=index_id,
+    )
+    if authorization_response is None:
+        g.source_control_authorized_knowledge_index_ids = frozenset(
+            {index_id}
+        )
+    return authorization_response
 
 
 @wiki_graph_bp.route("/api/wiki-graph/status", methods=["GET"])

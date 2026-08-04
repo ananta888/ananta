@@ -1,8 +1,15 @@
 import json
+import time
 
 import pytest
 
+from agent.common.http import HttpTransportResponseLost
 from agent.routes.tasks import utils as task_utils
+from agent.services.worker_forward_transport import (
+    WorkerForwardAmbiguousTransportError,
+    WorkerForwardDeadlineExceeded,
+    WorkerTransportDeadline,
+)
 
 
 def test_get_local_task_status_returns_none_when_missing(monkeypatch):
@@ -39,7 +46,6 @@ def test_forward_to_worker_builds_url_and_auth_header(monkeypatch):
         return {"ok": True}
 
     monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
-
     result = task_utils._forward_to_worker(
         "http://worker.local/",
         "/step/execute",
@@ -113,6 +119,13 @@ def _vector_dispatch() -> dict:
         "dispatch": {
             "schema": "ananta.vector_index_task_dispatch.v1",
         },
+    }
+
+
+def _knowledge_index_dispatch() -> dict:
+    return {
+        "job_id": "knowledge-index-test",
+        "task_kind": "codecompass_index_build",
     }
 
 
@@ -245,6 +258,202 @@ def test_vector_forward_rejects_oversized_and_malformed_streams(
             {"vector_index_dispatch": _vector_dispatch()},
             token="worker-token",
         )
+
+
+def test_codecompass_forward_streams_and_bounds_body_before_json_parse(
+    monkeypatch,
+):
+    payload = {
+        "status": "success",
+        "data": {
+            "schema": "ananta.knowledge_index_execution_result.v2",
+            "status": "completed",
+        },
+    }
+    encoded = json.dumps(payload).encode("utf-8")
+    response = StreamingResponse([encoded[:11], encoded[11:]])
+    calls = []
+
+    def fake_http_post(url, **kwargs):
+        calls.append({"url": url, **kwargs})
+        return response
+
+    monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
+
+    result = task_utils._forward_to_worker(
+        "http://worker.local",
+        "/tasks/knowledge-index-test/step/execute",
+        {"knowledge_index_dispatch": _knowledge_index_dispatch()},
+        token="worker-token",
+    )
+
+    assert result == payload
+    assert calls[0]["stream"] is True
+    assert calls[0]["allow_redirects"] is False
+    assert response.json_calls == 0
+    assert response.closed is True
+
+
+def test_codecompass_forward_uses_hub_trusted_runtime_timeout(
+    monkeypatch,
+    app,
+):
+    deadline = WorkerTransportDeadline.after_seconds(779)
+    payload = {
+        "status": "success",
+        "data": {"status": "completed"},
+    }
+    response = StreamingResponse([json.dumps(payload).encode("utf-8")])
+    calls = []
+
+    def fake_http_post(url, **kwargs):
+        calls.append({"url": url, **kwargs})
+        return response
+
+    monkeypatch.setattr(task_utils, "_http_post", fake_http_post)
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "command_timeout": 99_999,
+        }
+        result = task_utils._forward_to_worker(
+            "http://worker.local",
+            "/tasks/knowledge-index-test/step/execute",
+            {"knowledge_index_dispatch": _knowledge_index_dispatch()},
+            token="worker-token",
+            transport_deadline=deadline,
+        )
+
+    assert result == payload
+    connect_timeout, read_timeout = calls[0]["timeout"]
+    assert connect_timeout == 5.0
+    assert 778 < read_timeout <= 779
+    assert calls[0]["deadline_monotonic"] == (
+        deadline.expires_at_monotonic
+    )
+    assert calls[0]["raise_on_transport_error"] is True
+
+    monkeypatch.setattr(
+        task_utils,
+        "_http_post",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            HttpTransportResponseLost("http_transport_response_lost")
+        ),
+    )
+    with pytest.raises(WorkerForwardAmbiguousTransportError):
+        task_utils._forward_to_worker(
+            "http://worker.local",
+            "/tasks/knowledge-index-test/step/execute",
+            {"knowledge_index_dispatch": _knowledge_index_dispatch()},
+            token="worker-token",
+            transport_deadline=deadline,
+        )
+
+
+def test_codecompass_stream_stops_at_absolute_deadline(monkeypatch):
+    class SlowStreamingResponse(StreamingResponse):
+        def iter_content(self, *, chunk_size, decode_unicode):
+            assert chunk_size > 0
+            assert decode_unicode is False
+            yield b'{"status":'
+            time.sleep(1.0)
+            yield b'"success"}'
+
+    response = SlowStreamingResponse([])
+    monkeypatch.setattr(
+        task_utils,
+        "_http_post",
+        lambda _url, **_kwargs: response,
+    )
+    deadline = WorkerTransportDeadline(
+        expires_at_monotonic=time.monotonic() + 0.05,
+        budget_seconds=1,
+    )
+    started = time.monotonic()
+
+    with pytest.raises(WorkerForwardDeadlineExceeded):
+        task_utils._forward_to_worker(
+            "http://worker.local",
+            "/tasks/knowledge-index-test/step/execute",
+            {"knowledge_index_dispatch": _knowledge_index_dispatch()},
+            token="worker-token",
+            transport_deadline=deadline,
+        )
+
+    assert time.monotonic() - started < 0.5
+    assert response.closed is True
+
+
+def test_codecompass_non_object_json_is_permanent(monkeypatch):
+    response = StreamingResponse([b"[]"])
+    monkeypatch.setattr(
+        task_utils,
+        "_http_post",
+        lambda _url, **_kwargs: response,
+    )
+
+    with pytest.raises(
+        task_utils.WorkerForwardPermanentTransportError,
+        match="knowledge_index_worker_response_json_invalid",
+    ) as error:
+        task_utils._forward_to_worker(
+            "http://worker.local",
+            "/tasks/knowledge-index-test/step/execute",
+            {"knowledge_index_dispatch": _knowledge_index_dispatch()},
+            token="worker-token",
+        )
+
+    assert error.value.retryable is False
+    assert response.closed is True
+
+
+def test_codecompass_forward_rejects_oversized_stream_and_legacy_fallback(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        task_utils,
+        "MAX_KNOWLEDGE_INDEX_WORKER_RESULT_BYTES",
+        8,
+    )
+    oversized = StreamingResponse([b'{"data"', b':"oversized"}'])
+    monkeypatch.setattr(
+        task_utils,
+        "_http_post",
+        lambda _url, **_kwargs: oversized,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="knowledge_index_worker_response_too_large",
+    ):
+        task_utils._forward_to_worker(
+            "http://worker.local",
+            "/tasks/knowledge-index-test/step/execute",
+            {"knowledge_index_dispatch": _knowledge_index_dispatch()},
+            token="worker-token",
+        )
+    assert oversized.json_calls == 0
+    assert oversized.closed is True
+
+    legacy_calls = []
+
+    def legacy_http_post(url, data=None, headers=None, timeout=None):
+        legacy_calls.append((url, data, headers, timeout))
+        return {"status": "success"}
+
+    monkeypatch.setattr(task_utils, "_http_post", legacy_http_post)
+    with pytest.raises(
+        RuntimeError,
+        match="worker_forward_secure_transport_unsupported",
+    ):
+        task_utils._forward_to_worker(
+            "http://worker.local",
+            "/tasks/knowledge-index-test/step/execute",
+            {"knowledge_index_dispatch": _knowledge_index_dispatch()},
+            token="worker-token",
+        )
+    assert legacy_calls == []
 
 
 def test_worker_forward_rejects_redirect_without_following_it(

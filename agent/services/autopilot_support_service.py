@@ -7,6 +7,9 @@ from typing import Any
 
 from agent.config import settings
 from agent.db_models import ConfigDB
+from agent.services.knowledge_index_task_ingress_policy import (
+    has_bound_knowledge_index_job,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_runtime_service import update_local_task_status
 
@@ -17,7 +20,7 @@ class AutopilotSupportService:
     def append_trace_event(self, task_id: str, event_type: str, *, app=None, **data: Any) -> None:
         repos = get_repository_registry(app)
         task = repos.task_repo.get_by_id(task_id)
-        if not task:
+        if not task or has_bound_knowledge_index_job(task):
             return
         history = list(task.history or [])
         history.append({"event_type": event_type, "timestamp": time.time(), **data})

@@ -7,6 +7,10 @@ import pytest
 
 from agent.auth import generate_token
 from agent.config import settings
+from agent.services.knowledge_index_task_ingress_policy import (
+    BOUND_KNOWLEDGE_INDEX_MUTATION_REASON,
+    RESERVED_KNOWLEDGE_INDEX_TASK_INGRESS_REASON,
+)
 from agent.services.task_admin_service import TaskAdminService
 from agent.services.task_claim_service import TaskClaimService
 from agent.services.task_management_service import (
@@ -414,6 +418,78 @@ def test_control_center_create_rejects_all_reserved_vector_markers(
     assert body["message"] == (
         RESERVED_VECTOR_INDEX_TASK_INGRESS_REASON
     )
+
+
+@pytest.mark.parametrize(
+    "reserved_payload",
+    [
+        {"source": "knowledge_index"},
+        {"task_kind": "codecompass_index_build"},
+        {
+            "worker_execution_context": {
+                "knowledge_index_job": {}
+            }
+        },
+    ],
+)
+def test_control_center_create_rejects_reserved_knowledge_index_markers(
+    client,
+    admin_auth_header,
+    reserved_payload,
+) -> None:
+    response = client.post(
+        "/api/tasks",
+        headers=admin_auth_header,
+        json={
+            "title": "forged knowledge-index task",
+            **reserved_payload,
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.get_json()["message"] == (
+        RESERVED_KNOWLEDGE_INDEX_TASK_INGRESS_REASON
+    )
+
+
+def test_control_center_patch_rejects_bound_knowledge_index_task(
+    client,
+    app,
+    admin_auth_header,
+) -> None:
+    task_id = "bound-knowledge-index-control-center"
+    with app.app_context():
+        update_local_task_status(
+            task_id,
+            "assigned",
+            task_kind="codecompass_index_build",
+            worker_execution_context={
+                "knowledge_index_job": {
+                    "schema": (
+                        "ananta.knowledge_index_execution_job.v2"
+                    ),
+                    "job_id": task_id,
+                }
+            },
+            force=True,
+        )
+
+    response = client.patch(
+        f"/api/tasks/{task_id}",
+        headers=admin_auth_header,
+        json={"status": "completed"},
+    )
+
+    assert response.status_code == 409
+    body = response.get_json()
+    assert body["message"] == BOUND_KNOWLEDGE_INDEX_MUTATION_REASON
+    assert body["data"]["reason_code"] == (
+        BOUND_KNOWLEDGE_INDEX_MUTATION_REASON
+    )
+    assert body["data"]["task_id"] == task_id
+    assert body["data"]["action"] == "control_center_patch"
+    with app.app_context():
+        assert get_local_task_status(task_id)["status"] == "assigned"
 
 
 def test_control_center_patch_rejects_existing_source_history_marker(

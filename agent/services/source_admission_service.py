@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Mapping
 
+from ananta_contracts.source_control import MAX_SOURCE_ADMISSION_FILES
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
@@ -25,7 +26,7 @@ class SourceAdmissionState(str, Enum):
 
 @dataclass(frozen=True)
 class SourceAdmissionBudgets:
-    max_files: int = 20_000
+    max_files: int = MAX_SOURCE_ADMISSION_FILES
     max_total_bytes: int = 512 * 1024 * 1024
     max_file_bytes: int = 16 * 1024 * 1024
     max_archive_expansion_ratio: float = 4.0
@@ -38,6 +39,7 @@ class SourceAdmissionBudgets:
     def __post_init__(self) -> None:
         if (
             self.max_files < 1
+            or self.max_files > MAX_SOURCE_ADMISSION_FILES
             or self.max_total_bytes < 1
             or self.max_file_bytes < 1
             or self.max_archive_expansion_ratio < 1.0

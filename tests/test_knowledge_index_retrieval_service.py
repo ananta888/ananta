@@ -2,6 +2,11 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+from agent.services.knowledge_index_consumption_policy import (
+    KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY,
+    KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA,
+    KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA,
+)
 from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
 from ananta_contracts.file_type_support import load_file_type_support_registry
 
@@ -86,6 +91,118 @@ def test_knowledge_index_retrieval_service_can_filter_by_artifact_id(tmp_path):
 
     assert service.search("timeout", artifact_ids={"artifact-2"}) == []
     assert service.search("timeout", artifact_ids={"artifact-1"})
+
+
+def test_artifact_allow_list_excludes_non_artifact_source_scopes(tmp_path):
+    output_dir = tmp_path / "knowledge-index"
+    output_dir.mkdir()
+    (output_dir / "index.jsonl").write_text(
+        json.dumps(
+            {
+                "kind": "md_section",
+                "file": "src/private.md",
+                "content": "private repository timeout handling",
+            }
+        ),
+        encoding="utf-8",
+    )
+    repository = SimpleNamespace(
+        list_completed=lambda: [
+            SimpleNamespace(
+                id="idx-repo-1",
+                artifact_id="artifact-1",
+                source_scope="registered_workspace",
+                profile_name="default",
+                output_dir=str(output_dir),
+            )
+        ]
+    )
+    service = KnowledgeIndexRetrievalService(
+        knowledge_index_repository=repository
+    )
+
+    assert service.search(
+        "private timeout",
+        artifact_ids={"artifact-1"},
+    ) == []
+
+
+def test_v2_non_artifact_retrieval_is_scoped_to_projected_allowed_indices(
+    tmp_path,
+):
+    def _output(name: str, content: str) -> Path:
+        output_dir = tmp_path / name
+        output_dir.mkdir()
+        (output_dir / "index.jsonl").write_text(
+            json.dumps(
+                {
+                    "kind": "md_section",
+                    "file": f"src/{name}.md",
+                    "content": content,
+                }
+            ),
+            encoding="utf-8",
+        )
+        return output_dir
+
+    def _index(
+        index_id: str,
+        output_dir: Path,
+        *,
+        projection_state: str,
+    ) -> SimpleNamespace:
+        return SimpleNamespace(
+            id=index_id,
+            artifact_id=None,
+            source_scope="registered_workspace",
+            profile_name="default",
+            status="completed",
+            output_dir=str(output_dir),
+            index_metadata={
+                KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY: {
+                    "schema": KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA,
+                    "projection_state": projection_state,
+                    "execution_job_schema": KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA,
+                    "job_id": "knowledge-index-" + ("1" * 32),
+                    "knowledge_index_id": index_id,
+                    "authority_binding_digest": "a" * 64,
+                    "assignment_id": "assignment-1",
+                }
+            },
+        )
+
+    projected_a = _index(
+        "idx-a",
+        _output("a", "private timeout alpha"),
+        projection_state="projected",
+    )
+    projected_b = _index(
+        "idx-b",
+        _output("b", "private timeout beta"),
+        projection_state="projected",
+    )
+    provisional = _index(
+        "idx-pending",
+        _output("pending", "private timeout provisional"),
+        projection_state="pending",
+    )
+    service = KnowledgeIndexRetrievalService(
+        knowledge_index_repository=SimpleNamespace(
+            list_completed=lambda: [provisional, projected_b, projected_a]
+        )
+    )
+
+    assert service.search("private timeout") == []
+
+    chunks = service.search(
+        "private timeout",
+        allowed_index_ids={"idx-a", "idx-pending"},
+    )
+
+    assert chunks
+    assert {
+        chunk.metadata["knowledge_index_id"] for chunk in chunks
+    } == {"idx-a"}
 
 
 def test_knowledge_index_retrieval_prefers_structured_symbol_hits(tmp_path):

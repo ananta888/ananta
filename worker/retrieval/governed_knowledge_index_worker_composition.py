@@ -15,7 +15,6 @@ from worker.retrieval.knowledge_index_job_handler import (
     build_knowledge_index_task_handler,
 )
 
-
 _WORKER_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$")
 
 
@@ -33,14 +32,10 @@ class GovernedKnowledgeIndexWorkerSecurity:
     def __post_init__(self) -> None:
         worker_id = str(self.worker_id or "").strip()
         if not _WORKER_ID.fullmatch(worker_id):
-            raise GovernedKnowledgeIndexWorkerCompositionError(
-                "knowledge_index_worker_id_invalid"
-            )
+            raise GovernedKnowledgeIndexWorkerCompositionError("knowledge_index_worker_id_invalid")
         keys = dict(self.verification_keys or {})
         if not keys:
-            raise GovernedKnowledgeIndexWorkerCompositionError(
-                "knowledge_index_verification_keys_required"
-            )
+            raise GovernedKnowledgeIndexWorkerCompositionError("knowledge_index_verification_keys_required")
         verifier = WorkerSourceAccessManifestVerifier(keys)
         del verifier
         object.__setattr__(self, "worker_id", worker_id)
@@ -58,12 +53,23 @@ def build_governed_knowledge_index_worker_handler(
     payload_loader: Any | None = None,
     artifact_publisher: Any | None = None,
     graph_artifact_materializer: Any | None = None,
+    dispatch_admission: Any | None = None,
 ) -> KnowledgeIndexWorkerTaskHandler:
     """Build a v2 handler with mandatory identity and signature verification."""
 
-    verifier = WorkerSourceAccessManifestVerifier(
-        dict(security.verification_keys)
-    )
+    verifier = WorkerSourceAccessManifestVerifier(dict(security.verification_keys))
+    if dispatch_admission is None:
+        from worker.retrieval.knowledge_index_dispatch_admission import (
+            KnowledgeIndexWorkerDispatchAdmission,
+        )
+        from worker.retrieval.knowledge_index_dispatch_receipt_repository import (
+            SqlKnowledgeIndexWorkerDispatchReceiptRepository,
+        )
+
+        dispatch_admission = KnowledgeIndexWorkerDispatchAdmission(
+            receipt_ledger=(SqlKnowledgeIndexWorkerDispatchReceiptRepository()),
+            worker_id=security.worker_id,
+        )
     return build_knowledge_index_task_handler(
         index_service=index_service,
         payload_loader=payload_loader,
@@ -72,6 +78,8 @@ def build_governed_knowledge_index_worker_handler(
         source_access_manifest_verifier=verifier,
         worker_id=security.worker_id,
         allow_legacy_unsigned_source_dispatch=False,
+        worker_dispatch_admission=dispatch_admission,
+        require_bound_dispatch_marker=True,
     )
 
 

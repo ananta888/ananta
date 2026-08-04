@@ -27,6 +27,12 @@ from agent.services.context_bundle_ingress_policy import (
 from agent.services.execution_audit_service import get_execution_audit_service
 from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.instruction_layer_service import get_instruction_layer_service
+from agent.services.knowledge_index_task_ingress_policy import (
+    bound_knowledge_index_mutation_error,
+    find_reserved_knowledge_index_marker,
+    has_bound_knowledge_index_job,
+    reserved_knowledge_index_ingress_error,
+)
 from agent.services.mutation_gate_service import get_mutation_gate_service
 from agent.services.recovery_task_mutation_policy import (
     RecoveryTaskMutationConflict,
@@ -252,6 +258,7 @@ class TaskManagementService:
         by_id = {t["id"]: t for t in active}
         updated_ids: list[str] = []
         skipped_reserved_ids: list[str] = []
+        skipped_knowledge_index_ids: list[str] = []
 
         def _depth(task_id: str) -> int:
             depth = 0
@@ -273,6 +280,9 @@ class TaskManagementService:
             if has_reserved_vector_index_marker(item):
                 skipped_reserved_ids.append(item["id"])
                 continue
+            if has_bound_knowledge_index_job(item):
+                skipped_knowledge_index_ids.append(item["id"])
+                continue
             source_task_id = str(item.get("source_task_id") or "").strip() or parent_id
             derivation_reason = str(item.get("derivation_reason") or "").strip() or "parent_link_backfill"
             derivation_depth = int(item.get("derivation_depth") or _depth(item["id"]))
@@ -289,10 +299,22 @@ class TaskManagementService:
             "updated_ids": updated_ids,
             "skipped_reserved_count": len(skipped_reserved_ids),
             "skipped_reserved_ids": skipped_reserved_ids,
+            "skipped_knowledge_index_count": len(
+                skipped_knowledge_index_ids
+            ),
+            "skipped_knowledge_index_ids": skipped_knowledge_index_ids,
         }
 
     def create_task(self, *, data: Any, source: str, created_by: str) -> dict[str, Any]:
         input_data = data.model_dump()
+        reserved_knowledge_marker = find_reserved_knowledge_index_marker(
+            input_data,
+            source=source,
+        )
+        if reserved_knowledge_marker:
+            return reserved_knowledge_index_ingress_error(
+                reserved_knowledge_marker
+            )
         reserved_marker = find_reserved_vector_index_marker(input_data, source=source)
         if reserved_marker:
             return reserved_vector_index_ingress_error(reserved_marker)
@@ -368,6 +390,13 @@ class TaskManagementService:
 
     def patch_task(self, *, task_id: str, data: Any) -> dict[str, Any]:
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+        reserved_knowledge_marker = find_reserved_knowledge_index_marker(
+            update_data
+        )
+        if reserved_knowledge_marker:
+            return reserved_knowledge_index_ingress_error(
+                reserved_knowledge_marker
+            )
         reserved_marker = find_reserved_vector_index_marker(update_data)
         if reserved_marker:
             return reserved_vector_index_ingress_error(reserved_marker)
@@ -380,6 +409,12 @@ class TaskManagementService:
         existing = get_local_task_status(task_id)
         if not existing:
             return {"error": "not_found", "code": 404}
+        bound_conflict = bound_knowledge_index_mutation_error(
+            existing,
+            action="patch",
+        )
+        if bound_conflict:
+            return bound_conflict
         reserved_marker = find_reserved_vector_index_marker(existing)
         if reserved_marker:
             return reserved_vector_index_ingress_error(reserved_marker)
@@ -455,6 +490,12 @@ class TaskManagementService:
         task = get_local_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        bound_conflict = bound_knowledge_index_mutation_error(
+            task,
+            action=f"proposal_{action}",
+        )
+        if bound_conflict:
+            return bound_conflict
         if has_reserved_vector_index_marker(task):
             vector_error = self._vector_admin_error(
                 task,
@@ -532,6 +573,12 @@ class TaskManagementService:
         task = get_local_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        bound_conflict = bound_knowledge_index_mutation_error(
+            task,
+            action="assign",
+        )
+        if bound_conflict:
+            return bound_conflict
         vector_task = has_reserved_vector_index_marker(task)
         vector_error = self._vector_admin_error(
             task,
@@ -608,6 +655,12 @@ class TaskManagementService:
         task = get_local_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        bound_conflict = bound_knowledge_index_mutation_error(
+            task,
+            action="auto_assign",
+        )
+        if bound_conflict:
+            return bound_conflict
         vector_task = has_reserved_vector_index_marker(task)
         vector_error = self._vector_admin_error(
             task,
@@ -706,6 +759,12 @@ class TaskManagementService:
         task = get_local_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        bound_conflict = bound_knowledge_index_mutation_error(
+            task,
+            action="unassign",
+        )
+        if bound_conflict:
+            return bound_conflict
         vector_error = self._vector_admin_error(
             task,
             authorization=vector_authorization,
@@ -742,6 +801,12 @@ class TaskManagementService:
         parent_task = get_local_task_status(task_id)
         if not parent_task:
             return {"error": "parent_task_not_found", "code": 404}
+        bound_conflict = bound_knowledge_index_mutation_error(
+            parent_task,
+            action="subtask_callback",
+        )
+        if bound_conflict:
+            return bound_conflict
         if has_reserved_vector_index_marker(parent_task):
             vector_error = self._vector_admin_error(
                 parent_task,
@@ -790,6 +855,12 @@ class TaskManagementService:
         parent_task = get_local_task_status(task_id)
         if not parent_task:
             return {"error": "parent_task_not_found", "code": 404}
+        bound_conflict = bound_knowledge_index_mutation_error(
+            parent_task,
+            action="create_followups",
+        )
+        if bound_conflict:
+            return bound_conflict
         if has_reserved_vector_index_marker(parent_task):
             vector_error = self._vector_admin_error(
                 parent_task,

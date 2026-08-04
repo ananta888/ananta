@@ -74,6 +74,9 @@ from .knowledge import (
     KnowledgeLinkDB,
 )
 from .knowledge_index_execution import KnowledgeIndexExecutionBindingDB
+from .knowledge_index_worker_dispatch import (
+    KnowledgeIndexWorkerDispatchReceiptDB,
+)
 from .memory import (
     MemoryEntryDB,
     MemoryTreeChunkDB,
@@ -396,6 +399,7 @@ __all__ = [
     "KnowledgeCollectionDB",
     "KnowledgeIndexDB",
     "KnowledgeIndexExecutionBindingDB",
+    "KnowledgeIndexWorkerDispatchReceiptDB",
     "KnowledgeIndexRunDB",
     "KnowledgeIndexRunSourceBindingDB",
     "KnowledgeIndexSourceBindingDB",

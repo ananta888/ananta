@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
-from datetime import datetime, timezone
 import hashlib
 import os
-from pathlib import Path, PurePosixPath
 import stat
 import time
+from dataclasses import dataclass, replace
+from datetime import datetime, timezone
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from sqlmodel import Session, select
@@ -31,15 +31,22 @@ from agent.repositories.knowledge_index_execution_repository import (
 from agent.repositories.source_control_repository import (
     SQLSourceControlRepository,
 )
+from agent.services.artifact_store import get_artifact_store
 from agent.services.knowledge_index_execution_binding_service import (
     CurrentKnowledgeIndexAuthority,
     KnowledgeIndexExecutionBindingService,
 )
-from agent.services.knowledge_index_worker_artifact_service import (
-    KnowledgeIndexWorkerArtifactService,
+from agent.services.knowledge_index_job_service import (
+    KnowledgeIndexPayloadStorePort,
+)
+from agent.services.knowledge_index_payload_store import (
+    ContentAddressedKnowledgeIndexPayloadStore,
 )
 from agent.services.knowledge_index_source_control_projection import (
     KnowledgeIndexSourceControlCompletionProjector,
+)
+from agent.services.knowledge_index_worker_artifact_service import (
+    KnowledgeIndexWorkerArtifactService,
 )
 from agent.services.source_access_enforcement import (
     source_access_grant_digest,
@@ -60,20 +67,24 @@ from agent.services.source_destination_resolution import (
     DestinationSelection,
     SourceDestinationResolutionService,
 )
+from agent.services.source_filesystem_scanner import (
+    ProductionFilesystemSourceScanner,
+)
 from agent.services.strict_source_control_knowledge_index_composition import (
     StrictGovernedKnowledgeIndexDependencies,
     build_strict_governed_knowledge_index_job_service,
 )
-from agent.services.source_filesystem_scanner import (
-    ProductionFilesystemSourceScanner,
-)
 from ananta_contracts.knowledge_index_execution import (
+    KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS,
+    KNOWLEDGE_INDEX_PRE_DISPATCH_RESERVE_SECONDS,
     KnowledgeIndexExecutionAssignment,
     KnowledgeIndexExecutionJob,
     KnowledgeIndexResourceBudget,
 )
-from ananta_contracts.source_control import SourceAccessGrant
-
+from ananta_contracts.source_control import (
+    MAX_SOURCE_ADMISSION_FILES,
+    SourceAccessGrant,
+)
 
 _READ_FLAGS = (
     os.O_RDONLY
@@ -438,7 +449,10 @@ class SQLBoundSourceIndexAuthorityAdapter:
                     "source_index_authority_unambiguous_grant_required"
                 )
             grant_row, _policy, selection, resolved = candidates[0]
-            max_runtime_seconds = 900
+            target_runtime_seconds = 900
+            planning_reserve_seconds = (
+                KNOWLEDGE_INDEX_PRE_DISPATCH_RESERVE_SECONDS
+            )
             existing = session.exec(
                 select(KnowledgeIndexExecutionBindingDB).where(
                     KnowledgeIndexExecutionBindingDB.tenant_id
@@ -462,19 +476,41 @@ class SQLBoundSourceIndexAuthorityAdapter:
                     raise BoundSourceRevisionPlanningError(
                         "source_index_idempotency_authority_conflict"
                     )
-                assignment = KnowledgeIndexExecutionJob.model_validate(
+                existing_job = KnowledgeIndexExecutionJob.model_validate(
                     dict(existing.envelope_json)
-                ).assignment
+                )
+                assignment = existing_job.assignment
+                max_runtime_seconds = (
+                    existing_job.resources.max_runtime_seconds
+                )
             else:
                 now_ms = int(now * 1000)
+                grant_remaining_seconds = int(
+                    float(grant_row.expires_at_epoch) - now
+                )
+                max_runtime_seconds = min(
+                    target_runtime_seconds,
+                    # Preserve one full second across SQL timestamp
+                    # normalization and the subsequent planner read.
+                    grant_remaining_seconds
+                    - KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
+                    - planning_reserve_seconds
+                    - 1,
+                )
+                if max_runtime_seconds < 1:
+                    raise BoundSourceRevisionPlanningError(
+                        "source_index_grant_runtime_window_insufficient"
+                    )
                 expires_ms = min(
                     int(grant_row.expires_at_epoch * 1000),
-                    now_ms + max_runtime_seconds * 1000,
-                )
-                if expires_ms <= now_ms:
-                    raise BoundSourceRevisionPlanningError(
-                        "source_index_assignment_lease_inactive"
+                    now_ms
+                    + (
+                        max_runtime_seconds
+                        + KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
+                        + planning_reserve_seconds
                     )
+                    * 1000,
+                )
                 coordinate = hashlib.sha256(
                     (
                         revision.source_revision_id
@@ -498,7 +534,7 @@ class SQLBoundSourceIndexAuthorityAdapter:
             source_access_grant_id=grant.grant_id,
             source_access_grant_digest=source_access_grant_digest(grant),
             resources=KnowledgeIndexResourceBudget(
-                max_files=10_000,
+                max_files=MAX_SOURCE_ADMISSION_FILES,
                 max_total_bytes=512 * 1024 * 1024,
                 max_file_bytes=16 * 1024 * 1024,
                 max_runtime_seconds=max_runtime_seconds,
@@ -564,7 +600,12 @@ class SQLCurrentKnowledgeIndexAuthorityAdapter:
 
 
 class IngestionKnowledgeIndexPayloadStore:
-    """Persist payload bytes through the existing SQL-backed artifact service."""
+    """Compatibility adapter for callers using the former ingestion API.
+
+    New governed production wiring uses the restart-stable content-addressed
+    store below.  Keeping this exported adapter preserves the public keyword
+    constructor and the legacy v1 storage contract during migration.
+    """
 
     def __init__(self, *, ingestion: Any, artifact_repository: Any) -> None:
         self._ingestion = ingestion
@@ -583,7 +624,15 @@ class IngestionKnowledgeIndexPayloadStore:
             filename=f"knowledge-index-payload-{fingerprint}.json",
             content=content,
             created_by=created_by or "knowledge-index-api",
-            media_type="application/vnd.ananta.knowledge-index-job+json",
+            media_type=(
+                "application/vnd.ananta.knowledge-index-job+json"
+            ),
+            artifact_metadata={
+                "system_artifact_kind": (
+                    "knowledge_index_job_payload"
+                ),
+                "idempotency_fingerprint": fingerprint,
+            },
         )
         artifact.artifact_metadata = {
             **dict(artifact.artifact_metadata or {}),
@@ -604,7 +653,7 @@ class SourceControlIndexProductionComposition:
     planner: BoundSourceRevisionAuthorityPlanner
     job_service: Any
     execution_binding_service: KnowledgeIndexExecutionBindingService
-    payload_store: IngestionKnowledgeIndexPayloadStore
+    payload_store: KnowledgeIndexPayloadStorePort
     worker_artifact_service: KnowledgeIndexWorkerArtifactService
 
 
@@ -618,6 +667,7 @@ def build_source_control_index_production_composition(
     scanner: ProductionFilesystemSourceScanner,
     budgets: SourceAdmissionBudgets,
     signing_key: SourceAccessSigningKey,
+    source_access_manifest_verifier: Any | None = None,
 ) -> SourceControlIndexProductionComposition:
     from agent.services.repository_registry import get_repository_registry
     from agent.services.service_registry import get_core_services
@@ -644,9 +694,9 @@ def build_source_control_index_production_composition(
         repository=SQLKnowledgeIndexExecutionRepository(engine),
         authority=current_authority,
     )
-    payload_store = IngestionKnowledgeIndexPayloadStore(
-        ingestion=core.ingestion_service,
-        artifact_repository=repositories.artifact_repo,
+    payload_store = ContentAddressedKnowledgeIndexPayloadStore(
+        engine=engine,
+        artifact_store=get_artifact_store(),
     )
     worker_artifacts = KnowledgeIndexWorkerArtifactService(
         knowledge_index_repository=repositories.knowledge_index_repo,
@@ -656,6 +706,13 @@ def build_source_control_index_production_composition(
         KnowledgeIndexSourceControlCompletionProjector(
             repository=SQLSourceControlRepository(engine)
         )
+    )
+    from agent.services.knowledge_index_worker_directory import (
+        RegisteredKnowledgeIndexWorkerDirectory,
+    )
+
+    worker_directory = RegisteredKnowledgeIndexWorkerDirectory(
+        repositories.agent_repo
     )
     job_service = build_strict_governed_knowledge_index_job_service(
         StrictGovernedKnowledgeIndexDependencies(
@@ -669,6 +726,10 @@ def build_source_control_index_production_composition(
             worker_artifact_service=worker_artifacts,
             source_control_completion_projector=(
                 source_control_completion
+            ),
+            worker_directory=worker_directory,
+            source_access_manifest_verifier=(
+                source_access_manifest_verifier
             ),
         )
     )

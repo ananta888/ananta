@@ -17,6 +17,9 @@ from agent.routes.tasks.vector_admin_boundary import (
     request_vector_authorization,
     vector_permission_error,
 )
+from agent.services.knowledge_index_task_ingress_policy import (
+    KnowledgeIndexTaskMutationConflict,
+)
 from agent.services.service_registry import get_core_services
 from agent.services.task_admin_service import (
     RecoveryChildAdminMutationConflict,
@@ -60,7 +63,12 @@ def _filters(
     return statuses, team_id, before_ts, task_ids
 
 
-def _conflict_error(exc: RecoveryChildAdminMutationConflict):
+def _conflict_error(
+    exc: (
+        RecoveryChildAdminMutationConflict
+        | KnowledgeIndexTaskMutationConflict
+    ),
+):
     return api_response(
         status="error",
         message=exc.reason_code,
@@ -130,7 +138,10 @@ def archive_task_route(tid: str):
         )
     except PermissionError as exc:
         return vector_permission_error(exc)
-    except RecoveryChildAdminMutationConflict as exc:
+    except (
+        RecoveryChildAdminMutationConflict,
+        KnowledgeIndexTaskMutationConflict,
+    ) as exc:
         return _conflict_error(exc)
     if not archived:
         return api_response(
@@ -167,7 +178,10 @@ def archive_tasks_batch_route():
         )
     except PermissionError as exc:
         return vector_permission_error(exc)
-    except RecoveryChildAdminMutationConflict as exc:
+    except (
+        RecoveryChildAdminMutationConflict,
+        KnowledgeIndexTaskMutationConflict,
+    ) as exc:
         return _conflict_error(exc)
     return api_response(
         data={
@@ -189,7 +203,10 @@ def restore_task_route(tid: str):
         )
     except PermissionError as exc:
         return vector_permission_error(exc)
-    except RecoveryChildAdminMutationConflict as exc:
+    except (
+        RecoveryChildAdminMutationConflict,
+        KnowledgeIndexTaskMutationConflict,
+    ) as exc:
         return _conflict_error(exc)
     if not restored:
         return api_response(
@@ -212,7 +229,10 @@ def delete_archived_task_route(tid: str):
         )
     except PermissionError as exc:
         return vector_permission_error(exc)
-    except RecoveryChildAdminMutationConflict as exc:
+    except (
+        RecoveryChildAdminMutationConflict,
+        KnowledgeIndexTaskMutationConflict,
+    ) as exc:
         return _conflict_error(exc)
     if not deleted:
         return api_response(
@@ -251,7 +271,10 @@ def restore_tasks_batch_route():
         )
     except PermissionError as exc:
         return vector_permission_error(exc)
-    except RecoveryChildAdminMutationConflict as exc:
+    except (
+        RecoveryChildAdminMutationConflict,
+        KnowledgeIndexTaskMutationConflict,
+    ) as exc:
         return _conflict_error(exc)
     return api_response(
         data={

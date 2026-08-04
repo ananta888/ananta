@@ -292,16 +292,24 @@ def codecompass_plan_context(*, workspace_dir: str, arguments: dict[str, Any], t
     )
 
 
-def _resolve_graph_store(arguments: dict[str, Any]):
-    """Open the graph store for the requested or latest completed index."""
+def _resolve_graph_store(
+    arguments: dict[str, Any],
+    *,
+    allowed_index_ids: set[str] | None = None,
+):
+    """Open a consumable graph store within a Hub-derived index scope."""
     from agent.services.codecompass_graph_artifact_resolver import (
         get_codecompass_graph_artifact_resolver,
+    )
+    from agent.services.knowledge_index_consumption_policy import (
+        get_knowledge_index_consumption_policy,
     )
     from agent.services.repository_registry import get_repository_registry
     from ananta_codecompass.graph_store import CodeCompassGraphStore
 
     repo = get_repository_registry().knowledge_index_repo
     resolver = get_codecompass_graph_artifact_resolver()
+    consumption_policy = get_knowledge_index_consumption_policy()
     requested = str((arguments or {}).get("knowledge_index_id") or "").strip()
     candidates = []
     if requested:
@@ -311,6 +319,11 @@ def _resolve_graph_store(arguments: dict[str, Any]):
     else:
         candidates = list(repo.list_completed() or [])
     for index in candidates:
+        if not consumption_policy.can_consume(
+            index,
+            allowed_index_ids=allowed_index_ids,
+        ):
+            continue
         try:
             index_path, visual_metrics_path = resolver.resolve_artifacts(index)
             if not index_path.exists():

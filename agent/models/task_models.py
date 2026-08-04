@@ -23,6 +23,7 @@ class TaskStepProposeRequest(SQLModel):
     dispatch_lease_token: Optional[str] = None
     dispatch_lease_phase: Optional[str] = None
     vector_index_dispatch: Optional[dict] = None
+    knowledge_index_dispatch: Optional[dict] = None
 
 
 class TaskStepProposeResponse(SQLModel):
@@ -47,6 +48,7 @@ class TaskStepExecuteRequest(SQLModel):
     dispatch_lease_token: Optional[str] = None
     dispatch_lease_phase: Optional[str] = None
     vector_index_dispatch: Optional[dict] = None
+    knowledge_index_dispatch: Optional[dict] = None
 
 
 class TaskStepExecuteResponse(SQLModel):

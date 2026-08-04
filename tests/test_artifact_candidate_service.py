@@ -5,6 +5,8 @@ from pathlib import Path
 from agent.artifacts.artifact_candidate_service import ArtifactCandidateService
 from agent.artifacts.goal_artifact_repository import GoalArtifactRepository
 from agent.artifacts.goal_artifact_service import GoalArtifactService
+from agent.db_models import ArtifactDB
+from agent.repository import artifact_repo
 from agent.sources.source_registry import SourceRegistry
 from agent.sources.source_snapshot_store import SourceSnapshotStore
 
@@ -96,3 +98,60 @@ def test_candidate_service_filters_by_type_sensitivity_and_source(tmp_path: Path
     assert all(item["artifact_type"] == "source_snapshot" for item in by_type)
     assert all(item["sensitivity"] == "public" for item in by_sensitivity)
     assert all(item["source_id"] == "wikipedia-source" for item in by_source)
+
+
+def test_candidate_service_hides_resolved_system_artifacts_but_keeps_legacy_refs(
+    tmp_path: Path,
+) -> None:
+    public = artifact_repo.save(
+        ArtifactDB(id="candidate-public", artifact_metadata={})
+    )
+    hidden = artifact_repo.save(
+        ArtifactDB(
+            id="candidate-hidden",
+            artifact_metadata={
+                "system_artifact_kind": "knowledge_index_worker_output"
+            },
+        )
+    )
+    goal_service = GoalArtifactService(
+        repository=GoalArtifactRepository(root=tmp_path)
+    )
+    for output_id, artifact_ref in (
+        ("out-public", public.id),
+        ("out-hidden", hidden.id),
+        ("out-legacy", "artifacts:legacy-report:1"),
+    ):
+        goal_service.record_output_artifact(
+            goal_id="goal-visibility",
+            output_artifact={
+                "schema": "goal_output_artifact.v1",
+                "output_artifact_id": output_id,
+                "goal_id": "goal-visibility",
+                "artifact_type": "report",
+                "created_at": "2026-08-04T00:00:00Z",
+                "input_usage_refs": [],
+                "artifact_ref": artifact_ref,
+                "content_hash": "a" * 64,
+                "status": "created",
+                "provenance_summary": "visibility test",
+            },
+        )
+    service = ArtifactCandidateService(
+        source_registry=SourceRegistry(root=tmp_path),
+        source_snapshots=SourceSnapshotStore(root=tmp_path),
+        goal_artifact_service=goal_service,
+    )
+
+    refs = {
+        row["artifact_ref"]
+        for row in service.list_candidates(goal_id="goal-visibility")
+    }
+
+    assert public.id in refs
+    assert f"artifact:{public.id}" in refs
+    assert hidden.id not in refs
+    assert f"artifact:{hidden.id}" not in refs
+    # Existing namespaced outputs need not have an ArtifactDB row. They stay
+    # visible unless the repository resolves them to a protected record.
+    assert "artifacts:legacy-report:1" in refs

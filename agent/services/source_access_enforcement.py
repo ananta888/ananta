@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Protocol
@@ -16,9 +18,9 @@ from ananta_contracts.source_control import (
     SourceAccessGrant,
 )
 
-
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_MIN_DELEGATED_MANIFEST_REMAINING_MS = 5_000
 
 
 class SourceAccessEnforcementError(ValueError):
@@ -111,8 +113,22 @@ class OneTimeGrantConsumptionPort(Protocol):
     ) -> bool: ...
 
 
+class OneTimeGrantConsumptionReceiptPort(Protocol):
+    def verify_exact_consumption_receipt(
+        self,
+        *,
+        grant_id: str,
+        expected_policy_version: int,
+        consumption_digest: str,
+    ) -> bool: ...
+
+
 class EnforcementManifestSignerPort(Protocol):
     def sign(self, *, manifest_digest: str) -> str: ...
+
+
+class EnforcementManifestVerifierPort(Protocol):
+    def verify_manifest(self, manifest: Mapping[str, object]) -> bool: ...
 
 
 @dataclass(frozen=True)
@@ -162,16 +178,22 @@ class SourceAccessEnforcementService:
         grants: SourceGrantResolverPort,
         consumptions: OneTimeGrantConsumptionPort,
         signer: EnforcementManifestSignerPort,
+        manifest_verifier: EnforcementManifestVerifierPort | None = None,
+        consumption_receipts: OneTimeGrantConsumptionReceiptPort | None = None,
     ) -> None:
         self._grants = grants
         self._consumptions = consumptions
         self._signer = signer
+        self._manifest_verifier = manifest_verifier
+        self._consumption_receipts = consumption_receipts
 
     def authorize(
         self,
         request: SourceAccessRequest,
         *,
         now: datetime | None = None,
+        allow_exact_consumption_recovery: bool = False,
+        minimum_remaining_ms: int | None = None,
     ) -> AuthorizedSourceDispatch:
         current_time = now or datetime.now(timezone.utc)
         if current_time.tzinfo is None:
@@ -190,6 +212,14 @@ class SourceAccessEnforcementService:
         grant_expires_at_epoch_ms = int(
             grant.expires_at.timestamp() * 1000
         )
+        required_remaining_ms = self._required_remaining_ms(
+            minimum_remaining_ms
+        )
+        if grant_expires_at_epoch_ms <= (
+            int(current_time.timestamp() * 1000)
+            + required_remaining_ms
+        ):
+            raise SourceAccessEnforcementError("grant_expiring")
         binding_digest = source_access_binding_digest(
             request,
             grant_expires_at_epoch_ms=grant_expires_at_epoch_ms,
@@ -203,7 +233,17 @@ class SourceAccessEnforcementService:
                 expected_version=resolved.concurrency_version,
                 consumption_digest=binding_digest,
             )
-            if not consumed:
+            recovered = bool(
+                not consumed
+                and allow_exact_consumption_recovery
+                and self._consumption_receipts is not None
+                and self._consumption_receipts.verify_exact_consumption_receipt(
+                    grant_id=grant.grant_id,
+                    expected_policy_version=resolved.concurrency_version,
+                    consumption_digest=binding_digest,
+                )
+            )
+            if not consumed and not recovered:
                 raise SourceAccessEnforcementError("grant_already_consumed")
         manifest = DelegatedSourceEnforcementManifest(
             schema="ananta.source-control.enforcement-manifest.v1",
@@ -242,6 +282,104 @@ class SourceAccessEnforcementService:
             ),
             manifest=manifest,
         )
+
+    def validate_delegated_manifest(
+        self,
+        manifest: Mapping[str, object],
+        request: SourceAccessRequest,
+        *,
+        now: datetime | None = None,
+        minimum_remaining_ms: int | None = None,
+    ) -> DelegatedSourceEnforcementManifest:
+        """Revalidate a persisted one-time dispatch capability without consuming it again."""
+
+        current_time = now or datetime.now(timezone.utc)
+        if current_time.tzinfo is None:
+            raise SourceAccessEnforcementError("current_time_must_be_aware")
+        expected_fields = set(DelegatedSourceEnforcementManifest.__dataclass_fields__)
+        if set(manifest) != expected_fields:
+            raise SourceAccessEnforcementError("delegated_manifest_fields_invalid")
+        try:
+            candidate = DelegatedSourceEnforcementManifest(**dict(manifest))
+        except (TypeError, ValueError) as exc:
+            raise SourceAccessEnforcementError(
+                "delegated_manifest_invalid"
+            ) from exc
+        if (
+            candidate.schema != "ananta.source-control.enforcement-manifest.v1"
+            or candidate.authority != "hub"
+        ):
+            raise SourceAccessEnforcementError("delegated_manifest_authority_invalid")
+        expiry = candidate.grant_expires_at_epoch_ms
+        required_remaining_ms = self._required_remaining_ms(
+            minimum_remaining_ms
+        )
+        if (
+            isinstance(expiry, bool)
+            or not isinstance(expiry, int)
+            or expiry <= int(current_time.timestamp() * 1000)
+        ):
+            raise SourceAccessEnforcementError("delegated_manifest_expired")
+        if expiry <= (
+            int(current_time.timestamp() * 1000)
+            + required_remaining_ms
+        ):
+            raise SourceAccessEnforcementError("delegated_manifest_expiring")
+        expected_values = {
+            "tenant_id": request.tenant_id,
+            "project_id": request.project_id,
+            "source_revision_id": request.source_revision_id,
+            "source_revision_digest": str(request.source_revision_digest or ""),
+            "destination_id": request.destination_id,
+            "destination_digest": request.destination_digest,
+            "source_access_grant_id": str(request.source_access_grant_id or ""),
+            "source_access_grant_digest": str(
+                request.source_access_grant_digest or ""
+            ),
+            "operation": request.operation.value,
+            "transformation": request.transformation.value,
+            "purpose": request.purpose,
+            "policy_version": request.policy_version,
+            "policy_digest": str(request.policy_digest or ""),
+            "content_manifest_id": request.manifest_id,
+            "content_manifest_digest": request.manifest_digest,
+            "assignment_id": request.assignment_id,
+            "lease_id": request.lease_id,
+        }
+        if any(
+            str(getattr(candidate, name)) != str(expected)
+            for name, expected in expected_values.items()
+        ):
+            raise SourceAccessEnforcementError("delegated_manifest_binding_mismatch")
+        expected_digest = source_access_binding_digest(
+            request,
+            grant_expires_at_epoch_ms=expiry,
+        )
+        supplied_digest = candidate.binding_digest
+        if not isinstance(supplied_digest, str) or not _SHA256.fullmatch(
+            supplied_digest
+        ):
+            raise SourceAccessEnforcementError("delegated_manifest_digest_invalid")
+        if not hmac.compare_digest(supplied_digest, expected_digest):
+            raise SourceAccessEnforcementError("delegated_manifest_digest_invalid")
+        verifier = self._manifest_verifier
+        if verifier is None:
+            raise SourceAccessEnforcementError(
+                "delegated_manifest_verifier_unavailable"
+            )
+        if not verifier.verify_manifest(manifest):
+            raise SourceAccessEnforcementError("delegated_manifest_signature_invalid")
+        return candidate
+
+    @staticmethod
+    def _required_remaining_ms(value: int | None) -> int:
+        if value is None:
+            return _MIN_DELEGATED_MANIFEST_REMAINING_MS
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise SourceAccessEnforcementError(
+                "minimum_remaining_ms_invalid"
+            )
+        return max(value, _MIN_DELEGATED_MANIFEST_REMAINING_MS)
 
 
 def _grant_mismatch_reason(

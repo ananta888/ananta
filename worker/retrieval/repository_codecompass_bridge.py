@@ -7,7 +7,7 @@ import heapq
 import json
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from agent.codecompass.semantic_translation.config import (
     load_semantic_translation_config,
@@ -32,6 +32,17 @@ def _canonical_json(value: object) -> str:
         separators=(",", ":"),
         allow_nan=False,
     )
+
+
+class RepositoryGraphExecutionDeadlinePort(Protocol):
+    def checkpoint(self) -> None: ...
+
+
+def _checkpoint(
+    execution_deadline: RepositoryGraphExecutionDeadlinePort | None,
+) -> None:
+    if execution_deadline is not None:
+        execution_deadline.checkpoint()
 
 
 class _BoundedSemanticGraphCollector:
@@ -229,7 +240,9 @@ class RepositoryCodeCompassBridge:
         source_id: str,
         records: Sequence[Mapping[str, Any]],
         output_dir: Path,
+        execution_deadline: RepositoryGraphExecutionDeadlinePort | None = None,
     ) -> dict[str, Any]:
+        _checkpoint(execution_deadline)
         normalized = self._normalized_records(records)
         if not normalized:
             raise ValueError("repository_graph_source_records_empty")
@@ -254,6 +267,7 @@ class RepositoryCodeCompassBridge:
         # Materialize the source-grounded repository tree first. Semantic file
         # endpoints can then be bound during the one adapter pass below.
         for path, record in normalized:
+            _checkpoint(execution_deadline)
             file_id = self._node_id("file", path)
             graph_nodes[file_id] = {
                 "id": file_id,
@@ -282,10 +296,12 @@ class RepositoryCodeCompassBridge:
             max_bytes=self._max_semantic_edge_candidate_bytes,
         ) as edge_spool:
             for path, record in normalized:
+                _checkpoint(execution_deadline)
                 content = record.get("content")
                 if not isinstance(content, str):
                     continue
                 emitted = self._semantic_graph.emit_graph_records(path, content)
+                _checkpoint(execution_deadline)
                 raw_nodes = (
                     emitted.get("nodes") if isinstance(emitted, Mapping) else []
                 )
@@ -342,12 +358,14 @@ class RepositoryCodeCompassBridge:
             # Resolve only the bounded spool after the complete semantic node
             # set is known. Adapters are never invoked a second time.
             for edge in edge_spool.records():
+                _checkpoint(execution_deadline)
                 semantic.add_edge(edge, additional_node_ids=graph_node_ids)
             semantic.truncated_edge_count += edge_spool.truncated_edge_count
             edge_spool_record_count = edge_spool.record_count
             edge_spool_byte_count = edge_spool.byte_count
             truncated_candidate_edge_count = edge_spool.truncated_edge_count
 
+        _checkpoint(execution_deadline)
         self._write_jsonl(output_dir / "graph_nodes.jsonl", graph_nodes.values())
         self._write_jsonl(output_dir / "graph_edges.jsonl", graph_edges.values())
         self._write_jsonl(
@@ -356,6 +374,7 @@ class RepositoryCodeCompassBridge:
         self._write_jsonl(
             output_dir / "semantic_edges.jsonl", semantic.edges.values()
         )
+        _checkpoint(execution_deadline)
         return {
             "schema": "ananta.repository-codecompass-bridge.v1",
             "file_count": len(normalized),

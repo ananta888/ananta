@@ -507,6 +507,15 @@ def run_propose_step(
     tool_definitions_resolver: Callable,
 ):
     """Route a propose request to the appropriate strategy."""
+    from worker.retrieval.knowledge_index_task_snapshot import (
+        hydrate_knowledge_index_task_snapshot,
+    )
+
+    hydrate_knowledge_index_task_snapshot(
+        task_id=tid,
+        request_data=request_data,
+        expected_phase="propose",
+    )
     task = service._require_task(tid)
     if guard := _organization_research_hub_execution_guard(
         task=task,
@@ -906,6 +915,15 @@ def run_execute_step(
     tool_definitions_resolver: Callable | None = None,
 ):
     """Route an execute request to the appropriate strategy."""
+    from worker.retrieval.knowledge_index_task_snapshot import (
+        hydrate_knowledge_index_task_snapshot,
+    )
+
+    hydrate_knowledge_index_task_snapshot(
+        task_id=tid,
+        request_data=request_data,
+        expected_phase="execute",
+    )
     task = service._require_task(tid)
     if guard := _organization_research_hub_execution_guard(
         task=task,
@@ -1152,11 +1170,12 @@ def _run_execute_step_admitted(
         endpoint=f"/tasks/{tid}/step/execute",
         payload=request_data.model_dump(),
         forwarder=forwarder,
-        on_success=lambda response, loaded_task: service._persist_forwarded_execution(
+        on_success=lambda response, loaded_task, *, transport_deadline=None: service._persist_forwarded_execution(
             tid=tid,
             response=response,
             task=loaded_task,
             request_data=request_data,
+            transport_deadline=transport_deadline,
         ),
     )
     if forwarded is not None:

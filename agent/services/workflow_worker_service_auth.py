@@ -27,6 +27,9 @@ WORKFLOW_WORKER_COMMAND_SCOPE = "workflow.worker.commands"
 WORKFLOW_LANGGRAPH_CHECKPOINT_SCOPE = "workflow.langgraph.checkpoints"
 WORKFLOW_TEMPORAL_TASK_SCOPE = "workflow.temporal.tasks"
 KNOWLEDGE_INDEX_PAYLOAD_SCOPE = "knowledge.index.payloads"
+KNOWLEDGE_INDEX_TASK_SNAPSHOT_SCOPE = (
+    "knowledge.index.task_snapshot.read"
+)
 SEMANTIC_COMPUTE_WORKER_SCOPE = "semantic.compute.execute"
 SPEECH_EVIDENCE_CURATION_WORKER_SCOPE = "speech.evidence.curate"
 RECOVERY_TASK_DISPATCH_SCOPE = "task.recovery.dispatch"
@@ -49,6 +52,9 @@ _SCOPE_CAPABILITIES = {
     WORKFLOW_LANGGRAPH_CHECKPOINT_SCOPE: frozenset({"workflow.adapter.langgraph"}),
     WORKFLOW_TEMPORAL_TASK_SCOPE: frozenset({"workflow.adapter.temporal", "workflow.runtime.temporal"}),
     KNOWLEDGE_INDEX_PAYLOAD_SCOPE: frozenset({"retrieval", "index_write"}),
+    KNOWLEDGE_INDEX_TASK_SNAPSHOT_SCOPE: frozenset(
+        {"retrieval", "index_write"}
+    ),
     SEMANTIC_COMPUTE_WORKER_SCOPE: frozenset(
         {
             "semantic_compute",
@@ -794,6 +800,7 @@ __all__ = [
     "WORKER_URL_HEADER",
     "WORKFLOW_LANGGRAPH_CHECKPOINT_SCOPE",
     "KNOWLEDGE_INDEX_PAYLOAD_SCOPE",
+    "KNOWLEDGE_INDEX_TASK_SNAPSHOT_SCOPE",
     "SEMANTIC_COMPUTE_WORKER_SCOPE",
     "SPEECH_EVIDENCE_CURATION_WORKER_SCOPE",
     "WORKFLOW_TEMPORAL_TASK_SCOPE",

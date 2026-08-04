@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import time
 from types import SimpleNamespace
 
 from flask import Flask
 from sqlalchemy import create_engine
-from sqlmodel import SQLModel, Session
+from sqlmodel import Session, SQLModel
 
 from agent.db_models.source_access_enforcement import (
     SourceAccessGrantExecutionPolicyDB,
@@ -43,7 +43,6 @@ from agent.sources.registered_workspace_connector import (
     RegisteredWorkspaceConnector,
 )
 from ananta_contracts.source_control import ProviderLocation, SourceAccessGrant
-
 
 NOW = datetime.now(timezone.utc)
 
@@ -347,6 +346,7 @@ def test_production_composition_replaces_only_the_app_local_job_service() -> Non
         ingestion_service=_Ingestion(),
     )
     app.extensions["repository_registry"] = SimpleNamespace(
+        agent_repo=SimpleNamespace(get_all=lambda: []),
         artifact_repo=SimpleNamespace(save=lambda value: value),
         task_repo=_TaskRepository(),
         knowledge_index_repo=object(),

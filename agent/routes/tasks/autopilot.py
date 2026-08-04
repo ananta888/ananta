@@ -1,36 +1,121 @@
+import concurrent.futures
+import contextlib
 import logging
 import os
 import threading
 import time
-import contextlib
-import concurrent.futures
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
 from flask import Blueprint, current_app, has_app_context, request
 
-from agent.auth import admin_required, check_auth
+from agent.auth import admin_required, check_auth, resolve_configured_agent_token
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.config import settings
+from agent.routes.tasks.autopilot_dispatch_policy import resolve_effective_concurrency
 from agent.routes.tasks.autopilot_guardrails import (
     check_guardrail_limits,
     resolve_guardrail_limits,
     resolve_resilience_config,
     resolve_security_policy,
 )
-from agent.routes.tasks.autopilot_dispatch_policy import resolve_effective_concurrency
 from agent.routes.tasks.autopilot_tick_engine import execute_autopilot_tick
 from agent.routes.tasks.orchestration_policy import compute_retry_delay_seconds
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
-from agent.services.service_registry import get_core_services
-from agent.services.repository_registry import get_repository_registry
 from agent.services.provider_observer_service import get_provider_observer_service
+from agent.services.repository_registry import get_repository_registry
+from agent.services.service_registry import get_core_services
+from agent.services.worker_forward_outcome import (
+    WORKER_FORWARD_OUTCOME_RECORDER_EXTENSION,
+)
+from agent.services.worker_forward_transport import (
+    WorkerForwardDeadlineExceeded,
+    WorkerTransportDeadline,
+    invoke_worker_forwarder,
+)
 from agent.services.worker_policy_service import get_worker_policy_service
 
 autopilot_bp = Blueprint("tasks_autopilot", __name__)
 
 AUTOPILOT_STATE_KEY = "autonomous_loop_state"
+
+
+@dataclass(frozen=True, slots=True)
+class _ForwardTarget:
+    """Bind an internal forwarding destination to its credential."""
+
+    url: str
+    token: str = field(repr=False)
+    records_worker_health: bool = True
+
+
+class _ForwardAttemptError(RuntimeError):
+    """Internal forwarding failure with an explicit retry decision."""
+
+    def __init__(self, message: str, *, retryable: bool) -> None:
+        super().__init__(message)
+        self.retryable = bool(retryable)
+
+
+def _structured_forward_retryable(
+    response: dict[str, Any],
+    *,
+    http_status: int,
+) -> bool:
+    if http_status in {401, 403}:
+        return False
+    candidates: list[Any] = [response]
+    details = response.get("details")
+    if isinstance(details, dict):
+        candidates.append(details)
+        nested_details = details.get("details")
+        if isinstance(nested_details, dict):
+            candidates.append(nested_details)
+    for candidate in candidates:
+        if isinstance(candidate, dict) and isinstance(
+            candidate.get("retryable"),
+            bool,
+        ):
+            return bool(candidate["retryable"])
+    return not 400 <= http_status < 500
+
+
+def _forward_exception_retryable(exc: Exception) -> bool:
+    explicit = getattr(exc, "retryable", None)
+    if isinstance(explicit, bool):
+        return explicit
+    error_text = str(exc or "").strip().lower()
+    permanent_errors = {
+        "401 unauthorized",
+        "403 forbidden",
+        "invalid or missing registration token",
+        "worker_forward_deadline_transport_unsupported",
+        "worker_forward_redirect_forbidden",
+        "worker_forward_secure_transport_unsupported",
+        "worker_forward_transport_deadline_exceeded",
+    }
+    return not (
+        error_text in permanent_errors
+        or error_text.endswith("_response_too_large")
+        or error_text.endswith("_response_json_invalid")
+        or error_text.endswith("_response_bytes_invalid")
+    )
+
+
+def _normalize_forwarded_step_envelope(response: Any) -> dict[str, Any]:
+    cursor = response
+    for _depth in range(6):
+        if not isinstance(cursor, dict) or "data" not in cursor:
+            break
+        nested = cursor.get("data")
+        if not isinstance(nested, dict):
+            return {}
+        cursor = nested
+    normalized = unwrap_api_envelope(response)
+    return normalized if isinstance(normalized, dict) else {}
 
 
 def _background_threads_disabled(app: Any | None = None) -> bool:
@@ -106,6 +191,25 @@ class AutonomousLoopManager:
 
     def bind_app(self, app):
         self._app = app
+        app.extensions[WORKER_FORWARD_OUTCOME_RECORDER_EXTENSION] = self
+
+    def record_worker_forward_success(self, worker_url: str) -> None:
+        self._record_worker_success(worker_url)
+
+    def record_worker_forward_failure(
+        self,
+        worker_url: str,
+        reason: str,
+        *,
+        task_id: str | None = None,
+        endpoint: str | None = None,
+    ) -> None:
+        self._record_worker_failure(
+            worker_url,
+            reason,
+            task_id=task_id,
+            endpoint=endpoint,
+        )
 
     def _app_config(self) -> dict[str, Any]:
         if has_app_context():
@@ -525,7 +629,18 @@ class AutonomousLoopManager:
         now = time.time()
         cfg = self._agent_config() or {}
         min_interval = max(0.1, min(float(cfg.get("autopilot_task_propose_min_interval_seconds") or 0.75), 5.0))
-        max_backoff = max(min_interval, min(float(cfg.get("autopilot_task_propose_max_backoff_seconds") or 30.0), 120.0))
+        max_backoff = max(
+            min_interval,
+            min(
+                float(
+                    cfg.get(
+                        "autopilot_task_propose_max_backoff_seconds"
+                    )
+                    or 30.0
+                ),
+                120.0,
+            ),
+        )
         with self._routing_lock:
             prev_ts = float(self._task_propose_last_attempt_at.get(key, 0.0) or 0.0)
             streak = int(self._task_propose_streak.get(key, 0))
@@ -541,23 +656,19 @@ class AutonomousLoopManager:
             self._task_propose_last_attempt_at[key] = now
             self._task_propose_next_allowed_at[key] = now + delay
 
-    def _forward_with_retry(self, worker_url: str, endpoint: str, payload: dict, token: str | None = None) -> dict:
-        cfg = self._resilience_config()
-        last_exc: Exception | None = None
+    def _resolve_forward_target(
+        self,
+        worker_url: str,
+        endpoint: str,
+        payload: dict,
+        token: str | None,
+    ) -> _ForwardTarget:
         resolved_token = token
         hub_url = str(getattr(settings, "hub_url", "") or "").strip().rstrip("/")
         is_step_endpoint = endpoint.startswith("/tasks/") and "/step/" in endpoint
         recovery_fenced = bool(
-            str(
-                (payload or {}).get("dispatch_lease_token") or ""
-            ).strip()
+            str((payload or {}).get("dispatch_lease_token") or "").strip()
         )
-        with contextlib.suppress(Exception):
-            agent = get_repository_registry(self._app).agent_repo.get_by_url(worker_url)
-            current_token = str(getattr(agent, "token", "") or "").strip()
-            if current_token:
-                resolved_token = current_token
-        target_url = worker_url
         if (
             settings.role == "hub"
             and is_step_endpoint
@@ -566,16 +677,106 @@ class AutonomousLoopManager:
         ):
             # Task-scoped step endpoints are hub-owned (task state + routing context).
             # Hub may delegate internals further, but the API contract lives here.
-            target_url = hub_url
+            hub_token = resolve_configured_agent_token(self._app_config())
+            if not hub_token:
+                raise RuntimeError("hub_service_token_unavailable")
+            return _ForwardTarget(
+                url=hub_url,
+                token=hub_token,
+                records_worker_health=False,
+            )
+
+        with contextlib.suppress(Exception):
+            agent = get_repository_registry(self._app).agent_repo.get_by_url(worker_url)
+            current_token = str(getattr(agent, "token", "") or "").strip()
+            if current_token:
+                resolved_token = current_token
+        if not resolved_token:
+            raise RuntimeError("worker_service_token_unavailable")
+        return _ForwardTarget(url=worker_url.rstrip("/"), token=resolved_token)
+
+    def _trusted_forward_deadline(
+        self,
+        *,
+        endpoint: str,
+        payload: dict[str, Any],
+    ) -> WorkerTransportDeadline | None:
+        if not str(endpoint or "").rstrip("/").endswith(
+            "/step/execute"
+        ):
+            return None
+        task_id = str(payload.get("task_id") or "").strip()
+        if not task_id or not endpoint.startswith(f"/tasks/{task_id}/"):
+            return None
+        registry = get_repository_registry(self._app)
+        task_repository = getattr(registry, "task_repo", None)
+        if task_repository is None:
+            return None
+        task = task_repository.get_by_id(task_id)
+        if task is None:
+            return None
+        if isinstance(task, Mapping):
+            raw_task = dict(task)
+        else:
+            model_dump = getattr(task, "model_dump", None)
+            if callable(model_dump):
+                raw_task = model_dump()
+            else:
+                # Repository ports may expose a focused object projection.
+                # Missing index fields intentionally resolve to no governed
+                # deadline below instead of breaking unrelated task retries.
+                raw_task = {
+                    field: getattr(task, field, None)
+                    for field in (
+                        "id",
+                        "task_kind",
+                        "worker_execution_context",
+                    )
+                }
+        from agent.services.knowledge_index_forward_timeout import (
+            resolve_knowledge_index_forward_deadline,
+        )
+
+        try:
+            return resolve_knowledge_index_forward_deadline(
+                raw_task,
+                dispatch_phase="execute",
+            )
+        except ValueError as exc:
+            raise _ForwardAttemptError(
+                str(exc or "knowledge_index_resource_budget_invalid"),
+                retryable=False,
+            ) from exc
+
+    def _forward_with_retry(self, worker_url: str, endpoint: str, payload: dict, token: str | None = None) -> dict:
+        cfg = self._resilience_config()
+        last_exc: Exception | None = None
+        target = self._resolve_forward_target(
+            worker_url,
+            endpoint,
+            payload,
+            token,
+        )
+        transport_deadline = self._trusted_forward_deadline(
+            endpoint=endpoint,
+            payload=payload,
+        )
 
         for attempt in range(1, cfg["retry_attempts"] + 1):
             try:
-                res = _forward_to_worker(target_url, endpoint, payload, token=resolved_token if target_url == worker_url else None)
+                res = invoke_worker_forwarder(
+                    _forward_to_worker,
+                    target.url,
+                    endpoint,
+                    payload,
+                    token=target.token,
+                    transport_deadline=transport_deadline,
+                )
                 if res is None:
-                    raise RuntimeError(f"worker_empty_response:{target_url}:{endpoint}")
+                    raise RuntimeError(f"worker_empty_response:{target.url}:{endpoint}")
                 if isinstance(res, dict) and str(res.get("status") or "").strip().lower() == "error":
                     http_status = int(res.get("http_status") or 0)
-                    key = f"{target_url}|{endpoint}|{http_status or 'unknown'}"
+                    key = f"{target.url}|{endpoint}|{http_status or 'unknown'}"
                     with self._routing_lock:
                         self._forward_http_error_counts[key] = int(self._forward_http_error_counts.get(key, 0)) + 1
                         self._forward_http_error_last[key] = {
@@ -584,89 +785,35 @@ class AutonomousLoopManager:
                             "at": time.time(),
                             "task_id": str((payload or {}).get("task_id") or ""),
                         }
-                    # Some worker runtimes intentionally do not expose step endpoints.
-                    # Fall back to local hub execution path for task step operations.
-                    if (
-                        http_status == 404
-                        and is_step_endpoint
-                        and hub_url
-                        and not recovery_fenced
-                        and worker_url.rstrip("/") != hub_url
-                    ):
-                        res = _forward_to_worker(hub_url, endpoint, payload, token=None)
-                        if not (isinstance(res, dict) and str(res.get("status") or "").strip().lower() == "error"):
-                            self._record_worker_success(worker_url)
-                            normalized = unwrap_api_envelope(res)
-                            if not isinstance(normalized, dict) or not normalized:
-                                raise RuntimeError(f"worker_empty_payload:{hub_url}:{endpoint}")
-                            return normalized
-                    # Retry tokenless only on explicit auth failures.
-                    if (
-                        resolved_token
-                        and http_status == 401
-                        and not recovery_fenced
-                    ):
-                        res = _forward_to_worker(worker_url, endpoint, payload, token=None)
-                        if isinstance(res, dict) and str(res.get("status") or "").strip().lower() == "error":
-                            raise RuntimeError(
-                                f"worker_http_error:{target_url}:{endpoint}:status={int(res.get('http_status') or 0)}:"
-                                f"{str(res.get('message') or '')}"
-                            )
-                    else:
-                        raise RuntimeError(
-                            f"worker_http_error:{target_url}:{endpoint}:status={http_status}:{str(res.get('message') or '')}"
-                        )
-                self._record_worker_success(worker_url)
-                normalized = unwrap_api_envelope(res)
-                if not isinstance(normalized, dict) or not normalized:
-                    raise RuntimeError(f"worker_empty_payload:{target_url}:{endpoint}")
+                    raise _ForwardAttemptError(
+                        f"worker_http_error:{target.url}:{endpoint}:status={http_status}:"
+                        f"{str(res.get('message') or '')}",
+                        retryable=_structured_forward_retryable(
+                            res,
+                            http_status=http_status,
+                        ),
+                    )
+                normalized = _normalize_forwarded_step_envelope(res)
+                if not normalized:
+                    raise RuntimeError(f"worker_empty_payload:{target.url}:{endpoint}")
+                if target.records_worker_health:
+                    self._record_worker_success(worker_url)
                 return normalized
             except Exception as e:
-                err_text = str(e or "")
-                err_lc = err_text.lower()
-                # Worker tokens can drift across container restarts; for internal
-                # hub->worker calls we degrade gracefully and retry once without
-                # bearer token on explicit auth failures.
-                if resolved_token and not recovery_fenced and (
-                    "401" in err_lc
-                    or "unauthorized" in err_lc
-                    or "invalid or missing registration token" in err_lc
-                    or "worker_empty_response" in err_lc
-                    or "worker_empty_payload" in err_lc
-                ):
-                    try:
-                        res = _forward_to_worker(worker_url, endpoint, payload, token=None)
-                        if res is None:
-                            raise RuntimeError(f"worker_empty_response:{worker_url}:{endpoint}:tokenless")
-                        self._record_worker_success(worker_url)
-                        if payload.get("task_id"):
-                            _append_trace_event(
-                                payload["task_id"],
-                                "autopilot_forward_auth_fallback",
-                                worker_url=worker_url,
-                                endpoint=endpoint,
-                                reason="token_401_retry_without_token",
-                            )
-                        normalized = unwrap_api_envelope(res)
-                        if not isinstance(normalized, dict) or not normalized:
-                            raise RuntimeError(f"worker_empty_payload:{worker_url}:{endpoint}:tokenless")
-                        return normalized
-                    except Exception as auth_fallback_exc:
-                        e = auth_fallback_exc
                 last_exc = e
                 err_text = str(e or "")
                 err_lc = err_text.lower()
                 if "ollama" in err_lc and "/api/generate" in err_lc and "timeout" in err_lc:
                     self._record_provider_backpressure("ollama", "ollama_generate_timeout")
-                self._record_worker_failure(
-                    worker_url,
-                    f"forward_failed:{endpoint}",
-                    task_id=(payload or {}).get("task_id"),
-                    endpoint=endpoint,
-                )
-                permanent_http_4xx = "worker_http_error:" in err_lc and "status=4" in err_lc
+                if target.records_worker_health:
+                    self._record_worker_failure(
+                        worker_url,
+                        f"forward_failed:{endpoint}",
+                        task_id=(payload or {}).get("task_id"),
+                        endpoint=endpoint,
+                    )
                 if attempt < cfg["retry_attempts"]:
-                    if permanent_http_4xx:
+                    if not _forward_exception_retryable(e):
                         break
                     if cfg.get("retry_backoff_strategy") == "constant":
                         delay = float(min(cfg["retry_backoff_seconds"], cfg["retry_max_backoff_seconds"]))
@@ -677,6 +824,13 @@ class AutonomousLoopManager:
                             max_backoff_seconds=cfg["retry_max_backoff_seconds"],
                             jitter_factor=cfg["retry_jitter_factor"],
                         )
+                    if transport_deadline is not None:
+                        remaining = (
+                            transport_deadline.remaining_seconds()
+                        )
+                        if remaining <= delay:
+                            last_exc = WorkerForwardDeadlineExceeded()
+                            break
                     if payload.get("task_id"):
                         _append_trace_event(
                             payload["task_id"],
@@ -704,7 +858,7 @@ class AutonomousLoopManager:
                             }:
                                 last_exc = RuntimeError(f"task_terminal_during_retry:{_tid}:{_t.status}")
                                 break
-        raise RuntimeError(f"worker_forward_failed:{worker_url}:{endpoint}:{last_exc}")
+        raise RuntimeError(f"worker_forward_failed:{target.url}:{endpoint}:{last_exc}")
 
     def tick_once(self) -> dict:
         if not has_app_context() and self._app is not None:

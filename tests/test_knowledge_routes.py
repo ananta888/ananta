@@ -104,7 +104,7 @@ def test_knowledge_collection_search_route_returns_collection_chunks(client, adm
         def search(self, query: str, *, top_k: int = 4, artifact_ids=None, source_scopes=None):
             assert query == "timeout"
             assert artifact_ids == {artifact_id}
-            assert source_scopes is None
+            assert source_scopes == {"artifact"}
             return [
                 SimpleNamespace(
                     engine="knowledge_index",
@@ -200,6 +200,247 @@ def test_knowledge_collection_index_route_supports_async_jobs(client, admin_auth
     status_res = client.get("/knowledge/index-jobs/job-collection-1", headers=admin_auth_header)
     assert status_res.status_code == 200
     assert status_res.get_json()["data"]["job"]["status"] == "completed"
+
+
+def test_expired_index_dispatch_reconcile_route_requires_occ_and_returns_etag(
+    client,
+    admin_auth_header,
+    monkeypatch,
+):
+    calls = []
+
+    class StubJobService:
+        def get_job(self, job_id: str):
+            return {
+                "job_id": job_id,
+                "status": "running",
+                "execution_lock_version": 2,
+            }
+
+        def reconcile_expired_bound_dispatch(
+            self,
+            *,
+            job_id,
+            expected_lock_version,
+        ):
+            calls.append((job_id, expected_lock_version))
+            if expected_lock_version != 2:
+                from agent.services.knowledge_index_execution_binding_service import (
+                    KnowledgeIndexExecutionBindingError,
+                )
+
+                raise KnowledgeIndexExecutionBindingError(
+                    "knowledge_index_execution_reconcile_conflict"
+                )
+            return {
+                "job_id": job_id,
+                "status": "failed",
+                "reason_code": (
+                    "knowledge_index_execution_dispatch_lease_expired"
+                ),
+                "execution_state": "failed",
+                "execution_lock_version": 3,
+                "completed_at_epoch_ms": 2_000,
+            }
+
+    monkeypatch.setattr(
+        "agent.routes.knowledge.get_knowledge_index_job_service",
+        lambda: StubJobService(),
+    )
+
+    missing_occ = client.post(
+        "/knowledge/index-jobs/knowledge-index-job/reconcile-expired-dispatch",
+        headers=admin_auth_header,
+        json={},
+    )
+    stale_occ = client.post(
+        "/knowledge/index-jobs/knowledge-index-job/reconcile-expired-dispatch",
+        headers={**admin_auth_header, "If-Match": '"1"'},
+        json={},
+    )
+    response = client.post(
+        "/knowledge/index-jobs/knowledge-index-job/reconcile-expired-dispatch",
+        headers={**admin_auth_header, "If-Match": '"2"'},
+        json={},
+    )
+
+    assert missing_occ.status_code == 428
+    assert stale_occ.status_code == 412
+    assert response.status_code == 200
+    assert response.headers["ETag"] == '"3"'
+    assert response.get_json()["data"]["job"]["status"] == "failed"
+    assert calls == [
+        ("knowledge-index-job", 1),
+        ("knowledge-index-job", 2),
+    ]
+
+
+def test_completion_reconcile_route_is_admin_only_and_occ_guarded(
+    client,
+    admin_auth_header,
+    user_auth_header,
+    monkeypatch,
+):
+    calls = []
+
+    class StubJobService:
+        def get_job(self, job_id):
+            return {
+                "job_id": job_id,
+                "status": "running",
+                "execution_lock_version": 7,
+                "completion_projection_state": "pending",
+                "completion_projection_lock_version": 1,
+            }
+
+        def reconcile_completion_projection(
+            self,
+            *,
+            job_id,
+            expected_projection_lock_version,
+        ):
+            calls.append((job_id, expected_projection_lock_version))
+            return {
+                "job_id": job_id,
+                "status": "completed",
+                "completion_projection_state": "projected",
+                "completion_projection_lock_version": 2,
+            }
+
+    monkeypatch.setattr(
+        "agent.routes.knowledge.get_knowledge_index_job_service",
+        lambda: StubJobService(),
+    )
+    path = (
+        "/knowledge/index-jobs/knowledge-index-job/"
+        "reconcile-completion"
+    )
+    status = client.get(
+        "/knowledge/index-jobs/knowledge-index-job",
+        headers=admin_auth_header,
+    )
+
+    non_admin = client.post(
+        path,
+        headers={**user_auth_header, "If-Match": '"1"'},
+        json={},
+    )
+    missing_occ = client.post(
+        path,
+        headers=admin_auth_header,
+        json={},
+    )
+    completed = client.post(
+        path,
+        headers={**admin_auth_header, "If-Match": '"1"'},
+        json={},
+    )
+
+    # Object authorization masks an existing admin-only job from a caller
+    # without object access instead of disclosing it via a role-specific 403.
+    assert status.status_code == 200
+    assert status.headers["ETag"] == '"7"'
+    assert status.headers[
+        "X-Knowledge-Index-Completion-ETag"
+    ] == '"1"'
+    assert non_admin.status_code == 404
+    assert missing_occ.status_code == 428
+    assert completed.status_code == 200
+    assert completed.headers["ETag"] == '"2"'
+    assert completed.headers[
+        "X-Knowledge-Index-Completion-ETag"
+    ] == '"2"'
+    assert calls == [("knowledge-index-job", 1)]
+
+
+def test_completion_reconcile_route_hides_unknown_job_from_admin(
+    client,
+    admin_auth_header,
+    monkeypatch,
+):
+    calls = []
+
+    class StubJobService:
+        def get_job(self, _job_id):
+            return None
+
+        def reconcile_completion_projection(self, **kwargs):
+            calls.append(kwargs)
+
+    monkeypatch.setattr(
+        "agent.routes.knowledge.get_knowledge_index_job_service",
+        lambda: StubJobService(),
+    )
+    response = client.post(
+        "/knowledge/index-jobs/foreign-job/reconcile-completion",
+        headers={**admin_auth_header, "If-Match": '"1"'},
+        json={},
+    )
+
+    assert response.status_code == 404
+    assert calls == []
+
+
+def test_completion_reconcile_route_returns_hub_local_pending_after_task_cas_failure(
+    client,
+    admin_auth_header,
+    monkeypatch,
+):
+    from agent.services.knowledge_index_job_service import (
+        KnowledgeIndexCompletionProjectionPending,
+    )
+
+    class StubJobService:
+        reads = 0
+
+        def get_job(self, job_id):
+            self.reads += 1
+            return {
+                "job_id": job_id,
+                "status": "running",
+                "completion_projection_state": "projected",
+                "completion_projection_lock_version": 2,
+            }
+
+        @staticmethod
+        def reconcile_completion_projection(**_kwargs):
+            raise KnowledgeIndexCompletionProjectionPending(
+                RuntimeError("task database temporarily unavailable")
+            )
+
+    service = StubJobService()
+    monkeypatch.setattr(
+        "agent.routes.knowledge.get_knowledge_index_job_service",
+        lambda: service,
+    )
+
+    response = client.post(
+        (
+            "/knowledge/index-jobs/knowledge-index-job/"
+            "reconcile-completion"
+        ),
+        headers={**admin_auth_header, "If-Match": '"2"'},
+        json={},
+    )
+
+    assert response.status_code == 202
+    assert response.headers["ETag"] == '"2"'
+    assert response.headers[
+        "X-Knowledge-Index-Completion-ETag"
+    ] == '"2"'
+    assert response.get_json()["data"] == {
+        "job": {
+            "job_id": "knowledge-index-job",
+            "status": "running",
+            "completion_projection_state": "projected",
+            "completion_projection_lock_version": 2,
+        },
+        "reason_code": "knowledge_index_source_projection_pending",
+        "worker_result_accepted": True,
+        "worker_dispatch_retry_allowed": False,
+        "reconciliation_required": True,
+    }
+    assert service.reads >= 2
 
 
 def test_knowledge_collection_search_route_accepts_source_type_policy(client, admin_auth_header, monkeypatch):

@@ -14,6 +14,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from agent.services import codecompass_graph_artifact_resolver, repository_registry
+from agent.services.knowledge_index_consumption_policy import (
+    KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY,
+    KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA,
+    KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA,
+)
 from agent.services.tools import codecompass_tools
 from agent.services.tools._evidence import TOOL_RESULT_SCHEMA
 
@@ -188,4 +193,79 @@ def test_graph_store_resolution_uses_governed_artifact_resolver(
 
     assert index_id == "index-1"
     assert resolver.resolved == [knowledge_index]
+    assert store.load()["rig_index"]["node_count"] == 2
+
+
+def test_graph_store_default_selection_excludes_unscoped_v2_indices(
+    monkeypatch,
+    tmp_path,
+):
+    admitted_index_path = _seed_rig_store(tmp_path / "admitted-v2")
+    metrics_path = (
+        tmp_path / "admitted-v2" / "cc_graph_index.visual_metrics.json"
+    )
+
+    def _index(index_id: str, projection_state: str) -> SimpleNamespace:
+        return SimpleNamespace(
+            id=index_id,
+            source_scope="repository",
+            status="completed",
+            output_dir=str(tmp_path / "must-not-be-read-directly"),
+            index_metadata={
+                "graph_artifacts": {},
+                KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY: {
+                    "schema": KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA,
+                    "projection_state": projection_state,
+                    "execution_job_schema": KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA,
+                    "job_id": "knowledge-index-" + ("1" * 32),
+                    "knowledge_index_id": index_id,
+                    "authority_binding_digest": "a" * 64,
+                    "assignment_id": "assignment-1",
+                },
+            },
+        )
+
+    pending = _index("index-pending", "pending")
+    projected = _index("index-projected", "projected")
+
+    class _Resolver:
+        def __init__(self):
+            self.resolved = []
+
+        def resolve_artifacts(self, candidate):
+            self.resolved.append(candidate)
+            return admitted_index_path, metrics_path
+
+        def resolve_legacy_tool_graph(self, candidate):
+            raise AssertionError("admitted artifacts must not use legacy path")
+
+    resolver = _Resolver()
+    repository = SimpleNamespace(
+        get_by_id=lambda index_id: {
+            pending.id: pending,
+            projected.id: projected,
+        }.get(index_id),
+        list_completed=lambda: [pending, projected],
+    )
+    monkeypatch.setattr(
+        codecompass_graph_artifact_resolver,
+        "get_codecompass_graph_artifact_resolver",
+        lambda: resolver,
+    )
+    monkeypatch.setattr(
+        repository_registry,
+        "get_repository_registry",
+        lambda: SimpleNamespace(knowledge_index_repo=repository),
+    )
+
+    assert codecompass_tools._resolve_graph_store({}) == (None, None)
+    assert resolver.resolved == []
+
+    store, index_id = codecompass_tools._resolve_graph_store(
+        {},
+        allowed_index_ids={pending.id, projected.id},
+    )
+
+    assert index_id == projected.id
+    assert resolver.resolved == [projected]
     assert store.load()["rig_index"]["node_count"] == 2

@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
@@ -2708,6 +2709,1007 @@ def test_vector_index_forward_never_retries_anonymously_or_falls_back_locally(
         )
 
     assert calls == ["current-vector-worker-token"]
+
+
+def _governed_codecompass_forward_task(
+    *,
+    worker_url="http://worker:5001",
+    schema="ananta.knowledge_index_execution_job.v2",
+    include_context=True,
+    include_manifest=False,
+):
+    task = {
+        "id": "codecompass-forward-fenced",
+        "task_kind": "codecompass_index_build",
+        "assigned_agent_url": worker_url,
+        "assigned_agent_token": "stale-codecompass-token",
+    }
+    if include_context:
+        job = {
+            "schema": schema,
+            "resources": {"max_runtime_seconds": 60},
+        }
+        if include_manifest:
+            job["source_access_enforcement_manifest"] = {
+                "schema": "ananta.source-control.enforcement-manifest.v1"
+            }
+        task["worker_execution_context"] = {
+            "knowledge_index_job": job,
+            "destination_selection": {
+                "worker_id": "worker-index-01"
+            },
+        }
+    return task
+
+
+@pytest.mark.parametrize(
+    "failure_mode",
+    [
+        "empty",
+        "unauthorized_response",
+        "forbidden_response",
+        "not_found",
+        "unauthorized_exception",
+    ],
+)
+def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_locally(
+    app,
+    monkeypatch,
+    failure_mode,
+):
+    from agent.common.errors import WorkerForwardingError
+    from agent.config import settings
+    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services import recovery_dispatch_gate_service
+    from agent.services.worker_forward_transport import (
+        WorkerTransportDeadline,
+    )
+
+    class Gate:
+        @staticmethod
+        def is_recovery_child(_task):
+            return False
+
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
+    monkeypatch.setattr(
+        recovery_dispatch_gate_service,
+        "get_recovery_dispatch_gate_service",
+        lambda: Gate(),
+    )
+    monkeypatch.setattr(
+        forwarding,
+        "get_repository_registry",
+        lambda: Record(
+            agent_repo=Record(
+                get_by_url=lambda _url: Record(
+                    name="worker-index-01",
+                    url="http://worker:5001",
+                    token="current-codecompass-worker-token",
+                    registration_validated=True,
+                    role="worker",
+                    status="online",
+                )
+            )
+        ),
+    )
+    authorization_calls = []
+
+    def authorize_dispatch(**values):
+        authorization_calls.append(values)
+        return {
+            "knowledge_index_job": {
+                "schema": "ananta.knowledge_index_execution_job.v2",
+                "resources": {"max_runtime_seconds": 60},
+                "source_access_enforcement_manifest": {
+                    "schema": "test-enforcement-manifest"
+                },
+            }
+        }
+
+    monkeypatch.setattr(
+        forwarding,
+        "_governed_source_control_index_job_service",
+        lambda: Record(
+            authorize_bound_worker_dispatch=authorize_dispatch
+        ),
+    )
+    deadline = WorkerTransportDeadline.after_seconds(90)
+    monkeypatch.setattr(
+        forwarding,
+        "_codecompass_execute_deadline",
+        lambda **_kwargs: deadline,
+    )
+    calls: list[str | None] = []
+
+    def forwarder(
+        _url,
+        _endpoint,
+        _payload,
+        *,
+        token,
+        transport_deadline=None,
+    ):
+        calls.append((token, transport_deadline))
+        if failure_mode == "empty":
+            return None
+        if failure_mode == "unauthorized_response":
+            return {
+                "status": "error",
+                "http_status": 401,
+                "message": "unauthorized",
+            }
+        if failure_mode == "forbidden_response":
+            return {
+                "status": "error",
+                "http_status": 403,
+                "message": "forbidden",
+            }
+        if failure_mode == "not_found":
+            return {
+                "status": "error",
+                "http_status": 404,
+                "message": "task not found",
+            }
+        raise RuntimeError("401 unauthorized")
+
+    with app.app_context(), pytest.raises(WorkerForwardingError) as error:
+        forwarding.forward_task_request_if_remote(
+            tid="codecompass-forward-fenced",
+            task={
+                "id": "codecompass-forward-fenced",
+                "task_kind": "codecompass_index_build",
+                "assigned_agent_url": "http://worker:5001",
+                "assigned_agent_token": "stale-codecompass-token",
+                "worker_execution_context": {
+                    "knowledge_index_job": {
+                        "schema": "ananta.knowledge_index_execution_job.v2",
+                    },
+                    "destination_selection": {
+                        "worker_id": "worker-index-01"
+                    },
+                },
+            },
+            endpoint="/tasks/codecompass-forward-fenced/step/execute",
+            payload={"task_id": "codecompass-forward-fenced"},
+            forwarder=forwarder,
+            on_success=lambda *_args: None,
+        )
+
+    assert calls == [("current-codecompass-worker-token", deadline)]
+    if failure_mode in {
+        "unauthorized_response",
+        "forbidden_response",
+        "not_found",
+    }:
+        assert error.value.status_code == {
+            "unauthorized_response": 401,
+            "forbidden_response": 403,
+            "not_found": 404,
+        }[failure_mode]
+        assert error.value.retryable is False
+    else:
+        assert error.value.status_code == 502
+        assert error.value.retryable is True
+    assert authorization_calls == [
+        {
+            "job_id": "codecompass-forward-fenced",
+            "authenticated_worker_id": "worker-index-01",
+            "destination_selection": {
+                "worker_id": "worker-index-01"
+            },
+            "dispatch_phase": "execute",
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "task",
+    [
+        _governed_codecompass_forward_task(include_context=False),
+        _governed_codecompass_forward_task(
+            schema="ananta.knowledge_index_job.unknown"
+        ),
+        _governed_codecompass_forward_task(worker_url=None),
+    ],
+)
+def test_codecompass_forward_rejects_missing_governed_binding_or_worker(
+    app,
+    monkeypatch,
+    task,
+):
+    from agent.common.errors import WorkerForwardingError
+    from agent.config import settings
+    from agent.services import _task_scoped_forwarding as forwarding
+
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
+    calls = []
+
+    with app.app_context(), pytest.raises(WorkerForwardingError) as error:
+        forwarding.forward_task_request_if_remote(
+            tid=task["id"],
+            task=task,
+            endpoint=f"/tasks/{task['id']}/step/execute",
+            payload={"task_id": task["id"]},
+            forwarder=lambda *args, **kwargs: calls.append((args, kwargs)),
+            on_success=lambda *_args: None,
+        )
+
+    assert calls == []
+    assert error.value.status_code == 409
+    assert error.value.retryable is False
+
+
+def test_public_codecompass_v1_keeps_legacy_forwarder_boundary(
+    app,
+    monkeypatch,
+):
+    from agent.config import settings
+    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services import recovery_dispatch_gate_service
+
+    class Gate:
+        @staticmethod
+        def is_recovery_child(_task):
+            return False
+
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
+    monkeypatch.setattr(
+        recovery_dispatch_gate_service,
+        "get_recovery_dispatch_gate_service",
+        lambda: Gate(),
+    )
+    task = _governed_codecompass_forward_task(
+        schema="ananta.knowledge_index_job.v1"
+    )
+    calls = []
+    accepted = []
+
+    def legacy_forwarder(url, endpoint, payload, token=None):
+        calls.append((url, endpoint, dict(payload), token))
+        return {"status": "success", "data": {"status": "completed"}}
+
+    with app.app_context():
+        result = forwarding.forward_task_request_if_remote(
+            tid=task["id"],
+            task=task,
+            endpoint=f"/tasks/{task['id']}/step/execute",
+            payload={"task_id": task["id"]},
+            forwarder=legacy_forwarder,
+            on_success=lambda *args: accepted.append(args),
+        )
+
+    assert result is not None
+    assert len(calls) == 1
+    assert calls[0][2] == {"task_id": task["id"]}
+    assert calls[0][3] == "stale-codecompass-token"
+    assert len(accepted) == 1
+
+
+@pytest.mark.parametrize(
+    "worker_url",
+    [
+        "http://localhost:5000",
+        "http://localhost.:5000",
+        "http://[::1]:5000",
+        "http://[::ffff:127.0.0.1]:5000",
+    ],
+)
+def test_codecompass_forward_rejects_local_hub_alias(
+    app,
+    monkeypatch,
+    worker_url,
+):
+    from agent.common.errors import WorkerForwardingError
+    from agent.config import settings
+    from agent.services import _task_scoped_forwarding as forwarding
+
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
+    monkeypatch.setattr(settings, "port", 5000)
+    task = _governed_codecompass_forward_task(
+        worker_url=worker_url
+    )
+    calls = []
+
+    with app.app_context(), pytest.raises(
+        WorkerForwardingError,
+        match="assigned_worker_must_be_remote",
+    ):
+        forwarding.forward_task_request_if_remote(
+            tid=task["id"],
+            task=task,
+            endpoint=f"/tasks/{task['id']}/step/execute",
+            payload={"task_id": task["id"]},
+            forwarder=lambda *args, **kwargs: calls.append((args, kwargs)),
+            on_success=lambda *_args: None,
+        )
+
+    assert calls == []
+
+
+def test_codecompass_worker_executes_its_bound_assignment_locally(
+    app,
+    monkeypatch,
+):
+    from agent.config import settings
+    from agent.services import _task_scoped_forwarding as forwarding
+
+    monkeypatch.setattr(settings, "role", "worker")
+    monkeypatch.setattr(settings, "agent_url", "http://worker:5001")
+    monkeypatch.setattr(settings, "port", 5001)
+    task = _governed_codecompass_forward_task(
+        worker_url="http://worker:5001",
+    )
+    calls = []
+
+    with app.app_context():
+        result = forwarding.forward_task_request_if_remote(
+            tid=task["id"],
+            task=task,
+            endpoint=f"/tasks/{task['id']}/step/execute",
+            payload={"task_id": task["id"]},
+            forwarder=lambda *args, **kwargs: calls.append((args, kwargs)),
+            on_success=lambda *_args: None,
+        )
+
+    assert result is None
+    assert calls == []
+
+
+@pytest.mark.parametrize(
+    ("endpoint_phase", "payload_phase"),
+    [("execute", "propose"), ("propose", "execute")],
+)
+def test_codecompass_forward_rejects_spoofed_dispatch_phase(
+    app,
+    monkeypatch,
+    endpoint_phase,
+    payload_phase,
+):
+    from agent.common.errors import WorkerForwardingError
+    from agent.config import settings
+    from agent.services import _task_scoped_forwarding as forwarding
+
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
+    task = _governed_codecompass_forward_task()
+    authorizer_calls = []
+    forwarder_calls = []
+    monkeypatch.setattr(
+        forwarding,
+        "_governed_source_control_index_job_service",
+        lambda: authorizer_calls.append(True),
+    )
+
+    with app.app_context(), pytest.raises(
+        WorkerForwardingError,
+        match="knowledge_index_dispatch_phase_mismatch",
+    ) as error:
+        forwarding.forward_task_request_if_remote(
+            tid=task["id"],
+            task=task,
+            endpoint=(
+                f"/tasks/{task['id']}/step/{endpoint_phase}"
+            ),
+            payload={
+                "task_id": task["id"],
+                "dispatch_lease_phase": payload_phase,
+            },
+            forwarder=lambda *args, **kwargs: forwarder_calls.append(
+                (args, kwargs)
+            ),
+            on_success=lambda *_args: None,
+        )
+
+    assert error.value.status_code == 409
+    assert error.value.retryable is False
+    assert authorizer_calls == []
+    assert forwarder_calls == []
+
+
+@pytest.mark.parametrize(
+    ("worker_response", "acceptance_error", "expected_successes", "expected_failures"),
+    [
+        (
+            {"status": "success", "data": {"status": "completed"}},
+            None,
+            1,
+            0,
+        ),
+        ({"status": "success", "data": []}, None, 0, 1),
+        (
+            {"status": "success", "data": {"status": "completed"}},
+            "result_contract_rejected",
+            0,
+            1,
+        ),
+    ],
+)
+def test_forwarded_worker_outcome_recorded_only_after_result_acceptance(
+    app,
+    monkeypatch,
+    worker_response,
+    acceptance_error,
+    expected_successes,
+    expected_failures,
+):
+    from agent.common.errors import WorkerForwardingError
+    from agent.config import settings
+    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services import recovery_dispatch_gate_service
+
+    class Gate:
+        @staticmethod
+        def is_recovery_child(_task):
+            return False
+
+    class Recorder:
+        def __init__(self):
+            self.successes = []
+            self.failures = []
+
+        def record_worker_forward_success(self, worker_url):
+            self.successes.append(worker_url)
+
+        def record_worker_forward_failure(
+            self,
+            worker_url,
+            reason,
+            *,
+            task_id=None,
+            endpoint=None,
+        ):
+            self.failures.append(
+                (worker_url, reason, task_id, endpoint)
+            )
+
+    recorder = Recorder()
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
+    monkeypatch.setattr(
+        recovery_dispatch_gate_service,
+        "get_recovery_dispatch_gate_service",
+        lambda: Gate(),
+    )
+    monkeypatch.setattr(
+        forwarding,
+        "get_worker_forward_outcome_recorder",
+        lambda: recorder,
+    )
+
+    def accept(_response, _task):
+        if acceptance_error:
+            raise ValueError(acceptance_error)
+
+    context = (
+        pytest.raises(WorkerForwardingError)
+        if expected_failures
+        else contextlib.nullcontext()
+    )
+    with app.app_context(), context:
+        forwarding.forward_task_request_if_remote(
+            tid="outcome-recorder-task",
+            task={
+                "id": "outcome-recorder-task",
+                "task_kind": "analysis",
+                "assigned_agent_url": "http://worker:5001",
+                "assigned_agent_token": "worker-token",
+            },
+            endpoint="/tasks/outcome-recorder-task/step/execute",
+            payload={"task_id": "outcome-recorder-task"},
+            forwarder=lambda *_args, **_kwargs: worker_response,
+            on_success=accept,
+        )
+
+    assert len(recorder.successes) == expected_successes
+    assert len(recorder.failures) == expected_failures
+    if expected_successes:
+        assert recorder.successes == ["http://worker:5001"]
+    if expected_failures:
+        assert recorder.failures == [
+            (
+                "http://worker:5001",
+                "forwarded_worker_transport_failed",
+                "outcome-recorder-task",
+                "/tasks/outcome-recorder-task/step/execute",
+            )
+        ]
+
+
+def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
+    app,
+    monkeypatch,
+):
+    from agent.common.errors import WorkerForwardingError
+    from agent.config import settings
+    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services import recovery_dispatch_gate_service
+    from agent.services.knowledge_index_job_service import (
+        KnowledgeIndexCompletionProjectionPending,
+    )
+    from agent.services.worker_forward_transport import (
+        WorkerTransportDeadline,
+    )
+
+    class Gate:
+        @staticmethod
+        def is_recovery_child(_task):
+            return False
+
+    class Recorder:
+        def __init__(self):
+            self.successes = []
+            self.failures = []
+
+        def record_worker_forward_success(self, worker_url):
+            self.successes.append(worker_url)
+
+        def record_worker_forward_failure(self, *args, **kwargs):
+            self.failures.append((args, kwargs))
+
+    recorder = Recorder()
+    task = _governed_codecompass_forward_task()
+    authorization_calls = []
+    transport_calls = []
+
+    def authorize_dispatch(**values):
+        authorization_calls.append(dict(values))
+        if len(authorization_calls) > 1:
+            raise ValueError("knowledge_index_execution_not_dispatchable")
+        return {
+            "knowledge_index_job": {
+                "schema": "ananta.knowledge_index_execution_job.v2",
+                "resources": {"max_runtime_seconds": 60},
+                "source_access_enforcement_manifest": {
+                    "schema": "test-enforcement-manifest"
+                },
+            }
+        }
+
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
+    monkeypatch.setattr(
+        recovery_dispatch_gate_service,
+        "get_recovery_dispatch_gate_service",
+        lambda: Gate(),
+    )
+    monkeypatch.setattr(
+        forwarding,
+        "get_repository_registry",
+        lambda: Record(
+            agent_repo=Record(
+                get_by_url=lambda _url: Record(
+                    name="worker-index-01",
+                    url="http://worker:5001",
+                    token="current-codecompass-worker-token",
+                    registration_validated=True,
+                    role="worker",
+                    status="online",
+                )
+            )
+        ),
+    )
+
+    monkeypatch.setattr(
+        forwarding,
+        "_governed_source_control_index_job_service",
+        lambda: Record(
+            authorize_bound_worker_dispatch=authorize_dispatch
+        ),
+    )
+    monkeypatch.setattr(
+        forwarding,
+        "get_worker_forward_outcome_recorder",
+        lambda: recorder,
+    )
+    monkeypatch.setattr(
+        forwarding,
+        "_codecompass_execute_deadline",
+        lambda **_kwargs: WorkerTransportDeadline.after_seconds(90),
+    )
+
+    def forwarder(*_args, **_kwargs):
+        transport_calls.append(True)
+        return {
+            "schema": "ananta.knowledge_index_execution_result.v2",
+            "job_id": task["id"],
+            "status": "completed",
+        }
+
+    def projection_pending(*_args, **_kwargs):
+        raise KnowledgeIndexCompletionProjectionPending(
+            RuntimeError("source projector unavailable")
+        )
+
+    with app.app_context():
+        result = forwarding.forward_task_request_if_remote(
+            tid=task["id"],
+            task=task,
+            endpoint=f"/tasks/{task['id']}/step/execute",
+            payload={"task_id": task["id"]},
+            forwarder=forwarder,
+            on_success=projection_pending,
+        )
+
+        with pytest.raises(
+            WorkerForwardingError,
+            match="knowledge_index_execution_not_dispatchable",
+        ) as retry_error:
+            forwarding.forward_task_request_if_remote(
+                tid=task["id"],
+                task=task,
+                endpoint=f"/tasks/{task['id']}/step/execute",
+                payload={"task_id": task["id"]},
+                forwarder=forwarder,
+                on_success=projection_pending,
+            )
+
+    assert result.code == 202
+    assert result.status == "pending"
+    assert result.data == {
+        "status": "completion_projection_pending",
+        "reason_code": "knowledge_index_source_projection_pending",
+        "task_id": task["id"],
+        "worker_result_accepted": True,
+        "worker_dispatch_retry_allowed": False,
+        "reconciliation_required": True,
+    }
+    assert recorder.successes == ["http://worker:5001"]
+    assert recorder.failures == []
+    assert transport_calls == [True]
+    assert len(authorization_calls) == 2
+    assert retry_error.value.status_code == 409
+    assert retry_error.value.retryable is False
+
+
+def test_parallel_codecompass_execute_dispatch_claim_forwards_once(
+    app,
+    monkeypatch,
+):
+    from agent.common.errors import WorkerForwardingError
+    from agent.config import settings
+    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services import recovery_dispatch_gate_service
+    from agent.services.worker_forward_transport import (
+        WorkerTransportDeadline,
+    )
+
+    class Gate:
+        @staticmethod
+        def is_recovery_child(_task):
+            return False
+
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
+    monkeypatch.setattr(
+        recovery_dispatch_gate_service,
+        "get_recovery_dispatch_gate_service",
+        lambda: Gate(),
+    )
+    monkeypatch.setattr(
+        forwarding,
+        "get_repository_registry",
+        lambda: Record(
+            agent_repo=Record(
+                get_by_url=lambda _url: Record(
+                    name="worker-index-01",
+                    url="http://worker:5001",
+                    token="current-codecompass-worker-token",
+                    registration_validated=True,
+                    role="worker",
+                    status="online",
+                )
+            )
+        ),
+    )
+    claim_lock = threading.Lock()
+    claimed = False
+    authorization_calls = []
+
+    def authorize_dispatch(**values):
+        nonlocal claimed
+        with claim_lock:
+            authorization_calls.append(values)
+            if claimed:
+                raise ValueError(
+                    "knowledge_index_execute_dispatch_already_claimed"
+                )
+            claimed = True
+        return {
+            "knowledge_index_job": {
+                "schema": "ananta.knowledge_index_execution_job.v2",
+                "resources": {"max_runtime_seconds": 60},
+                "source_access_enforcement_manifest": {
+                    "schema": "test-enforcement-manifest"
+                },
+            }
+        }
+
+    monkeypatch.setattr(
+        forwarding,
+        "_governed_source_control_index_job_service",
+        lambda: Record(
+            authorize_bound_worker_dispatch=authorize_dispatch
+        ),
+    )
+    deadline = WorkerTransportDeadline.after_seconds(90)
+    monkeypatch.setattr(
+        forwarding,
+        "_codecompass_execute_deadline",
+        lambda **_kwargs: deadline,
+    )
+    forward_calls = []
+    accepted_deadlines = []
+    forward_lock = threading.Lock()
+
+    def forwarder(
+        _url,
+        _endpoint,
+        _payload,
+        *,
+        token,
+        transport_deadline=None,
+    ):
+        with forward_lock:
+            forward_calls.append((token, transport_deadline))
+        return {"status": "success", "data": {"status": "completed"}}
+
+    def accept_success(
+        _response,
+        _task,
+        *,
+        transport_deadline,
+    ):
+        accepted_deadlines.append(transport_deadline)
+
+    start = threading.Barrier(2)
+
+    def dispatch():
+        with app.app_context():
+            start.wait(timeout=2)
+            try:
+                result = forwarding.forward_task_request_if_remote(
+                    tid="codecompass-forward-fenced",
+                    task=_governed_codecompass_forward_task(),
+                    endpoint=(
+                        "/tasks/codecompass-forward-fenced/step/execute"
+                    ),
+                    payload={"task_id": "codecompass-forward-fenced"},
+                    forwarder=forwarder,
+                    on_success=accept_success,
+                )
+                return ("forwarded", result)
+            except WorkerForwardingError as exc:
+                return ("rejected", exc)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        outcomes = [
+            future.result(timeout=5)
+            for future in (executor.submit(dispatch), executor.submit(dispatch))
+        ]
+
+    assert sorted(outcome[0] for outcome in outcomes) == [
+        "forwarded",
+        "rejected",
+    ]
+    rejected = next(
+        outcome[1] for outcome in outcomes if outcome[0] == "rejected"
+    )
+    assert rejected.status_code == 409
+    assert rejected.retryable is False
+    assert str(rejected) == "knowledge_index_execute_dispatch_already_claimed"
+    assert forward_calls == [
+        ("current-codecompass-worker-token", deadline)
+    ]
+    assert accepted_deadlines == [deadline]
+    assert len(authorization_calls) == 2
+    assert all(
+        call["dispatch_phase"] == "execute"
+        for call in authorization_calls
+    )
+
+
+@pytest.mark.parametrize(
+    "registered_agent",
+    [
+        None,
+        Record(
+            name="worker-index-01",
+            url="http://worker:5001",
+            token="current-codecompass-worker-token",
+            registration_validated=False,
+            role="worker",
+            status="online",
+        ),
+        Record(
+            name="worker-index-01",
+            url="http://worker:5001",
+            token="current-codecompass-worker-token",
+            registration_validated=True,
+            role="hub",
+            status="online",
+        ),
+    ],
+)
+def test_codecompass_persisted_manifest_still_requires_live_registered_worker(
+    app,
+    monkeypatch,
+    registered_agent,
+):
+    from agent.common.errors import WorkerForwardingError
+    from agent.config import settings
+    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services import recovery_dispatch_gate_service
+
+    class Gate:
+        @staticmethod
+        def is_recovery_child(_task):
+            return False
+
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
+    monkeypatch.setattr(
+        recovery_dispatch_gate_service,
+        "get_recovery_dispatch_gate_service",
+        lambda: Gate(),
+    )
+    monkeypatch.setattr(
+        forwarding,
+        "get_repository_registry",
+        lambda: Record(
+            agent_repo=Record(
+                get_by_url=lambda _url: registered_agent
+            )
+        ),
+    )
+    authorization_calls = []
+    monkeypatch.setattr(
+        forwarding,
+        "_governed_source_control_index_job_service",
+        lambda: Record(
+            authorize_bound_worker_dispatch=lambda **values: (
+                authorization_calls.append(values)
+            )
+        ),
+    )
+    task = _governed_codecompass_forward_task(include_manifest=True)
+    calls = []
+
+    with app.app_context(), pytest.raises(WorkerForwardingError):
+        forwarding.forward_task_request_if_remote(
+            tid=task["id"],
+            task=task,
+            endpoint=f"/tasks/{task['id']}/step/execute",
+            payload={"task_id": task["id"]},
+            forwarder=lambda *args, **kwargs: calls.append((args, kwargs)),
+            on_success=lambda *_args: None,
+        )
+
+    assert authorization_calls == []
+    assert calls == []
+
+
+def test_recovery_mail_missing_worker_token_does_not_claim_mail_lease(
+    app,
+    monkeypatch,
+):
+    from agent.common.errors import WorkerForwardingError
+    from agent.config import settings
+    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services import mail_task_service, recovery_dispatch_gate_service
+
+    class Gate:
+        @staticmethod
+        def is_recovery_child(_task):
+            return True
+
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
+    monkeypatch.setattr(
+        recovery_dispatch_gate_service,
+        "get_recovery_dispatch_gate_service",
+        lambda: Gate(),
+    )
+    monkeypatch.setattr(
+        forwarding,
+        "get_repository_registry",
+        lambda: Record(
+            agent_repo=Record(
+                get_by_url=lambda _url: Record(token=None)
+            )
+        ),
+    )
+    claims = []
+    monkeypatch.setattr(
+        mail_task_service,
+        "get_mail_task_service",
+        lambda: Record(
+            claim_for_delegation=lambda **values: claims.append(values)
+        ),
+    )
+    calls = []
+
+    with app.app_context(), pytest.raises(
+        WorkerForwardingError,
+        match="assigned_worker_token_missing",
+    ):
+        forwarding.forward_task_request_if_remote(
+            tid="mail-recovery-no-token",
+            task={
+                "id": "mail-recovery-no-token",
+                "task_kind": "mail_operation",
+                "assigned_agent_url": "http://worker:5001",
+                "assigned_agent_token": None,
+                "derivation_reason": "goal_task_recovery",
+            },
+            endpoint="/tasks/mail-recovery-no-token/step/execute",
+            payload={
+                "task_id": "mail-recovery-no-token",
+                "dispatch_lease_token": "recovery-mail-lease",
+                "dispatch_lease_phase": "execute",
+            },
+            forwarder=lambda *args, **kwargs: calls.append((args, kwargs)),
+            on_success=lambda *_args: None,
+        )
+
+    assert claims == []
+    assert calls == []
+
+
+def test_generic_remote_forward_without_worker_token_fails_before_transport(
+    app,
+    monkeypatch,
+):
+    from agent.common.errors import WorkerForwardingError
+    from agent.config import settings
+    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services import recovery_dispatch_gate_service
+
+    class Gate:
+        @staticmethod
+        def is_recovery_child(_task):
+            return False
+
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
+    monkeypatch.setattr(
+        recovery_dispatch_gate_service,
+        "get_recovery_dispatch_gate_service",
+        lambda: Gate(),
+    )
+    monkeypatch.setattr(
+        forwarding,
+        "get_repository_registry",
+        lambda: Record(
+            agent_repo=Record(
+                get_by_url=lambda _url: Record(token=None)
+            )
+        ),
+    )
+    calls = []
+
+    with app.app_context(), pytest.raises(
+        WorkerForwardingError,
+        match="assigned_worker_token_missing",
+    ):
+        forwarding.forward_task_request_if_remote(
+            tid="generic-no-worker-token",
+            task={
+                "id": "generic-no-worker-token",
+                "task_kind": "analysis",
+                "assigned_agent_url": "http://worker:5001",
+                "assigned_agent_token": None,
+            },
+            endpoint="/tasks/generic-no-worker-token/step/execute",
+            payload={"task_id": "generic-no-worker-token"},
+            forwarder=lambda *args, **kwargs: calls.append((args, kwargs)),
+            on_success=lambda *_args: None,
+        )
+
+    assert calls == []
 
 
 def test_task_repository_rejects_stale_recovery_save_after_owner_terminal(

@@ -104,7 +104,13 @@ def process_project(
     n8n_extractor_cls=None,
     teaching_extractor_cls=None,
     file_inclusion_predicate: Callable[[Path, str], bool] | None = None,
+    execution_checkpoint: Callable[[], None] | None = None,
 ) -> None:
+    def checkpoint() -> None:
+        if execution_checkpoint is not None:
+            execution_checkpoint()
+
+    checkpoint()
     if not dry_run:
         ensure_dir(out_dir)
     cache_file = cache_file or (out_dir / ".code_to_rag_cache.json")
@@ -133,12 +139,14 @@ def process_project(
         exclude_globs=exclude_globs,
         file_inclusion_predicate=file_inclusion_predicate,
     )
+    checkpoint()
     snapshots = build_file_snapshots(
         files,
         root,
         max_file_size_kb=limits.max_file_size_kb,
         max_file_size_bytes=limits.max_file_size_bytes,
     )
+    checkpoint()
     options_signature = build_options_signature(
         include_code_snippets=include_code_snippets,
         exclude_trivial_methods=exclude_trivial_methods,
@@ -177,6 +185,7 @@ def process_project(
         reusable_cache_entries=reusable_cache_entries,
         cache_entries_out=next_cache["files"],
     )
+    checkpoint()
 
     all_index: list[dict] = []
     all_details: list[dict] = []
@@ -192,6 +201,7 @@ def process_project(
     pending_checkpoint_extensions: set[str] = set()
 
     for snapshot in snapshots:
+        checkpoint()
         rel_path = snapshot.rel_path
         cached_entry = reusable_cache_entries.get(rel_path)
         if cached_entry:
@@ -229,7 +239,11 @@ def process_project(
         cache_misses += 1
         pending_snapshots.append(snapshot)
 
-    max_workers = max(1, min(limits.max_workers, len(pending_snapshots) or 1, os.cpu_count() or 1))
+    # Governed executions stay single-threaded so a deadline exception never
+    # leaves parser threads mutating an output directory after the request has
+    # failed closed.
+    configured_workers = 1 if execution_checkpoint is not None else limits.max_workers
+    max_workers = max(1, min(configured_workers, len(pending_snapshots) or 1, os.cpu_count() or 1))
 
     def _record_result(result, total: int) -> None:
         nonlocal progress_processed, progress_skips, progress_errors
@@ -260,6 +274,7 @@ def process_project(
 
     if max_workers == 1:
         for snapshot in pending_snapshots:
+            checkpoint()
             result = process_snapshot(
                 snapshot,
                 options_signature,
@@ -279,6 +294,7 @@ def process_project(
                 n8n_extractor_cls=n8n_extractor_cls,
                 teaching_extractor_cls=teaching_extractor_cls,
             )
+            checkpoint()
             _record_result(result, total=len(snapshots))
     else:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -309,6 +325,7 @@ def process_project(
                 _record_result(future.result(), total=len(snapshots))
 
     for snapshot in pending_snapshots:
+        checkpoint()
         result = processed_results[snapshot.rel_path]
         all_index.extend(result.index)
         all_details.extend(result.details)
@@ -326,6 +343,7 @@ def process_project(
         all_details,
         all_relations,
     )
+    checkpoint()
 
     aggregates = compute_post_processing(
         all_index=all_index,
@@ -336,6 +354,7 @@ def process_project(
         llm_narrative_endpoint=limits.llm_narrative_endpoint,
         llm_narrative_model=limits.llm_narrative_model,
     )
+    checkpoint()
     error_entries = aggregates["error_entries"]
     duplicate_report = aggregates["duplicate_report"]
     specialized_stats = aggregates["specialized_stats"]
@@ -404,6 +423,7 @@ def process_project(
             limits=limits,
             manifest=manifest,
         )
+        checkpoint()
         discovery_result = write_domain_artifacts(
             discovery_result, out_dir, dry_run=dry_run
         )
@@ -442,6 +462,7 @@ def process_project(
             ]
 
     if not dry_run:
+        checkpoint()
         write_output_files(
             out_dir=out_dir,
             limits=limits,
@@ -469,6 +490,7 @@ def process_project(
             manifest_extras=domain_discovery_extras,
             component_catalog_markdown=component_catalog_markdown,
         )
+        checkpoint()
 
     print(f"{'Dry-run fertig' if dry_run else 'Fertig'}: {out_dir}")
     print(f"Dateien: {len(manifest_files)}")

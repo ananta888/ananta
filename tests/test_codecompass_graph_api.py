@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,6 +10,11 @@ from jsonschema import Draft202012Validator
 
 from agent.services.codecompass_graph_artifact_resolver import (
     CodeCompassGraphArtifactResolver,
+)
+from agent.services.knowledge_index_consumption_policy import (
+    KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY,
+    KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA,
+    KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA,
 )
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 
@@ -210,6 +216,55 @@ def test_get_graph_unknown_index_returns_404(client, auth_header):
     with patch("agent.routes.codecompass_graph._knowledge_index_repo", return_value=repo):
         resp = client.get("/api/codecompass/graph?knowledge_index_id=nope", headers=auth_header)
     assert resp.status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("projection_state", "expected_status"),
+    [("pending", 404), ("projected", 200)],
+)
+def test_get_graph_requires_projected_v2_after_source_authorization(
+    client,
+    auth_header,
+    tmp_path,
+    projection_state,
+    expected_status,
+):
+    _build_graph_index(tmp_path)
+    index = SimpleNamespace(
+        id="idx-v2",
+        source_scope="repository",
+        status="completed",
+        output_dir=str(tmp_path),
+        index_metadata={
+            "source_control_scope": {
+                "tenant_id": "tenant-a",
+                "project_id": "project-a",
+            },
+            KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY: {
+                "schema": KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA,
+                "projection_state": projection_state,
+                "execution_job_schema": KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA,
+                "job_id": "knowledge-index-" + ("1" * 32),
+                "knowledge_index_id": "idx-v2",
+                "authority_binding_digest": "a" * 64,
+                "assignment_id": "assignment-1",
+            },
+        },
+    )
+    repository = SimpleNamespace(
+        get_by_id=lambda index_id: index if index_id == index.id else None
+    )
+
+    with patch(
+        "agent.routes.codecompass_graph._knowledge_index_repo",
+        return_value=repository,
+    ):
+        response = client.get(
+            "/api/codecompass/graph?knowledge_index_id=idx-v2",
+            headers=auth_header,
+        )
+
+    assert response.status_code == expected_status
 
 
 def test_get_graph_no_output_dir_returns_404(client, auth_header):

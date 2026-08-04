@@ -9,6 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from agent.services.knowledge_index_task_ingress_policy import (
+    KnowledgeIndexTaskMutationConflict,
+)
 from agent.services.task_status_service import normalize_task_status
 from agent.services.vector_store_authorization_policy import (
     VectorAdminAuthorizationContext,
@@ -43,6 +46,12 @@ class RecoveryChildAdminMutationConflict(RuntimeError):
 
 
 def _batch_error(task_id: Any, exc: Exception) -> dict[str, Any]:
+    if isinstance(exc, KnowledgeIndexTaskMutationConflict):
+        return {
+            "id": task_id,
+            "error": exc.reason_code,
+            **exc.as_data(),
+        }
     if isinstance(exc, RecoveryChildAdminMutationConflict):
         return {
             "id": task_id,

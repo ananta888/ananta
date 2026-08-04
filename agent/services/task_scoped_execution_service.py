@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from agent.common.utils.structured_action_utils import (
     extract_structured_action_fields,
@@ -11,14 +11,17 @@ from agent.common.utils.structured_action_utils import (
     sanitize_structured_output_text,
 )
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
-from agent.services.research_context_bridge_service import get_research_context_bridge_service
-from agent.services.service_registry import get_core_services
-from agent.services.live_terminal_session_service import get_live_terminal_session_service
 from agent.services.instruction_layer_service import get_instruction_layer_service
+from agent.services.live_terminal_session_service import get_live_terminal_session_service
 from agent.services.planning_context_compactor_service import get_planning_context_compactor_service
 from agent.services.propose_policy_service import get_propose_policy_service
 from agent.services.repository_registry import get_repository_registry
+from agent.services.research_context_bridge_service import get_research_context_bridge_service
+from agent.services.service_registry import get_core_services
 from agent.services.task_runtime_service import update_local_task_status
+
+if TYPE_CHECKING:
+    from agent.services.domain_action_router import DomainActionRouter
 
 
 def _build_workspace_state_sync_record(*, task, materialization_manifest, workspace_artifact_refs, git_pushed):
@@ -452,9 +455,23 @@ class TaskScopedExecutionService:
             allow_synthetic_llm_profile_fallback=self._allow_synthetic_llm_profile_fallback,
         )
 
-    def _persist_forwarded_execution(self, *, tid: str, response: dict, task: dict, request_data) -> None:
+    def _persist_forwarded_execution(
+        self,
+        *,
+        tid: str,
+        response: dict,
+        task: dict,
+        request_data,
+        transport_deadline=None,
+    ) -> None:
         from agent.services._task_scoped_forwarding import persist_forwarded_execution
-        return persist_forwarded_execution(tid=tid, response=response, task=task, request_data=request_data)
+        return persist_forwarded_execution(
+            tid=tid,
+            response=response,
+            task=task,
+            request_data=request_data,
+            transport_deadline=transport_deadline,
+        )
 
     @staticmethod
     def _normalize_forwarded_artifacts(*, task_id: str, artifacts: list[dict] | None) -> list[dict] | None:

@@ -17,12 +17,31 @@ from pydantic import (
     model_validator,
 )
 
+from ananta_contracts.source_control import MAX_SOURCE_ADMISSION_FILES
+
 KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA = (
     "ananta.knowledge_index_execution_job.v2"
 )
 KNOWLEDGE_INDEX_EXECUTION_RESULT_SCHEMA = (
     "ananta.knowledge_index_execution_result.v2"
 )
+# One Hub-owned absolute deadline covers Worker execution plus the response and
+# every result-artifact transfer.  The transfer share is explicit so lease and
+# grant planning cannot accidentally budget only the Worker POST.
+KNOWLEDGE_INDEX_RESULT_TRANSFER_BUDGET_SECONDS = 30
+KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS = (
+    KNOWLEDGE_INDEX_RESULT_TRANSFER_BUDGET_SECONDS
+)
+KNOWLEDGE_INDEX_PRE_DISPATCH_RESERVE_SECONDS = 120
+KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON = (
+    "knowledge_index_execution_dispatch_window_insufficient"
+)
+KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON = (
+    "knowledge_index_execution_dispatch_lease_expired"
+)
+MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES = 128 * 1024 * 1024
+MAX_KNOWLEDGE_INDEX_WORKER_RESULT_BYTES = 1_048_576
+MAX_KNOWLEDGE_INDEX_MANIFEST_PATH_WIRE_BYTES = 512
 
 Identifier = Annotated[
     str,
@@ -51,6 +70,30 @@ def _canonical(value: object) -> bytes:
 
 def _digest(value: object) -> str:
     return hashlib.sha256(_canonical(value)).hexdigest()
+
+
+def _json_string_payload_size(value: str) -> int:
+    """Measure one path exactly as it expands inside the UTF-8 JSON wire.
+
+    The snapshot transport uses ``ensure_ascii=False``. JSON still escapes
+    quotes and control characters, so measuring only ``value.encode()`` can
+    undercount a legal Python string by up to six times. The surrounding
+    quote bytes are envelope overhead; the bounded path payload is the bytes
+    between them.
+    """
+
+    try:
+        encoded = json.dumps(
+            value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError, UnicodeError) as exc:
+        raise ValueError("knowledge_index_manifest_path_invalid") from exc
+    if len(encoded) < 2 or encoded[:1] != b'"' or encoded[-1:] != b'"':
+        raise ValueError("knowledge_index_manifest_path_invalid")
+    return len(encoded) - 2
 
 
 class _Closed(BaseModel):
@@ -85,6 +128,8 @@ class KnowledgeIndexFileEntry(_Closed):
             path.is_absolute()
             or "\\" in value
             or any(part in {"", ".", ".."} for part in path.parts)
+            or _json_string_payload_size(value)
+            > MAX_KNOWLEDGE_INDEX_MANIFEST_PATH_WIRE_BYTES
         ):
             raise ValueError("knowledge_index_manifest_path_invalid")
         return value
@@ -97,7 +142,7 @@ class KnowledgeIndexFileManifest(_Closed):
     manifest_digest: Sha256
     files: tuple[KnowledgeIndexFileEntry, ...] = Field(
         min_length=1,
-        max_length=10_000,
+        max_length=MAX_SOURCE_ADMISSION_FILES,
     )
     total_bytes: Annotated[int, Field(ge=0, le=512 * 1024 * 1024)]
 
@@ -147,7 +192,10 @@ class KnowledgeIndexFileManifest(_Closed):
 
 
 class KnowledgeIndexResourceBudget(_Closed):
-    max_files: Annotated[int, Field(ge=1, le=10_000)]
+    max_files: Annotated[
+        int,
+        Field(ge=1, le=MAX_SOURCE_ADMISSION_FILES),
+    ]
     max_total_bytes: Annotated[
         int, Field(ge=1, le=512 * 1024 * 1024)
     ]
@@ -218,7 +266,10 @@ class KnowledgeIndexExecutionAssignment(_Closed):
 class KnowledgeIndexPayloadArtifactRef(_Closed):
     artifact_id: Identifier
     sha256: Sha256
-    size_bytes: Annotated[int, Field(ge=1, le=128 * 1024 * 1024)]
+    size_bytes: Annotated[
+        int,
+        Field(ge=1, le=MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES),
+    ]
     media_type: Literal[
         "application/vnd.ananta.knowledge-index-job+json"
     ]

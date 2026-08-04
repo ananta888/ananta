@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import sqlalchemy as sa
-from sqlmodel import SQLModel, Session, create_engine, select
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from agent.db_models.source_access_enforcement import (
     SourceAccessGrantConsumptionDB,
@@ -14,11 +14,10 @@ from agent.services.source_access_persistence_adapter import (
     SQLSourceAccessEnforcementAdapter,
 )
 
-
 NOW = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
 
-def _adapter(tmp_path):
+def _adapter(tmp_path, *, clock=lambda: NOW):
     engine = create_engine(
         f"sqlite:///{tmp_path / 'source-access.sqlite3'}",
         connect_args={"check_same_thread": False},
@@ -33,7 +32,7 @@ def _adapter(tmp_path):
     )
     return engine, SQLSourceAccessEnforcementAdapter(
         engine,
-        clock=lambda: NOW,
+        clock=clock,
     )
 
 
@@ -114,7 +113,6 @@ def test_one_time_grant_is_consumed_exactly_once(tmp_path) -> None:
         expected_version=1,
         consumption_digest="d" * 64,
     )
-
     assert first is True
     assert replay is False
     with Session(engine) as session:
@@ -128,6 +126,135 @@ def test_one_time_grant_is_consumed_exactly_once(tmp_path) -> None:
     assert len(consumptions) == 1
     assert policy is not None
     assert policy.concurrency_version == 2
+
+
+def test_exact_consumption_receipt_is_read_only(
+    tmp_path,
+) -> None:
+    engine, adapter = _adapter(tmp_path)
+    grant_id = "grant-" + "9" * 64
+    _seed_active_grant(engine, grant_id)
+    adapter.bind_execution_policy(
+        grant_id=grant_id,
+        grant_digest="a" * 64,
+        destination_digest="b" * 64,
+        consumption_mode="one_time",
+    )
+    assert adapter.consume_once(
+        grant_id=grant_id,
+        expected_version=1,
+        consumption_digest="c" * 64,
+    )
+    with Session(engine) as session:
+        policy_before = session.get(
+            SourceAccessGrantExecutionPolicyDB,
+            grant_id,
+        )
+        assert policy_before is not None
+        policy_version_before = policy_before.concurrency_version
+        policy_updated_at_before = policy_before.updated_at
+
+    assert adapter.verify_exact_consumption_receipt(
+        grant_id=grant_id,
+        expected_policy_version=2,
+        consumption_digest="c" * 64,
+    )
+    with Session(engine) as session:
+        policy_after = session.get(
+            SourceAccessGrantExecutionPolicyDB,
+            grant_id,
+        )
+        receipts = session.exec(
+            select(SourceAccessGrantConsumptionDB)
+        ).all()
+    assert policy_after is not None
+    assert policy_after.concurrency_version == policy_version_before
+    assert policy_after.updated_at == policy_updated_at_before
+    assert len(receipts) == 1
+
+
+def test_exact_consumption_receipt_rejects_wrong_digest_and_versions(
+    tmp_path,
+) -> None:
+    engine, adapter = _adapter(tmp_path)
+    grant_id = "grant-" + "8" * 64
+    _seed_active_grant(engine, grant_id)
+    adapter.bind_execution_policy(
+        grant_id=grant_id,
+        grant_digest="a" * 64,
+        destination_digest="b" * 64,
+        consumption_mode="one_time",
+    )
+    assert adapter.consume_once(
+        grant_id=grant_id,
+        expected_version=1,
+        consumption_digest="c" * 64,
+    )
+
+    assert not adapter.verify_exact_consumption_receipt(
+        grant_id=grant_id,
+        expected_policy_version=2,
+        consumption_digest="d" * 64,
+    )
+    assert not adapter.verify_exact_consumption_receipt(
+        grant_id=grant_id,
+        expected_policy_version=1,
+        consumption_digest="c" * 64,
+    )
+    with Session(engine) as session:
+        grant = session.get(SourceAccessGrantDB, grant_id)
+        assert grant is not None
+        grant.lock_version += 1
+        session.add(grant)
+        session.commit()
+    assert not adapter.verify_exact_consumption_receipt(
+        grant_id=grant_id,
+        expected_policy_version=2,
+        consumption_digest="c" * 64,
+    )
+
+
+def test_exact_consumption_receipt_requires_live_grant(tmp_path) -> None:
+    current_time = [NOW]
+    engine, adapter = _adapter(tmp_path, clock=lambda: current_time[0])
+    grant_id = "grant-" + "7" * 64
+    _seed_active_grant(engine, grant_id)
+    adapter.bind_execution_policy(
+        grant_id=grant_id,
+        grant_digest="a" * 64,
+        destination_digest="b" * 64,
+        consumption_mode="one_time",
+    )
+    assert adapter.consume_once(
+        grant_id=grant_id,
+        expected_version=1,
+        consumption_digest="c" * 64,
+    )
+
+    with Session(engine) as session:
+        grant = session.get(SourceAccessGrantDB, grant_id)
+        assert grant is not None
+        grant.state = "revoked"
+        session.add(grant)
+        session.commit()
+    assert not adapter.verify_exact_consumption_receipt(
+        grant_id=grant_id,
+        expected_policy_version=2,
+        consumption_digest="c" * 64,
+    )
+
+    with Session(engine) as session:
+        grant = session.get(SourceAccessGrantDB, grant_id)
+        assert grant is not None
+        grant.state = "active"
+        grant.expires_at_epoch = current_time[0].timestamp()
+        session.add(grant)
+        session.commit()
+    assert not adapter.verify_exact_consumption_receipt(
+        grant_id=grant_id,
+        expected_policy_version=2,
+        consumption_digest="c" * 64,
+    )
 
 
 def test_consumption_rejects_stale_version_and_reusable_policy(

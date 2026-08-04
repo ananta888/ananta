@@ -1,5 +1,8 @@
 from io import BytesIO
 
+from agent.db_models import ArtifactDB
+from agent.repository import artifact_repo
+
 
 def test_openai_models_endpoint_lists_static_and_local_models(client, admin_auth_header, app, monkeypatch):
     app.config["AGENT_CONFIG"] = {
@@ -104,6 +107,37 @@ def test_openai_files_endpoints_use_artifact_layer(client, admin_auth_header):
     detail = detail_res.get_json()
     assert detail["id"] == file_id
     assert detail["filename"] == "notes.txt"
+
+
+def test_openai_files_hide_system_managed_knowledge_index_artifacts(
+    client,
+    admin_auth_header,
+) -> None:
+    public = artifact_repo.save(
+        ArtifactDB(
+            id="openai-public-artifact",
+            latest_filename="public.txt",
+            artifact_metadata={},
+        )
+    )
+    hidden = artifact_repo.save(
+        ArtifactDB(
+            id="openai-hidden-index-payload",
+            latest_filename="payload.json",
+            artifact_metadata={
+                "system_artifact_kind": "knowledge_index_job_payload"
+            },
+        )
+    )
+
+    listing = client.get("/v1/files", headers=admin_auth_header)
+    detail = client.get(f"/v1/files/{hidden.id}", headers=admin_auth_header)
+
+    assert listing.status_code == 200
+    listed_ids = {item["id"] for item in listing.get_json()["data"]}
+    assert public.id in listed_ids
+    assert hidden.id not in listed_ids
+    assert detail.status_code == 404
 
 
 def test_openai_compat_and_llm_generate_share_hub_llm_service(client, app, admin_auth_header, monkeypatch):

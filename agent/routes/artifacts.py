@@ -2,15 +2,21 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import os
+import stat
 from functools import wraps
+from io import BytesIO
 from pathlib import Path
 
 from flask import Blueprint, current_app, g, request, send_file
 
-from agent.auth import check_auth, check_service_auth
+from agent.auth import check_auth, check_registered_worker_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
 from agent.models import ArtifactRagIndexRequest, ArtifactUploadRequest
 from agent.services.approval_policy_service import get_approval_policy_service
+from agent.services.artifact_visibility_policy import (
+    is_artifact_visible_on_generic_surfaces,
+)
 from agent.services.execution_audit_service import get_execution_audit_service
 from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.mutation_gate_service import get_mutation_gate_service
@@ -19,7 +25,12 @@ from agent.services.repository_registry import get_repository_registry
 from agent.services.retrieval_orchestration_contract import build_retrieval_orchestration_contract
 from agent.services.retrieval_service import get_retrieval_service
 from agent.services.service_registry import get_core_services
-from agent.services.workflow_worker_service_auth import KNOWLEDGE_INDEX_PAYLOAD_SCOPE
+from agent.services.workflow_worker_service_auth import (
+    KNOWLEDGE_INDEX_PAYLOAD_SCOPE,
+)
+from ananta_contracts.knowledge_index_execution import (
+    MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES,
+)
 from ananta_contracts.knowledge_index_payload_capability import (
     KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER,
     decode_knowledge_index_payload_capability,
@@ -38,14 +49,90 @@ from ananta_contracts.knowledge_index_worker_output_capability import (
 
 artifacts_bp = Blueprint("artifacts", __name__)
 _KNOWLEDGE_INDEX_PAYLOAD_MEDIA_TYPE = "application/vnd.ananta.knowledge-index-job+json"
-_KNOWLEDGE_INDEX_PAYLOAD_MAX_BYTES = 128 * 1024 * 1024
+_KNOWLEDGE_INDEX_PAYLOAD_MAX_BYTES = MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES
+_KNOWLEDGE_INDEX_OUTPUT_MAX_BYTES = 128 * 1024 * 1024
+
+
+def _read_pinned_verified_artifact_bytes(
+    storage_path: Path,
+    *,
+    expected_size: int,
+    expected_sha256: str,
+    maximum_size: int,
+    not_found_reason: str,
+    integrity_reason: str,
+) -> bytes:
+    """Read and verify one regular file without reopening its path."""
+
+    normalized_digest = str(expected_sha256 or "").strip().lower()
+    if (
+        expected_size < 0
+        or expected_size > maximum_size
+        or len(normalized_digest) != 64
+        or any(character not in "0123456789abcdef" for character in normalized_digest)
+    ):
+        raise NotFoundError(integrity_reason)
+
+    no_follow = getattr(os, "O_NOFOLLOW", None)
+    if no_follow is None:
+        # Internal capability-bound artifacts fail closed when the platform
+        # cannot guarantee that the final path component is not a symlink.
+        raise NotFoundError(not_found_reason)
+
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(
+            storage_path,
+            os.O_RDONLY | no_follow | getattr(os, "O_CLOEXEC", 0),
+        )
+        handle = os.fdopen(descriptor, "rb", closefd=True)
+        descriptor = None
+        with handle:
+            before = os.fstat(handle.fileno())
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_nlink != 1
+                or before.st_size != expected_size
+            ):
+                raise NotFoundError(integrity_reason)
+            content = handle.read(expected_size + 1)
+            after = os.fstat(handle.fileno())
+    except OSError as exc:
+        raise NotFoundError(not_found_reason) from exc
+    finally:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+
+    if (
+        before.st_dev != after.st_dev
+        or before.st_ino != after.st_ino
+        or after.st_nlink != 1
+        or after.st_size != expected_size
+        or len(content) != expected_size
+        or hashlib.sha256(content).hexdigest() != normalized_digest
+    ):
+        raise NotFoundError(integrity_reason)
+    return content
+
+
+def _public_artifact(artifact_id: str):
+    artifact = _artifact_repo().get_by_id(artifact_id)
+    if not is_artifact_visible_on_generic_surfaces(artifact):
+        return None
+    return artifact
+
+
+def _require_public_artifact(artifact_id: str):
+    artifact = _public_artifact(artifact_id)
+    if artifact is None:
+        raise NotFoundError()
+    return artifact
 
 
 def _check_knowledge_index_payload_access(target):
-    service_authenticated = check_service_auth(
-        scope=KNOWLEDGE_INDEX_PAYLOAD_SCOPE
-    )(target)
-
     @wraps(target)
     def wrapper(artifact_id: str, *args, **kwargs):
         encoded_capability = str(
@@ -55,15 +142,21 @@ def _check_knowledge_index_payload_access(target):
             or ""
         ).strip()
         if not encoded_capability:
-            return service_authenticated(artifact_id, *args, **kwargs)
+            return api_response(
+                status="error",
+                message="unauthorized",
+                data={
+                    "reason_code": (
+                        "knowledge_index_payload_capability_required"
+                    )
+                },
+                code=401,
+            )
         try:
             manifest = decode_knowledge_index_payload_capability(
                 encoded_capability
             )
             artifact = _artifact_repo().get_by_id(artifact_id)
-            metadata = dict(
-                getattr(artifact, "artifact_metadata", None) or {}
-            ) if artifact else {}
             latest_version_id = str(
                 getattr(artifact, "latest_version_id", None) or ""
             ).strip()
@@ -85,11 +178,14 @@ def _check_knowledge_index_payload_access(target):
                 artifact_size_bytes=int(version.size_bytes or 0),
                 artifact_media_type=str(version.media_type or ""),
                 manifest=manifest,
+                # The outer registered-Worker boundary authenticates and
+                # normalizes this identity.  Never re-trust caller-controlled
+                # identity headers inside the capability decision.
                 worker_id=str(
-                    request.headers.get("X-Ananta-Worker-ID") or ""
+                    getattr(g, "auth_payload", {}).get("worker_id") or ""
                 ),
                 worker_url=str(
-                    request.headers.get("X-Ananta-Worker-URL") or ""
+                    getattr(g, "auth_payload", {}).get("worker_url") or ""
                 ),
             )
         except Exception as exc:
@@ -342,7 +438,7 @@ def _enforce_mutation_gate(operation: str, *, artifact_id: str | None = None):
 
 
 def _serialize_artifact_detail(artifact_id: str) -> dict | None:
-    artifact = _artifact_repo().get_by_id(artifact_id)
+    artifact = _public_artifact(artifact_id)
     if artifact is None:
         return None
     versions = _artifact_version_repo().get_by_artifact(artifact_id)
@@ -479,6 +575,8 @@ def list_artifacts():
     rows = _artifact_repo().get_all()
     filtered = []
     for item in rows:
+        if not is_artifact_visible_on_generic_surfaces(item):
+            continue
         metadata = dict(getattr(item, "artifact_metadata", None) or {})
         if project_id and str(metadata.get("project_id") or "") != project_id:
             continue
@@ -515,6 +613,7 @@ def get_artifact(artifact_id: str):
 @artifacts_bp.route("/artifacts/<artifact_id>/extract", methods=["POST"])
 @check_auth
 def extract_artifact(artifact_id: str):
+    _require_public_artifact(artifact_id)
     blocked = _enforce_mutation_gate("artifact_extract", artifact_id=artifact_id)
     if blocked:
         return blocked
@@ -535,11 +634,10 @@ def extract_artifact(artifact_id: str):
 @artifacts_bp.route("/artifacts/<artifact_id>/rag-index", methods=["POST"])
 @check_auth
 def index_artifact_for_rag(artifact_id: str):
+    _require_public_artifact(artifact_id)
     blocked = _enforce_mutation_gate("artifact_rag_index", artifact_id=artifact_id)
     if blocked:
         return blocked
-    if _artifact_repo().get_by_id(artifact_id) is None:
-        raise NotFoundError()
     payload = _artifact_rag_index_request()
     if payload.async_mode:
         job = get_knowledge_index_job_service().submit_artifact_job(
@@ -577,8 +675,7 @@ def index_artifact_for_rag(artifact_id: str):
 @artifacts_bp.route("/artifacts/<artifact_id>/rag-status", methods=["GET"])
 @check_auth
 def get_artifact_rag_status(artifact_id: str):
-    if _artifact_repo().get_by_id(artifact_id) is None:
-        raise NotFoundError()
+    _require_public_artifact(artifact_id)
     knowledge_index, runs = get_rag_helper_index_service().get_artifact_status(artifact_id)
     if knowledge_index is None:
         raise NotFoundError("rag_index_not_found")
@@ -594,6 +691,7 @@ def get_artifact_rag_status(artifact_id: str):
 @check_auth
 def get_artifact_content(artifact_id: str):
     """Serve raw artifact bytes or normalized JSON payload (compatible adapter)."""
+    _require_public_artifact(artifact_id)
     version_repo = _artifact_version_repo()
     versions = version_repo.get_by_artifact(artifact_id)
     if not versions:
@@ -638,6 +736,7 @@ def get_artifact_content(artifact_id: str):
     "/internal/knowledge-index/payload-artifacts/<artifact_id>",
     methods=["GET"],
 )
+@check_registered_worker_auth(scope=KNOWLEDGE_INDEX_PAYLOAD_SCOPE)
 @_check_knowledge_index_payload_access
 def get_knowledge_index_payload_artifact(artifact_id: str):
     """Serve only bounded system payloads to an identity-bound index worker."""
@@ -654,15 +753,17 @@ def get_knowledge_index_payload_artifact(artifact_id: str):
     if size_bytes < 0 or size_bytes > _KNOWLEDGE_INDEX_PAYLOAD_MAX_BYTES:
         raise NotFoundError("knowledge_index_payload_size_invalid")
     storage_path = Path(str(latest.storage_path or ""))
-    try:
-        content = storage_path.read_bytes()
-    except OSError as exc:
-        raise NotFoundError("knowledge_index_payload_not_found") from exc
+    content = _read_pinned_verified_artifact_bytes(
+        storage_path,
+        expected_size=size_bytes,
+        expected_sha256=str(latest.sha256 or ""),
+        maximum_size=_KNOWLEDGE_INDEX_PAYLOAD_MAX_BYTES,
+        not_found_reason="knowledge_index_payload_not_found",
+        integrity_reason="knowledge_index_payload_integrity_invalid",
+    )
     digest = hashlib.sha256(content).hexdigest()
-    if len(content) != size_bytes or digest != str(latest.sha256 or "").lower():
-        raise NotFoundError("knowledge_index_payload_integrity_invalid")
     response = send_file(
-        str(storage_path),
+        BytesIO(content),
         mimetype=_KNOWLEDGE_INDEX_PAYLOAD_MEDIA_TYPE,
         as_attachment=True,
         download_name=latest.original_filename or "knowledge-index-payload.json",
@@ -700,25 +801,34 @@ def get_knowledge_index_worker_output_artifact(artifact_id: str):
     )
     if latest is None:
         raise NotFoundError("knowledge_index_output_not_found")
+    size_bytes = int(latest.size_bytes or 0)
+    if size_bytes < 0 or size_bytes > _KNOWLEDGE_INDEX_OUTPUT_MAX_BYTES:
+        raise NotFoundError("knowledge_index_output_integrity_invalid")
     storage_path = Path(str(latest.storage_path or ""))
-    if storage_path.is_symlink() or not storage_path.is_file():
-        raise NotFoundError("knowledge_index_output_not_found")
+    content = _read_pinned_verified_artifact_bytes(
+        storage_path,
+        expected_size=size_bytes,
+        expected_sha256=str(latest.sha256 or ""),
+        maximum_size=_KNOWLEDGE_INDEX_OUTPUT_MAX_BYTES,
+        not_found_reason="knowledge_index_output_not_found",
+        integrity_reason="knowledge_index_output_integrity_invalid",
+    )
+    digest = hashlib.sha256(content).hexdigest()
     response = send_file(
-        str(storage_path),
+        BytesIO(content),
         mimetype=latest.media_type or "application/octet-stream",
         as_attachment=True,
         download_name=latest.original_filename or "knowledge-index-output.bin",
     )
-    response.headers["X-Artifact-SHA256"] = str(latest.sha256 or "")
-    response.headers["X-Artifact-Size"] = str(int(latest.size_bytes or 0))
+    response.headers["X-Artifact-SHA256"] = digest
+    response.headers["X-Artifact-Size"] = str(size_bytes)
     return response
 
 
 @artifacts_bp.route("/artifacts/<artifact_id>/rag-preview", methods=["GET"])
 @check_auth
 def get_artifact_rag_preview(artifact_id: str):
-    if _artifact_repo().get_by_id(artifact_id) is None:
-        raise NotFoundError()
+    _require_public_artifact(artifact_id)
     limit = request.args.get("limit", default=5, type=int) or 5
     preview = get_rag_helper_index_service().get_artifact_preview(artifact_id, limit=max(1, min(limit, 25)))
     if preview is None:
@@ -729,8 +839,7 @@ def get_artifact_rag_preview(artifact_id: str):
 @artifacts_bp.route("/artifacts/<artifact_id>/rag-jobs/<job_id>", methods=["GET"])
 @check_auth
 def get_artifact_rag_job(artifact_id: str, job_id: str):
-    if _artifact_repo().get_by_id(artifact_id) is None:
-        raise NotFoundError()
+    _require_public_artifact(artifact_id)
     job = get_knowledge_index_job_service().get_job(job_id)
     if job is None or str(job.get("scope_id")) != artifact_id:
         raise NotFoundError("rag_job_not_found")

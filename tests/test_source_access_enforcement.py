@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -18,7 +19,6 @@ from ananta_contracts.source_control import (
     SourceAccessGrant,
     derive_destination_id,
 )
-
 
 NOW = datetime(2026, 1, 1, tzinfo=timezone.utc)
 DESTINATION_ID = derive_destination_id(
@@ -94,6 +94,14 @@ class _Consumptions:
 class _Signer:
     def sign(self, *, manifest_digest: str) -> str:
         return f"signature:{manifest_digest}"
+
+
+class _Verifier:
+    @staticmethod
+    def verify_manifest(manifest) -> bool:
+        return manifest.get("signature") == (
+            "signature:" + str(manifest.get("binding_digest") or "")
+        )
 
 
 def _service(
@@ -188,6 +196,96 @@ def test_missing_expired_revoked_or_consumed_grant_is_denied() -> None:
         consumed.authorize(_request(), now=NOW)
 
 
+def test_nearly_expired_grant_is_denied_before_consumption() -> None:
+    service, consumptions = _service(
+        _grant(expires_at=NOW + timedelta(seconds=5)),
+        mode="one_time",
+    )
+
+    with pytest.raises(SourceAccessEnforcementError, match="grant_expiring"):
+        service.authorize(_request(), now=NOW)
+
+    assert consumptions.calls == []
+
+
+def test_runtime_and_transfer_window_is_required_before_one_time_consumption(
+) -> None:
+    grant = _grant(expires_at=NOW + timedelta(seconds=121))
+    consumptions = _Consumptions()
+    service = SourceAccessEnforcementService(
+        grants=_Grants(
+            ResolvedSourceGrant(
+                grant=grant,
+                consumption_mode="one_time",
+                concurrency_version=1,
+            )
+        ),
+        consumptions=consumptions,
+        signer=_Signer(),
+        manifest_verifier=_Verifier(),
+    )
+
+    authorized = service.authorize(
+        _request(),
+        now=NOW,
+        minimum_remaining_ms=120_000,
+    )
+    assert len(consumptions.calls) == 1
+
+    with pytest.raises(
+        SourceAccessEnforcementError,
+        match="delegated_manifest_expiring",
+    ):
+        service.validate_delegated_manifest(
+            asdict(authorized.manifest),
+            _request(),
+            now=NOW + timedelta(seconds=2),
+            minimum_remaining_ms=120_000,
+        )
+
+
+def test_persisted_manifest_requires_safe_lifetime_and_ascii_digest() -> None:
+    grant = _grant(expires_at=NOW + timedelta(seconds=7))
+    request = _request(
+        source_access_grant_id=grant.grant_id,
+        source_access_grant_digest=source_access_grant_digest(grant),
+    )
+    resolved = ResolvedSourceGrant(
+        grant=grant,
+        consumption_mode="one_time",
+        concurrency_version=1,
+    )
+    service = SourceAccessEnforcementService(
+        grants=_Grants(resolved),
+        consumptions=_Consumptions(),
+        signer=_Signer(),
+        manifest_verifier=_Verifier(),
+    )
+    authorized = service.authorize(request, now=NOW)
+    manifest = asdict(authorized.manifest)
+
+    with pytest.raises(
+        SourceAccessEnforcementError,
+        match="delegated_manifest_expiring",
+    ):
+        service.validate_delegated_manifest(
+            manifest,
+            request,
+            now=NOW + timedelta(seconds=2),
+        )
+
+    malformed = {**manifest, "binding_digest": "é" * 64}
+    with pytest.raises(
+        SourceAccessEnforcementError,
+        match="delegated_manifest_digest_invalid",
+    ):
+        service.validate_delegated_manifest(
+            malformed,
+            request,
+            now=NOW,
+        )
+
+
 def test_signing_failure_does_not_consume_one_time_grant() -> None:
     consumptions = _Consumptions()
 
@@ -213,6 +311,52 @@ def test_signing_failure_does_not_consume_one_time_grant() -> None:
     ):
         service.authorize(_request(), now=NOW)
     assert consumptions.calls == []
+
+
+def test_exact_consumption_receipt_recovery_is_explicitly_opt_in() -> None:
+    consumptions = _Consumptions(result=False)
+    receipt_calls = []
+
+    class _Receipts:
+        @staticmethod
+        def verify_exact_consumption_receipt(**values):
+            receipt_calls.append(values)
+            return True
+
+    service = SourceAccessEnforcementService(
+        grants=_Grants(
+            ResolvedSourceGrant(
+                grant=_grant(),
+                consumption_mode="one_time",
+                concurrency_version=2,
+            )
+        ),
+        consumptions=consumptions,
+        signer=_Signer(),
+        consumption_receipts=_Receipts(),
+    )
+
+    with pytest.raises(
+        SourceAccessEnforcementError,
+        match="grant_already_consumed",
+    ):
+        service.authorize(_request(), now=NOW)
+    assert receipt_calls == []
+
+    authorized = service.authorize(
+        _request(),
+        now=NOW,
+        allow_exact_consumption_recovery=True,
+    )
+
+    assert authorized.decision.allowed is True
+    assert receipt_calls == [
+        {
+            "grant_id": authorized.decision.grant_id,
+            "expected_policy_version": 2,
+            "consumption_digest": authorized.decision.binding_digest,
+        }
+    ]
 
 
 @pytest.mark.parametrize(

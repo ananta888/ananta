@@ -17,6 +17,10 @@ from typing import TYPE_CHECKING, Callable
 
 from flask import current_app
 
+from agent.config import settings
+from agent.services.knowledge_index_task_ingress_policy import (
+    has_bound_knowledge_index_job,
+)
 from agent.services.service_registry import get_core_services
 from agent.services.task_handler_registry import get_task_handler_registry
 
@@ -97,10 +101,10 @@ def invoke_hermes_adapter(
     hermes_cfg_raw: dict,
 ) -> dict | None:
     """Build envelope, context blocks, run HermesAdapter. HF-T019, T020, T021."""
+    from agent.services._task_scoped_hermes_context import build_hermes_context_blocks
+    from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
     from worker.core.hermes_adapter import HermesAdapter
     from worker.core.hermes_adapter_config import HermesAdapterConfig
-    from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
-    from agent.services._task_scoped_hermes_context import build_hermes_context_blocks
 
     try:
         hermes_config = HermesAdapterConfig(**{
@@ -217,39 +221,44 @@ def try_handler_propose(
             "status": "pending",
             "reason": "handler_safety_requires_review",
         }
-    try:
-        get_core_services().task_execution_service.persist_task_proposal_result(
-            tid=tid,
-            task=task,
-            reason=str(payload.get("reason") or payload.get("status") or "handler_proposal"),
-            raw=json.dumps(payload, ensure_ascii=False),
-            backend="handler",
-            model=None,
-            routing={
-                "task_kind": task_kind,
-                "effective_backend": "handler",
-                "reason": "registered_task_handler",
-                "required_capabilities": list(handler_descriptor.get("capabilities") or []),
-            },
-            cli_result={
-                "returncode": 0,
-                "latency_ms": 0,
-                "output_source": "handler",
-            },
-            worker_context={"handler_task_kind": task_kind},
-            trace={"trace_id": f"handler-{tid}", "policy_version": "v1"},
-            review=payload.get("review") if isinstance(payload.get("review"), dict) else None,
-            command=payload.get("command") if isinstance(payload.get("command"), str) else None,
-            tool_calls=payload.get("tool_calls") if isinstance(payload.get("tool_calls"), list) else None,
-            history_event={
-                "event_type": "proposal_result",
-                "reason": str(payload.get("reason") or payload.get("status") or "handler_proposal"),
-                "backend": "handler",
-                "routing_reason": "registered_task_handler",
-            },
-        )
-    except Exception:
-        pass
+    worker_owns_response_only = bool(
+        str(settings.role or "").strip().lower() == "worker"
+        and has_bound_knowledge_index_job(task)
+    )
+    if not worker_owns_response_only:
+        try:
+            get_core_services().task_execution_service.persist_task_proposal_result(
+                tid=tid,
+                task=task,
+                reason=str(payload.get("reason") or payload.get("status") or "handler_proposal"),
+                raw=json.dumps(payload, ensure_ascii=False),
+                backend="handler",
+                model=None,
+                routing={
+                    "task_kind": task_kind,
+                    "effective_backend": "handler",
+                    "reason": "registered_task_handler",
+                    "required_capabilities": list(handler_descriptor.get("capabilities") or []),
+                },
+                cli_result={
+                    "returncode": 0,
+                    "latency_ms": 0,
+                    "output_source": "handler",
+                },
+                worker_context={"handler_task_kind": task_kind},
+                trace={"trace_id": f"handler-{tid}", "policy_version": "v1"},
+                review=payload.get("review") if isinstance(payload.get("review"), dict) else None,
+                command=payload.get("command") if isinstance(payload.get("command"), str) else None,
+                tool_calls=payload.get("tool_calls") if isinstance(payload.get("tool_calls"), list) else None,
+                history_event={
+                    "event_type": "proposal_result",
+                    "reason": str(payload.get("reason") or payload.get("status") or "handler_proposal"),
+                    "backend": "handler",
+                    "routing_reason": "registered_task_handler",
+                },
+            )
+        except Exception:
+            pass
     return TaskScopedRouteResponse(
         data=payload,
         status=coerced.status,

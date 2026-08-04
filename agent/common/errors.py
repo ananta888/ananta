@@ -181,8 +181,28 @@ class ToolGuardrailError(PermanentError):
 
 
 class WorkerForwardingError(TransientError):
-    def __init__(self, message: str = "forwarding_failed", details: dict | None = None):
-        super().__init__(message, details, status_code=502, retryable=True)
+    def __init__(
+        self,
+        message: str = "forwarding_failed",
+        details: dict | None = None,
+        *,
+        status_code: int = 502,
+        retryable: bool = True,
+    ):
+        """Preserve the retry contract of a downstream forwarding failure.
+
+        Existing callers retain the historic retryable 502 default.  A
+        forwarding boundary can now represent authenticated 401/403 responses
+        and invalid governed bindings as permanent failures without losing the
+        familiar exception type.
+        """
+
+        super().__init__(
+            message,
+            details,
+            status_code=status_code,
+            retryable=retryable,
+        )
 
 
 class ConfigError(PermanentError):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from inspect import unwrap
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -219,9 +220,12 @@ def test_worker_handler_composition_executes_task_context_through_rag_helper_por
 def test_large_job_payload_is_artifact_first_and_worker_verifies_it() -> None:
     class PayloadStore:
         content = b""
+        fingerprint = ""
 
         def store_payload(self, *, content, fingerprint, created_by):
             self.content = content
+            self.fingerprint = fingerprint
+            assert fingerprint == hashlib.sha256(content).hexdigest()
             return {
                 "artifact_id": f"payload-{fingerprint[:12]}",
                 "sha256": hashlib.sha256(content).hexdigest(),
@@ -271,6 +275,12 @@ def test_large_job_payload_is_artifact_first_and_worker_verifies_it() -> None:
 
     assert set(envelope["payload"]) == {"payload_artifact_ref"}
     assert reference["size_bytes"] == len(store.content)
+    assert reference["sha256"] == store.fingerprint
+    assert envelope["idempotency_fingerprint"] != store.fingerprint
+    assert envelope["job_id"] == (
+        "knowledge-index-"
+        + envelope["idempotency_fingerprint"][:32]
+    )
     assert captured["records"][0]["content"] == "x" * 150_000
     assert result["status"] == "completed"
 
@@ -412,7 +422,10 @@ def test_internal_payload_route_serves_only_integrity_checked_system_artifact(
     app = Flask(__name__)
 
     with app.test_request_context():
-        response = get_knowledge_index_payload_artifact.__wrapped__("artifact-1")
+        # This unit exercises the pinned integrity read itself. Registered
+        # Worker authentication and the payload capability are covered by the
+        # route-level authorization tests.
+        response = unwrap(get_knowledge_index_payload_artifact)("artifact-1")
         response.direct_passthrough = False
 
     assert response.get_data() == content
@@ -426,10 +439,18 @@ def test_worker_output_publisher_creates_real_artifact_references(monkeypatch, t
     saved = []
 
     class Ingestion:
-        def upload_artifact(self, *, filename, content, created_by, media_type):
+        def upload_artifact(
+            self,
+            *,
+            filename,
+            content,
+            created_by,
+            media_type,
+            artifact_metadata=None,
+        ):
             artifact = SimpleNamespace(
                 id=f"artifact-{len(saved) + 1}",
-                artifact_metadata={},
+                artifact_metadata=dict(artifact_metadata or {}),
             )
             version = SimpleNamespace(
                 sha256=hashlib.sha256(content).hexdigest(),

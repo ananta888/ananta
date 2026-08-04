@@ -12,7 +12,7 @@ import hashlib
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from ananta_contracts.codecompass_graph_limits import (
     MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
@@ -50,6 +50,17 @@ _GRAPH_OUTPUT_KINDS = frozenset(
 _GRAPH_NODE_OUTPUT_KINDS = frozenset(
     {"graph_nodes", "semantic_nodes", "x86_nodes", "rig_nodes"}
 )
+
+
+class GraphArtifactExecutionDeadlinePort(Protocol):
+    def checkpoint(self) -> None: ...
+
+
+def _checkpoint(
+    execution_deadline: GraphArtifactExecutionDeadlinePort | None,
+) -> None:
+    if execution_deadline is not None:
+        execution_deadline.checkpoint()
 
 
 def _canonical_json(value: Any) -> bytes:
@@ -183,7 +194,9 @@ class WorkerCodeCompassGraphArtifactMaterializer:
         knowledge_index: Mapping[str, Any],
         run: Mapping[str, Any],
         options: Mapping[str, Any] | None = None,
+        execution_deadline: "GraphArtifactExecutionDeadlinePort | None" = None,
     ) -> dict[str, Any]:
+        _checkpoint(execution_deadline)
         output_dir = self._resolve_output_dir(knowledge_index=knowledge_index, run=run)
         normalized_options = normalize_graph_visual_options(options)
         try:
@@ -205,6 +218,7 @@ class WorkerCodeCompassGraphArtifactMaterializer:
                     "semantic_edges",
                 ),
             )
+            _checkpoint(execution_deadline)
         except ValueError as exc:
             raise RuntimeError("knowledge_index_graph_output_invalid") from exc
         diagnostics = loaded.get("diagnostics")
@@ -213,11 +227,11 @@ class WorkerCodeCompassGraphArtifactMaterializer:
             or diagnostics.get("skipped_non_object_count", 0)
         ):
             raise RuntimeError("knowledge_index_graph_output_invalid")
-        records = [
-            _sanitize_record(item)
-            for item in list(loaded.get("records") or [])
-            if isinstance(item, Mapping)
-        ]
+        records = []
+        for item in list(loaded.get("records") or []):
+            _checkpoint(execution_deadline)
+            if isinstance(item, Mapping):
+                records.append(_sanitize_record(item))
         if _graph_export_required(knowledge_index, run) and not any(
             str((record.get("_provenance") or {}).get("output_kind") or "")
             .strip()
@@ -228,6 +242,7 @@ class WorkerCodeCompassGraphArtifactMaterializer:
             raise RuntimeError("knowledge_index_graph_output_empty")
         revision = _stable_graph_revision(records)
         for record in records:
+            _checkpoint(execution_deadline)
             provenance = record.get("_provenance")
             if isinstance(provenance, dict):
                 provenance["manifest_hash"] = revision
@@ -250,6 +265,7 @@ class WorkerCodeCompassGraphArtifactMaterializer:
             manifest_hash=revision,
             semantic_budget=semantic_budget,
         )
+        _checkpoint(execution_deadline)
         graph_index_path = output_dir / GRAPH_INDEX_FILENAME
         self._assert_admissible_graph_artifact(graph_index_path)
         metrics = materialize_graph_visual_metrics(
@@ -257,6 +273,7 @@ class WorkerCodeCompassGraphArtifactMaterializer:
             include_advanced_metrics=normalized_options["include_advanced_metrics"],
             blast_radius_seeds=normalized_options["blast_radius_seeds"],
         )
+        _checkpoint(execution_deadline)
         visual_metrics_path = output_dir / GRAPH_VISUAL_METRICS_FILENAME
         self._assert_admissible_graph_artifact(visual_metrics_path)
         graph_payload = store.load()
@@ -265,6 +282,7 @@ class WorkerCodeCompassGraphArtifactMaterializer:
             raise RuntimeError("codecompass_graph_artifact_revision_mismatch")
         if not verify_visual_metrics_content_hash(metrics):
             raise RuntimeError("codecompass_graph_visual_metrics_hash_invalid")
+        _checkpoint(execution_deadline)
         return {
             "schema": "codecompass_graph_artifact_materialization.v1",
             "graph_revision": revision,

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Protocol
 
+from ananta_contracts.source_control import MAX_SOURCE_ADMISSION_FILES
 
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$")
 
@@ -73,7 +74,7 @@ class PosixWorkspaceFileInspection:
 
 @dataclass(frozen=True)
 class WorkspaceInventoryLimits:
-    max_files: int = 20_000
+    max_files: int = MAX_SOURCE_ADMISSION_FILES
     max_total_bytes: int = 512 * 1024 * 1024
     max_file_bytes: int = 16 * 1024 * 1024
     max_depth: int = 32
@@ -81,6 +82,7 @@ class WorkspaceInventoryLimits:
     def __post_init__(self) -> None:
         if (
             self.max_files < 1
+            or self.max_files > MAX_SOURCE_ADMISSION_FILES
             or self.max_total_bytes < 1
             or self.max_file_bytes < 1
             or self.max_depth < 1

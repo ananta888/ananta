@@ -10,6 +10,10 @@ from typing import Any, Callable
 from agent.config import settings
 from agent.hybrid_orchestrator import ContextChunk
 from agent.repository import knowledge_index_repo, knowledge_link_repo
+from agent.services.knowledge_index_consumption_policy import (
+    KnowledgeIndexConsumptionPolicy,
+    get_knowledge_index_consumption_policy,
+)
 from agent.services.retrieval_source_contract import normalize_chunk_metadata
 from ananta_contracts.file_type_classifier import FileTypeClassifier
 from ananta_contracts.file_type_support import (
@@ -92,6 +96,7 @@ class KnowledgeIndexRetrievalService:
         knowledge_link_repository=None,
         *,
         file_type_registry: FileTypeSupportRegistry | None = None,
+        consumption_policy: KnowledgeIndexConsumptionPolicy | None = None,
     ) -> None:
         self._knowledge_index_repository = knowledge_index_repository or knowledge_index_repo
         self._knowledge_link_repository = knowledge_link_repository or knowledge_link_repo
@@ -99,6 +104,9 @@ class KnowledgeIndexRetrievalService:
             Path(__file__).resolve().parents[2]
         )
         self._file_type_classifier = FileTypeClassifier(registry)
+        self._consumption_policy = (
+            consumption_policy or get_knowledge_index_consumption_policy()
+        )
 
     def _collection_metadata(self, artifact_id: str) -> tuple[list[str], list[str]]:
         if not artifact_id:
@@ -115,8 +123,17 @@ class KnowledgeIndexRetrievalService:
                 collection_names.append(collection_name)
         return collection_ids, collection_names
 
-    def _iter_completed_indices(self):
-        return self._knowledge_index_repository.list_completed()
+    def _iter_completed_indices(
+        self,
+        *,
+        allowed_index_ids: set[str] | None = None,
+    ):
+        for knowledge_index in self._knowledge_index_repository.list_completed():
+            if self._consumption_policy.can_consume(
+                knowledge_index,
+                allowed_index_ids=allowed_index_ids,
+            ):
+                yield knowledge_index
 
     def get_source_preflight(self) -> dict[str, object]:
         root = Path(settings.data_dir) / "knowledge_indices"
@@ -700,12 +717,15 @@ class KnowledgeIndexRetrievalService:
         task_kind: str | None = None,
         retrieval_intent: str | None = None,
         source_scopes: set[str] | None = None,
+        allowed_index_ids: set[str] | None = None,
         record_predicate: Callable[[dict[str, Any]], bool] | None = None,
     ) -> list[ContextChunk]:
         query_features = self._query_features(query)
         profile = self._task_profile(task_kind, retrieval_intent)
         candidates: list[ContextChunk] = []
-        for knowledge_index in self._iter_completed_indices():
+        for knowledge_index in self._iter_completed_indices(
+            allowed_index_ids=allowed_index_ids,
+        ):
             source_scope = (
                 str(getattr(knowledge_index, "source_scope", "artifact") or "artifact")
                 .strip()
@@ -715,7 +735,13 @@ class KnowledgeIndexRetrievalService:
             if source_scopes is not None and source_scope not in source_scopes:
                 continue
             artifact_id = str(getattr(knowledge_index, "artifact_id", "") or "")
-            if artifact_ids is not None and source_scope == "artifact" and artifact_id not in artifact_ids:
+            if artifact_ids is not None and (
+                source_scope != "artifact"
+                or artifact_id not in artifact_ids
+            ):
+                # An artifact allow-list is a strict capability boundary. It
+                # must never degrade into a filter that admits every other
+                # source scope (repo, wiki, registered workspace, ...).
                 continue
             collection_ids, collection_names = self._collection_metadata(artifact_id)
             output_dir_raw = getattr(knowledge_index, "output_dir", None)
@@ -829,6 +855,7 @@ class KnowledgeIndexRetrievalService:
         task_kind: str | None = None,
         retrieval_intent: str | None = None,
         source_scopes: set[str] | None = None,
+        allowed_index_ids: set[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Stable dict projection for CodeCompass tools and context planners."""
 
@@ -838,6 +865,7 @@ class KnowledgeIndexRetrievalService:
             task_kind=task_kind,
             retrieval_intent=retrieval_intent,
             source_scopes=source_scopes,
+            allowed_index_ids=allowed_index_ids,
         )
         records: list[dict[str, Any]] = []
         for chunk in chunks:

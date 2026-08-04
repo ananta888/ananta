@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from agent.db_models import ArtifactDB
+from agent.repository import artifact_repo
+
 
 def test_blender_client_surface_health_capabilities_and_goal(client, admin_auth_header) -> None:
     health = client.get("/api/client-surfaces/blender/health", headers=admin_auth_header)
@@ -74,3 +77,35 @@ def test_blender_client_surface_plans_and_approval_gate(client, admin_auth_heade
     assert blocked_execution.json["message"] == "approval_required"
     assert decision.status_code == 200
     assert decision.json["data"]["decision"] == "approve"
+
+
+def test_blender_client_surface_hides_system_managed_artifacts(
+    client,
+    admin_auth_header,
+) -> None:
+    public = artifact_repo.save(
+        ArtifactDB(id="blender-public-artifact", artifact_metadata={})
+    )
+    hidden = artifact_repo.save(
+        ArtifactDB(
+            id="blender-hidden-worker-output",
+            artifact_metadata={
+                "system_artifact_kind": "knowledge_index_worker_output"
+            },
+        )
+    )
+
+    listing = client.get(
+        "/api/client-surfaces/blender/artifacts",
+        headers=admin_auth_header,
+    )
+    detail = client.get(
+        f"/api/client-surfaces/blender/artifacts/{hidden.id}",
+        headers=admin_auth_header,
+    )
+
+    assert listing.status_code == 200
+    listed_ids = {item["id"] for item in listing.json["data"]["items"]}
+    assert public.id in listed_ids
+    assert hidden.id not in listed_ids
+    assert detail.status_code == 404

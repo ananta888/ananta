@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -19,6 +21,9 @@ from agent.services.source_control_index_authority_planner import (
     BoundSourceRevisionAuthorityPlanner,
     BoundSourceRevisionPayload,
     BoundSourceRevisionPlanningError,
+)
+from agent.services.source_control_index_production_wiring import (
+    IngestionKnowledgeIndexPayloadStore,
 )
 from agent.services.source_destination_resolution import (
     DestinationCatalogRecord,
@@ -46,8 +51,63 @@ from worker.retrieval.governed_knowledge_index_worker_composition import (
     build_governed_knowledge_index_worker_handler,
 )
 
-
 NOW = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+
+def test_legacy_ingestion_payload_store_keeps_keyword_constructor() -> None:
+    content = b'{"records":[]}'
+    fingerprint = hashlib.sha256(content).hexdigest()
+    artifact = SimpleNamespace(
+        id="artifact-legacy-payload",
+        artifact_metadata={"legacy": True},
+    )
+    version = SimpleNamespace(
+        sha256=fingerprint,
+        size_bytes=len(content),
+        media_type=(
+            "application/vnd.ananta.knowledge-index-job+json"
+        ),
+    )
+
+    class Ingestion:
+        def upload_artifact(self, **kwargs):
+            assert kwargs["content"] == content
+            assert kwargs["artifact_metadata"] == {
+                "system_artifact_kind": (
+                    "knowledge_index_job_payload"
+                ),
+                "idempotency_fingerprint": fingerprint,
+            }
+            return artifact, version, None
+
+    class Artifacts:
+        saved = None
+
+        def save(self, value):
+            self.saved = value
+
+    artifacts = Artifacts()
+    reference = IngestionKnowledgeIndexPayloadStore(
+        ingestion=Ingestion(),
+        artifact_repository=artifacts,
+    ).store_payload(
+        content=content,
+        fingerprint=fingerprint,
+        created_by="legacy-caller",
+    )
+
+    assert reference == {
+        "artifact_id": artifact.id,
+        "sha256": fingerprint,
+        "size_bytes": len(content),
+        "media_type": version.media_type,
+    }
+    assert artifacts.saved is artifact
+    assert artifact.artifact_metadata == {
+        "legacy": True,
+        "system_artifact_kind": "knowledge_index_job_payload",
+        "idempotency_fingerprint": fingerprint,
+    }
 
 
 class _DestinationCatalog:
@@ -114,7 +174,11 @@ class _GrantPort:
         )
 
 
-def _planner_fixture():
+def _planner_fixture(
+    *,
+    grant_lifetime: timedelta = timedelta(hours=1),
+    lease_lifetime: timedelta = timedelta(minutes=8),
+):
     revision = BoundSourceRevisionAuthority(
         tenant_id="tenant-example",
         project_id="project-example",
@@ -182,7 +246,7 @@ def _planner_fixture():
         policy_snapshot_digest="1" * 64,
         state=GrantState.ACTIVE,
         issued_at=NOW - timedelta(minutes=1),
-        expires_at=NOW + timedelta(hours=1),
+        expires_at=NOW + grant_lifetime,
     )
     authority = BoundSourceIndexAuthority(
         policy_snapshot_id="policy-example-v1",
@@ -204,7 +268,9 @@ def _planner_fixture():
             lease_id="lease_example",
             lease_generation=1,
             lease_issued_epoch_ms=int((NOW - timedelta(seconds=1)).timestamp() * 1000),
-            lease_expires_epoch_ms=int((NOW + timedelta(minutes=5)).timestamp() * 1000),
+            lease_expires_epoch_ms=int(
+                (NOW + lease_lifetime).timestamp() * 1000
+            ),
         ),
     )
     grants = _GrantPort(grant)
@@ -283,19 +349,89 @@ def test_planner_rejects_a_stale_revision_before_grant_resolution() -> None:
     assert grants.request is None
 
 
+def test_planner_requires_runtime_and_transport_margin_on_assignment() -> None:
+    planner, revision, _grants = _planner_fixture(
+        lease_lifetime=timedelta(minutes=5),
+    )
+
+    with pytest.raises(BoundSourceRevisionPlanningError) as raised:
+        planner.plan_bound_source_revision(
+            tenant_id=revision.tenant_id,
+            project_id=revision.project_id,
+            actor_id="actor-example",
+            connection_id=revision.connection_id,
+            source_revision_id=revision.source_revision_id,
+            source_revision_digest=revision.source_revision_digest,
+            content_manifest_digest=revision.content_manifest_digest,
+            descriptor={"source_id": revision.source_id},
+            idempotency_key="index-example",
+        )
+
+    assert raised.value.reason_code == (
+        "source_index_assignment_runtime_window_insufficient"
+    )
+
+
+def test_planner_rejects_grant_without_runtime_transport_margin() -> None:
+    planner, revision, _grants = _planner_fixture(
+        grant_lifetime=timedelta(minutes=5),
+    )
+
+    with pytest.raises(BoundSourceRevisionPlanningError) as raised:
+        planner.plan_bound_source_revision(
+            tenant_id=revision.tenant_id,
+            project_id=revision.project_id,
+            actor_id="actor-example",
+            connection_id=revision.connection_id,
+            source_revision_id=revision.source_revision_id,
+            source_revision_digest=revision.source_revision_digest,
+            content_manifest_digest=revision.content_manifest_digest,
+            descriptor={"source_id": revision.source_id},
+            idempotency_key="index-example",
+        )
+
+    assert raised.value.reason_code == (
+        "source_index_grant_runtime_window_insufficient"
+    )
+
+
 class _Queue:
     def ingest_task(self, **kwargs):
         return kwargs
 
 
 class _PayloadStore:
+    def prepare_reference(self, **kwargs):
+        return kwargs
+
     def store_payload(self, **kwargs):
         return kwargs
 
 
 class _ExecutionBindings:
+    def prepare_issue(self, **kwargs):
+        return kwargs
+
+    def validate_prepared_issue(self, record):
+        return record
+
+    def admit_prepared_issue(self, record):
+        return record
+
+    def get_by_idempotency(self, **kwargs):
+        return None
+
+    def same_submission(self, existing, candidate):
+        return existing == candidate
+
     def issue(self, **kwargs):
         return kwargs
+
+
+class _WorkerDirectory:
+    def resolve_worker_url(self, worker_id):
+        assert worker_id == "worker_example"
+        return "http://worker-example:5001"
 
 
 def test_strict_hub_composition_requires_every_persistent_dependency() -> None:
@@ -324,6 +460,7 @@ def test_strict_hub_composition_requires_every_persistent_dependency() -> None:
         payload_store=_PayloadStore(),
         worker_artifact_service=object(),
         source_control_completion_projector=object(),
+        worker_directory=_WorkerDirectory(),
     )
 
     service = build_strict_governed_knowledge_index_job_service(dependencies)
@@ -340,6 +477,7 @@ def test_strict_hub_composition_requires_every_persistent_dependency() -> None:
             payload_store=None,
             worker_artifact_service=object(),
             source_control_completion_projector=object(),
+            worker_directory=_WorkerDirectory(),
         )
 
 

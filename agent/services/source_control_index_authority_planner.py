@@ -19,6 +19,8 @@ from agent.services.source_destination_resolution import (
     SourceDestinationResolutionService,
 )
 from ananta_contracts.knowledge_index_execution import (
+    KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS,
+    KNOWLEDGE_INDEX_PRE_DISPATCH_RESERVE_SECONDS,
     KnowledgeIndexExecutionAssignment,
     KnowledgeIndexFileManifest,
     KnowledgeIndexResourceBudget,
@@ -28,7 +30,6 @@ from ananta_contracts.source_control import (
     GrantState,
     GrantTransformation,
 )
-
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _CONNECTION_ID = re.compile(r"^conn_[0-9a-f]{64}$")
@@ -287,6 +288,18 @@ class BoundSourceRevisionAuthorityPlanner:
             raise BoundSourceRevisionPlanningError(
                 "source_index_assignment_lease_inactive"
             )
+        required_planning_window_ms = (
+            planned.resources.max_runtime_seconds
+            + KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
+            + KNOWLEDGE_INDEX_PRE_DISPATCH_RESERVE_SECONDS
+        ) * 1000
+        if (
+            planned.assignment.lease_expires_epoch_ms - now_ms
+            < required_planning_window_ms
+        ):
+            raise BoundSourceRevisionPlanningError(
+                "source_index_assignment_runtime_window_insufficient"
+            )
 
         access_request = SourceAccessRequest(
             tenant_id=tenant_id,
@@ -332,6 +345,12 @@ class BoundSourceRevisionAuthorityPlanner:
         ):
             raise BoundSourceRevisionPlanningError(
                 "source_index_grant_binding_mismatch"
+            )
+        if int((grant.expires_at - now).total_seconds() * 1000) < (
+            required_planning_window_ms
+        ):
+            raise BoundSourceRevisionPlanningError(
+                "source_index_grant_runtime_window_insufficient"
             )
 
         return {

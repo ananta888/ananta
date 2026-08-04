@@ -9,8 +9,15 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
+from agent.common.errors import TransientError
 from ananta_contracts.codecompass_graph_limits import (
     MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
+)
+from ananta_contracts.knowledge_index_execution import (
+    KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS,
+    KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON,
+    KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON,
+    MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES,
 )
 
 KNOWLEDGE_INDEX_JOB_SCHEMA = "ananta.knowledge_index_job.v1"
@@ -22,9 +29,22 @@ KNOWLEDGE_INDEX_EXECUTION_RESULT_SCHEMA = (
     "ananta.knowledge_index_execution_result.v2"
 )
 _INLINE_JOB_PAYLOAD_BYTES = 128 * 1024
-_MAX_JOB_PAYLOAD_BYTES = 128 * 1024 * 1024
+_MAX_JOB_PAYLOAD_BYTES = MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES
 _PAYLOAD_MEDIA_TYPE = "application/vnd.ananta.knowledge-index-job+json"
 _GRAPH_VISUAL_OPTIONS_SCHEMA = "codecompass_graph_visual_options.v1"
+_EXPIRED_DISPATCH_RECONCILIATION_SCHEMA = (
+    "ananta.knowledge_index_dispatch_reconciliation.v1"
+)
+_RECONCILABLE_TASK_STATUSES = {
+    "created",
+    "todo",
+    "blocked",
+    "blocked_by_dependency",
+    "proposing",
+    "assigned",
+    "in_progress",
+    "running",
+}
 _MAX_GRAPH_BLAST_RADIUS_SEEDS = 256
 _MAX_GRAPH_SEED_ID_LENGTH = 512
 _TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
@@ -63,17 +83,58 @@ _WORKER_GRAPH_ARTIFACT_SCHEMAS = {
 }
 
 
+class KnowledgeIndexCompletionProjectionPending(TransientError):
+    """A durable result awaits its idempotent Source-Control projection."""
+
+    reason_code = "knowledge_index_source_projection_pending"
+
+    def __init__(self, cause: Exception) -> None:
+        projection_reason = str(
+            getattr(cause, "reason_code", None)
+            or type(cause).__name__
+        )
+        super().__init__(
+            self.reason_code,
+            details={"projection_reason_code": projection_reason},
+        )
+
+
 class KnowledgeIndexJobRepositoryPort(Protocol):
     def get_by_id(self, task_id: str) -> Any | None: ...
 
     def save(self, task: Any) -> Any: ...
+
+    def replace_bound_knowledge_index_envelope(
+        self,
+        task_id: str,
+        *,
+        expected_envelope: dict,
+        replacement_envelope: dict,
+    ) -> Any: ...
+
+    def compare_and_set_status(
+        self,
+        task_id: str,
+        **options: Any,
+    ) -> Any: ...
 
 
 class KnowledgeIndexTaskQueuePort(Protocol):
     def ingest_task(self, **kwargs: Any) -> None: ...
 
 
+class KnowledgeIndexWorkerDirectoryPort(Protocol):
+    def resolve_worker_url(self, worker_id: str) -> str: ...
+
+
 class KnowledgeIndexPayloadStorePort(Protocol):
+    def prepare_reference(
+        self,
+        *,
+        content: bytes,
+        fingerprint: str,
+    ) -> dict[str, object]: ...
+
     def store_payload(
         self,
         *,
@@ -230,7 +291,9 @@ class KnowledgeIndexJobService:
         source_control_completion_projector: Any | None = None,
         execution_binding_service: Any | None = None,
         destination_resolution_service: Any | None = None,
+        worker_directory: KnowledgeIndexWorkerDirectoryPort | None = None,
         source_access_enforcement_service: Any | None = None,
+        task_result_publisher: Any | None = None,
         allow_legacy_unresolved_destination: bool = False,
         allow_legacy_unsigned_source_dispatch: bool = False,
         clock=time.time,
@@ -250,9 +313,11 @@ class KnowledgeIndexJobService:
         self._destination_resolution_service = (
             destination_resolution_service
         )
+        self._worker_directory = worker_directory
         self._source_access_enforcement_service = (
             source_access_enforcement_service
         )
+        self._task_result_publisher = task_result_publisher
         self._allow_legacy_unresolved_destination = bool(
             allow_legacy_unresolved_destination
         )
@@ -275,30 +340,44 @@ class KnowledgeIndexJobService:
 
         return task_repo
 
+    def _result_publisher(self) -> Any:
+        if self._task_result_publisher is not None:
+            return self._task_result_publisher
+        from agent.services.knowledge_index_task_result_publication import (
+            KnowledgeIndexTaskResultPublisher,
+        )
+        from agent.services.task_runtime_service import (
+            run_external_task_status_post_commit,
+        )
+
+        return KnowledgeIndexTaskResultPublisher(
+            repository=self._repository(),
+            execution_binding_service=self._execution_binding_service,
+            post_commit=run_external_task_status_post_commit,
+        )
+
     def _persist_bound_execution_envelope(
         self,
         *,
         job_id: str,
+        expected_envelope: Mapping[str, Any],
         envelope: Mapping[str, Any],
     ) -> None:
         repository = self._repository()
-        task = repository.get_by_id(str(job_id))
-        if task is None:
-            raise ValueError("knowledge_index_job_not_found")
-        raw_task = (
-            task.model_dump() if hasattr(task, "model_dump") else dict(task)
+        atomic_replace = getattr(
+            repository,
+            "replace_bound_knowledge_index_envelope",
+            None,
         )
-        context = dict(raw_task.get("worker_execution_context") or {})
-        context["knowledge_index_job"] = dict(envelope)
-        if isinstance(task, dict):
-            persisted_task: Any = {
-                **task,
-                "worker_execution_context": context,
-            }
-        else:
-            setattr(task, "worker_execution_context", context)
-            persisted_task = task
-        repository.save(persisted_task)
+        if not callable(atomic_replace):
+            raise RuntimeError(
+                "knowledge_index_atomic_task_envelope_repository_required"
+            )
+        atomic_replace(
+            str(job_id),
+            expected_envelope=dict(expected_envelope),
+            replacement_envelope=dict(envelope),
+        )
 
     def authorize_bound_worker_dispatch(
         self,
@@ -306,8 +385,13 @@ class KnowledgeIndexJobService:
         job_id: str,
         authenticated_worker_id: str,
         destination_selection: Mapping[str, Any] | None = None,
+        dispatch_phase: str = "execute",
     ) -> dict[str, Any]:
         """Return v2 execution context only after the mandatory Hub gate."""
+
+        normalized_dispatch_phase = str(dispatch_phase or "").strip().lower()
+        if normalized_dispatch_phase not in {"propose", "execute"}:
+            raise ValueError("knowledge_index_dispatch_phase_invalid")
 
         task = self._repository().get_by_id(str(job_id))
         if task is None:
@@ -332,6 +416,10 @@ class KnowledgeIndexJobService:
             authenticated_worker_id=str(authenticated_worker_id),
         )
         current_envelope = authorized.job.to_wire()
+        persisted_enforcement_manifest = envelope.pop(
+            "source_access_enforcement_manifest",
+            None,
+        )
         if envelope != current_envelope:
             raise ValueError(
                 "knowledge_index_execution_queue_context_stale"
@@ -377,13 +465,35 @@ class KnowledgeIndexJobService:
                 "knowledge_index_destination_resolution_unavailable"
             )
 
+        if normalized_dispatch_phase == "propose":
+            # Proposal generation is metadata-only.  Source grants and payload
+            # capabilities are deliberately withheld until the Hub atomically
+            # claims the execute phase.
+            return {"knowledge_index_job": current_envelope}
+
+        required_dispatch_window_ms = (
+            self._assert_dispatch_runtime_window(current_envelope)
+        )
+
         enforcement = self._source_access_enforcement_service
         if enforcement is None:
+            if persisted_enforcement_manifest is not None:
+                raise RuntimeError(
+                    "knowledge_index_source_access_enforcement_unavailable"
+                )
             if not self._allow_legacy_unsigned_source_dispatch:
                 raise RuntimeError(
                     "knowledge_index_source_access_enforcement_unavailable"
                 )
-            return {"knowledge_index_job": current_envelope}
+            worker_envelope = current_envelope
+            self._claim_execution_dispatch(
+                service=service,
+                authorized_record=authorized,
+                job_id=str(job_id),
+                authenticated_worker_id=str(authenticated_worker_id),
+                dispatch_phase=normalized_dispatch_phase,
+            )
+            return {"knowledge_index_job": worker_envelope}
 
         from dataclasses import asdict
 
@@ -444,12 +554,40 @@ class KnowledgeIndexJobService:
             ),
             lease_id=str(assignment.get("lease_id") or ""),
         )
+        dispatch_time = datetime.fromtimestamp(
+            float(self._clock()),
+            tz=timezone.utc,
+        )
+        if persisted_enforcement_manifest is not None:
+            if not isinstance(persisted_enforcement_manifest, Mapping):
+                raise ValueError(
+                    "knowledge_index_source_access_manifest_invalid"
+                )
+            verified_manifest = enforcement.validate_delegated_manifest(
+                persisted_enforcement_manifest,
+                request,
+                now=dispatch_time,
+                minimum_remaining_ms=required_dispatch_window_ms,
+            )
+            worker_envelope = {
+                **current_envelope,
+                "source_access_enforcement_manifest": asdict(
+                    verified_manifest
+                ),
+            }
+            self._claim_execution_dispatch(
+                service=service,
+                authorized_record=authorized,
+                job_id=str(job_id),
+                authenticated_worker_id=str(authenticated_worker_id),
+                dispatch_phase=normalized_dispatch_phase,
+            )
+            return {"knowledge_index_job": worker_envelope}
         source_dispatch = enforcement.authorize(
             request,
-            now=datetime.fromtimestamp(
-                float(self._clock()),
-                tz=timezone.utc,
-            ),
+            now=dispatch_time,
+            allow_exact_consumption_recovery=True,
+            minimum_remaining_ms=required_dispatch_window_ms,
         )
         worker_envelope = {
             **current_envelope,
@@ -459,9 +597,84 @@ class KnowledgeIndexJobService:
         }
         self._persist_bound_execution_envelope(
             job_id=job_id,
+            expected_envelope=current_envelope,
             envelope=worker_envelope,
         )
+        self._claim_execution_dispatch(
+            service=service,
+            authorized_record=authorized,
+            job_id=str(job_id),
+            authenticated_worker_id=str(authenticated_worker_id),
+            dispatch_phase=normalized_dispatch_phase,
+        )
         return {"knowledge_index_job": worker_envelope}
+
+    def _assert_dispatch_runtime_window(
+        self,
+        envelope: Mapping[str, Any],
+    ) -> int:
+        """Reject execute dispatch before consuming its one-time authority."""
+
+        assignment = envelope.get("assignment")
+        resources = envelope.get("resources")
+        if not isinstance(assignment, Mapping) or not isinstance(
+            resources,
+            Mapping,
+        ):
+            raise ValueError(
+                KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON
+            )
+        lease_expires_epoch_ms = assignment.get(
+            "lease_expires_epoch_ms"
+        )
+        max_runtime_seconds = resources.get("max_runtime_seconds")
+        if (
+            isinstance(lease_expires_epoch_ms, bool)
+            or not isinstance(lease_expires_epoch_ms, int)
+            or isinstance(max_runtime_seconds, bool)
+            or not isinstance(max_runtime_seconds, int)
+            or max_runtime_seconds < 1
+        ):
+            raise ValueError(
+                KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON
+            )
+        try:
+            now_epoch_ms = int(float(self._clock()) * 1000)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError(
+                KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON
+            ) from exc
+        required_window_ms = (
+            max_runtime_seconds
+            + KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
+        ) * 1000
+        if lease_expires_epoch_ms - now_epoch_ms < required_window_ms:
+            raise ValueError(
+                KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON
+            )
+        return required_window_ms
+
+    @staticmethod
+    def _claim_execution_dispatch(
+        *,
+        service: Any,
+        authorized_record: Any,
+        job_id: str,
+        authenticated_worker_id: str,
+        dispatch_phase: str,
+    ) -> None:
+        if dispatch_phase != "execute":
+            return
+        claim = getattr(service, "claim_dispatch", None)
+        if not callable(claim):
+            raise RuntimeError(
+                "knowledge_index_dispatch_claim_service_unavailable"
+            )
+        claim(
+            job_id=job_id,
+            authenticated_worker_id=authenticated_worker_id,
+            expected_lock_version=int(authorized_record.lock_version),
+        )
 
     def retry_bound_job(
         self,
@@ -481,6 +694,20 @@ class KnowledgeIndexJobService:
             raise RuntimeError(
                 "knowledge_index_execution_binding_service_unavailable"
             )
+        task = self._repository().get_by_id(str(job_id))
+        if task is None:
+            raise ValueError("knowledge_index_job_not_found")
+        raw_task = (
+            task.model_dump()
+            if hasattr(task, "model_dump")
+            else dict(task)
+        )
+        expected_envelope = dict(
+            dict(raw_task.get("worker_execution_context") or {}).get(
+                "knowledge_index_job"
+            )
+            or {}
+        )
         record = service.retry(
             job_id=str(job_id),
             assignment=KnowledgeIndexExecutionAssignment.model_validate(
@@ -490,12 +717,176 @@ class KnowledgeIndexJobService:
         )
         self._persist_bound_execution_envelope(
             job_id=str(job_id),
+            expected_envelope=expected_envelope,
             envelope=record.job.to_wire(),
         )
         return self.get_job(str(job_id)) or {
             "job_id": str(job_id),
             "status": record.state,
         }
+
+    def reconcile_expired_bound_dispatch(
+        self,
+        *,
+        job_id: str,
+        expected_lock_version: int,
+    ) -> dict[str, Any]:
+        """Terminally project one expired Hub dispatch without replaying it."""
+
+        normalized_job_id = str(job_id or "").strip()
+        if not normalized_job_id:
+            raise ValueError("knowledge_index_job_not_found")
+        try:
+            normalized_lock_version = int(expected_lock_version)
+        except (TypeError, ValueError):
+            normalized_lock_version = 0
+        if isinstance(expected_lock_version, bool) or normalized_lock_version < 1:
+            raise ValueError("knowledge_index_execution_lock_version_invalid")
+        binding_service = self._execution_binding_service
+        if binding_service is None:
+            raise RuntimeError(
+                "knowledge_index_execution_binding_service_unavailable"
+            )
+        reconcile = getattr(
+            binding_service,
+            "reconcile_expired_dispatch",
+            None,
+        )
+        if not callable(reconcile):
+            raise RuntimeError(
+                "knowledge_index_execution_reconcile_service_unavailable"
+            )
+        record = reconcile(
+            job_id=normalized_job_id,
+            expected_lock_version=normalized_lock_version,
+        )
+        if record.state != "failed" or record.completed_at_epoch_ms is None:
+            raise RuntimeError(
+                "knowledge_index_execution_reconcile_result_invalid"
+            )
+
+        repository = self._repository()
+        status_cas = getattr(repository, "compare_and_set_status", None)
+        if not callable(status_cas):
+            raise RuntimeError(
+                "knowledge_index_atomic_task_status_repository_required"
+            )
+        marker = self._expired_dispatch_reconciliation_marker(record)
+        result = status_cas(
+            normalized_job_id,
+            expected_statuses=set(_RECONCILABLE_TASK_STATUSES),
+            target_status="failed",
+            predicate=lambda task: self._task_matches_bound_execution(
+                task,
+                expected_envelope=record.job.to_wire(),
+            ),
+            mutate=lambda task: self._project_expired_dispatch_failure(
+                task,
+                marker=marker,
+            ),
+        )
+        projected_task = getattr(result, "task", None)
+        if not bool(getattr(result, "updated", False)) and not (
+            projected_task is not None
+            and self._task_has_expired_dispatch_projection(
+                projected_task,
+                marker=marker,
+            )
+        ):
+            raise ValueError(
+                "knowledge_index_execution_task_projection_conflict"
+            )
+        return {
+            "job_id": normalized_job_id,
+            "status": "failed",
+            "reason_code": KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON,
+            "execution_state": record.state,
+            "execution_lock_version": int(record.lock_version),
+            "completed_at_epoch_ms": int(record.completed_at_epoch_ms),
+        }
+
+    @staticmethod
+    def _task_mapping(task: Any) -> dict[str, Any]:
+        if hasattr(task, "model_dump"):
+            return dict(task.model_dump())
+        if isinstance(task, Mapping):
+            return dict(task)
+        return dict(vars(task))
+
+    @classmethod
+    def _task_matches_bound_execution(
+        cls,
+        task: Any,
+        *,
+        expected_envelope: Mapping[str, Any],
+    ) -> bool:
+        raw = cls._task_mapping(task)
+        envelope = dict(
+            dict(raw.get("worker_execution_context") or {}).get(
+                "knowledge_index_job"
+            )
+            or {}
+        )
+        envelope.pop("source_access_enforcement_manifest", None)
+        return envelope == dict(expected_envelope)
+
+    @staticmethod
+    def _expired_dispatch_reconciliation_marker(record: Any) -> dict[str, Any]:
+        assignment = record.job.assignment
+        return {
+            "schema": _EXPIRED_DISPATCH_RECONCILIATION_SCHEMA,
+            "job_id": record.job.job_id,
+            "reason_code": KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON,
+            "authority_binding_digest": (
+                record.job.authority_binding.binding_digest
+            ),
+            "assignment_id": assignment.assignment_id,
+            "lease_id": assignment.lease_id,
+            "lease_generation": assignment.lease_generation,
+            "lease_expires_epoch_ms": assignment.lease_expires_epoch_ms,
+            "execution_lock_version": int(record.lock_version),
+            "reconciled_at_epoch_ms": int(record.completed_at_epoch_ms),
+        }
+
+    @classmethod
+    def _project_expired_dispatch_failure(
+        cls,
+        task: Any,
+        *,
+        marker: Mapping[str, Any],
+    ) -> None:
+        raw = cls._task_mapping(task)
+        details = dict(raw.get("status_reason_details") or {})
+        details["knowledge_index_dispatch_reconciliation"] = dict(marker)
+        if isinstance(task, dict):
+            task["status_reason_code"] = (
+                KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON
+            )
+            task["status_reason_details"] = details
+            return
+        setattr(
+            task,
+            "status_reason_code",
+            KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON,
+        )
+        setattr(task, "status_reason_details", details)
+
+    @classmethod
+    def _task_has_expired_dispatch_projection(
+        cls,
+        task: Any,
+        *,
+        marker: Mapping[str, Any],
+    ) -> bool:
+        raw = cls._task_mapping(task)
+        details = dict(raw.get("status_reason_details") or {})
+        return bool(
+            str(raw.get("status") or "").strip().lower() == "failed"
+            and str(raw.get("status_reason_code") or "")
+            == KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON
+            and details.get("knowledge_index_dispatch_reconciliation")
+            == dict(marker)
+        )
 
     def _store_large_payload(
         self,
@@ -518,6 +909,12 @@ class KnowledgeIndexJobService:
                 content=content,
                 created_by=created_by or "knowledge-index-api",
                 media_type=_PAYLOAD_MEDIA_TYPE,
+                artifact_metadata={
+                    "system_artifact_kind": (
+                        "knowledge_index_job_payload"
+                    ),
+                    "idempotency_fingerprint": fingerprint,
+                },
             )
             from agent.repository import artifact_repo
 
@@ -533,6 +930,17 @@ class KnowledgeIndexJobService:
                 "size_bytes": version.size_bytes,
                 "media_type": version.media_type,
             }
+        return self._normalize_payload_reference(
+            raw_reference,
+            content=content,
+        )
+
+    @staticmethod
+    def _normalize_payload_reference(
+        raw_reference: Mapping[str, Any] | None,
+        *,
+        content: bytes,
+    ) -> dict[str, Any]:
         reference = dict(raw_reference or {})
         artifact_id = str(reference.get("artifact_id") or "").strip()
         digest = str(reference.get("sha256") or "").strip().lower()
@@ -554,6 +962,184 @@ class KnowledgeIndexJobService:
             "encoding": "json",
         }
 
+    def _prepare_large_payload_reference(
+        self,
+        *,
+        content: bytes,
+        fingerprint: str,
+    ) -> dict[str, Any]:
+        payload_store = self._payload_store
+        prepare_reference = getattr(
+            payload_store,
+            "prepare_reference",
+            None,
+        )
+        if not callable(prepare_reference):
+            raise RuntimeError(
+                "knowledge_index_content_addressed_payload_store_required"
+            )
+        raw_reference = prepare_reference(
+            content=content,
+            fingerprint=fingerprint,
+        )
+        return self._normalize_payload_reference(
+            raw_reference,
+            content=content,
+        )
+
+    def _store_prepared_payload(
+        self,
+        *,
+        content: bytes,
+        fingerprint: str,
+        created_by: str,
+        expected_reference: Mapping[str, Any],
+    ) -> None:
+        stored_reference = self._store_large_payload(
+            content=content,
+            fingerprint=fingerprint,
+            created_by=created_by,
+        )
+        if stored_reference != dict(expected_reference):
+            raise RuntimeError(
+                "knowledge_index_payload_artifact_reference_changed"
+            )
+
+    def _ensure_bound_task_projection(
+        self,
+        *,
+        record: Any,
+        assigned_worker_url: str,
+        destination_selection: Mapping[str, Any],
+        source_access_intent: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        envelope = record.job.to_wire()
+        task = self._repository().get_by_id(record.job.job_id)
+        if task is None:
+            try:
+                self._queue().ingest_task(
+                    task_id=record.job.job_id,
+                    status="assigned",
+                    title=(
+                        f"Knowledge index revision: {record.job.scope_id}"
+                    )[:200],
+                    description=(
+                        "Hub-authorized immutable source-revision index job."
+                    ),
+                    priority="medium",
+                    created_by=record.job.created_by,
+                    source="knowledge_index",
+                    team_id=record.job.authority_binding.project_id,
+                    tags=[
+                        "knowledge_index",
+                        "hub_delegated",
+                        "source_revision_bound",
+                    ],
+                    event_type="task_ingested",
+                    event_channel="hub_task_queue",
+                    event_details={
+                        "domain_event_type": (
+                            "knowledge_index_execution_authorized"
+                        ),
+                        "authority_binding_digest": envelope[
+                            "authority_binding"
+                        ]["binding_digest"],
+                    },
+                    extra_fields={
+                        "task_kind": "codecompass_index_build",
+                        "retrieval_intent": "index_snapshot",
+                        "required_context_scope": record.job.source_scope,
+                        "required_capabilities": [
+                            "retrieval",
+                            "index_write",
+                        ],
+                        "assigned_agent_url": assigned_worker_url,
+                        "worker_execution_context": {
+                            "knowledge_index_job": envelope,
+                            "destination_selection": dict(
+                                destination_selection
+                            ),
+                            "source_access_intent": dict(
+                                source_access_intent
+                            ),
+                        },
+                        "verification_spec": {
+                            "schema": (
+                                KNOWLEDGE_INDEX_EXECUTION_RESULT_SCHEMA
+                            ),
+                            "artifact_first": True,
+                            "authority_binding_digest": envelope[
+                                "authority_binding"
+                            ]["binding_digest"],
+                            "file_manifest_digest": envelope[
+                                "file_manifest"
+                            ]["manifest_digest"],
+                        },
+                    },
+                )
+            except Exception:
+                # Some queue adapters can fail after their durable write. A
+                # matching projection means the submission still succeeded.
+                task = self._repository().get_by_id(record.job.job_id)
+                if task is None:
+                    raise
+            else:
+                task = self._repository().get_by_id(record.job.job_id)
+        if task is None:
+            raise RuntimeError(
+                "knowledge_index_execution_queue_projection_missing"
+            )
+        self._validate_bound_task_projection(
+            task,
+            record=record,
+            assigned_worker_url=assigned_worker_url,
+            destination_selection=destination_selection,
+            source_access_intent=source_access_intent,
+        )
+        projected = self.get_job(record.job.job_id)
+        if projected is None:
+            raise RuntimeError(
+                "knowledge_index_execution_queue_projection_invalid"
+            )
+        return projected
+
+    @classmethod
+    def _validate_bound_task_projection(
+        cls,
+        task: Any,
+        *,
+        record: Any,
+        assigned_worker_url: str,
+        destination_selection: Mapping[str, Any],
+        source_access_intent: Mapping[str, Any],
+    ) -> None:
+        raw = cls._task_mapping(task)
+        context = dict(raw.get("worker_execution_context") or {})
+        projected_envelope = dict(
+            context.get("knowledge_index_job") or {}
+        )
+        projected_envelope.pop(
+            "source_access_enforcement_manifest",
+            None,
+        )
+        expected_worker_url = str(assigned_worker_url).rstrip("/")
+        projected_worker_url = str(
+            raw.get("assigned_agent_url") or ""
+        ).rstrip("/")
+        if (
+            str(raw.get("task_kind") or "")
+            != "codecompass_index_build"
+            or projected_worker_url != expected_worker_url
+            or projected_envelope != record.job.to_wire()
+            or dict(context.get("destination_selection") or {})
+            != dict(destination_selection)
+            or dict(context.get("source_access_intent") or {})
+            != dict(source_access_intent)
+        ):
+            raise RuntimeError(
+                "knowledge_index_execution_queue_projection_conflict"
+            )
+
     def get_job(self, job_id: str) -> dict[str, Any] | None:
         task = self._repository().get_by_id(str(job_id))
         if task is None:
@@ -568,11 +1154,15 @@ class KnowledgeIndexJobService:
         }:
             return None
         task_status = str(raw.get("status") or "todo").strip().lower()
+        # Proposal is still queue-facing work. The independent execution
+        # projection below remains authoritative when its binding is already
+        # running, so callers can observe both facts without a read-side write.
         status = {
             "created": "queued",
             "todo": "queued",
             "blocked": "queued",
             "blocked_by_dependency": "queued",
+            "proposing": "queued",
             "assigned": "running",
             "in_progress": "running",
             "running": "running",
@@ -615,6 +1205,64 @@ class KnowledgeIndexJobService:
                 "assignment_id"
             ),
         }
+        if (
+            envelope_schema == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
+            and self._execution_binding_service is not None
+        ):
+            get_record = getattr(
+                self._execution_binding_service,
+                "get_record",
+                None,
+            )
+            if callable(get_record):
+                try:
+                    execution_record = get_record(str(job_id))
+                except Exception as exc:
+                    if getattr(exc, "reason_code", None) != (
+                        "knowledge_index_execution_not_found"
+                    ):
+                        raise
+                else:
+                    payload.update(
+                        {
+                            "execution_state": execution_record.state,
+                            "execution_lock_version": int(
+                                execution_record.lock_version
+                            ),
+                            "lease_expires_epoch_ms": int(
+                                execution_record.job.assignment
+                                .lease_expires_epoch_ms
+                            ),
+                        }
+                    )
+            get_projection = getattr(
+                self._execution_binding_service,
+                "get_completion_projection",
+                None,
+            )
+            if callable(get_projection):
+                try:
+                    completion_projection = get_projection(
+                        str(job_id),
+                        require_terminal_result=False,
+                    )
+                except Exception as exc:
+                    if getattr(exc, "reason_code", None) not in {
+                        "knowledge_index_completion_projection_not_found",
+                        "knowledge_index_execution_not_found",
+                    }:
+                        raise
+                else:
+                    payload.update(
+                        {
+                            "completion_projection_state": (
+                                completion_projection.state
+                            ),
+                            "completion_projection_lock_version": int(
+                                completion_projection.lock_version
+                            ),
+                        }
+                    )
         if isinstance(result, Mapping):
             payload["result"] = dict(result)
             payload["knowledge_index"] = result.get("knowledge_index")
@@ -766,6 +1414,9 @@ class KnowledgeIndexJobService:
         raw_key = str(idempotency_key or "")
         if not raw_key:
             raise ValueError("knowledge_index_idempotency_key_required")
+        idempotency_key_digest = hashlib.sha256(
+            raw_key.encode("utf-8")
+        ).hexdigest()
         effective_source_policy_version = str(
             source_policy_version or policy_snapshot_id
         )
@@ -773,11 +1424,42 @@ class KnowledgeIndexJobService:
             raise ValueError(
                 "knowledge_index_source_policy_binding_mismatch"
             )
+        from ananta_contracts.source_control import (
+            GrantOperation,
+            GrantTransformation,
+        )
+
+        try:
+            normalized_operation = GrantOperation(
+                str(source_operation)
+            ).value
+            normalized_transformation = GrantTransformation(
+                str(source_transformation)
+            ).value
+        except ValueError:
+            raise ValueError(
+                "knowledge_index_source_access_intent_invalid"
+            ) from None
+        normalized_purpose = str(source_purpose or "").strip()
+        if not normalized_purpose or len(normalized_purpose) > 160:
+            raise ValueError(
+                "knowledge_index_source_access_intent_invalid"
+            )
+        source_access_intent = {
+            "operation": normalized_operation,
+            "transformation": normalized_transformation,
+            "purpose": normalized_purpose,
+            "policy_version": effective_source_policy_version,
+        }
         assignment_contract = (
             KnowledgeIndexExecutionAssignment.model_validate(
                 dict(assignment)
             )
         )
+        resource_contract = KnowledgeIndexResourceBudget.model_validate(
+            dict(resource_budget)
+        )
+        normalized_destination_selection: dict[str, Any] = {}
         resolver = self._destination_resolution_service
         if resolver is not None:
             if not isinstance(destination_selection, Mapping):
@@ -788,10 +1470,13 @@ class KnowledgeIndexJobService:
                 DestinationSelection,
             )
 
+            normalized_destination_selection = dict(
+                destination_selection
+            )
             resolved_destination = resolver.verify_dispatch_binding(
                 preview_destination_digest=str(destination_digest),
                 dispatch_selection=DestinationSelection(
-                    **dict(destination_selection)
+                    **normalized_destination_selection
                 ),
             )
             if resolved_destination.descriptor.destination_id != str(
@@ -811,14 +1496,48 @@ class KnowledgeIndexJobService:
             raise RuntimeError(
                 "knowledge_index_destination_resolution_unavailable"
             )
+        elif destination_selection is not None:
+            if not isinstance(destination_selection, Mapping):
+                raise ValueError(
+                    "knowledge_index_destination_selection_invalid"
+                )
+            normalized_destination_selection = dict(
+                destination_selection
+            )
+        if self._worker_directory is None:
+            raise RuntimeError(
+                "knowledge_index_worker_directory_unavailable"
+            )
+        # Resolve the immutable assignment before storing a payload or
+        # admitting an execution record. A disappeared/ambiguous Worker must
+        # not leave an orphaned capability or binding behind.
+        assigned_worker_url = self._worker_directory.resolve_worker_url(
+            assignment_contract.worker_id
+        )
+        if not isinstance(records, list) or any(
+            not isinstance(item, Mapping) for item in records
+        ):
+            raise ValueError("source_records_invalid")
+        normalized_records = [dict(item) for item in records]
         payload = {
             "source_scope": str(source_scope),
             "source_id": f"bound-source:{source_revision_id}",
-            "records": [dict(item) for item in records],
+            "records": normalized_records,
             "source_metadata": {
                 "source_revision_id": source_revision_id,
                 "source_revision_digest": source_revision_digest,
                 "connection_source_id": str(source_id),
+                # Queue-only intent participates in the immutable payload
+                # identity, so replaying the same key with altered dispatch
+                # semantics is rejected even after a queue-write failure.
+                "dispatch_context_digest": _fingerprint(
+                    {
+                        "destination_selection": (
+                            normalized_destination_selection
+                        ),
+                        "source_access_intent": source_access_intent,
+                    }
+                ),
             },
             "codecompass_prerender": False,
             "graph_visual_metrics": _normalize_graph_visual_metrics_options(
@@ -826,34 +1545,33 @@ class KnowledgeIndexJobService:
             ),
         }
         content = _canonical_json(payload)
-        payload_reference = self._store_large_payload(
+        if len(content) > _MAX_JOB_PAYLOAD_BYTES:
+            raise ValueError("knowledge_index_job_payload_too_large")
+        payload_fingerprint = hashlib.sha256(content).hexdigest()
+        payload_reference = self._prepare_large_payload_reference(
             content=content,
-            fingerprint=hashlib.sha256(content).hexdigest(),
-            created_by=created_by,
+            fingerprint=payload_fingerprint,
         )
-        record = service.issue(
+        authority_contract = CurrentKnowledgeIndexAuthority(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            source_revision_id=source_revision_id,
+            source_revision_digest=source_revision_digest,
+            admission_digest=admission_digest,
+            policy_snapshot_id=policy_snapshot_id,
+            policy_snapshot_digest=policy_snapshot_digest,
+            destination_id=destination_id,
+            destination_digest=destination_digest,
+            source_access_grant_id=source_access_grant_id,
+            source_access_grant_digest=source_access_grant_digest,
+        )
+        prepared = service.prepare_issue(
             hub_task_id=hub_task_id,
             owner_id=owner_id,
-            idempotency_key_digest=hashlib.sha256(
-                raw_key.encode("utf-8")
-            ).hexdigest(),
-            authority=CurrentKnowledgeIndexAuthority(
-                tenant_id=tenant_id,
-                project_id=project_id,
-                source_revision_id=source_revision_id,
-                source_revision_digest=source_revision_digest,
-                admission_digest=admission_digest,
-                policy_snapshot_id=policy_snapshot_id,
-                policy_snapshot_digest=policy_snapshot_digest,
-                destination_id=destination_id,
-                destination_digest=destination_digest,
-                source_access_grant_id=source_access_grant_id,
-                source_access_grant_digest=source_access_grant_digest,
-            ),
+            idempotency_key_digest=idempotency_key_digest,
+            authority=authority_contract,
             files=files,
-            resources=KnowledgeIndexResourceBudget.model_validate(
-                dict(resource_budget)
-            ),
+            resources=resource_contract,
             payload_artifact_ref=payload_reference,
             assignment=assignment_contract,
             scope_id=str(source_id),
@@ -861,76 +1579,120 @@ class KnowledgeIndexJobService:
             profile_name=str(profile_name),
             created_by=str(created_by),
         )
-        envelope = record.job.to_wire()
-        if self.get_job(record.job.job_id) is None:
-            self._queue().ingest_task(
-                task_id=record.job.job_id,
-                status="todo",
-                title=f"Knowledge index revision: {source_id}"[:200],
-                description=(
-                    "Hub-authorized immutable source-revision index job."
-                ),
-                priority="medium",
-                created_by=created_by,
-                source="knowledge_index",
-                team_id=project_id,
-                tags=[
-                    "knowledge_index",
-                    "hub_delegated",
-                    "source_revision_bound",
-                ],
-                event_type="task_ingested",
-                event_channel="hub_task_queue",
-                event_details={
-                    "domain_event_type": (
-                        "knowledge_index_execution_authorized"
-                    ),
-                    "authority_binding_digest": envelope[
-                        "authority_binding"
-                    ]["binding_digest"],
-                },
-                extra_fields={
-                    "task_kind": "codecompass_index_build",
-                    "retrieval_intent": "index_snapshot",
-                    "required_context_scope": source_scope,
-                    "required_capabilities": [
-                        "retrieval",
-                        "index_write",
-                    ],
-                    "worker_execution_context": {
-                        "knowledge_index_job": envelope,
-                        "destination_selection": dict(
-                            destination_selection or {}
-                        ),
-                        "source_access_intent": {
-                            "operation": str(source_operation),
-                            "transformation": str(
-                                source_transformation
-                            ),
-                            "purpose": str(source_purpose),
-                            "policy_version": str(
-                                effective_source_policy_version
-                            ),
-                        },
-                    },
-                    "verification_spec": {
-                        "schema": (
-                            KNOWLEDGE_INDEX_EXECUTION_RESULT_SCHEMA
-                        ),
-                        "artifact_first": True,
-                        "authority_binding_digest": envelope[
-                            "authority_binding"
-                        ]["binding_digest"],
-                        "file_manifest_digest": envelope[
-                            "file_manifest"
-                        ]["manifest_digest"],
-                    },
-                },
+        preexisting_task = self._repository().get_by_id(
+            prepared.job.job_id
+        )
+        if preexisting_task is not None:
+            self._validate_bound_task_projection(
+                preexisting_task,
+                record=prepared,
+                assigned_worker_url=assigned_worker_url,
+                destination_selection=normalized_destination_selection,
+                source_access_intent=source_access_intent,
             )
-        return self.get_job(record.job.job_id) or {
-            "job_id": record.job.job_id,
-            "status": record.state,
+        existing = service.get_by_idempotency(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            idempotency_key_digest=idempotency_key_digest,
+        )
+        if existing is not None:
+            if not service.same_submission(existing, prepared):
+                from agent.services.knowledge_index_execution_binding_service import (
+                    KnowledgeIndexExecutionBindingError,
+                )
+
+                raise KnowledgeIndexExecutionBindingError(
+                    "knowledge_index_execution_idempotency_conflict"
+                )
+            record = existing
+        else:
+            # Every deterministic contract and current-authority check runs
+            # before the first external write. Admission rechecks authority to
+            # close the race between payload storage and the SQL transaction.
+            service.validate_prepared_issue(prepared)
+            self._store_prepared_payload(
+                content=content,
+                fingerprint=payload_fingerprint,
+                created_by=str(created_by),
+                expected_reference=payload_reference,
+            )
+            record = service.admit_prepared_issue(prepared)
+        return self._ensure_bound_task_projection(
+            record=record,
+            assigned_worker_url=assigned_worker_url,
+            destination_selection=normalized_destination_selection,
+            source_access_intent=source_access_intent,
+        )
+
+    def publish_bound_task_result(
+        self,
+        *,
+        job_id: str,
+        result: Mapping[str, Any],
+        status_values: Mapping[str, Any] | None = None,
+        event_type: str | None = None,
+        event_actor: str = "knowledge-index-worker-gateway",
+        event_details: Mapping[str, Any] | None = None,
+    ) -> Any:
+        """Publish one accepted v2 result through the atomic Task CAS.
+
+        Completed results reach this seam only after the durable execution
+        result and Source-Control completion projection have succeeded.  A
+        publication failure is therefore Hub-local continuation work and must
+        never be attributed to, or retried against, the Worker.
+        """
+
+        task = self._repository().get_by_id(str(job_id))
+        if task is None:
+            raise ValueError("knowledge_index_job_not_found")
+        raw_task = self._task_mapping(task)
+        envelope = dict(
+            dict(raw_task.get("worker_execution_context") or {}).get(
+                "knowledge_index_job"
+            )
+            or {}
+        )
+        if (
+            str(envelope.get("schema") or "")
+            != KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
+            or str(envelope.get("job_id") or "") != str(job_id)
+        ):
+            raise ValueError(
+                "knowledge_index_execution_task_binding_invalid"
+            )
+        payload = dict(result)
+        status = str(payload.get("status") or "").strip().lower()
+        details = {
+            "idempotency_fingerprint": envelope.get(
+                "idempotency_fingerprint"
+            ),
+            "worker_result_schema": payload.get("schema"),
+            **dict(event_details or {}),
         }
+        try:
+            return self._result_publisher().publish(
+                job_id=str(job_id),
+                expected_envelope=envelope,
+                result=payload,
+                status_values=dict(status_values or {}),
+                status_reason_code=(
+                    str(payload.get("reason_code") or "") or None
+                ),
+                event_type=(
+                    str(event_type or "").strip()
+                    or f"knowledge_index_job_{status}"
+                ),
+                event_actor=str(event_actor),
+                event_details=details,
+            )
+        except KnowledgeIndexCompletionProjectionPending:
+            raise
+        except Exception as exc:
+            if status == "completed":
+                raise KnowledgeIndexCompletionProjectionPending(
+                    exc
+                ) from exc
+            raise
 
     def accept_worker_result(
         self,
@@ -950,25 +1712,35 @@ class KnowledgeIndexJobService:
         raw_task = task.model_dump() if hasattr(task, "model_dump") else dict(task)
         status = str(payload.get("status") or "").strip().lower()
         envelope = dict((raw_task.get("worker_execution_context") or {}).get("knowledge_index_job") or {})
-        if (
+        bound_v2 = bool(
             str(envelope.get("schema") or "")
             == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
-        ):
-            if self._execution_binding_service is None:
-                raise RuntimeError(
-                    "knowledge_index_execution_binding_service_unavailable"
-                )
-            self._execution_binding_service.finalize_result(
+        )
+        if bound_v2:
+            payload = self.materialize_worker_result(
                 job_id=str(job_id),
-                payload=payload,
+                result=payload,
+                task=raw_task,
                 authenticated_worker_id=str(
                     authenticated_worker_id or ""
                 ),
             )
-        from agent.services.task_runtime_service import update_local_task_status
+            status = str(payload.get("status") or "").strip().lower()
 
         verification = dict(raw_task.get("verification_status") or {})
         verification["knowledge_index_job_result"] = payload
+        if bound_v2:
+            self.publish_bound_task_result(
+                job_id=str(job_id),
+                result=payload,
+                status_values={"verification_status": verification},
+                event_type=f"knowledge_index_job_{status}",
+                event_actor="knowledge-index-worker-gateway",
+            )
+            return self.get_job(job_id) or {}
+
+        from agent.services.task_runtime_service import update_local_task_status
+
         update_local_task_status(
             str(job_id),
             status,
@@ -990,9 +1762,11 @@ class KnowledgeIndexJobService:
         result: Mapping[str, Any],
         task: Mapping[str, Any],
         authenticated_worker_id: str | None = None,
+        transfer_deadline: Any | None = None,
     ) -> dict[str, Any]:
         """Validate and admit worker artifacts before a Hub task can complete."""
 
+        self._require_transfer_deadline(transfer_deadline)
         payload = self.validate_worker_result(
             job_id=job_id,
             result=result,
@@ -1005,11 +1779,18 @@ class KnowledgeIndexJobService:
             )
 
             service = KnowledgeIndexWorkerArtifactService()
+        materialization_deadline = (
+            {"transfer_deadline": transfer_deadline}
+            if transfer_deadline is not None
+            else {}
+        )
         materialized = service.materialize(
             job_id=job_id,
             result=payload,
             task=task,
+            **materialization_deadline,
         )
+        self._require_transfer_deadline(transfer_deadline)
         raw_task = self._repository().get_by_id(str(job_id))
         raw_task_payload = (
             raw_task.model_dump()
@@ -1026,31 +1807,205 @@ class KnowledgeIndexJobService:
             str(envelope.get("schema") or "")
             == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
         ):
-            projector = self._source_control_completion_projector
-            if (
-                str(materialized.get("status") or "") == "completed"
-                and projector is not None
-            ):
-                projector.project(
-                    envelope=envelope,
-                    result=materialized,
-                    artifact_references=[
-                        dict(item)
-                        for item in list(payload.get("artifact_refs") or [])
-                    ],
-                )
             if self._execution_binding_service is None:
                 raise RuntimeError(
                     "knowledge_index_execution_binding_service_unavailable"
                 )
-            self._execution_binding_service.finalize_result(
-                job_id=str(job_id),
-                payload=payload,
-                authenticated_worker_id=str(
-                    authenticated_worker_id or ""
+            projection = None
+            if str(materialized.get("status") or "") == "completed":
+                if self._source_control_completion_projector is None:
+                    raise RuntimeError(
+                        "knowledge_index_source_projection_service_unavailable"
+                    )
+                complete_with_projection = getattr(
+                    self._execution_binding_service,
+                    "finalize_completed_result_with_projection",
+                    None,
+                )
+                if not callable(complete_with_projection):
+                    raise RuntimeError(
+                        "knowledge_index_completion_projection_store_unavailable"
+                    )
+                self._require_transfer_deadline(transfer_deadline)
+                _record, projection = complete_with_projection(
+                    job_id=str(job_id),
+                    worker_result=payload,
+                    materialized_result=materialized,
+                    authenticated_worker_id=str(
+                        authenticated_worker_id or ""
+                    ),
+                )
+            else:
+                self._require_transfer_deadline(transfer_deadline)
+                self._execution_binding_service.finalize_result(
+                    job_id=str(job_id),
+                    payload=payload,
+                    authenticated_worker_id=str(
+                        authenticated_worker_id or ""
+                    ),
+                )
+            if projection is not None:
+                try:
+                    self._require_transfer_deadline(transfer_deadline)
+                except Exception as exc:
+                    # The completed-result CAS and its projection outbox are
+                    # durable. Continue through the Hub-only saga instead of
+                    # blaming or re-dispatching the Worker.
+                    raise KnowledgeIndexCompletionProjectionPending(
+                        exc
+                    ) from exc
+                return self._apply_completion_projection(
+                    projection=projection,
+                    task=raw_task_payload,
+                    artifact_service=service,
+                    transfer_deadline=transfer_deadline,
+                )
+        return materialized
+
+    def reconcile_completion_projection(
+        self,
+        *,
+        job_id: str,
+        expected_projection_lock_version: int,
+    ) -> dict[str, Any]:
+        """Finish a durable completion saga without invoking its Worker."""
+
+        binding_service = self._execution_binding_service
+        if binding_service is None:
+            raise RuntimeError(
+                "knowledge_index_execution_binding_service_unavailable"
+            )
+        getter = getattr(
+            binding_service,
+            "get_completion_projection",
+            None,
+        )
+        if not callable(getter):
+            raise RuntimeError(
+                "knowledge_index_completion_projection_store_unavailable"
+            )
+        projection = getter(str(job_id))
+        if projection.lock_version != int(
+            expected_projection_lock_version
+        ):
+            from agent.services.knowledge_index_execution_binding_service import (
+                KnowledgeIndexExecutionBindingError,
+            )
+
+            raise KnowledgeIndexExecutionBindingError(
+                "knowledge_index_completion_projection_conflict"
+            )
+        task = self._repository().get_by_id(str(job_id))
+        if task is None:
+            raise ValueError("knowledge_index_job_not_found")
+        raw_task = (
+            task.model_dump() if hasattr(task, "model_dump") else dict(task)
+        )
+        service = self._worker_artifact_service
+        if service is None:
+            from agent.services.knowledge_index_worker_artifact_service import (
+                KnowledgeIndexWorkerArtifactService,
+            )
+
+            service = KnowledgeIndexWorkerArtifactService()
+        materialized = self._apply_completion_projection(
+            projection=projection,
+            task=raw_task,
+            artifact_service=service,
+        )
+        verification = dict(raw_task.get("verification_status") or {})
+        verification["knowledge_index_job_result"] = materialized
+        self.publish_bound_task_result(
+            job_id=str(job_id),
+            result=materialized,
+            status_values={"verification_status": verification},
+            event_type="knowledge_index_completion_reconciled",
+            event_actor="knowledge-index-completion-reconciler",
+            event_details={
+                "projection_digest": projection.projection_digest,
+            },
+        )
+        return self.get_job(str(job_id)) or {
+            "job_id": str(job_id),
+            "status": "completed",
+        }
+
+    def _apply_completion_projection(
+        self,
+        *,
+        projection: Any,
+        task: Mapping[str, Any],
+        artifact_service: Any,
+        transfer_deadline: Any | None = None,
+    ) -> dict[str, Any]:
+        payload = dict(projection.payload)
+        materialized = dict(payload["materialized_result"])
+        references = [
+            dict(item)
+            for item in list(payload.get("artifact_references") or [])
+        ]
+        context = dict(task.get("worker_execution_context") or {})
+        envelope = dict(context.get("knowledge_index_job") or {})
+        try:
+            self._require_transfer_deadline(transfer_deadline)
+            self._source_control_completion_projector.project(
+                envelope=envelope,
+                result=materialized,
+                artifact_references=references,
+            )
+            self._require_transfer_deadline(transfer_deadline)
+            activate = getattr(
+                artifact_service,
+                "activate_materialized_result",
+                None,
+            )
+            if not callable(activate):
+                raise RuntimeError(
+                    "knowledge_index_worker_activation_service_unavailable"
+                )
+            activation_deadline = (
+                {"transfer_deadline": transfer_deadline}
+                if transfer_deadline is not None
+                else {}
+            )
+            activated = activate(
+                job_id=str(projection.job_id),
+                result=materialized,
+                artifact_references=references,
+                task=task,
+                **activation_deadline,
+            )
+            self._require_transfer_deadline(transfer_deadline)
+            marker = getattr(
+                self._execution_binding_service,
+                "mark_completion_projection_projected",
+                None,
+            )
+            if not callable(marker):
+                raise RuntimeError(
+                    "knowledge_index_completion_projection_store_unavailable"
+                )
+            marker(
+                job_id=str(projection.job_id),
+                expected_lock_version=int(projection.lock_version),
+                expected_projection_digest=str(
+                    projection.projection_digest
                 ),
             )
-        return materialized
+            self._require_transfer_deadline(transfer_deadline)
+            return activated
+        except KnowledgeIndexCompletionProjectionPending:
+            raise
+        except Exception as exc:
+            # Result CAS and the internal pending receipt are already durable.
+            # The explicit Hub reconciler can replay this idempotent sequence
+            # without another Worker dispatch, live lease, or mutable grant.
+            raise KnowledgeIndexCompletionProjectionPending(exc) from exc
+
+    @staticmethod
+    def _require_transfer_deadline(transfer_deadline: Any | None) -> None:
+        if transfer_deadline is not None:
+            transfer_deadline.require_remaining_seconds()
 
     def validate_worker_result(
         self,
@@ -1174,9 +2129,12 @@ class KnowledgeIndexJobService:
         worker_payload = payload
         payload_artifact_ref = None
         if len(rendered) > _INLINE_JOB_PAYLOAD_BYTES:
+            payload_fingerprint = hashlib.sha256(
+                payload_bytes
+            ).hexdigest()
             payload_artifact_ref = self._store_large_payload(
                 content=payload_bytes,
-                fingerprint=idempotency_fingerprint,
+                fingerprint=payload_fingerprint,
                 created_by=created_by,
             )
             worker_payload = {"payload_artifact_ref": payload_artifact_ref}

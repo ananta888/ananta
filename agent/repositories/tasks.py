@@ -1653,6 +1653,11 @@ def _prepare_existing_task_write(
     """Apply the single authoritative Recovery write policy in-transaction."""
 
     task_id = str(getattr(authoritative, "id", "") or "").strip()
+    candidate = _preserve_bound_knowledge_index_context(
+        authoritative,
+        candidate,
+        write_operation=write_operation,
+    )
     candidate = _apply_organization_workflow_completion_policy(
         authoritative,
         candidate,
@@ -1884,6 +1889,65 @@ def _prepare_existing_task_write(
     return candidate
 
 
+def _preserve_bound_knowledge_index_context(
+    authoritative: TaskDB,
+    candidate: TaskDB,
+    *,
+    write_operation: str,
+) -> TaskDB:
+    """Merge generic context writes without weakening a bound index job.
+
+    Knowledge-index execution envelopes are Hub authority records.  Generic
+    task writers may add independent context keys, but they must not erase or
+    replace a newer bound envelope, assignment, lifecycle state or dispatch
+    policy from a stale detached ``TaskDB`` instance.  The repository-owned
+    status CAS remains the only general status transition seam.
+    """
+
+    authoritative_context = copy.deepcopy(
+        dict(authoritative.worker_execution_context or {})
+    )
+    authoritative_job = authoritative_context.get("knowledge_index_job")
+    if not isinstance(authoritative_job, dict) or authoritative_job.get(
+        "schema"
+    ) != "ananta.knowledge_index_execution_job.v2":
+        return candidate
+    if write_operation == "save":
+        candidate.status = authoritative.status
+    candidate.assigned_agent_url = authoritative.assigned_agent_url
+    candidate.task_kind = authoritative.task_kind
+    candidate_context = copy.deepcopy(
+        dict(candidate.worker_execution_context or {})
+    )
+    for reserved_key in (
+        "knowledge_index_job",
+        "knowledge_index_worker_binding",
+        "destination_selection",
+        "source_access_intent",
+    ):
+        if reserved_key in authoritative_context:
+            candidate_context[reserved_key] = copy.deepcopy(
+                authoritative_context[reserved_key]
+            )
+        else:
+            candidate_context.pop(reserved_key, None)
+    # Replay authority lives exclusively in the Worker-scoped SQL ledger.
+    # Never accept or perpetuate a generic Task-context receipt.
+    authoritative_context.pop(
+        "knowledge_index_dispatch_receipt",
+        None,
+    )
+    candidate_context.pop(
+        "knowledge_index_dispatch_receipt",
+        None,
+    )
+    candidate.worker_execution_context = {
+        **authoritative_context,
+        **candidate_context,
+    }
+    return candidate
+
+
 def _engine():
     from agent.database import engine
 
@@ -1987,6 +2051,222 @@ class TaskRepository:
                 session.commit()
                 session.refresh(persisted)
                 return persisted
+
+    def replace_bound_knowledge_index_envelope(
+        self,
+        task_id: str,
+        *,
+        expected_envelope: dict,
+        replacement_envelope: dict,
+    ) -> TaskDB:
+        """Atomically replace one Hub-bound index envelope.
+
+        The focused merge keeps unrelated ``worker_execution_context`` keys
+        written by concurrent services and provides an optimistic conflict
+        boundary for changes to the authoritative envelope itself.
+        """
+
+        normalized_task_id = str(task_id or "").strip()
+        if not normalized_task_id:
+            raise ValueError("task_id_required")
+        from agent.common.task_mutation_lock import (
+            get_task_mutation_lock_port,
+        )
+
+        with get_task_mutation_lock_port().mutation_locks(
+            {normalized_task_id}
+        ) as acquired:
+            if not acquired:
+                raise RuntimeError(
+                    "task_mutation_lock_unavailable:"
+                    + normalized_task_id
+                )
+            with Session(_engine()) as session:
+                statement = select(TaskDB).where(
+                    TaskDB.id == normalized_task_id
+                )
+                if (
+                    str(_engine().dialect.name or "").lower()
+                    == "postgresql"
+                ):
+                    statement = statement.with_for_update()
+                task = session.exec(statement).one_or_none()
+                if task is None:
+                    raise ValueError("knowledge_index_job_not_found")
+                context = copy.deepcopy(
+                    dict(task.worker_execution_context or {})
+                )
+                current_envelope = context.get("knowledge_index_job")
+                if current_envelope == replacement_envelope:
+                    return task
+                if current_envelope != expected_envelope:
+                    raise ValueError(
+                        "knowledge_index_execution_queue_context_conflict"
+                    )
+                context["knowledge_index_job"] = copy.deepcopy(
+                    replacement_envelope
+                )
+                task.worker_execution_context = context
+                task.updated_at = max(
+                    time.time(),
+                    float(task.updated_at or 0.0),
+                )
+                session.add(task)
+                session.commit()
+                session.refresh(task)
+                return task
+
+    def upsert_bound_knowledge_index_worker_snapshot(
+        self,
+        task_id: str,
+        *,
+        status: str,
+        base_envelope: dict,
+        worker_binding: dict,
+    ) -> TaskDB:
+        """Persist a capability-free Hub snapshot in an isolated Worker DB."""
+
+        normalized_task_id = str(task_id or "").strip()
+        normalized_status = str(status or "").strip().lower()
+        assignment = base_envelope.get("assignment")
+        if (
+            not normalized_task_id
+            or not normalized_status
+            or normalized_status in _TERMINAL_TASK_STATUSES
+            or str(base_envelope.get("schema") or "")
+            != "ananta.knowledge_index_execution_job.v2"
+            or str(base_envelope.get("job_id") or "")
+            != normalized_task_id
+            or "source_access_enforcement_manifest" in base_envelope
+            or not isinstance(assignment, dict)
+            or set(worker_binding)
+            != {"schema", "worker_id", "worker_url"}
+            or worker_binding.get("schema")
+            != "ananta.knowledge_index_worker_binding.v1"
+            or str(worker_binding.get("worker_id") or "")
+            != str(assignment.get("worker_id") or "")
+            or not str(worker_binding.get("worker_url") or "").strip()
+        ):
+            raise ValueError(
+                "knowledge_index_task_snapshot_persistence_invalid"
+            )
+        from agent.common.task_mutation_lock import (
+            get_task_mutation_lock_port,
+        )
+
+        with get_task_mutation_lock_port().mutation_locks(
+            {normalized_task_id}
+        ) as acquired:
+            if not acquired:
+                raise RuntimeError(
+                    "task_mutation_lock_unavailable:"
+                    + normalized_task_id
+                )
+            with Session(_engine()) as session:
+                statement = select(TaskDB).where(
+                    TaskDB.id == normalized_task_id
+                )
+                if (
+                    str(_engine().dialect.name or "").lower()
+                    == "postgresql"
+                ):
+                    statement = statement.with_for_update()
+                task = session.exec(statement).one_or_none()
+                if task is None:
+                    task = TaskDB(
+                        id=normalized_task_id,
+                        status=normalized_status,
+                        task_kind="codecompass_index_build",
+                        assigned_agent_url=str(
+                            worker_binding["worker_url"]
+                        ).strip().rstrip("/"),
+                        worker_execution_context={
+                            "knowledge_index_job": copy.deepcopy(
+                                base_envelope
+                            ),
+                            "knowledge_index_worker_binding": (
+                                copy.deepcopy(worker_binding)
+                            ),
+                        },
+                    )
+                else:
+                    if str(task.task_kind or "").strip().lower() != (
+                        "codecompass_index_build"
+                    ):
+                        raise ValueError(
+                            "knowledge_index_task_snapshot_task_mismatch"
+                        )
+                    if str(task.status or "").strip().lower() in (
+                        _TERMINAL_TASK_STATUSES
+                    ):
+                        raise ValueError(
+                            "knowledge_index_task_snapshot_task_terminal"
+                        )
+                    context = copy.deepcopy(
+                        dict(task.worker_execution_context or {})
+                    )
+                    current_job = context.get("knowledge_index_job")
+                    current_base = (
+                        copy.deepcopy(dict(current_job))
+                        if isinstance(current_job, dict)
+                        else {}
+                    )
+                    current_base.pop(
+                        "source_access_enforcement_manifest",
+                        None,
+                    )
+                    assigned_url = str(
+                        task.assigned_agent_url or ""
+                    ).strip().rstrip("/")
+                    expected_url = str(
+                        worker_binding["worker_url"]
+                    ).strip().rstrip("/")
+                    existing_binding = context.get(
+                        "knowledge_index_worker_binding"
+                    )
+                    if (
+                        current_base != base_envelope
+                        or assigned_url != expected_url
+                        or (
+                            existing_binding is not None
+                            and existing_binding != worker_binding
+                        )
+                    ):
+                        raise ValueError(
+                            "knowledge_index_task_snapshot_authority_conflict"
+                        )
+                    if existing_binding is None:
+                        if str(task.status or "").strip().lower() != (
+                            normalized_status
+                        ):
+                            raise ValueError(
+                                "knowledge_index_task_snapshot_status_conflict"
+                            )
+                        # A distributed Worker can share the Hub PostgreSQL
+                        # database. Existing Hub Task rows are validation-only:
+                        # do not add Worker projection keys or touch updated_at.
+                        return task
+                    # An isolated Worker stores a minimal projection only. A
+                    # fresh Hub snapshot is authoritative for its lifecycle
+                    # status and replaces transient local context additions.
+                    task.status = normalized_status
+                    task.assigned_agent_url = expected_url
+                    task.worker_execution_context = {
+                        "knowledge_index_job": copy.deepcopy(
+                            base_envelope
+                        ),
+                        "knowledge_index_worker_binding": copy.deepcopy(
+                            worker_binding
+                        ),
+                    }
+                task.updated_at = max(
+                    time.time(),
+                    float(task.updated_at or 0.0),
+                )
+                session.add(task)
+                session.commit()
+                session.refresh(task)
+                return task
 
     def compare_and_set_status(
         self,

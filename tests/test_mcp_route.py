@@ -1,5 +1,5 @@
-from agent.db_models import TaskDB
-from agent.repository import audit_repo, task_repo
+from agent.db_models import ArtifactDB, TaskDB
+from agent.repository import artifact_repo, audit_repo, task_repo
 from agent.services.evolution import (
     EvolutionCapability,
     EvolutionContext,
@@ -120,6 +120,60 @@ def test_mcp_resources_list_and_read(client, app, admin_auth_header):
     contents = (read_payload.get("result") or {}).get("contents") or []
     assert contents
     assert (contents[0].get("text") or {}).get("status") in {"ok", "healthy", "degraded"}
+
+
+def test_mcp_artifact_tool_and_resource_hide_system_managed_artifacts(
+    client,
+    app,
+    admin_auth_header,
+) -> None:
+    _enable_mcp(app)
+    public = artifact_repo.save(
+        ArtifactDB(id="mcp-public-artifact", artifact_metadata={})
+    )
+    hidden = artifact_repo.save(
+        ArtifactDB(
+            id="mcp-hidden-index-payload",
+            artifact_metadata={
+                "system_artifact_kind": "knowledge_index_job_payload"
+            },
+        )
+    )
+
+    tool_response = client.post(
+        "/v1/mcp",
+        headers=admin_auth_header,
+        json={
+            "jsonrpc": "2.0",
+            "id": "artifact-tool",
+            "method": "tools/call",
+            "params": {"name": "artifacts.list", "arguments": {}},
+        },
+    )
+    resource_response = client.post(
+        "/v1/mcp",
+        headers=admin_auth_header,
+        json={
+            "jsonrpc": "2.0",
+            "id": "artifact-resource",
+            "method": "resources/read",
+            "params": {"uri": "ananta://artifacts/list"},
+        },
+    )
+
+    assert tool_response.status_code == 200
+    tool_payload = tool_response.get_json()["result"]["content"][0]["json"]
+    tool_ids = {item["id"] for item in tool_payload["items"]}
+    assert public.id in tool_ids
+    assert hidden.id not in tool_ids
+
+    assert resource_response.status_code == 200
+    resource_payload = resource_response.get_json()["result"]["contents"][0][
+        "text"
+    ]
+    resource_ids = {item["id"] for item in resource_payload["items"]}
+    assert public.id in resource_ids
+    assert hidden.id not in resource_ids
 
 
 def test_mcp_user_auth_requires_admin_when_policy_enabled(client, app):

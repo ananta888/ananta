@@ -5,7 +5,6 @@ from flask import Blueprint, current_app, g, request
 from agent.auth import check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import BadRequestError, NotFoundError, api_response
-from agent.services.repository_registry import get_repository_registry
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.service_registry import get_core_services
 
@@ -18,10 +17,6 @@ def get_ingestion_service():
 
 def get_openai_compat_service():
     return get_core_services().openai_compat_service
-
-
-def _artifact_repo():
-    return get_repository_registry().artifact_repo
 
 
 def _enforce_openai_compat_policy(endpoint_group: str = "core"):
@@ -169,6 +164,7 @@ def get_file(file_id: str):
     blocked = _enforce_openai_compat_policy(endpoint_group="files")
     if blocked:
         return blocked
-    if _artifact_repo().get_by_id(file_id) is None:
+    try:
+        return get_openai_compat_service()._serialize_file(file_id)
+    except KeyError:
         raise NotFoundError()
-    return get_openai_compat_service()._serialize_file(file_id)

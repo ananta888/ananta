@@ -13,6 +13,9 @@ from agent.services.copilot_routing_advisor import (
     extract_copilot_routing_hint,
     get_copilot_routing_advisor,
 )
+from agent.services.knowledge_index_task_ingress_policy import (
+    bound_knowledge_index_mutation_error,
+)
 from agent.services.organization_research_delegation_policy_service import (
     OrganizationResearchDelegationPolicyError,
     OrganizationResearchDelegationPolicyService,
@@ -146,6 +149,12 @@ class TaskOrchestrationService:
         parent_task = self.dependencies.get_task_status(task_id)
         if not parent_task:
             return {"error": "parent_task_not_found", "code": 404}
+        bound_conflict = bound_knowledge_index_mutation_error(
+            parent_task,
+            action="delegate_task",
+        )
+        if bound_conflict:
+            return bound_conflict
         vector_error = generic_vector_mutation_error(parent_task)
         if vector_error is not None:
             return vector_error
@@ -207,6 +216,12 @@ class TaskOrchestrationService:
         task = self.dependencies.get_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        bound_conflict = bound_knowledge_index_mutation_error(
+            task,
+            action="orchestration_complete",
+        )
+        if bound_conflict:
+            return bound_conflict
         vector_error = generic_vector_mutation_error(task)
         if vector_error is not None:
             return vector_error

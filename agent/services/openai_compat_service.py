@@ -8,6 +8,9 @@ from flask import current_app
 
 from agent.local_llm_backends import list_openai_compatible_models
 from agent.repository import artifact_repo, artifact_version_repo, extracted_document_repo
+from agent.services.artifact_visibility_policy import (
+    is_artifact_visible_on_generic_surfaces,
+)
 from agent.services.hub_llm_service import generate_text_and_usage
 from agent.services.integration_registry_service import get_integration_registry_service
 
@@ -170,11 +173,15 @@ class OpenAICompatService:
         return response
 
     def list_files(self) -> list[dict[str, Any]]:
-        return [self._serialize_file(item.id) for item in artifact_repo.get_all()]
+        return [
+            self._serialize_file(item.id)
+            for item in artifact_repo.get_all()
+            if is_artifact_visible_on_generic_surfaces(item)
+        ]
 
     def _serialize_file(self, artifact_id: str) -> dict[str, Any]:
         artifact = artifact_repo.get_by_id(artifact_id)
-        if artifact is None:
+        if not is_artifact_visible_on_generic_surfaces(artifact):
             raise KeyError(artifact_id)
         version = artifact_version_repo.get_by_id(artifact.latest_version_id) if artifact.latest_version_id else None
         documents = extracted_document_repo.get_by_artifact(artifact_id)

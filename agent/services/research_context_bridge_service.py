@@ -4,6 +4,9 @@ import threading
 from pathlib import Path
 
 from agent.models import ResearchContextSummaryContract
+from agent.services.artifact_visibility_policy import (
+    is_artifact_visible_on_generic_surfaces,
+)
 from agent.services.ingestion_service import get_ingestion_service
 from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
 from agent.services.repository_registry import get_repository_registry
@@ -50,8 +53,10 @@ class ResearchContextBridgeService:
         items: list[dict] = []
         for artifact_id in artifact_ids:
             artifact = repos.artifact_repo.get_by_id(artifact_id)
-            if artifact is None:
+            if not is_artifact_visible_on_generic_surfaces(artifact):
                 continue
+            # Decide visibility before extraction because extraction itself is
+            # a material read of the capability-bound payload.
             document = self._ensure_document(artifact_id)
             excerpt = ""
             if include_extracted_text and document is not None:
@@ -78,7 +83,14 @@ class ResearchContextBridgeService:
             if collection is None:
                 continue
             links = repos.knowledge_link_repo.get_by_collection(collection_id)
-            artifact_ids = {str(link.artifact_id) for link in links if getattr(link, "artifact_id", None)}
+            artifact_ids = {
+                str(link.artifact_id)
+                for link in links
+                if getattr(link, "artifact_id", None)
+                and is_artifact_visible_on_generic_surfaces(
+                    repos.artifact_repo.get_by_id(str(link.artifact_id))
+                )
+            }
             chunks = retrieval.search(query, top_k=max(1, top_k), artifact_ids=artifact_ids) if artifact_ids and query else []
             items.append(
                 {
@@ -291,6 +303,7 @@ class ResearchContextBridgeService:
         search_query = str(query or (task or {}).get("description") or "").strip()
 
         artifacts = self._artifact_context(artifact_ids, include_extracted_text=include_extracted_text, per_item_limit=per_item_limit)
+        visible_artifact_ids = [str(item["artifact_id"]) for item in artifacts]
         knowledge_collections = self._knowledge_context(collection_ids, query=search_query, top_k=top_k, per_item_limit=per_item_limit)
         repo_scopes = self._repo_scope_context(repo_scope_refs, per_item_limit=per_item_limit)
         prompt_section = self._render_prompt_section(
@@ -301,7 +314,7 @@ class ResearchContextBridgeService:
         truncated = len(prompt_section) > max_chars
         prompt_section = self._clip_text(prompt_section, max_chars) if prompt_section else None
         return ResearchContextSummaryContract(
-            artifact_ids=artifact_ids,
+            artifact_ids=visible_artifact_ids,
             knowledge_collection_ids=collection_ids,
             repo_scope_refs=repo_scope_refs,
             artifacts=artifacts,

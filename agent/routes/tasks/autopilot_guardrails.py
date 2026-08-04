@@ -1,7 +1,38 @@
 from __future__ import annotations
 
+import math
 import time
 from typing import Any
+
+
+def _bounded_int(
+    value: Any,
+    *,
+    default: int,
+    minimum: int,
+    maximum: int,
+) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError, OverflowError):
+        parsed = default
+    return max(minimum, min(parsed, maximum))
+
+
+def _bounded_float(
+    value: Any,
+    *,
+    default: float,
+    minimum: float,
+    maximum: float,
+) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError, OverflowError):
+        parsed = default
+    if not math.isfinite(parsed):
+        parsed = default
+    return max(minimum, min(parsed, maximum))
 
 
 def resolve_security_policy(*, agent_config: dict[str, Any], security_level: str) -> dict[str, Any]:
@@ -37,7 +68,13 @@ def resolve_security_policy(*, agent_config: dict[str, Any], security_level: str
     base = {**defaults[level]}
     if isinstance(configured, dict):
         if "max_concurrency_cap" in configured:
-            base["max_concurrency_cap"] = max(1, int(configured.get("max_concurrency_cap") or base["max_concurrency_cap"]))
+            base["max_concurrency_cap"] = max(
+                1,
+                int(
+                    configured.get("max_concurrency_cap")
+                    or base["max_concurrency_cap"]
+                ),
+            )
         if "execute_timeout" in configured:
             base["execute_timeout"] = max(1, int(configured.get("execute_timeout") or base["execute_timeout"]))
         if "propose_timeout" in configured:
@@ -93,11 +130,39 @@ def resolve_resilience_config(*, agent_config: dict[str, Any]) -> dict[str, Any]
     if retry_strategy not in {"constant", "exponential"}:
         retry_strategy = "exponential"
     return {
-        "retry_attempts": max(1, int(cfg.get("retry_attempts") or cfg.get("command_retries") or 2)),
+        "retry_attempts": _bounded_int(
+            cfg.get("retry_attempts")
+            or cfg.get("command_retries")
+            or 2,
+            default=2,
+            minimum=1,
+            maximum=5,
+        ),
         "retry_backoff_strategy": retry_strategy,
-        "retry_backoff_seconds": max(0.0, float(cfg.get("retry_backoff_seconds") or cfg.get("command_retry_delay") or 0.2)),
-        "retry_max_backoff_seconds": max(0.0, float(cfg.get("retry_max_backoff_seconds") or cfg.get("command_max_retry_delay") or 5.0)),
-        "retry_jitter_factor": max(0.0, min(float(cfg.get("retry_jitter_factor") or cfg.get("command_retry_jitter_factor") or 0.2), 1.0)),
+        "retry_backoff_seconds": _bounded_float(
+            cfg.get("retry_backoff_seconds")
+            or cfg.get("command_retry_delay")
+            or 0.2,
+            default=0.2,
+            minimum=0.0,
+            maximum=60.0,
+        ),
+        "retry_max_backoff_seconds": _bounded_float(
+            cfg.get("retry_max_backoff_seconds")
+            or cfg.get("command_max_retry_delay")
+            or 5.0,
+            default=5.0,
+            minimum=0.0,
+            maximum=300.0,
+        ),
+        "retry_jitter_factor": _bounded_float(
+            cfg.get("retry_jitter_factor")
+            or cfg.get("command_retry_jitter_factor")
+            or 0.2,
+            default=0.2,
+            minimum=0.0,
+            maximum=1.0,
+        ),
         "circuit_breaker_threshold": max(1, int(cfg.get("circuit_breaker_threshold") or 3)),
         "circuit_breaker_open_seconds": max(1.0, float(cfg.get("circuit_breaker_open_seconds") or 30.0)),
     }

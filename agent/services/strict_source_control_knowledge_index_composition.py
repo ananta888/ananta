@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from agent.services.knowledge_index_job_service import KnowledgeIndexJobService
@@ -32,6 +32,11 @@ class StrictGovernedKnowledgeIndexDependencies:
     payload_store: Any
     worker_artifact_service: Any
     source_control_completion_projector: Any
+    worker_directory: Any
+    source_access_manifest_verifier: Any | None = field(
+        default=None,
+        repr=False,
+    )
 
     def __post_init__(self) -> None:
         required = {
@@ -46,6 +51,7 @@ class StrictGovernedKnowledgeIndexDependencies:
             "source_control_completion_projector": (
                 self.source_control_completion_projector
             ),
+            "worker_directory": self.worker_directory,
         }
         missing = sorted(name for name, value in required.items() if value is None)
         if missing:
@@ -58,9 +64,15 @@ class StrictGovernedKnowledgeIndexDependencies:
             )
         for component, method in (
             (self.destination_catalog, "resolve"),
-            (self.execution_binding_service, "issue"),
+            (self.execution_binding_service, "prepare_issue"),
+            (self.execution_binding_service, "validate_prepared_issue"),
+            (self.execution_binding_service, "admit_prepared_issue"),
+            (self.execution_binding_service, "get_by_idempotency"),
+            (self.execution_binding_service, "same_submission"),
             (self.task_queue, "ingest_task"),
+            (self.payload_store, "prepare_reference"),
             (self.payload_store, "store_payload"),
+            (self.worker_directory, "resolve_worker_url"),
         ):
             if not callable(getattr(component, method, None)):
                 raise StrictKnowledgeIndexCompositionError(
@@ -86,6 +98,10 @@ def build_strict_governed_knowledge_index_job_service(
         worker_artifact_service=dependencies.worker_artifact_service,
         source_control_completion_projector=(
             dependencies.source_control_completion_projector
+        ),
+        worker_directory=dependencies.worker_directory,
+        source_access_manifest_verifier=(
+            dependencies.source_access_manifest_verifier
         ),
         allow_legacy_reusable_grants=False,
         clock=clock,

@@ -6,6 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from agent.db_models import GoalDB
+from agent.services.artifact_visibility_policy import (
+    is_artifact_visible_on_generic_surfaces,
+)
 from agent.services.blender_action_plan_service import build_blender_action_plan
 from agent.services.blender_export_plan_service import build_export_plan
 from agent.services.blender_redaction_service import redact_blender_payload
@@ -129,11 +132,19 @@ class BlenderClientSurfaceService:
         return {"status": "ok", "task": dict(task)}, 200
 
     def list_artifacts(self) -> dict[str, Any]:
-        return {"status": "ok", "items": [item.model_dump() for item in get_repository_registry().artifact_repo.get_all()]}
+        items = get_repository_registry().artifact_repo.get_all()
+        return {
+            "status": "ok",
+            "items": [
+                item.model_dump()
+                for item in items
+                if is_artifact_visible_on_generic_surfaces(item)
+            ],
+        }
 
     def get_artifact(self, *, artifact_id: str) -> tuple[dict[str, Any], int]:
         artifact = get_repository_registry().artifact_repo.get_by_id(artifact_id)
-        if artifact is None:
+        if not is_artifact_visible_on_generic_surfaces(artifact):
             return {"status": "degraded", "reason": "not_found"}, 404
         return {"status": "ok", "artifact": artifact.model_dump()}, 200
 

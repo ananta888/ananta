@@ -9,7 +9,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from agent.config import settings
 from agent.db_models import KnowledgeIndexDB, KnowledgeIndexRunDB
@@ -28,6 +28,19 @@ from agent.services.rag_index_chunker import chunk_wiki_records, index_wiki_reco
 from ananta_contracts import FileTypeRolloutPolicy, load_file_type_support_registry
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class RagHelperExecutionDeadlinePort(Protocol):
+    """Minimal Worker-supplied deadline; Hub callers may omit it."""
+
+    def checkpoint(self) -> None: ...
+
+
+def _checkpoint(
+    execution_deadline: RagHelperExecutionDeadlinePort | None,
+) -> None:
+    if execution_deadline is not None:
+        execution_deadline.checkpoint()
 
 
 class RagHelperIndexService:
@@ -584,7 +597,9 @@ class RagHelperIndexService:
         created_by: str | None,
         profile_name: str | None = None,
         profile_overrides: dict[str, Any] | None = None,
+        execution_deadline: RagHelperExecutionDeadlinePort | None = None,
     ) -> tuple[KnowledgeIndexDB, KnowledgeIndexRunDB]:
+        _checkpoint(execution_deadline)
         helper_modules = self._ensure_helper_imports()
         source_path, source_filename, extensions, source_metadata, version = self._artifact_source_metadata(artifact_id)
         profile = self._resolve_profile(profile_name, profile_overrides)
@@ -675,6 +690,7 @@ class RagHelperIndexService:
 
         started = time.perf_counter()
         try:
+            _checkpoint(execution_deadline)
             limits = self._processing_limits(helper_modules, profile)
             with tempfile.TemporaryDirectory(prefix="ananta-rag-helper-") as staging_dir:
                 staging_root = Path(staging_dir)
@@ -704,7 +720,13 @@ class RagHelperIndexService:
                     show_progress=show_progress,
                     error_log_file=error_log_file,
                     file_inclusion_predicate=file_type_policy.allows_file,
+                    execution_checkpoint=(
+                        execution_deadline.checkpoint
+                        if execution_deadline is not None
+                        else None
+                    ),
                 )
+            _checkpoint(execution_deadline)
             manifest = self._enrich_rag_helper_file_type_manifest(
                 manifest_path,
                 self._load_manifest(manifest_path),
@@ -742,6 +764,7 @@ class RagHelperIndexService:
                 duration_ms / 1000.0
             )
             self._observe_rag_helper_file_type_metrics(manifest)
+            _checkpoint(execution_deadline)
             return knowledge_index, run
         except Exception as exc:
             duration_ms = round((time.perf_counter() - started) * 1000, 3)
@@ -767,6 +790,8 @@ class RagHelperIndexService:
             KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=source_scope, profile=profile["name"]).observe(
                 duration_ms / 1000.0
             )
+            if isinstance(exc, TimeoutError):
+                raise
             return knowledge_index, run
 
     def index_repo_path(
@@ -1001,8 +1026,10 @@ class RagHelperIndexService:
         codecompass_prerender: bool = False,
         links_path=None,
         records_path=None,
+        execution_deadline: RagHelperExecutionDeadlinePort | None = None,
     ) -> tuple[KnowledgeIndexDB, KnowledgeIndexRunDB]:
         from pathlib import Path as _Path
+        _checkpoint(execution_deadline)
         normalized_scope = self._normalize_source_scope(source_scope)
         normalized_source_id = str(source_id or "").strip()
         if not normalized_source_id:
@@ -1085,10 +1112,18 @@ class RagHelperIndexService:
 
         started = time.perf_counter()
         try:
-            serialized = sorted(
-                json.dumps(dict(record), sort_keys=True, ensure_ascii=True)
-                for record in normalized_records
-            )
+            serialized = []
+            for record in normalized_records:
+                _checkpoint(execution_deadline)
+                serialized.append(
+                    json.dumps(
+                        dict(record),
+                        sort_keys=True,
+                        ensure_ascii=True,
+                    )
+                )
+            serialized.sort()
+            _checkpoint(execution_deadline)
             source_files = {
                 str(
                     (
@@ -1144,6 +1179,7 @@ class RagHelperIndexService:
                         source_id=normalized_source_id,
                         records=normalized_records,
                         output_dir=output_dir,
+                        execution_deadline=execution_deadline,
                     )
                 manifest = {
                     "source_scope": normalized_scope,
@@ -1194,6 +1230,7 @@ class RagHelperIndexService:
                     "generated_at": time.time(),
                 }
             manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+            _checkpoint(execution_deadline)
             duration_ms = round((time.perf_counter() - started) * 1000, 3)
 
             run.status = "completed"
@@ -1240,6 +1277,7 @@ class RagHelperIndexService:
                         "CodeCompass file-type metrics snapshot could not be recorded: %s",
                         exc,
                     )
+            _checkpoint(execution_deadline)
             return knowledge_index, run
         except Exception as exc:
             duration_ms = round((time.perf_counter() - started) * 1000, 3)
@@ -1265,6 +1303,8 @@ class RagHelperIndexService:
             KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=normalized_scope, profile=profile["name"]).observe(
                 duration_ms / 1000.0
             )
+            if isinstance(exc, TimeoutError):
+                raise
             return knowledge_index, run
 
     def get_artifact_status(self, artifact_id: str) -> tuple[KnowledgeIndexDB | None, list[KnowledgeIndexRunDB]]:

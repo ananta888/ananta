@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 from datetime import datetime, timezone
 from typing import Any
 
@@ -216,6 +217,78 @@ class SQLSourceAccessEnforcementAdapter:
                 return True
         except IntegrityError:
             return False
+
+    def verify_exact_consumption_receipt(
+        self,
+        *,
+        grant_id: str,
+        expected_policy_version: int,
+        consumption_digest: str,
+    ) -> bool:
+        """Read and verify an exact committed one-time-consumption receipt.
+
+        Locks use the same policy-then-grant order as ``consume_once``.  On
+        databases supporting ``FOR UPDATE``, this makes the live-grant check
+        linearizable with a concurrent grant revocation without mutating the
+        receipt, policy, or grant.
+        """
+
+        now = self._aware_now()
+        with Session(self._engine) as session:
+            policy = session.exec(
+                select(SourceAccessGrantExecutionPolicyDB)
+                .where(
+                    SourceAccessGrantExecutionPolicyDB.grant_id
+                    == str(grant_id)
+                )
+                .with_for_update()
+            ).first()
+            if (
+                policy is None
+                or policy.consumption_mode != "one_time"
+                or policy.concurrency_version
+                != int(expected_policy_version)
+            ):
+                return False
+            grant_row = session.exec(
+                select(SourceAccessGrantDB)
+                .where(SourceAccessGrantDB.grant_id == str(grant_id))
+                .with_for_update()
+            ).first()
+            if (
+                grant_row is None
+                or policy.grant_lock_version
+                != max(
+                    1,
+                    int(
+                        getattr(grant_row, "lock_version", None)
+                        or getattr(grant_row, "version", 1)
+                    ),
+                )
+                or self._grant_row_inactive_or_expired(
+                    grant_row,
+                    now=now,
+                )
+            ):
+                return False
+            consumption = session.exec(
+                select(SourceAccessGrantConsumptionDB)
+                .where(
+                    SourceAccessGrantConsumptionDB.grant_id
+                    == str(grant_id)
+                )
+                .with_for_update()
+            ).first()
+            if (
+                consumption is None
+                or int(consumption.expected_version) + 1
+                != int(expected_policy_version)
+            ):
+                return False
+            return hmac.compare_digest(
+                str(consumption.consumption_digest),
+                str(consumption_digest),
+            )
 
     @staticmethod
     def _hydrate_grant(row: SourceAccessGrantDB) -> SourceAccessGrant:

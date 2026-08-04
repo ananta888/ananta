@@ -144,6 +144,8 @@ def persist_forwarded_execution_status(
     vector_index_result: Mapping[str, Any] | None,
     accept_vector_result: Callable[..., bool],
     update_task_status: Callable[..., Any],
+    bound_knowledge_index_result: Mapping[str, Any] | None = None,
+    publish_bound_knowledge_index_result: Callable[..., Any] | None = None,
 ) -> None:
     """Commit a forwarded result through exactly one domain-owned path.
 
@@ -158,6 +160,21 @@ def persist_forwarded_execution_status(
         status_values=status_values,
         recovery_child=recovery_child,
     ):
+        return
+    if bound_knowledge_index_result is not None:
+        if recovery_child:
+            raise ValueError(
+                "knowledge_index_result_recovery_task_forbidden"
+            )
+        if publish_bound_knowledge_index_result is None:
+            raise RuntimeError(
+                "knowledge_index_task_result_publisher_missing"
+            )
+        publish_bound_knowledge_index_result(
+            job_id=job_id,
+            result=bound_knowledge_index_result,
+            status_values=status_values,
+        )
         return
     if recovery_child:
         current_status = str(

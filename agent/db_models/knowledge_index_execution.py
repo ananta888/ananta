@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from sqlalchemy import JSON, Column, UniqueConstraint
+from sqlalchemy import JSON, BigInteger, Column, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -41,12 +41,47 @@ class KnowledgeIndexExecutionBindingDB(SQLModel, table=True):
     assigned_worker_id: str = Field(index=True, max_length=160)
     lease_id: str = Field(index=True, max_length=160)
     lease_generation: int = Field(ge=1)
-    lease_expires_epoch_ms: int
+    lease_expires_epoch_ms: int = Field(
+        sa_column=Column(BigInteger, nullable=False)
+    )
     attempt: int = Field(default=1, ge=1)
     state: str = Field(index=True, max_length=32)
     lock_version: int = Field(default=1, ge=1)
     envelope_json: dict = Field(sa_column=Column(JSON), default={})
     result_digest: Optional[str] = Field(default=None, max_length=64)
-    created_at_epoch_ms: int
-    updated_at_epoch_ms: int
-    completed_at_epoch_ms: Optional[int] = None
+    completion_projection_state: Optional[str] = Field(
+        default=None,
+        index=True,
+        max_length=32,
+    )
+    completion_projection_lock_version: int = Field(default=0, ge=0)
+    completion_projection_digest: Optional[str] = Field(
+        default=None,
+        max_length=64,
+    )
+    completion_projection_payload: Optional[dict] = Field(
+        default=None,
+        sa_column=Column(JSON),
+    )
+    completion_projection_created_at_epoch_ms: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BigInteger, nullable=True),
+    )
+    completion_projection_updated_at_epoch_ms: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BigInteger, nullable=True),
+    )
+    completion_projected_at_epoch_ms: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BigInteger, nullable=True),
+    )
+    created_at_epoch_ms: int = Field(
+        sa_column=Column(BigInteger, nullable=False)
+    )
+    updated_at_epoch_ms: int = Field(
+        sa_column=Column(BigInteger, nullable=False)
+    )
+    completed_at_epoch_ms: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BigInteger, nullable=True),
+    )

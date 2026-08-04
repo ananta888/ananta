@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from flask import Blueprint, request
+from flask import Blueprint, g, request
 
 from agent.auth import check_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
@@ -21,6 +21,9 @@ from agent.services.codecompass_graph_artifact_resolver import (
     get_codecompass_graph_artifact_resolver,
 )
 from agent.services.codecompass_graph_projection_service import get_codecompass_graph_projection_service
+from agent.services.knowledge_index_consumption_policy import (
+    get_knowledge_index_consumption_policy,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.services.source_control_access_policy import SourceControlAction
 
@@ -48,6 +51,16 @@ def _resolve_index_path(knowledge_index_id: str) -> Path:
         raise BadRequestError("knowledge_index_id_required")
     index = _knowledge_index_repo().get_by_id(knowledge_index_id)
     if index is None:
+        raise NotFoundError("knowledge_index_not_found")
+    allowed_index_ids = getattr(
+        g,
+        "source_control_authorized_knowledge_index_ids",
+        frozenset(),
+    )
+    if not get_knowledge_index_consumption_policy().can_consume(
+        index,
+        allowed_index_ids=allowed_index_ids,
+    ):
         raise NotFoundError("knowledge_index_not_found")
     try:
         resolver = get_codecompass_graph_artifact_resolver()
@@ -86,12 +99,17 @@ def _authorize_codecompass_graph_surface():
         request.args.get("knowledge_index_id") or ""
     ).strip()
     if knowledge_index_id:
-        return authorize_route_request(
+        authorization_response = authorize_route_request(
             action=action,
             resource_kind="knowledge_index",
             resource=_knowledge_index_repo().get_by_id(knowledge_index_id),
             object_id=knowledge_index_id,
         )
+        if authorization_response is None:
+            g.source_control_authorized_knowledge_index_ids = frozenset(
+                {knowledge_index_id}
+            )
+        return authorization_response
     return authorize_route_request(
         action=action,
         resource_kind="codecompass_self_graph",

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import deepcopy
+
 from flask import Blueprint, request
 
 from agent.artifacts.artifact_candidate_service import ArtifactCandidateService
@@ -7,6 +9,10 @@ from agent.artifacts.citation_bundle_service import GoalCitationBundleService
 from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
 from agent.auth import check_auth
 from agent.common.errors import BadRequestError, ConflictError, NotFoundError, api_response
+from agent.services.artifact_visibility_policy import (
+    is_artifact_visible_on_generic_surfaces,
+    repository_artifact_reference_candidates,
+)
 from agent.services.repository_registry import get_repository_registry
 
 goal_artifacts_bp = Blueprint("goal_artifacts", __name__)
@@ -37,6 +43,128 @@ def _require_goal(goal_id: str) -> None:
         raise NotFoundError("goal_not_found")
 
 
+def _artifact_ref_is_visible(artifact_ref: object) -> bool:
+    artifact_repo = get_repository_registry().artifact_repo
+    for artifact_id in repository_artifact_reference_candidates(artifact_ref):
+        artifact = artifact_repo.get_by_id(artifact_id)
+        if artifact is not None:
+            return is_artifact_visible_on_generic_surfaces(artifact)
+    return True
+
+
+def _public_goal_graph(graph: dict) -> dict:
+    """Project the persisted graph onto the generic client-visible surface."""
+
+    public_graph = deepcopy(dict(graph or {}))
+    grants = [
+        dict(row)
+        for row in list(public_graph.get("source_grants") or [])
+        if isinstance(row, dict) and _artifact_ref_is_visible(row.get("artifact_ref"))
+    ]
+    visible_grant_ids = {
+        str(row.get("grant_id") or "") for row in grants if row.get("grant_id")
+    }
+    all_grant_ids = {
+        str(row.get("grant_id") or "")
+        for row in list(public_graph.get("source_grants") or [])
+        if isinstance(row, dict) and row.get("grant_id")
+    }
+    hidden_grant_ids = all_grant_ids - visible_grant_ids
+
+    usages = [
+        dict(row)
+        for row in list(public_graph.get("source_usages") or [])
+        if isinstance(row, dict)
+        and str(row.get("grant_id") or "") not in hidden_grant_ids
+        and _artifact_ref_is_visible(row.get("artifact_ref"))
+    ]
+    visible_usage_ids = {
+        str(row.get("usage_id") or "") for row in usages if row.get("usage_id")
+    }
+    all_usage_ids = {
+        str(row.get("usage_id") or "")
+        for row in list(public_graph.get("source_usages") or [])
+        if isinstance(row, dict) and row.get("usage_id")
+    }
+    hidden_usage_ids = all_usage_ids - visible_usage_ids
+
+    outputs: list[dict] = []
+    for row in list(public_graph.get("output_artifacts") or []):
+        if not isinstance(row, dict) or not _artifact_ref_is_visible(
+            row.get("artifact_ref")
+        ):
+            continue
+        output = dict(row)
+        output["input_usage_refs"] = [
+            ref
+            for ref in list(output.get("input_usage_refs") or [])
+            if str(ref) not in hidden_usage_ids
+        ]
+        outputs.append(output)
+    visible_output_ids = {
+        str(row.get("output_artifact_id") or "")
+        for row in outputs
+        if row.get("output_artifact_id")
+    }
+    all_output_ids = {
+        str(row.get("output_artifact_id") or "")
+        for row in list(public_graph.get("output_artifacts") or [])
+        if isinstance(row, dict) and row.get("output_artifact_id")
+    }
+    hidden_output_ids = all_output_ids - visible_output_ids
+
+    hidden_node_refs = {
+        *(f"grant:{item}" for item in hidden_grant_ids),
+        *(f"usage:{item}" for item in hidden_usage_ids),
+        *(f"output:{item}" for item in hidden_output_ids),
+    }
+    public_graph["source_grants"] = grants
+    public_graph["source_usages"] = usages
+    public_graph["output_artifacts"] = outputs
+    public_graph["edges"] = [
+        dict(edge)
+        for edge in list(public_graph.get("edges") or [])
+        if isinstance(edge, dict)
+        and str(edge.get("from_ref") or "") not in hidden_node_refs
+        and str(edge.get("to_ref") or "") not in hidden_node_refs
+    ]
+
+    extensions = dict(public_graph.get("extensions") or {})
+    provenances: list[dict] = []
+    for row in list(extensions.get("execution_provenance") or []):
+        if not isinstance(row, dict):
+            continue
+        provenance = dict(row)
+        original_output_refs = list(provenance.get("output_artifact_refs") or [])
+        provenance["input_usage_refs"] = [
+            ref
+            for ref in list(provenance.get("input_usage_refs") or [])
+            if str(ref) not in hidden_usage_ids
+        ]
+        provenance["output_artifact_refs"] = [
+            ref
+            for ref in original_output_refs
+            if str(ref) not in hidden_output_ids
+        ]
+        if original_output_refs and not provenance["output_artifact_refs"]:
+            continue
+        provenances.append(provenance)
+    if "execution_provenance" in extensions:
+        extensions["execution_provenance"] = provenances
+    public_graph["extensions"] = extensions
+    return public_graph
+
+
+def _public_execution_provenance(graph: dict, provenance_id: str) -> dict | None:
+    extensions = dict(_public_goal_graph(graph).get("extensions") or {})
+    for item in list(extensions.get("execution_provenance") or []):
+        if isinstance(item, dict) and str(item.get("provenance_id") or "") == str(
+            provenance_id
+        ):
+            return dict(item)
+    return None
+
+
 def _redact_provenance(payload: dict, *, include_raw_prompt: bool) -> dict:
     data = dict(payload or {})
     prompt_refs = dict(data.get("prompt_refs") or {})
@@ -61,14 +189,14 @@ def _redact_provenance(payload: dict, *, include_raw_prompt: bool) -> dict:
 @check_auth
 def get_goal_artifact_graph(goal_id: str):
     _require_goal(goal_id)
-    return api_response(data=_service().get_goal_graph(goal_id))
+    return api_response(data=_public_goal_graph(_service().get_goal_graph(goal_id)))
 
 
 @goal_artifacts_bp.route("/goals/<goal_id>/artifacts/sources", methods=["GET"])
 @check_auth
 def get_goal_artifact_sources(goal_id: str):
     _require_goal(goal_id)
-    graph = _service().get_goal_graph(goal_id)
+    graph = _public_goal_graph(_service().get_goal_graph(goal_id))
     return api_response(
         data={
             "goal_id": goal_id,
@@ -82,7 +210,7 @@ def get_goal_artifact_sources(goal_id: str):
 @check_auth
 def get_goal_artifact_outputs(goal_id: str):
     _require_goal(goal_id)
-    graph = _service().get_goal_graph(goal_id)
+    graph = _public_goal_graph(_service().get_goal_graph(goal_id))
     return api_response(data={"goal_id": goal_id, "output_artifacts": list(graph.get("output_artifacts") or [])})
 
 
@@ -140,7 +268,8 @@ def list_goal_source_candidates(goal_id: str):
 @check_auth
 def get_goal_citation_bundle(goal_id: str):
     _require_goal(goal_id)
-    bundle = _citation_bundle_service().build_bundle(goal_id=goal_id)
+    graph = _public_goal_graph(_service().get_goal_graph(goal_id))
+    bundle = _citation_bundle_service().build_bundle(goal_id=goal_id, graph=graph)
     return api_response(data=bundle)
 
 
@@ -148,14 +277,14 @@ def get_goal_citation_bundle(goal_id: str):
 @check_auth
 def get_goal_output_provenance(goal_id: str, output_id: str):
     _require_goal(goal_id)
-    graph = _service().get_goal_graph(goal_id)
+    graph = _public_goal_graph(_service().get_goal_graph(goal_id))
     output = next((row for row in list(graph.get("output_artifacts") or []) if str(row.get("output_artifact_id") or "") == str(output_id)), None)
     if output is None:
         raise NotFoundError("output_artifact_not_found")
     provenance_id = str(output.get("provenance_id") or "").strip()
     if not provenance_id:
         raise NotFoundError("provenance_not_found")
-    provenance = _service().get_execution_provenance(goal_id=goal_id, provenance_id=provenance_id)
+    provenance = _public_execution_provenance(graph, provenance_id)
     if provenance is None:
         raise NotFoundError("provenance_not_found")
     include_raw_prompt = str(request.args.get("include_raw_prompt", "")).strip().lower() in {"1", "true", "yes", "on"}
@@ -166,7 +295,8 @@ def get_goal_output_provenance(goal_id: str, output_id: str):
 @check_auth
 def get_goal_execution_provenance(goal_id: str, provenance_id: str):
     _require_goal(goal_id)
-    provenance = _service().get_execution_provenance(goal_id=goal_id, provenance_id=provenance_id)
+    graph = _service().get_goal_graph(goal_id)
+    provenance = _public_execution_provenance(graph, provenance_id)
     if provenance is None:
         raise NotFoundError("provenance_not_found")
     include_raw_prompt = str(request.args.get("include_raw_prompt", "")).strip().lower() in {"1", "true", "yes", "on"}

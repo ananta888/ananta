@@ -18,17 +18,17 @@ from agent.adapters.source_control_metrics_adapter import (
 from agent.config import settings
 from agent.database import engine
 from agent.db_models.source_control import SourceRevisionDB
-from agent.repositories.source_control_public_remote_repository import (
-    SQLSourceControlPublicRemoteRepository,
-)
-from agent.repositories.source_control_workspace_registration_repository import (
-    SQLSourceControlWorkspaceRegistrationRepository,
-)
 from agent.repositories.source_admission_receipt_repository import (
     SQLSourceAdmissionReceiptRepository,
 )
+from agent.repositories.source_control_public_remote_repository import (
+    SQLSourceControlPublicRemoteRepository,
+)
 from agent.repositories.source_control_repository import (
     SQLSourceControlRepository,
+)
+from agent.repositories.source_control_workspace_registration_repository import (
+    SQLSourceControlWorkspaceRegistrationRepository,
 )
 from agent.routes.source_control_git_authorizations import (
     create_source_control_git_authorizations_blueprint,
@@ -39,16 +39,17 @@ from agent.routes.source_control_operations import (
 from agent.routes.source_control_public_remotes import (
     create_source_control_public_remotes_blueprint,
 )
+from agent.routes.source_control_v1 import (
+    create_source_control_legacy_alias_blueprint,
+    create_source_control_v1_blueprint,
+)
 from agent.routes.source_control_workspace_registrations import (
     create_source_control_workspace_registrations_blueprint,
 )
 from agent.routes.source_control_workspace_snapshots import (
     create_source_control_workspace_snapshots_blueprint,
 )
-from agent.routes.source_control_v1 import (
-    create_source_control_legacy_alias_blueprint,
-    create_source_control_v1_blueprint,
-)
+from agent.services.artifact_store import get_artifact_store
 from agent.services.codecompass_graph_artifact_resolver import (
     get_codecompass_graph_artifact_resolver,
 )
@@ -72,32 +73,14 @@ from agent.services.hub_git_authorization_provisioning import (
     UnavailableHubGitAuthorizationProvisioner,
     UnavailableHubGitSecretResolver,
 )
-from agent.services.model_catalog_service import CatalogQuery
-from agent.services.project_access_authority import SqlProjectAccessAuthority
-from agent.services.ops_registry_service import get_ops_registry_service
-from agent.services.rag_helper_index_service import (
-    get_rag_helper_index_service,
-)
-from agent.services.service_registry import get_core_services
-from agent.services.repository_registry import get_repository_registry
 from agent.services.knowledge_index_payload_authorization import (
     KnowledgeIndexPayloadCapabilityAuthorizer,
 )
-from agent.services.source_access_manifest_signing import (
-    SourceAccessSigningKey,
-    WorkerSourceAccessManifestVerifier,
-)
-from agent.services.source_access_manifest_keyring import (
-    SourceAccessManifestKeyringError,
-    load_source_access_manifest_keyring,
-)
-from agent.services.source_admission_revision_coordinator import (
-    SourceAdmissionRevisionCoordinator,
-)
-from agent.services.source_admission_service import SourceAdmissionBudgets
-from agent.services.artifact_store import get_artifact_store
-from agent.services.source_filesystem_scanner import (
-    ProductionFilesystemSourceScanner,
+from agent.services.model_catalog_service import CatalogQuery
+from agent.services.ops_registry_service import get_ops_registry_service
+from agent.services.project_access_authority import SqlProjectAccessAuthority
+from agent.services.rag_helper_index_service import (
+    get_rag_helper_index_service,
 )
 from agent.services.registered_workspace_source_admission import (
     RegisteredWorkspaceSourceAdmissionService,
@@ -109,9 +92,19 @@ from agent.services.remote_git_source_admission import (
 from agent.services.remote_source_payload_store import (
     SQLRemoteSourcePayloadStore,
 )
-from agent.services.source_control_index_production_wiring import (
-    build_source_control_index_production_composition,
+from agent.services.repository_registry import get_repository_registry
+from agent.services.source_access_manifest_keyring import (
+    SourceAccessManifestKeyringError,
+    load_source_access_manifest_keyring,
 )
+from agent.services.source_access_manifest_signing import (
+    SourceAccessSigningKey,
+    WorkerSourceAccessManifestVerifier,
+)
+from agent.services.source_admission_revision_coordinator import (
+    SourceAdmissionRevisionCoordinator,
+)
+from agent.services.source_admission_service import SourceAdmissionBudgets
 from agent.services.source_control_api_runtime import (
     SQLSourceControlOperationStore,
     build_source_control_api_runtime,
@@ -122,17 +115,6 @@ from agent.services.source_control_artifact_download import (
 from agent.services.source_control_catalogs import (
     SourceControlReadCatalogService,
     SourceRegistryRegisteredWorkspaceCatalog,
-)
-from agent.services.source_control_workspace_catalog import (
-    CompositeRegisteredWorkspaceCatalog,
-    SQLRegisteredWorkspaceCatalog,
-    SecureWorkspaceFolderCatalog,
-)
-from agent.services.source_control_workspace_registration_service import (
-    SourceControlWorkspaceRegistrationService,
-)
-from agent.services.source_control_workspace_snapshot_service import (
-    WorkspaceSnapshotUploadService,
 )
 from agent.services.source_control_codehug_adapters import (
     ResolvedCodeHugDestinationCatalog,
@@ -149,6 +131,9 @@ from agent.services.source_control_content_admission import (
 )
 from agent.services.source_control_grant_admin import (
     SourceControlGrantAdminService,
+)
+from agent.services.source_control_index_production_wiring import (
+    build_source_control_index_production_composition,
 )
 from agent.services.source_control_legacy_usage import (
     BoundedLegacySourceControlUsage,
@@ -181,6 +166,20 @@ from agent.services.source_control_rollout_policy import (
 )
 from agent.services.source_control_runtime_observability import (
     SourceControlRuntimeObservability,
+)
+from agent.services.source_control_workspace_catalog import (
+    CompositeRegisteredWorkspaceCatalog,
+    SecureWorkspaceFolderCatalog,
+    SQLRegisteredWorkspaceCatalog,
+)
+from agent.services.source_control_workspace_registration_service import (
+    SourceControlWorkspaceRegistrationService,
+)
+from agent.services.source_control_workspace_snapshot_service import (
+    WorkspaceSnapshotUploadService,
+)
+from agent.services.source_filesystem_scanner import (
+    ProductionFilesystemSourceScanner,
 )
 from agent.sources.hub_git_persistent_composition import (
     compose_persistent_hub_git_source_connectors,
@@ -681,6 +680,11 @@ def register_source_control_api(app) -> None:
             app.extensions[
                 "source_access_signing_key"
             ] = source_access_signing_key
+            source_access_manifest_verifier = (
+                WorkerSourceAccessManifestVerifier(
+                    source_access_verification_keys
+                )
+            )
             index_composition = (
                 build_source_control_index_production_composition(
                     app=app,
@@ -691,6 +695,9 @@ def register_source_control_api(app) -> None:
                     scanner=source_scanner,
                     budgets=source_admission_budgets,
                     signing_key=source_access_signing_key,
+                    source_access_manifest_verifier=(
+                        source_access_manifest_verifier
+                    ),
                 )
             )
             app.extensions[
@@ -711,9 +718,7 @@ def register_source_control_api(app) -> None:
                 execution_binding_service=(
                     index_composition.execution_binding_service
                 ),
-                manifest_verifier=WorkerSourceAccessManifestVerifier(
-                    source_access_verification_keys
-                ),
+                manifest_verifier=source_access_manifest_verifier,
                 agent_repository=(
                     get_repository_registry().agent_repo
                 ),

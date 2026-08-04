@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-import uuid
 from pathlib import Path
 
 import pytest
@@ -60,3 +59,35 @@ class TestArtifactStorePersistence:
         v2 = store.store_bytes(artifact_id="art-005", version_number=2, filename="f.txt", content=b"v2")
         assert v1["storage_path"] != v2["storage_path"]
         assert v1["sha256"] != v2["sha256"]
+
+    def test_deadline_failure_preserves_existing_replay_and_cleans_temp(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        store = ArtifactStore(base_dir=tmp_path / "artifacts")
+        first = store.store_bytes(
+            artifact_id="art-replay",
+            version_number=1,
+            filename="result.bin",
+            content=b"stable",
+        )
+        checkpoint_calls = 0
+
+        def expire_before_publish() -> None:
+            nonlocal checkpoint_calls
+            checkpoint_calls += 1
+            if checkpoint_calls == 3:
+                raise TimeoutError("deadline")
+
+        with pytest.raises(TimeoutError, match="deadline"):
+            store.store_bytes(
+                artifact_id="art-replay",
+                version_number=1,
+                filename="result.bin",
+                content=b"replacement",
+                execution_checkpoint=expire_before_publish,
+            )
+
+        stored_path = Path(first["storage_path"])
+        assert stored_path.read_bytes() == b"stable"
+        assert list(stored_path.parent.glob(".*.tmp-*")) == []

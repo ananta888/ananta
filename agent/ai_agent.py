@@ -269,6 +269,9 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         from agent.services.source_access_manifest_signing import (
             WorkerSourceAccessManifestVerifier,
         )
+        from worker.retrieval.knowledge_index_dispatch_receipt_repository import (
+            SqlKnowledgeIndexWorkerDispatchReceiptRepository,
+        )
         from worker.retrieval.knowledge_index_output_authorization import (
             KnowledgeIndexWorkerOutputCapabilityAuthorizer,
         )
@@ -277,6 +280,9 @@ def _register_worker_domain_handlers(app: Flask) -> None:
             "knowledge_index_worker_output_capability_authorizer"
         ] = KnowledgeIndexWorkerOutputCapabilityAuthorizer(
             task_repository=get_repository_registry().task_repo,
+            receipt_ledger=(
+                SqlKnowledgeIndexWorkerDispatchReceiptRepository()
+            ),
             manifest_verifier=WorkerSourceAccessManifestVerifier(
                 dict(knowledge_index_security.verification_keys)
             ),

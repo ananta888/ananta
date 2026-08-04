@@ -6,6 +6,9 @@ from agent.routes.tasks.autopilot import autopilot_bp, init_autopilot
 from agent.routes.tasks.execution import execution_bp
 from agent.routes.tasks.goals_blueprint import goals_bp
 from agent.routes.tasks.kanban import kanban_bp
+from agent.routes.tasks.knowledge_index_snapshot import (
+    knowledge_index_snapshot_bp,
+)
 from agent.routes.tasks.logging import logging_bp
 from agent.routes.tasks.management import management_bp
 from agent.routes.tasks.orchestration import orchestration_bp
@@ -30,6 +33,7 @@ def register_tasks_blueprints(app):
     app.register_blueprint(management_bp)
     app.register_blueprint(orchestration_bp)
     app.register_blueprint(organization_research_intake_bp)
+    app.register_blueprint(knowledge_index_snapshot_bp)
     app.register_blueprint(recovery_manifest_bp)
     app.register_blueprint(recovery_artifact_ingress_bp)
     app.register_blueprint(logging_bp)
@@ -52,6 +56,7 @@ __all__ = [
     "management_bp",
     "orchestration_bp",
     "organization_research_intake_bp",
+    "knowledge_index_snapshot_bp",
     "recovery_manifest_bp",
     "recovery_artifact_ingress_bp",
     "logging_bp",

@@ -5,6 +5,10 @@ from typing import Any
 
 from agent.common.audit import log_audit
 from agent.db_models import archive_task_record, restore_task_record
+from agent.services.knowledge_index_task_ingress_policy import (
+    bound_knowledge_index_mutation_error,
+    ensure_generic_knowledge_index_mutation_allowed,
+)
 from agent.services.recovery_task_mutation_policy import (
     recovery_task_role,
 )
@@ -456,6 +460,10 @@ class TaskAdminService(
         """Publish one removal transition through its narrow Hub authority."""
 
         task_id = str(getattr(task, "id", "") or "").strip()
+        ensure_generic_knowledge_index_mutation_allowed(
+            task,
+            action="archive" if archive else "delete",
+        )
         current_status = normalize_task_status(
             getattr(task, "status", None),
             default="todo",
@@ -542,6 +550,10 @@ class TaskAdminService(
             initial = repos.archived_task_repo.get_by_id(task_id)
             if initial is None:
                 return False
+            ensure_generic_knowledge_index_mutation_allowed(
+                initial,
+                action=action,
+            )
             self._require_authorized_vector_index_task(
                 initial,
                 authorization=vector_authorization,
@@ -561,6 +573,10 @@ class TaskAdminService(
                 )
                 if archived is None:
                     return False
+                ensure_generic_knowledge_index_mutation_allowed(
+                    archived,
+                    action=action,
+                )
                 self._require_authorized_vector_index_task(
                     archived,
                     authorization=vector_authorization,
@@ -619,6 +635,10 @@ class TaskAdminService(
         initial = repos.task_repo.get_by_id(task_id)
         if initial is None:
             return False, None
+        ensure_generic_knowledge_index_mutation_allowed(
+            initial,
+            action="archive" if archive else "delete",
+        )
         is_vector_index_task = (
             self._require_authorized_vector_index_task(
                 initial,
@@ -673,6 +693,10 @@ class TaskAdminService(
                 task = repos.task_repo.get_by_id(task_id)
                 if task is None:
                     return False, None
+                ensure_generic_knowledge_index_mutation_allowed(
+                    task,
+                    action="archive" if archive else "delete",
+                )
                 self._require_authorized_vector_index_task(
                     task,
                     authorization=vector_authorization,
@@ -781,6 +805,19 @@ class TaskAdminService(
             initial = repos.task_repo.get_by_id(task_id)
             if not initial:
                 return False, "not_found", {}
+            bound_conflict = bound_knowledge_index_mutation_error(
+                initial,
+                action=action,
+            )
+            if bound_conflict:
+                return (
+                    False,
+                    str(bound_conflict["error"]),
+                    {
+                        **dict(bound_conflict["data"]),
+                        "http_status": 409,
+                    },
+                )
             vector_intervention = (
                 self._intervene_vector_index_task(
                     task=initial,
@@ -803,6 +840,19 @@ class TaskAdminService(
                 task = repos.task_repo.get_by_id(task_id)
                 if not task:
                     return False, "not_found", {}
+                bound_conflict = bound_knowledge_index_mutation_error(
+                    task,
+                    action=action,
+                )
+                if bound_conflict:
+                    return (
+                        False,
+                        str(bound_conflict["error"]),
+                        {
+                            **dict(bound_conflict["data"]),
+                            "http_status": 409,
+                        },
+                    )
                 authoritative_lock_ids = (
                     self._admin_mutation_lock_ids(task)
                 )

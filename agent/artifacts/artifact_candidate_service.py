@@ -4,6 +4,10 @@ from typing import Any
 
 from agent.artifacts.artifact_access_policy import ArtifactAccessPolicy
 from agent.artifacts.goal_artifact_service import GoalArtifactService
+from agent.services.artifact_visibility_policy import (
+    is_artifact_visible_on_generic_surfaces,
+    repository_artifact_reference_candidates,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.sources.source_registry import SourceRegistry
 from agent.sources.source_snapshot_store import SourceSnapshotStore
@@ -82,7 +86,7 @@ class ArtifactCandidateService:
         rows: list[dict[str, Any]] = []
         for output in list(graph.get("output_artifacts") or []):
             artifact_ref = str(output.get("artifact_ref") or "").strip()
-            if not artifact_ref:
+            if not artifact_ref or not self._artifact_ref_is_visible(artifact_ref):
                 continue
             policy_decision = self._policy.evaluate(
                 goal_id=goal_id,
@@ -112,6 +116,8 @@ class ArtifactCandidateService:
         repo = get_repository_registry().artifact_repo
         rows: list[dict[str, Any]] = []
         for artifact in repo.get_all():
+            if not is_artifact_visible_on_generic_surfaces(artifact):
+                continue
             artifact_id = str(getattr(artifact, "id", "") or "").strip()
             if not artifact_id:
                 continue
@@ -138,6 +144,15 @@ class ArtifactCandidateService:
                 }
             )
         return rows
+
+    @staticmethod
+    def _artifact_ref_is_visible(artifact_ref: str) -> bool:
+        repo = get_repository_registry().artifact_repo
+        for artifact_id in repository_artifact_reference_candidates(artifact_ref):
+            artifact = repo.get_by_id(artifact_id)
+            if artifact is not None:
+                return is_artifact_visible_on_generic_surfaces(artifact)
+        return True
 
     @staticmethod
     def _apply_filters(

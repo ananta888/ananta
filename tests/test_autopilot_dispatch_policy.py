@@ -5,6 +5,9 @@ from agent.routes.tasks.autopilot_dispatch_policy import (
     resolve_effective_concurrency,
     resolve_target_worker_for_task,
 )
+from tests.knowledge_index_execution_test_support import (
+    build_execution_task,
+)
 
 
 def test_effective_concurrency_fail_closed_when_missing_cap():
@@ -46,20 +49,23 @@ def test_effective_concurrency_invalid_inputs_fail_closed():
 
 
 def test_dispatch_timeout_uses_bound_knowledge_index_runtime_budget():
+    task = SimpleNamespace(**build_execution_task(max_runtime_seconds=900))
+
+    assert resolve_dispatch_hard_timeout(
+        tasks=[task],
+        security_policy={"propose_timeout": 120, "execute_timeout": 45},
+    ) == 1080
+
+
+def test_dispatch_timeout_does_not_truncate_long_bound_v2_budget():
     task = SimpleNamespace(
-        task_kind="codecompass_index_build",
-        worker_execution_context={
-            "knowledge_index_job": {
-                "schema": "ananta.knowledge_index_execution_job.v2",
-                "resources": {"max_runtime_seconds": 900},
-            },
-        },
+        **build_execution_task(max_runtime_seconds=7_200)
     )
 
     assert resolve_dispatch_hard_timeout(
         tasks=[task],
         security_policy={"propose_timeout": 120, "execute_timeout": 45},
-    ) == 1050
+    ) == 7_380
 
 
 def test_dispatch_timeout_ignores_untrusted_job_shapes():

@@ -10,6 +10,7 @@ from agent.services.source_admission_service import (
     SourceScanEvidence,
     evaluate_source_admission,
 )
+from ananta_contracts.source_control import MAX_SOURCE_ADMISSION_FILES
 
 
 def _inventory(**overrides) -> SourceInventoryEvidence:
@@ -59,6 +60,39 @@ def test_matching_clean_evidence_is_admitted_by_hub() -> None:
     assert decision.state is SourceAdmissionState.admitted
     assert decision.reason_codes == ()
     assert len(decision.admission_digest) == 64
+
+
+def test_source_file_admission_boundary_is_shared_and_fail_closed() -> None:
+    budgets = SourceAdmissionBudgets(
+        allowed_file_types=frozenset({"python"})
+    )
+    exact = _inventory(
+        file_count=MAX_SOURCE_ADMISSION_FILES,
+        total_bytes=MAX_SOURCE_ADMISSION_FILES,
+        largest_file_bytes=1,
+        file_type_counts={
+            "python": MAX_SOURCE_ADMISSION_FILES
+        },
+    )
+    overflow = _inventory(
+        file_count=MAX_SOURCE_ADMISSION_FILES + 1,
+        total_bytes=MAX_SOURCE_ADMISSION_FILES + 1,
+        largest_file_bytes=1,
+        file_type_counts={
+            "python": MAX_SOURCE_ADMISSION_FILES + 1
+        },
+    )
+
+    assert _evaluate(inventory=exact, budgets=budgets).state is (
+        SourceAdmissionState.admitted
+    )
+    rejected = _evaluate(inventory=overflow, budgets=budgets)
+    assert rejected.state is SourceAdmissionState.blocked
+    assert "file_count_budget_exceeded" in rejected.reason_codes
+    with pytest.raises(SourceAdmissionError, match="admission_budgets_invalid"):
+        SourceAdmissionBudgets(
+            max_files=MAX_SOURCE_ADMISSION_FILES + 1
+        )
 
 
 @pytest.mark.parametrize(

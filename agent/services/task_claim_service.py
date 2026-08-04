@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from agent.routes.tasks.orchestration_policy import compute_lease_expiry, extract_active_lease, persist_policy_decision
 from agent.routes.tasks.orchestration_policy.read_model import build_orchestration_read_model
+from agent.services.knowledge_index_task_ingress_policy import (
+    bound_knowledge_index_mutation_error,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.services.vector_task_admin_guard_service import (
     generic_vector_mutation_error,
@@ -25,6 +28,12 @@ class TaskClaimService:
         task = repos.task_repo.get_by_id(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        bound_conflict = bound_knowledge_index_mutation_error(
+            task,
+            action="claim",
+        )
+        if bound_conflict:
+            return bound_conflict
         vector_error = generic_vector_mutation_error(task)
         if vector_error is not None:
             return vector_error
@@ -36,6 +45,15 @@ class TaskClaimService:
         def validate_authoritative(
             task_payload: dict,
         ) -> tuple[bool, str | None]:
+            bound_denial = bound_knowledge_index_mutation_error(
+                task_payload,
+                action="claim",
+            )
+            if bound_denial is not None:
+                claim_decision["knowledge_index_denial"] = (
+                    bound_denial
+                )
+                return False, str(bound_denial["error"])
             vector_denial = generic_vector_mutation_error(
                 task_payload
             )
@@ -58,6 +76,11 @@ class TaskClaimService:
             claim_validator=validate_authoritative,
         )
         if claimed is False:
+            knowledge_index_denial = claim_decision.get(
+                "knowledge_index_denial"
+            )
+            if isinstance(knowledge_index_denial, dict):
+                return knowledge_index_denial
             vector_denial = claim_decision.get(
                 "vector_denial"
             )

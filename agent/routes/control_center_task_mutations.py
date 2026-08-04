@@ -17,6 +17,11 @@ from agent.routes.tasks.vector_admin_boundary import (
     reserved_vector_mutation_response,
 )
 from agent.services.hub_event_service import build_task_history_event
+from agent.services.knowledge_index_task_ingress_policy import (
+    bound_knowledge_index_mutation_error,
+    find_reserved_knowledge_index_marker,
+    reserved_knowledge_index_ingress_error,
+)
 from agent.services.project_access_authority import (
     ProjectAccessError,
     ProjectCapability,
@@ -52,6 +57,19 @@ class ControlCenterTaskMutationRoutes:
         vector_error = reserved_vector_mutation_response(body)
         if vector_error is not None:
             return vector_error
+        knowledge_index_marker = find_reserved_knowledge_index_marker(
+            body
+        )
+        if knowledge_index_marker is not None:
+            result = reserved_knowledge_index_ingress_error(
+                knowledge_index_marker
+            )
+            return api_response(
+                status="error",
+                message=result["error"],
+                data=result["data"],
+                code=result["code"],
+            )
         title = str(body.get("title") or "").strip()
         if not title:
             return api_response(
@@ -147,6 +165,17 @@ class ControlCenterTaskMutationRoutes:
         )
         if vector_error is not None:
             return vector_error
+        knowledge_index_error = bound_knowledge_index_mutation_error(
+            task,
+            action="control_center_patch",
+        )
+        if knowledge_index_error is not None:
+            return api_response(
+                status="error",
+                message=knowledge_index_error["error"],
+                data=knowledge_index_error["data"],
+                code=knowledge_index_error["code"],
+            )
         try:
             ensure_external_recovery_mutation_allowed(
                 task,

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from flask import Blueprint, g, request
 
-from agent.auth import check_auth
+from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import BadRequestError, ConflictError, NotFoundError, api_response
 from agent.config import settings
@@ -16,23 +16,29 @@ from agent.models import (
     KnowledgeCollectionSearchRequest,
     KnowledgeSourceIndexRequest,
 )
+from agent.routes.source_control_access import (
+    authorize_route_request,
+    filter_visible_resources,
+)
 from agent.services.file_type_support_service import (
     FileTypeSupportFilter,
     FileTypeSupportFilterError,
     get_file_type_support_service,
     parse_optional_boolean,
 )
+from agent.services.knowledge_index_execution_binding_service import (
+    KnowledgeIndexExecutionBindingError,
+)
+from agent.services.knowledge_index_job_service import (
+    KnowledgeIndexCompletionProjectionPending,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.services.retrieval_orchestration_contract import build_retrieval_orchestration_contract
 from agent.services.retrieval_service import get_retrieval_service
 from agent.services.retrieval_source_contract import source_scopes_for_types
 from agent.services.service_registry import get_core_services
-from agent.services.wiki_import_job_service import get_wiki_import_job_service
-from agent.routes.source_control_access import (
-    authorize_route_request,
-    filter_visible_resources,
-)
 from agent.services.source_control_access_policy import SourceControlAction
+from agent.services.wiki_import_job_service import get_wiki_import_job_service
 from agent.sources.source_registry import SourceRegistry
 
 knowledge_bp = Blueprint("knowledge", __name__)
@@ -378,6 +384,8 @@ _KNOWLEDGE_ACTIONS = {
     "index_knowledge_collection": SourceControlAction.index,
     "list_knowledge_index_profiles": SourceControlAction.list,
     "get_knowledge_index_job": SourceControlAction.detail,
+    "reconcile_expired_knowledge_index_dispatch": SourceControlAction.index,
+    "reconcile_knowledge_index_completion": SourceControlAction.index,
     "list_wiki_import_jobs": SourceControlAction.list,
     "get_wiki_import_job": SourceControlAction.detail,
     "pause_wiki_import_job": SourceControlAction.index,
@@ -589,7 +597,230 @@ def get_knowledge_index_job(job_id: str):
     job = get_knowledge_index_job_service().get_job(job_id)
     if job is None:
         raise NotFoundError("rag_job_not_found")
-    return api_response(data={"job": job})
+    response, status_code = api_response(data={"job": job})
+    lock_version = job.get("execution_lock_version")
+    if isinstance(lock_version, int) and not isinstance(lock_version, bool):
+        response.headers["ETag"] = f'"{lock_version}"'
+    projection_lock_version = job.get(
+        "completion_projection_lock_version"
+    )
+    if isinstance(projection_lock_version, int) and not isinstance(
+        projection_lock_version,
+        bool,
+    ):
+        response.headers["X-Knowledge-Index-Completion-ETag"] = (
+            f'"{projection_lock_version}"'
+        )
+    return response, status_code
+
+
+@knowledge_bp.route(
+    "/knowledge/index-jobs/<job_id>/reconcile-completion",
+    methods=["POST"],
+)
+@check_auth
+@admin_required
+def reconcile_knowledge_index_completion(job_id: str):
+    """Replay a durable Hub completion projection without Worker transport."""
+
+    payload = request.get_json(silent=True)
+    if payload not in (None, {}):
+        raise BadRequestError("request_fields_forbidden")
+    job_service = get_knowledge_index_job_service()
+    if job_service.get_job(job_id) is None:
+        # Resolve the object before parsing the caller-controlled OCC token or
+        # invoking a mutation.  Unknown/cross-project identifiers therefore
+        # converge on the same non-mutating 404 boundary.
+        raise NotFoundError("rag_job_not_found")
+    raw_if_match = str(request.headers.get("If-Match") or "").strip()
+    if not raw_if_match:
+        return api_response(
+            status="error",
+            message="if_match_required",
+            data={"reason_code": "if_match_required"},
+            code=428,
+        )
+    if raw_if_match.startswith("W/"):
+        raise BadRequestError("if_match_invalid")
+    normalized = raw_if_match[1:-1] if (
+        len(raw_if_match) >= 2
+        and raw_if_match[0] == raw_if_match[-1] == '"'
+    ) else raw_if_match
+    try:
+        expected_projection_lock_version = int(normalized)
+    except (TypeError, ValueError) as exc:
+        raise BadRequestError("if_match_invalid") from exc
+    if expected_projection_lock_version < 1:
+        raise BadRequestError("if_match_invalid")
+
+    try:
+        result = job_service.reconcile_completion_projection(
+            job_id=job_id,
+            expected_projection_lock_version=(
+                expected_projection_lock_version
+            ),
+        )
+    except KnowledgeIndexCompletionProjectionPending:
+        pending_job = job_service.get_job(job_id) or {
+            "job_id": job_id,
+            "status": "running",
+        }
+        log_audit(
+            "knowledge_index_completion_reconciliation_pending",
+            {
+                "job_id": job_id,
+                "actor": _current_username(),
+                "completion_projection_state": pending_job.get(
+                    "completion_projection_state"
+                ),
+            },
+        )
+        response, status_code = api_response(
+            status="pending",
+            message=(
+                "Worker result accepted; Hub completion projection "
+                "pending"
+            ),
+            data={
+                "job": pending_job,
+                "reason_code": (
+                    "knowledge_index_source_projection_pending"
+                ),
+                "worker_result_accepted": True,
+                "worker_dispatch_retry_allowed": False,
+                "reconciliation_required": True,
+            },
+            code=202,
+        )
+        lock_version = pending_job.get(
+            "completion_projection_lock_version"
+        )
+        if isinstance(lock_version, int) and not isinstance(
+            lock_version,
+            bool,
+        ):
+            completion_etag = f'"{lock_version}"'
+            response.headers["ETag"] = completion_etag
+            response.headers[
+                "X-Knowledge-Index-Completion-ETag"
+            ] = completion_etag
+        return response, status_code
+    except KnowledgeIndexExecutionBindingError as exc:
+        status_code = {
+            "knowledge_index_execution_not_found": 404,
+            "knowledge_index_completion_projection_not_found": 404,
+            "knowledge_index_completion_projection_conflict": 412,
+            "knowledge_index_completion_projection_not_ready": 409,
+        }.get(exc.reason_code, 409)
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            data={"reason_code": exc.reason_code},
+            code=status_code,
+        )
+
+    log_audit(
+        "knowledge_index_completion_reconciled",
+        {
+            "job_id": job_id,
+            "actor": _current_username(),
+            "completion_projection_state": result.get(
+                "completion_projection_state"
+            ),
+        },
+    )
+    response, status_code = api_response(data={"job": result})
+    projection_lock_version = result.get(
+        "completion_projection_lock_version"
+    )
+    if isinstance(projection_lock_version, int):
+        completion_etag = f'"{projection_lock_version}"'
+        response.headers["ETag"] = completion_etag
+        response.headers[
+            "X-Knowledge-Index-Completion-ETag"
+        ] = completion_etag
+    return response, status_code
+
+
+@knowledge_bp.route(
+    "/knowledge/index-jobs/<job_id>/reconcile-expired-dispatch",
+    methods=["POST"],
+)
+@check_auth
+def reconcile_expired_knowledge_index_dispatch(job_id: str):
+    """Explicitly close one expired governed dispatch using strict OCC."""
+
+    payload = request.get_json(silent=True)
+    if payload not in (None, {}):
+        raise BadRequestError("request_fields_forbidden")
+    raw_if_match = str(request.headers.get("If-Match") or "").strip()
+    if not raw_if_match:
+        return api_response(
+            status="error",
+            message="if_match_required",
+            data={"reason_code": "if_match_required"},
+            code=428,
+        )
+    if raw_if_match.startswith("W/"):
+        raise BadRequestError("if_match_invalid")
+    normalized_if_match = raw_if_match[1:-1] if (
+        len(raw_if_match) >= 2
+        and raw_if_match[0] == raw_if_match[-1] == '"'
+    ) else raw_if_match
+    try:
+        expected_lock_version = int(normalized_if_match)
+    except (TypeError, ValueError) as exc:
+        raise BadRequestError("if_match_invalid") from exc
+    if expected_lock_version < 1:
+        raise BadRequestError("if_match_invalid")
+
+    try:
+        result = (
+            get_knowledge_index_job_service()
+            .reconcile_expired_bound_dispatch(
+                job_id=job_id,
+                expected_lock_version=expected_lock_version,
+            )
+        )
+    except KnowledgeIndexExecutionBindingError as exc:
+        status_code = {
+            "knowledge_index_execution_not_found": 404,
+            "knowledge_index_execution_reconcile_conflict": 412,
+            "knowledge_index_execution_dispatch_lease_active": 409,
+            "knowledge_index_execution_not_reconcilable": 409,
+        }.get(exc.reason_code, 409)
+        return api_response(
+            status="error",
+            message=exc.reason_code,
+            data={"reason_code": exc.reason_code},
+            code=status_code,
+        )
+    except ValueError as exc:
+        reason_code = str(exc)
+        status_code = 404 if reason_code.endswith("not_found") else 409
+        return api_response(
+            status="error",
+            message=reason_code,
+            data={"reason_code": reason_code},
+            code=status_code,
+        )
+
+    log_audit(
+        "knowledge_index_expired_dispatch_reconciled",
+        {
+            "job_id": job_id,
+            "actor": _current_username(),
+            "execution_lock_version": result[
+                "execution_lock_version"
+            ],
+            "reason_code": result["reason_code"],
+        },
+    )
+    response, status_code = api_response(data={"job": result})
+    response.headers["ETag"] = (
+        f'"{result["execution_lock_version"]}"'
+    )
+    return response, status_code
 
 
 @knowledge_bp.route("/knowledge/wiki/import-jobs", methods=["GET"])
@@ -935,9 +1166,12 @@ def search_knowledge_collection(collection_id: str):
         for link in _knowledge_link_repo().get_by_collection(collection_id)
         if getattr(link, "artifact_id", None)
     }
-    search_kwargs = {"top_k": top_k, "artifact_ids": artifact_ids}
-    if source_scopes:
-        search_kwargs["source_scopes"] = source_scopes
+    effective_source_scopes = source_scopes or {"artifact"}
+    search_kwargs = {
+        "top_k": top_k,
+        "artifact_ids": artifact_ids,
+        "source_scopes": effective_source_scopes,
+    }
     chunks = get_knowledge_index_retrieval_service().search(query, **search_kwargs)
     return api_response(
         data={
@@ -945,7 +1179,7 @@ def search_knowledge_collection(collection_id: str):
             "query": query,
             "source_policy": {
                 "requested": requested_source_types,
-                "effective_scopes": sorted(source_scopes) if source_scopes else ["artifact"],
+                "effective_scopes": sorted(effective_source_scopes),
             },
             "chunks": [
                 {

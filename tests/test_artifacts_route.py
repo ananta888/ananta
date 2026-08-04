@@ -1,6 +1,10 @@
 from io import BytesIO
 from types import SimpleNamespace
 
+import pytest
+
+from agent.services.repository_registry import get_repository_registry
+
 
 def test_artifact_upload_and_detail_flow(client, admin_auth_header):
     upload_res = client.post(
@@ -37,6 +41,101 @@ def test_artifact_upload_and_detail_flow(client, admin_auth_header):
     assert detail["versions"][0]["id"] == version["id"]
     assert detail["knowledge_links"][0]["artifact_id"] == artifact["id"]
     assert detail["knowledge_links"][0]["link_metadata"]["collection_name"] == "team-docs"
+
+
+def test_public_artifact_content_route_still_serves_uploaded_bytes(
+    client,
+    admin_auth_header,
+) -> None:
+    content = b"public artifact content"
+    upload_res = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={"file": (BytesIO(content), "public.txt")},
+        content_type="multipart/form-data",
+    )
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+
+    response = client.get(
+        f"/artifacts/{artifact_id}/content",
+        headers=admin_auth_header,
+    )
+
+    assert response.status_code == 200
+    assert response.get_data() == content
+    assert "public.txt" in response.headers["Content-Disposition"]
+
+
+@pytest.mark.parametrize(
+    "system_artifact_kind",
+    [
+        "knowledge_index_job_payload",
+        "knowledge_index_worker_output",
+    ],
+)
+def test_system_managed_knowledge_index_artifacts_are_hidden_from_generic_routes(
+    client,
+    app,
+    admin_auth_header,
+    monkeypatch,
+    system_artifact_kind,
+) -> None:
+    upload_res = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={
+            "file": (BytesIO(b"internal capability data"), "internal.bin")
+        },
+        content_type="multipart/form-data",
+    )
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+    with app.app_context():
+        repository = get_repository_registry().artifact_repo
+        artifact = repository.get_by_id(artifact_id)
+        artifact.artifact_metadata = {
+            "system_artifact_kind": system_artifact_kind
+        }
+        repository.save(artifact)
+
+    class _ForbiddenService:
+        def __getattr__(self, name):
+            pytest.fail(f"system artifact reached generic service: {name}")
+
+    monkeypatch.setattr(
+        "agent.routes.artifacts.get_ingestion_service",
+        lambda: _ForbiddenService(),
+    )
+    monkeypatch.setattr(
+        "agent.routes.artifacts.get_rag_helper_index_service",
+        lambda: _ForbiddenService(),
+    )
+    monkeypatch.setattr(
+        "agent.routes.artifacts.get_knowledge_index_job_service",
+        lambda: _ForbiddenService(),
+    )
+
+    listed = client.get("/artifacts", headers=admin_auth_header)
+    assert listed.status_code == 200
+    assert artifact_id not in {
+        item["id"] for item in listed.get_json()["data"]
+    }
+
+    requests = [
+        ("get", f"/artifacts/{artifact_id}", None),
+        ("get", f"/artifacts/{artifact_id}/content", None),
+        ("post", f"/artifacts/{artifact_id}/extract", None),
+        ("post", f"/artifacts/{artifact_id}/rag-index", {}),
+        ("get", f"/artifacts/{artifact_id}/rag-status", None),
+        ("get", f"/artifacts/{artifact_id}/rag-preview", None),
+        ("get", f"/artifacts/{artifact_id}/rag-jobs/job-1", None),
+    ]
+    for method, path, json_payload in requests:
+        response = getattr(client, method)(
+            path,
+            headers=admin_auth_header,
+            json=json_payload,
+        )
+        assert response.status_code == 404, path
 
 
 def test_artifact_extract_structured_document_is_fully_indexed(client, admin_auth_header):

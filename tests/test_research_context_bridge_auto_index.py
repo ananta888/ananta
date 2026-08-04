@@ -83,3 +83,88 @@ def test_repo_scope_context_does_not_retrigger_running_index(tmp_path):
         svc._repo_scope_context([{"path": "."}], per_item_limit=2000)
 
     assert triggered == []
+
+
+def test_hidden_system_artifact_is_rejected_before_extraction_and_context_build() -> None:
+    svc = ResearchContextBridgeService()
+    hidden = SimpleNamespace(
+        id="hidden-index-payload",
+        artifact_metadata={
+            "system_artifact_kind": "knowledge_index_job_payload"
+        },
+    )
+    repositories = SimpleNamespace(
+        artifact_repo=SimpleNamespace(
+            get_by_id=lambda artifact_id: (
+                hidden if artifact_id == hidden.id else None
+            )
+        )
+    )
+
+    with patch(
+        "agent.services.research_context_bridge_service.get_repository_registry",
+        return_value=repositories,
+    ), patch.object(svc, "_ensure_document") as ensure_document, patch(
+        "agent.services.research_context_bridge_service.get_knowledge_index_retrieval_service"
+    ):
+        result = svc.build_context(
+            task={},
+            research_context={"artifact_ids": [hidden.id]},
+            query="read payload",
+        )
+
+    ensure_document.assert_not_called()
+    assert result is not None
+    assert result["artifact_ids"] == []
+    assert result["artifacts"] == []
+
+
+def test_knowledge_collection_filters_system_artifacts_before_retrieval() -> None:
+    svc = ResearchContextBridgeService()
+    public = SimpleNamespace(id="public-document", artifact_metadata={})
+    hidden = SimpleNamespace(
+        id="hidden-worker-output",
+        artifact_metadata={
+            "system_artifact_kind": "knowledge_index_worker_output"
+        },
+    )
+    artifacts = {public.id: public, hidden.id: hidden}
+    repositories = SimpleNamespace(
+        artifact_repo=SimpleNamespace(get_by_id=artifacts.get),
+        knowledge_collection_repo=SimpleNamespace(
+            get_by_id=lambda _collection_id: SimpleNamespace(
+                id="collection-1",
+                name="Collection",
+                description="Test collection",
+            )
+        ),
+        knowledge_link_repo=SimpleNamespace(
+            get_by_collection=lambda _collection_id: [
+                SimpleNamespace(artifact_id=public.id),
+                SimpleNamespace(artifact_id=hidden.id),
+            ]
+        ),
+    )
+    retrieval = MagicMock()
+    retrieval.search.return_value = []
+
+    with patch(
+        "agent.services.research_context_bridge_service.get_repository_registry",
+        return_value=repositories,
+    ), patch(
+        "agent.services.research_context_bridge_service.get_knowledge_index_retrieval_service",
+        return_value=retrieval,
+    ):
+        items = svc._knowledge_context(
+            ["collection-1"],
+            query="query",
+            top_k=5,
+            per_item_limit=1000,
+        )
+
+    assert items[0]["artifact_ids"] == [public.id]
+    retrieval.search.assert_called_once_with(
+        "query",
+        top_k=5,
+        artifact_ids={public.id},
+    )
