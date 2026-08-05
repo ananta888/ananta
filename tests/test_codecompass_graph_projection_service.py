@@ -7,7 +7,15 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
+from agent.codecompass.semantic_translation.models import (
+    EDGE_TYPES as SEMANTIC_TRANSLATION_EDGE_TYPES,
+)
+from agent.codecompass.semantic_translation.models import (
+    NODE_KINDS as SEMANTIC_TRANSLATION_NODE_KINDS,
+)
 from agent.services.codecompass_graph_projection_service import (
+    KNOWN_EDGE_RELATIONS,
+    KNOWN_NODE_KINDS,
     CodeCompassGraphProjectionService,
     _content_hash,
 )
@@ -109,6 +117,180 @@ def test_unknown_semantics_keep_raw_values_and_only_use_visual_fallback() -> Non
     assert edge["attributes"]["raw_edge_type"] == "Vendor::Relation"
     assert edge["attributes"]["known_relation"] == "related"
     assert edge["attributes"]["semantic_status"] == "semantically_unknown"
+
+
+def test_repository_bridge_topology_semantics_are_known_without_weakening_unknown_fallback() -> None:
+    result = CodeCompassGraphProjectionService().project(
+        nodes=[
+            {
+                "id": "repo",
+                "kind": "repository",
+                "path": "repositories/ananta",
+                "domain_id": "repository-root",
+                "domain_path": "repositories/ananta",
+            },
+            {
+                "id": "directory",
+                "kind": "directory",
+                "path": "src/orders",
+            },
+            {
+                "id": "file",
+                "kind": "source_file",
+                "path": "src/orders/service.py",
+            },
+            {
+                "id": "semantic",
+                "kind": "semantic_node",
+                "symbol": "BillingModel",
+                "provenance": {"file": "src/billing/model.py"},
+            },
+            {
+                "id": "unknown",
+                "kind": "vendor::node",
+                "raw_node_type": "Vendor::Node",
+            },
+        ],
+        edges=[
+            {
+                "source_id": "repo",
+                "target_id": "directory",
+                "edge_type": "contains_directory",
+            },
+            {
+                "source_id": "directory",
+                "target_id": "file",
+                "edge_type": "contains_file",
+            },
+            {
+                "source_id": "file",
+                "target_id": "unknown",
+                "raw_edge_type": "Vendor::Relation",
+            },
+        ],
+        source_kind="repository_bridge",
+        source_ref="idx-repository",
+    )
+
+    nodes = {node["node_id"]: node for node in result["nodes"]}
+    for node_id, expected_kind in {
+        "repo": "repository",
+        "directory": "directory",
+        "file": "source_file",
+        "semantic": "semantic_node",
+    }.items():
+        node = nodes[node_id]
+        assert node["node_type"] == expected_kind
+        assert node["attributes"]["known_kind"] == expected_kind
+        assert node["attributes"]["semantic_status"] == "known"
+        assert node["attributes"]["visual_fallback"] == expected_kind
+
+    assert nodes["repo"]["attributes"]["path"] == "repositories/ananta"
+    assert nodes["repo"]["attributes"]["file"] == "repositories/ananta"
+    assert nodes["repo"]["attributes"]["domain_id"] == "repository-root"
+    assert nodes["repo"]["attributes"]["domain_path"] == "repositories/ananta"
+    assert nodes["directory"]["attributes"]["path"] == "src/orders"
+    assert nodes["directory"]["attributes"]["file"] == "src/orders"
+    assert nodes["directory"]["attributes"]["domain_id"] == "src"
+    assert nodes["file"]["attributes"]["path"] == "src/orders/service.py"
+    assert nodes["file"]["attributes"]["file"] == "src/orders/service.py"
+    assert nodes["file"]["attributes"]["domain_id"] == "src/orders"
+    assert nodes["semantic"]["attributes"]["file"] == "src/billing/model.py"
+    assert nodes["semantic"]["attributes"]["domain_id"] == "src/billing"
+    assert nodes["semantic"]["attributes"]["name"] == "BillingModel"
+
+    edges = {edge["relation"]: edge for edge in result["edges"]}
+    for relation in ("contains_directory", "contains_file"):
+        edge = edges[relation]
+        assert edge["attributes"]["known_relation"] == relation
+        assert edge["attributes"]["semantic_status"] == "known"
+        assert edge["attributes"]["visual_fallback"] == relation
+
+    unknown_node = nodes["unknown"]
+    assert unknown_node["node_type"] == "unknown"
+    assert unknown_node["attributes"]["raw_node_type"] == "Vendor::Node"
+    assert unknown_node["attributes"]["semantic_status"] == "semantically_unknown"
+    assert unknown_node["attributes"]["visual_fallback"] == "unknown"
+
+    unknown_edge = edges["Vendor::Relation"]
+    assert unknown_edge["attributes"]["raw_edge_type"] == "Vendor::Relation"
+    assert unknown_edge["attributes"]["semantic_status"] == "semantically_unknown"
+    assert unknown_edge["attributes"]["visual_fallback"] == "related"
+
+
+def test_all_canonical_semantic_translation_types_are_registered() -> None:
+    assert SEMANTIC_TRANSLATION_NODE_KINDS <= KNOWN_NODE_KINDS
+    assert SEMANTIC_TRANSLATION_EDGE_TYPES <= KNOWN_EDGE_RELATIONS
+
+    nodes = [
+        {"id": f"semantic-kind:{kind}", "kind": kind}
+        for kind in sorted(SEMANTIC_TRANSLATION_NODE_KINDS)
+    ]
+    source_id = str(nodes[0]["id"])
+    target_id = str(nodes[-1]["id"])
+    result = CodeCompassGraphProjectionService().project(
+        nodes=nodes,
+        edges=[
+            {
+                "source_id": source_id,
+                "target_id": target_id,
+                "edge_type": edge_type,
+            }
+            for edge_type in sorted(SEMANTIC_TRANSLATION_EDGE_TYPES)
+        ],
+        source_kind="semantic_translation",
+        source_ref="canonical-vocabulary",
+    )
+
+    assert {
+        node["node_type"]
+        for node in result["nodes"]
+        if node["attributes"]["semantic_status"] == "known"
+    } >= SEMANTIC_TRANSLATION_NODE_KINDS
+    assert {
+        edge["attributes"]["known_relation"]
+        for edge in result["edges"]
+        if edge["attributes"]["semantic_status"] == "known"
+    } >= SEMANTIC_TRANSLATION_EDGE_TYPES
+
+
+def test_existing_file_identity_precedes_additive_path_and_provenance_fallbacks() -> None:
+    result = CodeCompassGraphProjectionService().project(
+        nodes=[
+            {
+                "id": "existing-attributes",
+                "kind": "source_file",
+                "file": "top-level/ignored.py",
+                "path": "top-level/path-ignored.py",
+                "attributes": {
+                    "file": "canonical/existing.py",
+                    "path": "canonical/existing-path.py",
+                },
+                "provenance": {"file": "provenance/ignored.py"},
+            },
+            {
+                "id": "source-record",
+                "kind": "source_file",
+                "source_record": {
+                    "file": "canonical/source-record.py",
+                    "path": "source-record/path-ignored.py",
+                },
+            },
+        ],
+        edges=[],
+        source_kind="compatibility",
+        source_ref="file-identity",
+    )
+
+    nodes = {node["node_id"]: node for node in result["nodes"]}
+    existing = nodes["existing-attributes"]["attributes"]
+    assert existing["file"] == "canonical/existing.py"
+    assert existing["path"] == "canonical/existing-path.py"
+    assert existing["domain_id"] == "canonical"
+    source_record = nodes["source-record"]["attributes"]
+    assert source_record["file"] == "canonical/source-record.py"
+    assert source_record["path"] == "source-record/path-ignored.py"
+    assert source_record["domain_id"] == "canonical"
 
 
 def test_raw_types_are_preserved_byte_for_byte_while_classification_is_normalized() -> None:

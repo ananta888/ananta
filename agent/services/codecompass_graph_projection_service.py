@@ -13,6 +13,13 @@ from collections.abc import Mapping, Sequence
 from pathlib import PurePosixPath
 from typing import Any
 
+from agent.codecompass.semantic_translation.models import (
+    EDGE_TYPES as SEMANTIC_TRANSLATION_EDGE_TYPES,
+)
+from agent.codecompass.semantic_translation.models import (
+    NODE_KINDS as SEMANTIC_TRANSLATION_NODE_KINDS,
+)
+
 PROJECTION_ALGORITHM_VERSION = "codecompass_graph_projection.v1"
 VISUAL_METRICS_ALGORITHM_VERSION = "codecompass_graph_visual_metrics.v1"
 
@@ -20,6 +27,7 @@ KNOWN_NODE_KINDS = frozenset({
     "aggregator",
     "buildable_component",
     "config",
+    "directory",
     "external_package",
     "java_constructor",
     "java_constructor_detail",
@@ -39,7 +47,9 @@ KNOWN_NODE_KINDS = frozenset({
     "python_import",
     "python_method",
     "python_module_summary",
+    "repository",
     "runner",
+    "source_file",
     "test",
     "typescript_class",
     "typescript_const",
@@ -60,6 +70,7 @@ KNOWN_NODE_KINDS = frozenset({
     "xml_tag",
     "yaml_entry",
     "yaml_file",
+    *SEMANTIC_TRANSLATION_NODE_KINDS,
 })
 
 NODE_KIND_ALIASES = {"ts_file": "typescript_file"}
@@ -72,6 +83,8 @@ KNOWN_EDGE_RELATIONS = frozenset({
     "child_of_file",
     "child_of_type",
     "contains_entry",
+    "contains_directory",
+    "contains_file",
     "contains_method",
     "contains_section",
     "contains_symbol",
@@ -107,6 +120,7 @@ KNOWN_EDGE_RELATIONS = frozenset({
     "uses_type",
     "service_uses_repository",
     "wiki_link",
+    *SEMANTIC_TRANSLATION_EDGE_TYPES,
 })
 
 _METRIC_NAMES = (
@@ -171,15 +185,58 @@ def _raw_edge_type(edge: Mapping[str, Any]) -> str:
     return value if value else "related"
 
 
+def _first_non_blank(values: Sequence[Any]) -> Any | None:
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        return value
+    return None
+
+
+def _provenance_file(record: Mapping[str, Any]) -> Any | None:
+    provenance = record.get("provenance")
+    if not isinstance(provenance, Mapping):
+        return None
+    return _first_non_blank((provenance.get("file"),))
+
+
+def _node_file_and_path(node: Mapping[str, Any]) -> tuple[Any | None, Any | None]:
+    attributes = node.get("attributes") if isinstance(node.get("attributes"), Mapping) else {}
+    source_record = node.get("source_record") if isinstance(node.get("source_record"), Mapping) else {}
+    path = _first_non_blank((
+        attributes.get("path"),
+        node.get("path"),
+        source_record.get("path"),
+    ))
+    file_path = _first_non_blank((
+        attributes.get("file"),
+        node.get("file"),
+        node.get("path"),
+        _provenance_file(node),
+        attributes.get("path"),
+        _provenance_file(attributes),
+        source_record.get("file"),
+        source_record.get("path"),
+        _provenance_file(source_record),
+    ))
+    return file_path, path
+
+
 def _revision_node_attributes(node: Mapping[str, Any]) -> dict[str, Any]:
     candidates: list[Mapping[str, Any]] = [node]
     for field in ("attributes", "attrs", "source_record"):
         value = node.get(field)
         if isinstance(value, Mapping):
             candidates.append(value)
+    file_path, path = _node_file_and_path(node)
     projected: dict[str, Any] = {}
+    if file_path is not None:
+        projected["file"] = file_path
+    if path is not None:
+        projected["path"] = path
     for key in (
-        "file",
         "domain_id",
         "domain_path",
         "domain_level",
@@ -582,9 +639,21 @@ class CodeCompassGraphProjectionService:
         source_attributes = node.get("attributes") if isinstance(node.get("attributes"), Mapping) else {}
         source_record = node.get("source_record") if isinstance(node.get("source_record"), Mapping) else {}
         attributes = dict(source_attributes)
+        file_path, path = _node_file_and_path(node)
+        if file_path is not None:
+            attributes["file"] = file_path
+        if path is not None:
+            attributes["path"] = path
+        if not str(attributes.get("name") or "").strip():
+            name = _first_non_blank((
+                node.get("name"),
+                node.get("symbol"),
+                source_record.get("name"),
+                source_record.get("symbol"),
+            ))
+            if name is not None:
+                attributes["name"] = name
         for output_key, candidates in {
-            "file": (node.get("file"), source_record.get("file"), source_record.get("path")),
-            "name": (node.get("name"), source_record.get("name"), source_record.get("symbol")),
             "content": (node.get("content"), source_record.get("content"), source_record.get("summary")),
             "record_id": (node.get("record_id"), source_record.get("record_id")),
             "importance_score": (node.get("importance_score"), source_record.get("importance_score")),
