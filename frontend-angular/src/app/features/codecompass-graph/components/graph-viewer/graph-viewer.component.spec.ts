@@ -108,7 +108,7 @@ describe('GraphViewerComponent', () => {
     expect(state.focusNodeId()).toBe(state.selectedNode()!.id);
   });
 
-  it('shows the loaded topology-window boundary explicitly', () => {
+  it('shows structured total, window and semantic completeness evidence', () => {
     fixture.componentRef.setInput('rawGraphData', {
       ...MOCK_DOMAIN_GRAPH_ARTIFACT,
       metadata: {
@@ -116,13 +116,52 @@ describe('GraphViewerComponent', () => {
         view: 'topology',
         total_nodes: 10_618,
         total_edges: 107_062,
+        internal_edge_count: 42,
+        edge_capped: true,
+        max_edges: 30,
       },
+      diagnostics: {
+        semantic_translation: {
+          status: 'degraded',
+          reason: 'semantic_graph_partial',
+          semantic_budget: {
+            truncated: true,
+            truncated_node_count: 97_766,
+            unresolved_edge_count: 20_000,
+          },
+        },
+      },
+      artifact_status: { state: 'available', manifest_present: true },
+      warnings: ['Indexer record budget reached.'],
     });
     fixture.detectChanges();
 
-    const info = fixture.nativeElement.querySelector('[data-testid="graph-window-info"]');
-    expect(info.textContent).toContain('20 von 10.618 Knoten');
-    expect(info.textContent).toContain('Verknüpfungstiefe');
+    expect(fixture.nativeElement.querySelector('[data-testid="graph-stats-total"]')?.textContent)
+      .toContain('10.618 Knoten');
+    expect(fixture.nativeElement.querySelector('[data-testid="graph-stats-window"]')?.textContent)
+      .toContain('20 Knoten');
+    expect(fixture.nativeElement.querySelector('[data-testid="graph-stats-visible"]')?.textContent)
+      .toContain('30 Relationen');
+    expect(fixture.nativeElement.querySelector('[data-testid="graph-semantic-warning"]')?.textContent)
+      .toContain('Semantischer Graph unvollständig');
+    expect(fixture.nativeElement.querySelector('[data-testid="graph-window-warning"]')?.textContent)
+      .toContain('innerhalb des geladenen Fensters');
+  });
+
+  it('updates current-view statistics after a client-local filter', () => {
+    fixture.componentRef.setInput('rawGraphData', MOCK_DOMAIN_GRAPH_ARTIFACT);
+    fixture.detectChanges();
+
+    state.updateFilter({ searchText: 'LegacyAdapter' });
+    fixture.detectChanges();
+
+    const visible = fixture.nativeElement.querySelector('[data-testid="graph-stats-visible"]');
+    expect(visible.textContent).toContain('1 Knoten');
+    expect(visible.textContent).toContain('0 Relationen');
+    expect(component.domainFilterOptions()
+      .reduce((sum, option) => sum + option.visibleNodeCount, 0)).toBe(1);
+    expect(component.relationFilterOptions()
+      .reduce((sum, option) => sum + option.visibleEdgeCount, 0)).toBe(0);
   });
 
   it('provides isolated graph and profile state for two viewers', () => {
@@ -149,6 +188,11 @@ describe('GraphViewerComponent', () => {
     expect(component.domainLegend().length).toBeGreaterThan(0);
     expect(component.edgeLegend().length).toBeGreaterThan(0);
     expect(component.edgeLegend().reduce((sum, entry) => sum + entry.totalEdges, 0)).toBe(30);
+    expect(component.domainFilterOptions().every(option =>
+      Number.isInteger(option.visibleNodeCount) && /^#[0-9A-F]{6}$/i.test(option.color),
+    )).toBe(true);
+    expect(component.relationFilterOptions().reduce((sum, option) => sum + option.edgeCount, 0))
+      .toBe(30);
   });
 
   it('uses unique legend and settings aria-controls ids for multiple viewers', () => {

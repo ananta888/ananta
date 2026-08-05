@@ -174,6 +174,175 @@ describe('GraphAdapterService', () => {
     expect(model.warnings).toContain('degraded');
   });
 
+  it('maps structured window, semantic and artifact evidence without parsing warnings', () => {
+    const model = svc.fromDomainArtifact({
+      nodes: [],
+      edges: [],
+      metadata: {
+        view: 'topology',
+        next_cursor: null,
+        total_nodes: 10_618,
+        total_edges: 107_062,
+        source_edge_count: 107_065,
+        unresolved_edge_count: 3,
+        internal_edge_count: 5_200,
+        edge_capped: true,
+        max_edges: 2_000,
+        semantic_budget: {
+          configured_max_records_per_partition: 5_000,
+          max_records_per_partition: 5_000,
+          max_bytes_per_partition: 4_194_304,
+          configuration_clamped: false,
+          truncated: true,
+          truncated_node_count: 4,
+          truncated_edge_count: 2,
+          unresolved_edge_count: 7,
+          semantic_node_bytes: 500,
+          semantic_edge_bytes: 300,
+          candidate_edge_record_limit: 20_000,
+          candidate_edge_byte_limit: 16_777_216,
+          candidate_edge_count: 40,
+          candidate_edge_bytes: 4_000,
+          truncated_candidate_edge_count: 1,
+        },
+      },
+      diagnostics: {
+        semantic_translation: {
+          schema: 'codecompass_semantic_translation_graph.v1',
+          status: 'degraded',
+          reason: 'semantic_graph_partial',
+          semantic_node_count: 100,
+          semantic_edge_count: 80,
+          equivalence_rule_count: 6,
+          translation_contract_count: 5,
+          transform_artifact_count: 4,
+        },
+      },
+      artifact_status: {
+        state: 'available',
+        reason_code: null,
+        knowledge_index_id: 'index-1',
+        manifest_present: true,
+      },
+      warnings: ['This prose is retained, never classified.'],
+    });
+
+    expect(model.evidence?.window).toEqual({
+      view: 'topology',
+      nextCursor: null,
+      totalNodes: 10_618,
+      totalEdges: 107_062,
+      sourceEdges: 107_065,
+      unresolvedEdges: 3,
+      internalEdges: 5_200,
+      edgeCapped: true,
+      maxEdges: 2_000,
+    });
+    expect(model.evidence?.semanticTranslation).toMatchObject({
+      schema: 'codecompass_semantic_translation_graph.v1',
+      status: 'degraded',
+      reasonCode: 'semantic_graph_partial',
+      semanticNodeCount: 100,
+      semanticEdgeCount: 80,
+      equivalenceRuleCount: 6,
+      translationContractCount: 5,
+      transformArtifactCount: 4,
+      budget: {
+        truncated: true,
+        truncatedNodeCount: 4,
+        truncatedEdgeCount: 2,
+        unresolvedEdgeCount: 7,
+        truncatedCandidateEdgeCount: 1,
+      },
+    });
+    expect(model.evidence?.artifactStatus).toEqual({
+      state: 'available',
+      reasonCode: null,
+      knowledgeIndexId: 'index-1',
+      manifestPresent: true,
+    });
+    expect(model.warnings).toEqual(['This prose is retained, never classified.']);
+    expect(Object.isFrozen(model.evidence)).toBe(true);
+    expect(Object.isFrozen(model.evidence?.semanticTranslation?.budget)).toBe(true);
+  });
+
+  it('leaves absent evidence unknown and rejects invalid count and boolean values', () => {
+    const legacy = svc.fromDomainArtifact({
+      nodes: [],
+      edges: [],
+      warnings: ['The semantic graph is allegedly complete.'],
+    });
+    expect(legacy.evidence).toBeUndefined();
+
+    const invalid = svc.fromDomainArtifact({
+      nodes: [],
+      edges: [],
+      metadata: {
+        view: 'topology',
+        total_nodes: '12',
+        total_edges: -1,
+        source_edge_count: Number.POSITIVE_INFINITY,
+        internal_edge_count: 1.5,
+        edge_capped: 'false',
+        semantic_budget: {
+          truncated: 'true',
+          truncated_node_count: Number.NaN,
+          unresolved_edge_count: -2,
+        },
+      },
+      diagnostics: {
+        semantic_translation: {
+          status: 5,
+          semantic_node_count: Number.POSITIVE_INFINITY,
+        },
+      },
+      artifact_status: {
+        state: 7,
+        manifest_present: 'yes',
+      },
+    });
+
+    expect(invalid.evidence?.window).toMatchObject({
+      totalNodes: null,
+      totalEdges: null,
+      sourceEdges: null,
+      internalEdges: null,
+      edgeCapped: null,
+    });
+    expect(invalid.evidence?.semanticTranslation).toMatchObject({
+      status: null,
+      semanticNodeCount: null,
+      budget: {
+        truncated: null,
+        truncatedNodeCount: null,
+        unresolvedEdgeCount: null,
+      },
+    });
+    expect(invalid.evidence?.artifactStatus).toMatchObject({
+      state: null,
+      manifestPresent: null,
+    });
+  });
+
+  it('maps a string artifact status without treating it as semantic evidence', () => {
+    const model = svc.fromDomainArtifact({
+      nodes: [],
+      edges: [],
+      artifact_status: 'verified',
+    });
+
+    expect(model.evidence).toEqual({
+      window: null,
+      semanticTranslation: null,
+      artifactStatus: {
+        state: 'verified',
+        reasonCode: null,
+        knowledgeIndexId: null,
+        manifestPresent: null,
+      },
+    });
+  });
+
   it('derives edge id from source|target|relation', () => {
     const raw = {
       nodes: [],
@@ -393,6 +562,8 @@ describe('GraphAdapterService', () => {
   });
 
   it('keeps adapter semantics aligned with the dynamic filter registries', () => {
+    expect(new Set(ALL_NODE_KINDS).size).toBe(ALL_NODE_KINDS.length);
+    expect(new Set(ALL_EDGE_TYPES).size).toBe(ALL_EDGE_TYPES.length);
     const nodes = ALL_NODE_KINDS
       .filter(kind => kind !== 'unknown')
       .map((kind, index) => ({ node_id: `n-${index}`, node_type: kind, attributes: {} }));
@@ -420,5 +591,29 @@ describe('GraphAdapterService', () => {
       knownKind: 'typescript_file',
       rawNodeType: 'ts_file',
     });
+  });
+
+  it('recognizes canonical worker-bridge topology vocabulary', () => {
+    const model = svc.fromDomainArtifact({
+      nodes: [
+        { node_id: 'repo', node_type: 'repository', attributes: {} },
+        { node_id: 'dir', node_type: 'directory', attributes: {} },
+        { node_id: 'file', node_type: 'source_file', attributes: {} },
+      ],
+      edges: [
+        { source_id: 'repo', target_id: 'dir', relation: 'contains_directory', attributes: {} },
+        { source_id: 'dir', target_id: 'file', relation: 'contains_file', attributes: {} },
+      ],
+    });
+
+    expect(model.nodes.map(node => node.knownKind)).toEqual([
+      'repository',
+      'directory',
+      'source_file',
+    ]);
+    expect(model.edges.map(edge => edge.knownRelation)).toEqual([
+      'contains_directory',
+      'contains_file',
+    ]);
   });
 });

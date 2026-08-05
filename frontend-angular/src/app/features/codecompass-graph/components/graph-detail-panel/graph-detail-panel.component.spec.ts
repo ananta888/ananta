@@ -39,7 +39,7 @@ describe('GraphDetailPanelComponent', () => {
     expect(emitted).toEqual([2]);
   });
 
-  it('keeps hop changes local until focus is applied when inactive', () => {
+  it('emits every depth change immediately instead of staging a second local value', () => {
     fixture.componentRef.setInput('selectedNode', selectedNode);
     fixture.componentRef.setInput('focusActive', false);
     fixture.componentRef.setInput('focusHopDepth', 1);
@@ -50,8 +50,7 @@ describe('GraphDetailPanelComponent', () => {
 
     component.incHops();
 
-    expect(component.localHops).toBe(2);
-    expect(emitted).toEqual([]);
+    expect(emitted).toEqual([2]);
   });
 
   it('allows hop depth 0 and emits it when focus is active', () => {
@@ -65,17 +64,17 @@ describe('GraphDetailPanelComponent', () => {
 
     component.decHops();
 
-    expect(component.localHops).toBe(0);
     expect(emitted).toEqual([0]);
   });
 
-  it('defines connection depth in visible-edge terms instead of an unexplained hop', () => {
+  it('defines hops in visible-relation terms and states the filter order', () => {
     fixture.componentRef.setInput('selectedNode', selectedNode);
     fixture.componentRef.setInput('focusHopDepth', 1);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Verknüpfungstiefe');
-    expect(fixture.nativeElement.textContent).toContain('Eine Stufe = eine sichtbare Kante');
-    expect(fixture.nativeElement.textContent).not.toContain('Hop-Tiefe');
+    expect(fixture.nativeElement.textContent).toContain('Umgebung um diesen Knoten');
+    expect(fixture.nativeElement.textContent).toContain('1 Hop = eine sichtbare Relation');
+    expect(fixture.nativeElement.textContent).toContain('Such-, Knoten-, Domain- und Relationsfilter');
+    expect(fixture.nativeElement.textContent).toContain('gesamte gefilterte Ausschnitt');
   });
 });

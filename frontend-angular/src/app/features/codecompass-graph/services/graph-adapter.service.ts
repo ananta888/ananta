@@ -1,10 +1,17 @@
 import { Injectable } from '@angular/core';
 import {
+  GraphArtifactStatusEvidence,
+  GraphEvidence,
   GenericGraphModel,
   GraphEdge,
   GraphEdgeType,
   GraphNode,
   GraphNodeKind,
+  GraphSemanticBudgetEvidence,
+  GraphSemanticTranslationEvidence,
+  GraphWindowEvidence,
+  SEMANTIC_TRANSLATION_EDGE_TYPES,
+  SEMANTIC_TRANSLATION_NODE_KINDS,
 } from '../models/graph.model';
 import {
   GraphMetricCapability,
@@ -46,8 +53,40 @@ interface RawDomainGraphArtifact {
   nodes?: RawNode[];
   edges?: RawEdge[];
   metadata?: Record<string, unknown>;
+  diagnostics?: unknown;
+  artifact_status?: unknown;
   warnings?: string[];
 }
+
+const WINDOW_EVIDENCE_KEYS = Object.freeze([
+  'view',
+  'next_cursor',
+  'total_nodes',
+  'total_edges',
+  'source_edge_count',
+  'unresolved_edge_count',
+  'internal_edge_count',
+  'edge_capped',
+  'max_edges',
+] as const);
+
+const SEMANTIC_BUDGET_KEYS = Object.freeze([
+  'configured_max_records_per_partition',
+  'max_records_per_partition',
+  'max_bytes_per_partition',
+  'configuration_clamped',
+  'truncated',
+  'truncated_node_count',
+  'truncated_edge_count',
+  'unresolved_edge_count',
+  'semantic_node_bytes',
+  'semantic_edge_bytes',
+  'candidate_edge_record_limit',
+  'candidate_edge_byte_limit',
+  'candidate_edge_count',
+  'candidate_edge_bytes',
+  'truncated_candidate_edge_count',
+] as const);
 
 const KNOWN_NODE_KINDS = new Set<string>([
   'java_constructor', 'java_constructor_detail', 'java_file', 'java_method',
@@ -65,7 +104,9 @@ const KNOWN_NODE_KINDS = new Set<string>([
   'config',
   'wiki_article', 'wiki_section', 'wiki_chunk',
   'package_manager', 'external_package', 'buildable_component',
+  'repository', 'directory', 'source_file',
   'aggregator', 'runner', 'test',
+  ...SEMANTIC_TRANSLATION_NODE_KINDS,
 ]);
 
 const NODE_KIND_ALIASES: Readonly<Record<string, string>> = Object.freeze({
@@ -77,7 +118,9 @@ const KNOWN_EDGE_TYPES = new Set<string>([
   'calls_probable_target',
   'child_of_type',
   'child_of_file',
+  'contains_directory',
   'contains_entry',
+  'contains_file',
   'contains_method',
   'contains_section',
   'contains_symbol',
@@ -110,6 +153,7 @@ const KNOWN_EDGE_TYPES = new Set<string>([
   'test_calls_endpoint',
   'test_targets_type',
   'depends_on', 'aggregates', 'built_by', 'tested_by', 'runs', 'covers',
+  ...SEMANTIC_TRANSLATION_EDGE_TYPES,
 ]);
 
 const METRIC_ID_ALIASES: Readonly<Record<string, string>> = Object.freeze({
@@ -122,6 +166,39 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+function optionalRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function hasOwn(record: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
+function hasAnyOwn(record: Record<string, unknown>, keys: readonly string[]): boolean {
+  return keys.some(key => hasOwn(record, key));
+}
+
+function evidenceText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized || null;
+}
+
+function evidenceBoolean(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null;
+}
+
+function evidenceCount(value: unknown): number | null {
+  return typeof value === 'number'
+    && Number.isFinite(value)
+    && Number.isInteger(value)
+    && value >= 0
+    ? value
+    : null;
 }
 
 function metricId(raw: string): string {
@@ -169,6 +246,7 @@ export class GraphAdapterService {
     } as GenericGraphModel['metadata'];
     if (graphRevision) metadata.graphRevision = graphRevision;
     if (capabilities.length > 0) metadata.metricCapabilities = capabilities;
+    const evidence = this.mapEvidence(artifact, meta);
 
     return {
       nodes,
@@ -177,7 +255,123 @@ export class GraphAdapterService {
       warnings: Array.isArray(artifact.warnings)
         ? artifact.warnings.filter((warning): warning is string => typeof warning === 'string')
         : [],
+      ...(evidence ? { evidence } : {}),
     };
+  }
+
+  private mapEvidence(
+    artifact: RawDomainGraphArtifact,
+    metadata: Record<string, unknown>,
+  ): Readonly<GraphEvidence> | undefined {
+    const window = this.mapWindowEvidence(metadata);
+    const diagnostics = optionalRecord(artifact.diagnostics);
+    const semanticDiagnostics = diagnostics
+      ? optionalRecord(diagnostics['semantic_translation'])
+      : null;
+    const metadataBudget = optionalRecord(metadata['semantic_budget']);
+    const diagnosticBudget = semanticDiagnostics
+      ? optionalRecord(semanticDiagnostics['semantic_budget'])
+      : null;
+    const semanticTranslation = this.mapSemanticTranslationEvidence(
+      semanticDiagnostics,
+      metadataBudget,
+      diagnosticBudget,
+    );
+    const artifactStatus = this.mapArtifactStatusEvidence(artifact.artifact_status);
+    if (!window && !semanticTranslation && !artifactStatus) return undefined;
+    return Object.freeze({ window, semanticTranslation, artifactStatus });
+  }
+
+  private mapWindowEvidence(
+    metadata: Record<string, unknown>,
+  ): Readonly<GraphWindowEvidence> | null {
+    if (!hasAnyOwn(metadata, WINDOW_EVIDENCE_KEYS)) return null;
+    return Object.freeze({
+      view: evidenceText(metadata['view']),
+      nextCursor: evidenceText(metadata['next_cursor']),
+      totalNodes: evidenceCount(metadata['total_nodes']),
+      totalEdges: evidenceCount(metadata['total_edges']),
+      sourceEdges: evidenceCount(metadata['source_edge_count']),
+      unresolvedEdges: evidenceCount(metadata['unresolved_edge_count']),
+      internalEdges: evidenceCount(metadata['internal_edge_count']),
+      edgeCapped: evidenceBoolean(metadata['edge_capped']),
+      maxEdges: evidenceCount(metadata['max_edges']),
+    });
+  }
+
+  private mapSemanticTranslationEvidence(
+    diagnostics: Record<string, unknown> | null,
+    metadataBudget: Record<string, unknown> | null,
+    diagnosticBudget: Record<string, unknown> | null,
+  ): Readonly<GraphSemanticTranslationEvidence> | null {
+    if (!diagnostics && !metadataBudget && !diagnosticBudget) return null;
+    const combinedBudget = metadataBudget || diagnosticBudget
+      ? { ...(diagnosticBudget ?? {}), ...(metadataBudget ?? {}) }
+      : null;
+    const budget = combinedBudget
+      ? this.mapSemanticBudgetEvidence(combinedBudget)
+      : null;
+    const values = diagnostics ?? {};
+    return Object.freeze({
+      schema: evidenceText(values['schema']),
+      status: evidenceText(values['status']),
+      reasonCode: evidenceText(values['reason']),
+      semanticNodeCount: evidenceCount(values['semantic_node_count']),
+      semanticEdgeCount: evidenceCount(values['semantic_edge_count']),
+      equivalenceRuleCount: evidenceCount(values['equivalence_rule_count']),
+      translationContractCount: evidenceCount(values['translation_contract_count']),
+      transformArtifactCount: evidenceCount(values['transform_artifact_count']),
+      budget,
+    });
+  }
+
+  private mapSemanticBudgetEvidence(
+    budget: Record<string, unknown>,
+  ): Readonly<GraphSemanticBudgetEvidence> | null {
+    if (!hasAnyOwn(budget, SEMANTIC_BUDGET_KEYS)) return null;
+    return Object.freeze({
+      configuredMaxRecordsPerPartition: evidenceCount(
+        budget['configured_max_records_per_partition'],
+      ),
+      maxRecordsPerPartition: evidenceCount(budget['max_records_per_partition']),
+      maxBytesPerPartition: evidenceCount(budget['max_bytes_per_partition']),
+      configurationClamped: evidenceBoolean(budget['configuration_clamped']),
+      truncated: evidenceBoolean(budget['truncated']),
+      truncatedNodeCount: evidenceCount(budget['truncated_node_count']),
+      truncatedEdgeCount: evidenceCount(budget['truncated_edge_count']),
+      unresolvedEdgeCount: evidenceCount(budget['unresolved_edge_count']),
+      semanticNodeBytes: evidenceCount(budget['semantic_node_bytes']),
+      semanticEdgeBytes: evidenceCount(budget['semantic_edge_bytes']),
+      candidateEdgeRecordLimit: evidenceCount(budget['candidate_edge_record_limit']),
+      candidateEdgeByteLimit: evidenceCount(budget['candidate_edge_byte_limit']),
+      candidateEdgeCount: evidenceCount(budget['candidate_edge_count']),
+      candidateEdgeBytes: evidenceCount(budget['candidate_edge_bytes']),
+      truncatedCandidateEdgeCount: evidenceCount(
+        budget['truncated_candidate_edge_count'],
+      ),
+    });
+  }
+
+  private mapArtifactStatusEvidence(
+    raw: unknown,
+  ): Readonly<GraphArtifactStatusEvidence> | null {
+    const stringState = evidenceText(raw);
+    if (stringState) {
+      return Object.freeze({
+        state: stringState,
+        reasonCode: null,
+        knowledgeIndexId: null,
+        manifestPresent: null,
+      });
+    }
+    const status = optionalRecord(raw);
+    if (!status) return null;
+    return Object.freeze({
+      state: evidenceText(status['state']) ?? evidenceText(status['status']),
+      reasonCode: evidenceText(status['reason_code']),
+      knowledgeIndexId: evidenceText(status['knowledge_index_id']),
+      manifestPresent: evidenceBoolean(status['manifest_present']),
+    });
   }
 
   private mapNode(

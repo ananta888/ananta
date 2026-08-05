@@ -103,8 +103,8 @@ describe('GraphToolbarComponent', () => {
 
   it('keeps the loaded-window domain filter accessible independently of visual legends', () => {
     component.domainOptions = [
-      { domainId: 'orders', label: 'Orders', nodeCount: 7 },
-      { domainId: 'billing', label: 'Billing', nodeCount: 4 },
+      { domainId: 'orders', label: 'Orders', nodeCount: 7, visibleNodeCount: 7, color: '#112233' },
+      { domainId: 'billing', label: 'Billing', nodeCount: 4, visibleNodeCount: 2, color: '#445566' },
     ];
     component.domainOpen.set(true);
     fixture.detectChanges();
@@ -117,6 +117,7 @@ describe('GraphToolbarComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Domains im Ausschnitt');
     expect(fixture.nativeElement.textContent).toContain('Orders');
     expect(fixture.nativeElement.textContent).toContain('Billing');
+    expect(fixture.nativeElement.textContent).toContain('2/4');
 
     let emitted: Partial<GraphFilter> | null = null;
     component.filterChange.subscribe(value => (emitted = value));
@@ -135,6 +136,66 @@ describe('GraphToolbarComponent', () => {
 
     expect(emitted).toBe(6);
     expect(fixture.nativeElement.querySelector('[data-testid="graph-neighbourhood-status"]')
-      .textContent).toContain('Knoten wählen');
+      .textContent).toContain('Knoten im Graphen auswählen');
+    expect(fixture.nativeElement.textContent).toContain('1 Hop = eine sichtbare Relation');
+    expect(fixture.nativeElement.textContent).toContain('Such-, Knoten-, Domain- und Relationsfilter');
+  });
+
+  it('shows labelled relation types with visible/window counts and supports local search', () => {
+    component.relationOptions = [
+      {
+        relationType: 'contains_file', label: 'enthält Datei', edgeCount: 12,
+        visibleEdgeCount: 5, color: '#22C55E', semanticState: 'known',
+      },
+      {
+        relationType: 'vendor_link', label: 'Vendor link', edgeCount: 3,
+        visibleEdgeCount: 0, color: '#64748B', semanticState: 'semantically_unknown',
+      },
+    ];
+    component.edgeOpen.set(true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Relationstypen im Ausschnitt');
+    expect(fixture.nativeElement.textContent).toContain('enthält Datei');
+    expect(fixture.nativeElement.textContent).toContain('5/12');
+    expect(fixture.nativeElement.textContent).toContain('roh');
+
+    component.edgeQuery.set('vendor');
+    fixture.detectChanges();
+    expect(component.matchingEdgeTypes()).toEqual(['vendor_link']);
+    expect(fixture.nativeElement.textContent).not.toContain('enthält Datei');
+  });
+
+  it('shows the active anchor and current visible counts in the depth status', () => {
+    component.neighborhoodDepth = 2;
+    component.neighborhoodAnchorLabel = 'Repository';
+    component.visibleNodeCount = 17;
+    component.visibleEdgeCount = 21;
+    fixture.detectChanges();
+
+    const status = fixture.nativeElement.querySelector('[data-testid="graph-neighbourhood-status"]');
+    expect(status.textContent).toContain('Fokus: Repository');
+    expect(status.textContent).toContain('17 Knoten / 21 Relationen');
+    expect(status.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('applies a relation group toggle to the complete group while a search is active', () => {
+    component.relationOptions = [
+      {
+        relationType: 'contains_directory', label: 'enthält Ordner', edgeCount: 4,
+        visibleEdgeCount: 4, color: '#0D9488', semanticState: 'known',
+      },
+      {
+        relationType: 'contains_file', label: 'enthält Datei', edgeCount: 12,
+        visibleEdgeCount: 12, color: '#14B8A6', semanticState: 'known',
+      },
+    ];
+    component.edgeQuery.set('Ordner');
+    const emitted: Partial<GraphFilter>[] = [];
+    component.filterChange.subscribe(value => emitted.push(value));
+
+    component.toggleEdgeGroup(component.edgeGroups[2], false);
+
+    expect(emitted.at(-1)?.edgeTypes).toEqual({ mode: 'none', values: [] });
   });
 });

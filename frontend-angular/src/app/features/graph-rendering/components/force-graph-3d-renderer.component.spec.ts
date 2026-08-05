@@ -164,6 +164,32 @@ describe('ForceGraph3dRendererComponent', () => {
     expect(refresh.mock.calls.length).toBeGreaterThan(refreshCount);
   });
 
+  it('applies node and relation visibility sets to the 3D renderer callbacks', async () => {
+    const fake = forceGraphFake();
+    const factory: ForceGraph3dFactoryPort = {
+      webglAvailable: () => true,
+      create: vi.fn(async () => fake.renderer),
+    };
+    const fixture = await createFixture(factory);
+    fixture.componentRef.setInput('graph', FOCUS_GRAPH);
+    fixture.componentRef.setInput('visibleNodeIds', new Set(['a', 'b']));
+    fixture.componentRef.setInput('visibleEdgeIds', new Set(['ab']));
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
+
+    const nodeVisibility = fake.calls.get('nodeVisibility')!.mock.calls.at(-1)![0] as (
+      node: { id: string },
+    ) => boolean;
+    const linkVisibility = fake.calls.get('linkVisibility')!.mock.calls.at(-1)![0] as (
+      edge: { id: string },
+    ) => boolean;
+
+    expect(nodeVisibility({ id: 'a' })).toBe(true);
+    expect(nodeVisibility({ id: 'c' })).toBe(false);
+    expect(linkVisibility({ id: 'ab' })).toBe(true);
+    expect(linkVisibility({ id: 'bc' })).toBe(false);
+  });
+
   it('keeps shared selection separate from focus and strongly emphasizes focused edges', async () => {
     const fake = forceGraphFake();
     const factory: ForceGraph3dFactoryPort = {

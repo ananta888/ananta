@@ -104,4 +104,34 @@ describe('GraphColorService', () => {
     expect(visual.color).toMatch(/^#[0-9a-fA-F]{6}$/);
     expect(visual.marker).toBeTruthy();
   });
+
+  it('assigns distinct repository-structure colors when no domain identity exists', () => {
+    const service = new GraphColorService();
+    const repository = service.nodeVisual(node({
+      kind: 'repository',
+      rawNodeType: 'repository',
+      knownKind: 'repository',
+    }), DEFAULT_GRAPH_VISUAL_PROFILE);
+    const directory = service.nodeVisual(node({
+      kind: 'directory',
+      rawNodeType: 'directory',
+      knownKind: 'directory',
+    }), DEFAULT_GRAPH_VISUAL_PROFILE);
+
+    expect(repository.color).not.toBe('#64748B');
+    expect(directory.color).not.toBe('#64748B');
+    expect(repository.color).not.toBe(directory.color);
+  });
+
+  it('assigns canonical semantic nodes a non-neutral kind color', () => {
+    const service = new GraphColorService();
+    const semantic = service.nodeVisual(node({
+      kind: 'semantic_node',
+      rawNodeType: 'semantic_node',
+      knownKind: 'semantic_node',
+    }), DEFAULT_GRAPH_VISUAL_PROFILE);
+
+    expect(semantic.color).not.toBe('#64748B');
+    expect(semantic.label).toBe('semantic node');
+  });
 });

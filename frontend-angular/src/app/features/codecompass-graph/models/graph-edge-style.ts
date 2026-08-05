@@ -2,6 +2,8 @@ import { GraphEdgeType } from './graph.model';
 
 const EDGE_COLORS: Partial<Record<GraphEdgeType, string>> = {
   parent_child: '#64748b',
+  contains_directory: '#0D9488',
+  contains_file: '#14B8A6',
   contains_symbol: '#22c55e',
   contains_method: '#16a34a',
   contains_entry: '#84cc16',
@@ -12,11 +14,20 @@ const EDGE_COLORS: Partial<Record<GraphEdgeType, string>> = {
   declares_method: '#2563eb',
   declares_constructor: '#2563eb',
   declares_bean: '#2563eb',
+  declares: '#2563eb',
   controller_endpoint_declares: '#2563eb',
   bean_factory_method: '#2563eb',
   imports_module: '#0891b2',
   imports_symbol: '#06b6d4',
+  imports: '#0891b2',
+  exports: '#06b6d4',
   calls_probable_target: '#dc2626',
+  calls: '#dc2626',
+  reads: '#0d9488',
+  writes: '#ea580c',
+  throws: '#be123c',
+  references: '#7c3aed',
+  uses: '#8b5cf6',
   uses_type: '#7c3aed',
   field_type_uses: '#7c3aed',
   generic_type_uses: '#7c3aed',
@@ -29,6 +40,12 @@ const EDGE_COLORS: Partial<Record<GraphEdgeType, string>> = {
   transactional_boundary: '#ca8a04',
   jpa_relation: '#be123c',
   related: '#94a3b8',
+  maps_to: '#0f766e',
+  equivalent_to: '#14b8a6',
+  requires: '#ca8a04',
+  ensures: '#65a30d',
+  generated_by: '#4f46e5',
+  verified_by: '#16a34a',
 };
 
 export function graphEdgeColor(edgeType: GraphEdgeType | string): string {

@@ -1,4 +1,9 @@
-import { GraphEdgeType, GraphNodeKind } from './graph.model';
+import {
+  GraphEdgeType,
+  GraphNodeKind,
+  SEMANTIC_TRANSLATION_EDGE_TYPES,
+  SEMANTIC_TRANSLATION_NODE_KINDS,
+} from './graph.model';
 
 export type GraphFilterMode = 'all' | 'none' | 'subset';
 
@@ -108,6 +113,10 @@ export const ALL_NODE_KINDS: GraphNodeKind[] = [
   'package_manager',
   'external_package',
   'buildable_component',
+  'repository',
+  'directory',
+  'source_file',
+  ...SEMANTIC_TRANSLATION_NODE_KINDS,
   'aggregator',
   'runner',
   'test',
@@ -119,7 +128,9 @@ export const ALL_EDGE_TYPES: GraphEdgeType[] = [
   'calls_probable_target',
   'child_of_type',
   'child_of_file',
+  'contains_directory',
   'contains_entry',
+  'contains_file',
   'contains_method',
   'contains_section',
   'contains_symbol',
@@ -128,11 +139,9 @@ export const ALL_EDGE_TYPES: GraphEdgeType[] = [
   'declares_constructor',
   'declares_method',
   'declares_bean',
-  'extends',
   'field_type_uses',
   'frontend_guard_refs_field',
   'generic_type_uses',
-  'implements',
   'imports_module',
   'imports_symbol',
   'injects_dependency',
@@ -144,7 +153,6 @@ export const ALL_EDGE_TYPES: GraphEdgeType[] = [
   'parent_child',
   'permission_checks_field',
   'policy_applies_to_field',
-  'returns',
   'uses_type',
   'related',
   'wiki_link',
@@ -157,4 +165,5 @@ export const ALL_EDGE_TYPES: GraphEdgeType[] = [
   'runs',
   'covers',
   'service_uses_repository',
+  ...SEMANTIC_TRANSLATION_EDGE_TYPES,
 ];

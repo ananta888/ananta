@@ -7,6 +7,16 @@ export const LOCAL_GRAPH_TEST_TOKEN = [
 ].join('.');
 
 export const GRAPH_HUB_URL = 'http://127.0.0.1:5000';
+export const GRAPH_PROJECT_ID = 'project-ccgv-e2e';
+export const GRAPH_CONNECTION_ID = 'connection-ccgv-e2e';
+export const GRAPH_KNOWLEDGE_INDEX_ID = 'index-ccgv-e2e';
+export const GRAPH_TOTAL_NODE_COUNT = 12;
+export const GRAPH_TOTAL_EDGE_COUNT = 18;
+export const GRAPH_PARTIAL_TOPOLOGY_WARNING =
+  'The semantic graph reached its configured record budget; the topology is a documented partial view.';
+
+const SOURCE_CONTROL_RESPONSE_SCHEMA = 'ananta.source-control.api-response.v1';
+const SOURCE_CONTROL_PROJECTION_PAGE_SCHEMA = 'ananta.source-control.projection-page.v1';
 
 export type GraphArtifact = {
   schema: 'domain_graph_artifact.v1';
@@ -18,6 +28,8 @@ export type GraphArtifact = {
   nodes: Array<Record<string, unknown>>;
   edges: Array<Record<string, unknown>>;
   warnings: string[];
+  text_alternative: string;
+  artifact_status: Record<string, unknown>;
 };
 
 export const GRAPH_XSS_LABEL = '<img src=x onerror="window.__ccgvXssExecuted=true">';
@@ -140,10 +152,35 @@ export function createFunctionalGraphArtifact(): GraphArtifact {
       graph_revision: 'ccgv-functional-revision-v1',
       node_count: nodes.length,
       edge_count: edges.length,
+      view: 'topology',
+      total_nodes: GRAPH_TOTAL_NODE_COUNT,
+      total_edges: GRAPH_TOTAL_EDGE_COUNT,
+      source_edge_count: GRAPH_TOTAL_EDGE_COUNT,
+      unresolved_edge_count: 1,
+      internal_edge_count: edges.length,
+      edge_capped: false,
+      max_edges: 2_000,
+      semantic_budget: {
+        truncated: true,
+        record_limit: 30,
+        record_count: 30,
+        unresolved_edge_count: 1,
+      },
     },
     nodes,
     edges,
-    warnings: ['Partial metrics are rendered with explicit availability.'],
+    warnings: [
+      'Partial metrics are rendered with explicit availability.',
+      GRAPH_PARTIAL_TOPOLOGY_WARNING,
+    ],
+    text_alternative:
+      `Topology graph window with ${nodes.length} nodes and ${edges.length} edges out of ${GRAPH_TOTAL_NODE_COUNT} nodes.`,
+    artifact_status: {
+      state: 'available',
+      reason_code: null,
+      knowledge_index_id: GRAPH_KNOWLEDGE_INDEX_ID,
+      manifest_present: true,
+    },
   };
 }
 
@@ -166,6 +203,69 @@ async function fulfillJson(route: Route, body: unknown, status = 200): Promise<v
     },
     body: JSON.stringify(body),
   });
+}
+
+function sourceControlEnvelope(data: unknown): Record<string, unknown> {
+  return {
+    schema: SOURCE_CONTROL_RESPONSE_SCHEMA,
+    data,
+  };
+}
+
+function sourceControlConnectionPage(): Record<string, unknown> {
+  return {
+    schema: SOURCE_CONTROL_PROJECTION_PAGE_SCHEMA,
+    items: [
+      {
+        schema: 'ananta.source-control.projection.v1',
+        connection_id: GRAPH_CONNECTION_ID,
+        etag: 'a'.repeat(64),
+        connection: {
+          connection_id: GRAPH_CONNECTION_ID,
+          project_id: GRAPH_PROJECT_ID,
+          display_name: 'CodeCompass functional E2E fixture',
+        },
+        revision: null,
+        admission: null,
+        index: {
+          knowledge_index_id: GRAPH_KNOWLEDGE_INDEX_ID,
+          source_revision_id: 'unverified',
+          status: 'ready',
+        },
+        active_index: {
+          connection_id: GRAPH_CONNECTION_ID,
+          source_revision_id: 'unverified',
+          knowledge_index_id: GRAPH_KNOWLEDGE_INDEX_ID,
+          generation: 1,
+          status: 'active',
+        },
+        stale: false,
+        grants: [],
+        health: { state: 'ready' },
+        next_actions: [],
+      },
+    ],
+    next_cursor: null,
+  };
+}
+
+function hasExpectedConnectionQuery(url: URL): boolean {
+  return ['1', '200'].includes(url.searchParams.get('limit') ?? '')
+    && url.searchParams.get('project_id') === GRAPH_PROJECT_ID;
+}
+
+function hasExpectedGraphQuery(url: URL): boolean {
+  return url.searchParams.get('limit') === '500'
+    && url.searchParams.get('view') === 'topology'
+    && url.searchParams.get('max_edges') === '2000'
+    && url.searchParams.get('project_id') === GRAPH_PROJECT_ID;
+}
+
+async function rejectSourceControlQuery(route: Route): Promise<void> {
+  await fulfillJson(route, {
+    schema: 'ananta.source-control.error.v1',
+    error: { code: 'ccgv_e2e_source_control_query_mismatch' },
+  }, 400);
 }
 
 export async function installLocalGraphIdentity(page: Page): Promise<void> {
@@ -201,23 +301,44 @@ export async function installGraphApiMocks(page: Page, artifact: unknown): Promi
       await route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*' } });
       return;
     }
-    if (pathname === '/api/codecompass/self-graph/domains') {
+    if (request.method() === 'GET' && pathname === '/api/projects') {
       await fulfillJson(route, {
-        data: {
-          domains: [
-            { domain: 'agent.routes', display_name: 'Agent routes', file_count: 2, kind: 'package', depth: 0 },
-            { domain: 'agent.services', display_name: 'Agent services', file_count: 2, kind: 'package', depth: 0 },
-          ],
-        },
+        items: [
+          {
+            id: GRAPH_PROJECT_ID,
+            name: 'CodeCompass E2E',
+            description: 'Deterministic functional graph fixture',
+            status: 'active',
+            is_active: true,
+            origin: 'native',
+            team_id: null,
+            version: 1,
+            created_at: 1,
+            updated_at: 1,
+            archived_at: null,
+          },
+        ],
+        count: 1,
       });
       return;
     }
-    if (pathname === '/api/codecompass/self-graph') {
-      await fulfillJson(route, { data: artifact });
+    if (request.method() === 'GET' && pathname === '/api/source-control/v1/connections') {
+      if (!hasExpectedConnectionQuery(url)) {
+        await rejectSourceControlQuery(route);
+        return;
+      }
+      await fulfillJson(route, sourceControlEnvelope(sourceControlConnectionPage()));
       return;
     }
-    if (pathname === '/knowledge/indexes') {
-      await fulfillJson(route, { data: { items: [] } });
+    if (
+      request.method() === 'GET'
+      && pathname === `/api/source-control/v1/connections/${GRAPH_CONNECTION_ID}/graph`
+    ) {
+      if (!hasExpectedGraphQuery(url)) {
+        await rejectSourceControlQuery(route);
+        return;
+      }
+      await fulfillJson(route, sourceControlEnvelope(artifact));
       return;
     }
     if (pathname === '/api/workers') {
@@ -263,7 +384,14 @@ export async function installGraphApiMocks(page: Page, artifact: unknown): Promi
 }
 
 export async function openGraphInternals(page: Page): Promise<void> {
-  await page.goto('/codehug/internals', { waitUntil: 'domcontentloaded' });
+  // Load the project context before entering Internals. Source Control v1 is
+  // project-bound and its interceptor deliberately rejects a missing context
+  // before any HTTP request can be issued.
+  await page.goto(`/codehug?projectId=${encodeURIComponent(GRAPH_PROJECT_ID)}`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await expect(page.locator('#global-project-select')).toHaveValue(GRAPH_PROJECT_ID);
+  await page.locator('ch-shell a[href="/codehug/internals"]').click();
   await expect(page.getByTestId('codecompass-graph-viewer')).toBeVisible();
   await expect(page.locator('app-simple-graph-view')).toBeVisible();
 }
@@ -284,7 +412,10 @@ export function trackHttpRequests(page: Page): HttpRequestTracker {
     allSince: mark => requests.slice(mark),
     graphSince: mark => requests.slice(mark).filter(url => {
       const path = new URL(url).pathname;
-      return path.startsWith('/api/codecompass/') || path === '/knowledge/indexes';
+      return path === '/api/source-control/v1/connections'
+        || path === `/api/source-control/v1/connections/${GRAPH_CONNECTION_ID}/graph`
+        || path.startsWith('/api/codecompass/')
+        || path === '/knowledge/indexes';
     }),
   };
 }

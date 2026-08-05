@@ -19,6 +19,8 @@ import { GraphColorService } from '../../services/graph-color.service';
 import { GraphDomainLegendComponent } from '../graph-legend/graph-domain-legend.component';
 import { GraphEdgeLegendComponent } from '../graph-legend/graph-edge-legend.component';
 import { GraphVisualSettingsComponent } from '../graph-visual-settings/graph-visual-settings.component';
+import { GraphViewportStatusComponent } from '../graph-viewport-status/graph-viewport-status.component';
+import { GraphViewportSummaryService } from '../../services/graph-viewport-summary.service';
 import {
   presentDomainLegend,
   presentEdgeWidthLegend,
@@ -42,6 +44,7 @@ import {
     GraphDomainLegendComponent,
     GraphEdgeLegendComponent,
     GraphVisualSettingsComponent,
+    GraphViewportStatusComponent,
 ],
   template: `
     <div class="gv-shell" data-testid="codecompass-graph-viewer">
@@ -52,8 +55,11 @@ import {
         [nodeKinds]="state.nodeKindInventory()"
         [edgeTypes]="state.edgeTypeInventory()"
         [domainOptions]="domainFilterOptions()"
+        [relationOptions]="relationFilterOptions()"
         [neighborhoodDepth]="state.focusHopDepth()"
         [neighborhoodAnchorLabel]="state.focusNodeLabel()"
+        [visibleNodeCount]="state.filteredNodes().length"
+        [visibleEdgeCount]="state.filteredEdges().length"
         [webglAvailable]="webglAvailable"
         (viewModeChange)="setViewMode($event)"
         (layoutModeChange)="layoutMode = $event"
@@ -62,14 +68,7 @@ import {
         (neighborhoodDepthChange)="state.setNeighborhoodDepth($event)"
       />
 
-      @if (graphWindowInfo(); as window) {
-        <div class="gv-window-info" data-testid="graph-window-info">
-          <strong>Geladener Topologie-Ausschnitt:</strong>
-          {{ window.loadedNodes }} von {{ window.totalNodes }} Knoten ·
-          {{ window.loadedEdges }} interne Kanten von {{ window.totalEdges }} insgesamt.
-          Filter und Verknüpfungstiefe wirken innerhalb dieses Ausschnitts.
-        </div>
-      }
+      <app-graph-viewport-status [summary]="viewportSummary()" />
 
       <div class="gv-visual-controls" aria-label="Graphvisualisierung">
         @if (profiles.activeProfile().legend.showDomains) {
@@ -184,26 +183,16 @@ import {
         }
       </div>
 
-      @if (graph?.warnings?.length) {
-        <div class="gv-warnings">
-          @for (w of graph!.warnings; track w) {
-            <p class="warning-msg">⚠ {{ w }}</p>
-          }
-        </div>
-      }
     </div>
   `,
   styles: [`
     :host { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-    .gv-shell { display: flex; flex-direction: column; flex: 1; min-height: 0; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
-    .gv-window-info { padding: .35rem .65rem; border-bottom: 1px solid #bae6fd; background: #f0f9ff; color: #0c4a6e; font-size: .75rem; line-height: 1.35; }
-    .gv-visual-controls { display: flex; justify-content: flex-end; align-items: center; gap: .35rem; padding: .25rem .55rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
+    .gv-shell { display: flex; flex-direction: column; flex: 1; min-height: 0; border: 1px solid var(--border); border-radius: var(--radius-control); overflow: hidden; }
+    .gv-visual-controls { display: flex; justify-content: flex-end; align-items: center; gap: .35rem; padding: .25rem .55rem; background: var(--surface-soft); border-bottom: 1px solid var(--border); flex-shrink: 0; }
     .gv-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
     .gv-renderer { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
-    .gv-detail { width: 320px; border-left: 1px solid #e2e8f0; overflow-y: auto; background: #fafafa; flex-shrink: 0; }
+    .gv-detail { width: 320px; border-left: 1px solid var(--border); overflow-y: auto; background: var(--surface-soft); flex-shrink: 0; }
     .gv-diff3 { width: 480px; border-left: 1px solid #30363d; flex-shrink: 0; overflow: hidden; display: flex; flex-direction: column; }
-    .gv-warnings { padding: .5rem .75rem; background: #fef9c3; border-top: 1px solid #fde68a; flex-shrink: 0; }
-    .warning-msg { margin: 0; font-size: .8rem; color: #92400e; }
   `],
 })
 export class GraphViewerComponent implements OnChanges, OnInit {
@@ -216,6 +205,7 @@ export class GraphViewerComponent implements OnChanges, OnInit {
   private readonly router  = inject(Router);
   private readonly projection = inject(GraphVisualProjectionService);
   private readonly colors = inject(GraphColorService);
+  private readonly viewportSummaries = inject(GraphViewportSummaryService);
 
   readonly diff3File = signal<string | null>(null);
   readonly wikiNode  = signal<{id: string; label: string} | null>(null);
@@ -282,22 +272,25 @@ export class GraphViewerComponent implements OnChanges, OnInit {
     domainId: entry.domainId,
     label: entry.label,
     nodeCount: entry.totalNodes,
+    visibleNodeCount: entry.visibleNodes,
+    color: entry.color,
   })));
-  readonly graphWindowInfo = computed(() => {
+  readonly relationFilterOptions = computed(() => this.edgeLegend().map(entry => ({
+    relationType: entry.rawEdgeType,
+    label: entry.label,
+    edgeCount: entry.totalEdges,
+    visibleEdgeCount: entry.visibleEdges,
+    color: entry.color,
+    semanticState: entry.semanticState,
+  })));
+  readonly viewportSummary = computed(() => {
     const graph = this.state.graph();
     if (!graph) return null;
-    const totalNodes = this.metadataCount(graph.metadata['total_nodes']);
-    const totalEdges = this.metadataCount(graph.metadata['total_edges']);
-    const topologyView = graph.metadata['view'] === 'topology';
-    if (!topologyView && totalNodes <= graph.nodes.length && totalEdges <= graph.edges.length) {
-      return null;
-    }
-    return {
-      loadedNodes: graph.nodes.length.toLocaleString('de-DE'),
-      totalNodes: Math.max(totalNodes, graph.nodes.length).toLocaleString('de-DE'),
-      loadedEdges: graph.edges.length.toLocaleString('de-DE'),
-      totalEdges: Math.max(totalEdges, graph.edges.length).toLocaleString('de-DE'),
-    };
+    return this.viewportSummaries.project(
+      graph,
+      this.visibleNodeIds(),
+      this.visibleEdgeIds(),
+    );
   });
   readonly highlightedNodeIds = computed<ReadonlySet<string>>(() => {
     const domainId = this.state.hoveredDomainId();
@@ -391,10 +384,5 @@ export class GraphViewerComponent implements OnChanges, OnInit {
       this.domainLegendOpen.set(false);
       this.edgeLegendOpen.set(false);
     }
-  }
-
-  private metadataCount(value: unknown): number {
-    const count = Number(value);
-    return Number.isFinite(count) && count >= 0 ? Math.floor(count) : 0;
   }
 }
