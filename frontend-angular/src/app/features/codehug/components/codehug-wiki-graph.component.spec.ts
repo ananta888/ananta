@@ -213,7 +213,77 @@ describe('CodehugWikiGraphComponent', () => {
     );
   });
 
-  it('merges the paged domain inventory deterministically by key', () => {
+  it('cancels an automatically requested next inventory page when the connection changes', () => {
+    const staleNextPage = new Subject<CodeCompassGraphInventoryPage>();
+    service.listKnowledgeIndexes.mockReturnValue(of([
+      { id: 'conn-old', knowledge_index_id: 'index-old' },
+      { id: 'conn-new', knowledge_index_id: 'index-new' },
+    ]));
+    service.getCodeCompassGraph.mockImplementation((connectionId: string) => of(
+      codeGraph(connectionId === 'conn-old' ? 'revision-old' : 'revision-new'),
+    ));
+    service.getCodeCompassGraphInventory
+      .mockReturnValueOnce(of(inventoryPage({
+        domains: [{
+          key: 'domain:old',
+          label: 'Old',
+          parentKey: null,
+          depth: 0,
+          directNodeCount: 1,
+          subtreeNodeCount: 1,
+          hasChildren: false,
+          source: 'domain_id',
+          path: 'old',
+        }],
+        nextCursor: 'inventory:old:1',
+        totalDomains: 2,
+        graphRevision: 'revision-old',
+      })))
+      .mockReturnValueOnce(staleNextPage)
+      .mockReturnValueOnce(of(inventoryPage({
+        domains: [{
+          key: 'domain:new',
+          label: 'New',
+          parentKey: null,
+          depth: 0,
+          directNodeCount: 1,
+          subtreeNodeCount: 1,
+          hasChildren: false,
+          source: 'domain_id',
+          path: 'new',
+        }],
+        totalDomains: 1,
+        graphRevision: 'revision-new',
+      })));
+
+    const fixture = TestBed.createComponent(CodehugWikiGraphComponent);
+    fixture.detectChanges();
+    expect(staleNextPage.observed).toBe(true);
+
+    fixture.componentInstance.changeSource('conn-new');
+    staleNextPage.next(inventoryPage({
+      totalDomains: 2,
+      graphRevision: 'revision-old',
+    }));
+
+    expect(staleNextPage.observed).toBe(false);
+    expect(service.getCodeCompassGraphInventory).toHaveBeenNthCalledWith(
+      2,
+      'conn-old',
+      'inventory:old:1',
+    );
+    expect(service.getCodeCompassGraphInventory).toHaveBeenNthCalledWith(
+      3,
+      'conn-new',
+      undefined,
+    );
+    expect(fixture.componentInstance.graphDomains().map(domain => domain.key)).toEqual([
+      'domain:new',
+    ]);
+    expect(fixture.componentInstance.graphInventoryRevision()).toBe('revision-new');
+  });
+
+  it('loads every domain page automatically and merges facets deterministically by key', () => {
     service.listKnowledgeIndexes.mockReturnValue(of([{
       id: 'conn-example',
       knowledge_index_id: 'index-example',
@@ -269,7 +339,6 @@ describe('CodehugWikiGraphComponent', () => {
 
     const fixture = TestBed.createComponent(CodehugWikiGraphComponent);
     fixture.detectChanges();
-    fixture.componentInstance.loadMoreGraphDomains();
 
     expect(service.getCodeCompassGraphInventory).toHaveBeenNthCalledWith(
       2,
@@ -284,6 +353,101 @@ describe('CodehugWikiGraphComponent', () => {
     expect(fixture.componentInstance.graphDomainTotal()).toBe(2);
     expect(fixture.componentInstance.graphInventoryNodeTotal()).toBe(30);
     expect(fixture.componentInstance.graphInventoryEdgeTotal()).toBe(50);
+    expect(fixture.componentInstance.graphDomainLoading()).toBe(false);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Domain-Inventar: 2 / 2 Bereiche geladen',
+    );
+  });
+
+  it('stops automatic inventory paging when the server repeats a cursor', () => {
+    service.listKnowledgeIndexes.mockReturnValue(of([{
+      id: 'conn-example',
+      knowledge_index_id: 'index-example',
+    }]));
+    service.getCodeCompassGraphInventory
+      .mockReturnValueOnce(of(inventoryPage({
+        domains: [{
+          key: 'domain:frontend',
+          label: 'Frontend',
+          parentKey: null,
+          depth: 0,
+          directNodeCount: 4,
+          subtreeNodeCount: 4,
+          hasChildren: false,
+          source: 'domain_id',
+          path: 'frontend',
+        }],
+        nextCursor: 'inventory:repeated',
+        totalDomains: 3,
+      })))
+      .mockReturnValueOnce(of(inventoryPage({
+        domains: [{
+          key: 'domain:backend',
+          label: 'Backend',
+          parentKey: null,
+          depth: 0,
+          directNodeCount: 5,
+          subtreeNodeCount: 5,
+          hasChildren: false,
+          source: 'domain_id',
+          path: 'backend',
+        }],
+        nextCursor: 'inventory:repeated',
+        totalDomains: 3,
+      })))
+      .mockReturnValueOnce(of(inventoryPage({
+        domains: [
+          {
+            key: 'domain:frontend',
+            label: 'Frontend',
+            parentKey: null,
+            depth: 0,
+            directNodeCount: 4,
+            subtreeNodeCount: 4,
+            hasChildren: false,
+            source: 'domain_id',
+            path: 'frontend',
+          },
+          {
+            key: 'domain:backend',
+            label: 'Backend',
+            parentKey: null,
+            depth: 0,
+            directNodeCount: 5,
+            subtreeNodeCount: 5,
+            hasChildren: false,
+            source: 'domain_id',
+            path: 'backend',
+          },
+        ],
+        totalDomains: 2,
+      })));
+
+    const fixture = TestBed.createComponent(CodehugWikiGraphComponent);
+    fixture.detectChanges();
+
+    expect(service.getCodeCompassGraphInventory).toHaveBeenCalledTimes(2);
+    expect(fixture.componentInstance.graphDomains().map(domain => domain.key)).toEqual([
+      'domain:frontend',
+      'domain:backend',
+    ]);
+    expect(fixture.componentInstance.graphDomainLoading()).toBe(false);
+    expect(fixture.componentInstance.graphDomainNextCursor()).toBeNull();
+    expect(fixture.componentInstance.graphDomainError()).toContain(
+      'bereits verwendeten Cursor wiederholt',
+    );
+    fixture.detectChanges();
+    const retryButton = [...fixture.nativeElement.querySelectorAll('button')]
+      .find((button: HTMLButtonElement) => button.textContent?.includes('Inventar erneut laden'));
+    expect(retryButton).toBeDefined();
+
+    retryButton!.click();
+
+    expect(service.getCodeCompassGraphInventory).toHaveBeenCalledTimes(3);
+    expect(fixture.componentInstance.graphDomainError()).toBe('');
+    expect(fixture.componentInstance.graphDomainTotal()).toBe(2);
+    expect(fixture.componentInstance.graphDomains()).toHaveLength(2);
   });
 
   it('reloads a selected domain with and without its subdomains', () => {
@@ -488,6 +652,8 @@ describe('CodehugWikiGraphComponent', () => {
       global_source_edge_count: 9,
       global_total_edges: 5,
       global_unresolved_edge_count: 4,
+      window_domain_group_count: 3,
+      scope_domain_group_count: 8,
     });
     service.getCodeCompassGraph.mockReturnValue(of(graph));
     service.getCodeCompassGraphInventory.mockReturnValue(of(inventoryPage()));
@@ -501,6 +667,8 @@ describe('CodehugWikiGraphComponent', () => {
       .toContain('9 Quellrelationen');
     expect(fixture.nativeElement.querySelector('.ch-graph-info')?.textContent)
       .toContain('4 derzeit nicht renderbar');
+    expect(fixture.nativeElement.querySelector('.ch-graph-info')?.textContent)
+      .toContain('Bereiche im Fenster: 3 / 8');
   });
 
   it('cancels stale wiki status when the active source changes', () => {

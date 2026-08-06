@@ -135,7 +135,7 @@ import {
             }
             @case ('3d') {
               <app-graph-3d-view
-                [graph]="state.graph()"
+                [graph]="state.filteredGraph()"
                 [interactionContextKey]="graphInteractionContextKey"
                 [visualProjection]="visualProjection()"
                 [visibleNodeIds]="visibleNodeIds()"

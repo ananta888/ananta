@@ -59,6 +59,22 @@ describe('GraphViewerComponent', () => {
     expect(view3d).toBeTruthy();
   });
 
+  it('removes filtered nodes from the physical 3d simulation graph', () => {
+    fixture.componentRef.setInput('rawGraphData', MOCK_DOMAIN_GRAPH_ARTIFACT);
+    fixture.detectChanges();
+    state.setViewMode('3d');
+    const hiddenDomain = state.domainInventory()[0];
+    state.setDomainVisible(hiddenDomain, false);
+    fixture.detectChanges();
+
+    const view = fixture.debugElement.query(By.directive(Graph3dViewComponent))
+      .componentInstance as Graph3dViewComponent;
+
+    expect(view.graph?.nodes.length).toBe(state.filteredNodes().length);
+    expect(view.graph?.edges.length).toBe(state.filteredEdges().length);
+    expect(view.graph?.nodes.length).toBeLessThan(state.graph()!.nodes.length);
+  });
+
   it('shows detail panel when a node is selected', () => {
     fixture.componentRef.setInput('rawGraphData', MOCK_DOMAIN_GRAPH_ARTIFACT);
     fixture.detectChanges();

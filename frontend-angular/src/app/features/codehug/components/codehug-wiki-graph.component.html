@@ -29,13 +29,16 @@
       <option [value]="strategy.id">{{ strategy.label }}</option>
     }
   </select>
-  @if (graphDomainNextCursor()) {
-    <button class="ch-btn" [disabled]="graphDomainLoading()" (click)="loadMoreGraphDomains()">
-      Weitere Bereiche
+  @if (graphDomainLoading() || graphInventoryRevision() || graphDomainError()) {
+    <span class="ch-lbl muted">{{ graphDomainInventoryProgress() }}</span>
+  }
+  @if (graphDomainError()) {
+    <span class="ch-lbl ch-error">{{ graphDomainError() }}</span>
+    <button class="ch-btn ch-btn-xs" [disabled]="graphDomainLoading()"
+            (click)="retryGraphDomainInventory()">
+      Inventar erneut laden
     </button>
   }
-  @if (graphDomainLoading()) { <span class="ch-lbl muted">Bereiche…</span> }
-  @if (graphDomainError()) { <span class="ch-lbl ch-error">{{ graphDomainError() }}</span> }
   @if (selectedConnectionId() && status()?.status === 'ready') {
     @for (entry of [
       { mode: 'hubs', label: 'Hub-Artikel', values: hubDomains() },
@@ -81,6 +84,11 @@
     </span>
     @if (selectedGraphDomain()) {
       <span>Scope: {{ metadata()!['domain_scope_label'] || 'Domain' }}</span>
+    }
+    @if (graphDomainWindowStats(); as domainStats) {
+      <span>
+        Bereiche im Fenster: {{ domainStats.windowCount }} / {{ domainStats.scopeCount }}
+      </span>
     }
     @if (scopeBoundaryEdgeCount()) {
       <span>{{ scopeBoundaryEdgeCount() }} Kanten überqueren die Scope-Grenze</span>

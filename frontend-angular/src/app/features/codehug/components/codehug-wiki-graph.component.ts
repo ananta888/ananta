@@ -1,10 +1,13 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { Subject, Subscription, of } from 'rxjs';
-import { debounceTime, distinctUntilChanged, map, switchMap } from 'rxjs/operators';
+import { EMPTY, Subject, Subscription, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, expand, map, switchMap } from 'rxjs/operators';
 
 import { GraphViewerComponent } from '../../codecompass-graph/components/graph-viewer/graph-viewer.component';
 import { InternalsService } from '../services/internals.service';
-import type { CodeCompassGraphDomainFacet } from '../services/internals.service';
+import type {
+  CodeCompassGraphDomainFacet,
+  CodeCompassGraphInventoryPage,
+} from '../services/internals.service';
 
 type GraphLoadStrategyId = 'fast' | 'balanced' | 'detail';
 
@@ -23,6 +26,53 @@ const GRAPH_LOAD_STRATEGIES: readonly GraphLoadStrategy[] = Object.freeze([
 
 const MAX_GRAPH_WINDOW_NODES = 500;
 const MAX_GRAPH_WINDOW_EDGES = 2_000;
+
+type GraphDomainCursorInvalidReason =
+  | 'cursor_repeated'
+  | 'cursor_without_progress'
+  | 'cursor_after_total'
+  | 'terminal_before_total'
+  | 'loaded_exceeds_total';
+
+type GraphDomainCursorDecision =
+  | { readonly kind: 'complete' }
+  | { readonly kind: 'next'; readonly cursor: string }
+  | {
+      readonly kind: 'invalid';
+      readonly reason: GraphDomainCursorInvalidReason;
+    };
+
+/** Validates cursor progress independently from component and transport state. */
+class GraphDomainInventoryCursorGuard {
+  private readonly requestedCursors = new Set<string>();
+  private previousLoadedCount = 0;
+
+  decide(
+    page: CodeCompassGraphInventoryPage,
+    loadedCount: number,
+  ): GraphDomainCursorDecision {
+    if (loadedCount > page.totalDomains) {
+      return { kind: 'invalid', reason: 'loaded_exceeds_total' };
+    }
+    if (page.nextCursor === null) {
+      return loadedCount === page.totalDomains
+        ? { kind: 'complete' }
+        : { kind: 'invalid', reason: 'terminal_before_total' };
+    }
+    if (this.requestedCursors.has(page.nextCursor)) {
+      return { kind: 'invalid', reason: 'cursor_repeated' };
+    }
+    if (loadedCount <= this.previousLoadedCount) {
+      return { kind: 'invalid', reason: 'cursor_without_progress' };
+    }
+    if (loadedCount >= page.totalDomains) {
+      return { kind: 'invalid', reason: 'cursor_after_total' };
+    }
+    this.previousLoadedCount = loadedCount;
+    this.requestedCursors.add(page.nextCursor);
+    return { kind: 'next', cursor: page.nextCursor };
+  }
+}
 
 /** One replaceable async operation with an explicit stale-response boundary. */
 class WikiOperationSlot {
@@ -79,13 +129,13 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   private readonly searchRequests = new Subject<string>();
   private indexSubscription: Subscription | null = null;
   private graphSubscription: Subscription | null = null;
-  private inventorySubscription: Subscription | null = null;
   private wikiSubscriptions = new Subscription();
   private initializedWikiIndexId = '';
   private pendingInventoryRevision = '';
   private inventoryLoaded = false;
   private revisionRecoveryAttempted = false;
   private readonly wikiStatusOperation = new WikiOperationSlot();
+  private readonly graphDomainInventoryOperation = new WikiOperationSlot();
   private readonly wikiDomainStatusBootstrapOperation = new WikiOperationSlot();
   private readonly wikiBuildOperation = new WikiOperationSlot();
   private readonly wikiDomainBuildOperations = new Map<string, WikiOperationSlot>();
@@ -113,6 +163,17 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   readonly confirmedNodeLimit = signal(0);
   readonly codeGraphRevision = signal('');
   readonly graphInventoryRevision = signal('');
+  readonly graphDomainInventoryProgress = computed(() => {
+    const loaded = this.graphDomains().length;
+    const total = this.graphDomainTotal();
+    const totalLabel = total > 0 || this.graphInventoryRevision()
+      ? String(total)
+      : 'unbekannt';
+    const loadingLabel = this.graphDomainLoading()
+      ? ' · weitere Seiten werden automatisch geladen…'
+      : '';
+    return `Domain-Inventar: ${loaded} / ${totalLabel} Bereiche geladen${loadingLabel}`;
+  });
   readonly loadStrategies = GRAPH_LOAD_STRATEGIES;
   readonly selectedIndex = computed(
     () => this.indexes().find(index => index.id === this.selectedConnectionId()) ?? null,
@@ -140,6 +201,13 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   readonly scopeBoundaryEdgeCount = computed(() => this.metadataCount(
     'scope_boundary_edge_count',
   ));
+  readonly graphDomainWindowStats = computed(() => {
+    const windowCount = this.metadataCountOrNull('window_domain_group_count');
+    const scopeCount = this.metadataCountOrNull('scope_domain_group_count');
+    return windowCount === null || scopeCount === null
+      ? null
+      : { windowCount, scopeCount };
+  });
   readonly activeGraphLoadStep = computed(() => Math.max(
     1,
     this.activeLoadStrategy().stepNodes || 100,
@@ -191,7 +259,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.indexSubscription?.unsubscribe();
     this.graphSubscription?.unsubscribe();
-    this.inventorySubscription?.unsubscribe();
+    this.graphDomainInventoryOperation.cancel();
     this.cancelWikiContext();
     this.searchRequests.complete();
   }
@@ -307,10 +375,9 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     this.loadGraph();
   }
 
-  loadMoreGraphDomains(): void {
-    if (this.graphDomainNextCursor() && !this.graphDomainLoading()) {
-      this.loadGraphDomainInventory(false);
-    }
+  retryGraphDomainInventory(): void {
+    if (!this.selectedConnectionId() || this.graphDomainLoading()) return;
+    this.loadGraphDomainInventory(this.codeGraphRevision());
   }
 
   graphDomainOptionLabel(domain: CodeCompassGraphDomainFacet): string {
@@ -483,24 +550,52 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     this.wikiSubscriptions.add(searchSubscription);
   }
 
-  private loadGraphDomainInventory(reset: boolean, expectedRevision = this.codeGraphRevision()): void {
+  private loadGraphDomainInventory(expectedRevision = this.codeGraphRevision()): void {
     const connectionId = this.selectedConnectionId();
     if (!connectionId) return;
-    const cursor = reset ? undefined : this.graphDomainNextCursor() ?? undefined;
-    if (!reset && !cursor) return;
-    this.inventorySubscription?.unsubscribe();
-    if (reset) {
-      this.clearGraphInventoryState(false);
-    }
+    const generation = this.graphDomainInventoryOperation.restart();
+    const cursorGuard = new GraphDomainInventoryCursorGuard();
+    let paginationCompleted = false;
+    let paginationInvalid = false;
+    this.clearGraphInventoryState(false);
     this.pendingInventoryRevision = expectedRevision;
     this.graphDomainLoading.set(true);
     this.graphDomainError.set('');
-    this.inventorySubscription = this.service.getCodeCompassGraphInventory(
+    const request = this.service.getCodeCompassGraphInventory(
       connectionId,
-      cursor,
+      undefined,
+    ).pipe(
+      expand(page => {
+        if (
+          !this.graphDomainInventoryOperation.isCurrent(generation)
+          || this.selectedConnectionId() !== connectionId
+          || paginationInvalid
+        ) {
+          return EMPTY;
+        }
+        const decision = cursorGuard.decide(page, this.graphDomains().length);
+        if (decision.kind === 'complete') {
+          paginationCompleted = true;
+          return EMPTY;
+        }
+        if (decision.kind === 'invalid') {
+          paginationInvalid = true;
+          this.graphDomainNextCursor.set(null);
+          this.graphDomainError.set(this.graphDomainPaginationError(
+            decision.reason,
+            this.graphDomains().length,
+            this.graphDomainTotal(),
+          ));
+          return EMPTY;
+        }
+        return this.service.getCodeCompassGraphInventory(connectionId, decision.cursor);
+      }),
     ).subscribe({
       next: page => {
-        if (this.selectedConnectionId() !== connectionId) return;
+        if (
+          !this.graphDomainInventoryOperation.isCurrent(generation)
+          || this.selectedConnectionId() !== connectionId
+        ) return;
         if (
           expectedRevision
           && this.codeGraphRevision()
@@ -508,17 +603,16 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
         ) {
           return;
         }
-        const existingRevision = reset ? '' : this.graphInventoryRevision();
+        const existingRevision = this.graphInventoryRevision();
         if (
           (expectedRevision && page.graphRevision !== expectedRevision)
           || (existingRevision && page.graphRevision !== existingRevision)
         ) {
+          paginationInvalid = true;
           this.handleGraphRevisionMismatch(connectionId, expectedRevision, page.graphRevision);
           return;
         }
-        const combined = reset
-          ? [...page.domains]
-          : [...this.graphDomains(), ...page.domains];
+        const combined = [...this.graphDomains(), ...page.domains];
         const byKey = new Map(combined.map(domain => [domain.key, domain]));
         this.graphDomains.set([...byKey.values()]);
         this.graphDomainNextCursor.set(page.nextCursor);
@@ -526,22 +620,36 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
         this.graphInventoryNodeTotal.set(page.totalNodes);
         this.graphInventoryEdgeTotal.set(page.totalEdges);
         this.graphInventoryRevision.set(page.graphRevision);
-        this.pendingInventoryRevision = '';
-        this.inventoryLoaded = true;
-        this.revisionRecoveryAttempted = false;
-        this.graphDomainLoading.set(false);
       },
       error: () => {
-        if (this.selectedConnectionId() !== connectionId) return;
+        if (
+          !this.graphDomainInventoryOperation.isCurrent(generation)
+          || this.selectedConnectionId() !== connectionId
+        ) return;
         this.pendingInventoryRevision = '';
         this.graphDomainLoading.set(false);
+        this.inventoryLoaded = false;
+        this.graphDomainNextCursor.set(null);
         this.graphDomainError.set(
-          cursor
+          this.graphDomains().length
             ? 'Weitere Domains konnten nicht geladen werden; der bereits bestätigte Inventarstand bleibt erhalten.'
             : 'Domain-Inventar konnte nicht vertragskonform geladen werden.',
         );
       },
+      complete: () => {
+        if (
+          !this.graphDomainInventoryOperation.isCurrent(generation)
+          || this.selectedConnectionId() !== connectionId
+        ) return;
+        this.pendingInventoryRevision = '';
+        this.graphDomainLoading.set(false);
+        this.inventoryLoaded = paginationCompleted && !paginationInvalid;
+        if (this.inventoryLoaded) {
+          this.revisionRecoveryAttempted = false;
+        }
+      },
     });
+    this.graphDomainInventoryOperation.replaceRequest(generation, request);
   }
 
   private ensureGraphDomainInventory(connectionId: string, graphRevision: string): void {
@@ -553,7 +661,20 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.graphDomainLoading() && this.pendingInventoryRevision === graphRevision) return;
-    this.loadGraphDomainInventory(true, graphRevision);
+    this.loadGraphDomainInventory(graphRevision);
+  }
+
+  private graphDomainPaginationError(
+    reason: GraphDomainCursorInvalidReason,
+    loaded: number,
+    total: number,
+  ): string {
+    const cause = reason === 'cursor_repeated'
+      ? 'der Server einen bereits verwendeten Cursor wiederholt hat'
+      : reason === 'cursor_without_progress'
+        ? 'eine weitere Seite keine neuen Bereiche geliefert hat'
+        : 'Seitencursor und Gesamtzahl nicht zusammenpassen';
+    return `Domain-Inventar unvollständig: ${cause} (${loaded} / ${total} Bereiche geladen).`;
   }
 
   private handleGraphRevisionMismatch(
@@ -672,7 +793,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   }
 
   private clearGraphInventoryState(cancelRequest = true): void {
-    if (cancelRequest) this.inventorySubscription?.unsubscribe();
+    if (cancelRequest) this.graphDomainInventoryOperation.cancel();
     this.graphDomains.set([]);
     this.graphDomainNextCursor.set(null);
     this.graphDomainTotal.set(0);
