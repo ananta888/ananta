@@ -87,7 +87,7 @@ three additive read modes on
 | View | Purpose |
 |---|---|
 | `inventory` | Lightweight, paginated domain/subdomain hierarchy and exact graph totals. |
-| `topology` | Connected visualization window, optionally selected by an opaque domain key. |
+| `topology` | Domain-balanced visualization window, optionally selected by an opaque domain key. |
 | `staged` | Lossless, revision-bound pages; `stage=nodes` and `stage=edges` are paged separately so cross-page edges are retained. |
 
 The existing `default` and `topology` calls remain compatible. Optional
@@ -98,6 +98,10 @@ unassigned nodes remain a visible inventory facet. Scope keys are opaque and
 must only be reused with the connection/index revision that issued them.
 
 Domain and relation inventories are bounded and independently cursor-paged.
+The Angular surface follows the domain cursor automatically to completion and
+shows loaded/total progress. A repeated or non-progressing cursor stops the
+sequence visibly instead of looping or presenting a partial hierarchy as
+complete.
 Inventory and staged cursors bind the graph revision, scope digest and stage.
 An index change fails a continuation as stale instead of mixing revisions; a
 scope or stage change fails closed as a cursor-scope mismatch. Delivery
@@ -113,11 +117,25 @@ digests and global parallel-edge identities are computed once per bounded
 cached snapshot, not once per continuation page.
 
 The Angular viewer starts with 100 nodes and at most 400 edges. Users can pick
-an explicit 250-node or 500-node strategy and expand the connected window in
-bounded steps. The UI always reports full-index, selected-scope, loaded-window
-and visible counts. Reaching the 500-node visualization budget does not imply
-that the remaining records disappeared: their count stays visible, the domain
-tree can narrow the server scope, and the staged API remains lossless.
+an explicit 250-node or 500-node strategy and expand the window in bounded
+steps. A global window is partitioned by top-level domain; a selected domain is
+partitioned by its direct subdomains. The deterministic selector gives every
+non-empty partition one representative before it gives any partition a second
+node, subject to the requested budget. Consequently 100-, 250-, and 500-node
+windows are nested prefixes without allowing one high-degree directory to
+consume the whole project window. The response reports represented/total
+domain groups alongside full-index, selected-scope, loaded-window and visible
+counts. Edge ordering is bound to the full node ranking: edges activate when
+their later-ranked endpoint enters the window, so expanding both node and edge
+budgets cannot make an already visible relation disappear.
+
+Reaching the 500-node visualization budget does not imply that the remaining
+records disappeared: their count stays visible, the domain tree can narrow the
+server scope, and the staged API retains every record of the admitted graph.
+This delivery guarantee is deliberately separate from Worker materialization:
+if the semantic translation budget reports truncation, the admitted graph is
+itself a documented partial semantic graph and must not be described as
+end-to-end lossless.
 Untrusted domain values are bounded to 4,096 characters, 255 characters per
 segment, 64 hierarchy levels and a fixed expanded-prefix budget. Values beyond
 those limits remain visible in the `unassigned` scope instead of allocating an
@@ -376,6 +394,12 @@ Legend toggles and the toolbar update the same viewer-local filter state. Hover
 is a temporary highlight layer and never changes filters or base scores.
 Hidden entries remain in the inventory with a visible count of zero so they can
 be enabled again without a backend request.
+
+The 3D renderer receives the filtered graph as its physical simulation input.
+Hidden domains, relation types, node kinds, search results, and out-of-depth
+nodes therefore no longer exert invisible forces on the visible layout. The
+viewer retains the complete loaded window separately, so filters remain
+reversible without another server request.
 
 ## Renderer capability matrix
 
