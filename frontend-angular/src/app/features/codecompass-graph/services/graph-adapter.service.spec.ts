@@ -283,6 +283,7 @@ describe('GraphAdapterService', () => {
         total_edges: -1,
         source_edge_count: Number.POSITIVE_INFINITY,
         internal_edge_count: 1.5,
+        scope_unresolved_edge_count: -2,
         edge_capped: 'false',
         semantic_budget: {
           truncated: 'true',
@@ -307,6 +308,7 @@ describe('GraphAdapterService', () => {
       totalEdges: null,
       sourceEdges: null,
       internalEdges: null,
+      scopeUnresolvedEdges: null,
       edgeCapped: null,
     });
     expect(invalid.evidence?.semanticTranslation).toMatchObject({
@@ -629,6 +631,7 @@ describe('GraphAdapterService', () => {
         global_total_edges: 900,
         scope_total_nodes: 40,
         scope_boundary_edge_count: 11,
+        scope_unresolved_edge_count: 4,
         remaining_nodes: 15,
         delivery_complete: false,
       },
@@ -641,6 +644,7 @@ describe('GraphAdapterService', () => {
       globalTotalEdges: 900,
       scopeTotalNodes: 40,
       scopeBoundaryEdges: 11,
+      scopeUnresolvedEdges: 4,
       remainingNodes: 15,
       deliveryComplete: false,
     });

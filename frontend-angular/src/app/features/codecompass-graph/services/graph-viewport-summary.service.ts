@@ -65,6 +65,13 @@ export class GraphViewportSummaryService {
     const rawScopeTotalEdges = window?.totalEdges ?? null;
     const rawGlobalTotalEdges = window?.globalTotalEdges ?? rawScopeTotalEdges;
     const rawInternalEdges = window?.internalEdges ?? null;
+    const rawScopeUnresolvedEdges = window?.scopeUnresolvedEdges ?? null;
+    const completeStagedScope = window?.view === 'staged'
+      && window.deliveryComplete === true;
+    const stagedScopeEdgeCompositionMatches = completeStagedScope
+      && rawInternalEdges !== null
+      && rawScopeUnresolvedEdges !== null
+      && loadedEdges === rawInternalEdges + rawScopeUnresolvedEdges;
 
     const nodeEvidenceInconsistent = (
       (rawScopeTotalNodes !== null && rawScopeTotalNodes < loadedNodes)
@@ -75,7 +82,8 @@ export class GraphViewportSummaryService {
       )
     );
     const internalEdgeEvidenceInconsistent = rawInternalEdges !== null
-      && rawInternalEdges < loadedEdges;
+      && rawInternalEdges < loadedEdges
+      && !stagedScopeEdgeCompositionMatches;
     const edgeEvidenceInconsistent = (
       internalEdgeEvidenceInconsistent
       || (rawScopeTotalEdges !== null && rawScopeTotalEdges < loadedEdges)
@@ -156,6 +164,7 @@ export class GraphViewportSummaryService {
       }),
       scopeNodeTotal: scopeTotalNodes,
       scopeBoundaryEdges: window?.scopeBoundaryEdges ?? null,
+      scopeUnresolvedEdges: rawScopeUnresolvedEdges,
       domains: Object.freeze({ visible: visibleDomains.size, loaded: loadedDomains.size }),
       rawRelationTypes: Object.freeze({
         visible: visibleRelations.size,

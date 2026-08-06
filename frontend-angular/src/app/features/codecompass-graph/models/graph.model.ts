@@ -215,6 +215,8 @@ export interface GraphWindowEvidence {
   readonly globalTotalEdges?: number | null;
   readonly scopeTotalNodes?: number | null;
   readonly scopeBoundaryEdges?: number | null;
+  /** Unresolved edge records retained by a complete staged server scope. */
+  readonly scopeUnresolvedEdges?: number | null;
   readonly remainingNodes?: number | null;
   readonly deliveryComplete?: boolean | null;
 }

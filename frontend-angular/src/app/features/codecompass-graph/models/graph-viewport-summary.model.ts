@@ -57,6 +57,8 @@ export interface GraphViewportSummary {
   /** Selected server scope before the visualization window was applied. */
   readonly scopeNodeTotal?: number | null;
   readonly scopeBoundaryEdges?: number | null;
+  /** Unresolved records retained in a complete staged server scope. */
+  readonly scopeUnresolvedEdges?: number | null;
   readonly domains: Readonly<GraphViewportInventoryCounts>;
   readonly rawRelationTypes: Readonly<GraphViewportInventoryCounts>;
   readonly nodeWindowBounded: boolean | null;

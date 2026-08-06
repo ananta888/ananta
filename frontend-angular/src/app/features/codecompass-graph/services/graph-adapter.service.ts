@@ -72,6 +72,7 @@ const WINDOW_EVIDENCE_KEYS = Object.freeze([
   'global_total_edges',
   'scope_total_nodes',
   'scope_boundary_edge_count',
+  'scope_unresolved_edge_count',
   'remaining_nodes',
   'delivery_complete',
 ] as const);
@@ -313,6 +314,9 @@ export class GraphAdapterService {
         : {}),
       ...(hasOwn(metadata, 'scope_boundary_edge_count')
         ? { scopeBoundaryEdges: evidenceCount(metadata['scope_boundary_edge_count']) }
+        : {}),
+      ...(hasOwn(metadata, 'scope_unresolved_edge_count')
+        ? { scopeUnresolvedEdges: evidenceCount(metadata['scope_unresolved_edge_count']) }
         : {}),
       ...(hasOwn(metadata, 'remaining_nodes')
         ? { remainingNodes: evidenceCount(metadata['remaining_nodes']) }

@@ -275,6 +275,92 @@ describe('GraphViewportSummaryService', () => {
     expect(summary.artifactIssues).toEqual([]);
   });
 
+  it('accepts unresolved records retained by a complete staged scope', () => {
+    const graph = graphWithEvidence();
+    graph.evidence = {
+      ...graph.evidence!,
+      window: {
+        ...graph.evidence!.window!,
+        view: 'staged',
+        totalNodes: 3,
+        totalEdges: 3,
+        globalTotalNodes: 10,
+        globalTotalEdges: 20,
+        scopeTotalNodes: 3,
+        unresolvedEdges: 2,
+        internalEdges: 2,
+        scopeUnresolvedEdges: 1,
+        edgeCapped: false,
+        deliveryComplete: true,
+      },
+    };
+
+    const summary = service.project(
+      graph,
+      new Set(graph.nodes.map(node => node.id)),
+      new Set(graph.edges.slice(0, 2).map(edge => edge.id)),
+    );
+
+    expect(summary.edges).toEqual({
+      visible: 2,
+      loaded: 3,
+      internalWindow: 2,
+      total: 20,
+    });
+    expect(summary.scopeUnresolvedEdges).toBe(1);
+    expect(summary.edgeWindowCapped).toBe(false);
+    expect(summary.projectionIssues).not.toContainEqual(
+      expect.objectContaining({ code: 'graph_window_evidence_inconsistent' }),
+    );
+  });
+
+  it('rejects a staged unresolved count that does not explain loaded edges', () => {
+    const graph = graphWithEvidence();
+    graph.evidence = {
+      ...graph.evidence!,
+      window: {
+        ...graph.evidence!.window!,
+        view: 'staged',
+        totalNodes: 3,
+        totalEdges: 3,
+        internalEdges: 1,
+        scopeUnresolvedEdges: 1,
+        edgeCapped: false,
+        deliveryComplete: true,
+      },
+    };
+
+    const summary = service.project(graph, new Set(), new Set());
+
+    expect(summary.edges.internalWindow).toBeNull();
+    expect(summary.edges.total).toBeNull();
+    expect(summary.edgeWindowCapped).toBeNull();
+    expect(summary.projectionIssues[0]?.code).toBe('graph_window_evidence_inconsistent');
+  });
+
+  it('does not apply staged unresolved composition rules to topology windows', () => {
+    const graph = graphWithEvidence();
+    graph.evidence = {
+      ...graph.evidence!,
+      window: {
+        ...graph.evidence!.window!,
+        view: 'topology',
+        totalNodes: 3,
+        totalEdges: 3,
+        internalEdges: 2,
+        scopeUnresolvedEdges: 1,
+        edgeCapped: false,
+        deliveryComplete: true,
+      },
+    };
+
+    const summary = service.project(graph, new Set(), new Set());
+
+    expect(summary.edges.internalWindow).toBeNull();
+    expect(summary.edgeWindowCapped).toBeNull();
+    expect(summary.projectionIssues[0]?.code).toBe('graph_window_evidence_inconsistent');
+  });
+
   it('does not present contradictory structured window counts as exact totals', () => {
     const graph = graphWithEvidence();
     graph.evidence = {
