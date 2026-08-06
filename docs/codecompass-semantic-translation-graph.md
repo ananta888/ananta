@@ -17,6 +17,56 @@ Core record kinds:
 
 Default feature flag: `ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_ENABLED=false`.
 
+### Python symbol identity
+
+Python graph identities are file-scoped and revision-stable. The v1 identity
+strategy derives a digest from the separator-normalized, repository-relative
+Git path, symbol kind, and qualified symbol name. Git-path Unicode codepoints
+and permitted whitespace remain identity-bearing: two distinct repository
+entries are never merged merely because their display spelling is canonically
+equivalent. The readable prefix retains the kind and an escaped symbol excerpt,
+for example:
+
+```text
+semantic:python:symbol:v1:function:main:<sha256>
+```
+
+The escaped excerpt is bounded; the digest still covers the complete symbol,
+and a v1 ID is at most 199 characters. Content hashes, line numbers, parser
+versions, index revisions, and manifest IDs remain node or lifecycle evidence
+rather than identity inputs. Moving or renaming a declaration therefore
+creates a new identity, while changing its body or line number does not. Two
+files declaring `main`, `_record`, or the same class/method names can no longer
+collapse into one semantic node. Legacy unversioned IDs remain readable because
+graph consumers treat node IDs as opaque strings. A saved legacy node ID or
+blast-radius seed is intentionally not aliased to the replacement v1 ID after
+re-indexing; clients must select the node from the new revision.
+
+### Domain-fair worker materialization
+
+Repository semantic output is grouped by normalized top-level path domain in
+the delegated Worker. Each admitted domain owns an independently bounded node
+and edge collector and is written to deterministic JSONL shards. A large or
+lexically early domain can therefore no longer consume another domain's
+per-partition allowance. Admission to the aggregate envelope is deterministic
+and greedy by ascending domain file count, which maximizes the number of
+complete smaller domains; it is not an unlimited or equal-share claim. The
+worker manifest binds the exact shard paths, hashes, record counts, per-shard
+limits, aggregate envelope, materialized and omitted domain counts, plus
+per-domain byte, truncation, declaration, and unresolved-edge evidence.
+
+The shared output reader validates every shard as a contained, unique,
+non-symlink relative path before reading it. It also retains the legacy
+`semantic_nodes.jsonl` and `semantic_edges.jsonl` fallback, so existing indexes
+remain consumable. Raw Worker path lists and normalized output-file evidence
+round-trip through the same validation; hashes, counts, byte sizes, shard pairs,
+and opaque domain hashes are rebound to the files on disk. Aggregate and
+per-shard limits remain fail-closed, as does the final 32 MiB graph materializer;
+omitted, unresolved, or truncated semantic evidence is reported as partial and
+is never presented as complete. The Hub still owns task dispatch, artifact
+admission, activation, and graph reads; partitioning does not create a Worker
+orchestration path.
+
 ## Scope V1
 
 Supported first-scope source constructs:
@@ -88,4 +138,3 @@ data class UserDto(
 ## Known Limits
 
 Nullability without annotations becomes `unknown_nullability`. BigDecimal to TypeScript number is lossy unless policy explicitly accepts it. Framework magic, reflection, runtime proxies, complex method bodies, checked exception behavior and side-effect semantics often require review.
-

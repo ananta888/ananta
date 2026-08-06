@@ -414,6 +414,29 @@ nodes therefore no longer exert invisible forces on the visible layout. The
 viewer retains the complete loaded window separately, so filters remain
 reversible without another server request.
 
+The 3D toolbar offers three data-preserving layout strategies:
+
+- **Kraft** keeps the existing unconstrained force simulation.
+- **Hierarchisch** derives one deterministic acyclic forest from containment
+  and declaration relations, then places complete depth levels on separate
+  Y planes with X/Z spacing.
+- **Radial** uses the same hierarchy depth as a monotonically increasing
+  spherical-shell radius. Shell capacity grows quadratically, so complete
+  large domains do not turn into one unbounded ring.
+
+Layout projection runs after domain, relation, node-kind, search, and hop-depth
+filtering. Switching layouts changes only optional coordinates; it neither
+samples nor removes nodes or edges. Fully fixed hierarchical and radial scenes
+skip force warmup and cooldown, avoiding the previous simulation cost for a
+layout whose positions cannot move. Returning to **Kraft** removes all fixed
+coordinates and restores the normal simulation profile. Layout algorithms are
+isolated behind a small strategy interface, while the WebGL renderer only
+consumes projected coordinates and styles. The hierarchy is normalized to the
+currently visible forest, so domain, relation, search, and hop filters do not
+leave empty depth planes. Camera fitting waits for the committed WebGL scene;
+fixed layouts remain available with reduced-motion preferences and skip the
+animated transition.
+
 ## Renderer capability matrix
 
 | Capability | Simple | 2D | 3D |
