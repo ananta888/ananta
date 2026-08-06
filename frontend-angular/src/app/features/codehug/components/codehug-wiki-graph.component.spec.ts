@@ -7,6 +7,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { CodehugWikiGraphComponent } from './codehug-wiki-graph.component';
 import {
   CodeCompassGraphInventoryPage,
+  CodeCompassGraphStagedPage,
   InternalsService,
 } from '../services/internals.service';
 
@@ -62,11 +63,64 @@ function codeGraph(
   };
 }
 
+function stagedPage(
+  stage: 'nodes' | 'edges',
+  records: Array<Record<string, unknown>>,
+  overrides: Partial<{
+    nextCursor: string | null;
+    total: number;
+    revision: string;
+    totalNodes: number;
+    totalEdges: number;
+    domainScope: string | null;
+    includeSubdomains: boolean;
+  }> = {},
+): CodeCompassGraphStagedPage {
+  const nextCursor = overrides.nextCursor ?? null;
+  const total = overrides.total ?? records.length;
+  const revision = overrides.revision ?? 'revision-example';
+  const graph = {
+    schema: 'codecompass_graph.v1',
+    knowledge_index_id: 'index-example',
+    source_ref: 'index-example',
+    nodes: stage === 'nodes' ? records : [],
+    edges: stage === 'edges' ? records : [],
+    metadata: {
+      view: 'staged',
+      stage,
+      next_cursor: nextCursor,
+      content_graph_revision: revision,
+      delivery_returned: records.length,
+      delivery_total: total,
+      delivery_complete: nextCursor === null,
+      knowledge_index_id: 'index-example',
+      domain_scope: overrides.domainScope ?? null,
+      include_subdomains: overrides.includeSubdomains ?? true,
+      total_nodes: overrides.totalNodes ?? (stage === 'nodes' ? total : 1),
+      total_edges: overrides.totalEdges ?? (stage === 'edges' ? total : 0),
+      global_total_nodes: 800,
+      global_source_edge_count: 1_200,
+    },
+    diagnostics: {},
+    warnings: [],
+  };
+  return {
+    graph,
+    stage,
+    nextCursor,
+    returned: records.length,
+    total,
+    graphRevision: revision,
+    complete: nextCursor === null,
+  };
+}
+
 
 describe('CodehugWikiGraphComponent', () => {
   const service = {
     listKnowledgeIndexes: vi.fn(),
     getCodeCompassGraph: vi.fn(),
+    getCodeCompassGraphStagedPage: vi.fn(),
     getCodeCompassGraphInventory: vi.fn(),
     getWikiGraphStatus: vi.fn(() => of(null)),
     getWikiDomainStatus: vi.fn(() => of(null)),
@@ -81,6 +135,22 @@ describe('CodehugWikiGraphComponent', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     service.getCodeCompassGraph.mockReturnValue(of(emptyGraph()));
+    service.getCodeCompassGraphStagedPage.mockImplementation(
+      (_connectionId: string, request: {
+        stage: 'nodes' | 'edges';
+        domainScope?: string;
+        includeSubdomains: boolean;
+      }) => of(
+        stagedPage(
+          request.stage,
+          request.stage === 'nodes' ? [{ node_id: 'domain-node' }] : [],
+          {
+            domainScope: request.domainScope ?? null,
+            includeSubdomains: request.includeSubdomains,
+          },
+        ),
+      ),
+    );
     service.getCodeCompassGraphInventory.mockReturnValue(of(inventoryPage()));
     service.getWikiGraphStatus.mockReturnValue(of(null));
     service.getWikiDomainStatus.mockReturnValue(of(null));
@@ -450,7 +520,7 @@ describe('CodehugWikiGraphComponent', () => {
     expect(fixture.componentInstance.graphDomains()).toHaveLength(2);
   });
 
-  it('reloads a selected domain with and without its subdomains', () => {
+  it('loads a selected domain completely with and without its subdomains', () => {
     const frontendDomain = {
       key: 'domain:frontend',
       label: 'Frontend',
@@ -476,12 +546,23 @@ describe('CodehugWikiGraphComponent', () => {
     fixture.detectChanges();
     fixture.componentInstance.changeGraphDomain(frontendDomain.key);
 
-    expect(service.getCodeCompassGraph).toHaveBeenNthCalledWith(
+    expect(service.getCodeCompassGraph).toHaveBeenCalledTimes(1);
+    expect(service.getCodeCompassGraphStagedPage).toHaveBeenNthCalledWith(
+      1,
+      'conn-example',
+      {
+        stage: 'nodes',
+        pageSize: 500,
+        domainScope: 'domain:frontend',
+        includeSubdomains: true,
+      },
+    );
+    expect(service.getCodeCompassGraphStagedPage).toHaveBeenNthCalledWith(
       2,
       'conn-example',
       {
-        limit: 100,
-        maxEdges: 400,
+        stage: 'edges',
+        pageSize: 2_000,
         domainScope: 'domain:frontend',
         includeSubdomains: true,
       },
@@ -489,15 +570,29 @@ describe('CodehugWikiGraphComponent', () => {
     expect(fixture.componentInstance.graphDomainOptionLabel(frontendDomain)).toBe(
       'frontend · deklarierte Domain (18)',
     );
+    expect(fixture.componentInstance.fullGraphLoadState()).toBe('complete');
+    expect(fixture.componentInstance.rawGraph()?.nodes).toEqual([
+      { node_id: 'domain-node' },
+    ]);
 
     fixture.componentInstance.changeGraphSubdomainPolicy(false);
 
-    expect(service.getCodeCompassGraph).toHaveBeenNthCalledWith(
+    expect(service.getCodeCompassGraphStagedPage).toHaveBeenNthCalledWith(
       3,
       'conn-example',
       {
-        limit: 100,
-        maxEdges: 400,
+        stage: 'nodes',
+        pageSize: 500,
+        domainScope: 'domain:frontend',
+        includeSubdomains: false,
+      },
+    );
+    expect(service.getCodeCompassGraphStagedPage).toHaveBeenNthCalledWith(
+      4,
+      'conn-example',
+      {
+        stage: 'edges',
+        pageSize: 2_000,
         domainScope: 'domain:frontend',
         includeSubdomains: false,
       },
@@ -505,6 +600,140 @@ describe('CodehugWikiGraphComponent', () => {
     expect(fixture.componentInstance.graphDomainOptionLabel(frontendDomain)).toBe(
       'frontend · deklarierte Domain (4)',
     );
+  });
+
+  it('loads the entire index only after an explicit request and can return to its preview', () => {
+    service.listKnowledgeIndexes.mockReturnValue(of([{
+      id: 'conn-example',
+      knowledge_index_id: 'index-example',
+    }]));
+    service.getCodeCompassGraph.mockReturnValue(of(codeGraph()));
+    service.getCodeCompassGraphInventory.mockReturnValue(of(inventoryPage({
+      totalNodes: 800,
+    })));
+    const fixture = TestBed.createComponent(CodehugWikiGraphComponent);
+    fixture.detectChanges();
+
+    expect(service.getCodeCompassGraphStagedPage).not.toHaveBeenCalled();
+    fixture.componentInstance.loadFullGraphScope();
+
+    expect(service.getCodeCompassGraphStagedPage).toHaveBeenCalledTimes(2);
+    expect(service.getCodeCompassGraphStagedPage.mock.calls.every(call => (
+      call[1].domainScope === undefined
+    ))).toBe(true);
+    expect(fixture.componentInstance.fullGraphLoadState()).toBe('complete');
+
+    fixture.componentInstance.returnToGraphPreview();
+
+    expect(service.getCodeCompassGraph).toHaveBeenCalledTimes(2);
+    expect(fixture.componentInstance.fullGraphLoadState()).toBe('idle');
+  });
+
+  it('cancels an in-flight domain stream on source change without accepting stale data', () => {
+    const activeNodes = new Subject<CodeCompassGraphStagedPage>();
+    service.listKnowledgeIndexes.mockReturnValue(of([
+      { id: 'conn-old', knowledge_index_id: 'index-old' },
+      { id: 'conn-new', knowledge_index_id: 'index-new' },
+    ]));
+    service.getCodeCompassGraph.mockImplementation((connectionId: string) => of(
+      codeGraph(connectionId === 'conn-old' ? 'revision-old' : 'revision-new'),
+    ));
+    service.getCodeCompassGraphInventory.mockImplementation((connectionId: string) => of(
+      inventoryPage({
+        graphRevision: connectionId === 'conn-old' ? 'revision-old' : 'revision-new',
+      }),
+    ));
+    service.getCodeCompassGraphStagedPage.mockReturnValueOnce(activeNodes);
+    const fixture = TestBed.createComponent(CodehugWikiGraphComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.changeGraphDomain('domain:agent');
+    expect(activeNodes.observed).toBe(true);
+
+    fixture.componentInstance.changeSource('conn-new');
+    activeNodes.next(stagedPage('nodes', [{ node_id: 'stale' }], {
+      revision: 'revision-old',
+      domainScope: 'domain:agent',
+    }));
+
+    expect(activeNodes.observed).toBe(false);
+    expect(fixture.componentInstance.selectedConnectionId()).toBe('conn-new');
+    expect(fixture.componentInstance.rawGraph()?.nodes).not.toContainEqual({ node_id: 'stale' });
+    expect(fixture.componentInstance.fullGraphLoadState()).toBe('idle');
+  });
+
+  it('offers a direct domain retry after cancellation', () => {
+    const activeNodes = new Subject<CodeCompassGraphStagedPage>();
+    service.listKnowledgeIndexes.mockReturnValue(of([{
+      id: 'conn-example',
+      knowledge_index_id: 'index-example',
+    }]));
+    service.getCodeCompassGraph.mockReturnValue(of(codeGraph('revision-old')));
+    service.getCodeCompassGraphInventory.mockReturnValue(of(inventoryPage({
+      graphRevision: 'revision-old',
+    })));
+    service.getCodeCompassGraphStagedPage.mockReturnValueOnce(activeNodes);
+    const fixture = TestBed.createComponent(CodehugWikiGraphComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.changeGraphDomain('domain:agent');
+    fixture.componentInstance.cancelFullGraphLoad();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.fullGraphLoadState()).toBe('cancelled');
+    expect(fixture.nativeElement.textContent).toContain('Domain vollständig erneut laden');
+  });
+
+  it('refreshes the bound index before retrying a failed complete load', () => {
+    service.listKnowledgeIndexes.mockReturnValue(of([{
+      id: 'conn-example',
+      knowledge_index_id: 'index-example',
+    }]));
+    service.getCodeCompassGraph.mockReturnValue(of(codeGraph('revision-old')));
+    service.getCodeCompassGraphInventory.mockReturnValue(of(inventoryPage({
+      graphRevision: 'revision-old',
+    })));
+    service.getCodeCompassGraphStagedPage.mockReturnValue(
+      throwError(() => new Error('stale transport')),
+    );
+    const fixture = TestBed.createComponent(CodehugWikiGraphComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.changeGraphDomain('domain:agent');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.fullGraphLoadState()).toBe('error');
+    const refreshButton = Array.from(
+      fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+    ).find(button => button.textContent?.includes('Aktuellen Indexstand laden'));
+    expect(refreshButton).toBeDefined();
+    refreshButton?.click();
+
+    expect(service.getCodeCompassGraph).toHaveBeenCalledTimes(2);
+    expect(fixture.componentInstance.selectedGraphDomain()).toBe('');
+    expect(fixture.componentInstance.fullGraphLoadState()).toBe('idle');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Gesamten Index vollständig laden');
+  });
+
+  it('cancels a domain stream before entering the Wiki search context', () => {
+    const activeNodes = new Subject<CodeCompassGraphStagedPage>();
+    service.listKnowledgeIndexes.mockReturnValue(of([{
+      id: 'conn-example',
+      knowledge_index_id: 'index-example',
+    }]));
+    service.getCodeCompassGraph.mockReturnValue(of(codeGraph()));
+    service.getCodeCompassGraphInventory.mockReturnValue(of(inventoryPage()));
+    service.getCodeCompassGraphStagedPage.mockReturnValueOnce(activeNodes);
+    const fixture = TestBed.createComponent(CodehugWikiGraphComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.changeGraphDomain('domain:agent');
+
+    fixture.componentInstance.search('architecture');
+    activeNodes.next(stagedPage('nodes', [{ node_id: 'stale' }], {
+      domainScope: 'domain:agent',
+    }));
+
+    expect(activeNodes.observed).toBe(false);
+    expect(fixture.componentInstance.fullGraphLoadState()).toBe('idle');
+    expect(fixture.componentInstance.rawGraph()).toBeNull();
   });
 
   it('grows the fast graph window in bounded 100-node steps', () => {

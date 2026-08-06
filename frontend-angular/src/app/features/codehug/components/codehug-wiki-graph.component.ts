@@ -3,6 +3,10 @@ import { EMPTY, Subject, Subscription, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, expand, map, switchMap } from 'rxjs/operators';
 
 import { GraphViewerComponent } from '../../codecompass-graph/components/graph-viewer/graph-viewer.component';
+import {
+  CodeCompassFullGraphLoadError,
+  CodeCompassFullGraphLoaderService,
+} from '../services/codecompass-full-graph-loader.service';
 import { InternalsService } from '../services/internals.service';
 import type {
   CodeCompassGraphDomainFacet,
@@ -24,8 +28,12 @@ const GRAPH_LOAD_STRATEGIES: readonly GraphLoadStrategy[] = Object.freeze([
   { id: 'detail', label: 'Detailfenster · 500', initialNodes: 500, stepNodes: 0 },
 ]);
 
-const MAX_GRAPH_WINDOW_NODES = 500;
-const MAX_GRAPH_WINDOW_EDGES = 2_000;
+// These bound only the optional topology preview. Complete staged loads page
+// through the entire selected scope and do not use either value as a total cap.
+const MAX_GRAPH_PREVIEW_NODES = 500;
+const MAX_GRAPH_PREVIEW_EDGES = 2_000;
+
+type FullGraphLoadState = 'idle' | 'nodes' | 'edges' | 'complete' | 'cancelled' | 'error';
 
 type GraphDomainCursorInvalidReason =
   | 'cursor_repeated'
@@ -126,6 +134,7 @@ class WikiOperationSlot {
 })
 export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   private readonly service = inject(InternalsService);
+  private readonly fullGraphLoader = inject(CodeCompassFullGraphLoaderService);
   private readonly searchRequests = new Subject<string>();
   private indexSubscription: Subscription | null = null;
   private graphSubscription: Subscription | null = null;
@@ -136,6 +145,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   private revisionRecoveryAttempted = false;
   private readonly wikiStatusOperation = new WikiOperationSlot();
   private readonly graphDomainInventoryOperation = new WikiOperationSlot();
+  private readonly fullGraphOperation = new WikiOperationSlot();
   private readonly wikiDomainStatusBootstrapOperation = new WikiOperationSlot();
   private readonly wikiBuildOperation = new WikiOperationSlot();
   private readonly wikiDomainBuildOperations = new Map<string, WikiOperationSlot>();
@@ -163,6 +173,28 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   readonly confirmedNodeLimit = signal(0);
   readonly codeGraphRevision = signal('');
   readonly graphInventoryRevision = signal('');
+  readonly fullGraphLoadState = signal<FullGraphLoadState>('idle');
+  readonly fullGraphLoadedNodes = signal(0);
+  readonly fullGraphTotalNodes = signal(0);
+  readonly fullGraphLoadedEdges = signal(0);
+  readonly fullGraphTotalEdges = signal(0);
+  readonly fullGraphLoading = computed(() => (
+    this.fullGraphLoadState() === 'nodes' || this.fullGraphLoadState() === 'edges'
+  ));
+  readonly fullGraphProgress = computed(() => {
+    const state = this.fullGraphLoadState();
+    if (state === 'nodes') {
+      return `Vollständiger Scope: Knoten ${this.fullGraphLoadedNodes()} / ${this.fullGraphTotalNodes() || '…'}`;
+    }
+    if (state === 'edges') {
+      return `Vollständiger Scope: Knoten ${this.fullGraphLoadedNodes()} / ${this.fullGraphTotalNodes()} · Kanten ${this.fullGraphLoadedEdges()} / ${this.fullGraphTotalEdges() || '…'}`;
+    }
+    if (state === 'complete') {
+      return `Vollständiger Scope geladen: ${this.fullGraphLoadedNodes()} Knoten · ${this.fullGraphLoadedEdges()} Kanten`;
+    }
+    if (state === 'cancelled') return 'Vollständiges Laden abgebrochen';
+    return '';
+  });
   readonly graphDomainInventoryProgress = computed(() => {
     const loaded = this.graphDomains().length;
     const total = this.graphDomainTotal();
@@ -201,6 +233,12 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   readonly scopeBoundaryEdgeCount = computed(() => this.metadataCount(
     'scope_boundary_edge_count',
   ));
+  readonly scopeInternalEdgeCount = computed(() => this.metadataCount(
+    'internal_edge_count',
+  ));
+  readonly scopeUnresolvedEdgeCount = computed(() => this.metadataCount(
+    'scope_unresolved_edge_count',
+  ));
   readonly graphDomainWindowStats = computed(() => {
     const windowCount = this.metadataCountOrNull('window_domain_group_count');
     const scopeCount = this.metadataCountOrNull('scope_domain_group_count');
@@ -218,12 +256,14 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   ));
   readonly canGrowGraphWindow = computed(() => (
     this.remainingScopeNodes() > 0
-    && this.confirmedNodeLimit() < MAX_GRAPH_WINDOW_NODES
+    && this.confirmedNodeLimit() < MAX_GRAPH_PREVIEW_NODES
     && !this.loading()
+    && !this.fullGraphLoading()
   ));
   readonly graphWindowAtLimit = computed(() => (
     this.remainingScopeNodes() > 0
-    && this.confirmedNodeLimit() >= MAX_GRAPH_WINDOW_NODES
+    && this.confirmedNodeLimit() >= MAX_GRAPH_PREVIEW_NODES
+    && !this.fullGraphLoading()
   ));
 
   readonly status = signal<any>(null);
@@ -260,6 +300,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     this.indexSubscription?.unsubscribe();
     this.graphSubscription?.unsubscribe();
     this.graphDomainInventoryOperation.cancel();
+    this.fullGraphOperation.cancel();
     this.cancelWikiContext();
     this.searchRequests.complete();
   }
@@ -270,6 +311,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
       this.error.set('Keine projektgebundene Connection ausgewählt');
       return;
     }
+    this.cancelFullGraphLoad(false);
     this.graphSubscription?.unsubscribe();
     const transitioningFromWiki = this.graphMode() !== 'code';
     const resetRenderedGraph = clearGraph || transitioningFromWiki;
@@ -301,7 +343,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
           graph?.metadata,
           'window_node_limit',
         ) ?? limit;
-        this.confirmedNodeLimit.set(Math.min(MAX_GRAPH_WINDOW_NODES, confirmedLimit));
+        this.confirmedNodeLimit.set(Math.min(MAX_GRAPH_PREVIEW_NODES, confirmedLimit));
         this.requestedNodeLimit.set(this.confirmedNodeLimit());
         const revision = this.codeGraphEvidenceRevision(graph);
         const previousRevision = this.codeGraphRevision();
@@ -346,6 +388,10 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
 
   changeGraphDomain(value: string): void {
     this.selectedGraphDomain.set(value);
+    if (value) {
+      this.loadFullGraphScope();
+      return;
+    }
     this.requestedNodeLimit.set(this.activeLoadStrategy().initialNodes);
     this.loadGraph(true);
   }
@@ -353,8 +399,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   changeGraphSubdomainPolicy(include: boolean): void {
     this.includeGraphSubdomains.set(include);
     if (!this.selectedGraphDomain()) return;
-    this.requestedNodeLimit.set(this.activeLoadStrategy().initialNodes);
-    this.loadGraph(true);
+    this.loadFullGraphScope();
   }
 
   changeGraphLoadStrategy(value: string): void {
@@ -362,14 +407,111 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     if (!strategy) return;
     this.graphLoadStrategy.set(strategy.id);
     this.requestedNodeLimit.set(strategy.initialNodes);
+    if (this.selectedGraphDomain()) return;
     this.loadGraph();
+  }
+
+  /**
+   * Loads a selected domain automatically, or the complete index after the
+   * user explicitly requests it. Transport page sizes are not graph limits.
+   */
+  loadFullGraphScope(): void {
+    const connectionId = this.selectedConnectionId();
+    if (!connectionId) {
+      this.error.set('Keine projektgebundene Connection ausgewählt');
+      return;
+    }
+    const domainScope = this.selectedGraphDomain();
+    const includeSubdomains = this.includeGraphSubdomains();
+    const expectedRevision = this.codeGraphRevision() || this.graphInventoryRevision();
+    const generation = this.fullGraphOperation.restart();
+    this.graphSubscription?.unsubscribe();
+    this.loading.set(false);
+    this.error.set('');
+    this.graphMode.set('code');
+    this.fullGraphLoadState.set('nodes');
+    this.fullGraphLoadedNodes.set(0);
+    this.fullGraphTotalNodes.set(this.expectedFullGraphNodeTotal(domainScope));
+    this.fullGraphLoadedEdges.set(0);
+    this.fullGraphTotalEdges.set(0);
+    if (domainScope) {
+      this.rawGraph.set(null);
+      this.metadata.set(null);
+    }
+    const request = this.fullGraphLoader.load({
+      connectionId,
+      ...(domainScope ? { domainScope } : {}),
+      includeSubdomains,
+      ...(expectedRevision ? { expectedRevision } : {}),
+    }).subscribe({
+      next: event => {
+        if (
+          !this.fullGraphOperation.isCurrent(generation)
+          || !this.graphRequestIsCurrent(connectionId, domainScope, includeSubdomains)
+        ) return;
+        if (event.kind === 'progress') {
+          this.fullGraphLoadState.set(event.progress.stage);
+          this.fullGraphLoadedNodes.set(event.progress.loadedNodes);
+          this.fullGraphTotalNodes.set(event.progress.totalNodes);
+          this.fullGraphLoadedEdges.set(event.progress.loadedEdges);
+          this.fullGraphTotalEdges.set(event.progress.totalEdges);
+          return;
+        }
+        this.rawGraph.set(event.graph);
+        this.metadata.set(event.graph.metadata);
+        this.confirmedNodeLimit.set(event.nodeCount);
+        this.fullGraphLoadedNodes.set(event.nodeCount);
+        this.fullGraphLoadedEdges.set(event.edgeCount);
+        this.fullGraphLoadState.set('complete');
+        this.codeGraphRevision.set(event.graphRevision);
+        this.ensureGraphDomainInventory(connectionId, event.graphRevision);
+        if (event.nodeCount === 0) {
+          this.error.set(
+            domainScope
+              ? 'Dieser Domain-Bereich enthält in der gewählten Subdomain-Einstellung keine Knoten.'
+              : 'Der aktive Index enthält keinen Quellgraphen.',
+          );
+          return;
+        }
+        const knowledgeIndexId = this.selectedKnowledgeIndexId();
+        if (knowledgeIndexId) this.initializeWiki(knowledgeIndexId);
+      },
+      error: error => {
+        if (!this.fullGraphOperation.isCurrent(generation)) return;
+        this.fullGraphLoadState.set('error');
+        this.error.set(this.fullGraphLoadErrorMessage(error));
+      },
+    });
+    this.fullGraphOperation.replaceRequest(generation, request);
+  }
+
+  cancelFullGraphLoad(markCancelled = true): void {
+    const wasLoading = this.fullGraphLoading();
+    this.fullGraphOperation.cancel();
+    if (markCancelled && wasLoading) {
+      this.fullGraphLoadState.set('cancelled');
+      return;
+    }
+    if (!markCancelled) this.resetFullGraphProgress();
+  }
+
+  returnToGraphPreview(): void {
+    this.requestedNodeLimit.set(this.activeLoadStrategy().initialNodes);
+    this.loadGraph(true);
+  }
+
+  refreshGraphScopeAfterFullLoadError(): void {
+    // Domain keys are opaque and revision-bound. Rebuild the inventory from a
+    // global preview instead of reusing a key issued by the stale revision.
+    this.selectedGraphDomain.set('');
+    this.returnToGraphPreview();
   }
 
   growGraphWindow(): void {
     if (!this.canGrowGraphWindow()) return;
     const step = this.activeGraphLoadStep();
     this.requestedNodeLimit.set(Math.min(
-      MAX_GRAPH_WINDOW_NODES,
+      MAX_GRAPH_PREVIEW_NODES,
       this.confirmedNodeLimit() + step,
     ));
     this.loadGraph();
@@ -392,6 +534,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   }
 
   search(query: string): void {
+    this.cancelFullGraphLoad(false);
     this.searchQuery.set(query);
     if (!query) {
       this.rawGraph.set(null);
@@ -404,6 +547,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   expand(slug: string): void {
     const indexId = this.selectedKnowledgeIndexId();
     if (!indexId) return;
+    this.cancelFullGraphLoad(false);
     this.expandedSlug.set(slug);
     this.searchResults.set([]);
     this.searchQuery.set('');
@@ -433,6 +577,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     if (mode === 'hubs') return this.expand(domainId);
     const indexId = this.selectedKnowledgeIndexId();
     if (!indexId) return;
+    this.cancelFullGraphLoad(false);
     this.loading.set(true);
     this.error.set('');
     this.graphSubscription?.unsubscribe();
@@ -788,6 +933,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     this.codeGraphRevision.set('');
     this.revisionRecoveryAttempted = false;
     this.graphSubscription?.unsubscribe();
+    this.cancelFullGraphLoad(false);
     this.clearGraphInventoryState();
     this.cancelWikiContext();
   }
@@ -863,6 +1009,39 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
       && this.includeGraphSubdomains() === includeSubdomains;
   }
 
+  private expectedFullGraphNodeTotal(domainScope: string): number {
+    if (!domainScope) return this.graphInventoryNodeTotal() || this.globalNodeTotal();
+    const domain = this.graphDomains().find(candidate => candidate.key === domainScope);
+    if (!domain) return 0;
+    return this.includeGraphSubdomains()
+      ? domain.subtreeNodeCount
+      : domain.directNodeCount;
+  }
+
+  private fullGraphLoadErrorMessage(error: unknown): string {
+    if (!(error instanceof CodeCompassFullGraphLoadError)) {
+      return 'Der vollständige Graph konnte nicht vertragskonform geladen werden.';
+    }
+    if (error.reason === 'revision_changed') {
+      return 'Der Index wurde während des vollständigen Ladens aktualisiert. Der alte Datenstrom wurde verworfen; bitte den aktuellen Indexstand laden und die Domain erneut auswählen.';
+    }
+    if (error.reason === 'scope_changed' || error.reason === 'source_changed') {
+      return 'Der vollständige Datenstrom wurde wegen eines Source-/Scope-Wechsels verworfen.';
+    }
+    if (error.reason === 'duplicate_record') {
+      return 'Der vollständige Datenstrom enthielt überlappende Knoten- oder Kanten-IDs und wurde ohne Teilübernahme verworfen.';
+    }
+    return 'Der vollständige Datenstrom wurde wegen inkonsistenter Seitencursor abgebrochen; es wurden keine Teildaten übernommen.';
+  }
+
+  private resetFullGraphProgress(): void {
+    this.fullGraphLoadState.set('idle');
+    this.fullGraphLoadedNodes.set(0);
+    this.fullGraphTotalNodes.set(0);
+    this.fullGraphLoadedEdges.set(0);
+    this.fullGraphTotalEdges.set(0);
+  }
+
   private codeGraphEvidenceRevision(graph: unknown): string {
     if (!graph || typeof graph !== 'object' || Array.isArray(graph)) return '';
     const metadata = (graph as { metadata?: unknown }).metadata;
@@ -897,7 +1076,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   }
 
   private edgeLimitFor(nodeLimit: number): number {
-    return Math.min(MAX_GRAPH_WINDOW_EDGES, Math.max(1, nodeLimit * 4));
+    return Math.min(MAX_GRAPH_PREVIEW_EDGES, Math.max(1, nodeLimit * 4));
   }
 
   private graphItemCount(primary: string, legacy: string): number {

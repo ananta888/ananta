@@ -22,13 +22,41 @@
            (change)="changeGraphSubdomainPolicy($any($event.target).checked)" />
     <span>inkl. Subdomains</span>
   </label>
-  <label class="ch-lbl">Laden</label>
-  <select class="ch-sel" [value]="graphLoadStrategy()"
-          (change)="changeGraphLoadStrategy($any($event.target).value)">
-    @for (strategy of loadStrategies; track strategy.id) {
-      <option [value]="strategy.id">{{ strategy.label }}</option>
-    }
-  </select>
+  @if (!selectedGraphDomain()) {
+    <label class="ch-lbl">Vorschau</label>
+    <select class="ch-sel" [value]="graphLoadStrategy()"
+            [disabled]="fullGraphLoading()"
+            (change)="changeGraphLoadStrategy($any($event.target).value)">
+      @for (strategy of loadStrategies; track strategy.id) {
+        <option [value]="strategy.id">{{ strategy.label }}</option>
+      }
+    </select>
+  } @else if (fullGraphLoading()) {
+    <span class="ch-lbl">Domain wird vollständig geladen</span>
+  } @else if (fullGraphLoadState() === 'complete') {
+    <span class="ch-lbl">Domain vollständig geladen</span>
+  } @else {
+    <span class="ch-lbl">Domain ausgewählt</span>
+  }
+  @if (fullGraphProgress()) {
+    <span class="ch-lbl" [class.ch-cap-warn]="fullGraphLoadState() === 'error'">
+      {{ fullGraphProgress() }}
+    </span>
+  }
+  @if (fullGraphLoading()) {
+    <button class="ch-btn ch-btn-xs" (click)="cancelFullGraphLoad()">Vollständiges Laden abbrechen</button>
+  }
+  @if (selectedGraphDomain() && fullGraphLoadState() === 'cancelled') {
+    <button class="ch-btn ch-btn-xs" (click)="loadFullGraphScope()">Domain vollständig erneut laden</button>
+  }
+  @if (selectedGraphDomain() && fullGraphLoadState() === 'error') {
+    <button class="ch-btn ch-btn-xs" (click)="refreshGraphScopeAfterFullLoadError()">
+      Aktuellen Indexstand laden
+    </button>
+  }
+  @if (selectedGraphDomain() && fullGraphLoadState() === 'idle') {
+    <button class="ch-btn ch-btn-xs" (click)="loadFullGraphScope()">Domain vollständig laden</button>
+  }
   @if (graphDomainLoading() || graphInventoryRevision() || graphDomainError()) {
     <span class="ch-lbl muted">{{ graphDomainInventoryProgress() }}</span>
   }
@@ -74,10 +102,19 @@
 
 @if (metadata() && graphMode() === 'code') {
   <div class="ch-graph-info">
-    <span>
-      Fenster: {{ loadedNodeCount() }} / {{ scopeNodeTotal() }} Knoten ·
-      {{ loadedEdgeCount() }} Kanten
-    </span>
+    @if (fullGraphLoadState() === 'complete') {
+      <span>
+        Vollständiger Scope: {{ loadedNodeCount() }} Knoten ·
+        alle {{ loadedEdgeCount() }} indexierten Scope-Relationen
+        ({{ scopeInternalEdgeCount() }} intern ·
+        {{ scopeUnresolvedEdgeCount() }} mit unbekanntem Endpunkt)
+      </span>
+    } @else {
+      <span>
+        Vorschaufenster: {{ loadedNodeCount() }} / {{ scopeNodeTotal() }} Knoten ·
+        {{ loadedEdgeCount() }} Kanten
+      </span>
+    }
     <span>
       Gesamtindex: {{ globalNodeTotal() }} Knoten · {{ globalEdgeTotal() }} Quellrelationen ·
       {{ globalUnresolvedEdgeTotal() }} derzeit nicht renderbar (im staged/lossless Stream erhalten)
@@ -91,11 +128,27 @@
       </span>
     }
     @if (scopeBoundaryEdgeCount()) {
-      <span>{{ scopeBoundaryEdgeCount() }} Kanten überqueren die Scope-Grenze</span>
+      <span>
+        {{ scopeBoundaryEdgeCount() }} Boundary-Relationen nur gezählt, nicht im Scope-Graph enthalten
+      </span>
     }
     @if (canGrowGraphWindow()) {
       <button class="ch-btn ch-btn-xs" (click)="growGraphWindow()">
         Fenster erweitern (+{{ activeGraphLoadStep() }})
+      </button>
+    }
+    @if (!selectedGraphDomain() && fullGraphLoadState() === 'error') {
+      <button class="ch-btn ch-btn-xs" (click)="refreshGraphScopeAfterFullLoadError()">
+        Aktuellen Indexstand laden
+      </button>
+    } @else if (!selectedGraphDomain() && !fullGraphLoading() && fullGraphLoadState() !== 'complete') {
+      <button class="ch-btn ch-btn-xs" (click)="loadFullGraphScope()">
+        Gesamten Index vollständig laden
+      </button>
+    }
+    @if (!selectedGraphDomain() && fullGraphLoadState() === 'complete') {
+      <button class="ch-btn ch-btn-xs" (click)="returnToGraphPreview()">
+        Zurück zur Vorschau
       </button>
     }
     @if (graphWindowAtLimit()) {
@@ -109,7 +162,7 @@
 <div class="ch-graph-wrap">
   @if (rawGraph() && (rawGraph().nodes?.length || rawGraph().entities?.length)) {
     <app-graph-viewer [rawGraphData]="rawGraph()" [wikiIndexId]="selectedKnowledgeIndexId()" />
-  } @else if (!loading()) {
+  } @else if (!loading() && !fullGraphLoading()) {
     <div class="ch-wg-empty-state">
       <span>Kein Quellgraph im aktiven Projektindex.</span>
     </div>
