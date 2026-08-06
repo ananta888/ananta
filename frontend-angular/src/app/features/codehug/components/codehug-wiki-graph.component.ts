@@ -1,9 +1,70 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { Subject, Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { Subject, Subscription, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, map, switchMap } from 'rxjs/operators';
 
 import { GraphViewerComponent } from '../../codecompass-graph/components/graph-viewer/graph-viewer.component';
 import { InternalsService } from '../services/internals.service';
+import type { CodeCompassGraphDomainFacet } from '../services/internals.service';
+
+type GraphLoadStrategyId = 'fast' | 'balanced' | 'detail';
+
+interface GraphLoadStrategy {
+  readonly id: GraphLoadStrategyId;
+  readonly label: string;
+  readonly initialNodes: number;
+  readonly stepNodes: number;
+}
+
+const GRAPH_LOAD_STRATEGIES: readonly GraphLoadStrategy[] = Object.freeze([
+  { id: 'fast', label: 'Schnellstart · 100', initialNodes: 100, stepNodes: 100 },
+  { id: 'balanced', label: 'Ausgewogen · 250', initialNodes: 250, stepNodes: 125 },
+  { id: 'detail', label: 'Detailfenster · 500', initialNodes: 500, stepNodes: 0 },
+]);
+
+const MAX_GRAPH_WINDOW_NODES = 500;
+const MAX_GRAPH_WINDOW_EDGES = 2_000;
+
+/** One replaceable async operation with an explicit stale-response boundary. */
+class WikiOperationSlot {
+  private generation = 0;
+  private request: Subscription | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+
+  restart(): number {
+    this.cancel();
+    return this.generation;
+  }
+
+  isCurrent(generation: number): boolean {
+    return generation === this.generation;
+  }
+
+  replaceRequest(generation: number, request: Subscription): void {
+    if (!this.isCurrent(generation)) {
+      request.unsubscribe();
+      return;
+    }
+    this.request?.unsubscribe();
+    this.request = request;
+  }
+
+  schedule(generation: number, callback: () => void, delayMs: number): void {
+    if (!this.isCurrent(generation)) return;
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      if (this.isCurrent(generation)) callback();
+    }, delayMs);
+  }
+
+  cancel(): void {
+    this.generation += 1;
+    this.request?.unsubscribe();
+    this.request = null;
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = null;
+  }
+}
 
 @Component({
   selector: 'ch-codehug-wiki-graph',
@@ -16,8 +77,20 @@ import { InternalsService } from '../services/internals.service';
 export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   private readonly service = inject(InternalsService);
   private readonly searchRequests = new Subject<string>();
-  private searchSubscription: Subscription | null = null;
-  private domainPollTimer: ReturnType<typeof setTimeout> | null = null;
+  private indexSubscription: Subscription | null = null;
+  private graphSubscription: Subscription | null = null;
+  private inventorySubscription: Subscription | null = null;
+  private wikiSubscriptions = new Subscription();
+  private initializedWikiIndexId = '';
+  private pendingInventoryRevision = '';
+  private inventoryLoaded = false;
+  private revisionRecoveryAttempted = false;
+  private readonly wikiStatusOperation = new WikiOperationSlot();
+  private readonly wikiDomainStatusBootstrapOperation = new WikiOperationSlot();
+  private readonly wikiBuildOperation = new WikiOperationSlot();
+  private readonly wikiDomainBuildOperations = new Map<string, WikiOperationSlot>();
+  private readonly wikiDomainPollOperations = new Map<string, WikiOperationSlot>();
+  private readonly wikiReadyDomainOperations = new Map<string, WikiOperationSlot>();
 
   readonly indexes = signal<any[]>([]);
   readonly selectedConnectionId = signal('');
@@ -25,12 +98,65 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   readonly loading = signal(false);
   readonly error = signal('');
   readonly metadata = signal<Record<string, unknown> | null>(null);
+  readonly graphMode = signal<'code' | 'wiki'>('code');
+  readonly graphDomains = signal<readonly CodeCompassGraphDomainFacet[]>([]);
+  readonly selectedGraphDomain = signal('');
+  readonly includeGraphSubdomains = signal(true);
+  readonly graphDomainNextCursor = signal<string | null>(null);
+  readonly graphDomainTotal = signal(0);
+  readonly graphInventoryNodeTotal = signal(0);
+  readonly graphInventoryEdgeTotal = signal(0);
+  readonly graphDomainLoading = signal(false);
+  readonly graphDomainError = signal('');
+  readonly graphLoadStrategy = signal<GraphLoadStrategyId>('fast');
+  readonly requestedNodeLimit = signal(100);
+  readonly confirmedNodeLimit = signal(0);
+  readonly codeGraphRevision = signal('');
+  readonly graphInventoryRevision = signal('');
+  readonly loadStrategies = GRAPH_LOAD_STRATEGIES;
   readonly selectedIndex = computed(
     () => this.indexes().find(index => index.id === this.selectedConnectionId()) ?? null,
   );
   readonly selectedKnowledgeIndexId = computed(
     () => String(this.selectedIndex()?.knowledge_index_id ?? '').trim(),
   );
+  readonly loadedNodeCount = computed(() => this.graphItemCount('nodes', 'entities'));
+  readonly loadedEdgeCount = computed(() => this.graphItemCount('edges', 'relations'));
+  readonly scopeNodeTotal = computed(() => this.metadataCount(
+    'scope_total_nodes',
+    'total_nodes',
+  ));
+  readonly globalNodeTotal = computed(() => this.metadataCount(
+    'global_total_nodes',
+  ) || this.graphInventoryNodeTotal() || this.scopeNodeTotal());
+  readonly globalEdgeTotal = computed(() => this.metadataCountOrNull(
+    'global_source_edge_count',
+    'global_total_edges',
+    'total_edges',
+  ) ?? this.graphInventoryEdgeTotal());
+  readonly globalUnresolvedEdgeTotal = computed(() => this.metadataCount(
+    'global_unresolved_edge_count',
+  ));
+  readonly scopeBoundaryEdgeCount = computed(() => this.metadataCount(
+    'scope_boundary_edge_count',
+  ));
+  readonly activeGraphLoadStep = computed(() => Math.max(
+    1,
+    this.activeLoadStrategy().stepNodes || 100,
+  ));
+  readonly remainingScopeNodes = computed(() => Math.max(
+    0,
+    this.scopeNodeTotal() - this.loadedNodeCount(),
+  ));
+  readonly canGrowGraphWindow = computed(() => (
+    this.remainingScopeNodes() > 0
+    && this.confirmedNodeLimit() < MAX_GRAPH_WINDOW_NODES
+    && !this.loading()
+  ));
+  readonly graphWindowAtLimit = computed(() => (
+    this.remainingScopeNodes() > 0
+    && this.confirmedNodeLimit() >= MAX_GRAPH_WINDOW_NODES
+  ));
 
   readonly status = signal<any>(null);
   readonly searchQuery = signal('');
@@ -43,7 +169,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loading.set(true);
-    this.service.listKnowledgeIndexes().subscribe({
+    this.indexSubscription = this.service.listKnowledgeIndexes().subscribe({
       next: indexes => {
         this.indexes.set([...indexes]);
         const firstConnectionId = String(indexes[0]?.['id'] || '').trim();
@@ -63,33 +189,67 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.searchSubscription?.unsubscribe();
-    if (this.domainPollTimer !== null) clearTimeout(this.domainPollTimer);
+    this.indexSubscription?.unsubscribe();
+    this.graphSubscription?.unsubscribe();
+    this.inventorySubscription?.unsubscribe();
+    this.cancelWikiContext();
+    this.searchRequests.complete();
   }
 
-  loadGraph(): void {
+  loadGraph(clearGraph = false): void {
     const connectionId = this.selectedConnectionId();
     if (!connectionId) {
       this.error.set('Keine projektgebundene Connection ausgewählt');
       return;
     }
+    this.graphSubscription?.unsubscribe();
+    const transitioningFromWiki = this.graphMode() !== 'code';
+    const resetRenderedGraph = clearGraph || transitioningFromWiki;
+    const rollbackLimit = resetRenderedGraph ? 0 : this.confirmedNodeLimit();
     this.loading.set(true);
     this.error.set('');
-    this.rawGraph.set(null);
-    this.metadata.set(null);
-    this.service.getCodeCompassGraph(connectionId).subscribe({
+    if (resetRenderedGraph) {
+      this.rawGraph.set(null);
+      this.metadata.set(null);
+      this.confirmedNodeLimit.set(0);
+    }
+    const limit = this.requestedNodeLimit();
+    const domainScope = this.selectedGraphDomain();
+    const includeSubdomains = this.includeGraphSubdomains();
+    this.graphSubscription = this.service.getCodeCompassGraph(connectionId, {
+      limit,
+      maxEdges: this.edgeLimitFor(limit),
+      ...(domainScope ? { domainScope } : {}),
+      includeSubdomains,
+    }).subscribe({
       next: graph => {
-        if (this.selectedConnectionId() !== connectionId) return;
+        if (!this.graphRequestIsCurrent(connectionId, domainScope, includeSubdomains)) return;
         this.loading.set(false);
         if (!graph) return this.error.set('Quellgraph nicht verfügbar');
+        this.graphMode.set('code');
         this.rawGraph.set(graph);
         this.metadata.set(graph?.metadata ?? null);
+        const confirmedLimit = this.metadataCountFrom(
+          graph?.metadata,
+          'window_node_limit',
+        ) ?? limit;
+        this.confirmedNodeLimit.set(Math.min(MAX_GRAPH_WINDOW_NODES, confirmedLimit));
+        this.requestedNodeLimit.set(this.confirmedNodeLimit());
+        const revision = this.codeGraphEvidenceRevision(graph);
+        const previousRevision = this.codeGraphRevision();
+        this.codeGraphRevision.set(revision);
+        if (previousRevision && revision && previousRevision !== revision) {
+          this.clearGraphInventoryState();
+        }
+        this.ensureGraphDomainInventory(connectionId, revision);
         const nodeCount = Number(
           graph?.metadata?.node_count ?? graph?.nodes?.length ?? 0,
         );
         if (!Number.isFinite(nodeCount) || nodeCount <= 0) {
           this.error.set(
-            'Der aktive Index enthält keinen Quellgraphen. Quelle mit dem Profil "Deep Code" neu indexieren.',
+            domainScope
+              ? 'Dieser Domain-Bereich enthält in der gewählten Subdomain-Einstellung keine Knoten.'
+              : 'Der aktive Index enthält keinen Quellgraphen. Quelle mit dem Profil "Deep Code" neu indexieren.',
           );
           return;
         }
@@ -97,8 +257,12 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
         if (knowledgeIndexId) this.initializeWiki(knowledgeIndexId);
       },
       error: () => {
-        if (this.selectedConnectionId() === connectionId) {
+        if (this.graphRequestIsCurrent(connectionId, domainScope, includeSubdomains)) {
           this.loading.set(false);
+          if (rollbackLimit > 0) {
+            this.confirmedNodeLimit.set(rollbackLimit);
+            this.requestedNodeLimit.set(rollbackLimit);
+          }
           this.error.set('Fehler beim Laden des projektgebundenen Quellgraphen');
         }
       },
@@ -108,7 +272,56 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   changeSource(value: string): void {
     this.selectedConnectionId.set(value);
     this.resetViewState();
+    this.requestedNodeLimit.set(this.activeLoadStrategy().initialNodes);
     this.loadGraph();
+  }
+
+  changeGraphDomain(value: string): void {
+    this.selectedGraphDomain.set(value);
+    this.requestedNodeLimit.set(this.activeLoadStrategy().initialNodes);
+    this.loadGraph(true);
+  }
+
+  changeGraphSubdomainPolicy(include: boolean): void {
+    this.includeGraphSubdomains.set(include);
+    if (!this.selectedGraphDomain()) return;
+    this.requestedNodeLimit.set(this.activeLoadStrategy().initialNodes);
+    this.loadGraph(true);
+  }
+
+  changeGraphLoadStrategy(value: string): void {
+    const strategy = GRAPH_LOAD_STRATEGIES.find(candidate => candidate.id === value);
+    if (!strategy) return;
+    this.graphLoadStrategy.set(strategy.id);
+    this.requestedNodeLimit.set(strategy.initialNodes);
+    this.loadGraph();
+  }
+
+  growGraphWindow(): void {
+    if (!this.canGrowGraphWindow()) return;
+    const step = this.activeGraphLoadStep();
+    this.requestedNodeLimit.set(Math.min(
+      MAX_GRAPH_WINDOW_NODES,
+      this.confirmedNodeLimit() + step,
+    ));
+    this.loadGraph();
+  }
+
+  loadMoreGraphDomains(): void {
+    if (this.graphDomainNextCursor() && !this.graphDomainLoading()) {
+      this.loadGraphDomainInventory(false);
+    }
+  }
+
+  graphDomainOptionLabel(domain: CodeCompassGraphDomainFacet): string {
+    const indentation = '— '.repeat(Math.min(Math.max(domain.depth, 0), 7));
+    const count = this.includeGraphSubdomains()
+      ? domain.subtreeNodeCount
+      : domain.directNodeCount;
+    const fullPath = domain.source === 'unassigned'
+      ? domain.label
+      : domain.path;
+    return `${indentation}${fullPath} · ${this.graphDomainSourceLabel(domain.source)} (${count})`;
   }
 
   search(query: string): void {
@@ -129,11 +342,13 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     this.searchQuery.set('');
     this.loading.set(true);
     this.error.set('');
-    this.service.expandWikiArticle(indexId, slug).subscribe({
+    this.graphSubscription?.unsubscribe();
+    this.graphSubscription = this.service.expandWikiArticle(indexId, slug).subscribe({
       next: graph => {
         if (this.selectedKnowledgeIndexId() !== indexId) return;
         this.loading.set(false);
         if (!graph?.nodes?.length) return this.error.set('Keine Nachbarn gefunden');
+        this.graphMode.set('wiki');
         this.rawGraph.set(graph);
         this.metadata.set(graph.metadata ?? null);
       },
@@ -153,11 +368,13 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     if (!indexId) return;
     this.loading.set(true);
     this.error.set('');
-    this.service.getWikiDomainGraph(indexId, mode, domainId).subscribe({
+    this.graphSubscription?.unsubscribe();
+    this.graphSubscription = this.service.getWikiDomainGraph(indexId, mode, domainId).subscribe({
       next: graph => {
         if (this.selectedKnowledgeIndexId() !== indexId) return;
         this.loading.set(false);
         if (!graph?.nodes?.length) return this.error.set('Keine Artikel in dieser Domäne');
+        this.graphMode.set('wiki');
         this.rawGraph.set(graph);
         this.metadata.set(graph.metadata ?? null);
       },
@@ -174,14 +391,56 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     const indexId = this.selectedKnowledgeIndexId();
     if (!indexId) return;
     this.status.set({ status: 'building' });
-    this.service.triggerWikiGraphBuild(indexId, force).subscribe(() => this.pollStatus(indexId));
+    this.wikiStatusOperation.cancel();
+    const generation = this.wikiBuildOperation.restart();
+    const subscription = this.service.triggerWikiGraphBuild(indexId, force).subscribe({
+      next: () => {
+        if (
+          this.wikiBuildOperation.isCurrent(generation)
+          && this.wikiIndexIsCurrent(indexId)
+        ) {
+          this.pollStatus(indexId);
+        }
+      },
+      error: () => {
+        if (
+          this.wikiBuildOperation.isCurrent(generation)
+          && this.wikiIndexIsCurrent(indexId)
+        ) {
+          this.status.set({ status: 'error' });
+          this.error.set('Wiki-Graph-Build konnte nicht gestartet werden');
+        }
+      },
+    });
+    this.wikiBuildOperation.replaceRequest(generation, subscription);
   }
 
   buildDomain(mode: string): void {
     const indexId = this.selectedKnowledgeIndexId();
     if (!indexId) return;
     this.domainStatus.update(current => ({ ...(current ?? {}), [mode]: { status: 'building' } }));
-    this.service.buildWikiDomains(indexId, mode).subscribe(() => this.pollDomainStatus(indexId, mode));
+    this.wikiDomainStatusBootstrapOperation.cancel();
+    this.operationFor(this.wikiReadyDomainOperations, mode).cancel();
+    this.operationFor(this.wikiDomainPollOperations, mode).cancel();
+    const operation = this.operationFor(this.wikiDomainBuildOperations, mode);
+    const generation = operation.restart();
+    const subscription = this.service.buildWikiDomains(indexId, mode).subscribe({
+      next: () => {
+        if (operation.isCurrent(generation) && this.wikiIndexIsCurrent(indexId)) {
+          this.pollDomainStatus(indexId, mode);
+        }
+      },
+      error: () => {
+        if (operation.isCurrent(generation) && this.wikiIndexIsCurrent(indexId)) {
+          this.domainStatus.update(current => ({
+            ...(current ?? {}),
+            [mode]: { status: 'error' },
+          }));
+          this.error.set('Domain-Build konnte nicht gestartet werden');
+        }
+      },
+    });
+    operation.replaceRequest(generation, subscription);
   }
 
   domainModeStatus(mode: string): string {
@@ -194,59 +453,204 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   }
 
   private initializeWiki(indexId: string): void {
-    this.searchSubscription?.unsubscribe();
-    this.service.getWikiGraphStatus(indexId).subscribe(status => {
+    if (this.initializedWikiIndexId === indexId) return;
+    this.cancelWikiContext();
+    this.initializedWikiIndexId = indexId;
+    const generation = this.wikiStatusOperation.restart();
+    const statusSubscription = this.service.getWikiGraphStatus(indexId).subscribe(status => {
+      if (
+        !this.wikiStatusOperation.isCurrent(generation)
+        || !this.wikiIndexIsCurrent(indexId)
+      ) return;
       this.status.set(status);
       if (status?.status === 'ready') {
-        this.service.getWikiDomainStatus(indexId).subscribe(domainStatus => {
-          this.domainStatus.set(domainStatus);
-          this.loadReadyDomains(indexId, domainStatus);
-        });
+        this.loadWikiDomainStatus(indexId);
       }
     });
-    this.searchSubscription = this.searchRequests.pipe(debounceTime(300), distinctUntilChanged()).subscribe(query => {
-      if (!query) return this.searchResults.set([]);
-      this.service.searchWikiArticles(indexId, query).subscribe(results => this.searchResults.set(results));
+    this.wikiStatusOperation.replaceRequest(generation, statusSubscription);
+    const searchSubscription = this.searchRequests.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      switchMap(query => query
+        ? this.service.searchWikiArticles(indexId, query).pipe(
+            map(results => ({ query, results })),
+          )
+        : of({ query, results: [] as Array<{ slug: string; title: string }> })),
+    ).subscribe(({ query, results }) => {
+      if (!this.wikiIndexIsCurrent(indexId) || this.searchQuery() !== query) return;
+      this.searchResults.set(results);
+    });
+    this.wikiSubscriptions.add(searchSubscription);
+  }
+
+  private loadGraphDomainInventory(reset: boolean, expectedRevision = this.codeGraphRevision()): void {
+    const connectionId = this.selectedConnectionId();
+    if (!connectionId) return;
+    const cursor = reset ? undefined : this.graphDomainNextCursor() ?? undefined;
+    if (!reset && !cursor) return;
+    this.inventorySubscription?.unsubscribe();
+    if (reset) {
+      this.clearGraphInventoryState(false);
+    }
+    this.pendingInventoryRevision = expectedRevision;
+    this.graphDomainLoading.set(true);
+    this.graphDomainError.set('');
+    this.inventorySubscription = this.service.getCodeCompassGraphInventory(
+      connectionId,
+      cursor,
+    ).subscribe({
+      next: page => {
+        if (this.selectedConnectionId() !== connectionId) return;
+        if (
+          expectedRevision
+          && this.codeGraphRevision()
+          && expectedRevision !== this.codeGraphRevision()
+        ) {
+          return;
+        }
+        const existingRevision = reset ? '' : this.graphInventoryRevision();
+        if (
+          (expectedRevision && page.graphRevision !== expectedRevision)
+          || (existingRevision && page.graphRevision !== existingRevision)
+        ) {
+          this.handleGraphRevisionMismatch(connectionId, expectedRevision, page.graphRevision);
+          return;
+        }
+        const combined = reset
+          ? [...page.domains]
+          : [...this.graphDomains(), ...page.domains];
+        const byKey = new Map(combined.map(domain => [domain.key, domain]));
+        this.graphDomains.set([...byKey.values()]);
+        this.graphDomainNextCursor.set(page.nextCursor);
+        this.graphDomainTotal.set(page.totalDomains);
+        this.graphInventoryNodeTotal.set(page.totalNodes);
+        this.graphInventoryEdgeTotal.set(page.totalEdges);
+        this.graphInventoryRevision.set(page.graphRevision);
+        this.pendingInventoryRevision = '';
+        this.inventoryLoaded = true;
+        this.revisionRecoveryAttempted = false;
+        this.graphDomainLoading.set(false);
+      },
+      error: () => {
+        if (this.selectedConnectionId() !== connectionId) return;
+        this.pendingInventoryRevision = '';
+        this.graphDomainLoading.set(false);
+        this.graphDomainError.set(
+          cursor
+            ? 'Weitere Domains konnten nicht geladen werden; der bereits bestätigte Inventarstand bleibt erhalten.'
+            : 'Domain-Inventar konnte nicht vertragskonform geladen werden.',
+        );
+      },
     });
   }
 
+  private ensureGraphDomainInventory(connectionId: string, graphRevision: string): void {
+    if (this.selectedConnectionId() !== connectionId) return;
+    if (
+      this.inventoryLoaded
+      && (!graphRevision || this.graphInventoryRevision() === graphRevision)
+    ) {
+      return;
+    }
+    if (this.graphDomainLoading() && this.pendingInventoryRevision === graphRevision) return;
+    this.loadGraphDomainInventory(true, graphRevision);
+  }
+
+  private handleGraphRevisionMismatch(
+    connectionId: string,
+    expectedRevision: string,
+    inventoryRevision: string,
+  ): void {
+    if (this.selectedConnectionId() !== connectionId) return;
+    this.clearGraphInventoryState();
+    this.graphDomainError.set(
+      `Der Index wurde während des Ladens aktualisiert (${expectedRevision || 'unbekannt'} → ${inventoryRevision}).`,
+    );
+    if (this.revisionRecoveryAttempted) return;
+    this.revisionRecoveryAttempted = true;
+    this.loadGraph(true);
+  }
+
   private loadReadyDomains(indexId: string, status: any): void {
-    for (const [mode, target] of [
-      ['hubs', this.hubDomains],
-      ['categories', this.categoryDomains],
-      ['clusters', this.clusterDomains],
-    ] as const) {
+    for (const mode of ['hubs', 'categories', 'clusters'] as const) {
       if (status?.[mode]?.status === 'ready') {
-        this.service.getWikiDomains(indexId, mode).subscribe(domains => target.set(domains));
+        this.loadReadyDomain(indexId, mode);
       }
     }
   }
 
-  private pollStatus(indexId: string): void {
-    const poll = () => this.service.getWikiGraphStatus(indexId).subscribe(status => {
-      this.status.set(status);
-      if (status?.status === 'building') setTimeout(poll, 5000);
+  private loadReadyDomain(indexId: string, mode: string): void {
+    const operation = this.operationFor(this.wikiReadyDomainOperations, mode);
+    const generation = operation.restart();
+    const subscription = this.service.getWikiDomains(indexId, mode).subscribe(domains => {
+      if (operation.isCurrent(generation) && this.wikiIndexIsCurrent(indexId)) {
+        this.setWikiDomains(mode, domains);
+      }
     });
-    setTimeout(poll, 3000);
+    operation.replaceRequest(generation, subscription);
+  }
+
+  private loadWikiDomainStatus(indexId: string): void {
+    const generation = this.wikiDomainStatusBootstrapOperation.restart();
+    const subscription = this.service.getWikiDomainStatus(indexId).subscribe(domainStatus => {
+      if (
+        !this.wikiDomainStatusBootstrapOperation.isCurrent(generation)
+        || !this.wikiIndexIsCurrent(indexId)
+      ) return;
+      this.domainStatus.set(domainStatus);
+      this.loadReadyDomains(indexId, domainStatus);
+    });
+    this.wikiDomainStatusBootstrapOperation.replaceRequest(generation, subscription);
+  }
+
+  private pollStatus(indexId: string): void {
+    const generation = this.wikiStatusOperation.restart();
+    const poll = () => {
+      if (
+        !this.wikiStatusOperation.isCurrent(generation)
+        || !this.wikiIndexIsCurrent(indexId)
+      ) return;
+      const subscription = this.service.getWikiGraphStatus(indexId).subscribe(status => {
+        if (
+          !this.wikiStatusOperation.isCurrent(generation)
+          || !this.wikiIndexIsCurrent(indexId)
+        ) return;
+        this.status.set(status);
+        if (status?.status === 'building') {
+          this.wikiStatusOperation.schedule(generation, poll, 5000);
+        }
+      });
+      this.wikiStatusOperation.replaceRequest(generation, subscription);
+    };
+    this.wikiStatusOperation.schedule(generation, poll, 3000);
   }
 
   private pollDomainStatus(indexId: string, mode: string): void {
-    if (this.domainPollTimer !== null) clearTimeout(this.domainPollTimer);
-    const poll = () => this.service.getWikiDomainStatus(indexId).subscribe(status => {
-      this.domainStatus.set(status);
-      if (status?.[mode]?.status === 'building') {
-        this.domainPollTimer = setTimeout(poll, 5000);
-      } else if (status?.[mode]?.status === 'ready') {
-        this.domainPollTimer = null;
-        this.loadReadyDomains(indexId, status);
-      }
-    });
-    this.domainPollTimer = setTimeout(poll, 3000);
+    const operation = this.operationFor(this.wikiDomainPollOperations, mode);
+    const generation = operation.restart();
+    const poll = () => {
+      if (!operation.isCurrent(generation) || !this.wikiIndexIsCurrent(indexId)) return;
+      const subscription = this.service.getWikiDomainStatus(indexId).subscribe(status => {
+        if (!operation.isCurrent(generation) || !this.wikiIndexIsCurrent(indexId)) return;
+        this.domainStatus.update(current => ({
+          ...(current ?? {}),
+          [mode]: status?.[mode] ?? { status: 'not_built' },
+        }));
+        if (status?.[mode]?.status === 'building') {
+          operation.schedule(generation, poll, 5000);
+        } else if (status?.[mode]?.status === 'ready') {
+          this.loadReadyDomain(indexId, mode);
+        }
+      });
+      operation.replaceRequest(generation, subscription);
+    };
+    operation.schedule(generation, poll, 3000);
   }
 
   private resetViewState(): void {
     this.metadata.set(null);
     this.rawGraph.set(null);
+    this.graphMode.set('code');
     this.loading.set(false);
     this.error.set('');
     this.status.set(null);
@@ -257,6 +661,153 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     this.hubDomains.set([]);
     this.categoryDomains.set([]);
     this.clusterDomains.set([]);
-    if (this.domainPollTimer !== null) clearTimeout(this.domainPollTimer);
+    this.selectedGraphDomain.set('');
+    this.includeGraphSubdomains.set(true);
+    this.confirmedNodeLimit.set(0);
+    this.codeGraphRevision.set('');
+    this.revisionRecoveryAttempted = false;
+    this.graphSubscription?.unsubscribe();
+    this.clearGraphInventoryState();
+    this.cancelWikiContext();
+  }
+
+  private clearGraphInventoryState(cancelRequest = true): void {
+    if (cancelRequest) this.inventorySubscription?.unsubscribe();
+    this.graphDomains.set([]);
+    this.graphDomainNextCursor.set(null);
+    this.graphDomainTotal.set(0);
+    this.graphInventoryNodeTotal.set(0);
+    this.graphInventoryEdgeTotal.set(0);
+    this.graphInventoryRevision.set('');
+    this.graphDomainLoading.set(false);
+    this.graphDomainError.set('');
+    this.pendingInventoryRevision = '';
+    this.inventoryLoaded = false;
+  }
+
+  private cancelWikiContext(): void {
+    this.wikiSubscriptions.unsubscribe();
+    this.wikiSubscriptions = new Subscription();
+    this.initializedWikiIndexId = '';
+    this.wikiStatusOperation.cancel();
+    this.wikiDomainStatusBootstrapOperation.cancel();
+    this.wikiBuildOperation.cancel();
+    this.cancelWikiOperationMap(this.wikiDomainBuildOperations);
+    this.cancelWikiOperationMap(this.wikiDomainPollOperations);
+    this.cancelWikiOperationMap(this.wikiReadyDomainOperations);
+  }
+
+  private wikiIndexIsCurrent(indexId: string): boolean {
+    return this.initializedWikiIndexId === indexId
+      && this.selectedKnowledgeIndexId() === indexId;
+  }
+
+  private operationFor(
+    operations: Map<string, WikiOperationSlot>,
+    key: string,
+  ): WikiOperationSlot {
+    const existing = operations.get(key);
+    if (existing) return existing;
+    const operation = new WikiOperationSlot();
+    operations.set(key, operation);
+    return operation;
+  }
+
+  private cancelWikiOperationMap(operations: Map<string, WikiOperationSlot>): void {
+    operations.forEach(operation => operation.cancel());
+    operations.clear();
+  }
+
+  private setWikiDomains(mode: string, domains: any[]): void {
+    switch (mode) {
+      case 'hubs':
+        this.hubDomains.set(domains);
+        break;
+      case 'categories':
+        this.categoryDomains.set(domains);
+        break;
+      case 'clusters':
+        this.clusterDomains.set(domains);
+        break;
+    }
+  }
+
+  private graphRequestIsCurrent(
+    connectionId: string,
+    domainScope: string,
+    includeSubdomains: boolean,
+  ): boolean {
+    return this.selectedConnectionId() === connectionId
+      && this.selectedGraphDomain() === domainScope
+      && this.includeGraphSubdomains() === includeSubdomains;
+  }
+
+  private codeGraphEvidenceRevision(graph: unknown): string {
+    if (!graph || typeof graph !== 'object' || Array.isArray(graph)) return '';
+    const metadata = (graph as { metadata?: unknown }).metadata;
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return '';
+    const values = metadata as Record<string, unknown>;
+    for (const field of [
+      'content_graph_revision',
+      'evidence_graph_revision',
+      'parent_graph_revision',
+      'graph_revision',
+    ]) {
+      const value = values[field];
+      if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+    return '';
+  }
+
+  private graphDomainSourceLabel(source: string): string {
+    switch (source) {
+      case 'domain_id': return 'deklarierte Domain';
+      case 'domain_path': return 'Domainpfad';
+      case 'path': return 'Repositorypfad';
+      case 'unassigned': return 'nicht zugeordnet';
+      default: return source;
+    }
+  }
+
+  private activeLoadStrategy(): GraphLoadStrategy {
+    return GRAPH_LOAD_STRATEGIES.find(
+      strategy => strategy.id === this.graphLoadStrategy(),
+    ) ?? GRAPH_LOAD_STRATEGIES[0]!;
+  }
+
+  private edgeLimitFor(nodeLimit: number): number {
+    return Math.min(MAX_GRAPH_WINDOW_EDGES, Math.max(1, nodeLimit * 4));
+  }
+
+  private graphItemCount(primary: string, legacy: string): number {
+    const graph = this.rawGraph();
+    const values = graph?.[primary] ?? graph?.[legacy];
+    return Array.isArray(values) ? values.length : 0;
+  }
+
+  private metadataCount(...fields: string[]): number {
+    return this.metadataCountOrNull(...fields) ?? 0;
+  }
+
+  private metadataCountOrNull(...fields: string[]): number | null {
+    const metadata = this.metadata();
+    for (const field of fields) {
+      const value = this.metadataCountFrom(metadata, field);
+      if (value !== null) return value;
+    }
+    return null;
+  }
+
+  private metadataCountFrom(
+    metadata: Record<string, unknown> | null | undefined,
+    field: string,
+  ): number | null {
+    const value = metadata?.[field];
+    return typeof value === 'number'
+      && Number.isFinite(value)
+      && Number.isInteger(value)
+      && value >= 0
+      ? value
+      : null;
   }
 }

@@ -153,4 +153,29 @@ describe('Graph3dViewComponent renderer adapter', () => {
 
     expect(component.focusedNodeId).toBeNull();
   });
+
+  it('retains local focus only inside the same explicit interaction context', () => {
+    const graph = buildGraph();
+    fixture.componentRef.setInput('interactionContextKey', 'source:revision-1:all');
+    fixture.componentRef.setInput('graph', graph);
+    fixture.detectChanges();
+    component.selectNode(graph.nodes[0].id);
+
+    fixture.componentRef.setInput('graph', {
+      ...graph,
+      metadata: { ...graph.metadata, graphRevision: 'projection-window-2' },
+    });
+    fixture.detectChanges();
+
+    expect(component.focusedNodeId).toBe(graph.nodes[0].id);
+
+    fixture.componentRef.setInput('interactionContextKey', 'source:revision-2:all');
+    fixture.componentRef.setInput('graph', {
+      ...graph,
+      metadata: { ...graph.metadata, graphRevision: 'projection-window-3' },
+    });
+    fixture.detectChanges();
+
+    expect(component.focusedNodeId).toBeNull();
+  });
 });

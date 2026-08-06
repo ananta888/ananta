@@ -164,6 +164,36 @@ describe('ForceGraph3dRendererComponent', () => {
     expect(refresh.mock.calls.length).toBeGreaterThan(refreshCount);
   });
 
+  it('updates a growing topology through graphData without recreating WebGL', async () => {
+    const fake = forceGraphFake();
+    const factory: ForceGraph3dFactoryPort = {
+      webglAvailable: () => true,
+      create: vi.fn(async () => fake.renderer),
+    };
+    const fixture = await createFixture(factory);
+    fixture.componentRef.setInput('graph', GRAPH);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
+
+    fixture.componentRef.setInput('graph', FOCUS_GRAPH);
+    fixture.detectChanges();
+
+    expect(factory.create).toHaveBeenCalledOnce();
+    expect(fake.destructor).not.toHaveBeenCalled();
+    expect(fake.calls.get('graphData')).toHaveBeenCalledTimes(2);
+    expect(fake.calls.get('graphData')).toHaveBeenLastCalledWith({
+      nodes: [
+        { id: 'a', label: 'A', kind: 'team' },
+        { id: 'b', label: 'B', kind: 'role' },
+        { id: 'c', label: 'C', kind: 'role' },
+      ],
+      links: [
+        { id: 'ab', source: 'a', target: 'b', label: 'contains' },
+        { id: 'bc', source: 'b', target: 'c', label: 'depends on' },
+      ],
+    });
+  });
+
   it('applies node and relation visibility sets to the 3D renderer callbacks', async () => {
     const fake = forceGraphFake();
     const factory: ForceGraph3dFactoryPort = {

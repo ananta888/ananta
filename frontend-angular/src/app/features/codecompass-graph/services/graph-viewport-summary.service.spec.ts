@@ -136,6 +136,38 @@ describe('GraphViewportSummaryService', () => {
     expect(Object.isFrozen(summary.rawWarnings)).toBe(true);
   });
 
+  it('separates global totals from the selected server scope', () => {
+    const graph = graphWithEvidence();
+    graph.evidence = {
+      ...graph.evidence!,
+      window: {
+        ...graph.evidence!.window!,
+        totalNodes: 12,
+        totalEdges: 20,
+        globalTotalNodes: 120,
+        globalTotalEdges: 240,
+        scopeTotalNodes: 12,
+        scopeBoundaryEdges: 9,
+      },
+    };
+
+    const summary = service.project(
+      graph,
+      new Set(graph.nodes.map(node => node.id)),
+      new Set(graph.edges.map(edge => edge.id)),
+    );
+
+    expect(summary.nodes.total).toBe(120);
+    expect(summary.edges.total).toBe(240);
+    expect(summary.scopeNodeTotal).toBe(12);
+    expect(summary.scopeBoundaryEdges).toBe(9);
+    expect(summary.projectionIssues).toContainEqual({
+      code: 'graph_node_window_bounded',
+      affectedCount: 9,
+      reasonCode: null,
+    });
+  });
+
   it('classifies only structured semantic and artifact evidence', () => {
     const summary = service.project(
       graphWithEvidence(),

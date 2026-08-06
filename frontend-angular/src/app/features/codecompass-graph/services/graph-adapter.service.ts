@@ -68,6 +68,12 @@ const WINDOW_EVIDENCE_KEYS = Object.freeze([
   'internal_edge_count',
   'edge_capped',
   'max_edges',
+  'global_total_nodes',
+  'global_total_edges',
+  'scope_total_nodes',
+  'scope_boundary_edge_count',
+  'remaining_nodes',
+  'delivery_complete',
 ] as const);
 
 const SEMANTIC_BUDGET_KEYS = Object.freeze([
@@ -296,6 +302,24 @@ export class GraphAdapterService {
       internalEdges: evidenceCount(metadata['internal_edge_count']),
       edgeCapped: evidenceBoolean(metadata['edge_capped']),
       maxEdges: evidenceCount(metadata['max_edges']),
+      ...(hasOwn(metadata, 'global_total_nodes')
+        ? { globalTotalNodes: evidenceCount(metadata['global_total_nodes']) }
+        : {}),
+      ...(hasOwn(metadata, 'global_total_edges')
+        ? { globalTotalEdges: evidenceCount(metadata['global_total_edges']) }
+        : {}),
+      ...(hasOwn(metadata, 'scope_total_nodes')
+        ? { scopeTotalNodes: evidenceCount(metadata['scope_total_nodes']) }
+        : {}),
+      ...(hasOwn(metadata, 'scope_boundary_edge_count')
+        ? { scopeBoundaryEdges: evidenceCount(metadata['scope_boundary_edge_count']) }
+        : {}),
+      ...(hasOwn(metadata, 'remaining_nodes')
+        ? { remainingNodes: evidenceCount(metadata['remaining_nodes']) }
+        : {}),
+      ...(hasOwn(metadata, 'delivery_complete')
+        ? { deliveryComplete: evidenceBoolean(metadata['delivery_complete']) }
+        : {}),
     });
   }
 

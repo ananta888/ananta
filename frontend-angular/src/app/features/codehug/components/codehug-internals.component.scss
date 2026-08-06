@@ -23,7 +23,7 @@
 
 /* ── Quellgraph ── */
 .ch-graph-info {
-  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex-shrink: 0;
   padding: 3px 10px; border-bottom: 1px solid var(--border);
   background: var(--card-bg); font-size: 11px; color: var(--muted);
 }
@@ -180,6 +180,13 @@
   padding: 3px 5px; border: 1px solid var(--border); border-radius: 5px;
   background: var(--bg); color: var(--fg); font-size: 11px; cursor: pointer;
 }
+.ch-domain-scope { min-width: 190px; max-width: 340px; }
+.ch-domain-toggle {
+  display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+  color: var(--muted); font-size: 10px; cursor: pointer;
+}
+.ch-domain-toggle input { margin: 0; }
+.ch-error { color: #ef4444; }
 .ch-sel-sm { width: 50px; }
 .ch-wdots { display: flex; align-items: center; gap: 3px; margin-left: 4px; }
 .ch-wdots-none { font-size: 9px; color: var(--muted); }
@@ -339,4 +346,3 @@
 /* ── Palette Fork/Join ── */
 .ch-pal-elem-fork { border-left-color: #a855f7; }
 .ch-pal-elem-join { border-left-color: #0284c7; }
-  

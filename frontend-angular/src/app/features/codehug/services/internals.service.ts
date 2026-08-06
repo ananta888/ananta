@@ -91,6 +91,139 @@ export interface AutopilotStatus {
   };
 }
 
+export interface CodeCompassGraphWindowRequest {
+  readonly limit: number;
+  readonly maxEdges: number;
+  readonly domainScope?: string;
+  readonly includeSubdomains?: boolean;
+}
+
+export interface CodeCompassGraphDomainFacet {
+  readonly key: string;
+  readonly label: string;
+  readonly parentKey: string | null;
+  readonly depth: number;
+  readonly directNodeCount: number;
+  readonly subtreeNodeCount: number;
+  readonly hasChildren: boolean;
+  readonly source: string;
+  readonly path: string;
+}
+
+export interface CodeCompassGraphInventoryPage {
+  readonly domains: readonly CodeCompassGraphDomainFacet[];
+  readonly nextCursor: string | null;
+  readonly totalDomains: number;
+  readonly totalNodes: number;
+  readonly totalEdges: number;
+  readonly graphRevision: string;
+}
+
+export class CodeCompassGraphInventoryContractError extends Error {
+  constructor(readonly reasonCode: string) {
+    super(reasonCode);
+    this.name = 'CodeCompassGraphInventoryContractError';
+  }
+}
+
+function inventoryRecord(value: unknown, path: string): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new CodeCompassGraphInventoryContractError(`${path}_invalid`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function inventoryText(value: unknown, path: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new CodeCompassGraphInventoryContractError(`${path}_invalid`);
+  }
+  return value.trim();
+}
+
+function inventoryNullableText(value: unknown, path: string): string | null {
+  if (value === null) return null;
+  return inventoryText(value, path);
+}
+
+function inventoryCount(value: unknown, path: string): number {
+  if (
+    typeof value !== 'number'
+    || !Number.isFinite(value)
+    || !Number.isInteger(value)
+    || value < 0
+  ) {
+    throw new CodeCompassGraphInventoryContractError(`${path}_invalid`);
+  }
+  return value;
+}
+
+export function parseCodeCompassGraphInventoryPage(
+  raw: unknown,
+): CodeCompassGraphInventoryPage {
+  const root = inventoryRecord(raw, 'graph_inventory');
+  if (inventoryText(root['schema'], 'graph_inventory.schema') !== 'codecompass_graph_inventory.v1') {
+    throw new CodeCompassGraphInventoryContractError('graph_inventory.schema_unsupported');
+  }
+  const facets = inventoryRecord(root['facets'], 'graph_inventory.facets');
+  const domainPage = inventoryRecord(facets['domains'], 'graph_inventory.facets.domains');
+  const metadata = inventoryRecord(root['metadata'], 'graph_inventory.metadata');
+  const rawItems = domainPage['items'];
+  if (!Array.isArray(rawItems)) {
+    throw new CodeCompassGraphInventoryContractError(
+      'graph_inventory.facets.domains.items_invalid',
+    );
+  }
+  const domains = rawItems.map((item, index): CodeCompassGraphDomainFacet => {
+    const path = `graph_inventory.facets.domains.items[${index}]`;
+    const value = inventoryRecord(item, path);
+    const directNodeCount = inventoryCount(
+      value['direct_node_count'],
+      `${path}.direct_node_count`,
+    );
+    const subtreeNodeCount = inventoryCount(
+      value['subtree_node_count'],
+      `${path}.subtree_node_count`,
+    );
+    if (directNodeCount > subtreeNodeCount) {
+      throw new CodeCompassGraphInventoryContractError(`${path}.node_counts_inconsistent`);
+    }
+    if (typeof value['has_children'] !== 'boolean') {
+      throw new CodeCompassGraphInventoryContractError(`${path}.has_children_invalid`);
+    }
+    return {
+      key: inventoryText(value['key'], `${path}.key`),
+      label: inventoryText(value['label'], `${path}.label`),
+      parentKey: inventoryNullableText(value['parent_key'], `${path}.parent_key`),
+      depth: inventoryCount(value['depth'], `${path}.depth`),
+      directNodeCount,
+      subtreeNodeCount,
+      hasChildren: value['has_children'],
+      source: inventoryText(value['source'], `${path}.source`),
+      path: inventoryText(value['path'], `${path}.path`),
+    };
+  });
+  const totalDomains = inventoryCount(
+    domainPage['total_count'],
+    'graph_inventory.facets.domains.total_count',
+  );
+  if (domains.length > totalDomains) {
+    throw new CodeCompassGraphInventoryContractError(
+      'graph_inventory.facets.domains.total_count_inconsistent',
+    );
+  }
+  return {
+    domains,
+    nextCursor: inventoryNullableText(
+      domainPage['next_cursor'],
+      'graph_inventory.facets.domains.next_cursor',
+    ),
+    totalDomains,
+    totalNodes: inventoryCount(metadata['total_nodes'], 'graph_inventory.metadata.total_nodes'),
+    totalEdges: inventoryCount(metadata['total_edges'], 'graph_inventory.metadata.total_edges'),
+    graphRevision: inventoryText(root['graph_revision'], 'graph_inventory.graph_revision'),
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class InternalsService {
   private readonly http = inject(HttpClient);
@@ -221,13 +354,34 @@ export class InternalsService {
     );
   }
 
-  getCodeCompassGraph(connectionId: string): Observable<CodeCompassGraphV1> {
+  getCodeCompassGraph(
+    connectionId: string,
+    request: CodeCompassGraphWindowRequest = { limit: 100, maxEdges: 400 },
+  ): Observable<CodeCompassGraphV1> {
     return this.sourceControlApi.loadGraph(connectionId, {
-      limit: 500,
+      limit: request.limit,
       view: 'topology',
-      maxEdges: 2_000,
+      maxEdges: request.maxEdges,
+      ...(request.domainScope ? { domainScope: request.domainScope } : {}),
+      ...(request.includeSubdomains !== undefined
+        ? { includeSubdomains: request.includeSubdomains }
+        : {}),
     }).pipe(
       map(graph => graph as unknown as CodeCompassGraphV1),
+    );
+  }
+
+  getCodeCompassGraphInventory(
+    connectionId: string,
+    cursor?: string,
+    limit = 250,
+  ): Observable<CodeCompassGraphInventoryPage> {
+    return this.sourceControlApi.loadGraph(connectionId, {
+      ...(cursor ? { cursor } : {}),
+      limit,
+      view: 'inventory',
+    }).pipe(
+      map(parseCodeCompassGraphInventoryPage),
     );
   }
 

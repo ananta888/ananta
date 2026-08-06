@@ -8,6 +8,34 @@
       <option [value]="index.id">{{ indexLabel(index) }}</option>
     }
   </select>
+  <label class="ch-lbl">Code-Bereich</label>
+  <select class="ch-sel ch-domain-scope" [value]="selectedGraphDomain()"
+          [disabled]="graphDomainLoading() && !graphDomains().length"
+          (change)="changeGraphDomain($any($event.target).value)">
+    <option value="">Gesamter Index ({{ graphInventoryNodeTotal() || globalNodeTotal() }})</option>
+    @for (domain of graphDomains(); track domain.key) {
+      <option [value]="domain.key">{{ graphDomainOptionLabel(domain) }}</option>
+    }
+  </select>
+  <label class="ch-domain-toggle">
+    <input type="checkbox" [checked]="includeGraphSubdomains()"
+           (change)="changeGraphSubdomainPolicy($any($event.target).checked)" />
+    <span>inkl. Subdomains</span>
+  </label>
+  <label class="ch-lbl">Laden</label>
+  <select class="ch-sel" [value]="graphLoadStrategy()"
+          (change)="changeGraphLoadStrategy($any($event.target).value)">
+    @for (strategy of loadStrategies; track strategy.id) {
+      <option [value]="strategy.id">{{ strategy.label }}</option>
+    }
+  </select>
+  @if (graphDomainNextCursor()) {
+    <button class="ch-btn" [disabled]="graphDomainLoading()" (click)="loadMoreGraphDomains()">
+      Weitere Bereiche
+    </button>
+  }
+  @if (graphDomainLoading()) { <span class="ch-lbl muted">Bereiche…</span> }
+  @if (graphDomainError()) { <span class="ch-lbl ch-error">{{ graphDomainError() }}</span> }
   @if (selectedConnectionId() && status()?.status === 'ready') {
     @for (entry of [
       { mode: 'hubs', label: 'Hub-Artikel', values: hubDomains() },
@@ -41,9 +69,33 @@
   @if (error()) { <span class="ch-lbl" style="color:#ef4444">{{ error() }}</span> }
 </div>
 
-@if (metadata()) {
+@if (metadata() && graphMode() === 'code') {
   <div class="ch-graph-info">
-    <span>{{ metadata()!['node_count'] }} Nodes · {{ metadata()!['edge_count'] }} Edges</span>
+    <span>
+      Fenster: {{ loadedNodeCount() }} / {{ scopeNodeTotal() }} Knoten ·
+      {{ loadedEdgeCount() }} Kanten
+    </span>
+    <span>
+      Gesamtindex: {{ globalNodeTotal() }} Knoten · {{ globalEdgeTotal() }} Quellrelationen ·
+      {{ globalUnresolvedEdgeTotal() }} derzeit nicht renderbar (im staged/lossless Stream erhalten)
+    </span>
+    @if (selectedGraphDomain()) {
+      <span>Scope: {{ metadata()!['domain_scope_label'] || 'Domain' }}</span>
+    }
+    @if (scopeBoundaryEdgeCount()) {
+      <span>{{ scopeBoundaryEdgeCount() }} Kanten überqueren die Scope-Grenze</span>
+    }
+    @if (canGrowGraphWindow()) {
+      <button class="ch-btn ch-btn-xs" (click)="growGraphWindow()">
+        Fenster erweitern (+{{ activeGraphLoadStep() }})
+      </button>
+    }
+    @if (graphWindowAtLimit()) {
+      <span class="ch-cap-warn">
+        {{ remainingScopeNodes() }} weitere Knoten bleiben im vollständigen staged/lossless
+        Datenstrom abrufbar und sind nicht gelöscht – für die 3D-Ansicht Domain/Subdomain enger wählen.
+      </span>
+    }
   </div>
 }
 <div class="ch-graph-wrap">

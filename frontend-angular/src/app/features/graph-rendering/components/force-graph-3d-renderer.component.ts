@@ -167,6 +167,19 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
       && this.limitStrategy === 'focus'
       && this.exceedsConfiguredLimit();
 
+    if (
+      topologyChanged
+      && !limitsChanged
+      && !focusLimitNeedsRebuild
+      && this.renderer
+      && !this.exceedsConfiguredLimit()
+    ) {
+      this.updateRendererGraphData();
+      this.setHighlightState(this.effectiveFocusedNodeId());
+      this.applyVisualProjection();
+      return;
+    }
+
     if (topologyChanged || limitsChanged || focusLimitNeedsRebuild) {
       void this.render();
       return;
@@ -327,6 +340,32 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
     this.renderer.refresh();
   }
 
+  private updateRendererGraphData(): void {
+    if (!this.renderer) return;
+    const graph = this.renderGraph();
+    const { nodes, links } = this.rendererData(graph);
+    this.renderer.graphData({ nodes, links });
+  }
+
+  private rendererData(graph: RenderGraph | null): {
+    nodes: ForceGraphNodeData[];
+    links: ForceGraphLinkData[];
+  } {
+    return {
+      nodes: (graph?.nodes ?? []).map(node => ({
+        id: node.id,
+        label: node.label,
+        kind: node.kind,
+      })),
+      links: (graph?.edges ?? []).map(edge => ({
+        id: edge.id,
+        source: edge.sourceId,
+        target: edge.targetId,
+        label: edge.label,
+      })),
+    };
+  }
+
   private normalisedLimit(value: number | null): number | null {
     if (value === null || value === undefined || !Number.isFinite(value) || value <= 0) return null;
     return Math.floor(value);
@@ -451,17 +490,7 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
       const element = this.containerRef.nativeElement;
       const width = Math.max(1, element.clientWidth || element.getBoundingClientRect().width || 800);
       const height = Math.max(1, element.clientHeight || element.getBoundingClientRect().height || 500);
-      const nodes: ForceGraphNodeData[] = graph.nodes.map(node => ({
-        id: node.id,
-        label: node.label,
-        kind: node.kind,
-      }));
-      const links: ForceGraphLinkData[] = graph.edges.map(edge => ({
-        id: edge.id,
-        source: edge.sourceId,
-        target: edge.targetId,
-        label: edge.label,
-      }));
+      const { nodes, links } = this.rendererData(graph);
 
       renderer
         .width(width)

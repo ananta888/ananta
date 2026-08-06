@@ -55,6 +55,11 @@ import { graphVisualTooltipText } from '../graph-tooltip/graph-visual-tooltip';
 })
 export class Graph3dViewComponent implements OnChanges {
   @Input() graph: GenericGraphModel | null = null;
+  /**
+   * Stable identity of the source/revision/scope whose local 3D interaction
+   * state may be retained. A changed key is an explicit reset boundary.
+   */
+  @Input() interactionContextKey = '';
   @Input() selectedNode: GraphNode | null = null;
   @Input() selectedEdge: GraphEdge | null = null;
   @Input() visualProjection: GraphVisualProjection | null = null;
@@ -79,6 +84,12 @@ export class Graph3dViewComponent implements OnChanges {
   private readonly edgeMap = new Map<string, GraphEdge>();
 
   ngOnChanges(changes: SimpleChanges): void {
+    const interactionContextChanged = Boolean(
+      changes['interactionContextKey']
+      && changes['interactionContextKey'].previousValue
+        !== changes['interactionContextKey'].currentValue,
+    );
+    if (interactionContextChanged) this.focusedNodeId = null;
     if (changes['graph']) this.projectGraph();
     if (
       (changes['graph'] || changes['visibleNodeIds'])
@@ -113,15 +124,19 @@ export class Graph3dViewComponent implements OnChanges {
   }
 
   private projectGraph(): void {
+    const retainedFocus = this.focusedNodeId;
     this.nodeMap.clear();
     this.edgeMap.clear();
-    this.focusedNodeId = null;
     if (!this.graph) {
+      this.focusedNodeId = null;
       this.renderGraph = null;
       return;
     }
     this.graph.nodes.forEach(node => this.nodeMap.set(node.id, node));
     this.graph.edges.forEach(edge => this.edgeMap.set(edge.id, edge));
+    this.focusedNodeId = retainedFocus && this.nodeMap.has(retainedFocus)
+      ? retainedFocus
+      : null;
     this.renderGraph = {
       nodes: this.graph.nodes.map(node => ({
         id: node.id,

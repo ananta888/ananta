@@ -56,6 +56,50 @@ describe('GraphStateService', () => {
     expect(svc.selectedEdge()).toBeNull();
   });
 
+  it('updates a larger window without losing filter, selection, or hop depth', () => {
+    const initial = chainGraph();
+    svc.setGraph(initial);
+    svc.selectNode(initial.nodes[0]);
+    svc.updateFilter({ edgeTypes: { mode: 'subset', values: ['parent_child'] } });
+    svc.setNeighborhoodDepth(2);
+    const expanded: GenericGraphModel = {
+      ...chainGraph(),
+      nodes: [
+        ...chainGraph().nodes,
+        {
+          id: 'e', kind: 'python_function', label: 'e', file: 'e.py', content: '',
+          recordId: 'e', metadata: {},
+        },
+      ],
+    };
+
+    svc.updateGraphWindow(expanded);
+
+    expect(svc.graph()).toBe(expanded);
+    expect(svc.selectedNode()).toBe(expanded.nodes[0]);
+    expect(svc.selectedNode()).not.toBe(initial.nodes[0]);
+    expect(svc.filter().edgeTypes).toEqual({ mode: 'subset', values: ['parent_child'] });
+    expect(svc.focusNodeId()).toBe('a');
+    expect(svc.focusHopDepth()).toBe(2);
+  });
+
+  it('clears retained selections that are absent from the replacement window', () => {
+    const initial = chainGraph();
+    svc.setGraph(initial);
+    svc.selectNode(initial.nodes[3]);
+    svc.setNeighborhoodDepth(2);
+
+    svc.updateGraphWindow({
+      ...initial,
+      nodes: initial.nodes.slice(0, 2),
+      edges: initial.edges.slice(0, 1),
+    });
+
+    expect(svc.selectedNode()).toBeNull();
+    expect(svc.focusNodeId()).toBeNull();
+    expect(svc.focusHopDepth()).toBe(2);
+  });
+
   it('selectNode sets selectedNode and clears selectedEdge', () => {
     const g = buildGraph();
     svc.setGraph(g);

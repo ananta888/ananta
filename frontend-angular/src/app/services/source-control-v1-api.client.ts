@@ -129,12 +129,32 @@ export interface CodeHugMutationResult {
   readonly binding_digest: string | null;
 }
 
-export interface SourceControlGraphQuery {
+interface SourceControlGraphQueryBase {
   readonly cursor?: string;
   readonly limit?: number;
-  readonly view?: string;
   readonly maxEdges?: number;
 }
+
+export type SourceControlGraphQuery = SourceControlGraphQueryBase & (
+  | {
+      readonly view: 'topology';
+      readonly domainScope?: string;
+      readonly includeSubdomains?: boolean;
+      readonly stage?: never;
+    }
+  | {
+      readonly view: 'staged';
+      readonly domainScope?: string;
+      readonly includeSubdomains?: boolean;
+      readonly stage?: 'nodes' | 'edges';
+    }
+  | {
+      readonly view?: string;
+      readonly domainScope?: never;
+      readonly includeSubdomains?: never;
+      readonly stage?: never;
+    }
+);
 
 export interface SourceControlQueryRequest {
   readonly query: string;
@@ -558,6 +578,37 @@ export class SourceControlV1ApiClient
     if (query.maxEdges !== undefined) {
       this.assertInteger(query.maxEdges, 'max_edges', 1, 2000);
       params = params.set('max_edges', query.maxEdges);
+    }
+    const hasDomainParameters = query.domainScope !== undefined
+      || query.includeSubdomains !== undefined;
+    if (
+      hasDomainParameters
+      && query.view !== 'topology'
+      && query.view !== 'staged'
+    ) {
+      throw new SourceControlV1ContractError('graph_domain_view_invalid');
+    }
+    if (query.domainScope !== undefined) {
+      assertSourceControlOpaqueId(query.domainScope, 'domain_scope');
+      params = params.set('domain_scope', query.domainScope);
+    }
+    if (query.includeSubdomains !== undefined) {
+      if (typeof query.includeSubdomains !== 'boolean') {
+        throw new SourceControlV1ContractError('include_subdomains_invalid');
+      }
+      params = params.set(
+        'include_subdomains',
+        query.includeSubdomains ? 'true' : 'false',
+      );
+    }
+    if (query.stage !== undefined) {
+      if (
+        (query.stage !== 'nodes' && query.stage !== 'edges')
+        || query.view !== 'staged'
+      ) {
+        throw new SourceControlV1ContractError('graph_stage_invalid');
+      }
+      params = params.set('stage', query.stage);
     }
     return this.handle(
       this.http

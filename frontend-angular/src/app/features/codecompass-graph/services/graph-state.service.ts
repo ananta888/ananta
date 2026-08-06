@@ -104,6 +104,48 @@ export class GraphStateService {
     this.filter.set(EMPTY_FILTER);
   }
 
+  /**
+   * Replace only the loaded server window while retaining viewer-local intent.
+   *
+   * Callers must use this only when source, evidence revision and server scope
+   * are unchanged. Object references for retained selections are rebound to the
+   * new canonical graph records; selections that left the window are cleared.
+   */
+  updateGraphWindow(graph: GenericGraphModel): void {
+    const selectedNodeId = this.selectedNode()?.id ?? null;
+    const selectedEdgeId = this.selectedEdge()?.id ?? null;
+    const focusNodeId = this.focusNodeId();
+    const hoveredDomainId = this.hoveredDomainId();
+    const hoveredRelation = this.hoveredRawEdgeType();
+
+    this.graph.set(graph);
+    this.selectedNode.set(
+      selectedNodeId
+        ? graph.nodes.find(node => node.id === selectedNodeId) ?? null
+        : null,
+    );
+    this.selectedEdge.set(
+      selectedEdgeId
+        ? graph.edges.find(edge => edge.id === selectedEdgeId) ?? null
+        : null,
+    );
+    this.focusNodeId.set(
+      focusNodeId && this._isFocusable(focusNodeId) ? focusNodeId : null,
+    );
+    if (
+      hoveredDomainId
+      && !graph.nodes.some(node => this._domainId(node) === hoveredDomainId)
+    ) {
+      this.hoveredDomainId.set(null);
+    }
+    if (
+      hoveredRelation
+      && !graph.edges.some(edge => (edge.rawEdgeType ?? edge.edgeType) === hoveredRelation)
+    ) {
+      this.hoveredRawEdgeType.set(null);
+    }
+  }
+
   setViewMode(mode: GraphViewMode): void {
     this.viewMode.set(mode);
   }

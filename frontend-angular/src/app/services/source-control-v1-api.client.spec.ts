@@ -6,7 +6,10 @@ import {
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { SourceControlV1ApiClient } from './source-control-v1-api.client';
+import {
+  SourceControlGraphQuery,
+  SourceControlV1ApiClient,
+} from './source-control-v1-api.client';
 
 
 describe('SourceControlV1ApiClient security DTOs', () => {
@@ -36,6 +39,81 @@ describe('SourceControlV1ApiClient security DTOs', () => {
       '/api/source-control/v1/connections/connection-example/graph?limit=500&view=topology&max_edges=2000',
     );
     expect(request.request.method).toBe('GET');
+  });
+
+  it('encodes a domain scope and its subdomain policy', () => {
+    client.loadGraph('connection-example', {
+      view: 'topology',
+      domainScope: 'domain:frontend',
+      includeSubdomains: true,
+    }).subscribe();
+
+    const request = http.expectOne((candidate) =>
+      candidate.url === '/api/source-control/v1/connections/connection-example/graph'
+      && candidate.params.get('view') === 'topology'
+      && candidate.params.get('domain_scope') === 'domain:frontend'
+      && candidate.params.get('include_subdomains') === 'true',
+    );
+    expect(request.request.method).toBe('GET');
+  });
+
+  it('serializes an explicit false subdomain policy', () => {
+    client.loadGraph('connection-example', {
+      view: 'staged',
+      includeSubdomains: false,
+    }).subscribe();
+
+    const request = http.expectOne(
+      '/api/source-control/v1/connections/connection-example/graph?view=staged&include_subdomains=false',
+    );
+    expect(request.request.method).toBe('GET');
+  });
+
+  it('encodes a lossless staged edge page', () => {
+    client.loadGraph('connection-example', {
+      view: 'staged',
+      stage: 'edges',
+      maxEdges: 500,
+    }).subscribe();
+
+    const request = http.expectOne(
+      '/api/source-control/v1/connections/connection-example/graph?view=staged&max_edges=500&stage=edges',
+    );
+    expect(request.request.method).toBe('GET');
+  });
+
+  it('rejects an invalid graph domain scope before issuing a request', () => {
+    expect(() => client.loadGraph('connection-example', {
+      view: 'topology',
+      domainScope: 'frontend domain',
+    })).toThrow('domain_scope_invalid');
+
+    http.expectNone(
+      '/api/source-control/v1/connections/connection-example/graph',
+    );
+  });
+
+  it('rejects a non-boolean subdomain policy before issuing a request', () => {
+    expect(() => client.loadGraph('connection-example', {
+      view: 'topology',
+      includeSubdomains: 'true' as unknown as boolean,
+    })).toThrow('include_subdomains_invalid');
+
+    http.expectNone(
+      '/api/source-control/v1/connections/connection-example/graph',
+    );
+  });
+
+  it('rejects domain parameters when the graph view does not support a scope', () => {
+    expect(() => client.loadGraph('connection-example', {
+      view: 'inventory',
+      domainScope: 'domain:frontend',
+    } as unknown as SourceControlGraphQuery))
+      .toThrow('graph_domain_view_invalid');
+
+    http.expectNone(
+      '/api/source-control/v1/connections/connection-example/graph',
+    );
   });
 
   it('rejects an oversized graph edge window before issuing a request', () => {

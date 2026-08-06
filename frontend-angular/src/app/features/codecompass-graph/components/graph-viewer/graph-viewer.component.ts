@@ -136,6 +136,7 @@ import {
             @case ('3d') {
               <app-graph-3d-view
                 [graph]="state.graph()"
+                [interactionContextKey]="graphInteractionContextKey"
                 [visualProjection]="visualProjection()"
                 [visibleNodeIds]="visibleNodeIds()"
                 [visibleEdgeIds]="visibleEdgeIds()"
@@ -312,6 +313,7 @@ export class GraphViewerComponent implements OnChanges, OnInit {
   graph: GenericGraphModel | null = null;
   webglAvailable = true;
   layoutMode: GraphLayoutMode = 'tier';
+  graphInteractionContextKey = '';
 
   ngOnInit(): void {
     try {
@@ -333,13 +335,62 @@ export class GraphViewerComponent implements OnChanges, OnInit {
   ngOnChanges(changes: SimpleChanges): void {
     if (!changes['rawGraphData']) return;
     if (this.rawGraphData) {
-      this.graph = this.adapter.fromDomainArtifact(this.rawGraphData);
-      this.state.setGraph(this.graph);
-      this.profiles.load(`${this.graph.metadata.sourceKind}:${this.graph.metadata.sourceRef}:${this.graph.metadata.graphRevision ?? 'legacy'}`);
+      const graph = this.adapter.fromDomainArtifact(this.rawGraphData);
+      const logicalContext = this.graphContext(graph);
+      const sameLogicalGraph = Boolean(
+        this.hasStableWindowIdentity(graph)
+        && logicalContext === this.graphInteractionContextKey,
+      );
+      this.graph = graph;
+      if (sameLogicalGraph) {
+        this.state.updateGraphWindow(graph);
+      } else {
+        this.state.setGraph(graph);
+        this.profiles.load(logicalContext);
+      }
+      this.graphInteractionContextKey = logicalContext;
     } else {
       this.graph = null;
+      this.graphInteractionContextKey = '';
       this.state.setGraph({ nodes: [], edges: [], metadata: { sourceRef: '', sourceKind: '', nodeCount: 0, edgeCount: 0 }, warnings: [] });
     }
+  }
+
+  private graphContext(graph: GenericGraphModel): string {
+    const metadata = graph.metadata;
+    const contentRevision = this.contextText(metadata['content_graph_revision']);
+    const evidenceRevision = this.contextText(metadata['evidence_graph_revision'])
+      || this.contextText(metadata['parent_graph_revision'])
+      || this.contextText(metadata.graphRevision)
+      || 'legacy';
+    const domainScope = this.contextText(metadata['domain_scope']) || 'all';
+    const subdomains = metadata['include_subdomains'] === false ? 'direct' : 'descendants';
+    const view = this.contextText(metadata['view']) || 'graph';
+    return JSON.stringify([
+      graph.metadata.sourceKind,
+      graph.metadata.sourceRef,
+      contentRevision,
+      evidenceRevision,
+      domainScope,
+      subdomains,
+      view,
+    ]);
+  }
+
+  private contextText(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : '';
+  }
+
+  private hasStableWindowIdentity(graph: GenericGraphModel): boolean {
+    return Boolean(
+      graph.metadata.sourceKind
+      && graph.metadata.sourceRef
+      && (
+        this.contextText(graph.metadata['content_graph_revision'])
+        || this.contextText(graph.metadata['evidence_graph_revision'])
+        || this.contextText(graph.metadata['parent_graph_revision'])
+      ),
+    );
   }
 
   onNodeSelectedSimple(node: GraphNode): void {

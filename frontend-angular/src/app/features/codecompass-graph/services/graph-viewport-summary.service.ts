@@ -60,34 +60,51 @@ export class GraphViewportSummaryService {
     const visibleNodes = graph.nodes.filter(node => visibleNodeIds.has(node.id)).length;
     const visibleEdges = graph.edges.filter(edge => visibleEdgeIds.has(edge.id)).length;
     const window = graph.evidence?.window ?? null;
-    const rawTotalNodes = window?.totalNodes ?? null;
-    const rawTotalEdges = window?.totalEdges ?? null;
+    const rawScopeTotalNodes = window?.scopeTotalNodes ?? window?.totalNodes ?? null;
+    const rawGlobalTotalNodes = window?.globalTotalNodes ?? rawScopeTotalNodes;
+    const rawScopeTotalEdges = window?.totalEdges ?? null;
+    const rawGlobalTotalEdges = window?.globalTotalEdges ?? rawScopeTotalEdges;
     const rawInternalEdges = window?.internalEdges ?? null;
 
-    const nodeEvidenceInconsistent = rawTotalNodes !== null && rawTotalNodes < loadedNodes;
+    const nodeEvidenceInconsistent = (
+      (rawScopeTotalNodes !== null && rawScopeTotalNodes < loadedNodes)
+      || (
+        rawScopeTotalNodes !== null
+        && rawGlobalTotalNodes !== null
+        && rawGlobalTotalNodes < rawScopeTotalNodes
+      )
+    );
     const internalEdgeEvidenceInconsistent = rawInternalEdges !== null
       && rawInternalEdges < loadedEdges;
     const edgeEvidenceInconsistent = (
       internalEdgeEvidenceInconsistent
-      || (rawTotalEdges !== null && rawTotalEdges < loadedEdges)
+      || (rawScopeTotalEdges !== null && rawScopeTotalEdges < loadedEdges)
       || (
-        rawTotalEdges !== null
+        rawScopeTotalEdges !== null
         && rawInternalEdges !== null
-        && rawTotalEdges < rawInternalEdges
+        && rawScopeTotalEdges < rawInternalEdges
+      )
+      || (
+        rawScopeTotalEdges !== null
+        && rawGlobalTotalEdges !== null
+        && rawGlobalTotalEdges < rawScopeTotalEdges
       )
     );
-    const totalNodes = rawTotalNodes === null || nodeEvidenceInconsistent
+    const scopeTotalNodes = rawScopeTotalNodes === null || nodeEvidenceInconsistent
       ? null
-      : rawTotalNodes;
+      : rawScopeTotalNodes;
+    const totalNodes = rawGlobalTotalNodes === null || nodeEvidenceInconsistent
+      ? null
+      : rawGlobalTotalNodes;
     const internalEdges = rawInternalEdges === null || internalEdgeEvidenceInconsistent
       ? null
       : rawInternalEdges;
-    const totalEdges = rawTotalEdges === null || edgeEvidenceInconsistent
+    const totalEdges = rawGlobalTotalEdges === null || edgeEvidenceInconsistent
       ? null
-      : rawTotalEdges;
-    const nodeWindowBounded = rawTotalNodes === null || nodeEvidenceInconsistent
+      : rawGlobalTotalEdges;
+    const nodeWindowBounded = rawScopeTotalNodes === null || nodeEvidenceInconsistent
       ? null
-      : rawTotalNodes > loadedNodes;
+      : rawScopeTotalNodes > loadedNodes;
 
     const countDerivedEdgeCap = rawInternalEdges === null || rawInternalEdges < loadedEdges
       ? null
@@ -111,7 +128,7 @@ export class GraphViewportSummaryService {
     if (nodeWindowBounded) {
       projectionIssues.push(issue(
         'graph_node_window_bounded',
-        totalNodes === null ? null : totalNodes - loadedNodes,
+        scopeTotalNodes === null ? null : scopeTotalNodes - loadedNodes,
       ));
     }
     if (edgeWindowCapped) {
@@ -137,6 +154,8 @@ export class GraphViewportSummaryService {
         internalWindow: internalEdges,
         total: totalEdges,
       }),
+      scopeNodeTotal: scopeTotalNodes,
+      scopeBoundaryEdges: window?.scopeBoundaryEdges ?? null,
       domains: Object.freeze({ visible: visibleDomains.size, loaded: loadedDomains.size }),
       rawRelationTypes: Object.freeze({
         visible: visibleRelations.size,

@@ -54,6 +54,9 @@ export type GraphArtifactIssue = GraphViewportIssue<GraphArtifactIssueCode>;
 export interface GraphViewportSummary {
   readonly nodes: Readonly<GraphViewportNodeCounts>;
   readonly edges: Readonly<GraphViewportEdgeCounts>;
+  /** Selected server scope before the visualization window was applied. */
+  readonly scopeNodeTotal?: number | null;
+  readonly scopeBoundaryEdges?: number | null;
   readonly domains: Readonly<GraphViewportInventoryCounts>;
   readonly rawRelationTypes: Readonly<GraphViewportInventoryCounts>;
   readonly nodeWindowBounded: boolean | null;

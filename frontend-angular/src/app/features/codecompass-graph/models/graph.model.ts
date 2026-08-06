@@ -211,6 +211,12 @@ export interface GraphWindowEvidence {
   readonly internalEdges: number | null;
   readonly edgeCapped: boolean | null;
   readonly maxEdges: number | null;
+  readonly globalTotalNodes?: number | null;
+  readonly globalTotalEdges?: number | null;
+  readonly scopeTotalNodes?: number | null;
+  readonly scopeBoundaryEdges?: number | null;
+  readonly remainingNodes?: number | null;
+  readonly deliveryComplete?: boolean | null;
 }
 
 /** Structured worker budget evidence. Unknown or invalid values remain null. */

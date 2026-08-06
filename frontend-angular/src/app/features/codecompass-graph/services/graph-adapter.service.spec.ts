@@ -616,4 +616,33 @@ describe('GraphAdapterService', () => {
       'contains_file',
     ]);
   });
+
+  it('maps global, scope, boundary and delivery evidence without inventing defaults', () => {
+    const model = svc.fromDomainArtifact({
+      nodes: [],
+      edges: [],
+      metadata: {
+        view: 'topology',
+        total_nodes: 40,
+        total_edges: 70,
+        global_total_nodes: 400,
+        global_total_edges: 900,
+        scope_total_nodes: 40,
+        scope_boundary_edge_count: 11,
+        remaining_nodes: 15,
+        delivery_complete: false,
+      },
+    });
+
+    expect(model.evidence?.window).toMatchObject({
+      totalNodes: 40,
+      totalEdges: 70,
+      globalTotalNodes: 400,
+      globalTotalEdges: 900,
+      scopeTotalNodes: 40,
+      scopeBoundaryEdges: 11,
+      remainingNodes: 15,
+      deliveryComplete: false,
+    });
+  });
 });

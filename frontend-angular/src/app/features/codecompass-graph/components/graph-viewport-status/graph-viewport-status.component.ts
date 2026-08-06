@@ -27,6 +27,13 @@ import {
             <strong>{{ formatCount(current.nodes.loaded) }} Knoten</strong>
             <span>
               {{ formatCount(current.edges.loaded) }} Relationen
+              @if (current.scopeNodeTotal !== null && current.scopeNodeTotal !== undefined
+                   && current.scopeNodeTotal !== current.nodes.total) {
+                <small>Serverscope: {{ formatCount(current.scopeNodeTotal) }} Knoten</small>
+              }
+              @if (current.scopeBoundaryEdges) {
+                <small>{{ formatCount(current.scopeBoundaryEdges) }} Relationen überqueren die Scope-Grenze</small>
+              }
               @if (showInternalEdgeCount(current)) {
                 <small>von {{ formatCount(current.edges.internalWindow) }} im Knotenfenster</small>
               }
@@ -78,7 +85,7 @@ import {
               }
             </ul>
             <p>
-              Domain-, Relations- und Tiefenfilter arbeiten innerhalb des geladenen Fensters.
+              Der Domainbaum bestimmt den Serverscope; Relations- und Tiefenfilter arbeiten im geladenen Fenster.
             </p>
           </div>
         }

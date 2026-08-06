@@ -21,11 +21,12 @@ describe('InternalsService CodeCompass graph window', () => {
     artifact_status: { state: 'available' },
   };
   const sourceControlApi = {
-    loadGraph: vi.fn(() => of(graph)),
+    loadGraph: vi.fn(),
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    sourceControlApi.loadGraph.mockReturnValue(of(graph));
     TestBed.configureTestingModule({
       providers: [
         InternalsService,
@@ -36,7 +37,7 @@ describe('InternalsService CodeCompass graph window', () => {
     });
   });
 
-  it('requests the largest bounded topology-preserving project graph window', async () => {
+  it('starts with a small topology-preserving project graph window', async () => {
     const service = TestBed.inject(InternalsService);
 
     const result = await firstValueFrom(
@@ -45,8 +46,182 @@ describe('InternalsService CodeCompass graph window', () => {
 
     expect(sourceControlApi.loadGraph).toHaveBeenCalledWith(
       'connection-example',
-      { limit: 500, view: 'topology', maxEdges: 2_000 },
+      { limit: 100, view: 'topology', maxEdges: 400 },
     );
     expect(result).toBe(graph);
+  });
+
+  it('requests an explicit domain window including its subdomains', async () => {
+    const service = TestBed.inject(InternalsService);
+
+    const result = await firstValueFrom(
+      service.getCodeCompassGraph('connection-example', {
+        limit: 75,
+        maxEdges: 300,
+        domainScope: 'domain:frontend',
+        includeSubdomains: true,
+      }),
+    );
+
+    expect(sourceControlApi.loadGraph).toHaveBeenCalledWith(
+      'connection-example',
+      {
+        limit: 75,
+        view: 'topology',
+        maxEdges: 300,
+        domainScope: 'domain:frontend',
+        includeSubdomains: true,
+      },
+    );
+    expect(result).toBe(graph);
+  });
+
+  it('maps a valid paged domain inventory without coercing contract fields', async () => {
+    sourceControlApi.loadGraph.mockReturnValueOnce(of({
+      schema: 'codecompass_graph_inventory.v1',
+      facets: {
+        domains: {
+          items: [
+            {
+              key: 'domain:frontend',
+              label: ' Frontend ',
+              parent_key: null,
+              depth: 0,
+              direct_node_count: 12,
+              subtree_node_count: 30,
+              has_children: true,
+              source: ' explicit ',
+              path: ' src/app ',
+            },
+            {
+              key: 'domain:frontend/components',
+              label: ' Components ',
+              parent_key: ' domain:frontend ',
+              depth: 1,
+              direct_node_count: 4,
+              subtree_node_count: 4,
+              has_children: false,
+              source: 'explicit',
+              path: 'src/app/components',
+            },
+          ],
+          next_cursor: ' inventory:2 ',
+          total_count: 2,
+        },
+      },
+      metadata: {
+        total_nodes: 42,
+        total_edges: 64,
+      },
+      graph_revision: ' revision-example ',
+    }));
+    const service = TestBed.inject(InternalsService);
+
+    const result = await firstValueFrom(
+      service.getCodeCompassGraphInventory(
+        'connection-example',
+        'inventory:0',
+        50,
+      ),
+    );
+
+    expect(sourceControlApi.loadGraph).toHaveBeenCalledWith(
+      'connection-example',
+      {
+        cursor: 'inventory:0',
+        limit: 50,
+        view: 'inventory',
+      },
+    );
+    expect(result).toEqual({
+      domains: [
+        {
+          key: 'domain:frontend',
+          label: 'Frontend',
+          parentKey: null,
+          depth: 0,
+          directNodeCount: 12,
+          subtreeNodeCount: 30,
+          hasChildren: true,
+          source: 'explicit',
+          path: 'src/app',
+        },
+        {
+          key: 'domain:frontend/components',
+          label: 'Components',
+          parentKey: 'domain:frontend',
+          depth: 1,
+          directNodeCount: 4,
+          subtreeNodeCount: 4,
+          hasChildren: false,
+          source: 'explicit',
+          path: 'src/app/components',
+        },
+      ],
+      nextCursor: 'inventory:2',
+      totalDomains: 2,
+      totalNodes: 42,
+      totalEdges: 64,
+      graphRevision: 'revision-example',
+    });
+  });
+
+  it.each([
+    ['numeric strings', { direct_node_count: '12' }],
+    ['negative counts', { direct_node_count: -1 }],
+    ['fractional counts', { depth: 1.5 }],
+    ['non-boolean child evidence', { has_children: 'true' }],
+  ])('rejects malformed inventory %s instead of silently defaulting it', async (_name, patch) => {
+    sourceControlApi.loadGraph.mockReturnValueOnce(of({
+      schema: 'codecompass_graph_inventory.v1',
+      facets: {
+        domains: {
+          items: [{
+            key: 'domain:frontend',
+            label: 'Frontend',
+            parent_key: null,
+            depth: 0,
+            direct_node_count: 12,
+            subtree_node_count: 30,
+            has_children: true,
+            source: 'explicit',
+            path: 'src/app',
+            ...patch,
+          }],
+          next_cursor: null,
+          total_count: 1,
+        },
+      },
+      metadata: { total_nodes: 42, total_edges: 64 },
+      graph_revision: 'revision-example',
+    }));
+    const service = TestBed.inject(InternalsService);
+
+    await expect(firstValueFrom(
+      service.getCodeCompassGraphInventory('connection-example'),
+    )).rejects.toThrow(/graph_inventory/);
+  });
+
+  it('accepts a structurally valid empty inventory', async () => {
+    sourceControlApi.loadGraph.mockReturnValueOnce(of({
+      schema: 'codecompass_graph_inventory.v1',
+      facets: {
+        domains: { items: [], next_cursor: null, total_count: 0 },
+      },
+      metadata: { total_nodes: 0, total_edges: 0 },
+      graph_revision: 'revision-empty',
+    }));
+    const service = TestBed.inject(InternalsService);
+
+    await expect(firstValueFrom(
+      service.getCodeCompassGraphInventory('connection-example'),
+    )).resolves.toEqual({
+      domains: [],
+      nextCursor: null,
+      totalDomains: 0,
+      totalNodes: 0,
+      totalEdges: 0,
+      graphRevision: 'revision-empty',
+    });
   });
 });

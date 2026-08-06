@@ -145,7 +145,7 @@ describe('GraphViewerComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="graph-semantic-warning"]')?.textContent)
       .toContain('Semantischer Graph unvollständig');
     expect(fixture.nativeElement.querySelector('[data-testid="graph-window-warning"]')?.textContent)
-      .toContain('innerhalb des geladenen Fensters');
+      .toContain('Relationen im Knotenfenster wurden nicht mitgeladen');
   });
 
   it('updates current-view statistics after a client-local filter', () => {
@@ -162,6 +162,117 @@ describe('GraphViewerComponent', () => {
       .reduce((sum, option) => sum + option.visibleNodeCount, 0)).toBe(1);
     expect(component.relationFilterOptions()
       .reduce((sum, option) => sum + option.visibleEdgeCount, 0)).toBe(0);
+  });
+
+  it('preserves viewer state and an active profile across windows of one logical graph', () => {
+    const profiles = fixture.debugElement.injector.get(GraphVisualProfileFacade);
+    const initialWindow = {
+      ...MOCK_DOMAIN_GRAPH_ARTIFACT,
+      metadata: {
+        ...(MOCK_DOMAIN_GRAPH_ARTIFACT.metadata ?? {}),
+        view: 'topology',
+        graph_revision: 'projection-window-100',
+        evidence_graph_revision: 'evidence-revision-1',
+        domain_scope: 'source:orders',
+        include_subdomains: true,
+      },
+    };
+    fixture.componentRef.setInput('rawGraphData', initialWindow);
+    fixture.detectChanges();
+    const selectedId = state.graph()!.nodes[0].id;
+    state.selectNode(state.graph()!.nodes[0]);
+    state.setNeighborhoodDepth(2);
+    state.updateFilter({ searchText: 'Order' });
+    profiles.activate({
+      ...profiles.activeProfile(),
+      nodeSizeRange: { min: 9, max: 31 },
+    });
+
+    fixture.componentRef.setInput('rawGraphData', {
+      ...initialWindow,
+      metadata: {
+        ...initialWindow.metadata,
+        graph_revision: 'projection-window-200',
+        window_node_limit: 200,
+      },
+    });
+    fixture.detectChanges();
+
+    expect(state.selectedNode()?.id).toBe(selectedId);
+    expect(state.focusNodeId()).toBe(selectedId);
+    expect(state.focusHopDepth()).toBe(2);
+    expect(state.filter().searchText).toBe('Order');
+    expect(profiles.activeProfile().nodeSizeRange).toEqual({ min: 9, max: 31 });
+  });
+
+  it('resets viewer-local intent when the server domain scope changes', () => {
+    const artifact = {
+      ...MOCK_DOMAIN_GRAPH_ARTIFACT,
+      metadata: {
+        ...(MOCK_DOMAIN_GRAPH_ARTIFACT.metadata ?? {}),
+        view: 'topology',
+        graph_revision: 'projection-1',
+        evidence_graph_revision: 'evidence-revision-1',
+        domain_scope: 'source:orders',
+        include_subdomains: true,
+      },
+    };
+    fixture.componentRef.setInput('rawGraphData', artifact);
+    fixture.detectChanges();
+    state.selectNode(state.graph()!.nodes[0]);
+    state.setNeighborhoodDepth(2);
+    state.updateFilter({ searchText: 'Order' });
+
+    fixture.componentRef.setInput('rawGraphData', {
+      ...artifact,
+      metadata: { ...artifact.metadata, domain_scope: 'source:billing' },
+    });
+    fixture.detectChanges();
+
+    expect(state.selectedNode()).toBeNull();
+    expect(state.focusHopDepth()).toBe(0);
+    expect(state.filter().searchText).toBe('');
+  });
+
+  it('preserves local 3D focus within a window context and resets it on evidence revision', () => {
+    const artifact = {
+      ...MOCK_DOMAIN_GRAPH_ARTIFACT,
+      metadata: {
+        ...(MOCK_DOMAIN_GRAPH_ARTIFACT.metadata ?? {}),
+        view: 'topology',
+        graph_revision: 'projection-100',
+        evidence_graph_revision: 'evidence-1',
+      },
+    };
+    fixture.componentRef.setInput('rawGraphData', artifact);
+    state.setViewMode('3d');
+    fixture.detectChanges();
+    let view = fixture.debugElement.query(By.directive(Graph3dViewComponent))
+      .componentInstance as Graph3dViewComponent;
+    view.selectNode(state.graph()!.nodes[0].id);
+
+    fixture.componentRef.setInput('rawGraphData', {
+      ...artifact,
+      metadata: { ...artifact.metadata, graph_revision: 'projection-200' },
+    });
+    fixture.detectChanges();
+    view = fixture.debugElement.query(By.directive(Graph3dViewComponent))
+      .componentInstance as Graph3dViewComponent;
+    expect(view.focusedNodeId).toBe(state.graph()!.nodes[0].id);
+
+    fixture.componentRef.setInput('rawGraphData', {
+      ...artifact,
+      metadata: {
+        ...artifact.metadata,
+        graph_revision: 'projection-new-evidence',
+        evidence_graph_revision: 'evidence-2',
+      },
+    });
+    fixture.detectChanges();
+    view = fixture.debugElement.query(By.directive(Graph3dViewComponent))
+      .componentInstance as Graph3dViewComponent;
+
+    expect(view.focusedNodeId).toBeNull();
   });
 
   it('provides isolated graph and profile state for two viewers', () => {
