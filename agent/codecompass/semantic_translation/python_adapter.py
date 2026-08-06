@@ -5,6 +5,10 @@ from pathlib import Path
 from typing import Any
 
 from agent.codecompass.semantic_translation.models import Provenance, SemanticEdge, SemanticNode, diagnostic
+from agent.codecompass.semantic_translation.python_symbol_identity import (
+    DeterministicPythonSymbolIdentityFactory,
+    PythonSymbolIdentityPort,
+)
 from agent.codecompass.semantic_translation.python_type_model import (
     TypeAnnotation,
     infer_type_from_default,
@@ -28,6 +32,15 @@ class PythonSemanticAdapter:
         "complex MRO and metaclass patterns require review",
         "unannotated code produces unknown type confidence",
     )
+
+    def __init__(
+        self,
+        *,
+        symbol_identity: PythonSymbolIdentityPort | None = None,
+    ) -> None:
+        self._symbol_identity = (
+            symbol_identity or DeterministicPythonSymbolIdentityFactory()
+        )
 
     def detect(self, path: str, content: str) -> bool:
         return Path(path).suffix == ".py"
@@ -94,7 +107,11 @@ class PythonSemanticAdapter:
         edges: list[dict] = []
 
         for item in parsed.get("types") or []:
-            type_id = f"semantic:python:{item['kind']}:{item['name']}"
+            type_id = self._symbol_identity.symbol_id(
+                path=path,
+                symbol_kind="type",
+                qualified_symbol=item["name"],
+            )
             semantic_kind = "data_record" if item["kind"] in {"dataclass", "frozen_dataclass", "typed_dict", "class"} else "data_record"
             if item["kind"] == "enum":
                 semantic_kind = "data_record"
@@ -118,47 +135,66 @@ class PythonSemanticAdapter:
             nodes.append(type_node)
 
             for field in item.get("fields") or []:
-                field_id = f"{type_id}:field:{field['name']}"
+                qualified_field = f"{item['name']}.{field['name']}"
+                field_id = self._symbol_identity.symbol_id(
+                    path=path,
+                    symbol_kind="field",
+                    qualified_symbol=qualified_field,
+                )
                 null_kind = "nullable_value" if field.get("type_annotation", {}).get("is_optional") else "property"
                 nodes.append(SemanticNode(
                     id=field_id,
                     kind="semantic_node",
                     semantic_kind=null_kind,
                     language="python",
-                    symbol=f"{item['name']}.{field['name']}",
+                    symbol=qualified_field,
                     attributes=field,
-                    provenance=Provenance(file=path, language="python", symbol=f"{item['name']}.{field['name']}", line_start=field.get("line_start", item["line_start"]), line_end=field.get("line_start", item["line_start"]), parser=self.parser_strategy, confidence=0.82),
+                    provenance=Provenance(file=path, language="python", symbol=qualified_field, line_start=field.get("line_start", item["line_start"]), line_end=field.get("line_start", item["line_start"]), parser=self.parser_strategy, confidence=0.82),
                 ).as_record())
                 edges.append(SemanticEdge(source_id=type_id, target_id=field_id, edge_type="declares").as_record())
 
             for value in item.get("enum_values") or []:
-                value_id = f"{type_id}:enum:{value}"
+                qualified_value = f"{item['name']}.{value}"
+                value_id = self._symbol_identity.symbol_id(
+                    path=path,
+                    symbol_kind="enum_value",
+                    qualified_symbol=qualified_value,
+                )
                 nodes.append(SemanticNode(
                     id=value_id,
                     kind="semantic_node",
                     semantic_kind="enum_value",
                     language="python",
-                    symbol=f"{item['name']}.{value}",
+                    symbol=qualified_value,
                     attributes={"name": value},
-                    provenance=Provenance(file=path, language="python", symbol=f"{item['name']}.{value}", line_start=item["line_start"], line_end=item["line_end"], parser=self.parser_strategy, confidence=0.9),
+                    provenance=Provenance(file=path, language="python", symbol=qualified_value, line_start=item["line_start"], line_end=item["line_end"], parser=self.parser_strategy, confidence=0.9),
                 ).as_record())
                 edges.append(SemanticEdge(source_id=type_id, target_id=value_id, edge_type="declares").as_record())
 
             for method in item.get("methods") or []:
-                method_id = f"{type_id}:method:{method['name']}"
+                qualified_method = f"{item['name']}.{method['name']}"
+                method_id = self._symbol_identity.symbol_id(
+                    path=path,
+                    symbol_kind="method",
+                    qualified_symbol=qualified_method,
+                )
                 nodes.append(SemanticNode(
                     id=method_id,
                     kind="semantic_node",
                     semantic_kind="function_signature",
                     language="python",
-                    symbol=f"{item['name']}.{method['name']}",
+                    symbol=qualified_method,
                     attributes=method,
-                    provenance=Provenance(file=path, language="python", symbol=f"{item['name']}.{method['name']}", line_start=method["line_start"], line_end=method["line_start"], parser=self.parser_strategy, confidence=0.8),
+                    provenance=Provenance(file=path, language="python", symbol=qualified_method, line_start=method["line_start"], line_end=method["line_start"], parser=self.parser_strategy, confidence=0.8),
                 ).as_record())
                 edges.append(SemanticEdge(source_id=type_id, target_id=method_id, edge_type="declares").as_record())
 
         for fn in parsed.get("functions") or []:
-            fn_id = f"semantic:python:function:{fn['name']}"
+            fn_id = self._symbol_identity.symbol_id(
+                path=path,
+                symbol_kind="function",
+                qualified_symbol=fn["name"],
+            )
             nodes.append(SemanticNode(
                 id=fn_id,
                 kind="semantic_node",
