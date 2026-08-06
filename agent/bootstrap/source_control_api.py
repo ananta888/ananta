@@ -53,8 +53,17 @@ from agent.services.artifact_store import get_artifact_store
 from agent.services.codecompass_graph_artifact_resolver import (
     get_codecompass_graph_artifact_resolver,
 )
+from agent.services.codecompass_graph_domain_catalog_service import (
+    get_codecompass_graph_domain_catalog_service,
+)
 from agent.services.codecompass_graph_projection_service import (
     get_codecompass_graph_projection_service,
+)
+from agent.services.codecompass_graph_read_service import (
+    CodeCompassGraphReadService,
+)
+from agent.services.codecompass_graph_store_cache import (
+    get_codecompass_graph_store_cache,
 )
 from agent.services.codecompass_graph_window_service import (
     get_codecompass_graph_window_service,
@@ -745,16 +754,36 @@ def register_source_control_api(app) -> None:
             app.extensions[
                 "source_control_bound_index_submission_service"
             ] = index_submission
+        graph_projection = get_codecompass_graph_projection_service()
+        graph_window = (
+            app.extensions.get("codecompass_graph_window_service")
+            or get_codecompass_graph_window_service()
+        )
+        graph_domains = (
+            app.extensions.get("codecompass_graph_domain_catalog_service")
+            or get_codecompass_graph_domain_catalog_service()
+        )
+        graph_read = (
+            app.extensions.get("codecompass_graph_read_service")
+            or CodeCompassGraphReadService(
+                projection=graph_projection,
+                window=graph_window,
+                domains=graph_domains,
+            )
+        )
         operations = HubSourceControlOperationsAdapter(
             engine=engine,
             registry=registry,
             refresh=refresh,
             index_submission=index_submission,
             graph_resolver=get_codecompass_graph_artifact_resolver(),
-            graph_projection=get_codecompass_graph_projection_service(),
-            graph_window=(
-                app.extensions.get("codecompass_graph_window_service")
-                or get_codecompass_graph_window_service()
+            graph_projection=graph_projection,
+            graph_window=graph_window,
+            graph_domains=graph_domains,
+            graph_read=graph_read,
+            graph_store_cache=(
+                app.extensions.get("codecompass_graph_store_cache")
+                or get_codecompass_graph_store_cache()
             ),
             scanner=app.extensions.get("source_scan_service"),
         )

@@ -561,6 +561,34 @@ def test_hub_fallback_revision_matches_worker_revision_without_manifest() -> Non
     assert result["metadata"]["visual_metrics_content_hash"] == metrics["content_hash"]
 
 
+def test_prepared_edge_pages_preserve_legacy_population_projection() -> None:
+    payload = _payload()
+    service = CodeCompassGraphProjectionService()
+    population = payload["edges"]
+    prepared = service.prepare_edge_population(population)
+
+    for index, edge in enumerate(population):
+        common = {
+            "nodes": [],
+            "edges": [edge],
+            "source_kind": "codecompass_graph",
+            "source_ref": "idx",
+            "graph_revision": "revision",
+        }
+        legacy = service.project(
+            **common,
+            edge_population=population,
+            edge_population_offset=index,
+        )
+        bounded = service.project(
+            **common,
+            prepared_edge_population=prepared,
+            edge_population_indices=[index],
+        )
+
+        assert bounded["edges"] == legacy["edges"]
+
+
 def test_projection_service_has_no_worker_algorithm_imports() -> None:
     path = ROOT / "agent/services/codecompass_graph_projection_service.py"
     tree = ast.parse(path.read_text(encoding="utf-8"))

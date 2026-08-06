@@ -1,0 +1,501 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/artifacts/codecompass_graph_inventory.v1.json",
+  "title": "CodeCompass Graph Inventory v1",
+  "description": "A project-bound, revision-bound inventory of graph domains and raw relation types.",
+  "type": "object",
+  "required": [
+    "schema",
+    "source_kind",
+    "source_ref",
+    "graph_revision",
+    "facets",
+    "coverage",
+    "diagnostics",
+    "warnings",
+    "metadata",
+    "text_alternative",
+    "artifact_status"
+  ],
+  "properties": {
+    "schema": {
+      "const": "codecompass_graph_inventory.v1"
+    },
+    "source_kind": {
+      "const": "codecompass_graph"
+    },
+    "source_ref": {
+      "$ref": "#/$defs/opaqueId"
+    },
+    "graph_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "facets": {
+      "type": "object",
+      "required": ["domains", "relations"],
+      "properties": {
+        "domains": {
+          "$ref": "#/$defs/domainFacetPage"
+        },
+        "relations": {
+          "$ref": "#/$defs/relationFacetPage"
+        }
+      },
+      "additionalProperties": false
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage"
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "text_alternative": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "artifact_status": {
+      "$ref": "#/$defs/artifactStatus"
+    }
+  },
+  "$defs": {
+    "opaqueId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$"
+    },
+    "cursor": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,512}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "domainFacet": {
+      "type": "object",
+      "required": [
+        "key",
+        "label",
+        "parent_key",
+        "depth",
+        "direct_node_count",
+        "subtree_node_count",
+        "has_children",
+        "source",
+        "path"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "parent_key": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/opaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "depth": {
+          "$ref": "#/$defs/count"
+        },
+        "direct_node_count": {
+          "$ref": "#/$defs/count"
+        },
+        "subtree_node_count": {
+          "$ref": "#/$defs/count"
+        },
+        "has_children": {
+          "type": "boolean"
+        },
+        "source": {
+          "enum": ["domain_id", "domain_path", "path", "unassigned"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "depth": {
+                "const": 0
+              }
+            },
+            "required": ["depth"]
+          },
+          "then": {
+            "properties": {
+              "parent_key": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "parent_key": {
+                "$ref": "#/$defs/opaqueId"
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "relationFacet": {
+      "type": "object",
+      "required": [
+        "raw_type",
+        "edge_count",
+        "bound_edge_count",
+        "unresolved_edge_count"
+      ],
+      "properties": {
+        "raw_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "edge_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bound_edge_count": {
+          "$ref": "#/$defs/count"
+        },
+        "unresolved_edge_count": {
+          "$ref": "#/$defs/count"
+        }
+      },
+      "additionalProperties": false
+    },
+    "domainFacetPage": {
+      "type": "object",
+      "required": ["items", "returned", "total_count", "complete", "next_cursor"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/$defs/domainFacet"
+          }
+        },
+        "returned": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "total_count": {
+          "$ref": "#/$defs/count"
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "next_cursor": {
+          "$ref": "#/$defs/cursor"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/completionCursorConsistency"
+        }
+      ],
+      "additionalProperties": false
+    },
+    "relationFacetPage": {
+      "type": "object",
+      "required": ["items", "returned", "total_count", "complete", "next_cursor"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/$defs/relationFacet"
+          }
+        },
+        "returned": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "total_count": {
+          "$ref": "#/$defs/count"
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "next_cursor": {
+          "$ref": "#/$defs/cursor"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/completionCursorConsistency"
+        }
+      ],
+      "additionalProperties": false
+    },
+    "completionCursorConsistency": {
+      "if": {
+        "properties": {
+          "complete": {
+            "const": true
+          }
+        },
+        "required": ["complete"]
+      },
+      "then": {
+        "properties": {
+          "next_cursor": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "next_cursor": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,512}$"
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["graph", "domains", "relations", "materialization"],
+      "properties": {
+        "graph": {
+          "type": "object",
+          "required": ["nodes", "bound_edges", "source_edges", "unresolved_edges"],
+          "properties": {
+            "nodes": {
+              "$ref": "#/$defs/count"
+            },
+            "bound_edges": {
+              "$ref": "#/$defs/count"
+            },
+            "source_edges": {
+              "$ref": "#/$defs/count"
+            },
+            "unresolved_edges": {
+              "$ref": "#/$defs/count"
+            }
+          },
+          "additionalProperties": false
+        },
+        "domains": {
+          "type": "object",
+          "required": [
+            "assigned_nodes",
+            "unassigned_nodes",
+            "returned",
+            "total",
+            "complete"
+          ],
+          "properties": {
+            "assigned_nodes": {
+              "$ref": "#/$defs/count"
+            },
+            "unassigned_nodes": {
+              "$ref": "#/$defs/count"
+            },
+            "returned": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 500
+            },
+            "total": {
+              "$ref": "#/$defs/count"
+            },
+            "complete": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "relations": {
+          "type": "object",
+          "required": [
+            "returned",
+            "total_count",
+            "complete",
+            "edge_count",
+            "bound_edge_count",
+            "unresolved_edge_count"
+          ],
+          "properties": {
+            "returned": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 500
+            },
+            "total_count": {
+              "$ref": "#/$defs/count"
+            },
+            "complete": {
+              "type": "boolean"
+            },
+            "edge_count": {
+              "$ref": "#/$defs/count"
+            },
+            "bound_edge_count": {
+              "$ref": "#/$defs/count"
+            },
+            "unresolved_edge_count": {
+              "$ref": "#/$defs/count"
+            }
+          },
+          "additionalProperties": false
+        },
+        "materialization": {
+          "type": "object",
+          "required": ["semantic_budget"],
+          "properties": {
+            "semantic_budget": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "required": [
+        "knowledge_index_id",
+        "view",
+        "content_graph_revision",
+        "next_cursor",
+        "relations_next_cursor",
+        "total_nodes",
+        "total_edges",
+        "total_domains",
+        "total_relation_types"
+      ],
+      "properties": {
+        "knowledge_index_id": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "view": {
+          "const": "inventory"
+        },
+        "content_graph_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "next_cursor": {
+          "$ref": "#/$defs/cursor"
+        },
+        "relations_next_cursor": {
+          "$ref": "#/$defs/cursor"
+        },
+        "total_nodes": {
+          "$ref": "#/$defs/count"
+        },
+        "total_edges": {
+          "$ref": "#/$defs/count"
+        },
+        "total_domains": {
+          "$ref": "#/$defs/count"
+        },
+        "total_relation_types": {
+          "$ref": "#/$defs/count"
+        }
+      },
+      "additionalProperties": false
+    },
+    "artifactStatus": {
+      "type": "object",
+      "required": ["state", "reason_code", "knowledge_index_id", "manifest_present"],
+      "properties": {
+        "state": {
+          "enum": ["available", "unavailable"]
+        },
+        "reason_code": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "knowledge_index_id": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "manifest_present": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "available"
+              }
+            },
+            "required": ["state"]
+          },
+          "then": {
+            "properties": {
+              "reason_code": {
+                "type": "null"
+              },
+              "manifest_present": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "reason_code": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

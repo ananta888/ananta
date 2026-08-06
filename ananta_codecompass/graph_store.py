@@ -8,6 +8,7 @@ import tempfile
 from collections import Counter
 from collections.abc import Mapping
 from pathlib import Path
+from threading import RLock
 from typing import Any
 
 from ananta_contracts.codecompass_graph_limits import (
@@ -111,6 +112,9 @@ class CodeCompassGraphStore:
             Path(visual_metrics_path) if visual_metrics_path is not None else None
         )
         self._cached_payload: dict[str, Any] | None = None
+        self._visual_metrics_loaded = False
+        self._cached_visual_metrics: dict[str, Any] | None = None
+        self._read_lock = RLock()
         if max_artifact_bytes is None:
             self._max_artifact_bytes = None
         else:
@@ -122,6 +126,12 @@ class CodeCompassGraphStore:
     def load(self) -> dict[str, Any]:
         if self._cached_payload is not None:
             return self._cached_payload
+        with self._read_lock:
+            if self._cached_payload is not None:
+                return self._cached_payload
+            return self._load_uncached()
+
+    def _load_uncached(self) -> dict[str, Any]:
         if not self._index_path.exists():
             self._cached_payload = {
                 "state": {},
@@ -316,8 +326,12 @@ class CodeCompassGraphStore:
                 temp_path.unlink()
 
     def save(self, payload: dict[str, Any]) -> None:
-        self._atomic_write_json(self._index_path, self._compact_storage_payload(payload))
-        self._cached_payload = None
+        with self._read_lock:
+            self._atomic_write_json(
+                self._index_path,
+                self._compact_storage_payload(payload),
+            )
+            self._cached_payload = None
 
     @classmethod
     def _compact_storage_payload(cls, payload: dict[str, Any]) -> dict[str, Any]:
@@ -478,23 +492,41 @@ class CodeCompassGraphStore:
 
     def load_visual_metrics(self) -> dict[str, Any] | None:
         """Read a worker-produced sidecar without deriving missing metrics."""
+        if self._visual_metrics_loaded:
+            return self._cached_visual_metrics
+        with self._read_lock:
+            if self._visual_metrics_loaded:
+                return self._cached_visual_metrics
+            return self._load_visual_metrics_uncached()
+
+    def _load_visual_metrics_uncached(self) -> dict[str, Any] | None:
         path = self.visual_metrics_path
         try:
             if path.is_symlink() or not path.is_file():
+                self._visual_metrics_loaded = True
                 return None
             if (
                 self._max_artifact_bytes is not None
                 and path.stat().st_size > self._max_artifact_bytes
             ):
+                self._visual_metrics_loaded = True
                 return None
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (FileNotFoundError, json.JSONDecodeError, OSError):
+            self._visual_metrics_loaded = True
             return None
-        return dict(payload) if isinstance(payload, dict) else None
+        self._cached_visual_metrics = (
+            dict(payload) if isinstance(payload, dict) else None
+        )
+        self._visual_metrics_loaded = True
+        return self._cached_visual_metrics
 
     def publish_visual_metrics(self, artifact: dict[str, Any]) -> None:
         """Atomically publish an already computed visual-metrics artifact."""
-        self._atomic_write_json(self.visual_metrics_path, artifact)
+        with self._read_lock:
+            self._atomic_write_json(self.visual_metrics_path, artifact)
+            self._cached_visual_metrics = dict(artifact)
+            self._visual_metrics_loaded = True
 
     def rebuild_from_output_records(  # noqa: C901 - compatibility dispatcher for existing output kinds
         self,

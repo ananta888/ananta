@@ -6,7 +6,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Protocol
+from typing import Protocol
 
 from flask import (
     Blueprint,
@@ -21,6 +21,8 @@ from flask import (
 
 from agent.auth import (
     check_auth as _base_check_auth,
+)
+from agent.auth import (
     get_authenticated_source_control_principal,
 )
 from agent.routes.source_control_access import (
@@ -30,6 +32,9 @@ from agent.routes.source_control_access import (
     record_source_control_route_denial,
 )
 from agent.services.source_control_access_policy import SourceControlAction
+from agent.services.source_control_artifact_download import (
+    SourceControlArtifactStream,
+)
 from agent.services.source_control_connection_binding import (
     SourceControlConnectionBindingError,
     normalize_workspace_relative_path,
@@ -37,15 +42,12 @@ from agent.services.source_control_connection_binding import (
 from agent.services.source_control_legacy_usage import (
     BoundedLegacySourceControlUsage,
 )
-from agent.services.source_control_artifact_download import (
-    SourceControlArtifactStream,
-)
-
 
 _SUCCESS_SCHEMA = "ananta.source-control.api-response.v1"
 _ERROR_SCHEMA = "ananta.source-control.error.v1"
 _SOURCE_GRAPH_MAX_EDGES = 2_000
 _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$")
+_GRAPH_DOMAIN_SCOPE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 _CONNECTION_FILTERS = frozenset(
     {
         "project_id",
@@ -466,6 +468,17 @@ def _bounded_int(
     if parsed < minimum or parsed > maximum:
         raise SourceControlApiError(f"{field}_invalid")
     return parsed
+
+
+def _query_boolean(value: object, *, field: str, default: bool) -> bool:
+    if value is None or value == "":
+        return default
+    normalized = str(value).strip().lower()
+    if normalized == "true":
+        return True
+    if normalized == "false":
+        return False
+    raise SourceControlApiError(f"{field}_invalid")
 
 
 def _required_string(
@@ -1493,16 +1506,30 @@ def create_source_control_v1_blueprint(
             "limit",
             "view",
             "max_edges",
+            "domain_scope",
+            "include_subdomains",
+            "stage",
         }:
             raise SourceControlApiError("graph_parameters_invalid")
         raw_max_edges = request.args.get("max_edges")
         requested_view = request.args.get("view", "default")
+        normalized_view = str(requested_view).strip().lower()
         if (
-            str(requested_view).strip().lower() == "topology"
+            normalized_view == "topology"
             and request.args.get("cursor") is not None
         ):
             raise SourceControlApiError("graph_topology_cursor_unsupported")
-        parameters = {
+        domain_scope = request.args.get("domain_scope")
+        if domain_scope is not None and not _GRAPH_DOMAIN_SCOPE.fullmatch(
+            domain_scope
+        ):
+            raise SourceControlApiError("domain_scope_invalid")
+        stage = request.args.get("stage")
+        if stage is not None and (
+            normalized_view != "staged" or stage not in {"nodes", "edges"}
+        ):
+            raise SourceControlApiError("graph_stage_invalid")
+        parameters: dict[str, object] = {
             "cursor": request.args.get("cursor"),
             "limit": _bounded_int(
                 request.args.get("limit"),
@@ -1524,6 +1551,21 @@ def create_source_control_v1_blueprint(
                 else None
             ),
         }
+        if domain_scope is not None:
+            parameters["domain_scope"] = domain_scope
+        if request.args.get("include_subdomains") is not None:
+            parameters["include_subdomains"] = _query_boolean(
+                request.args.get("include_subdomains"),
+                field="include_subdomains",
+                default=True,
+            )
+        if stage is not None:
+            parameters["stage"] = stage
+        if (
+            domain_scope is not None
+            or request.args.get("include_subdomains") is not None
+        ) and normalized_view not in {"topology", "staged"}:
+            raise SourceControlApiError("graph_domain_parameters_invalid")
         return _success(
             api.graph(
                 principal=_principal(),

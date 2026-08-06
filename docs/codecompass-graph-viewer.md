@@ -77,6 +77,60 @@ This split protects SRP and DIP. The older Self-Graph route still combines
 several legacy responsibilities; new metric or visualization logic must not be
 added to that route.
 
+## Project-bound inventory and staged loading
+
+The CodeHug viewer reads the active, authorized Source-Control-v1 index. It
+does not fall back to the repository-global Self-Graph routes. Large graphs use
+three additive read modes on
+`GET /api/source-control/v1/connections/<connection_id>/graph`:
+
+| View | Purpose |
+|---|---|
+| `inventory` | Lightweight, paginated domain/subdomain hierarchy and exact graph totals. |
+| `topology` | Connected visualization window, optionally selected by an opaque domain key. |
+| `staged` | Lossless, revision-bound pages; `stage=nodes` and `stage=edges` are paged separately so cross-page edges are retained. |
+
+The existing `default` and `topology` calls remain compatible. Optional
+`domain_scope` and `include_subdomains` filters are applied by the Hub before a
+topology window is selected. Domain identity precedence is explicit
+`domain_id`, then `domain_path`, then a repository-relative path fallback;
+unassigned nodes remain a visible inventory facet. Scope keys are opaque and
+must only be reused with the connection/index revision that issued them.
+
+Domain and relation inventories are bounded and independently cursor-paged.
+Inventory and staged cursors bind the graph revision, scope digest and stage.
+An index change fails a continuation as stale instead of mixing revisions; a
+scope or stage change fails closed as a cursor-scope mismatch. Delivery
+completeness is separate from semantic materialization completeness. A fully
+delivered graph may therefore still report a partial semantic budget.
+Unresolved relations are counted explicitly and remain available in the staged
+edge stream instead of being silently dropped from the result.
+
+`content_graph_revision` binds paging and viewer state to the actual node/edge
+content. The existing evidence revision remains separate so a valid Worker
+visual-metrics sidecar keeps its original immutable evidence binding. Content
+digests and global parallel-edge identities are computed once per bounded
+cached snapshot, not once per continuation page.
+
+The Angular viewer starts with 100 nodes and at most 400 edges. Users can pick
+an explicit 250-node or 500-node strategy and expand the connected window in
+bounded steps. The UI always reports full-index, selected-scope, loaded-window
+and visible counts. Reaching the 500-node visualization budget does not imply
+that the remaining records disappeared: their count stays visible, the domain
+tree can narrow the server scope, and the staged API remains lossless.
+Untrusted domain values are bounded to 4,096 characters, 255 characters per
+segment, 64 hierarchy levels and a fixed expanded-prefix budget. Values beyond
+those limits remain visible in the `unassigned` scope instead of allocating an
+unbounded hierarchy or dropping their nodes.
+
+The Hub caches a bounded set of already resolved graph stores by graph/metrics
+file identity. Artifact authorization and digest verification remain in the
+resolver; the cache only avoids reparsing an unchanged admitted snapshot. This
+keeps the optimization behind a read seam and preserves least privilege.
+The first read of a newly admitted legacy JSON snapshot must still parse that
+bounded artifact once. Truly disk-lazy cold reads require a future indexed
+SQLite or DuckDB read model; subsequent reads use the bounded cache.
+
 ## Artifact contracts
 
 ### `domain_graph_artifact.v1`
@@ -451,6 +505,7 @@ under `codecompass_graph_bp`.
 | GET | `/api/codecompass/graph/node/<node_id>` | `knowledge_index_id` | single node |
 | GET | `/api/codecompass/graph/expand` | `knowledge_index_id`, `seed`, `profile` | projected subgraph |
 | GET | `/api/codecompass/self-graph` | domain/detail/limit parameters | projected self graph |
+| GET | `/api/source-control/v1/connections/<connection_id>/graph` | `view`, `limit`, `max_edges`, optional `cursor`, `stage`, `domain_scope`, `include_subdomains` | project-bound default page, inventory, topology window, or staged page |
 
 Legacy clients may ignore every additive visual field. The normal graph,
 expansion graph, and Self-Graph use the same projection contract.

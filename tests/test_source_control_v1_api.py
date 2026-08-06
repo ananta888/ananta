@@ -154,6 +154,80 @@ def test_graph_route_rejects_cursor_for_single_topology_window(monkeypatch) -> N
     )
 
 
+def test_graph_route_forwards_project_domain_scope_and_subdomain_policy(
+    monkeypatch,
+) -> None:
+    app = _app(monkeypatch)
+    scope = "domain_id:" + "a" * 64
+
+    response = app.test_client().get(
+        "/api/source-control/v1/connections/conn-example/graph"
+        f"?view=topology&limit=100&domain_scope={scope}"
+        "&include_subdomains=false"
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["data"]["parameters"] == {
+        "cursor": None,
+        "limit": 100,
+        "view": "topology",
+        "max_edges": None,
+        "domain_scope": scope,
+        "include_subdomains": False,
+    }
+
+
+def test_graph_route_allows_inventory_and_lossless_staged_pages(monkeypatch) -> None:
+    app = _app(monkeypatch)
+
+    inventory = app.test_client().get(
+        "/api/source-control/v1/connections/conn-example/graph"
+        "?view=inventory&cursor=inventory-cursor&limit=250"
+    )
+    staged = app.test_client().get(
+        "/api/source-control/v1/connections/conn-example/graph"
+        "?view=staged&stage=edges&max_edges=500"
+    )
+
+    assert inventory.status_code == 200
+    assert inventory.get_json()["data"]["parameters"]["cursor"] == (
+        "inventory-cursor"
+    )
+    assert staged.status_code == 200
+    assert staged.get_json()["data"]["parameters"]["stage"] == "edges"
+
+
+def test_graph_route_rejects_invalid_scope_boolean_and_stage(monkeypatch) -> None:
+    app = _app(monkeypatch)
+
+    invalid_scope = app.test_client().get(
+        "/api/source-control/v1/connections/conn-example/graph"
+        "?domain_scope=contains%20space"
+    )
+    invalid_boolean = app.test_client().get(
+        "/api/source-control/v1/connections/conn-example/graph"
+        "?include_subdomains=1"
+    )
+    invalid_stage = app.test_client().get(
+        "/api/source-control/v1/connections/conn-example/graph"
+        "?view=topology&stage=nodes"
+    )
+    misplaced_scope = app.test_client().get(
+        "/api/source-control/v1/connections/conn-example/graph"
+        "?view=inventory&domain_scope=domain_id:"
+        + "a" * 64
+    )
+
+    assert invalid_scope.get_json()["error"]["code"] == "domain_scope_invalid"
+    assert invalid_boolean.get_json()["error"]["code"] == (
+        "include_subdomains_invalid"
+    )
+    assert invalid_stage.get_json()["error"]["code"] == "graph_stage_invalid"
+    assert misplaced_scope.get_json()["error"]["code"] == (
+        "graph_domain_parameters_invalid"
+    )
+
+
 def test_unknown_object_is_uniform_404_not_success(monkeypatch) -> None:
     app = _app(monkeypatch)
     response = app.test_client().get(

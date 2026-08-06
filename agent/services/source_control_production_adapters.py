@@ -24,20 +24,34 @@ from agent.db_models.source_control import (
     ActiveKnowledgeIndexDB,
     KnowledgeIndexRunSourceBindingDB,
     KnowledgeIndexSourceBindingDB,
+    SourceAccessGrantDB,
     SourceConnectionDB,
     SourceControlArtifactDeletionDB,
     SourceControlPurgeApprovalDB,
-    SourceAccessGrantDB,
     SourceRevisionDB,
 )
 from agent.repositories.source_control_repository import (
     SQLSourceControlRepository,
 )
 from agent.services.codecompass_graph_artifact_resolver import (
+    GRAPH_VISUAL_METRICS_FILENAME,
     CodeCompassGraphArtifactResolver,
+)
+from agent.services.codecompass_graph_domain_catalog_service import (
+    CodeCompassGraphDomainCatalogPort,
+    get_codecompass_graph_domain_catalog_service,
 )
 from agent.services.codecompass_graph_projection_service import (
     CodeCompassGraphProjectionService,
+)
+from agent.services.codecompass_graph_read_service import (
+    CodeCompassGraphReadError,
+    CodeCompassGraphReadPort,
+    CodeCompassGraphReadService,
+)
+from agent.services.codecompass_graph_store_cache import (
+    CodeCompassGraphStoreCache,
+    get_codecompass_graph_store_cache,
 )
 from agent.services.codecompass_graph_window_service import (
     CodeCompassGraphWindowSelector,
@@ -58,9 +72,6 @@ from agent.services.source_destination_resolution import (
 )
 from agent.sources.source_refresh_service import SourceRefreshService
 from agent.sources.source_registry import SourceRegistry
-from ananta_contracts.codecompass_graph_limits import (
-    MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
-)
 from ananta_contracts.model_catalog import (
     ModelAvailability,
     ModelHealth,
@@ -71,14 +82,10 @@ from ananta_contracts.source_control import (
     ProviderLocation,
 )
 
-
 _LOG = logging.getLogger(__name__)
 _TERMINAL_RUN_STATES = frozenset(
     {"completed", "failed", "cancelled", "purged", "tombstoned"}
 )
-_SOURCE_GRAPH_MAX_EDGES = 2_000
-
-
 class SourceControlProductionAdapterError(ValueError):
     def __init__(self, reason_code: str, *, status_code: int = 400) -> None:
         self.reason_code = reason_code
@@ -299,6 +306,9 @@ class HubSourceControlOperationsAdapter:
         graph_resolver: CodeCompassGraphArtifactResolver,
         graph_projection: CodeCompassGraphProjectionService,
         graph_window: CodeCompassGraphWindowSelector,
+        graph_domains: CodeCompassGraphDomainCatalogPort | None = None,
+        graph_read: CodeCompassGraphReadPort | None = None,
+        graph_store_cache: CodeCompassGraphStoreCache | None = None,
         scanner: object | None = None,
     ) -> None:
         self._engine = engine
@@ -306,8 +316,16 @@ class HubSourceControlOperationsAdapter:
         self._refresh = refresh
         self._index_submission = index_submission
         self._resolver = graph_resolver
-        self._projection = graph_projection
-        self._graph_window = graph_window
+        self._graph_read = graph_read or CodeCompassGraphReadService(
+            projection=graph_projection,
+            window=graph_window,
+            domains=(
+                graph_domains or get_codecompass_graph_domain_catalog_service()
+            ),
+        )
+        self._graph_store_cache = (
+            graph_store_cache or get_codecompass_graph_store_cache()
+        )
         self._scanner = scanner
 
     def refresh(self, **kwargs: object) -> Mapping[str, object]:
@@ -435,149 +453,18 @@ class HubSourceControlOperationsAdapter:
         index = self._active_index(**kwargs)
         parameters = kwargs.get("parameters")
         values = parameters if isinstance(parameters, Mapping) else {}
-        limit = min(max(int(values.get("limit", 100)), 1), 500)
-        edge_limit = min(
-            max(int(values.get("max_edges") or limit * 4), 1),
-            _SOURCE_GRAPH_MAX_EDGES,
-        )
-        requested_view = str(values.get("view") or "default").strip().lower()
-        view = "topology" if requested_view == "topology" else "default"
-        if view == "topology" and values.get("cursor"):
+        try:
+            return self._graph_read.read(
+                index_id=index.id,
+                store=self._graph_store(index),
+                parameters=values,
+                artifact_status=self._artifact_projection(index),
+            )
+        except CodeCompassGraphReadError as exc:
             raise SourceControlProductionAdapterError(
-                "graph_topology_cursor_unsupported"
-            )
-        offset = self._decode_offset(values.get("cursor"))
-        store = self._graph_store(index)
-        raw = store.load()
-        raw_diagnostics = raw.get("diagnostics")
-        diagnostics = (
-            dict(raw_diagnostics) if isinstance(raw_diagnostics, Mapping) else {}
-        )
-        semantic_diagnostics = diagnostics.get("semantic_translation")
-        semantic_translation = (
-            semantic_diagnostics
-            if isinstance(semantic_diagnostics, Mapping)
-            else {}
-        )
-        raw_semantic_budget = semantic_translation.get("semantic_budget")
-        semantic_budget = (
-            dict(raw_semantic_budget)
-            if isinstance(raw_semantic_budget, Mapping)
-            else {}
-        )
-        nodes = list(raw.get("nodes") or [])
-        raw_edges = list(raw.get("edges") or [])
-        if view == "topology":
-            nodes.extend(list(raw.get("semantic_nodes") or []))
-            raw_edges.extend(list(raw.get("semantic_edges") or []))
-            window = self._graph_window.select(
-                nodes=nodes,
-                edges=raw_edges,
-                node_limit=limit,
-                edge_limit=edge_limit,
-            )
-            visible = list(window.nodes)
-            edges = list(window.edges)
-            next_cursor = None
-            total_nodes = window.total_node_count
-            total_edges = window.total_edge_count
-            source_edge_count = window.source_edge_count
-            unresolved_edge_count = window.unresolved_edge_count
-            internal_edge_count = window.internal_edge_count
-            edge_capped = window.edge_capped
-        else:
-            visible = nodes[offset : offset + limit]
-            node_ids = {
-                str(item.get("id") or item.get("node_id") or "")
-                for item in visible
-                if isinstance(item, Mapping)
-            }
-            internal_edges = [
-                edge
-                for edge in raw_edges
-                if isinstance(edge, Mapping)
-                and str(
-                    edge.get("source_id")
-                    or edge.get("source")
-                    or edge.get("from")
-                    or ""
-                ) in node_ids
-                and str(
-                    edge.get("target_id")
-                    or edge.get("target")
-                    or edge.get("to")
-                    or ""
-                ) in node_ids
-            ]
-            edges = internal_edges[:edge_limit]
-            next_cursor = (
-                self._encode_offset(offset + limit)
-                if offset + limit < len(nodes)
-                else None
-            )
-            total_nodes = len(nodes)
-            total_edges = len(raw_edges)
-            source_edge_count = len(raw_edges)
-            unresolved_edge_count = 0
-            internal_edge_count = len(internal_edges)
-            edge_capped = len(edges) < len(internal_edges)
-        state = raw.get("state")
-        warnings: list[str] = []
-        if unresolved_edge_count:
-            warnings.append(
-                f"{unresolved_edge_count} graph relation"
-                f"{'s were' if unresolved_edge_count != 1 else ' was'} excluded "
-                "because a source or target node is unavailable. Reindex "
-                "the source to materialize current semantic nodes."
-            )
-        if bool(semantic_budget.get("truncated")):
-            warnings.append(
-                "The semantic graph reached its configured record budget; "
-                "the topology is a documented partial view."
-            )
-        semantic_unresolved = int(semantic_budget.get("unresolved_edge_count") or 0)
-        if semantic_unresolved:
-            warnings.append(
-                f"{semantic_unresolved} semantic graph relation"
-                f"{'s were' if semantic_unresolved != 1 else ' was'} not materialized "
-                "because no source-grounded endpoint was available."
-            )
-        projected = self._projection.project(
-            nodes=visible,
-            edges=edges,
-            source_kind="codecompass_graph",
-            source_ref=index.id,
-            graph_revision=(
-                str(state.get("manifest_hash") or "") or None
-                if isinstance(state, Mapping)
-                else None
-            ),
-            visual_metrics=store.load_visual_metrics(),
-            derive_projection_revision=view == "topology",
-            diagnostics=diagnostics,
-            warnings=warnings,
-            metadata={
-                "knowledge_index_id": index.id,
-                "view": view,
-                "next_cursor": next_cursor,
-                "total_nodes": total_nodes,
-                "total_edges": total_edges,
-                "source_edge_count": source_edge_count,
-                "unresolved_edge_count": unresolved_edge_count,
-                "internal_edge_count": internal_edge_count,
-                "edge_capped": edge_capped,
-                "max_edges": edge_limit,
-                "semantic_budget": semantic_budget,
-            },
-        )
-        projected["text_alternative"] = (
-            f"Topology graph window with {len(visible)} nodes and "
-            f"{len(edges)} edges out of {total_nodes} nodes."
-            if view == "topology"
-            else f"Graph with {len(visible)} nodes and {len(edges)} edges."
-        )
-        projected["artifact_status"] = self._artifact_projection(index)
-        return projected
+                exc.reason_code,
+                status_code=exc.status_code,
+            ) from exc
 
     def query(self, **kwargs: object) -> Mapping[str, object]:
         index = self._active_index(**kwargs)
@@ -739,17 +626,20 @@ class HubSourceControlOperationsAdapter:
             return index
 
     def _graph_store(self, index: KnowledgeIndexDB):
-        from ananta_codecompass.graph_store import CodeCompassGraphStore
-
         artifact_resolver = getattr(self._resolver, "resolve_artifacts", None)
         if callable(artifact_resolver):
             index_path, visual_metrics_path = artifact_resolver(index)
         else:
             index_path = self._resolver.resolve(index)
-            visual_metrics_path = None
-        return CodeCompassGraphStore(
+            visual_metrics_path = Path(index_path).with_name(
+                GRAPH_VISUAL_METRICS_FILENAME
+            )
+        cache = (
+            getattr(self, "_graph_store_cache", None)
+            or get_codecompass_graph_store_cache()
+        )
+        return cache.get(
             index_path=index_path,
-            max_artifact_bytes=MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
             visual_metrics_path=visual_metrics_path,
         )
 
@@ -795,34 +685,6 @@ class HubSourceControlOperationsAdapter:
             "knowledge_index_id": index.id,
             "manifest_present": manifest.is_file(),
         }
-
-    @staticmethod
-    def _encode_offset(value: int) -> str:
-        return base64.urlsafe_b64encode(
-            str(value).encode("ascii")
-        ).decode("ascii").rstrip("=")
-
-    @staticmethod
-    def _decode_offset(value: object) -> int:
-        if value in (None, ""):
-            return 0
-        try:
-            raw = str(value)
-            raw += "=" * (-len(raw) % 4)
-            parsed = int(
-                base64.urlsafe_b64decode(raw).decode("ascii")
-            )
-        except (ValueError, UnicodeDecodeError) as exc:
-            raise SourceControlProductionAdapterError(
-                "graph_cursor_invalid"
-            ) from exc
-        if parsed < 0:
-            raise SourceControlProductionAdapterError(
-                "graph_cursor_invalid"
-            )
-        return parsed
-
-
 class ScopedWorkerModelDestinationCatalog:
     """Project destinations from validated workers and the Hub model catalog."""
 

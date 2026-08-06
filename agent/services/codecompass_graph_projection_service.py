@@ -10,6 +10,7 @@ import json
 import math
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -22,6 +23,19 @@ from agent.codecompass.semantic_translation.models import (
 
 PROJECTION_ALGORITHM_VERSION = "codecompass_graph_projection.v1"
 VISUAL_METRICS_ALGORITHM_VERSION = "codecompass_graph_visual_metrics.v1"
+
+
+@dataclass(frozen=True)
+class CodeCompassPreparedEdgePopulation:
+    """Revision-scoped identities shared by bounded edge projections."""
+
+    edge_ids: tuple[str, ...]
+    parallel_indexes: tuple[int, ...]
+    parallel_counts: tuple[int, ...]
+
+    @property
+    def size(self) -> int:
+        return len(self.edge_ids)
 
 KNOWN_NODE_KINDS = frozenset({
     "aggregator",
@@ -579,6 +593,10 @@ class CodeCompassGraphProjectionService:
         graph_revision: str | None = None,
         visual_metrics: Mapping[str, Any] | None = None,
         derive_projection_revision: bool = False,
+        edge_population: Sequence[Mapping[str, Any]] | None = None,
+        edge_population_offset: int = 0,
+        prepared_edge_population: CodeCompassPreparedEdgePopulation | None = None,
+        edge_population_indices: Sequence[int] | None = None,
     ) -> dict[str, Any]:
         evidence_revision = _graph_revision(nodes, edges, graph_revision)
         projection_revision = evidence_revision
@@ -600,7 +618,13 @@ class CodeCompassGraphProjectionService:
         ))
         capabilities = dict(sorted(capabilities.items()))
         projected_nodes = [self._project_node(node, metrics_by_node) for node in nodes]
-        projected_edges = self._project_edges(edges)
+        projected_edges = self._project_edges(
+            edges,
+            edge_population=edge_population,
+            edge_population_offset=edge_population_offset,
+            prepared_edge_population=prepared_edge_population,
+            edge_population_indices=edge_population_indices,
+        )
         projected_metadata = {
             **dict(metadata or {}),
             "node_count": len(projected_nodes),
@@ -704,7 +728,11 @@ class CodeCompassGraphProjectionService:
         }
 
     @staticmethod
-    def _project_edges(edges: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    def prepare_edge_population(
+        edges: Sequence[Mapping[str, Any]],
+    ) -> CodeCompassPreparedEdgePopulation:
+        """Prepare globally stable edge identity facts exactly once per revision."""
+
         parallel_keys: list[tuple[str, str, str]] = []
         signatures: list[str] = []
         explicit_ids: list[str] = []
@@ -723,8 +751,8 @@ class CodeCompassGraphProjectionService:
                 "operation": edge.get("operation"),
                 "heuristic": edge.get("heuristic"),
             }))
-        parallel_counts = Counter(parallel_keys)
-        parallel_indexes: dict[int, int] = {}
+        parallel_counts_by_key = Counter(parallel_keys)
+        parallel_indexes = [0] * len(parallel_keys)
         indexes_by_key: dict[tuple[str, str, str], list[int]] = {}
         for index, key in enumerate(parallel_keys):
             indexes_by_key.setdefault(key, []).append(index)
@@ -743,10 +771,66 @@ class CodeCompassGraphProjectionService:
         if duplicate_explicit_id is not None:
             raise ValueError("duplicate_graph_edge_id")
         identity_occurrence: Counter[str] = Counter()
+        edge_ids: list[str] = []
+        for index, explicit_id in enumerate(explicit_ids):
+            if explicit_id and explicit_counts[explicit_id] == 1:
+                edge_identity = explicit_id
+            else:
+                identity_seed = _content_hash({
+                    "source_edge_id": explicit_id,
+                    "signature": signatures[index],
+                })
+                duplicate_index = identity_occurrence[identity_seed]
+                identity_occurrence[identity_seed] += 1
+                edge_identity = (
+                    identity_seed
+                    if duplicate_index == 0
+                    else _content_hash({
+                        "identity_seed": identity_seed,
+                        "duplicate_index": duplicate_index,
+                    })
+                )
+            edge_ids.append(edge_identity)
+        return CodeCompassPreparedEdgePopulation(
+            edge_ids=tuple(edge_ids),
+            parallel_indexes=tuple(parallel_indexes),
+            parallel_counts=tuple(
+                parallel_counts_by_key[key] for key in parallel_keys
+            ),
+        )
+
+    @classmethod
+    def _project_edges(
+        cls,
+        edges: Sequence[Mapping[str, Any]],
+        *,
+        edge_population: Sequence[Mapping[str, Any]] | None = None,
+        edge_population_offset: int = 0,
+        prepared_edge_population: CodeCompassPreparedEdgePopulation | None = None,
+        edge_population_indices: Sequence[int] | None = None,
+    ) -> list[dict[str, Any]]:
+        if prepared_edge_population is not None and edge_population is not None:
+            raise ValueError("graph_edge_population_ambiguous")
+        prepared = prepared_edge_population
+        if prepared is None:
+            population = edge_population if edge_population is not None else edges
+            prepared = cls.prepare_edge_population(population)
+        if edge_population_indices is not None:
+            population_indices = tuple(int(index) for index in edge_population_indices)
+            if len(population_indices) != len(edges):
+                raise ValueError("invalid_graph_edge_population_window")
+        else:
+            population_offset = int(edge_population_offset)
+            population_indices = tuple(
+                range(population_offset, population_offset + len(edges))
+            )
+        if any(index < 0 or index >= prepared.size for index in population_indices):
+            raise ValueError("invalid_graph_edge_population_window")
         projected: list[dict[str, Any]] = []
-        for index, (edge, key) in enumerate(zip(edges, parallel_keys)):
-            source_id, target_id, raw_relation = key
-            parallel_index = parallel_indexes[index]
+        for edge, population_index in zip(edges, population_indices):
+            source_id = str(edge.get("source_id") or edge.get("source") or "")
+            target_id = str(edge.get("target_id") or edge.get("target") or "")
+            raw_relation = _raw_edge_type(edge)
             source_attributes = edge.get("attributes") if isinstance(edge.get("attributes"), Mapping) else {}
             attributes = dict(source_attributes)
             for field in ("field", "operation", "heuristic"):
@@ -784,8 +868,8 @@ class CodeCompassGraphProjectionService:
                 raise ValueError("invalid_graph_edge_value:directed")
             attributes["directed"] = True if directed is None else directed
             attributes["self_loop"] = source_id == target_id
-            attributes["parallel_index"] = parallel_index
-            attributes["parallel_count"] = parallel_counts[key]
+            attributes["parallel_index"] = prepared.parallel_indexes[population_index]
+            attributes["parallel_count"] = prepared.parallel_counts[population_index]
             dependency_weight = _edge_value(edge, "dependency_weight")
             raw_metrics = attributes.get("metrics") or attributes.get("visual_metrics")
             metrics = dict(raw_metrics) if isinstance(raw_metrics, Mapping) else {}
@@ -807,22 +891,8 @@ class CodeCompassGraphProjectionService:
                 ))
             attributes.pop("visual_metrics", None)
 
-            explicit_id = explicit_ids[index]
-            if explicit_id and explicit_counts[explicit_id] == 1:
-                edge_identity = explicit_id
-            else:
-                identity_seed = _content_hash({
-                    "source_edge_id": explicit_id,
-                    "signature": signatures[index],
-                })
-                duplicate_index = identity_occurrence[identity_seed]
-                identity_occurrence[identity_seed] += 1
-                edge_identity = identity_seed if duplicate_index == 0 else _content_hash({
-                    "identity_seed": identity_seed,
-                    "duplicate_index": duplicate_index,
-                })
             projected.append({
-                "edge_id": edge_identity,
+                "edge_id": prepared.edge_ids[population_index],
                 "source_id": source_id,
                 "target_id": target_id,
                 "relation": raw_relation,
@@ -839,6 +909,7 @@ def get_codecompass_graph_projection_service() -> CodeCompassGraphProjectionServ
 
 
 __all__ = [
+    "CodeCompassPreparedEdgePopulation",
     "CodeCompassGraphProjectionService",
     "KNOWN_EDGE_RELATIONS",
     "KNOWN_NODE_KINDS",
