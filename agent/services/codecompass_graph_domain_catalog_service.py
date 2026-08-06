@@ -155,6 +155,15 @@ class CodeCompassGraphDomainSelection:
     nodes: tuple[Mapping[str, object], ...]
     facet: CodeCompassGraphDomainFacet | None
     global_node_count: int
+    groups: tuple["CodeCompassGraphDomainGroup", ...]
+
+
+@dataclass(frozen=True)
+class CodeCompassGraphDomainGroup:
+    """A disjoint domain partition used for balanced graph windows."""
+
+    scope_key: str
+    node_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -178,10 +187,16 @@ class CodeCompassGraphDomainIndex:
     ) -> CodeCompassGraphDomainSelection:
         normalized_scope = str(scope_key or "").strip()
         if not normalized_scope:
+            bindings = self._bindings
             return CodeCompassGraphDomainSelection(
-                nodes=tuple(binding.node for binding in self._bindings),
+                nodes=tuple(binding.node for binding in bindings),
                 facet=None,
                 global_node_count=self.domain_catalog.total_node_count,
+                groups=self._groups(
+                    bindings=bindings,
+                    scope_key=None,
+                    include_descendants=True,
+                ),
             )
         facet = next(
             (candidate for candidate in self.domain_catalog.facets if candidate.key == normalized_scope),
@@ -189,8 +204,8 @@ class CodeCompassGraphDomainIndex:
         )
         if facet is None:
             raise ValueError("graph_domain_scope_unknown")
-        selected = tuple(
-            binding.node
+        bindings = tuple(
+            binding
             for binding in self._bindings
             if (
                 normalized_scope in binding.scope_keys
@@ -199,9 +214,62 @@ class CodeCompassGraphDomainIndex:
             )
         )
         return CodeCompassGraphDomainSelection(
-            nodes=selected,
+            nodes=tuple(binding.node for binding in bindings),
             facet=facet,
             global_node_count=self.domain_catalog.total_node_count,
+            groups=self._groups(
+                bindings=bindings,
+                scope_key=normalized_scope,
+                include_descendants=include_descendants,
+            ),
+        )
+
+    def _groups(
+        self,
+        *,
+        bindings: Sequence[_DomainNodeBinding],
+        scope_key: str | None,
+        include_descendants: bool,
+    ) -> tuple[CodeCompassGraphDomainGroup, ...]:
+        """Partition a read scope by its immediately visible domain level.
+
+        A global read is grouped by top-level domains.  A scoped read is
+        grouped by direct child domains, while nodes assigned directly to the
+        selected domain retain their own group.  Deeper descendants remain in
+        their direct-child group.  This classification belongs here rather
+        than in the topology selector so all consumers share the catalog's
+        interpretation of domain hierarchy.
+        """
+
+        grouped_ids: dict[str, list[str]] = {}
+        for binding in bindings:
+            if not binding.scope_keys:
+                continue
+            group_key = binding.scope_keys[0]
+            if scope_key is not None:
+                group_key = scope_key
+                if include_descendants:
+                    scope_position = binding.scope_keys.index(scope_key)
+                    child_position = scope_position + 1
+                    if child_position < len(binding.scope_keys):
+                        group_key = binding.scope_keys[child_position]
+            identifier = _node_id(binding.node)
+            if identifier:
+                grouped_ids.setdefault(group_key, []).append(identifier)
+
+        facet_position = {
+            facet.key: position
+            for position, facet in enumerate(self.domain_catalog.facets)
+        }
+        return tuple(
+            CodeCompassGraphDomainGroup(
+                scope_key=group_key,
+                node_ids=tuple(grouped_ids[group_key]),
+            )
+            for group_key in sorted(
+                grouped_ids,
+                key=lambda key: (facet_position.get(key, len(facet_position)), key),
+            )
         )
 
 
@@ -543,6 +611,7 @@ __all__ = [
     "CodeCompassGraphDomainCatalogPort",
     "CodeCompassGraphDomainCatalogService",
     "CodeCompassGraphDomainFacet",
+    "CodeCompassGraphDomainGroup",
     "CodeCompassGraphDomainIndex",
     "CodeCompassGraphDomainSelection",
     "get_codecompass_graph_domain_catalog_service",

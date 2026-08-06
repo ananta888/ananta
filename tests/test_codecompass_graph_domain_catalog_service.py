@@ -138,6 +138,55 @@ def test_select_can_include_or_exclude_descendant_domains() -> None:
     assert sales_tree.global_node_count == len(nodes)
 
 
+def test_global_selection_groups_nodes_by_top_level_domain() -> None:
+    service = CodeCompassGraphDomainCatalogService()
+    nodes = [
+        {"id": "sales-root", "domain_id": "sales"},
+        {"id": "orders", "domain_id": "sales.orders"},
+        {"id": "support", "domain_id": "support"},
+        {"id": "unassigned"},
+    ]
+
+    selection = service.prepare(nodes=nodes).select(
+        scope_key=None,
+        include_descendants=True,
+    )
+
+    assert [group.node_ids for group in selection.groups] == [
+        ("sales-root", "orders"),
+        ("support",),
+        ("unassigned",),
+    ]
+
+
+def test_scoped_selection_groups_direct_nodes_and_direct_child_subtrees() -> None:
+    service = CodeCompassGraphDomainCatalogService()
+    nodes = [
+        {"id": "sales-root", "domain_id": "sales"},
+        {"id": "orders", "domain_id": "sales.orders"},
+        {"id": "orders-api", "domain_id": "sales.orders.api"},
+        {"id": "billing", "domain_id": "sales.billing"},
+        {"id": "support", "domain_id": "support"},
+    ]
+    index = service.prepare(nodes=nodes)
+    sales_key = _facet(
+        index.domain_catalog,
+        source="domain_id",
+        path="sales",
+    ).key
+
+    selection = index.select(
+        scope_key=sales_key,
+        include_descendants=True,
+    )
+
+    assert [group.node_ids for group in selection.groups] == [
+        ("sales-root",),
+        ("billing",),
+        ("orders", "orders-api"),
+    ]
+
+
 def test_catalog_and_selection_keep_unassigned_nodes_visible() -> None:
     service = CodeCompassGraphDomainCatalogService()
     nodes = [

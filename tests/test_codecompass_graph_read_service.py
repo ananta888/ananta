@@ -238,6 +238,30 @@ def test_prepared_inventory_is_reused_for_pages_and_scope_reads() -> None:
     assert scoped["metadata"]["scope_total_nodes"] == 2
 
 
+def test_topology_metadata_reports_balanced_domain_group_coverage() -> None:
+    service = _service()
+    store = _Store(
+        {
+            "state": {"manifest_hash": "sha256:revision"},
+            "nodes": [
+                {
+                    "id": f"domain-{domain:02d}-node-{node}",
+                    "domain_id": f"domain_{domain:02d}",
+                }
+                for domain in range(55)
+                for node in range(2)
+            ],
+            "edges": [],
+        }
+    )
+
+    page = _read(service, store, view="topology", limit=100)
+
+    assert len(page["nodes"]) == 100
+    assert page["metadata"]["window_domain_group_count"] == 55
+    assert page["metadata"]["scope_domain_group_count"] == 55
+
+
 def test_staged_edges_keep_unresolved_edges_and_global_page_metadata() -> None:
     projection = _CountingProjection()
     service = _service(projection=projection)

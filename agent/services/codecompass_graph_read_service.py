@@ -565,6 +565,9 @@ class CodeCompassGraphReadService:
                 "global_unresolved_edge_count": len(snapshot.unresolved_edges),
                 "scope_unresolved_edge_count": len(snapshot.unresolved_edges),
                 "boundary_edge_count": 0,
+                "domain_node_groups": tuple(
+                    group.node_ids for group in selection.groups
+                ),
             }
 
         selected_ids = frozenset(identifier for node in selection.nodes if (identifier := self._node_id(node)))
@@ -605,6 +608,9 @@ class CodeCompassGraphReadService:
             "global_unresolved_edge_count": len(snapshot.unresolved_edges),
             "scope_unresolved_edge_count": selected_unresolved,
             "boundary_edge_count": boundary_edges,
+            "domain_node_groups": tuple(
+                group.node_ids for group in selection.groups
+            ),
         }
 
     def _topology_page(
@@ -628,6 +634,7 @@ class CodeCompassGraphReadService:
             edges=scope["edges"],
             node_limit=limit,
             edge_limit=edge_limit,
+            node_groups=scope["domain_node_groups"],
         )
         visible = list(window.nodes)
         edges = list(window.edges)
@@ -668,6 +675,8 @@ class CodeCompassGraphReadService:
                 "scope_unresolved_edge_count": scope["scope_unresolved_edge_count"],
                 "remaining_nodes": max(0, total_nodes - len(visible)),
                 "window_node_limit": limit,
+                "window_domain_group_count": window.represented_group_count,
+                "scope_domain_group_count": window.total_group_count,
                 "delivery_complete": (len(visible) == total_nodes and not window.edge_capped),
             },
         )

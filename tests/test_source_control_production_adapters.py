@@ -357,9 +357,9 @@ def test_topology_graph_view_uses_injected_connected_window() -> None:
     ]
     assert [edge["edge_id"] for edge in projection.kwargs["edges"]] == [
         "hub-a",
-        "hub-b",
         "leaf-semantic",
         "semantic-hub",
+        "hub-b",
     ]
     assert projection.kwargs["derive_projection_revision"] is True
     assert result["metadata"]["content_graph_revision"].startswith("sha256:")
@@ -399,6 +399,8 @@ def test_topology_graph_view_uses_injected_connected_window() -> None:
         "scope_unresolved_edge_count": 1,
         "remaining_nodes": 1,
         "window_node_limit": 4,
+        "window_domain_group_count": 1,
+        "scope_domain_group_count": 1,
         "delivery_complete": False,
     }
     assert result["text_alternative"] == (
@@ -580,6 +582,8 @@ def test_topology_domain_scope_controls_descendants_and_reports_boundary() -> No
         "scope_unresolved_edge_count": 0,
         "remaining_nodes": 0,
         "window_node_limit": 10,
+        "window_domain_group_count": 2,
+        "scope_domain_group_count": 2,
         "delivery_complete": True,
     }
     assert any(

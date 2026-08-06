@@ -38,6 +38,8 @@ class CodeCompassGraphWindow:
     unresolved_edge_count: int
     internal_edge_count: int
     edge_capped: bool
+    represented_group_count: int
+    total_group_count: int
 
 
 class CodeCompassGraphWindowSelector(Protocol):
@@ -48,11 +50,12 @@ class CodeCompassGraphWindowSelector(Protocol):
         edges: Sequence[object],
         node_limit: int,
         edge_limit: int,
+        node_groups: Sequence[Sequence[str]] = (),
     ) -> CodeCompassGraphWindow: ...
 
 
 class CodeCompassGraphWindowService:
-    """Select a connected visualization window without changing graph facts."""
+    """Select a group-balanced topology window without changing graph facts."""
 
     def select(
         self,
@@ -61,6 +64,7 @@ class CodeCompassGraphWindowService:
         edges: Sequence[object],
         node_limit: int,
         edge_limit: int,
+        node_groups: Sequence[Sequence[str]] = (),
     ) -> CodeCompassGraphWindow:
         canonical_nodes = self._canonical_nodes(nodes)
         node_by_id = {_node_id(node): node for node in canonical_nodes}
@@ -70,27 +74,30 @@ class CodeCompassGraphWindowService:
             if isinstance(edge, Mapping)
             and self._edge_is_bound(edge, node_by_id)
         )
-        ordered_ids = self._topology_order(
-            tuple(node_by_id),
-            canonical_edges,
+        canonical_groups = self._canonical_groups(
+            node_ids=tuple(node_by_id),
+            node_groups=node_groups,
+        )
+        ordered_ids = (
+            self._stratified_topology_order(
+                groups=canonical_groups,
+                edges=canonical_edges,
+            )
+            if canonical_groups
+            else self._topology_order(
+                tuple(node_by_id),
+                canonical_edges,
+            )
         )
         selected_ids = ordered_ids[: max(1, int(node_limit))]
         selected = set(selected_ids)
-        window_edges = tuple(
-            edge
-            for edge in canonical_edges
-            if self._edge_is_internal(edge, selected)
+        window_edges = self._ranked_topology_edges(
+            edges=canonical_edges,
+            ranked_node_ids=ordered_ids,
+            active_node_count=len(selected_ids),
         )
         bounded_edge_limit = max(1, int(edge_limit))
-        visible_edges = (
-            window_edges
-            if len(window_edges) <= bounded_edge_limit
-            else self._topology_bounded_edges(
-                edges=window_edges,
-                selected_ids=selected_ids,
-                edge_limit=bounded_edge_limit,
-            )
-        )
+        visible_edges = window_edges[:bounded_edge_limit]
         return CodeCompassGraphWindow(
             nodes=tuple(node_by_id[node_id] for node_id in selected_ids),
             edges=visible_edges,
@@ -100,7 +107,105 @@ class CodeCompassGraphWindowService:
             unresolved_edge_count=len(edges) - len(canonical_edges),
             internal_edge_count=len(window_edges),
             edge_capped=len(visible_edges) < len(window_edges),
+            represented_group_count=sum(
+                1 for group in canonical_groups if selected.intersection(group)
+            ),
+            total_group_count=len(canonical_groups),
         )
+
+    @staticmethod
+    def _canonical_groups(
+        *,
+        node_ids: tuple[str, ...],
+        node_groups: Sequence[Sequence[str]],
+    ) -> tuple[tuple[str, ...], ...]:
+        """Normalize caller-owned partitions without interpreting them.
+
+        Group classification is deliberately delegated to the domain catalog.
+        The selector only removes unknown/duplicate memberships and keeps any
+        ungrouped canonical nodes visible in a final fallback partition.
+        """
+
+        if not node_groups:
+            return ()
+        known = set(node_ids)
+        claimed: set[str] = set()
+        groups: list[tuple[str, ...]] = []
+        for raw_group in node_groups:
+            group_values: list[str] = []
+            group_seen: set[str] = set()
+            for value in raw_group:
+                node_id = str(value).strip()
+                if (
+                    node_id in known
+                    and node_id not in claimed
+                    and node_id not in group_seen
+                ):
+                    group_values.append(node_id)
+                    group_seen.add(node_id)
+            group = tuple(group_values)
+            if not group:
+                continue
+            claimed.update(group)
+            groups.append(group)
+        fallback = tuple(node_id for node_id in node_ids if node_id not in claimed)
+        if fallback:
+            groups.append(fallback)
+        return tuple(groups)
+
+    @classmethod
+    def _stratified_topology_order(
+        cls,
+        *,
+        groups: tuple[tuple[str, ...], ...],
+        edges: tuple[Mapping[str, object], ...],
+    ) -> tuple[str, ...]:
+        """Round-robin stable per-group topology orders.
+
+        The resulting sequence is independent of the requested window size.
+        Consequently every larger window is a strict prefix extension of a
+        smaller one, while each non-empty group receives one representative
+        before any group receives a second node.
+        """
+
+        all_node_ids = tuple(node_id for group in groups for node_id in group)
+        group_by_node = {
+            node_id: group_index
+            for group_index, group in enumerate(groups)
+            for node_id in group
+        }
+        adjacency = {node_id: set() for node_id in all_node_ids}
+        degree = {node_id: 0 for node_id in all_node_ids}
+        for edge in edges:
+            source, target = _edge_endpoints(edge)
+            if source in degree:
+                degree[source] += 1
+            if target in degree:
+                degree[target] += 1
+            if (
+                source != target
+                and source in group_by_node
+                and target in group_by_node
+                and group_by_node[source] == group_by_node[target]
+            ):
+                adjacency[source].add(target)
+                adjacency[target].add(source)
+
+        group_orders = tuple(
+            cls._topology_order_from_facts(
+                node_ids=group,
+                adjacency=adjacency,
+                degree=degree,
+            )
+            for group in groups
+        )
+        ordered: list[str] = []
+        maximum_group_size = max((len(group) for group in group_orders), default=0)
+        for position in range(maximum_group_size):
+            for group in group_orders:
+                if position < len(group):
+                    ordered.append(group[position])
+        return tuple(ordered)
 
     @staticmethod
     def _canonical_nodes(
@@ -127,30 +232,38 @@ class CodeCompassGraphWindowService:
         return bool(source and target and source in node_by_id and target in node_by_id)
 
     @staticmethod
-    def _edge_is_internal(
-        edge: Mapping[str, object],
-        selected: set[str],
-    ) -> bool:
-        source, target = _edge_endpoints(edge)
-        return source in selected and target in selected
-
-    @staticmethod
     def _topology_order(
         node_ids: tuple[str, ...],
         edges: tuple[Mapping[str, object], ...],
     ) -> tuple[str, ...]:
-        original_position = {
-            node_id: position for position, node_id in enumerate(node_ids)
-        }
         adjacency = {node_id: set() for node_id in node_ids}
         degree = {node_id: 0 for node_id in node_ids}
         for edge in edges:
             source, target = _edge_endpoints(edge)
-            degree[source] += 1
-            degree[target] += 1
-            if source != target:
+            if source in degree:
+                degree[source] += 1
+            if target in degree:
+                degree[target] += 1
+            if source != target and source in adjacency and target in adjacency:
                 adjacency[source].add(target)
                 adjacency[target].add(source)
+
+        return CodeCompassGraphWindowService._topology_order_from_facts(
+            node_ids=node_ids,
+            adjacency=adjacency,
+            degree=degree,
+        )
+
+    @staticmethod
+    def _topology_order_from_facts(
+        *,
+        node_ids: tuple[str, ...],
+        adjacency: Mapping[str, set[str]],
+        degree: Mapping[str, int],
+    ) -> tuple[str, ...]:
+        original_position = {
+            node_id: position for position, node_id in enumerate(node_ids)
+        }
 
         def priority(node_id: str) -> tuple[int, int, str]:
             return (
@@ -179,15 +292,34 @@ class CodeCompassGraphWindowService:
         return tuple(ordered)
 
     @staticmethod
-    def _topology_bounded_edges(
+    def _ranked_topology_edges(
         *,
         edges: tuple[Mapping[str, object], ...],
-        selected_ids: tuple[str, ...],
-        edge_limit: int,
+        ranked_node_ids: tuple[str, ...],
+        active_node_count: int,
     ) -> tuple[Mapping[str, object], ...]:
-        """Prefer a spanning forest before optional parallel/cycle edges."""
+        """Order edges monotonically for every prefix of the node ranking.
 
-        parent = {node_id: node_id for node_id in selected_ids}
+        An edge becomes eligible when the later-ranked endpoint enters the
+        node window.  Activation rank is therefore the primary order key: an
+        edge introduced by a larger window can never displace an edge that was
+        eligible in a smaller window.  Within one activation rank, a global
+        incremental spanning forest is emitted before cycle/parallel edges.
+        """
+
+        node_rank = {
+            node_id: rank for rank, node_id in enumerate(ranked_node_ids)
+        }
+        edges_by_activation: dict[int, list[Mapping[str, object]]] = {}
+        for edge in edges:
+            source, target = _edge_endpoints(edge)
+            activation_rank = max(node_rank[source], node_rank[target])
+            if activation_rank < active_node_count:
+                edges_by_activation.setdefault(activation_rank, []).append(edge)
+
+        parent = {
+            node_id: node_id for node_id in ranked_node_ids[:active_node_count]
+        }
 
         def find(node_id: str) -> str:
             root = node_id
@@ -199,18 +331,22 @@ class CodeCompassGraphWindowService:
                 node_id = current
             return root
 
-        backbone: list[Mapping[str, object]] = []
-        remainder: list[Mapping[str, object]] = []
-        for edge in edges:
-            source, target = _edge_endpoints(edge)
-            source_root = find(source)
-            target_root = find(target)
-            if source_root != target_root:
-                parent[target_root] = source_root
-                backbone.append(edge)
-            else:
-                remainder.append(edge)
-        return tuple([*backbone, *remainder][:edge_limit])
+        ordered: list[Mapping[str, object]] = []
+        for activation_rank in range(active_node_count):
+            backbone: list[Mapping[str, object]] = []
+            remainder: list[Mapping[str, object]] = []
+            for edge in edges_by_activation.get(activation_rank, ()):
+                source, target = _edge_endpoints(edge)
+                source_root = find(source)
+                target_root = find(target)
+                if source_root != target_root:
+                    parent[target_root] = source_root
+                    backbone.append(edge)
+                else:
+                    remainder.append(edge)
+            ordered.extend(backbone)
+            ordered.extend(remainder)
+        return tuple(ordered)
 
 
 codecompass_graph_window_service = CodeCompassGraphWindowService()
