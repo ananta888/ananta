@@ -116,22 +116,35 @@ visual-metrics sidecar keeps its original immutable evidence binding. Content
 digests and global parallel-edge identities are computed once per bounded
 cached snapshot, not once per continuation page.
 
-The Angular viewer starts with 100 nodes and at most 400 edges. Users can pick
-an explicit 250-node or 500-node strategy and expand the window in bounded
-steps. A global window is partitioned by top-level domain; a selected domain is
+The Angular viewer starts with a domain-balanced preview of 100 nodes and at
+most 400 edges. Users can pick an explicit 250-node or 500-node preview. A
+global preview is partitioned by top-level domain; a selected-domain preview is
 partitioned by its direct subdomains. The deterministic selector gives every
 non-empty partition one representative before it gives any partition a second
-node, subject to the requested budget. Consequently 100-, 250-, and 500-node
-windows are nested prefixes without allowing one high-degree directory to
-consume the whole project window. The response reports represented/total
-domain groups alongside full-index, selected-scope, loaded-window and visible
-counts. Edge ordering is bound to the full node ranking: edges activate when
-their later-ranked endpoint enters the window, so expanding both node and edge
-budgets cannot make an already visible relation disappear.
+node, subject to the requested preview budget. Consequently 100-, 250-, and
+500-node windows are nested prefixes without allowing one high-degree
+directory to consume the whole preview. The response reports
+represented/total domain groups alongside full-index, selected-scope,
+loaded-window and visible counts. Edge ordering is bound to the full node
+ranking: edges activate when their later-ranked endpoint enters the window, so
+expanding both node and edge preview budgets cannot make an already visible
+relation disappear.
 
-Reaching the 500-node visualization budget does not imply that the remaining
-records disappeared: their count stays visible, the domain tree can narrow the
-server scope, and the staged API retains every record of the admitted graph.
+Selecting a domain switches from the preview to complete staged delivery for
+that scope. The client consumes every node page and then every edge page before
+atomically replacing the rendered graph. The 500-node and 2,000-edge values in
+this flow are transport page sizes, not visualization or content limits. A
+full-project load is also available as an explicit action; it is not started by
+the initial preview because a complete index may be expensive to render. Scope
+or revision changes cancel the in-flight load, and malformed, repeated or
+incomplete pages fail visibly instead of leaving a plausible partial graph.
+
+Reaching the 500-node preview budget therefore does not imply that the
+remaining records disappeared: selecting a domain loads all records in that
+scope, and the explicit full-index action loads all records admitted to the
+index. Known relations crossing the selected scope boundary are counted but
+are not rendered in its induced graph; incident unresolved relations stay in
+the scoped staged edge stream.
 This delivery guarantee is deliberately separate from Worker materialization:
 if the semantic translation budget reports truncation, the admitted graph is
 itself a documented partial semantic graph and must not be described as
