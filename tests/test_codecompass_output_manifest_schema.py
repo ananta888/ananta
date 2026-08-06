@@ -70,6 +70,73 @@ def test_codecompass_manifest_schema_accepts_optional_semantic_partitions():
 
     assert list(Draft202012Validator(schema).iter_errors(payload)) == []
 
+
+def test_codecompass_manifest_schema_accepts_bounded_domain_shards():
+    schema = _schema()
+    payload = _base_manifest()
+    domain_key = "a" * 64
+    payload["outputs"].update({"semantic_nodes": None, "semantic_edges": None})
+    payload["partitioned_outputs"] = {
+        output_kind: [
+            {
+                "path": f"/tmp/out/{output_kind}.domain-{domain_key}.jsonl",
+                "sha256": "b" * 64,
+                "mtime": 1.0,
+                "record_count": 1,
+            }
+        ]
+        for output_kind in ("semantic_nodes", "semantic_edges")
+    }
+    payload["semantic_budget"] = {
+        "configured_max_records_per_partition": 5000,
+        "max_records_per_partition": 5000,
+        "max_bytes_per_partition": 4194304,
+        "configuration_clamped": False,
+        "truncated": False,
+        "truncated_node_count": 0,
+        "truncated_edge_count": 0,
+        "unresolved_edge_count": 0,
+        "semantic_node_bytes": 100,
+        "semantic_edge_bytes": 50,
+        "domain_admission": {
+            "strategy": "top_level_domain_bounded_admission_v1",
+            "top_level_domain_count": 1,
+            "materialized_domain_count": 1,
+            "omitted_domain_count": 0,
+            "empty_domain_count": 0,
+            "partition_count": 1,
+            "evidence_count": 1,
+            "evidence_truncated_count": 0,
+            "max_partitions": 256,
+            "max_total_bytes": 8388608,
+            "aggregate_scope": "semantic_and_declaration_jsonl",
+            "graph_declaration_bytes": 25,
+            "final_graph_artifact_max_bytes": 33554432,
+            "final_materializer_fail_closed": True,
+            "domains": [
+                {
+                    "domain_key": f"sha256:{domain_key}",
+                    "status": "materialized",
+                    "source_file_count": 1,
+                    "semantic_file_count": 1,
+                    "semantic_node_count": 1,
+                    "semantic_edge_count": 1,
+                    "semantic_node_bytes": 100,
+                    "semantic_edge_bytes": 50,
+                    "graph_declaration_count": 1,
+                    "graph_declaration_bytes": 25,
+                    "truncated_graph_declaration_count": 0,
+                    "truncated_node_count": 0,
+                    "truncated_edge_count": 0,
+                    "unresolved_edge_count": 0,
+                }
+            ],
+        },
+    }
+
+    assert list(Draft202012Validator(schema).iter_errors(payload)) == []
+
+
 def test_codecompass_manifest_schema_accepts_bounded_semantic_diagnostics():
     schema = _schema()
     payload = _base_manifest()
@@ -95,9 +162,7 @@ def test_codecompass_manifest_schema_accepts_bounded_semantic_diagnostics():
 
     partial_candidate_budget = json.loads(json.dumps(payload))
     partial_candidate_budget["semantic_budget"].pop("candidate_edge_bytes")
-    assert list(
-        Draft202012Validator(schema).iter_errors(partial_candidate_budget)
-    )
+    assert list(Draft202012Validator(schema).iter_errors(partial_candidate_budget))
 
 
 def test_codecompass_manifest_schema_accepts_additive_file_type_evidence():

@@ -16,6 +16,9 @@ from agent.services.knowledge_index_job_service import KnowledgeIndexJobService
 from agent.services.knowledge_index_worker_artifact_service import (
     KnowledgeIndexWorkerArtifactService,
 )
+from ananta_contracts.codecompass_semantic_partitions import (
+    CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD,
+)
 from worker.retrieval.codecompass_graph_artifact_materializer import (
     WorkerCodeCompassGraphArtifactMaterializer,
     normalize_graph_visual_options,
@@ -202,6 +205,124 @@ def test_worker_graph_artifact_preserves_semantic_nodes_and_edges(tmp_path) -> N
     assert semantic_diagnostics["semantic_budget"] == semantic_budget
 
 
+def test_worker_graph_materializer_loads_all_bounded_domain_shards(
+    tmp_path,
+) -> None:
+    output = tmp_path / "semantic-domain-shards"
+    _write_worker_outputs(output, volatile_manifest_value="worker")
+    domain_keys = ("a" * 64, "b" * 64)
+    node_names = [f"semantic_nodes.domain-{domain_key}.jsonl" for domain_key in domain_keys]
+    edge_names = [f"semantic_edges.domain-{domain_key}.jsonl" for domain_key in domain_keys]
+    node_contents = tuple(
+        json.dumps(
+            {
+                "id": f"semantic:{node_name}",
+                "kind": "semantic_node",
+                "file": f"{node_name}.py",
+                CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD: f"sha256:{domain_key}",
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+        for node_name, domain_key in zip(("a", "b"), domain_keys, strict=True)
+    )
+    edge_contents = (
+        json.dumps(
+            {
+                "source": "semantic:a",
+                "target": "semantic:b",
+                "edge_type": "uses",
+                CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD: f"sha256:{domain_keys[0]}",
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+        "",
+    )
+    for name, content in zip(node_names, node_contents, strict=True):
+        (output / name).write_text(content, encoding="utf-8")
+    for name, content in zip(edge_names, edge_contents, strict=True):
+        (output / name).write_text(content, encoding="utf-8")
+    node_bytes = [(output / name).stat().st_size for name in node_names]
+    edge_bytes = [(output / name).stat().st_size for name in edge_names]
+    semantic_budget = {
+        "configured_max_records_per_partition": 5000,
+        "max_records_per_partition": 5000,
+        "max_bytes_per_partition": 4194304,
+        "configuration_clamped": False,
+        "truncated": False,
+        "truncated_node_count": 0,
+        "truncated_edge_count": 0,
+        "unresolved_edge_count": 0,
+        "semantic_node_bytes": sum(node_bytes),
+        "semantic_edge_bytes": sum(edge_bytes),
+        "domain_admission": {
+            "strategy": "top_level_domain_bounded_admission_v1",
+            "top_level_domain_count": 2,
+            "materialized_domain_count": 2,
+            "omitted_domain_count": 0,
+            "empty_domain_count": 0,
+            "partition_count": 2,
+            "evidence_count": 2,
+            "evidence_truncated_count": 0,
+            "max_partitions": 256,
+            "max_total_bytes": 8 * 1024 * 1024,
+            "aggregate_scope": "semantic_and_declaration_jsonl",
+            "graph_declaration_bytes": 0,
+            "final_graph_artifact_max_bytes": 32 * 1024 * 1024,
+            "final_materializer_fail_closed": True,
+            "domains": [
+                {
+                    "domain_key": f"sha256:{domain_key}",
+                    "status": "materialized",
+                    "source_file_count": 1,
+                    "semantic_file_count": 1,
+                    "semantic_node_count": 1,
+                    "semantic_edge_count": 1 if index == 0 else 0,
+                    "semantic_node_bytes": node_bytes[index],
+                    "semantic_edge_bytes": edge_bytes[index],
+                    "graph_declaration_count": 0,
+                    "graph_declaration_bytes": 0,
+                    "truncated_graph_declaration_count": 0,
+                    "truncated_node_count": 0,
+                    "truncated_edge_count": 0,
+                    "unresolved_edge_count": 0,
+                }
+                for index, domain_key in enumerate(domain_keys)
+            ],
+        },
+    }
+    (output / "manifest.json").write_text(
+        json.dumps(
+            {
+                "semantic_budget": semantic_budget,
+                "partitioned_outputs": {
+                    "semantic_nodes": node_names,
+                    "semantic_edges": edge_names,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    WorkerCodeCompassGraphArtifactMaterializer().materialize(
+        knowledge_index={"id": "idx-shards", "source_scope": "repo_path"},
+        run={"id": "run-shards", "output_dir": str(output)},
+    )
+
+    graph_path = output / "cc_graph_index.json"
+    graph = json.loads(graph_path.read_text(encoding="utf-8"))
+    assert {node["id"] for node in graph["semantic_nodes"]} == {
+        "semantic:a",
+        "semantic:b",
+    }
+    assert len(graph["semantic_edges"]) == 1
+    assert graph["diagnostics"]["semantic_translation"]["semantic_budget"] == semantic_budget
+    assert graph_path.stat().st_size < 32 * 1024 * 1024
+
+
 @pytest.mark.parametrize(
     "invalid_row",
     ("{broken-json}\n", "[]\n"),
@@ -237,9 +358,7 @@ def test_graph_visual_options_are_strict_and_input_bounded() -> None:
 def test_graph_capable_profile_rejects_empty_graph_output(tmp_path) -> None:
     output = tmp_path / "empty-graph"
     output.mkdir()
-    (output / "manifest.json").write_text(
-        json.dumps({"index_record_count": 1}), encoding="utf-8"
-    )
+    (output / "manifest.json").write_text(json.dumps({"index_record_count": 1}), encoding="utf-8")
     (output / "index.jsonl").write_text(
         '{"id":"src/example.py","content":"def example(): pass"}\n',
         encoding="utf-8",
@@ -251,9 +370,7 @@ def test_graph_capable_profile_rejects_empty_graph_output(tmp_path) -> None:
             run={
                 "id": "run-empty",
                 "output_dir": str(output),
-                "run_metadata": {
-                    "profile": {"limits": {"graph_export_mode": "jsonl"}}
-                },
+                "run_metadata": {"profile": {"limits": {"graph_export_mode": "jsonl"}}},
             },
         )
 
@@ -315,9 +432,7 @@ def test_legacy_custom_artifact_publisher_remains_additively_compatible() -> Non
 
 
 def test_worker_result_schema_requires_graph_binding_only_for_graph_roles() -> None:
-    schema = json.loads(
-        Path("schemas/worker/knowledge_index_job_result.v1.json").read_text(encoding="utf-8")
-    )
+    schema = json.loads(Path("schemas/worker/knowledge_index_job_result.v1.json").read_text(encoding="utf-8"))
     validator = Draft202012Validator(schema)
     base_reference = {
         "artifact_id": "artifact-1",
@@ -380,9 +495,7 @@ def test_hub_rejects_tampered_visual_metrics_even_with_matching_transport_hash(t
         run={"id": "run-1", "output_dir": str(worker_output)},
     )
     graph_content = (worker_output / "cc_graph_index.json").read_bytes()
-    metrics_payload = json.loads(
-        (worker_output / "cc_graph_index.visual_metrics.json").read_text(encoding="utf-8")
-    )
+    metrics_payload = json.loads((worker_output / "cc_graph_index.visual_metrics.json").read_text(encoding="utf-8"))
     metrics_payload["metadata"]["node_count"] = 999
     tampered_metrics = json.dumps(
         metrics_payload,
@@ -588,9 +701,7 @@ def test_hub_worker_graph_artifact_flow_crosses_only_artifact_port(
     worker_handler = build_knowledge_index_task_handler(IndexService())
     worker_result = worker_handler.execute(envelope)
     repeated_worker_result = worker_handler.execute(envelope)
-    result_schema = json.loads(
-        Path("schemas/worker/knowledge_index_job_result.v1.json").read_text(encoding="utf-8")
-    )
+    result_schema = json.loads(Path("schemas/worker/knowledge_index_job_result.v1.json").read_text(encoding="utf-8"))
     assert list(Draft202012Validator(result_schema).iter_errors(worker_result)) == []
     assert {item["role"] for item in worker_result["artifact_refs"]}.issuperset(
         {"manifest", "index", "graph_index", "graph_visual_metrics"}
@@ -610,17 +721,14 @@ def test_hub_worker_graph_artifact_flow_crosses_only_artifact_port(
         Path("schemas/artifacts/graph_visual_metrics.v1.json").read_text(encoding="utf-8")
     )
     delegated_visual_metrics = json.loads(first_graph_artifact_bytes["graph_visual_metrics"])
-    assert list(
-        Draft202012Validator(visual_metrics_schema).iter_errors(delegated_visual_metrics)
-    ) == []
+    assert list(Draft202012Validator(visual_metrics_schema).iter_errors(delegated_visual_metrics)) == []
     graph_references = {
         item["role"]: item
         for item in worker_result["artifact_refs"]
         if item["role"] in {"graph_index", "graph_visual_metrics"}
     }
     assert (
-        graph_references["graph_index"]["graph_revision"]
-        == graph_references["graph_visual_metrics"]["graph_revision"]
+        graph_references["graph_index"]["graph_revision"] == graph_references["graph_visual_metrics"]["graph_revision"]
     )
 
     admitted = hub.materialize_worker_result(

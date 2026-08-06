@@ -34,6 +34,25 @@
     "semantic_budget": {
       "$ref": "#/$defs/semanticBudget"
     },
+    "partitioned_outputs": {
+      "type": "object",
+      "required": ["semantic_nodes", "semantic_edges"],
+      "properties": {
+        "semantic_nodes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/outputFile" }
+        },
+        "semantic_edges": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/outputFile" }
+        }
+      },
+      "additionalProperties": false
+    },
     "outputs": {
       "type": "object",
       "required": ["index", "details", "context", "embedding", "relations", "graph_nodes", "graph_edges"],
@@ -168,6 +187,9 @@
         "truncated_candidate_edge_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "domain_admission": {
+          "$ref": "#/$defs/semanticDomainAdmission"
         }
       },
       "allOf": [
@@ -192,6 +214,146 @@
           }
         }
       ],
+      "additionalProperties": false
+    },
+    "semanticDomainAdmission": {
+      "type": "object",
+      "required": [
+        "strategy",
+        "top_level_domain_count",
+        "materialized_domain_count",
+        "omitted_domain_count",
+        "empty_domain_count",
+        "partition_count",
+        "evidence_count",
+        "evidence_truncated_count",
+        "max_partitions",
+        "max_total_bytes",
+        "aggregate_scope",
+        "graph_declaration_bytes",
+        "final_graph_artifact_max_bytes",
+        "final_materializer_fail_closed",
+        "domains"
+      ],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "const": "top_level_domain_bounded_admission_v1"
+        },
+        "top_level_domain_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20000
+        },
+        "materialized_domain_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20000
+        },
+        "omitted_domain_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20000
+        },
+        "empty_domain_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20000
+        },
+        "partition_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "evidence_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "evidence_truncated_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20000
+        },
+        "max_partitions": {
+          "type": "integer",
+          "const": 256
+        },
+        "max_total_bytes": {
+          "type": "integer",
+          "const": 8388608
+        },
+        "aggregate_scope": {
+          "type": "string",
+          "const": "semantic_and_declaration_jsonl"
+        },
+        "graph_declaration_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8388608
+        },
+        "final_graph_artifact_max_bytes": {
+          "type": "integer",
+          "const": 33554432
+        },
+        "final_materializer_fail_closed": {
+          "type": "boolean",
+          "const": true
+        },
+        "domains": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/semanticDomainEvidence" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "semanticDomainEvidence": {
+      "type": "object",
+      "required": [
+        "domain_key",
+        "status",
+        "source_file_count",
+        "semantic_file_count",
+        "semantic_node_count",
+        "semantic_edge_count",
+        "semantic_node_bytes",
+        "semantic_edge_bytes",
+        "graph_declaration_count",
+        "graph_declaration_bytes",
+        "truncated_graph_declaration_count",
+        "truncated_node_count",
+        "truncated_edge_count",
+        "unresolved_edge_count"
+      ],
+      "properties": {
+        "domain_key": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "materialized",
+            "aggregate_byte_limit",
+            "partition_limit",
+            "per_partition_limit",
+            "no_semantic_records"
+          ]
+        },
+        "source_file_count": { "type": "integer", "minimum": 1 },
+        "semantic_file_count": { "type": "integer", "minimum": 0 },
+        "semantic_node_count": { "type": "integer", "minimum": 0, "maximum": 5000 },
+        "semantic_edge_count": { "type": "integer", "minimum": 0, "maximum": 5000 },
+        "semantic_node_bytes": { "type": "integer", "minimum": 0, "maximum": 4194304 },
+        "semantic_edge_bytes": { "type": "integer", "minimum": 0, "maximum": 4194304 },
+        "graph_declaration_count": { "type": "integer", "minimum": 0, "maximum": 5000 },
+        "graph_declaration_bytes": { "type": "integer", "minimum": 0, "maximum": 4194304 },
+        "truncated_graph_declaration_count": { "type": "integer", "minimum": 0 },
+        "truncated_node_count": { "type": "integer", "minimum": 0 },
+        "truncated_edge_count": { "type": "integer", "minimum": 0 },
+        "unresolved_edge_count": { "type": "integer", "minimum": 0 }
+      },
       "additionalProperties": false
     },
     "outputFileOrNull": {
