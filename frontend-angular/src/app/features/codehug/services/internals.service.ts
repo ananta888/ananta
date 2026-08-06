@@ -98,6 +98,26 @@ export interface CodeCompassGraphWindowRequest {
   readonly includeSubdomains?: boolean;
 }
 
+export type CodeCompassGraphStage = 'nodes' | 'edges';
+
+export interface CodeCompassGraphStagedPageRequest {
+  readonly stage: CodeCompassGraphStage;
+  readonly cursor?: string;
+  readonly pageSize: number;
+  readonly domainScope?: string;
+  readonly includeSubdomains?: boolean;
+}
+
+export interface CodeCompassGraphStagedPage {
+  readonly graph: CodeCompassGraphV1;
+  readonly stage: CodeCompassGraphStage;
+  readonly nextCursor: string | null;
+  readonly returned: number;
+  readonly total: number;
+  readonly graphRevision: string;
+  readonly complete: boolean;
+}
+
 export interface CodeCompassGraphDomainFacet {
   readonly key: string;
   readonly label: string;
@@ -123,6 +143,13 @@ export class CodeCompassGraphInventoryContractError extends Error {
   constructor(readonly reasonCode: string) {
     super(reasonCode);
     this.name = 'CodeCompassGraphInventoryContractError';
+  }
+}
+
+export class CodeCompassGraphStagedPageContractError extends Error {
+  constructor(readonly reasonCode: string) {
+    super(reasonCode);
+    this.name = 'CodeCompassGraphStagedPageContractError';
   }
 }
 
@@ -222,6 +249,99 @@ export function parseCodeCompassGraphInventoryPage(
     totalEdges: inventoryCount(metadata['total_edges'], 'graph_inventory.metadata.total_edges'),
     graphRevision: inventoryText(root['graph_revision'], 'graph_inventory.graph_revision'),
   };
+}
+
+export function parseCodeCompassGraphStagedPage(
+  raw: unknown,
+  expectedStage: CodeCompassGraphStage,
+): CodeCompassGraphStagedPage {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new CodeCompassGraphStagedPageContractError('graph_staged_page_invalid');
+  }
+  const graph = raw as unknown as CodeCompassGraphV1;
+  const metadata = graph.metadata;
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    throw new CodeCompassGraphStagedPageContractError('graph_staged_metadata_invalid');
+  }
+  if (metadata['view'] !== 'staged' || metadata['stage'] !== expectedStage) {
+    throw new CodeCompassGraphStagedPageContractError('graph_staged_stage_mismatch');
+  }
+  if (!Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
+    throw new CodeCompassGraphStagedPageContractError('graph_staged_records_invalid');
+  }
+  if (
+    (expectedStage === 'nodes' && graph.edges.length !== 0)
+    || (expectedStage === 'edges' && graph.nodes.length !== 0)
+  ) {
+    throw new CodeCompassGraphStagedPageContractError('graph_staged_foreign_records_present');
+  }
+  const records = expectedStage === 'nodes' ? graph.nodes : graph.edges;
+  records.forEach((record, index) => {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) {
+      throw new CodeCompassGraphStagedPageContractError(
+        `graph_staged_${expectedStage}[${index}]_invalid`,
+      );
+    }
+    const id = expectedStage === 'nodes'
+      ? record['node_id']
+      : record['edge_id'];
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new CodeCompassGraphStagedPageContractError(
+        `graph_staged_${expectedStage}[${index}]_id_invalid`,
+      );
+    }
+    if (expectedStage === 'edges') {
+      for (const endpoint of ['source_id', 'target_id']) {
+        const value = record[endpoint];
+        if (typeof value !== 'string' || !value.trim()) {
+          throw new CodeCompassGraphStagedPageContractError(
+            `graph_staged_edges[${index}].${endpoint}_invalid`,
+          );
+        }
+      }
+    }
+  });
+  const returned = stagedPageCount(metadata['delivery_returned'], 'delivery_returned');
+  const total = stagedPageCount(metadata['delivery_total'], 'delivery_total');
+  if (returned !== records.length || returned > total) {
+    throw new CodeCompassGraphStagedPageContractError('graph_staged_delivery_count_mismatch');
+  }
+  const rawCursor = metadata['next_cursor'];
+  if (rawCursor !== null && (typeof rawCursor !== 'string' || !rawCursor.trim())) {
+    throw new CodeCompassGraphStagedPageContractError('graph_staged_cursor_invalid');
+  }
+  if (typeof metadata['delivery_complete'] !== 'boolean') {
+    throw new CodeCompassGraphStagedPageContractError('graph_staged_complete_invalid');
+  }
+  const complete = metadata['delivery_complete'];
+  const nextCursor = typeof rawCursor === 'string' ? rawCursor.trim() : null;
+  if (complete !== (nextCursor === null)) {
+    throw new CodeCompassGraphStagedPageContractError('graph_staged_completion_mismatch');
+  }
+  const rawRevision = metadata['content_graph_revision'];
+  if (typeof rawRevision !== 'string' || !rawRevision.trim()) {
+    throw new CodeCompassGraphStagedPageContractError('graph_staged_revision_invalid');
+  }
+  return {
+    graph,
+    stage: expectedStage,
+    nextCursor,
+    returned,
+    total,
+    graphRevision: rawRevision.trim(),
+    complete,
+  };
+}
+
+function stagedPageCount(value: unknown, field: string): number {
+  if (
+    typeof value !== 'number'
+    || !Number.isSafeInteger(value)
+    || value < 0
+  ) {
+    throw new CodeCompassGraphStagedPageContractError(`graph_staged_${field}_invalid`);
+  }
+  return value;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -382,6 +502,25 @@ export class InternalsService {
       view: 'inventory',
     }).pipe(
       map(parseCodeCompassGraphInventoryPage),
+    );
+  }
+
+  getCodeCompassGraphStagedPage(
+    connectionId: string,
+    request: CodeCompassGraphStagedPageRequest,
+  ): Observable<CodeCompassGraphStagedPage> {
+    return this.sourceControlApi.loadGraph(connectionId, {
+      view: 'staged',
+      stage: request.stage,
+      ...(request.cursor ? { cursor: request.cursor } : {}),
+      limit: request.stage === 'nodes' ? request.pageSize : 500,
+      maxEdges: request.stage === 'edges' ? request.pageSize : 2_000,
+      ...(request.domainScope ? { domainScope: request.domainScope } : {}),
+      ...(request.includeSubdomains !== undefined
+        ? { includeSubdomains: request.includeSubdomains }
+        : {}),
+    }).pipe(
+      map(page => parseCodeCompassGraphStagedPage(page, request.stage)),
     );
   }
 

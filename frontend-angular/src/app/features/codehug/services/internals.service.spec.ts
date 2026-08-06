@@ -224,4 +224,120 @@ describe('InternalsService CodeCompass graph window', () => {
       graphRevision: 'revision-empty',
     });
   });
+
+  it('maps a scoped staged edge transport page without treating its chunk size as a graph cap', async () => {
+    sourceControlApi.loadGraph.mockReturnValueOnce(of({
+      ...graph,
+      nodes: [],
+      edges: [{ edge_id: 'edge-1', source_id: 'node-1', target_id: 'node-2' }],
+      metadata: {
+        view: 'staged',
+        stage: 'edges',
+        next_cursor: 'edge:2000',
+        delivery_returned: 1,
+        delivery_total: 2_136,
+        delivery_complete: false,
+        content_graph_revision: 'revision-example',
+      },
+    }));
+    const service = TestBed.inject(InternalsService);
+
+    const result = await firstValueFrom(service.getCodeCompassGraphStagedPage(
+      'connection-example',
+      {
+        stage: 'edges',
+        cursor: 'edge:0',
+        pageSize: 2_000,
+        domainScope: 'domain:agent/codecompass',
+        includeSubdomains: true,
+      },
+    ));
+
+    expect(sourceControlApi.loadGraph).toHaveBeenCalledWith('connection-example', {
+      view: 'staged',
+      stage: 'edges',
+      cursor: 'edge:0',
+      limit: 500,
+      maxEdges: 2_000,
+      domainScope: 'domain:agent/codecompass',
+      includeSubdomains: true,
+    });
+    expect(result).toMatchObject({
+      stage: 'edges',
+      nextCursor: 'edge:2000',
+      returned: 1,
+      total: 2_136,
+      graphRevision: 'revision-example',
+      complete: false,
+    });
+  });
+
+  it.each([
+    ['stage-foreign nodes', {
+      nodes: [{ node_id: 'unexpected' }],
+      edges: [{ edge_id: 'edge-1', source_id: 'a', target_id: 'b' }],
+    }],
+    ['missing edge id', {
+      nodes: [],
+      edges: [{ source_id: 'a', target_id: 'b' }],
+    }],
+    ['legacy edge id only', {
+      nodes: [],
+      edges: [{ id: 'legacy-edge', source_id: 'a', target_id: 'b' }],
+    }],
+    ['numeric edge id', {
+      nodes: [],
+      edges: [{ edge_id: 1, source_id: 'a', target_id: 'b' }],
+    }],
+    ['missing edge endpoint', {
+      nodes: [],
+      edges: [{ edge_id: 'edge-1', source_id: 'a' }],
+    }],
+  ])('rejects staged edge pages with %s', async (_name, records) => {
+    sourceControlApi.loadGraph.mockReturnValueOnce(of({
+      ...graph,
+      ...records,
+      metadata: {
+        view: 'staged',
+        stage: 'edges',
+        next_cursor: null,
+        delivery_returned: records.edges.length,
+        delivery_total: records.edges.length,
+        delivery_complete: true,
+        content_graph_revision: 'revision-example',
+      },
+    }));
+    const service = TestBed.inject(InternalsService);
+
+    await expect(firstValueFrom(service.getCodeCompassGraphStagedPage(
+      'connection-example',
+      { stage: 'edges', pageSize: 2_000 },
+    ))).rejects.toThrow(/graph_staged/);
+  });
+
+  it.each([
+    ['legacy id only', { id: 'legacy-node' }],
+    ['numeric node id', { node_id: 1 }],
+  ])('rejects staged node pages with %s', async (_name, node) => {
+    sourceControlApi.loadGraph.mockReturnValueOnce(of({
+      ...graph,
+      nodes: [node],
+      edges: [],
+      metadata: {
+        view: 'staged',
+        stage: 'nodes',
+        next_cursor: null,
+        delivery_returned: 1,
+        delivery_total: 1,
+        delivery_complete: true,
+        content_graph_revision: 'revision-example',
+      },
+    }));
+    const service = TestBed.inject(InternalsService);
+
+    await expect(firstValueFrom(service.getCodeCompassGraphStagedPage(
+      'connection-example',
+      { stage: 'nodes', pageSize: 500 },
+    ))).rejects.toThrow(/graph_staged/);
+  });
 });
