@@ -6,6 +6,11 @@ import { FormsModule } from '@angular/forms';
 import { GraphFilter, GraphFilterSelection, EMPTY_FILTER, graphSelectionContains, graphSelectionFromVisible } from '../../models/graph-filter.model';
 import { GraphViewMode, GRAPH_VIEW_MODES, GRAPH_VIEW_MODE_LABELS } from '../../models/graph-view-mode';
 import { GraphLayoutMode, GRAPH_LAYOUT_MODES, GRAPH_LAYOUT_MODE_LABELS } from '../../models/graph-layout-mode';
+import {
+  GRAPH_3D_LAYOUT_MODES,
+  GRAPH_3D_LAYOUT_MODE_LABELS,
+  Graph3dLayoutMode,
+} from '../../models/graph-3d-layout-mode';
 import { ALL_NODE_KINDS, ALL_EDGE_TYPES } from '../../models/graph-filter.model';
 import { SEMANTIC_TRANSLATION_NODE_KINDS } from '../../models/graph.model';
 import {
@@ -112,6 +117,20 @@ const NODE_GROUPS: NodeGroup[] = [
           <select class="layout-select" [ngModel]="layoutMode" (ngModelChange)="layoutModeChange.emit($event)">
             @for (mode of layoutModes; track mode) {
               <option [value]="mode">{{ layoutModeLabels[mode] }}</option>
+            }
+          </select>
+        </div>
+      }
+
+      @if (activeMode === '3d') {
+        <div class="toolbar-group">
+          <label class="filter-label" [for]="graph3dLayoutControlId">3D-Layout:</label>
+          <select class="layout-select" data-testid="graph-3d-layout"
+                  [id]="graph3dLayoutControlId"
+                  [ngModel]="graph3dLayoutMode"
+                  (ngModelChange)="graph3dLayoutModeChange.emit($event)">
+            @for (mode of graph3dLayoutModes; track mode) {
+              <option [value]="mode">{{ graph3dLayoutModeLabels[mode] }}</option>
             }
           </select>
         </div>
@@ -475,6 +494,7 @@ export class GraphToolbarComponent {
 
   @Input() activeMode: GraphViewMode = 'simple';
   @Input() layoutMode: GraphLayoutMode = 'tier';
+  @Input() graph3dLayoutMode: Graph3dLayoutMode = 'force';
   @Input() filter: GraphFilter = EMPTY_FILTER;
   /** Inventory comes from the unfiltered canonical graph and includes unknown raw values. */
   @Input() nodeKinds: readonly string[] | null = null;
@@ -502,6 +522,7 @@ export class GraphToolbarComponent {
 
   @Output() viewModeChange   = new EventEmitter<GraphViewMode>();
   @Output() layoutModeChange = new EventEmitter<GraphLayoutMode>();
+  @Output() graph3dLayoutModeChange = new EventEmitter<Graph3dLayoutMode>();
   @Output() filterChange     = new EventEmitter<Partial<GraphFilter>>();
   @Output() filterReset      = new EventEmitter<void>();
   @Output() neighborhoodDepthChange = new EventEmitter<number>();
@@ -510,6 +531,8 @@ export class GraphToolbarComponent {
   readonly modeLabels      = GRAPH_VIEW_MODE_LABELS;
   readonly layoutModes     = GRAPH_LAYOUT_MODES;
   readonly layoutModeLabels = GRAPH_LAYOUT_MODE_LABELS;
+  readonly graph3dLayoutModes = GRAPH_3D_LAYOUT_MODES;
+  readonly graph3dLayoutModeLabels = GRAPH_3D_LAYOUT_MODE_LABELS;
   readonly edgeGroups      = EDGE_GROUPS;
   readonly nodeGroups      = NODE_GROUPS;
   readonly neighborhoodDepths = GRAPH_NEIGHBORHOOD_DEPTH_OPTIONS;
@@ -520,6 +543,7 @@ export class GraphToolbarComponent {
   readonly relationPanelTitleId = `${this.relationPanelId}-title`;
   readonly depthControlId = `graph-neighbourhood-depth-${this.instanceId}`;
   readonly depthHelpId = `${this.depthControlId}-help`;
+  readonly graph3dLayoutControlId = `graph-3d-layout-${this.instanceId}`;
 
   readonly edgeOpen = signal(false);
   readonly nodeOpen = signal(false);

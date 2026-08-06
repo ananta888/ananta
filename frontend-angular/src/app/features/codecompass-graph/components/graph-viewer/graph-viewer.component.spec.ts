@@ -59,6 +59,29 @@ describe('GraphViewerComponent', () => {
     expect(view3d).toBeTruthy();
   });
 
+  it('switches the 3d layout without changing the filtered graph population', () => {
+    fixture.componentRef.setInput('rawGraphData', MOCK_DOMAIN_GRAPH_ARTIFACT);
+    fixture.detectChanges();
+    state.setViewMode('3d');
+    state.updateFilter({ searchText: 'Order' });
+    fixture.detectChanges();
+    const toolbar = fixture.debugElement.query(By.directive(GraphToolbarComponent))
+      .componentInstance as GraphToolbarComponent;
+    const nodeIds = state.filteredNodes().map(node => node.id);
+    const edgeIds = state.filteredEdges().map(edge => edge.id);
+
+    toolbar.graph3dLayoutModeChange.emit('hierarchical');
+    fixture.detectChanges();
+    const view = fixture.debugElement.query(By.directive(Graph3dViewComponent))
+      .componentInstance as Graph3dViewComponent;
+
+    expect(view.layoutMode).toBe('hierarchical');
+    expect(view.graph?.nodes.map(node => node.id)).toEqual(nodeIds);
+    expect(view.graph?.edges.map(edge => edge.id)).toEqual(edgeIds);
+    expect(view.renderGraph?.nodes).toHaveLength(nodeIds.length);
+    expect(view.renderGraph?.edges).toHaveLength(edgeIds.length);
+  });
+
   it('removes filtered nodes from the physical 3d simulation graph', () => {
     fixture.componentRef.setInput('rawGraphData', MOCK_DOMAIN_GRAPH_ARTIFACT);
     fixture.detectChanges();

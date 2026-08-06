@@ -45,6 +45,34 @@ describe('Graph3dViewComponent renderer adapter', () => {
     expect(component.webglUnavailable).toBe(true);
   });
 
+  it('reprojects every record when switching deterministic layouts', () => {
+    const graph = buildGraph();
+    fixture.componentRef.setInput('graph', graph);
+    fixture.componentRef.setInput('layoutMode', 'hierarchical');
+    fixture.detectChanges();
+    const hierarchical = component.renderGraph;
+
+    expect(hierarchical?.nodes).toHaveLength(graph.nodes.length);
+    expect(hierarchical?.edges).toHaveLength(graph.edges.length);
+    expect(hierarchical?.nodes.every(node => node.position?.fixed)).toBe(true);
+
+    fixture.componentRef.setInput('layoutMode', 'radial');
+    fixture.detectChanges();
+    const radial = component.renderGraph;
+
+    expect(radial?.nodes.map(node => node.id)).toEqual(hierarchical?.nodes.map(node => node.id));
+    expect(radial?.edges.map(edge => edge.id)).toEqual(hierarchical?.edges.map(edge => edge.id));
+    expect(radial?.nodes.map(node => node.position)).not.toEqual(
+      hierarchical?.nodes.map(node => node.position),
+    );
+
+    fixture.componentRef.setInput('layoutMode', 'force');
+    fixture.detectChanges();
+    expect(component.renderGraph?.nodes.every(node => node.position === undefined)).toBe(true);
+    expect(component.renderGraph?.nodes).toHaveLength(graph.nodes.length);
+    expect(component.renderGraph?.edges).toHaveLength(graph.edges.length);
+  });
+
   it('maps the canonical visual projection without changing the graph contract', () => {
     const graph = buildGraph();
     const firstNode = graph.nodes[0];

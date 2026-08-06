@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 
 import { GenericGraphModel, GraphNode } from '../../models/graph.model';
 import { GraphLayoutMode } from '../../models/graph-layout-mode';
+import { Graph3dLayoutMode } from '../../models/graph-3d-layout-mode';
 import { GraphStateService } from '../../services/graph-state.service';
 import { GraphAdapterService } from '../../services/graph-adapter.service';
 import { GraphToolbarComponent } from '../graph-toolbar/graph-toolbar.component';
@@ -51,6 +52,7 @@ import {
       <app-graph-toolbar
         [activeMode]="state.viewMode()"
         [layoutMode]="layoutMode"
+        [graph3dLayoutMode]="graph3dLayoutMode"
         [filter]="state.filter()"
         [nodeKinds]="state.nodeKindInventory()"
         [edgeTypes]="state.edgeTypeInventory()"
@@ -63,6 +65,7 @@ import {
         [webglAvailable]="webglAvailable"
         (viewModeChange)="setViewMode($event)"
         (layoutModeChange)="layoutMode = $event"
+        (graph3dLayoutModeChange)="graph3dLayoutMode = $event"
         (filterChange)="state.updateFilter($event)"
         (filterReset)="state.resetFilter()"
         (neighborhoodDepthChange)="state.setNeighborhoodDepth($event)"
@@ -136,6 +139,7 @@ import {
             @case ('3d') {
               <app-graph-3d-view
                 [graph]="state.filteredGraph()"
+                [layoutMode]="graph3dLayoutMode"
                 [interactionContextKey]="graphInteractionContextKey"
                 [visualProjection]="visualProjection()"
                 [visibleNodeIds]="visibleNodeIds()"
@@ -313,6 +317,7 @@ export class GraphViewerComponent implements OnChanges, OnInit {
   graph: GenericGraphModel | null = null;
   webglAvailable = true;
   layoutMode: GraphLayoutMode = 'tier';
+  graph3dLayoutMode: Graph3dLayoutMode = 'force';
   graphInteractionContextKey = '';
 
   ngOnInit(): void {

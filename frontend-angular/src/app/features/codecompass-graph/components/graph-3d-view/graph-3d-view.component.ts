@@ -6,6 +6,7 @@ import {
   OnChanges,
   Output,
   SimpleChanges,
+  inject,
 } from '@angular/core';
 
 import { ForceGraph3dRendererComponent } from '../../../graph-rendering/components/force-graph-3d-renderer.component';
@@ -15,11 +16,13 @@ import {
   RenderNodeStyle,
 } from '../../../graph-rendering/models/render-graph.models';
 import { GenericGraphModel, GraphEdge, GraphNode } from '../../models/graph.model';
+import { Graph3dLayoutMode } from '../../models/graph-3d-layout-mode';
 import {
   EdgeVisualStyle,
   GraphVisualProjection,
   NodeVisualStyle,
 } from '../../models/graph-visual-metrics.model';
+import { Graph3dLayoutProjectionService } from '../../services/graph-3d-layout-projection.service';
 import { graphVisualTooltipText } from '../graph-tooltip/graph-visual-tooltip';
 
 @Component({
@@ -55,6 +58,7 @@ import { graphVisualTooltipText } from '../graph-tooltip/graph-visual-tooltip';
 })
 export class Graph3dViewComponent implements OnChanges {
   @Input() graph: GenericGraphModel | null = null;
+  @Input() layoutMode: Graph3dLayoutMode = 'force';
   /**
    * Stable identity of the source/revision/scope whose local 3D interaction
    * state may be retained. A changed key is an explicit reset boundary.
@@ -82,6 +86,8 @@ export class Graph3dViewComponent implements OnChanges {
 
   private readonly nodeMap = new Map<string, GraphNode>();
   private readonly edgeMap = new Map<string, GraphEdge>();
+  private readonly layouts = inject(Graph3dLayoutProjectionService);
+  private layoutSourceGraph: RenderGraph | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
     const interactionContextChanged = Boolean(
@@ -90,7 +96,11 @@ export class Graph3dViewComponent implements OnChanges {
         !== changes['interactionContextKey'].currentValue,
     );
     if (interactionContextChanged) this.focusedNodeId = null;
-    if (changes['graph']) this.projectGraph();
+    if (changes['graph']) {
+      this.projectGraph();
+    } else if (changes['layoutMode']) {
+      this.projectLayout();
+    }
     if (
       (changes['graph'] || changes['visibleNodeIds'])
       && this.focusedNodeId
@@ -100,6 +110,7 @@ export class Graph3dViewComponent implements OnChanges {
       this.focusedNodeId = null;
     }
     if (changes['graph'] || changes['visualProjection']) this.projectStyles();
+    if (changes['visualProjection'] && !changes['graph']) this.projectGraphTooltips();
   }
 
   selectNode(nodeId: string): void {
@@ -129,6 +140,7 @@ export class Graph3dViewComponent implements OnChanges {
     this.edgeMap.clear();
     if (!this.graph) {
       this.focusedNodeId = null;
+      this.layoutSourceGraph = null;
       this.renderGraph = null;
       return;
     }
@@ -137,7 +149,7 @@ export class Graph3dViewComponent implements OnChanges {
     this.focusedNodeId = retainedFocus && this.nodeMap.has(retainedFocus)
       ? retainedFocus
       : null;
-    this.renderGraph = {
+    this.layoutSourceGraph = {
       nodes: this.graph.nodes.map(node => ({
         id: node.id,
         label: node.label,
@@ -153,6 +165,13 @@ export class Graph3dViewComponent implements OnChanges {
         tooltip: graphVisualTooltipText(edge.rawEdgeType ?? edge.edgeType, this.edgeVisual(edge.id)),
       })),
     };
+    this.projectLayout();
+  }
+
+  private projectLayout(): void {
+    this.renderGraph = this.layoutSourceGraph
+      ? this.layouts.project(this.layoutSourceGraph, this.layoutMode)
+      : null;
   }
 
   private projectStyles(): void {
@@ -177,21 +196,21 @@ export class Graph3dViewComponent implements OnChanges {
         highlightFactors: visual.highlightFactors,
       } satisfies RenderEdgeStyle];
     }));
-    this.projectGraphTooltips();
   }
 
   private projectGraphTooltips(): void {
-    if (!this.renderGraph) return;
-    this.renderGraph = {
-      nodes: this.renderGraph.nodes.map(node => ({
+    const project = (graph: RenderGraph): RenderGraph => ({
+      nodes: graph.nodes.map(node => ({
         ...node,
         tooltip: graphVisualTooltipText(node.label, this.nodeVisual(node.id)),
       })),
-      edges: this.renderGraph.edges.map(edge => ({
+      edges: graph.edges.map(edge => ({
         ...edge,
         tooltip: graphVisualTooltipText(edge.label, this.edgeVisual(edge.id)),
       })),
-    };
+    });
+    if (this.layoutSourceGraph) this.layoutSourceGraph = project(this.layoutSourceGraph);
+    if (this.renderGraph) this.renderGraph = project(this.renderGraph);
   }
 
   private nodeVisual(id: string): Readonly<NodeVisualStyle> {

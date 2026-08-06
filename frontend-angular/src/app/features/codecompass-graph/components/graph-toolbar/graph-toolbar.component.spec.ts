@@ -56,6 +56,31 @@ describe('GraphToolbarComponent', () => {
     expect(emitted).toBe('domain');
   });
 
+  it('offers force, hierarchical and radial layouts only in 3d mode', async () => {
+    expect(fixture.nativeElement.querySelector('[data-testid="graph-3d-layout"]')).toBeNull();
+    component.activeMode = '3d';
+    fixture.detectChanges();
+
+    let emitted: string | null = null;
+    component.graph3dLayoutModeChange.subscribe(mode => (emitted = mode));
+    const select = fixture.nativeElement.querySelector(
+      '[data-testid="graph-3d-layout"]',
+    ) as HTMLSelectElement;
+    const label = fixture.nativeElement.querySelector(
+      `label[for="${select.id}"]`,
+    ) as HTMLLabelElement;
+    expect(label?.textContent).toContain('3D-Layout');
+    expect([...select.options].map(option => option.value)).toEqual([
+      'force', 'hierarchical', 'radial',
+    ]);
+    select.value = 'radial';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(emitted).toBe('radial');
+  });
+
   it('emits filterChange with searchText on input', async () => {
     let emitted: Partial<GraphFilter> | null = null;
     component.filterChange.subscribe((f: Partial<GraphFilter>) => (emitted = f));

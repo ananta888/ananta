@@ -32,6 +32,12 @@ interface ForceGraphNodeData {
   readonly id: string;
   readonly label: string;
   readonly kind: string;
+  readonly x?: number;
+  readonly y?: number;
+  readonly z?: number;
+  readonly fx?: number;
+  readonly fy?: number;
+  readonly fz?: number;
 }
 
 interface ForceGraphLinkData {
@@ -40,6 +46,10 @@ interface ForceGraphLinkData {
   readonly target: string;
   readonly label: string;
 }
+
+const FORCE_WARMUP_TICKS = 60;
+const FORCE_COOLDOWN_TICKS = Number.POSITIVE_INFINITY;
+const FORCE_COOLDOWN_TIME_MS = 6_000;
 
 export function renderGraphTooltipElement(text: string): HTMLElement {
   const element = document.createElement('div');
@@ -66,7 +76,7 @@ export function renderGraphTooltipElement(text: string): HTMLElement {
         <strong>WebGL is not available.</strong>
         <span>Use another available graph view instead.</span>
       </section>
-    } @else if (reducedMotion) {
+    } @else if (reducedMotionBlocksGraph) {
       <section class="fallback-msg" role="status">
         <strong>Reduced motion is enabled.</strong>
         <span>The moving 3D simulation is disabled; use another available graph view instead.</span>
@@ -130,10 +140,16 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
 
   get showCanvas(): boolean {
     return !this.webglUnavailable
-      && !this.reducedMotion
+      && !this.reducedMotionBlocksGraph
       && !this.error
       && !this.limitExceeded
       && Boolean(this.graph?.nodes.length);
+  }
+
+  get reducedMotionBlocksGraph(): boolean {
+    return this.reducedMotion
+      && Boolean(this.graph?.nodes.length)
+      && !this.isCompletelyFixed(this.graph);
   }
 
   private readonly factory = inject(FORCE_GRAPH_3D_FACTORY);
@@ -146,6 +162,8 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
   private resizeObserver: ResizeObserver | null = null;
   private renderSequence = 0;
   private topologyIdentity = '';
+  private layoutFitSequence = 0;
+  private cancelLayoutFitFrame: (() => void) | null = null;
   private destroyed = false;
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -166,14 +184,20 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
     const focusLimitNeedsRebuild = focusedNodeChanged
       && this.limitStrategy === 'focus'
       && this.exceedsConfiguredLimit();
+    const nextReducedMotion = topologyChanged ? this.prefersReducedMotion() : this.reducedMotion;
+    const reducedMotionRequiresFallback = topologyChanged
+      && nextReducedMotion
+      && !this.isCompletelyFixed(this.graph);
 
     if (
       topologyChanged
       && !limitsChanged
       && !focusLimitNeedsRebuild
+      && !reducedMotionRequiresFallback
       && this.renderer
       && !this.exceedsConfiguredLimit()
     ) {
+      this.reducedMotion = nextReducedMotion;
       this.updateRendererGraphData();
       this.setHighlightState(this.effectiveFocusedNodeId());
       this.applyVisualProjection();
@@ -230,7 +254,12 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
 
   private graphTopologyIdentity(): string {
     if (!this.graph) return '';
-    const nodeIds = this.graph.nodes.map(node => node.id).sort();
+    const nodeIds = this.graph.nodes.map(node => {
+      const position = node.position;
+      return position
+        ? `${node.id}\u0000${position.x}\u0000${position.y}\u0000${position.z}\u0000${position.fixed}`
+        : node.id;
+    }).sort();
     const edges = this.graph.edges
       .map(edge => `${edge.id}\u0000${edge.sourceId}\u0000${edge.targetId}`)
       .sort();
@@ -344,7 +373,9 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
     if (!this.renderer) return;
     const graph = this.renderGraph();
     const { nodes, links } = this.rendererData(graph);
+    this.applySimulationProfile(this.renderer, graph);
     this.renderer.graphData({ nodes, links });
+    this.scheduleLayoutFit(this.renderer, graph);
   }
 
   private rendererData(graph: RenderGraph | null): {
@@ -352,11 +383,24 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
     links: ForceGraphLinkData[];
   } {
     return {
-      nodes: (graph?.nodes ?? []).map(node => ({
-        id: node.id,
-        label: node.label,
-        kind: node.kind,
-      })),
+      nodes: (graph?.nodes ?? []).map(node => {
+        const position = node.position;
+        return {
+          id: node.id,
+          label: node.label,
+          kind: node.kind,
+          ...(position ? {
+            x: position.x,
+            y: position.y,
+            z: position.z,
+            ...(position.fixed ? {
+              fx: position.x,
+              fy: position.y,
+              fz: position.z,
+            } : {}),
+          } : {}),
+        };
+      }),
       links: (graph?.edges ?? []).map(edge => ({
         id: edge.id,
         source: edge.sourceId,
@@ -364,6 +408,92 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
         label: edge.label,
       })),
     };
+  }
+
+  private applySimulationProfile(
+    renderer: ForceGraph3DInstance,
+    graph: RenderGraph | null,
+  ): void {
+    const completelyFixed = this.isCompletelyFixed(graph);
+    renderer
+      .warmupTicks(completelyFixed ? 0 : FORCE_WARMUP_TICKS)
+      .cooldownTicks(completelyFixed ? 0 : FORCE_COOLDOWN_TICKS)
+      .cooldownTime(completelyFixed ? 0 : FORCE_COOLDOWN_TIME_MS);
+  }
+
+  private isCompletelyFixed(graph: RenderGraph | null): boolean {
+    return Boolean(graph?.nodes.length && graph.nodes.every(node => node.position?.fixed));
+  }
+
+  private scheduleLayoutFit(
+    renderer: ForceGraph3DInstance,
+    graph: RenderGraph | null,
+  ): void {
+    const sequence = this.cancelPendingLayoutFit();
+    renderer.onEngineStop(() => undefined);
+    if (!graph?.nodes.length) return;
+
+    if (this.isCompletelyFixed(graph)) {
+      this.fitAfterSceneCommit(renderer, sequence, this.reducedMotion ? 0 : 350);
+      return;
+    }
+
+    let consumed = false;
+    renderer.onEngineStop(() => {
+      if (consumed || !this.layoutFitIsCurrent(renderer, sequence)) return;
+      consumed = true;
+      this.fitAfterSceneCommit(renderer, sequence, 350);
+    });
+  }
+
+  private fitAfterSceneCommit(
+    renderer: ForceGraph3DInstance,
+    sequence: number,
+    transitionDuration: number,
+  ): void {
+    this.afterAnimationFrames(renderer, sequence, 2, () => {
+      renderer.zoomToFit(transitionDuration, 48);
+    });
+  }
+
+  private afterAnimationFrames(
+    renderer: ForceGraph3DInstance,
+    sequence: number,
+    remaining: number,
+    action: () => void,
+  ): void {
+    if (!this.layoutFitIsCurrent(renderer, sequence)) return;
+    this.cancelLayoutFitFrame = this.requestFrame(() => {
+      this.cancelLayoutFitFrame = null;
+      if (!this.layoutFitIsCurrent(renderer, sequence)) return;
+      if (remaining > 1) {
+        this.afterAnimationFrames(renderer, sequence, remaining - 1, action);
+      } else {
+        action();
+      }
+    });
+  }
+
+  private requestFrame(callback: () => void): () => void {
+    if (typeof globalThis.requestAnimationFrame === 'function') {
+      const handle = globalThis.requestAnimationFrame(() => callback());
+      return () => globalThis.cancelAnimationFrame?.(handle);
+    }
+    const handle = globalThis.setTimeout(callback, 0);
+    return () => globalThis.clearTimeout(handle);
+  }
+
+  private cancelPendingLayoutFit(): number {
+    this.layoutFitSequence += 1;
+    this.cancelLayoutFitFrame?.();
+    this.cancelLayoutFitFrame = null;
+    return this.layoutFitSequence;
+  }
+
+  private layoutFitIsCurrent(renderer: ForceGraph3DInstance, sequence: number): boolean {
+    return !this.destroyed
+      && renderer === this.renderer
+      && sequence === this.layoutFitSequence;
   }
 
   private normalisedLimit(value: number | null): number | null {
@@ -447,6 +577,7 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
   }
 
   private destroyRenderer(): void {
+    this.cancelPendingLayoutFit();
     this.renderer?._destructor();
     this.renderer = null;
   }
@@ -465,7 +596,7 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
       return;
     }
 
-    if (this.reducedMotion) {
+    if (this.reducedMotion && !this.isCompletelyFixed(graph)) {
       this.availabilityChange.emit(false);
       this.markForCheck();
       return;
@@ -498,8 +629,6 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
         .backgroundColor('#0f172a')
         .nodeRelSize(4.2)
         .linkOpacity(0.85)
-        .warmupTicks(60)
-        .cooldownTime(6_000)
         .d3AlphaDecay(0.05)
         .d3VelocityDecay(0.4)
         .onNodeClick((node: any) => {
@@ -512,13 +641,16 @@ export class ForceGraph3dRendererComponent implements OnChanges, AfterViewInit, 
         })
         .onBackgroundClick(() => {
           this.selectionCleared.emit();
-        })
-        .graphData({ nodes, links });
+        });
+
+      this.applySimulationProfile(renderer, graph);
+      renderer.graphData({ nodes, links });
 
       (renderer.d3Force('charge') as any)?.strength(-20);
       (renderer.d3Force('link') as any)?.distance(25);
       this.applyVisualProjection();
       this.resizeToContainer();
+      this.scheduleLayoutFit(renderer, graph);
       this.availabilityChange.emit(true);
     } catch (error) {
       if (sequence !== this.renderSequence || this.destroyed) return;

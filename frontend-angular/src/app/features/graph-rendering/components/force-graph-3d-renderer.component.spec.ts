@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import type { ForceGraph3DInstance } from '3d-force-graph';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { RenderGraph } from '../models/render-graph.models';
 import {
@@ -34,6 +34,8 @@ const FOCUS_GRAPH: RenderGraph = {
   ],
 };
 
+afterEach(() => vi.unstubAllGlobals());
+
 describe('ForceGraph3dRendererComponent', () => {
   it('uses the renderer factory and forwards graph selection without owning domain objects', async () => {
     const fake = forceGraphFake();
@@ -64,6 +66,118 @@ describe('ForceGraph3dRendererComponent', () => {
     expect(selected).toBe('a');
     fixture.destroy();
     expect(fake.destructor).toHaveBeenCalledOnce();
+  });
+
+  it('forwards fixed layout coordinates and applies a layout switch without data loss', async () => {
+    const frames = controlledAnimationFrames();
+    const fake = forceGraphFake();
+    const factory: ForceGraph3dFactoryPort = {
+      webglAvailable: () => true,
+      create: vi.fn(async () => fake.renderer),
+    };
+    const fixture = await createFixture(factory);
+    const positioned: RenderGraph = {
+      ...GRAPH,
+      nodes: GRAPH.nodes.map((node, index) => ({
+        ...node,
+        position: { x: index * 10, y: index * -20, z: index * 30, fixed: true },
+      })),
+    };
+    fixture.componentRef.setInput('graph', positioned);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
+
+    expect(fake.calls.get('graphData')).toHaveBeenLastCalledWith({
+      nodes: [
+        { id: 'a', label: 'A', kind: 'team', x: 0, y: -0, z: 0, fx: 0, fy: -0, fz: 0 },
+        { id: 'b', label: 'B', kind: 'role', x: 10, y: -20, z: 30, fx: 10, fy: -20, fz: 30 },
+      ],
+      links: [{ id: 'ab', source: 'a', target: 'b', label: 'contains' }],
+    });
+    expect(fake.calls.get('zoomToFit')).toBeUndefined();
+    frames.flushNext();
+    expect(fake.calls.get('zoomToFit')).toBeUndefined();
+    frames.flushNext();
+    expect(fake.calls.get('zoomToFit')).toHaveBeenCalledWith(350, 48);
+
+    fixture.componentRef.setInput('graph', GRAPH);
+    fixture.detectChanges();
+
+    expect(fake.calls.get('graphData')).toHaveBeenLastCalledWith({
+      nodes: [
+        { id: 'a', label: 'A', kind: 'team' },
+        { id: 'b', label: 'B', kind: 'role' },
+      ],
+      links: [{ id: 'ab', source: 'a', target: 'b', label: 'contains' }],
+    });
+    expect(fake.calls.get('zoomToFit')).toHaveBeenCalledTimes(1);
+    fake.engineStop?.();
+    frames.flushAll();
+    expect(fake.calls.get('zoomToFit')).toHaveBeenLastCalledWith(350, 48);
+    expect(fake.calls.get('zoomToFit')).toHaveBeenCalledTimes(2);
+    expect(factory.create).toHaveBeenCalledOnce();
+    fixture.destroy();
+  });
+
+  it('cancels a stale camera fit when a newer fixed topology arrives', async () => {
+    const frames = controlledAnimationFrames();
+    const fake = forceGraphFake();
+    const factory: ForceGraph3dFactoryPort = {
+      webglAvailable: () => true,
+      create: vi.fn(async () => fake.renderer),
+    };
+    const fixture = await createFixture(factory);
+    const positioned = (offset: number): RenderGraph => ({
+      ...GRAPH,
+      nodes: GRAPH.nodes.map((node, index) => ({
+        ...node,
+        position: { x: offset + index * 10, y: 0, z: 0, fixed: true },
+      })),
+    });
+
+    fixture.componentRef.setInput('graph', positioned(0));
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
+    fixture.componentRef.setInput('graph', positioned(500));
+    fixture.detectChanges();
+
+    frames.flushAll();
+    expect(fake.calls.get('zoomToFit')).toHaveBeenCalledTimes(1);
+    expect(fake.calls.get('zoomToFit')).toHaveBeenCalledWith(350, 48);
+    fixture.destroy();
+  });
+
+  it('skips force ticks for a completely fixed layout and restores them for force mode', async () => {
+    const fake = forceGraphFake();
+    const factory: ForceGraph3dFactoryPort = {
+      webglAvailable: () => true,
+      create: vi.fn(async () => fake.renderer),
+    };
+    const fixture = await createFixture(factory);
+    const positioned: RenderGraph = {
+      ...GRAPH,
+      nodes: GRAPH.nodes.map((node, index) => ({
+        ...node,
+        position: { x: index * 10, y: 0, z: 0, fixed: true },
+      })),
+    };
+
+    fixture.componentRef.setInput('graph', positioned);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
+
+    expect(fake.calls.get('warmupTicks')).toHaveBeenLastCalledWith(0);
+    expect(fake.calls.get('cooldownTicks')).toHaveBeenLastCalledWith(0);
+    expect(fake.calls.get('cooldownTime')).toHaveBeenLastCalledWith(0);
+
+    fixture.componentRef.setInput('graph', GRAPH);
+    fixture.detectChanges();
+
+    expect(fake.calls.get('warmupTicks')).toHaveBeenLastCalledWith(60);
+    expect(fake.calls.get('cooldownTicks')).toHaveBeenLastCalledWith(Number.POSITIVE_INFINITY);
+    expect(fake.calls.get('cooldownTime')).toHaveBeenLastCalledWith(6_000);
+    expect(fake.calls.get('graphData')).toHaveBeenCalledTimes(2);
+    expect(factory.create).toHaveBeenCalledOnce();
   });
 
   it('rejects an oversized graph explicitly and never constructs WebGL', async () => {
@@ -131,6 +245,36 @@ describe('ForceGraph3dRendererComponent', () => {
         value: originalMatchMedia,
       });
     }
+  });
+
+  it('renders a completely fixed layout under reduced motion without camera animation', async () => {
+    const frames = controlledAnimationFrames();
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })));
+    const fake = forceGraphFake();
+    const factory: ForceGraph3dFactoryPort = {
+      webglAvailable: () => true,
+      create: vi.fn(async () => fake.renderer),
+    };
+    const fixture = await createFixture(factory);
+    const positioned: RenderGraph = {
+      ...GRAPH,
+      nodes: GRAPH.nodes.map((node, index) => ({
+        ...node,
+        position: { x: index * 10, y: 0, z: 0, fixed: true },
+      })),
+    };
+
+    fixture.componentRef.setInput('graph', positioned);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading).toBe(false));
+
+    expect(factory.create).toHaveBeenCalledOnce();
+    expect(fixture.componentInstance.reducedMotion).toBe(true);
+    expect(fixture.componentInstance.reducedMotionBlocksGraph).toBe(false);
+    expect(fixture.nativeElement.textContent).not.toContain('Reduced motion is enabled');
+    frames.flushAll();
+    expect(fake.calls.get('zoomToFit')).toHaveBeenCalledWith(0, 48);
+    fixture.destroy();
   });
 
   it('creates tooltip DOM through textContent', () => {
@@ -312,13 +456,15 @@ function forceGraphFake(): {
   destructor: ReturnType<typeof vi.fn>;
   nodeClick: ((node: { id: string }) => void) | null;
   backgroundClick: (() => void) | null;
+  engineStop: (() => void) | null;
 } {
   const calls = new Map<string, ReturnType<typeof vi.fn>>();
   const destructor = vi.fn();
   const state: {
     nodeClick: ((node: { id: string }) => void) | null;
     backgroundClick: (() => void) | null;
-  } = { nodeClick: null, backgroundClick: null };
+    engineStop: (() => void) | null;
+  } = { nodeClick: null, backgroundClick: null, engineStop: null };
   let proxy: ForceGraph3DInstance;
   proxy = new Proxy({}, {
     get: (_target, property) => {
@@ -330,6 +476,7 @@ function forceGraphFake(): {
         calls.set(name, vi.fn((...args: unknown[]) => {
           if (name === 'onNodeClick') state.nodeClick = args[0] as (node: { id: string }) => void;
           if (name === 'onBackgroundClick') state.backgroundClick = args[0] as () => void;
+          if (name === 'onEngineStop') state.engineStop = args[0] as () => void;
           return proxy;
         }));
       }
@@ -342,5 +489,34 @@ function forceGraphFake(): {
     destructor,
     get nodeClick() { return state.nodeClick; },
     get backgroundClick() { return state.backgroundClick; },
+    get engineStop() { return state.engineStop; },
+  };
+}
+
+function controlledAnimationFrames(): {
+  flushNext(): void;
+  flushAll(): void;
+} {
+  let sequence = 0;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+    const handle = ++sequence;
+    callbacks.set(handle, callback);
+    return handle;
+  }));
+  vi.stubGlobal('cancelAnimationFrame', vi.fn((handle: number) => {
+    callbacks.delete(handle);
+  }));
+  const flushNext = () => {
+    const next = callbacks.entries().next().value as [number, FrameRequestCallback] | undefined;
+    if (!next) return;
+    callbacks.delete(next[0]);
+    next[1](performance.now());
+  };
+  return {
+    flushNext,
+    flushAll: () => {
+      while (callbacks.size) flushNext();
+    },
   };
 }

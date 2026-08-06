@@ -1,8 +1,17 @@
+export interface RenderNodePosition {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  /** Fixed positions keep deterministic layouts stable during the force simulation. */
+  readonly fixed: boolean;
+}
+
 export interface RenderGraphNode {
   readonly id: string;
   readonly label: string;
   readonly kind: string;
   readonly tooltip: string;
+  readonly position?: Readonly<RenderNodePosition>;
 }
 
 export interface RenderGraphEdge {
