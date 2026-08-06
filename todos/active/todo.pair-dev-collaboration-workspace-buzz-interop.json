@@ -1,0 +1,1440 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "id": "todo.pair-dev-collaboration-workspace-buzz-interop",
+  "title": "Pair-Dev Collaboration Workspace und optionale Buzz-Interoperabilität",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "pair-dev-collaboration-workspace-buzz-interop",
+  "status": "todo",
+  "created_at": "2026-08-06",
+  "updated_at": "2026-08-06",
+  "architecture_document": "docs/architecture/pair-dev-collaboration-workspace.md",
+  "parents": [
+    "todos/archiv/todo.angular-pair-dev-cheap-view-sync.json",
+    "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
+  ],
+  "purpose": "Pair-Dev wird additiv von einer primär live synchronisierten Pair-Session zu einem eigenständigen, dauerhaften Kollaborations-Workspace für Menschen, AI-Agenten, Worker und explizit freigegebene Ressourcen ausgebaut. Die vorhandene WebRTC-, Relay-, View-Sync-, E2EE-, Identity- und SFU-Basis bleibt erhalten. Neu entstehen transportneutrale Workspace-, Room-, Thread-, Event-, Membership-, Presence-, Search-, Replay- und Bridge-Verträge. Buzz dient als öffentliche Lernquelle und kann später über einen optionalen Buzz/Nostr-Adapter angebunden werden, ohne Anantas Hub-Control-Plane, Task-System oder Sicherheitsgrenzen zu ersetzen.",
+  "goal": "Pair-Dev funktioniert vollständig ohne Buzz als Ananta-native Arbeitsumgebung, in der mehrere Menschen und Agenten live sowie asynchron in Projekt-, Goal-, Task-, Branch-, Incident- und freien Räumen zusammenarbeiten. Dauerhafte Ereignisse sind idempotent, suchbar, replaybar, berechtigungsgefiltert und mit Hub-Provenienz verbunden; WebRTC/SFU transportiert nur geeignete Live-Klassen. Externe Buzz-Ereignisse werden ausschließlich als untrusted Event-Proposals oder strukturierte Command-Intents aufgenommen und können nur durch normale Hub-Policy-, Approval-, Assignment- und Lease-Übergänge Wirkung entfalten.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "priority_policy": {
+    "P0": "Definiert Autorität, kanonische Verträge, Security, Persistenz oder den minimalen Ende-zu-Ende-Pfad und blockiert abhängige Implementierung.",
+    "P1": "Ist für eine produktive native Pair-Dev-Ausbaustufe erforderlich, kann nach stabilen Kernverträgen teilweise parallel umgesetzt werden.",
+    "P2": "Erweitert Bedienung, Komfort oder externe Interoperabilität und darf keine Kernfreigabe blockieren."
+  },
+  "review_basis": {
+    "reviewed_repository": "ananta888/ananta",
+    "reviewed_commit": "ad22c51cf78c3aa900a7a93c16a0613634029ee8",
+    "reviewed_at": "2026-08-06",
+    "reviewed_paths": [
+      "AGENTS.md",
+      "CONTRIBUTING.md",
+      "docs/planning-pipeline.md",
+      "docs/architecture/pair-view-sync.md",
+      "docs/identity-architecture.md",
+      "docs/security/webrtc-e2ee-security-contract.md",
+      "docs/status/webrtc-turn-control-plane.md",
+      "docs/status/webrtc-sfu-broadcast-baseline.md",
+      "docs/operator-tui/ai-snake-semantic-compute.md",
+      "frontend-angular/src/app/services/pair-view-sync.types.ts",
+      "frontend-angular/src/app/services/webrtc-transport.service.ts",
+      "frontend-angular/src/app/components/ai-snake-share-panel.component.ts",
+      "agent/routes/share_sessions.py"
+    ],
+    "buzz_references": [
+      "https://github.com/block/buzz/blob/main/README.md",
+      "https://github.com/block/buzz/blob/main/ARCHITECTURE.md",
+      "https://github.com/block/buzz/blob/main/VISION_AGENT.md",
+      "https://github.com/block/buzz/blob/main/VISION_PROJECTS.md"
+    ],
+    "evidence_policy": "Die Pfade sind Quell-Audit-Referenzen, aber keine erfundenen SRC_*-/RUN_*-Nachweise. Produktions- und Release-Claims bleiben bis zu reproduzierbaren Gates unverified beziehungsweise fail-closed."
+  },
+  "baseline": {
+    "preserve": [
+      "Hub bleibt alleinige Control Plane und Eigentümer von Task Queue, Policies, Membership, Berechtigungen, Budgets, Approvals, Assignments und Leases.",
+      "Worker führen exakt delegierte Arbeit aus und orchestrieren keine anderen Worker.",
+      "Hub-, OIDC- und Signaling-Identitäten bleiben getrennte Autoritätsdomänen; Linking bleibt explizit und default-deny.",
+      "WebRTC DataChannel bleibt bevorzugter Live-Pfad, Hub Relay bleibt Fallback; beide werden hinter Ports verwendet.",
+      "Pair-View bleibt delta-first, typisiert, größenbegrenzt und mit expliziten Remote-Control-Rechten.",
+      "E2EE, Epoch, Replay-Schutz, Revocation und Key-Confirmation werden nicht abgeschwächt.",
+      "SFU/TURN-Aktivierung bleibt an vorhandene no_go-/observe_only-Gates gebunden."
+    ],
+    "implemented_foundation": [
+      "Share-Sessions, Invite-Codes, Gruppen, Teilnehmer, Session-Chat und Auditgrenzen sind vorhanden.",
+      "Transportabstraktion zwischen WebRTC DataChannel und Hub Relay ist vorhanden.",
+      "View-State-, Cursor-, Selection-, Artifact- und Control-Verträge sind vorhanden.",
+      "Semantische Traffic-Klassen, Relay-Cursor und Epoch-Prüfung sind teilweise vorhanden.",
+      "LiveKit/SFU-, E2EE- und Admission-Bausteine sind vorhanden, aber nicht für Broadcast-Release freigegeben."
+    ],
+    "primary_gaps": [
+      "Kein kanonischer dauerhafter Workspace-Event-Log mit Inbox, Outbox, Replay und Projektionen.",
+      "Keine vollständige n>2-Kollaborationssemantik für Views, Presence, Ack-Cursor, Revocation und per-Receiver-Rechte.",
+      "Agenten und Ressourcen sind noch keine konsistenten First-Class-Workspace-Akteure.",
+      "Rooms, Threads, Branch-/Task-/Workflow-Projektionen und einheitliche Suche fehlen.",
+      "Buzz/Nostr-Interoperabilität besitzt noch keinen vom Kern getrennten Port und Adapter."
+    ]
+  },
+  "architecture_invariants": [
+    "WebRTC, LiveKit, Hub Relay, Buzz und Nostr sind Transport- oder Infrastrukturadapter und niemals kanonische Fachautorität.",
+    "Der dauerhafte Event-Log speichert keine geheime Chain-of-Thought, keine Secrets und keine unbeschränkten Toolausgaben.",
+    "Presence ist kurzlebig und niemals gleich Membership; Resource-Angebot ist niemals gleich Nutzungsautorität.",
+    "Externe Events und Chattexte können nur Proposals oder Intents erzeugen; produktive Wirkung erfordert einen normalen Hub-Übergang.",
+    "Nostr-Kinds, Buzz-IDs und Buzz-Keytypen dürfen nicht in Core-Domain-Services oder Hub-Task-Verträge durchsickern.",
+    "Native Pair-Dev-Funktionen und Core-First-Surfaces werden vor externen Channel-Adaptern stabilisiert.",
+    "Änderungen bleiben additiv, feature-flagged, migrierbar, rückrollbar und API-kompatibel.",
+    "Jeder Adapter veröffentlicht ehrlich unterstützte Capabilities und wird durch gemeinsame Conformance-Tests geprüft."
+  ],
+  "target_planes": [
+    {
+      "name": "hub_control_plane",
+      "owns": ["identity_binding", "membership", "permissions", "policies", "budgets", "approvals", "tasks", "assignments", "leases", "orchestration"]
+    },
+    {
+      "name": "durable_collaboration_plane",
+      "owns": ["workspaces", "rooms", "threads", "canonical_events", "projections", "audit_links", "replay", "search"]
+    },
+    {
+      "name": "live_transport_plane",
+      "owns": ["webrtc_datachannel", "media", "livekit_sfu", "hub_relay_fallback", "ephemeral_presence", "view_deltas"]
+    },
+    {
+      "name": "adapter_plane",
+      "owns": ["buzz_nostr_bridge", "git_ingress", "future_collaboration_adapters", "external_id_mapping", "delivery_state"]
+    }
+  ],
+  "feature_flags": [
+    "ANANTA_PAIR_WORKSPACE_ENABLED",
+    "ANANTA_PAIR_WORKSPACE_DUAL_WRITE",
+    "ANANTA_PAIR_WORKSPACE_NATIVE_ROOMS",
+    "ANANTA_PAIR_WORKSPACE_MULTI_PARTICIPANT",
+    "ANANTA_PAIR_WORKSPACE_SEARCH",
+    "ANANTA_PAIR_WORKSPACE_BUZZ_BRIDGE",
+    "ANANTA_PAIR_WORKSPACE_COMMAND_INTENTS"
+  ],
+  "milestones": [
+    {"id": "M01", "title": "Architektur, Quellaudit und Entscheidungsgrenzen", "status": "todo", "task_ids": ["PDCW-ARCH-001", "PDCW-ARCH-002", "PDCW-ARCH-003", "PDCW-ARCH-004", "PDCW-ARCH-005", "PDCW-ARCH-006"]},
+    {"id": "M02", "title": "Kanonische Workspace-, Room- und Event-Verträge", "status": "todo", "task_ids": ["PDCW-EVT-001", "PDCW-EVT-002", "PDCW-EVT-003", "PDCW-EVT-004", "PDCW-EVT-005", "PDCW-EVT-006"]},
+    {"id": "M03", "title": "Akteure, Membership, Presence und Berechtigungen", "status": "todo", "task_ids": ["PDCW-ID-001", "PDCW-ID-002", "PDCW-ID-003", "PDCW-ID-004", "PDCW-ID-005", "PDCW-ID-006"]},
+    {"id": "M04", "title": "Multi-Participant Live-Transport und Resilienz", "status": "todo", "task_ids": ["PDCW-LIVE-001", "PDCW-LIVE-002", "PDCW-LIVE-003", "PDCW-LIVE-004", "PDCW-LIVE-005", "PDCW-LIVE-006"]},
+    {"id": "M05", "title": "Native Workspace-, Room- und Thread-Oberflächen", "status": "todo", "task_ids": ["PDCW-UI-001", "PDCW-UI-002", "PDCW-UI-003", "PDCW-UI-004", "PDCW-UI-005", "PDCW-UI-006"]},
+    {"id": "M06", "title": "Agenten und Ressourcen als First-Class-Mitglieder", "status": "todo", "task_ids": ["PDCW-AGT-001", "PDCW-AGT-002", "PDCW-AGT-003", "PDCW-AGT-004", "PDCW-AGT-005", "PDCW-AGT-006"]},
+    {"id": "M07", "title": "Projekt-, Git-, Task- und Workflow-Projektionen", "status": "todo", "task_ids": ["PDCW-FLOW-001", "PDCW-FLOW-002", "PDCW-FLOW-003", "PDCW-FLOW-004", "PDCW-FLOW-005", "PDCW-FLOW-006"]},
+    {"id": "M08", "title": "Suche, CodeCompass, Evidenz und Memory", "status": "todo", "task_ids": ["PDCW-SRCH-001", "PDCW-SRCH-002", "PDCW-SRCH-003", "PDCW-SRCH-004", "PDCW-SRCH-005", "PDCW-SRCH-006"]},
+    {"id": "M09", "title": "Optionaler Buzz/Nostr-Adapter", "status": "todo", "task_ids": ["PDCW-BUZZ-001", "PDCW-BUZZ-002", "PDCW-BUZZ-003", "PDCW-BUZZ-004", "PDCW-BUZZ-005", "PDCW-BUZZ-006"]},
+    {"id": "M10", "title": "Security, Privacy und Missbrauchsschutz", "status": "todo", "task_ids": ["PDCW-SEC-001", "PDCW-SEC-002", "PDCW-SEC-003", "PDCW-SEC-004", "PDCW-SEC-005", "PDCW-SEC-006"]},
+    {"id": "M11", "title": "Migration, Betrieb, Observability und Recovery", "status": "todo", "task_ids": ["PDCW-OPS-001", "PDCW-OPS-002", "PDCW-OPS-003", "PDCW-OPS-004", "PDCW-OPS-005", "PDCW-OPS-006"]},
+    {"id": "M12", "title": "Verifikation und gestufte Produktionsfreigabe", "status": "todo", "task_ids": ["PDCW-QA-001", "PDCW-QA-002", "PDCW-QA-003", "PDCW-QA-004", "PDCW-QA-005", "PDCW-QA-006"]}
+  ],
+  "tasks": [
+    {
+      "id": "PDCW-ARCH-001",
+      "title": "Ist-Architektur und reale Pair-Dev-Fähigkeiten inventarisieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "architecture",
+      "milestone_id": "M01",
+      "depends_on": [],
+      "description": "Alle produktiven und nur geplanten Pair-, WebRTC-, SFU-, Identity-, Sharing-, AI-Snake-, Task- und Auditpfade werden getrennt erfasst; Todo-Nennungen gelten nicht als Implementierung.",
+      "acceptance_criteria": [
+        "Eine maschinenlesbare Matrix nennt pro Fähigkeit Quellpfad, Status present/partial/missing und zuständige Autoritätsdomäne.",
+        "WebRTC-P2P, Hub Relay, LiveKit/SFU, TURN, View-Sync, Chat, Gruppen, E2EE und Semantic Compute werden separat bewertet.",
+        "Keine fehlende Runtime-Evidence wird als produktive Fähigkeit oder erfundene SRC_*-/RUN_*-Referenz ausgegeben."
+      ]
+    },
+    {
+      "id": "PDCW-ARCH-002",
+      "title": "ADR für vier getrennte Pair-Dev-Architekturebenen verabschieden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "architecture",
+      "milestone_id": "M01",
+      "depends_on": ["PDCW-ARCH-001"],
+      "description": "Control Plane, dauerhafte Kollaboration, Live-Transport und externe Adapter erhalten eindeutige Ownership und erlaubte Abhängigkeiten.",
+      "acceptance_criteria": [
+        "Der Hub bleibt explizit alleinige Autorität für Tasks, Policies, Membership, Approvals, Assignments und Leases.",
+        "WebRTC, SFU, Relay, Buzz und Nostr werden ausschließlich als Ports/Adapter klassifiziert.",
+        "Verbotene Abhängigkeiten, insbesondere Worker-zu-Worker-Orchestrierung und Adapter-zu-TaskDB-Schreiben, werden dokumentiert und testbar gemacht."
+      ]
+    },
+    {
+      "id": "PDCW-ARCH-003",
+      "title": "Kanonisches Domänenglossar und Aggregate definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "contract",
+      "milestone_id": "M01",
+      "depends_on": ["PDCW-ARCH-001", "PDCW-ARCH-002"],
+      "description": "Workspace, Room, Thread, ActorBinding, Membership, PresenceLease, ResourceOffer, ResourceLease, WorkspaceEvent und BridgeBinding werden widerspruchsfrei definiert.",
+      "acceptance_criteria": [
+        "Jeder Begriff besitzt Identifier, Lebenszyklus, Owner, Autorität und Tenant-/Projektgrenze.",
+        "Membership wird von Presence und ResourceOffer von ResourceLease getrennt.",
+        "Bestehende ShareSession-, Participant-, PairGroup- und View-Sync-Begriffe erhalten eine dokumentierte Kompatibilitätsabbildung."
+      ]
+    },
+    {
+      "id": "PDCW-ARCH-004",
+      "title": "Fokussierte Core-Ports und Adapter-Capability-Vertrag entwerfen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "milestone_id": "M01",
+      "depends_on": ["PDCW-ARCH-003"],
+      "description": "Kleine Ports trennen Event Store, Outbox, Projektionen, Search, Presence, Live-Transport, Artifacts, Policy, Command-Intents und Bridges.",
+      "acceptance_criteria": [
+        "Kein Port enthält Nostr-, Buzz-, LiveKit- oder RTCPeerConnection-Typen.",
+        "Capability-Manifeste unterscheiden unterstützt, nicht unterstützt und temporär nicht verfügbar.",
+        "Conformance-Tests verhindern erfolgreiche No-op-Implementierungen und sichern LSP/ISP."
+      ]
+    },
+    {
+      "id": "PDCW-ARCH-005",
+      "title": "Feature-Flag-, Rollout- und Authority-Matrix festlegen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "configuration",
+      "milestone_id": "M01",
+      "depends_on": ["PDCW-ARCH-002", "PDCW-ARCH-004"],
+      "description": "Jede neue Fähigkeit erhält default-off Flags, Tenant-/Workspace-Scope, benötigte Gates und einen expliziten Rollbackpfad.",
+      "acceptance_criteria": [
+        "Dual-write, native Rooms, Multi-Participant, Search, Command-Intents und Buzz-Bridge sind unabhängig schaltbar.",
+        "Ein Flag kann niemals bestehende SFU/TURN-, E2EE-, Approval- oder Hub-Policy-Gates umgehen.",
+        "Die Matrix nennt pro Modus Autorität, Datenpersistenz, E2EE-Sichtbarkeit und Rollbackwirkung."
+      ]
+    },
+    {
+      "id": "PDCW-ARCH-006",
+      "title": "Kompatibilitäts-, Deprecation- und Entscheidungsregister erstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "documentation",
+      "milestone_id": "M01",
+      "depends_on": ["PDCW-ARCH-001", "PDCW-ARCH-005"],
+      "description": "Bestehende APIs, Permission-Aliase, Session-Modi und Clients werden gegen Zielverträge und Auslaufzeitpunkte gemappt.",
+      "acceptance_criteria": [
+        "Legacy-Permissions und aktuelle remote_* Namen besitzen eine eindeutige Parse-, Write- und Deprecation-Policy.",
+        "Jeder Breaking-Risk nennt Compatibility Adapter, Telemetrie und frühesten Entfernungszeitpunkt.",
+        "Architekturentscheidungen und bewusst nicht übernommene Buzz-Eigenschaften sind nachvollziehbar versioniert."
+      ]
+    },
+    {
+      "id": "PDCW-EVT-001",
+      "title": "CollaborationWorkspace- und CollaborationRoom-Verträge versionieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "contract",
+      "milestone_id": "M02",
+      "depends_on": ["PDCW-ARCH-003", "PDCW-ARCH-004"],
+      "description": "Tenant-, Projekt-, Retention-, Revision-, Room-Typ- und Binding-Felder werden in geschlossenen JSON-Schemas definiert.",
+      "acceptance_criteria": [
+        "Workspace und Room sind an Tenant und optional Project/Organization/Goal/Task/Branch gebunden.",
+        "Unbekannte Authority-, Retention- oder Binding-Felder werden fail-closed abgelehnt.",
+        "Python- und TypeScript-Typen werden aus demselben versionierten Vertrag geprüft."
+      ]
+    },
+    {
+      "id": "PDCW-EVT-002",
+      "title": "Room-, Thread- und Read-Cursor-Domänenmodell implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M02",
+      "depends_on": ["PDCW-EVT-001"],
+      "description": "Threads sind Projektionen über Events; Read-Cursor sind actor-/room-gebunden und verändern keine Event-Historie.",
+      "acceptance_criteria": [
+        "Thread-Root, Reply, Resolve, Reopen und Tombstone sind idempotent und revisionsgeprüft.",
+        "Read-Cursor können pro Actor/Room fortgeschrieben werden, ohne fremde Cursor offenzulegen.",
+        "Private Rooms sind weder über globale Listen noch über Thread-IDs indirekt auffindbar."
+      ]
+    },
+    {
+      "id": "PDCW-EVT-003",
+      "title": "Transportneutrales WorkspaceEventV1-Schema definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "contract",
+      "milestone_id": "M02",
+      "depends_on": ["PDCW-EVT-001", "PDCW-EVT-002"],
+      "description": "Das Event-Schema bindet Actor, Principal-/Assignment-/Lease-Provenienz, Sequenz, Kausalität, Sichtbarkeit, Retention, Digest und optionale externe Signaturprovenienz.",
+      "acceptance_criteria": [
+        "Event-ID, Workspace-ID, Typ, Schemaversion, ActorBinding, occurred_at, admitted_at, Idempotency- und Correlation-Felder sind verbindlich.",
+        "Große Inhalte werden ausschließlich als geprüfte Artifact-Referenzen übertragen.",
+        "Buzz-/Nostr-IDs erscheinen nur in optionaler Adapterprovenienz und niemals als kanonische Event-ID."
+      ]
+    },
+    {
+      "id": "PDCW-EVT-004",
+      "title": "Event-Taxonomie und Durability-Entscheider implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M02",
+      "depends_on": ["PDCW-EVT-003"],
+      "description": "Durable Collaboration, Audit Projection, Ephemeral Presence, Ephemeral Semantic, Bulk Reference und Command Intent werden vor der Transportwahl klassifiziert.",
+      "acceptance_criteria": [
+        "Unbekannte Event-Typen werden nicht still als Chat oder durable Event gespeichert.",
+        "Cursor, Typing und reine View-Deltas bleiben standardmäßig ephemeral; Decisions, Reviews und Task-Status sind durable.",
+        "Die Policy verhindert Speicherung von Secrets, privatem Reasoning und unbeschränkten Toolausgaben."
+      ]
+    },
+    {
+      "id": "PDCW-EVT-005",
+      "title": "Append-orientierten Workspace Event Store und Migrationen bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M02",
+      "depends_on": ["PDCW-EVT-003", "PDCW-EVT-004"],
+      "description": "PostgreSQL-Persistenz, Sequenzierung, CAS, Idempotenz, Tombstones und Tenant-/Room-Zugriffsindizes werden als eigene Repository-/Service-Grenze implementiert.",
+      "acceptance_criteria": [
+        "Gleiche Idempotency-Key-/Digest-Kombination liefert dasselbe Event; abweichender Digest konfligiert.",
+        "Workspace-Sequenz und Projektion-Checkpoint bleiben unter Parallelität monoton und lückenbehandelbar.",
+        "Migration Upgrade/Downgrade sowie Tenant- und Room-Isolation besitzen Datenbanktests."
+      ]
+    },
+    {
+      "id": "PDCW-EVT-006",
+      "title": "Transactional Outbox, Inbox-Deduplizierung und Projektion-Rebuild umsetzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M02",
+      "depends_on": ["PDCW-EVT-005"],
+      "description": "Durable Zustellung an UI, Search und Bridges wird crash-sicher; externe und Peer-Proposals werden vor Verarbeitung dedupliziert.",
+      "acceptance_criteria": [
+        "Event und Outbox-Intent committen atomar; Delivery verwendet Lease, Attempt-ID, Backoff und terminalen Fehlerstatus.",
+        "Inbox bindet Origin, External-ID, Mapping-Version und Payload-Digest und erkennt Konfliktreplays.",
+        "Alle Projektionen können aus Events und Checkpoints deterministisch neu aufgebaut und verglichen werden."
+      ]
+    },
+    {
+      "id": "PDCW-ID-001",
+      "title": "WorkspaceActorBinding für Menschen, Agenten, Worker und Ressourcen einführen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "contract",
+      "milestone_id": "M03",
+      "depends_on": ["PDCW-ARCH-003", "PDCW-EVT-001"],
+      "description": "Sichtbare Actor-Identität wird von Hub-Principal, OIDC-Subject, Worker-Registration, Resource-ID und External-Key-Mapping getrennt.",
+      "acceptance_criteria": [
+        "Jeder Actor besitzt genau einen Actor-Kind und eine tenantgebundene authoritative binding source.",
+        "Displayname, Modellname oder externe npub-Adresse verleihen keine Berechtigung.",
+        "Ambigue, verwaiste oder widersprüchliche Bindings werden nicht automatisch repariert oder zusammengeführt."
+      ]
+    },
+    {
+      "id": "PDCW-ID-002",
+      "title": "Identity-Linking und externe Key-Mappings erweitern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M03",
+      "depends_on": ["PDCW-ID-001"],
+      "description": "Hub/OIDC-Trennung bleibt bestehen; optionale Buzz/Nostr- und Agenten-Key-Mappings sind explizit, scoped, revokabel und auditierbar.",
+      "acceptance_criteria": [
+        "Linking erfordert aktive berechtigte Identitäten oder einen Hub-administered Service-Binding-Prozess.",
+        "External Keys ersetzen weder Hub-JWT noch Worker-Capability noch WebRTC-Key-Bindung.",
+        "Unlink und Key-Rotation sperren neue Zustellungen und erzeugen einen stabilen Audit-Reason-Code."
+      ]
+    },
+    {
+      "id": "PDCW-ID-003",
+      "title": "Revisioniertes Membership- und Rollenmodell implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M03",
+      "depends_on": ["PDCW-ID-001", "PDCW-EVT-002"],
+      "description": "Workspace- und Room-Membership erhalten kleine Rollen, revisionsgebundene Änderungen und explizite Einladungs-/Entfernungsprozesse.",
+      "acceptance_criteria": [
+        "Owner, maintainer, member, guest und observer sind Darstellungshilfen; effektive Rechte werden separat berechnet.",
+        "Join, Leave, Revoke und Ownership-Transfer sind CAS-geschützt, idempotent und event-/audit-projiziert.",
+        "Gruppeneinladung materialisiert nur autorisierte Memberships und übernimmt keine ungeprüften Client-Permissions."
+      ]
+    },
+    {
+      "id": "PDCW-ID-004",
+      "title": "Workspace- und Room-Policy-Evaluator mit Capability-Scopes bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M03",
+      "depends_on": ["PDCW-ARCH-005", "PDCW-ID-003"],
+      "description": "Serverseitige Entscheidungen verbinden Membership, Room, Actor-Kind, Task/Assignment, Resource-Lease, Event-Typ und aktuelle Revision.",
+      "acceptance_criteria": [
+        "Read, post, reply, artifact_view, view_tui, remote_cursor, remote_control, command_intent und bridge_export sind getrennte Scopes.",
+        "Plantext, externe Tags und Actor-Selbstauskunft können Scopes nur reduzieren, niemals erweitern.",
+        "Jede Entscheidung liefert erlaubte Projektion oder stabilen öffentlichen Reason-Code ohne vertrauliche Policy-Details."
+      ]
+    },
+    {
+      "id": "PDCW-ID-005",
+      "title": "PresenceLease und per-Actor Read-/Ack-Cursor implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M03",
+      "depends_on": ["PDCW-ID-003", "PDCW-EVT-006"],
+      "description": "Online-, Typing-, Speaking-, Busy- und Waiting-Status sind kurzlebige, permission-gefilterte Projektionen mit TTL.",
+      "acceptance_criteria": [
+        "Presence-Ablauf entfernt nur Live-Zustand und niemals Membership oder Task-Zuweisung.",
+        "Read-/Ack-Cursor sind actor- und roomgebunden, monoton und bei Reconnect verwendbar.",
+        "Globale Presence-Abfragen leaken keine privaten Workspace- oder Room-Mitgliedschaften."
+      ]
+    },
+    {
+      "id": "PDCW-ID-006",
+      "title": "Revocation, Epoch-Rotation und Lease-Entzug vereinheitlichen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M03",
+      "depends_on": ["PDCW-ID-004", "PDCW-ID-005"],
+      "description": "Membership-, Permission-, Ownership- und Resource-Änderungen entziehen Live- und Durable-Zugriff konsistent.",
+      "acceptance_criteria": [
+        "Revoke rotiert relevante WebRTC/SFU-Epochs und invalidiert Control-/Resource-Leases bis zur dokumentierten Deadline.",
+        "Outbox, Search und Bridges prüfen aktuelle Rechte vor Auslieferung erneut.",
+        "Stale Sessions, Replay-Fenster und bereits geclaimte Delivery-Leases können Revocation nicht überholen."
+      ]
+    },
+    {
+      "id": "PDCW-LIVE-001",
+      "title": "Policy- und Evidence-basierten Live-Topologie-Selektor einführen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "architecture",
+      "milestone_id": "M04",
+      "depends_on": ["PDCW-ARCH-004", "PDCW-ID-004"],
+      "description": "P2P, Mesh, Hub Relay und LiveKit/SFU werden anhand Teilnehmerzahl, Traffic-Klasse, E2EE, Browser/Netz, Caps und Gate-Status gewählt.",
+      "acceptance_criteria": [
+        "SFU/TURN wird bei no_go/observe_only niemals produktiv durch die neue Workspace-Flag aktiviert.",
+        "Selektorentscheidung enthält Topologie, Reason-Code, Contract-Revision und Ablaufzeit.",
+        "Nicht unterstützte Kombinationen fail-closed oder fallen nur auf einen explizit erlaubten sicheren Pfad zurück."
+      ]
+    },
+    {
+      "id": "PDCW-LIVE-002",
+      "title": "n>2 Live-Envelope-Routing mit per-Receiver-Rechten bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M04",
+      "depends_on": ["PDCW-EVT-003", "PDCW-LIVE-001"],
+      "description": "View-, Cursor-, Selection-, Control-, Semantic- und Artifact-Reference-Envelopes werden für mehrere Empfänger autorisiert und adressiert.",
+      "acceptance_criteria": [
+        "Jeder Empfänger besitzt eigene Membership-, Permission-, Epoch-, Subscription- und Ack-Prüfung.",
+        "Ein Publisher kann keine Audience durch Payloadfelder oder Peer-Selbstauskunft erweitern.",
+        "Join gewährt keinen Vergangenheits-Key und Revoke stoppt weitere Pakete innerhalb der definierten Deadline."
+      ]
+    },
+    {
+      "id": "PDCW-LIVE-003",
+      "title": "Traffic-Klassen, QoS und per-Receiver-Backpressure vereinheitlichen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M04",
+      "depends_on": ["PDCW-LIVE-001", "PDCW-LIVE-002"],
+      "description": "Control, Transcript, Audio-Recovery, Visual-Semantic, Evidence-Bulk, Diagnostic und Presence erhalten getrennte Budgets, Prioritäten und Drop-Regeln.",
+      "acceptance_criteria": [
+        "Control und Revocation können nicht durch Bulk- oder langsame Receiver-Queues ausgehungert werden.",
+        "Payload-, Rate-, Queue-, TTL- und Chunk-Grenzen sind pro Traffic-Klasse vertraglich definiert.",
+        "Ein langsamer Empfänger beeinträchtigt weder andere Empfänger noch Hub-Task-/Event-Transaktionen."
+      ]
+    },
+    {
+      "id": "PDCW-LIVE-004",
+      "title": "Reconnect, Resume und bounded Offline-Outbox umsetzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M04",
+      "depends_on": ["PDCW-EVT-006", "PDCW-LIVE-002"],
+      "description": "Durable Events werden über Sequenz-/Ack-Cursor wiederhergestellt; Ephemeral Events dürfen kontrolliert verfallen.",
+      "acceptance_criteria": [
+        "Reconnect verwendet aktuelle Membership/Epoch und übernimmt keine stale Control-Grants.",
+        "Offline-Outbox ist größen-, zeit- und eventtypbegrenzt und zeigt nicht zustellbare Konflikte sichtbar an.",
+        "Response-Loss- und Doppelzustellungsfälle bleiben idempotent und erzeugen keine doppelten Nachrichten oder Tasks."
+      ]
+    },
+    {
+      "id": "PDCW-LIVE-005",
+      "title": "Live-Transport-Health, Circuit Breaker und degradierte Modi implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M04",
+      "depends_on": ["PDCW-LIVE-003", "PDCW-LIVE-004"],
+      "description": "Transportwechsel und Degradation sind beobachtbar, receiver-spezifisch und verändern weder Authority noch Durability.",
+      "acceptance_criteria": [
+        "Health unterscheidet Signaling, DataChannel, Relay, SFU, TURN, E2EE und Projection-Lag.",
+        "Circuit Breaker besitzen bounded Probe, Backoff und sichtbare Reason-Codes.",
+        "Fallback von WebRTC auf Relay behält Event-/Envelope-Identität und verhindert doppeltes Anwenden."
+      ]
+    },
+    {
+      "id": "PDCW-LIVE-006",
+      "title": "Live-zu-Durable-Grenze und Aufnahme-Policy implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M04",
+      "depends_on": ["PDCW-EVT-004", "PDCW-LIVE-002", "PDCW-LIVE-004"],
+      "description": "Nur zulässige Live-Inputs werden als Event-Proposal oder Artifact-Referenz an den Hub übergeben; E2EE- und Persistenzsichtbarkeit bleiben getrennt.",
+      "acceptance_criteria": [
+        "Peer-Sequenzen, Live-Signaturen und SFU-Metadaten werden nicht als Hub-admitted Sequenz behandelt.",
+        "Aufnahme zeigt Nutzern klar, welche Daten nur live, serverlesbar, dauerhaft oder exportierbar sind.",
+        "Remote-Control, Tool-Result und Command-Intent benötigen eigene Schema-, Policy- und Auditpfade."
+      ]
+    },
+    {
+      "id": "PDCW-UI-001",
+      "title": "Angular Workspace-Shell und Room-Navigation bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "milestone_id": "M05",
+      "depends_on": ["PDCW-EVT-002", "PDCW-ID-003"],
+      "description": "Pair-Dev erhält eine native Workspace-Oberfläche mit Room-Liste, aktiver Room-Revision und URL-stabiler Navigation.",
+      "acceptance_criteria": [
+        "Nur aktuell lesbare Workspaces und Rooms erscheinen; 403/Revocation entfernt stale Projektionen.",
+        "Project-, Goal-, Task-, Branch-, Incident-, Pair-Session- und Freeform-Rooms werden typisiert dargestellt.",
+        "Bestehender AI-Snake Pair-Tab bleibt während Migration funktionsfähig."
+      ]
+    },
+    {
+      "id": "PDCW-UI-002",
+      "title": "Room-Erstellung, Bindings und Lifecycle-Oberfläche umsetzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M05",
+      "depends_on": ["PDCW-UI-001"],
+      "description": "Erstellen, Archivieren, Wiederöffnen und Binden von Rooms nutzt Hub-validierte Intents und aktuelle Revisionen.",
+      "acceptance_criteria": [
+        "Client-supplied Project/Goal/Task/Branch IDs werden serverseitig auf Tenant, Projekt und Rechte geprüft.",
+        "Archive stoppt neue normale Events, bewahrt History und besitzt einen getrennten Reopen-Grant.",
+        "UI zeigt Binding, Retention, Sichtbarkeit und Bridge-Status verständlich an."
+      ]
+    },
+    {
+      "id": "PDCW-UI-003",
+      "title": "Timeline-, Thread-, Review- und Decision-Ansicht implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "milestone_id": "M05",
+      "depends_on": ["PDCW-EVT-006", "PDCW-UI-001"],
+      "description": "Eine virtualisierte Timeline stellt Messages, Replies, Agentenstatus, Tasks, Artifacts, Reviews, Approvals und Policy-Denials als typisierte Karten dar.",
+      "acceptance_criteria": [
+        "Threading basiert auf kanonischen Event-Referenzen und verträgt out-of-order Projection Delivery.",
+        "Entscheidungen zeigen Actor-, Digest-, Revision-, Approval- und Reason-Code-Provenienz ohne Secrets.",
+        "Pagination, neue Events und Reconnect erzeugen keine Duplikate oder Scroll-Sprünge außerhalb definierter Regeln."
+      ]
+    },
+    {
+      "id": "PDCW-UI-004",
+      "title": "Actor-Verzeichnis, Presence und Berechtigungsdiagnose bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "milestone_id": "M05",
+      "depends_on": ["PDCW-ID-005", "PDCW-UI-001"],
+      "description": "Menschen, Agenten, Worker und Ressourcen werden mit klar getrennten Identity-, Membership-, Presence- und Capability-Zuständen angezeigt.",
+      "acceptance_criteria": [
+        "Online oder verfügbar wird niemals als Mitglied, task-ready oder autorisiert ausgegeben.",
+        "Warum ein Actor lesen, schreiben, steuern oder Ressourcen anbieten darf, ist über redigierte Reason-Codes erklärbar.",
+        "Stale Presence und abgelaufene Offers werden sichtbar als stale/expired statt aktiv dargestellt."
+      ]
+    },
+    {
+      "id": "PDCW-UI-005",
+      "title": "Multi-Cursor, Follow-Modus und Remote-Control für n>2 erweitern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M05",
+      "depends_on": ["PDCW-ID-006", "PDCW-LIVE-002", "PDCW-UI-004"],
+      "description": "Cursor, View-Follow und Control werden pro Actor/Receiver dargestellt und bleiben getrennte explizite Rechte.",
+      "acceptance_criteria": [
+        "Jeder Cursor besitzt Actor-ID, Room/View-Kontext, TTL und lokale zugängliche Darstellung.",
+        "Follow ist jederzeit lokal beendbar; Remote-Control erfordert einen session-/actor-/revisiongebundenen Grant.",
+        "Control-Konflikte, Revocation und Owner-Wechsel beenden aktive Steuerung deterministisch."
+      ]
+    },
+    {
+      "id": "PDCW-UI-006",
+      "title": "Task-, Artifact-, CodeCompass-, Git- und Terminal-Projektionen integrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M05",
+      "depends_on": ["PDCW-UI-002", "PDCW-UI-003"],
+      "description": "Rooms erhalten zusammensetzbare fachliche Panels statt eines universellen God-Components.",
+      "acceptance_criteria": [
+        "Jedes Panel liest nur seine permission-gefilterte Projektion und mutiert über einen eigenen Intent-Service.",
+        "Artifact- und Code-Referenzen zeigen Digest, Version, Scope und partielle Verfügbarkeit.",
+        "Vor neuen UI-Primitives wird vorhandenes shared/ui geprüft; feature-gebundene Komponenten bleiben lokal."
+      ]
+    },
+    {
+      "id": "PDCW-AGT-001",
+      "title": "Agenten als sichtbare Workspace-Mitglieder modellieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "contract",
+      "milestone_id": "M06",
+      "depends_on": ["PDCW-ID-001", "PDCW-ID-003"],
+      "description": "Agenten erhalten ActorBinding, Membership, Profil, Presence und Event-Provenienz, aber keine implizite Worker- oder Hub-Autorität.",
+      "acceptance_criteria": [
+        "Agent-Profil nennt Provider/Modell nur als Metadaten und bindet produktive Arbeit an registrierten Agent/Worker/Assignment-Kontext.",
+        "Ein Agent kann Mitglied mehrerer Rooms sein, ohne automatisch deren vollständigen Kontext oder Tools zu erhalten.",
+        "Human-, Agent-, Worker- und Service-Events sind visuell unterscheidbar und kryptografisch/Hub-seitig zurechenbar."
+      ]
+    },
+    {
+      "id": "PDCW-AGT-002",
+      "title": "SharedResource- und ResourceOffer-Verträge einführen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "contract",
+      "milestone_id": "M06",
+      "depends_on": ["PDCW-AGT-001"],
+      "description": "Repos, CodeCompass-Indizes, Modelle, GPU-Kapazität, MCP-Server, Toolsets, Terminals und Artifacts werden als begrenzte Angebote beschrieben.",
+      "acceptance_criteria": [
+        "Angebote besitzen Owner, Capability-Kategorie, grobe Capacity, Scope, Ablauf, Sensitivität und Attestation-Status.",
+        "Private Endpunkte, Rohtelemetrie, Secrets und vollständige lokale Pfade werden nicht in öffentlichen Offers offengelegt.",
+        "Offer kann Eignung nur beschreiben oder reduzieren und niemals Hub-Lease oder Task-Routing erzwingen."
+      ]
+    },
+    {
+      "id": "PDCW-AGT-003",
+      "title": "Hub-autorisierte ResourceLease- und Agent-Task-Bindung implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M06",
+      "depends_on": ["PDCW-AGT-001", "PDCW-ID-004"],
+      "description": "Nutzung gemeinsamer Ressourcen und Agentenausführung erfolgt ausschließlich über task-, assignment-, budget-, deadline- und capability-gebundene Leases.",
+      "acceptance_criteria": [
+        "Ein Room-Mention- oder Resource-Use-Request erzeugt höchstens einen Hub-validierten Intent, nicht direkt einen Worker-Call.",
+        "Lease enthält Fencing, Ablauf, Budget, erlaubte Operationen und exakte Resource-/Task-Bindung.",
+        "Leaseverlust, Cancellation oder Revision-Mismatch verhindert Result-Admission."
+      ]
+    },
+    {
+      "id": "PDCW-AGT-004",
+      "title": "Mentions, Agent-Requests und Hub-kontrollierte Handoffs bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M06",
+      "depends_on": ["PDCW-AGT-003", "PDCW-EVT-003"],
+      "description": "Agenten können angesprochen werden und bounded Proposals liefern; Delegation bleibt ein Hub-Task-/Workflow-Übergang.",
+      "acceptance_criteria": [
+        "Mention, answer, propose_task, request_context und handoff_request sind unterschiedliche Event-/Intent-Typen.",
+        "Worker können keine Ziel-Worker, Team-, Agent-, Tool-, Kontext- oder Budgetautorität festlegen.",
+        "Idempotency und Depth-/Loop-Grenzen verhindern Mention-Stürme und rekursive Agentenketten."
+      ]
+    },
+    {
+      "id": "PDCW-AGT-005",
+      "title": "Human Approval, Takeover, Pause und Cancel im Room abbilden",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M06",
+      "depends_on": ["PDCW-AGT-003", "PDCW-UI-003"],
+      "description": "Menschliche Eingriffe werden als sichtbare Intents und Hub-Entscheidungen projiziert, nicht als ungesicherte UI-Aktionen.",
+      "acceptance_criteria": [
+        "Approval ist an exakten Tool-/Task-/Plan-/Artifact-Digest und aktuelle Policy gebunden.",
+        "Takeover und Cancel widerrufen relevante Leases atomar oder gewinnen den Race nur mit dokumentiertem Result-Acceptance-Proof.",
+        "Stale UI, externe Reaktion oder Emoji kann keinen Approval-Grant wiederverwenden."
+      ]
+    },
+    {
+      "id": "PDCW-AGT-006",
+      "title": "Agentenbudgets, Concurrency und Loop-Prevention durchsetzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M06",
+      "depends_on": ["PDCW-AGT-003", "PDCW-AGT-004"],
+      "description": "Room-Aktivität darf keine unbegrenzten Modell-, Tool-, Worker- oder Bridge-Loops auslösen.",
+      "acceptance_criteria": [
+        "Budgets gelten mindestens für Workspace, Room, Actor, Task, Provider und Command-Intent-Kette.",
+        "Correlation-/Causation-Graph, Hop-Count, Depth und dedizierte Workflow-Event-Ausschlüsse verhindern Selbsttrigger.",
+        "Budget-/Policy-Denials erscheinen als redigierte Events und werden nicht automatisch erneut geplant."
+      ]
+    },
+    {
+      "id": "PDCW-FLOW-001",
+      "title": "Project-, Organization-, Goal- und Task-Bindings implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M07",
+      "depends_on": ["PDCW-EVT-001", "PDCW-UI-002"],
+      "description": "Rooms können autoritativ mit Ananta-Fachobjekten verbunden werden, ohne deren Ownership zu übernehmen.",
+      "acceptance_criteria": [
+        "Bindings werden serverseitig auf Tenant, Projekt, Lifecycle, Revision und Principal geprüft.",
+        "Task-Status in der Timeline ist Projektion; Room-Events schreiben nicht direkt TaskDB oder Queue.",
+        "Löschen/Archivieren eines Fachobjekts besitzt definierte Room- und Retention-Folge."
+      ]
+    },
+    {
+      "id": "PDCW-FLOW-002",
+      "title": "Branch-as-Room-Vertrag und Git-Repository-Binding bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M07",
+      "depends_on": ["PDCW-FLOW-001"],
+      "description": "Ein Branch-Room verbindet Unterhaltung, Patches, CI, Reviews und Merge-Entscheidung über stabile Repo-/Ref-Identitäten.",
+      "acceptance_criteria": [
+        "Repo, remote, branch/ref, base ref und Head-SHA sind normalisiert, tenant-/projectgebunden und revisionsfähig.",
+        "Room-Erstellung aus Branch ist idempotent; Rename, Delete, Force-Push und Fork besitzen explizite Semantik.",
+        "Git-Anbindung funktioniert ohne Buzz und verwendet bestehende Ananta Git-/Workspace-Grenzen."
+      ]
+    },
+    {
+      "id": "PDCW-FLOW-003",
+      "title": "Git-, Patch-, CI- und Status-Event-Ingress implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M07",
+      "depends_on": ["PDCW-EVT-003", "PDCW-FLOW-002"],
+      "description": "Git- und CI-Ereignisse werden signiert/authentifiziert, dedupliziert und als strukturierte Workspace-Events oder Artifact-Links aufgenommen.",
+      "acceptance_criteria": [
+        "Webhook-, lokaler Git- und Worker-Ingress besitzen getrennte Authentisierung und gleiche kanonische Mapping-Regeln.",
+        "Patches und Logs überschreiten Event-Limits nicht, sondern werden als digestgebundene Artifacts referenziert.",
+        "Replay, reordered delivery und force-push erzeugen korrekte Ref-Projektionen ohne History-Umschreibung."
+      ]
+    },
+    {
+      "id": "PDCW-FLOW-004",
+      "title": "Workflow-, Task- und Tool-Execution-Projektionen erstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M07",
+      "depends_on": ["PDCW-EVT-003", "PDCW-FLOW-001"],
+      "description": "Hub-eigene Planning-, Dispatch-, WorkerJob-, Approval-, Tool- und Artifact-Zustände werden in bounded, redigierte Room-Events übersetzt.",
+      "acceptance_criteria": [
+        "Nur Hub-verifizierte Zustände werden als erfolgreich, approved, dispatched oder done dargestellt.",
+        "Workertext und Toolausgabe werden als unverified Result oder redigierte Zusammenfassung markiert, bis Result-Admission erfolgt.",
+        "Projektionen können weder Worker auslösen noch ihren Quellstatus zurückschreiben."
+      ]
+    },
+    {
+      "id": "PDCW-FLOW-005",
+      "title": "Review-, Approval- und Merge-Decision-Flow integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M07",
+      "depends_on": ["PDCW-FLOW-003", "PDCW-FLOW-004", "PDCW-ID-004"],
+      "description": "Code-Review, Änderungsanforderung, Approval und Merge sind digest-/revisiongebundene Entscheidungen mit Separation of Duties.",
+      "acceptance_criteria": [
+        "Approval referenziert exakten Patch/Commit/Plan-Digest und wird bei Änderung invalidiert.",
+        "Merge-Intent prüft Branch-Policy, CI, erforderliche Approvals, Actor-Berechtigung und aktuellen Head unmittelbar vor Ausführung.",
+        "Room-Reaktion oder Buzz-Emoji ist ohne expliziten Hub-Approval-Vertrag niemals ausreichend."
+      ]
+    },
+    {
+      "id": "PDCW-FLOW-006",
+      "title": "Release-, Archivierungs- und Room-Retention-Ablauf bauen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "implementation",
+      "milestone_id": "M07",
+      "depends_on": ["PDCW-FLOW-005"],
+      "description": "Nach Merge, Taskabschluss, Incidentende oder Release wird der Room kontrolliert archiviert und bleibt als Entscheidungsverlauf lesbar.",
+      "acceptance_criteria": [
+        "Archivierung erzeugt Snapshot/Checkpoint und verhindert normale neue Events ohne autorisierten Reopen.",
+        "Release Notes können aus permission-gefilterten, belegten Events vorgeschlagen, aber nur über normalen Hub-Workflow veröffentlicht werden.",
+        "Retention, Export und Tombstone respektieren Artifact-, Audit-, Security- und Tenant-Policy."
+      ]
+    },
+    {
+      "id": "PDCW-SRCH-001",
+      "title": "Permission-aware Workspace Search Index aufbauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M08",
+      "depends_on": ["PDCW-EVT-006", "PDCW-ID-004"],
+      "description": "Messages, Threads, Decisions, Tasks, Workflows, Git, CI und Artifact-Metadaten werden tenant-/room-/artifact-sicher indexiert.",
+      "acceptance_criteria": [
+        "Indexer und Query revalidieren aktuelle Leserechte; globale Suche leakt keine privaten Existenzmetadaten.",
+        "Index-Dokumente tragen Event-ID, Workspace-Sequenz, Projection-Version, Visibility und Retention.",
+        "Revocation, Tombstone und Retention entfernen oder sperren Suchtreffer innerhalb definierter SLOs."
+      ]
+    },
+    {
+      "id": "PDCW-SRCH-002",
+      "title": "CodeCompass-Quellen, Symbole und Graphbezüge verknüpfen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M08",
+      "depends_on": ["PDCW-FLOW-001", "PDCW-SRCH-001"],
+      "description": "Collaboration Events referenzieren stabile CodeCompass-/Knowledge-IDs, ohne unkontrolliert Repositoryinhalte zu duplizieren.",
+      "acceptance_criteria": [
+        "Source-, Symbol-, Graph-, Index-Run- und Completeness-Metadaten werden getrennt und digestgebunden dargestellt.",
+        "Fehlende oder partielle CodeCompass-Abdeckung erzeugt sichtbare Hinweise statt negativer Sachbehauptungen.",
+        "Room-/Task-Kontext kann den zulässigen Retrieval-Scope reduzieren, aber nie erweitern."
+      ]
+    },
+    {
+      "id": "PDCW-SRCH-003",
+      "title": "Beleg-, Citation- und Entscheidungsprovenienz in Suche integrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M08",
+      "depends_on": ["PDCW-SRCH-002"],
+      "description": "Antworten und Zusammenfassungen können auf Events, Artifacts, CodeCompass-Quellen, Commits und Hub-Entscheidungen zurückverweisen.",
+      "acceptance_criteria": [
+        "Citation enthält stabilen Typ, Identifier, Digest/Revision und Berechtigungsstatus.",
+        "Nicht mehr lesbare Quellen werden nicht über Snippets, Titel oder Cache offengelegt.",
+        "Unverified Worker-/External-Claims bleiben klar von Hub-verifizierten Entscheidungen getrennt."
+      ]
+    },
+    {
+      "id": "PDCW-SRCH-004",
+      "title": "Room-Memory und kontextbegrenzte Zusammenfassungen bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M08",
+      "depends_on": ["PDCW-AGT-003", "PDCW-SRCH-001"],
+      "description": "Agentenkontext entsteht aus zulässigen Recent Events, Rolling Summary, aktiven Zielen, Artifacts und CodeCompass-Referenzen mit Budgetpolicy.",
+      "acceptance_criteria": [
+        "Summary speichert keine geheimen Prompts, Chain-of-Thought, Secrets oder bereits widerrufenen Inhalte.",
+        "Context Bundle bindet Actor, Task, Room, Source-Revision, Policy-Hash, Ablauf und zulässige Referenzen.",
+        "Rebuild und Permission-Änderung invalidieren oder regenerieren betroffene Zusammenfassungen deterministisch."
+      ]
+    },
+    {
+      "id": "PDCW-SRCH-005",
+      "title": "Temporale Query-, Replay- und Incident-Memory-API bereitstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "milestone_id": "M08",
+      "depends_on": ["PDCW-EVT-006", "PDCW-SRCH-001"],
+      "description": "Berechtigte Nutzer und Agenten können nachvollziehen, was zu einem Zeitpunkt bekannt, entschieden und ausgeführt war.",
+      "acceptance_criteria": [
+        "Query unterstützt Workspace/Room/Thread/Actor/Event-Type/Zeitraum/Causation mit harten Limits.",
+        "Historische Ansicht kennzeichnet später korrigierte, tombstoned oder veraltete Projektionen.",
+        "Incident-Memory liefert belegte Threads und Root-Cause-/Fix-Referenzen statt unbelegter Zusammenfassung."
+      ]
+    },
+    {
+      "id": "PDCW-SRCH-006",
+      "title": "Index-Rebuild, Löschung, Retention und Search-Drift-Gates implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "test",
+      "milestone_id": "M08",
+      "depends_on": ["PDCW-SRCH-001", "PDCW-SRCH-005"],
+      "description": "Search ist eine rekonstruierbare Projektion und besitzt keine unabhängige Berechtigungs- oder Retention-Wahrheit.",
+      "acceptance_criteria": [
+        "Full- und inkrementeller Rebuild ergeben dieselben kanonischen Dokument-Digests.",
+        "Drift, Lag, orphan documents und stale visibility werden gemessen und blockieren Release oberhalb definierter Grenzen.",
+        "Deletion-/Tombstone-Test beweist, dass Treffer, Snippets, Suggestions und Caches bereinigt werden."
+      ]
+    },
+    {
+      "id": "PDCW-BUZZ-001",
+      "title": "CollaborationBridgePort und generischen Bridge-Vertrag definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "contract",
+      "milestone_id": "M09",
+      "depends_on": ["PDCW-ARCH-004", "PDCW-EVT-003"],
+      "description": "Outbound Delivery, Inbound Proposal, Command Intent, Identity Mapping, Capability Negotiation, Health und Disconnect werden adapterneutral spezifiziert.",
+      "acceptance_criteria": [
+        "Der Port importiert keine Buzz-/Nostr-Bibliothek und kennt keine Nostr-Kindnummer.",
+        "Adapter-Capabilities und Mapping-Versionen sind versioniert und pro Workspace aktivierbar.",
+        "Native Pair-Dev-Funktion bleibt bei fehlendem, deaktiviertem oder inkompatiblem Adapter vollständig verfügbar."
+      ]
+    },
+    {
+      "id": "PDCW-BUZZ-002",
+      "title": "Buzz-Connector-Konfiguration und Lifecycle-Adapter bauen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M09",
+      "depends_on": ["PDCW-ARCH-005", "PDCW-BUZZ-001"],
+      "description": "Relay URL, Community/Workspace-Binding, TLS, Auth, Capability Discovery, Health, Reconnect und Circuit Breaker werden als Infrastrukturadapter umgesetzt.",
+      "acceptance_criteria": [
+        "Konfiguration ist tenant-/workspacegebunden, secret-safe, default-off und über Hub-Admin-Prozess freigegeben.",
+        "Unknown Host, TLS-/Auth-Fehler und Capability-Mismatch fail-closed mit redigierten Reason-Codes.",
+        "Disconnect stoppt Bridge Delivery, aber weder native Event-Aufnahme noch lokale Room-Nutzung."
+      ]
+    },
+    {
+      "id": "PDCW-BUZZ-003",
+      "title": "Buzz/Nostr-Identity-Mapping und Key-Custody implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M09",
+      "depends_on": ["PDCW-BUZZ-001", "PDCW-ID-002"],
+      "description": "Optionale npub/nsec- oder Buzz-Agentenidentitäten werden an ActorBindings gemappt, ohne Hub-/OIDC-/Worker-Identity zu ersetzen.",
+      "acceptance_criteria": [
+        "Private Keys liegen in einem expliziten Secret-/Key-Provider, nicht im Event Store, Log oder standardmäßig im Browser.",
+        "Mapping ist tenant-, workspace-, actor- und adaptergebunden, rotierbar und revokabel.",
+        "Signaturprüfung beweist externe Herkunft, verleiht aber ohne aktuelle Hub-Policy keine interne Berechtigung."
+      ]
+    },
+    {
+      "id": "PDCW-BUZZ-004",
+      "title": "Ananta-zu-Buzz Event-Mapping und Outbound Delivery implementieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M09",
+      "depends_on": ["PDCW-BUZZ-002", "PDCW-BUZZ-003", "PDCW-EVT-006"],
+      "description": "Allowlistete Hub-admitted Events werden redigiert, versioniert und idempotent in passende Buzz/Nostr-Ereignisse übersetzt.",
+      "acceptance_criteria": [
+        "Mapping-Tabelle nennt pro Ananta Event-Type externes Format, verlustfreie/-behaftete Felder und Nicht-Unterstützung.",
+        "Delivery persistiert interne/externe ID, Mapping-Version, Digest, Attempt, Status und redigierte Fehlerklasse.",
+        "Secrets, private Prompts, hidden reasoning, nicht freigegebene Artifacts und ephemeral View-Daten werden standardmäßig nicht exportiert."
+      ]
+    },
+    {
+      "id": "PDCW-BUZZ-005",
+      "title": "Buzz-zu-Ananta Event-Proposal und Command-Intent-Ingress bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M09",
+      "depends_on": ["PDCW-BUZZ-003", "PDCW-BUZZ-004", "PDCW-ID-004"],
+      "description": "Externe Events bleiben untrusted und werden entweder passiv vorgeschlagen oder als strukturierter, Hub-geprüfter Intent verarbeitet.",
+      "acceptance_criteria": [
+        "Ungültige Signatur, unbekannter Kind, Actor, Room, Mapping-Version oder stale Membership wird abgelehnt.",
+        "Task, Tool, Approval, Merge, Remote-Control und Resource-Use können nur über eigene Hub-Intent-Endpunkte Wirkung entfalten.",
+        "Inbound Payloads besitzen Schema-, Größen-, Rate-, Prompt-Injection-, Content- und Audit-Grenzen."
+      ]
+    },
+    {
+      "id": "PDCW-BUZZ-006",
+      "title": "Bridge-Deduplizierung, Loop-Prevention und Buzz-Conformance testen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "critical",
+      "type": "test",
+      "milestone_id": "M09",
+      "depends_on": ["PDCW-BUZZ-004", "PDCW-BUZZ-005"],
+      "description": "Echo-Loops, Replays, Out-of-order Events, Reconnect, Mapping-Upgrades und partielle Buzz-Ausfälle werden reproduzierbar geprüft.",
+      "acceptance_criteria": [
+        "Origin Adapter, Hop Count, Internal/External IDs und Payload-Digest verhindern Endlosschleifen.",
+        "Mindestens zwei unabhängige Reconnect-/Replay-Zyklen erzeugen genau ein logisches internes Event.",
+        "Conformance läuft gegen eine gepinnte kompatible Buzz-Version; fehlende externe Runtime-Evidence bleibt explizit unverified."
+      ]
+    },
+    {
+      "id": "PDCW-SEC-001",
+      "title": "Bedrohungsmodell und Trust-Boundary-Review erstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M10",
+      "depends_on": ["PDCW-ARCH-002", "PDCW-ARCH-003"],
+      "description": "Menschen, Browser, Agenten, Worker, Resources, Hub, DB, Relay, SFU, TURN, Search, Artifact Store und Buzz werden als getrennte Angriffsflächen modelliert.",
+      "acceptance_criteria": [
+        "Threat Model umfasst Spoofing, Tampering, Replay, Confused Deputy, Prompt Injection, Data Exfiltration, DoS und Cross-Tenant-Leakage.",
+        "Jede Trust Boundary besitzt Authentisierung, Autorisierung, Integrität, Confidentiality, Limits und Auditentscheidung.",
+        "Kritische Risiken erhalten Owner, Mitigation-Task, Gate und sichere Default-Entscheidung."
+      ]
+    },
+    {
+      "id": "PDCW-SEC-002",
+      "title": "Tenant-, Workspace-, Room- und Artifact-Isolation härten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M10",
+      "depends_on": ["PDCW-EVT-005", "PDCW-ID-004"],
+      "description": "Jeder Read/Write/Query/Projection/Bridge-Pfad trägt und prüft vollständigen Scope aus serverseitigem Kontext.",
+      "acceptance_criteria": [
+        "Clienttags, externe Room-IDs oder Event-Payloads können Tenant-/Projekt-/Workspace-Scope nicht überschreiben.",
+        "Negative Matrix prüft Listen, Threads, Search, Artifacts, Cursors, Export, Bridge und Error Side-Channels.",
+        "Multi-Hub-/Multi-Process-CAS und Cache Keys bleiben tenantqualifiziert."
+      ]
+    },
+    {
+      "id": "PDCW-SEC-003",
+      "title": "E2EE-, Persistenz- und Bridge-Sichtbarkeit als Policy-Vertrag definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "contract",
+      "milestone_id": "M10",
+      "depends_on": ["PDCW-ID-006", "PDCW-LIVE-006"],
+      "description": "Live-E2EE bedeutet nicht automatisch serverseitige Dauerhaftigkeit oder Export; Nutzer erhalten eine eindeutige Sichtbarkeitsmatrix.",
+      "acceptance_criteria": [
+        "Jeder Event-/Traffic-Typ nennt Sender, Empfänger, Hub-Lesbarkeit, Persistenz, Search und Bridge-Export.",
+        "Downgrade von strict_e2ee bleibt default-deny und an sichtbare scoped consent gebunden.",
+        "Policy- oder Contract-Digest-Mismatch verhindert Live- und Durable-Aufnahme."
+      ]
+    },
+    {
+      "id": "PDCW-SEC-004",
+      "title": "Prompt-Injection-, Content- und Artifact-Ingress härten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M10",
+      "depends_on": ["PDCW-EVT-003", "PDCW-BUZZ-005", "PDCW-SRCH-001"],
+      "description": "Externe und interne Inhalte werden als Daten behandelt und können Runtime-, Policy- oder Tool-Instructions nicht überschreiben.",
+      "acceptance_criteria": [
+        "Prompt Builder trennt Runtime-Regeln, Hub-Policy, Nutzerinhalt, externe Events und Retrievalquellen strukturell.",
+        "URLs, Markdown, HTML, Patches, Attachments und Tooloutput besitzen Größen-, Typ-, Encoding-, Malware- und Path-Grenzen.",
+        "Security-relevante Antworten ohne Evidenz werden nicht als belegte Negativaussage ausgegeben."
+      ]
+    },
+    {
+      "id": "PDCW-SEC-005",
+      "title": "Secret-Redaction, Key-Custody und tamper-evident Audit integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M10",
+      "depends_on": ["PDCW-EVT-005", "PDCW-BUZZ-003"],
+      "description": "Tokens, Private Keys, Credentials, Prompt-Secrets und sensitive Toolausgaben werden vor Event, Log, Search und Bridge getrennt behandelt.",
+      "acceptance_criteria": [
+        "Redaction arbeitet vor Persistenz/Index/Export und speichert niemals Raw Secret im Fehlerpfad.",
+        "Key Provider unterstützt Rotation, Version, Revocation, Zugriffsaudit und getrennte Schlüsselzwecke.",
+        "Audit-Kette erkennt Reihenfolge-/Digest-Manipulation und bleibt tenant-/workspace-separiert."
+      ]
+    },
+    {
+      "id": "PDCW-SEC-006",
+      "title": "Rate-Limits, Abuse Controls und ressourcenbezogenen DoS-Schutz bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M10",
+      "depends_on": ["PDCW-BUZZ-006", "PDCW-LIVE-005"],
+      "description": "Live, Durable, Search, Artifact, Command-Intent, Agent und Bridge erhalten getrennte Limits und gemeinsame Budgets.",
+      "acceptance_criteria": [
+        "Limits gelten mindestens pro Principal, Actor, Tenant, Workspace, Room, IP/Connection und Event-/Traffic-Typ.",
+        "Queue-/Storage-/Search-/LLM-/Tool-/Bridge-Amplification wird in einer adversarial Matrix getestet.",
+        "Abuse-Sperren können scoped widerrufen werden und blockieren keine kritischen Revocation-/Cancel-Signale."
+      ]
+    },
+    {
+      "id": "PDCW-OPS-001",
+      "title": "Legacy ShareSession zu Workspace/Room Migration entwickeln",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "migration",
+      "milestone_id": "M11",
+      "depends_on": ["PDCW-EVT-005", "PDCW-UI-001"],
+      "description": "Bestehende Sessions, Gruppen, Participants, Permissions und Chat können kontrolliert in native Workspaces/Rooms projiziert oder konvertiert werden.",
+      "acceptance_criteria": [
+        "Observe-only Dual-write vergleicht Legacy-/Neu-Projektionen vor jeder Authority-Umschaltung.",
+        "Migration ist idempotent, revisiongebunden, dry-run-fähig und erzeugt Mapping-/Conflict-Report.",
+        "Rollback deaktiviert neue Projektionen, ohne kanonische Events oder Legacy-Sessions zu löschen."
+      ]
+    },
+    {
+      "id": "PDCW-OPS-002",
+      "title": "Legacy API-, Permission- und Client-Compatibility-Adapter bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M11",
+      "depends_on": ["PDCW-ARCH-006", "PDCW-OPS-001"],
+      "description": "Alte Share-, View-Push/Poll-, Chat- und Permission-Verträge werden auf neue Services abgebildet, ohne doppelte Autorität zu erzeugen.",
+      "acceptance_criteria": [
+        "Adapter normalisiert Aliase nur am Parse-Rand und schreibt ausschließlich kanonische Namen.",
+        "Legacy und neuer Client können dieselbe migrierte Session ohne Event-Duplikate verwenden.",
+        "Deprecation-Telemetrie ist content-frei und nennt Clientversion, Contractversion und Reason-Code."
+      ]
+    },
+    {
+      "id": "PDCW-OPS-003",
+      "title": "Content-safe Observability, SLOs und Alarmierung implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M11",
+      "depends_on": ["PDCW-EVT-006", "PDCW-BUZZ-006", "PDCW-LIVE-005"],
+      "description": "Metriken und Traces decken Event Admission, Projection Lag, Outbox, Inbox, Search, Live-Transport, Bridge und Security ab, ohne Inhalte zu loggen.",
+      "acceptance_criteria": [
+        "SLOs und Alerts existieren für Latenz, Fehler, Lag, Queue, Replay, Reconnect, Revocation und Bridge Loop Detection.",
+        "Correlation nutzt opaque IDs; Payload, Prompt, Secret, Key, Nonce und Message-Text bleiben ausgeschlossen.",
+        "Cardinality-Budgets verhindern actor-/room-/event-id-basierte Metrikexplosion."
+      ]
+    },
+    {
+      "id": "PDCW-OPS-004",
+      "title": "Backup, Restore, Export und Disaster-Recovery implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M11",
+      "depends_on": ["PDCW-EVT-005", "PDCW-SRCH-006"],
+      "description": "Canonical Events, Bindings, Artifacts, Outbox/Inbox, Checkpoints und Key-Metadaten werden konsistent gesichert und wiederhergestellt.",
+      "acceptance_criteria": [
+        "Restore rekonstruiert Projektionen/Search aus kanonischer History und prüft Digests/Sequenzen.",
+        "Export ist permission-, retention- und redaction-gefiltert und enthält kein Key-/Secretmaterial.",
+        "Ein dokumentierter DR-Test misst RPO/RTO und beweist Standalone-Betrieb ohne Buzz."
+      ]
+    },
+    {
+      "id": "PDCW-OPS-005",
+      "title": "Deploymentprofile, Kapazitätsgrenzen und HA-Topologie definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "configuration",
+      "milestone_id": "M11",
+      "depends_on": ["PDCW-LIVE-001", "PDCW-OPS-003"],
+      "description": "Local, Single-Hub, Multi-Hub und optional SFU/Buzz-enabled Profile besitzen explizite Dependencies, Secrets, Limits und Gate-Status.",
+      "acceptance_criteria": [
+        "Lokales Standardprofil funktioniert ohne Buzz, SFU und externe Secrets mit sicherem Hub-Relay-Fallback.",
+        "Multi-Hub verwendet gemeinsame CAS-/Outbox-/Presence-/Cache-Grenzen und dokumentiert Split-Brain-Verhalten.",
+        "Teilnehmer-, Event-, Room-, Queue-, Search- und Bridge-Caps stammen nur aus reproduzierbaren Messungen."
+      ]
+    },
+    {
+      "id": "PDCW-OPS-006",
+      "title": "Operator-Runbooks, Diagnose und sichere Rollback-Abläufe schreiben",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "documentation",
+      "milestone_id": "M11",
+      "depends_on": ["PDCW-OPS-001", "PDCW-OPS-002", "PDCW-OPS-003", "PDCW-OPS-004", "PDCW-OPS-005"],
+      "description": "Operatoren können Lag, Reconnect, Revocation, Drift, Bridge, Search, Migration und E2EE-Zustand ohne Inhaltszugriff untersuchen.",
+      "acceptance_criteria": [
+        "Runbooks enthalten Symptome, sichere Read-only-Diagnose, Reason-Codes, Rollback und Eskalationskriterien.",
+        "Kein Runbook empfiehlt Datenlöschung, Force-Update oder Gate-Bypass als Standardreparatur.",
+        "Feature-Flags können in definierter Reihenfolge deaktiviert werden, ohne Event-History zu verlieren."
+      ]
+    },
+    {
+      "id": "PDCW-QA-001",
+      "title": "Python-/TypeScript-Contract-Parity und Schema-Gates aufbauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "test",
+      "milestone_id": "M12",
+      "depends_on": ["PDCW-BUZZ-001", "PDCW-EVT-003", "PDCW-ID-004"],
+      "description": "Workspace-, Event-, Actor-, Membership-, Live-, Resource-, Intent- und Bridge-Verträge teilen eine versionierte Negativmatrix.",
+      "acceptance_criteria": [
+        "Python und TypeScript akzeptieren/ablehnen dieselben Fixtures und Reason-Codes.",
+        "Unknown Fields, Type Confusion, Oversize, stale Revision, bad Digest und invalid Scope sind abgedeckt.",
+        "Schema-/Contract-Gate läuft deterministisch ohne Netzwerk und erzeugt content-freie Ergebnisse."
+      ]
+    },
+    {
+      "id": "PDCW-QA-002",
+      "title": "Property-, Fuzz- und adversarial State-Machine-Tests implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "test",
+      "milestone_id": "M12",
+      "depends_on": ["PDCW-QA-001", "PDCW-SEC-001"],
+      "description": "Events, Membership, Epoch, Reconnect, Outbox/Inbox, Projection, Control und Bridge werden mit generierten Reihenfolgen und Angriffen geprüft.",
+      "acceptance_criteria": [
+        "Seeds und Corpus sind versioniert; Minimized Failure enthält keine sensitiven Payloads.",
+        "Invarianten umfassen keine Authority Escalation, keine doppelte logische Wirkung, keine Cross-Tenant-Sichtbarkeit und bounded Ressourcen.",
+        "Crash/Retry/Reorder/Revoke/Key-Rotate/Bridge-Echo-Kombinationen sind enthalten."
+      ]
+    },
+    {
+      "id": "PDCW-QA-003",
+      "title": "Realen Multi-Browser-/Multi-Agent-Ende-zu-Ende-Pfad prüfen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "test",
+      "milestone_id": "M12",
+      "depends_on": ["PDCW-AGT-005", "PDCW-FLOW-005", "PDCW-UI-005"],
+      "description": "Mindestens drei Teilnehmer und zwei Agenten bearbeiten einen Room mit View-Sync, Task, Artifact, Review, Approval und Reconnect.",
+      "acceptance_criteria": [
+        "Test nutzt reale Browser, getrennte Identitäten/Devices und den produktiven Hub-/Transportpfad des freigegebenen Profils.",
+        "Revocation eines Teilnehmers stoppt Live- und Durable-Zugriff, ohne andere Empfänger zu unterbrechen.",
+        "Task/Approval/Result bleiben Hub-gebunden; kein Agent orchestriert einen anderen Worker direkt."
+      ]
+    },
+    {
+      "id": "PDCW-QA-004",
+      "title": "Chaos-, Soak-, Last- und Backpressure-Gates ausführen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "test",
+      "milestone_id": "M12",
+      "depends_on": ["PDCW-LIVE-005", "PDCW-OPS-003"],
+      "description": "Hub-Restart, DB/Redis/Search/Relay/SFU/Buzz-Ausfall, langsame Receiver, Netzwerkwechsel und Queue-Druck werden reproduzierbar getestet.",
+      "acceptance_criteria": [
+        "Keine Failure-Klasse verliert admitted Events oder erzeugt doppelte Tasks/Approvals.",
+        "Kritische Revocation-/Cancel-Pfade bleiben innerhalb definierter Deadlines verfügbar oder fail-closed.",
+        "Kapazitätsfreigaben nennen reale RUN-Evidence, Profil, Hardware, Version, Dauer und Grenzwert; fehlende Runs blockieren Claims."
+      ]
+    },
+    {
+      "id": "PDCW-QA-005",
+      "title": "Security-, Privacy-, Accessibility- und UX-Gates abschließen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "test",
+      "milestone_id": "M12",
+      "depends_on": ["PDCW-SEC-004", "PDCW-UI-006"],
+      "description": "Negative Security-Matrix, Datenschutzsichtbarkeit, Tastaturbedienung, Screenreader, Reduced Motion und verständliche Authority-Zustände werden geprüft.",
+      "acceptance_criteria": [
+        "Keine Oberfläche verwechselt online, Mitglied, task-ready, executing, approved oder verified.",
+        "Remote-Control, Recording/Persistence, Bridge-Export und E2EE-Downgrade besitzen sichtbare Consent-/Statusdarstellung.",
+        "WCAG-relevante automatisierte und manuelle Prüfungen bestehen für Timeline, Threads, Actor-Liste, Cursor und Dialoge."
+      ]
+    },
+    {
+      "id": "PDCW-QA-006",
+      "title": "Globales Release-Gate und gestuften Canary-Rollout implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "test",
+      "milestone_id": "M12",
+      "depends_on": ["PDCW-OPS-006", "PDCW-QA-001", "PDCW-QA-002", "PDCW-QA-003", "PDCW-QA-004", "PDCW-QA-005"],
+      "description": "Ein einziges Gate aggregiert Contracts, Migration, Security, Browser-E2E, Replay, Search, E2EE, Last, Accessibility, Backup/Restore und optionale Buzz-Conformance.",
+      "acceptance_criteria": [
+        "Native Core kann ohne Buzz freigegeben werden; Buzz-Bridge besitzt eine zusätzliche unabhängige Freigabe.",
+        "Rolloutstufen sind disabled, observe_only, internal, canary, limited und general mit messbaren Entry-/Exit-Kriterien.",
+        "Fehlende, stale oder rote Evidence führt zu no_go; Gate-Report erfindet keine SRC_*-/RUN_*-IDs und ist reproduzierbar."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "PDCW-ARCH-001",
+    "PDCW-ARCH-002",
+    "PDCW-ARCH-003",
+    "PDCW-ARCH-004",
+    "PDCW-ARCH-005",
+    "PDCW-EVT-001",
+    "PDCW-EVT-002",
+    "PDCW-EVT-003",
+    "PDCW-EVT-004",
+    "PDCW-EVT-005",
+    "PDCW-EVT-006",
+    "PDCW-ID-001",
+    "PDCW-ID-003",
+    "PDCW-ID-004",
+    "PDCW-ID-006",
+    "PDCW-LIVE-001",
+    "PDCW-LIVE-002",
+    "PDCW-LIVE-004",
+    "PDCW-LIVE-006",
+    "PDCW-UI-001",
+    "PDCW-UI-003",
+    "PDCW-AGT-001",
+    "PDCW-AGT-003",
+    "PDCW-AGT-006",
+    "PDCW-FLOW-001",
+    "PDCW-FLOW-002",
+    "PDCW-FLOW-003",
+    "PDCW-FLOW-005",
+    "PDCW-SRCH-001",
+    "PDCW-BUZZ-001",
+    "PDCW-BUZZ-003",
+    "PDCW-BUZZ-005",
+    "PDCW-SEC-001",
+    "PDCW-SEC-002",
+    "PDCW-SEC-003",
+    "PDCW-SEC-004",
+    "PDCW-SEC-005",
+    "PDCW-OPS-001",
+    "PDCW-OPS-004",
+    "PDCW-QA-001",
+    "PDCW-QA-002",
+    "PDCW-QA-003",
+    "PDCW-QA-004",
+    "PDCW-QA-005",
+    "PDCW-QA-006"
+  ],
+  "tasks_status_summary": {
+    "total": 72,
+    "by_status": {
+      "todo": 72,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 34,
+      "P1": 33,
+      "P2": 5
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 8,
+      "high": 21,
+      "critical": 43
+    },
+    "critical_path": {
+      "total": 45,
+      "done": 0,
+      "remaining": 45
+    },
+    "milestones": {
+      "total": 12,
+      "todo": 12,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 72,
+    "by_type": {
+      "architecture": 4,
+      "contract": 8,
+      "configuration": 2,
+      "documentation": 2,
+      "implementation": 36,
+      "migration": 1,
+      "security": 11,
+      "test": 8
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 72,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0,
+    "count_based_percent": 0.0
+  },
+  "execution_stage_summary": {
+    "architecture_and_contracts": "todo",
+    "native_core": "todo",
+    "multi_participant_live": "todo",
+    "agent_resource_collaboration": "todo",
+    "project_search_integration": "todo",
+    "buzz_interop": "todo",
+    "security_operations_release": "todo"
+  },
+  "summary_notes": [
+    "Der Track erweitert vorhandene produktive und partielle Pair-Dev-Bausteine additiv; er ersetzt weder Hub-Worker-Architektur noch bestehende Sicherheitsverträge.",
+    "WebRTC löst den Live-Datenpfad. Buzz-ähnliche Produktqualität erfordert zusätzlich dauerhafte Events, Rooms, Threads, Search, Replay, Identity-Provenienz und Workflow-/Git-Projektionen.",
+    "Buzz ist Referenz und optionaler Adapter. Native Pair-Dev-Core-Verträge und Oberflächen werden zuerst stabilisiert.",
+    "Die Buzz-Bridge wird bewusst nicht in WebrtcTransportService integriert, sondern implementiert CollaborationBridgePort.",
+    "SFU/TURN bleiben an die vorhandenen no_go-/observe_only-Gates gebunden; dieser Track behauptet keine neue Runtime-Readiness.",
+    "Tasks sind Planungsartefakte. Sie erzeugen keine Worker-Aufgaben, Autorität oder Releasefreigabe, bevor der Hub sie validiert, adoptiert und materialisiert."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "target_outcome",
+      "title": "Zielzustand",
+      "items": [
+        "Pair-Dev arbeitet standalone als dauerhafter Multi-Actor-Workspace mit Live- und Async-Kollaboration.",
+        "Menschen, Agenten und Ressourcen sind sichtbar, aber Hub-Policy, Assignments und Leases bleiben die einzige produktive Autorität.",
+        "Projekt-, Goal-, Task-, Branch-, Workflow-, Artifact- und CodeCompass-Kontext ist in Rooms nachvollziehbar und permission-aware suchbar.",
+        "Buzz kann optional angebunden und vollständig abgeschaltet werden, ohne native Funktionen oder History zu verlieren."
+      ]
+    },
+    {
+      "summary_id": "release_boundaries",
+      "title": "Nicht verhandelbare Releasegrenzen",
+      "items": [
+        "Keine Worker-zu-Worker-Orchestrierung und kein direktes External-Event-zu-Tool/Task.",
+        "Keine Speicherung oder Bridge-Übertragung von Secrets, Private Keys oder hidden reasoning.",
+        "Keine Cross-Tenant-, Cross-Room- oder stale-membership-Auslieferung über UI, Search, Live oder Bridge.",
+        "Keine SFU-, TURN-, Scale- oder Buzz-Conformance-Behauptung ohne reproduzierbare reale Evidence."
+      ]
+    }
+  ]
+}
