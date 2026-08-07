@@ -20,10 +20,14 @@ def test_public_keycloak_waits_for_postgres_and_has_native_health_probe():
     assert keycloak["depends_on"]["postgres"]["condition"] == "service_healthy"
     assert "pg_isready" in " ".join(services["postgres"]["healthcheck"]["test"])
 
-    health_probe = " ".join(keycloak["healthcheck"]["test"])
+    healthcheck = keycloak["healthcheck"]
+    assert healthcheck["test"][:3] == ["CMD", "bash", "-ec"]
+    health_probe = " ".join(healthcheck["test"][3:])
     assert "/health/ready" in health_probe
     assert "/dev/tcp/127.0.0.1/9000" in health_probe
-    assert "HTTP/1\\.[01] 200" in health_probe
+    assert "IFS= read -r status" in health_probe
+    assert 'case "$$status" in HTTP/1.[01]\\ 200\\ *' in health_probe
+    assert "grep" not in health_probe
     assert "curl" not in health_probe
 
 
