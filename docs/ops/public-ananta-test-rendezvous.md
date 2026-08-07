@@ -59,9 +59,12 @@ TCP 22                 SSH
 TCP 80                 Caddy HTTP / ACME
 TCP 443                Caddy HTTPS / WSS
 TCP 3478, UDP 3478     STUN/TURN
-TCP 5349, UDP 5349     optional TURNS later
 UDP 49160-49200        TURN relay range
 ```
+
+TCP/UDP 5349 is intentionally closed in the supplied Compose stack. TURNS/DTLS
+requires a certificate and private key mounted directly into coturn; Caddy's
+HTTPS certificate cannot terminate TURN traffic.
 
 For OCI Security Lists, use `Source Port Range = All` and set the service port as `Destination Port Range`.
 
@@ -89,8 +92,6 @@ sudo firewall-cmd --permanent --add-service=https
 sudo firewall-cmd --permanent --add-service=ssh
 sudo firewall-cmd --permanent --add-port=3478/tcp
 sudo firewall-cmd --permanent --add-port=3478/udp
-sudo firewall-cmd --permanent --add-port=5349/tcp
-sudo firewall-cmd --permanent --add-port=5349/udp
 sudo firewall-cmd --permanent --add-port=49160-49200/udp
 sudo firewall-cmd --reload
 ```
@@ -119,7 +120,10 @@ Alle Endpunkte außer `/health` und `/info` erfordern einen gültigen Keycloak-B
 
 ## Environment file
 
-Create `.env` next to `docker/old_way/docker-compose.public-rendezvous.yml`:
+Create a root-owned environment file outside the checkout. On the public VM the
+canonical location is `/etc/ananta/public-rendezvous.env`; set ownership to
+`root:root` and mode `0600`. Never place the production secrets in a tracked
+`.env` file.
 
 ```env
 PUBLIC_KEYCLOAK_HOSTNAME=keycloak.ananta.de
@@ -133,8 +137,6 @@ KEYCLOAK_ADMIN=admin
 KEYCLOAK_ADMIN_PASSWORD=change_me_long_random_admin_password
 
 PUBLIC_TURN_REALM=ananta.de
-PUBLIC_TURN_USER=ananta
-PUBLIC_TURN_PASSWORD=change_me_long_random_turn_password
 PUBLIC_TURN_EXTERNAL_IP=79.76.105.53/10.0.1.233
 PUBLIC_TURN_MIN_PORT=49160
 PUBLIC_TURN_MAX_PORT=49200
@@ -147,30 +149,69 @@ TURN_TTL_SECONDS=3600
 SESSION_MAX_DURATION_SECONDS=3600
 RENDEZVOUS_DB_PATH=/var/lib/ananta/rendezvous.db
 RENDEZVOUS_DB_TIMEOUT_SECONDS=5.0
+
+# Deliberately small defaults for the 1-GiB single-node test VM.
+KEYCLOAK_MEMORY_LIMIT=700m
+KEYCLOAK_JAVA_OPTS_KC_HEAP=-Xms64m -Xmx320m
+KEYCLOAK_DB_POOL_INITIAL_SIZE=1
+KEYCLOAK_DB_POOL_MIN_SIZE=1
+KEYCLOAK_DB_POOL_MAX_SIZE=10
 ```
 
 For Oracle Cloud, `PUBLIC_TURN_EXTERNAL_IP` should usually be `<PUBLIC_IP>/<PRIVATE_VCN_IP>`, e.g. `79.76.105.53/10.0.1.233`.
 
 > **TURN_SHARED_SECRET** must match the secret configured in coturn. The rendezvous service uses this to sign ephemeral TURN credentials via HMAC-SHA1 (coturn REST API format). Never commit the real secret to git.
 
+The supplied coturn service intentionally uses only shared-secret REST
+authentication. Static `PUBLIC_TURN_USER` / `PUBLIC_TURN_PASSWORD` credentials
+must not be combined with this mode: coturn treats the mechanisms as
+incompatible and shared-secret authentication overrides static users.
+
 `RENDEZVOUS_DB_PATH` points to the shared SQLite file used by all Gunicorn workers. Keep this path on a persistent Docker volume so session lists stay consistent across workers and restarts.
 
 ## Start
 
 ```bash
-# Image bauen und Stack starten
-docker compose -f docker/old_way/docker-compose.public-rendezvous.yml build
-docker compose -f docker/old_way/docker-compose.public-rendezvous.yml up -d
-docker compose -f docker/old_way/docker-compose.public-rendezvous.yml ps
+# Image bauen und Konfiguration validieren
+sudo docker compose -p ananta-public \
+  --env-file /etc/ananta/public-rendezvous.env \
+  -f /opt/ananta/docker/old_way/docker-compose.public-rendezvous.yml \
+  config --quiet
+sudo docker compose -p ananta-public \
+  --env-file /etc/ananta/public-rendezvous.env \
+  -f /opt/ananta/docker/old_way/docker-compose.public-rendezvous.yml \
+  build rendezvous
+
+# Auf dem 1-GiB-Host gestaffelt starten und nach jeder Stufe `ps`/Logs prüfen.
+sudo docker compose -p ananta-public \
+  --env-file /etc/ananta/public-rendezvous.env \
+  -f /opt/ananta/docker/old_way/docker-compose.public-rendezvous.yml \
+  up -d postgres keycloak
+sudo docker compose -p ananta-public \
+  --env-file /etc/ananta/public-rendezvous.env \
+  -f /opt/ananta/docker/old_way/docker-compose.public-rendezvous.yml \
+  up -d rendezvous coturn
+sudo docker compose -p ananta-public \
+  --env-file /etc/ananta/public-rendezvous.env \
+  -f /opt/ananta/docker/old_way/docker-compose.public-rendezvous.yml \
+  up -d caddy
+sudo docker compose -p ananta-public \
+  --env-file /etc/ananta/public-rendezvous.env \
+  -f /opt/ananta/docker/old_way/docker-compose.public-rendezvous.yml \
+  ps
 ```
+
+Do not use `docker compose down -v`: the named PostgreSQL, Caddy and rendezvous
+volumes contain persistent state. The SELinux `Z` labels on the two read-only
+bind mounts are required for enforcing Oracle Linux 9 hosts.
 
 Logs:
 
 ```bash
-docker compose -f docker/old_way/docker-compose.public-rendezvous.yml logs -f caddy
-docker compose -f docker/old_way/docker-compose.public-rendezvous.yml logs -f keycloak
-docker compose -f docker/old_way/docker-compose.public-rendezvous.yml logs -f rendezvous
-docker compose -f docker/old_way/docker-compose.public-rendezvous.yml logs -f coturn
+sudo docker compose -p ananta-public \
+  --env-file /etc/ananta/public-rendezvous.env \
+  -f /opt/ananta/docker/old_way/docker-compose.public-rendezvous.yml \
+  logs -f caddy keycloak rendezvous coturn
 ```
 
 ## Keycloak Realm Setup
@@ -189,7 +230,10 @@ Funktioniert automatisch beim ersten `docker compose up`. Keycloak importiert de
 
 ```bash
 # Keycloak-Log prüfen ob Import erfolgreich war:
-docker compose -f docker/old_way/docker-compose.public-rendezvous.yml logs keycloak | grep -i "import\|ananta"
+sudo docker compose -p ananta-public \
+  --env-file /etc/ananta/public-rendezvous.env \
+  -f /opt/ananta/docker/old_way/docker-compose.public-rendezvous.yml \
+  logs keycloak | grep -i "import\|ananta"
 ```
 
 Erwartete Ausgabe: `Realm 'ananta' imported`
@@ -199,7 +243,10 @@ Erwartete Ausgabe: `Realm 'ananta' imported`
 Falls der automatische Import fehlschlägt oder du Änderungen anwenden willst:
 
 ```bash
-docker compose -f docker/old_way/docker-compose.public-rendezvous.yml exec \
+sudo docker compose -p ananta-public \
+  --env-file /etc/ananta/public-rendezvous.env \
+  -f /opt/ananta/docker/old_way/docker-compose.public-rendezvous.yml \
+  exec \
   -e KC_BOOTSTRAP_ADMIN_USERNAME=admin \
   -e KC_BOOTSTRAP_ADMIN_PASSWORD=<dein-admin-passwort> \
   keycloak bash /opt/keycloak/data/import/setup.sh
@@ -281,11 +328,6 @@ Use the WebRTC Trickle ICE test page and configure:
 ```text
 STUN:
 stun:webrtc.ananta.de:3478
-
-TURN (statischer Test-User, nur falls PUBLIC_TURN_USER gesetzt):
-turn:webrtc.ananta.de:3478
-Username: ananta
-Password: value of PUBLIC_TURN_PASSWORD
 
 TURN (ephemeral via Rendezvous API):
 Credentials von GET /rendezvous/turn-credentials abrufen.
@@ -403,7 +445,10 @@ The rendezvous service is implemented. The following features are available via 
 
 Noch ausstehend (P2 / optional):
 - Native WebSocket-Verbindungen auf `/signaling` (statt HTTP-Polling)
-- Persistente Session-Speicherung (aktuell in-memory, Restart löscht Sessions)
+
+Session-, Teilnehmer- und Signaling-Zustand wird bereits persistent in der
+SQLite-Datei auf `public_rendezvous_data` gespeichert. Ein Container-Neustart
+löscht diese Daten nicht.
 
 See:
 

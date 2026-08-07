@@ -15,8 +15,10 @@
 #   TCP 80                Caddy HTTP / ACME
 #   TCP 443               Caddy HTTPS / WSS
 #   TCP 3478, UDP 3478    STUN/TURN
-#   TCP 5349, UDP 5349    optional TURNS later
 #   UDP 49160-49200       TURN relay range
+#
+# TURNS/DTLS on 5349 remains disabled until coturn receives its own certificate
+# and private key. Caddy's HTTPS certificate cannot terminate TURN traffic.
 #
 # Required DNS:
 #   keycloak.ananta.de -> public server IP
@@ -24,32 +26,41 @@
 
 services:
   caddy:
-    image: caddy:2
+    image: caddy:2.11.4-alpine@sha256:844f60b64e4724a5aa8245e019dace0d3f199f7433ce6c57676cb30a920dbad9
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ../../public-rendezvous/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../../public-rendezvous/caddy/Caddyfile:/etc/caddy/Caddyfile:ro,Z
       - public_caddy_data:/data
       - public_caddy_config:/config
     depends_on:
-      - keycloak
-      - rendezvous
+      keycloak:
+        condition: service_healthy
+      rendezvous:
+        condition: service_healthy
 
   postgres:
-    image: postgres:16
+    image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${KEYCLOAK_DB_NAME:-keycloak}
       POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
-      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD in the environment file}
     volumes:
       - public_keycloak_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:26.6.1@sha256:dea26401d06341095cc4ea9d66896200b55de5ca1daa1d2fcbe58493afa6e0ad
     restart: unless-stopped
+    mem_limit: ${KEYCLOAK_MEMORY_LIMIT:-700m}
     command:
       - start
       - --http-enabled=true
@@ -61,19 +72,35 @@ services:
       KC_DB_URL_HOST: postgres
       KC_DB_URL_DATABASE: ${KEYCLOAK_DB_NAME:-keycloak}
       KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
-      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD in .env}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD in the environment file}
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in .env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in the environment file}
+      KC_HEALTH_ENABLED: "true"
+      KC_CACHE: local
+      KC_DB_POOL_INITIAL_SIZE: ${KEYCLOAK_DB_POOL_INITIAL_SIZE:-1}
+      KC_DB_POOL_MIN_SIZE: ${KEYCLOAK_DB_POOL_MIN_SIZE:-1}
+      KC_DB_POOL_MAX_SIZE: ${KEYCLOAK_DB_POOL_MAX_SIZE:-10}
+      # The official defaults may reserve 70% of all visible RAM for the heap.
+      # Keep enough memory for PostgreSQL, coturn, Caddy and rendezvous on the
+      # 1-GiB public test VM. Override only after measuring the complete stack.
+      JAVA_OPTS_KC_HEAP: ${KEYCLOAK_JAVA_OPTS_KC_HEAP:--Xms64m -Xmx320m}
     volumes:
-      - ../../public-rendezvous/keycloak:/opt/keycloak/data/import:ro
+      - ../../public-rendezvous/keycloak:/opt/keycloak/data/import:ro,Z
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      # Keycloak intentionally ships without curl. Its health endpoint is on
+      # the internal management port when KC_HEALTH_ENABLED is true.
+      test:
+        - CMD-SHELL
+        - >-
+          bash -ec "{ printf 'GET /health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n' >&0;
+          grep -Eq '^HTTP/1\.[01] 200'; } 0<>/dev/tcp/127.0.0.1/9000"
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
 
   rendezvous:
     build: ../../public-rendezvous/rendezvous
@@ -82,7 +109,7 @@ services:
       OIDC_ISSUER: ${OIDC_ISSUER:-https://keycloak.ananta.de/realms/ananta}
       OIDC_ISSUERS_EXTRA: ${OIDC_ISSUERS_EXTRA:-}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-ananta-hub}
-      TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:?set TURN_SHARED_SECRET in .env}
+      TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:?set TURN_SHARED_SECRET in the environment file}
       TURN_REALM: ${PUBLIC_TURN_REALM:-ananta.de}
       TURN_URLS: ${TURN_URLS:-turn:webrtc.ananta.de:3478}
       TURN_TTL_SECONDS: ${TURN_TTL_SECONDS:-3600}
@@ -94,22 +121,22 @@ services:
       - public_rendezvous_data:/var/lib/ananta
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)"]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 10s
 
   # coturn needs host networking because it allocates UDP relay ports.
   # PUBLIC_TURN_EXTERNAL_IP should be "PUBLIC_IP/PRIVATE_IP", e.g.
   # "79.76.105.53/10.0.1.233" for Oracle Cloud NAT.
   coturn:
-    image: coturn/coturn:latest
+    image: coturn/coturn:4.17.0@sha256:7df59bcd84800c3978da2dd0d7fb17a8179e77a8bf667f678813120a9f18b094
     restart: unless-stopped
     network_mode: host
     command:
       - -n
       - --log-file=stdout
       - --listening-port=3478
-      - --tls-listening-port=5349
       - --realm=${PUBLIC_TURN_REALM:-ananta.de}
       - --server-name=${PUBLIC_WEBRTC_HOSTNAME:-webrtc.ananta.de}
       - --external-ip=${PUBLIC_TURN_EXTERNAL_IP:?set PUBLIC_TURN_EXTERNAL_IP, e.g. 79.76.105.53/10.0.1.233}
@@ -117,8 +144,15 @@ services:
       - --min-port=${PUBLIC_TURN_MIN_PORT:-49160}
       - --max-port=${PUBLIC_TURN_MAX_PORT:-49200}
       - --fingerprint
-      - --lt-cred-mech
-      - --user=${PUBLIC_TURN_USER:-ananta}:${PUBLIC_TURN_PASSWORD:?set PUBLIC_TURN_PASSWORD in .env}
+      # TURN REST credentials issued by rendezvous use HMAC-SHA1 over the
+      # timestamped username. Do not combine this with --lt-cred-mech/static
+      # users: coturn lets shared-secret auth override that incompatible mode.
+      - --use-auth-secret
+      - --static-auth-secret=${TURN_SHARED_SECRET:?set TURN_SHARED_SECRET in the environment file}
+      - --no-cli
+      # TURNS/DTLS needs a coturn certificate; the Caddy cert is not sufficient.
+      - --no-tls
+      - --no-dtls
 
 volumes:
   public_caddy_data:
