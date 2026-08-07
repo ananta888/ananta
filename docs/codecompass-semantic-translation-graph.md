@@ -19,41 +19,52 @@ Default feature flag: `ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_ENABLED=false`.
 
 ### Python symbol identity
 
-Python graph identities are file-scoped and revision-stable. The v1 identity
+Python graph identities are file- and occurrence-scoped. The v2 identity
 strategy derives a digest from the separator-normalized, repository-relative
-Git path, symbol kind, and qualified symbol name. Git-path Unicode codepoints
-and permitted whitespace remain identity-bearing: two distinct repository
-entries are never merged merely because their display spelling is canonically
-equivalent. The readable prefix retains the kind and an escaped symbol excerpt,
-for example:
+Git path, symbol kind, qualified symbol name, and positive declaration start
+line and column. Git-path Unicode codepoints and permitted whitespace remain
+identity-bearing: two distinct repository entries are never merged merely
+because their display spelling is canonically equivalent. The readable prefix
+retains the kind and an escaped symbol excerpt, for example:
 
 ```text
-semantic:python:symbol:v1:function:main:<sha256>
+semantic:python:symbol:v2:function:main:<sha256>
 ```
 
-The escaped excerpt is bounded; the digest still covers the complete symbol,
-and a v1 ID is at most 199 characters. Content hashes, line numbers, parser
-versions, index revisions, and manifest IDs remain node or lifecycle evidence
-rather than identity inputs. Moving or renaming a declaration therefore
-creates a new identity, while changing its body or line number does not. Two
-files declaring `main`, `_record`, or the same class/method names can no longer
-collapse into one semantic node. Legacy unversioned IDs remain readable because
-graph consumers treat node IDs as opaque strings. A saved legacy node ID or
-blast-radius seed is intentionally not aliased to the replacement v1 ID after
-re-indexing; clients must select the node from the new revision.
+The escaped excerpt is bounded; the digest still covers the complete symbol.
+Content hashes, parser versions, index revisions, and manifest IDs remain node
+or lifecycle evidence rather than identity inputs. Moving a declaration to a
+different source position intentionally creates a new occurrence identity.
+Consequently, two equal class or method names declared twice in one file cannot
+collapse, and identical names in different files remain distinct as well.
+Legacy IDs remain readable because graph consumers treat node IDs as opaque
+strings. A saved legacy node ID or blast-radius seed is intentionally not
+aliased to the replacement v2 ID after re-indexing; clients must select the node
+from the new revision.
+
+The identity factories retain a first-line/first-column default for older
+direct callers. Language adapters always supply exact provenance. An injected
+pre-v2 identity port is accepted through a compatibility adapter: its legacy
+result remains an identity seed and is then scoped by the v2 occurrence, so
+existing extensions neither fail on the changed call signature nor merge
+repeated declarations.
 
 ### Other language symbol identities
 
-TypeScript, Java, and regex-fallback module/type/member occurrences follow the
-same provenance rule through the shared
-`repo_relative_file_canonical_symbol_sha256.v1` identity strategy. Their local
-node ID covers the repository-relative path, language, symbol kind, canonical
-semantic identity, and local qualifier. This prevents two files that import or
-declare the same name from collapsing into one supplement node. The former
-language-level identity remains available as
+TypeScript, Java, regex-fallback, and static-symbol occurrences follow the same
+provenance rule through the shared
+`repo_relative_file_provenance_canonical_symbol_sha256.v2` identity strategy.
+Their local node ID covers the repository-relative path, language, symbol kind,
+canonical semantic identity, local qualifier, and declaration start line and
+column. This prevents equal names both across files and at multiple locations in
+one file from collapsing into one supplement node. The language-level identity
+remains available as
 `attributes.canonical_semantic_id` for grouping and search; it is metadata,
 not the occurrence identity. Edges emitted within an adapter run are rebound
-to the local IDs whenever their endpoint is a declaration in that file.
+to the exact local IDs whenever their endpoint is an unambiguous declaration
+in that file. Ambiguous name-only relations are not guessed. Java discovery is
+extension-bound, so Java-looking examples in Markdown, JSON, or shell scripts
+are not mislabeled as Java symbols.
 
 ### Domain-fair worker materialization
 
