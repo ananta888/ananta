@@ -42,20 +42,50 @@ graph consumers treat node IDs as opaque strings. A saved legacy node ID or
 blast-radius seed is intentionally not aliased to the replacement v1 ID after
 re-indexing; clients must select the node from the new revision.
 
+### Other language symbol identities
+
+TypeScript, Java, and regex-fallback module/type/member occurrences follow the
+same provenance rule through the shared
+`repo_relative_file_canonical_symbol_sha256.v1` identity strategy. Their local
+node ID covers the repository-relative path, language, symbol kind, canonical
+semantic identity, and local qualifier. This prevents two files that import or
+declare the same name from collapsing into one supplement node. The former
+language-level identity remains available as
+`attributes.canonical_semantic_id` for grouping and search; it is metadata,
+not the occurrence identity. Edges emitted within an adapter run are rebound
+to the local IDs whenever their endpoint is a declaration in that file.
+
 ### Domain-fair worker materialization
 
 Repository semantic output is grouped by normalized top-level path domain in
-the delegated Worker. Each admitted domain owns an independently bounded node
-and edge collector and is written to deterministic JSONL shards. A large or
-lexically early domain can therefore no longer consume another domain's
-per-partition allowance. Admission to the aggregate envelope is deterministic
-and greedy by ascending domain file count, which maximizes the number of
-complete smaller domains; it is not an unlimited or equal-share claim. The
-worker manifest binds the exact shard paths, hashes, record counts, per-shard
-limits, aggregate envelope, materialized and omitted domain counts, plus
-per-domain byte, truncation, declaration, and unresolved-edge evidence.
+the delegated Worker. Two deliberately different read models are produced:
 
-The shared output reader validates every shard as a contained, unique,
+- The backward-compatible graph overview keeps independently bounded JSONL
+  shards and a bounded 32 MiB graph artifact. Its deterministic aggregate
+  admission remains useful for a fast project overview, but it is explicitly
+  partial whenever its budget evidence reports omitted or truncated records.
+- The revision-bound `cc_graph_domains.sqlite3` supplement retains every
+  adapter-emitted semantic node, semantic relation, and file-declaration
+  relation for every top-level domain. Streams are deterministic, compressed
+  in independently verified chunks, and loaded only for the selected domain.
+  A domain is published as complete or the whole supplement build fails; it is
+  never silently published with missing records.
+
+The supplement has a 128 MiB physical artifact safety envelope. That envelope
+is an admission boundary, not a per-domain display quota: if the complete
+supplement cannot be represented safely, the indexing run fails visibly
+instead of selecting a preferred subset. Empty semantic domains are recorded
+explicitly, so “complete with zero symbols” can be distinguished from a
+missing or legacy supplement.
+
+Top-level directory identities are SHA-256 keys derived from their exact path
+segment. Repository-root files use a namespace-tagged root identity rather
+than the literal directory name `__repository_root__`; a real directory with
+that name can therefore coexist without a collision. The supplement is bound
+to the knowledge index, source-revision ID and digest, opaque source ID, graph
+revision, logical content hash, and immutable artifact hash.
+
+The shared output reader validates every overview shard as a contained, unique,
 non-symlink relative path before reading it. It also retains the legacy
 `semantic_nodes.jsonl` and `semantic_edges.jsonl` fallback, so existing indexes
 remain consumable. Raw Worker path lists and normalized output-file evidence
@@ -63,9 +93,12 @@ round-trip through the same validation; hashes, counts, byte sizes, shard pairs,
 and opaque domain hashes are rebound to the files on disk. Aggregate and
 per-shard limits remain fail-closed, as does the final 32 MiB graph materializer;
 omitted, unresolved, or truncated semantic evidence is reported as partial and
-is never presented as complete. The Hub still owns task dispatch, artifact
-admission, activation, and graph reads; partitioning does not create a Worker
-orchestration path.
+is never presented as complete. Separately, the Hub validates the immutable
+SQLite schema, binding metadata, compressed and raw sizes, canonical JSONL,
+chunk hashes, record counts, and logical hash before it can certify a selected
+domain as complete. The Hub still owns task dispatch, artifact admission,
+activation, domain selection, and graph reads; partitioning does not create a
+Worker orchestration path.
 
 ## Scope V1
 

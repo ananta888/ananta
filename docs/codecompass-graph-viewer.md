@@ -17,23 +17,26 @@ Hub-owned indexing task
 Worker-local CodeCompass output
   - materializes cc_graph_index.json
   - materializes graph_visual_metrics.v1 sidecar
+  - materializes complete top-level-domain semantic supplement
   - computes supported metrics
   - records capability, provenance, limits, revision, and content hash
                 │
                 ▼
 Existing worker artifact port
-  - publishes immutable graph and sidecar references
+  - publishes immutable graph, sidecar, and supplement references
   - no shared container filesystem
                 │
                 ▼
 Hub artifact admission
-  - verifies size, transport hash, schema, graph revision, and content hash
-  - materializes both files into Hub-owned storage
+  - verifies size, transport hash, schema, source/graph revision, and content hash
+  - materializes all admitted files into Hub-owned storage
   - persists one revision-bound graph-artifact binding on the index/run
                 │
                 ▼
-Hub: CodeCompassGraphProjectionService
+Hub: graph read and CodeCompassGraphProjectionService
   - resolves the admitted Hub-local binding (legacy output_dir is fallback-only)
+  - inventories supplement counts without expanding semantic payload chunks
+  - loads and verifies only the selected top-level-domain chunks
   - validates and reads the sidecar
   - projects additive fields into domain_graph_artifact.v1
   - never calculates centrality, descendants, or blast radius in HTTP routes
@@ -62,8 +65,10 @@ The implementation separates these responsibilities:
 
 - `worker/retrieval/codecompass_graph_visual_metrics.py`: metric materialization
 - `worker/retrieval/codecompass_graph_artifact_materializer.py`: worker-local graph/sidecar build
+- `worker/retrieval/codecompass_domain_supplement.py`: complete domain-stream materialization
 - `agent/services/knowledge_index_worker_artifact_service.py`: Hub admission and local materialization
 - `agent/services/codecompass_graph_artifact_resolver.py`: admitted-binding resolution
+- `agent/services/codecompass_domain_supplement.py`: immutable catalog and lazy domain reads
 - `agent/services/codecompass_graph_projection_service.py`: Hub-side projection
 - `services/graph-adapter.service.ts`: API-to-Angular mapping
 - `services/graph-visual-profile-validator.ts`: pure untrusted-profile validation
@@ -110,6 +115,14 @@ delivered graph may therefore still report a partial semantic budget.
 Unresolved relations are counted explicitly and remain available in the staged
 edge stream instead of being silently dropped from the result.
 
+For a newly produced revision, the lightweight domain inventory combines two
+different counts without conflating them: structural nodes in the base graph
+and semantic symbols certified by the supplement. A selector may therefore
+show `179 Struktur + 1.955 Symbole`. Subdomain facets for which the top-level
+supplement cannot provide a finer exact count remain unknown; the UI does not
+invent a zero. Legacy indexes remain readable and visibly report their
+semantic scope as unverified or unavailable.
+
 `content_graph_revision` binds paging and viewer state to the actual node/edge
 content. The existing evidence revision remains separate so a valid Worker
 visual-metrics sidecar keeps its original immutable evidence binding. Content
@@ -133,18 +146,30 @@ relation disappear.
 Selecting a domain switches from the preview to complete staged delivery for
 that scope. The client consumes every node page and then every edge page before
 atomically replacing the rendered graph. The 500-node and 2,000-edge values in
-this flow are transport page sizes, not visualization or content limits. A
-full-project load is also available as an explicit action; it is not started by
-the initial preview because a complete index may be expensive to render. Scope
-or revision changes cancel the in-flight load, and malformed, repeated or
-incomplete pages fail visibly instead of leaving a plausible partial graph.
+this flow are transport page sizes, not visualization or content limits. The
+admitted base index can also be transported in full as an explicit action; it
+is not started by the initial preview because even the bounded base artifact may
+be expensive to render. This global action does not load all semantic
+supplements and therefore never claims semantic completeness. Scope or revision
+changes cancel the in-flight load, and malformed, repeated or incomplete pages
+fail visibly instead of leaving a plausible partial graph.
+
+The opaque UI `domain_scope` key is distinct from the SHA-256 top-level keys in
+the Worker supplement. The Hub resolves the selected catalog scope, derives
+the required top-level supplement domains, merges their semantic records into
+the request-local graph view, and then pages the resulting content. Scoped
+content has its own content revision, while `evidence_graph_revision` remains
+stable across scope changes and binds every page to the same admitted Worker
+evidence. The UI displays “Domain vollständig geladen” only when all pages
+carry one coherent, Hub-verified `semantic_scope_complete=true` proof; a
+complete transport stream alone is not semantic completeness.
 
 Reaching the 500-node preview budget therefore does not imply that the
-remaining records disappeared: selecting a domain loads all records in that
-scope, and the explicit full-index action loads all records admitted to the
-index. Known relations crossing the selected scope boundary are counted but
-are not rendered in its induced graph; incident unresolved relations stay in
-the scoped staged edge stream.
+remaining records disappeared: selecting a domain loads all supplement-backed
+records in that scope, while the explicit global action transports every record
+in the admitted base artifact only. Known relations crossing the selected scope
+boundary are counted but are not rendered in its induced graph; incident
+unresolved relations stay in the scoped staged edge stream.
 This delivery guarantee is deliberately separate from Worker materialization:
 if the semantic translation budget reports truncation, the admitted graph is
 itself a documented partial semantic graph and must not be described as
@@ -156,11 +181,12 @@ unbounded hierarchy or dropping their nodes.
 
 The Hub caches a bounded set of already resolved graph stores by graph/metrics
 file identity. Artifact authorization and digest verification remain in the
-resolver; the cache only avoids reparsing an unchanged admitted snapshot. This
-keeps the optimization behind a read seam and preserves least privilege.
-The first read of a newly admitted legacy JSON snapshot must still parse that
-bounded artifact once. Truly disk-lazy cold reads require a future indexed
-SQLite or DuckDB read model; subsequent reads use the bounded cache.
+resolver; the cache only avoids reparsing an unchanged admitted snapshot. A
+separate byte-bounded cache covers already verified supplement domains, and an
+inode/size/mtime-bound integrity cache avoids hashing unchanged immutable files
+again for every staged page. Cold domain reads use immutable read-only SQLite
+and decompress only selected chunks. These optimizations remain behind read
+ports and preserve least privilege.
 
 ## Artifact contracts
 
@@ -175,6 +201,12 @@ Relevant additive fields are:
 - `metadata.graph_revision`: exact projected graph revision used by normalization and caches
 - `metadata.evidence_graph_revision`: immutable Worker evidence revision
 - `metadata.parent_graph_revision`: evidence revision of a projected subgraph, when applicable
+- `metadata.semantic_scope_status`: `complete`, `partial`, or `unavailable`
+- `metadata.semantic_scope_complete`: Hub-verified domain materialization proof
+- `metadata.semantic_scope_key`: opaque selected catalog scope
+- `metadata.semantic_scope_supplement_domain_keys`: exact physical supplement partitions
+- `metadata.semantic_scope_source_revision_id` and `semantic_scope_source_revision_digest`
+- `metadata.semantic_scope_supplement_node_count`, `semantic_scope_supplement_edge_count`, and `semantic_scope_supplement_declaration_count`
 - `metadata.projection_algorithm_version`: Hub projection contract version
 - `metadata.visual_metrics_content_hash`: accepted Worker-sidecar content hash
 - `metric_capabilities`: availability and provenance per metric
