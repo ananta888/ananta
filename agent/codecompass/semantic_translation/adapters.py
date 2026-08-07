@@ -9,8 +9,10 @@ from agent.codecompass.semantic_translation.models import Provenance, SemanticEd
 from agent.codecompass.semantic_translation.nullability import infer_java_nullability
 from agent.codecompass.semantic_translation.semantic_symbol_identity import (
     DeterministicSemanticSymbolIdentityFactory,
+    LegacySemanticSymbolIdentityPort,
     SemanticSymbolIdentityPort,
     semantic_identity_attributes,
+    semantic_occurrence_symbol_id,
 )
 
 
@@ -76,14 +78,19 @@ class JavaSemanticAdapter:
     def __init__(
         self,
         *,
-        symbol_identity: SemanticSymbolIdentityPort | None = None,
+        symbol_identity: (
+            SemanticSymbolIdentityPort
+            | LegacySemanticSymbolIdentityPort
+            | None
+        ) = None,
     ) -> None:
         self._symbol_identity = (
             symbol_identity or DeterministicSemanticSymbolIdentityFactory()
         )
 
     def detect(self, path: str, content: str) -> bool:
-        return Path(path).suffix == ".java" or re.search(r"\b(class|record|enum|interface)\s+\w+", content) is not None
+        del content
+        return Path(path).suffix.lower() == ".java"
 
     def parse(self, path: str, content: str) -> dict:
         from agent.codecompass.semantic_translation.java_tree_sitter import JavaTreeSitterExtractor
@@ -196,6 +203,12 @@ class JavaSemanticAdapter:
                 symbol_kind="module",
                 canonical_id=canonical_module_id,
                 local_qualifier=module_name,
+                provenance_line_start=int(
+                    imported.get("line_start") or 1
+                ),
+                provenance_column_start=int(
+                    imported.get("column_start") or 1
+                ),
             )
             if module_id not in module_node_ids:
                 nodes.append(
@@ -244,6 +257,10 @@ class JavaSemanticAdapter:
                 symbol_kind="type",
                 canonical_id=canonical_type_id,
                 local_qualifier=f"{item['kind']}:{type_name}",
+                provenance_line_start=int(item["line_start"]),
+                provenance_column_start=int(
+                    item.get("column_start") or 1
+                ),
             )
             type_entries.append(
                 (item, type_name, canonical_type_id, type_id)
@@ -297,6 +314,10 @@ class JavaSemanticAdapter:
                     local_qualifier=(
                         f"{type_name}.property:{prop['name']}"
                     ),
+                    provenance_line_start=int(prop["line_start"]),
+                    provenance_column_start=int(
+                        prop.get("column_start") or 1
+                    ),
                 )
                 nodes.append(
                     SemanticNode(
@@ -338,6 +359,10 @@ class JavaSemanticAdapter:
                     local_qualifier=(
                         f"{type_name}.enum:{enum_value}"
                     ),
+                    provenance_line_start=int(item["line_start"]),
+                    provenance_column_start=int(
+                        item.get("column_start") or 1
+                    ),
                 )
                 nodes.append(
                     SemanticNode(
@@ -377,6 +402,10 @@ class JavaSemanticAdapter:
                     symbol_kind="method",
                     canonical_id=canonical_method_id,
                     local_qualifier=method_qualifier,
+                    provenance_line_start=int(method["line_start"]),
+                    provenance_column_start=int(
+                        method.get("column_start") or 1
+                    ),
                 )
                 nodes.append(
                     SemanticNode(
@@ -413,6 +442,10 @@ class JavaSemanticAdapter:
                         canonical_id=canonical_thrown_id,
                         local_qualifier=(
                             f"{method_qualifier}:throws:{thrown}"
+                        ),
+                        provenance_line_start=int(method["line_start"]),
+                        provenance_column_start=int(
+                            method.get("column_start") or 1
                         ),
                     )
                     nodes.append(
@@ -483,13 +516,18 @@ class JavaSemanticAdapter:
         symbol_kind: str,
         canonical_id: str,
         local_qualifier: str,
+        provenance_line_start: int,
+        provenance_column_start: int,
     ) -> str:
-        return self._symbol_identity.symbol_id(
+        return semantic_occurrence_symbol_id(
+            self._symbol_identity,
             language=self.language,
             path=path,
             symbol_kind=symbol_kind,
             canonical_id=canonical_id,
             local_qualifier=local_qualifier,
+            provenance_line_start=provenance_line_start,
+            provenance_column_start=provenance_column_start,
         )
 
     @staticmethod
@@ -518,6 +556,10 @@ class JavaSemanticAdapter:
                     "name": match.group("name"),
                     "kind": "static_import" if match.group("static") else "import",
                     "line_start": content.count("\n", 0, match.start()) + 1,
+                    "column_start": (
+                        match.start()
+                        - content.rfind("\n", 0, match.start())
+                    ),
                 }
             )
         return imports
@@ -539,6 +581,10 @@ class JavaSemanticAdapter:
                 "name": name,
                 "kind": kind,
                 "line_start": start_line,
+                "column_start": (
+                    match.start()
+                    - content.rfind("\n", 0, match.start())
+                ),
                 "line_end": end_line,
                 "properties": [],
                 "methods": [],
@@ -547,7 +593,12 @@ class JavaSemanticAdapter:
                 "unsupported": [],
             }
             if kind == "record":
-                item["properties"] = self._parse_record_components(match.group("components") or "", start_line)
+                components = match.group("components") or ""
+                item["properties"] = self._parse_record_components(
+                    components,
+                    content=content,
+                    start_offset=match.start("components"),
+                )
             elif kind == "class":
                 item["properties"] = self._parse_fields(block, start_line)
             elif kind == "enum":
@@ -573,9 +624,17 @@ class JavaSemanticAdapter:
             types.append(item)
         return types
 
-    def _parse_record_components(self, components: str, line_start: int) -> list[dict]:
+    def _parse_record_components(
+        self,
+        components: str,
+        *,
+        content: str,
+        start_offset: int,
+    ) -> list[dict]:
         props = []
-        for order, part in enumerate(_split_top_level_commas(components)):
+        for order, (part, relative_offset) in enumerate(
+            _split_top_level_commas_with_offsets(components)
+        ):
             tokens = part.strip().split()
             annotations = [token for token in tokens if token.startswith("@")]
             tokens = [token for token in tokens if not token.startswith("@")]
@@ -584,6 +643,7 @@ class JavaSemanticAdapter:
             type_name = " ".join(tokens[:-1])
             name = tokens[-1]
             nullability = infer_java_nullability(type_name, annotations)
+            absolute_offset = start_offset + relative_offset
             props.append(
                 {
                     "name": name,
@@ -592,14 +652,21 @@ class JavaSemanticAdapter:
                     "annotations": annotations,
                     "nullability": nullability.state,
                     "warnings": list(nullability.warnings),
-                    "line_start": line_start,
+                    "line_start": (
+                        content.count("\n", 0, absolute_offset) + 1
+                    ),
+                    "column_start": (
+                        absolute_offset
+                        - content.rfind("\n", 0, absolute_offset)
+                    ),
                 }
             )
         return props
 
     def _parse_fields(self, block: str, line_offset: int) -> list[dict]:
         props = []
-        body = block.split("{", 1)[-1]
+        body_start = block.find("{") + 1
+        body = block[body_start:]
         field_re = re.compile(
             r"(?P<annotations>(?:@\w+\s+)*)\b(?:private|public|protected)?\s*"
             r"(?:final\s+)?(?P<type>[\w<>?, ]+)\s+(?P<name>\w+)\s*"
@@ -608,6 +675,7 @@ class JavaSemanticAdapter:
         )
         body_line_offset = line_offset + block.split("{", 1)[0].count("\n")
         for order, match in enumerate(field_re.finditer(body)):
+            block_offset = body_start + match.start()
             type_name = " ".join(match.group("type").split())
             if "(" in type_name or "{" in type_name or type_name in {"return", "new"}:
                 continue
@@ -624,13 +692,18 @@ class JavaSemanticAdapter:
                     "line_start": (
                         body_line_offset + body[: match.start()].count("\n")
                     ),
+                    "column_start": (
+                        block_offset
+                        - block.rfind("\n", 0, block_offset)
+                    ),
                 }
             )
         return props
 
     def _parse_methods(self, block: str, line_offset: int) -> list[dict]:
         methods = []
-        body = block.split("{", 1)[-1]
+        body_start = block.find("{") + 1
+        body = block[body_start:]
         body_line_offset = line_offset + block.split("{", 1)[0].count("\n")
         method_re = re.compile(
             r"(?P<annotations>(?:@\w+\s+)*)\b"
@@ -642,6 +715,7 @@ class JavaSemanticAdapter:
             re.MULTILINE,
         )
         for match in method_re.finditer(body):
+            block_offset = body_start + match.start()
             return_type = " ".join((match.group("return") or "").split())
             if return_type in {"if", "for", "while", "switch", "catch", "new"}:
                 continue
@@ -660,6 +734,10 @@ class JavaSemanticAdapter:
                 "side_effects": ["unknown_side_effect"],
                 "contracts": {"preconditions": [], "postconditions": [], "invariants": []},
                 "line_start": body_line_offset + body[: match.start()].count("\n"),
+                "column_start": (
+                    block_offset
+                    - block.rfind("\n", 0, block_offset)
+                ),
             })
         return methods
 
@@ -736,19 +814,43 @@ def _classify_throw(exception_name: str) -> dict:
 
 
 def _split_top_level_commas(value: str) -> list[str]:
+    return [part for part, _offset in _split_top_level_commas_with_offsets(value)]
+
+
+def _split_top_level_commas_with_offsets(
+    value: str,
+) -> list[tuple[str, int]]:
     depth = 0
     current = []
-    parts = []
-    for ch in value:
+    parts: list[tuple[str, int]] = []
+    segment_start = 0
+    for index, ch in enumerate(value):
         if ch == "<":
             depth += 1
         elif ch == ">":
             depth -= 1
         if ch == "," and depth == 0:
-            parts.append("".join(current).strip())
+            raw = "".join(current)
+            stripped = raw.strip()
+            if stripped:
+                parts.append(
+                    (
+                        stripped,
+                        segment_start + len(raw) - len(raw.lstrip()),
+                    )
+                )
             current = []
+            segment_start = index + 1
             continue
         current.append(ch)
     if current:
-        parts.append("".join(current).strip())
+        raw = "".join(current)
+        stripped = raw.strip()
+        if stripped:
+            parts.append(
+                (
+                    stripped,
+                    segment_start + len(raw) - len(raw.lstrip()),
+                )
+            )
     return parts

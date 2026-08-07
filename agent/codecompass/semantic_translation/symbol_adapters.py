@@ -7,8 +7,10 @@ from pathlib import Path
 from agent.codecompass.semantic_translation.models import Provenance, SemanticEdge, SemanticNode, diagnostic
 from agent.codecompass.semantic_translation.semantic_symbol_identity import (
     DeterministicSemanticSymbolIdentityFactory,
+    LegacySemanticSymbolIdentityPort,
     SemanticSymbolIdentityPort,
     semantic_identity_attributes,
+    semantic_occurrence_symbol_id,
 )
 
 
@@ -29,7 +31,9 @@ class RegexSymbolLanguageAdapter:
     known_limits: tuple[str, ...]
     parser_strategy: str = "regex-symbol-v1"
     semantic_kinds: tuple[str, ...] = ("data_record", "function_signature", "module")
-    symbol_identity: SemanticSymbolIdentityPort = field(
+    symbol_identity: (
+        SemanticSymbolIdentityPort | LegacySemanticSymbolIdentityPort
+    ) = field(
         default_factory=DeterministicSemanticSymbolIdentityFactory,
         repr=False,
         compare=False,
@@ -87,21 +91,69 @@ class RegexSymbolLanguageAdapter:
         file_key = path.replace("\\", "/")
         module_node_ids: set[str] = set()
         for item in parsed["types"]:
-            node_id = f"semantic:{self.language}:type:{file_key}:{item['name']}"
-            nodes.append(self._node(path, node_id, item, "data_record"))
+            canonical_id = (
+                f"semantic:{self.language}:type:"
+                f"{item['kind']}:{item['name']}"
+            )
+            node_id = semantic_occurrence_symbol_id(
+                self.symbol_identity,
+                language=self.language,
+                path=path,
+                symbol_kind="type",
+                canonical_id=canonical_id,
+                local_qualifier=f"{item['kind']}:{item['name']}",
+                provenance_line_start=int(item["line_start"]),
+                provenance_column_start=int(item["column_start"]),
+            )
+            nodes.append(
+                self._node(
+                    path,
+                    node_id,
+                    {
+                        **item,
+                        **semantic_identity_attributes(canonical_id),
+                    },
+                    "data_record",
+                )
+            )
         for item in parsed["functions"]:
-            node_id = f"semantic:{self.language}:function:{file_key}:{item['name']}"
-            nodes.append(self._node(path, node_id, item, "function_signature"))
+            canonical_id = (
+                f"semantic:{self.language}:function:{item['name']}"
+            )
+            node_id = semantic_occurrence_symbol_id(
+                self.symbol_identity,
+                language=self.language,
+                path=path,
+                symbol_kind="function",
+                canonical_id=canonical_id,
+                local_qualifier=item["name"],
+                provenance_line_start=int(item["line_start"]),
+                provenance_column_start=int(item["column_start"]),
+            )
+            nodes.append(
+                self._node(
+                    path,
+                    node_id,
+                    {
+                        **item,
+                        **semantic_identity_attributes(canonical_id),
+                    },
+                    "function_signature",
+                )
+            )
         for item in parsed["imports"]:
             canonical_module_id = (
                 f"semantic:{self.language}:module:{item['name']}"
             )
-            module_id = self.symbol_identity.symbol_id(
+            module_id = semantic_occurrence_symbol_id(
+                self.symbol_identity,
                 language=self.language,
                 path=path,
                 symbol_kind="module",
                 canonical_id=canonical_module_id,
                 local_qualifier=item["name"],
+                provenance_line_start=int(item["line_start"]),
+                provenance_column_start=int(item["column_start"]),
             )
             if module_id not in module_node_ids:
                 nodes.append(
@@ -152,14 +204,15 @@ def _matches(content: str, pattern: str, *, default_kind: str) -> list[dict]:
     if not pattern:
         return []
     results: list[dict] = []
-    seen: set[tuple[str, int]] = set()
+    seen: set[tuple[str, int, int]] = set()
     for match in re.finditer(pattern, content, re.MULTILINE):
         groups = match.groupdict()
         name = str(groups.get("name") or groups.get("module") or "").strip()
         if not name:
             continue
         line = content.count("\n", 0, match.start()) + 1
-        identity = (name, line)
+        column = match.start() - content.rfind("\n", 0, match.start())
+        identity = (name, line, column)
         if identity in seen:
             continue
         seen.add(identity)
@@ -168,6 +221,7 @@ def _matches(content: str, pattern: str, *, default_kind: str) -> list[dict]:
                 "name": name,
                 "kind": str(groups.get("kind") or default_kind),
                 "line_start": line,
+                "column_start": column,
             }
         )
     return results

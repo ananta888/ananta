@@ -11,10 +11,17 @@ from __future__ import annotations
 
 import re
 from bisect import bisect_right
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from agent.codecompass.semantic_translation.models import Provenance, SemanticNode, diagnostic
+from agent.codecompass.semantic_translation.semantic_symbol_identity import (
+    DeterministicSemanticSymbolIdentityFactory,
+    LegacySemanticSymbolIdentityPort,
+    SemanticSymbolIdentityPort,
+    semantic_identity_attributes,
+    semantic_occurrence_symbol_id,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +51,13 @@ class StaticSymbolLanguageAdapter:
     script_regions_only: bool = False
     component_from_filename: bool = False
     semantic_kinds: tuple[str, ...] = ()
+    symbol_identity: (
+        SemanticSymbolIdentityPort | LegacySemanticSymbolIdentityPort
+    ) = field(
+        default_factory=DeterministicSemanticSymbolIdentityFactory,
+        repr=False,
+        compare=False,
+    )
 
     def detect(self, path: str, content: str) -> bool:
         del content
@@ -107,31 +121,46 @@ class StaticSymbolLanguageAdapter:
 
     def emit_graph_records(self, path: str, content: str) -> dict:
         parsed = self.parse(path, content)
-        file_key = path.replace("\\", "/")
-        nodes = [
-            SemanticNode(
-                id=f"semantic:{self.language}:symbol:{file_key}:{item['kind']}:{item['name']}",
-                kind="symbol_node",
-                semantic_kind=_semantic_kind(item["kind"]),
+        nodes: list[dict] = []
+        for item in parsed["symbols"]:
+            canonical_id = (
+                f"semantic:{self.language}:symbol:"
+                f"{item['kind']}:{item['name']}"
+            )
+            node_id = semantic_occurrence_symbol_id(
+                self.symbol_identity,
                 language=self.language,
-                symbol=item["name"],
-                attributes={
-                    **item,
-                    "support_level": "symbol_index",
-                    "confidence": item["confidence"],
-                },
-                provenance=Provenance(
-                    file=path,
+                path=path,
+                symbol_kind="symbol",
+                canonical_id=canonical_id,
+                local_qualifier=f"{item['kind']}:{item['name']}",
+                provenance_line_start=int(item["line_start"]),
+                provenance_column_start=int(item["column_start"]),
+            )
+            nodes.append(
+                SemanticNode(
+                    id=node_id,
+                    kind="symbol_node",
+                    semantic_kind=_semantic_kind(item["kind"]),
                     language=self.language,
                     symbol=item["name"],
-                    line_start=item["line_start"],
-                    line_end=item["line_start"],
-                    parser=self.parser_strategy,
-                    confidence=item["confidence"],
-                ),
-            ).as_record()
-            for item in parsed["symbols"]
-        ]
+                    attributes={
+                        **item,
+                        **semantic_identity_attributes(canonical_id),
+                        "support_level": "symbol_index",
+                        "confidence": item["confidence"],
+                    },
+                    provenance=Provenance(
+                        file=path,
+                        language=self.language,
+                        symbol=item["name"],
+                        line_start=item["line_start"],
+                        line_end=item["line_start"],
+                        parser=self.parser_strategy,
+                        confidence=item["confidence"],
+                    ),
+                ).as_record()
+            )
         return {
             "nodes": nodes,
             "edges": [],
@@ -352,6 +381,10 @@ def _extract_declarations(
                     "name": name,
                     "kind": str(match.groupdict().get("kind") or declaration_pattern.kind),
                     "line_start": bisect_right(line_starts, match.start()),
+                    "column_start": _column_start(
+                        line_starts,
+                        match.start(),
+                    ),
                     "confidence": confidence,
                 }
             )
@@ -381,18 +414,36 @@ def _deduplicate_and_sort(items: list[dict]) -> list[dict]:
     # A broad variable pattern can also see a typed function declaration.  The
     # patterns are ordered from specific types/functions to variables, so the
     # first declaration at a name+line wins deterministically.
-    by_identity: dict[tuple[str, int], dict] = {}
+    by_identity: dict[tuple[str, int, int], dict] = {}
     for item in items:
-        identity = (str(item["name"]), int(item["line_start"]))
+        identity = (
+            str(item["name"]),
+            int(item["line_start"]),
+            int(item["column_start"]),
+        )
         by_identity.setdefault(identity, item)
-    return sorted(by_identity.values(), key=lambda item: (item["line_start"], item["name"], item["kind"]))
+    return sorted(
+        by_identity.values(),
+        key=lambda item: (
+            item["line_start"],
+            item["column_start"],
+            item["name"],
+            item["kind"],
+        ),
+    )
 
 
 def _component_symbol(path: str, *, confidence: float) -> dict | None:
     name = Path(path).stem.strip()
     if not re.fullmatch(r"[A-Za-z_$][\w$-]*", name):
         return None
-    return {"name": name, "kind": "component", "line_start": 1, "confidence": confidence}
+    return {
+        "name": name,
+        "kind": "component",
+        "line_start": 1,
+        "column_start": 1,
+        "confidence": confidence,
+    }
 
 
 def _has_script_region(content: str) -> bool:
@@ -459,6 +510,11 @@ def _mask_range(masked: list[str], content: str, start: int, end: int) -> None:
 
 def _line_starts(content: str) -> tuple[int, ...]:
     return (0, *(match.end() for match in re.finditer("\n", content)))
+
+
+def _column_start(line_starts: tuple[int, ...], offset: int) -> int:
+    line_index = bisect_right(line_starts, offset) - 1
+    return offset - line_starts[line_index] + 1
 
 
 def _semantic_kind(symbol_kind: str) -> str:

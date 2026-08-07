@@ -9,6 +9,7 @@ node ID while preserving the canonical identity as searchable node metadata.
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import re
 from pathlib import PurePosixPath
@@ -16,7 +17,7 @@ from typing import Final, Protocol
 from urllib.parse import quote
 
 SEMANTIC_SYMBOL_IDENTITY_STRATEGY: Final = (
-    "repo_relative_file_canonical_symbol_sha256.v1"
+    "repo_relative_file_provenance_canonical_symbol_sha256.v2"
 )
 CANONICAL_SEMANTIC_ID_ATTRIBUTE: Final = "canonical_semantic_id"
 SEMANTIC_IDENTITY_STRATEGY_ATTRIBUTE: Final = "semantic_identity_strategy"
@@ -29,6 +30,22 @@ _MAX_READABLE_ID_ENCODED_LENGTH = 96
 
 class SemanticSymbolIdentityPort(Protocol):
     """Narrow seam used by language adapters for local graph identities."""
+
+    def symbol_id(
+        self,
+        *,
+        language: str,
+        path: str,
+        symbol_kind: str,
+        canonical_id: str,
+        local_qualifier: str,
+        provenance_line_start: int = 1,
+        provenance_column_start: int = 1,
+    ) -> str: ...
+
+
+class LegacySemanticSymbolIdentityPort(Protocol):
+    """Pre-v2 injection seam retained for additive adapter compatibility."""
 
     def symbol_id(
         self,
@@ -52,6 +69,9 @@ class DeterministicSemanticSymbolIdentityFactory:
         symbol_kind: str,
         canonical_id: str,
         local_qualifier: str,
+        provenance_line_start: int = 1,
+        provenance_column_start: int = 1,
+        _legacy_identity_sha256: str | None = None,
     ) -> str:
         canonical_language = str(language or "").strip().lower()
         canonical_kind = str(symbol_kind or "").strip().lower()
@@ -70,14 +90,30 @@ class DeterministicSemanticSymbolIdentityFactory:
             maximum_length=_MAX_QUALIFIER_LENGTH,
             error="semantic_symbol_identity_qualifier_invalid",
         )
+        if (
+            isinstance(provenance_line_start, bool)
+            or not isinstance(provenance_line_start, int)
+            or provenance_line_start < 1
+            or isinstance(provenance_column_start, bool)
+            or not isinstance(provenance_column_start, int)
+            or provenance_column_start < 1
+        ):
+            raise ValueError("semantic_symbol_identity_provenance_invalid")
         identity = json.dumps(
             {
                 "canonical_id": normalized_canonical_id,
                 "language": canonical_language,
                 "local_qualifier": normalized_qualifier,
                 "path": normalized_path,
+                "provenance_column_start": provenance_column_start,
+                "provenance_line_start": provenance_line_start,
                 "strategy": SEMANTIC_SYMBOL_IDENTITY_STRATEGY,
                 "symbol_kind": canonical_kind,
+                **(
+                    {"legacy_identity_sha256": _legacy_identity_sha256}
+                    if _legacy_identity_sha256
+                    else {}
+                ),
             },
             ensure_ascii=False,
             sort_keys=True,
@@ -86,7 +122,7 @@ class DeterministicSemanticSymbolIdentityFactory:
         digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
         readable = self._readable(normalized_qualifier)
         return (
-            f"semantic:{canonical_language}:local:v1:"
+            f"semantic:{canonical_language}:local:v2:"
             f"{canonical_kind}:{readable}:{digest}"
         )
 
@@ -135,6 +171,71 @@ class DeterministicSemanticSymbolIdentityFactory:
         return "".join(encoded)
 
 
+def semantic_occurrence_symbol_id(
+    identity: SemanticSymbolIdentityPort | LegacySemanticSymbolIdentityPort,
+    *,
+    language: str,
+    path: str,
+    symbol_kind: str,
+    canonical_id: str,
+    local_qualifier: str,
+    provenance_line_start: int,
+    provenance_column_start: int,
+) -> str:
+    """Call a v2 identity port or safely scope a legacy injected identity.
+
+    Existing ports remain callable with their original signature. Their result
+    is retained as a digest seed, while the standard v2 factory adds the exact
+    occurrence provenance required by the supplement uniqueness contract.
+    """
+
+    symbol_id = identity.symbol_id
+    if _accepts_occurrence_provenance(symbol_id):
+        return symbol_id(
+            language=language,
+            path=path,
+            symbol_kind=symbol_kind,
+            canonical_id=canonical_id,
+            local_qualifier=local_qualifier,
+            provenance_line_start=provenance_line_start,
+            provenance_column_start=provenance_column_start,
+        )
+    legacy_id = symbol_id(
+        language=language,
+        path=path,
+        symbol_kind=symbol_kind,
+        canonical_id=canonical_id,
+        local_qualifier=local_qualifier,
+    )
+    legacy_digest = hashlib.sha256(str(legacy_id).encode("utf-8")).hexdigest()
+    return DeterministicSemanticSymbolIdentityFactory().symbol_id(
+        language=language,
+        path=path,
+        symbol_kind=symbol_kind,
+        canonical_id=canonical_id,
+        local_qualifier=local_qualifier,
+        provenance_line_start=provenance_line_start,
+        provenance_column_start=provenance_column_start,
+        _legacy_identity_sha256=legacy_digest,
+    )
+
+
+def _accepts_occurrence_provenance(symbol_id: object) -> bool:
+    try:
+        parameters = inspect.signature(symbol_id).parameters.values()  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return False
+    names = {parameter.name for parameter in parameters}
+    return (
+        {
+            "provenance_line_start",
+            "provenance_column_start",
+        }
+        <= names
+        or any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters)
+    )
+
+
 def semantic_identity_attributes(canonical_id: str) -> dict[str, str]:
     """Metadata retained on every node that receives a local identity."""
 
@@ -152,8 +253,10 @@ def semantic_identity_attributes(canonical_id: str) -> dict[str, str]:
 __all__ = [
     "CANONICAL_SEMANTIC_ID_ATTRIBUTE",
     "DeterministicSemanticSymbolIdentityFactory",
+    "LegacySemanticSymbolIdentityPort",
     "SEMANTIC_IDENTITY_STRATEGY_ATTRIBUTE",
     "SEMANTIC_SYMBOL_IDENTITY_STRATEGY",
     "SemanticSymbolIdentityPort",
     "semantic_identity_attributes",
+    "semantic_occurrence_symbol_id",
 ]

@@ -7,7 +7,9 @@ from typing import Any
 from agent.codecompass.semantic_translation.models import Provenance, SemanticEdge, SemanticNode, diagnostic
 from agent.codecompass.semantic_translation.python_symbol_identity import (
     DeterministicPythonSymbolIdentityFactory,
+    LegacyPythonSymbolIdentityPort,
     PythonSymbolIdentityPort,
+    python_occurrence_symbol_id,
 )
 from agent.codecompass.semantic_translation.python_type_model import (
     TypeAnnotation,
@@ -36,7 +38,9 @@ class PythonSemanticAdapter:
     def __init__(
         self,
         *,
-        symbol_identity: PythonSymbolIdentityPort | None = None,
+        symbol_identity: (
+            PythonSymbolIdentityPort | LegacyPythonSymbolIdentityPort | None
+        ) = None,
     ) -> None:
         self._symbol_identity = (
             symbol_identity or DeterministicPythonSymbolIdentityFactory()
@@ -107,10 +111,13 @@ class PythonSemanticAdapter:
         edges: list[dict] = []
 
         for item in parsed.get("types") or []:
-            type_id = self._symbol_identity.symbol_id(
+            type_id = python_occurrence_symbol_id(
+                self._symbol_identity,
                 path=path,
                 symbol_kind="type",
                 qualified_symbol=item["name"],
+                provenance_line_start=int(item["line_start"]),
+                provenance_column_start=int(item["column_start"]),
             )
             semantic_kind = "data_record" if item["kind"] in {"dataclass", "frozen_dataclass", "typed_dict", "class"} else "data_record"
             if item["kind"] == "enum":
@@ -136,10 +143,17 @@ class PythonSemanticAdapter:
 
             for field in item.get("fields") or []:
                 qualified_field = f"{item['name']}.{field['name']}"
-                field_id = self._symbol_identity.symbol_id(
+                field_id = python_occurrence_symbol_id(
+                    self._symbol_identity,
                     path=path,
                     symbol_kind="field",
                     qualified_symbol=qualified_field,
+                    provenance_line_start=int(
+                        field.get("line_start", item["line_start"])
+                    ),
+                    provenance_column_start=int(
+                        field.get("column_start", item["column_start"])
+                    ),
                 )
                 null_kind = "nullable_value" if field.get("type_annotation", {}).get("is_optional") else "property"
                 nodes.append(SemanticNode(
@@ -155,10 +169,13 @@ class PythonSemanticAdapter:
 
             for value in item.get("enum_values") or []:
                 qualified_value = f"{item['name']}.{value}"
-                value_id = self._symbol_identity.symbol_id(
+                value_id = python_occurrence_symbol_id(
+                    self._symbol_identity,
                     path=path,
                     symbol_kind="enum_value",
                     qualified_symbol=qualified_value,
+                    provenance_line_start=int(item["line_start"]),
+                    provenance_column_start=int(item["column_start"]),
                 )
                 nodes.append(SemanticNode(
                     id=value_id,
@@ -173,10 +190,13 @@ class PythonSemanticAdapter:
 
             for method in item.get("methods") or []:
                 qualified_method = f"{item['name']}.{method['name']}"
-                method_id = self._symbol_identity.symbol_id(
+                method_id = python_occurrence_symbol_id(
+                    self._symbol_identity,
                     path=path,
                     symbol_kind="method",
                     qualified_symbol=qualified_method,
+                    provenance_line_start=int(method["line_start"]),
+                    provenance_column_start=int(method["column_start"]),
                 )
                 nodes.append(SemanticNode(
                     id=method_id,
@@ -190,10 +210,13 @@ class PythonSemanticAdapter:
                 edges.append(SemanticEdge(source_id=type_id, target_id=method_id, edge_type="declares").as_record())
 
         for fn in parsed.get("functions") or []:
-            fn_id = self._symbol_identity.symbol_id(
+            fn_id = python_occurrence_symbol_id(
+                self._symbol_identity,
                 path=path,
                 symbol_kind="function",
                 qualified_symbol=fn["name"],
+                provenance_line_start=int(fn["line_start"]),
+                provenance_column_start=int(fn["column_start"]),
             )
             nodes.append(SemanticNode(
                 id=fn_id,
@@ -244,6 +267,7 @@ class _PythonExtractor(ast.NodeVisitor):
             "name": node.name,
             "kind": kind,
             "line_start": line_start,
+            "column_start": node.col_offset + 1,
             "line_end": line_end,
             "decorators": decorators,
             "bases": bases,
@@ -287,7 +311,20 @@ class _PythonExtractor(ast.NodeVisitor):
                                         item["warnings"].append("dynamic_attribute_injection_outside_init")
                                         item["unsupported"].append({"code": "dynamic_attribute_injection", "reason": f"self.{t.attr} set outside __init__", "path": self.path})
                 item_methods = item.setdefault("methods", [])
-                if not any(m["name"] == child.name for m in item_methods):
+                child_identity = (
+                    method["name"],
+                    method["line_start"],
+                    method["column_start"],
+                )
+                if not any(
+                    (
+                        existing["name"],
+                        existing["line_start"],
+                        existing["column_start"],
+                    )
+                    == child_identity
+                    for existing in item_methods
+                ):
                     item_methods.append(method)
 
         self.types.append(item)
@@ -355,6 +392,7 @@ def _extract_dataclass_fields(node: ast.ClassDef) -> list[dict]:
                 "has_default": has_default,
                 "default": default_str,
                 "line_start": stmt.lineno,
+                "column_start": stmt.col_offset + 1,
                 "warnings": warnings,
             })
     return fields
@@ -372,6 +410,7 @@ def _extract_typed_dict_fields(node: ast.ClassDef) -> list[dict]:
                 "has_default": stmt.value is not None,
                 "default": ast.unparse(stmt.value) if stmt.value else None,
                 "line_start": stmt.lineno,
+                "column_start": stmt.col_offset + 1,
                 "warnings": ["no_type_annotation"] if ann.confidence == "unknown" else [],
             })
     return fields
@@ -404,6 +443,7 @@ def _extract_class_fields(node: ast.ClassDef) -> list[dict]:
                                 "has_default": True,
                                 "default": ast.unparse(s.value) if s.value else None,
                                 "line_start": s.lineno,
+                                "column_start": s.col_offset + 1,
                                 "warnings": ["instance_field_no_annotation"],
                             })
                 elif isinstance(s, ast.AnnAssign) and isinstance(s.target, ast.Attribute) and isinstance(s.target.value, ast.Name) and s.target.value.id == "self":
@@ -415,6 +455,7 @@ def _extract_class_fields(node: ast.ClassDef) -> list[dict]:
                         "has_default": s.value is not None,
                         "default": ast.unparse(s.value) if s.value else None,
                         "line_start": s.lineno,
+                        "column_start": s.col_offset + 1,
                         "warnings": [],
                     })
     seen = set()
@@ -463,6 +504,7 @@ def _extract_function_info(node: ast.FunctionDef | ast.AsyncFunctionDef) -> dict
     return {
         "name": node.name,
         "line_start": node.lineno,
+        "column_start": node.col_offset + 1,
         "line_end": node.end_lineno or node.lineno,
         "decorators": decorators,
         "parameters": params,

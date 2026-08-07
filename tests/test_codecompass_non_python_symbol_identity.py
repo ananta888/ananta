@@ -5,11 +5,17 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from agent.codecompass.semantic_translation.adapters import (
     JavaSemanticAdapter,
 )
 from agent.codecompass.semantic_translation.semantic_symbol_identity import (
     CANONICAL_SEMANTIC_ID_ATTRIBUTE,
+    DeterministicSemanticSymbolIdentityFactory,
+)
+from agent.codecompass.semantic_translation.static_symbol_adapters import (
+    default_static_symbol_adapters,
 )
 from agent.codecompass.semantic_translation.symbol_adapters import (
     RegexSymbolLanguageAdapter,
@@ -243,3 +249,209 @@ def test_regex_module_nodes_keep_canonical_identity_but_use_local_edges() -> Non
     assert first_module["id"] != second_module["id"]
     assert first["edges"][0]["target"] == first_module["id"]
     assert second["edges"][0]["target"] == second_module["id"]
+
+
+def test_java_same_file_declarations_use_distinct_provenance_ids() -> None:
+    emitted = JavaSemanticAdapter().emit_graph_records(
+        "src/Duplicates.java",
+        "class Same {} class Same {}\n",
+    )
+
+    same_nodes = [node for node in emitted["nodes"] if node["symbol"] == "Same"]
+    assert len(same_nodes) == 2
+    assert len({node["id"] for node in same_nodes}) == 2
+    assert {node["provenance"]["line_start"] for node in same_nodes} == {1}
+    assert {
+        node["attributes"]["column_start"] for node in same_nodes
+    } == {1, 15}
+
+
+def test_java_detection_does_not_parse_language_snippets_in_other_files() -> None:
+    adapter = JavaSemanticAdapter()
+
+    assert adapter.detect("src/Same.java", "") is True
+    assert adapter.detect("docs/example.md", "class Same {}") is False
+
+
+def test_typescript_same_file_declarations_use_distinct_provenance_ids() -> None:
+    emitted = TypeScriptSemanticAdapter().emit_graph_records(
+        "src/duplicates.ts",
+        "const run = () => 1; const run = () => 2;\n",
+    )
+
+    run_nodes = [node for node in emitted["nodes"] if node["symbol"] == "run"]
+    assert len(run_nodes) == 2
+    assert len({node["id"] for node in run_nodes}) == 2
+    assert {
+        node["attributes"]["column_start"] for node in run_nodes
+    } == {1, 22}
+
+
+def test_regex_and_static_symbols_use_occurrence_provenance() -> None:
+    regex_adapter = RegexSymbolLanguageAdapter(
+        language="go",
+        supported_extensions=(".go",),
+        type_pattern="",
+        function_pattern=r"func\s+(?P<name>\w+)\s*\(",
+        import_pattern="",
+        known_limits=("test",),
+    )
+    regex_nodes = regex_adapter.emit_graph_records(
+        "src/duplicates.go",
+        "func run() {}; func run() {}\n",
+    )["nodes"]
+    lua_adapter = next(
+        adapter
+        for adapter in default_static_symbol_adapters()
+        if adapter.language == "lua"
+    )
+    static_nodes = [
+        node
+        for node in lua_adapter.emit_graph_records(
+            "src/duplicates.lua",
+            "local function run() end\nlocal function run() end\n",
+        )["nodes"]
+        if node["attributes"]["kind"] == "function"
+    ]
+
+    assert len(regex_nodes) == 2
+    assert len({node["id"] for node in regex_nodes}) == 2
+    assert len(static_nodes) == 2
+    assert len({node["id"] for node in static_nodes}) == 2
+
+
+def test_generic_identity_requires_positive_provenance_line() -> None:
+    identity = DeterministicSemanticSymbolIdentityFactory()
+
+    with pytest.raises(
+        ValueError,
+        match="semantic_symbol_identity_provenance_invalid",
+    ):
+        identity.symbol_id(
+            language="java",
+            path="src/Same.java",
+            symbol_kind="type",
+            canonical_id="semantic:java:class:Same",
+            local_qualifier="class:Same",
+            provenance_line_start=0,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="semantic_symbol_identity_provenance_invalid",
+    ):
+        identity.symbol_id(
+            language="java",
+            path="src/Same.java",
+            symbol_kind="type",
+            canonical_id="semantic:java:class:Same",
+            local_qualifier="class:Same",
+            provenance_line_start=1,
+            provenance_column_start=0,
+        )
+
+
+def test_generic_identity_distinguishes_same_line_columns() -> None:
+    identity = DeterministicSemanticSymbolIdentityFactory()
+    values = {
+        identity.symbol_id(
+            language="java",
+            path="src/Same.java",
+            symbol_kind="type",
+            canonical_id="semantic:java:class:Same",
+            local_qualifier="class:Same",
+            provenance_line_start=1,
+            provenance_column_start=column,
+        )
+        for column in (1, 15)
+    }
+
+    assert len(values) == 2
+
+
+def test_typescript_inheritance_targets_unique_local_occurrence() -> None:
+    emitted = TypeScriptSemanticAdapter().emit_graph_records(
+        "src/model.ts",
+        "class Base {}\nclass Child extends Base {}\n",
+    )
+    nodes = {node["symbol"]: node for node in emitted["nodes"]}
+    inheritance = next(
+        edge for edge in emitted["edges"] if edge["edge_type"] == "extends"
+    )
+
+    assert inheritance["source"] == nodes["Child"]["id"]
+    assert inheritance["target"] == nodes["Base"]["id"]
+
+
+def test_typescript_selectors_bind_to_exact_class_occurrences() -> None:
+    emitted = TypeScriptSemanticAdapter().emit_graph_records(
+        "src/components.ts",
+        "@Component({selector: 'first-item'})\n"
+        "class Same {}\n"
+        "class Same {}\n"
+        "@Component({selector: 'third-item'})\n"
+        "class Same {}\n",
+    )
+    nodes = sorted(
+        (node for node in emitted["nodes"] if node["symbol"] == "Same"),
+        key=lambda node: node["provenance"]["line_start"],
+    )
+
+    assert [node["attributes"].get("selector") for node in nodes] == [
+        "first-item",
+        None,
+        "third-item",
+    ]
+    assert [node["semantic_kind"] for node in nodes] == [
+        "component",
+        "data_record",
+        "component",
+    ]
+
+
+def test_java_regex_fallback_reports_source_relative_columns() -> None:
+    adapter = JavaSemanticAdapter()
+    source = (
+        "class C { int x; int y; }\n"
+        "record R(int first,\n"
+        "         String second) {}\n"
+    )
+    parsed = adapter._parse_types("src/Columns.java", source)
+    class_fields = parsed[0]["properties"]
+    record_fields = parsed[1]["properties"]
+
+    assert [field["column_start"] for field in class_fields] == [
+        source.index("int x") + 1,
+        source.index("int y") + 1,
+    ]
+    assert [
+        (field["line_start"], field["column_start"])
+        for field in record_fields
+    ] == [(2, 10), (3, 10)]
+
+
+def test_legacy_generic_identity_injection_is_scoped_by_occurrence() -> None:
+    class LegacyIdentity:
+        def symbol_id(
+            self,
+            *,
+            language: str,
+            path: str,
+            symbol_kind: str,
+            canonical_id: str,
+            local_qualifier: str,
+        ) -> str:
+            return ":".join(
+                (language, path, symbol_kind, canonical_id, local_qualifier)
+            )
+
+    emitted = JavaSemanticAdapter(
+        symbol_identity=LegacyIdentity(),
+    ).emit_graph_records(
+        "src/Duplicates.java",
+        "class Same {} class Same {}\n",
+    )
+    same_nodes = [node for node in emitted["nodes"] if node["symbol"] == "Same"]
+
+    assert len(same_nodes) == 2
+    assert len({node["id"] for node in same_nodes}) == 2

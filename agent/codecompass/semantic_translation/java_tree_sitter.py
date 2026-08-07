@@ -103,6 +103,7 @@ class JavaTreeSitterExtractor:
                     "name": value,
                     "kind": "static_import" if static else "import",
                     "line_start": node.start_point.row + 1,
+                    "column_start": node.start_point.column + 1,
                 }
             )
         return results
@@ -162,6 +163,7 @@ class JavaTreeSitterExtractor:
             "nested": parent_name is not None,
             "kind": _TYPE_KIND_BY_NODE[node.type],
             "line_start": node.start_point.row + 1,
+            "column_start": node.start_point.column + 1,
             "line_end": node.end_point.row + 1,
             "type_parameters": _text(node.child_by_field_name("type_parameters"), source),
             "extends": self._heritage(node.child_by_field_name("superclass"), source, "extends"),
@@ -191,6 +193,7 @@ class JavaTreeSitterExtractor:
                     "nullability": nullability.state,
                     "warnings": list(nullability.warnings),
                     "line_start": child.start_point.row + 1,
+                    "column_start": child.start_point.column + 1,
                 }
             )
         return results
@@ -225,6 +228,7 @@ class JavaTreeSitterExtractor:
             "side_effects": ["unknown_side_effect"],
             "contracts": {"preconditions": [], "postconditions": [], "invariants": []},
             "line_start": node.start_point.row + 1,
+            "column_start": node.start_point.column + 1,
         }
 
     def _parameters(self, node: Any | None, source: bytes, *, property_mode: bool = False) -> list[dict]:
@@ -243,6 +247,7 @@ class JavaTreeSitterExtractor:
                 "order": len(results),
                 "annotations": annotations,
                 "line_start": child.start_point.row + 1,
+                "column_start": child.start_point.column + 1,
             }
             if property_mode:
                 nullability = infer_java_nullability(type_name, annotations)

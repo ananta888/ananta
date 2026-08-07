@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -9,7 +10,11 @@ from agent.codecompass.semantic_translation.python_adapter import (
     PythonSemanticAdapter,
 )
 from agent.codecompass.semantic_translation.python_symbol_identity import (
+    PYTHON_SYMBOL_IDENTITY_STRATEGY,
     DeterministicPythonSymbolIdentityFactory,
+)
+from worker.retrieval.codecompass_domain_supplement import (
+    DOMAIN_SUPPLEMENT_SOURCE_FILENAME,
 )
 from worker.retrieval.repository_codecompass_bridge import (
     RepositoryCodeCompassBridge,
@@ -36,21 +41,28 @@ def test_python_symbol_ids_are_file_scoped_and_path_canonical() -> None:
         path="./package\\first.py",
         symbol_kind="function",
         qualified_symbol="main",
+        provenance_line_start=1,
     )
     canonical_first = identities.symbol_id(
         path="package/first.py",
         symbol_kind="function",
         qualified_symbol="main",
+        provenance_line_start=1,
     )
     second = identities.symbol_id(
         path="package/second.py",
         symbol_kind="function",
         qualified_symbol="main",
+        provenance_line_start=1,
     )
 
     assert first == canonical_first
     assert first != second
-    assert first.startswith("semantic:python:symbol:v1:function:main:")
+    assert (
+        PYTHON_SYMBOL_IDENTITY_STRATEGY
+        == "repo_relative_file_provenance_symbol_sha256.v2"
+    )
+    assert first.startswith("semantic:python:symbol:v2:function:main:")
     assert len(first.rsplit(":", 1)[-1]) == 64
 
 
@@ -64,10 +76,12 @@ def test_python_symbol_ids_preserve_unicode_git_path_identity() -> None:
         path=nfc_path,
         symbol_kind="function",
         qualified_symbol="main",
+        provenance_line_start=1,
     ) != identities.symbol_id(
         path=nfd_path,
         symbol_kind="function",
         qualified_symbol="main",
+        provenance_line_start=1,
     )
 
 
@@ -78,11 +92,13 @@ def test_python_symbol_ids_preserve_git_path_whitespace() -> None:
         path="package/service.py",
         symbol_kind="function",
         qualified_symbol="main",
+        provenance_line_start=1,
     )
     leading_space = identities.symbol_id(
         path="package/ service.py",
         symbol_kind="function",
         qualified_symbol="main",
+        provenance_line_start=1,
     )
 
     assert regular != leading_space
@@ -96,11 +112,13 @@ def test_python_symbol_ids_bound_long_unicode_readable_prefixes() -> None:
         path="package/service.py",
         symbol_kind="function",
         qualified_symbol=f"{common_prefix}\u7532",
+        provenance_line_start=1,
     )
     second = identities.symbol_id(
         path="package/service.py",
         symbol_kind="function",
         qualified_symbol=f"{common_prefix}\u4e59",
+        provenance_line_start=1,
     )
     first_readable = first.rsplit(":", 2)[-2]
     second_readable = second.rsplit(":", 2)[-2]
@@ -121,10 +139,48 @@ def test_python_symbol_identity_rejects_non_repository_paths() -> None:
             path="../outside.py",
             symbol_kind="function",
             qualified_symbol="main",
+            provenance_line_start=1,
         )
 
 
-def test_python_symbol_ids_ignore_revision_content_lines_and_parser_version() -> None:
+@pytest.mark.parametrize("line_start", [0, -1, True, "1", 1.5, None])
+def test_python_symbol_identity_requires_positive_integer_provenance(
+    line_start: object,
+) -> None:
+    identities = DeterministicPythonSymbolIdentityFactory()
+
+    with pytest.raises(
+        ValueError,
+        match="python_symbol_identity_provenance_invalid",
+    ):
+        identities.symbol_id(
+            path="package/service.py",
+            symbol_kind="function",
+            qualified_symbol="main",
+            provenance_line_start=line_start,  # type: ignore[arg-type]
+        )
+
+
+@pytest.mark.parametrize("column_start", [0, -1, True, "1", 1.5, None])
+def test_python_symbol_identity_requires_positive_integer_column(
+    column_start: object,
+) -> None:
+    identities = DeterministicPythonSymbolIdentityFactory()
+
+    with pytest.raises(
+        ValueError,
+        match="python_symbol_identity_provenance_invalid",
+    ):
+        identities.symbol_id(
+            path="package/service.py",
+            symbol_kind="function",
+            qualified_symbol="main",
+            provenance_line_start=1,
+            provenance_column_start=column_start,  # type: ignore[arg-type]
+        )
+
+
+def test_python_symbol_ids_include_line_provenance_but_ignore_parser_version() -> None:
     original = PythonSemanticAdapter().emit_graph_records(
         "package/service.py",
         "def main() -> int:\n    return 1\n",
@@ -133,14 +189,21 @@ def test_python_symbol_ids_ignore_revision_content_lines_and_parser_version() ->
     changed_adapter.parser_strategy = "ast-python-v-next"
     changed = changed_adapter.emit_graph_records(
         "package/service.py",
-        "# a later revision moved the declaration\n\ndef main() -> int:\n    return 2\n",
+        "def main() -> int:\n    return 2\n",
+    )
+    moved = changed_adapter.emit_graph_records(
+        "package/service.py",
+        "# the declaration moved\n\ndef main() -> int:\n    return 2\n",
     )
 
     original_node = _node_by_symbol(original, "main")
     changed_node = _node_by_symbol(changed, "main")
+    moved_node = _node_by_symbol(moved, "main")
 
     assert original_node["id"] == changed_node["id"]
-    assert original_node["provenance"]["line_start"] != changed_node["provenance"]["line_start"]
+    assert original_node["id"] != moved_node["id"]
+    assert original_node["provenance"]["line_start"] == changed_node["provenance"]["line_start"]
+    assert original_node["provenance"]["line_start"] != moved_node["provenance"]["line_start"]
     assert original_node["provenance"]["parser"] == "ast-python-v1"
     assert changed_node["provenance"]["parser"] == "ast-python-v-next"
     assert original_node["schema"] == changed_node["schema"] == ("codecompass_semantic_translation_graph.v1")
@@ -167,17 +230,23 @@ class User:
         path="models/user.py",
         symbol_kind="type",
         qualified_symbol="User",
+        provenance_line_start=5,
+        provenance_column_start=1,
     )
     expected_member_ids = {
         identities.symbol_id(
             path="models/user.py",
             symbol_kind="field",
             qualified_symbol="User.name",
+            provenance_line_start=6,
+            provenance_column_start=5,
         ),
         identities.symbol_id(
             path="models/user.py",
             symbol_kind="method",
             qualified_symbol="User.display_name",
+            provenance_line_start=8,
+            provenance_column_start=5,
         ),
     }
 
@@ -187,6 +256,131 @@ class User:
         (expected_type_id, member_id) for member_id in expected_member_ids
     }
     assert all(edge["source"] in node_ids and edge["target"] in node_ids for edge in result["edges"])
+
+
+def test_same_named_python_classes_and_methods_have_distinct_occurrence_ids() -> None:
+    source = """class Service:
+    def run(self) -> None:
+        return None
+
+class Service:
+    def run(self) -> None:
+        return None
+"""
+
+    result = PythonSemanticAdapter().emit_graph_records(
+        "package/service.py",
+        source,
+    )
+    type_nodes = sorted(
+        (node for node in result["nodes"] if node["symbol"] == "Service"),
+        key=lambda node: node["provenance"]["line_start"],
+    )
+    method_nodes = sorted(
+        (node for node in result["nodes"] if node["symbol"] == "Service.run"),
+        key=lambda node: node["provenance"]["line_start"],
+    )
+
+    assert [node["provenance"]["line_start"] for node in type_nodes] == [1, 5]
+    assert [node["provenance"]["line_start"] for node in method_nodes] == [2, 6]
+    assert len({node["id"] for node in type_nodes}) == 2
+    assert len({node["id"] for node in method_nodes}) == 2
+    assert {
+        (edge["source"], edge["target"])
+        for edge in result["edges"]
+        if edge["edge_type"] == "declares"
+    } == {
+        (type_nodes[0]["id"], method_nodes[0]["id"]),
+        (type_nodes[1]["id"], method_nodes[1]["id"]),
+    }
+
+
+def test_same_line_python_fields_use_distinct_column_provenance() -> None:
+    result = PythonSemanticAdapter().emit_graph_records(
+        "package/values.py",
+        "from dataclasses import dataclass\n"
+        "@dataclass\n"
+        "class Values:\n"
+        "    value: int; value: str\n",
+    )
+
+    fields = [
+        node
+        for node in result["nodes"]
+        if node["symbol"] == "Values.value"
+    ]
+    assert len(fields) == 2
+    assert {node["attributes"]["column_start"] for node in fields} == {5, 17}
+    assert len({node["id"] for node in fields}) == 2
+
+
+def test_supplement_accepts_repeated_python_declarations_in_one_file(
+    tmp_path: Path,
+) -> None:
+    source = """class ProposalBase:
+    def to_dict(self):
+        return {}
+
+class ProposalBase:
+    def to_dict(self):
+        return {}
+"""
+    RepositoryCodeCompassBridge(PythonSemanticAdapter()).build_outputs(
+        source_id="repository-under-test",
+        records=[
+            {
+                "content": source,
+                "metadata": {"relative_path": "worker/core/propose.py"},
+            }
+        ],
+        output_dir=tmp_path,
+    )
+
+    with sqlite3.connect(
+        tmp_path / DOMAIN_SUPPLEMENT_SOURCE_FILENAME
+    ) as connection:
+        records = [
+            json.loads(row[0])
+            for row in connection.execute(
+                "SELECT record_json FROM semantic_nodes ORDER BY node_id"
+            )
+        ]
+
+    proposal_nodes = [
+        node
+        for node in records
+        if node["symbol"] in {"ProposalBase", "ProposalBase.to_dict"}
+    ]
+    assert len(proposal_nodes) == 4
+    assert len({node["id"] for node in proposal_nodes}) == 4
+
+
+def test_legacy_python_identity_injection_is_scoped_by_occurrence() -> None:
+    class LegacyIdentity:
+        def symbol_id(
+            self,
+            *,
+            path: str,
+            symbol_kind: str,
+            qualified_symbol: str,
+        ) -> str:
+            return ":".join((path, symbol_kind, qualified_symbol))
+
+    emitted = PythonSemanticAdapter(
+        symbol_identity=LegacyIdentity(),
+    ).emit_graph_records(
+        "package/service.py",
+        "class Service:\n"
+        "    pass\n"
+        "class Service:\n"
+        "    pass\n",
+    )
+    type_nodes = [
+        node for node in emitted["nodes"] if node["symbol"] == "Service"
+    ]
+
+    assert len(type_nodes) == 2
+    assert len({node["id"] for node in type_nodes}) == 2
 
 
 def test_repository_declares_bind_to_each_files_canonical_python_nodes(

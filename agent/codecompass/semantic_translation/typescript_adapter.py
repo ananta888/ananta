@@ -6,8 +6,10 @@ from pathlib import Path
 from agent.codecompass.semantic_translation.models import Provenance, SemanticEdge, SemanticNode, diagnostic
 from agent.codecompass.semantic_translation.semantic_symbol_identity import (
     DeterministicSemanticSymbolIdentityFactory,
+    LegacySemanticSymbolIdentityPort,
     SemanticSymbolIdentityPort,
     semantic_identity_attributes,
+    semantic_occurrence_symbol_id,
 )
 
 _DECLARATION_RE = re.compile(
@@ -78,7 +80,11 @@ class TypeScriptSemanticAdapter:
     def __init__(
         self,
         *,
-        symbol_identity: SemanticSymbolIdentityPort | None = None,
+        symbol_identity: (
+            SemanticSymbolIdentityPort
+            | LegacySemanticSymbolIdentityPort
+            | None
+        ) = None,
     ) -> None:
         self._symbol_identity = (
             symbol_identity or DeterministicSemanticSymbolIdentityFactory()
@@ -108,6 +114,7 @@ class TypeScriptSemanticAdapter:
                 "binding": str(match.group("binding") or "").strip(),
                 "kind": "import",
                 "line_start": _line(masked, match.start()),
+                "column_start": _column(masked, match.start()),
             }
             for match in _IMPORT_RE.finditer(masked)
         ]
@@ -116,6 +123,7 @@ class TypeScriptSemanticAdapter:
                 "module": match.group("module"),
                 "kind": "export_from",
                 "line_start": _line(masked, match.start()),
+                "column_start": _column(masked, match.start()),
             }
             for match in _EXPORT_FROM_RE.finditer(masked)
         ]
@@ -128,11 +136,16 @@ class TypeScriptSemanticAdapter:
                         "class_name": match.group("name"),
                         "selector": selector.group("selector"),
                         "line_start": _line(masked, match.start()),
+                        "column_start": _column(masked, match.start()),
                         "framework": "angular",
                     }
                 )
         jsx_tags = [
-            {"name": match.group("name"), "line_start": _line(masked, match.start())}
+            {
+                "name": match.group("name"),
+                "line_start": _line(masked, match.start()),
+                "column_start": _column(masked, match.start()),
+            }
             for match in _JSX_TAG_RE.finditer(masked)
         ]
         dynamic_import_lines = [
@@ -152,10 +165,16 @@ class TypeScriptSemanticAdapter:
             "path": path,
             "content": content,
             "types": declarations,
-            "functions": _dedupe(functions, keys=("name", "line_start")),
+            "functions": _dedupe(
+                functions,
+                keys=("name", "line_start", "column_start"),
+            ),
             "imports": imports,
             "exports": exports,
-            "jsx_tags": _dedupe(jsx_tags, keys=("name", "line_start")),
+            "jsx_tags": _dedupe(
+                jsx_tags,
+                keys=("name", "line_start", "column_start"),
+            ),
             "component_selectors": selectors,
             "diagnostics": diagnostics,
             "confidence": 0.72,
@@ -187,20 +206,20 @@ class TypeScriptSemanticAdapter:
         return list(parsed.get("types") or [])
 
     def extract_semantics(self, parsed: dict) -> list[dict]:
-        selector_by_class = {
-            item["class_name"]: item["selector"]
-            for item in parsed.get("component_selectors", [])
-        }
+        selector_by_declaration = _component_selector_by_declaration(parsed)
         semantics = []
         for item in parsed.get("types", []):
+            selector = selector_by_declaration.get(_occurrence_key(item))
             semantic_kind = _semantic_kind(item["kind"])
-            if item["name"] in selector_by_class:
+            if selector is not None:
                 semantic_kind = "component"
             semantics.append(
                 {
                     "symbol": item["name"],
                     "semantic_kind": semantic_kind,
-                    "selector": selector_by_class.get(item["name"]),
+                    "selector": (
+                        selector["selector"] if selector is not None else None
+                    ),
                 }
             )
         semantics.extend(
@@ -214,23 +233,36 @@ class TypeScriptSemanticAdapter:
         file_key = path.replace("\\", "/")
         nodes: list[dict] = []
         edges: list[dict] = []
-        node_by_symbol: dict[str, str] = {}
+        declaration_entries: list[tuple[dict, str]] = []
+        node_candidates_by_symbol: dict[str, set[str]] = {}
         module_node_ids: set[str] = set()
-        selector_by_class = {
-            item["class_name"]: item["selector"]
-            for item in parsed["component_selectors"]
-        }
+        selector_by_declaration = _component_selector_by_declaration(parsed)
 
         for item in [*parsed["types"], *parsed["functions"]]:
             kind = item["kind"]
+            selector = selector_by_declaration.get(_occurrence_key(item))
             semantic_kind = "function_signature" if "function" in kind else _semantic_kind(kind)
-            if item["name"] in selector_by_class:
+            if selector is not None:
                 semantic_kind = "component"
-            node_id = f"semantic:typescript:{kind}:{file_key}:{item['name']}"
-            node_by_symbol[item["name"]] = node_id
-            attributes = dict(item)
-            if item["name"] in selector_by_class:
-                attributes.update({"framework": "angular", "selector": selector_by_class[item["name"]]})
+            node_id, canonical_id = self._declaration_identity(
+                path=path,
+                item=item,
+            )
+            declaration_entries.append((item, node_id))
+            node_candidates_by_symbol.setdefault(
+                item["name"], set()
+            ).add(node_id)
+            attributes = {
+                **item,
+                **semantic_identity_attributes(canonical_id),
+            }
+            if selector is not None:
+                attributes.update(
+                    {
+                        "framework": "angular",
+                        "selector": selector["selector"],
+                    }
+                )
             if item["name"][:1].isupper() and any(tag["name"] for tag in parsed["jsx_tags"]):
                 attributes.setdefault("framework_hint", "react_or_jsx")
             nodes.append(self._node(path, node_id, item["name"], semantic_kind, attributes))
@@ -239,6 +271,8 @@ class TypeScriptSemanticAdapter:
             module_id, canonical_module_id = self._module_identity(
                 path=path,
                 module_name=item["module"],
+                provenance_line_start=int(item["line_start"]),
+                provenance_column_start=int(item["column_start"]),
             )
             if module_id not in module_node_ids:
                 nodes.append(
@@ -269,6 +303,8 @@ class TypeScriptSemanticAdapter:
             module_id, canonical_module_id = self._module_identity(
                 path=path,
                 module_name=item["module"],
+                provenance_line_start=int(item["line_start"]),
+                provenance_column_start=int(item["column_start"]),
             )
             if module_id not in module_node_ids:
                 nodes.append(
@@ -293,8 +329,12 @@ class TypeScriptSemanticAdapter:
                     edge_type="exports",
                 ).as_record()
             )
-        for item in [*parsed["types"], *parsed["functions"]]:
-            source_id = node_by_symbol[item["name"]]
+        node_by_symbol = {
+            symbol: next(iter(candidates))
+            for symbol, candidates in node_candidates_by_symbol.items()
+            if len(candidates) == 1
+        }
+        for item, source_id in declaration_entries:
             if item.get("exported"):
                 edges.append(
                     SemanticEdge(
@@ -307,7 +347,10 @@ class TypeScriptSemanticAdapter:
                 edges.append(
                     SemanticEdge(
                         source_id=source_id,
-                        target_id=_type_target(base),
+                        target_id=node_by_symbol.get(
+                            base,
+                            _type_target(base),
+                        ),
                         edge_type="extends",
                     ).as_record()
                 )
@@ -315,7 +358,10 @@ class TypeScriptSemanticAdapter:
                 edges.append(
                     SemanticEdge(
                         source_id=source_id,
-                        target_id=_type_target(interface),
+                        target_id=node_by_symbol.get(
+                            interface,
+                            _type_target(interface),
+                        ),
                         edge_type="implements",
                     ).as_record()
                 )
@@ -336,15 +382,43 @@ class TypeScriptSemanticAdapter:
         *,
         path: str,
         module_name: str,
+        provenance_line_start: int,
+        provenance_column_start: int,
     ) -> tuple[str, str]:
         canonical_id = f"semantic:typescript:module:{module_name}"
         return (
-            self._symbol_identity.symbol_id(
+            semantic_occurrence_symbol_id(
+                self._symbol_identity,
                 language=self.language,
                 path=path,
                 symbol_kind="module",
                 canonical_id=canonical_id,
                 local_qualifier=module_name,
+                provenance_line_start=provenance_line_start,
+                provenance_column_start=provenance_column_start,
+            ),
+            canonical_id,
+        )
+
+    def _declaration_identity(
+        self,
+        *,
+        path: str,
+        item: dict,
+    ) -> tuple[str, str]:
+        kind = str(item["kind"])
+        name = str(item["name"])
+        canonical_id = f"semantic:typescript:{kind}:{name}"
+        return (
+            semantic_occurrence_symbol_id(
+                self._symbol_identity,
+                language=self.language,
+                path=path,
+                symbol_kind="declaration",
+                canonical_id=canonical_id,
+                local_qualifier=f"{kind}:{name}",
+                provenance_line_start=int(item["line_start"]),
+                provenance_column_start=int(item["column_start"]),
             ),
             canonical_id,
         )
@@ -355,6 +429,7 @@ class TypeScriptSemanticAdapter:
             "name": match.group("name"),
             "kind": match.group("kind"),
             "line_start": _line(content, match.start()),
+            "column_start": _column(content, match.start()),
             "generics": str(match.group("generics") or "").strip(),
             "extends": _heritage(tail, "extends"),
             "implements": _heritage(tail, "implements"),
@@ -368,6 +443,7 @@ class TypeScriptSemanticAdapter:
             "name": match.group("name"),
             "kind": kind,
             "line_start": _line(content, match.start()),
+            "column_start": _column(content, match.start()),
             "generics": str(groups.get("generics") or "").strip(),
             "parameters": str(groups.get("params") or "").strip(),
             "return_type": str(groups.get("return") or "").strip(),
@@ -430,6 +506,61 @@ def _heritage(tail: str, keyword: str) -> list[str]:
 
 def _line(content: str, offset: int) -> int:
     return content.count("\n", 0, offset) + 1
+
+
+def _column(content: str, offset: int) -> int:
+    return offset - content.rfind("\n", 0, offset)
+
+
+def _occurrence_key(item: dict) -> tuple[str, int, int]:
+    return (
+        str(item["name"]),
+        int(item["line_start"]),
+        int(item["column_start"]),
+    )
+
+
+def _component_selector_by_declaration(
+    parsed: dict,
+) -> dict[tuple[str, int, int], dict]:
+    """Bind each decorator to the following same-named class occurrence."""
+
+    declarations_by_name: dict[str, list[dict]] = {}
+    for item in parsed.get("types", []):
+        declarations_by_name.setdefault(str(item["name"]), []).append(item)
+    for declarations in declarations_by_name.values():
+        declarations.sort(
+            key=lambda item: (
+                int(item["line_start"]),
+                int(item["column_start"]),
+            )
+        )
+
+    assigned: set[tuple[str, int, int]] = set()
+    result: dict[tuple[str, int, int], dict] = {}
+    for selector in sorted(
+        parsed.get("component_selectors", []),
+        key=lambda item: (
+            int(item["line_start"]),
+            int(item["column_start"]),
+        ),
+    ):
+        selector_position = (
+            int(selector["line_start"]),
+            int(selector["column_start"]),
+        )
+        for declaration in declarations_by_name.get(
+            str(selector["class_name"]),
+            [],
+        ):
+            key = _occurrence_key(declaration)
+            declaration_position = (key[1], key[2])
+            if key in assigned or declaration_position < selector_position:
+                continue
+            assigned.add(key)
+            result[key] = selector
+            break
+    return result
 
 
 def _balanced(content: str) -> bool:
