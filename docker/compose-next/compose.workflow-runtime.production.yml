@@ -90,6 +90,7 @@ services:
       AGENT_URL: http://ai-agent-alpha:5000
       HUB_URL: http://ai-agent-hub:5000
       ANANTA_WORKSPACE_ROOT: /project-workspaces
+      ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES: ${ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES:-2147483648}
       DISABLE_INITIAL_ADMIN: "1"
       AGENT_TOKEN_FILE: /run/secrets/workflow_worker_alpha_service_token
       AGENT_TOKEN_PERSISTENCE: "0"
@@ -155,6 +156,7 @@ services:
       AGENT_URL: http://ai-agent-beta:5000
       HUB_URL: http://ai-agent-hub:5000
       ANANTA_WORKSPACE_ROOT: /project-workspaces
+      ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES: ${ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES:-2147483648}
       DISABLE_INITIAL_ADMIN: "1"
       AGENT_TOKEN_FILE: /run/secrets/workflow_worker_beta_service_token
       AGENT_TOKEN_PERSISTENCE: "0"

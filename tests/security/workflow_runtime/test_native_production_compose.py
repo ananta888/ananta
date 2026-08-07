@@ -73,6 +73,10 @@ CENTRAL_ONLY_ENVIRONMENT = {
     "INITIAL_ADMIN_PASSWORD",
     "SECRET_KEY",
 }
+DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_ENV = (
+    "ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES"
+)
+DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_TEST_VALUE = "3221225472"
 NATIVE_ALLOWED_CAPABILITIES = [
     "planning",
     "analysis",
@@ -379,7 +383,11 @@ def test_native_production_merged_model_contains_no_worker_or_angular_admin_secr
     if shutil.which("docker") is None:
         pytest.skip("docker CLI is not installed")
     secret_paths, secret_payloads = _temporary_secret_files(tmp_path)
-    completed = _render_compose(_docker_environment(secret_paths))
+    environment = _docker_environment(secret_paths)
+    environment[DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_ENV] = (
+        DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_TEST_VALUE
+    )
+    completed = _render_compose(environment)
     assert completed.returncode == 0, completed.stderr
 
     rendered = json.loads(completed.stdout)
@@ -408,6 +416,9 @@ def test_native_production_merged_model_contains_no_worker_or_angular_admin_secr
         assert "native-central-postgres-password" not in json.dumps(worker)
         assert HUB_TOKEN not in _secret_sources(worker)
         assert environment["ANANTA_QUICKSTART_ROLE"] == "worker"
+        assert environment[DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_ENV] == (
+            DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_TEST_VALUE
+        )
         assert set(worker["networks"]) == {"workflow-worker-control"}
         assert not worker.get("ports")
 
