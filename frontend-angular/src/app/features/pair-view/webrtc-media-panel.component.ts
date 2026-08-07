@@ -1,20 +1,27 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { OrdinaryAudioState } from '../../services/webrtc-media-session.service';
 import { MediaPublicationView } from '../../services/webrtc-media-publication.service';
+import { WebrtcRemoteVideoComponent } from './webrtc-remote-video.component';
 
 @Component({
-  selector: 'app-webrtc-media-panel', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush,
+  selector: 'app-webrtc-media-panel', standalone: true, imports: [WebrtcRemoteVideoComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section aria-labelledby="ordinary-media-heading">
       <h4 id="ordinary-media-heading">Ordinary Audio/Video</h4>
       <p class="notice">Capture startet ausschließlich nach Ihrer sichtbaren Auswahl.</p>
-      @if (!captureEnabled) {
-        <p role="note">{{ captureReason }}</p>
+      <p class="notice" role="note">
+        Kamera und Mikrofon benötigen HTTPS oder localhost sowie die Browserfreigabe für diese Website.
+      </p>
+      @if (!captureEnabled || !videoCaptureEnabled) {
+        <p role="note">{{ reasonLabel(captureReason) }} <code>{{ captureReason }}</code></p>
       }
       <article data-source="microphone" [attr.data-status]="audioState.status">
         <strong>Mikrofon</strong>
         <span>{{ statusLabel(audioState.status) }}</span>
-        @if (audioState.reasonCode) { <span>{{ audioState.reasonCode }}</span> }
+        @if (audioState.reasonCode) {
+          <span role="status">{{ reasonLabel(audioState.reasonCode) }} <code>{{ audioState.reasonCode }}</code></span>
+        }
         <div class="actions">
           <button type="button" [disabled]="!captureEnabled || microphoneBusy()" (click)="startMicrophone.emit()">
             Mikrofon freigeben
@@ -41,7 +48,9 @@ import { MediaPublicationView } from '../../services/webrtc-media-publication.se
         <article [attr.data-source]="publication.source" [attr.data-status]="publication.status">
           <strong>{{ publication.captureLabel }}</strong>
           <span>{{ statusLabel(publication.status) }}</span>
-          @if (publication.reasonCode) { <span>{{ publication.reasonCode }}</span> }
+          @if (publication.reasonCode) {
+            <span role="status">{{ reasonLabel(publication.reasonCode) }} <code>{{ publication.reasonCode }}</code></span>
+          }
           @if (publication.local && publication.status !== 'ended') {
             <button type="button" (click)="stop.emit(publication.publicationId)">
               {{ publication.captureLabel }} stoppen
@@ -55,7 +64,13 @@ import { MediaPublicationView } from '../../services/webrtc-media-publication.se
               </button>
             }
           }
+          @if (!publication.local && publication.source === 'remote_video') {
+            <app-webrtc-remote-video [publication]="publication" />
+          }
         </article>
+      }
+      @if (!hasRemoteVideo()) {
+        <p class="notice" role="status">Noch kein Remote-Video empfangen.</p>
       }
     </section>
   `,
@@ -101,5 +116,27 @@ export class WebrtcMediaPanelComponent {
       idle: 'bereit', requesting_permission: 'Browserfreigabe wird angefragt', active: 'aktiv',
       muted: 'stumm', ended: 'beendet', failed: 'fehlgeschlagen',
     } as Record<string, string>)[status] ?? 'unbekannt';
+  }
+
+  hasRemoteVideo(): boolean {
+    return this.publications.some(publication => !publication.local
+      && publication.source === 'remote_video' && publication.status !== 'ended');
+  }
+
+  reasonLabel(reasonCode: string): string {
+    return ({
+      ordinary_media_activation_required: 'Audio/Video muss zuerst beim Hub aktiviert werden.',
+      ordinary_media_capture_not_authorized: 'Der Hub hat die Medienaufnahme nicht freigegeben.',
+      ordinary_media_publication_disabled: 'Ordinary Media ist in diesem Netzwerkprofil deaktiviert.',
+      ordinary_media_webrtc_transport_required: 'Die direkte WebRTC-Verbindung ist noch nicht verfügbar.',
+      ordinary_media_session_missing: 'Es ist noch keine aktive Pair-Session ausgewählt.',
+      ordinary_media_hub_offline: 'Der Hub ist nicht erreichbar; neue Medienfreigaben sind gesperrt.',
+      microphone_permission_denied: 'Der Browser hat den Mikrofonzugriff abgelehnt.',
+      publication_permission_denied: 'Der Browser hat den Kamera- oder Bildschirmzugriff abgelehnt.',
+      browser_media_devices_unavailable: 'Dieses Browserfenster kann nicht auf Mediengeräte zugreifen.',
+      browser_display_capture_unavailable: 'Dieser Browser unterstützt keine Bildschirmfreigabe.',
+      publication_authorization_expired: 'Die Freigabe des Hubs ist abgelaufen.',
+      remote_track_unavailable: 'Der entfernte Video-Track ist nicht mehr verfügbar.',
+    } as Record<string, string>)[reasonCode] ?? 'Medienstatus des Hubs oder Browsers:';
   }
 }
