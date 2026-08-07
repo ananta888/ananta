@@ -169,10 +169,41 @@ incompatible and shared-secret authentication overrides static users.
 
 `RENDEZVOUS_DB_PATH` points to the shared SQLite file used by all Gunicorn workers. Keep this path on a persistent Docker volume so session lists stay consistent across workers and restarts.
 
+## Pre-built Keycloak image
+
+Keycloak is augmented once in an image built away from the memory-constrained
+public VM. Build the pinned amd64 image on a workstation or CI runner; do not
+pass database or administrator credentials to the build:
+
+```bash
+docker buildx build --platform linux/amd64 --pull --load \
+  -f public-rendezvous/keycloak/Containerfile \
+  -t ananta-keycloak:26.6.1-optimized-v1 \
+  public-rendezvous/keycloak
+
+docker save ananta-keycloak:26.6.1-optimized-v1 \
+  | gzip -1 > /tmp/ananta-keycloak-26.6.1-optimized-v1.tar.gz
+```
+
+Transfer the archive using the approved administrative channel, then load it on
+the public VM before starting Compose:
+
+```bash
+gzip -dc /tmp/ananta-keycloak-26.6.1-optimized-v1.tar.gz \
+  | sudo docker load
+sudo docker image inspect ananta-keycloak:26.6.1-optimized-v1 >/dev/null
+```
+
+The archive is a generated deployment artifact and must not be committed. The
+runtime Compose file deliberately has no Keycloak `build` section and uses
+`pull_policy: never`; a missing local image therefore fails explicitly instead
+of augmenting or pulling during a recreate. Changes to Keycloak build options or
+providers require a newly versioned image and a deliberate Compose update.
+
 ## Start
 
 ```bash
-# Image bauen und Konfiguration validieren
+# Rendezvous-Image bauen und Konfiguration validieren
 sudo docker compose -p ananta-public \
   --env-file /etc/ananta/public-rendezvous.env \
   -f /opt/ananta/docker/old_way/docker-compose.public-rendezvous.yml \

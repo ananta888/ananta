@@ -58,11 +58,15 @@ services:
       start_period: 10s
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.6.1@sha256:dea26401d06341095cc4ea9d66896200b55de5ca1daa1d2fcbe58493afa6e0ad
+    image: ananta-keycloak:26.6.1-optimized-v1
+    # The image is built off-host and loaded explicitly on the small public VM.
+    # Never pull or build it implicitly during a Compose recreate.
+    pull_policy: never
     restart: unless-stopped
     mem_limit: ${KEYCLOAK_MEMORY_LIMIT:-700m}
     command:
       - start
+      - --optimized
       - --http-enabled=true
       - --proxy-headers=xforwarded
       - --hostname=https://${PUBLIC_KEYCLOAK_HOSTNAME:-keycloak.ananta.de}
@@ -76,6 +80,7 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in the environment file}
       KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "false"
       KC_CACHE: local
       KC_DB_POOL_INITIAL_SIZE: ${KEYCLOAK_DB_POOL_INITIAL_SIZE:-1}
       KC_DB_POOL_MIN_SIZE: ${KEYCLOAK_DB_POOL_MIN_SIZE:-1}
