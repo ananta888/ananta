@@ -153,10 +153,9 @@ services:
       # users: coturn lets shared-secret auth override that incompatible mode.
       - --use-auth-secret
       - --static-auth-secret=${TURN_SHARED_SECRET:?set TURN_SHARED_SECRET in the environment file}
-      - --no-cli
-      # TURNS/DTLS needs a coturn certificate; the Caddy cert is not sufficient.
+      # CLI and DTLS are disabled by default in coturn 4.17. TURNS still needs
+      # a coturn-owned certificate; Caddy's HTTPS certificate is insufficient.
       - --no-tls
-      - --no-dtls
 
 volumes:
   public_caddy_data:

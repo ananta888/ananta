@@ -53,5 +53,7 @@ def test_public_coturn_accepts_rendezvous_rest_credentials_only():
     assert "--lt-cred-mech" not in command
     assert not any(item.startswith("--user=") for item in command)
     assert "--no-tls" in command
-    assert "--no-dtls" in command
+    assert "--no-cli" not in command
+    assert "--no-dtls" not in command
+    assert "--dtls" not in command
     assert not any(item.startswith("--tls-listening-port=") for item in command)
