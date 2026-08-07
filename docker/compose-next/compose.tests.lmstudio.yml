@@ -162,6 +162,7 @@ services:
       ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
       ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON: '{"runtime_target_id":"source-index-alpha","runtime_id":"codecompass-index","runtime_kind":"docker_container","provider_id":"codex","model_ids":["gpt-5-codex"],"provider_location":"local_container","data_residency":"local","model_class":"code","source_access_authorized":true,"global_source_access":true,"enabled":true,"worker_kind":"worker"}'
       ANANTA_WORKSPACE_ROOT: /project-workspaces
+      ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES: ${ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES:-2147483648}
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta_password}@postgres:5432/${POSTGRES_DB:-ananta}"
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       TERMINAL_FEATURE_ENABLED: "true"
@@ -215,6 +216,7 @@ services:
       ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
       ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON: '{"runtime_target_id":"source-index-beta","runtime_id":"codecompass-index","runtime_kind":"docker_container","provider_id":"codex","model_ids":["gpt-5-codex"],"provider_location":"local_container","data_residency":"local","model_class":"code","source_access_authorized":true,"global_source_access":true,"enabled":true,"worker_kind":"worker"}'
       ANANTA_WORKSPACE_ROOT: /project-workspaces
+      ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES: ${ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES:-2147483648}
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta_password}@postgres:5432/${POSTGRES_DB:-ananta}"
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     volumes:

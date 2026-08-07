@@ -99,6 +99,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:-ananta-dev-shared-secret-change-me}
       ROLE: worker
       ANANTA_WORKSPACE_ROOT: /project-workspaces
+      ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES: ${ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES:-2147483648}
     volumes:
       - ../../project-workspaces:/project-workspaces:rw
 

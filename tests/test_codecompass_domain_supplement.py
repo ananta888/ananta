@@ -13,8 +13,10 @@ from ananta_contracts.codecompass_semantic_partitions import (
     codecompass_semantic_repository_root_domain_key,
 )
 from worker.retrieval.codecompass_domain_supplement import (
+    DEFAULT_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES,
     DOMAIN_SUPPLEMENT_FILENAME,
     DOMAIN_SUPPLEMENT_SOURCE_FILENAME,
+    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES,
     CodeCompassDomainSupplementSourceWriter,
     SemanticDomainIdentity,
     WorkerCodeCompassDomainSupplementMaterializer,
@@ -215,6 +217,60 @@ def test_source_writer_fails_closed_at_its_raw_disk_budget(
 
     assert not destination.exists()
     assert not list(tmp_path.glob(".bounded-source.sqlite3.*.tmp"))
+
+
+def test_source_writer_uses_scalable_configured_disk_budget(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured = 1024 * 1024 * 1024
+    monkeypatch.setenv(
+        "ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES",
+        str(configured),
+    )
+
+    with CodeCompassDomainSupplementSourceWriter(
+        tmp_path / "configured-source.sqlite3"
+    ) as writer:
+        assert writer._maximum_bytes == configured
+
+    monkeypatch.delenv(
+        "ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES"
+    )
+    with CodeCompassDomainSupplementSourceWriter(
+        tmp_path / "default-source.sqlite3"
+    ) as writer:
+        assert (
+            writer._maximum_bytes
+            == DEFAULT_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES
+        )
+
+
+@pytest.mark.parametrize(
+    "configured",
+    [
+        "invalid",
+        str(64 * 1024 - 1),
+        str(MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES + 1),
+    ],
+)
+def test_source_writer_rejects_invalid_configured_disk_budget(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    configured: str,
+) -> None:
+    monkeypatch.setenv(
+        "ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES",
+        configured,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="codecompass_domain_supplement_source_limit_invalid",
+    ):
+        CodeCompassDomainSupplementSourceWriter(
+            tmp_path / "invalid-source.sqlite3"
+        )
 
 
 def test_source_reader_rejects_unexpected_sqlite_schema(

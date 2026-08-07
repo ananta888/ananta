@@ -44,16 +44,20 @@ from ananta_contracts.codecompass_graph_limits import (
 from ananta_contracts.codecompass_semantic_partitions import (
     CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD,
 )
+from worker.retrieval.codecompass_domain_supplement_config import (
+    DEFAULT_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES,
+    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES,
+    configured_domain_supplement_source_bytes,
+    validate_domain_supplement_source_bytes,
+)
 
 DOMAIN_SUPPLEMENT_SOURCE_FILENAME: Final = "semantic_domain_source.sqlite3"
-MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES: Final = 512 * 1024 * 1024
 _SOURCE_SCHEMA = "codecompass_graph_domain_supplement_source.v1"
 _SOURCE_SQLITE_APPLICATION_ID = 0x414E4353  # ANCS
 _SOURCE_SQLITE_USER_VERSION = 1
 _DOMAIN_KINDS = frozenset({"top_level_path", "repository_root"})
 _SQLITE_HEADER = b"SQLite format 3\x00"
 _SQLITE_PAGE_BYTES = 4096
-_MINIMUM_SOURCE_BYTES = 64 * 1024
 _SQLITE_PROGRESS_OPCODES = 10_000
 
 _SOURCE_TABLE_COLUMNS = {
@@ -241,20 +245,18 @@ class CodeCompassDomainSupplementSourceWriter:
         self,
         path: str | Path,
         *,
-        maximum_bytes: int = MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES,
+        maximum_bytes: int | None = None,
         execution_deadline: (
             CodeCompassDomainSupplementExecutionDeadlinePort | None
         ) = None,
     ) -> None:
-        if (
-            isinstance(maximum_bytes, bool)
-            or not isinstance(maximum_bytes, int)
-            or maximum_bytes < _MINIMUM_SOURCE_BYTES
-            or maximum_bytes > MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES
-        ):
-            raise ValueError("codecompass_domain_supplement_source_limit_invalid")
+        configured_maximum = (
+            configured_domain_supplement_source_bytes()
+            if maximum_bytes is None
+            else validate_domain_supplement_source_bytes(maximum_bytes)
+        )
         self._path = Path(path)
-        self._maximum_bytes = int(maximum_bytes)
+        self._maximum_bytes = int(configured_maximum)
         self._execution_deadline = execution_deadline
         self._path.parent.mkdir(parents=True, exist_ok=True)
         handle = tempfile.NamedTemporaryFile(
@@ -1417,6 +1419,7 @@ __all__ = [
     "DOMAIN_SUPPLEMENT_SCHEMA",
     "DOMAIN_SUPPLEMENT_SOURCE_FILENAME",
     "CodeCompassDomainSupplementSourceWriter",
+    "DEFAULT_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES",
     "DomainSupplementContent",
     "MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_BYTES",
     "SemanticDomainIdentity",
