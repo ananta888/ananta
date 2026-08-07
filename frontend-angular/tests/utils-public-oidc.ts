@@ -2,7 +2,6 @@ import { Page } from '@playwright/test';
 import {
   PUBLIC_OIDC_CLIENT_ID as DEFAULT_PUBLIC_OIDC_CLIENT_ID,
   PUBLIC_OIDC_ISSUER as DEFAULT_PUBLIC_OIDC_ISSUER,
-  PUBLIC_OIDC_REALM,
 } from '../src/app/services/public-ananta-endpoints';
 
 const PUBLIC_OIDC_ISSUER = process.env.E2E_OIDC_ISSUER || DEFAULT_PUBLIC_OIDC_ISSUER;
@@ -13,7 +12,7 @@ const PUBLIC_OIDC_CLIENT_SECRET = process.env.E2E_OIDC_CLIENT_SECRET || '';
 const PUBLIC_OIDC_AUTH_MODE = (process.env.E2E_AUTH_MODE || 'local').toLowerCase();
 const PUBLIC_KEYCLOAK_BASE_URL = process.env.E2E_KEYCLOAK_BASE_URL || PUBLIC_OIDC_ISSUER.replace(/\/realms\/.+$/, '');
 const PUBLIC_KEYCLOAK_HOST = PUBLIC_KEYCLOAK_BASE_URL.replace(/^https?:\/\//, '');
-const PUBLIC_OIDC_REALM_NAME = PUBLIC_OIDC_REALM;
+const PUBLIC_OIDC_REALM_NAME = PUBLIC_OIDC_ISSUER.match(/\/realms\/([^/?#]+)/)?.[1] || 'ananta';
 const PUBLIC_OIDC_SCOPES = 'openid profile email';
 
 function sleep(ms: number): Promise<void> {
@@ -220,13 +219,14 @@ export async function loginViaPublicOidcUi(page: Page): Promise<void> {
   await expect(keycloakLogin).toBeVisible({ timeout: 30_000 });
   await keycloakLogin.click();
 
-  await page.waitForURL(/keycloak\.ananta\.de\/realms\/ananta-e2e\//i, { timeout: 120_000 });
+  const normalizedIssuer = PUBLIC_OIDC_ISSUER.replace(/\/$/, '');
+  await page.waitForURL(url => url.href.startsWith(`${normalizedIssuer}/`), { timeout: 120_000 });
   await page.waitForLoadState('domcontentloaded').catch(() => undefined);
 
   if (await page.getByText(/Invalid parameter: redirect_uri/i).isVisible().catch(() => false)) {
     throw new Error(
       'Keycloak rejected redirect_uri. Add http://angular-frontend:4200/oidc-callback to the ' +
-      'valid redirect URIs of client ananta-tui in realm ananta-e2e.'
+      `valid redirect URIs of client ${PUBLIC_OIDC_CLIENT_ID} in realm ${PUBLIC_OIDC_REALM_NAME}.`
     );
   }
 
@@ -281,4 +281,3 @@ export async function loginViaPublicOidcUi(page: Page): Promise<void> {
   // Instead, wait for Angular's router to naturally navigate after the callback.
   await page.waitForURL(/\/(workspace|dashboard|help)(\/|$)/, { timeout: 60_000 }).catch(() => undefined);
 }
-

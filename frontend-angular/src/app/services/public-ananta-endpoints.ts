@@ -1,4 +1,6 @@
-export const PUBLIC_OIDC_REALM = 'ananta-e2e';
+// Bootstrap fallback used before the protected Hub profile endpoint is
+// available. Explicit E2E environments override this through their profile.
+export const PUBLIC_OIDC_REALM = 'ananta';
 export const PUBLIC_OIDC_ISSUER = `https://keycloak.ananta.de/realms/${PUBLIC_OIDC_REALM}`;
 export const PUBLIC_KEYCLOAK_BASE_URL = 'https://keycloak.ananta.de';
 export const PUBLIC_OIDC_CLIENT_ID = 'ananta-tui';

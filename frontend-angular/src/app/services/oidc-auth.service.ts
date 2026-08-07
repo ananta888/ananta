@@ -1,7 +1,4 @@
-/**
- * T12 / T13 / T14 / T15 / T16: OIDC PKCE + Device Flow + Refresh + Logout + Nonce
- * Issuer: keycloak.ananta.de/realms/ananta-e2e  client_id: ananta-tui
- */
+/** T12 / T13 / T14 / T15 / T16: OIDC PKCE + Device Flow + Refresh + Logout + Nonce. */
 import { Injectable, inject } from '@angular/core';
 import { sha256Bytes } from '../shared/crypto/sha256';
 import { Router } from '@angular/router';
@@ -18,8 +15,31 @@ const SCOPES = 'openid profile email';
 const SS_PKCE_KEY = 'oidc.pkce';       // sessionStorage
 const SS_NONCE_KEY = 'oidc.nonce';
 const LS_POPUP_KEY = 'oidc.pkce.popup'; // localStorage — shared with popup window
+const LOGIN_POPUP_FEATURES = 'width=560,height=680,left=200,top=80';
+const POPUP_DISCOVERY_TIMEOUT_MS = 10_000;
+
+export type OidcPopupLoginFailure =
+  | 'popup_blocked'
+  | 'configuration_missing'
+  | 'popup_closed'
+  | 'issuer_unreachable'
+  | 'popup_start_failed';
+
+/** Stable, user-facing failure contract for callers that render login feedback. */
+export class OidcPopupLoginError extends Error {
+  override readonly name = 'OidcPopupLoginError';
+
+  constructor(
+    readonly code: OidcPopupLoginFailure,
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+  }
+}
 
 interface OidcMeta {
+  issuer: string;
   authorization_endpoint: string;
   token_endpoint: string;
   end_session_endpoint: string;
@@ -43,6 +63,7 @@ export class OidcAuthService {
   private router = inject(Router);
 
   private _meta: OidcMeta | null = null;
+  private _metaIssuer = '';
   private _sessionNonce = '';
 
   readonly loggedIn$ = this.userAuth.oidcToken$.pipe(map(t => !!t));
@@ -51,11 +72,13 @@ export class OidcAuthService {
   get hasNonce(): boolean { return !!this._sessionNonce; }
 
   get issuer(): string {
-    return this.profiles.current.oidc?.issuer || PUBLIC_OIDC_ISSUER;
+    const configured = this.profiles.current?.oidc?.issuer;
+    return (typeof configured === 'string' ? configured.trim() : '') || PUBLIC_OIDC_ISSUER;
   }
 
   get clientId(): string {
-    return this.profiles.current.oidc?.client_id || PUBLIC_OIDC_CLIENT_ID;
+    const configured = this.profiles.current?.oidc?.client_id;
+    return (typeof configured === 'string' ? configured.trim() : '') || PUBLIC_OIDC_CLIENT_ID;
   }
 
   private get hubUrl(): string {
@@ -89,13 +112,37 @@ export class OidcAuthService {
 
   // ── Discovery ────────────────────────────────────────────────────────
 
-  private async loadMeta(issuer = this.issuer): Promise<OidcMeta> {
-    if (issuer === this.issuer && this._meta) return this._meta;
-    const r = await fetch(`${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`);
-    if (!r.ok) throw new Error(`OIDC discovery failed: ${r.status}`);
-    const meta = await r.json() as OidcMeta;
-    if (issuer === this.issuer) this._meta = meta;
-    return meta;
+  private async loadMeta(issuer = this.issuer, timeoutMs = 0): Promise<OidcMeta> {
+    const normalizedIssuer = this.normalizeHttpUrl(issuer, 'OIDC issuer', true);
+    if (this._meta && this._metaIssuer === normalizedIssuer) return this._meta;
+    const controller = timeoutMs > 0 ? new AbortController() : null;
+    const timeout = controller
+      ? window.setTimeout(() => controller.abort(), timeoutMs)
+      : undefined;
+    try {
+      const r = await fetch(
+        `${normalizedIssuer}/.well-known/openid-configuration`,
+        controller ? { signal: controller.signal } : undefined,
+      );
+      if (!r.ok) throw new Error(`OIDC discovery failed: ${r.status}`);
+      const meta = await r.json() as OidcMeta;
+      if (!meta.authorization_endpoint) {
+        throw new Error('OIDC discovery failed: authorization_endpoint missing');
+      }
+      const discoveredIssuer = this.normalizeHttpUrl(meta.issuer, 'OIDC discovery issuer', true);
+      if (discoveredIssuer !== normalizedIssuer) {
+        throw new Error('OIDC discovery failed: issuer mismatch');
+      }
+      const authorizationEndpoint = this.normalizeHttpUrl(
+        meta.authorization_endpoint,
+        'OIDC authorization endpoint',
+      );
+      this._meta = { ...meta, issuer: discoveredIssuer, authorization_endpoint: authorizationEndpoint };
+      this._metaIssuer = normalizedIssuer;
+      return this._meta;
+    } finally {
+      if (timeout !== undefined) window.clearTimeout(timeout);
+    }
   }
 
   // ── PKCE helpers ─────────────────────────────────────────────────────
@@ -252,31 +299,82 @@ export class OidcAuthService {
   // ── Popup-PKCE login (browser equivalent of TUI loopback flow) ───────
 
   async startLoginPopup(issuer = this.issuer, clientId = this.clientId): Promise<void> {
-    const authEndpoint = `${issuer.replace(/\/$/, '')}/protocol/openid-connect/auth`;
-    const verifier = this.randomB64Url(48);
-    const state = this.randomB64Url(16);
-    const nonce = this.randomB64Url(16);
-    const challenge = await this.sha256B64Url(verifier);
-    const redirectUri = `${location.origin}/oidc-callback`;
+    // This must happen before the first await. Otherwise browsers can discard
+    // the click's user activation while discovery and PKCE are being prepared.
+    const popup = window.open('about:blank', 'oidc-login', LOGIN_POPUP_FEATURES);
+    if (!popup) {
+      throw new OidcPopupLoginError(
+        'popup_blocked',
+        'Das Keycloak-Anmeldefenster wurde vom Browser blockiert. Bitte Pop-ups für diese Seite erlauben und erneut versuchen.',
+      );
+    }
 
-    // localStorage is shared between opener and popup (unlike sessionStorage)
-    localStorage.setItem(LS_POPUP_KEY, JSON.stringify({ verifier, state, nonce, issuer, clientId }));
+    try {
+      const normalizedIssuer = this.requireProfileIssuer(issuer);
+      const normalizedClientId = String(clientId || '').trim();
+      if (!normalizedClientId) {
+        throw new OidcPopupLoginError(
+          'configuration_missing',
+          'Für das aktive Netzwerkprofil ist kein OIDC-Client konfiguriert.',
+        );
+      }
 
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      response_type: 'code',
-      scope: SCOPES,
-      code_challenge: challenge,
-      code_challenge_method: 'S256',
-      state,
-      nonce,
-    });
-    window.open(
-      `${authEndpoint}?${params}`,
-      'oidc-login',
-      'width=560,height=680,left=200,top=80',
-    );
+      let meta: OidcMeta;
+      try {
+        meta = await this.loadMeta(normalizedIssuer, POPUP_DISCOVERY_TIMEOUT_MS);
+      } catch (error) {
+        throw new OidcPopupLoginError(
+          'issuer_unreachable',
+          `Keycloak ist unter ${normalizedIssuer} nicht erreichbar oder liefert keine gültige OIDC-Konfiguration.`,
+          { cause: error },
+        );
+      }
+      const verifier = this.randomB64Url(48);
+      const state = this.randomB64Url(16);
+      const nonce = this.randomB64Url(16);
+      const challenge = await this.sha256B64Url(verifier);
+      const redirectUri = `${location.origin}/oidc-callback`;
+
+      if (popup.closed) {
+        throw new OidcPopupLoginError(
+          'popup_closed',
+          'Das Keycloak-Anmeldefenster wurde geschlossen. Bitte die Anmeldung erneut starten.',
+        );
+      }
+
+      // localStorage is shared between opener and popup (unlike sessionStorage).
+      localStorage.setItem(LS_POPUP_KEY, JSON.stringify({
+        verifier,
+        state,
+        nonce,
+        issuer: normalizedIssuer,
+        clientId: normalizedClientId,
+      }));
+
+      const params = new URLSearchParams({
+        client_id: normalizedClientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: SCOPES,
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        state,
+        nonce,
+      });
+      const authorizationUrl = new URL(meta.authorization_endpoint);
+      params.forEach((value, key) => authorizationUrl.searchParams.set(key, value));
+      popup.location.replace(authorizationUrl.href);
+      try { popup.focus(); } catch { /* Focusing is optional once navigation succeeded. */ }
+    } catch (error) {
+      localStorage.removeItem(LS_POPUP_KEY);
+      if (!popup.closed) popup.close();
+      if (error instanceof OidcPopupLoginError) throw error;
+      throw new OidcPopupLoginError(
+        'popup_start_failed',
+        'Das Keycloak-Anmeldefenster konnte nicht initialisiert werden. Bitte die Anmeldung erneut starten.',
+        { cause: error },
+      );
+    }
   }
 
   // Called by OidcCallbackComponent when window.opener is set
@@ -464,6 +562,39 @@ export class OidcAuthService {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────
+
+  private requireProfileIssuer(value: string): string {
+    try {
+      return this.normalizeHttpUrl(value, 'OIDC issuer', true);
+    } catch (error) {
+      const missing = !String(value || '').trim();
+      throw new OidcPopupLoginError(
+        'configuration_missing',
+        missing
+          ? 'Für das aktive Netzwerkprofil ist kein OIDC-Issuer konfiguriert.'
+          : 'Der OIDC-Issuer im aktiven Netzwerkprofil ist ungültig.',
+        { cause: error },
+      );
+    }
+  }
+
+  private normalizeHttpUrl(value: string, label: string, isIssuer = false): string {
+    const candidate = String(value || '').trim().replace(/\/+$/, '');
+    if (!candidate) throw new Error(`${label} is missing`);
+    const parsed = new URL(candidate);
+    const hostname = parsed.hostname.toLowerCase();
+    const localhost = hostname === 'localhost'
+      || hostname === '127.0.0.1'
+      || hostname === '[::1]'
+      || hostname.endsWith('.localhost');
+    if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && localhost)) {
+      throw new Error(`${label} must use HTTPS or localhost HTTP`);
+    }
+    if (parsed.username || parsed.password || (isIssuer && (parsed.search || parsed.hash))) {
+      throw new Error(`${label} contains unsupported URL components`);
+    }
+    return parsed.href.replace(/\/$/, '');
+  }
 
   private _decodeJwt(token: string): any {
     try {

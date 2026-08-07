@@ -7,7 +7,6 @@ import {
   PUBLIC_KEYCLOAK_BASE_URL,
   PUBLIC_OIDC_CLIENT_ID as DEFAULT_PUBLIC_OIDC_CLIENT_ID,
   PUBLIC_OIDC_ISSUER as DEFAULT_PUBLIC_OIDC_ISSUER,
-  PUBLIC_OIDC_REALM,
 } from '../src/app/services/public-ananta-endpoints';
 
 import { isPublicOidcUiMode, loginViaPublicOidcUi } from './utils-public-oidc';
@@ -24,7 +23,7 @@ export const PUBLIC_OIDC_PASSWORD = process.env.E2E_OIDC_PASSWORD || '';
 export const PUBLIC_OIDC_CLIENT_SECRET = process.env.E2E_OIDC_CLIENT_SECRET || '';
 export const PUBLIC_OIDC_AUTH_MODE = (process.env.E2E_AUTH_MODE || 'local').toLowerCase();
 export const PUBLIC_KEYCLOAK_HOST = PUBLIC_KEYCLOAK_BASE_URL.replace(/^https?:\/\//, '');
-export const PUBLIC_OIDC_REALM_NAME = PUBLIC_OIDC_REALM;
+export const PUBLIC_OIDC_REALM_NAME = PUBLIC_OIDC_ISSUER.match(/\/realms\/([^/?#]+)/)?.[1] || 'ananta';
 export const USE_EXISTING_SERVICES =
   process.env.ANANTA_E2E_USE_EXISTING === '1' || process.env.E2E_REUSE_SERVER === '1';
 export const TEST_LOGIN_IP = USE_EXISTING_SERVICES ? undefined : '127.0.0.1';
