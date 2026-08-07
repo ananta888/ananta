@@ -126,7 +126,17 @@ describe('WebrtcMediaPublicationService', () => {
       .toMatchObject({ status: 'ended', reasonCode: 'browser_capture_ended' });
 
     peer.state$.next('closed');
-    expect(remote.stops).toBeGreaterThan(0);
+    expect(remote.stops).toBe(0);
     expect(service.publications$.value.every(item => item.status === 'ended')).toBe(true);
+  });
+
+  it('exposes a borrowed remote video track for rendering without transferring ownership', () => {
+    const remote = new Track('remote-render');
+    peer.remoteTrack$.next({ track: remote, streams: [] });
+
+    expect(service.remoteVideoTrack('remote-remote-render')).toBe(remote as unknown as MediaStreamTrack);
+    service.ngOnDestroy();
+    expect(remote.stops).toBe(0);
+    expect(service.remoteVideoTrack('remote-remote-render')).toBeNull();
   });
 });

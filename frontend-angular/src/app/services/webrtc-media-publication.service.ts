@@ -1,6 +1,10 @@
 import { Injectable, OnDestroy, inject } from '@angular/core';
 import { BehaviorSubject, Subscription } from 'rxjs';
-import { WEBRTC_MEDIA_DEVICES } from './webrtc-media-session.service';
+import {
+  RemoteOrdinaryTrack,
+  WEBRTC_MEDIA_DEVICES,
+  WebrtcMediaSessionService,
+} from './webrtc-media-session.service';
 import { WebrtcSessionService } from './webrtc-session.service';
 
 export type MediaPublicationSource = 'camera' | 'screen' | 'remote_video';
@@ -48,12 +52,14 @@ interface LocalPublication {
 interface RemotePublication {
   view: MediaPublicationView;
   track: MediaStreamTrack;
+  releaseListeners: () => void;
 }
 
 @Injectable({ providedIn: 'root' })
 export class WebrtcMediaPublicationService implements OnDestroy {
   readonly publications$ = new BehaviorSubject<readonly MediaPublicationView[]>(Object.freeze([]));
   private readonly peer = inject(WebrtcSessionService);
+  private readonly mediaSession = inject(WebrtcMediaSessionService);
   private readonly devices = inject(WEBRTC_MEDIA_DEVICES);
   private readonly local = new Map<string, LocalPublication>();
   private readonly remote = new Map<string, RemotePublication>();
@@ -72,11 +78,7 @@ export class WebrtcMediaPublicationService implements OnDestroy {
     this.subscriptions.add(this.peer.state$.subscribe(state => {
       if (state === 'closed' || state === 'idle') this.stopAll('session_closed');
     }));
-    this.subscriptions.add(this.peer.remoteTrack$.subscribe(event => {
-      if (event.track.kind !== 'video') return;
-      const source = event.track.getSettings().displaySurface ? 'screen' : 'camera';
-      this.registerRemote(`remote-${event.track.id}`, event.track, source);
-    }));
+    this.subscriptions.add(this.mediaSession.remoteTracks$.subscribe(tracks => this.reconcileRemoteTracks(tracks)));
     this.devices.addEventListener?.('devicechange', this.deviceChangeListener);
   }
 
@@ -224,24 +226,34 @@ export class WebrtcMediaPublicationService implements OnDestroy {
   registerRemote(publicationId: string, track: MediaStreamTrack, source: 'camera' | 'screen'): void {
     if (!publicationId || track.kind !== 'video') throw new Error('remote_publication_invalid');
     const current = this.remote.get(publicationId);
-    if (current && current.track !== track) detachTrackHandlers(current.track);
+    if (current?.track === track) return;
+    current?.releaseListeners();
     const remote: RemotePublication = {
       view: Object.freeze({
         publicationId, source: 'remote_video', status: track.enabled ? 'active' : 'muted', local: false,
         trackId: track.id, captureLabel: source === 'camera' ? 'Remote-Kamera' : 'Remote-Bildschirm', reasonCode: null,
       }),
       track,
+      releaseListeners: () => undefined,
     };
     this.remote.set(publicationId, remote);
-    track.onended = () => {
-      const active = this.remote.get(publicationId);
-      if (active?.track !== track) return;
-      active.view = Object.freeze({ ...active.view, status: 'ended', reasonCode: 'browser_capture_ended' });
-      this.emit();
-    };
-    track.onmute = () => this.updateRemoteStatus(publicationId, track, 'muted');
-    track.onunmute = () => this.updateRemoteStatus(publicationId, track, 'active');
+    remote.releaseListeners = listenToRemoteTrack(track, {
+      ended: () => {
+        const active = this.remote.get(publicationId);
+        if (active?.track !== track) return;
+        active.view = Object.freeze({ ...active.view, status: 'ended', reasonCode: 'browser_capture_ended' });
+        this.emit();
+      },
+      muted: () => this.updateRemoteStatus(publicationId, track, 'muted'),
+      unmuted: () => this.updateRemoteStatus(publicationId, track, 'active'),
+    });
     this.emit();
+  }
+
+  remoteVideoTrack(publicationId: string): MediaStreamTrack | null {
+    const publication = this.remote.get(publicationId);
+    return publication && publication.view.status !== 'ended' && publication.track.readyState !== 'ended'
+      ? publication.track : null;
   }
 
   stopPublication(publicationId: string, reasonCode = 'user_stop'): void {
@@ -266,8 +278,7 @@ export class WebrtcMediaPublicationService implements OnDestroy {
     }
     const remote = this.remote.get(publicationId);
     if (remote) {
-      detachTrackHandlers(remote.track);
-      safeStop(remote.track);
+      remote.releaseListeners();
       remote.view = Object.freeze({ ...remote.view, status: 'ended', reasonCode: normalizedReason(reasonCode) });
       this.emit();
     }
@@ -328,6 +339,26 @@ export class WebrtcMediaPublicationService implements OnDestroy {
     if (!current || current.track !== track || current.view.status === 'ended') return;
     current.view = Object.freeze({ ...current.view, status, reasonCode: null });
     this.emit();
+  }
+
+  private reconcileRemoteTracks(tracks: readonly RemoteOrdinaryTrack[]): void {
+    const activePublicationIds = new Set<string>();
+    for (const value of tracks) {
+      if (value.track.kind !== 'video' || value.track.readyState === 'ended') continue;
+      const publicationId = `remote-${value.track.id}`;
+      activePublicationIds.add(publicationId);
+      const source = value.track.getSettings().displaySurface ? 'screen' : 'camera';
+      this.registerRemote(publicationId, value.track, source);
+    }
+    for (const [publicationId, publication] of this.remote) {
+      if (!publicationId.startsWith('remote-') || activePublicationIds.has(publicationId)
+          || publication.view.status === 'ended') continue;
+      publication.releaseListeners();
+      publication.view = Object.freeze({
+        ...publication.view, status: 'ended', reasonCode: 'remote_track_unavailable',
+      });
+      this.emit();
+    }
   }
 
   private updateLocalStatus(
@@ -453,6 +484,45 @@ function detachTrackHandlers(track: MediaStreamTrack | undefined): void {
   track.onended = null;
   track.onmute = null;
   track.onunmute = null;
+}
+
+function listenToRemoteTrack(
+  track: MediaStreamTrack,
+  listeners: Readonly<{ ended: () => void; muted: () => void; unmuted: () => void }>,
+): () => void {
+  if (typeof track.addEventListener === 'function') {
+    track.addEventListener('ended', listeners.ended);
+    track.addEventListener('mute', listeners.muted);
+    track.addEventListener('unmute', listeners.unmuted);
+    return () => {
+      track.removeEventListener('ended', listeners.ended);
+      track.removeEventListener('mute', listeners.muted);
+      track.removeEventListener('unmute', listeners.unmuted);
+    };
+  }
+  const previousEnded = track.onended;
+  const previousMuted = track.onmute;
+  const previousUnmuted = track.onunmute;
+  const ended: typeof track.onended = event => {
+    previousEnded?.call(track, event);
+    listeners.ended();
+  };
+  const muted: typeof track.onmute = event => {
+    previousMuted?.call(track, event);
+    listeners.muted();
+  };
+  const unmuted: typeof track.onunmute = event => {
+    previousUnmuted?.call(track, event);
+    listeners.unmuted();
+  };
+  track.onended = ended;
+  track.onmute = muted;
+  track.onunmute = unmuted;
+  return () => {
+    if (track.onended === ended) track.onended = previousEnded;
+    if (track.onmute === muted) track.onmute = previousMuted;
+    if (track.onunmute === unmuted) track.onunmute = previousUnmuted;
+  };
 }
 
 function safeStop(track: MediaStreamTrack | undefined): void { try { track?.stop(); } catch { /* cleanup */ } }

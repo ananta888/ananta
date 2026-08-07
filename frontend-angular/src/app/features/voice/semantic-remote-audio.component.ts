@@ -4,6 +4,7 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  Input,
   OnDestroy,
   ViewChild,
   inject,
@@ -47,16 +48,24 @@ export class SemanticRemoteAudioComponent implements AfterViewInit, OnDestroy {
   status = 'Kein Remote-Audio empfangen.';
   playbackBlocked = false;
 
+  @Input() includeSfu = true;
+
   @ViewChild('audio', { static: true }) private audio!: ElementRef<HTMLAudioElement>;
 
   constructor() {
-    this.subscriptions.add(this.ordinary.remoteTrack$.subscribe(value => {
-      if (value.track.kind === 'audio') this.attach({
-        track: value.track, stream: value.streams[0] ?? null, source: 'ordinary',
-      });
+    this.subscriptions.add(this.ordinary.remoteTracks$.subscribe(values => {
+      const value = [...values].reverse().find(candidate =>
+        candidate.track.kind === 'audio' && candidate.track.readyState !== 'ended');
+      if (value) {
+        this.attach({ track: value.track, stream: value.streams[0] ?? null, source: 'ordinary' });
+      } else if (this.pending?.source === 'ordinary') {
+        this.detachPlayback();
+      }
     }));
     this.subscriptions.add(this.sfu.remoteTrack$.subscribe(value => {
-      if (value.track.kind === 'audio') this.attach({ track: value.track, stream: null, source: 'sfu' });
+      if (this.includeSfu && value.track.kind === 'audio') {
+        this.attach({ track: value.track, stream: null, source: 'sfu' });
+      }
     }));
   }
 
@@ -74,7 +83,7 @@ export class SemanticRemoteAudioComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
-    if (this.audio?.nativeElement) this.audio.nativeElement.srcObject = null;
+    this.detachPlayback();
   }
 
   private attach(value: PendingAudio): void {
@@ -91,6 +100,14 @@ export class SemanticRemoteAudioComponent implements AfterViewInit, OnDestroy {
       this.playbackBlocked = true;
       this.changeDetector.markForCheck();
     });
+    this.changeDetector.markForCheck();
+  }
+
+  private detachPlayback(): void {
+    this.pending = null;
+    if (this.audio?.nativeElement) this.audio.nativeElement.srcObject = null;
+    this.status = 'Kein Remote-Audio empfangen.';
+    this.playbackBlocked = false;
     this.changeDetector.markForCheck();
   }
 }

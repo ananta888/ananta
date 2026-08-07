@@ -93,6 +93,20 @@ describe('WebrtcMediaSessionService', () => {
     expect(received[0].track.id).toBe('remote');
   });
 
+  it('replays live remote tracks to late-mounted views and clears references without stopping receiver tracks', () => {
+    const remote = new FakeTrack('remote-replay');
+    peer.remoteTrack$.next({ track: remote, streams: [] } as any);
+
+    const snapshots: ReadonlyArray<ReadonlyArray<{ track: MediaStreamTrack }>> = [];
+    const subscription = service.remoteTracks$.subscribe(value => snapshots.push(value));
+    expect(snapshots.at(-1)?.map(value => value.track.id)).toEqual(['remote-replay']);
+
+    peer.state$.next('closed');
+    expect(snapshots.at(-1)).toEqual([]);
+    expect(remote.stops).toBe(0);
+    subscription.unsubscribe();
+  });
+
   it('hands SFU composition a separately owned live microphone clone', async () => {
     await service.requestMicrophone();
     const clone = service.cloneActiveMicrophoneTrack();

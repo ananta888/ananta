@@ -27,11 +27,22 @@ export interface RemoteOrdinaryTrack {
   readonly streams: readonly MediaStream[];
 }
 
+interface RemoteTrackRegistration extends RemoteOrdinaryTrack {
+  readonly releaseEndedListener: () => void;
+}
+
 @Injectable({ providedIn: 'root' })
 export class WebrtcMediaSessionService implements OnDestroy {
   readonly audioState$ = new BehaviorSubject<OrdinaryAudioState>({
     status: 'idle', trackId: null, deviceLabelVisible: false, reasonCode: null,
   });
+  /**
+   * Read-only snapshot for views which mount after the browser's `track`
+   * event.  `remoteTrack$` stays available as the backwards-compatible event
+   * stream; renderers should prefer this replayable state.
+   */
+  private readonly remoteTrackState = new BehaviorSubject<readonly RemoteOrdinaryTrack[]>(Object.freeze([]));
+  readonly remoteTracks$ = this.remoteTrackState.asObservable();
   readonly remoteTrack$ = new Subject<RemoteOrdinaryTrack>();
 
   private readonly peer = inject(WebrtcSessionService);
@@ -42,6 +53,7 @@ export class WebrtcMediaSessionService implements OnDestroy {
   private currentSessionId = '';
   private captureGeneration = 0;
   private capturePending = false;
+  private readonly remoteTracks = new Map<string, RemoteTrackRegistration>();
   private readonly subscriptions = new Subscription();
   private readonly deviceChangeListener = () => {
     if (this.track && this.track.readyState !== 'live') this.stopAudio('microphone_device_lost');
@@ -49,13 +61,18 @@ export class WebrtcMediaSessionService implements OnDestroy {
 
   constructor() {
     this.subscriptions.add(this.peer.sessionStarted$.subscribe(sessionId => {
-      if (this.currentSessionId && sessionId !== this.currentSessionId) this.stopAudio('session_changed');
+      if (this.currentSessionId && sessionId !== this.currentSessionId) {
+        this.stopAudio('session_changed');
+        this.clearRemoteTracks();
+      }
       this.currentSessionId = sessionId;
     }));
     this.subscriptions.add(this.peer.state$.subscribe(state => this.onPeerState(state))
     );
     this.subscriptions.add(this.peer.remoteTrack$.subscribe(event => {
-      this.remoteTrack$.next(Object.freeze({ track: event.track, streams: Object.freeze([...event.streams]) }));
+      const value = Object.freeze({ track: event.track, streams: Object.freeze([...event.streams]) });
+      this.registerRemoteTrack(value);
+      this.remoteTrack$.next(value);
     }));
     this.devices.addEventListener?.('devicechange', this.deviceChangeListener);
   }
@@ -180,12 +197,46 @@ export class WebrtcMediaSessionService implements OnDestroy {
   ngOnDestroy(): void {
     this.devices.removeEventListener?.('devicechange', this.deviceChangeListener);
     this.stopAudio('service_destroyed');
+    this.clearRemoteTracks();
     this.subscriptions.unsubscribe();
-    this.remoteTrack$.complete(); this.audioState$.complete();
+    this.remoteTrack$.complete(); this.remoteTrackState.complete(); this.audioState$.complete();
   }
 
   private onPeerState(state: PeerState): void {
-    if (state === 'closed' || state === 'idle') this.stopAudio('session_closed');
+    if (state === 'closed' || state === 'idle') {
+      this.stopAudio('session_closed');
+      this.clearRemoteTracks();
+    }
+  }
+
+  private registerRemoteTrack(value: RemoteOrdinaryTrack): void {
+    const key = remoteTrackKey(value.track);
+    const previous = this.remoteTracks.get(key);
+    if (previous?.track === value.track) return;
+    previous?.releaseEndedListener();
+    const releaseEndedListener = listenForTrackEnd(value.track, () => {
+      const current = this.remoteTracks.get(key);
+      if (current?.track !== value.track) return;
+      current.releaseEndedListener();
+      this.remoteTracks.delete(key);
+      this.emitRemoteTracks();
+    });
+    this.remoteTracks.set(key, Object.freeze({ ...value, releaseEndedListener }));
+    this.emitRemoteTracks();
+  }
+
+  private clearRemoteTracks(): void {
+    for (const value of this.remoteTracks.values()) value.releaseEndedListener();
+    this.remoteTracks.clear();
+    this.emitRemoteTracks();
+  }
+
+  private emitRemoteTracks(): void {
+    this.remoteTrackState.next(Object.freeze(
+      [...this.remoteTracks.values()]
+        .filter(value => value.track.readyState !== 'ended')
+        .map(value => Object.freeze({ track: value.track, streams: value.streams })),
+    ));
   }
 
   private assertCaptureCurrent(generation: number): void {
@@ -223,4 +274,24 @@ function stopOwnedTrack(track: MediaStreamTrack | undefined, stream: MediaStream
 function microphoneFailureReason(error: unknown): string {
   return error instanceof Error && /^[a-z][a-z0-9_]{2,119}$/.test(error.message)
     ? error.message : 'microphone_start_failed';
+}
+
+function remoteTrackKey(track: MediaStreamTrack): string {
+  return `${track.kind}:${track.id}`;
+}
+
+function listenForTrackEnd(track: MediaStreamTrack, listener: () => void): () => void {
+  if (typeof track.addEventListener === 'function') {
+    track.addEventListener('ended', listener);
+    return () => track.removeEventListener('ended', listener);
+  }
+  const previous = track.onended;
+  const combined = () => {
+    previous?.call(track, new Event('ended'));
+    listener();
+  };
+  track.onended = combined;
+  return () => {
+    if (track.onended === combined) track.onended = previous;
+  };
 }
