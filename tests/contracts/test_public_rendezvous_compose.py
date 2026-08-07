@@ -48,6 +48,8 @@ def test_public_coturn_accepts_rendezvous_rest_credentials_only():
     command = coturn["command"]
 
     assert coturn["image"].startswith("coturn/coturn:4.17.0@sha256:")
+    assert coturn["entrypoint"] == ["turnserver"]
+    assert command[0] == "-n"
     assert "--use-auth-secret" in command
     assert any(item.startswith("--static-auth-secret=${TURN_SHARED_SECRET:") for item in command)
     assert "--lt-cred-mech" not in command
