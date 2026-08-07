@@ -42,7 +42,7 @@ def test_public_keycloak_waits_for_postgres_and_has_native_health_probe():
     assert healthcheck["interval"] == "30s"
     assert healthcheck["timeout"] == "30s"
     assert healthcheck["retries"] == 5
-    assert healthcheck["start_period"] == "360s"
+    assert healthcheck["start_period"] == "1800s"
 
 
 def test_public_keycloak_image_is_prebuilt_without_runtime_secrets():
