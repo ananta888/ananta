@@ -106,10 +106,13 @@ services:
           printf "GET /health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3;
           IFS= read -r status <&3;
           case "$$status" in HTTP/1.[01]\ 200\ *) exit 0 ;; *) exit 1 ;; esac
-      interval: 15s
-      timeout: 5s
-      retries: 12
-      start_period: 120s
+      # The 498-MiB public test VM can need several minutes for ordinary JVM
+      # and cache bootstrap even with a pre-augmented image. A readiness
+      # response can also exceed five seconds while the host is swapping.
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 360s
 
   rendezvous:
     build: ../../public-rendezvous/rendezvous
