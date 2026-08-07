@@ -89,6 +89,14 @@ instead of selecting a preferred subset. Empty semantic domains are recorded
 explicitly, so “complete with zero symbols” can be distinguished from a
 missing or legacy supplement.
 
+The private Worker-side SQLite source store has a separate disk envelope for
+its temporary indexes and uncompressed records. It defaults to 2 GiB and can
+be configured through
+`ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES` up to a 4 GiB hard
+ceiling. This is a local resource guard, not a semantic node or per-domain
+display limit: every admitted record must fit or the run fails without
+activating a partial index.
+
 Top-level directory identities are SHA-256 keys derived from their exact path
 segment. Repository-root files use a namespace-tagged root identity rather
 than the literal directory name `__repository_root__`; a real directory with
