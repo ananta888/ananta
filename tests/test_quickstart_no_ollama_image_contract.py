@@ -97,6 +97,26 @@ def test_quickstart_entrypoint_supports_single_image_roles_and_openai_guard() ->
     assert "prepare_runtime_directories" in single_container_body
 
 
+def test_quickstart_compose_binds_openai_key_to_hub_only() -> None:
+    compose = yaml.safe_load(
+        (ROOT / "docker" / "compose-next" / "compose.base.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    hub_environment = compose["services"]["ai-agent-hub-base"]["environment"]
+    assert hub_environment["ANANTA_USER_JSON"] == "/app/data/user.json"
+    assert hub_environment["OPENAI_API_KEY"] == "${OPENAI_API_KEY:-}"
+    assert hub_environment["OPENAI_URL"] == (
+        "${OPENAI_URL:-https://api.openai.com/v1/chat/completions}"
+    )
+
+    for service_name in ("ai-agent-worker-base", "angular-frontend-base"):
+        environment = compose["services"][service_name]["environment"]
+        assert "OPENAI_API_KEY" not in environment
+        assert "OPENAI_URL" not in environment
+
+
 def test_dev_auth_overlay_assigns_database_migrations_only_to_hub() -> None:
     services = yaml.safe_load(DEV_AUTH_COMPOSE.read_text(encoding="utf-8"))[
         "services"

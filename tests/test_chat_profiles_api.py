@@ -105,6 +105,16 @@ def test_setting_schema_is_deterministic_and_scope_aware(client):
     backend = next(item for item in response.json["settings"] if item["key"] == "chat_backend")
     assert backend["scopes"] == ["global", "profile", "session"]
     assert "lmstudio" in backend["allowed_values"]
+    assert "openai" in backend["allowed_values"]
+
+    api_base = next(item for item in response.json["settings"] if item["key"] == "chat_backend_api_base")
+    assert "openai" in api_base["visible_when"]["chat_backend"]
+    assert "https://api.openai.com/v1" in api_base["suggestions"]
+
+    credential_ref = next(
+        item for item in response.json["settings"] if item["key"] == "chat_backend_credential_ref"
+    )
+    assert "openai" not in credential_ref["visible_when"]["chat_backend"]
 
 
 def test_profile_settings_reject_unknown_keys_and_support_null_reset(client):

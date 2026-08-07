@@ -99,8 +99,10 @@ def build_setting_schema(
                 "suggestions": suggestions if key.endswith("api_base") else [],
                 "constraints": _CONSTRAINTS.get(key, {}),
                 "visible_when": (
-                    {"chat_backend": ["lmstudio", "opencode", "hermes", "ollama"]}
-                    if key in {"chat_backend_api_base", "chat_backend_model", "chat_backend_credential_ref"}
+                    {"chat_backend": ["lmstudio", "opencode", "hermes", "ollama", "openai"]}
+                    if key in {"chat_backend_api_base", "chat_backend_model"}
+                    else {"chat_backend": ["lmstudio", "opencode", "hermes", "ollama"]}
+                    if key == "chat_backend_credential_ref"
                     else {}
                 ),
                 "scopes": _scopes_for_key(key, global_defaults, profile_defaults, session_defaults),

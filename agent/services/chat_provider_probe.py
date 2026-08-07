@@ -11,6 +11,13 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
 
+from agent.config import settings
+from agent.services.openai_credential_endpoint_binding import (
+    OPENAI_API_KEY_REFERENCE,
+    OpenAICredentialEndpointBindingError,
+    bind_openai_credential_endpoint,
+)
+
 
 @dataclass(frozen=True)
 class ProviderProbeResult:
@@ -29,13 +36,34 @@ class ProviderProbeResult:
 
 
 class ChatProviderProbe:
-    SUPPORTED = {"lmstudio", "opencode", "hermes", "ollama", "ananta-worker"}
+    SUPPORTED = {"lmstudio", "opencode", "hermes", "ollama", "ananta-worker", "openai"}
 
     def probe(self, draft: dict[str, Any], *, timeout_seconds: float = 2.5) -> ProviderProbeResult:
-        backend = str(draft.get("chat_backend") or "ananta-worker")
+        backend = str(draft.get("chat_backend") or "ananta-worker").strip().lower()
         if backend not in self.SUPPORTED:
             return ProviderProbeResult(False, "unsupported_provider")
-        credential_ref = str(draft.get("chat_backend_credential_ref") or "")
+        credential_ref = str(draft.get("chat_backend_credential_ref") or "").strip()
+        base = str(draft.get("chat_backend_api_base") or "").rstrip("/")
+
+        openai_binding = None
+        if backend == "openai":
+            try:
+                openai_binding = bind_openai_credential_endpoint(
+                    client_api_base=base,
+                    trusted_api_url=str(settings.openai_url),
+                    credential_ref=credential_ref,
+                )
+            except OpenAICredentialEndpointBindingError as exc:
+                return ProviderProbeResult(False, exc.error_code)
+        else:
+            if not base:
+                return ProviderProbeResult(False, "endpoint_required")
+            if credential_ref == OPENAI_API_KEY_REFERENCE:
+                return ProviderProbeResult(False, "unsupported_credential_reference")
+            parsed = urlparse(base)
+            if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+                return ProviderProbeResult(False, "invalid_endpoint")
+
         token = ""
         if credential_ref:
             if not credential_ref.startswith("env://"):
@@ -43,16 +71,18 @@ class ChatProviderProbe:
             token = os.environ.get(credential_ref.removeprefix("env://"), "")
             if not token:
                 return ProviderProbeResult(False, "credential_not_configured")
-        base = str(draft.get("chat_backend_api_base") or "").rstrip("/")
-        if not base:
-            return ProviderProbeResult(False, "endpoint_required")
-        parsed = urlparse(base)
-        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-            return ProviderProbeResult(False, "invalid_endpoint")
-        path = "/api/tags" if backend == "ollama" else ("/models" if base.endswith("/v1") else "/v1/models")
+        elif backend == "openai":
+            token = os.environ.get("OPENAI_API_KEY", "")
+            if not token:
+                return ProviderProbeResult(False, "credential_not_configured")
+        probe_url = (
+            openai_binding.models_url
+            if openai_binding
+            else base + ("/api/tags" if backend == "ollama" else ("/models" if base.endswith("/v1") else "/v1/models"))
+        )
         try:
             probe_request = urllib.request.Request(
-                base + path, headers=({"Authorization": f"Bearer {token}"} if token else {})
+                probe_url, headers=({"Authorization": f"Bearer {token}"} if token else {})
             )
             with urllib.request.urlopen(probe_request, timeout=max(0.2, min(timeout_seconds, 5.0))) as response:
                 payload = json.loads(response.read(1_000_000))

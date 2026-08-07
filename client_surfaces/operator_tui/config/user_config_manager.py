@@ -2,7 +2,8 @@
 
 Paths:
   global : ~/.anana/user.json           (user-wide defaults)
-  project: <CWD>/user.json              (project-specific overrides)
+  project: $ANANTA_USER_JSON when set, otherwise <CWD>/user.json
+                                          (project-specific overrides)
 
 Load order: defaults → global → project  (project wins)
 Write     : always writes project file; also updates global on explicit flush.
@@ -163,6 +164,9 @@ def global_config_path() -> Path:
 
 
 def project_config_path(cwd: Path | None = None) -> Path:
+    explicit = str(os.environ.get("ANANTA_USER_JSON") or "").strip()
+    if explicit:
+        return Path(explicit).resolve()
     base = (cwd or Path.cwd()).resolve()
     if (base / ".git").exists() and (base / "user.json").exists():
         return base / "data" / "user.json"

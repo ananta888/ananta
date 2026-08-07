@@ -599,6 +599,96 @@ def test_chat_provider_uses_effective_session_configuration():
     assert api_base == "http://lmstudio.test/v1/chat/completions"
 
 
+def test_chat_provider_supports_explicit_openai_session_configuration(monkeypatch):
+    import agent.routes.snakes_execution_routes as ser
+
+    monkeypatch.setattr(ser.settings, "openai_url", "https://api.openai.com/v1/chat/completions")
+    provider, model, api_base = ser._resolve_ai_snake_chat_provider(
+        {
+            "chat_backend": "openai",
+            "chat_backend_model": "gpt-4o-mini",
+            "chat_backend_api_base": "https://api.openai.com/v1",
+        }
+    )
+
+    assert provider == "openai"
+    assert model == "gpt-4o-mini"
+    assert api_base == "https://api.openai.com/v1/chat/completions"
+
+
+def test_chat_provider_binds_openai_to_normalized_server_endpoint(monkeypatch):
+    import agent.routes.snakes_execution_routes as ser
+
+    monkeypatch.setattr(ser.settings, "openai_url", "https://gateway.example.test:8443/v1/chat/completions")
+    provider, model, api_base = ser._resolve_ai_snake_chat_provider(
+        {
+            "chat_backend": "openai",
+            "chat_backend_model": "gpt-4o-mini",
+            "chat_backend_api_base": "https://gateway.example.test:8443/v1/",
+            "chat_backend_credential_ref": "env://OPENAI_API_KEY",
+        }
+    )
+
+    assert provider == "openai"
+    assert model == "gpt-4o-mini"
+    assert api_base == "https://gateway.example.test:8443/v1/chat/completions"
+
+
+def test_chat_provider_rejects_foreign_openai_endpoint_without_lmstudio_fallback(monkeypatch):
+    import agent.routes.snakes_execution_routes as ser
+    from agent.services.openai_credential_endpoint_binding import OpenAICredentialEndpointBindingError
+
+    monkeypatch.setattr(ser.settings, "openai_url", "https://api.openai.com/v1/chat/completions")
+    with pytest.raises(OpenAICredentialEndpointBindingError, match="openai_endpoint_credential_mismatch"):
+        ser._resolve_ai_snake_chat_provider(
+            {
+                "chat_backend": "openai",
+                "chat_backend_model": "gpt-4o-mini",
+                "chat_backend_api_base": "https://attacker.invalid/v1",
+            }
+        )
+
+
+def test_chat_provider_rejects_custom_openai_credential_reference():
+    import agent.routes.snakes_execution_routes as ser
+    from agent.services.openai_credential_endpoint_binding import OpenAICredentialEndpointBindingError
+
+    with pytest.raises(OpenAICredentialEndpointBindingError, match="unsupported_credential_reference"):
+        ser._resolve_ai_snake_chat_provider(
+            {
+                "chat_backend": "openai",
+                "chat_backend_model": "gpt-4o-mini",
+                "chat_backend_api_base": "https://api.openai.com/v1",
+                "chat_backend_credential_ref": "env://OTHER_API_KEY",
+            }
+        )
+
+
+def test_snake_ask_rejects_foreign_openai_endpoint_before_generate_text(client, monkeypatch):
+    import agent.routes.ai_snake_config as snake_config
+    import agent.routes.snakes_execution_routes as ser
+
+    monkeypatch.setattr(ser.settings, "openai_url", "https://api.openai.com/v1/chat/completions")
+    monkeypatch.setattr(
+        snake_config,
+        "_current_config",
+        lambda: {
+            "chat_backend": "openai",
+            "chat_backend_model": "gpt-4o-mini",
+            "chat_backend_api_base": "https://attacker.invalid/v1",
+        },
+    )
+    monkeypatch.setattr(ser, "generate_text", lambda **kwargs: pytest.fail("generate_text called"))
+
+    response = client.post("/snake/ask", json={"question": "hello", "context": "trusted context"})
+
+    assert response.status_code == 503
+    assert response.get_json() == {
+        "error": "provider_configuration_invalid",
+        "error_code": "openai_endpoint_credential_mismatch",
+    }
+
+
 def test_explicit_worker_backend_does_not_switch_to_openai_by_model_name():
     import agent.routes.snakes_execution_routes as ser
 

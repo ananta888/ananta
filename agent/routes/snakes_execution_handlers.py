@@ -30,6 +30,10 @@ from agent.services.chat_session_security import (
     authorize_session,
     chat_session_mutation_lock,
 )
+from agent.services.openai_credential_endpoint_binding import (
+    OpenAICredentialEndpointBindingError,
+    bind_openai_credential_endpoint,
+)
 from agent.services.rag_service import get_rag_service
 from agent.services.snake_chat_cancellation import (
     cancel_chat,
@@ -164,12 +168,17 @@ def _resolve_ai_snake_chat_provider(config: dict[str, Any] | None = None) -> tup
             not configured_backend and (is_openai_url or is_openai_model)
         ):
             provider = "openai"
-            if configured_api_base:
-                api_base = _chat_completions_url(configured_api_base)
+            api_base = bind_openai_credential_endpoint(
+                client_api_base=configured_api_base,
+                trusted_api_url=str(settings.openai_url),
+                credential_ref=str(cfg.get("chat_backend_credential_ref") or ""),
+            ).chat_completions_url
         elif configured_backend in {"ollama", "lmstudio"}:
             provider = configured_backend
             if configured_api_base:
                 api_base = _chat_completions_url(configured_api_base)
+    except OpenAICredentialEndpointBindingError:
+        raise
     except Exception:
         pass
     return provider, model, api_base
@@ -1267,7 +1276,10 @@ def snake_ask():
         "never_truncate_answers": limits.never_truncate_answers,
     }
 
-    provider, hub_model, api_base = _resolve_ai_snake_chat_provider()
+    try:
+        provider, hub_model, api_base = _resolve_ai_snake_chat_provider()
+    except OpenAICredentialEndpointBindingError as exc:
+        return jsonify({"error": "provider_configuration_invalid", "error_code": exc.error_code}), 503
     model = request_model or hub_model
 
     try:

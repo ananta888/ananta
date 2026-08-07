@@ -170,8 +170,9 @@ _DEFAULTS: dict[str, Any] = {
 
 _OPTIONS: dict[str, list[str]] = {
     "ai_snake_provider_preference": ["lmstudio", "opencode", "hermes", "worker-propose"],
-    "chat_backend": ["ananta-worker", "opencode", "lmstudio", "ollama", "hermes"],
+    "chat_backend": ["ananta-worker", "opencode", "lmstudio", "ollama", "hermes", "openai"],
     "chat_backend_api_base": [
+        "https://api.openai.com/v1",
         "http://localhost:1234/v1",
         "http://localhost:8080/v1",
         "http://localhost:11434/v1",

@@ -38,6 +38,15 @@ def test_project_config_path(tmp_path):
     assert p == tmp_path / "user.json"
 
 
+def test_project_config_path_honors_explicit_runtime_file(tmp_path, monkeypatch):
+    runtime = tmp_path / "runtime" / "user.json"
+    monkeypatch.setenv("ANANTA_USER_JSON", str(runtime))
+
+    p = project_config_path(tmp_path / "ignored")
+
+    assert p == runtime.resolve()
+
+
 def test_project_config_path_uses_runtime_data_file_for_repo_seed(tmp_path):
     (tmp_path / ".git").mkdir()
     (tmp_path / "user.json").write_text(
