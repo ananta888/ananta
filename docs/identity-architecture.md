@@ -24,6 +24,9 @@ Logging out from the Hub does not terminate an active Pair/WebRTC session.
 Logging out from Keycloak disconnects WebRTC but does not invalidate the Hub
 session. “Log out all” clears both.
 
+The browser steps, Hub feature flag and ordinary audio/video failure codes are
+documented in [Pair Dev: Audio und Video](user/pair-dev-audio-video.md).
+
 Hub access tokens and refresh tokens use:
 
 - `ananta.user.token`
