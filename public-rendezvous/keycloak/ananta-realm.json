@@ -3,6 +3,7 @@
   "enabled": true,
   "displayName": "Ananta",
   "displayNameHtml": "<b>Ananta</b>",
+  "loginTheme": "ananta-minimal",
   "sslRequired": "external",
   "registrationAllowed": true,
   "registrationEmailAsUsername": false,

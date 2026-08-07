@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import yaml
@@ -10,6 +11,10 @@ KEYCLOAK_BASE = (
     "sha256:dea26401d06341095cc4ea9d66896200b55de5ca1daa1d2fcbe58493afa6e0ad"
 )
 KEYCLOAK_IMAGE = "ananta-keycloak:26.6.1-optimized-v1"
+KEYCLOAK_REALM = ROOT / "public-rendezvous/keycloak/ananta-realm.json"
+KEYCLOAK_LOGIN_THEME = (
+    ROOT / "public-rendezvous/keycloak-themes/ananta-minimal/login/theme.properties"
+)
 
 
 def _services() -> dict:
@@ -77,6 +82,19 @@ def test_public_edge_waits_for_healthy_backends_and_bind_mounts_are_selinux_safe
     }
     assert services["caddy"]["volumes"][0].endswith(":ro,Z")
     assert services["keycloak"]["volumes"][0].endswith(":ro,Z")
+    assert services["keycloak"]["volumes"][1] == (
+        "../../public-rendezvous/keycloak-themes/ananta-minimal:"
+        "/opt/keycloak/themes/ananta-minimal:ro,Z"
+    )
+
+
+def test_public_keycloak_login_theme_limits_locale_warmup():
+    realm = json.loads(KEYCLOAK_REALM.read_text(encoding="utf-8"))
+    theme_properties = KEYCLOAK_LOGIN_THEME.read_text(encoding="utf-8").splitlines()
+
+    assert realm["loginTheme"] == "ananta-minimal"
+    assert "parent=keycloak" in theme_properties
+    assert "locales=de,en" in theme_properties
 
 
 def test_public_coturn_accepts_rendezvous_rest_credentials_only():

@@ -91,6 +91,7 @@ services:
       JAVA_OPTS_KC_HEAP: ${KEYCLOAK_JAVA_OPTS_KC_HEAP:--Xms64m -Xmx320m}
     volumes:
       - ../../public-rendezvous/keycloak:/opt/keycloak/data/import:ro,Z
+      - ../../public-rendezvous/keycloak-themes/ananta-minimal:/opt/keycloak/themes/ananta-minimal:ro,Z
     depends_on:
       postgres:
         condition: service_healthy
