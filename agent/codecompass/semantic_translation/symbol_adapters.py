@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from agent.codecompass.semantic_translation.models import Provenance, SemanticEdge, SemanticNode, diagnostic
+from agent.codecompass.semantic_translation.semantic_symbol_identity import (
+    DeterministicSemanticSymbolIdentityFactory,
+    SemanticSymbolIdentityPort,
+    semantic_identity_attributes,
+)
 
 
 @dataclass(frozen=True)
@@ -24,6 +29,11 @@ class RegexSymbolLanguageAdapter:
     known_limits: tuple[str, ...]
     parser_strategy: str = "regex-symbol-v1"
     semantic_kinds: tuple[str, ...] = ("data_record", "function_signature", "module")
+    symbol_identity: SemanticSymbolIdentityPort = field(
+        default_factory=DeterministicSemanticSymbolIdentityFactory,
+        repr=False,
+        compare=False,
+    )
 
     def detect(self, path: str, content: str) -> bool:
         del content
@@ -75,6 +85,7 @@ class RegexSymbolLanguageAdapter:
         nodes: list[dict] = []
         edges: list[dict] = []
         file_key = path.replace("\\", "/")
+        module_node_ids: set[str] = set()
         for item in parsed["types"]:
             node_id = f"semantic:{self.language}:type:{file_key}:{item['name']}"
             nodes.append(self._node(path, node_id, item, "data_record"))
@@ -82,9 +93,31 @@ class RegexSymbolLanguageAdapter:
             node_id = f"semantic:{self.language}:function:{file_key}:{item['name']}"
             nodes.append(self._node(path, node_id, item, "function_signature"))
         for item in parsed["imports"]:
-            module_id = f"semantic:{self.language}:module:{item['name']}"
-            if not any(row["id"] == module_id for row in nodes):
-                nodes.append(self._node(path, module_id, item, "module"))
+            canonical_module_id = (
+                f"semantic:{self.language}:module:{item['name']}"
+            )
+            module_id = self.symbol_identity.symbol_id(
+                language=self.language,
+                path=path,
+                symbol_kind="module",
+                canonical_id=canonical_module_id,
+                local_qualifier=item["name"],
+            )
+            if module_id not in module_node_ids:
+                nodes.append(
+                    self._node(
+                        path,
+                        module_id,
+                        {
+                            **item,
+                            **semantic_identity_attributes(
+                                canonical_module_id
+                            ),
+                        },
+                        "module",
+                    )
+                )
+                module_node_ids.add(module_id)
             edges.append(
                 SemanticEdge(
                     source_id=f"semantic:{self.language}:file:{file_key}",

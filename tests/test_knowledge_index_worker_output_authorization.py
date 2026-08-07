@@ -8,6 +8,9 @@ import pytest
 from flask import Flask
 
 from agent.common.errors import NotFoundError
+from ananta_contracts.codecompass_domain_supplement import (
+    DOMAIN_SUPPLEMENT_OUTPUT_ROLE,
+)
 from ananta_contracts.knowledge_index_dispatch import (
     build_knowledge_index_dispatch,
     parse_knowledge_index_dispatch,
@@ -132,7 +135,7 @@ def authorizer(
     )
 
 
-def authorize(service, *, metadata=None):
+def authorize(service, *, metadata=None, role="manifest"):
     service.authorize(
         artifact_id="artifact-1",
         artifact_sha256="b" * 64,
@@ -144,18 +147,25 @@ def authorize(service, *, metadata=None):
             "knowledge_index_job_id": JOB_ID,
             "knowledge_index_id": "idx-1",
             "knowledge_index_run_id": "run-1",
-            "output_role": "manifest",
+            "output_role": role,
         },
         manifest=MANIFEST,
         job_id=JOB_ID,
         knowledge_index_id="idx-1",
         run_id="run-1",
-        output_role="manifest",
+        output_role=role,
     )
 
 
 def test_authorizes_exact_live_worker_job_and_artifact_binding() -> None:
     authorize(authorizer())
+
+
+def test_authorizes_revision_bound_domain_supplement_role() -> None:
+    authorize(
+        authorizer(),
+        role=DOMAIN_SUPPLEMENT_OUTPUT_ROLE,
+    )
 
 
 @pytest.mark.parametrize(

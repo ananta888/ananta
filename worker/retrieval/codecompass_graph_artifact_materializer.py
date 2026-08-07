@@ -10,12 +10,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Protocol
 
+from ananta_contracts.codecompass_domain_supplement import (
+    DOMAIN_SUPPLEMENT_FILENAME,
+)
 from ananta_contracts.codecompass_graph_limits import (
     MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
+)
+from worker.retrieval.codecompass_domain_supplement import (
+    DOMAIN_SUPPLEMENT_SOURCE_FILENAME,
+    WorkerCodeCompassDomainSupplementMaterializer,
 )
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 from worker.retrieval.codecompass_graph_visual_metrics import (
@@ -30,6 +38,7 @@ GRAPH_INDEX_SCHEMA = "codecompass_graph_index.v1"
 GRAPH_VISUAL_OPTIONS_SCHEMA = "codecompass_graph_visual_options.v1"
 MAX_CONFIGURED_BLAST_RADIUS_SEEDS = 256
 MAX_SEED_ID_LENGTH = 512
+MAX_SOURCE_MANIFEST_BYTES = 4 * 1024 * 1024
 
 _GRAPH_OUTPUT_KINDS = frozenset(
     {
@@ -125,7 +134,11 @@ def _sanitize_record(record: Mapping[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
-def _stable_graph_revision(records: list[dict[str, Any]]) -> str:
+def _stable_graph_revision(
+    records: list[dict[str, Any]],
+    *,
+    domain_supplement_content_hash: str | None = None,
+) -> str:
     """Bind a revision to graph evidence, independent of container paths/time."""
 
     revision_records: list[dict[str, Any]] = []
@@ -144,14 +157,17 @@ def _stable_graph_revision(records: list[dict[str, Any]]) -> str:
         normalized["_provenance"] = normalized_provenance
         revision_records.append(normalized)
     revision_records.sort(key=_canonical_json)
-    digest = hashlib.sha256(
-        _canonical_json(
-            {
-                "schema": "codecompass_graph_source_revision.v1",
-                "records": revision_records,
-            }
+    revision_source: dict[str, Any] = {
+        "schema": "codecompass_graph_source_revision.v1",
+        "records": revision_records,
+    }
+    if domain_supplement_content_hash is not None:
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", domain_supplement_content_hash):
+            raise ValueError("codecompass_domain_supplement_content_hash_invalid")
+        revision_source["domain_supplement_content_hash"] = (
+            domain_supplement_content_hash
         )
-    ).hexdigest()
+    digest = hashlib.sha256(_canonical_json(revision_source)).hexdigest()
     return f"sha256:{digest}"
 
 
@@ -194,6 +210,7 @@ class WorkerCodeCompassGraphArtifactMaterializer:
         knowledge_index: Mapping[str, Any],
         run: Mapping[str, Any],
         options: Mapping[str, Any] | None = None,
+        revision_binding: Mapping[str, Any] | None = None,
         execution_deadline: "GraphArtifactExecutionDeadlinePort | None" = None,
     ) -> dict[str, Any]:
         _checkpoint(execution_deadline)
@@ -240,15 +257,44 @@ class WorkerCodeCompassGraphArtifactMaterializer:
             for record in records
         ):
             raise RuntimeError("knowledge_index_graph_output_empty")
-        revision = _stable_graph_revision(records)
+        raw_manifest = loaded.get("manifest")
+        manifest = raw_manifest if isinstance(raw_manifest, Mapping) else {}
+        normalized_binding = self._normalize_revision_binding(
+            knowledge_index=knowledge_index,
+            manifest=(
+                self._load_source_manifest(output_dir)
+                if revision_binding is not None
+                else manifest
+            ),
+            revision_binding=revision_binding,
+        )
+        supplement_materializer = WorkerCodeCompassDomainSupplementMaterializer()
+        supplement_source_path = output_dir / DOMAIN_SUPPLEMENT_SOURCE_FILENAME
+        supplement_content = None
+        if normalized_binding is not None:
+            if supplement_source_path.exists():
+                supplement_content = supplement_materializer.inspect_source(
+                    supplement_source_path,
+                    execution_deadline=execution_deadline,
+                )
+            elif normalized_binding["source_scope"] == "repo_path":
+                raise RuntimeError(
+                    "knowledge_index_domain_supplement_source_missing"
+                )
+        revision = _stable_graph_revision(
+            records,
+            domain_supplement_content_hash=(
+                supplement_content.logical_content_hash
+                if supplement_content is not None
+                else None
+            ),
+        )
         for record in records:
             _checkpoint(execution_deadline)
             provenance = record.get("_provenance")
             if isinstance(provenance, dict):
                 provenance["manifest_hash"] = revision
         records.sort(key=_canonical_json)
-        raw_manifest = loaded.get("manifest")
-        manifest = raw_manifest if isinstance(raw_manifest, Mapping) else {}
         raw_semantic_budget = manifest.get("semantic_budget")
         semantic_budget = (
             dict(raw_semantic_budget)
@@ -282,8 +328,24 @@ class WorkerCodeCompassGraphArtifactMaterializer:
             raise RuntimeError("codecompass_graph_artifact_revision_mismatch")
         if not verify_visual_metrics_content_hash(metrics):
             raise RuntimeError("codecompass_graph_visual_metrics_hash_invalid")
+        supplement_result: dict[str, Any] | None = None
+        if supplement_content is not None and normalized_binding is not None:
+            supplement_result = supplement_materializer.materialize(
+                source_path=supplement_source_path,
+                output_path=output_dir / DOMAIN_SUPPLEMENT_FILENAME,
+                graph_revision=revision,
+                source_scope=normalized_binding["source_scope"],
+                knowledge_index_id=str(knowledge_index.get("id") or ""),
+                source_id=normalized_binding["source_id"],
+                source_revision_id=normalized_binding["source_revision_id"],
+                source_revision_digest=normalized_binding[
+                    "source_revision_digest"
+                ],
+                expected_content_hash=supplement_content.logical_content_hash,
+                execution_deadline=execution_deadline,
+            )
         _checkpoint(execution_deadline)
-        return {
+        result = {
             "schema": "codecompass_graph_artifact_materialization.v1",
             "graph_revision": revision,
             "graph_index_path": str(graph_index_path),
@@ -291,6 +353,78 @@ class WorkerCodeCompassGraphArtifactMaterializer:
             "visual_metrics_content_hash": str(metrics.get("content_hash") or ""),
             "options": normalized_options,
         }
+        if supplement_result is not None:
+            result["domain_supplement"] = supplement_result
+        return result
+
+    @staticmethod
+    def _normalize_revision_binding(
+        *,
+        knowledge_index: Mapping[str, Any],
+        manifest: Mapping[str, Any],
+        revision_binding: Mapping[str, Any] | None,
+    ) -> dict[str, str] | None:
+        if revision_binding is None:
+            return None
+        if not isinstance(revision_binding, Mapping):
+            raise ValueError("knowledge_index_revision_binding_invalid")
+        required = {
+            "source_scope",
+            "source_id",
+            "source_revision_id",
+            "source_revision_digest",
+        }
+        if set(revision_binding) != required:
+            raise ValueError("knowledge_index_revision_binding_invalid")
+        normalized = {
+            field: str(revision_binding.get(field) or "").strip()
+            for field in sorted(required)
+        }
+        if (
+            normalized["source_scope"] not in {"repo_path", "artifact", "wiki"}
+            or normalized["source_id"]
+            != f"bound-source:{normalized['source_revision_id']}"
+            or re.fullmatch(
+                r"srev_[0-9a-f]{64}", normalized["source_revision_id"]
+            )
+            is None
+            or re.fullmatch(
+                r"[0-9a-f]{64}", normalized["source_revision_digest"]
+            )
+            is None
+            or not str(knowledge_index.get("id") or "").strip()
+        ):
+            raise ValueError("knowledge_index_revision_binding_invalid")
+        metadata = knowledge_index.get("index_metadata")
+        if not isinstance(metadata, Mapping):
+            raise ValueError("knowledge_index_revision_binding_missing")
+        for field, expected in normalized.items():
+            if str(metadata.get(field) or "").strip() != expected:
+                raise ValueError(
+                    f"knowledge_index_revision_binding_{field}_mismatch"
+                )
+        for field in ("source_scope", "source_id"):
+            if str(manifest.get(field) or "").strip() != normalized[field]:
+                raise ValueError(
+                    f"knowledge_index_manifest_{field}_mismatch"
+                )
+        return normalized
+
+    @staticmethod
+    def _load_source_manifest(output_dir: Path) -> dict[str, Any]:
+        path = output_dir / "manifest.json"
+        if path.is_symlink() or not path.is_file():
+            raise ValueError("knowledge_index_manifest_invalid")
+        size_bytes = path.stat().st_size
+        if size_bytes <= 0 or size_bytes > MAX_SOURCE_MANIFEST_BYTES:
+            raise ValueError("knowledge_index_manifest_invalid")
+        try:
+            payload = json.loads(path.read_bytes())
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError("knowledge_index_manifest_invalid") from exc
+        if not isinstance(payload, dict):
+            raise ValueError("knowledge_index_manifest_invalid")
+        return payload
 
     def _assert_admissible_graph_artifact(self, path: Path) -> None:
         try:

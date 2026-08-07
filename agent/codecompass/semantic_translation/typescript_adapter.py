@@ -4,6 +4,11 @@ import re
 from pathlib import Path
 
 from agent.codecompass.semantic_translation.models import Provenance, SemanticEdge, SemanticNode, diagnostic
+from agent.codecompass.semantic_translation.semantic_symbol_identity import (
+    DeterministicSemanticSymbolIdentityFactory,
+    SemanticSymbolIdentityPort,
+    semantic_identity_attributes,
+)
 
 _DECLARATION_RE = re.compile(
     r"(?P<export>\bexport\s+(?:default\s+)?)?"
@@ -69,6 +74,15 @@ class TypeScriptSemanticAdapter:
         "dynamic import expressions and computed exports remain unresolved",
         "method bodies and control flow are not analysed",
     )
+
+    def __init__(
+        self,
+        *,
+        symbol_identity: SemanticSymbolIdentityPort | None = None,
+    ) -> None:
+        self._symbol_identity = (
+            symbol_identity or DeterministicSemanticSymbolIdentityFactory()
+        )
 
     def detect(self, path: str, content: str) -> bool:
         del content
@@ -201,6 +215,7 @@ class TypeScriptSemanticAdapter:
         nodes: list[dict] = []
         edges: list[dict] = []
         node_by_symbol: dict[str, str] = {}
+        module_node_ids: set[str] = set()
         selector_by_class = {
             item["class_name"]: item["selector"]
             for item in parsed["component_selectors"]
@@ -221,9 +236,26 @@ class TypeScriptSemanticAdapter:
             nodes.append(self._node(path, node_id, item["name"], semantic_kind, attributes))
 
         for item in parsed["imports"]:
-            module_id = f"semantic:typescript:module:{item['module']}"
-            if not any(node["id"] == module_id for node in nodes):
-                nodes.append(self._node(path, module_id, item["module"], "module", item))
+            module_id, canonical_module_id = self._module_identity(
+                path=path,
+                module_name=item["module"],
+            )
+            if module_id not in module_node_ids:
+                nodes.append(
+                    self._node(
+                        path,
+                        module_id,
+                        item["module"],
+                        "module",
+                        {
+                            **item,
+                            **semantic_identity_attributes(
+                                canonical_module_id
+                            ),
+                        },
+                    )
+                )
+                module_node_ids.add(module_id)
             edges.append(
                 SemanticEdge(
                     source_id=f"semantic:typescript:file:{file_key}",
@@ -234,10 +266,30 @@ class TypeScriptSemanticAdapter:
             )
 
         for item in parsed["exports"]:
+            module_id, canonical_module_id = self._module_identity(
+                path=path,
+                module_name=item["module"],
+            )
+            if module_id not in module_node_ids:
+                nodes.append(
+                    self._node(
+                        path,
+                        module_id,
+                        item["module"],
+                        "module",
+                        {
+                            **item,
+                            **semantic_identity_attributes(
+                                canonical_module_id
+                            ),
+                        },
+                    )
+                )
+                module_node_ids.add(module_id)
             edges.append(
                 SemanticEdge(
                     source_id=f"semantic:typescript:file:{file_key}",
-                    target_id=f"semantic:typescript:module:{item['module']}",
+                    target_id=module_id,
                     edge_type="exports",
                 ).as_record()
             )
@@ -252,9 +304,21 @@ class TypeScriptSemanticAdapter:
                     ).as_record()
                 )
             for base in item.get("extends", []):
-                edges.append(SemanticEdge(source_id=source_id, target_id=_type_target(base), edge_type="extends").as_record())
+                edges.append(
+                    SemanticEdge(
+                        source_id=source_id,
+                        target_id=_type_target(base),
+                        edge_type="extends",
+                    ).as_record()
+                )
             for interface in item.get("implements", []):
-                edges.append(SemanticEdge(source_id=source_id, target_id=_type_target(interface), edge_type="implements").as_record())
+                edges.append(
+                    SemanticEdge(
+                        source_id=source_id,
+                        target_id=_type_target(interface),
+                        edge_type="implements",
+                    ).as_record()
+                )
 
         for tag in parsed["jsx_tags"]:
             edges.append(
@@ -266,6 +330,24 @@ class TypeScriptSemanticAdapter:
                 ).as_record()
             )
         return {"nodes": nodes, "edges": edges, "diagnostics": parsed["diagnostics"]}
+
+    def _module_identity(
+        self,
+        *,
+        path: str,
+        module_name: str,
+    ) -> tuple[str, str]:
+        canonical_id = f"semantic:typescript:module:{module_name}"
+        return (
+            self._symbol_identity.symbol_id(
+                language=self.language,
+                path=path,
+                symbol_kind="module",
+                canonical_id=canonical_id,
+                local_qualifier=module_name,
+            ),
+            canonical_id,
+        )
 
     def _declaration(self, content: str, match: re.Match[str]) -> dict:
         tail = str(match.group("tail") or "")

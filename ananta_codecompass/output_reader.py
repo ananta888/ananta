@@ -20,6 +20,7 @@ from ananta_contracts.codecompass_graph_limits import (
 from ananta_contracts.codecompass_semantic_partitions import (
     CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD,
     codecompass_semantic_domain_key,
+    codecompass_semantic_repository_root_domain_key,
 )
 
 OUTPUT_FILENAME_BY_KEY = {
@@ -77,7 +78,6 @@ _MAX_EXISTING_MANIFEST_BYTES = 64 * 1024 * 1024
 _SEMANTIC_OUTPUT_KEYS = frozenset({"semantic_nodes", "semantic_edges"})
 _SEMANTIC_DOMAIN_SHARD_PATTERN = re.compile(r"^(semantic_nodes|semantic_edges)\.domain-[a-f0-9]{64}\.jsonl$")
 _SEMANTIC_DOMAIN_ADMISSION_STRATEGY = "top_level_domain_bounded_admission_v1"
-_REPOSITORY_ROOT_DOMAIN = "__repository_root__"
 _SEMANTIC_DOMAIN_STATUSES = frozenset(
     {
         "materialized",
@@ -1030,8 +1030,9 @@ def _source_file_domain_key(record: Mapping[str, Any]) -> str | None:
     if not path:
         return None
     head, separator, _tail = path.partition("/")
-    domain = head if separator and head else _REPOSITORY_ROOT_DOMAIN
-    return codecompass_semantic_domain_key(domain)
+    if separator and head:
+        return codecompass_semantic_domain_key(head)
+    return codecompass_semantic_repository_root_domain_key()
 
 
 def _validate_graph_declaration_evidence(

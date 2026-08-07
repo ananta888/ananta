@@ -13,6 +13,11 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Protocol
 
+from ananta_contracts.codecompass_domain_supplement import (
+    DOMAIN_SUPPLEMENT_FILENAME,
+    DOMAIN_SUPPLEMENT_MEDIA_TYPE,
+    DOMAIN_SUPPLEMENT_OUTPUT_ROLE,
+)
 from ananta_contracts.codecompass_graph_limits import (
     MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
 )
@@ -77,6 +82,7 @@ class KnowledgeIndexArtifactPublisherPort(Protocol):
         job_id: str,
         knowledge_index: Mapping[str, Any],
         run: Mapping[str, Any],
+        revision_binding: Mapping[str, Any] | None = None,
         execution_deadline: KnowledgeIndexExecutionDeadlinePort | None = None,
     ) -> list[dict[str, Any]]: ...
 
@@ -90,6 +96,7 @@ class KnowledgeIndexGraphArtifactMaterializerPort(Protocol):
         knowledge_index: Mapping[str, Any],
         run: Mapping[str, Any],
         options: Mapping[str, Any] | None = None,
+        revision_binding: Mapping[str, Any] | None = None,
         execution_deadline: KnowledgeIndexExecutionDeadlinePort | None = None,
     ) -> Mapping[str, Any]: ...
 
@@ -837,6 +844,11 @@ class RagHelperKnowledgeIndexExecution:
         graph_artifacts_required = (
             self._artifact_publisher is None or self._graph_artifact_materializer is not None
         )
+        revision_binding = self._revision_binding(
+            job=job,
+            knowledge_index=knowledge_index,
+        )
+        domain_supplement_required = False
         if graph_artifacts_required:
             materializer = self._graph_artifact_materializer
             if materializer is None:
@@ -853,11 +865,19 @@ class RagHelperKnowledgeIndexExecution:
                 if execution_deadline is not None
                 else {}
             )
-            materializer.materialize(
+            if revision_binding is not None and self._graph_artifact_materializer is None:
+                materializer_kwargs["revision_binding"] = revision_binding
+            materialization = materializer.materialize(
                 knowledge_index=knowledge_index,
                 run=run,
                 options=raw_options,
                 **materializer_kwargs,
+            )
+            domain_supplement_required = bool(
+                isinstance(materialization, Mapping)
+                and isinstance(
+                    materialization.get("domain_supplement"), Mapping
+                )
             )
             self._checkpoint(execution_deadline)
 
@@ -867,6 +887,8 @@ class RagHelperKnowledgeIndexExecution:
             if execution_deadline is not None
             else {}
         )
+        if revision_binding is not None and self._artifact_publisher is None:
+            publisher_kwargs["revision_binding"] = revision_binding
         references = publisher.publish(
             job_id=str(job.get("job_id") or ""),
             knowledge_index=knowledge_index,
@@ -878,9 +900,34 @@ class RagHelperKnowledgeIndexExecution:
         required_roles = {"manifest", "index"}
         if graph_artifacts_required:
             required_roles.update({"graph_index", "graph_visual_metrics"})
+        if domain_supplement_required:
+            required_roles.add(DOMAIN_SUPPLEMENT_OUTPUT_ROLE)
         if not required_roles.issubset(roles):
             raise RuntimeError("knowledge_index_output_artifacts_incomplete")
         return references
+
+    @staticmethod
+    def _revision_binding(
+        *,
+        job: Mapping[str, Any],
+        knowledge_index: Mapping[str, Any],
+    ) -> dict[str, str] | None:
+        if str(job.get("schema") or "") != BOUND_JOB_SCHEMA:
+            return None
+        authority = job.get("authority_binding")
+        metadata = knowledge_index.get("index_metadata")
+        if not isinstance(authority, Mapping) or not isinstance(metadata, Mapping):
+            raise ValueError("knowledge_index_revision_binding_missing")
+        return {
+            "source_scope": str(metadata.get("source_scope") or "").strip(),
+            "source_id": str(metadata.get("source_id") or "").strip(),
+            "source_revision_id": str(
+                authority.get("source_revision_id") or ""
+            ).strip(),
+            "source_revision_digest": str(
+                authority.get("source_revision_digest") or ""
+            ).strip(),
+        }
 
 
 class WorkerKnowledgeIndexArtifactPublisher:
@@ -899,10 +946,17 @@ class WorkerKnowledgeIndexArtifactPublisher:
             "cc_graph_index.visual_metrics.json",
             "application/vnd.ananta.codecompass-graph-visual-metrics+json",
         ),
+        DOMAIN_SUPPLEMENT_OUTPUT_ROLE: (
+            DOMAIN_SUPPLEMENT_FILENAME,
+            DOMAIN_SUPPLEMENT_MEDIA_TYPE,
+        ),
     }
     _MAX_OUTPUT_BYTES = 128 * 1024 * 1024
     _MAX_GRAPH_OUTPUT_BYTES = MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES
     _GRAPH_OUTPUT_ROLES = frozenset({"graph_index", "graph_visual_metrics"})
+    _REVISION_BOUND_OUTPUT_ROLES = _GRAPH_OUTPUT_ROLES | frozenset(
+        {DOMAIN_SUPPLEMENT_OUTPUT_ROLE}
+    )
     _READ_CHUNK_BYTES = 1024 * 1024
 
     def publish(
@@ -911,6 +965,7 @@ class WorkerKnowledgeIndexArtifactPublisher:
         job_id: str,
         knowledge_index: Mapping[str, Any],
         run: Mapping[str, Any],
+        revision_binding: Mapping[str, Any] | None = None,
         execution_deadline: KnowledgeIndexExecutionDeadlinePort | None = None,
     ) -> list[dict[str, Any]]:
         from agent.repository import artifact_repo
@@ -934,7 +989,13 @@ class WorkerKnowledgeIndexArtifactPublisher:
             resolved_output / "cc_graph_index.visual_metrics.json",
         )
         graph_file_presence = tuple(path.exists() for path in graph_files)
+        supplement_path = resolved_output / DOMAIN_SUPPLEMENT_FILENAME
+        supplement_present = supplement_path.exists()
+        if supplement_present and revision_binding is None:
+            raise RuntimeError("knowledge_index_revision_binding_missing")
         if any(graph_file_presence) and not all(graph_file_presence):
+            raise RuntimeError("knowledge_index_graph_artifacts_incomplete")
+        if supplement_present and not all(graph_file_presence):
             raise RuntimeError("knowledge_index_graph_artifacts_incomplete")
         if all(graph_file_presence):
             for graph_file in graph_files:
@@ -944,6 +1005,9 @@ class WorkerKnowledgeIndexArtifactPublisher:
                     raise RuntimeError("knowledge_index_graph_artifact_too_large")
             graph_binding = self._load_graph_binding(
                 resolved_output,
+                knowledge_index=knowledge_index,
+                revision_binding=revision_binding,
+                include_domain_supplement=supplement_present,
                 execution_deadline=execution_deadline,
             )
         else:
@@ -951,6 +1015,8 @@ class WorkerKnowledgeIndexArtifactPublisher:
         references: list[dict[str, Any]] = []
         for role, (filename, media_type) in self._OUTPUTS.items():
             self._checkpoint(execution_deadline)
+            if role == DOMAIN_SUPPLEMENT_OUTPUT_ROLE and not supplement_present:
+                continue
             path = resolved_output / filename
             if not path.exists():
                 continue
@@ -984,7 +1050,7 @@ class WorkerKnowledgeIndexArtifactPublisher:
                 "output_role": role,
                 **(
                     graph_binding.get(role, {})
-                    if role in self._GRAPH_OUTPUT_ROLES
+                    if role in self._REVISION_BOUND_OUTPUT_ROLES
                     else {}
                 ),
             }
@@ -1011,7 +1077,7 @@ class WorkerKnowledgeIndexArtifactPublisher:
                 "knowledge_index_id": str(knowledge_index.get("id") or ""),
                 "run_id": str(run.get("id") or ""),
             }
-            if role in {"graph_index", "graph_visual_metrics"}:
+            if role in self._REVISION_BOUND_OUTPUT_ROLES:
                 if role not in graph_binding:
                     raise RuntimeError("knowledge_index_graph_artifacts_incomplete")
                 reference.update(graph_binding[role])
@@ -1029,8 +1095,11 @@ class WorkerKnowledgeIndexArtifactPublisher:
         cls,
         output_dir: Path,
         *,
+        knowledge_index: Mapping[str, Any],
+        revision_binding: Mapping[str, Any] | None,
+        include_domain_supplement: bool,
         execution_deadline: KnowledgeIndexExecutionDeadlinePort | None,
-    ) -> dict[str, dict[str, str]]:
+    ) -> dict[str, dict[str, Any]]:
         graph_path = output_dir / "cc_graph_index.json"
         metrics_path = output_dir / "cc_graph_index.visual_metrics.json"
         try:
@@ -1069,7 +1138,7 @@ class WorkerKnowledgeIndexArtifactPublisher:
 
         if not verify_visual_metrics_content_hash(metrics):
             raise RuntimeError("knowledge_index_graph_visual_metrics_hash_invalid")
-        return {
+        binding: dict[str, dict[str, Any]] = {
             "graph_index": {
                 "artifact_schema": "codecompass_graph_index.v1",
                 "graph_revision": graph_revision,
@@ -1082,6 +1151,62 @@ class WorkerKnowledgeIndexArtifactPublisher:
                 "graph_content_hash": str(metrics.get("content_hash") or ""),
             },
         }
+        if include_domain_supplement:
+            if revision_binding is None:
+                raise RuntimeError("knowledge_index_revision_binding_missing")
+            from worker.retrieval.codecompass_domain_supplement import (
+                WorkerCodeCompassDomainSupplementMaterializer,
+            )
+
+            try:
+                supplement = (
+                    WorkerCodeCompassDomainSupplementMaterializer.inspect_published(
+                        output_dir / DOMAIN_SUPPLEMENT_FILENAME,
+                        execution_deadline=execution_deadline,
+                    )
+                )
+            except (OSError, ValueError) as exc:
+                raise RuntimeError(
+                    "knowledge_index_domain_supplement_invalid"
+                ) from exc
+            expected_supplement = {
+                "graph_revision": graph_revision,
+                "knowledge_index_id": str(knowledge_index.get("id") or ""),
+                "source_scope": str(
+                    revision_binding.get("source_scope") or ""
+                ),
+                "source_id": str(revision_binding.get("source_id") or ""),
+                "source_revision_id": str(
+                    revision_binding.get("source_revision_id") or ""
+                ),
+                "source_revision_digest": str(
+                    revision_binding.get("source_revision_digest") or ""
+                ),
+            }
+            if any(
+                str(supplement.get(field) or "") != expected
+                for field, expected in expected_supplement.items()
+            ):
+                raise RuntimeError(
+                    "knowledge_index_domain_supplement_binding_mismatch"
+                )
+            binding[DOMAIN_SUPPLEMENT_OUTPUT_ROLE] = {
+                key: value
+                for key, value in supplement.items()
+                if key
+                in {
+                    "artifact_schema",
+                    "graph_revision",
+                    "graph_content_hash",
+                    "source_revision_id",
+                    "source_revision_digest",
+                    "domain_count",
+                    "semantic_node_count",
+                    "semantic_edge_count",
+                    "declaration_edge_count",
+                }
+            }
+        return binding
 
     @staticmethod
     def _checkpoint(

@@ -8,6 +8,9 @@ import time
 from collections.abc import Mapping
 from typing import Any, Callable, Protocol
 
+from ananta_contracts.codecompass_domain_supplement import (
+    DOMAIN_SUPPLEMENT_OUTPUT_ROLE,
+)
 from ananta_contracts.knowledge_index_dispatch import (
     build_knowledge_index_dispatch,
     parse_knowledge_index_dispatch,
@@ -25,6 +28,7 @@ _OUTPUT_ROLES = frozenset(
         "relations",
         "graph_index",
         "graph_visual_metrics",
+        DOMAIN_SUPPLEMENT_OUTPUT_ROLE,
     }
 )
 _TERMINAL_TASK_STATUSES = frozenset(

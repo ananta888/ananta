@@ -29,6 +29,12 @@ from ananta_contracts.codecompass_graph_limits import (
 from ananta_contracts.codecompass_semantic_partitions import (
     CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD,
     codecompass_semantic_domain_key,
+    codecompass_semantic_repository_root_domain_key,
+)
+from worker.retrieval.codecompass_domain_supplement import (
+    DOMAIN_SUPPLEMENT_SOURCE_FILENAME,
+    CodeCompassDomainSupplementSourceWriter,
+    SemanticDomainIdentity,
 )
 
 
@@ -53,14 +59,13 @@ def _checkpoint(
         execution_deadline.checkpoint()
 
 
-_ROOT_DOMAIN = "__repository_root__"
 _DOMAIN_ADMISSION_STRATEGY = "top_level_domain_bounded_admission_v1"
 _DEFERRED_EDGE_DOMAIN_FIELD = "__ananta_semantic_partition_domain"
 
 
 @dataclass(frozen=True)
 class _SemanticDomainEvidence:
-    domain: str
+    identity: SemanticDomainIdentity
     status: str
     source_file_count: int
     semantic_file_count: int
@@ -77,7 +82,7 @@ class _SemanticDomainEvidence:
 
     @property
     def domain_key(self) -> str:
-        return codecompass_semantic_domain_key(self.domain)
+        return self.identity.domain_key
 
     def to_wire(self) -> dict[str, object]:
         return {
@@ -158,25 +163,35 @@ class _TopLevelDomainPartitions:
         self,
         records: Sequence[tuple[str, dict[str, Any]]],
     ) -> None:
-        grouped: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+        grouped: dict[SemanticDomainIdentity, list[tuple[str, dict[str, Any]]]] = {}
         for path, record in records:
             grouped.setdefault(self._domain(path), []).append((path, record))
         groups = {domain: tuple(values) for domain, values in grouped.items()}
         self._groups = tuple(
-            (domain, groups[domain])
-            for domain in sorted(
+            (identity, groups[identity])
+            for identity in sorted(
                 groups,
-                key=lambda domain: (
-                    len(groups[domain]),
-                    hashlib.sha256(domain.encode("utf-8")).hexdigest(),
+                key=lambda candidate: (
+                    len(groups[candidate]),
+                    candidate.domain_key,
                 ),
             )
         )
 
     @staticmethod
-    def _domain(path: str) -> str:
+    def _domain(path: str) -> SemanticDomainIdentity:
         head, separator, _tail = str(path or "").partition("/")
-        return head if separator and head else _ROOT_DOMAIN
+        if separator and head:
+            return SemanticDomainIdentity(
+                domain_key=codecompass_semantic_domain_key(head),
+                domain_kind="top_level_path",
+                domain_label=head,
+            )
+        return SemanticDomainIdentity(
+            domain_key=codecompass_semantic_repository_root_domain_key(),
+            domain_kind="repository_root",
+            domain_label="",
+        )
 
     @property
     def domain_count(self) -> int:
@@ -184,13 +199,15 @@ class _TopLevelDomainPartitions:
 
     def groups(
         self,
-    ) -> Iterator[tuple[str, tuple[tuple[str, dict[str, Any]], ...]]]:
+    ) -> Iterator[
+        tuple[SemanticDomainIdentity, tuple[tuple[str, dict[str, Any]], ...]]
+    ]:
         yield from self._groups
 
 
 @dataclass
 class _AcceptedSemanticDomain:
-    domain: str
+    identity: SemanticDomainIdentity
     collector: "_BoundedSemanticGraphCollector"
     source_file_count: int
     semantic_file_count: int
@@ -567,13 +584,21 @@ class RepositoryCodeCompassBridge:
         local_truncated_candidates = 0
         aggregate_output_bytes = 0
 
-        with _BoundedSemanticEdgeSpool(
+        supplement_source_path = output_dir / DOMAIN_SUPPLEMENT_SOURCE_FILENAME
+        with CodeCompassDomainSupplementSourceWriter(
+            supplement_source_path,
+            execution_deadline=execution_deadline,
+        ) as supplement_writer, _BoundedSemanticEdgeSpool(
             max_records=self._max_semantic_edge_candidates,
             max_bytes=self._max_semantic_edge_candidate_bytes,
         ) as deferred_edges:
-            for domain, domain_records in partitions.groups():
+            for identity, domain_records in partitions.groups():
                 _checkpoint(execution_deadline)
-                domain_key = codecompass_semantic_domain_key(domain)
+                domain_key = identity.domain_key
+                supplement_writer.add_domain(
+                    identity,
+                    source_file_count=len(domain_records),
+                )
                 collector = _BoundedSemanticGraphCollector(
                     max_records_per_partition=(self._max_semantic_records_per_partition),
                     max_bytes_per_partition=(MAX_CODECOMPASS_SEMANTIC_BYTES_PER_PARTITION),
@@ -597,26 +622,62 @@ class RepositoryCodeCompassBridge:
                             content,
                         )
                         _checkpoint(execution_deadline)
-                        raw_nodes = emitted.get("nodes") if isinstance(emitted, Mapping) else []
-                        raw_edges = emitted.get("edges") if isinstance(emitted, Mapping) else []
-                        raw_diagnostics = emitted.get("diagnostics") if isinstance(emitted, Mapping) else []
-                        diagnostic_count += len(raw_diagnostics or [])
+                        if not isinstance(emitted, Mapping):
+                            raise RuntimeError(
+                                "codecompass_domain_supplement_adapter_result_invalid"
+                            )
+                        raw_nodes = emitted.get("nodes") or []
+                        raw_edges = emitted.get("edges") or []
+                        raw_diagnostics = emitted.get("diagnostics") or []
+                        if not isinstance(raw_nodes, (list, tuple)) or not isinstance(
+                            raw_edges, (list, tuple)
+                        ) or not isinstance(raw_diagnostics, (list, tuple)):
+                            raise RuntimeError(
+                                "codecompass_domain_supplement_adapter_collections_invalid"
+                            )
+                        diagnostic_count += len(raw_diagnostics)
+                        supplement_writer.observe_diagnostics(
+                            domain_key=domain_key,
+                            diagnostics=raw_diagnostics,
+                            emitted_record_count=len(raw_nodes) + len(raw_edges),
+                        )
                         emitted_node_ids: list[str] = []
-                        for raw_node in list(raw_nodes or []):
+                        complete_emitted_node_ids: list[str] = []
+                        for raw_node in raw_nodes:
                             if not isinstance(raw_node, Mapping):
-                                continue
+                                raise RuntimeError(
+                                    "codecompass_domain_supplement_node_invalid"
+                                )
                             node = {
                                 **self._stable_semantic_record(raw_node),
                                 CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD: domain_key,
                             }
                             node_id = str(node.get("id") or "").strip()
                             if not node_id:
-                                continue
+                                raise RuntimeError(
+                                    "codecompass_domain_supplement_node_invalid"
+                                )
+                            supplement_writer.add_node(
+                                domain_key=domain_key,
+                                record=node,
+                            )
+                            complete_emitted_node_ids.append(node_id)
                             domain_had_candidates = True
                             accepted_id = node_id if node_id in global_semantic_node_ids else collector.add_node(node)
                             if accepted_id:
                                 emitted_node_ids.append(accepted_id)
                         file_id = self._node_id("file", path)
+                        for node_id in sorted(set(complete_emitted_node_ids)):
+                            supplement_writer.add_declaration_edge(
+                                domain_key=domain_key,
+                                record={
+                                    "source": file_id,
+                                    "target": node_id,
+                                    "type": "declares",
+                                    "directed": True,
+                                    CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD: domain_key,
+                                },
+                            )
                         if emitted_node_ids:
                             domain_semantic_file_count += 1
                             for node_id in sorted(set(emitted_node_ids)):
@@ -636,9 +697,11 @@ class RepositoryCodeCompassBridge:
                                     domain_truncated_declarations += 1
                                     collector.truncated_edge_count += 1
                         additional_node_ids = graph_node_ids | global_semantic_node_ids
-                        for raw_edge in list(raw_edges or []):
+                        for raw_edge in raw_edges:
                             if not isinstance(raw_edge, Mapping):
-                                continue
+                                raise RuntimeError(
+                                    "codecompass_domain_supplement_edge_invalid"
+                                )
                             domain_had_candidates = True
                             edge = {
                                 **self._normalize_current_file_endpoint(
@@ -648,6 +711,10 @@ class RepositoryCodeCompassBridge:
                                 ),
                                 CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD: domain_key,
                             }
+                            supplement_writer.add_semantic_edge(
+                                domain_key=domain_key,
+                                record=edge,
+                            )
                             if collector.can_resolve_edge(
                                 edge,
                                 additional_node_ids=additional_node_ids,
@@ -674,7 +741,7 @@ class RepositoryCodeCompassBridge:
                         empty_domain_count += 1
                         domain_evidence.append(
                             _SemanticDomainEvidence(
-                                domain=domain,
+                                identity=identity,
                                 status="no_semantic_records",
                                 source_file_count=len(domain_records),
                                 semantic_file_count=0,
@@ -711,7 +778,7 @@ class RepositoryCodeCompassBridge:
                         omitted_truncated_candidates += domain_candidate_truncation + domain_deferred_edges.record_count
                         domain_evidence.append(
                             _SemanticDomainEvidence(
-                                domain=domain,
+                                identity=identity,
                                 status=omission_status,
                                 source_file_count=len(domain_records),
                                 semantic_file_count=0,
@@ -736,7 +803,7 @@ class RepositoryCodeCompassBridge:
                     graph_edges.update(domain_graph_edges)
                     accepted.append(
                         _AcceptedSemanticDomain(
-                            domain=domain,
+                            identity=identity,
                             collector=collector,
                             source_file_count=len(domain_records),
                             semantic_file_count=domain_semantic_file_count,
@@ -750,11 +817,13 @@ class RepositoryCodeCompassBridge:
                         deferred_edges.append(
                             {
                                 **deferred,
-                                _DEFERRED_EDGE_DOMAIN_FIELD: domain,
+                                _DEFERRED_EDGE_DOMAIN_FIELD: identity.domain_key,
                             }
                         )
 
-            accepted_by_domain = {partition.domain: partition for partition in accepted}
+            accepted_by_domain = {
+                partition.identity.domain_key: partition for partition in accepted
+            }
             all_available_node_ids = graph_node_ids | global_semantic_node_ids
             for raw_deferred in deferred_edges.records():
                 _checkpoint(execution_deadline)
@@ -787,6 +856,7 @@ class RepositoryCodeCompassBridge:
                 partition.collector.truncated_edge_count += lost_count
             candidate_record_count = deferred_edges.record_count
             candidate_byte_count = deferred_edges.byte_count
+            supplement_writer.finalize()
 
         (
             semantic_node_outputs,
@@ -814,7 +884,7 @@ class RepositoryCodeCompassBridge:
         unresolved_edge_count = sum(partition.collector.unresolved_edge_count for partition in accepted)
         domain_evidence.extend(
             _SemanticDomainEvidence(
-                domain=partition.domain,
+                identity=partition.identity,
                 status="materialized",
                 source_file_count=partition.source_file_count,
                 semantic_file_count=partition.semantic_file_count,
@@ -867,6 +937,7 @@ class RepositoryCodeCompassBridge:
             "semantic_budget": semantic_budget,
             "semantic_node_outputs": semantic_node_outputs,
             "semantic_edge_outputs": semantic_edge_outputs,
+            "domain_supplement_source": DOMAIN_SUPPLEMENT_SOURCE_FILENAME,
         }
 
     @classmethod
@@ -903,7 +974,7 @@ class RepositoryCodeCompassBridge:
         node_outputs: list[str] = []
         edge_outputs: list[str] = []
         for partition in materialized:
-            digest = hashlib.sha256(partition.domain.encode("utf-8")).hexdigest()
+            digest = partition.identity.domain_key.removeprefix("sha256:")
             node_filename = f"semantic_nodes.domain-{digest}.jsonl"
             edge_filename = f"semantic_edges.domain-{digest}.jsonl"
             cls._write_jsonl(

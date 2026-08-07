@@ -7,6 +7,11 @@ from typing import Protocol
 
 from agent.codecompass.semantic_translation.models import Provenance, SemanticEdge, SemanticNode, diagnostic
 from agent.codecompass.semantic_translation.nullability import infer_java_nullability
+from agent.codecompass.semantic_translation.semantic_symbol_identity import (
+    DeterministicSemanticSymbolIdentityFactory,
+    SemanticSymbolIdentityPort,
+    semantic_identity_attributes,
+)
 
 
 class SemanticLanguageAdapter(Protocol):
@@ -68,6 +73,15 @@ class JavaSemanticAdapter:
         "regex-java-v1 remains a reduced-confidence runtime fallback",
     )
 
+    def __init__(
+        self,
+        *,
+        symbol_identity: SemanticSymbolIdentityPort | None = None,
+    ) -> None:
+        self._symbol_identity = (
+            symbol_identity or DeterministicSemanticSymbolIdentityFactory()
+        )
+
     def detect(self, path: str, content: str) -> bool:
         return Path(path).suffix == ".java" or re.search(r"\b(class|record|enum|interface)\s+\w+", content) is not None
 
@@ -122,11 +136,29 @@ class JavaSemanticAdapter:
     def extract_symbols(self, parsed: dict) -> list[dict]:
         symbols = []
         for item in parsed.get("types") or []:
-            symbols.append({"symbol": item["name"], "kind": item["kind"], "line_start": item["line_start"]})
+            symbols.append(
+                {
+                    "symbol": item["name"],
+                    "kind": item["kind"],
+                    "line_start": item["line_start"],
+                }
+            )
             for prop in item.get("properties") or []:
-                symbols.append({"symbol": f"{item['name']}.{prop['name']}", "kind": "property", "line_start": prop["line_start"]})
+                symbols.append(
+                    {
+                        "symbol": f"{item['name']}.{prop['name']}",
+                        "kind": "property",
+                        "line_start": prop["line_start"],
+                    }
+                )
             for method in item.get("methods") or []:
-                symbols.append({"symbol": f"{item['name']}.{method['name']}", "kind": "method", "line_start": method["line_start"]})
+                symbols.append(
+                    {
+                        "symbol": f"{item['name']}.{method['name']}",
+                        "kind": "method",
+                        "line_start": method["line_start"],
+                    }
+                )
         return symbols
 
     def extract_types(self, parsed: dict) -> list[dict]:
@@ -135,7 +167,13 @@ class JavaSemanticAdapter:
     def extract_semantics(self, parsed: dict) -> list[dict]:
         semantics = []
         for item in parsed.get("types") or []:
-            semantic_kind = "data_record" if item["kind"] in {"record", "class"} else "interface_contract" if item["kind"] == "interface" else "enum_value"
+            semantic_kind = (
+                "data_record"
+                if item["kind"] in {"record", "class"}
+                else "interface_contract"
+                if item["kind"] == "interface"
+                else "enum_value"
+            )
             semantics.append({"symbol": item["name"], "semantic_kind": semantic_kind})
         return semantics
 
@@ -147,30 +185,44 @@ class JavaSemanticAdapter:
         confidence = float(parsed.get("confidence") or 0.58)
         normalized_path = path.replace("\\", "/")
         file_id = f"semantic:java:file:{normalized_path}"
+        module_node_ids: set[str] = set()
         for imported in parsed.get("imports") or []:
             module_name = str(imported.get("name") or "").strip()
             if not module_name:
                 continue
-            module_id = f"semantic:java:module:{module_name}"
-            nodes.append(
-                SemanticNode(
-                    id=module_id,
-                    kind="semantic_node",
-                    semantic_kind="module",
-                    language="java",
-                    symbol=module_name,
-                    attributes=imported,
-                    provenance=Provenance(
-                        file=path,
+            canonical_module_id = f"semantic:java:module:{module_name}"
+            module_id = self._local_id(
+                path=path,
+                symbol_kind="module",
+                canonical_id=canonical_module_id,
+                local_qualifier=module_name,
+            )
+            if module_id not in module_node_ids:
+                nodes.append(
+                    SemanticNode(
+                        id=module_id,
+                        kind="semantic_node",
+                        semantic_kind="module",
                         language="java",
                         symbol=module_name,
-                        line_start=imported.get("line_start"),
-                        line_end=imported.get("line_start"),
-                        parser=parser_strategy,
-                        confidence=confidence,
-                    ),
-                ).as_record()
-            )
+                        attributes={
+                            **imported,
+                            **semantic_identity_attributes(
+                                canonical_module_id
+                            ),
+                        },
+                        provenance=Provenance(
+                            file=path,
+                            language="java",
+                            symbol=module_name,
+                            line_start=imported.get("line_start"),
+                            line_end=imported.get("line_start"),
+                            parser=parser_strategy,
+                            confidence=confidence,
+                        ),
+                    ).as_record()
+                )
+                module_node_ids.add(module_id)
             edges.append(
                 SemanticEdge(
                     source_id=file_id,
@@ -179,17 +231,50 @@ class JavaSemanticAdapter:
                     attributes={"static": imported.get("kind") == "static_import"},
                 ).as_record()
             )
+
+        type_entries: list[tuple[dict, str, str, str]] = []
+        local_type_candidates: dict[str, set[str]] = {}
         for item in parsed.get("types") or []:
             type_name = str(item.get("qualified_name") or item["name"])
-            type_id = f"semantic:java:{item['kind']}:{type_name}"
-            semantic_kind = "data_record" if item["kind"] in {"record", "class"} else "interface_contract" if item["kind"] == "interface" else "data_record"
+            canonical_type_id = (
+                f"semantic:java:{item['kind']}:{type_name}"
+            )
+            type_id = self._local_id(
+                path=path,
+                symbol_kind="type",
+                canonical_id=canonical_type_id,
+                local_qualifier=f"{item['kind']}:{type_name}",
+            )
+            type_entries.append(
+                (item, type_name, canonical_type_id, type_id)
+            )
+            for alias in {str(item["name"]), type_name}:
+                local_type_candidates.setdefault(alias, set()).add(type_id)
+
+        local_type_by_name = {
+            alias: next(iter(candidates))
+            for alias, candidates in local_type_candidates.items()
+            if len(candidates) == 1
+        }
+
+        for item, type_name, canonical_type_id, type_id in type_entries:
+            semantic_kind = (
+                "data_record"
+                if item["kind"] in {"record", "class"}
+                else "interface_contract"
+                if item["kind"] == "interface"
+                else "data_record"
+            )
             type_node = SemanticNode(
                 id=type_id,
                 kind="semantic_node",
                 semantic_kind=semantic_kind,
                 language="java",
                 symbol=item["name"],
-                attributes=item,
+                attributes={
+                    **item,
+                    **semantic_identity_attributes(canonical_type_id),
+                },
                 provenance=Provenance(
                     file=path,
                     language="java",
@@ -202,15 +287,34 @@ class JavaSemanticAdapter:
             ).as_record()
             nodes.append(type_node)
             for prop in item.get("properties") or []:
-                prop_id = f"{type_id}:property:{prop['name']}"
+                canonical_prop_id = (
+                    f"{canonical_type_id}:property:{prop['name']}"
+                )
+                prop_id = self._local_id(
+                    path=path,
+                    symbol_kind="property",
+                    canonical_id=canonical_prop_id,
+                    local_qualifier=(
+                        f"{type_name}.property:{prop['name']}"
+                    ),
+                )
                 nodes.append(
                     SemanticNode(
                         id=prop_id,
                         kind="semantic_node",
-                        semantic_kind="optional_absence" if prop.get("nullability") == "optional_absence" else "property",
+                        semantic_kind=(
+                            "optional_absence"
+                            if prop.get("nullability") == "optional_absence"
+                            else "property"
+                        ),
                         language="java",
                         symbol=f"{item['name']}.{prop['name']}",
-                        attributes=prop,
+                        attributes={
+                            **prop,
+                            **semantic_identity_attributes(
+                                canonical_prop_id
+                            ),
+                        },
                         provenance=Provenance(
                             file=path,
                             language="java",
@@ -224,7 +328,17 @@ class JavaSemanticAdapter:
                 )
                 edges.append(SemanticEdge(source_id=type_id, target_id=prop_id, edge_type="declares").as_record())
             for enum_value in item.get("enum_values") or []:
-                value_id = f"{type_id}:enum:{enum_value}"
+                canonical_value_id = (
+                    f"{canonical_type_id}:enum:{enum_value}"
+                )
+                value_id = self._local_id(
+                    path=path,
+                    symbol_kind="enum_value",
+                    canonical_id=canonical_value_id,
+                    local_qualifier=(
+                        f"{type_name}.enum:{enum_value}"
+                    ),
+                )
                 nodes.append(
                     SemanticNode(
                         id=value_id,
@@ -232,13 +346,38 @@ class JavaSemanticAdapter:
                         semantic_kind="enum_value",
                         language="java",
                         symbol=f"{item['name']}.{enum_value}",
-                        attributes={"name": enum_value},
-                        provenance=Provenance(file=path, language="java", symbol=f"{item['name']}.{enum_value}", line_start=item["line_start"], line_end=item["line_end"], parser=parser_strategy, confidence=max(0.5, confidence - 0.08)),
+                        attributes={
+                            "name": enum_value,
+                            **semantic_identity_attributes(
+                                canonical_value_id
+                            ),
+                        },
+                        provenance=Provenance(
+                            file=path,
+                            language="java",
+                            symbol=f"{item['name']}.{enum_value}",
+                            line_start=item["line_start"],
+                            line_end=item["line_end"],
+                            parser=parser_strategy,
+                            confidence=max(0.5, confidence - 0.08),
+                        ),
                     ).as_record()
                 )
                 edges.append(SemanticEdge(source_id=type_id, target_id=value_id, edge_type="declares").as_record())
             for method in item.get("methods") or []:
-                method_id = f"{type_id}:method:{method['name']}"
+                canonical_method_id = (
+                    f"{canonical_type_id}:method:{method['name']}"
+                )
+                method_qualifier = self._method_qualifier(
+                    type_name=type_name,
+                    method=method,
+                )
+                method_id = self._local_id(
+                    path=path,
+                    symbol_kind="method",
+                    canonical_id=canonical_method_id,
+                    local_qualifier=method_qualifier,
+                )
                 nodes.append(
                     SemanticNode(
                         id=method_id,
@@ -246,13 +385,36 @@ class JavaSemanticAdapter:
                         semantic_kind="function_signature",
                         language="java",
                         symbol=f"{item['name']}.{method['name']}",
-                        attributes=method,
-                        provenance=Provenance(file=path, language="java", symbol=f"{item['name']}.{method['name']}", line_start=method["line_start"], line_end=method["line_start"], parser=parser_strategy, confidence=max(0.5, confidence - 0.1)),
+                        attributes={
+                            **method,
+                            **semantic_identity_attributes(
+                                canonical_method_id
+                            ),
+                        },
+                        provenance=Provenance(
+                            file=path,
+                            language="java",
+                            symbol=f"{item['name']}.{method['name']}",
+                            line_start=method["line_start"],
+                            line_end=method["line_start"],
+                            parser=parser_strategy,
+                            confidence=max(0.5, confidence - 0.1),
+                        ),
                     ).as_record()
                 )
                 edges.append(SemanticEdge(source_id=type_id, target_id=method_id, edge_type="declares").as_record())
                 for thrown in method.get("throws") or []:
-                    thrown_id = f"{method_id}:throws:{thrown}"
+                    canonical_thrown_id = (
+                        f"{canonical_method_id}:throws:{thrown}"
+                    )
+                    thrown_id = self._local_id(
+                        path=path,
+                        symbol_kind="exception",
+                        canonical_id=canonical_thrown_id,
+                        local_qualifier=(
+                            f"{method_qualifier}:throws:{thrown}"
+                        ),
+                    )
                     nodes.append(
                         SemanticNode(
                             id=thrown_id,
@@ -260,27 +422,49 @@ class JavaSemanticAdapter:
                             semantic_kind="exception_flow",
                             language="java",
                             symbol=thrown,
-                            attributes={"throws": thrown},
-                            provenance=Provenance(file=path, language="java", symbol=thrown, line_start=method["line_start"], line_end=method["line_start"], parser=parser_strategy, confidence=max(0.5, confidence - 0.12)),
+                            attributes={
+                                "throws": thrown,
+                                **semantic_identity_attributes(
+                                    canonical_thrown_id
+                                ),
+                            },
+                            provenance=Provenance(
+                                file=path,
+                                language="java",
+                                symbol=thrown,
+                                line_start=method["line_start"],
+                                line_end=method["line_start"],
+                                parser=parser_strategy,
+                                confidence=max(0.5, confidence - 0.12),
+                            ),
                         ).as_record()
                     )
                     edges.append(SemanticEdge(source_id=method_id, target_id=thrown_id, edge_type="throws").as_record())
             if item.get("parent_type"):
-                parent_id = f"semantic:java:class:{item['parent_type']}"
+                parent_name = str(item["parent_type"])
+                parent_id = local_type_by_name.get(parent_name) or (
+                    f"semantic:java:class:{parent_name}"
+                )
                 edges.append(SemanticEdge(source_id=parent_id, target_id=type_id, edge_type="declares").as_record())
             for base_type in item.get("extends") or []:
+                target_id = local_type_by_name.get(str(base_type)) or (
+                    f"semantic:java:type:{base_type}"
+                )
                 edges.append(
                     SemanticEdge(
                         source_id=type_id,
-                        target_id=f"semantic:java:type:{base_type}",
+                        target_id=target_id,
                         edge_type="extends",
                     ).as_record()
                 )
             for interface_type in item.get("implements") or []:
+                target_id = local_type_by_name.get(
+                    str(interface_type)
+                ) or f"semantic:java:type:{interface_type}"
                 edges.append(
                     SemanticEdge(
                         source_id=type_id,
-                        target_id=f"semantic:java:type:{interface_type}",
+                        target_id=target_id,
                         edge_type="implements",
                     ).as_record()
                 )
@@ -291,6 +475,40 @@ class JavaSemanticAdapter:
             "parser_strategy": parsed.get("parser_strategy"),
             "fallback_reason": parsed.get("fallback_reason"),
         }
+
+    def _local_id(
+        self,
+        *,
+        path: str,
+        symbol_kind: str,
+        canonical_id: str,
+        local_qualifier: str,
+    ) -> str:
+        return self._symbol_identity.symbol_id(
+            language=self.language,
+            path=path,
+            symbol_kind=symbol_kind,
+            canonical_id=canonical_id,
+            local_qualifier=local_qualifier,
+        )
+
+    @staticmethod
+    def _method_qualifier(
+        *,
+        type_name: str,
+        method: dict,
+    ) -> str:
+        parameter_types = ",".join(
+            str(parameter.get("type") or "").strip()
+            for parameter in list(method.get("parameters") or [])
+            if isinstance(parameter, dict)
+        )
+        method_kind = str(method.get("kind") or "method")
+        type_parameters = str(method.get("type_parameters") or "").strip()
+        return (
+            f"{type_name}.{method_kind}:{method['name']}"
+            f"{type_parameters}({parameter_types})"
+        )
 
     def _parse_imports(self, content: str) -> list[dict]:
         imports = []
@@ -307,7 +525,11 @@ class JavaSemanticAdapter:
     def _parse_types(self, path: str, content: str) -> list[dict]:
         lines = content.splitlines()
         types = []
-        for match in re.finditer(r"\b(public\s+)?(record|class|enum|interface)\s+(\w+)(\s*\((?P<components>[^)]*)\))?([^{;]*)\{", content, re.MULTILINE):
+        type_pattern = (
+            r"\b(public\s+)?(record|class|enum|interface)\s+(\w+)"
+            r"(\s*\((?P<components>[^)]*)\))?([^{;]*)\{"
+        )
+        for match in re.finditer(type_pattern, content, re.MULTILINE):
             kind = match.group(2)
             name = match.group(3)
             start_line = content[: match.start()].count("\n") + 1
@@ -333,9 +555,21 @@ class JavaSemanticAdapter:
             if kind in {"class", "interface"}:
                 item["methods"] = self._parse_methods(block, start_line)
             if re.search(r"\b(synchronized|native)\b", block):
-                item["unsupported"].append({"code": "unsupported_construct", "reason": "synchronized_or_native_member", "path": path})
+                item["unsupported"].append(
+                    {
+                        "code": "unsupported_construct",
+                        "reason": "synchronized_or_native_member",
+                        "path": path,
+                    }
+                )
             if _UNSUPPORTED_CONTROL_FLOW_RE.search(block):
-                item["unsupported"].append({"code": "unsupported_control_flow", "reason": "break_continue_synchronized_or_goto_detected", "path": path})
+                item["unsupported"].append(
+                    {
+                        "code": "unsupported_control_flow",
+                        "reason": "break_continue_synchronized_or_goto_detected",
+                        "path": path,
+                    }
+                )
             types.append(item)
         return types
 
@@ -350,13 +584,28 @@ class JavaSemanticAdapter:
             type_name = " ".join(tokens[:-1])
             name = tokens[-1]
             nullability = infer_java_nullability(type_name, annotations)
-            props.append({"name": name, "type": type_name, "order": order, "annotations": annotations, "nullability": nullability.state, "warnings": list(nullability.warnings), "line_start": line_start})
+            props.append(
+                {
+                    "name": name,
+                    "type": type_name,
+                    "order": order,
+                    "annotations": annotations,
+                    "nullability": nullability.state,
+                    "warnings": list(nullability.warnings),
+                    "line_start": line_start,
+                }
+            )
         return props
 
     def _parse_fields(self, block: str, line_offset: int) -> list[dict]:
         props = []
         body = block.split("{", 1)[-1]
-        field_re = re.compile(r"(?P<annotations>(?:@\w+\s+)*)\b(?:private|public|protected)?\s*(?:final\s+)?(?P<type>[\w<>?, ]+)\s+(?P<name>\w+)\s*(?:=[^;]*)?;", re.MULTILINE)
+        field_re = re.compile(
+            r"(?P<annotations>(?:@\w+\s+)*)\b(?:private|public|protected)?\s*"
+            r"(?:final\s+)?(?P<type>[\w<>?, ]+)\s+(?P<name>\w+)\s*"
+            r"(?:=[^;]*)?;",
+            re.MULTILINE,
+        )
         body_line_offset = line_offset + block.split("{", 1)[0].count("\n")
         for order, match in enumerate(field_re.finditer(body)):
             type_name = " ".join(match.group("type").split())
@@ -364,14 +613,34 @@ class JavaSemanticAdapter:
                 continue
             annotations = re.findall(r"@\w+", match.group("annotations") or "")
             nullability = infer_java_nullability(type_name, annotations)
-            props.append({"name": match.group("name"), "type": type_name, "order": order, "annotations": annotations, "nullability": nullability.state, "warnings": list(nullability.warnings), "line_start": body_line_offset + body[: match.start()].count("\n")})
+            props.append(
+                {
+                    "name": match.group("name"),
+                    "type": type_name,
+                    "order": order,
+                    "annotations": annotations,
+                    "nullability": nullability.state,
+                    "warnings": list(nullability.warnings),
+                    "line_start": (
+                        body_line_offset + body[: match.start()].count("\n")
+                    ),
+                }
+            )
         return props
 
     def _parse_methods(self, block: str, line_offset: int) -> list[dict]:
         methods = []
         body = block.split("{", 1)[-1]
         body_line_offset = line_offset + block.split("{", 1)[0].count("\n")
-        method_re = re.compile(r"(?P<annotations>(?:@\w+\s+)*)\b(?P<visibility>public|protected|private)?\s*(?P<static>static\s+)?(?P<final>final\s+)?(?P<return>[\w<>?, ]+)\s+(?P<name>\w+)\s*\((?P<params>[^)]*)\)\s*(?:throws\s+(?P<throws>[^{;]+))?[{;]", re.MULTILINE)
+        method_re = re.compile(
+            r"(?P<annotations>(?:@\w+\s+)*)\b"
+            r"(?P<visibility>public|protected|private)?\s*"
+            r"(?P<static>static\s+)?(?P<final>final\s+)?"
+            r"(?P<return>[\w<>?, ]+)\s+(?P<name>\w+)\s*"
+            r"\((?P<params>[^)]*)\)\s*"
+            r"(?:throws\s+(?P<throws>[^{;]+))?[{;]",
+            re.MULTILINE,
+        )
         for match in method_re.finditer(body):
             return_type = " ".join((match.group("return") or "").split())
             if return_type in {"if", "for", "while", "switch", "catch", "new"}:
@@ -402,7 +671,14 @@ class JavaSemanticAdapter:
             tokens = [token for token in tokens if not token.startswith("@")]
             if len(tokens) < 2:
                 continue
-            result.append({"name": tokens[-1], "type": " ".join(tokens[:-1]), "order": order, "annotations": annotations})
+            result.append(
+                {
+                    "name": tokens[-1],
+                    "type": " ".join(tokens[:-1]),
+                    "order": order,
+                    "annotations": annotations,
+                }
+            )
         return result
 
     def _parse_enum_values(self, block: str) -> list[str]:
