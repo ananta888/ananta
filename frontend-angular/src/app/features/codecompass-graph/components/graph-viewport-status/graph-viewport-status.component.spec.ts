@@ -87,4 +87,22 @@ describe('GraphViewportStatusComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="graph-semantic-warning"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="graph-window-warning"]')).toBeNull();
   });
+
+  it('distinguishes an unverified semantic scope from an incomplete one', () => {
+    fixture.componentRef.setInput('summary', summary({
+      semanticState: 'unknown',
+      semanticIssues: [{
+        code: 'semantic_scope_unverified',
+        affectedCount: null,
+        reasonCode: null,
+      }],
+      artifactIssues: [],
+    }));
+    fixture.detectChanges();
+
+    const warning = fixture.nativeElement.querySelector('[data-testid="graph-semantic-warning"]');
+    expect(warning.textContent).toContain('Semantische Vollständigkeit nicht bestätigt');
+    expect(warning.textContent).toContain('vollständig übertragen');
+    expect(warning.textContent).toContain('nicht verifiziert');
+  });
 });

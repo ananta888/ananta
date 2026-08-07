@@ -8,6 +8,7 @@ import {
   GraphNode,
   GraphNodeKind,
   GraphSemanticBudgetEvidence,
+  GraphSemanticScopeEvidence,
   GraphSemanticTranslationEvidence,
   GraphWindowEvidence,
   SEMANTIC_TRANSLATION_EDGE_TYPES,
@@ -93,6 +94,19 @@ const SEMANTIC_BUDGET_KEYS = Object.freeze([
   'candidate_edge_count',
   'candidate_edge_bytes',
   'truncated_candidate_edge_count',
+] as const);
+
+const SEMANTIC_SCOPE_EVIDENCE_KEYS = Object.freeze([
+  'semantic_scope_status',
+  'semantic_scope_complete',
+  'semantic_scope_key',
+  'semantic_scope_supplement_domain_keys',
+  'semantic_scope_source_revision_id',
+  'semantic_scope_source_revision_digest',
+  'semantic_scope_graph_revision',
+  'semantic_scope_supplement_node_count',
+  'semantic_scope_supplement_edge_count',
+  'semantic_scope_supplement_declaration_count',
 ] as const);
 
 const KNOWN_NODE_KINDS = new Set<string>([
@@ -208,6 +222,14 @@ function evidenceCount(value: unknown): number | null {
     : null;
 }
 
+function evidenceTextList(value: unknown): readonly string[] | null {
+  if (!Array.isArray(value)) return null;
+  const normalized = value.map(evidenceText);
+  if (normalized.some(item => item === null)) return null;
+  const items = normalized as string[];
+  return new Set(items).size === items.length ? Object.freeze(items) : null;
+}
+
 function metricId(raw: string): string {
   return METRIC_ID_ALIASES[raw] ?? raw;
 }
@@ -284,9 +306,41 @@ export class GraphAdapterService {
       metadataBudget,
       diagnosticBudget,
     );
+    const semanticScope = this.mapSemanticScopeEvidence(metadata);
     const artifactStatus = this.mapArtifactStatusEvidence(artifact.artifact_status);
-    if (!window && !semanticTranslation && !artifactStatus) return undefined;
-    return Object.freeze({ window, semanticTranslation, artifactStatus });
+    if (!window && !semanticTranslation && !semanticScope && !artifactStatus) return undefined;
+    return Object.freeze({
+      window,
+      semanticTranslation,
+      ...(semanticScope ? { semanticScope } : {}),
+      artifactStatus,
+    });
+  }
+
+  private mapSemanticScopeEvidence(
+    metadata: Record<string, unknown>,
+  ): Readonly<GraphSemanticScopeEvidence> | null {
+    if (!hasAnyOwn(metadata, SEMANTIC_SCOPE_EVIDENCE_KEYS)) return null;
+    return Object.freeze({
+      status: evidenceText(metadata['semantic_scope_status']),
+      complete: evidenceBoolean(metadata['semantic_scope_complete']),
+      scopeKey: evidenceText(metadata['semantic_scope_key']),
+      supplementDomainKeys: evidenceTextList(
+        metadata['semantic_scope_supplement_domain_keys'],
+      ),
+      sourceRevisionId: evidenceText(metadata['semantic_scope_source_revision_id']),
+      sourceRevisionDigest: evidenceText(metadata['semantic_scope_source_revision_digest']),
+      graphRevision: evidenceText(metadata['semantic_scope_graph_revision']),
+      supplementNodeCount: evidenceCount(
+        metadata['semantic_scope_supplement_node_count'],
+      ),
+      supplementEdgeCount: evidenceCount(
+        metadata['semantic_scope_supplement_edge_count'],
+      ),
+      supplementDeclarationCount: evidenceCount(
+        metadata['semantic_scope_supplement_declaration_count'],
+      ),
+    });
   }
 
   private mapWindowEvidence(

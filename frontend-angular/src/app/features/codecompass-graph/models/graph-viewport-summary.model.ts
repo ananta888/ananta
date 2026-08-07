@@ -28,6 +28,9 @@ export type GraphProjectionIssueCode =
   | 'graph_window_evidence_inconsistent';
 
 export type GraphSemanticIssueCode =
+  | 'semantic_scope_unverified'
+  | 'semantic_scope_unavailable'
+  | 'semantic_scope_partial'
   | 'semantic_translation_unavailable'
   | 'semantic_graph_truncated'
   | 'semantic_graph_candidate_relations_truncated'

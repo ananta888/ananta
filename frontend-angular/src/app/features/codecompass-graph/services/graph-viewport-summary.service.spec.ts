@@ -414,4 +414,88 @@ describe('GraphViewportSummaryService', () => {
       reasonCode: 'semantic_graph_partial',
     });
   });
+
+  it('marks a completely transported legacy staged scope as semantically unverified', () => {
+    const graph = graphWithEvidence();
+    graph.evidence = {
+      ...graph.evidence!,
+      window: {
+        ...graph.evidence!.window!,
+        view: 'staged',
+        deliveryComplete: true,
+      },
+      semanticScope: null,
+    };
+
+    const summary = service.project(graph, new Set(), new Set());
+
+    expect(summary.semanticState).toBe('unknown');
+    expect(summary.semanticIssues).toEqual([{
+      code: 'semantic_scope_unverified',
+      affectedCount: null,
+      reasonCode: null,
+    }]);
+  });
+
+  it('uses server-verified scoped completeness instead of global budget diagnostics', () => {
+    const graph = graphWithEvidence();
+    graph.evidence = {
+      ...graph.evidence!,
+      window: {
+        ...graph.evidence!.window!,
+        view: 'staged',
+        deliveryComplete: true,
+      },
+      semanticScope: {
+        status: 'complete',
+        complete: true,
+        scopeKey: 'domain:rag-helper',
+        supplementDomainKeys: ['sha256:rag-helper'],
+        sourceRevisionId: 'source-revision-1',
+        sourceRevisionDigest: 'sha256:source-revision-1',
+        graphRevision: 'scope-revision-1',
+        supplementNodeCount: 1_955,
+        supplementEdgeCount: 4_200,
+        supplementDeclarationCount: 179,
+      },
+    };
+
+    const summary = service.project(graph, new Set(), new Set());
+
+    expect(summary.semanticState).toBe('complete');
+    expect(summary.semanticIssues).toEqual([]);
+  });
+
+  it('fails closed when a claimed complete scope omits binding evidence', () => {
+    const graph = graphWithEvidence();
+    graph.evidence = {
+      ...graph.evidence!,
+      window: {
+        ...graph.evidence!.window!,
+        view: 'staged',
+        deliveryComplete: true,
+      },
+      semanticScope: {
+        status: 'complete',
+        complete: true,
+        scopeKey: 'domain:rag-helper',
+        supplementDomainKeys: ['sha256:rag-helper'],
+        sourceRevisionId: 'source-revision-1',
+        sourceRevisionDigest: 'sha256:source-revision-1',
+        graphRevision: null,
+        supplementNodeCount: 1_955,
+        supplementEdgeCount: 4_200,
+        supplementDeclarationCount: 179,
+      },
+    };
+
+    const summary = service.project(graph, new Set(), new Set());
+
+    expect(summary.semanticState).toBe('unknown');
+    expect(summary.semanticIssues).toEqual([{
+      code: 'semantic_scope_unverified',
+      affectedCount: null,
+      reasonCode: 'semantic_scope_evidence_invalid',
+    }]);
+  });
 });

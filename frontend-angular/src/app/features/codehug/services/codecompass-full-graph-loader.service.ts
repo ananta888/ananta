@@ -8,6 +8,7 @@ import {
   InternalsService,
   type CodeCompassGraphStage,
   type CodeCompassGraphStagedPage,
+  type CodeCompassSemanticScopeEvidence,
 } from './internals.service';
 
 export const FULL_GRAPH_NODE_PAGE_SIZE = 500;
@@ -17,7 +18,8 @@ export interface CodeCompassFullGraphLoadRequest {
   readonly connectionId: string;
   readonly domainScope?: string;
   readonly includeSubdomains: boolean;
-  readonly expectedRevision?: string;
+  /** Stable source evidence; scoped semantic overlays may have another content revision. */
+  readonly expectedEvidenceRevision?: string;
 }
 
 export interface CodeCompassFullGraphProgress {
@@ -37,14 +39,18 @@ export type CodeCompassFullGraphLoadEvent =
       readonly kind: 'complete';
       readonly graph: CodeCompassGraphV1;
       readonly graphRevision: string;
+      readonly evidenceGraphRevision: string | null;
+      readonly semanticScope: Readonly<CodeCompassSemanticScopeEvidence> | null;
       readonly nodeCount: number;
       readonly edgeCount: number;
     };
 
 export type CodeCompassFullGraphLoadFailureReason =
   | 'revision_changed'
+  | 'evidence_revision_changed'
   | 'source_changed'
   | 'scope_changed'
+  | 'semantic_scope_changed'
   | 'cursor_repeated'
   | 'cursor_without_progress'
   | 'total_changed'
@@ -99,13 +105,15 @@ class StageCursorGuard {
 }
 
 interface StreamBinding {
-  readonly revision: string;
+  readonly contentRevision: string;
+  readonly evidenceRevision: string | null;
   readonly sourceRef: string;
   readonly indexId: string;
   readonly domainScope: string | null;
   readonly includeSubdomains: boolean;
   readonly totalNodes: number;
   readonly totalEdges: number;
+  readonly semanticScope: Readonly<CodeCompassSemanticScopeEvidence> | null;
 }
 
 /**
@@ -205,7 +213,10 @@ export class CodeCompassFullGraphLoaderService {
               ...metadata,
               view: 'staged',
               stage: 'complete',
-              content_graph_revision: binding.revision,
+              content_graph_revision: binding.contentRevision,
+              ...(binding.evidenceRevision
+                ? { evidence_graph_revision: binding.evidenceRevision }
+                : {}),
               node_count: nodes.size,
               edge_count: edges.size,
               scope_total_nodes: nodes.size,
@@ -220,12 +231,14 @@ export class CodeCompassFullGraphLoaderService {
             // coherent node capabilities; GraphAdapter derives intrinsic edge
             // capabilities from the fully reassembled edge population.
             metric_capabilities: nodeMetricCapabilities,
-            text_alternative: `Complete scoped graph with ${nodes.size} nodes and ${edges.size} edges.`,
+            text_alternative: `Fully transported scoped graph with ${nodes.size} nodes and ${edges.size} edges.`,
           } as unknown as CodeCompassGraphV1;
           subscriber.next({
             kind: 'complete',
             graph: completeGraph,
-            graphRevision: binding.revision,
+            graphRevision: binding.contentRevision,
+            evidenceGraphRevision: binding.evidenceRevision,
+            semanticScope: binding.semanticScope,
             nodeCount: nodes.size,
             edgeCount: edges.size,
           });
@@ -262,21 +275,32 @@ export class CodeCompassFullGraphLoaderService {
     ) {
       throw new CodeCompassFullGraphLoadError('scope_changed');
     }
-    if (request.expectedRevision && page.graphRevision !== request.expectedRevision) {
-      throw new CodeCompassFullGraphLoadError('revision_changed');
+    if (
+      request.expectedEvidenceRevision
+      && page.evidenceRevision !== request.expectedEvidenceRevision
+    ) {
+      throw new CodeCompassFullGraphLoadError('evidence_revision_changed');
+    }
+    if (page.semanticScope && page.semanticScope.scopeKey !== expectedDomainScope) {
+      throw new CodeCompassFullGraphLoadError('semantic_scope_changed');
     }
     const incoming: StreamBinding = {
-      revision: page.graphRevision,
+      contentRevision: page.graphRevision,
+      evidenceRevision: page.evidenceRevision,
       sourceRef,
       indexId,
       domainScope,
       includeSubdomains,
       totalNodes,
       totalEdges,
+      semanticScope: page.semanticScope,
     };
     if (!current) return incoming;
-    if (incoming.revision !== current.revision) {
+    if (incoming.contentRevision !== current.contentRevision) {
       throw new CodeCompassFullGraphLoadError('revision_changed');
+    }
+    if (incoming.evidenceRevision !== current.evidenceRevision) {
+      throw new CodeCompassFullGraphLoadError('evidence_revision_changed');
     }
     if (incoming.sourceRef !== current.sourceRef || incoming.indexId !== current.indexId) {
       throw new CodeCompassFullGraphLoadError('source_changed');
@@ -293,7 +317,35 @@ export class CodeCompassFullGraphLoaderService {
     ) {
       throw new CodeCompassFullGraphLoadError('total_changed');
     }
+    if (!this.sameSemanticScope(incoming.semanticScope, current.semanticScope)) {
+      throw new CodeCompassFullGraphLoadError('semantic_scope_changed');
+    }
     return current;
+  }
+
+  private sameSemanticScope(
+    incoming: Readonly<CodeCompassSemanticScopeEvidence> | null,
+    current: Readonly<CodeCompassSemanticScopeEvidence> | null,
+  ): boolean {
+    if (incoming === null || current === null) return incoming === current;
+    return incoming.status === current.status
+      && incoming.complete === current.complete
+      && incoming.scopeKey === current.scopeKey
+      && this.sameTextList(
+        incoming.supplementDomainKeys,
+        current.supplementDomainKeys,
+      )
+      && incoming.sourceRevisionId === current.sourceRevisionId
+      && incoming.sourceRevisionDigest === current.sourceRevisionDigest
+      && incoming.graphRevision === current.graphRevision
+      && incoming.supplementNodeCount === current.supplementNodeCount
+      && incoming.supplementEdgeCount === current.supplementEdgeCount
+      && incoming.supplementDeclarationCount === current.supplementDeclarationCount;
+  }
+
+  private sameTextList(incoming: readonly string[], current: readonly string[]): boolean {
+    return incoming.length === current.length
+      && incoming.every((value, index) => value === current[index]);
   }
 
   private addUniqueRecords(

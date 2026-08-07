@@ -252,6 +252,20 @@ export interface GraphSemanticTranslationEvidence {
   readonly budget: Readonly<GraphSemanticBudgetEvidence> | null;
 }
 
+/** Scope-specific supplement proof emitted by complete staged reads. */
+export interface GraphSemanticScopeEvidence {
+  readonly status: string | null;
+  readonly complete: boolean | null;
+  readonly scopeKey: string | null;
+  readonly supplementDomainKeys: readonly string[] | null;
+  readonly sourceRevisionId: string | null;
+  readonly sourceRevisionDigest: string | null;
+  readonly graphRevision: string | null;
+  readonly supplementNodeCount: number | null;
+  readonly supplementEdgeCount: number | null;
+  readonly supplementDeclarationCount: number | null;
+}
+
 export interface GraphArtifactStatusEvidence {
   readonly state: string | null;
   readonly reasonCode: string | null;
@@ -266,6 +280,7 @@ export interface GraphArtifactStatusEvidence {
 export interface GraphEvidence {
   readonly window: Readonly<GraphWindowEvidence> | null;
   readonly semanticTranslation: Readonly<GraphSemanticTranslationEvidence> | null;
+  readonly semanticScope?: Readonly<GraphSemanticScopeEvidence> | null;
   readonly artifactStatus: Readonly<GraphArtifactStatusEvidence> | null;
 }
 

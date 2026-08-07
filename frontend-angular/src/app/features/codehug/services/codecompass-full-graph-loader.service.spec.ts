@@ -12,6 +12,7 @@ import {
 import {
   InternalsService,
   type CodeCompassGraphStagedPage,
+  type CodeCompassSemanticScopeEvidence,
 } from './internals.service';
 
 function page(
@@ -26,11 +27,31 @@ function page(
     includeSubdomains: boolean;
     totalNodes: number;
     totalEdges: number;
+    evidenceRevision: string;
+    semanticScope: Readonly<CodeCompassSemanticScopeEvidence> | null;
   }> = {},
 ): CodeCompassGraphStagedPage {
   const cursor = options.cursor ?? null;
   const total = options.total ?? records.length;
   const revision = options.revision ?? 'revision-1';
+  const evidenceRevision = options.evidenceRevision ?? 'revision-1';
+  const domainScope = Object.prototype.hasOwnProperty.call(options, 'domainScope')
+    ? options.domainScope ?? null
+    : 'domain:agent';
+  const semanticScope = Object.prototype.hasOwnProperty.call(options, 'semanticScope')
+    ? options.semanticScope ?? null
+    : {
+        status: 'complete',
+        complete: true,
+        scopeKey: domainScope,
+        supplementDomainKeys: ['sha256:domain-agent'],
+        sourceRevisionId: 'source-revision-1',
+        sourceRevisionDigest: 'sha256:source-revision-1',
+        graphRevision: revision,
+        supplementNodeCount: 2,
+        supplementEdgeCount: 1,
+        supplementDeclarationCount: 1,
+      } as const;
   const totalNodes = options.totalNodes ?? (stage === 'nodes' ? total : 3);
   const totalEdges = options.totalEdges ?? (stage === 'edges' ? total : 2);
   const metricCapabilities = stage === 'nodes'
@@ -50,10 +71,9 @@ function page(
       view: 'staged',
       stage,
       content_graph_revision: revision,
+      evidence_graph_revision: evidenceRevision,
       knowledge_index_id: 'index-1',
-      domain_scope: Object.prototype.hasOwnProperty.call(options, 'domainScope')
-        ? options.domainScope
-        : 'domain:agent',
+      domain_scope: domainScope,
       include_subdomains: options.includeSubdomains ?? true,
       next_cursor: cursor,
       delivery_returned: records.length,
@@ -61,6 +81,18 @@ function page(
       delivery_complete: cursor === null,
       total_nodes: totalNodes,
       total_edges: totalEdges,
+      ...(semanticScope ? {
+        semantic_scope_status: semanticScope.status,
+        semantic_scope_complete: semanticScope.complete,
+        semantic_scope_key: semanticScope.scopeKey,
+        semantic_scope_supplement_domain_keys: semanticScope.supplementDomainKeys,
+        semantic_scope_source_revision_id: semanticScope.sourceRevisionId,
+        semantic_scope_source_revision_digest: semanticScope.sourceRevisionDigest,
+        semantic_scope_graph_revision: semanticScope.graphRevision,
+        semantic_scope_supplement_node_count: semanticScope.supplementNodeCount,
+        semantic_scope_supplement_edge_count: semanticScope.supplementEdgeCount,
+        semantic_scope_supplement_declaration_count: semanticScope.supplementDeclarationCount,
+      } : {}),
     },
     diagnostics: { semantic_translation: { status: 'complete' } },
     metric_capabilities: metricCapabilities,
@@ -73,6 +105,8 @@ function page(
     returned: records.length,
     total,
     graphRevision: revision,
+    evidenceRevision,
+    semanticScope,
     complete: cursor === null,
   };
 }
@@ -116,7 +150,7 @@ describe('CodeCompassFullGraphLoaderService', () => {
       connectionId: 'connection-1',
       domainScope: 'domain:agent',
       includeSubdomains: true,
-      expectedRevision: 'revision-1',
+      expectedEvidenceRevision: 'revision-1',
     }).pipe(toArray()));
 
     expect(internals.getCodeCompassGraphStagedPage.mock.calls.map(call => [
@@ -137,10 +171,72 @@ describe('CodeCompassFullGraphLoaderService', () => {
     expect(completed.graph.nodes.map(node => node['node_id'])).toEqual(['a', 'b', 'c']);
     expect(completed.graph.edges.map(edge => edge['edge_id'])).toEqual(['e1', 'e2']);
     expect(completed.graph.metadata['full_scope_loaded']).toBe(true);
+    expect(completed.semanticScope?.complete).toBe(true);
+    expect(completed.graph.metadata['semantic_scope_complete']).toBe(true);
     expect((completed.graph as unknown as Record<string, any>)['metric_capabilities']).toEqual({
       in_degree: { entity: 'node', status: 'available' },
     });
     expect(completed.graph.warnings).toEqual(['node warning', 'edge warning']);
+  });
+
+  it('accepts a scope-specific content revision while binding stable source evidence', async () => {
+    internals.getCodeCompassGraphStagedPage.mockImplementation(
+      (_connectionId: string, request: { stage: 'nodes' | 'edges' }) => of(
+        request.stage === 'nodes'
+          ? page('nodes', [{ node_id: 'scope-node' }], {
+              revision: 'scope-content-revision',
+              evidenceRevision: 'base-evidence-revision',
+              totalNodes: 1,
+              totalEdges: 0,
+            })
+          : page('edges', [], {
+              revision: 'scope-content-revision',
+              evidenceRevision: 'base-evidence-revision',
+              totalNodes: 1,
+              totalEdges: 0,
+            }),
+      ),
+    );
+
+    const events = await lastValueFrom(loader.load({
+      connectionId: 'connection-1',
+      domainScope: 'domain:agent',
+      includeSubdomains: true,
+      expectedEvidenceRevision: 'base-evidence-revision',
+    }).pipe(toArray()));
+    const completed = events.at(-1);
+
+    expect(completed).toMatchObject({
+      kind: 'complete',
+      graphRevision: 'scope-content-revision',
+      evidenceGraphRevision: 'base-evidence-revision',
+    });
+  });
+
+  it('keeps legacy semantic evidence unverified after complete transport', async () => {
+    internals.getCodeCompassGraphStagedPage.mockImplementation(
+      (_connectionId: string, request: { stage: 'nodes' | 'edges' }) => of(
+        request.stage === 'nodes'
+          ? page('nodes', [{ node_id: 'a' }], {
+              totalNodes: 1, totalEdges: 0, semanticScope: null,
+            })
+          : page('edges', [], {
+              totalNodes: 1, totalEdges: 0, semanticScope: null,
+            }),
+      ),
+    );
+
+    const events = await lastValueFrom(loader.load({
+      connectionId: 'connection-1',
+      domainScope: 'domain:agent',
+      includeSubdomains: true,
+    }).pipe(toArray()));
+    const completed = events.at(-1);
+    if (completed?.kind !== 'complete') throw new Error('missing complete event');
+
+    expect(completed.graph.metadata['full_scope_loaded']).toBe(true);
+    expect(completed.graph.metadata['semantic_scope_complete']).toBeUndefined();
+    expect(completed.semanticScope).toBeNull();
   });
 
   it('rejects overlapping record IDs instead of reporting a deduplicated graph as complete', async () => {

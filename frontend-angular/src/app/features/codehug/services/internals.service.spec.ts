@@ -92,6 +92,12 @@ describe('InternalsService CodeCompass graph window', () => {
               has_children: true,
               source: ' explicit ',
               path: ' src/app ',
+              base_node_count: 30,
+              semantic_node_count: 1_955,
+              complete_node_count: 1_985,
+              semantic_edge_count: 4_200,
+              declaration_edge_count: 179,
+              semantic_scope_status: 'available',
             },
             {
               key: 'domain:frontend/components',
@@ -145,6 +151,12 @@ describe('InternalsService CodeCompass graph window', () => {
           hasChildren: true,
           source: 'explicit',
           path: 'src/app',
+          baseNodeCount: 30,
+          semanticNodeCount: 1_955,
+          completeNodeCount: 1_985,
+          semanticEdgeCount: 4_200,
+          declarationEdgeCount: 179,
+          semanticScopeStatus: 'available',
         },
         {
           key: 'domain:frontend/components',
@@ -238,6 +250,17 @@ describe('InternalsService CodeCompass graph window', () => {
         delivery_total: 2_136,
         delivery_complete: false,
         content_graph_revision: 'revision-example',
+        evidence_graph_revision: 'evidence-revision-example',
+        semantic_scope_status: 'complete',
+        semantic_scope_complete: true,
+        semantic_scope_key: 'domain:agent/codecompass',
+        semantic_scope_supplement_domain_keys: ['sha256:agent'],
+        semantic_scope_source_revision_id: 'source-revision-1',
+        semantic_scope_source_revision_digest: 'sha256:source-revision-1',
+        semantic_scope_graph_revision: 'scope-revision-1',
+        semantic_scope_supplement_node_count: 1_955,
+        semantic_scope_supplement_edge_count: 4_200,
+        semantic_scope_supplement_declaration_count: 179,
       },
     }));
     const service = TestBed.inject(InternalsService);
@@ -268,6 +291,19 @@ describe('InternalsService CodeCompass graph window', () => {
       returned: 1,
       total: 2_136,
       graphRevision: 'revision-example',
+      evidenceRevision: 'evidence-revision-example',
+      semanticScope: {
+        status: 'complete',
+        complete: true,
+        scopeKey: 'domain:agent/codecompass',
+        supplementDomainKeys: ['sha256:agent'],
+        sourceRevisionId: 'source-revision-1',
+        sourceRevisionDigest: 'sha256:source-revision-1',
+        graphRevision: 'scope-revision-1',
+        supplementNodeCount: 1_955,
+        supplementEdgeCount: 4_200,
+        supplementDeclarationCount: 179,
+      },
       complete: false,
     });
   });
@@ -339,5 +375,41 @@ describe('InternalsService CodeCompass graph window', () => {
       'connection-example',
       { stage: 'nodes', pageSize: 500 },
     ))).rejects.toThrow(/graph_staged/);
+  });
+
+  it('rejects a complete semantic claim without a physical supplement domain', async () => {
+    sourceControlApi.loadGraph.mockReturnValueOnce(of({
+      ...graph,
+      metadata: {
+        view: 'staged',
+        stage: 'nodes',
+        next_cursor: null,
+        delivery_returned: 0,
+        delivery_total: 0,
+        delivery_complete: true,
+        content_graph_revision: 'revision-example',
+        semantic_scope_status: 'complete',
+        semantic_scope_complete: true,
+        semantic_scope_key: 'domain:agent',
+        semantic_scope_supplement_domain_keys: [],
+        semantic_scope_source_revision_id: 'source-revision-1',
+        semantic_scope_source_revision_digest: 'source-digest-1',
+        semantic_scope_graph_revision: 'evidence-revision-1',
+        semantic_scope_supplement_node_count: 0,
+        semantic_scope_supplement_edge_count: 0,
+        semantic_scope_supplement_declaration_count: 0,
+      },
+    }));
+    const service = TestBed.inject(InternalsService);
+
+    await expect(firstValueFrom(service.getCodeCompassGraphStagedPage(
+      'connection-example',
+      {
+        stage: 'nodes',
+        pageSize: 500,
+        domainScope: 'domain:agent',
+        includeSubdomains: true,
+      },
+    ))).rejects.toThrow(/completion_proof_invalid/);
   });
 });

@@ -60,7 +60,7 @@ import {
           <div class="notice notice-warning" data-testid="graph-semantic-warning" role="status">
             <div class="notice-heading">
               <span aria-hidden="true">⚠</span>
-              <strong>Semantischer Graph unvollständig</strong>
+              <strong>{{ semanticWarningTitle(current) }}</strong>
             </div>
             <ul>
               @for (issue of current.semanticIssues; track issue.code) {
@@ -187,8 +187,20 @@ export class GraphViewportStatusComponent {
     return summary.semanticIssues.length > 0 || summary.artifactIssues.length > 0;
   }
 
+  semanticWarningTitle(summary: Readonly<GraphViewportSummary>): string {
+    return summary.semanticIssues.some(issue => issue.code === 'semantic_scope_unverified')
+      ? 'Semantische Vollständigkeit nicht bestätigt'
+      : 'Semantischer Graph unvollständig';
+  }
+
   semanticIssueText(issue: Readonly<GraphSemanticIssue>): string {
     switch (issue.code) {
+      case 'semantic_scope_unverified':
+        return 'Der Scope wurde vollständig übertragen, aber der Server hat seine semantische Vollständigkeit nicht verifiziert.';
+      case 'semantic_scope_unavailable':
+        return 'Für den vollständig übertragenen Scope steht kein verifiziertes semantisches Supplement zur Verfügung.';
+      case 'semantic_scope_partial':
+        return 'Das semantische Supplement des vollständig übertragenen Scopes ist nur teilweise verfügbar.';
       case 'semantic_translation_unavailable':
         return 'Die semantische Übersetzung steht für diesen Index nicht zur Verfügung.';
       case 'semantic_graph_truncated':

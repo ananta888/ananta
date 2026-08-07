@@ -100,6 +100,28 @@ export interface CodeCompassGraphWindowRequest {
 
 export type CodeCompassGraphStage = 'nodes' | 'edges';
 
+export type CodeCompassSemanticScopeStatus = 'complete' | 'partial' | 'unavailable';
+
+/**
+ * Server-verified state of the semantic supplement for one staged scope.
+ * `null` on the staged page means a legacy response: transport can still be
+ * complete, but semantic completeness has not been proven.
+ */
+export interface CodeCompassSemanticScopeEvidence {
+  readonly status: CodeCompassSemanticScopeStatus;
+  readonly complete: boolean;
+  /** Opaque selector echoed from the staged request. */
+  readonly scopeKey: string | null;
+  /** Worker partition identities; intentionally distinct from the selector. */
+  readonly supplementDomainKeys: readonly string[];
+  readonly sourceRevisionId: string;
+  readonly sourceRevisionDigest: string;
+  readonly graphRevision: string;
+  readonly supplementNodeCount: number;
+  readonly supplementEdgeCount: number;
+  readonly supplementDeclarationCount: number;
+}
+
 export interface CodeCompassGraphStagedPageRequest {
   readonly stage: CodeCompassGraphStage;
   readonly cursor?: string;
@@ -115,6 +137,8 @@ export interface CodeCompassGraphStagedPage {
   readonly returned: number;
   readonly total: number;
   readonly graphRevision: string;
+  readonly evidenceRevision: string | null;
+  readonly semanticScope: Readonly<CodeCompassSemanticScopeEvidence> | null;
   readonly complete: boolean;
 }
 
@@ -128,6 +152,13 @@ export interface CodeCompassGraphDomainFacet {
   readonly hasChildren: boolean;
   readonly source: string;
   readonly path: string;
+  /** Additive top-level supplement counts; absent on subfacets is unknown, never zero. */
+  readonly baseNodeCount?: number;
+  readonly semanticNodeCount?: number;
+  readonly completeNodeCount?: number;
+  readonly semanticEdgeCount?: number;
+  readonly declarationEdgeCount?: number;
+  readonly semanticScopeStatus?: string;
 }
 
 export interface CodeCompassGraphInventoryPage {
@@ -184,6 +215,26 @@ function inventoryCount(value: unknown, path: string): number {
   return value;
 }
 
+function optionalInventoryCount(
+  record: Record<string, unknown>,
+  field: string,
+  path: string,
+): number | undefined {
+  return Object.prototype.hasOwnProperty.call(record, field)
+    ? inventoryCount(record[field], `${path}.${field}`)
+    : undefined;
+}
+
+function optionalInventoryText(
+  record: Record<string, unknown>,
+  field: string,
+  path: string,
+): string | undefined {
+  return Object.prototype.hasOwnProperty.call(record, field)
+    ? inventoryText(record[field], `${path}.${field}`)
+    : undefined;
+}
+
 export function parseCodeCompassGraphInventoryPage(
   raw: unknown,
 ): CodeCompassGraphInventoryPage {
@@ -217,6 +268,22 @@ export function parseCodeCompassGraphInventoryPage(
     if (typeof value['has_children'] !== 'boolean') {
       throw new CodeCompassGraphInventoryContractError(`${path}.has_children_invalid`);
     }
+    const baseNodeCount = optionalInventoryCount(value, 'base_node_count', path);
+    const semanticNodeCount = optionalInventoryCount(value, 'semantic_node_count', path);
+    const completeNodeCount = optionalInventoryCount(value, 'complete_node_count', path);
+    if (
+      baseNodeCount !== undefined
+      && semanticNodeCount !== undefined
+      && completeNodeCount !== undefined
+      && completeNodeCount !== baseNodeCount + semanticNodeCount
+    ) {
+      throw new CodeCompassGraphInventoryContractError(
+        `${path}.complete_node_count_inconsistent`,
+      );
+    }
+    const semanticEdgeCount = optionalInventoryCount(value, 'semantic_edge_count', path);
+    const declarationEdgeCount = optionalInventoryCount(value, 'declaration_edge_count', path);
+    const semanticScopeStatus = optionalInventoryText(value, 'semantic_scope_status', path);
     return {
       key: inventoryText(value['key'], `${path}.key`),
       label: inventoryText(value['label'], `${path}.label`),
@@ -227,6 +294,12 @@ export function parseCodeCompassGraphInventoryPage(
       hasChildren: value['has_children'],
       source: inventoryText(value['source'], `${path}.source`),
       path: inventoryText(value['path'], `${path}.path`),
+      ...(baseNodeCount === undefined ? {} : { baseNodeCount }),
+      ...(semanticNodeCount === undefined ? {} : { semanticNodeCount }),
+      ...(completeNodeCount === undefined ? {} : { completeNodeCount }),
+      ...(semanticEdgeCount === undefined ? {} : { semanticEdgeCount }),
+      ...(declarationEdgeCount === undefined ? {} : { declarationEdgeCount }),
+      ...(semanticScopeStatus === undefined ? {} : { semanticScopeStatus }),
     };
   });
   const totalDomains = inventoryCount(
@@ -322,6 +395,15 @@ export function parseCodeCompassGraphStagedPage(
   if (typeof rawRevision !== 'string' || !rawRevision.trim()) {
     throw new CodeCompassGraphStagedPageContractError('graph_staged_revision_invalid');
   }
+  const rawEvidenceRevision = metadata['evidence_graph_revision'];
+  if (
+    rawEvidenceRevision !== undefined
+    && (typeof rawEvidenceRevision !== 'string' || !rawEvidenceRevision.trim())
+  ) {
+    throw new CodeCompassGraphStagedPageContractError(
+      'graph_staged_evidence_revision_invalid',
+    );
+  }
   return {
     graph,
     stage: expectedStage,
@@ -329,8 +411,109 @@ export function parseCodeCompassGraphStagedPage(
     returned,
     total,
     graphRevision: rawRevision.trim(),
+    evidenceRevision: typeof rawEvidenceRevision === 'string'
+      ? rawEvidenceRevision.trim()
+      : null,
+    semanticScope: stagedSemanticScopeEvidence(metadata),
     complete,
   };
+}
+
+const SEMANTIC_SCOPE_METADATA_FIELDS = Object.freeze([
+  'semantic_scope_status',
+  'semantic_scope_complete',
+  'semantic_scope_key',
+  'semantic_scope_supplement_domain_keys',
+  'semantic_scope_source_revision_id',
+  'semantic_scope_source_revision_digest',
+  'semantic_scope_graph_revision',
+  'semantic_scope_supplement_node_count',
+  'semantic_scope_supplement_edge_count',
+  'semantic_scope_supplement_declaration_count',
+] as const);
+
+function stagedSemanticScopeEvidence(
+  metadata: Record<string, unknown>,
+): Readonly<CodeCompassSemanticScopeEvidence> | null {
+  const hasEvidence = SEMANTIC_SCOPE_METADATA_FIELDS.some(field => (
+    Object.prototype.hasOwnProperty.call(metadata, field)
+  ));
+  if (!hasEvidence) return null;
+
+  const status = metadata['semantic_scope_status'];
+  if (status !== 'complete' && status !== 'partial' && status !== 'unavailable') {
+    throw new CodeCompassGraphStagedPageContractError(
+      'graph_staged_semantic_scope_status_invalid',
+    );
+  }
+  const complete = metadata['semantic_scope_complete'];
+  if (typeof complete !== 'boolean' || complete !== (status === 'complete')) {
+    throw new CodeCompassGraphStagedPageContractError(
+      'graph_staged_semantic_scope_completion_invalid',
+    );
+  }
+  const rawScopeKey = metadata['semantic_scope_key'];
+  const scopeKey = rawScopeKey === null
+    ? null
+    : stagedSemanticScopeText(rawScopeKey, 'key');
+  const rawSupplementDomainKeys = metadata['semantic_scope_supplement_domain_keys'];
+  if (!Array.isArray(rawSupplementDomainKeys)) {
+    throw new CodeCompassGraphStagedPageContractError(
+      'graph_staged_semantic_scope_supplement_domain_keys_invalid',
+    );
+  }
+  const supplementDomainKeys = rawSupplementDomainKeys.map((value, index) => (
+    stagedSemanticScopeText(value, `supplement_domain_keys[${index}]`)
+  ));
+  if (new Set(supplementDomainKeys).size !== supplementDomainKeys.length) {
+    throw new CodeCompassGraphStagedPageContractError(
+      'graph_staged_semantic_scope_supplement_domain_keys_duplicate',
+    );
+  }
+  if (complete && (scopeKey === null || supplementDomainKeys.length === 0)) {
+    throw new CodeCompassGraphStagedPageContractError(
+      'graph_staged_semantic_scope_completion_proof_invalid',
+    );
+  }
+  return Object.freeze({
+    status,
+    complete,
+    scopeKey,
+    supplementDomainKeys: Object.freeze(supplementDomainKeys),
+    sourceRevisionId: stagedSemanticScopeText(
+      metadata['semantic_scope_source_revision_id'],
+      'source_revision_id',
+    ),
+    sourceRevisionDigest: stagedSemanticScopeText(
+      metadata['semantic_scope_source_revision_digest'],
+      'source_revision_digest',
+    ),
+    graphRevision: stagedSemanticScopeText(
+      metadata['semantic_scope_graph_revision'],
+      'graph_revision',
+    ),
+    supplementNodeCount: stagedPageCount(
+      metadata['semantic_scope_supplement_node_count'],
+      'semantic_scope_supplement_node_count',
+    ),
+    supplementEdgeCount: stagedPageCount(
+      metadata['semantic_scope_supplement_edge_count'],
+      'semantic_scope_supplement_edge_count',
+    ),
+    supplementDeclarationCount: stagedPageCount(
+      metadata['semantic_scope_supplement_declaration_count'],
+      'semantic_scope_supplement_declaration_count',
+    ),
+  });
+}
+
+function stagedSemanticScopeText(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new CodeCompassGraphStagedPageContractError(
+      `graph_staged_semantic_scope_${field}_invalid`,
+    );
+  }
+  return value.trim();
 }
 
 function stagedPageCount(value: unknown, field: string): number {

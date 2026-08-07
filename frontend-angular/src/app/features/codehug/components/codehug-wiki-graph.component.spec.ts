@@ -8,6 +8,7 @@ import { CodehugWikiGraphComponent } from './codehug-wiki-graph.component';
 import {
   CodeCompassGraphInventoryPage,
   CodeCompassGraphStagedPage,
+  CodeCompassSemanticScopeEvidence,
   InternalsService,
 } from '../services/internals.service';
 
@@ -74,11 +75,31 @@ function stagedPage(
     totalEdges: number;
     domainScope: string | null;
     includeSubdomains: boolean;
+    evidenceRevision: string;
+    semanticScope: Readonly<CodeCompassSemanticScopeEvidence> | null;
   }> = {},
 ): CodeCompassGraphStagedPage {
   const nextCursor = overrides.nextCursor ?? null;
   const total = overrides.total ?? records.length;
   const revision = overrides.revision ?? 'revision-example';
+  const evidenceRevision = overrides.evidenceRevision ?? 'revision-example';
+  const domainScope = Object.prototype.hasOwnProperty.call(overrides, 'domainScope')
+    ? overrides.domainScope ?? null
+    : null;
+  const semanticScope = Object.prototype.hasOwnProperty.call(overrides, 'semanticScope')
+    ? overrides.semanticScope ?? null
+    : {
+        status: 'complete',
+        complete: true,
+        scopeKey: domainScope,
+        supplementDomainKeys: ['sha256:domain-example'],
+        sourceRevisionId: 'source-revision-1',
+        sourceRevisionDigest: 'sha256:source-revision-1',
+        graphRevision: revision,
+        supplementNodeCount: 1,
+        supplementEdgeCount: 0,
+        supplementDeclarationCount: 0,
+      } as const;
   const graph = {
     schema: 'codecompass_graph.v1',
     knowledge_index_id: 'index-example',
@@ -90,16 +111,29 @@ function stagedPage(
       stage,
       next_cursor: nextCursor,
       content_graph_revision: revision,
+      evidence_graph_revision: evidenceRevision,
       delivery_returned: records.length,
       delivery_total: total,
       delivery_complete: nextCursor === null,
       knowledge_index_id: 'index-example',
-      domain_scope: overrides.domainScope ?? null,
+      domain_scope: domainScope,
       include_subdomains: overrides.includeSubdomains ?? true,
       total_nodes: overrides.totalNodes ?? (stage === 'nodes' ? total : 1),
       total_edges: overrides.totalEdges ?? (stage === 'edges' ? total : 0),
       global_total_nodes: 800,
       global_source_edge_count: 1_200,
+      ...(semanticScope ? {
+        semantic_scope_status: semanticScope.status,
+        semantic_scope_complete: semanticScope.complete,
+        semantic_scope_key: semanticScope.scopeKey,
+        semantic_scope_supplement_domain_keys: semanticScope.supplementDomainKeys,
+        semantic_scope_source_revision_id: semanticScope.sourceRevisionId,
+        semantic_scope_source_revision_digest: semanticScope.sourceRevisionDigest,
+        semantic_scope_graph_revision: semanticScope.graphRevision,
+        semantic_scope_supplement_node_count: semanticScope.supplementNodeCount,
+        semantic_scope_supplement_edge_count: semanticScope.supplementEdgeCount,
+        semantic_scope_supplement_declaration_count: semanticScope.supplementDeclarationCount,
+      } : {}),
     },
     diagnostics: {},
     warnings: [],
@@ -111,6 +145,8 @@ function stagedPage(
     returned: records.length,
     total,
     graphRevision: revision,
+    evidenceRevision,
+    semanticScope,
     complete: nextCursor === null,
   };
 }
@@ -527,10 +563,16 @@ describe('CodehugWikiGraphComponent', () => {
       parentKey: null,
       depth: 0,
       directNodeCount: 4,
-      subtreeNodeCount: 18,
+      subtreeNodeCount: 179,
       hasChildren: true,
       source: 'domain_id',
       path: 'frontend',
+      baseNodeCount: 179,
+      semanticNodeCount: 1_955,
+      completeNodeCount: 2_134,
+      semanticEdgeCount: 4_200,
+      declarationEdgeCount: 179,
+      semanticScopeStatus: 'available',
     } as const;
     service.listKnowledgeIndexes.mockReturnValue(of([{
       id: 'conn-example',
@@ -568,9 +610,10 @@ describe('CodehugWikiGraphComponent', () => {
       },
     );
     expect(fixture.componentInstance.graphDomainOptionLabel(frontendDomain)).toBe(
-      'frontend · deklarierte Domain (18)',
+      'frontend · deklarierte Domain (179 Struktur + 1.955 Symbole)',
     );
     expect(fixture.componentInstance.fullGraphLoadState()).toBe('complete');
+    expect(fixture.componentInstance.fullGraphSemanticScopeComplete()).toBe(true);
     expect(fixture.componentInstance.rawGraph()?.nodes).toEqual([
       { node_id: 'domain-node' },
     ]);
@@ -602,7 +645,117 @@ describe('CodehugWikiGraphComponent', () => {
     );
   });
 
-  it('loads the entire index only after an explicit request and can return to its preview', () => {
+  it('labels legacy staged transport as semantically unverified, never as a complete domain', () => {
+    const domain = {
+      key: 'domain:rag-helper',
+      label: 'rag-helper',
+      parentKey: null,
+      depth: 0,
+      directNodeCount: 179,
+      subtreeNodeCount: 179,
+      hasChildren: false,
+      source: 'domain_id',
+      path: 'rag-helper',
+    } as const;
+    service.listKnowledgeIndexes.mockReturnValue(of([{
+      id: 'conn-example',
+      knowledge_index_id: 'index-example',
+    }]));
+    service.getCodeCompassGraphInventory.mockReturnValue(of(inventoryPage({
+      domains: [domain],
+      totalDomains: 1,
+      totalNodes: 179,
+    })));
+    service.getCodeCompassGraphStagedPage.mockImplementation(
+      (_connectionId: string, request: {
+        stage: 'nodes' | 'edges';
+        domainScope?: string;
+        includeSubdomains: boolean;
+      }) => of(stagedPage(
+        request.stage,
+        request.stage === 'nodes' ? [{ node_id: 'legacy-node' }] : [],
+        {
+          domainScope: request.domainScope ?? null,
+          includeSubdomains: request.includeSubdomains,
+          semanticScope: null,
+        },
+      )),
+    );
+
+    const fixture = TestBed.createComponent(CodehugWikiGraphComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.changeGraphDomain(domain.key);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.fullGraphLoadState()).toBe('complete');
+    expect(fixture.componentInstance.fullGraphSemanticScopeComplete()).toBe(false);
+    expect(fixture.nativeElement.textContent).not.toContain('Domain vollständig geladen');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Transport vollständig, Semantik nicht verifiziert.',
+    );
+    expect(fixture.nativeElement.querySelector(
+      '[data-testid="graph-semantic-scope-warning"]',
+    )).not.toBeNull();
+  });
+
+  it('accepts a scoped overlay revision without replacing the global inventory revision', () => {
+    const domain = {
+      key: 'domain:rag-helper',
+      label: 'rag-helper',
+      parentKey: null,
+      depth: 0,
+      directNodeCount: 179,
+      subtreeNodeCount: 179,
+      hasChildren: false,
+      source: 'domain_id',
+      path: 'rag-helper',
+    } as const;
+    const preview = codeGraph('base-evidence-revision');
+    preview.metadata.content_graph_revision = 'base-content-revision';
+    service.listKnowledgeIndexes.mockReturnValue(of([{
+      id: 'conn-example',
+      knowledge_index_id: 'index-example',
+    }]));
+    service.getCodeCompassGraph.mockReturnValue(of(preview));
+    service.getCodeCompassGraphInventory.mockReturnValue(of(inventoryPage({
+      domains: [domain],
+      totalDomains: 1,
+      totalNodes: 179,
+      graphRevision: 'base-content-revision',
+    })));
+    service.getCodeCompassGraphStagedPage.mockImplementation(
+      (_connectionId: string, request: {
+        stage: 'nodes' | 'edges';
+        domainScope?: string;
+        includeSubdomains: boolean;
+      }) => of(stagedPage(
+        request.stage,
+        request.stage === 'nodes' ? [{ node_id: 'semantic-symbol' }] : [],
+        {
+          domainScope: request.domainScope ?? null,
+          includeSubdomains: request.includeSubdomains,
+          revision: 'scoped-content-revision',
+          evidenceRevision: 'base-evidence-revision',
+        },
+      )),
+    );
+
+    const fixture = TestBed.createComponent(CodehugWikiGraphComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.changeGraphDomain(domain.key);
+
+    expect(fixture.componentInstance.fullGraphLoadState()).toBe('complete');
+    expect(fixture.componentInstance.codeGraphRevision()).toBe('base-content-revision');
+    expect(fixture.componentInstance.graphInventoryRevision()).toBe('base-content-revision');
+    expect(fixture.componentInstance.codeGraphEvidenceRevision()).toBe(
+      'base-evidence-revision',
+    );
+    expect(fixture.componentInstance.metadata()?.['content_graph_revision']).toBe(
+      'scoped-content-revision',
+    );
+  });
+
+  it('transports the admitted base index without claiming semantic completeness', () => {
     service.listKnowledgeIndexes.mockReturnValue(of([{
       id: 'conn-example',
       knowledge_index_id: 'index-example',
@@ -611,17 +764,39 @@ describe('CodehugWikiGraphComponent', () => {
     service.getCodeCompassGraphInventory.mockReturnValue(of(inventoryPage({
       totalNodes: 800,
     })));
+    service.getCodeCompassGraphStagedPage.mockImplementation(
+      (_connectionId: string, request: {
+        stage: 'nodes' | 'edges';
+        domainScope?: string;
+        includeSubdomains: boolean;
+      }) => of(stagedPage(
+        request.stage,
+        request.stage === 'nodes' ? [{ node_id: 'base-node' }] : [],
+        {
+          domainScope: request.domainScope ?? null,
+          includeSubdomains: request.includeSubdomains,
+          semanticScope: null,
+        },
+      )),
+    );
     const fixture = TestBed.createComponent(CodehugWikiGraphComponent);
     fixture.detectChanges();
 
     expect(service.getCodeCompassGraphStagedPage).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('Gesamten Basisindex transportieren');
     fixture.componentInstance.loadFullGraphScope();
+    fixture.detectChanges();
 
     expect(service.getCodeCompassGraphStagedPage).toHaveBeenCalledTimes(2);
     expect(service.getCodeCompassGraphStagedPage.mock.calls.every(call => (
       call[1].domainScope === undefined
     ))).toBe(true);
     expect(fixture.componentInstance.fullGraphLoadState()).toBe('complete');
+    expect(fixture.componentInstance.fullGraphSemanticScopeComplete()).toBe(false);
+    expect(fixture.nativeElement.textContent).not.toContain('Domain vollständig geladen');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Basisindex vollständig übertragen; semantische Vollständigkeit wird nur für ausgewählte Domains verifiziert.',
+    );
 
     fixture.componentInstance.returnToGraphPreview();
 
@@ -710,7 +885,7 @@ describe('CodehugWikiGraphComponent', () => {
     expect(fixture.componentInstance.selectedGraphDomain()).toBe('');
     expect(fixture.componentInstance.fullGraphLoadState()).toBe('idle');
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Gesamten Index vollständig laden');
+    expect(fixture.nativeElement.textContent).toContain('Gesamten Basisindex transportieren');
   });
 
   it('cancels a domain stream before entering the Wiki search context', () => {

@@ -32,14 +32,17 @@
       }
     </select>
   } @else if (fullGraphLoading()) {
-    <span class="ch-lbl">Domain wird vollständig geladen</span>
-  } @else if (fullGraphLoadState() === 'complete') {
+    <span class="ch-lbl">Domain-Scope wird übertragen und semantisch geprüft</span>
+  } @else if (fullGraphLoadState() === 'complete' && fullGraphSemanticScopeComplete()) {
     <span class="ch-lbl">Domain vollständig geladen</span>
+  } @else if (fullGraphLoadState() === 'complete') {
+    <span class="ch-lbl ch-cap-warn">{{ semanticScopeToolbarLabel() }}</span>
   } @else {
     <span class="ch-lbl">Domain ausgewählt</span>
   }
   @if (fullGraphProgress()) {
-    <span class="ch-lbl" [class.ch-cap-warn]="fullGraphLoadState() === 'error'">
+    <span class="ch-lbl"
+          [class.ch-cap-warn]="fullGraphLoadState() === 'error' || (fullGraphLoadState() === 'complete' && !fullGraphSemanticScopeComplete())">
       {{ fullGraphProgress() }}
     </span>
   }
@@ -104,10 +107,15 @@
   <div class="ch-graph-info">
     @if (fullGraphLoadState() === 'complete') {
       <span>
-        Vollständiger Scope: {{ loadedNodeCount() }} Knoten ·
+        Vollständig übertragener Scope: {{ loadedNodeCount() }} Knoten ·
         alle {{ loadedEdgeCount() }} indexierten Scope-Relationen
         ({{ scopeInternalEdgeCount() }} intern ·
         {{ scopeUnresolvedEdgeCount() }} mit unbekanntem Endpunkt)
+      </span>
+      <span
+        [class.ch-cap-warn]="!fullGraphSemanticScopeComplete()"
+        [attr.data-testid]="fullGraphSemanticScopeComplete() ? 'graph-semantic-scope-complete' : 'graph-semantic-scope-warning'">
+        {{ semanticScopeNotice() }}
       </span>
     } @else {
       <span>
@@ -143,7 +151,7 @@
       </button>
     } @else if (!selectedGraphDomain() && !fullGraphLoading() && fullGraphLoadState() !== 'complete') {
       <button class="ch-btn ch-btn-xs" (click)="loadFullGraphScope()">
-        Gesamten Index vollständig laden
+        Gesamten Basisindex transportieren
       </button>
     }
     @if (!selectedGraphDomain() && fullGraphLoadState() === 'complete') {

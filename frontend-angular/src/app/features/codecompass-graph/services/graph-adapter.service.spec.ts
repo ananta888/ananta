@@ -649,4 +649,39 @@ describe('GraphAdapterService', () => {
       deliveryComplete: false,
     });
   });
+
+  it('maps scoped semantic supplement proof separately from transport evidence', () => {
+    const model = svc.fromDomainArtifact({
+      nodes: [],
+      edges: [],
+      metadata: {
+        view: 'staged',
+        delivery_complete: true,
+        semantic_scope_status: 'complete',
+        semantic_scope_complete: true,
+        semantic_scope_key: 'domain:rag-helper',
+        semantic_scope_supplement_domain_keys: ['sha256:rag-helper'],
+        semantic_scope_source_revision_id: 'source-revision-1',
+        semantic_scope_source_revision_digest: 'sha256:source-revision-1',
+        semantic_scope_graph_revision: 'scope-revision-1',
+        semantic_scope_supplement_node_count: 1_955,
+        semantic_scope_supplement_edge_count: 4_200,
+        semantic_scope_supplement_declaration_count: 179,
+      },
+    });
+
+    expect(model.evidence?.semanticScope).toEqual({
+      status: 'complete',
+      complete: true,
+      scopeKey: 'domain:rag-helper',
+      supplementDomainKeys: ['sha256:rag-helper'],
+      sourceRevisionId: 'source-revision-1',
+      sourceRevisionDigest: 'sha256:source-revision-1',
+      graphRevision: 'scope-revision-1',
+      supplementNodeCount: 1_955,
+      supplementEdgeCount: 4_200,
+      supplementDeclarationCount: 179,
+    });
+    expect(model.evidence?.window?.deliveryComplete).toBe(true);
+  });
 });

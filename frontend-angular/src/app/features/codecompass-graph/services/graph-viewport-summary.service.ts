@@ -10,6 +10,7 @@ import {
 } from '../models/graph-viewport-summary.model';
 import {
   GenericGraphModel,
+  GraphSemanticScopeEvidence,
   GraphSemanticTranslationEvidence,
 } from '../models/graph.model';
 import { GraphColorService } from './graph-color.service';
@@ -152,7 +153,11 @@ export class GraphViewportSummaryService {
       ));
     }
 
-    const semantic = this.semanticSummary(graph.evidence?.semanticTranslation ?? null);
+    const semantic = this.semanticSummary(
+      graph.evidence?.semanticTranslation ?? null,
+      graph.evidence?.semanticScope ?? null,
+      completeStagedScope,
+    );
     const artifact = this.artifactSummary(graph);
     return Object.freeze({
       nodes: Object.freeze({ visible: visibleNodes, loaded: loadedNodes, total: totalNodes }),
@@ -183,10 +188,19 @@ export class GraphViewportSummaryService {
 
   private semanticSummary(
     semantic: Readonly<GraphSemanticTranslationEvidence> | null,
+    scoped: Readonly<GraphSemanticScopeEvidence> | null,
+    completeStagedScope: boolean,
   ): {
     readonly state: GraphEvidenceClassification;
     readonly issues: readonly Readonly<GraphSemanticIssue>[];
   } {
+    if (scoped) return this.scopedSemanticSummary(scoped);
+    if (completeStagedScope) {
+      return {
+        state: 'unknown',
+        issues: freezeIssues([issue('semantic_scope_unverified')]),
+      };
+    }
     if (!semantic) return { state: 'unknown', issues: Object.freeze([]) };
     const status = semantic.status?.trim().toLowerCase() ?? '';
     const reasonCode = semantic.reasonCode;
@@ -240,6 +254,51 @@ export class GraphViewportSummaryService {
           ? 'complete'
           : 'unknown';
     return { state, issues: freezeIssues(issues) };
+  }
+
+  private scopedSemanticSummary(
+    scoped: Readonly<GraphSemanticScopeEvidence>,
+  ): {
+    readonly state: GraphEvidenceClassification;
+    readonly issues: readonly Readonly<GraphSemanticIssue>[];
+  } {
+    const status = scoped.status?.trim().toLowerCase() ?? '';
+    const completeProof = Boolean(
+      scoped.scopeKey?.trim()
+      && scoped.supplementDomainKeys
+      && scoped.supplementDomainKeys.length > 0
+      && scoped.sourceRevisionId?.trim()
+      && scoped.sourceRevisionDigest?.trim()
+      && scoped.graphRevision?.trim()
+      && scoped.supplementNodeCount !== null
+      && scoped.supplementEdgeCount !== null
+      && scoped.supplementDeclarationCount !== null,
+    );
+    if (scoped.complete === true && status === 'complete' && completeProof) {
+      return { state: 'complete', issues: Object.freeze([]) };
+    }
+    if (status === 'unavailable' && scoped.complete === false) {
+      return {
+        state: 'unavailable',
+        issues: freezeIssues([
+          issue('semantic_scope_unavailable', null, 'semantic_scope_unavailable'),
+        ]),
+      };
+    }
+    if (status === 'partial' && scoped.complete === false) {
+      return {
+        state: 'partial',
+        issues: freezeIssues([
+          issue('semantic_scope_partial', null, 'semantic_scope_partial'),
+        ]),
+      };
+    }
+    return {
+      state: 'unknown',
+      issues: freezeIssues([
+        issue('semantic_scope_unverified', null, 'semantic_scope_evidence_invalid'),
+      ]),
+    };
   }
 
   private artifactSummary(graph: GenericGraphModel): {
