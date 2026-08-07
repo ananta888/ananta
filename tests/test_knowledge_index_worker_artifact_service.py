@@ -524,7 +524,10 @@ def test_result_unit_and_reference_counts_are_bounded_before_download(
                 ),
                 "artifact_id": f"artifact-{ordinal}",
             }
-            for ordinal in range(7)
+            # Six legacy outputs plus the optional domain supplement are one
+            # valid v2 unit. The eighth reference must still fail before any
+            # download starts.
+            for ordinal in range(8)
         ]
     )
     with pytest.raises(ValueError, match="artifact_ref_limit_exceeded"):

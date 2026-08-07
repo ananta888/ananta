@@ -10,7 +10,14 @@ from datetime import datetime, timezone
 from typing import Any, Protocol
 
 from agent.common.errors import TransientError
+from ananta_contracts.codecompass_domain_supplement import (
+    DOMAIN_SUPPLEMENT_FILENAME,
+    DOMAIN_SUPPLEMENT_MEDIA_TYPE,
+    DOMAIN_SUPPLEMENT_OUTPUT_ROLE,
+    DOMAIN_SUPPLEMENT_SCHEMA,
+)
 from ananta_contracts.codecompass_graph_limits import (
+    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES,
     MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
 )
 from ananta_contracts.knowledge_index_execution import (
@@ -69,6 +76,16 @@ _WORKER_ARTIFACT_OUTPUT_FIELDS = frozenset(
 _WORKER_GRAPH_ARTIFACT_FIELDS = frozenset(
     {"artifact_schema", "graph_revision", "graph_content_hash"}
 )
+_WORKER_DOMAIN_SUPPLEMENT_FIELDS = frozenset(
+    {
+        "source_revision_id",
+        "source_revision_digest",
+        "domain_count",
+        "semantic_node_count",
+        "semantic_edge_count",
+        "declaration_edge_count",
+    }
+)
 _WORKER_ARTIFACT_FILENAMES = {
     "manifest": "manifest.json",
     "index": "index.jsonl",
@@ -76,10 +93,19 @@ _WORKER_ARTIFACT_FILENAMES = {
     "relations": "relations.jsonl",
     "graph_index": "cc_graph_index.json",
     "graph_visual_metrics": "cc_graph_index.visual_metrics.json",
+    DOMAIN_SUPPLEMENT_OUTPUT_ROLE: DOMAIN_SUPPLEMENT_FILENAME,
 }
 _WORKER_GRAPH_ARTIFACT_SCHEMAS = {
     "graph_index": "codecompass_graph_index.v1",
     "graph_visual_metrics": "graph_visual_metrics.v1",
+    DOMAIN_SUPPLEMENT_OUTPUT_ROLE: DOMAIN_SUPPLEMENT_SCHEMA,
+}
+_WORKER_GRAPH_ARTIFACT_MEDIA_TYPES = {
+    "graph_index": "application/vnd.ananta.codecompass-graph-index+json",
+    "graph_visual_metrics": (
+        "application/vnd.ananta.codecompass-graph-visual-metrics+json"
+    ),
+    DOMAIN_SUPPLEMENT_OUTPUT_ROLE: DOMAIN_SUPPLEMENT_MEDIA_TYPE,
 }
 
 
@@ -201,6 +227,16 @@ def _is_prefixed_sha256(value: str) -> bool:
     )
 
 
+def _is_sha256(value: str) -> bool:
+    return len(value) == 64 and all(
+        char in "0123456789abcdef" for char in value
+    )
+
+
+def _is_source_revision_id(value: str) -> bool:
+    return value.startswith("srev_") and _is_sha256(value[5:])
+
+
 def _validate_worker_graph_artifact_reference(
     reference: Mapping[str, Any],
     *,
@@ -210,6 +246,12 @@ def _validate_worker_graph_artifact_reference(
         raise ValueError("knowledge_index_result_graph_artifact_ref_incomplete")
     if str(reference.get("artifact_schema") or "") != _WORKER_GRAPH_ARTIFACT_SCHEMAS[role]:
         raise ValueError("knowledge_index_result_graph_artifact_schema_invalid")
+    if (
+        role == DOMAIN_SUPPLEMENT_OUTPUT_ROLE
+        and str(reference.get("media_type") or "")
+        != _WORKER_GRAPH_ARTIFACT_MEDIA_TYPES[role]
+    ):
+        raise ValueError("knowledge_index_result_graph_artifact_media_type_invalid")
     revision = str(reference.get("graph_revision") or "")
     content_hash = str(reference.get("graph_content_hash") or "")
     if not _is_prefixed_sha256(revision):
@@ -225,6 +267,7 @@ def _validate_worker_artifact_reference(reference: Any) -> None:
         _WORKER_ARTIFACT_REQUIRED_FIELDS
         | _WORKER_ARTIFACT_OUTPUT_FIELDS
         | _WORKER_GRAPH_ARTIFACT_FIELDS
+        | _WORKER_DOMAIN_SUPPLEMENT_FIELDS
     )
     if (
         not _WORKER_ARTIFACT_REQUIRED_FIELDS.issubset(reference)
@@ -236,13 +279,16 @@ def _validate_worker_artifact_reference(reference: Any) -> None:
     media_type = str(reference.get("media_type") or "").strip()
     if not artifact_id or not media_type:
         raise ValueError("knowledge_index_result_artifact_ref_invalid")
-    if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+    if not _is_sha256(digest):
         raise ValueError("knowledge_index_result_artifact_ref_digest_invalid")
 
     has_output_metadata = any(field in reference for field in _WORKER_ARTIFACT_OUTPUT_FIELDS)
     has_graph_metadata = any(field in reference for field in _WORKER_GRAPH_ARTIFACT_FIELDS)
+    has_supplement_metadata = any(
+        field in reference for field in _WORKER_DOMAIN_SUPPLEMENT_FIELDS
+    )
     if not has_output_metadata:
-        if has_graph_metadata:
+        if has_graph_metadata or has_supplement_metadata:
             raise ValueError("knowledge_index_result_graph_artifact_ref_incomplete")
         return
     if not _WORKER_ARTIFACT_OUTPUT_FIELDS.issubset(reference):
@@ -264,12 +310,139 @@ def _validate_worker_artifact_reference(reference: Any) -> None:
         raise ValueError("knowledge_index_result_artifact_ref_index_id_invalid")
     if not str(reference.get("run_id") or "").strip():
         raise ValueError("knowledge_index_result_artifact_ref_run_id_invalid")
-    if role in _WORKER_GRAPH_ARTIFACT_SCHEMAS:
+    if role == DOMAIN_SUPPLEMENT_OUTPUT_ROLE:
+        if not _WORKER_DOMAIN_SUPPLEMENT_FIELDS.issubset(reference):
+            raise ValueError(
+                "knowledge_index_result_domain_supplement_ref_incomplete"
+            )
+        if size_bytes > MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES:
+            raise ValueError(
+                "knowledge_index_result_domain_supplement_ref_size_invalid"
+            )
+        _validate_worker_graph_artifact_reference(reference, role=role)
+        source_revision_id = str(reference.get("source_revision_id") or "")
+        source_revision_digest = str(
+            reference.get("source_revision_digest") or ""
+        )
+        if not _is_source_revision_id(source_revision_id):
+            raise ValueError(
+                "knowledge_index_result_domain_supplement_source_revision_id_invalid"
+            )
+        if not _is_sha256(source_revision_digest):
+            raise ValueError(
+                "knowledge_index_result_domain_supplement_source_revision_digest_invalid"
+            )
+        for field in (
+            "domain_count",
+            "semantic_node_count",
+            "semantic_edge_count",
+            "declaration_edge_count",
+        ):
+            count = reference.get(field)
+            if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                raise ValueError(
+                    "knowledge_index_result_domain_supplement_count_invalid"
+                )
+    elif role in _WORKER_GRAPH_ARTIFACT_SCHEMAS:
+        if has_supplement_metadata:
+            raise ValueError(
+                "knowledge_index_result_domain_supplement_ref_unexpected"
+            )
         if size_bytes > MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES:
             raise ValueError("knowledge_index_result_graph_artifact_ref_size_invalid")
         _validate_worker_graph_artifact_reference(reference, role=role)
-    elif has_graph_metadata:
+    elif has_graph_metadata or has_supplement_metadata:
         raise ValueError("knowledge_index_result_graph_artifact_ref_unexpected")
+
+
+def _validate_worker_artifact_references(
+    references: list[Any],
+    *,
+    execution_envelope: Mapping[str, Any] | None = None,
+) -> None:
+    for reference in references:
+        _validate_worker_artifact_reference(reference)
+
+    supplements = [
+        reference
+        for reference in references
+        if isinstance(reference, Mapping)
+        and str(reference.get("role") or "")
+        == DOMAIN_SUPPLEMENT_OUTPUT_ROLE
+    ]
+    if not supplements:
+        return
+    if len(supplements) != 1:
+        raise ValueError(
+            "knowledge_index_result_domain_supplement_ref_duplicate"
+        )
+    envelope = dict(execution_envelope or {})
+    if str(envelope.get("schema") or "") != KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA:
+        raise ValueError(
+            "knowledge_index_result_domain_supplement_requires_bound_source"
+        )
+    authority = envelope.get("authority_binding")
+    if not isinstance(authority, Mapping):
+        raise ValueError(
+            "knowledge_index_result_domain_supplement_requires_bound_source"
+        )
+    expected_source_revision_id = str(
+        authority.get("source_revision_id") or ""
+    )
+    expected_source_revision_digest = str(
+        authority.get("source_revision_digest") or ""
+    )
+    if not _is_source_revision_id(
+        expected_source_revision_id
+    ) or not _is_sha256(expected_source_revision_digest):
+        raise ValueError(
+            "knowledge_index_result_domain_supplement_requires_bound_source"
+        )
+
+    supplement = supplements[0]
+    if (
+        str(supplement.get("source_revision_id") or "")
+        != expected_source_revision_id
+        or str(supplement.get("source_revision_digest") or "")
+        != expected_source_revision_digest
+    ):
+        raise ValueError(
+            "knowledge_index_result_domain_supplement_source_binding_mismatch"
+        )
+    knowledge_index_id = str(supplement.get("knowledge_index_id") or "")
+    run_id = str(supplement.get("run_id") or "")
+    companion_by_role: dict[str, list[Mapping[str, Any]]] = {
+        role: [
+            reference
+            for reference in references
+            if isinstance(reference, Mapping)
+            and str(reference.get("role") or "") == role
+            and str(reference.get("knowledge_index_id") or "")
+            == knowledge_index_id
+            and str(reference.get("run_id") or "") == run_id
+        ]
+        for role in ("graph_index", "graph_visual_metrics")
+    }
+    if any(len(matches) != 1 for matches in companion_by_role.values()):
+        raise ValueError(
+            "knowledge_index_result_domain_supplement_graph_pair_required"
+        )
+    if any(
+        str(matches[0].get("media_type") or "")
+        != _WORKER_GRAPH_ARTIFACT_MEDIA_TYPES[role]
+        for role, matches in companion_by_role.items()
+    ):
+        raise ValueError(
+            "knowledge_index_result_domain_supplement_graph_pair_required"
+        )
+    graph_revision = str(supplement.get("graph_revision") or "")
+    if any(
+        str(matches[0].get("graph_revision") or "") != graph_revision
+        for matches in companion_by_role.values()
+    ):
+        raise ValueError(
+            "knowledge_index_result_domain_supplement_graph_revision_mismatch"
+        )
 
 
 class KnowledgeIndexJobService:
@@ -2044,8 +2217,10 @@ class KnowledgeIndexJobService:
                 raise ValueError(
                     "knowledge_index_result_artifact_refs_invalid"
                 )
-            for reference in artifact_refs:
-                _validate_worker_artifact_reference(reference)
+            _validate_worker_artifact_references(
+                artifact_refs,
+                execution_envelope=envelope,
+            )
             return payload
         if str(envelope.get("schema") or "") != KNOWLEDGE_INDEX_JOB_SCHEMA:
             raise ValueError("knowledge_index_job_schema_invalid")
@@ -2085,8 +2260,7 @@ class KnowledgeIndexJobService:
         artifact_refs = payload.get("artifact_refs")
         if not isinstance(artifact_refs, list):
             raise ValueError("knowledge_index_result_artifact_refs_invalid")
-        for reference in artifact_refs:
-            _validate_worker_artifact_reference(reference)
+        _validate_worker_artifact_references(artifact_refs)
         if payload.get("error") is not None and not isinstance(payload.get("error"), str):
             raise ValueError("knowledge_index_result_error_invalid")
         return {

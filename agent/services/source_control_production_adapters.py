@@ -33,9 +33,17 @@ from agent.db_models.source_control import (
 from agent.repositories.source_control_repository import (
     SQLSourceControlRepository,
 )
+from agent.services.codecompass_domain_supplement import (
+    CodeCompassDomainSupplementPort,
+    get_codecompass_domain_supplement_reader,
+)
+from agent.services.codecompass_domain_supplement_graph_read import (
+    CodeCompassDomainSupplementGraphReadCoordinator,
+)
 from agent.services.codecompass_graph_artifact_resolver import (
     GRAPH_VISUAL_METRICS_FILENAME,
     CodeCompassGraphArtifactResolver,
+    ResolvedCodeCompassDomainSupplement,
 )
 from agent.services.codecompass_graph_domain_catalog_service import (
     CodeCompassGraphDomainCatalogPort,
@@ -86,6 +94,8 @@ _LOG = logging.getLogger(__name__)
 _TERMINAL_RUN_STATES = frozenset(
     {"completed", "failed", "cancelled", "purged", "tombstoned"}
 )
+
+
 class SourceControlProductionAdapterError(ValueError):
     def __init__(self, reason_code: str, *, status_code: int = 400) -> None:
         self.reason_code = reason_code
@@ -309,6 +319,7 @@ class HubSourceControlOperationsAdapter:
         graph_domains: CodeCompassGraphDomainCatalogPort | None = None,
         graph_read: CodeCompassGraphReadPort | None = None,
         graph_store_cache: CodeCompassGraphStoreCache | None = None,
+        domain_supplements: CodeCompassDomainSupplementPort | None = None,
         scanner: object | None = None,
     ) -> None:
         self._engine = engine
@@ -316,15 +327,26 @@ class HubSourceControlOperationsAdapter:
         self._refresh = refresh
         self._index_submission = index_submission
         self._resolver = graph_resolver
+        self._graph_domains = (
+            graph_domains or get_codecompass_graph_domain_catalog_service()
+        )
         self._graph_read = graph_read or CodeCompassGraphReadService(
             projection=graph_projection,
             window=graph_window,
-            domains=(
-                graph_domains or get_codecompass_graph_domain_catalog_service()
-            ),
+            domains=self._graph_domains,
         )
         self._graph_store_cache = (
             graph_store_cache or get_codecompass_graph_store_cache()
+        )
+        self._domain_supplements = (
+            domain_supplements or get_codecompass_domain_supplement_reader()
+        )
+        self._domain_supplement_graph_read = (
+            CodeCompassDomainSupplementGraphReadCoordinator(
+                graph_read=self._graph_read,
+                graph_domains=self._graph_domains,
+                domain_supplements=self._domain_supplements,
+            )
         )
         self._scanner = scanner
 
@@ -452,18 +474,92 @@ class HubSourceControlOperationsAdapter:
     def graph(self, **kwargs: object) -> Mapping[str, object]:
         index = self._active_index(**kwargs)
         parameters = kwargs.get("parameters")
-        values = parameters if isinstance(parameters, Mapping) else {}
+        values = dict(parameters) if isinstance(parameters, Mapping) else {}
+        domain_scope = str(values.get("domain_scope") or "").strip()
+        view = str(values.get("view") or "default").strip().lower()
         try:
-            return self._graph_read.read(
+            base_store = self._graph_store(index)
+            # The immutable supplement is opened only for catalog or scoped
+            # reads. A regular graph request remains a base-artifact read.
+            resolved = (
+                self._resolve_domain_supplement(index)
+                if view == "inventory" or domain_scope
+                else None
+            )
+            if view != "inventory" and not domain_scope:
+                return self._graph_read.read(
+                    index_id=index.id,
+                    store=base_store,
+                    parameters=values,
+                    artifact_status=self._artifact_projection(index),
+                )
+            if resolved is None:
+                return self._graph_read.read(
+                    index_id=index.id,
+                    store=base_store,
+                    parameters=values,
+                    artifact_status=self._artifact_projection(index),
+                )
+            if resolved is not None:
+                self._validate_domain_supplement_binding(
+                    index=index,
+                    resolved=resolved,
+                    **kwargs,
+                )
+            coordinator = getattr(
+                self,
+                "_domain_supplement_graph_read",
+                None,
+            )
+            if coordinator is None:
+                # Compatibility for small unit doubles created via
+                # object.__new__; normal production construction always wires
+                # this dependency explicitly.
+                coordinator = CodeCompassDomainSupplementGraphReadCoordinator(
+                    graph_read=self._graph_read,
+                    graph_domains=self._graph_domains,
+                    domain_supplements=self._domain_supplements,
+                )
+                self._domain_supplement_graph_read = coordinator
+            metadata = (
+                index.index_metadata
+                if isinstance(index.index_metadata, Mapping)
+                else {}
+            )
+            return coordinator.read(
                 index_id=index.id,
-                store=self._graph_store(index),
+                base_store=base_store,
                 parameters=values,
                 artifact_status=self._artifact_projection(index),
+                resolved=resolved,
+                fallback_source_revision_id=str(
+                    metadata.get("source_revision_id") or ""
+                ),
+                fallback_source_revision_digest=str(
+                    metadata.get("source_revision_digest") or ""
+                ),
             )
         except CodeCompassGraphReadError as exc:
             raise SourceControlProductionAdapterError(
                 exc.reason_code,
                 status_code=exc.status_code,
+            ) from exc
+        except ValueError as exc:
+            reason_code = str(exc) or "graph_domain_supplement_invalid"
+            if reason_code == "graph_domain_scope_unknown":
+                raise SourceControlProductionAdapterError(
+                    reason_code,
+                    status_code=400,
+                ) from exc
+            raise SourceControlProductionAdapterError(
+                reason_code,
+                status_code=(
+                    409
+                    if reason_code.startswith(
+                        ("graph_domain_supplement_", "domain_supplement_")
+                    )
+                    else 400
+                ),
             ) from exc
 
     def query(self, **kwargs: object) -> Mapping[str, object]:
@@ -493,6 +589,87 @@ class HubSourceControlOperationsAdapter:
             ),
             "artifact_status": self._artifact_projection(index),
         }
+
+    def _resolve_domain_supplement(
+        self,
+        index: KnowledgeIndexDB,
+    ) -> ResolvedCodeCompassDomainSupplement | None:
+        resolve = getattr(
+            getattr(self, "_resolver", None),
+            "resolve_domain_supplement",
+            None,
+        )
+        if not callable(resolve):
+            return None
+        result = resolve(index)
+        if result is not None and not isinstance(
+            result,
+            ResolvedCodeCompassDomainSupplement,
+        ):
+            raise ValueError("graph_domain_supplement_binding_invalid")
+        return result
+
+    def _validate_domain_supplement_binding(
+        self,
+        *,
+        index: KnowledgeIndexDB,
+        resolved: ResolvedCodeCompassDomainSupplement,
+        **kwargs: object,
+    ) -> None:
+        metadata = index.index_metadata
+        if not isinstance(metadata, Mapping):
+            raise ValueError("graph_domain_supplement_binding_invalid")
+        binding = resolved.binding
+        expected_source_id = f"bound-source:{binding.source_revision_id}"
+        if (
+            binding.knowledge_index_id != index.id
+            or binding.source_id != expected_source_id
+            or str(metadata.get("source_scope") or "") != binding.source_scope
+            or str(metadata.get("source_id") or "") != expected_source_id
+            or str(metadata.get("source_revision_id") or "")
+            != binding.source_revision_id
+            or str(metadata.get("source_revision_digest") or "")
+            != binding.source_revision_digest
+        ):
+            raise ValueError("graph_domain_supplement_binding_stale")
+        tenant_id = str(kwargs.get("tenant_id") or "")
+        project_id = str(kwargs.get("project_id") or "")
+        connection_id = str(kwargs.get("connection_id") or "")
+        with Session(self._engine) as db:
+            source_binding = db.get(
+                KnowledgeIndexSourceBindingDB,
+                index.id,
+            )
+            revision = (
+                db.get(SourceRevisionDB, source_binding.source_revision_id)
+                if source_binding is not None
+                else None
+            )
+            active = db.exec(
+                select(ActiveKnowledgeIndexDB).where(
+                    ActiveKnowledgeIndexDB.tenant_id == tenant_id,
+                    ActiveKnowledgeIndexDB.project_id == project_id,
+                    ActiveKnowledgeIndexDB.connection_id == connection_id,
+                )
+            ).first()
+        if (
+            source_binding is None
+            or revision is None
+            or active is None
+            or source_binding.knowledge_index_id != index.id
+            or source_binding.tenant_id != tenant_id
+            or source_binding.project_id != project_id
+            or source_binding.connection_id != connection_id
+            or source_binding.source_revision_id != binding.source_revision_id
+            or revision.source_revision_id != binding.source_revision_id
+            or revision.revision_digest != binding.source_revision_digest
+            or revision.tenant_id != tenant_id
+            or revision.project_id != project_id
+            or revision.connection_id != connection_id
+            or active.knowledge_index_id != index.id
+            or active.source_revision_id != binding.source_revision_id
+        ):
+            raise ValueError("graph_domain_supplement_binding_stale")
 
     def artifact_status(self, **kwargs: object) -> Mapping[str, object]:
         index = self._active_index(**kwargs)
@@ -685,6 +862,8 @@ class HubSourceControlOperationsAdapter:
             "knowledge_index_id": index.id,
             "manifest_present": manifest.is_file(),
         }
+
+
 class ScopedWorkerModelDestinationCatalog:
     """Project destinations from validated workers and the Hub model catalog."""
 

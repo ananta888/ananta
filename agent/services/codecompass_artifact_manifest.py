@@ -20,6 +20,7 @@ _ROLES = frozenset(
         "relations",
         "graph_index",
         "graph_visual_metrics",
+        "graph_domain_supplement",
     }
 )
 
@@ -147,6 +148,8 @@ class CodeCompassArtifactManifestProjector:
             "graph_visual_metrics",
         }:
             raise CodeCompassArtifactManifestError("graph_artifacts_incomplete")
+        if "graph_domain_supplement" in roles and not graph_roles:
+            raise CodeCompassArtifactManifestError("graph_domain_supplement_without_graph")
         if graph_roles:
             if (
                 graph_schema != "codecompass_graph_index.v1"

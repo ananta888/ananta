@@ -20,6 +20,11 @@ from agent.db_models import KnowledgeIndexDB, KnowledgeIndexRunDB
 from agent.services.codecompass_artifact_manifest import (
     CodeCompassArtifactManifestProjector,
 )
+from agent.services.codecompass_domain_supplement import (
+    CodeCompassDomainSupplementBinding,
+    CodeCompassDomainSupplementPort,
+    get_codecompass_domain_supplement_reader,
+)
 from agent.services.knowledge_index_consumption_policy import (
     KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY,
     KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA,
@@ -27,7 +32,14 @@ from agent.services.knowledge_index_consumption_policy import (
     KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA,
     KNOWLEDGE_INDEX_PROJECTED_STATE,
 )
+from ananta_contracts.codecompass_domain_supplement import (
+    DOMAIN_SUPPLEMENT_FILENAME,
+    DOMAIN_SUPPLEMENT_MEDIA_TYPE,
+    DOMAIN_SUPPLEMENT_OUTPUT_ROLE,
+    DOMAIN_SUPPLEMENT_SCHEMA,
+)
 from ananta_contracts.codecompass_graph_limits import (
+    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES,
     MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
 )
 from ananta_contracts.knowledge_index_worker_output_capability import (
@@ -55,11 +67,14 @@ _OUTPUT_FILENAMES = {
     "relations": "relations.jsonl",
     "graph_index": "cc_graph_index.json",
     "graph_visual_metrics": "cc_graph_index.visual_metrics.json",
+    DOMAIN_SUPPLEMENT_OUTPUT_ROLE: DOMAIN_SUPPLEMENT_FILENAME,
 }
-_GRAPH_ROLES = frozenset({"graph_index", "graph_visual_metrics"})
+_PRIMARY_GRAPH_ROLES = frozenset({"graph_index", "graph_visual_metrics"})
+_GRAPH_ROLES = _PRIMARY_GRAPH_ROLES | frozenset({DOMAIN_SUPPLEMENT_OUTPUT_ROLE})
 _GRAPH_MEDIA_TYPES = {
     "graph_index": "application/vnd.ananta.codecompass-graph-index+json",
     "graph_visual_metrics": "application/vnd.ananta.codecompass-graph-visual-metrics+json",
+    DOMAIN_SUPPLEMENT_OUTPUT_ROLE: DOMAIN_SUPPLEMENT_MEDIA_TYPE,
 }
 _PUBLIC_ARTIFACT_SCHEMAS = {
     "manifest": "ananta.knowledge-index.manifest.v1",
@@ -449,18 +464,28 @@ class KnowledgeIndexWorkerArtifactService:
         knowledge_index_run_repository: Any | None = None,
         output_root: str | Path | None = None,
         manifest_projector: CodeCompassArtifactManifestProjector | None = None,
+        domain_supplement_reader: CodeCompassDomainSupplementPort | None = None,
     ) -> None:
         self._downloader = downloader or HttpKnowledgeIndexWorkerArtifactDownloader()
         if knowledge_index_repository is None or knowledge_index_run_repository is None:
             from agent.repository import knowledge_index_repo, knowledge_index_run_repo
 
-            knowledge_index_repository = knowledge_index_repository or knowledge_index_repo
-            knowledge_index_run_repository = knowledge_index_run_repository or knowledge_index_run_repo
+            knowledge_index_repository = (
+                knowledge_index_repository or knowledge_index_repo
+            )
+            knowledge_index_run_repository = (
+                knowledge_index_run_repository or knowledge_index_run_repo
+            )
         self._knowledge_index_repository = knowledge_index_repository
         self._knowledge_index_run_repository = knowledge_index_run_repository
-        self._output_root = Path(output_root or Path(settings.data_dir) / "knowledge_indices").resolve()
+        self._output_root = Path(
+            output_root or Path(settings.data_dir) / "knowledge_indices"
+        ).resolve()
         self._manifest_projector = (
             manifest_projector or CodeCompassArtifactManifestProjector()
+        )
+        self._domain_supplement_reader = (
+            domain_supplement_reader or get_codecompass_domain_supplement_reader()
         )
 
     @staticmethod
@@ -494,19 +519,24 @@ class KnowledgeIndexWorkerArtifactService:
             dict(raw_manifest) if isinstance(raw_manifest, Mapping) else None
         )
         bound_v2 = (
-            str(envelope.get("schema") or "")
-            == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
+            str(envelope.get("schema") or "") == KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA
         )
+        authority_binding = dict(envelope.get("authority_binding") or {})
+        source_revision_id = str(
+            envelope.get("source_revision_id")
+            or authority_binding.get("source_revision_id")
+            or ""
+        ).strip()
+        source_revision_digest = str(
+            authority_binding.get("source_revision_digest") or ""
+        ).strip()
+        source_id = f"bound-source:{source_revision_id}" if source_revision_id else ""
         if bound_v2 and source_access_manifest is None:
-            raise ValueError(
-                "knowledge_index_worker_output_capability_required"
-            )
+            raise ValueError("knowledge_index_worker_output_capability_required")
         if source_access_manifest is not None and not _JOB_ID.fullmatch(
             str(job_id or "").strip()
         ):
-            raise ValueError(
-                "knowledge_index_worker_output_capability_required"
-            )
+            raise ValueError("knowledge_index_worker_output_capability_required")
         if not worker_url or not (worker_token or source_access_manifest):
             raise ValueError("knowledge_index_worker_artifact_transport_unavailable")
 
@@ -515,9 +545,7 @@ class KnowledgeIndexWorkerArtifactService:
         if not isinstance(raw_references, list) or any(
             not isinstance(item, Mapping) for item in raw_references
         ):
-            raise ValueError(
-                "knowledge_index_worker_artifact_refs_invalid"
-            )
+            raise ValueError("knowledge_index_worker_artifact_refs_invalid")
         references = [dict(item) for item in raw_references]
         self._validate_result_reference_contract(
             units=units,
@@ -527,9 +555,7 @@ class KnowledgeIndexWorkerArtifactService:
         )
         materialized_units: list[dict[str, Any]] = []
         initial_projection_state = (
-            _PENDING_PROJECTION_STATE
-            if bound_v2
-            else KNOWLEDGE_INDEX_PROJECTED_STATE
+            _PENDING_PROJECTION_STATE if bound_v2 else KNOWLEDGE_INDEX_PROJECTED_STATE
         )
         for unit in units:
             self._checkpoint(transfer_deadline)
@@ -559,12 +585,32 @@ class KnowledgeIndexWorkerArtifactService:
                 if str(reference.get("knowledge_index_id") or "") == index_id
                 and str(reference.get("run_id") or "") == run_id
             ]
-            by_role = {str(reference.get("role") or ""): reference for reference in unit_refs}
-            if len(by_role) != len(unit_refs) or not {"manifest", "index"}.issubset(by_role):
+            by_role = {
+                str(reference.get("role") or ""): reference for reference in unit_refs
+            }
+            if len(by_role) != len(unit_refs) or not {"manifest", "index"}.issubset(
+                by_role
+            ):
                 raise ValueError("knowledge_index_worker_artifacts_incomplete")
-            present_graph_roles = _GRAPH_ROLES.intersection(by_role)
-            if present_graph_roles and present_graph_roles != _GRAPH_ROLES:
+            present_primary_graph_roles = _PRIMARY_GRAPH_ROLES.intersection(by_role)
+            if (
+                present_primary_graph_roles
+                and present_primary_graph_roles != _PRIMARY_GRAPH_ROLES
+            ):
                 raise ValueError("knowledge_index_worker_graph_artifacts_incomplete")
+            supplement_present = DOMAIN_SUPPLEMENT_OUTPUT_ROLE in by_role
+            if supplement_present and (
+                present_primary_graph_roles != _PRIMARY_GRAPH_ROLES or not bound_v2
+            ):
+                raise ValueError("knowledge_index_worker_graph_artifacts_incomplete")
+            if supplement_present:
+                self._validate_index_source_binding(
+                    index_payload=index_payload,
+                    source_scope=source_scope,
+                    source_id=source_id,
+                    source_revision_id=source_revision_id,
+                    source_revision_digest=source_revision_digest,
+                )
             output_dir = self._output_root / source_scope / index_id / run_id
             self._validate_unit_reference_budget(by_role)
             replay = self._existing_materialized_unit(
@@ -615,36 +661,27 @@ class KnowledgeIndexWorkerArtifactService:
                     self._validate_graph_artifacts(
                         by_role=by_role,
                         staged_paths=staged_paths,
+                        knowledge_index_id=index_id,
+                        source_scope=source_scope,
+                        source_id=source_id,
+                        source_revision_id=source_revision_id,
+                        source_revision_digest=source_revision_digest,
+                        transfer_deadline=transfer_deadline,
                     )
-                    if present_graph_roles
+                    if present_primary_graph_roles
                     else None
                 )
                 self._checkpoint(transfer_deadline)
-                authority_binding = dict(
-                    envelope.get("authority_binding") or {}
-                )
-                source_revision_id = str(
-                    envelope.get("source_revision_id")
-                    or authority_binding.get("source_revision_id")
-                    or ""
-                ).strip()
                 public_artifact_manifest: dict[str, Any] | None = None
                 if source_revision_id:
-                    raw_manifest = self._strict_json_object(
-                        staged_paths["manifest"]
-                    )
+                    raw_manifest = self._strict_json_object(staged_paths["manifest"])
                     raw_coverage = raw_manifest.get("coverage")
                     raw_exclusions = raw_manifest.get("exclusions")
                     if raw_exclusions is not None and (
                         not isinstance(raw_exclusions, list)
-                        or any(
-                            not isinstance(item, Mapping)
-                            for item in raw_exclusions
-                        )
+                        or any(not isinstance(item, Mapping) for item in raw_exclusions)
                     ):
-                        raise ValueError(
-                            "knowledge_index_worker_exclusions_invalid"
-                        )
+                        raise ValueError("knowledge_index_worker_exclusions_invalid")
                     public_artifact_manifest = self._manifest_projector.project(
                         knowledge_index_id=index_id,
                         run_id=run_id,
@@ -698,9 +735,7 @@ class KnowledgeIndexWorkerArtifactService:
                     output_dir=output_dir,
                 )
             manifest_path = output_dir / "manifest.json"
-            persisted_status = (
-                "pending_verification" if bound_v2 else "completed"
-            )
+            persisted_status = "pending_verification" if bound_v2 else "completed"
             index_payload.update(
                 {
                     "source_scope": source_scope,
@@ -710,6 +745,14 @@ class KnowledgeIndexWorkerArtifactService:
                     "latest_run_id": run_id,
                 }
             )
+            if supplement_present:
+                index_payload["index_metadata"] = {
+                    **dict(index_payload.get("index_metadata") or {}),
+                    "source_scope": source_scope,
+                    "source_id": source_id,
+                    "source_revision_id": source_revision_id,
+                    "source_revision_digest": source_revision_digest,
+                }
             if graph_binding is not None:
                 index_payload["index_metadata"] = {
                     **dict(index_payload.get("index_metadata") or {}),
@@ -1342,6 +1385,45 @@ class KnowledgeIndexWorkerArtifactService:
         return scope
 
     @staticmethod
+    def _validate_index_source_binding(
+        *,
+        index_payload: Mapping[str, Any],
+        source_scope: str,
+        source_id: str,
+        source_revision_id: str,
+        source_revision_digest: str,
+    ) -> None:
+        metadata = index_payload.get("index_metadata")
+        if not isinstance(metadata, Mapping):
+            raise ValueError("knowledge_index_worker_domain_supplement_binding_invalid")
+        if (
+            len(source_revision_id) != 69
+            or not source_revision_id.startswith("srev_")
+            or any(
+                character not in "0123456789abcdef"
+                for character in source_revision_id[5:]
+            )
+            or len(source_revision_digest) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in source_revision_digest
+            )
+            or source_id != f"bound-source:{source_revision_id}"
+            or str(metadata.get("source_scope") or "") != source_scope
+            or str(metadata.get("source_id") or "") != source_id
+        ):
+            raise ValueError("knowledge_index_worker_domain_supplement_binding_invalid")
+        for field, expected in (
+            ("source_revision_id", source_revision_id),
+            ("source_revision_digest", source_revision_digest),
+        ):
+            supplied = metadata.get(field)
+            if supplied not in {None, "", expected}:
+                raise ValueError(
+                    "knowledge_index_worker_domain_supplement_binding_invalid"
+                )
+
+    @staticmethod
     def _safe_identifier(value: Any, *, field: str) -> str:
         normalized = str(value or "").strip()
         allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
@@ -1370,7 +1452,10 @@ class KnowledgeIndexWorkerArtifactService:
         total_size = 0
         for role, reference in by_role.items():
             expected_filename = _OUTPUT_FILENAMES.get(role)
-            if expected_filename is None or str(reference.get("filename") or "") != expected_filename:
+            if (
+                expected_filename is None
+                or str(reference.get("filename") or "") != expected_filename
+            ):
                 raise ValueError("knowledge_index_worker_artifact_role_invalid")
             raw_size = reference.get("size_bytes")
             if (
@@ -1380,8 +1465,13 @@ class KnowledgeIndexWorkerArtifactService:
                 or raw_size > _MAX_ARTIFACT_BYTES
             ):
                 raise ValueError("knowledge_index_worker_artifact_size_invalid")
-            if role in _GRAPH_ROLES and raw_size > _MAX_GRAPH_JSON_BYTES:
+            if role in _PRIMARY_GRAPH_ROLES and raw_size > _MAX_GRAPH_JSON_BYTES:
                 raise ValueError("knowledge_index_worker_graph_artifact_too_large")
+            if (
+                role == DOMAIN_SUPPLEMENT_OUTPUT_ROLE
+                and raw_size > MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES
+            ):
+                raise ValueError("knowledge_index_worker_domain_supplement_too_large")
             total_size += raw_size
             if total_size > _MAX_UNIT_ARTIFACT_BYTES:
                 raise ValueError("knowledge_index_worker_artifact_unit_budget_exceeded")
@@ -1509,12 +1599,17 @@ class KnowledgeIndexWorkerArtifactService:
         if hashlib.sha256(content).hexdigest() != expected_hash:
             raise ValueError("knowledge_index_worker_artifact_digest_mismatch")
 
-    @classmethod
     def _validate_graph_artifacts(
-        cls,
+        self,
         *,
         by_role: Mapping[str, Mapping[str, Any]],
         staged_paths: Mapping[str, Path],
+        knowledge_index_id: str,
+        source_scope: str,
+        source_id: str,
+        source_revision_id: str,
+        source_revision_digest: str,
+        transfer_deadline: KnowledgeIndexArtifactTransferDeadlinePort | None = None,
     ) -> dict[str, Any]:
         graph_reference = by_role["graph_index"]
         metrics_reference = by_role["graph_visual_metrics"]
@@ -1522,9 +1617,14 @@ class KnowledgeIndexWorkerArtifactService:
             ("graph_index", graph_reference),
             ("graph_visual_metrics", metrics_reference),
         ):
-            if str(reference.get("media_type") or "").lower() != _GRAPH_MEDIA_TYPES[role]:
-                raise ValueError("knowledge_index_worker_graph_artifact_media_type_invalid")
-        graph = cls._strict_json_object(staged_paths["graph_index"])
+            if (
+                str(reference.get("media_type") or "").lower()
+                != _GRAPH_MEDIA_TYPES[role]
+            ):
+                raise ValueError(
+                    "knowledge_index_worker_graph_artifact_media_type_invalid"
+                )
+        graph = self._strict_json_object(staged_paths["graph_index"])
         state = graph.get("state")
         if not isinstance(state, Mapping):
             raise ValueError("knowledge_index_worker_graph_artifact_revision_mismatch")
@@ -1532,12 +1632,14 @@ class KnowledgeIndexWorkerArtifactService:
         graph_schema = str(state.get("schema") or "")
         del graph
 
-        metrics = cls._strict_json_object(staged_paths["graph_visual_metrics"])
+        metrics = self._strict_json_object(staged_paths["graph_visual_metrics"])
         if (
             graph_schema != "codecompass_graph_index.v1"
-            or str(graph_reference.get("artifact_schema") or "") != "codecompass_graph_index.v1"
+            or str(graph_reference.get("artifact_schema") or "")
+            != "codecompass_graph_index.v1"
             or str(metrics.get("schema") or "") != "graph_visual_metrics.v1"
-            or str(metrics_reference.get("artifact_schema") or "") != "graph_visual_metrics.v1"
+            or str(metrics_reference.get("artifact_schema") or "")
+            != "graph_visual_metrics.v1"
             or not graph_revision
             or str(metrics.get("graph_revision") or "") != graph_revision
             or str(graph_reference.get("graph_revision") or "") != graph_revision
@@ -1547,10 +1649,14 @@ class KnowledgeIndexWorkerArtifactService:
         ):
             raise ValueError("knowledge_index_worker_graph_artifact_revision_mismatch")
 
-        graph_file_hash = "sha256:" + cls._file_sha256(staged_paths["graph_index"])
+        graph_file_hash = "sha256:" + self._file_sha256(staged_paths["graph_index"])
         if str(graph_reference.get("graph_content_hash") or "") != graph_file_hash:
-            raise ValueError("knowledge_index_worker_graph_artifact_content_hash_mismatch")
-        unsigned_metrics = {key: value for key, value in metrics.items() if key != "content_hash"}
+            raise ValueError(
+                "knowledge_index_worker_graph_artifact_content_hash_mismatch"
+            )
+        unsigned_metrics = {
+            key: value for key, value in metrics.items() if key != "content_hash"
+        }
         try:
             canonical_metrics = json.dumps(
                 unsigned_metrics,
@@ -1560,17 +1666,98 @@ class KnowledgeIndexWorkerArtifactService:
                 allow_nan=False,
             ).encode("utf-8")
         except (TypeError, ValueError) as exc:
-            raise ValueError("knowledge_index_worker_graph_visual_metrics_invalid") from exc
+            raise ValueError(
+                "knowledge_index_worker_graph_visual_metrics_invalid"
+            ) from exc
         metrics_content_hash = "sha256:" + hashlib.sha256(canonical_metrics).hexdigest()
         if (
             str(metrics.get("content_hash") or "") != metrics_content_hash
-            or str(metrics_reference.get("graph_content_hash") or "") != metrics_content_hash
+            or str(metrics_reference.get("graph_content_hash") or "")
+            != metrics_content_hash
         ):
-            raise ValueError("knowledge_index_worker_graph_visual_metrics_hash_mismatch")
-        return {
+            raise ValueError(
+                "knowledge_index_worker_graph_visual_metrics_hash_mismatch"
+            )
+        binding: dict[str, Any] = {
             "schema": "codecompass_graph_artifact_binding.v1",
             "graph_revision": graph_revision,
         }
+        supplement_reference = by_role.get(DOMAIN_SUPPLEMENT_OUTPUT_ROLE)
+        if supplement_reference is None:
+            return binding
+        if DOMAIN_SUPPLEMENT_OUTPUT_ROLE not in staged_paths:
+            raise ValueError("knowledge_index_worker_graph_artifacts_incomplete")
+        logical_content_hash = str(supplement_reference.get("graph_content_hash") or "")
+        artifact_sha256 = str(supplement_reference.get("sha256") or "").lower()
+        if (
+            str(supplement_reference.get("media_type") or "").lower()
+            != DOMAIN_SUPPLEMENT_MEDIA_TYPE
+            or str(supplement_reference.get("artifact_schema") or "")
+            != DOMAIN_SUPPLEMENT_SCHEMA
+            or str(supplement_reference.get("graph_revision") or "") != graph_revision
+            or str(supplement_reference.get("source_revision_id") or "")
+            != source_revision_id
+            or str(supplement_reference.get("source_revision_digest") or "")
+            != source_revision_digest
+            or not logical_content_hash.startswith("sha256:")
+            or len(logical_content_hash) != 71
+            or any(
+                character not in "0123456789abcdef"
+                for character in logical_content_hash[7:]
+            )
+            or len(artifact_sha256) != 64
+            or any(character not in "0123456789abcdef" for character in artifact_sha256)
+        ):
+            raise ValueError("knowledge_index_worker_domain_supplement_binding_invalid")
+        validation_options = (
+            {"checkpoint": transfer_deadline.require_remaining_seconds}
+            if transfer_deadline is not None
+            else {}
+        )
+        catalog = self._domain_supplement_reader.validate_artifact(
+            path=staged_paths[DOMAIN_SUPPLEMENT_OUTPUT_ROLE],
+            binding=CodeCompassDomainSupplementBinding(
+                knowledge_index_id=knowledge_index_id,
+                source_revision_id=source_revision_id,
+                source_revision_digest=source_revision_digest,
+                graph_revision=graph_revision,
+                artifact_sha256=artifact_sha256,
+                logical_content_hash=logical_content_hash,
+                source_scope=source_scope,
+                source_id=source_id,
+            ),
+            **validation_options,
+        )
+        expected_counts = {
+            "domain_count": len(catalog.domains),
+            "semantic_node_count": sum(
+                domain.semantic_node_count for domain in catalog.domains
+            ),
+            "semantic_edge_count": sum(
+                domain.semantic_edge_count for domain in catalog.domains
+            ),
+            "declaration_edge_count": sum(
+                domain.declaration_edge_count for domain in catalog.domains
+            ),
+        }
+        if any(
+            isinstance(supplement_reference.get(field), bool)
+            or supplement_reference.get(field) != expected
+            for field, expected in expected_counts.items()
+        ):
+            raise ValueError("knowledge_index_worker_domain_supplement_count_mismatch")
+        binding["domain_supplement"] = {
+            "artifact_schema": DOMAIN_SUPPLEMENT_SCHEMA,
+            "media_type": DOMAIN_SUPPLEMENT_MEDIA_TYPE,
+            "graph_revision": graph_revision,
+            "content_hash": logical_content_hash,
+            "source_scope": source_scope,
+            "source_id": source_id,
+            "source_revision_id": source_revision_id,
+            "source_revision_digest": source_revision_digest,
+            **expected_counts,
+        }
+        return binding
 
     @staticmethod
     def _strict_json_object(path: Path) -> dict[str, Any]:
@@ -1600,7 +1787,7 @@ class KnowledgeIndexWorkerArtifactService:
     ) -> dict[str, Any]:
         def artifact(role: str) -> dict[str, Any]:
             reference = by_role[role]
-            return {
+            projected = {
                 "artifact_id": str(reference.get("artifact_id") or ""),
                 "artifact_schema": str(reference.get("artifact_schema") or ""),
                 "sha256": str(reference.get("sha256") or ""),
@@ -1608,12 +1795,43 @@ class KnowledgeIndexWorkerArtifactService:
                 "filename": _OUTPUT_FILENAMES[role],
                 "local_path": str(output_dir / _OUTPUT_FILENAMES[role]),
             }
+            if role == DOMAIN_SUPPLEMENT_OUTPUT_ROLE:
+                projected.update(
+                    {
+                        "media_type": str(reference.get("media_type") or ""),
+                        "graph_revision": str(reference.get("graph_revision") or ""),
+                        "source_scope": str(
+                            reference.get("source_scope") or "repo_path"
+                        ),
+                        "source_id": str(reference.get("source_id") or ""),
+                        "source_revision_id": str(
+                            reference.get("source_revision_id") or ""
+                        ),
+                        "source_revision_digest": str(
+                            reference.get("source_revision_digest") or ""
+                        ),
+                        "domain_count": reference.get("domain_count"),
+                        "semantic_node_count": reference.get("semantic_node_count"),
+                        "semantic_edge_count": reference.get("semantic_edge_count"),
+                        "declaration_edge_count": reference.get(
+                            "declaration_edge_count"
+                        ),
+                    }
+                )
+            return projected
 
-        return {
+        local_binding = {
             **dict(binding),
             "graph_index": artifact("graph_index"),
             "visual_metrics": artifact("graph_visual_metrics"),
         }
+        if DOMAIN_SUPPLEMENT_OUTPUT_ROLE in by_role:
+            supplement = artifact(DOMAIN_SUPPLEMENT_OUTPUT_ROLE)
+            admitted = binding.get("domain_supplement")
+            if isinstance(admitted, Mapping):
+                supplement.update(dict(admitted))
+            local_binding["domain_supplement"] = supplement
+        return local_binding
 
     def _save_index(
         self,
