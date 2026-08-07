@@ -1,19 +1,26 @@
-<section aria-labelledby="semantic-program-title">
-  <h2 id="semantic-program-title">Semantic Media und Speech</h2>
+<section aria-labelledby="semantic-program-title" [attr.data-display-mode]="displayMode">
+  <h2 id="semantic-program-title">{{ heading() }}</h2>
   <p role="status" aria-live="polite">{{ online ? 'Hub erreichbar' : 'Offline – neue Freigaben gesperrt' }}</p>
 
-  <dl aria-label="Freigabeumfang">
-    <dt>Richtung</dt><dd>{{ scope.direction }}</dd>
-    <dt>Datenklasse</dt><dd>{{ scope.dataClass }}</dd>
-    <dt>Zweck</dt><dd>{{ scope.purpose }}</dd>
-    <dt>Aufbewahrung</dt><dd>{{ scope.retentionLabel }}</dd>
-    <dt>Trainerstandort</dt><dd>{{ scope.trainerLocation }}</dd>
-    <dt>E2EE-Modus</dt><dd>{{ scope.e2eeMode }}</dd>
-    <dt>Ordinary-Fallback</dt><dd>{{ scope.ordinaryFallback }}</dd>
-  </dl>
+  @if (displayMode === 'full') {
+    <dl aria-label="Freigabeumfang">
+      <dt>Richtung</dt><dd>{{ scope.direction }}</dd>
+      <dt>Datenklasse</dt><dd>{{ scope.dataClass }}</dd>
+      <dt>Zweck</dt><dd>{{ scope.purpose }}</dd>
+      <dt>Aufbewahrung</dt><dd>{{ scope.retentionLabel }}</dd>
+      <dt>Trainerstandort</dt><dd>{{ scope.trainerLocation }}</dd>
+      <dt>E2EE-Modus</dt><dd>{{ scope.e2eeMode }}</dd>
+      <dt>Ordinary-Fallback</dt><dd>{{ scope.ordinaryFallback }}</dd>
+    </dl>
+  } @else {
+    <p role="note">
+      Der Hub prüft die aktive Pair-Session und die Ordinary-Media-Freigabe. Erst danach fragt der Browser
+      gezielt nach Mikrofon, Kamera oder Bildschirm.
+    </p>
+  }
 
   <div class="program-grid">
-    @for (row of capabilities; track row.capability) {
+    @for (row of displayedCapabilities(); track row.capability) {
       <article [class.sensitive]="isSensitive(row.capability)" [attr.data-capability]="row.capability">
         <h3>{{ row.label }}</h3>
         <p>Status: <strong>{{ row.state }}</strong></p>
@@ -101,62 +108,64 @@
       (suggestionRequest)="computeSuggestionRequest.emit()" />
   }
 
-  <app-semantic-receiver-path-panel
-    [receivers]="receiverPaths"
-    (intent)="receiverPathIntent.emit($event)" />
+  <app-semantic-remote-audio [includeSfu]="displayMode === 'full'" />
 
-  <app-semantic-remote-audio />
+  @if (displayMode === 'full') {
+    <app-semantic-receiver-path-panel
+      [receivers]="receiverPaths"
+      (intent)="receiverPathIntent.emit($event)" />
 
-  @if (sfuRemoteVideos.length) {
-    <section class="sfu-video-grid" aria-label="Autorisierte SFU-Videos">
-      @for (video of sfuRemoteVideos; track video.handle.handleId) {
-        <app-semantic-remote-video [view]="video" />
-      }
-    </section>
+    @if (sfuRemoteVideos.length) {
+      <section class="sfu-video-grid" aria-label="Autorisierte SFU-Videos">
+        @for (video of sfuRemoteVideos; track video.handle.handleId) {
+          <app-semantic-remote-video [view]="video" />
+        }
+      </section>
+    }
+
+    <app-speech-evidence-consent-panel
+      [state]="evidenceConsentState"
+      (intent)="evidenceConsentIntent.emit($event)" />
+
+    @if (speechRuntimeVisible()) {
+      <app-semantic-speech-panel
+        [transportState]="speechTransportState"
+        [transportReason]="speechTransportReason"
+        [canStartTransport]="speechTransportCanStart"
+        [displayMode]="speechSettings.displayMode"
+        [segmentDurationSeconds]="speechSettings.segmentDurationSeconds"
+        [correctEachSegment]="speechSettings.correctEachSegment"
+        [paused]="speechSettings.paused"
+        [ordinaryAudioOverride]="speechSettings.ordinaryAudioOverride"
+        [qualityMode]="speechQualityMode"
+        [qualityReason]="speechQualityReason"
+        (startRequested)="speechStart.emit()"
+        (stopRequested)="speechStop.emit()"
+        (settingsChange)="speechSettingsChange.emit($event)" />
+    }
+
+    @if (peerEvidenceVisible()) {
+      <app-peer-evidence-sync-panel
+        [hubUrl]="hubUrl"
+        [offer]="evidenceOffer"
+        [sync]="evidenceSync"
+        [availableReason]="evidenceAvailableReason"
+        (propose)="evidencePropose.emit($event)"
+        (accept)="evidenceAccept.emit($event)"
+        (pauseRequested)="evidencePause.emit()"
+        (resumeRequested)="evidenceResume.emit()"
+        (reject)="evidenceReject.emit()"
+        (revoke)="evidenceRevoke.emit()"
+        (curationRequested)="evidenceCuration.emit()"
+        (localOverride)="evidenceLocalOverride.emit($event)" />
+    }
+
+    @if (speechReconciliationVisible()) {
+      <app-speech-reconciliation-panel
+        [hubAuthorized]="speechReconciliationHubAuthorized"
+        [hubUrl]="hubUrl" />
+    }
+
+    <app-semantic-debug-host />
   }
-
-  <app-speech-evidence-consent-panel
-    [state]="evidenceConsentState"
-    (intent)="evidenceConsentIntent.emit($event)" />
-
-  @if (speechRuntimeVisible()) {
-    <app-semantic-speech-panel
-      [transportState]="speechTransportState"
-      [transportReason]="speechTransportReason"
-      [canStartTransport]="speechTransportCanStart"
-      [displayMode]="speechSettings.displayMode"
-      [segmentDurationSeconds]="speechSettings.segmentDurationSeconds"
-      [correctEachSegment]="speechSettings.correctEachSegment"
-      [paused]="speechSettings.paused"
-      [ordinaryAudioOverride]="speechSettings.ordinaryAudioOverride"
-      [qualityMode]="speechQualityMode"
-      [qualityReason]="speechQualityReason"
-      (startRequested)="speechStart.emit()"
-      (stopRequested)="speechStop.emit()"
-      (settingsChange)="speechSettingsChange.emit($event)" />
-  }
-
-  @if (peerEvidenceVisible()) {
-    <app-peer-evidence-sync-panel
-      [hubUrl]="hubUrl"
-      [offer]="evidenceOffer"
-      [sync]="evidenceSync"
-      [availableReason]="evidenceAvailableReason"
-      (propose)="evidencePropose.emit($event)"
-      (accept)="evidenceAccept.emit($event)"
-      (pauseRequested)="evidencePause.emit()"
-      (resumeRequested)="evidenceResume.emit()"
-      (reject)="evidenceReject.emit()"
-      (revoke)="evidenceRevoke.emit()"
-      (curationRequested)="evidenceCuration.emit()"
-      (localOverride)="evidenceLocalOverride.emit($event)" />
-  }
-
-  @if (speechReconciliationVisible()) {
-    <app-speech-reconciliation-panel
-      [hubAuthorized]="speechReconciliationHubAuthorized"
-      [hubUrl]="hubUrl" />
-  }
-
-  <app-semantic-debug-host />
 </section>

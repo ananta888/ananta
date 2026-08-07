@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { By } from "@angular/platform-browser";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { of, Subject } from "rxjs";
+import { BehaviorSubject, of, Subject } from "rxjs";
 
 import { AgentDirectoryService } from "../../services/agent-directory.service";
 import { SpeechReconciliationApiService } from "../../services/speech-reconciliation-api.service";
@@ -15,6 +15,7 @@ import {
   SemanticProgramCapabilityView,
 } from "./semantic-media-program-shell.component";
 import { SpeechReconciliationPanelComponent } from "./speech-reconciliation-panel.component";
+import { SemanticRemoteAudioComponent } from "./semantic-remote-audio.component";
 import { WebrtcMediaPanelComponent } from "../pair-view/webrtc-media-panel.component";
 
 beforeAll(async () => {
@@ -41,7 +42,10 @@ describe("SemanticMediaProgramShellComponent", () => {
           provide: AgentDirectoryService,
           useValue: { list: () => [{ name: "hub", role: "hub", url: "http://hub:5000" }] },
         },
-        { provide: WebrtcMediaSessionService, useValue: { remoteTrack$: new Subject() } },
+        {
+          provide: WebrtcMediaSessionService,
+          useValue: { remoteTracks$: new BehaviorSubject<readonly unknown[]>([]) },
+        },
         { provide: LivekitSfuTransportService, useValue: { remoteTrack$: new Subject() } },
       ],
     }).compileComponents();
@@ -225,6 +229,30 @@ describe("SemanticMediaProgramShellComponent", () => {
     fixture.componentInstance.ordinaryCameraStart.subscribe(() => { cameraStarts += 1; });
     (panel.componentInstance as WebrtcMediaPanelComponent).startCamera.emit();
     expect(cameraStarts).toBe(1);
+  });
+
+  it("projects only Hub-authorized ordinary media controls in the Pair-Dev display mode", () => {
+    capabilities.push({
+      capability: "ordinary_media", label: "Ordinary Audio/Video", sensitive: false,
+      state: "authoritatively_active", requestId: null,
+    });
+    fixture.componentRef.setInput("displayMode", "pair_media");
+    fixture.componentRef.setInput("capabilities", [...capabilities]);
+    fixture.componentRef.setInput("ordinaryMediaCaptureEnabled", true);
+    fixture.componentRef.setInput("ordinaryMediaVideoCaptureEnabled", true);
+    fixture.componentRef.setInput("computeVisible", true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain("Audio und Video für Pair Dev");
+    expect(fixture.nativeElement.querySelectorAll("[data-capability]")).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('[data-capability="ordinary_media"]')).not.toBeNull();
+    expect(fixture.debugElement.query(By.directive(WebrtcMediaPanelComponent))).not.toBeNull();
+    expect(fixture.nativeElement.querySelector("app-pair-compute-contract-panel")).not.toBeNull();
+    expect(fixture.nativeElement.querySelector("app-semantic-receiver-path-panel")).toBeNull();
+    expect(fixture.nativeElement.querySelector("app-speech-evidence-consent-panel")).toBeNull();
+    expect(fixture.nativeElement.querySelector("app-semantic-debug-host")).toBeNull();
+    expect((fixture.debugElement.query(By.directive(SemanticRemoteAudioComponent))
+      .componentInstance as SemanticRemoteAudioComponent).includeSfu).toBe(false);
   });
 
   it("requires and emits one explicit Pair adapter selection", () => {

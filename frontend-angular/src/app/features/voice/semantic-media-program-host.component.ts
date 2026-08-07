@@ -1,5 +1,5 @@
 import { AsyncPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnInit, inject } from '@angular/core';
 
 import { SemanticComputeIntentFacade } from '../pair-view/semantic-compute-intent.facade';
 import { provideSpeechEvidenceSync } from '../../services/speech-evidence-sync.providers';
@@ -9,7 +9,10 @@ import { SemanticSfuPairSignalingService } from '../../services/semantic-sfu-pai
 import { PeerCapabilityService } from '../../services/peer-capability.service';
 import { PeerEvidenceSyncFacade } from './peer-evidence-sync.facade';
 import { SemanticMediaProgramFacade } from './semantic-media-program.facade';
-import { SemanticMediaProgramShellComponent } from './semantic-media-program-shell.component';
+import {
+  SemanticMediaProgramDisplayMode,
+  SemanticMediaProgramShellComponent,
+} from './semantic-media-program-shell.component';
 import { SpeechEvidenceConsentFacade } from './speech-evidence-consent.facade';
 import { SemanticSpeechRuntimeCoordinatorService } from '../../services/semantic-speech-runtime-coordinator.service';
 import { SemanticSpeechCaptureProducerService } from '../../services/semantic-speech-capture-producer.service';
@@ -39,6 +42,7 @@ import { WebrtcMediaPublicationService } from '../../services/webrtc-media-publi
   template: `
     @if (facade.view$ | async; as view) {
       <app-semantic-media-program-shell
+        [displayMode]="displayMode"
         [scope]="view.scope"
         [capabilities]="view.capabilities"
         [online]="view.online"
@@ -101,6 +105,7 @@ import { WebrtcMediaPublicationService } from '../../services/webrtc-media-publi
 })
 export class SemanticMediaProgramHostComponent implements OnInit {
   readonly facade = inject(SemanticMediaProgramFacade);
+  @Input() displayMode: SemanticMediaProgramDisplayMode = 'full';
 
   ngOnInit(): void { void this.facade.start(); }
 }

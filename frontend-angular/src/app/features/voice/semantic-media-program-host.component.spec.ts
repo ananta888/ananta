@@ -39,7 +39,10 @@ describe('SemanticMediaProgramHostComponent ordinary media wiring', () => {
       providers: [
         { provide: AgentDirectoryService, useValue: { list: () => [{ role: 'hub', url: 'http://hub.test' }] } },
         { provide: SpeechReconciliationApiService, useValue: { list: () => of({ jobs: [], next_offset: null }) } },
-        { provide: WebrtcMediaSessionService, useValue: { remoteTrack$: new Subject() } },
+        {
+          provide: WebrtcMediaSessionService,
+          useValue: { remoteTracks$: new BehaviorSubject<readonly unknown[]>([]) },
+        },
         { provide: LivekitSfuTransportService, useValue: { remoteTrack$: new Subject() } },
       ],
     }).overrideComponent(SemanticMediaProgramHostComponent, {

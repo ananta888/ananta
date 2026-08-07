@@ -50,6 +50,8 @@ export type SemanticProgramState =
   | 'degraded'
   | 'failed';
 
+export type SemanticMediaProgramDisplayMode = 'full' | 'pair_media';
+
 export type SemanticProgramCapability =
   | 'ordinary_media'
   | 'semantic_video'
@@ -140,6 +142,7 @@ const SENSITIVE = new Set<SemanticProgramCapability>([
   `],
 })
 export class SemanticMediaProgramShellComponent {
+  @Input() displayMode: SemanticMediaProgramDisplayMode = 'full';
   @Input({ required: true }) scope!: SemanticProgramScopeView;
   @Input() online = true;
   @Input() hubUrl = '';
@@ -235,6 +238,16 @@ export class SemanticMediaProgramShellComponent {
 
   get capabilities(): readonly SemanticProgramCapabilityView[] {
     return this.capabilityRows;
+  }
+
+  displayedCapabilities(): readonly SemanticProgramCapabilityView[] {
+    return this.displayMode === 'pair_media'
+      ? this.capabilityRows.filter(row => row.capability === 'ordinary_media')
+      : this.capabilityRows;
+  }
+
+  heading(): string {
+    return this.displayMode === 'pair_media' ? 'Audio und Video für Pair Dev' : 'Semantic Media und Speech';
   }
 
   request(capability: SemanticProgramCapability, desired: SemanticProgramIntent['desired']): void {

@@ -6,8 +6,6 @@ import { AiSnakeChatService } from '../services/ai-snake-chat.service';
 import { OidcAuthService } from '../services/oidc-auth.service';
 import { IdentityBridge } from '../services/identity/identity-bridge';
 import {
-  PUBLIC_KEYCLOAK_BASE_URL,
-  PUBLIC_OIDC_REALM,
   PUBLIC_WEBRTC_BASE_URL,
 } from '../services/public-ananta-endpoints';
 import { WebrtcSignalingService } from '../services/webrtc-signaling.service';
@@ -23,12 +21,12 @@ import { VisualSnakeLogComponent } from './visual-snake-log.component';
 import { SnakeOverlayService } from '../services/snake-overlay.service';
 import { AiSnakeProcessPanelComponent } from './ai-snake-process-panel.component';
 import { VpNavigationService } from '../features/visual-process/vp-navigation.service';
-import { PairComputeContractHostComponent } from '../features/pair-view/pair-compute-contract-host.component';
+import { SemanticMediaProgramHostComponent } from '../features/voice/semantic-media-program-host.component';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent, ChatMessageComponent, VisualSnakeLogComponent, AiSnakeProcessPanelComponent, PairComputeContractHostComponent ],
+  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent, ChatMessageComponent, VisualSnakeLogComponent, AiSnakeProcessPanelComponent, SemanticMediaProgramHostComponent ],
   template: `
     <div class="snake-chat-panel">
       <div class="head">
@@ -54,7 +52,7 @@ import { PairComputeContractHostComponent } from '../features/pair-view/pair-com
           </div>
           <div class="settings-shell">
             <app-ai-snake-share-panel />
-            <app-pair-compute-contract-host />
+            <app-semantic-media-program-host displayMode="pair_media" />
           </div>
         } @else {
           <div class="connect">
@@ -99,17 +97,10 @@ import { PairComputeContractHostComponent } from '../features/pair-view/pair-com
               <span class="login-dot">○</span>
               <span>Nicht angemeldet</span>
             </div>
-            <label>Keycloak URL
-              <input [(ngModel)]="keycloakBaseUrl" [attr.list]="'snake-keycloak-presets'" (change)="onKeycloakUrlChange()" />
-              <datalist id="snake-keycloak-presets">
-                @for (p of keycloakPresets; track p) {
-                  <option [value]="p">{{ p }}</option>
-                }
-              </datalist>
+            <label>OIDC-Issuer (Netzwerkprofil)
+              <input [value]="keycloakIssuer" readonly aria-readonly="true" />
             </label>
-            <label>Realm
-              <input [(ngModel)]="keycloakRealm" (change)="onKeycloakUrlChange()" placeholder="ananta-e2e" />
-            </label>
+            <div class="muted">Der Hub bzw. das aktive Netzwerkprofil legt Keycloak-Realm und Client fest.</div>
             <button (click)="keycloakLogin()" [disabled]="loginBusy">
               {{ loginBusy ? 'Öffne Login…' : 'Mit Keycloak anmelden' }}
             </button>
@@ -533,8 +524,6 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   name = 'web-ai-snake';
   role = 'viewer';
   draft = '';
-  keycloakBaseUrl = PUBLIC_KEYCLOAK_BASE_URL;
-  keycloakRealm = PUBLIC_OIDC_REALM;
   webrtcBaseUrl = PUBLIC_WEBRTC_BASE_URL;
   loginBusy = false;
   loginError = '';
@@ -550,8 +539,6 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   editingMessageId = '';
   editingMessageText = '';
   private summaryHintTimer: ReturnType<typeof setTimeout> | undefined;
-  readonly keycloakPresets = [PUBLIC_KEYCLOAK_BASE_URL];
-
   private historySub?: Subscription;
   private activeSub?: Subscription;
   private sessionSub?: Subscription;
@@ -564,7 +551,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'>();
 
   get keycloakIssuer(): string {
-    return `${this.keycloakBaseUrl.replace(/\/$/, '')}/realms/${this.keycloakRealm || 'ananta-e2e'}`;
+    return this.oidc.issuer;
   }
 
   constructor() {
@@ -758,7 +745,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
     this.loginError = '';
     this.loginBusy = true;
     try {
-      await this.oidc.startLoginPopup(this.keycloakIssuer);
+      await this.oidc.startLoginPopup();
     } catch (e: any) {
       this.loginError = String(e?.message ?? 'Login fehlgeschlagen');
     } finally {
@@ -845,20 +832,12 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
     this.tabChange.emit(tab);
   }
 
-  onKeycloakUrlChange(): void {
-    this.persistRuntimeEndpoints();
-  }
-
   private restoreRuntimeEndpoints(): void {
     try {
       const raw = localStorage.getItem('ananta.ai-snake.runtime-endpoints.v1');
       if (!raw) return;
       const parsed = JSON.parse(raw);
-      const keycloak = String(parsed?.keycloakBaseUrl || '').trim();
-      const realm = String(parsed?.keycloakRealm || '').trim();
       const webrtc = String(parsed?.webrtcBaseUrl || '').trim();
-      if (keycloak) this.keycloakBaseUrl = keycloak;
-      if (realm) this.keycloakRealm = realm;
       if (webrtc) this.webrtcBaseUrl = webrtc;
     } catch {}
   }
@@ -868,8 +847,6 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
       localStorage.setItem(
         'ananta.ai-snake.runtime-endpoints.v1',
         JSON.stringify({
-          keycloakBaseUrl: this.keycloakBaseUrl.trim(),
-          keycloakRealm: this.keycloakRealm.trim(),
           webrtcBaseUrl: this.webrtcBaseUrl.trim(),
         }),
       );
