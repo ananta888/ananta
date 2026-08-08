@@ -318,7 +318,7 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
         if not access_token:
             issuer = str(
                 os.environ.get("ANANTA_TUI_E2E_OIDC_ISSUER")
-                or "https://keycloak.ananta.de/realms/ananta-e2e"
+                or "https://keycloak.ananta.de/realms/ananta"
             ).strip()
             username = str(os.environ.get("ANANTA_TUI_E2E_OIDC_USERNAME") or "e2e").strip()
             password = str(os.environ.get("ANANTA_TUI_E2E_OIDC_PASSWORD") or "").strip()
@@ -381,7 +381,7 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
             os.environ["ANANTA_PUBLIC_RENDEZVOUS_ENABLED"] = "true"
             os.environ["ANANTA_OIDC_ISSUER"] = str(
                 os.environ.get("ANANTA_TUI_E2E_OIDC_ISSUER")
-                or "https://keycloak.ananta.de/realms/ananta-e2e"
+                or "https://keycloak.ananta.de/realms/ananta"
             )
             if os.environ.get("ANANTA_TUI_E2E_OIDC_CLIENT_ID"):
                 os.environ["ANANTA_OIDC_CLIENT_ID"] = str(os.environ["ANANTA_TUI_E2E_OIDC_CLIENT_ID"])
