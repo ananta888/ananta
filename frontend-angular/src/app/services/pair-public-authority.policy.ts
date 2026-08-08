@@ -9,6 +9,11 @@ import {
   PUBLIC_WEBRTC_SIGNALING_URL,
 } from './public-ananta-endpoints';
 import { UserAuthService } from './user-auth.service';
+import {
+  inspectJwtAccessToken,
+  type JwtAccessTokenFailure,
+  type JwtAccessTokenInspection,
+} from './identity/jwt-access-token';
 
 export interface PublicPairAuthority {
   readonly baseUrl: string;
@@ -55,12 +60,14 @@ export class PairPublicAuthorityPolicy {
     if (!this.selected) return null;
     const token = this.auth.oidcAccessTokenValue;
     if (!token) throw new Error('public_session_authentication_required');
-    if (!this.profileIsTrusted(token)) throw new Error('public_rendezvous_profile_untrusted');
+    const inspection = inspectJwtAccessToken(token);
+    if (inspection.ok === false) throw new Error(authenticationFailureCode(inspection.reason));
+    if (!this.profileIsTrusted(inspection)) throw new Error('public_rendezvous_profile_untrusted');
     return {
       baseUrl: trustedPublicBaseUrl(),
       token,
       oidcIssuer: PUBLIC_OIDC_ISSUER,
-      oidcSubject: tokenSubject(token),
+      oidcSubject: inspection.subject,
       profileId: this.profiles.current.profile_id,
     };
   }
@@ -72,10 +79,12 @@ export class PairPublicAuthorityPolicy {
     }
     const token = this.auth.oidcAccessTokenValue;
     if (!token) throw new Error('public_session_authentication_lost');
-    if (tokenSubject(token) !== binding.oidcSubject) {
+    const inspection = inspectJwtAccessToken(token);
+    if (inspection.ok === false) throw new Error(authenticationFailureCode(inspection.reason));
+    if (inspection.subject !== binding.oidcSubject || inspection.issuer !== binding.oidcIssuer) {
       throw new Error('public_session_identity_changed');
     }
-    if (!this.selected || !this.profileIsTrusted(token) || this.profiles.current.profile_id !== binding.profileId) {
+    if (!this.selected || !this.profileIsTrusted(inspection) || this.profiles.current.profile_id !== binding.profileId) {
       throw new Error('public_session_profile_changed');
     }
     return {
@@ -87,25 +96,16 @@ export class PairPublicAuthorityPolicy {
     };
   }
 
-  private profileIsTrusted(token: string): boolean {
+  private profileIsTrusted(inspection: Extract<JwtAccessTokenInspection, { ok: true }>): boolean {
     const profile = this.profiles.current;
     const configuredBase = String(profile.rendezvous?.base_url || '').trim();
     const configuredIssuer = String(profile.oidc?.issuer || '').replace(/\/$/, '');
-    const claims = decodeJwtPayload(token);
-    const tokenIssuer = String(claims?.['iss'] || '').replace(/\/$/, '');
-    const subject = typeof claims?.['sub'] === 'string' ? claims['sub'].trim() : '';
-    const expiresAt = Number(claims?.['exp']);
-    const notBefore = claims?.['nbf'] === undefined ? 0 : Number(claims['nbf']);
-    const now = Date.now() / 1000;
     return configuredBaseUrl(configuredBase) === trustedPublicBaseUrl()
       && configuredIssuer === PUBLIC_OIDC_ISSUER
       && profile.require_e2e_payload_encryption === true
       && webrtcOnly(profile.transport_order)
       && webrtcOnly(profile.rendezvous?.transport_order)
-      && tokenIssuer === PUBLIC_OIDC_ISSUER
-      && subject.length > 0 && subject.length <= 256
-      && Number.isFinite(expiresAt) && expiresAt > now
-      && Number.isFinite(notBefore) && notBefore <= now + 30;
+      && inspection.issuer === PUBLIC_OIDC_ISSUER;
   }
 }
 
@@ -132,22 +132,8 @@ function configuredBaseUrl(value: string): string {
   }
 }
 
-function decodeJwtPayload(token: string | null): Record<string, unknown> | null {
-  if (!token) return null;
-  try {
-    const encoded = token.split('.')[1];
-    if (!encoded) return null;
-    const normalized = encoded.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(encoded.length / 4) * 4, '=');
-    return JSON.parse(atob(normalized)) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
-function tokenSubject(token: string): string {
-  const subject = decodeJwtPayload(token)?.['sub'];
-  if (typeof subject !== 'string' || !subject.trim() || subject.length > 256) {
-    throw new Error('public_oidc_subject_invalid');
-  }
-  return subject.trim();
+function authenticationFailureCode(reason: JwtAccessTokenFailure): string {
+  if (reason === 'expired') return 'public_session_authentication_expired';
+  if (reason === 'not_yet_valid') return 'public_session_authentication_not_yet_valid';
+  return 'public_session_authentication_invalid';
 }

@@ -186,6 +186,31 @@ describe('PairSessionControlPlaneService', () => {
     expect(posts).toEqual([]);
   });
 
+  it('distinguishes an expired login from an untrusted network profile', () => {
+    auth.oidcAccessTokenValue = jwt({
+      iss: PUBLIC_OIDC_ISSUER,
+      sub: 'raw-oidc-sub',
+      exp: Math.floor(Date.now() / 1000) - 1,
+    });
+    const service = TestBed.inject(PairSessionControlPlaneService);
+
+    expect(() => service.create({ title: 'Pair' }))
+      .toThrow('public_session_authentication_expired');
+    expect(posts).toEqual([]);
+  });
+
+  it('rejects malformed identity claims before any public API call', () => {
+    auth.oidcAccessTokenValue = jwt({
+      iss: PUBLIC_OIDC_ISSUER,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const service = TestBed.inject(PairSessionControlPlaneService);
+
+    expect(() => service.create({ title: 'Pair' }))
+      .toThrow('public_session_authentication_invalid');
+    expect(posts).toEqual([]);
+  });
+
   it('keeps a clearly local profile on Hub even while an OIDC login exists', () => {
     profile.current = {
       ...publicProfile(), profile_id: 'local', public_rendezvous: false,
@@ -317,5 +342,5 @@ function publicSession(id: string): Record<string, unknown> {
 
 function jwt(payload: Record<string, unknown>): string {
   const encode = (value: object) => btoa(JSON.stringify(value)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-  return `${encode({ alg: 'none' })}.${encode(payload)}.`;
+  return `${encode({ alg: 'none' })}.${encode(payload)}.signature`;
 }

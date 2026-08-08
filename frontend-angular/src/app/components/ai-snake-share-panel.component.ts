@@ -7,6 +7,7 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 import { ChatMessageComponent } from './chat-message.component';
 import { PairViewSessionBindingService } from '../services/pair-view-session-binding.service';
 import { PairSecurityBootstrapState } from '../services/pair-view-security-bootstrap.service';
+import { pairSessionErrorMessage } from '../services/pair-session-error-message';
 
 type PanelView = 'home' | 'create' | 'join' | 'active';
 type MainTab = 'share' | 'groups';
@@ -540,8 +541,8 @@ export class AiSnakeSharePanelComponent implements OnInit {
         chat: this.perm_chat, view_tui: this.perm_view, remote_cursor: this.perm_cursor,
       }, Number(this.expiresIn) || null);
       this.activeTab = 'chat';
-    } catch (e: any) {
-      this.createError = String(e?.message ?? 'Erstellen fehlgeschlagen');
+    } catch (e: unknown) {
+      this.createError = pairSessionErrorMessage(e, 'Erstellen fehlgeschlagen');
     } finally {
       this.creating = false;
     }
@@ -554,8 +555,8 @@ export class AiSnakeSharePanelComponent implements OnInit {
     try {
       await this.svc.joinSession(this.joinCode.trim(), { allowLegacy: this.allowLegacyJoin });
       this.activeTab = 'chat';
-    } catch (e: any) {
-      this.joinError = String(e?.message ?? 'Beitreten fehlgeschlagen');
+    } catch (e: unknown) {
+      this.joinError = pairSessionErrorMessage(e, 'Beitreten fehlgeschlagen');
     } finally {
       this.joining = false;
     }

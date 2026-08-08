@@ -2,7 +2,7 @@
 import { Injectable, OnDestroy, inject } from '@angular/core';
 import { sha256Bytes } from '../shared/crypto/sha256';
 import { Router } from '@angular/router';
-import { map } from 'rxjs';
+import { distinctUntilChanged, map } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
 import { NetworkProfileService } from './network-profile.service';
 import {
@@ -23,6 +23,7 @@ import {
   OidcPopupCoordinatorError,
   type OidcPopupParentSession,
 } from './oidc-popup-coordinator.service';
+import { isJwtAccessTokenCurrent } from './identity/jwt-access-token';
 
 const SCOPES = 'openid profile email';
 const SS_PKCE_KEY = 'oidc.pkce';       // sessionStorage
@@ -31,6 +32,7 @@ const REFRESH_AUTHORITY_KEY = 'ananta.oidc.refresh-authority.v1';
 const LOGIN_POPUP_FEATURES = 'width=560,height=680,left=200,top=80';
 const POPUP_DISCOVERY_TIMEOUT_MS = 10_000;
 const POPUP_TOKEN_EXCHANGE_TIMEOUT_MS = 45_000;
+const REFRESH_TOKEN_EXCHANGE_TIMEOUT_MS = 15_000;
 
 export type OidcPopupLoginFailure =
   | 'popup_blocked'
@@ -109,7 +111,10 @@ export class OidcAuthService implements OnDestroy {
   private refreshAuthorityBoundForWindow = false;
   private readonly deviceFlowAuthorities = new Map<string, DeviceFlowAuthorityBinding>();
 
-  readonly loggedIn$ = this.userAuth.oidcToken$.pipe(map(t => !!t));
+  readonly loggedIn$ = this.userAuth.oidcToken$.pipe(
+    map((token) => isJwtAccessTokenCurrent(token)),
+    distinctUntilChanged(),
+  );
 
   get sessionNonce(): string { return this._sessionNonce; }
   get hasNonce(): boolean { return !!this._sessionNonce; }
@@ -638,6 +643,11 @@ export class OidcAuthService implements OnDestroy {
     const refreshToken = await this.userAuth.getOidcRefreshToken();
     if (!refreshToken) return false;
     if (!this.hasPinnedPublicRefreshAuthority()) return false;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(
+      () => controller.abort(),
+      REFRESH_TOKEN_EXCHANGE_TIMEOUT_MS,
+    );
     try {
       const body = new URLSearchParams({
         grant_type: 'refresh_token',
@@ -648,6 +658,7 @@ export class OidcAuthService implements OnDestroy {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
+        signal: controller.signal,
       });
       if (!r.ok) {
         this.userAuth.setOidcAccessToken(null);
@@ -663,6 +674,8 @@ export class OidcAuthService implements OnDestroy {
       return true;
     } catch {
       return false;
+    } finally {
+      window.clearTimeout(timeout);
     }
   }
 

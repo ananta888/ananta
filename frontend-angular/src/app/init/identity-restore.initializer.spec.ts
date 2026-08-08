@@ -61,7 +61,9 @@ describe('identityRestoreInitializer', () => {
   it('returned factory calls registry.restoreAllFromStorage', async () => {
     const future = Math.floor(Date.now() / 1000) + 3600;
     localStorage.setItem('ananta.user.token', makeJwt({ sub: 'a', exp: future }));
-    localStorage.setItem('ananta.oidc.access_token', makeJwt({ sub: 'b', exp: future }));
+    localStorage.setItem('ananta.oidc.access_token', makeJwt({
+      iss: 'https://keycloak.ananta.de/realms/ananta', sub: 'b', exp: future,
+    }));
 
     const provider = identityRestoreInitializer as unknown as {
       useFactory: (r: IdentityRegistry, p: NetworkProfileService) => () => Promise<void>;

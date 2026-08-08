@@ -7,6 +7,8 @@ import { OidcAuthService } from '../oidc-auth.service';
 import { SecureTokenStorage } from '../secure-token-storage.service';
 import { IDENTITY_STORAGE_LAYOUT } from './identity-storage-layout';
 
+const OIDC_ISSUER = 'https://keycloak.ananta.de/realms/ananta';
+
 function makeJwt(payload: Record<string, unknown>): string {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const body = btoa(JSON.stringify(payload));
@@ -46,9 +48,27 @@ describe('OidcIdentitySource', () => {
       expect(source.current.status).toBe('absent');
     });
 
+    it('recovers from an encrypted refresh token when the stale access token was already cleared', async () => {
+      const future = Math.floor(Date.now() / 1000) + 3600;
+      await TestBed.inject(UserAuthService).setOidcRefreshToken('refresh-token');
+      vi.spyOn(oidc, 'refreshFromStorage').mockImplementation(async () => {
+        TestBed.inject(UserAuthService).setOidcAccessToken(makeJwt({
+          iss: OIDC_ISSUER, sub: 'carol', exp: future,
+        }));
+        return true;
+      });
+
+      await source.restoreFromStorage();
+
+      expect(oidc.refreshFromStorage).toHaveBeenCalledOnce();
+      expect(source.current.status).toBe('ready');
+    });
+
     it('emits ready when valid JWT is in storage', async () => {
       const future = Math.floor(Date.now() / 1000) + 3600;
-      localStorage.setItem('ananta.oidc.access_token', makeJwt({ sub: 'carol', exp: future }));
+      localStorage.setItem('ananta.oidc.access_token', makeJwt({
+        iss: OIDC_ISSUER, sub: 'carol', exp: future,
+      }));
       await source.restoreFromStorage();
       expect(source.current.status).toBe('ready');
       expect(source.current.subject).toBe('carol');
@@ -57,16 +77,39 @@ describe('OidcIdentitySource', () => {
 
     it('emits expired when JWT is past-dated', async () => {
       const past = Math.floor(Date.now() / 1000) - 100;
-      localStorage.setItem('ananta.oidc.access_token', makeJwt({ sub: 'carol', exp: past }));
+      localStorage.setItem('ananta.oidc.access_token', makeJwt({
+        iss: OIDC_ISSUER, sub: 'carol', exp: past,
+      }));
       await source.restoreFromStorage();
       expect(source.current.status).toBe('expired');
+      expect(localStorage.getItem('ananta.oidc.access_token')).toBeNull();
+    });
+
+    it('refreshes an already expired token before finishing boot restore', async () => {
+      const past = Math.floor(Date.now() / 1000) - 100;
+      const future = Math.floor(Date.now() / 1000) + 3600;
+      localStorage.setItem('ananta.oidc.access_token', makeJwt({
+        iss: OIDC_ISSUER, sub: 'carol', exp: past,
+      }));
+      vi.spyOn(oidc, 'refreshFromStorage').mockImplementation(async () => {
+        TestBed.inject(UserAuthService).setOidcAccessToken(makeJwt({
+          iss: OIDC_ISSUER, sub: 'carol', exp: future,
+        }));
+        return true;
+      });
+
+      await source.restoreFromStorage();
+
+      expect(oidc.refreshFromStorage).toHaveBeenCalledOnce();
+      expect(source.current.status).toBe('ready');
+      expect(source.current.expiresAt).toBe(future);
     });
   });
 
   describe('onAuthenticated', () => {
     it('emits ready snapshot, writes access+refresh tokens', async () => {
       const future = Math.floor(Date.now() / 1000) + 3600;
-      const jwt = makeJwt({ sub: 'dave', exp: future });
+      const jwt = makeJwt({ iss: OIDC_ISSUER, sub: 'dave', exp: future });
       await source.onAuthenticated(jwt, 'oidc-rt-cleartext');
 
       expect(source.current.status).toBe('ready');
@@ -95,18 +138,34 @@ describe('OidcIdentitySource', () => {
 
     it('does not change status when refreshFromStorage returns true', async () => {
       const future = Math.floor(Date.now() / 1000) + 3600;
-      await source.onAuthenticated(makeJwt({ sub: 'eve', exp: future }), 'rt');
+      await source.onAuthenticated(makeJwt({ iss: OIDC_ISSUER, sub: 'eve', exp: future }), 'rt');
       vi.spyOn(oidc, 'refreshFromStorage').mockResolvedValue(true);
       await source.refresh();
       // status remains ready
       expect(source.current.status).toBe('ready');
+    });
+
+    it('clears an unusable access token returned by a nominally successful refresh', async () => {
+      const future = Math.floor(Date.now() / 1000) + 3600;
+      await source.onAuthenticated(makeJwt({
+        iss: OIDC_ISSUER, sub: 'eve', exp: future,
+      }), 'rt');
+      vi.spyOn(oidc, 'refreshFromStorage').mockImplementation(async () => {
+        TestBed.inject(UserAuthService).setOidcAccessToken('malformed-token');
+        return true;
+      });
+
+      await source.refresh();
+
+      expect(source.current.status).toBe('expired');
+      expect(localStorage.getItem('ananta.oidc.access_token')).toBeNull();
     });
   });
 
   describe('logout', () => {
     it('clears tokens, emits absent', async () => {
       const future = Math.floor(Date.now() / 1000) + 3600;
-      await source.onAuthenticated(makeJwt({ sub: 'x', exp: future }), 'rt');
+      await source.onAuthenticated(makeJwt({ iss: OIDC_ISSUER, sub: 'x', exp: future }), 'rt');
 
       source.logout();
       expect(source.current.status).toBe('absent');

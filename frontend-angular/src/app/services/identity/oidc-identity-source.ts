@@ -4,8 +4,8 @@ import type { IdentitySnapshot, IdentitySource } from './identity.types';
 import {
   buildSnapshot,
   needsRefresh,
-  snapshotFromJwt,
 } from './identity-snapshot';
+import { inspectJwtAccessToken } from './jwt-access-token';
 import { IDENTITY_STORAGE_LAYOUT } from './identity-storage-layout';
 import { UserAuthService } from '../user-auth.service';
 import { OidcAuthService } from '../oidc-auth.service';
@@ -43,7 +43,7 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
         return;
       }
       if (this._snapshot$.value.token === token) return;
-      this._snapshot$.next(snapshotFromJwt(token, undefined, 'oidc'));
+      this._snapshot$.next(snapshotFromOidcAccessToken(token));
       this.scheduleRefresh();
     });
   }
@@ -55,12 +55,24 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
   async restoreFromStorage(): Promise<void> {
     const at = localStorage.getItem(IDENTITY_STORAGE_LAYOUT.oidc.accessToken.key);
     if (!at) {
-      this._snapshot$.next(buildSnapshot({ status: 'absent' }));
+      const rt = await this.auth.getOidcRefreshToken();
+      if (!rt) {
+        this._snapshot$.next(buildSnapshot({ status: 'absent' }));
+        return;
+      }
+      this._snapshot$.next(buildSnapshot({
+        status: 'authenticating', refreshToken: rt, issuer: 'oidc',
+      }));
+      await this.refresh();
       return;
     }
     const rt = await this.auth.getOidcRefreshToken();
-    const snap = snapshotFromJwt(at, rt ?? undefined, 'oidc');
+    const snap = snapshotFromOidcAccessToken(at, rt ?? undefined);
     this._snapshot$.next(snap);
+    if (snap.status !== 'ready') {
+      await this.refresh();
+      return;
+    }
     this.scheduleRefresh();
   }
 
@@ -70,7 +82,7 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
   async onAuthenticated(accessToken: string, refreshToken?: string): Promise<void> {
     this.auth.setOidcAccessToken(accessToken);
     await this.auth.setOidcRefreshToken(refreshToken ?? null);
-    const snap = snapshotFromJwt(accessToken, refreshToken, 'oidc');
+    const snap = snapshotFromOidcAccessToken(accessToken, refreshToken);
     this._snapshot$.next(snap);
     this.scheduleRefresh();
   }
@@ -79,9 +91,7 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
     try {
       const refreshed = await this.oidc.refreshFromStorage();
       if (!refreshed) {
-        this._snapshot$.next(
-          buildSnapshot({ status: 'expired', error: 'oidc refresh failed' }),
-        );
+        this.markAccessTokenExpired('oidc refresh failed');
         return;
       }
       const accessToken = this.auth.oidcAccessTokenValue;
@@ -90,11 +100,16 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
         return;
       }
       const refreshToken = await this.auth.getOidcRefreshToken();
-      this._snapshot$.next(snapshotFromJwt(accessToken, refreshToken ?? undefined, 'oidc'));
+      const snapshot = snapshotFromOidcAccessToken(accessToken, refreshToken ?? undefined);
+      if (snapshot.status !== 'ready') {
+        this.markAccessTokenExpired(snapshot.error ?? 'oidc access token invalid after refresh');
+        return;
+      }
+      this._snapshot$.next(snapshot);
       this.scheduleRefresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'oidc refresh failed';
-      this._snapshot$.next(buildSnapshot({ status: 'expired', error: msg }));
+      this.markAccessTokenExpired(msg);
     }
   }
 
@@ -123,6 +138,14 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
     }, delayMs);
   }
 
+  private markAccessTokenExpired(error: string): void {
+    // Never let a stale access token advertise an authenticated browser
+    // session. The encrypted refresh token may remain for an explicit retry,
+    // but it cannot authorize a request by itself.
+    this.auth.setOidcAccessToken(null);
+    this._snapshot$.next(buildSnapshot({ status: 'expired', error }));
+  }
+
   ngOnDestroy(): void {
     this.tokenSubscription.unsubscribe();
     if (this.refreshTimer) {
@@ -130,4 +153,25 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
       this.refreshTimer = null;
     }
   }
+}
+
+function snapshotFromOidcAccessToken(token: string, refreshToken?: string): IdentitySnapshot {
+  const inspection = inspectJwtAccessToken(token);
+  if (inspection.ok === false) {
+    return buildSnapshot({
+      status: 'expired',
+      token,
+      refreshToken,
+      issuer: 'oidc',
+      error: `oidc_access_token_${inspection.reason}`,
+    });
+  }
+  return buildSnapshot({
+    status: 'ready',
+    token,
+    refreshToken,
+    subject: inspection.subject,
+    issuer: 'oidc',
+    expiresAt: inspection.expiresAt,
+  });
 }

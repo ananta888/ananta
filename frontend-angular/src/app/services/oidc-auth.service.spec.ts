@@ -112,6 +112,7 @@ describe('OidcAuthService', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     localStorage.clear();
     sessionStorage.clear();
     window.history.replaceState({}, '', '/');
@@ -164,6 +165,26 @@ describe('OidcAuthService', () => {
   });
 
   describe('profile configuration', () => {
+    it('does not advertise an expired stored token as an active login', () => {
+      buildSvc();
+      const states: boolean[] = [];
+      const subscription = svc.loggedIn$.subscribe((state) => states.push(state));
+
+      userAuth.setOidcAccessToken(unsignedJwt({
+        iss: PUBLIC_OIDC_ISSUER,
+        sub: 'public-user',
+        exp: Math.floor(Date.now() / 1000) - 1,
+      }));
+      userAuth.setOidcAccessToken(unsignedJwt({
+        iss: PUBLIC_OIDC_ISSUER,
+        sub: 'public-user',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }));
+
+      expect(states).toEqual([false, true]);
+      subscription.unsubscribe();
+    });
+
     it('uses bootstrap defaults when the protected profile is not available yet', () => {
       buildSvc({ issuer: '', clientId: '' });
       expect(PUBLIC_OIDC_ISSUER).toBe('https://keycloak.ananta.de/realms/ananta');
@@ -211,6 +232,31 @@ describe('OidcAuthService', () => {
   });
 
   describe('redirect and refresh authority binding', () => {
+    it('bounds boot-time refresh when the pinned token endpoint does not answer', async () => {
+      vi.useFakeTimers();
+      buildSvc();
+      localStorage.setItem('ananta.oidc.refresh-authority.v1', JSON.stringify({
+        version: 1,
+        issuer: PUBLIC_OIDC_ISSUER,
+        clientId: PUBLIC_OIDC_CLIENT_ID,
+        tokenEndpoint: PUBLIC_OIDC_TOKEN_ENDPOINT,
+      }));
+      (userAuth.getOidcRefreshToken as ReturnType<typeof vi.fn>)
+        .mockResolvedValue('public-refresh-token');
+      const fetchSpy = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      }));
+      vi.stubGlobal('fetch', fetchSpy);
+
+      const refresh = svc.refreshFromStorage();
+      await vi.advanceTimersByTimeAsync(15_000);
+
+      await expect(refresh).resolves.toBe(false);
+      expect(fetchSpy).toHaveBeenCalledWith(PUBLIC_OIDC_TOKEN_ENDPOINT, expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }));
+    });
+
     it('keeps callback and refresh on the pinned transaction after a profile switch', async () => {
       buildSvc();
       const nonce = 'redirect-nonce';

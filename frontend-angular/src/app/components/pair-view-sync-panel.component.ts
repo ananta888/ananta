@@ -20,6 +20,7 @@ import { ShareSessionService, ShareParticipant, ShareSession } from '../services
 import { SharedViewStateService } from '../services/shared-view-state.service';
 import { PairViewSyncService } from '../services/pair-view-sync.service';
 import { PERMISSION_LABELS, permissionsFromUiSelection } from '../services/permission-labels';
+import { pairSessionErrorMessage } from '../services/pair-session-error-message';
 import { DEFAULT_PERMISSIONS, PermissionKey, SharedViewState } from '../services/pair-view-sync.types';
 import {
   PairSecurityBootstrapState,
@@ -268,7 +269,7 @@ export class PairViewSyncPanelComponent implements OnInit, OnDestroy {
         session.security_epoch ?? 0,
       );
     } catch (e: unknown) {
-      this.error.set(e instanceof Error ? e.message : 'unbekannter Fehler');
+      this.error.set(pairSessionErrorMessage(e, 'unbekannter Fehler'));
     } finally {
       this.busy.set(false);
     }

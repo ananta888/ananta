@@ -13,6 +13,8 @@ import { AgentDirectoryService } from '../agent-directory.service';
 import { WebrtcSignalingService } from '../webrtc-signaling.service';
 import { HttpClient } from '@angular/common/http';
 
+const OIDC_ISSUER = 'https://keycloak.ananta.de/realms/ananta';
+
 function makeJwt(payload: Record<string, unknown>): string {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const body = btoa(JSON.stringify(payload));
@@ -62,7 +64,7 @@ describe('IdentityRegistry', () => {
 
     it('is true when oidc is ready', async () => {
       const future = Math.floor(Date.now() / 1000) + 3600;
-      await oidc.onAuthenticated(makeJwt({ sub: 'a', exp: future }), 'rt');
+      await oidc.onAuthenticated(makeJwt({ iss: OIDC_ISSUER, sub: 'a', exp: future }), 'rt');
       expect(registry.isAuthenticated).toBe(true);
     });
   });
@@ -84,7 +86,7 @@ describe('IdentityRegistry', () => {
   describe('signaling source (derived from OIDC)', () => {
     it('is ready when oidc is ready', async () => {
       const future = Math.floor(Date.now() / 1000) + 3600;
-      await oidc.onAuthenticated(makeJwt({ sub: 'b', exp: future }), 'rt');
+      await oidc.onAuthenticated(makeJwt({ iss: OIDC_ISSUER, sub: 'b', exp: future }), 'rt');
       const snap = await firstValueFrom(registry.signaling.snapshot$);
       expect(snap.status).toBe('ready');
     });
@@ -108,7 +110,7 @@ describe('IdentityRegistry', () => {
 
     it('hardDisconnects signaling when oidc goes absent', async () => {
       const future = Math.floor(Date.now() / 1000) + 3600;
-      await oidc.onAuthenticated(makeJwt({ sub: 'd', exp: future }), 'rt');
+      await oidc.onAuthenticated(makeJwt({ iss: OIDC_ISSUER, sub: 'd', exp: future }), 'rt');
       const spy = vi.spyOn(signalingSvc, 'hardDisconnect');
 
       oidc.logout();
@@ -128,7 +130,7 @@ describe('IdentityRegistry', () => {
     it('logs out hub, oidc, hard-disconnects signaling, clears storage', async () => {
       const future = Math.floor(Date.now() / 1000) + 3600;
       await hub.onAuthenticated(makeJwt({ sub: 'e', exp: future }), 'rt');
-      await oidc.onAuthenticated(makeJwt({ sub: 'f', exp: future }), 'rt');
+      await oidc.onAuthenticated(makeJwt({ iss: OIDC_ISSUER, sub: 'f', exp: future }), 'rt');
 
       registry.logoutAll();
 
@@ -143,7 +145,9 @@ describe('IdentityRegistry', () => {
     it('restores hub and oidc from storage', async () => {
       const future = Math.floor(Date.now() / 1000) + 3600;
       localStorage.setItem('ananta.user.token', makeJwt({ sub: 'g', exp: future }));
-      localStorage.setItem('ananta.oidc.access_token', makeJwt({ sub: 'h', exp: future }));
+      localStorage.setItem('ananta.oidc.access_token', makeJwt({
+        iss: OIDC_ISSUER, sub: 'h', exp: future,
+      }));
 
       await registry.restoreAllFromStorage();
 
