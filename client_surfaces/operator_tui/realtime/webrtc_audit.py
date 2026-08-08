@@ -81,12 +81,12 @@ class WebRtcAuditEvent:
     def __str__(self) -> str:
         ts = round(self.timestamp, 3)
         parts = [
-            f"[WebRtcAudit] {self.event_type}",
-            f"session={self.session_id}",
-            f"peer_hash={self.peer_id_hash}",
+            f"[WebRtcAudit] {_scrub(str(self.event_type))}",
+            f"session={_scrub(str(self.session_id))}",
+            f"peer_hash={_scrub(str(self.peer_id_hash))}",
         ]
         if self.error_category:
-            parts.append(f"error={self.error_category}")
+            parts.append(f"error={_scrub(str(self.error_category))}")
         parts.append(f"ts={ts}")
         return " ".join(parts)
 

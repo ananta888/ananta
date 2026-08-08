@@ -10,6 +10,21 @@ from client_surfaces.operator_tui.realtime.webrtc_audit import (
 
 
 class TestWebRtcAuditLog(unittest.TestCase):
+    def test_direct_event_rendering_scrubs_token_and_ip_values(self):
+        rendered = str(WebRtcAuditEvent(
+            event_type="error eyJheader.payload.signature",
+            session_id="session-192.168.1.10",
+            peer_id_hash="eyJpeer.secret.signature",
+            error_category="failed from 10.0.0.5",
+        ))
+
+        self.assertNotIn("eyJheader.payload.signature", rendered)
+        self.assertNotIn("eyJpeer.secret.signature", rendered)
+        self.assertNotIn("192.168.1.10", rendered)
+        self.assertNotIn("10.0.0.5", rendered)
+        self.assertEqual(rendered.count("[REDACTED_TOKEN]"), 2)
+        self.assertEqual(rendered.count("[redacted_ip]"), 2)
+
     def test_token_and_ip_values_are_scrubbed(self):
         log = WebRtcAuditLog()
         log.emit(WebRtcAuditEvent(
