@@ -1,11 +1,14 @@
-FROM python:3.12-slim
+FROM python:3.12-slim@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142b1877b5830d36
+
+ARG ANANTA_REVISION=unknown
+LABEL org.opencontainers.image.revision="${ANANTA_REVISION}"
 
 WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY config.py oidc_auth.py service.py app.py ./
+COPY config.py oidc_auth.py pair_security.py service.py app.py ./
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

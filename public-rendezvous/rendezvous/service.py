@@ -2,12 +2,15 @@
 
 Persistenter Session-Store über SQLite (shared über mehrere Gunicorn-Worker).
 """
+
 from __future__ import annotations
 
 import base64
 import hashlib
 import json
 import logging
+import math
+import re
 import secrets
 import sqlite3
 import threading
@@ -17,8 +20,9 @@ from collections import defaultdict
 from contextlib import contextmanager
 from typing import Any
 
+from pair_security import TENANT_ID, PairSecurityAuthority, spki_fingerprint
+
 import config as cfg
-from pair_security import PairSecurityAuthority, TENANT_ID, spki_fingerprint
 
 log = logging.getLogger(__name__)
 
@@ -34,13 +38,43 @@ _invite_codes: dict[str, str] = {}
 _rate_buckets: dict[str, list[float]] = defaultdict(list)
 _last_cleanup: float = 0.0
 
+_KEY_CONFIRMATION_TTL_SECONDS = 5 * 60
+_MAX_SIGNAL_QUEUE = 256
+_MAX_SIGNAL_BYTES = 8 * 1024
+_MAX_SIGNAL_CURSOR = (1 << 63) - 1
+_PROTOCOL_IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}\Z")
+_SECURITY_AUTHORITY = PairSecurityAuthority(cfg.RENDEZVOUS_SECURITY_SIGNING_SECRET)
+_SECURITY_AUTHORITY.require_key_id(cfg.RENDEZVOUS_EXPECTED_SIGNING_KEY_ID)
+
 
 def _now() -> float:
     return time.time()
 
 
-def _sub_hash(sub: str) -> str:
-    return hashlib.sha256(str(sub).encode()).hexdigest()[:16]
+def _subject_hash(issuer: str, sub: str) -> str:
+    """Persist only a pseudonymous digest of the canonical OIDC identity."""
+    material = (
+        b"ananta.public-rendezvous.subject-hash.v1\0"
+        + str(issuer or "").strip().rstrip("/").encode("utf-8")
+        + b"\0"
+        + str(sub or "").strip().encode("utf-8")
+    )
+    return hashlib.sha256(material).hexdigest()[:16]
+
+
+def _is_canonical_peer_id(value: str) -> bool:
+    prefix, separator, digest = str(value or "").partition(":")
+    return (
+        prefix == "oidc"
+        and separator == ":"
+        and len(digest) == 64
+        and all(char in "0123456789abcdef" for char in digest)
+    )
+
+
+def _is_protocol_identifier(value: str) -> bool:
+    """Match the closed identifier grammar consumed by signed Pair packages."""
+    return _PROTOCOL_IDENTIFIER.fullmatch(str(value or "")) is not None
 
 
 def _invite_code() -> str:
@@ -74,83 +108,135 @@ def _ensure_db_initialized() -> None:
         if _db_initialized:
             return
         with _db() as conn:
-            conn.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS sessions (
-                    id TEXT PRIMARY KEY,
-                    owner_user_id TEXT NOT NULL,
-                    owner_user_sub_hash TEXT NOT NULL,
-                    owner_device_fingerprint TEXT NOT NULL,
-                    oidc_issuer TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    invite_code TEXT UNIQUE,
-                    allowed_permissions TEXT NOT NULL,
-                    expires_at REAL NOT NULL,
-                    created_at REAL NOT NULL,
-                    revoked_at REAL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_sessions_owner ON sessions(owner_user_id);
-                CREATE INDEX IF NOT EXISTS idx_sessions_invite ON sessions(invite_code);
-                CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
-
-                CREATE TABLE IF NOT EXISTS participants (
-                    id TEXT PRIMARY KEY,
-                    session_id TEXT NOT NULL,
-                    user_id TEXT NOT NULL,
-                    user_sub_hash TEXT NOT NULL,
-                    device_id TEXT NOT NULL,
-                    device_fingerprint TEXT NOT NULL,
-                    permissions TEXT NOT NULL,
-                    joined_at REAL NOT NULL,
-                    last_seen REAL NOT NULL,
-                    revoked_at REAL,
-                    FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_participants_session ON participants(session_id);
-                CREATE INDEX IF NOT EXISTS idx_participants_user ON participants(user_id);
-
-                CREATE TABLE IF NOT EXISTS signals (
-                    id TEXT PRIMARY KEY,
-                    session_id TEXT NOT NULL,
-                    sender_id TEXT NOT NULL,
-                    recipient_id TEXT NOT NULL,
-                    signal_type TEXT NOT NULL,
-                    payload TEXT NOT NULL,
-                    sent_at REAL NOT NULL,
-                    FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_signals_recipient ON signals(session_id, recipient_id, sent_at);
-
-                CREATE TABLE IF NOT EXISTS key_confirmations (
-                    session_id TEXT NOT NULL,
-                    epoch INTEGER NOT NULL,
-                    sender_peer_id TEXT NOT NULL,
-                    recipient_peer_id TEXT NOT NULL,
-                    package_id TEXT NOT NULL,
-                    confirmation_tag TEXT NOT NULL,
-                    created_at REAL NOT NULL,
-                    PRIMARY KEY(session_id, epoch, sender_peer_id, recipient_peer_id),
-                    FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
-                );
-                """
-            )
-            _add_column(conn, "sessions", "owner_device_id TEXT NOT NULL DEFAULT 'owner-device'")
-            _add_column(conn, "sessions", "owner_public_key_spki_b64 TEXT NOT NULL DEFAULT ''")
-            _add_column(conn, "sessions", "security_epoch INTEGER NOT NULL DEFAULT 1")
-            _add_column(conn, "sessions", "security_mode TEXT NOT NULL DEFAULT 'legacy'")
-            _add_column(conn, "sessions", "security_contract_version INTEGER NOT NULL DEFAULT 0")
-            _add_column(conn, "participants", "public_key_spki_b64 TEXT NOT NULL DEFAULT ''")
+            _migrate_database(conn)
         _db_initialized = True
+
+
+def _migrate_database(conn: sqlite3.Connection) -> None:
+    """Apply schema and cursor migration under one database-wide writer lock."""
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        _create_base_schema(conn)
+        _add_column(conn, "sessions", "owner_device_id TEXT NOT NULL DEFAULT 'owner-device'")
+        _add_column(conn, "sessions", "owner_public_key_spki_b64 TEXT NOT NULL DEFAULT ''")
+        _add_column(conn, "sessions", "security_epoch INTEGER NOT NULL DEFAULT 1")
+        _add_column(conn, "sessions", "security_mode TEXT NOT NULL DEFAULT 'legacy'")
+        _add_column(conn, "sessions", "security_contract_version INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "sessions", "identity_binding_version INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "participants", "public_key_spki_b64 TEXT NOT NULL DEFAULT ''")
+        _add_column(conn, "signals", "sequence INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "key_confirmations", "expires_at REAL NOT NULL DEFAULT 0")
+        _backfill_signal_sequences(conn)
+        # Compatibility boundary: the pre-cursor image writes the column
+        # default (0). A persistent unique index would make rollback fail on
+        # its second signal. New writers serialize allocation with BEGIN
+        # IMMEDIATE, so the index is unnecessary.
+        conn.execute("DROP INDEX IF EXISTS idx_signals_recipient_sequence")
+        conn.execute("COMMIT")
+    except BaseException:
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
+        raise
+
+
+def _create_base_schema(conn: sqlite3.Connection) -> None:
+    statements = (
+        """CREATE TABLE IF NOT EXISTS sessions (
+               id TEXT PRIMARY KEY,
+               owner_user_id TEXT NOT NULL,
+               owner_user_sub_hash TEXT NOT NULL,
+               owner_device_fingerprint TEXT NOT NULL,
+               oidc_issuer TEXT NOT NULL,
+               title TEXT NOT NULL,
+               invite_code TEXT UNIQUE,
+               allowed_permissions TEXT NOT NULL,
+               expires_at REAL NOT NULL,
+               created_at REAL NOT NULL,
+               revoked_at REAL
+           )""",
+        "CREATE INDEX IF NOT EXISTS idx_sessions_owner ON sessions(owner_user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_sessions_invite ON sessions(invite_code)",
+        "CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at)",
+        """CREATE TABLE IF NOT EXISTS participants (
+               id TEXT PRIMARY KEY,
+               session_id TEXT NOT NULL,
+               user_id TEXT NOT NULL,
+               user_sub_hash TEXT NOT NULL,
+               device_id TEXT NOT NULL,
+               device_fingerprint TEXT NOT NULL,
+               permissions TEXT NOT NULL,
+               joined_at REAL NOT NULL,
+               last_seen REAL NOT NULL,
+               revoked_at REAL,
+               FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
+           )""",
+        "CREATE INDEX IF NOT EXISTS idx_participants_session ON participants(session_id)",
+        "CREATE INDEX IF NOT EXISTS idx_participants_user ON participants(user_id)",
+        """CREATE TABLE IF NOT EXISTS signals (
+               id TEXT PRIMARY KEY,
+               session_id TEXT NOT NULL,
+               sender_id TEXT NOT NULL,
+               recipient_id TEXT NOT NULL,
+               signal_type TEXT NOT NULL,
+               payload TEXT NOT NULL,
+               sequence INTEGER NOT NULL DEFAULT 0,
+               sent_at REAL NOT NULL,
+               FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
+           )""",
+        "CREATE INDEX IF NOT EXISTS idx_signals_recipient ON signals(session_id, recipient_id, sent_at)",
+        """CREATE TABLE IF NOT EXISTS key_confirmations (
+               session_id TEXT NOT NULL,
+               epoch INTEGER NOT NULL,
+               sender_peer_id TEXT NOT NULL,
+               recipient_peer_id TEXT NOT NULL,
+               package_id TEXT NOT NULL,
+               confirmation_tag TEXT NOT NULL,
+               created_at REAL NOT NULL,
+               expires_at REAL NOT NULL DEFAULT 0,
+               PRIMARY KEY(session_id, epoch, sender_peer_id, recipient_peer_id),
+               FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
+           )""",
+    )
+    for statement in statements:
+        conn.execute(statement)
 
 
 def _add_column(conn: sqlite3.Connection, table: str, definition: str) -> None:
     name = definition.split()[0]
     columns = {str(row["name"]) for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
     if name not in columns:
-        conn.execute(f"ALTER TABLE {table} ADD COLUMN {definition}")
+        try:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {definition}")
+        except sqlite3.OperationalError as exc:
+            # Keep retries idempotent for externally managed legacy schemas,
+            # but propagate every error that did not actually add the column.
+            refreshed = {str(row["name"]) for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+            if name not in refreshed:
+                raise exc
+
+
+def _backfill_signal_sequences(conn: sqlite3.Connection) -> None:
+    """Assign deterministic per-recipient cursors to rows from the legacy schema."""
+    rows = conn.execute(
+        """SELECT rowid, session_id, recipient_id, sequence
+           FROM signals
+           ORDER BY session_id, recipient_id, sent_at, rowid"""
+    ).fetchall()
+    partition: tuple[str, str] | None = None
+    high_watermark = 0
+    for row in rows:
+        current_partition = (str(row["session_id"]), str(row["recipient_id"]))
+        if current_partition != partition:
+            partition = current_partition
+            high_watermark = 0
+        stored_sequence = int(row["sequence"] or 0)
+        if stored_sequence <= high_watermark:
+            stored_sequence = high_watermark + 1
+            conn.execute(
+                "UPDATE signals SET sequence = ? WHERE rowid = ?",
+                (stored_sequence, int(row["rowid"])),
+            )
+        high_watermark = stored_sequence
 
 
 def _parse_permissions(raw: str | None) -> dict[str, bool]:
@@ -179,6 +265,7 @@ def _row_to_session(row: sqlite3.Row) -> dict[str, Any]:
         "owner_public_key_spki_b64": row["owner_public_key_spki_b64"],
         "security_epoch": row["security_epoch"],
         "security_contract_version": row["security_contract_version"],
+        "identity_binding_version": row["identity_binding_version"],
         "security_mode": row["security_mode"],
         "mode": "p2p",
         "transport": "webrtc",
@@ -186,11 +273,18 @@ def _row_to_session(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
-def _list_participants(conn: sqlite3.Connection, session_id: str, *, include_revoked: bool = False) -> list[dict[str, Any]]:
+def _list_participants(
+    conn: sqlite3.Connection,
+    session_id: str,
+    *,
+    include_revoked: bool = False,
+) -> list[dict[str, Any]]:
     where_clause = "" if include_revoked else "AND revoked_at IS NULL"
     rows = conn.execute(
         f"""
-        SELECT id, session_id, user_id, user_sub_hash, device_id, device_fingerprint, public_key_spki_b64, permissions, joined_at, last_seen, revoked_at
+        SELECT id, session_id, user_id, user_sub_hash, device_id,
+               device_fingerprint, public_key_spki_b64, permissions,
+               joined_at, last_seen, revoked_at
         FROM participants
         WHERE session_id = ? {where_clause}
         ORDER BY joined_at ASC
@@ -217,7 +311,12 @@ def _list_participants(conn: sqlite3.Connection, session_id: str, *, include_rev
     return out
 
 
-def _session_snapshot(conn: sqlite3.Connection, session: dict[str, Any], *, include_participants: bool = False) -> dict[str, Any]:
+def _session_snapshot(
+    conn: sqlite3.Connection,
+    session: dict[str, Any],
+    *,
+    include_participants: bool = False,
+) -> dict[str, Any]:
     sid = str(session.get("id") or "")
     participants = _list_participants(conn, sid, include_revoked=False)
     permissions = dict(session.get("allowed_permissions") or {})
@@ -238,6 +337,7 @@ def _get_session_by_id(conn: sqlite3.Connection, session_id: str) -> dict[str, A
 
 # --- Rate limiting ---
 
+
 def _rate_check(namespace: str, subject: str, limit: int, window: int) -> bool:
     if limit <= 0:
         return True
@@ -253,6 +353,7 @@ def _rate_check(namespace: str, subject: str, limit: int, window: int) -> bool:
 
 
 # --- Cleanup ---
+
 
 def _cleanup_expired() -> None:
     global _last_cleanup
@@ -297,19 +398,34 @@ def reset_state_for_tests() -> None:
 
 # --- Session operations ---
 
+
 def create_session(
     *,
     owner_user_id: str,
     owner_user_sub: str,
     owner_device_fingerprint: str,
-    owner_device_id: str = "owner-device",
+    owner_device_id: str = "",
     owner_public_key_spki_b64: str = "",
     oidc_issuer: str,
     allowed_permissions: dict[str, bool] | None = None,
     title: str = "Rendezvous Session",
+    requested_expires_at: float | None = None,
 ) -> dict[str, Any]:
     _ensure_db_initialized()
     _cleanup_expired()
+    owner_device_id = str(owner_device_id or "").strip()
+    owner_device_fingerprint = str(owner_device_fingerprint or "").strip().lower()
+    owner_public_key_spki_b64 = str(owner_public_key_spki_b64 or "").strip()
+    oidc_issuer = str(oidc_issuer or "").strip()
+    owner_user_sub = str(owner_user_sub or "").strip()
+    if not _is_canonical_peer_id(owner_user_id) or not owner_user_sub or not oidc_issuer:
+        raise ValueError("oidc_identity_required")
+    if not owner_device_id or not owner_device_fingerprint or not owner_public_key_spki_b64:
+        raise ValueError("device_identity_required")
+    if not _is_protocol_identifier(owner_device_id):
+        raise ValueError("device_identity_invalid")
+    if not secrets.compare_digest(spki_fingerprint(owner_public_key_spki_b64), owner_device_fingerprint):
+        raise ValueError("device_key_substitution")
     perms = {
         "chat": True,
         "view_tui": False,
@@ -323,10 +439,23 @@ def create_session(
                 perms[key] = bool(allowed_permissions[key])
     perms["remote_control"] = False
 
-    sid = str(uuid.uuid4())
-    if owner_public_key_spki_b64 and spki_fingerprint(owner_public_key_spki_b64) != owner_device_fingerprint:
-        raise ValueError("device_key_substitution")
     now = _now()
+    if requested_expires_at is None:
+        expires_at = now + cfg.SESSION_MAX_DURATION_SECONDS
+    elif (
+        isinstance(requested_expires_at, bool)
+        or not isinstance(requested_expires_at, (int, float))
+        or not math.isfinite(float(requested_expires_at))
+        or float(requested_expires_at) <= now
+    ):
+        raise ValueError("session_expiry_invalid")
+    else:
+        expires_at = min(
+            float(requested_expires_at),
+            now + cfg.SESSION_MAX_DURATION_SECONDS,
+        )
+
+    sid = str(uuid.uuid4())
     with _db() as conn:
         while True:
             code = _invite_code()
@@ -338,24 +467,24 @@ def create_session(
                         id, owner_user_id, owner_user_sub_hash, owner_device_fingerprint, oidc_issuer,
                         title, invite_code, allowed_permissions, expires_at, created_at, revoked_at,
                         owner_device_id, owner_public_key_spki_b64, security_epoch,
-                        security_mode, security_contract_version
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1, ?, ?)
+                        security_mode, security_contract_version, identity_binding_version
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1, ?, ?, 1)
                     """,
                     (
                         sid,
                         owner_user_id,
-                        _sub_hash(owner_user_sub),
+                        _subject_hash(oidc_issuer, owner_user_sub),
                         owner_device_fingerprint,
                         oidc_issuer,
                         str(title or "Rendezvous Session")[:120],
                         code,
                         json.dumps(perms, separators=(",", ":")),
-                        now + cfg.SESSION_MAX_DURATION_SECONDS,
+                        expires_at,
                         now,
-                        owner_device_id or "owner-device",
+                        owner_device_id,
                         owner_public_key_spki_b64,
-                        "strict_e2ee" if owner_public_key_spki_b64 else "legacy",
-                        1 if owner_public_key_spki_b64 else 0,
+                        "strict_e2ee",
+                        1,
                     ),
                 )
                 conn.execute("COMMIT")
@@ -403,42 +532,64 @@ def join_session(
     _ensure_db_initialized()
     _cleanup_expired()
     code = str(invite_code or "").strip().upper()
+    oidc_issuer = str(oidc_issuer or "").strip()
+    user_sub = str(user_sub or "").strip()
+    device_id = str(device_id or "").strip()
+    device_fingerprint = str(device_fingerprint or "").strip().lower()
+    public_key_spki_b64 = str(public_key_spki_b64 or "").strip()
+    if not _is_canonical_peer_id(user_id) or not user_sub or not oidc_issuer:
+        return {"ok": False, "reason": "oidc_identity_required"}
+    if not device_id or not device_fingerprint or not public_key_spki_b64:
+        return {"ok": False, "reason": "device_identity_required"}
+    if not _is_protocol_identifier(device_id):
+        return {"ok": False, "reason": "device_identity_invalid"}
+    try:
+        actual_fingerprint = spki_fingerprint(public_key_spki_b64)
+    except ValueError as exc:
+        return {"ok": False, "reason": str(exc)}
+    if not secrets.compare_digest(actual_fingerprint, device_fingerprint):
+        return {"ok": False, "reason": "device_key_substitution"}
+
     with _db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
             "SELECT * FROM sessions WHERE invite_code = ? AND invite_code IS NOT NULL AND invite_code != ''",
             (code,),
         ).fetchone()
         if not row:
+            conn.execute("ROLLBACK")
             return {"ok": False, "reason": "invalid_invite_code"}
         session = _row_to_session(row)
         sid = str(session.get("id") or "")
         if expected_session_id and sid != expected_session_id:
+            conn.execute("ROLLBACK")
             return {"ok": False, "reason": "session_not_found"}
         if session.get("revoked_at") is not None:
+            conn.execute("ROLLBACK")
             return {"ok": False, "reason": "session_revoked"}
         if float(session.get("expires_at") or 0) < _now():
+            conn.execute("ROLLBACK")
             return {"ok": False, "reason": "session_expired"}
         sess_issuer = str(session.get("oidc_issuer") or "")
-        if sess_issuer and sess_issuer != str(oidc_issuer or ""):
+        if not sess_issuer or sess_issuer != oidc_issuer:
+            conn.execute("ROLLBACK")
             return {"ok": False, "reason": "oidc_issuer_mismatch"}
-        if not str(user_sub or "").strip():
-            return {"ok": False, "reason": "oidc_sub_required"}
-        strict = session.get("security_mode") == "strict_e2ee"
-        if strict and user_id == session.get("owner_user_id"):
+        if (
+            session.get("security_mode") != "strict_e2ee"
+            or int(session.get("security_contract_version") or 0) != 1
+            or int(session.get("identity_binding_version") or 0) != 1
+        ):
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "strict_e2ee_required"}
+        if user_id == session.get("owner_user_id"):
+            conn.execute("ROLLBACK")
             return {"ok": False, "reason": "peer_identity_must_be_distinct"}
-        if strict and (not device_id or not device_fingerprint or not public_key_spki_b64):
-            return {"ok": False, "reason": "device_identity_required"}
-        if public_key_spki_b64:
-            try:
-                if spki_fingerprint(public_key_spki_b64) != device_fingerprint:
-                    return {"ok": False, "reason": "device_key_substitution"}
-            except ValueError as exc:
-                return {"ok": False, "reason": str(exc)}
 
-        conn.execute("BEGIN IMMEDIATE")
         existing = conn.execute(
             """
-            SELECT id, session_id, user_id, user_sub_hash, device_id, device_fingerprint, public_key_spki_b64, permissions, joined_at, last_seen, revoked_at
+            SELECT id, session_id, user_id, user_sub_hash, device_id,
+                   device_fingerprint, public_key_spki_b64, permissions,
+                   joined_at, last_seen, revoked_at
             FROM participants
             WHERE session_id = ? AND user_id = ? AND device_id = ? AND revoked_at IS NULL
             LIMIT 1
@@ -446,6 +597,14 @@ def join_session(
             (sid, user_id, device_id),
         ).fetchone()
         if existing:
+            expected_sub_hash = _subject_hash(oidc_issuer, user_sub)
+            if (
+                not secrets.compare_digest(str(existing["user_sub_hash"]), expected_sub_hash)
+                or not secrets.compare_digest(str(existing["device_fingerprint"]), device_fingerprint)
+                or not secrets.compare_digest(str(existing["public_key_spki_b64"]), public_key_spki_b64)
+            ):
+                conn.execute("ROLLBACK")
+                return {"ok": False, "reason": "device_identity_conflict"}
             participant = {
                 "id": existing["id"],
                 "session_id": existing["session_id"],
@@ -460,22 +619,26 @@ def join_session(
                 "public_key_spki_b64": existing["public_key_spki_b64"],
             }
             conn.execute("COMMIT")
-            return {"ok": True, "participant": participant, "session": _session_snapshot(conn, session), "idempotent": True}
+            return {
+                "ok": True,
+                "participant": participant,
+                "session": _session_snapshot(conn, session),
+                "idempotent": True,
+            }
 
         active_count = conn.execute(
             "SELECT COUNT(1) AS c FROM participants WHERE session_id = ? AND revoked_at IS NULL",
             (sid,),
         ).fetchone()
-        maximum_participants = 1 if strict else 20
-        if int(active_count["c"] or 0) >= maximum_participants:
-            conn.execute("COMMIT")
+        if int(active_count["c"] or 0) >= 1:
+            conn.execute("ROLLBACK")
             return {"ok": False, "reason": "session_full"}
 
         participant = {
             "id": str(uuid.uuid4()),
             "session_id": sid,
             "user_id": user_id,
-            "user_sub_hash": _sub_hash(user_sub),
+            "user_sub_hash": _subject_hash(oidc_issuer, user_sub),
             "device_id": device_id,
             "device_fingerprint": device_fingerprint,
             "permissions": dict(session.get("allowed_permissions") or {}),
@@ -526,25 +689,12 @@ def update_session_permissions(
             return {"ok": False, "reason": "session_inactive"}
         if session.get("owner_user_id") != actor_user_id:
             return {"ok": False, "reason": "forbidden"}
-        current = dict(session.get("allowed_permissions") or {})
-        for key in current:
-            if key in permissions:
-                current[key] = bool(permissions[key])
-        current["remote_control"] = False
-        conn.execute("BEGIN IMMEDIATE")
-        conn.execute(
-            "UPDATE sessions SET allowed_permissions = ? WHERE id = ?",
-            (json.dumps(current, separators=(",", ":")), session_id),
-        )
-        conn.execute(
-            "UPDATE participants SET permissions = ? WHERE session_id = ? AND revoked_at IS NULL",
-            (json.dumps(current, separators=(",", ":")), session_id),
-        )
-        conn.execute("COMMIT")
-        updated = _get_session_by_id(conn, session_id)
-        if not updated:
-            return {"ok": False, "reason": "session_not_found"}
-        return {"ok": True, "session": _session_snapshot(conn, updated, include_participants=True)}
+        # Permission snapshots are part of the strict E2EE authorization
+        # context. Updating them without advancing the security epoch and
+        # negotiating fresh peer keys would leave clients with conflicting
+        # authority. Public rendezvous supports only strict sessions, so the
+        # mutation stays fail-closed until a rekey-capable adapter exists.
+        return {"ok": False, "reason": "permission_update_rekey_required"}
 
 
 def get_participants(*, session_id: str, requester_user_id: str) -> dict[str, Any]:
@@ -570,17 +720,19 @@ def get_participants(*, session_id: str, requester_user_id: str) -> dict[str, An
         if not requester_is_member:
             return {"ok": False, "reason": "forbidden"}
 
-        presence = [{
-            "id": f"member:{session_id}:owner",
-            "user_id": session.get("owner_user_id"),
-            "device_id": session.get("owner_device_id"),
-            "device_fingerprint": session.get("owner_device_fingerprint"),
-            "permissions": session.get("allowed_permissions"),
-            "joined_at": session.get("created_at"),
-            "last_seen": _now(),
-            "last_seen_at": _now(),
-            "revoked_at": session.get("revoked_at"),
-        }] + [
+        presence = [
+            {
+                "id": f"member:{session_id}:owner",
+                "user_id": session.get("owner_user_id"),
+                "device_id": session.get("owner_device_id"),
+                "device_fingerprint": session.get("owner_device_fingerprint"),
+                "permissions": session.get("allowed_permissions"),
+                "joined_at": session.get("created_at"),
+                "last_seen": _now(),
+                "last_seen_at": _now(),
+                "revoked_at": session.get("revoked_at"),
+            }
+        ] + [
             {
                 "id": p.get("id"),
                 "user_id": p.get("user_id"),
@@ -622,16 +774,84 @@ def _memberships(conn: sqlite3.Connection, session: dict[str, Any]) -> list[dict
     }
     members = [owner]
     for participant in _list_participants(conn, session["id"]):
-        members.append({
-            "membership_id": f"member:{participant['id']}",
-            "membership_version": 1,
-            "peer_id": participant["user_id"],
-            "device_id": participant["device_id"],
-            "fingerprint": participant["device_fingerprint"],
-            "public_key_spki_b64": participant["public_key_spki_b64"],
-            "owner": False,
-        })
+        members.append(
+            {
+                "membership_id": f"member:{participant['id']}",
+                "membership_version": 1,
+                "peer_id": participant["user_id"],
+                "device_id": participant["device_id"],
+                "fingerprint": participant["device_fingerprint"],
+                "public_key_spki_b64": participant["public_key_spki_b64"],
+                "owner": False,
+            }
+        )
     return members
+
+
+def _validated_strict_memberships(
+    conn: sqlite3.Connection,
+    session: dict[str, Any],
+    *,
+    require_pair: bool,
+) -> list[dict[str, Any]]:
+    """Return current pair membership after validating its security binding."""
+    if (
+        session.get("security_mode") != "strict_e2ee"
+        or int(session.get("security_contract_version") or 0) != 1
+        or int(session.get("identity_binding_version") or 0) != 1
+    ):
+        raise ValueError("strict_e2ee_required")
+    members = _memberships(conn, session)
+    expected_count = 2 if require_pair else None
+    if expected_count is not None and len(members) != expected_count:
+        raise ValueError("strict_pair_membership_incomplete")
+    if len(members) > 2:
+        raise ValueError("strict_pair_cardinality_exceeded")
+    for member in members:
+        if not _is_canonical_peer_id(str(member.get("peer_id") or "")):
+            raise ValueError("peer_identity_binding_invalid")
+        public_key = str(member.get("public_key_spki_b64") or "")
+        fingerprint = str(member.get("fingerprint") or "").lower()
+        try:
+            actual_fingerprint = spki_fingerprint(public_key)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+        if not secrets.compare_digest(actual_fingerprint, fingerprint):
+            raise ValueError("device_key_substitution")
+    return members
+
+
+def _strict_pair_material(
+    conn: sqlite3.Connection,
+    session: dict[str, Any],
+) -> tuple[list[dict[str, Any]], PairSecurityAuthority, dict[str, Any]]:
+    members = _validated_strict_memberships(conn, session, require_pair=True)
+    authority = _SECURITY_AUTHORITY
+    owner = next(member for member in members if member["owner"])
+    guest = next(member for member in members if not member["owner"])
+    return members, authority, authority.contract(session, owner, guest)
+
+
+def _expected_key_package(
+    *,
+    members: list[dict[str, Any]],
+    authority: PairSecurityAuthority,
+    session: dict[str, Any],
+    contract: dict[str, Any],
+    sender_peer_id: str,
+    recipient_peer_id: str,
+) -> dict[str, Any]:
+    """Return the package a sender must have received for this direction."""
+    sender = next((member for member in members if member["peer_id"] == sender_peer_id), None)
+    recipient = next((member for member in members if member["peer_id"] == recipient_peer_id), None)
+    if sender is None or recipient is None or sender is recipient:
+        raise ValueError("forbidden")
+    return authority.key_package(
+        session=session,
+        membership=recipient,
+        recipient_peer_id=sender["peer_id"],
+        contract_digest=str(contract["digest"]),
+    )
 
 
 def get_key_packages(*, session_id: str, requester_user_id: str) -> dict[str, Any]:
@@ -642,91 +862,229 @@ def get_key_packages(*, session_id: str, requester_user_id: str) -> dict[str, An
             return {"ok": False, "reason": "session_not_found"}
         if session.get("revoked_at") is not None or float(session.get("expires_at") or 0) <= _now():
             return {"ok": False, "reason": "session_inactive"}
-        members = _memberships(conn, session)
+        try:
+            members = _validated_strict_memberships(conn, session, require_pair=False)
+        except ValueError as exc:
+            return {"ok": False, "reason": str(exc)}
         requester = next((member for member in members if member["peer_id"] == requester_user_id), None)
         if requester is None:
             return {"ok": False, "reason": "forbidden"}
-        if session["security_mode"] != "strict_e2ee":
-            return {"ok": False, "reason": "strict_e2ee_required"}
         if len(members) == 1:
+            authority = _SECURITY_AUTHORITY
             return {
-                "ok": True, "epoch": session["security_epoch"], "tenant_id": TENANT_ID,
-                "security_contract_digest": None, "security_contract": None,
-                "hub_key_id": "", "hub_public_key_b64": "", "packages": [],
+                "ok": True,
+                "epoch": session["security_epoch"],
+                "tenant_id": TENANT_ID,
+                "security_contract_digest": None,
+                "security_contract": None,
+                "hub_key_id": authority.key_id,
+                "hub_public_key_b64": authority.public_key_b64,
+                "packages": [],
+                "local_membership_id": requester["membership_id"],
+                "local_peer_id": requester["peer_id"],
+                "local_package_id": None,
             }
-        if len(members) != 2:
-            return {"ok": False, "reason": "strict_pair_cardinality_exceeded"}
-        authority = PairSecurityAuthority(cfg.RENDEZVOUS_SECURITY_SIGNING_SECRET)
-        owner = next(member for member in members if member["owner"])
-        guest = next(member for member in members if not member["owner"])
-        contract = authority.contract(session, owner, guest)
-        remote = next(member for member in members if member is not requester)
+        try:
+            members, authority, contract = _strict_pair_material(conn, session)
+        except ValueError as exc:
+            return {"ok": False, "reason": str(exc)}
+        requester = next(member for member in members if member["peer_id"] == requester_user_id)
+        remote = next(member for member in members if member["peer_id"] != requester_user_id)
         package = authority.key_package(
-            session=session, membership=remote, recipient_peer_id=requester["peer_id"],
+            session=session,
+            membership=remote,
+            recipient_peer_id=requester["peer_id"],
             contract_digest=contract["digest"],
         )
+        local_package = _expected_key_package(
+            members=members,
+            authority=authority,
+            session=session,
+            contract=contract,
+            sender_peer_id=remote["peer_id"],
+            recipient_peer_id=requester["peer_id"],
+        )
         return {
-            "ok": True, "epoch": session["security_epoch"], "tenant_id": TENANT_ID,
-            "security_contract_digest": contract["digest"], "security_contract": contract,
-            "hub_key_id": authority.key_id, "hub_public_key_b64": authority.public_key_b64,
+            "ok": True,
+            "epoch": session["security_epoch"],
+            "tenant_id": TENANT_ID,
+            "security_contract_digest": contract["digest"],
+            "security_contract": contract,
+            "hub_key_id": authority.key_id,
+            "hub_public_key_b64": authority.public_key_b64,
             "packages": [package],
+            "local_membership_id": requester["membership_id"],
+            "local_peer_id": requester["peer_id"],
+            "local_package_id": local_package["package_id"],
         }
 
 
 def put_key_confirmation(
-    *, session_id: str, sender_peer_id: str, recipient_peer_id: str,
-    package_id: str, epoch: int, confirmation_tag: str,
+    *,
+    session_id: str,
+    sender_peer_id: str,
+    recipient_peer_id: str,
+    package_id: str,
+    epoch: int,
+    confirmation_tag: str,
 ) -> dict[str, Any]:
     _ensure_db_initialized()
+    package_id = str(package_id or "").strip().lower()
+    confirmation_tag = str(confirmation_tag or "").strip()
+    try:
+        raw_tag = base64.b64decode(confirmation_tag, validate=True)
+    except (ValueError, TypeError):
+        return {"ok": False, "reason": "confirmation_tag_invalid"}
+    if len(raw_tag) != 32 or len(package_id) != 64 or any(char not in "0123456789abcdef" for char in package_id):
+        return {"ok": False, "reason": "confirmation_invalid"}
+
     with _db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         session = _get_session_by_id(conn, session_id)
         if not session:
+            conn.execute("ROLLBACK")
             return {"ok": False, "reason": "session_not_found"}
         if session.get("revoked_at") is not None or float(session.get("expires_at") or 0) <= _now():
+            conn.execute("ROLLBACK")
             return {"ok": False, "reason": "session_inactive"}
-        peer_ids = {member["peer_id"] for member in _memberships(conn, session)}
-        if sender_peer_id not in peer_ids or recipient_peer_id not in peer_ids or sender_peer_id == recipient_peer_id:
-            return {"ok": False, "reason": "forbidden"}
-        if epoch != int(session["security_epoch"]):
-            return {"ok": False, "reason": "epoch_mismatch"}
         try:
-            raw_tag = base64.b64decode(confirmation_tag, validate=True)
-        except (ValueError, TypeError):
-            return {"ok": False, "reason": "confirmation_tag_invalid"}
-        if len(raw_tag) != 32 or len(package_id) != 64:
-            return {"ok": False, "reason": "confirmation_invalid"}
+            members, authority, contract = _strict_pair_material(conn, session)
+            expected_package = _expected_key_package(
+                members=members,
+                authority=authority,
+                session=session,
+                contract=contract,
+                sender_peer_id=sender_peer_id,
+                recipient_peer_id=recipient_peer_id,
+            )
+        except ValueError as exc:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": str(exc)}
+        if epoch != int(session["security_epoch"]):
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "epoch_mismatch"}
+        if not secrets.compare_digest(str(expected_package["package_id"]), package_id):
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "key_package_binding_mismatch"}
+
+        now = _now()
+        existing = conn.execute(
+            """SELECT package_id, confirmation_tag, created_at, expires_at
+               FROM key_confirmations
+               WHERE session_id=? AND epoch=? AND sender_peer_id=? AND recipient_peer_id=?""",
+            (session_id, epoch, sender_peer_id, recipient_peer_id),
+        ).fetchone()
+        if existing and float(existing["expires_at"] or 0) > now:
+            if not (
+                secrets.compare_digest(str(existing["package_id"]), package_id)
+                and secrets.compare_digest(str(existing["confirmation_tag"]), confirmation_tag)
+            ):
+                conn.execute("ROLLBACK")
+                return {"ok": False, "reason": "key_confirmation_conflict"}
+            conn.execute("COMMIT")
+            return {
+                "ok": True,
+                "idempotent": True,
+                "created_at_ms": int(float(existing["created_at"]) * 1000),
+                "expires_at_ms": int(float(existing["expires_at"]) * 1000),
+            }
+        if existing:
+            conn.execute(
+                """DELETE FROM key_confirmations
+                   WHERE session_id=? AND epoch=? AND sender_peer_id=? AND recipient_peer_id=?""",
+                (session_id, epoch, sender_peer_id, recipient_peer_id),
+            )
+        expires_at = min(float(session["expires_at"]), now + _KEY_CONFIRMATION_TTL_SECONDS)
         conn.execute(
             """
             INSERT INTO key_confirmations (
-                session_id, epoch, sender_peer_id, recipient_peer_id, package_id, confirmation_tag, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(session_id, epoch, sender_peer_id, recipient_peer_id)
-            DO UPDATE SET package_id=excluded.package_id, confirmation_tag=excluded.confirmation_tag, created_at=excluded.created_at
+                session_id, epoch, sender_peer_id, recipient_peer_id, package_id,
+                confirmation_tag, created_at, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (session_id, epoch, sender_peer_id, recipient_peer_id, package_id, confirmation_tag, _now()),
+            (
+                session_id,
+                epoch,
+                sender_peer_id,
+                recipient_peer_id,
+                package_id,
+                confirmation_tag,
+                now,
+                expires_at,
+            ),
         )
-        return {"ok": True}
+        conn.execute("COMMIT")
+        log.info(
+            "pair_key_confirmation_stored session=%s epoch=%d direction=%s",
+            session_id,
+            epoch,
+            hashlib.sha256(f"{sender_peer_id}>{recipient_peer_id}".encode()).hexdigest()[:12],
+        )
+        return {
+            "ok": True,
+            "created_at_ms": int(now * 1000),
+            "expires_at_ms": int(expires_at * 1000),
+        }
 
 
 def get_key_confirmation(
-    *, session_id: str, requester_user_id: str, sender_peer_id: str,
+    *,
+    session_id: str,
+    requester_user_id: str,
+    sender_peer_id: str,
 ) -> dict[str, Any]:
     _ensure_db_initialized()
     with _db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         session = _get_session_by_id(conn, session_id)
         if not session:
+            conn.execute("ROLLBACK")
             return {"ok": False, "reason": "session_not_found"}
         if session.get("revoked_at") is not None or float(session.get("expires_at") or 0) <= _now():
+            conn.execute("ROLLBACK")
             return {"ok": False, "reason": "session_inactive"}
-        peer_ids = {member["peer_id"] for member in _memberships(conn, session)}
-        if requester_user_id not in peer_ids or sender_peer_id not in peer_ids:
-            return {"ok": False, "reason": "forbidden"}
+        try:
+            members, authority, contract = _strict_pair_material(conn, session)
+            expected_package = _expected_key_package(
+                members=members,
+                authority=authority,
+                session=session,
+                contract=contract,
+                sender_peer_id=sender_peer_id,
+                recipient_peer_id=requester_user_id,
+            )
+        except ValueError as exc:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": str(exc)}
         row = conn.execute(
-            """SELECT confirmation_tag, package_id, epoch FROM key_confirmations
+            """SELECT confirmation_tag, package_id, epoch, created_at, expires_at
+               FROM key_confirmations
                WHERE session_id=? AND epoch=? AND sender_peer_id=? AND recipient_peer_id=?""",
             (session_id, session["security_epoch"], sender_peer_id, requester_user_id),
         ).fetchone()
-        confirmation = dict(row) if row else None
+        now = _now()
+        if row and float(row["expires_at"] or 0) <= now:
+            conn.execute(
+                """DELETE FROM key_confirmations
+                   WHERE session_id=? AND epoch=? AND sender_peer_id=? AND recipient_peer_id=?""",
+                (session_id, session["security_epoch"], sender_peer_id, requester_user_id),
+            )
+            row = None
+        if row and not secrets.compare_digest(str(row["package_id"]), str(expected_package["package_id"])):
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "key_confirmation_binding_invalid"}
+        conn.execute("COMMIT")
+        confirmation = (
+            None
+            if row is None
+            else {
+                "confirmation_tag": row["confirmation_tag"],
+                "package_id": row["package_id"],
+                "epoch": row["epoch"],
+                "created_at_ms": int(float(row["created_at"]) * 1000),
+                "expires_at_ms": int(float(row["expires_at"]) * 1000),
+            }
+        )
         return {"ok": True, "confirmation": confirmation}
 
 
@@ -755,6 +1113,9 @@ def is_authorized_participant(session_id: str, user_id: str) -> bool:
             not session
             or session.get("revoked_at") is not None
             or float(session.get("expires_at") or 0) <= _now()
+            or session.get("security_mode") != "strict_e2ee"
+            or int(session.get("security_contract_version") or 0) != 1
+            or int(session.get("identity_binding_version") or 0) != 1
         ):
             return False
         if str(session.get("owner_user_id") or "") == user_id:
@@ -772,18 +1133,22 @@ def is_authorized_participant(session_id: str, user_id: str) -> bool:
 
 # --- WebRTC signaling ---
 
-_MAX_SIGNAL_QUEUE = 20
-_MAX_SIGNAL_BYTES = 8 * 1024
 
-
-def push_signal(*, session_id: str, sender_id: str, recipient_id: str, signal_type: str, payload: Any) -> dict[str, Any]:
+def push_signal(
+    *,
+    session_id: str,
+    sender_id: str,
+    recipient_id: str,
+    signal_type: str,
+    payload: Any,
+) -> dict[str, Any]:
     _ensure_db_initialized()
-    if not is_authorized_participant(session_id, sender_id):
-        return {"ok": False, "reason": "forbidden"}
-    if not is_authorized_participant(session_id, recipient_id):
-        return {"ok": False, "reason": "recipient_not_authorized"}
     if signal_type not in {"offer", "answer", "ice_candidate"}:
         return {"ok": False, "reason": "invalid_signal_type"}
+    try:
+        serialized_payload = json.dumps(payload, separators=(",", ":"), allow_nan=False)
+    except (TypeError, ValueError):
+        return {"ok": False, "reason": "signal_payload_invalid"}
     entry = {
         "id": str(uuid.uuid4()),
         "session_id": session_id,
@@ -795,10 +1160,41 @@ def push_signal(*, session_id: str, sender_id: str, recipient_id: str, signal_ty
     }
     with _db() as conn:
         conn.execute("BEGIN IMMEDIATE")
+        session = _get_session_by_id(conn, session_id)
+        if not session or session.get("revoked_at") is not None or float(session.get("expires_at") or 0) <= _now():
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "forbidden"}
+        try:
+            members = _validated_strict_memberships(conn, session, require_pair=True)
+        except ValueError as exc:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": str(exc)}
+        peer_ids = {str(member["peer_id"]) for member in members}
+        if sender_id not in peer_ids:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "forbidden"}
+        if recipient_id not in peer_ids or recipient_id == sender_id:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "recipient_not_authorized"}
+        queue_state = conn.execute(
+            """SELECT COUNT(1) AS queue_size, COALESCE(MAX(sequence), 0) AS cursor
+               FROM signals WHERE session_id = ? AND recipient_id = ?""",
+            (session_id, recipient_id),
+        ).fetchone()
+        if int(queue_state["queue_size"] or 0) >= _MAX_SIGNAL_QUEUE:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "signal_queue_full"}
+        cursor = int(queue_state["cursor"] or 0)
+        if cursor >= _MAX_SIGNAL_CURSOR:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "signal_sequence_exhausted"}
+        sequence = cursor + 1
+        entry["sequence"] = sequence
         conn.execute(
             """
-            INSERT INTO signals (id, session_id, sender_id, recipient_id, signal_type, payload, sent_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO signals (
+                id, session_id, sender_id, recipient_id, signal_type, payload, sequence, sent_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 entry["id"],
@@ -806,81 +1202,187 @@ def push_signal(*, session_id: str, sender_id: str, recipient_id: str, signal_ty
                 entry["sender_id"],
                 entry["recipient_id"],
                 entry["type"],
-                json.dumps(entry["payload"]),
+                serialized_payload,
+                entry["sequence"],
                 entry["sent_at"],
             ),
         )
-        conn.execute(
-            """
-            DELETE FROM signals
-            WHERE id IN (
-                SELECT id
-                FROM signals
-                WHERE session_id = ? AND recipient_id = ?
-                ORDER BY sent_at DESC
-                LIMIT -1 OFFSET ?
-            )
-            """,
-            (session_id, recipient_id, _MAX_SIGNAL_QUEUE),
-        )
         conn.execute("COMMIT")
-    return {"ok": True, "signal_id": entry["id"]}
+    return {
+        "ok": True,
+        "signal_id": entry["id"],
+        "sequence": str(entry["sequence"]),
+        "cursor": str(entry["sequence"]),
+    }
+
+
+def poll_signals(*, session_id: str, user_id: str, since: int = 0) -> dict[str, Any]:
+    """Read signaling metadata without consuming it and expose retention gaps."""
+    _ensure_db_initialized()
+    if isinstance(since, bool) or not isinstance(since, int) or since < 0 or since > _MAX_SIGNAL_CURSOR:
+        return {"ok": False, "reason": "signal_cursor_invalid"}
+    with _db() as conn:
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            result = _poll_signals_locked(
+                conn,
+                session_id=session_id,
+                user_id=user_id,
+                since=since,
+            )
+            conn.execute("COMMIT")
+            return result
+        except BaseException:
+            if conn.in_transaction:
+                conn.execute("ROLLBACK")
+            raise
+
+
+def _poll_signals_locked(
+    conn: sqlite3.Connection,
+    *,
+    session_id: str,
+    user_id: str,
+    since: int,
+) -> dict[str, Any]:
+    """Read, acknowledge and update one recipient cursor under a writer lock."""
+    session = _get_session_by_id(conn, session_id)
+    if not session or session.get("revoked_at") is not None or float(session.get("expires_at") or 0) <= _now():
+        return {"ok": False, "reason": "forbidden"}
+    try:
+        members = _validated_strict_memberships(conn, session, require_pair=True)
+    except ValueError as exc:
+        return {"ok": False, "reason": str(exc)}
+    if user_id not in {str(member["peer_id"]) for member in members}:
+        return {"ok": False, "reason": "forbidden"}
+
+    bounds = conn.execute(
+        """SELECT COALESCE(MIN(sequence), 0) AS oldest,
+                  COALESCE(MAX(sequence), 0) AS newest
+           FROM signals WHERE session_id = ? AND recipient_id = ?""",
+        (session_id, user_id),
+    ).fetchone()
+    oldest = int(bounds["oldest"] or 0)
+    newest = int(bounds["newest"] or 0)
+    if since > newest:
+        return {"ok": False, "reason": "signal_cursor_ahead"}
+    cursor_floor = max(0, oldest - 1) if oldest else 0
+    truncated = since < cursor_floor
+    rows = conn.execute(
+        """
+        SELECT id, session_id, sender_id, recipient_id, signal_type, payload, sequence, sent_at
+        FROM signals
+        WHERE session_id = ? AND recipient_id = ? AND sequence > ?
+        ORDER BY sequence ASC
+        """,
+        (session_id, user_id, since),
+    ).fetchall()
+    out = [
+        {
+            "id": row["id"],
+            "session_id": row["session_id"],
+            "sender_id": row["sender_id"],
+            "recipient_id": row["recipient_id"],
+            "type": row["signal_type"],
+            "payload": json.loads(row["payload"]),
+            "sequence": str(row["sequence"]),
+            "sent_at": row["sent_at"],
+        }
+        for row in rows
+    ]
+    # `since` acknowledges the previous successful response. Keep its last row
+    # as a monotonic sequence sentinel and delete only older rows; the writer
+    # lock keeps bounds, page and acknowledgement one indivisible operation.
+    if since > 0:
+        conn.execute(
+            """DELETE FROM signals
+               WHERE session_id = ? AND recipient_id = ? AND sequence < ?""",
+            (session_id, user_id, since),
+        )
+    conn.execute(
+        """UPDATE participants SET last_seen = ?
+           WHERE session_id = ? AND user_id = ? AND revoked_at IS NULL""",
+        (_now(), session_id, user_id),
+    )
+    return {
+        "ok": True,
+        "signals": out,
+        "cursor": str(newest),
+        "cursor_floor": str(cursor_floor),
+        "truncated": truncated,
+        "retention_limit": _MAX_SIGNAL_QUEUE,
+    }
 
 
 def consume_signals(*, session_id: str, user_id: str) -> list[dict[str, Any]]:
-    _ensure_db_initialized()
-    if not is_authorized_participant(session_id, user_id):
-        return []
-    with _db() as conn:
-        rows = conn.execute(
-            """
-            SELECT id, session_id, sender_id, recipient_id, signal_type, payload, sent_at
-            FROM signals
-            WHERE session_id = ? AND recipient_id = ?
-            ORDER BY sent_at ASC
-            """,
-            (session_id, user_id),
-        ).fetchall()
-        signal_ids = [str(row["id"]) for row in rows]
-        if signal_ids:
-            placeholders = ",".join("?" for _ in signal_ids)
-            conn.execute(f"DELETE FROM signals WHERE id IN ({placeholders})", tuple(signal_ids))
-        out: list[dict[str, Any]] = []
-        for row in rows:
-            out.append(
-                {
-                    "id": row["id"],
-                    "session_id": row["session_id"],
-                    "sender_id": row["sender_id"],
-                    "recipient_id": row["recipient_id"],
-                    "type": row["signal_type"],
-                    "payload": json.loads(row["payload"]),
-                    "sent_at": row["sent_at"],
-                }
-            )
-        return out
+    """Compatibility wrapper; reads the retained window without deleting it."""
+    result = poll_signals(session_id=session_id, user_id=user_id, since=0)
+    return list(result.get("signals") or []) if result.get("ok") else []
 
 
 # --- TURN credentials (coturn REST API format) ---
 
-def issue_turn_credentials(user_id: str) -> dict[str, Any] | None:
-    """Gibt kurzlebige TURN-Credentials aus (coturn HMAC-SHA1 REST API Format)."""
+
+def issue_turn_credentials(*, session_id: str, requester_user_id: str) -> dict[str, Any]:
+    """Issue coturn REST credentials only for a current strict-pair member."""
     import base64
     import hmac
 
+    _ensure_db_initialized()
+    now = _now()
+    with _db() as conn:
+        session = _get_session_by_id(conn, session_id)
+        if not session:
+            return {"ok": False, "reason": "session_not_found"}
+        if session.get("revoked_at") is not None or float(session.get("expires_at") or 0) <= now:
+            return {"ok": False, "reason": "session_inactive"}
+        try:
+            memberships = _validated_strict_memberships(conn, session, require_pair=False)
+        except ValueError as exc:
+            return {"ok": False, "reason": str(exc)}
+        if requester_user_id not in {str(member["peer_id"]) for member in memberships}:
+            return {"ok": False, "reason": "forbidden"}
+        if len(memberships) != 2:
+            return {"ok": False, "reason": "strict_pair_membership_incomplete"}
+
     secret = cfg.TURN_SHARED_SECRET
-    if not secret:
-        return None
-    ttl = cfg.TURN_TTL_SECONDS
-    expiry = int(_now()) + ttl
-    username = f"{expiry}:{user_id}"
+    if not secret or not cfg.TURN_URLS or cfg.TURN_TTL_SECONDS < 1:
+        return {"ok": False, "reason": "turn_not_configured"}
+    now_seconds = int(now)
+    expiry = min(now_seconds + cfg.TURN_TTL_SECONDS, int(float(session["expires_at"])))
+    ttl = expiry - now_seconds
+    if ttl < 1:
+        return {"ok": False, "reason": "session_inactive"}
+    session_pseudonym = hmac.new(
+        secret.encode(),
+        b"ananta.turn.session.v1\0" + session_id.encode(),
+        hashlib.sha256,
+    ).hexdigest()[:24]
+    peer_pseudonym = hmac.new(
+        secret.encode(),
+        b"ananta.turn.session-peer.v1\0" + session_id.encode() + b"\0" + requester_user_id.encode(),
+        hashlib.sha256,
+    ).hexdigest()[:24]
+    username = f"{expiry}:session-{session_pseudonym}:peer-{peer_pseudonym}"
     key = hmac.new(secret.encode(), username.encode(), hashlib.sha1).digest()
     password = base64.b64encode(key).decode()
+    log.info(
+        "turn_credentials_issued session=%s peer=%s expires_at=%d",
+        session_pseudonym,
+        peer_pseudonym,
+        expiry,
+    )
     return {
-        "username": username,
-        "password": password,
-        "ttl": ttl,
-        "uris": cfg.TURN_URLS,
+        "ok": True,
+        "credentials": {
+            "username": username,
+            "password": password,
+            "ttl": ttl,
+            "expires_at": expiry,
+            "uris": list(cfg.TURN_URLS),
+            "session_id": session_id,
+            "local_peer_id": requester_user_id,
+        },
     }
 
 

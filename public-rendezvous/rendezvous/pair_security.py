@@ -1,8 +1,11 @@
 """Strict pair security primitives for the standalone rendezvous boundary.
 
 The service authenticates membership and device public keys.  It never sees
-the derived ECDH secret or encrypted application/media payloads.
+the derived ECDH secret or encrypted application payloads. Public audio/video
+publication remains disabled until the Pair key is wired to browser media
+insertable-stream transforms.
 """
+
 from __future__ import annotations
 
 import base64
@@ -13,8 +16,8 @@ import time
 from typing import Any
 
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 
 TENANT_ID = "public-ananta"
 
@@ -30,6 +33,12 @@ def spki_fingerprint(value: str) -> str:
         raise ValueError("device_key_invalid") from exc
     if not 64 <= len(raw) <= 512:
         raise ValueError("device_key_invalid")
+    try:
+        public_key = serialization.load_der_public_key(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("device_key_invalid") from exc
+    if not isinstance(public_key, ec.EllipticCurvePublicKey) or not isinstance(public_key.curve, ec.SECP256R1):
+        raise ValueError("device_key_algorithm_unsupported")
     return hashlib.sha256(raw).hexdigest()
 
 
@@ -47,9 +56,13 @@ class PairSecurityAuthority:
         )
         self.public_key_b64 = base64.b64encode(public).decode("ascii")
         self.key_id = "rv:" + hashlib.sha256(public).hexdigest()[:24]
-        self._contract_key = hashlib.sha256(
-            b"ananta.public-rendezvous.contract.v1\0" + secret.encode()
-        ).digest()
+        self._contract_key = hashlib.sha256(b"ananta.public-rendezvous.contract.v1\0" + secret.encode()).digest()
+
+    def require_key_id(self, expected_key_id: str) -> None:
+        """Fail closed when deployment policy pins a different authority."""
+        expected = str(expected_key_id or "").strip()
+        if expected and not hmac.compare_digest(self.key_id, expected):
+            raise RuntimeError("rendezvous_security_signing_key_id_mismatch")
 
     def contract(self, session: dict[str, Any], owner: dict[str, Any], guest: dict[str, Any]) -> dict[str, Any]:
         epoch = int(session["security_epoch"])
@@ -71,18 +84,29 @@ class PairSecurityAuthority:
             "selected_mode": "strict_e2ee",
             "algorithms": ["AES-256-GCM", "ECDH-P256-HKDF-SHA256"],
             "key_epoch": epoch,
-            "payload_classes": ["bulk", "control", "media", "semantic"],
+            "payload_classes": ["bulk", "control", "semantic"],
             "expires_at_ms": int(float(session["expires_at"]) * 1000),
         }
         offer = {**common, "sender_id": owner["membership_id"], "recipient_id": guest["membership_id"]}
         answer = {**common, "sender_id": guest["membership_id"], "recipient_id": owner["membership_id"]}
-        digest = hashlib.sha256(canonical({
-            "domain": "ananta.webrtc.security-negotiation.v1", "offer": offer, "answer": answer,
-        })).hexdigest()
+        digest = hashlib.sha256(
+            canonical(
+                {
+                    "domain": "ananta.webrtc.security-negotiation.v1",
+                    "offer": offer,
+                    "answer": answer,
+                }
+            )
+        ).hexdigest()
         signature = hmac.new(self._contract_key, digest.encode("ascii"), hashlib.sha256).hexdigest()
         return {
-            "version": 1, "negotiation_id": negotiation_id, "offer": offer, "answer": answer,
-            "digest": digest, "signature": signature, "signature_algorithm": "HMAC-SHA256",
+            "version": 1,
+            "negotiation_id": negotiation_id,
+            "offer": offer,
+            "answer": answer,
+            "digest": digest,
+            "signature": signature,
+            "signature_algorithm": "HMAC-SHA256",
         }
 
     def key_package(
@@ -95,15 +119,19 @@ class PairSecurityAuthority:
     ) -> dict[str, Any]:
         now_ms = int(time.time() * 1000)
         expires_at_ms = min(int(float(session["expires_at"]) * 1000), now_ms + 5 * 60 * 1000)
-        package_id = hashlib.sha256(canonical({
-            "domain": "ananta.webrtc.peer-key-package-id.v1",
-            "membership_id": membership["membership_id"],
-            "membership_version": membership["membership_version"],
-            "recipient_peer_id": recipient_peer_id,
-            "epoch": session["security_epoch"],
-            "device_key_fingerprint": membership["fingerprint"],
-            "security_contract_digest": contract_digest,
-        })).hexdigest()
+        package_id = hashlib.sha256(
+            canonical(
+                {
+                    "domain": "ananta.webrtc.peer-key-package-id.v1",
+                    "membership_id": membership["membership_id"],
+                    "membership_version": membership["membership_version"],
+                    "recipient_peer_id": recipient_peer_id,
+                    "epoch": session["security_epoch"],
+                    "device_key_fingerprint": membership["fingerprint"],
+                    "security_contract_digest": contract_digest,
+                }
+            )
+        ).hexdigest()
         package = {
             "version": 1,
             "package_id": package_id,
