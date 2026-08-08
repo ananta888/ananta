@@ -1,16 +1,17 @@
 # Supply Chain Checks
 
-Ananta uses pinned release inputs and GitHub-side dependency visibility as complementary controls.
+Ananta uses pinned release inputs and explicit dependency review as complementary controls.
 
-## GitHub Dependency Visibility
+## Direct-to-main Dependency Updates
 
-`.github/dependabot.yml` enables scheduled update discovery for:
+Automated Dependabot pull requests are disabled to preserve the repository's
+single-branch policy. Dependency updates are prepared in a clean local
+`main` worktree and pushed directly to `main` only after review and focused
+verification.
 
-- GitHub Actions
-- Python dependencies rooted at `requirements.lock` and `requirements-dev.lock`
-- frontend npm dependencies rooted at `frontend-angular/package-lock.json`
-
-Dependabot PRs must still pass the regular quality workflow and should be reviewed like any other supply-chain change. Dependency updates that affect auth, CI, release, Docker or worker execution should be treated as security-sensitive.
+GitHub Actions, Python lockfiles and frontend npm lockfiles remain explicit
+review targets. Dependency updates that affect auth, CI, release, Docker or
+worker execution are treated as security-sensitive.
 
 ## Locked Inputs
 
