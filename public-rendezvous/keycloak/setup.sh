@@ -33,7 +33,7 @@ fi
 # Das schlanke Keycloak-Image enthält absichtlich kein curl. Der kcadm-Login
 # prüft zugleich die Admin-API und vermeidet eine zweite Health-Check-Abhängigkeit.
 echo "Warte auf Keycloak und Admin-API ($KC_URL)..."
-for i in $(seq 1 30); do
+for ((i = 1; i <= 30; i++)); do
   if "$KCADM" config credentials \
     --server "$KC_URL" \
     --realm master \
@@ -75,27 +75,42 @@ else
 fi
 
 # ── Client erstellen (falls nicht vorhanden) ──────────────────────────────────
+# kcadm gibt bei --noquotes zwei einfache CSV-Spalten ohne Header aus. Der
+# Parser toleriert zusätzlich einen Header und CRLF, damit Minor-Versionen des
+# Admin-CLI das Setup nicht unnötig brechen.
+find_id_by_exact_csv_value() {
+  local expected_value="$1"
+  local resource_id=""
+  local actual_value=""
+  local unexpected=""
+
+  while IFS=',' read -r resource_id actual_value unexpected ||
+    [ -n "$resource_id$actual_value$unexpected" ]; do
+    resource_id="${resource_id%$'\r'}"
+    actual_value="${actual_value%$'\r'}"
+    if [ -z "$unexpected" ] && [ "$actual_value" = "$expected_value" ]; then
+      printf '%s\n' "$resource_id"
+      return 0
+    fi
+  done
+
+  return 0
+}
+
 find_client_id() {
-  "$KCADM" get clients -r "$REALM" --fields id,clientId \
-    | awk -v expected="$CLIENT_ID" '
-        /\{/ { resource_id = ""; client_id = "" }
-        /"id"[[:space:]]*:/ {
-          resource_id = $0
-          sub(/^.*"id"[[:space:]]*:[[:space:]]*"/, "", resource_id)
-          sub(/".*$/, "", resource_id)
-        }
-        /"clientId"[[:space:]]*:/ {
-          client_id = $0
-          sub(/^.*"clientId"[[:space:]]*:[[:space:]]*"/, "", client_id)
-          sub(/".*$/, "", client_id)
-        }
-        /\}/ {
-          if (client_id == expected) {
-            print resource_id
-            exit
-          }
-        }
-      '
+  local rows=""
+
+  if ! rows="$(
+    "$KCADM" get clients -r "$REALM" \
+      -q "clientId=$CLIENT_ID" \
+      --fields id,clientId \
+      --format csv \
+      --noquotes
+  )"; then
+    return 1
+  fi
+
+  find_id_by_exact_csv_value "$CLIENT_ID" <<<"$rows"
 }
 
 EXISTING_CLIENT="$(find_client_id)"
@@ -142,28 +157,18 @@ fi
 # Rendezvous-Dienst akzeptiert ausschließlich die dedizierte Audience.
 find_audience_mapper_id() {
   local mapper_name="$1"
+  local rows=""
 
-  "$KCADM" get "clients/$CLIENT_UUID/protocol-mappers/models" -r "$REALM" \
-    --fields id,name \
-    | awk -v expected="$mapper_name" '
-        /\{/ { mapper_id = ""; mapper_name = "" }
-        /"id"[[:space:]]*:/ {
-          mapper_id = $0
-          sub(/^.*"id"[[:space:]]*:[[:space:]]*"/, "", mapper_id)
-          sub(/".*$/, "", mapper_id)
-        }
-        /"name"[[:space:]]*:/ {
-          mapper_name = $0
-          sub(/^.*"name"[[:space:]]*:[[:space:]]*"/, "", mapper_name)
-          sub(/".*$/, "", mapper_name)
-        }
-        /\}/ {
-          if (mapper_name == expected) {
-            print mapper_id
-            exit
-          }
-        }
-      '
+  if ! rows="$(
+    "$KCADM" get "clients/$CLIENT_UUID/protocol-mappers/models" -r "$REALM" \
+      --fields id,name \
+      --format csv \
+      --noquotes
+  )"; then
+    return 1
+  fi
+
+  find_id_by_exact_csv_value "$mapper_name" <<<"$rows"
 }
 
 upsert_audience_mapper() {
@@ -195,9 +200,7 @@ upsert_audience_mapper "ananta-hub-audience" "ananta-hub"
 upsert_audience_mapper "ananta-rendezvous-audience" "ananta-rendezvous"
 
 # ── Realm-Rolle 'ananta-user' ─────────────────────────────────────────────────
-EXISTING_ROLE=$($KCADM get roles -r "$REALM" --fields name \
-  | grep '"ananta-user"' || true)
-if [ -n "$EXISTING_ROLE" ]; then
+if "$KCADM" get "roles/ananta-user" -r "$REALM" >/dev/null 2>&1; then
   echo "Rolle 'ananta-user' existiert bereits."
 else
   echo "Erstelle Rolle 'ananta-user'..."

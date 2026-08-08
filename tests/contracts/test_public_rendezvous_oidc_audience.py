@@ -121,10 +121,8 @@ if args[:2] == ["create", "realms"]:
     save()
     raise SystemExit(0)
 if args[:2] == ["get", "clients"]:
-    clients = []
     if state["client"]:
-        clients.append({"clientId": "ananta-tui", "id": "11111111-1111-1111-1111-111111111111"})
-    print(json.dumps(clients, indent=2))
+        print("11111111-1111-1111-1111-111111111111,ananta-tui")
     raise SystemExit(0)
 if args[:2] == ["create", "clients"]:
     state["client"] = True
@@ -133,7 +131,8 @@ if args[:2] == ["create", "clients"]:
 if args and args[0] == "update" and args[1].startswith("clients/") and "/protocol-mappers/" not in args[1]:
     raise SystemExit(0)
 if args and args[0] == "get" and args[1].endswith("/protocol-mappers/models"):
-    print(json.dumps([{"id": item["id"], "name": item["name"]} for item in state["mappers"]], indent=2))
+    for item in state["mappers"]:
+        print(f'{item["id"]},{item["name"]}')
     raise SystemExit(0)
 if args and args[0] == "create" and args[1].endswith("/protocol-mappers/models"):
     state["mappers"].append({
@@ -150,8 +149,9 @@ if args and args[0] == "update" and "/protocol-mappers/models/" in args[1]:
     mapper["audience"] = setting('config.\"included.custom.audience\"')
     save()
     raise SystemExit(0)
-if args[:2] == ["get", "roles"]:
-    print(json.dumps([{"name": "ananta-user"}] if state["role"] else []))
+if args[:2] == ["get", "roles/ananta-user"]:
+    if not state["role"]:
+        raise SystemExit(1)
     raise SystemExit(0)
 if args[:2] == ["create", "roles"]:
     state["role"] = True
@@ -205,3 +205,76 @@ raise SystemExit(f"unexpected kcadm call: {args}")
     mapper_updates = [call for call in calls if call[:1] == ["update"] and "/protocol-mappers/models/" in call[1]]
     assert len(mapper_creates) == 2
     assert len(mapper_updates) == 2
+
+    csv_reads = [
+        call
+        for call in calls
+        if call[:1] == ["get"]
+        and (call[1] == "clients" or call[1].endswith("/protocol-mappers/models"))
+    ]
+    assert csv_reads
+    assert all("--format" in call and "csv" in call and "--noquotes" in call for call in csv_reads)
+    client_reads = [call for call in csv_reads if call[1] == "clients"]
+    assert all("clientId=ananta-tui" in call for call in client_reads)
+
+
+def test_setup_runs_with_only_bash_and_kcadm_available(tmp_path: Path):
+    fake_kcadm = tmp_path / "kcadm"
+    fake_kcadm.write_text(
+        """#!/bin/bash
+set -eu
+
+case "${1:-}:${2:-}" in
+  config:credentials|get:realms/ananta|add-roles:*)
+    exit 0
+    ;;
+  get:clients)
+    printf 'id,clientId\\n11111111-1111-1111-1111-111111111111,ananta-tui\\n'
+    exit 0
+    ;;
+  update:clients/11111111-1111-1111-1111-111111111111)
+    exit 0
+    ;;
+  get:clients/11111111-1111-1111-1111-111111111111/protocol-mappers/models)
+    printf 'id,name\\n'
+    printf '22222222-2222-2222-2222-000000000001,ananta-hub-audience\\n'
+    printf '22222222-2222-2222-2222-000000000002,ananta-rendezvous-audience\\n'
+    exit 0
+    ;;
+  update:clients/11111111-1111-1111-1111-111111111111/protocol-mappers/models/*)
+    exit 0
+    ;;
+  get:roles/ananta-user)
+    exit 0
+    ;;
+esac
+
+printf 'unexpected kcadm call:' >&2
+printf ' %q' "$@" >&2
+printf '\\n' >&2
+exit 64
+""",
+        encoding="utf-8",
+    )
+    fake_kcadm.chmod(0o700)
+
+    env = {
+        "PATH": str(tmp_path),
+        "KCADM": str(fake_kcadm),
+        "KC_URL": "http://keycloak.test.invalid",
+        "KC_BOOTSTRAP_ADMIN_PASSWORD": "test-only-admin-password",
+    }
+    completed = subprocess.run(
+        ["/bin/bash", str(SETUP_SCRIPT)],
+        check=True,
+        capture_output=True,
+        env=env,
+        text=True,
+    )
+
+    assert "Ananta Keycloak Setup abgeschlossen" in completed.stdout
+    assert "command not found" not in completed.stderr
+
+    setup = SETUP_SCRIPT.read_text(encoding="utf-8")
+    for unavailable_command in ("awk", "grep", "python", "python3", "seq"):
+        assert unavailable_command not in setup
