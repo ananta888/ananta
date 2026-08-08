@@ -45,6 +45,7 @@
       "attributes": {
         "oauth2.device.authorization.grant.enabled": "true",
         "oauth2.device.polling.interval": "5",
+        "pkce.code.challenge.method": "S256",
         "backchannel.logout.session.required": "true",
         "post.logout.redirect.uris": "+"
       },
@@ -84,6 +85,17 @@
           "consentRequired": false,
           "config": {
             "included.custom.audience": "ananta-hub",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "ananta-rendezvous-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "ananta-rendezvous",
             "access.token.claim": "true",
             "id.token.claim": "false"
           }

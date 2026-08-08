@@ -3,13 +3,13 @@
 Profile: public-ananta | local | offline | custom
 ENV-Werte überschreiben Repo-Defaults.
 """
+
 from __future__ import annotations
 
 import json
 import os
 from pathlib import Path
 from typing import Any
-
 
 _DEFAULT_PROFILES_FILE = Path(__file__).parent.parent.parent / "config" / "ananta_network_profiles.default.json"
 
@@ -42,7 +42,9 @@ def get_profile(profile_id: str | None = None) -> dict[str, Any]:
     for p in _load_default_profiles():
         if p.get("profile_id") == "local":
             return _apply_env_overrides(dict(p))
-    return _apply_env_overrides({"profile_id": "local", "label": "Local", "enabled_by_default": True, "oidc": {}, "rendezvous": {}, "turn": {}})
+    return _apply_env_overrides(
+        {"profile_id": "local", "label": "Local", "enabled_by_default": True, "oidc": {}, "rendezvous": {}, "turn": {}}
+    )
 
 
 def get_active_profile() -> dict[str, Any]:
@@ -51,6 +53,12 @@ def get_active_profile() -> dict[str, Any]:
 
 def is_public_profile_active() -> bool:
     return get_active_profile().get("profile_id") == "public-ananta"
+
+
+def operator_tui_strict_pair_supported() -> bool:
+    """Return the explicit profile capability for the TUI strict Pair adapter."""
+    capabilities = dict(get_active_profile().get("client_capabilities") or {})
+    return bool(capabilities.get("operator_tui_strict_pair", False))
 
 
 def _apply_env_overrides(profile: dict[str, Any]) -> dict[str, Any]:

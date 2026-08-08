@@ -116,21 +116,35 @@ services:
       start_period: 1800s
 
   rendezvous:
-    build: ../../public-rendezvous/rendezvous
+    image: ananta-public-rendezvous:deployed
+    pull_policy: never
+    build:
+      context: ../../public-rendezvous/rendezvous
+      args:
+        ANANTA_REVISION: ${ANANTA_REVISION:-unknown}
     restart: unless-stopped
     environment:
       OIDC_ISSUER: ${OIDC_ISSUER:-https://keycloak.ananta.de/realms/ananta}
       OIDC_ISSUERS_EXTRA: ${OIDC_ISSUERS_EXTRA:-}
-      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-ananta-hub}
+      # Dedicated resource audience; Hub compatibility remains an additional
+      # ananta-tui token audience configured in Keycloak.
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-ananta-rendezvous}
+      OIDC_JWKS_TTL: ${OIDC_JWKS_TTL:-300}
+      OIDC_JWKS_MAX_AGE_SECONDS: ${OIDC_JWKS_MAX_AGE_SECONDS:-600}
       TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:?set TURN_SHARED_SECRET in the environment file}
       TURN_REALM: ${PUBLIC_TURN_REALM:-ananta.de}
       TURN_URLS: ${TURN_URLS:-turn:webrtc.ananta.de:3478}
-      TURN_TTL_SECONDS: ${TURN_TTL_SECONDS:-3600}
+      TURN_TTL_SECONDS: ${TURN_TTL_SECONDS:-600}
       SESSION_MAX_DURATION_SECONDS: ${SESSION_MAX_DURATION_SECONDS:-3600}
       RENDEZVOUS_DB_PATH: ${RENDEZVOUS_DB_PATH:-/var/lib/ananta/rendezvous.db}
       RENDEZVOUS_DB_TIMEOUT_SECONDS: ${RENDEZVOUS_DB_TIMEOUT_SECONDS:-5.0}
-      RENDEZVOUS_SECURITY_SIGNING_SECRET: ${RENDEZVOUS_SECURITY_SIGNING_SECRET:-}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://127.0.0.1:4200,http://localhost:4200}
+      # Independent from TURN_SHARED_SECRET; config.py rejects missing, short,
+      # or reused key material before Gunicorn starts serving requests.
+      RENDEZVOUS_SECURITY_SIGNING_SECRET: ${RENDEZVOUS_SECURITY_SIGNING_SECRET:?set an independent RENDEZVOUS_SECURITY_SIGNING_SECRET in the environment file}
+      # Public Pair clients pin this authority. Keep it literal so changing an
+      # environment file cannot silently rotate both the seed and its policy.
+      RENDEZVOUS_EXPECTED_SIGNING_KEY_ID: "rv:796c1b35f1815ef88b439c40"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://127.0.0.1:4200,http://localhost:4200,https://127.0.0.1,https://localhost}
       LOG_LEVEL: ${RENDEZVOUS_LOG_LEVEL:-INFO}
     volumes:
       - public_rendezvous_data:/var/lib/ananta
@@ -143,7 +157,7 @@ services:
 
   # coturn needs host networking because it allocates UDP relay ports.
   # PUBLIC_TURN_EXTERNAL_IP should be "PUBLIC_IP/PRIVATE_IP", e.g.
-  # "79.76.105.53/10.0.1.233" for Oracle Cloud NAT.
+  # "89.168.123.128/10.0.1.79" for the current Oracle Cloud NAT.
   coturn:
     image: coturn/coturn:4.17.0@sha256:7df59bcd84800c3978da2dd0d7fb17a8179e77a8bf667f678813120a9f18b094
     restart: unless-stopped
@@ -158,7 +172,7 @@ services:
       - --listening-port=3478
       - --realm=${PUBLIC_TURN_REALM:-ananta.de}
       - --server-name=${PUBLIC_WEBRTC_HOSTNAME:-webrtc.ananta.de}
-      - --external-ip=${PUBLIC_TURN_EXTERNAL_IP:?set PUBLIC_TURN_EXTERNAL_IP, e.g. 79.76.105.53/10.0.1.233}
+      - --external-ip=${PUBLIC_TURN_EXTERNAL_IP:?set PUBLIC_TURN_EXTERNAL_IP, e.g. 89.168.123.128/10.0.1.79}
       - --listening-ip=0.0.0.0
       - --min-port=${PUBLIC_TURN_MIN_PORT:-49160}
       - --max-port=${PUBLIC_TURN_MAX_PORT:-49200}
@@ -168,6 +182,35 @@ services:
       # users: coturn lets shared-secret auth override that incompatible mode.
       - --use-auth-secret
       - --static-auth-secret=${TURN_SHARED_SECRET:?set TURN_SHARED_SECRET in the environment file}
+      # Bound credentials are short-lived, and coturn independently limits
+      # allocations/bandwidth and refuses SSRF-style internal peer targets.
+      - --stale-nonce=600
+      - --user-quota=4
+      - --total-quota=32
+      - --max-bps=4000000
+      - --bps-capacity=64000000
+      - --max-allocate-lifetime=600
+      - --permission-lifetime=300
+      - --channel-lifetime=300
+      - --no-multicast-peers
+      - --denied-peer-ip=0.0.0.0-0.255.255.255
+      - --denied-peer-ip=10.0.0.0-10.255.255.255
+      - --denied-peer-ip=100.64.0.0-100.127.255.255
+      - --denied-peer-ip=127.0.0.0-127.255.255.255
+      - --denied-peer-ip=169.254.0.0-169.254.255.255
+      - --denied-peer-ip=172.16.0.0-172.31.255.255
+      - --denied-peer-ip=192.0.0.0-192.0.0.255
+      - --denied-peer-ip=192.0.2.0-192.0.2.255
+      - --denied-peer-ip=192.168.0.0-192.168.255.255
+      - --denied-peer-ip=198.18.0.0-198.19.255.255
+      - --denied-peer-ip=198.51.100.0-198.51.100.255
+      - --denied-peer-ip=203.0.113.0-203.0.113.255
+      - --denied-peer-ip=224.0.0.0-255.255.255.255
+      - --denied-peer-ip=::1-::1
+      - --denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+      - --denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+      - --denied-peer-ip=ff00::-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+      - --denied-peer-ip=2001:db8::-2001:db8:ffff:ffff:ffff:ffff:ffff:ffff
       # CLI and DTLS are disabled by default in coturn 4.17. TURNS still needs
       # a coturn-owned certificate; Caddy's HTTPS certificate is insufficient.
       - --no-tls

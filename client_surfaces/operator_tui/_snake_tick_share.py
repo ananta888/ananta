@@ -4,19 +4,28 @@ Module-level functions take the mixin instance as first argument ``tui``.
 The mixin keeps thin delegating method wrappers so the public method
 contract (incl. monkeypatching on the class/instance) stays unchanged.
 """
+
 from __future__ import annotations
 
 import os
 from concurrent.futures import Future
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from client_surfaces.operator_tui.snake_tick_mixin import SnakeTickMixin
+_PUBLIC_OIDC_REQUIRED_MESSAGE = "oidc_auth_required: Für das aktive Public-Profil ist eine OIDC-Anmeldung erforderlich."
+
+
+def _require_public_oidc(game: dict, oidc_token: str) -> bool:
+    """Fail closed before a public session identifier can reach Hub APIs."""
+    if oidc_token:
+        return True
+    game["share_status_message"] = _PUBLIC_OIDC_REQUIRED_MESSAGE
+    return False
 
 
 def tick_oidc_device_flow(tui, game: dict, *, now: float) -> None:
     # Poller kommt aus dem globalen Sidecar (gesetzt von :oidc login)
     import client_surfaces.operator_tui.oidc_device_flow as _odf
+
     poller = getattr(_odf, "_active_poller", None)
     if poller is None:
         return
@@ -33,9 +42,11 @@ def tick_oidc_device_flow(tui, game: dict, *, now: float) -> None:
         game["oidc_token"] = state.access_token
         from client_surfaces.operator_tui.hub_loader import set_share_oidc_token
         from client_surfaces.operator_tui.network_profile import rendezvous_base_url
+
         rdv_url = rendezvous_base_url()
         set_share_oidc_token(state.access_token, rdv_url)
         from client_surfaces.operator_tui.snake_persistence import save_oidc_token
+
         save_oidc_token(state.access_token, issuer=state.issuer)
         game["oidc_device_flow"] = {"status": "done", "user_code": "", "verification_uri": "", "error": ""}
         poller.clear()
@@ -43,7 +54,9 @@ def tick_oidc_device_flow(tui, game: dict, *, now: float) -> None:
     elif state.status in ("error", "expired"):
         _odf._active_poller = None
 
+
 # ── Share Action Executor ─────────────────────────────────────────────────
+
 
 def tick_e2e_share_autorun(tui, game: dict, *, now: float) -> None:
     enabled = str(os.environ.get("ANANTA_TUI_E2E_SHARE_AUTORUN") or "").strip().lower() in {"1", "true", "yes", "on"}
@@ -56,6 +69,7 @@ def tick_e2e_share_autorun(tui, game: dict, *, now: float) -> None:
 
     if stage == "init":
         from client_surfaces.operator_tui.device_keys import get_device_key_manager
+
         try:
             mgr = get_device_key_manager()
             if not mgr.key_exists():
@@ -92,12 +106,14 @@ def tick_e2e_share_autorun(tui, game: dict, *, now: float) -> None:
 
     game["_e2e_share_autorun"] = state
 
+
 def get_share_action_futures(tui) -> list[Future]:
     futures: list[Future] | None = getattr(tui, "_share_action_futures", None)
     if futures is None:
         futures = []
         tui._share_action_futures = futures
     return futures
+
 
 def collect_share_action_results(tui, game: dict) -> None:
     futures = tui._get_share_action_futures()
@@ -120,6 +136,7 @@ def collect_share_action_results(tui, game: dict) -> None:
                 game[key] = result[key]
     tui._share_action_futures = pending
 
+
 def run_share_action(
     tui,
     action: Any,
@@ -131,6 +148,7 @@ def run_share_action(
     result_game: dict[str, Any] = {}
     action(result_game, oidc_token, hub_raw, endpoint, *args)
     return result_game
+
 
 def tick_share_pending_action(tui, game: dict, *, now: float) -> None:
     tui._collect_share_action_results(game)
@@ -144,21 +162,21 @@ def tick_share_pending_action(tui, game: dict, *, now: float) -> None:
     oidc_token = str(game.get("oidc_token") or "").strip()
     if not oidc_token:
         oidc_token = str(
-            os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN")
-            or os.environ.get("ANANTA_TUI_OIDC_TOKEN")
-            or ""
+            os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN") or os.environ.get("ANANTA_TUI_OIDC_TOKEN") or ""
         ).strip()
         if oidc_token:
             game["oidc_token"] = oidc_token
             try:
                 from client_surfaces.operator_tui.hub_loader import set_share_oidc_token
                 from client_surfaces.operator_tui.network_profile import rendezvous_base_url
+
                 set_share_oidc_token(oidc_token, rendezvous_base_url())
             except Exception:
                 pass
     endpoint = str(tui.state.endpoint or "")
     # Hub-Passwort aus Env oder .env lesen — JWT-Auflösung erfolgt im bg-Thread
     import os as _os
+
     _hub_raw = (
         _os.environ.get("ANANTA_AUTH_TOKEN")
         or _os.environ.get("ANANTA_PASSWORD")
@@ -167,6 +185,7 @@ def tick_share_pending_action(tui, game: dict, *, now: float) -> None:
     )
     if not _hub_raw:
         from client_surfaces.operator_tui.app import _load_env_file as _lef
+
         _dotenv = _lef()
         _hub_raw = (
             _dotenv.get("ANANTA_AUTH_TOKEN")
@@ -212,33 +231,51 @@ def tick_share_pending_action(tui, game: dict, *, now: float) -> None:
                 _bg.submit(tui._run_share_action, tui._share_action_stop, oidc_token, hub_raw, endpoint, session_id)
             )
 
+
 def resolve_hub_jwt(hub_raw: str, endpoint: str) -> str:
     """Löst Passwort/Token zu Hub-JWT auf. Leerer String wenn nicht möglich."""
     if not hub_raw or not endpoint:
         return ""
     from client_surfaces.operator_tui.hub_loader import resolve_token
+
     try:
         import os
+
         username = os.environ.get("ANANTA_USER") or os.environ.get("INITIAL_ADMIN_USER") or "admin"
         if not username or username == "admin":
             from client_surfaces.operator_tui.app import _load_env_file
+
             _env = _load_env_file()
             username = _env.get("ANANTA_USER") or _env.get("INITIAL_ADMIN_USER") or "admin"
         return resolve_token(endpoint, hub_raw)
     except Exception as exc:
         return f"__error__:{exc}"
 
+
 def append_share_audit(game: dict, text: str) -> None:
     items = list(game.get("share_audit_items") or [])
     import time as _time
+
     items.append({"ts": _time.strftime("%Y-%m-%dT%H:%M:%S"), "text": str(text or "")})
     game["share_audit_items"] = items[-20:]
 
+
 def share_action_create(tui, game: dict, oidc_token: str, hub_raw: str, endpoint: str, title: str) -> None:
     from client_surfaces.operator_tui.device_keys import get_device_key_manager
-    from client_surfaces.operator_tui.network_profile import is_public_profile_active, oidc_issuer, rendezvous_base_url
-    from client_surfaces.operator_tui.share_client import create_session, create_hub_session
+    from client_surfaces.operator_tui.network_profile import (
+        is_public_profile_active,
+        oidc_issuer,
+        operator_tui_strict_pair_supported,
+        rendezvous_base_url,
+    )
+    from client_surfaces.operator_tui.share_client import create_hub_session, create_session
     from client_surfaces.operator_tui.share_invite import build_invite
+
+    if is_public_profile_active() and not operator_tui_strict_pair_supported():
+        game["share_status_message"] = (
+            "strict_pair_adapter_required: Public Create ist derzeit nur in Angular Pair-Dev verfügbar."
+        )
+        return
     mgr = get_device_key_manager()
     fp = mgr.get_fingerprint() if mgr.key_exists() else ""
     if not fp:
@@ -281,11 +318,16 @@ def share_action_create(tui, game: dict, oidc_token: str, hub_raw: str, endpoint
     except Exception as exc:
         game["share_status_message"] = f"Fehler beim Erstellen: {exc}"
 
+
 def share_action_list(tui, game: dict, oidc_token: str, hub_raw: str, endpoint: str) -> None:
     from client_surfaces.operator_tui.network_profile import is_public_profile_active, rendezvous_base_url
-    from client_surfaces.operator_tui.share_client import list_sessions, list_hub_sessions
+    from client_surfaces.operator_tui.share_client import list_hub_sessions, list_sessions
+
     try:
-        if is_public_profile_active() and oidc_token:
+        public_profile = is_public_profile_active()
+        if public_profile and not _require_public_oidc(game, oidc_token):
+            return
+        if public_profile:
             sessions = list_sessions(token=oidc_token, base_url=rendezvous_base_url())
         else:
             hub_jwt = tui._resolve_hub_jwt(hub_raw, endpoint)
@@ -311,11 +353,22 @@ def share_action_list(tui, game: dict, oidc_token: str, hub_raw: str, endpoint: 
     except Exception as exc:
         game["share_status_message"] = f"Fehler beim Laden der Sessions: {exc}"
 
+
 def share_action_join(tui, game: dict, oidc_token: str, hub_raw: str, endpoint: str, invite_code: str) -> None:
     from client_surfaces.operator_tui.device_keys import get_device_key_manager
-    from client_surfaces.operator_tui.network_profile import rendezvous_base_url, is_public_profile_active
-    from client_surfaces.operator_tui.share_client import join_session, join_hub_session
+    from client_surfaces.operator_tui.network_profile import (
+        is_public_profile_active,
+        operator_tui_strict_pair_supported,
+        rendezvous_base_url,
+    )
+    from client_surfaces.operator_tui.share_client import join_hub_session, join_session
     from client_surfaces.operator_tui.share_invite import parse_invite
+
+    if is_public_profile_active() and not operator_tui_strict_pair_supported():
+        game["share_status_message"] = (
+            "strict_pair_adapter_required: Public Join ist derzeit nur in Angular Pair-Dev verfügbar."
+        )
+        return
     mgr = get_device_key_manager()
     fp = mgr.get_fingerprint() if mgr.key_exists() else ""
     # Invite-Link parsen falls ananta://-Format
@@ -365,11 +418,34 @@ def share_action_join(tui, game: dict, oidc_token: str, hub_raw: str, endpoint: 
     except Exception as exc:
         game["share_status_message"] = f"Fehler beim Beitreten: {exc}"
 
-def share_action_set_view(tui, game: dict, oidc_token: str, hub_raw: str, endpoint: str, session_id: str, enabled: bool) -> None:
+
+def share_action_set_view(
+    tui,
+    game: dict,
+    oidc_token: str,
+    hub_raw: str,
+    endpoint: str,
+    session_id: str,
+    enabled: bool,
+) -> None:
     try:
-        from client_surfaces.operator_tui.network_profile import is_public_profile_active, rendezvous_base_url
-        if is_public_profile_active() and oidc_token:
+        from client_surfaces.operator_tui.network_profile import (
+            is_public_profile_active,
+            operator_tui_strict_pair_supported,
+            rendezvous_base_url,
+        )
+
+        public_profile = is_public_profile_active()
+        if public_profile and not _require_public_oidc(game, oidc_token):
+            return
+        if public_profile and not operator_tui_strict_pair_supported():
+            game["share_status_message"] = (
+                "strict_pair_adapter_required: Public View ist derzeit nur in Angular Pair-Dev verfügbar."
+            )
+            return
+        if public_profile:
             from client_surfaces.operator_tui.share_client import update_session_permissions
+
             result = update_session_permissions(
                 token=oidc_token,
                 session_id=session_id,
@@ -385,14 +461,17 @@ def share_action_set_view(tui, game: dict, oidc_token: str, hub_raw: str, endpoi
         else:
             hub_jwt = tui._resolve_hub_jwt(hub_raw, endpoint)
             if not hub_jwt or hub_jwt.startswith("__error__:"):
-                game["share_status_message"] = f"Kein Hub-Token: {hub_jwt[10:] if hub_jwt.startswith('__error__:') else 'fehlt'}"
+                hub_error = hub_jwt[10:] if hub_jwt.startswith("__error__:") else "fehlt"
+                game["share_status_message"] = f"Kein Hub-Token: {hub_error}"
                 return
             import json as _json
             import urllib.request
+
             url = f"{endpoint.rstrip('/')}/share-sessions/{session_id}/permissions"
             body = _json.dumps({"permissions": {"view_tui": enabled}}).encode()
             req = urllib.request.Request(
-                url, data=body,
+                url,
+                data=body,
                 headers={"Authorization": f"Bearer {hub_jwt}", "Content-Type": "application/json"},
                 method="PATCH",
             )
@@ -404,11 +483,16 @@ def share_action_set_view(tui, game: dict, oidc_token: str, hub_raw: str, endpoi
     except Exception as exc:
         game["share_status_message"] = f"View-Share Fehler: {exc}"
 
+
 def share_action_stop(tui, game: dict, oidc_token: str, hub_raw: str, endpoint: str, session_id: str) -> None:
     from client_surfaces.operator_tui.network_profile import is_public_profile_active, rendezvous_base_url
     from client_surfaces.operator_tui.share_client import revoke_session
+
     try:
-        if is_public_profile_active() and oidc_token:
+        public_profile = is_public_profile_active()
+        if public_profile and not _require_public_oidc(game, oidc_token):
+            return
+        if public_profile:
             revoke_session(token=oidc_token, session_id=session_id, base_url=rendezvous_base_url())
         else:
             hub_jwt = tui._resolve_hub_jwt(hub_raw, endpoint)
@@ -416,10 +500,9 @@ def share_action_stop(tui, game: dict, oidc_token: str, hub_raw: str, endpoint: 
                 game["share_status_message"] = "Stop fehlgeschlagen: kein Hub-Token."
                 return
             import urllib.request
+
             url = f"{endpoint.rstrip('/')}/share-sessions/{session_id}"
-            req = urllib.request.Request(
-                url, headers={"Authorization": f"Bearer {hub_jwt}"}, method="DELETE"
-            )
+            req = urllib.request.Request(url, headers={"Authorization": f"Bearer {hub_jwt}"}, method="DELETE")
             with urllib.request.urlopen(req, timeout=5):
                 pass
         game.pop("share_active_session", None)

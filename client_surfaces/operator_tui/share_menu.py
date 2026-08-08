@@ -3,6 +3,7 @@
 Zeigt OIDC-Status, Device-Key-Status, aktive Share-Sessions und Teilnehmer.
 Klickbare Buttons im Format  [▶ :command]  — erkennbar für den Maus-Click-Handler.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,7 +13,11 @@ from pathlib import Path
 from typing import Any
 
 from client_surfaces.operator_tui.device_keys import DeviceKeyError, get_device_key_manager
-from client_surfaces.operator_tui.network_profile import get_active_profile, is_public_profile_active
+from client_surfaces.operator_tui.network_profile import (
+    get_active_profile,
+    is_public_profile_active,
+    operator_tui_strict_pair_supported,
+)
 
 _ANSI = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-9;?]*[ -/]*[@-~])")
 # Muster für Maus-Click-Handler: [▶ :command]
@@ -58,6 +63,8 @@ def build_share_section_lines(
     if is_public_profile_active():
         lines.append("  \x1b[33m[!] PUBLIC RENDEZVOUS: keycloak.ananta.de + webrtc.ananta.de\x1b[0m")
         lines.append("  \x1b[33m    Routing-Metadaten sichtbar. Inhalte E2E-verschlüsselt.\x1b[0m")
+        if not operator_tui_strict_pair_supported():
+            lines.append("  \x1b[33m    strict_pair_adapter_required: Create/Join nur in Angular Pair-Dev.\x1b[0m")
     else:
         lines.append(f"  Profil: \x1b[36m{profile_id}\x1b[0m   {_btn(':oidc login', 'OIDC-Login starten')}")
     lines.append("")
@@ -83,7 +90,7 @@ def build_share_section_lines(
         if oidc_issuer_str:
             lines.append(f"  \x1b[90m{oidc_issuer_str}\x1b[0m")
     else:
-        lines.append(f"  OIDC: \x1b[90mnicht eingeloggt\x1b[0m")
+        lines.append("  OIDC: \x1b[90mnicht eingeloggt\x1b[0m")
         lines.append(f"  {_btn(':oidc login', 'mit Keycloak einloggen')}")
     lines.append("")
 
@@ -107,7 +114,9 @@ def build_share_section_lines(
     # Status-Meldung vom Action Executor
     status_msg = str(payload.get("share_status_message") or "")
     if status_msg:
-        color = "\x1b[31m" if any(w in status_msg.lower() for w in ("fehler", "fehlgeschlagen", "error")) else "\x1b[32m"
+        color = (
+            "\x1b[31m" if any(w in status_msg.lower() for w in ("fehler", "fehlgeschlagen", "error")) else "\x1b[32m"
+        )
         lines.append(f"  {color}{status_msg}\x1b[0m")
         lines.append("")
 
@@ -139,6 +148,7 @@ def _session_overview_lines(payload: dict[str, Any], width: int) -> list[str]:
     sessions_mine: list[dict[str, Any]] = list(payload.get("sessions_mine") or [])
     sessions_joined: list[dict[str, Any]] = list(payload.get("sessions_joined") or [])
     active_id = str((payload.get("selected_session") or {}).get("id") or "")
+    public_tui_blocked = is_public_profile_active() and not operator_tui_strict_pair_supported()
 
     # Trennlinie
     def _rule(label: str) -> str:
@@ -152,17 +162,20 @@ def _session_overview_lines(payload: dict[str, Any], width: int) -> list[str]:
             lines.append(_session_row(s, width, active_id=active_id))
         if len(sessions_mine) > 8:
             lines.append(f"  \x1b[90m  … {len(sessions_mine) - 8} weitere\x1b[0m")
-        lines.append(
-            f"  {_btn(':share invite', 'Invite')}  "
-            f"{_btn(':share view on', 'View an')}  "
-            f"{_btn(':share stop', 'beenden')}"
-        )
+        if public_tui_blocked:
+            lines.append(f"  {_btn(':share stop', 'beenden')}  \x1b[90m(read-only im TUI)\x1b[0m")
+        else:
+            lines.append(
+                f"  {_btn(':share invite', 'Invite')}  "
+                f"{_btn(':share view on', 'View an')}  "
+                f"{_btn(':share stop', 'beenden')}"
+            )
     else:
         lines.append("  \x1b[90m(keine)\x1b[0m")
-    lines.append(
-        f"  {_btn(':share create', 'neue Session')}  "
-        f"{_btn(':share list', 'aktualisieren')}"
-    )
+    if public_tui_blocked:
+        lines.append(f"  {_btn(':share list', 'aktualisieren')}")
+    else:
+        lines.append(f"  {_btn(':share create', 'neue Session')}  {_btn(':share list', 'aktualisieren')}")
     lines.append("")
 
     # ── Beigetreten
@@ -178,10 +191,12 @@ def _session_overview_lines(payload: dict[str, Any], width: int) -> list[str]:
                 lines.append(f"    \x1b[36m{owner}\x1b[0m")
             for s in owner_sessions[:5]:
                 lines.append(_session_row(s, width, active_id=active_id, show_owner=len(by_owner) == 1))
-        lines.append(f"  {_btn(':share join', 'beitreten')}")
+        if not public_tui_blocked:
+            lines.append(f"  {_btn(':share join', 'beitreten')}")
     else:
         lines.append("  \x1b[90m(keine)\x1b[0m")
-        lines.append(f"  {_btn(':share join <code>', 'per Invite-Code beitreten')}")
+        if not public_tui_blocked:
+            lines.append(f"  {_btn(':share join <code>', 'per Invite-Code beitreten')}")
     lines.append("")
 
     # Teilnehmerliste der ausgewählten Session
@@ -260,5 +275,6 @@ def import_public_key(fingerprint_or_pem: str, user_id: str, *, key_store_dir: P
 
 def _default_key_store() -> Path:
     import os
+
     config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
     return config_home / "ananta" / "peer-keys"

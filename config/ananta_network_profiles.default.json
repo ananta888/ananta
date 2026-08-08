@@ -9,6 +9,10 @@
       "enabled_by_default": false,
       "requires_explicit_opt_in": true,
       "public_rendezvous": true,
+      "client_capabilities": {
+        "angular_pair_dev_strict_pair": true,
+        "operator_tui_strict_pair": false
+      },
       "warning": "Dieses Profil nutzt öffentliche Ananta-Testserver. Routing-/Session-Metadaten sind für den Betreiber sichtbar. Inhalte müssen E2E-verschlüsselt werden. Nutzung nur begrenzt und experimentell.",
       "oidc": {
         "issuer": "https://keycloak.ananta.de/realms/ananta",
@@ -19,7 +23,7 @@
       "rendezvous": {
         "base_url": "https://webrtc.ananta.de",
         "signaling_url": "wss://webrtc.ananta.de/signaling",
-        "transport_order": ["webrtc", "hub_relay"],
+        "transport_order": ["webrtc"],
         "require_e2e_payload_encryption": true
       },
       "ice_servers": [

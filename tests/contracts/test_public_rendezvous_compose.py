@@ -7,16 +7,15 @@ ROOT = Path(__file__).resolve().parents[2]
 COMPOSE = ROOT / "docker/old_way/docker-compose.public-rendezvous.yml"
 KEYCLOAK_CONTAINERFILE = ROOT / "public-rendezvous/keycloak/Containerfile"
 KEYCLOAK_BASE = (
-    "quay.io/keycloak/keycloak:26.6.1@"
-    "sha256:dea26401d06341095cc4ea9d66896200b55de5ca1daa1d2fcbe58493afa6e0ad"
+    "quay.io/keycloak/keycloak:26.6.1@sha256:dea26401d06341095cc4ea9d66896200b55de5ca1daa1d2fcbe58493afa6e0ad"
 )
 KEYCLOAK_IMAGE = "ananta-keycloak:26.6.1-optimized-v1"
 KEYCLOAK_REALM = ROOT / "public-rendezvous/keycloak/ananta-realm.json"
 KEYCLOAK_SETUP = ROOT / "public-rendezvous/keycloak/setup.sh"
-KEYCLOAK_LOGIN_THEME = (
-    ROOT / "public-rendezvous/keycloak-themes/ananta-minimal/login/theme.properties"
-)
+KEYCLOAK_LOGIN_THEME = ROOT / "public-rendezvous/keycloak-themes/ananta-minimal/login/theme.properties"
 NGINX_CONFIG = ROOT / "docker/nginx/conf.d/default.conf"
+RENDEZVOUS_DOCKERFILE = ROOT / "public-rendezvous/rendezvous/Dockerfile"
+RENDEZVOUS_PYTHON_BASE = "python:3.12-slim@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142b1877b5830d36"
 
 
 def _services() -> dict:
@@ -85,8 +84,7 @@ def test_public_edge_waits_for_healthy_backends_and_bind_mounts_are_selinux_safe
     assert services["caddy"]["volumes"][0].endswith(":ro,Z")
     assert services["keycloak"]["volumes"][0].endswith(":ro,Z")
     assert services["keycloak"]["volumes"][1] == (
-        "../../public-rendezvous/keycloak-themes/ananta-minimal:"
-        "/opt/keycloak/themes/ananta-minimal:ro,Z"
+        "../../public-rendezvous/keycloak-themes/ananta-minimal:/opt/keycloak/themes/ananta-minimal:ro,Z"
     )
 
 
@@ -102,9 +100,7 @@ def test_public_keycloak_login_theme_limits_locale_warmup():
 def test_public_tui_client_explicitly_allows_pair_dev_origins():
     realm = json.loads(KEYCLOAK_REALM.read_text(encoding="utf-8"))
     setup = KEYCLOAK_SETUP.read_text(encoding="utf-8")
-    tui_client = next(
-        client for client in realm["clients"] if client["clientId"] == "ananta-tui"
-    )
+    tui_client = next(client for client in realm["clients"] if client["clientId"] == "ananta-tui")
 
     assert tui_client["webOrigins"] == [
         "http://localhost:4200",
@@ -114,12 +110,15 @@ def test_public_tui_client_explicitly_allows_pair_dev_origins():
     ]
     assert "+" not in tui_client["webOrigins"]
     assert "*" not in tui_client["webOrigins"]
+    assert tui_client["fullScopeAllowed"] is False
+    assert tui_client["attributes"]["pkce.code.challenge.method"] == "S256"
     assert 'webOrigins=["+"]' not in setup
     expected_setup_origins = (
-        'webOrigins=["http://localhost:4200","http://127.0.0.1:4200",'
-        '"https://localhost","https://127.0.0.1"]'
+        'webOrigins=["http://localhost:4200","http://127.0.0.1:4200","https://localhost","https://127.0.0.1"]'
     )
     assert setup.count(expected_setup_origins) == 2
+    assert setup.count('-s "fullScopeAllowed=false"') == 2
+    assert setup.count('-s "attributes.\\"pkce.code.challenge.method\\"=S256"') == 2
 
     for redirect_uri in (
         "https://localhost/oidc-callback",
@@ -153,3 +152,57 @@ def test_public_coturn_accepts_rendezvous_rest_credentials_only():
     assert "--no-dtls" not in command
     assert "--dtls" not in command
     assert not any(item.startswith("--tls-listening-port=") for item in command)
+
+
+def test_public_coturn_limits_relay_abuse_and_denies_internal_peer_targets():
+    command = _services()["coturn"]["command"]
+
+    assert "--user-quota=4" in command
+    assert "--total-quota=32" in command
+    assert "--max-bps=4000000" in command
+    assert "--bps-capacity=64000000" in command
+    assert "--max-allocate-lifetime=600" in command
+    assert "--permission-lifetime=300" in command
+    assert "--channel-lifetime=300" in command
+    assert "--no-multicast-peers" in command
+    for denied_range in (
+        "0.0.0.0-0.255.255.255",
+        "10.0.0.0-10.255.255.255",
+        "127.0.0.0-127.255.255.255",
+        "169.254.0.0-169.254.255.255",
+        "172.16.0.0-172.31.255.255",
+        "192.168.0.0-192.168.255.255",
+        "224.0.0.0-255.255.255.255",
+        "::1-::1",
+        "fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+        "fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+        "ff00::-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+    ):
+        assert f"--denied-peer-ip={denied_range}" in command
+
+
+def test_public_rendezvous_requires_independent_signing_secret_and_exact_origins():
+    rendezvous = _services()["rendezvous"]
+    environment = rendezvous["environment"]
+
+    assert rendezvous["image"] == "ananta-public-rendezvous:deployed"
+    assert rendezvous["pull_policy"] == "never"
+    assert rendezvous["build"] == {
+        "context": "../../public-rendezvous/rendezvous",
+        "args": {"ANANTA_REVISION": "${ANANTA_REVISION:-unknown}"},
+    }
+    signing_secret = environment["RENDEZVOUS_SECURITY_SIGNING_SECRET"]
+    assert signing_secret.startswith("${RENDEZVOUS_SECURITY_SIGNING_SECRET:?")
+    assert "TURN_SHARED_SECRET" not in signing_secret
+    assert environment["RENDEZVOUS_EXPECTED_SIGNING_KEY_ID"] == "rv:796c1b35f1815ef88b439c40"
+    assert environment["CORS_ALLOWED_ORIGINS"] == (
+        "${CORS_ALLOWED_ORIGINS:-http://127.0.0.1:4200,http://localhost:4200,https://127.0.0.1,https://localhost}"
+    )
+    assert environment["OIDC_JWKS_TTL"] == "${OIDC_JWKS_TTL:-300}"
+    assert environment["OIDC_JWKS_MAX_AGE_SECONDS"] == "${OIDC_JWKS_MAX_AGE_SECONDS:-600}"
+
+    dockerfile = RENDEZVOUS_DOCKERFILE.read_text(encoding="utf-8")
+    assert dockerfile.startswith(f"FROM {RENDEZVOUS_PYTHON_BASE}\n")
+    assert "ARG ANANTA_REVISION=unknown" in dockerfile
+    assert 'LABEL org.opencontainers.image.revision="${ANANTA_REVISION}"' in dockerfile
+    assert "COPY config.py oidc_auth.py pair_security.py service.py app.py ./" in dockerfile

@@ -10,7 +10,7 @@
 #   docker compose -f docker/old_way/docker-compose.public-rendezvous.yml \
 #     exec keycloak bash /opt/keycloak/data/import/setup.sh
 #
-# Das Script ist idempotent: bereits vorhandene Objekte werden übersprungen.
+# Das Script ist idempotent: bereits vorhandene Objekte werden angeglichen.
 # Voraussetzung: Keycloak läuft und ist erreichbar.
 
 set -euo pipefail
@@ -22,35 +22,33 @@ KC_ADMIN_PASSWORD="${KC_BOOTSTRAP_ADMIN_PASSWORD:-${KEYCLOAK_ADMIN_PASSWORD:-}}"
 REALM="ananta"
 CLIENT_ID="ananta-tui"
 
-KCADM="/opt/keycloak/bin/kcadm.sh"
+KCADM="${KCADM:-/opt/keycloak/bin/kcadm.sh}"
 
 if [ -z "$KC_ADMIN_PASSWORD" ]; then
   echo "ERROR: KC_ADMIN_PASSWORD (oder KEYCLOAK_ADMIN_PASSWORD) muss gesetzt sein." >&2
   exit 1
 fi
 
-# ── Warten bis Keycloak bereit ist ───────────────────────────────────────────
-echo "Warte auf Keycloak ($KC_URL)..."
+# ── Auf Keycloak warten und Admin-Login durchführen ───────────────────────────
+# Das schlanke Keycloak-Image enthält absichtlich kein curl. Der kcadm-Login
+# prüft zugleich die Admin-API und vermeidet eine zweite Health-Check-Abhängigkeit.
+echo "Warte auf Keycloak und Admin-API ($KC_URL)..."
 for i in $(seq 1 30); do
-  if curl -sf "$KC_URL/health/ready" >/dev/null 2>&1; then
-    echo "Keycloak bereit."
+  if "$KCADM" config credentials \
+    --server "$KC_URL" \
+    --realm master \
+    --user "$KC_ADMIN" \
+    --password "$KC_ADMIN_PASSWORD" \
+    --client admin-cli >/dev/null 2>&1; then
+    echo "Keycloak bereit, Admin-Login erfolgreich."
     break
   fi
   if [ "$i" -eq 30 ]; then
-    echo "ERROR: Keycloak nicht erreichbar nach 30 Versuchen." >&2
+    echo "ERROR: Keycloak-Admin-API nicht erreichbar oder Zugang ungültig nach 30 Versuchen." >&2
     exit 1
   fi
   sleep 2
 done
-
-# ── Admin-Login ───────────────────────────────────────────────────────────────
-echo "Admin-Login..."
-$KCADM config credentials \
-  --server "$KC_URL" \
-  --realm master \
-  --user "$KC_ADMIN" \
-  --password "$KC_ADMIN_PASSWORD" \
-  --client admin-cli
 
 # ── Realm erstellen (falls nicht vorhanden) ───────────────────────────────────
 if $KCADM get realms/$REALM >/dev/null 2>&1; then
@@ -77,8 +75,30 @@ else
 fi
 
 # ── Client erstellen (falls nicht vorhanden) ──────────────────────────────────
-EXISTING_CLIENT=$($KCADM get clients -r "$REALM" --fields clientId,id \
-  | grep -A1 "\"clientId\" : \"$CLIENT_ID\"" | grep '"id"' | grep -oE '"[0-9a-f-]{36}"' | tr -d '"' || true)
+find_client_id() {
+  "$KCADM" get clients -r "$REALM" --fields id,clientId \
+    | awk -v expected="$CLIENT_ID" '
+        /\{/ { resource_id = ""; client_id = "" }
+        /"id"[[:space:]]*:/ {
+          resource_id = $0
+          sub(/^.*"id"[[:space:]]*:[[:space:]]*"/, "", resource_id)
+          sub(/".*$/, "", resource_id)
+        }
+        /"clientId"[[:space:]]*:/ {
+          client_id = $0
+          sub(/^.*"clientId"[[:space:]]*:[[:space:]]*"/, "", client_id)
+          sub(/".*$/, "", client_id)
+        }
+        /\}/ {
+          if (client_id == expected) {
+            print resource_id
+            exit
+          }
+        }
+      '
+}
+
+EXISTING_CLIENT="$(find_client_id)"
 
 if [ -n "$EXISTING_CLIENT" ]; then
   echo "Client '$CLIENT_ID' existiert bereits (id=$EXISTING_CLIENT), Einstellungen werden aktualisiert..."
@@ -88,8 +108,10 @@ if [ -n "$EXISTING_CLIENT" ]; then
     -s "publicClient=true" \
     -s "standardFlowEnabled=true" \
     -s "directAccessGrantsEnabled=false" \
+    -s "fullScopeAllowed=false" \
     -s "attributes.\"oauth2.device.authorization.grant.enabled\"=true" \
     -s "attributes.\"oauth2.device.polling.interval\"=5" \
+    -s "attributes.\"pkce.code.challenge.method\"=S256" \
     -s 'redirectUris=["http://localhost:*","http://127.0.0.1:*","https://localhost/oidc-callback","https://127.0.0.1/oidc-callback","ananta://*"]' \
     -s 'webOrigins=["http://localhost:4200","http://127.0.0.1:4200","https://localhost","https://127.0.0.1"]'
 else
@@ -103,33 +125,74 @@ else
     -s "directAccessGrantsEnabled=false" \
     -s "attributes.\"oauth2.device.authorization.grant.enabled\"=true" \
     -s "attributes.\"oauth2.device.polling.interval\"=5" \
+    -s "attributes.\"pkce.code.challenge.method\"=S256" \
     -s 'redirectUris=["http://localhost:*","http://127.0.0.1:*","https://localhost/oidc-callback","https://127.0.0.1/oidc-callback","ananta://*"]' \
     -s 'webOrigins=["http://localhost:4200","http://127.0.0.1:4200","https://localhost","https://127.0.0.1"]' \
     -s "fullScopeAllowed=false"
-  CLIENT_UUID=$($KCADM get clients -r "$REALM" --fields clientId,id \
-    | grep -A1 "\"clientId\" : \"$CLIENT_ID\"" | grep '"id"' | grep -oE '"[0-9a-f-]{36}"' | tr -d '"')
+  CLIENT_UUID="$(find_client_id)"
+  if [ -z "$CLIENT_UUID" ]; then
+    echo "ERROR: Client '$CLIENT_ID' wurde erstellt, konnte aber nicht erneut geladen werden." >&2
+    exit 1
+  fi
   echo "Client '$CLIENT_ID' erstellt (id=$CLIENT_UUID)."
 fi
 
-# ── Audience-Mapper (ananta-hub) ──────────────────────────────────────────────
-MAPPER_NAME="ananta-hub-audience"
-EXISTING_MAPPER=$($KCADM get "clients/$CLIENT_UUID/protocol-mappers/models" -r "$REALM" \
-  | grep "\"$MAPPER_NAME\"" || true)
+# ── Additive Access-Token-Audiences ───────────────────────────────────────────
+# ananta-hub bleibt für bestehende Hub-Aufrufer erhalten. Der öffentliche
+# Rendezvous-Dienst akzeptiert ausschließlich die dedizierte Audience.
+find_audience_mapper_id() {
+  local mapper_name="$1"
 
-if [ -n "$EXISTING_MAPPER" ]; then
-  echo "Audience-Mapper '$MAPPER_NAME' existiert bereits."
-else
-  echo "Erstelle Audience-Mapper '$MAPPER_NAME'..."
-  $KCADM create "clients/$CLIENT_UUID/protocol-mappers/models" -r "$REALM" \
-    -s "name=$MAPPER_NAME" \
-    -s "protocol=openid-connect" \
-    -s "protocolMapper=oidc-audience-mapper" \
-    -s "consentRequired=false" \
-    -s 'config."included.custom.audience"=ananta-hub' \
-    -s 'config."access.token.claim"=true' \
+  "$KCADM" get "clients/$CLIENT_UUID/protocol-mappers/models" -r "$REALM" \
+    --fields id,name \
+    | awk -v expected="$mapper_name" '
+        /\{/ { mapper_id = ""; mapper_name = "" }
+        /"id"[[:space:]]*:/ {
+          mapper_id = $0
+          sub(/^.*"id"[[:space:]]*:[[:space:]]*"/, "", mapper_id)
+          sub(/".*$/, "", mapper_id)
+        }
+        /"name"[[:space:]]*:/ {
+          mapper_name = $0
+          sub(/^.*"name"[[:space:]]*:[[:space:]]*"/, "", mapper_name)
+          sub(/".*$/, "", mapper_name)
+        }
+        /\}/ {
+          if (mapper_name == expected) {
+            print mapper_id
+            exit
+          }
+        }
+      '
+}
+
+upsert_audience_mapper() {
+  local mapper_name="$1"
+  local audience="$2"
+  local mapper_id
+  local mapper_collection="clients/$CLIENT_UUID/protocol-mappers/models"
+  local -a desired=(
+    -s "name=$mapper_name"
+    -s "protocol=openid-connect"
+    -s "protocolMapper=oidc-audience-mapper"
+    -s "consentRequired=false"
+    -s "config.\"included.custom.audience\"=$audience"
+    -s 'config."access.token.claim"=true'
     -s 'config."id.token.claim"=false'
-  echo "Audience-Mapper erstellt."
-fi
+  )
+
+  mapper_id="$(find_audience_mapper_id "$mapper_name")"
+  if [ -n "$mapper_id" ]; then
+    echo "Aktualisiere Audience-Mapper '$mapper_name'..."
+    "$KCADM" update "$mapper_collection/$mapper_id" -r "$REALM" "${desired[@]}"
+  else
+    echo "Erstelle Audience-Mapper '$mapper_name'..."
+    "$KCADM" create "$mapper_collection" -r "$REALM" "${desired[@]}"
+  fi
+}
+
+upsert_audience_mapper "ananta-hub-audience" "ananta-hub"
+upsert_audience_mapper "ananta-rendezvous-audience" "ananta-rendezvous"
 
 # ── Realm-Rolle 'ananta-user' ─────────────────────────────────────────────────
 EXISTING_ROLE=$($KCADM get roles -r "$REALM" --fields name \
@@ -159,7 +222,7 @@ echo ""
 echo " Realm:      $REALM"
 echo " Client:     $CLIENT_ID  (public, Device Grant ON)"
 echo " Registrierung: aktiviert (kein E-Mail-Verify)"
-echo " Audience:   ananta-hub  (im Access-Token)"
+echo " Audiences:  ananta-hub, ananta-rendezvous  (im Access-Token)"
 echo ""
 echo " Nächste Schritte:"
 echo "   1. Öffne https://keycloak.ananta.de/realms/ananta/account"
