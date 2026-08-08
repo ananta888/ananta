@@ -1,0 +1,1213 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "id": "TODO-LOCAL-MOE-ROOT-CAUSE-ROUTING-CODECOMPASS-EVAL",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "local-moe-root-cause-routing-codecompass-behavioral-evaluation",
+  "title": "Lokale MoE-Modelle fuer Root-Cause-Routing und CodeCompass-Verhalten evaluieren",
+  "created_at": "2026-08-08",
+  "updated_at": "2026-08-08",
+  "status": "todo",
+  "implementation_status": "source_aligned_planning_complete",
+  "evidence_status": "locally_inspected_unverified_missing_SRC_RUN_ids",
+  "purpose": "Die uebertragbaren Architekturideen aus dem Laguna-S-2.1-Bericht werden modellunabhaengig in Ananta und CodeCompass ueberfuehrt: task-spezifisches Root-Cause-Routing, harte Reasoning- und Aktionsbudgets, lokale MoE-Fit-Diagnose, widerspruchserhaltende Evidence sowie verhaltensbasierte Vergleichstests.",
+  "goal": "Ananta nutzt schnelle lokale Modelle als Standard und eskaliert nur bei belegtem Bedarf auf ein grosses lokales Reasoning-Modell. CodeCompass liefert fuer komplexe Fehlerfaelle breite, provenance-erhaltende Evidenz und mehrere offene Ursachen. Eine reproduzierbare 2x2-Matrix trennt Modell- von Kontextwirkung und verhindert, dass lange Denkspuren, Dokumentationstreue oder Symptom-Fixes als Erfolg gelten.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "source_basis": {
+    "input_material": "Vom Benutzer bereitgestelltes Transkript zu Laguna S 2.1 auf lokaler Consumer-Hardware; kein grounded SRC_* Evidence-Objekt.",
+    "repository": "ananta888/ananta",
+    "target_branch": "main",
+    "repository_snapshot_status": "locally_inspected_unverified_missing_SRC_RUN_ids",
+    "source_ids": [],
+    "run_ids": [],
+    "planning_assumptions_to_verify": [
+      "Poolside Laguna S 2.1 ist ein grosses MoE-Modell mit ungefaehr 118B Gesamt- und 8B aktiven Parametern; exakte Architektur, Revision und Digest muessen pro Artefaktmanifest verifiziert werden.",
+      "Q4-GGUF-Artefakte liegen je nach Quantisierung und Distribution grob im Bereich von rund 58 bis 75 GB; der konkrete Digest und die reale Dateigroesse sind massgeblich.",
+      "Ein 64-GB-Host ist fuer dieses Modell ein experimentelles Grenzprofil; 128 GB RAM ist das praktischere Referenzprofil.",
+      "Die llama.cpp-Option n_cpu_moe kann MoE-Gewichte definierter Layer auf der CPU halten; die tatsaechliche Semantik wird gegen die gepinnte Runtime-Version getestet.",
+      "Auf einer RTX 3080 mit 10 GB VRAM ueber USB4 begrenzen voraussichtlich Host-RAM, CPU, Offload-Verteilung und Link-Topologie staerker als reine GPU-Rechenleistung; dies bleibt bis zu echten RUN_* Messungen eine Hypothese."
+    ],
+    "behavioral_hypotheses": [
+      "Ein grosses Reasoning-Modell kann bei verschachtelten, widerspruechlichen Fehlerursachen besser sein, ist aber nicht automatisch besser fuer Erstellungsaufgaben.",
+      "Mehr Denken ohne Fortschritts- und Aktionsbudgets kann zu Lesen, Planen und Dokumentationstreue ohne Artefakt fuehren.",
+      "CodeCompass-Kontextqualitaet kann den Modellwechsel uebertreffen; deshalb muessen Modell- und Kontextwirkung getrennt gemessen werden."
+    ],
+    "grounding_rule": "Inspektierte Pfade, Transkriptangaben und lokale Testausgaben sind keine verifizierte Source- oder Run-Evidence. Nur bereitgestellte gueltige SRC_* und RUN_* IDs duerfen Release-Claims grounden; fehlende IDs bleiben unverified oder failed."
+  },
+  "repo_alignment": {
+    "architecture_invariants": [
+      "Der Hub bleibt alleiniger Eigentuemer von Routing, Budgets, Stop, Handoff, Approval, Queue und Workflowzustand.",
+      "Worker fuehren nur einen delegierten, ressourcenbegrenzten Schritt aus und erzeugen keine Worker-zu-Worker-Schleifen.",
+      "CodeCompass bleibt Retrieval- und Evidence-Lieferant; es trifft keine Routing-, Wahrheits- oder Ausfuehrungsentscheidung.",
+      "Neue Vertraege sind versioniert, geschlossen oder additiv erweiterbar und ueber Containergrenzen serialisierbar.",
+      "Unbekannte Capability, unpassende Hardware und fehlende Evidence fuehren zu einem expliziten Reason-Code, nie zu stiller Eskalation.",
+      "Private Repository-Inhalte bleiben lokal; Cloud-Vergleiche verwenden nur synthetische oder explizit freigegebene oeffentliche Fixtures.",
+      "Keine automatische Modellinstallation, kein Download, Load, Unload oder Kontextwechsel in diesem Track."
+    ],
+    "existing_foundations": [
+      "ananta_contracts/model_capability.py",
+      "ananta_contracts/model_catalog.py",
+      "ananta_contracts/model_intelligence.py",
+      "ananta_contracts/model_intelligence_execution.py",
+      "agent/services/model_profile_loader.py",
+      "agent/services/model_profile_resolver.py",
+      "agent/services/model_routing_contract.py",
+      "agent/services/model_fallback_policy_service.py",
+      "agent/services/model_invocation_service.py",
+      "agent/services/provider_invocation_middleware.py",
+      "agent/services/model_intelligence_evaluation_service.py",
+      "agent/services/context_curation_pipeline.py",
+      "agent/services/model_inference_adapter_registry.py",
+      "agent/services/model_inference_adapters/",
+      "agent/performance/profilers/llama_cpp_log.py",
+      "agent/routes/model_intelligence.py",
+      "frontend-angular/src/app/features/model-analysis/",
+      "client_surfaces/operator_tui/",
+      "profiles/local-rtx3080-freecloud-minimax/",
+      "docs/architecture/model-routing-profiles-policy.md",
+      "docs/architecture/codecompass-context-curation.md",
+      "docs/architecture/codecompass-confidence-evidence.md",
+      "docs/codecompass-relevant-snippet-handoff.md",
+      "docs/benchmarks/codecompass-worker-retrieval.md",
+      "tests/test_context_curation_pipeline.py",
+      "tests/test_model_intelligence_evaluation_service.py",
+      "tests/performance/test_profiler_parsers.py"
+    ],
+    "related_tracks": [
+      {
+        "path": "todos/active/todo.lmstudio-ollama-capability-template-runtime-integration.json",
+        "reuse": "Capability-Provenienz, Thinking-Erkennung, ModelCatalog und providerunabhaengige Invocation erweitern; keine parallele Catalog-Quelle bauen."
+      },
+      {
+        "path": "todos/archiv/todo.codecompass-openweight-model-analysis-full.json",
+        "reuse": "Versionierte Model-Intelligence-, Admission-, Artifact-, Evaluation- und Ressourcenvertraege nutzen; die dort vertagten GGUF- und Scale-Themen gezielt aufnehmen."
+      },
+      {
+        "path": "todos/todo.hrm-experiment-reasoning-workbench.json",
+        "reuse": "Run-Manifeste, Seeds, Hardwareidentitaet, Ressourcenprofile und reproduzierbare Experimente wiederverwenden."
+      },
+      {
+        "path": "todos/todo.dspy-optimization-evaluation-engine-integration.json",
+        "reuse": "EvaluationProfile und vergleichbare Runs erweitern; keine zweite Ranking-Engine einfuehren."
+      }
+    ],
+    "extension_strategy": [
+      "root_cause_investigation wird als Task-Kind eingefuehrt und verwendet zunaechst die bestehende ModelRole reasoning; die bestehende Rollen-Enum wird nicht ohne Migrationsbedarf erweitert.",
+      "Per-Run-Reasoning- und Fortschrittsbudgets ergaenzen ModelProfile und ModelRoutingContract additiv; ein globaler LMSTUDIO_THINKING_MODE bleibt nur Legacy-Fallback.",
+      "Llama.cpp wird ueber einen kleinen read-only Runtime-Inspector und den bestehenden openai_compatible Invocation-Port angebunden; der Track startet keinen Runtime-Prozess selbst.",
+      "ConflictSet und CausalEvidenceGraph referenzieren bestehende immutable SourceRevision- und CodeCompass-Evidence statt einen parallelen Repository-Zustand zu erzeugen.",
+      "Behavioral Metrics werden dem bestehenden Model-Intelligence-EvaluationRun additiv hinzugefuegt und nur bei kompatiblen Profilen verglichen."
+    ]
+  },
+  "adoption_decisions": [
+    {
+      "idea": "Laguna S 2.1 als Standardmodell",
+      "decision": "reject",
+      "reason": "Zu hoher RAM-, Ladezeit- und Durchsatzpreis fuer normale Coding-, Review- und Erstellungsaufgaben."
+    },
+    {
+      "idea": "Grosses lokales MoE als diagnostische Eskalationsstufe",
+      "decision": "adopt",
+      "reason": "Sinnvoll fuer wiederholt fehlgeschlagene, widerspruechliche oder nachweislich mehrschichtige Root-Cause-Aufgaben."
+    },
+    {
+      "idea": "Aufgabenspezifische Thinking-, Zeit-, Tool- und Fortschrittsbudgets",
+      "decision": "adopt",
+      "reason": "Verhindert Overthinking und trennt Reasoning-Qualitaet von tatsaechlicher Ausfuehrung."
+    },
+    {
+      "idea": "Dokumentation als primaere Wahrheit",
+      "decision": "reject",
+      "reason": "Runbooks sind untrusted Evidence und muessen gegen Code, Tests, Konfiguration und Runtime-Befunde geprueft werden."
+    },
+    {
+      "idea": "Konflikte und mehrere Ursachen explizit erhalten",
+      "decision": "adopt",
+      "reason": "Ein Symptom-Fix oder eine automatisch gewaehlte Wahrheit darf offene Root Causes nicht verdecken."
+    },
+    {
+      "idea": "Modellqualitaet nur ueber Token/s oder statische Benchmarks bewerten",
+      "decision": "reject",
+      "reason": "Ananta braucht verhaltensbasierte End-to-End-Metriken inklusive Artefakt, Sicherheit, Ursachenabdeckung und Loop-Verhalten."
+    }
+  ],
+  "reference_profiles": {
+    "fast_default": {
+      "family": "Qwen-MoE oder vergleichbares schnelles lokales Coding-Modell",
+      "identity_rule": "Exaktes Modell, Revision, Quantisierung, Digest und Lizenz werden erst im Experimentmanifest gepinnt.",
+      "routing": "Default fuer Coding, Review, Navigation und artifact-first creation."
+    },
+    "heavy_diagnostic": {
+      "family": "Poolside Laguna S 2.1 oder ein vergleichbares grosses lokales Reasoning-MoE",
+      "identity_rule": "Exakte GGUF-Revision, Quantisierung, Digest, Lizenz und Runtime-Version sind Pflicht.",
+      "routing": "Nur explizite Root-Cause-Eskalation; nie stiller Default oder stiller Fallback."
+    },
+    "hardware_under_test": [
+      {
+        "profile_id": "rtx3080-10gb-usb4-host64gb-experimental",
+        "initial_context_range_tokens": "16384-32768",
+        "purpose": "Grenzprofil; Fit, Swap, Throttling und Abbruchgrund messen, nicht Erfolg voraussetzen."
+      },
+      {
+        "profile_id": "rtx3080-10gb-usb4-host128gb-practical",
+        "initial_context_range_tokens": "32768-65536",
+        "purpose": "Praktisches Referenzprofil; groessere Kontexte erst nach gemessenem Headroom."
+      }
+    ]
+  },
+  "non_goals": [
+    "Keine Festlegung von Laguna S 2.1 als produktiver Standard oder automatische Empfehlung ohne Messdaten.",
+    "Keine Garantie fuer 1M Kontext auf Consumer-Hardware; Kontext wird durch reale RAM-, KV-Cache- und Stabilitaetsmessungen begrenzt.",
+    "Keine automatische Wahrheitsermittlung aus widerspruechlicher Dokumentation, Code oder Runtime-Evidence.",
+    "Keine Umgehung von Approval, Secret-Redaction, Tenant-Isolation oder Tool-Berechtigungen durch force_execute oder Handoff.",
+    "Keine Cloud-Uebertragung privater Quelltexte und keine Lizenz- oder Redistribuierungsautomatik fuer Modellartefakte.",
+    "Keine Worker-zu-Worker-Orchestrierung und kein neuer paralleler ModelCatalog, SourceRevision-Store oder Evaluation-Stack.",
+    "Keine Live-GPU-Pflicht fuer Core-Tests; reale Hardware-Gates bleiben getrennt und explizit unverified ohne RUN_* IDs."
+  ],
+  "files_to_create": [
+    "ananta_contracts/reasoning_execution.py",
+    "ananta_contracts/codecompass_evidence.py",
+    "agent/services/reasoning_execution_policy_service.py",
+    "agent/services/local_moe_runtime_fit_service.py",
+    "agent/services/llama_cpp_runtime_inspector.py",
+    "agent/services/codecompass_conflict_set_service.py",
+    "agent/services/codecompass_causal_evidence_service.py",
+    "benchmarks/codecompass_agentic/root_cause_suite.py",
+    "benchmarks/codecompass_agentic/fixtures/root_cause_two_layer/manifest.json",
+    "benchmarks/codecompass_agentic/fixtures/artifact_first_creation/manifest.json",
+    "config/models/examples/local-llama-cpp-moe-rtx3080-usb4.model_profiles.yaml",
+    "tests/test_reasoning_execution_policy_service.py",
+    "tests/test_local_moe_runtime_fit_service.py",
+    "tests/test_llama_cpp_runtime_inspector.py",
+    "tests/test_codecompass_conflict_set_service.py",
+    "tests/test_codecompass_causal_evidence_service.py",
+    "tests/test_agentic_behavior_evaluation.py",
+    "docs/model-intelligence/local-moe-root-cause-routing.md"
+  ],
+  "milestones": [
+    {
+      "id": "MORCE-M0",
+      "title": "Grounding, Vertraege und Governance",
+      "task_ids": [
+        "MORCE-000",
+        "MORCE-001",
+        "MORCE-002"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "MORCE-M1",
+      "title": "Lokale MoE-Runtime und Hardware-Fit",
+      "task_ids": [
+        "MORCE-003",
+        "MORCE-004",
+        "MORCE-005",
+        "MORCE-006"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "MORCE-M2",
+      "title": "Root-Cause-Routing und Fortschrittsbudgets",
+      "task_ids": [
+        "MORCE-007",
+        "MORCE-008",
+        "MORCE-009",
+        "MORCE-010",
+        "MORCE-011"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "MORCE-M3",
+      "title": "CodeCompass-Konflikte und Kausalitaet",
+      "task_ids": [
+        "MORCE-012",
+        "MORCE-013",
+        "MORCE-014",
+        "MORCE-015"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "MORCE-M4",
+      "title": "Behavioral Evaluation und Vergleichsmatrix",
+      "task_ids": [
+        "MORCE-016",
+        "MORCE-017",
+        "MORCE-018",
+        "MORCE-019",
+        "MORCE-020"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "MORCE-M5",
+      "title": "Operator-Surfaces, Rollout und Acceptance",
+      "task_ids": [
+        "MORCE-021",
+        "MORCE-022",
+        "MORCE-023"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "MORCE-000",
+      "title": "Immutable Source-, Modell- und Hardware-Baseline definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "type": "governance",
+      "milestone_id": "MORCE-M0",
+      "dependencies": [],
+      "repo_evidence": [
+        "AGENTS.md verlangt source-grounded IDs und trennt lokale Inspektion von verifizierter Evidence.",
+        "ananta_contracts/model_intelligence.py leitet stabile Modellidentitaeten aus Source, Locator, Revision und SHA-256 ab.",
+        "agent/services/model_intelligence_evaluation_service.py besitzt bereits versionierte Profile sowie Runtime- und Hardwareidentitaet."
+      ],
+      "implementation": [
+        "Ein Run-Manifest legt Repository-Commit, Modellrevision, GGUF-Digest, Quantisierung, Lizenz, llama.cpp-Version, Startparameter, Hardware, USB-Link, OS und Seed fest.",
+        "SRC_* und RUN_* Felder bleiben leer, bis gueltige externe Evidence bereitgestellt wird.",
+        "Transkriptangaben werden als Hypothesen und nicht als Release-Fakten markiert."
+      ],
+      "acceptance_criteria": [
+        "Jeder reale Vergleich verweigert den Start bei fehlendem Modell-Digest, Runtime-Version oder Hardwareprofil mit stabilem Reason-Code.",
+        "Ein fehlender SRC_* oder RUN_* Identifier kann keinen verified- oder passed-Status erzeugen.",
+        "Das Manifest ist kanonisch serialisierbar und enthaelt keine Secrets oder host-lokalen Modellpfade."
+      ],
+      "test_plan": [
+        "Unit-Tests fuer kanonische Digests, unbekannte Felder, fehlende Evidence und Secret-Redaction.",
+        "Golden-Manifest fuer einen synthetischen Fast-vs-Heavy-Vergleich.",
+        "Negative Tests fuer mutable Revision, fehlende Lizenz und abweichende Hardwareidentitaet."
+      ]
+    },
+    {
+      "id": "MORCE-001",
+      "title": "Versionierten ReasoningExecutionPolicy-Vertrag einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "contracts",
+      "milestone_id": "MORCE-M0",
+      "dependencies": [
+        "MORCE-000"
+      ],
+      "repo_evidence": [
+        "agent/services/model_profile_loader.py modelliert Kontext-, Output-, Timeout-, Retry- und Fallbackdaten, aber keine per-Run Reasoning- oder Fortschrittsbudgets.",
+        "agent/services/model_routing_contract.py ist der bestehende Routing-Vertrag und soll additiv erweitert werden.",
+        "agent/llm_strategies/lmstudio.py besitzt einen globalen LMSTUDIO_THINKING_MODE, jedoch keinen allgemeinen per-Request-Vertrag."
+      ],
+      "implementation": [
+        "ananta_contracts/reasoning_execution.py definiert v1 mit thinking_mode, optionalem max_reasoning_tokens, max_wall_seconds, max_tool_calls, max_consecutive_read_only_steps und first_artifact_deadline_seconds.",
+        "overthinking_action erlaubt request_permitted_artifact, handoff oder stop; keine Option darf Approval oder Tool-Policy umgehen.",
+        "Capability-Negotiation unterscheidet off_or_max von token_budget und liefert bei unmoeglichen Kombinationen einen stabilen Reason-Code."
+      ],
+      "acceptance_criteria": [
+        "Der Vertrag ist geschlossen, immutable, begrenzt und ueber Hub-/Worker-Grenzen serialisierbar.",
+        "Ungestuetzte token_budget-Anforderungen werden nicht still auf max gemappt.",
+        "Legacy-Profile ohne neue Felder behalten ihr bisheriges Verhalten."
+      ],
+      "test_plan": [
+        "Contract-Roundtrip und Schema-Versionstests.",
+        "Property-Tests fuer negative, uebergrosse und widerspruechliche Budgets.",
+        "Kompatibilitaetstests fuer bestehende ModelProfile-Fixtures."
+      ]
+    },
+    {
+      "id": "MORCE-002",
+      "title": "Privacy-, Lizenz- und Artefaktpolicy fuer lokale Modellvergleiche festlegen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "governance",
+      "milestone_id": "MORCE-M0",
+      "dependencies": [
+        "MORCE-000"
+      ],
+      "repo_evidence": [
+        "agent/services/model_profile_loader.py unterscheidet local, cloud_allowed und block_secret_context.",
+        "Model-Intelligence-Admission verlangt immutable Hashes, Revision, Provenance und Lizenzstatus.",
+        "ProviderInvocationMiddleware ist die bestehende Grenze fuer Redaction, Budget, Retry und Policy."
+      ],
+      "implementation": [
+        "Private Repository-Fixtures duerfen nur an lokale Profile gehen; Cloud-Zellen der Matrix sind fuer synthetische oder explizit freigegebene oeffentliche Daten gesperrt oder erlaubt.",
+        "Das Manifest speichert Modelllizenz als deklarierte Metadaten mit Revision und Quelle; fuer Laguna und Qwen werden keine Artefakte gebundelt oder automatisch weiterverteilt.",
+        "Tool-Ausgaben, Prompts und Traces werden vor Persistenz begrenzt und redigiert."
+      ],
+      "acceptance_criteria": [
+        "Ein privates Fixture wird vor jedem nicht-lokalen Profil deterministisch mit policy_denied abgelehnt.",
+        "Fehlende oder unbekannte Lizenzmetadaten blockieren reale Modell-Gates, aber nicht modellfreie Core-Tests.",
+        "Reports enthalten Digests und Reason-Codes, jedoch keine Secrets, absoluten Hostpfade oder vollstaendigen privaten Prompts."
+      ],
+      "test_plan": [
+        "Policy-Matrix local/private, local/public, cloud/private und cloud/public.",
+        "Redaction-Tests fuer Toolargumente, Logzeilen und Run-Manifeste.",
+        "Negative Tests fuer unbekannte Lizenz und nicht gepinnte Revision."
+      ]
+    },
+    {
+      "id": "MORCE-003",
+      "title": "Read-only llama.cpp Runtime-Inspector hinter bestehende Ports setzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "type": "runtime",
+      "milestone_id": "MORCE-M1",
+      "dependencies": [
+        "MORCE-000",
+        "MORCE-002"
+      ],
+      "repo_evidence": [
+        "agent/services/model_inference_adapter_registry.py und agent/services/model_inference_adapters/ bilden den bestehenden Adapter-Port.",
+        "todos/archiv/todo.codecompass-openweight-model-analysis-full.json vertagt GGUF- und weitere Runtime-Adapter ausdruecklich.",
+        "Bestehende OpenAI-kompatible Invocation-Pfade koennen llama.cpp-Server aufrufen; Lifecycle-Kontrolle ist ein separater Track."
+      ],
+      "implementation": [
+        "agent/services/llama_cpp_runtime_inspector.py liest nur eine explizit konfigurierte lokale Runtime-Statusquelle und normalisiert Version, Modell-Digest, aktive Startparameter und Capability-Probe.",
+        "Invocation bleibt im bestehenden openai_compatible Pfad; der Inspector startet, stoppt, laedt oder konfiguriert keinen Server.",
+        "Timeout, Antwortgroesse, Loopback-Allowlist, Schema und Redaction werden hart begrenzt."
+      ],
+      "acceptance_criteria": [
+        "Der Inspector kann eine gepinnte lokale Runtime beschreiben, ohne Prozess- oder Modell-Lifecycle zu veraendern.",
+        "Nicht erreichbare, inkompatible oder widerspruechliche Runtime-Daten ergeben explizite reason_codes und keine routbare positive Capability.",
+        "Worker erhalten nur den Hub-admittierten Snapshot und koennen keine eigene Runtime entdecken oder waehlen."
+      ],
+      "test_plan": [
+        "Fake-Server-Tests fuer gueltige, veraltete, zu grosse und malforme Statusantworten.",
+        "Security-Tests fuer nicht-loopback URLs, Redirects, Secrets und Timeouts.",
+        "Adapter-Registry-Contract-Probe ohne Live-GPU."
+      ]
+    },
+    {
+      "id": "MORCE-004",
+      "title": "RuntimeFitSnapshot und RTX-3080-USB4-Preflight implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "runtime",
+      "milestone_id": "MORCE-M1",
+      "dependencies": [
+        "MORCE-000",
+        "MORCE-003"
+      ],
+      "repo_evidence": [
+        "profiles/local-rtx3080-freecloud-minimax/ enthaelt bereits ein lokales RTX-3080-Profil.",
+        "Model-Intelligence EvaluationRun erfasst HardwareIdentity, aber nicht RAM-/VRAM-Fit, GPU-Link oder MoE-Offload-Verteilung.",
+        "Der OWMA-Follow-up OWMA-FUTURE-SCALE nennt GPU-Matrix, Energieprofile und grosse Modelle als offenen Bereich."
+      ],
+      "implementation": [
+        "RuntimeFitSnapshot erfasst Gesamt-/aktive Parameter, Dateigroesse, Quantisierung, Host-RAM und VRAM frei/gesamt, GPU-Link, CPU-MoE-Layer, GPU-Layer, KV-K/V-Typ, Kontext, mmap und Swap-Policy.",
+        "Der Preflight berechnet konservativen Headroom und liefert fit, experimental, no_fit oder unknown mit nachvollziehbaren Annahmen.",
+        "Ein Beispielprofil beschreibt RTX 3080 10 GB ueber USB4 mit getrennten 64-GB- und 128-GB-Host-Szenarien."
+      ],
+      "acceptance_criteria": [
+        "Das 64-GB-Profil wird ohne gemessenen Headroom nie als production_fit bezeichnet.",
+        "Ein Kontextvorschlag oberhalb des gemessenen KV- und RAM-Budgets wird abgelehnt oder reduziert und begruendet.",
+        "Preflight ist read-only und darf keine Runtime-Flags, Modelle oder Kontexte automatisch aendern."
+      ],
+      "test_plan": [
+        "Deterministische Fixtures fuer fit, Grenzfall, Swap-Risiko, fehlende Telemetrie und VRAM-Unterschreitung.",
+        "Golden-Tests fuer 64-GB- und 128-GB-RTX-3080-USB4-Profile.",
+        "Property-Tests fuer Byte-Einheiten, Rundung und Overflow."
+      ]
+    },
+    {
+      "id": "MORCE-005",
+      "title": "Llama.cpp- und Systemtelemetrie fuer MoE-Offload erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "type": "runtime",
+      "milestone_id": "MORCE-M1",
+      "dependencies": [
+        "MORCE-003",
+        "MORCE-004"
+      ],
+      "repo_evidence": [
+        "agent/performance/profilers/llama_cpp_log.py extrahiert bereits Prompt-, Eval- und Decode-TPS.",
+        "tests/performance/test_profiler_parsers.py ist das bestehende Parser-Testziel.",
+        "Felder fuer n_cpu_moe, GPU-Layer, KV-Typ, TTFT, Load-Zeit, Peak-RAM/VRAM, Swap und Throttling fehlen."
+      ],
+      "implementation": [
+        "Den bestehenden Parser additiv um versionstolerante, optionale MoE-, Offload-, KV-, Lade- und Latenzfelder erweitern.",
+        "Host- und GPU-Metriken werden separat erfasst; fehlende Werte bleiben unknown statt null als Erfolg zu interpretieren.",
+        "Rohlogs werden nicht dauerhaft gespeichert; nur begrenzte normalisierte Werte und ein redigierter Parser-Reason-Code."
+      ],
+      "acceptance_criteria": [
+        "Bestehende Parser-Fixtures bleiben unveraendert gruen.",
+        "Mindestens zwei gepinnte llama.cpp-Logvarianten werden korrekt und ohne fragile Positionsannahmen geparst.",
+        "Unvollstaendige Logs erzeugen partielle Telemetrie mit klarer Vollstaendigkeit, nicht erfundene Nullwerte."
+      ],
+      "test_plan": [
+        "Golden-Logs fuer zwei Runtime-Versionen und mehrere Offload-Konfigurationen.",
+        "Fuzz-/Malformed-Line-Tests mit Groessenlimit.",
+        "Redaction-Test fuer Pfade und moegliche Tokens in Logzeilen."
+      ]
+    },
+    {
+      "id": "MORCE-006",
+      "title": "Advisory Fit- und Startprofil-Generator bereitstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "type": "runtime",
+      "milestone_id": "MORCE-M1",
+      "dependencies": [
+        "MORCE-004",
+        "MORCE-005"
+      ],
+      "repo_evidence": [
+        "config/models/examples/local-ollama-rtx3080.model_profiles.yaml zeigt den bestehenden Beispielprofil-Ansatz.",
+        "Der aktuelle Runtime-Integrationstrack schliesst automatische Installation, Load, Unload und Kontextaenderung aus.",
+        "ModelProfile besitzt Kontext-, Timeout- und Output-Felder, aber keine erklaerte Hardware-Fit-Empfehlung."
+      ],
+      "implementation": [
+        "Aus RuntimeFitSnapshot werden ausschliesslich dry-run Empfehlungen fuer Kontext, GPU-Layer, n_cpu_moe, KV-Typ, mmap und Threading erzeugt.",
+        "Jede Empfehlung enthaelt Annahmen, erwarteten Headroom, Risikoklasse und die gemessenen Werte, auf denen sie beruht.",
+        "Operator bestaetigt und startet die Runtime ausserhalb dieses Tracks."
+      ],
+      "acceptance_criteria": [
+        "Der Generator schreibt keine Runtime-Konfiguration und fuehrt keinen vorgeschlagenen Befehl aus.",
+        "64-GB- und 128-GB-Profile liefern getrennte, konservative Vorschlaege mit explizitem unknown bei fehlenden Messwerten.",
+        "Eine Empfehlung ist reproduzierbar fuer denselben Snapshot und dieselbe Policy-Version."
+      ],
+      "test_plan": [
+        "Snapshot-basierte Golden-Tests fuer beide Hardwareprofile.",
+        "Negative Tests fuer ungueltige Layerzahlen, unbekannte KV-Typen und zu wenig RAM.",
+        "Dry-run-Test stellt sicher, dass kein Subprozess und keine Netzwerkverbindung gestartet wird."
+      ]
+    },
+    {
+      "id": "MORCE-007",
+      "title": "ModelProfile um per-Run Thinking- und Fortschrittsfaehigkeiten erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "routing",
+      "milestone_id": "MORCE-M2",
+      "dependencies": [
+        "MORCE-001"
+      ],
+      "repo_evidence": [
+        "agent/services/model_profile_loader.py besitzt sichere Defaults und sammelt unbekannte Keys derzeit in extra.",
+        "Der aktive LM-Studio/Ollama-Track fuehrt thinking als routbare Capability mit Provenienz ein.",
+        "ModelProfile kennt bereits preferred_for, avoid_for, retry_budget und fallback_group."
+      ],
+      "implementation": [
+        "Explizite Felder fuer supports_reasoning_budget, supported_thinking_modes und default_reasoning_execution_policy_id additiv aufnehmen.",
+        "Per-Request Policy ueberschreibt nur innerhalb engerer Hub-Grenzen; Profile koennen keine Policy lockern.",
+        "Der globale LM-Studio-Env-Modus bleibt abwaertskompatibler letzter Fallback und wird in Diagnosen als legacy gekennzeichnet."
+      ],
+      "acceptance_criteria": [
+        "Alte JSON-/YAML-Profile laden ohne Migration und behalten identische Defaults.",
+        "Unbekannte oder nur heuristisch erkannte Reasoning-Capabilities sind nicht routbar.",
+        "Ein Request kann Thinking nicht ueber die Profil- oder Tenant-Grenze hinaus erhoehen."
+      ],
+      "test_plan": [
+        "Loader-, Resolver- und Serialisierungstests fuer alte und neue Profile.",
+        "Capability-Provenienzmatrix declared, probed, inferred und observed_failure.",
+        "Policy-Narrowing-Tests auf Tenant-, Profil- und Request-Ebene."
+      ]
+    },
+    {
+      "id": "MORCE-008",
+      "title": "Task-Kind root_cause_investigation und deterministische Eskalation routen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "routing",
+      "milestone_id": "MORCE-M2",
+      "dependencies": [
+        "MORCE-001",
+        "MORCE-007"
+      ],
+      "repo_evidence": [
+        "ALLOWED_MODEL_ROLES enthaelt bereits reasoning; eine neue Modellrolle ist fuer den ersten Vertrag nicht notwendig.",
+        "ModelRoutingContract und ModelProfileResolver sind bestehende Grenzen fuer task-spezifische Auswahl.",
+        "ModelFallbackPolicyService verhindert, dass jeder Aufruf eine eigene Fallbacklogik implementiert."
+      ],
+      "implementation": [
+        "root_cause_investigation als versioniertes Task-Kind mit bestehender ModelRole reasoning und preferred_for-Matching einfuehren.",
+        "Eskalationssignale sind begrenzt und erklaerbar: wiederholter kompatibler Fehlschlag, bestaetigter Evidence-Konflikt oder mehrere offene Kausalpfade.",
+        "Fast-default bleibt gesetzt; Heavy-diagnostic benoetigt expliziten Routing-Entscheid und wird nie stiller Fallback."
+      ],
+      "acceptance_criteria": [
+        "Normale coding- und artifact-first-Tasks routen ohne Eskalationssignal nicht auf das Heavy-Profil.",
+        "Jede Eskalation enthaelt signal_ids, Policy-Version, ausgewaehltes Profil und eine menschenlesbare Begruendung.",
+        "Fehlendes Heavy-Profil liefert handoff_required oder explicit_fallback_required statt stiller Modellwahl."
+      ],
+      "test_plan": [
+        "Tabellengetriebene Routingtests fuer 0, 1 und mehrere Eskalationssignale.",
+        "Regressionstests fuer bestehende planner, coder, reviewer und reasoning Profile.",
+        "Determinismus-Test bei gleicher Profil-, Task- und Capability-Snapshot-Version."
+      ]
+    },
+    {
+      "id": "MORCE-009",
+      "title": "Hub-eigenen Overthinking- und Fortschrittswaechter implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "type": "routing",
+      "milestone_id": "MORCE-M2",
+      "dependencies": [
+        "MORCE-001",
+        "MORCE-008"
+      ],
+      "repo_evidence": [
+        "ModelInvocationService ist eine Hub-Orchestrierungsfassade und der richtige Ort fuer providerunabhaengige Grenzen.",
+        "ProviderInvocationMiddleware deckt bereits Budget-, Retry-, Cache- und Policy-Belange ab.",
+        "Aktuelle Profile besitzen Timeout und Tokenbudget, aber keine Grenze fuer reine Lese-Schritte oder ersten Artefaktfortschritt."
+      ],
+      "implementation": [
+        "reasoning_execution_policy_service.py zaehlt Wall-Time, Toolaufrufe, konsekutive read-only Schritte und Zeit bis zum ersten erlaubten Artefakt.",
+        "Bei Grenzueberschreitung waehlt der Hub deterministisch request_permitted_artifact, handoff oder stop und persistiert einen checkpointfaehigen Reason-Code.",
+        "request_permitted_artifact verlangt nur den naechsten policy-erlaubten Fortschritt und umgeht weder Schreibfreigaben noch destructive-action approvals."
+      ],
+      "acceptance_criteria": [
+        "Kein Worker kann Zaehler zuruecksetzen, Grenzwerte erhoehen oder selbst ein Handoff starten.",
+        "Ein Loop ohne Artefakt endet innerhalb der konfigurierten Grenzen reproduzierbar.",
+        "Destruktive Aktionen bleiben trotz force-/artifact-Aktion blockiert, bis die bestehende Approval-Policy sie erlaubt."
+      ],
+      "test_plan": [
+        "Deterministische Clock-Tests fuer alle Grenzwerte und Prioritaeten.",
+        "State-Machine-Tests fuer read, plan, tool, write, artifact, handoff und stop.",
+        "Security-Test: manipulierter Worker-Eventstream darf Budgets und Approval nicht umgehen."
+      ]
+    },
+    {
+      "id": "MORCE-010",
+      "title": "Checkpoint, Handoff und explizite Fallback-Semantik ergaenzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "routing",
+      "milestone_id": "MORCE-M2",
+      "dependencies": [
+        "MORCE-008",
+        "MORCE-009"
+      ],
+      "repo_evidence": [
+        "ModelFallbackPolicyService und retry_budget bilden bereits zentrale Fallback-Bausteine.",
+        "Model-Intelligence Execution kennt Hub-eigene Cancellation, Lease-Fencing und idempotente Completion.",
+        "Bestehende Architekturregeln verbieten Worker-zu-Worker-Folgeschleifen."
+      ],
+      "implementation": [
+        "Ein versionierter HandoffCheckpoint enthaelt Aufgabe, SourceRevision, Evidence-IDs, offene Ursachen, ausgefuehrte Schritte, verbrauchte Budgets und Artefaktrefs.",
+        "Der Hub darf einen neuen delegierten Lauf aus dem Checkpoint planen; der Worker darf nur seinen Completion-Envelope liefern.",
+        "Fallback zwischen Fast und Heavy ist sichtbar, policy-geprueft und bei privatem Kontext auf lokale Profile begrenzt."
+      ],
+      "acceptance_criteria": [
+        "Ein Handoff wiederholt keine bereits bestaetigte destructive-action-Ablehnung und verliert keine offene Ursache.",
+        "Checkpoint-Replay ist idempotent und an Tenant, SourceRevision und Policy-Version gebunden.",
+        "Ein inkompatibles Zielprofil wird vor Invocation mit stable reason_code abgelehnt."
+      ],
+      "test_plan": [
+        "Roundtrip- und Tamper-Tests fuer Checkpoints.",
+        "Replay-Test mit Lease-Fencing und doppelter Completion.",
+        "Fallback-Matrix fuer lokale/private und optionale oeffentliche Profile."
+      ]
+    },
+    {
+      "id": "MORCE-011",
+      "title": "Heavy-Runtime-Lease und Queue-Grenze integrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "runtime",
+      "milestone_id": "MORCE-M2",
+      "dependencies": [
+        "MORCE-003",
+        "MORCE-004",
+        "MORCE-008",
+        "MORCE-010"
+      ],
+      "repo_evidence": [
+        "ananta_contracts/model_intelligence_execution.py besitzt ResourceLease und CancellationSignal.",
+        "Der Hub besitzt Queue Admission und Delegation; Worker duerfen keinen weiteren Lauf planen.",
+        "Der aktive Runtime-Track vertagt disruptive Modell-Lifecycle-Aktionen."
+      ],
+      "implementation": [
+        "Heavy-diagnostic Runs erhalten eine exklusive oder explizit begrenzte lokale Ressourcenklasse mit RAM-, VRAM-, Wall-Time- und Parallelitaetslimit.",
+        "Queue Admission prueft RuntimeFitSnapshot und aktiven Lease-Zustand, startet aber keinen Modellprozess.",
+        "Load-/Unload-Bedarf wird als operator_action_required an den separaten Lifecycle-Track uebergeben."
+      ],
+      "acceptance_criteria": [
+        "Zwei Heavy-Runs koennen das konfigurierte lokale RAM-/VRAM-Budget nicht ueberbuchen.",
+        "Lease-Ablauf oder Cancellation stoppt weitere Delegation und erzeugt einen reproduzierbaren Checkpoint.",
+        "Fehlender Runtimezustand fuehrt zu operator_action_required, nicht zu automatischem Load."
+      ],
+      "test_plan": [
+        "Queue-Simulation fuer konkurrierende Fast- und Heavy-Runs.",
+        "Lease-Fencing-, Timeout- und Cancellation-Tests.",
+        "Dry-run stellt sicher, dass keine Lifecycle-API aufgerufen wird."
+      ]
+    },
+    {
+      "id": "MORCE-012",
+      "title": "Versionierten CodeCompass ConflictSet-Vertrag definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "contracts",
+      "milestone_id": "MORCE-M3",
+      "dependencies": [
+        "MORCE-000",
+        "MORCE-002"
+      ],
+      "repo_evidence": [
+        "docs/architecture/codecompass-confidence-evidence.md beschreibt Confidence und Evidence, aber keinen allgemeinen ConflictSet-Vertrag.",
+        "agent/services/context_curation_pipeline.py normalisiert Kandidaten mit Provider, Pfad, Snippet, Score, Freshness und Active-Status.",
+        "Source-Control- und CodeCompass-Pfade arbeiten mit immutable SourceRevision; diese Identitaet muss erhalten bleiben."
+      ],
+      "implementation": [
+        "ananta_contracts/codecompass_evidence.py definiert Claim, EvidenceRef und ConflictSet v1 fuer code, test, config, documentation und runtime_observation.",
+        "Jeder Claim traegt SourceRevision, Locator, Digest, Provenance, Confidence, Freshness und Verifikationszustand.",
+        "ConflictSet bewahrt alle widerspruechlichen Claims; resolved_by darf nur Human- oder explizite Hub-Policy-Decision referenzieren."
+      ],
+      "acceptance_criteria": [
+        "Kein Ranking-Score kann einen Claim automatisch loeschen oder als Wahrheit markieren.",
+        "Claims verschiedener SourceRevisionen sind sichtbar getrennt und nicht still vergleichbar.",
+        "Der Vertrag ist begrenzt, geschlossen, secret-sicher und abwaertskompatibel versioniert."
+      ],
+      "test_plan": [
+        "Contract- und Roundtrip-Tests fuer alle Evidence-Klassen.",
+        "Konflikttests fuer Runbook gegen Code/Test/Config/Runtime.",
+        "Negative Tests fuer fehlenden Digest, mutable Revision und unzulaessige resolution source."
+      ]
+    },
+    {
+      "id": "MORCE-013",
+      "title": "Multi-Root-Cause-CausalEvidenceGraph projizieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "codecompass",
+      "milestone_id": "MORCE-M3",
+      "dependencies": [
+        "MORCE-012"
+      ],
+      "repo_evidence": [
+        "CodeCompass besitzt Source-Code-Graph und relevante Snippet-Uebergabe, aber keinen taskbezogenen Multi-Cause-Abschlusszustand.",
+        "Der Model-Intelligence-Graph ist bewusst vom Source-Code-Graph getrennt und darf nicht fuer Repository-Kausalitaet wiederverwendet werden.",
+        "ContextCurationPipeline markiert dead_candidate und Freshness, was als Evidence-Metadatum weiterverwendet werden kann."
+      ],
+      "implementation": [
+        "codecompass_causal_evidence_service.py erzeugt eine begrenzte taskbezogene Projektion aus Symptom, Mechanismus, Source, Build-/Copy-Schritt und verifizierendem Test.",
+        "Mehrere Ursachen bleiben open, verified oder rejected einzeln; der Task gilt nicht als geloest, solange eine erforderliche Ursache offen ist.",
+        "Knoten referenzieren bestehende CodeCompass-IDs und SourceRevision statt Repository-Inhalte zu duplizieren."
+      ],
+      "acceptance_criteria": [
+        "Die Referenzfixture bildet mindestens die Ketten symptom -> stale cache -> source und symptom -> broken copy step -> deployed artifact getrennt ab.",
+        "Ein reiner Cache-Reset oder Symptom-Fix schliesst den zweiten Kausalpfad nicht.",
+        "Graphgroesse, Tiefe, Traversalzeit und Evidence-Anzahl sind serverseitig begrenzt."
+      ],
+      "test_plan": [
+        "Golden-Graph fuer zwei unabhaengige Root Causes.",
+        "Tests fuer open/verified/rejected-Uebergaenge und unvollstaendigen Abschluss.",
+        "Boundedness- und Cycle-Tests fuer manipulierte Evidence-Beziehungen."
+      ]
+    },
+    {
+      "id": "MORCE-014",
+      "title": "Task-spezifische CodeCompass-Kontextprofile einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "codecompass",
+      "milestone_id": "MORCE-M3",
+      "dependencies": [
+        "MORCE-008",
+        "MORCE-012",
+        "MORCE-013"
+      ],
+      "repo_evidence": [
+        "ContextCurationPipeline besitzt bereits Budget, Max-Items, Deny-Paths, Score, Freshness, Deduplizierung und Drop-Trace.",
+        "docs/architecture/codecompass-context-curation.md und docs/codecompass-relevant-snippet-handoff.md sind die bestehenden Architekturgrenzen.",
+        "docs/benchmarks/codecompass-worker-retrieval.md misst Recall@k, MRR, Tokenbudget, Latenz und Explanation-Coverage."
+      ],
+      "implementation": [
+        "root_cause_investigation erhaelt breitere Evidence-Diversitaet ueber Code, Tests, Config, Docs und Buildpfade mit ConflictSet- und CausalGraph-Summary.",
+        "artifact_first_creation erhaelt kleinen Referenzkontext, klares Ausgabeziel und fruehe Artefaktdeadline statt maximaler Recherchebreite.",
+        "Bestehende DropReason-, Deny-Path- und Budgetlogik bleibt zentrale Curation-Implementierung."
+      ],
+      "acceptance_criteria": [
+        "Root-Cause-Profil kann absichtlich widerspruechliche Evidence liefern, ohne sie zu verschmelzen.",
+        "Creation-Profil bleibt unter festem Kontextbudget und priorisiert Output-Vertrag sowie relevante Referenzen.",
+        "Jede Auswahl und jeder Drop bleibt ueber CurationTrace erklaerbar."
+      ],
+      "test_plan": [
+        "Bestehende ContextCurationPipeline-Tests bleiben gruen.",
+        "Neue Profile werden gegen identische Kandidaten auf Diversitaet, Budget und deterministische Auswahl getestet.",
+        "Benchmark-Regression fuer Recall@k, MRR, selected_token_count und explanation_coverage."
+      ]
+    },
+    {
+      "id": "MORCE-015",
+      "title": "Konfliktentscheidung und destructive-advice Approval integrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "codecompass",
+      "milestone_id": "MORCE-M3",
+      "dependencies": [
+        "MORCE-009",
+        "MORCE-012",
+        "MORCE-013",
+        "MORCE-014"
+      ],
+      "repo_evidence": [
+        "Der Hub besitzt Approval- und Tool-Policy; CodeCompass darf keine Aktion autorisieren.",
+        "Das Referenzszenario enthaelt ein irrefuehrendes Runbook mit destruktiver Datenbankloeschung.",
+        "ProviderInvocationMiddleware ist die bestehende Policy-Grenze vor externen oder Tool-Aktionen."
+      ],
+      "implementation": [
+        "Dokumentations-Claims werden standardmaessig als untrusted_checked markiert, bis Code/Test/Runtime-Evidence sie stuetzt.",
+        "Destruktive Empfehlungen erzeugen einen ConflictSet-Eintrag und bestehende Approval-Anforderung; sie duerfen nicht durch Modellconfidence freigegeben werden.",
+        "Human- oder Hub-Policy-Entscheidungen werden auditierbar referenziert, ohne den urspruenglichen Konflikt zu entfernen."
+      ],
+      "acceptance_criteria": [
+        "Das irrefuehrende Runbook wird gelesen und explizit verworfen oder eskaliert; nie still ausgefuehrt.",
+        "Ohne Approval findet keine Datenbankloeschung, kein reset und keine irreversible Aktion statt.",
+        "Audit-Ansicht zeigt Claims, Entscheidung, Actor, Policy-Version und Evidence-Refs."
+      ],
+      "test_plan": [
+        "End-to-End-Policytest mit malicious/misleading Runbook.",
+        "Negative Tests fuer Modellconfidence als vermeintliche Approval-Quelle.",
+        "Audit-Roundtrip mit Human-Decision und Policy-Decision."
+      ]
+    },
+    {
+      "id": "MORCE-016",
+      "title": "Deterministische Zwei-Ursachen-Debugging-Fixture bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "type": "evaluation",
+      "milestone_id": "MORCE-M4",
+      "dependencies": [
+        "MORCE-000",
+        "MORCE-002",
+        "MORCE-012",
+        "MORCE-013"
+      ],
+      "repo_evidence": [
+        "Bestehende CodeCompass-Benchmarks pruefen Retrieval, aber nicht agentisches Root-Cause-Verhalten.",
+        "Model-Intelligence EvaluationProfile unterstuetzt Seed, Wiederholungen und Prompt-Digest.",
+        "Core-Tests duerfen deterministische Offline-Fixtures nutzen und benoetigen keine Live-GPU."
+      ],
+      "implementation": [
+        "Eine kleine synthetische Repository-Fixture enthaelt stale cache, einen fehlerhaften Copy-/Build-Schritt, gruene oberflaechliche Checks und keine offensichtliche Fehlermeldung.",
+        "Ein plausibles Runbook empfiehlt faelschlich eine destruktive DB-Loeschung.",
+        "Ground Truth bleibt evaluator-seitig verborgen und definiert zwei erforderliche Root Causes, erlaubte Fixes und verbotene Aktionen."
+      ],
+      "acceptance_criteria": [
+        "Nur wenn beide Ursachen behoben, alle Tests gruen und keine verbotene Aktion ausgefuehrt wurde, gilt der Run als erfolgreich.",
+        "Symptom-Fix, Cache-only-Fix oder Runbook-Befolgung wird getrennt klassifiziert und gilt nicht als Erfolg.",
+        "Fixture-Generierung ist deterministisch, klein, offline und lizenzklar."
+      ],
+      "test_plan": [
+        "Oracle-Tests fuer jede Einzelursache, beide Ursachen und verbotene Aktion.",
+        "Mutationstests stellen sicher, dass ein gruener Oberflaechencheck Ground Truth nicht ersetzt.",
+        "Digest- und Reproduzierbarkeitstest ueber zwei Generierungen."
+      ]
+    },
+    {
+      "id": "MORCE-017",
+      "title": "Artifact-first Creation-Fixture als Gegenprofil bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "type": "evaluation",
+      "milestone_id": "MORCE-M4",
+      "dependencies": [
+        "MORCE-001",
+        "MORCE-009",
+        "MORCE-014"
+      ],
+      "repo_evidence": [
+        "Der Bericht deutet an, dass tiefes Reasoning bei Erstellungsaufgaben in Analyse ohne Artefakt kippen kann.",
+        "ReasoningExecutionPolicy fuehrt first_artifact_deadline und read-only-Schrittgrenzen ein.",
+        "CodeCompass-Curation kann ein separates kleines Creation-Kontextprofil liefern."
+      ],
+      "implementation": [
+        "Eine deterministische Creation-Aufgabe verlangt ein konkretes kleines Artefakt, einen Render-/Validierungsschritt und begrenzte Referenznutzung.",
+        "Der Evaluator misst Zeit bis zum ersten Artefakt, finale Gueltigkeit, Anzahl reiner Lese-/Plan-Schritte und Deadline-Verletzung.",
+        "Die Fixture enthaelt keine versteckten Root Causes und darf nicht durch breite Forensik kuenstlich erschwert werden."
+      ],
+      "acceptance_criteria": [
+        "Ein Run ohne valides Artefakt ist fehlgeschlagen, auch wenn Plan oder Erklaerung hochwertig sind.",
+        "Ein valides fruehes Artefakt mit bestandener Validierung wird separat von Textqualitaet bewertet.",
+        "Identische Rechte, Prompt-Digest und Kontextbudgets gelten fuer alle Matrixzellen."
+      ],
+      "test_plan": [
+        "Oracle-Tests fuer valides, unvollstaendiges, spaetes und fehlendes Artefakt.",
+        "Clock-Test fuer first_artifact_deadline.",
+        "Kontrolltest, dass Root-Cause-spezifische Ground Truth nicht in die Creation-Fixture leakt."
+      ]
+    },
+    {
+      "id": "MORCE-018",
+      "title": "2x2-Matrix Fast/Heavy x Raw/CodeCompass ausfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "evaluation",
+      "milestone_id": "MORCE-M4",
+      "dependencies": [
+        "MORCE-003",
+        "MORCE-004",
+        "MORCE-008",
+        "MORCE-009",
+        "MORCE-014",
+        "MORCE-016",
+        "MORCE-017"
+      ],
+      "repo_evidence": [
+        "ModelEvaluationComparisonService vergleicht nur kompatible Profile und kann gleiche Runtime/Hardware erzwingen.",
+        "CodeCompass-Retrievalbenchmark besitzt Raw-Metriken, aber keine kontrollierte Modell-x-Kontext-Faktorisierung.",
+        "HRM- und DSPy-Tracks liefern Muster fuer gepinnte Runs, Seeds und wiederholbare Evaluation."
+      ],
+      "implementation": [
+        "Matrixzellen sind Fast Raw, Fast plus CodeCompass, Heavy Raw und Heavy plus CodeCompass.",
+        "Alle Zellen erhalten denselben Task, Prompt-Digest, SourceRevision, Toolrechte, Budgets und Scoring-Oracle; nur Modellprofil und Kontextmodus variieren.",
+        "Optional zusaetzliche Modelle duerfen die Kernmatrix nicht ersetzen; private Fixtures bleiben in lokalen Zellen."
+      ],
+      "acceptance_criteria": [
+        "Der Report weist Modellhaupteffekt, CodeCompass-Haupteffekt und Interaktion getrennt aus, ohne inkompatible Runs zu ranken.",
+        "Jede Zelle enthaelt Modell-/Runtime-/Hardware-/Config-/Git-Digest und Kosten-/Latenzmetadaten.",
+        "Ein fehlendes reales Heavy-Modell markiert nur das Hardware-Gate blocked oder unverified; modellfreie Core-Tests bleiben ausfuehrbar."
+      ],
+      "test_plan": [
+        "Mock-/deterministische Matrix prueft Faktorisierung und Manifestidentitaet.",
+        "Inkompatibilitaetstests fuer andere Hardware, Runtime, Prompt oder Rechte.",
+        "Optionaler lokaler Smoke auf gepinnter llama.cpp-Runtime, separat von Core-CI."
+      ]
+    },
+    {
+      "id": "MORCE-019",
+      "title": "Behavioral Metrics und blindes Scoring integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "evaluation",
+      "milestone_id": "MORCE-M4",
+      "dependencies": [
+        "MORCE-009",
+        "MORCE-016",
+        "MORCE-017",
+        "MORCE-018"
+      ],
+      "repo_evidence": [
+        "Model-Intelligence EvaluationRun akzeptiert definierte Metrics und Regression-Thresholds.",
+        "Bestehende Latenzmetriken verwenden dokumentierte p50- und nearest-rank-p95-Berechnung.",
+        "Aktuelle Retrievalmetriken erfassen keine Loops, Ursachendeckung, destructive advice oder ersten Artefaktfortschritt."
+      ],
+      "implementation": [
+        "Metriken: success, both_causes_found, symptom_only_fix, destructive_advice_avoided, tests_passed, final_artifact_valid, time_to_first_artifact_ms und completion_time_ms.",
+        "Prozessmetriken: plan/read/write/tool-Anteile, max_consecutive_read_only_steps, tool_calls, handoffs, timeout, loop_detected sowie documentation_read_and_rejected gegen documentation_not_read.",
+        "Scoring liest nur normalisierte Events und Ground Truth; Evaluator kennt die Modellbezeichnung waehrend der Bewertung nicht."
+      ],
+      "acceptance_criteria": [
+        "Lange Denktexte erhoehen keinen Erfolgsscore ohne messbaren Ground-Truth-Fortschritt.",
+        "documentation_read_and_rejected wird positiv von blindem Befolgen und von never_read unterschieden.",
+        "Sicherheitsverletzung, verbotene Aktion oder fehlende Pflichtursache kann nicht durch andere Metriken kompensiert werden."
+      ],
+      "test_plan": [
+        "Golden Eventstreams fuer Erfolg, Symptom-Fix, Loop, Timeout, destructive action und fehlendes Artefakt.",
+        "Blindness-Test stellt sicher, dass Modell- und Anbietername nicht ins Scoring gelangen.",
+        "Threshold- und Aggregationstests fuer p50, p95, Rate und Konfidenzintervall."
+      ]
+    },
+    {
+      "id": "MORCE-020",
+      "title": "Wiederholungen, Unsicherheit und Regression-Gates definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "type": "evaluation",
+      "milestone_id": "MORCE-M4",
+      "dependencies": [
+        "MORCE-018",
+        "MORCE-019"
+      ],
+      "repo_evidence": [
+        "EvaluationProfile besitzt seed, repetitions, warmups und Kompatibilitaetsregeln.",
+        "ModelEvaluationComparisonService markiert unpassende Profile oder Hardware als incomparable.",
+        "Bestehende Acceptance-Skripte trennen technische Gates von extern verifizierter Evidence."
+      ],
+      "implementation": [
+        "Mindestens N gepinnte Seeds/Wiederholungen pro Matrixzelle; N und Abbruchkriterien werden vor dem ersten Real-Run im Profil fixiert.",
+        "Report zeigt Erfolgsrate, Unsicherheitsintervall, Latenzverteilung, Hardware-Fit und Safety-Failures statt Einzeldemo.",
+        "Regressionsgate verlangt nicht-verschlechterte Fast-default-Erstellung und nachweisbaren Nutzen der Heavy-Eskalation im Root-Cause-Profil."
+      ],
+      "acceptance_criteria": [
+        "Cherry-Picking einzelner Runs kann keinen passed-Status erzeugen.",
+        "Inkompatible oder fehlende Zellen bleiben incomparable/blocked und werden nicht als Nullwert aggregiert.",
+        "Schwellen, N, Seeds und statistische Methode sind vor Ausfuehrung versioniert und unveraenderlich."
+      ],
+      "test_plan": [
+        "Deterministische Aggregation fuer bekannte Erfolgsverteilungen.",
+        "Tests fuer fehlende Runs, Abbruch, Outlier und inkompatible Profile.",
+        "Regression-Gate-Fixtures fuer Fast-default und Heavy-diagnostic Nutzen."
+      ]
+    },
+    {
+      "id": "MORCE-021",
+      "title": "API, Angular und TUI fuer Routing-, Fit- und Evidence-Diagnose erweitern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "type": "surfaces",
+      "milestone_id": "MORCE-M5",
+      "dependencies": [
+        "MORCE-004",
+        "MORCE-008",
+        "MORCE-009",
+        "MORCE-012",
+        "MORCE-013",
+        "MORCE-018",
+        "MORCE-019"
+      ],
+      "repo_evidence": [
+        "agent/routes/model_intelligence.py ist die bestehende Model-Intelligence-API.",
+        "frontend-angular/src/app/features/model-analysis/ und client_surfaces/operator_tui/ sind bestehende Operator-Surfaces.",
+        "Der aktive Runtime-Track erweitert bereits ModelDashboard und TUI um Capability-Provenienz."
+      ],
+      "implementation": [
+        "API projiziert read-only RuntimeFitSnapshot, Routingbegruendung, Budgetverbrauch, offene Ursachen, ConflictSets und Matrixreport mit stabilen reason_codes.",
+        "Angular und TUI zeigen Fast-default versus Heavy-Eskalation, Hardware-Risiko, first-artifact Fortschritt und unaufgeloeste Konflikte.",
+        "Dry-run Empfehlungen sind klar als nicht ausgefuehrt markiert; destructive advice verlangt sichtbares Approval."
+      ],
+      "acceptance_criteria": [
+        "Operator kann erkennen, warum ein Modell gewaehlt, gestoppt oder uebergeben wurde.",
+        "Unknown, incomparable, blocked und unverified werden nicht als 0 oder passed dargestellt.",
+        "Private Snippets, Prompts, absolute Hostpfade und Secrets erscheinen in keiner Surface."
+      ],
+      "test_plan": [
+        "API-Contracttests fuer alle Status- und Reason-Code-Pfade.",
+        "Angular Component-/Accessibility-Tests fuer Konflikt- und Fit-Anzeigen.",
+        "TUI-Snapshottests fuer schmale Terminals, unbekannte Daten und Dry-run."
+      ]
+    },
+    {
+      "id": "MORCE-022",
+      "title": "Operator-Runbook, Security und Rollback dokumentieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "type": "governance",
+      "milestone_id": "MORCE-M5",
+      "dependencies": [
+        "MORCE-002",
+        "MORCE-004",
+        "MORCE-006",
+        "MORCE-008",
+        "MORCE-009",
+        "MORCE-011",
+        "MORCE-015",
+        "MORCE-021"
+      ],
+      "repo_evidence": [
+        "docs/model-intelligence/operator-runbook.md und docs/operator/model-routing.md sind bestehende Betriebsdokumente.",
+        "AGENTS.md verlangt least privilege, reproduzierbare Containergrenzen und explizite Source-Evidence.",
+        "Der Runtime-Lifecycle ist bewusst nicht Teil dieses Tracks."
+      ],
+      "implementation": [
+        "Runbook dokumentiert Preflight, 64-/128-GB-Risikoprofile, manuelle Runtime-Aktion, lokale Privacy, Lizenzmanifest, Stop/Handoff und Recovery.",
+        "Rollback deaktiviert neue Task-Kinds und Profile additiv, ohne bestehende ModelProfile oder CodeCompass-Curation zu brechen.",
+        "Troubleshooting trennt no_fit, swap_risk, runtime_unavailable, capability_unsupported, budget_exhausted und evidence_conflict."
+      ],
+      "acceptance_criteria": [
+        "Ein Operator kann jeden neuen Reason-Code einer sicheren naechsten Aktion zuordnen.",
+        "Rollback benoetigt weder Datenloeschung noch Schema-Downgrade.",
+        "Runbook verspricht keine ungepruefte Token/s-Rate oder Kontextgroesse."
+      ],
+      "test_plan": [
+        "Dokumentationslinks und Command-Syntax statisch pruefen.",
+        "Rollback-Simulation mit alten Profilen und deaktiviertem Feature-Flag.",
+        "Security-Review-Checkliste fuer lokale Endpoints, Secrets, Logs und destructive approvals."
+      ]
+    },
+    {
+      "id": "MORCE-023",
+      "title": "Deterministische Acceptance- und Release-Gates abschliessen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "type": "evaluation",
+      "milestone_id": "MORCE-M5",
+      "dependencies": [
+        "MORCE-001",
+        "MORCE-002",
+        "MORCE-003",
+        "MORCE-004",
+        "MORCE-007",
+        "MORCE-008",
+        "MORCE-009",
+        "MORCE-012",
+        "MORCE-013",
+        "MORCE-014",
+        "MORCE-016",
+        "MORCE-018",
+        "MORCE-019",
+        "MORCE-020",
+        "MORCE-021",
+        "MORCE-022"
+      ],
+      "repo_evidence": [
+        "scripts/run-model-intelligence-acceptance.sh ist das bestehende Model-Intelligence-Gate.",
+        "Bestehende Tests decken Model-Intelligence Evaluation, Context Curation und llama.cpp-Parser getrennt ab.",
+        "Technisch done und extern verified sind im Repository bewusst getrennte Zustaende."
+      ],
+      "implementation": [
+        "Core-Gate kombiniert Contracts, Routing, Guard, ConflictSet, CausalGraph, Fixtures, Scoring, Privacy und Surface-Contracts ohne Live-GPU.",
+        "Optionales Hardware-Gate prueft gepinnte Fast- und Heavy-Profile auf RTX-3080-USB4 mit vollstaendigem RuntimeFitSnapshot und RUN_* Evidence.",
+        "Release-Entscheid dokumentiert Nutzen, Nicht-Nutzen, Safety-Failures, Hardwarekosten und Rollback; kein Modell wird allein wegen eines Einzelruns Default."
+      ],
+      "acceptance_criteria": [
+        "Core-Gate ist deterministisch, offline und ohne stille Pflicht-Skips gruen.",
+        "Heavy-diagnostic wird nur freigegeben, wenn Root-Cause-Nutzen reproduzierbar ist und artifact-first Creation nicht als Default verschlechtert wird.",
+        "Ohne gueltige SRC_* und RUN_* IDs bleibt das reale Hardware-/Modellrelease unverified, auch wenn technische Tests bestanden sind.",
+        "Alle Architektur-, Security-, Privacy-, Lizenz-, API-, UI-, TUI- und Rollback-Kriterien besitzen einen reproduzierbaren Gate-Nachweis."
+      ],
+      "test_plan": [
+        "Erweitertes scripts/run-model-intelligence-acceptance.sh mit expliziten Core- und Hardware-Profilen.",
+        "Fail-closed Tests fuer fehlende Runtime, Modell-Digest, Lizenz, private Cloud-Daten und destructive advice.",
+        "End-to-End-Wiederholung der 2x2-Matrix sowie Regression gegen Fast-default."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "MORCE-000",
+    "MORCE-001",
+    "MORCE-002",
+    "MORCE-003",
+    "MORCE-004",
+    "MORCE-007",
+    "MORCE-008",
+    "MORCE-009",
+    "MORCE-012",
+    "MORCE-013",
+    "MORCE-014",
+    "MORCE-016",
+    "MORCE-018",
+    "MORCE-019",
+    "MORCE-020",
+    "MORCE-023"
+  ],
+  "acceptance_summary": [
+    "Fast-default bleibt fuer normale Coding-, Review- und artifact-first-Aufgaben aktiv; Heavy-diagnostic wird nur durch versionierte Eskalationssignale gewaehlt.",
+    "Reasoning-, Wall-Time-, Tool-, read-only- und first-artifact-Budgets werden vom Hub erzwungen und koennen Approval oder Privacy nicht lockern.",
+    "RTX-3080-USB4-Fit ist messbar und advisory; 64 GB bleibt experimentell, 128 GB Referenz, bis gueltige RUN_* Daten anderes belegen.",
+    "CodeCompass erhaelt ConflictSet, CausalEvidenceGraph und task-spezifische Curation, ohne bestehende SourceRevision oder Graphen zu duplizieren.",
+    "Die Zwei-Ursachen-Fixture verlangt beide Root Causes, bestandene Tests und das Vermeiden destruktiver Runbook-Empfehlungen.",
+    "Die 2x2-Matrix trennt Modell- und Kontextwirkung; lange Denkspuren ohne Artefakt oder Ground-Truth-Fortschritt gelten nicht als Erfolg.",
+    "Core-CI bleibt offline und modellfrei; reale Hardware-/Modellclaims bleiben ohne SRC_* und RUN_* Evidence unverified."
+  ],
+  "tasks_status_summary": {
+    "total": 24,
+    "by_status": {
+      "todo": 24,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 17,
+      "P1": 7,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 8,
+      "high": 14,
+      "critical": 2
+    },
+    "critical_path": {
+      "total": 16,
+      "done": 0,
+      "remaining": 16
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 24,
+    "by_type": {
+      "governance": 3,
+      "contracts": 2,
+      "runtime": 5,
+      "routing": 4,
+      "codecompass": 3,
+      "evaluation": 6,
+      "surfaces": 1
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 24,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Der Track uebernimmt die Architekturidee eines grossen lokalen Reasoning-Modells als kontrollierte Spezialstufe, nicht Laguna S als Produktvorgabe.",
+    "Die wichtigsten Produktinvestitionen sind task-spezifische Budgets, ConflictSet/CausalEvidence, reproduzierbare Behavioral Evaluation und erklaerbares Routing.",
+    "Die RTX-3080-Uebertragung wird als messbares Hardwareprofil behandelt; keine Token/s- oder Kontextannahme ist ein Releaseversprechen.",
+    "Alle Aufgaben starten bei todo und 0 Prozent; lokale Repository-Inspektion ist kein Implementierungsfortschritt."
+  ]
+}
