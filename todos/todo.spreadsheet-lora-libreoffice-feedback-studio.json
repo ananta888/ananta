@@ -1,190 +1,1005 @@
 {
-  "$schema": "../todo.track.schema.json",
-  "version": "1.0",
-  "owner": "Peter Stuiber / Ananta",
-  "track": "spreadsheet-lora-libreoffice-feedback-studio",
-  "status": "todo",
-  "priority": "P0",
+  "$schema": "./todo.schema.json",
+  "version": 2,
   "created": "2026-07-18",
-  "updated": "2026-07-18",
-  "purpose": "Ananta um einen sicheren lokalen Spreadsheet-Assistenten erweitern, der XLSX, ODS und CSV über einen isolierten LibreOffice-Worker anzeigen und verändern kann, Ergebnisse deterministisch sowie durch den Nutzer validiert und ausdrücklich freigegebene korrekte oder korrigierte Fälle als eigene Trainingsdaten für das vorhandene LoRA/QLoRA-System nutzt.",
-  "goal": "Ein Nutzer kann Arbeitsmappen in einer speziellen Angular-Komponente LibreOffice-nah betrachten, Bereiche auswählen, Aufgaben formulieren, strukturierte Änderungen als Diff prüfen, anwenden und mit eigenen fachlichen Regeln validieren. Freigegebene Ergebnisse fließen nachvollziehbar in versionierte Spreadsheet-Datasets ein, aus denen Ananta über die vorhandene ml_intern-Trainings-Control-Plane eigene LoRA-Adapter trainiert, evaluiert und kontrolliert aktiviert.",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high", "critical"],
-  "supersedes_or_extends": ["todos/archiv/todo.mlintern-lora-training-control-center.json"],
-  "source_analysis": {
-    "verified_existing": [
-      "Der archivierte Track todo.mlintern-lora-training-control-center.json dokumentiert einen abgeschlossenen LoRA/QLoRA-Produktpfad mit Dataset-Import, Validierung, persistenten Hub-Jobs, isoliertem Training-Worker, Evaluation, Adapterregistry, Approval, Export und Angular-Control-Center.",
-      "Vorhandene ml_intern-Dataset-, Training-, Evaluation- und Adapterdienste sowie die Angular-Modelltraining-Verwaltung sind wiederzuverwenden und nicht parallel neu aufzubauen.",
-      "Die bestehende Architektur verwendet tenantgebundene IDs und Hashes statt freier Serverpfade, trennt Hub und Worker und verbietet automatisches Adapter-Approval.",
-      "Im aktuell auffindbaren Stand existiert kein durchgängiger Spreadsheet-Domänenpfad für XLSX/ODS, kein isolierter LibreOffice-Worker, keine eingeschränkte Zellaktionssprache, keine fachliche Ergebnisvalidierung und keine Spreadsheet-spezifische Angular-Arbeitsoberfläche."
-    ],
-    "reused_patterns": [
-      "ml_intern Dataset-, Job-, Event-, Evaluation-, Adapterregistry- und Approval-Verträge",
-      "TaskDB/WorkerJobDB sowie Lease-, Heartbeat-, Fencing- und Recovery-Muster",
-      "Shared Angular UI-Primitives und bestehende Modelltraining-Navigation",
-      "Artefakt-Containment, Secret-Scanning, Preview-, Consent- und Auditmuster"
-    ],
-    "rejected_patterns": [
-      "Kein direkter LibreOffice-/UNO-Prozess im Hub oder Angular-Client",
-      "Kein Modelloutput als Python, Shell, Makro oder ungeprüfter UNO-Code",
-      "Kein automatisches Lernen aus jeder Nutzerinteraktion oder allein aus bestandener Validierung",
-      "Keine Überschreibung der Originalarbeitsmappe und kein stilles Aktivieren eines Adapters",
-      "Keine Browser-Nachbildung, die vollständige Calc-Kompatibilität behauptet"
+  "updated": "2026-08-08",
+  "project": "ananta",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "spreadsheet_lora_libreoffice_feedback_studio_research",
+  "status": "open",
+  "priority": "P0",
+  "review_basis": {
+    "reviewed_commit_range": "HEAD@c995de012fdac78c3bd62da7d67da959076382cb plus working tree inspected on 2026-08-08",
+    "review_goal": "Die bisherige gemischte Spreadsheet-Ideen- und Implementierungsplanung in eine schema-konforme, passive und source-grounded vorbereitete Category-Research-Todo überführen. Vor einer Track-Promotion werden vorhandene Artifact-, Worker-, ml_intern-, Unsloth-, Consent-, API-, Angular- und Compose-Bausteine auf Wiederverwendung geprüft und die LibreOffice-, Dokument-, Action-, Validierungs-, Datenschutz-, Trainings- und Betriebsgrenzen verbindlich entschieden.",
+    "allowed_source_refs": [],
+    "allowed_run_refs": [],
+    "grounding_status": "unverified",
+    "promotion_status": "non_promotable_unverified_sources",
+    "grounding_note": "Für diese statische Korrektur wurden keine Hub-bereitgestellten SRC_*- oder RUN_*-IDs übergeben. Repository-Pfade, Commit-Hashes und externe URLs sind Navigations- und Research-Kandidaten, aber keine verifizierte Evidenz. Die gebundene Research-Ausführung muss ein category_todo_quality_profile.v1 mit dem exakten Source Catalog und der Assignment-Allowlist erzeugen.",
+    "reviewed_paths": [
+      "AGENTS.md",
+      "docs/planning-pipeline.md",
+      "todos/todo.schema.json",
+      "todos/todo.track.schema.json",
+      "schemas/planning/category_todo_quality_profile.v1.json",
+      "schemas/answers/grounded_answer.v1.json",
+      "todos/archiv/todo.mlintern-lora-training-control-center.json",
+      "agent/routes/artifacts.py",
+      "agent/services/ingestion_service.py",
+      "agent/services/extraction_service.py",
+      "rag-helper/rag_helper/extractors/tabular_notebook_extractor.py",
+      "agent/tools_document.py",
+      "agent/db_models/tasks.py",
+      "agent/db_models/workers.py",
+      "agent/services/worker_job_service.py",
+      "agent/services/worker_pool_scheduler_service.py",
+      "agent/services/worker_result_callback_service.py",
+      "agent/services/ml_intern_training_contract.py",
+      "agent/services/ml_intern_training_control_service.py",
+      "agent/services/ml_intern_training_worker_port.py",
+      "agent/services/ml_intern_training_worker_contract.py",
+      "agent/services/ml_intern_lora_dataset_build_service.py",
+      "agent/services/ml_intern_lora_eval_service.py",
+      "agent/services/ml_intern_lora_inference_service.py",
+      "agent/services/unsloth_data_recipe_adapter.py",
+      "worker/training/data_recipe_materializer.py",
+      "agent/services/voice_review_service.py",
+      "agent/services/voice_personalization_service.py",
+      "agent/services/voice_training_export_service.py",
+      "agent/services/speech_dataset_privacy_preview_service.py",
+      "agent/services/ml_intern_speech_revocation_service.py",
+      "agent/bootstrap/routes.py",
+      "worker/",
+      "docker/compose-next/compose.lora-training.yml",
+      "frontend-angular/src/app/app.routes.ts",
+      "frontend-angular/src/app/models/route-metadata.ts",
+      "frontend-angular/src/app/features/model-training/",
+      "frontend-angular/src/app/shared/ui/",
+      "frontend-angular/tests/model-training.spec.ts",
+      "pyproject.toml",
+      "requirements.txt"
     ]
   },
-  "architecture_decisions": [
-    "LibreOffice läuft ausschließlich in einem isolierten Worker; der Hub besitzt Jobs, Policy, Dokumentversionen, Approval und Audit.",
-    "Das Modell erzeugt ausschließlich eine versionierte, eingeschränkte Spreadsheet-Aktionssprache; deterministische Dienste führen sie aus.",
-    "Original, normalisierte Arbeitskopie, Vorschau, Ergebnisversion und Trainingsrepräsentation sind getrennte Artefakte mit eigenen Hashes.",
-    "Automatische Validierung, Nutzerfeedback und Trainingsfreigabe sind drei getrennte Signale.",
-    "Spreadsheet-LoRA erweitert das vorhandene ml_intern-Control-Center über task_family=spreadsheet.",
-    "Train-, Eval- und Test-Splits werden nach Workbook-/Template-Gruppen gebildet, um Leakage zu verhindern."
-  ],
+  "purpose": "Vor jeder Spreadsheet-Studio-Implementierung belastbar feststellen, welche vorhandenen Ananta-Komponenten wiederverwendet oder additiv erweitert werden können und welche LibreOffice-, Dokument-, Action-, Validierungs-, Feedback-, Consent-, Dataset-, Training-, Inferenz-, API-, UI- und Betriebsverträge zuerst verbindlich entschieden werden müssen.",
+  "goal": "Eine promotionsfähige Research-Grundlage für einen sicheren lokalen Spreadsheet-Assistenten schaffen. Die spätere Lösung soll XLSX, ODS und CSV über Hub-gesteuerte, isolierte Worker verarbeiten, strukturierte Änderungen als digestgebundenen Dry-run und Diff prüfen, Nutzerregeln deterministisch validieren und ausschließlich ausdrücklich freigegebene abstrahierte Beispiele über das vorhandene ml_intern-System trainieren, evaluieren und kontrolliert aktivieren.",
   "non_goals": [
-    "Keine vollständige Neuentwicklung von LibreOffice Calc im Browser",
-    "Keine Makro-, Shell-, Python- oder externe Datenquellenausführung",
-    "Kein Full-Fine-Tuning kompletter Modellgewichte",
-    "Kein Training ohne explizite Nutzerfreigabe",
-    "Keine Garantie für sämtliche exotischen ODS-/XLSX-Funktionen in Version 1"
+    "Diese Category-Todo erstellt, adoptiert oder materialisiert keine Planning Tracks und keine Runtime-Tasks.",
+    "In dieser Research-Phase werden weder LibreOffice-Container gebaut noch Dokumente verarbeitet, LoRA-Adapter trainiert oder produktive UI-Routen aktiviert.",
+    "Es wird keine zweite Taskqueue, kein Worker-eigener Orchestrierungsloop und keine Worker-zu-Worker-Kommunikation entworfen.",
+    "LibreOffice, UNO, Dokumentparser, Modellinferenz oder Training werden nicht im Hub- oder Angular-Prozess ausgeführt.",
+    "Modelloutput wird nicht als Python, Shell, Makro, freie UNO-Anweisung oder ungeprüfte Formeländerung zugelassen.",
+    "Originalarbeitsmappen werden nicht überschrieben und Worker-Ergebnisse werden nicht unmittelbar als veröffentlichte Dokumentversion akzeptiert.",
+    "Bestandene Validierung, positives Feedback und Trainingseinwilligung werden nicht gleichgesetzt.",
+    "Es wird kein automatisches Lernen aus jeder Nutzerinteraktion und kein automatisches Adapter-Approval geplant.",
+    "Es wird kein Full-Fine-Tuning kompletter Modellgewichte geplant; eine spätere Trainingsentscheidung ist auf freigegebene LoRA-/QLoRA-Profile begrenzt.",
+    "Es wird keine vollständige Calc-Kompatibilität im Browser behauptet.",
+    "Komplexe GPU-, Multi-Container-, End-to-End-, große Dokument- und reale Provider-Tests werden vor ausdrücklicher Freigabe weder ausgeführt noch als bestanden markiert.",
+    "Repository-Pfade, Commit-Hashes, URLs oder Freitext werden nicht als Ersatz für erlaubte SRC_*- oder RUN_*-Evidenz behandelt."
   ],
-  "definition_of_done": [
-    "XLSX, ODS und CSV können sicher importiert, versioniert, gerendert, angezeigt und über strukturierte Aktionen verändert werden.",
-    "Die Angular-App besitzt ein Spreadsheet Studio mit Arbeitsmappenansicht, Aufgabeneditor, Diff, Validator-Builder, Feedback und Dataset-Verwaltung.",
-    "LibreOffice läuft isoliert ohne Netzwerk, Makros oder Zugriff auf Hub-Secrets.",
-    "Akzeptierte und korrigierte Ergebnisse gelangen nur nach sichtbarer Vorschau und expliziter Freigabe in versionierte Datasets.",
-    "Spreadsheet-LoRA-Training, Ausführungsevaluation, Adapterapproval und lokale Inferenz sind an ml_intern angebunden.",
-    "Backend-, Angular-, Security-, Container- und CPU-/Mock-E2E-Gates sind grün; Hardwaretests werden separat ausgewiesen."
+  "phase_contract": {
+    "artifact_role": "category_research_backlog_seed",
+    "schema_ref": "todos/todo.schema.json",
+    "semantic_result_profile_ref": "schemas/planning/category_todo_quality_profile.v1.json",
+    "passive": true,
+    "creates_worker_tasks": false,
+    "creates_queue_entries": false,
+    "hub_pipeline_submission_allowed": false,
+    "seed_validation_scope": "json_schema_meta_and_dag_only",
+    "promotion_state": "blocked_until_assignment_bound_grounding",
+    "research_result_requirements": [
+      "Die Hub-gebundene Research-Ausführung übernimmt source_catalog_id, source_catalog_hash und die erlaubten Source- und Run-Refs ausschließlich aus ihrem Assignment-Kontext.",
+      "Jeder belegte Item-Claim verweist über evidence_claim_refs auf genau einen maschinenlesbaren Claim des Quality Profiles.",
+      "Fehlende, unbekannte oder nicht erlaubte Evidenz bleibt unverified beziehungsweise failed und verhindert Promotion.",
+      "Der Hub validiert Schema, semantisches Quality Profile, Item-DAG, Summaries, Scope, Grounding und Provenienz gegen die exakte Artefaktrevision.",
+      "Erst die explizit promotete Category-Revision darf einen gebundenen Track-Planner-Worker auslösen."
+    ],
+    "research_result_rule": "Dieser operatorgepflegte Seed ist nur ein Research-Brief. Der gebundene Research-Worker erzeugt daraus eine separate Category-Revision mit planning_quality_profile und evidence_claim_refs; der Seed selbst wird niemals als validiertes Research-Ergebnis ausgegeben.",
+    "track_generation_rule": "Der spätere Track validiert gegen todos/todo.track.schema.json und referenziert ausschließlich die kanonischen source_category_item_ids der promoteten Revision. Track-Persistenz, Adoption, Task-Materialisierung und Dispatch bleiben getrennte Hub-Entscheidungen."
+  },
+  "architecture_invariants": [
+    "Der Hub bleibt alleiniger Eigentümer von Taskqueue, Admission, Routing, Policy, Approval, Lease/Fencing, Dokumentversionen, Adapter-Lifecycle, Statusprojektion und finaler Ergebnisannahme.",
+    "Ein Spreadsheet-, LibreOffice-, Inferenz- oder Training-Worker führt genau einen materialisierten, assignment- und leasegebundenen Auftrag im eigenen Container aus und orchestriert keine anderen Worker.",
+    "Worker liefern nur begrenzte Ergebnisartefakte, Manifeste, Digests und Status zurück; der Hub prüft und registriert daraus ausschließlich Candidate- oder Preview-Artefakte. Published entsteht nur durch eine separate digestgebundene Hub-Promotion des freigegebenen Candidates.",
+    "Angular spricht ausschließlich die Hub-API an und erhält weder Worker-URLs noch Serverpfade, lokale Dateipfade, Secrets oder rohe Storage-Referenzen.",
+    "Original, normalisierte Arbeitskopie, Candidate, Preview, veröffentlichte Version und Trainingsrepräsentation bleiben immutable und besitzen getrennte Provenienz und Digests.",
+    "Makros, Extensions, externe Datenquellen, eingebettete Objekte, externe Formeln und Netzwerkzugriffe sind default-deny.",
+    "Modellvorschlag, Action-Schema-Validierung, isolierter Dry-run, fachliche Validierung, Nutzerfeedback, Apply-Freigabe und Trainingseinwilligung sind getrennte Zustände und Auditereignisse.",
+    "Apply promotet das exakt geprüfte Candidate-Artefakt; Actions werden nach der Freigabe nicht still erneut gegen einen veränderten Stand ausgeführt.",
+    "Neue Spreadsheet-Trainingseigenschaften erweitern ml_intern über kleine Ports und Strategien mit kompatiblem Legacy-Default statt über Trainingslogik in Hub-Routen oder deprecated Shims.",
+    "Vollständige Backend-Artefakte bleiben erhalten; UI, Preview und Diff dürfen virtualisiert oder paginiert werden, ohne Daten still zu verwerfen."
   ],
-  "milestones": [
-    {"id":"SSF-M1","title":"Bestandsabgleich und Verträge","task_ids":["SSF-001","SSF-002"],"status":"todo"},
-    {"id":"SSF-M2","title":"Dokumente und LibreOffice-Worker","task_ids":["SSF-003","SSF-004"],"status":"todo"},
-    {"id":"SSF-M3","title":"Aktionen, Validatoren und Datasets","task_ids":["SSF-005","SSF-006","SSF-007"],"status":"todo"},
-    {"id":"SSF-M4","title":"Training, Evaluation und Feedback","task_ids":["SSF-008","SSF-009","SSF-010"],"status":"todo"},
-    {"id":"SSF-M5","title":"Angular Spreadsheet Studio","task_ids":["SSF-011","SSF-012","SSF-013","SSF-014"],"status":"todo"},
-    {"id":"SSF-M6","title":"Security und End-to-End","task_ids":["SSF-015","SSF-016"],"status":"todo"}
-  ],
-  "critical_path_tasks": ["SSF-001","SSF-002","SSF-003","SSF-004","SSF-005","SSF-006","SSF-007","SSF-008","SSF-009","SSF-010","SSF-011","SSF-012","SSF-013","SSF-015","SSF-016"],
-  "tasks": [
+  "research_hypotheses": [
     {
-      "id":"SSF-001","title":"Spreadsheet-, LibreOffice- und Feedback-Bestand gegen main auditieren","type":"analysis","milestone_id":"SSF-M1","status":"todo","priority":"P0","risk":"low","progress_percent":0,"depends_on":[],
-      "target_files":["agent/services/ml_intern_*","agent/routes/ml_intern_training.py","agent/ml_intern_training_runner.py","frontend-angular/src/app","docker-compose*.yml","todos/archiv/todo.mlintern-lora-training-control-center.json"],
-      "acceptance_criteria":["Vorhandene Dataset-, Training-, Evaluation-, Registry- und Angular-Pfade werden mit konkreten Dateien und Symbolen dokumentiert.","Spreadsheet-, XLSX-/ODS-, LibreOffice-, Zellvalidierungs- und Feedbacklücken werden als vorhanden, teilweise vorhanden oder fehlend klassifiziert.","Dateivorschau, echte Berechnung, Bearbeitung, Modellinferenz, Benutzerfreigabe und Trainingsdatenübernahme werden getrennt betrachtet.","Der neue Track erweitert den erledigten LoRA-Control-Center additiv."],
-      "test_expectations":["Bestehende ml_intern- und Angular-Tests werden als Baseline ausgeführt und bleiben grün."]
+      "id": "HYP-SSFR-001",
+      "statement": "Generischer Artifact-Import, Versionierung und vorhandene Tabellenextraktion können als Eingangsschicht wiederverwendet werden, benötigen aber eine eigene Spreadsheet-Domäne für Semantik, Recalc, Bearbeitung und sichere Versionpromotion.",
+      "status": "unverified",
+      "validation_items": ["SSFR-GND-002", "SSFR-DOC-001", "SSFR-SEC-002"]
     },
     {
-      "id":"SSF-002","title":"Versionierte Spreadsheet-Verträge und Sicherheitsgrenzen definieren","type":"architecture","milestone_id":"SSF-M1","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-001"],
-      "target_files":["docs/contracts/spreadsheet-document.schema.json","docs/contracts/spreadsheet-action.schema.json","docs/contracts/spreadsheet-feedback.schema.json","docs/spreadsheet-finetuning.md"],
-      "acceptance_criteria":["Dokument, Blatt, Bereich, Zelle, Formel, Format, Tabelle, Diagramm und Validierungszustand besitzen versionierte Verträge.","Dateien werden nur über Dokument-IDs, Hashes und tenantgebundene Handles referenziert.","Modellvorschlag, deterministische Ausführung, Validierung und Freigabe sind getrennte Zustände.","Feedback kennt accepted, corrected, rejected, skipped und unsafe.","Makros, externe Links, Datenquellen und eingebettete Objekte sind default-deny."],
-      "test_expectations":["Schema-Tests lehnen unbekannte kritische Felder, freie Pfade und ausführbaren Code ab."]
+      "id": "HYP-SSFR-002",
+      "statement": "Hub-Task-, WorkerJob-, Lease-, Fencing- und Result-Ingress-Muster können einen LibreOffice-Execution-Port tragen, ohne eine zweite Queue oder einen synchronen Sonderkanal einzuführen.",
+      "status": "unverified",
+      "validation_items": ["SSFR-GND-004", "SSFR-DOC-005", "SSFR-DOC-006"]
     },
     {
-      "id":"SSF-003","title":"Sicheren XLSX-, ODS- und CSV-Artefaktimport mit Versionierung implementieren","type":"backend","milestone_id":"SSF-M2","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-002"],
-      "target_files":["agent/services/spreadsheet_artifact_service.py","agent/routes/spreadsheet_documents.py","tests/test_spreadsheet_artifact_service.py"],
-      "acceptance_criteria":["Uploads werden streamend begrenzt, gehasht, tenantgebunden gespeichert und gegen Traversal, Symlinks, Zip-Bomben und MIME-Spoofing geschützt.","Original, Arbeitskopie und Vorschau sind getrennte Artefakte.","Makrohaltige, beschädigte oder passwortgeschützte Dateien liefern stabile Reason-Codes.","Originaldateien werden niemals überschrieben."],
-      "test_expectations":["Security-Golden-Suite für manipulierte ZIP-Container, große Shared Strings, Traversal und MIME-Spoofing ist grün."]
+      "id": "HYP-SSFR-003",
+      "statement": "Das bestehende ml_intern- und Unsloth-System kann über eine additive TaskFamilyStrategy für strukturierte Spreadsheet-Actions erweitert werden, ohne LoRA-, Speech- oder Legacy-Textverträge semantisch zu brechen.",
+      "status": "unverified",
+      "validation_items": ["SSFR-GND-003", "SSFR-ML-001", "SSFR-ML-003"]
     },
     {
-      "id":"SSF-004","title":"Isolierten LibreOffice-Worker für Rendering, Neuberechnung und Änderungen bereitstellen","type":"worker","milestone_id":"SSF-M2","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-003"],
-      "target_files":["workers/libreoffice_worker","agent/services/spreadsheet_worker_client.py","compose.spreadsheet.yml","docs/contracts/spreadsheet-worker.schema.json"],
-      "acceptance_criteria":["LibreOffice läuft headless, non-root, read-only und ohne Netzwerk oder Hub-Secrets.","Der Worker akzeptiert nur signierte materialisierte Jobs und erzeugt Vorschauen, Zell-Snapshots und neue Dokumentversionen.","CPU-, RAM-, Zeit-, Datei- und Blattlimits werden erzwungen.","Makros, Extensions und externe Datenaktualisierung sind deaktiviert.","Crash, Timeout und beschädigte Dateien verlieren keinen Hub-Jobstatus."],
-      "test_expectations":["Container-Härtung, Timeout, Recovery und reproduzierbarer Render-/Recalc-Smoke-Test sind automatisiert."]
+      "id": "HYP-SSFR-004",
+      "statement": "Eine Worker-gerenderte Vorschau mit virtualisiertem Zelloverlay liefert ausreichende Calc-Nähe, ohne einen vollständigen Browser-Spreadsheet-Editor nachzubauen.",
+      "status": "unverified",
+      "validation_items": ["SSFR-GND-005", "SSFR-UX-002", "SSFR-PLAN-001"]
     },
     {
-      "id":"SSF-005","title":"Kanonisches Spreadsheet-Modell und eingeschränkte Aktionssprache implementieren","type":"backend","milestone_id":"SSF-M3","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-002","SSF-004"],
-      "target_files":["agent/models/spreadsheet.py","agent/services/spreadsheet_parser_service.py","agent/services/spreadsheet_action_service.py","tests/test_spreadsheet_action_service.py"],
-      "acceptance_criteria":["Blätter, Zellen, Formeln, berechnete Werte, Stile, benannte Bereiche, Tabellen und Abhängigkeiten werden kanonisch dargestellt.","Formeltext und angezeigter Wert bleiben getrennt; Locale und Datumssystem sind explizit.","Erlaubte Aktionen umfassen set_value, set_formula, clear_range, copy_range, format_range sowie Zeilen-/Spaltenoperationen.","Freitext-Code, Python, Shell und rohe UNO-Kommandos sind ausgeschlossen.","Dry-run liefert strukturierten Diff; Apply ist idempotent und versionsgebunden."],
-      "test_expectations":["Golden-Files und Property-Tests decken Locale, Datum, Bereichsgrenzen, Konflikte und unbekannte Aktionen ab."]
-    },
-    {
-      "id":"SSF-006","title":"Nutzerdefinierte fachliche Spreadsheet-Validatoren implementieren","type":"validation","milestone_id":"SSF-M3","status":"todo","priority":"P0","risk":"high","progress_percent":0,"depends_on":["SSF-005"],
-      "target_files":["agent/services/spreadsheet_validation_service.py","docs/contracts/spreadsheet-validation.schema.json","tests/test_spreadsheet_validation_service.py"],
-      "acceptance_criteria":["Validatoren unterstützen exakte Werte, Toleranzen, Formelmuster, Invarianten, Bereichsregeln und Referenzdateien.","Formeln werden strukturell und nach LibreOffice-Neuberechnung bewertet, nicht nur als String.","Ergebnisse unterscheiden fachlich korrekt, technisch gültig, teilweise korrekt, unverändert und nicht prüfbar.","Validatoren sind an Dokumenthash, Aufgabe und erwartete Ausgabe gebunden.","Berichte nennen Blatt und Bereich, ohne unnötige sensible Inhalte zu protokollieren."],
-      "test_expectations":["Tests decken Rundung, Locale, Datum, Fehlerwerte, relative Referenzen und gleichwertige Formeln ab."]
-    },
-    {
-      "id":"SSF-007","title":"Nutzerdefinierte Dataset-Rezepte und leakagesichere Spreadsheet-Trainingsdaten bauen","type":"dataset","milestone_id":"SSF-M3","status":"todo","priority":"P0","risk":"high","progress_percent":0,"depends_on":["SSF-003","SSF-005","SSF-006"],
-      "target_files":["agent/services/spreadsheet_dataset_service.py","agent/services/ml_intern_lora_dataset_build_service.py","docs/contracts/spreadsheet-dataset-recipe.schema.json"],
-      "acceptance_criteria":["Nutzer definieren Quellen, Aufgaben, erlaubte Bereiche, Zielaktionen, Validatoren, Maskierung und Datenschutzregeln als versioniertes Recipe.","Beispiele enthalten Instruktion, kanonischen Kontext, Zielaktion, Validatorergebnis, Quellhash und Consentstatus.","Train/Eval/Test werden deterministisch nach Workbook- oder Template-Gruppe gesplittet.","Duplikate und nahe Varianten werden erkannt; sensible Spalten können maskiert oder ausgeschlossen werden.","Dataset-Versionen sind reproduzierbar und vollständig provenance-fähig."],
-      "test_expectations":["Leakage-, Deduplizierungs-, Maskierungs- und Reproduzierbarkeitstests sind grün."]
-    },
-    {
-      "id":"SSF-008","title":"Spreadsheet-LoRA/QLoRA als task_family des bestehenden ml_intern-Systems ergänzen","type":"training","milestone_id":"SSF-M4","status":"todo","priority":"P0","risk":"high","progress_percent":0,"depends_on":["SSF-007"],
-      "target_files":["agent/ml_intern_training_runner.py","agent/services/ml_intern_training_job_service.py","agent/services/ml_intern_lora_eval_service.py"],
-      "acceptance_criteria":["Bestehende Queue-, Worker-, Event-, Cancel-, Registry- und Approval-Verträge werden wiederverwendet.","Trainingsziel ist strikt strukturiertes Action-JSON im Instruction- oder Chat-Format.","Base-Modell, Quantisierung, LoRA-Rang, Zielmodule, Kontext- und Zellbudget sind profilbasiert.","Adapterartefakte und Logs enthalten keine Roharbeitsmappen oder Zellinhalte.","Seed, Split-Hashes, Resume und Provenienz sind reproduzierbar."],
-      "test_expectations":["CPU-/Mock-Gate und optionaler NVIDIA-Smoke-Test decken task_family=spreadsheet ab."]
-    },
-    {
-      "id":"SSF-009","title":"Spreadsheet-Evaluation über echte Ausführung und Validatoren implementieren","type":"evaluation","milestone_id":"SSF-M4","status":"todo","priority":"P0","risk":"high","progress_percent":0,"depends_on":["SSF-006","SSF-008"],
-      "target_files":["agent/services/spreadsheet_model_eval_service.py","agent/services/ml_intern_lora_eval_service.py","tests/test_spreadsheet_model_eval_service.py"],
-      "acceptance_criteria":["Base und Adapter erzeugen Aktionen, die in isolierten Dokumentkopien ausgeführt und deterministisch validiert werden.","Metriken umfassen JSON-valid, action-valid, execution-success, validator-pass, cell-diff-precision, unintended-change-rate, Latenz und Ressourcenverbrauch.","Berichte gruppieren nach Aufgabentyp, Dateiformat, Größenklasse und Fehlerklasse.","Approval-Gates blockieren kritische Regressionen und unbeabsichtigte Änderungen.","Textähnlichkeit ist höchstens eine Diagnosemetrik."],
-      "test_expectations":["Golden-Suite enthält korrekte, teilweise korrekte, falsche und gefährliche Modellaktionen."]
-    },
-    {
-      "id":"SSF-010","title":"Human-in-the-loop-Feedback mit expliziter Trainingsfreigabe und Widerruf implementieren","type":"feedback","milestone_id":"SSF-M4","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-006","SSF-007","SSF-009"],
-      "target_files":["agent/services/spreadsheet_feedback_service.py","agent/routes/spreadsheet_feedback.py","tests/test_spreadsheet_feedback_service.py"],
-      "acceptance_criteria":["Nutzer können accepted, corrected, rejected, skipped oder unsafe vergeben.","Ursprünglicher Vorschlag, ausgeführte Änderung, Nutzerkorrektur und Validatorergebnis bleiben getrennt.","Bestandene automatische Validierung erzeugt keine automatische Trainingseinwilligung.","Vor Trainingsfreigabe wird die konkrete abstrahierte Trainingsrepräsentation angezeigt.","Consent ist versioniert und widerrufbar; widersprüchliche Bewertungen bleiben nachvollziehbar."],
-      "test_expectations":["Audit-, Consent-, Widerrufs-, Cross-Tenant- und Konflikttests sind grün."]
-    },
-    {
-      "id":"SSF-011","title":"Angular Spreadsheet Studio als eigenes navigierbares Feature anlegen","type":"frontend","milestone_id":"SSF-M5","status":"todo","priority":"P0","risk":"medium","progress_percent":0,"depends_on":["SSF-001","SSF-002"],
-      "target_files":["frontend-angular/src/app/features/spreadsheet-studio","frontend-angular/src/app/app.routes.ts","frontend-angular/src/app/core/navigation"],
-      "acceptance_criteria":["Ein capability-gesteuerter Menüpunkt öffnet das Spreadsheet Studio.","Bestehende PageIntro-, SectionCard-, StatusBadge-, MetricCard- und TableShell-Primitives werden wiederverwendet.","Dokumentliste, Upload, Version, Trainingsstatus und Modellstatus sind ohne Visual-Process-Editor erreichbar.","Große Dateien werden gekachelt oder paginiert und blockieren nicht den UI-Thread.","Leere, ladende, fehlerhafte und eingeschränkte Zustände sind zugänglich und verständlich."],
-      "test_expectations":["Angular Unit-Tests, Accessibility-Smoke, Lint und Production-Build sind grün."]
-    },
-    {
-      "id":"SSF-012","title":"LibreOffice-nahe Arbeitsmappenansicht mit Bereichsauswahl und Versionen implementieren","type":"frontend","milestone_id":"SSF-M5","status":"todo","priority":"P0","risk":"high","progress_percent":0,"depends_on":["SSF-004","SSF-005","SSF-011"],
-      "target_files":["frontend-angular/src/app/features/spreadsheet-studio/components/workbook-viewer","frontend-angular/src/app/features/spreadsheet-studio/services"],
-      "acceptance_criteria":["Worker-Vorschau und kanonische Zellinformationen werden synchronisiert angezeigt.","Blattnavigation, Zoom, Zelladresse, Formel, Wert, sichtbare und verborgene Blätter sind bedienbar.","Ausgewählte Bereiche können als Aufgaben-, Validator- oder Dataset-Kontext übernommen werden.","Nicht unterstützte Calc-Objekte werden transparent gekennzeichnet.","Jede Änderung erzeugt eine neue Dokumentversion; das Original bleibt unverändert."],
-      "test_expectations":["Komponenten- und E2E-Tests prüfen Blattwechsel, Auswahl, Zoom, große Bereiche und Versionierung."]
-    },
-    {
-      "id":"SSF-013","title":"Aufgaben-, Action-Diff-, Validator- und Feedback-UX implementieren","type":"frontend","milestone_id":"SSF-M5","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-005","SSF-006","SSF-010","SSF-012"],
-      "target_files":["frontend-angular/src/app/features/spreadsheet-studio/components/task-editor","frontend-angular/src/app/features/spreadsheet-studio/components/action-diff","frontend-angular/src/app/features/spreadsheet-studio/components/validator-builder","frontend-angular/src/app/features/spreadsheet-studio/components/feedback-panel"],
-      "acceptance_criteria":["Vor Apply werden strukturierte Aktionen, betroffene Bereiche, Risiken und visueller Diff angezeigt.","Apply, Edit, Reject und Abbruch sind getrennte Aktionen; kritische Änderungen benötigen Bestätigung.","Validatoren lassen sich ohne JSON als Werte-, Toleranz-, Formel-, Summen-, Bereichs- oder Referenzregel erstellen.","Nach Recalc werden Validatorergebnis und unerwartete Änderungen angezeigt.","Feedback und Trainingsfreigabe sind getrennte UI-Schritte mit Maskierungsvorschau und Widerruf."],
-      "test_expectations":["E2E-Golden-Path: Upload, Auswahl, Aufgabe, Vorschlag, Diff, Apply, Recalc, Validierung, Korrektur und Trainingsfreigabe."]
-    },
-    {
-      "id":"SSF-014","title":"Dataset-Recipe-, Beispiel-, Split- und Trainingsverwaltung in Angular ergänzen","type":"frontend","milestone_id":"SSF-M5","status":"todo","priority":"P1","risk":"medium","progress_percent":0,"depends_on":["SSF-007","SSF-008","SSF-010","SSF-011"],
-      "target_files":["frontend-angular/src/app/features/spreadsheet-studio/components/dataset-recipes","frontend-angular/src/app/features/model-training"],
-      "acceptance_criteria":["Recipes können erstellt, simuliert, versioniert, dupliziert und deaktiviert werden.","Beispielvorschau zeigt Quelle, Instruktion, Kontextbudget, Zielaktion, Validatorstatus, Consent und Split.","Leakage-, Duplikat-, Secret- und Verteilungswarnungen sind filterbar.","Eval-Beispiele können nicht unbemerkt in Train verschoben werden.","Dataset-Promotion zeigt Änderungen gegenüber der Vorgängerversion und erfordert Bestätigung."],
-      "test_expectations":["Angular Tests decken Filter, Pagination, Split-Lock, Consent und Promotion ab."]
-    },
-    {
-      "id":"SSF-015","title":"API-, Rollen-, Audit-, Datenschutz- und Retentionintegration absichern","type":"security","milestone_id":"SSF-M6","status":"todo","priority":"P0","risk":"critical","progress_percent":0,"depends_on":["SSF-003","SSF-005","SSF-010","SSF-013"],
-      "target_files":["agent/routes/spreadsheet_documents.py","agent/routes/spreadsheet_feedback.py","agent/security","docs/spreadsheet-finetuning.md"],
-      "acceptance_criteria":["Rollen unterscheiden Dokumentnutzung, Validatorpflege, Dataset-Kuration, Trainingstart und Adapterfreigabe.","Alle Schreiboperationen sind tenantgebunden, idempotent und auditierbar, ohne Rohzellinhalte im Auditlog.","Downloads verwenden kurzlebige zweckgebundene Handles.","Löschung und Consent-Widerruf entfernen Beispiele aus künftigen Datasets und markieren betroffene Adapterprovenienz.","Quoten und Rate-Limits schützen Upload, Rendering, Inferenz, Validierung und Training."],
-      "test_expectations":["Authorization-Matrix, IDOR-, Cross-Tenant-, Audit-Redaction-, Retention- und Quota-Tests sind grün."]
-    },
-    {
-      "id":"SSF-016","title":"End-to-End-Benchmarks, Regression-Gates und Betrieb abschließen","type":"verification","milestone_id":"SSF-M6","status":"todo","priority":"P0","risk":"high","progress_percent":0,"depends_on":["SSF-008","SSF-009","SSF-012","SSF-013","SSF-015"],
-      "target_files":["tests/e2e/spreadsheet","frontend-angular/e2e","docs/spreadsheet-finetuning.md","scripts/verify_spreadsheet_stack.py"],
-      "acceptance_criteria":["Golden-Suite umfasst Formeln, Summen, Bereinigung, Formatierung, Zeilen-/Spaltenänderungen, Locale, Datum und gefährliche Anweisungen.","Base-vs-Adapter-Bericht weist Erfolgsquote, unbeabsichtigte Änderungen, Latenz und Ressourcenverbrauch aus.","Ein E2E-Lauf beweist Upload bis Feedback, Dataset-Version, Training-Dry-Run, Evaluation und Adapterapproval.","LibreOffice-, Hub- und Worker-Versionen sowie reproduzierbare Images sind dokumentiert.","Nicht ausgeführte NVIDIA-Live-Tests werden als not_run und niemals als bestanden ausgewiesen."],
-      "test_expectations":["CI-Gates für Backend, Angular, Container, CPU-/Mock-E2E und optional NVIDIA sind dokumentiert und grün."]
+      "id": "HYP-SSFR-005",
+      "statement": "LoRA-Training liefert erst nach einem gemessenen Base-Modell-Baseline- und Dataset-Readiness-Gate zusätzlichen Wert und darf vorher nicht als notwendiger Produktpfad vorausgesetzt werden.",
+      "status": "unverified",
+      "validation_items": ["SSFR-ML-002", "SSFR-ML-004", "SSFR-PLAN-004"]
     }
   ],
-  "tasks_status_summary": {
-    "total": 16,
-    "by_status": {"todo":16,"in_progress":0,"partial":0,"blocked":0,"done":0},
-    "progress_percent_done": 0,
-    "by_priority": {"P0":15,"P1":1,"P2":0,"P3":0},
-    "by_risk": {"low":1,"medium":3,"high":6,"critical":6},
-    "critical_path": {"total":15,"done":0,"remaining":15},
-    "milestones": {"total":6,"todo":6,"in_progress":0,"blocked":0,"done":0}
-  },
-  "tasks_type_summary": {
-    "total":16,
-    "by_type":{"analysis":1,"architecture":1,"backend":2,"worker":1,"validation":1,"dataset":1,"training":1,"evaluation":1,"feedback":1,"frontend":4,"security":1,"verification":1}
-  },
-  "progress_summary": {"state":"todo","todo_remaining":16,"in_progress":0,"partial":0,"blocked":0,"done":0},
-  "summary_notes": [
-    "Der Track setzt auf deterministische Spreadsheet-Aktionen und LibreOffice-Neuberechnung statt unkontrollierter Codeausführung.",
-    "Korrektes Ergebnis, Nutzerfeedback und ausdrückliche Trainingsfreigabe bleiben strikt getrennt.",
-    "Das vorhandene LoRA-Control-Center ist die Basis; neu sind Spreadsheet-Domäne, LibreOffice-Worker, Validatoren und Angular Spreadsheet Studio."
+  "candidate_external_sources": [
+    {
+      "kind": "repository",
+      "locator": "https://github.com/LibreOffice/core",
+      "required_binding": "exact immutable commit, release tag, source digest, license and NOTICE review",
+      "source_refs": [],
+      "status": "unverified"
+    },
+    {
+      "kind": "specification",
+      "locator": "OASIS OpenDocument Format and ECMA-376 Office Open XML",
+      "required_binding": "exact specification editions and claim-level citations for supported document semantics",
+      "source_refs": [],
+      "status": "unverified"
+    },
+    {
+      "kind": "security_guidance",
+      "locator": "LibreOffice security advisories and container hardening references",
+      "required_binding": "immutable advisory or guidance revisions with applicability assessment",
+      "source_refs": [],
+      "status": "unverified"
+    }
   ],
-  "end_summaries": [
-    {"summary_id":"SSF-S1","title":"Kernlieferumfang","items":["Angular Spreadsheet Studio","isolierter LibreOffice-Worker","versionierte Spreadsheet-Aktionssprache","nutzerdefinierte Validatoren","Consent-basierter Trainingsdatenkreislauf","Spreadsheet-LoRA über ml_intern"]},
-    {"summary_id":"SSF-S2","title":"Hauptrisiken","items":["Dokument- und Makrosicherheit","unbeabsichtigte Zelländerungen","Train-/Eval-Leakage","sensible Trainingsdaten","Verwechslung von Validierung und Einwilligung"]}
-  ]
+  "scope": {
+    "included": [
+      "Grounded Fit/Gap-Analyse der vorhandenen Artifact-, Extraction-, Worker-, ml_intern-, Unsloth-, Consent-, API-, Angular- und Compose-Bausteine.",
+      "Threat Model und fail-closed Policies für untrusted Dokumente, Formeln, Archive, externe Referenzen, eingebettete Objekte, Worker-Container, Tenantgrenzen und Trainingsdaten.",
+      "Immutable Dokument-/Artifact-/Version-State-Machine mit Candidate-, Preview-, Published-, Rejected- und Expired-Zuständen.",
+      "Geschlossene kanonische Workbook-, Action-, Formula-, Diff-, Validator-, Worker-Result-, Feedback-, Consent-, Dataset- und Task-Family-Verträge.",
+      "Hub-gesteuerte Saga für Proposal, Dry-run, Diff, Validation, Approval und Versionpromotion.",
+      "Privacy-, Lizenz-, Maskierungs-, Lineage-, Deduplizierungs-, Split-, Widerrufs- und Adapter-Impact-Policies.",
+      "Base-Modell-Baseline, strukturierte Inferenz, LoRA/QLoRA-Training, ausführungsgestützte Evaluation, Registry-Approval und Rollback.",
+      "Hub-API sowie Angular Spreadsheet Studio mit virtualisiertem Viewer, Proposal, Diff, Validator, Feedback, Consent, Dataset- und Training-UX.",
+      "Quantitative Limits, deterministische Fixtures, Recovery, Observability, SLOs und getrennte CPU/Mock-, LibreOffice- und optionale GPU-Gates."
+    ],
+    "excluded": [
+      "Vollständige Browser-Neuimplementierung von LibreOffice Calc.",
+      "Unkontrollierte Makro-, Python-, Shell-, UNO-, Extension- oder externe Datenquellenausführung.",
+      "Direkte Angular-zu-Worker- oder Worker-zu-Worker-Kommunikation.",
+      "Hub-lokale LibreOffice-, Dokumentbearbeitungs-, Modelltraining- oder GPU-Prozesse.",
+      "Freie Serverpfade, ungeprüfte Storage-Referenzen oder tenantübergreifendes Dataset-Pooling.",
+      "Automatisches Anwenden eines Modellvorschlags, automatisches Training oder automatisches Adapter-Approval.",
+      "Behauptung, ein Consent-Widerruf könne bereits trainierte Adapter mathematisch unlernen.",
+      "Garantie sämtlicher exotischer XLSX-, ODS-, CSV-, Formel-, Chart- oder Embedded-Object-Semantik in Version 1."
+    ]
+  },
+  "evidence_policy": {
+    "accepted_reference_namespaces": ["SRC_*", "RUN_*"],
+    "origin": "hub_provided_assignment_manifest",
+    "exact_allowlist_membership_required": true,
+    "workers_may_create_identifiers": false,
+    "navigation_is_not_evidence": ["repository paths", "URLs", "commit hashes", "artifact names", "free-text citations"],
+    "claim_rules": {
+      "source_fact": "benötigt mindestens eine erlaubte Source-Referenz",
+      "tool_result": "benötigt mindestens eine erlaubte Run-Referenz",
+      "inference": "nennt alle direkten erlaubten Source- und Run-Stützen",
+      "uncertain": "bleibt unverified und dokumentiert die fehlende Evidenz"
+    },
+    "runtime_claim_rule": "LibreOffice-Fidelity, Sandbox-Wirkung, Performance, Ressourcenfreigabe, Modellqualität, Leakage-Schutz, Reproduzierbarkeit und Adapter-Revocation dürfen nicht allein aus Quelltext oder Dokumentation als verifiziert gelten.",
+    "missing_or_unknown_result": "unverified_or_failed_and_non_promotable"
+  },
+  "legacy_plan_migration": {
+    "source_document_type": "ananta_task_track_todo",
+    "source_track": "spreadsheet-lora-libreoffice-feedback-studio",
+    "source_version": "1.0",
+    "migration_rule": "Die alten SSF-IDs werden nicht als ausführbare Tasks übernommen. Ihr Scope wird in Research-Fragen konsolidiert; erst ein späterer, aus der promoteten Revision erzeugter Track darf neue Task-IDs mit source_category_item_ids enthalten.",
+    "status_rule": "Vorhandener Plattformcode oder ein archivierter Done-Track wird nicht automatisch als completed oder verified gewertet. Reuse-, Extend- und New-Entscheidungen bleiben open, bis sie assignment-bound belegt und vom Hub promotet wurden.",
+    "migration_added_research_item_ids": ["SSFR-PLAN-003", "SSFR-PLAN-004"],
+    "migration_added_reason": "Diese beiden Items härten Track-Schnitt, Grounding und Promotion der neuen Zwei-Phasen-Pipeline und sind kein aus SSF-016 übernommener Implementierungs- oder E2E-Scope.",
+    "legacy_scope_map": {
+      "SSF-001": ["SSFR-GND-001", "SSFR-GND-002", "SSFR-GND-003", "SSFR-GND-004", "SSFR-GND-005"],
+      "SSF-002": ["SSFR-SEC-001", "SSFR-DOC-001", "SSFR-DOC-002", "SSFR-DOC-003", "SSFR-DOC-004"],
+      "SSF-003": ["SSFR-GND-002", "SSFR-SEC-002", "SSFR-DOC-001", "SSFR-DOC-006"],
+      "SSF-004": ["SSFR-GND-004", "SSFR-SEC-003", "SSFR-DOC-005", "SSFR-PLAN-002"],
+      "SSF-005": ["SSFR-DOC-002", "SSFR-DOC-003", "SSFR-DOC-006"],
+      "SSF-006": ["SSFR-DOC-004"],
+      "SSF-007": ["SSFR-DATA-002", "SSFR-DATA-003", "SSFR-DATA-004"],
+      "SSF-008": ["SSFR-GND-003", "SSFR-ML-001", "SSFR-ML-003", "SSFR-ML-005"],
+      "SSF-009": ["SSFR-ML-002", "SSFR-ML-004", "SSFR-ML-005"],
+      "SSF-010": ["SSFR-SEC-005", "SSFR-DATA-001", "SSFR-ML-005"],
+      "SSF-011": ["SSFR-GND-005", "SSFR-UX-001"],
+      "SSF-012": ["SSFR-UX-002"],
+      "SSF-013": ["SSFR-UX-003"],
+      "SSF-014": ["SSFR-DATA-004", "SSFR-UX-004"],
+      "SSF-015": ["SSFR-SEC-004", "SSFR-SEC-005", "SSFR-ML-005", "SSFR-PLAN-002"],
+      "SSF-016": ["SSFR-PLAN-001", "SSFR-PLAN-002"]
+    }
+  },
+  "categories": [
+    {
+      "name": "grounding_and_fit",
+      "label": "Grounding und Bestands-Fit",
+      "items": [
+        {
+          "id": "SSFR-GND-001",
+          "title": "Assignment-bound Source Catalog und Reviewbasis herstellen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "research",
+          "depends_on": [],
+          "paths": ["docs/planning-pipeline.md", "schemas/planning/category_todo_quality_profile.v1.json", "schemas/answers/grounded_answer.v1.json"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Der Hub-kuratierte Source Catalog bindet die exakte Ananta-Revision, die verwendeten LibreOffice-, ODF-, OOXML-, CSV-, Container-, Browser- und ML-Quellen sowie ihre Digests und Lizenzen.",
+            "Allowed Source- und Run-Refs stammen ausschließlich aus dem Assignment und werden nicht aus Pfaden, URLs, Commits oder Freitext abgeleitet.",
+            "Jede Bestands-, Sicherheits-, Kompatibilitäts-, Performance- oder Qualitätsaussage besitzt einen Claim mit erlaubten Evidence-Refs oder bleibt explizit unverified.",
+            "Fehlende Lizenz-, Herkunfts-, Versions- oder Source-Catalog-Einträge bleiben promotion-blocking."
+          ]
+        },
+        {
+          "id": "SSFR-GND-002",
+          "title": "Artifact-, Upload-, Extraction- und Spreadsheet-Bestand inventarisieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "research",
+          "depends_on": ["SSFR-GND-001"],
+          "paths": ["agent/routes/artifacts.py", "agent/services/ingestion_service.py", "agent/services/extraction_service.py", "rag-helper/rag_helper/extractors/tabular_notebook_extractor.py", "agent/tools_document.py"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "XLSX-, ODS-, CSV- und generische Artifact-Pfade werden pro Fähigkeit als reusable, extend, legacy-excluded oder missing klassifiziert und mit konkreten Dateien und Symbolen belegt.",
+            "Upload, Hashing, MIME-Erkennung, Versionierung, Extraktion, Preview, Download, Retention und Tenantbindung werden getrennt bewertet.",
+            "Pfadbasierte oder nicht tenantgebundene Legacy-Zugriffe werden identifiziert und für Spreadsheet Studio ausdrücklich ausgeschlossen.",
+            "Kein vorhandener Text- oder Tabellenextraktor wird fälschlich als vollständige Formel-, Stil-, Recalc- oder Bearbeitungssemantik eingestuft."
+          ]
+        },
+        {
+          "id": "SSFR-GND-003",
+          "title": "ml_intern-, Unsloth-, Dataset-, Evaluation- und Inferenz-Fit prüfen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "research",
+          "depends_on": ["SSFR-GND-001"],
+          "paths": ["agent/services/ml_intern_training_contract.py", "agent/services/ml_intern_training_control_service.py", "agent/services/ml_intern_training_worker_port.py", "agent/services/ml_intern_lora_dataset_build_service.py", "agent/services/ml_intern_lora_eval_service.py", "agent/services/ml_intern_lora_inference_service.py", "agent/services/unsloth_data_recipe_adapter.py", "worker/training/data_recipe_materializer.py", "todos/archiv/todo.mlintern-lora-training-control-center.json"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Aktuelle Training-, Worker-, Dataset-, Evaluation-, Registry-, Approval- und Inferenzverträge werden mit konkreten Erweiterungspunkten und geschlossenen Feldmengen dokumentiert.",
+            "Deprecated Shims und Kompatibilitätsservices werden als Nicht-Ziele für neue Trainingslogik markiert.",
+            "Es wird belegt, ob task_family, task_kind oder eine neue Strategieabstraktion der kompatible Erweiterungspunkt ist; unbekannte Felder werden nicht vorausgesetzt.",
+            "Unsloth-Recipe-, Offline-Materialisierungs-, Artifact- und Provenienzmechanik wird auf Wiederverwendung geprüft, ohne Spreadsheet-Semantik parallel neu aufzubauen."
+          ]
+        },
+        {
+          "id": "SSFR-GND-004",
+          "title": "Hub-Task-, WorkerJob-, Lease-, Fencing- und Result-Ingress-Fit prüfen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "research",
+          "depends_on": ["SSFR-GND-001"],
+          "paths": ["agent/db_models/tasks.py", "agent/db_models/workers.py", "agent/services/worker_job_service.py", "agent/services/worker_pool_scheduler_service.py", "agent/services/worker_result_callback_service.py", "worker/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Die vorhandenen Queue-, Assignment-, Capability-, Lease-, Heartbeat-, Fencing-, Cancel-, Retry-, Recovery- und Result-Ingress-Pfade werden mit konkreten Symbolen inventarisiert.",
+            "Für Proposal, LibreOffice-Dry-run, Validation, Evaluation und Training wird entschieden, welche bestehenden Task-Kinds und Worker-Ports erweitert werden dürfen.",
+            "Ein synchroner Hub-zu-Worker-Sonderkanal, eine zweite Queue und Worker-zu-Worker-Delegation werden als unzulässig dokumentiert.",
+            "Crash- und Timeout-Races werden als Hub-owned Status- und Lease-Entscheidung beschrieben, nicht als Worker-Orchestrierung."
+          ]
+        },
+        {
+          "id": "SSFR-GND-005",
+          "title": "Angular-, Navigation-, Shared-UI- und Modelltraining-Fit prüfen",
+          "status": "open",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "research",
+          "depends_on": ["SSFR-GND-001"],
+          "paths": ["frontend-angular/src/app/app.routes.ts", "frontend-angular/src/app/models/route-metadata.ts", "frontend-angular/src/app/features/model-training/", "frontend-angular/src/app/shared/ui/", "frontend-angular/tests/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Aktuelle Route-, Navigation-, Capability-, Guard-, Facade-, DTO-, Shared-UI- und Playwright-Pfade werden mit konkreten Dateien und Symbolen dokumentiert.",
+            "Spreadsheet Studio erhält einen eigenen Feature-Scope und wiederverwendet bestehende Modelltraining- und Shared-UI-Bausteine über stabile Schnittstellen.",
+            "Nicht vorhandene Altpfade wie core/navigation oder frontend-angular/e2e werden nicht in den späteren Track übernommen.",
+            "Virtualisierung, Accessibility, Fehlerzustände und project-/tenantgebundene Navigation werden als eigenständige Anforderungen erfasst."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "security_and_governance",
+      "label": "Security und Governance",
+      "items": [
+        {
+          "id": "SSFR-SEC-001",
+          "title": "Threat Model und Trust Boundaries für Dokumente, Worker, Modelle und Nutzer festlegen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": ["SSFR-GND-002", "SSFR-GND-003", "SSFR-GND-004", "SSFR-GND-005"],
+          "paths": ["docs/security/", "agent/services/ml_intern_artifact_security_service.py", "docker/compose-next/"],
+          "evidence_requirements": ["source_fact", "inference"],
+          "acceptance_criteria": [
+            "Trust Boundaries für Browser, Hub, Artifact Store, LibreOffice-Worker, Inferenz-Worker, Training-Worker und externe Dokumentinhalte sind als Datenfluss dokumentiert.",
+            "Das Risk Register umfasst Dokumentparser, Archive, Formeln, externe Referenzen, Renderer, Worker-Transport, Trainingsexfiltration, Cross-Tenant-Zugriff und Supply Chain.",
+            "Jedes kritische Risiko besitzt Owner, Prevent-, Detect-, Recover-Maßnahmen, stabile Reason-Codes und ein geplantes negatives Gate.",
+            "Security-Verträge werden vor Upload-, Worker-, API- oder UI-Implementierung in den späteren Track eingeordnet."
+          ]
+        },
+        {
+          "id": "SSFR-SEC-002",
+          "title": "Dokument-, Archiv-, Formel- und Export-Policy fail-closed entscheiden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": ["SSFR-SEC-001", "SSFR-GND-002"],
+          "paths": ["agent/services/extraction_service.py", "agent/services/ingestion_service.py", "docs/contracts/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "MIME-Spoofing, Traversal, Symlinks, Zip-Bomben, XML-/Shared-String-Limits, beschädigte und passwortgeschützte Dateien besitzen quantitative Limits und stabile Reason-Codes.",
+            "Makros, Extensions, OLE/Embedded Objects, Datenverbindungen, externe Links, DDE, WEBSERVICE, volatile und ressourcenintensive Formeln sind default-deny oder explizit begrenzt.",
+            "CSV-Formelinjektion für exportierte oder heruntergeladene Inhalte wird format- und zweckgebunden neutralisiert oder blockiert.",
+            "Referenzdateien für Validatoren durchlaufen dieselben geschlossenen Artifact-, Tenant- und Ressourcenpolicies wie Nutzerdokumente."
+          ]
+        },
+        {
+          "id": "SSFR-SEC-003",
+          "title": "LibreOffice-Sandbox-, Netzwerk- und Runtime-Profil verifizieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": ["SSFR-SEC-001", "SSFR-GND-004"],
+          "paths": ["docker/compose-next/", "worker/", "docs/worker/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Worker-Supervisor, LibreOffice-Kindprozess und Storage-Zugriff besitzen getrennte Netzwerk-, Dateisystem- und Prozessgrenzen; der Kindprozess hat kein Netzwerk.",
+            "Das Profil definiert non-root, read-only Root-FS, taskgebundenes Workdir/tmpfs, cap_drop, no-new-privileges, Seccomp/AppArmor, PID-, CPU-, RAM-, Zeit- und Dateilimits.",
+            "Jeder Job verwendet ein frisches LibreOffice-Profil; Makros, Extensions, Updates, externe Daten und persistente Benutzerprofile sind deaktiviert.",
+            "Image, LibreOffice, Fonts, Locale, Zeitzone und Renderer-Konfiguration sind gepinnt und in Result-Provenienz sowie reproduzierbaren Run-Gates sichtbar.",
+            "Der Supervisor besitzt ausschließlich die dokumentierte interne Control-Plane-Egress-Allowlist; Workload-Identity beziehungsweise mTLS-äquivalente Authentisierung, kurzlebige Credentials, signierte Capabilities, Nonce-/Replay-Schutz und authentisierte Result-Callbacks sind verbindlich."
+          ]
+        },
+        {
+          "id": "SSFR-SEC-004",
+          "title": "RBAC, Tenantgrenzen, Audit, Handles, Quoten und Retention entscheiden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": ["SSFR-SEC-001", "SSFR-GND-002", "SSFR-GND-005"],
+          "paths": ["agent/routes/artifacts.py", "agent/bootstrap/routes.py", "agent/common/audit.py", "frontend-angular/src/app/guards/"],
+          "evidence_requirements": ["source_fact", "inference"],
+          "acceptance_criteria": [
+            "Eine Authorization-Matrix trennt Dokumentnutzung, Proposal, Apply, Validatorpflege, Dataset-Kuration, Trainingstart, Adapterapproval, Download, Löschung und Widerruf.",
+            "Alle Ressourcen und Mutationen sind tenant-/projectgebunden, idempotent und gegen IDOR sowie Cross-Tenant-Zugriff fail-closed.",
+            "Downloads und Worker-Materialisierung verwenden kurzlebige zweck-, principal-, artifact- und digestgebundene Handles statt freier Pfade.",
+            "Audit-Redaction, Quoten, Rate-Limits, Retention und Löschreihenfolge sind je Dokument-, Preview-, Candidate-, Feedback-, Dataset-, Job- und Adapterartefakt festgelegt."
+          ]
+        },
+        {
+          "id": "SSFR-SEC-005",
+          "title": "Datenschutz, Lizenz, Consent und Adapter-Widerrufsfolgen entscheiden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": ["SSFR-SEC-001", "SSFR-GND-003"],
+          "paths": ["agent/services/speech_dataset_privacy_preview_service.py", "agent/services/ml_intern_speech_revocation_service.py", "agent/services/voice_personalization_service.py"],
+          "evidence_requirements": ["source_fact", "inference"],
+          "acceptance_criteria": [
+            "PII, Secrets, Lizenz, Zweckbindung, Datenminimierung, Tenant-Pooling-Verbot und zulässige Trainingsrepräsentationen besitzen explizite Policies und Reason-Codes.",
+            "Consent bindet exakt den angezeigten Record-Digest, Quellversion, Maskierungs-, Serializer-, Recipe- und Policy-Version und darf nicht aus Validation oder Feedback abgeleitet werden.",
+            "Widerruf sperrt zukünftige Dataset-Materialisierung, fenced laufende Jobs und markiert betroffene Dataset-, Job-, Evaluation- und Adapter-Lineage transaktional.",
+            "Bereits trainierte Adapter werden bei relevantem Widerruf quarantined oder deprecated und benötigen einen bereinigten Re-Train; mathematisches Unlearning wird nicht behauptet."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "document_contracts_and_hub_saga",
+      "label": "Dokumentverträge und Hub-Saga",
+      "items": [
+        {
+          "id": "SSFR-DOC-001",
+          "title": "Immutable Artifact- und Dokumentversions-State-Machine definieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "architecture",
+          "depends_on": ["SSFR-GND-002", "SSFR-SEC-002", "SSFR-SEC-004"],
+          "paths": ["agent/db_models/", "agent/repositories/", "agent/routes/artifacts.py", "ananta_contracts/"],
+          "evidence_requirements": ["source_fact", "inference"],
+          "acceptance_criteria": [
+            "OriginalArtifact, WorkingCopy, DocumentVersion, Candidate, Preview, Published, Rejected, Expired, Deleted und Erased/Tombstone sind Zustände mit erlaubten Hub-owned Übergängen.",
+            "Parent-, Lineage-Root-, Raw-, Semantic-, Input-, Result-, Engine- und Policy-Digests sind getrennt und kanonisch definiert.",
+            "Worker-Artefakte werden erst nach bounded Result-Ingress und Hub-Validierung als Candidate registriert; Originale werden niemals überschrieben.",
+            "Logische Unveränderlichkeit während der Aufbewahrung und kontrollierte physische Löschung werden getrennt; Tombstones erhalten nur notwendige redigierte Provenienz ohne gelöschte Zell- oder Dokumentinhalte.",
+            "DB-Modelle, Repository-Port, Migration, Artifact-Containment und Recovery-Verhalten sind als getrennte spätere Track-Slices ausgewiesen."
+          ]
+        },
+        {
+          "id": "SSFR-DOC-002",
+          "title": "Kanonisches Workbook- und Snapshot-Modell festlegen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "design",
+          "depends_on": ["SSFR-GND-002", "SSFR-DOC-001", "SSFR-SEC-002"],
+          "paths": ["ananta_contracts/", "docs/contracts/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Workbook, stabile sheet_id, Blattname, Sichtbarkeit, numerische Koordinaten, Zelle, Formel-AST, berechneter Wert, Stil, Named Range, Tabelle, Diagramm und Abhängigkeit besitzen versionierte geschlossene Verträge.",
+            "Formeltext, Formel-AST, angezeigter Wert und berechneter Rohwert bleiben getrennt; Locale, Zeitzone, Datumssystem, Engine und Recalc-Profil sind explizit.",
+            "Snapshot-, Viewport-, Tile- und Pagination-Verträge haben quantitative Grenzen und verlieren bei Teilprojektionen keine Backend-Daten.",
+            "Nicht unterstützte Objekte und semantische Verluste werden mit stabilen Capability- und Reason-Codes ausgewiesen."
+          ]
+        },
+        {
+          "id": "SSFR-DOC-003",
+          "title": "Geschlossene Action-, Formula- und Actual-Diff-Verträge definieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "contract",
+          "depends_on": ["SSFR-DOC-002", "SSFR-SEC-002"],
+          "paths": ["ananta_contracts/", "docs/contracts/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Actions sind geschlossene discriminated unions mit additionalProperties=false, kanonischer JSON-Serialisierung, Schema-Version und Action-Digest.",
+            "Jeder Vorschlag bindet base_version_id, Basis-/Bereichsdigests, stabile sheet_id, numerische Koordinaten und Zell-Preconditions.",
+            "Action-Reihenfolge, Überlappungen, Row-/Column-Rebasing, Maximalzahlen für Actions, Zellen und Bereiche sowie unbekannte Operationen sind deterministisch definiert.",
+            "Die minimale V1-Menge umfasst set_value, set_formula, clear_range, copy_range, format_range sowie begrenzte Zeilen- und Spaltenoperationen; jede weitere Action benötigt eine additive Schema-Version und Policyentscheidung.",
+            "Formeln verwenden eine begrenzte AST/Policy; freie Code-, UNO-, Makro-, externe oder unbounded volatile Semantik wird abgewiesen.",
+            "Actual-Diff umfasst paginiert direkte und indirekte Zell-, Formel-, Stil-, Struktur-, Named-Range- und Hidden-Sheet-Änderungen."
+          ]
+        },
+        {
+          "id": "SSFR-DOC-004",
+          "title": "Deterministische Validator- und Ergebnisverträge definieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "contract",
+          "depends_on": ["SSFR-DOC-002", "SSFR-SEC-002"],
+          "paths": ["ananta_contracts/", "docs/contracts/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Validatoren unterstützen exakte Werte, Toleranzen, Formel-AST-Muster, Invarianten, Summen, Bereichsregeln und tenantgebundene Referenzartefakte.",
+            "Validator-Spec und Result sind an Dokument-, Candidate-, Task-, Engine-, Recalc- und Policy-Digests gebunden.",
+            "Ergebnisse unterscheiden technisch gültig, fachlich korrekt, teilweise korrekt, unverändert, unerwartet verändert, unsafe und nicht prüfbar.",
+            "Rundung, Locale, Datum, Fehlerwerte, relative Referenzen, gleichwertige Formeln und indirekte Änderungen besitzen deterministische Toleranzen und Golden-Case-Anforderungen."
+          ]
+        },
+        {
+          "id": "SSFR-DOC-005",
+          "title": "Hub-owned Proposal-, Dry-run-, Validation- und Promotion-Saga definieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "architecture",
+          "depends_on": ["SSFR-GND-004", "SSFR-SEC-003", "SSFR-DOC-001", "SSFR-DOC-003", "SSFR-DOC-004"],
+          "paths": ["agent/services/worker_job_service.py", "agent/services/worker_pool_scheduler_service.py", "agent/services/worker_result_callback_service.py", "ananta_contracts/", "worker/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Der Ablauf DocumentVersion → Proposal-Task → Action-Validation → LibreOffice-Dry-run → Actual-Diff → Validatoren → digestgebundene Freigabe → Hub-Promotion ist als Hub-owned State Machine definiert.",
+            "Modell-, LibreOffice- und Evaluations-Worker kommunizieren niemals direkt; Dependencies, Leases und Ergebnisaggregation gehören dem Hub.",
+            "Worker-Capability und Result-Manifest binden Task, Assignment, WorkerJob, Attempt, Fencing-Token, Input-Digests, Policy, Ablaufzeit und erlaubte Outputs.",
+            "Auftragsannahme und Result-Callback sind workload-authentisiert, kurzlebig, nonce-/replaygeschützt und an die exakte Capability sowie den aktuellen Dispatch-Lease gebunden.",
+            "Transportretry, Callback-Duplikat, Stale Lease, Timeout, Cancel, Hub-Crash und Worker-Crash besitzen idempotente, fail-closed Übergänge.",
+            "Der Worker publiziert keine Dokumentversion; nur der Hub kann ein validiertes Candidate-Artefakt registrieren oder promoten."
+          ]
+        },
+        {
+          "id": "SSFR-DOC-006",
+          "title": "Optimistic Concurrency, Idempotenz und Konfliktsemantik entscheiden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "contract",
+          "depends_on": ["SSFR-DOC-001", "SSFR-DOC-003", "SSFR-SEC-004"],
+          "paths": ["ananta_contracts/", "agent/services/", "agent/repositories/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Proposal, Dry-run, Apply, Feedback, Consent und Dataset-Promotion binden expected_version, Idempotency-Key und kanonische Request-/Result-Digests.",
+            "Stale Proposal, veränderte Basis, überlappende Änderungen, doppelte Freigabe und konkurrierende Publikation liefern stabile 409-Reason-Codes ohne Seiteneffekt.",
+            "Apply promotet ausschließlich den exakt freigegebenen Candidate-Digest; Rebase oder Neuberechnung erzeugt einen neuen Proposal-/Approval-Zyklus.",
+            "Repository-Transaktionen, Audit-Outbox und Result-Ingress besitzen explizite Crash-Recovery- und Replay-Invarianten."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "feedback_consent_and_datasets",
+      "label": "Feedback, Consent und Datasets",
+      "items": [
+        {
+          "id": "SSFR-DATA-001",
+          "title": "Feedback-Event und versioniertes Consent-Ledger definieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "governance",
+          "depends_on": ["SSFR-DOC-001", "SSFR-DOC-003", "SSFR-DOC-004", "SSFR-DOC-005", "SSFR-DOC-006", "SSFR-SEC-004", "SSFR-SEC-005"],
+          "paths": ["agent/services/voice_review_service.py", "agent/services/voice_personalization_service.py", "agent/services/voice_training_export_service.py", "ananta_contracts/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Accepted, corrected, rejected, skipped und unsafe sind immutable Feedback-Events; Proposal, ausgeführtes Candidate, Nutzerkorrektur und Validatorresultat bleiben getrennt.",
+            "Apply-Freigabe, Feedback und Trainingseinwilligung sind separate, revisions- und digestgebundene Entscheidungen mit unabhängigen Revoke-Zuständen.",
+            "Vor Consent wird die konkrete abstrahierte, maskierte Trainingsrepräsentation samt Herkunft, Zweck, Retention und Widerrufsfolge angezeigt.",
+            "Widersprüchliche Bewertungen, Korrekturen, erneute Darstellung, Re-Consent und Widerruf bleiben ohne Überschreiben historisch nachvollziehbar."
+          ]
+        },
+        {
+          "id": "SSFR-DATA-002",
+          "title": "Trainingsrecord-Projektion, Maskierung und Privacy-Preview entscheiden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "design",
+          "depends_on": ["SSFR-DATA-001", "SSFR-DOC-002", "SSFR-SEC-005"],
+          "paths": ["agent/services/speech_dataset_privacy_preview_service.py", "agent/services/unsloth_data_recipe_adapter.py", "worker/training/data_recipe_materializer.py", "ananta_contracts/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Ein versionierter TrainingExampleProjector erzeugt Instruktion, begrenzten kanonischen Kontext, Zielaktion, Validatorresultat, Quell-Lineage, Consent und Serializer-Digest.",
+            "Maskierung, Pseudonymisierung, Spalten-/Bereichsausschluss, Secret-/PII-/Lizenz-Gates und Kontextbudget laufen vor Consent und Materialisierung deterministisch.",
+            "Privacy-Preview zeigt die tatsächlich freizugebende Projektion; Roharbeitsmappe, freie Pfade und unnötige Zellinhalte gelangen nicht in Logs oder Metadaten.",
+            "Gewichte können Trainingseinfluss tragen; statt einer falschen Inhaltsfreiheit werden Memorization-, Canary- und Leakage-Gates vorgesehen."
+          ]
+        },
+        {
+          "id": "SSFR-DATA-003",
+          "title": "Lineage-, Deduplizierungs- und leakagesichere Split-Policy definieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "architecture",
+          "depends_on": ["SSFR-DOC-001", "SSFR-DOC-002", "SSFR-SEC-005"],
+          "paths": ["agent/services/ml_intern_dataset_split_service.py", "agent/services/unsloth_data_recipe_adapter.py", "ananta_contracts/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Alle Versionen und Ableitungen werden vor dem Split über lineage_root_id, Template-/Formel-Fingerprint und Near-Duplicate-Cluster gruppiert.",
+            "Deduplizierung, Maskierung und Clusterbildung laufen in einer versionierten, deterministischen Reihenfolge vor der Split-Zuweisung.",
+            "Train, Validation, Eval und Test sind unveränderlich gesperrt; kein UI- oder API-Pfad verschiebt Beispiele still zwischen Splits.",
+            "Split-Seed, Cluster-Digests, Ausschlüsse, Verteilungswarnungen und Reproduzierbarkeitsnachweise sind Bestandteil der Dataset-Provenienz."
+          ]
+        },
+        {
+          "id": "SSFR-DATA-004",
+          "title": "Dataset-Recipe-, Materialisierungs- und Promotionsvertrag definieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "contract",
+          "depends_on": ["SSFR-DATA-002", "SSFR-DATA-003", "SSFR-GND-003"],
+          "paths": ["agent/services/unsloth_data_recipe_adapter.py", "worker/training/data_recipe_materializer.py", "agent/services/ml_intern_lora_dataset_build_service.py", "ananta_contracts/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Recipes binden Quellen, Aufgabenarten, Bereiche, Action-Schema, Validatoren, Projector, Maskierung, Datenschutz, Split und Retention versioniert und geschlossen.",
+            "Der Hub validiert und freigibt ein immutable Recipe-Manifest; der Worker materialisiert ausschließlich dieses Manifest offline und attemptgebunden.",
+            "Dataset-Versionen besitzen vollständige Source-, Consent-, Record-, Split-, Policy-, Serializer- und Materialisierungsprovenienz sowie reproduzierbare Digests.",
+            "Simulation, Preview, Promotion, Deaktivierung und Widerrufsimpact sind getrennte Hub-Vorgänge mit idempotenten Entscheidungen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "training_evaluation_and_inference",
+      "label": "Training, Evaluation und Inferenz",
+      "items": [
+        {
+          "id": "SSFR-ML-001",
+          "title": "Additive Spreadsheet-Task-Family- und Kompatibilitätsstrategie entscheiden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "architecture",
+          "depends_on": ["SSFR-GND-003", "SSFR-DOC-003"],
+          "paths": ["agent/services/ml_intern_training_contract.py", "agent/services/ml_intern_training_worker_contract.py", "agent/services/ml_intern_training_worker_port.py", "frontend-angular/src/app/features/model-training/model-training.models.ts", "ananta_contracts/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Es wird entschieden, ob ein kompatibles task_family mit Legacy-Default, ein präzises task_kind oder beides benötigt wird; unbekannte Felder werden nicht still akzeptiert.",
+            "Eine kleine TrainingTaskFamilyStrategy kapselt Record-Projektion, Output-Schema, Scoring, Evaluation und Inferenzkompatibilität statt zentrale Services wiederholt zu patchen.",
+            "DB/Migration, API, Worker-Vertrag, Capability-Probe, Read-Models, Angular-DTOs und Audit tragen die neue Dimension additiv und rückwärtskompatibel.",
+            "Bestehende LoRA-, Speech-, Vision-, Audio-, Embedding- und Legacy-Textpfade behalten ihre Semantik und substituierbaren Ports."
+          ]
+        },
+        {
+          "id": "SSFR-ML-002",
+          "title": "Base-Modell-Baseline und Dataset-Readiness-Go/No-Go definieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "experiment_design",
+          "depends_on": ["SSFR-DOC-003", "SSFR-DOC-004", "SSFR-DATA-002", "SSFR-DATA-003", "SSFR-SEC-005"],
+          "paths": ["agent/services/ml_intern_lora_eval_service.py", "agent/services/ml_intern_lora_inference_service.py", "docs/operations/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Eine versionierte Base-Modell-Baseline misst strikt validiertes Action-JSON, sichere Ablehnung, Ausführungserfolg, Validatorpass und unbeabsichtigte Änderungen vor jedem Training.",
+            "Dataset-Readiness definiert Mindestzahl, Aufgabentypen, Template-/Workbook-Diversität, Split-Sicherheit, Consentabdeckung, PII/Lizenzstatus und Klassenverteilung quantitativ.",
+            "Training beginnt nur, wenn ein digestgebundenes Hub-Go/No-Go belegt, dass Baseline, Dataset und Ressourcenprofil die freigegebenen Schwellen erfüllen.",
+            "Ein negatives Ergebnis erlaubt einen produktiven nicht trainierten oder eingeschränkten Pfad, ohne ein LoRA-Ergebnis zu erzwingen."
+          ]
+        },
+        {
+          "id": "SSFR-ML-003",
+          "title": "Worker-seitiges Spreadsheet-LoRA/QLoRA-Training und Artefaktprofil definieren",
+          "status": "open",
+          "priority": "P1",
+          "risk": "high",
+          "type": "runtime_design",
+          "depends_on": ["SSFR-ML-001", "SSFR-ML-002", "SSFR-DATA-004", "SSFR-SEC-003"],
+          "paths": ["worker/training/", "worker/runtime/lora_training_app.py", "docker/compose-next/compose.lora-training.yml", "agent/services/ml_intern_training_worker_port.py"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Training läuft ausschließlich als Hub-delegierter WorkerJob mit Dataset-, Base-Modell-, Recipe-, Split-, Action-Schema-, Serializer-, Policy- und Ressourcen-Digests.",
+            "Base-Modell, Quantisierung, LoRA-Rang, Zielmodule, Kontext-/Zellbudget, Seed, Checkpoint und Resume sind profilbasiert und capability-geprüft.",
+            "Logs und Metadaten werden redigiert; Dataset- oder Zellinhalte werden nicht als frei lesbare Jobmetadaten oder Telemetrie persistiert.",
+            "CPU/Mock, optionale NVIDIA-Smokes, Cancel, Timeout, OOM, Resume, Artifact-Publish und Cleanup besitzen getrennte erwartete Gates und not_run-Semantik."
+          ]
+        },
+        {
+          "id": "SSFR-ML-004",
+          "title": "Ausführungsgestützte Spreadsheet-Evaluation und Admission-Gates definieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "evaluation",
+          "depends_on": ["SSFR-DOC-005", "SSFR-DOC-004", "SSFR-ML-002", "SSFR-ML-003"],
+          "paths": ["agent/services/ml_intern_lora_eval_service.py", "agent/services/ml_intern_evaluation_store_service.py", "worker/", "ananta_contracts/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Base und Adapter erzeugen Actions, die über dieselbe Hub-Saga in isolierten Dokumentkopien ausgeführt und mit denselben Validatoren bewertet werden.",
+            "Metriken umfassen schema-valid, action-valid, safe-rejection, execution-success, validator-pass, cell-diff-precision, unintended-change-rate, Latenz und Ressourcenverbrauch.",
+            "Berichte gruppieren nach Task-Kind, Dateiformat, Größe, Locale, Template-Cluster, Sicherheitsklasse und Fehlerklasse und binden sämtliche Eingangs- und Engine-Digests.",
+            "Evaluation verwendet einen ausdrücklich nicht publizierenden Saga-Modus; Evaluation-Candidates können weder Apply, Published-Versionen, Nutzerfeedback noch Consent auslösen.",
+            "Deterministische Security- und Regression-Gates blockieren eine Promotion unabhängig von Textähnlichkeit oder einem aggregierten Modellscore."
+          ]
+        },
+        {
+          "id": "SSFR-ML-005",
+          "title": "Adapter-Approval, Revocation und strikt strukturierte Inferenz entscheiden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "governance",
+          "depends_on": ["SSFR-ML-001", "SSFR-ML-004", "SSFR-SEC-005", "SSFR-DATA-001"],
+          "paths": ["agent/services/ml_intern_adapter_registry_service.py", "agent/services/ml_intern_lora_inference_service.py", "agent/services/ml_intern_speech_revocation_service.py", "ananta_contracts/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Approval bindet Adapter-, Base-Modell-, Dataset-, Split-, Evaluation-, Action-Schema-, Serializer-, Runtime- und Policy-Digests und bleibt ein expliziter Hub-Vorgang.",
+            "Inferenz prüft Task-Family-, Base-Modell- und Schema-Kompatibilität und liefert nur strikt validierte Actions oder eine begrenzte Ablehnung; niemals Auto-Apply.",
+            "Eine begrenzte Repair-Strategie darf keine Policy-, Scope- oder Capability-Erweiterung erzeugen und wird getrennt gemessen und auditiert.",
+            "Quarantine, Deprecation, Rollback, Cache-Unload, Consent-Widerruf und bereinigtes Retraining besitzen transaktionale Lineage- und Laufzeitfolgen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "hub_api_and_angular_studio",
+      "label": "Hub-API und Angular Spreadsheet Studio",
+      "items": [
+        {
+          "id": "SSFR-UX-001",
+          "title": "Hub-API-, DTO-, Route- und Authorization-Verträge schneiden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "contract",
+          "depends_on": ["SSFR-GND-005", "SSFR-DOC-001", "SSFR-DOC-005", "SSFR-DOC-006", "SSFR-SEC-004"],
+          "paths": ["agent/bootstrap/routes.py", "agent/routes/", "ananta_contracts/", "frontend-angular/src/app/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Getrennte Hub-APIs sind für Dokumente/Versionen, Viewports/Tiles, Proposal-Jobs, Dry-run, Candidate/Diff, Apply/Promotion, Validatoren, Feedback, Consent, Recipes, Datasets, Training und Evaluation spezifiziert.",
+            "Jede Mutation besitzt AuthZ, Tenant-/Projectbindung, Idempotency-Key, expected_version, Reason-Codes, Audit und quantitative Payload-Limits.",
+            "Angular kennt ausschließlich Hub-URLs und opaque IDs/Handles; Worker-Endpunkte, Serverpfade und Storage-Interna sind nicht Teil der öffentlichen DTOs.",
+            "Feature-Capability, Route-Metadata, Guards und API-Versionierung sind additiv und kompatibel mit bestehenden Clients."
+          ]
+        },
+        {
+          "id": "SSFR-UX-002",
+          "title": "Virtualisierten Workbook-Viewer und Rendering-Semantik entscheiden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "design",
+          "depends_on": ["SSFR-UX-001", "SSFR-DOC-002", "SSFR-DOC-005", "SSFR-SEC-003"],
+          "paths": ["frontend-angular/src/app/features/", "frontend-angular/src/app/shared/ui/", "frontend-angular/tests/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Es wird entschieden, ob Preview-Tiles, PDF/PNG-Rendering, Zelloverlay oder eine kombinierte Projektion die autoritative sichtbare Darstellung bilden.",
+            "Blattnavigation, Zoom, Zelladresse, Formel/Wert, Auswahl, sichtbare und verborgene Blätter sowie nicht unterstützte Objekte sind versions- und capabilitygebunden.",
+            "Dokumentliste, Upload, Versionsauswahl sowie Trainings- und Modellstatus sind innerhalb des Spreadsheet Studio erreichbar und zeigen stets die aktive Dokumentversion.",
+            "Eine Bereichsauswahl kann versionsgebunden als Task-, Validator- oder Dataset-Kontext übernommen werden, ohne unselektierte oder verborgene Inhalte still einzuschließen.",
+            "Viewport-/Tile-Pagination und Request-Cancel halten UI-Thread, Netzwerk und DOM innerhalb quantitativer Budgets; vollständige Backend-Artefakte bleiben erhalten.",
+            "Synchronisationsfehler zwischen Preview, Snapshot, Candidate und DocumentVersion werden sichtbar und blockieren Apply statt still falsche Daten zu zeigen."
+          ]
+        },
+        {
+          "id": "SSFR-UX-003",
+          "title": "Proposal-, Diff-, Validator-, Feedback- und Consent-UX trennen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "design",
+          "depends_on": ["SSFR-UX-001", "SSFR-UX-002", "SSFR-DOC-003", "SSFR-DOC-004", "SSFR-DATA-001"],
+          "paths": ["frontend-angular/src/app/features/", "frontend-angular/src/app/shared/ui/", "frontend-angular/tests/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Task-Erfassung, Proposal-Status, Action-Diff, Validator-Builder, Apply-Freigabe, Feedback, Privacy-Preview, Consent und Widerruf sind getrennte Facades und UI-Zustände.",
+            "Vor Apply zeigt die UI Action-Digest, Basisversion, betroffene Bereiche, direkte und indirekte Änderungen, Risiken, Validatorresultate und nicht unterstützte Objekte.",
+            "Apply, Edit/Re-Propose, Reject, Unsafe und Abbruch haben eindeutige Semantik; stale oder konfliktbehaftete Candidates können nicht bestätigt werden.",
+            "Der Validator-Builder erstellt ohne JSON Werte-, Toleranz-, Formel-, Summen-, Bereichs- und Referenzdateiregeln und zeigt deren gebundene Dokument-/Bereichsversion an.",
+            "Feedback und Trainingseinwilligung sind sichtbar getrennt; Consent zeigt die exakte maskierte Record-Projektion und deren Widerrufsfolgen."
+          ]
+        },
+        {
+          "id": "SSFR-UX-004",
+          "title": "Dataset-, Split-, Training-, Evaluation- und Adapter-UX integrieren",
+          "status": "open",
+          "priority": "P1",
+          "risk": "high",
+          "type": "design",
+          "depends_on": ["SSFR-UX-001", "SSFR-DATA-004", "SSFR-ML-001", "SSFR-ML-005"],
+          "paths": ["frontend-angular/src/app/features/model-training/", "frontend-angular/src/app/models/route-metadata.ts", "frontend-angular/tests/model-training.spec.ts"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Recipes können simuliert, versioniert, dupliziert, deaktiviert und promotet werden; Preview zeigt Quelle, Projektion, Consent, Cluster und Split.",
+            "Leakage-, Near-Duplicate-, Secret-, PII-, Lizenz-, Verteilungs- und Widerrufswarnungen sind filterbar und blockieren gemäß Policy.",
+            "Training-Go/No-Go, Jobstatus, Evaluation, Adapterapproval, Quarantine, Rollback und Retraining verwenden bestehende Modelltraining-Facades über additive DTOs.",
+            "Dataset-Promotion zeigt einen vollständigen beziehungsweise paginierten Diff zur Vorgängerversion und erfordert eine explizite digestgebundene Bestätigung.",
+            "Eval/Test-Split-Locks und digestgebundene Promotion können weder durch UI noch direkte API-Aufrufe unbemerkt umgangen werden."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "verification_operations_and_track_planning",
+      "label": "Verifikation, Betrieb und Track-Planung",
+      "items": [
+        {
+          "id": "SSFR-PLAN-001",
+          "title": "Quantitative Limits, Fixtures und Testmatrix festlegen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "test_design",
+          "depends_on": ["SSFR-SEC-002", "SSFR-SEC-003", "SSFR-DOC-002", "SSFR-DOC-003", "SSFR-DOC-004", "SSFR-DATA-003", "SSFR-ML-004", "SSFR-UX-002"],
+          "paths": ["tests/", "frontend-angular/tests/", "tests/fixtures/", "docs/operations/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Maximale komprimierte und entpackte Bytes, Sheets, Zeilen, Spalten, Zellen, Formeln, Actions, Diff-Einträge, CPU, RAM, PID, Laufzeit und UI-Viewport-Budgets sind numerisch definiert.",
+            "Eine minimale deterministische, lizenzdokumentierte Fixture-Matrix deckt XLSX, ODS, CSV, Locale, Datum, Formeln, Styles, Hidden Sheets, beschädigte und gefährliche Dokumente ab.",
+            "Unit-, Property-, Contract-, Security-, Container-, Recovery-, Accessibility-, Performance-, CPU/Mock-, LibreOffice- und optionale GPU-Gates sind getrennt und besitzen klare Exit-Kriterien.",
+            "Ein kleines CPU/Mock-E2E-Szenario deckt Upload, Version, Auswahl, Proposal, Dry-run, Diff, Apply, Recalc, Validation, Feedback, Consent, Dataset-Version, Training-Dry-run, Evaluation und Adapterapproval ab.",
+            "Nicht ausgeführte Hardware-, Live-Provider- oder komplexe Multi-Container-Tests werden als not_run und niemals als passed ausgewiesen."
+          ]
+        },
+        {
+          "id": "SSFR-PLAN-002",
+          "title": "Observability, Recovery, SLOs und Betriebsgrenzen definieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "operations",
+          "depends_on": ["SSFR-DOC-005", "SSFR-DOC-006", "SSFR-ML-005", "SSFR-SEC-004"],
+          "paths": ["docs/operations/", "agent/services/", "docker/compose-next/", "worker/"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Trace-, Task-, WorkerJob-, Attempt-, Document-, Candidate-, Dataset-, Training- und Adapter-IDs können ohne Rohzellinhalte Ende-zu-Ende korreliert werden.",
+            "Metriken und Alerts decken Queue-Zeit, Render/Recalc, Proposal, Validation, Training, Result-Ingress, Quoten, Timeouts, Crashloops, Cleanup und Artifact-Retention ab.",
+            "Runbooks behandeln beschädigte Dokumente, Worker-Ausfall, stale Lease, Hub-Restart, Outbox-Replay, Storage-Druck, Adapter-Quarantine und Consent-Widerruf.",
+            "SLOs, Degraded-Modi, Backpressure und sichere Abschaltung bewahren Hub-Verfügbarkeit und verlieren weder Jobs noch vollständige Backend-Ergebnisse."
+          ]
+        },
+        {
+          "id": "SSFR-PLAN-003",
+          "title": "Phase-2-Tracks in kleine SOLID-konforme Slices und einen geschlossenen DAG schneiden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "planning",
+          "depends_on": ["SSFR-GND-002", "SSFR-GND-003", "SSFR-GND-004", "SSFR-GND-005", "SSFR-SEC-001", "SSFR-SEC-002", "SSFR-SEC-003", "SSFR-SEC-004", "SSFR-SEC-005", "SSFR-DOC-001", "SSFR-DOC-002", "SSFR-DOC-003", "SSFR-DOC-004", "SSFR-DOC-005", "SSFR-DOC-006", "SSFR-DATA-001", "SSFR-DATA-002", "SSFR-DATA-003", "SSFR-DATA-004", "SSFR-ML-001", "SSFR-ML-002", "SSFR-ML-003", "SSFR-ML-004", "SSFR-ML-005", "SSFR-UX-001", "SSFR-UX-002", "SSFR-UX-003", "SSFR-UX-004", "SSFR-PLAN-001", "SSFR-PLAN-002"],
+          "paths": ["todos/todo.track.schema.json", "agent/services/category_to_planning_track_service.py", "docs/planning-pipeline.md"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Spätere Tasks trennen Domainverträge, Persistenz, Hub-Saga, Worker-Runtime, Action-Policy, Validatoren, Consent, Dataset, Training, Evaluation, Inferenz, API, UI und Operations nach SRP.",
+            "Ports wie DocumentRepository, ArtifactInspector, SpreadsheetExecutionPort, ActionPolicy, ValidatorEngine, TrainingExampleProjector und TrainingTaskFamilyStrategy schützen DIP und OCP.",
+            "Security-, Consent- und Vertrags-Slices liegen vor abhängiger Implementierung; UI- und Sandbox-Spikes dürfen nur nach ihren jeweiligen Verträgen parallelisieren.",
+            "Der Release-/E2E-Abschluss hängt von allen zugesagten UI-, Dataset-, Training-, Security- und Operations-Slices ab; prose oder Milestone-Mitgliedschaft ersetzt keine DAG-Kante.",
+            "Alle target_files entsprechen dem dann aktuellen Main; deprecated Shims und nicht vorhandene Altpfade werden nicht übernommen."
+          ]
+        },
+        {
+          "id": "SSFR-PLAN-004",
+          "title": "Research-Coverage, Grounding und Promotion Readiness abschließen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "governance",
+          "depends_on": ["SSFR-PLAN-003"],
+          "paths": ["schemas/planning/category_todo_quality_profile.v1.json", "agent/services/planning_category_contract_service.py", "agent/services/category_to_planning_track_service.py"],
+          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "acceptance_criteria": [
+            "Jedes Category-Item besitzt vollständige evidence_claim_refs auf erlaubte Claims; offene, orphaned, unbekannte oder außerhalb der Allowlist liegende Refs fehlen nicht still.",
+            "Alle kritischen Hypothesen, Security-Entscheidungen, quantitative Limits, Reuse/Extend/New-Zuordnungen und Track-Slices sind entschieden oder explizit promotion-blocking.",
+            "Category-Schema, Quality Profile, Item-DAG, Meta-Summaries, Scope und Claim-Grounding werden gegen die exakte Revision vom Hub validiert.",
+            "Eine Promotion bindet Revision und Digest; erst danach darf genau der autorisierte Track-Planner die kanonischen source_category_item_ids in Phase 2 transformieren."
+          ]
+        }
+      ]
+    }
+  ],
+  "track_planning_hints": {
+    "status": "advisory_until_category_promotion",
+    "candidate_slices": [
+      {
+        "id": "SSF-T1",
+        "title": "Grounded Threat Model und Governance-Verträge",
+        "primary_category_item_ids": ["SSFR-GND-001", "SSFR-SEC-001", "SSFR-SEC-002", "SSFR-SEC-004", "SSFR-SEC-005"],
+        "upstream_slice_ids": []
+      },
+      {
+        "id": "SSF-T2",
+        "title": "Artifact-Import, Dokumentrepository und Hub-APIs",
+        "primary_category_item_ids": ["SSFR-GND-002", "SSFR-DOC-001", "SSFR-DOC-006", "SSFR-UX-001"],
+        "upstream_slice_ids": ["SSF-T1"]
+      },
+      {
+        "id": "SSF-T3",
+        "title": "LibreOffice-Sandbox und Hub-gesteuerte Execution-Saga",
+        "primary_category_item_ids": ["SSFR-GND-004", "SSFR-SEC-003", "SSFR-DOC-005"],
+        "upstream_slice_ids": ["SSF-T1", "SSF-T2"]
+      },
+      {
+        "id": "SSF-T4",
+        "title": "Workbook-Snapshot, Action-Policy, Dry-run, Diff und Validatoren",
+        "primary_category_item_ids": ["SSFR-DOC-002", "SSFR-DOC-003", "SSFR-DOC-004"],
+        "upstream_slice_ids": ["SSF-T1", "SSF-T2", "SSF-T3"]
+      },
+      {
+        "id": "SSF-T5",
+        "title": "Feedback, Consent, Privacy und Dataset-Pipeline",
+        "primary_category_item_ids": ["SSFR-DATA-001", "SSFR-DATA-002", "SSFR-DATA-003", "SSFR-DATA-004"],
+        "upstream_slice_ids": ["SSF-T1", "SSF-T2", "SSF-T4"]
+      },
+      {
+        "id": "SSF-T6",
+        "title": "Task-Family, Baseline, Training, Evaluation und strukturierte Inferenz",
+        "primary_category_item_ids": ["SSFR-GND-003", "SSFR-ML-001", "SSFR-ML-002", "SSFR-ML-003", "SSFR-ML-004", "SSFR-ML-005"],
+        "upstream_slice_ids": ["SSF-T1", "SSF-T3", "SSF-T4", "SSF-T5"]
+      },
+      {
+        "id": "SSF-T7",
+        "title": "Angular Spreadsheet Studio",
+        "primary_category_item_ids": ["SSFR-GND-005", "SSFR-UX-002", "SSFR-UX-003", "SSFR-UX-004"],
+        "upstream_slice_ids": ["SSF-T2", "SSF-T3", "SSF-T4", "SSF-T5", "SSF-T6"]
+      },
+      {
+        "id": "SSF-T8",
+        "title": "Security-, Recovery-, Performance- und Release-Gates",
+        "primary_category_item_ids": ["SSFR-PLAN-001", "SSFR-PLAN-002"],
+        "upstream_slice_ids": ["SSF-T1", "SSF-T2", "SSF-T3", "SSF-T4", "SSF-T5", "SSF-T6", "SSF-T7"]
+      }
+    ],
+    "pre_promotion_only_item_ids": ["SSFR-PLAN-003", "SSFR-PLAN-004"],
+    "required_track_properties": [
+      "Jeder Track und jede Task referenziert ausschließlich promovierte source_category_item_ids und überschreitet weder Scope noch Worker-Authority.",
+      "Jedes materialisierte Category-Item besitzt genau einen primären Slice-Owner; upstream_slice_ids drücken Abhängigkeiten aus und erzeugen keine doppelte Contract- oder Implementierungsverantwortung.",
+      "SSFR-PLAN-003 und SSFR-PLAN-004 werden vor Promotion abgeschlossen und nicht als gewöhnliche Phase-2-Implementierungstasks materialisiert.",
+      "Kanonische Track-Summaries werden vom PlanningSummaryEngine erzeugt und nicht manuell kopiert.",
+      "Der tatsächliche Critical Path wird aus dem geschlossenen DAG und realistischen Aufwänden abgeleitet; fast alle Tasks pauschal als kritisch zu markieren ist unzulässig.",
+      "Security, Consent, Versions- und Worker-Verträge gehen den abhängigen Implementierungen voraus.",
+      "Komplexe Implementierungstests bleiben bis zur ausdrücklichen Freigabe getrennt planbar und werden bei Nichtausführung als not_run ausgewiesen."
+    ]
+  },
+  "definition_of_research_done": [
+    "Alle Category-Items besitzen assignment-bound Claims mit ausschließlich erlaubten SRC_*- und RUN_*-Refs oder sind explizit promotion-blocking.",
+    "Der aktuelle Main-Bestand ist mit konkreten Dateien, Symbolen und Reuse/Extend/New/Exclude-Entscheidungen inventarisiert.",
+    "LibreOffice-Version, Image, Lizenz, Fonts, Locale, Netzwerk-, Prozess- und Dateisystemgrenzen sind source- und run-grounded entschieden.",
+    "Dokument-, Snapshot-, Action-, Formula-, Diff-, Validator-, Worker-, Feedback-, Consent-, Dataset-, Training-, Evaluation-, Inferenz- und API-Verträge sind versioniert und geschlossen beschrieben.",
+    "Threat Model, RBAC, Tenantgrenzen, Audit, Retention, Quoten, Datenschutz, Lizenz, Widerruf und Adapter-Impact besitzen fail-closed Entscheidungen und negative Testpläne.",
+    "Base-Modell-Baseline, Dataset-Readiness, quantitative Limits, Metriken, Fixtures, Recovery, SLOs und not_run-Semantik sind festgelegt.",
+    "Der Phase-2-DAG deckt alle promovierten Category-Items ab, schließt den Releasepfad und zerlegt die Umsetzung in kleine SOLID-konforme Hub-, Worker-, Domain-, API- und UI-Slices.",
+    "Der Hub validiert Category-Schema, Quality Profile, Claim-Grounding, DAG, Meta-Summaries, Scope und Revision-Digest und eine autorisierte Person promoviert exakt diese Revision."
+  ],
+  "meta": {
+    "total_items": 33,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 33
+    },
+    "by_priority": {
+      "P0": 30,
+      "P1": 3
+    },
+    "by_risk": {
+      "critical": 15,
+      "high": 17,
+      "medium": 1,
+      "low": 0
+    },
+    "by_type": {
+      "research": 5,
+      "security": 5,
+      "architecture": 4,
+      "design": 5,
+      "contract": 5,
+      "governance": 3,
+      "experiment_design": 1,
+      "runtime_design": 1,
+      "evaluation": 1,
+      "test_design": 1,
+      "operations": 1,
+      "planning": 1
+    },
+    "dag_summary": {
+      "nodes": 33,
+      "edges": 131,
+      "roots": ["SSFR-GND-001"],
+      "leaves": ["SSFR-PLAN-004"],
+      "maximum_dependency_depth": 16
+    },
+    "promotion_status": "non_promotable_unverified_sources",
+    "notes": [
+      "Diese Datei ist ein passiver, handgepflegter Category-Research-Backlog-Seed und kein gebundenes Research-Ergebnis oder ausführbarer Planning Track.",
+      "Die alte Hybridstruktur aus Implementierungs-Tasks, Milestones und manuell gepflegten Track-Summaries wurde entfernt; Phase 2 entsteht erst nach Research und Promotion als separates Track-Artefakt.",
+      "Repository-Pfade und das archivierte LoRA-Control-Center sind Reviewziele. Ohne assignment-bound Evidenz wird weder ihre Wiederverwendbarkeit noch ihr Implementierungsstatus behauptet.",
+      "Alle 33 Research-Items sind open. Die statische Korrektur erfindet keine SRC_*- oder RUN_*-IDs und ist deshalb absichtlich non-promotable.",
+      "Security, Consent, Dokumentversionen und Hub-Worker-Verträge werden vor abhängiger Implementierung erforscht; Worker publizieren keine finalen Dokumentversionen.",
+      "Komplexe GPU-, Multi-Container-, End-to-End-, große Dokument- und reale Provider-Tests bleiben bis zur ausdrücklichen Freigabe unausgeführt."
+    ],
+    "recommended_order": [
+      "SSFR-GND-001",
+      "SSFR-GND-002",
+      "SSFR-GND-003",
+      "SSFR-GND-004",
+      "SSFR-GND-005",
+      "SSFR-SEC-001",
+      "SSFR-SEC-002",
+      "SSFR-SEC-003",
+      "SSFR-SEC-004",
+      "SSFR-SEC-005",
+      "SSFR-DOC-001",
+      "SSFR-DOC-002",
+      "SSFR-DATA-003",
+      "SSFR-DOC-003",
+      "SSFR-DOC-004",
+      "SSFR-DOC-006",
+      "SSFR-ML-001",
+      "SSFR-DOC-005",
+      "SSFR-DATA-001",
+      "SSFR-UX-001",
+      "SSFR-DATA-002",
+      "SSFR-UX-002",
+      "SSFR-DATA-004",
+      "SSFR-ML-002",
+      "SSFR-UX-003",
+      "SSFR-ML-003",
+      "SSFR-ML-004",
+      "SSFR-ML-005",
+      "SSFR-PLAN-001",
+      "SSFR-PLAN-002",
+      "SSFR-UX-004",
+      "SSFR-PLAN-003",
+      "SSFR-PLAN-004"
+    ]
+  }
 }
