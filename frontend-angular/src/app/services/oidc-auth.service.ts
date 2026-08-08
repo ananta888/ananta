@@ -1,5 +1,5 @@
 /** T12 / T13 / T14 / T15 / T16: OIDC PKCE + Device Flow + Refresh + Logout + Nonce. */
-import { Injectable, inject } from '@angular/core';
+import { Injectable, OnDestroy, inject } from '@angular/core';
 import { sha256Bytes } from '../shared/crypto/sha256';
 import { Router } from '@angular/router';
 import { map } from 'rxjs';
@@ -10,18 +10,31 @@ import {
   PUBLIC_OIDC_CLIENT_ID,
   PUBLIC_OIDC_ISSUER,
 } from './public-ananta-endpoints';
+import {
+  OidcPopupCoordinator,
+  OidcPopupCoordinatorError,
+  type OidcPopupParentSession,
+} from './oidc-popup-coordinator.service';
 
 const SCOPES = 'openid profile email';
 const SS_PKCE_KEY = 'oidc.pkce';       // sessionStorage
 const SS_NONCE_KEY = 'oidc.nonce';
-const LS_POPUP_KEY = 'oidc.pkce.popup'; // localStorage — shared with popup window
 const LOGIN_POPUP_FEATURES = 'width=560,height=680,left=200,top=80';
 const POPUP_DISCOVERY_TIMEOUT_MS = 10_000;
+const POPUP_TOKEN_EXCHANGE_TIMEOUT_MS = 45_000;
 
 export type OidcPopupLoginFailure =
   | 'popup_blocked'
   | 'configuration_missing'
   | 'popup_closed'
+  | 'popup_timeout'
+  | 'popup_communication_failed'
+  | 'authorization_denied'
+  | 'callback_invalid'
+  | 'token_exchange_failed'
+  | 'token_exchange_timeout'
+  | 'token_endpoint_unreachable'
+  | 'nonce_mismatch'
   | 'issuer_unreachable'
   | 'popup_start_failed';
 
@@ -56,11 +69,12 @@ interface DeviceAuthResponse {
 }
 
 @Injectable({ providedIn: 'root' })
-export class OidcAuthService {
+export class OidcAuthService implements OnDestroy {
   private userAuth = inject(UserAuthService);
   private dir = inject(AgentDirectoryService);
   private profiles = inject(NetworkProfileService);
   private router = inject(Router);
+  private popupCoordinator = inject(OidcPopupCoordinator);
 
   private _meta: OidcMeta | null = null;
   private _metaIssuer = '';
@@ -90,24 +104,27 @@ export class OidcAuthService {
     return String(p?.preferred_username || p?.email || p?.sub || '');
   }
 
-  constructor() {
-    // Sync token written by popup window (popup → parent via localStorage storage event)
-    if (!window.opener) {
-      window.addEventListener('storage', (e: StorageEvent) => {
-        if (e.key === 'ananta.user.token' && e.newValue) {
-          const refresh = localStorage.getItem('ananta.user.refresh_token') ?? undefined;
-          this.userAuth.setTokens(e.newValue, refresh);
-        } else if (e.key === 'ananta.oidc.access_token') {
-          this.userAuth.setOidcAccessToken(e.newValue);
-          if (e.newValue) {
-            void this.tryRestoreLinkedHubSession(e.newValue);
-          }
-        } else if (e.key === 'oidc.popup.nonce' && e.newValue) {
-          this._sessionNonce = e.newValue;
-          localStorage.removeItem('oidc.popup.nonce');
-        }
-      });
+  private readonly onStorage = (event: StorageEvent) => {
+    if (this.isPopupCallback()) return;
+    if (event.key === 'ananta.user.token' && event.newValue) {
+      const refresh = localStorage.getItem('ananta.user.refresh_token') ?? undefined;
+      void this.userAuth.setTokens(event.newValue, refresh);
+    } else if (event.key === 'ananta.oidc.access_token') {
+      this.userAuth.setOidcAccessToken(event.newValue);
+      if (event.newValue) {
+        void this.tryRestoreLinkedHubSession(event.newValue);
+      }
     }
+  };
+
+  constructor() {
+    // Legacy cross-tab and backend-broker synchronization. Popup-PKCE no
+    // longer depends on this event; its parent commits the tokens directly.
+    window.addEventListener('storage', this.onStorage);
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('storage', this.onStorage);
   }
 
   // ── Discovery ────────────────────────────────────────────────────────
@@ -126,8 +143,8 @@ export class OidcAuthService {
       );
       if (!r.ok) throw new Error(`OIDC discovery failed: ${r.status}`);
       const meta = await r.json() as OidcMeta;
-      if (!meta.authorization_endpoint) {
-        throw new Error('OIDC discovery failed: authorization_endpoint missing');
+      if (!meta.authorization_endpoint || !meta.token_endpoint) {
+        throw new Error('OIDC discovery failed: required endpoint missing');
       }
       const discoveredIssuer = this.normalizeHttpUrl(meta.issuer, 'OIDC discovery issuer', true);
       if (discoveredIssuer !== normalizedIssuer) {
@@ -137,7 +154,13 @@ export class OidcAuthService {
         meta.authorization_endpoint,
         'OIDC authorization endpoint',
       );
-      this._meta = { ...meta, issuer: discoveredIssuer, authorization_endpoint: authorizationEndpoint };
+      const tokenEndpoint = this.normalizeHttpUrl(meta.token_endpoint, 'OIDC token endpoint');
+      this._meta = {
+        ...meta,
+        issuer: discoveredIssuer,
+        authorization_endpoint: authorizationEndpoint,
+        token_endpoint: tokenEndpoint,
+      };
       this._metaIssuer = normalizedIssuer;
       return this._meta;
     } finally {
@@ -299,9 +322,15 @@ export class OidcAuthService {
   // ── Popup-PKCE login (browser equivalent of TUI loopback flow) ───────
 
   async startLoginPopup(issuer = this.issuer, clientId = this.clientId): Promise<void> {
+    // Clear sensitive PKCE material left by the pre-coordinator implementation.
+    this.removeLocalStorageItem('oidc.pkce.popup');
+    const verifier = this.randomB64Url(48);
+    const state = this.popupCoordinator.createState(this.randomB64Url(24));
+    const nonce = this.randomB64Url(24);
+
     // This must happen before the first await. Otherwise browsers can discard
     // the click's user activation while discovery and PKCE are being prepared.
-    const popup = window.open('about:blank', 'oidc-login', LOGIN_POPUP_FEATURES);
+    const popup = window.open('about:blank', `oidc-login-${state}`, LOGIN_POPUP_FEATURES);
     if (!popup) {
       throw new OidcPopupLoginError(
         'popup_blocked',
@@ -309,6 +338,8 @@ export class OidcAuthService {
       );
     }
 
+    let parentSession: OidcPopupParentSession | null = null;
+    let callbackReceived = false;
     try {
       const normalizedIssuer = this.requireProfileIssuer(issuer);
       const normalizedClientId = String(clientId || '').trim();
@@ -329,9 +360,6 @@ export class OidcAuthService {
           { cause: error },
         );
       }
-      const verifier = this.randomB64Url(48);
-      const state = this.randomB64Url(16);
-      const nonce = this.randomB64Url(16);
       const challenge = await this.sha256B64Url(verifier);
       const redirectUri = `${location.origin}/oidc-callback`;
 
@@ -341,15 +369,6 @@ export class OidcAuthService {
           'Das Keycloak-Anmeldefenster wurde geschlossen. Bitte die Anmeldung erneut starten.',
         );
       }
-
-      // localStorage is shared between opener and popup (unlike sessionStorage).
-      localStorage.setItem(LS_POPUP_KEY, JSON.stringify({
-        verifier,
-        state,
-        nonce,
-        issuer: normalizedIssuer,
-        clientId: normalizedClientId,
-      }));
 
       const params = new URLSearchParams({
         client_id: normalizedClientId,
@@ -363,62 +382,205 @@ export class OidcAuthService {
       });
       const authorizationUrl = new URL(meta.authorization_endpoint);
       params.forEach((value, key) => authorizationUrl.searchParams.set(key, value));
+
+      // The parent owns verifier, nonce, endpoint and token persistence. The
+      // popup only returns the one-time code over a state-bound same-origin
+      // channel, so no token or PKCE secret crosses the window boundary.
+      parentSession = this.popupCoordinator.beginParentSession(state, popup);
       popup.location.replace(authorizationUrl.href);
       try { popup.focus(); } catch { /* Focusing is optional once navigation succeeded. */ }
+
+      const authorization = await parentSession.result;
+      callbackReceived = true;
+      if (authorization.kind === 'error') {
+        throw this.authorizationError(authorization.errorCode);
+      }
+
+      await this.exchangePopupAuthorizationCode({
+        tokenEndpoint: meta.token_endpoint,
+        clientId: normalizedClientId,
+        code: authorization.code,
+        redirectUri,
+        verifier,
+        nonce,
+      });
+      parentSession.acknowledge({ ok: true });
     } catch (error) {
-      localStorage.removeItem(LS_POPUP_KEY);
-      if (!popup.closed) popup.close();
-      if (error instanceof OidcPopupLoginError) throw error;
-      throw new OidcPopupLoginError(
-        'popup_start_failed',
-        'Das Keycloak-Anmeldefenster konnte nicht initialisiert werden. Bitte die Anmeldung erneut starten.',
-        { cause: error },
-      );
+      const loginError = this.normalizePopupError(error, callbackReceived);
+      if (callbackReceived && parentSession) {
+        parentSession.acknowledge({
+          ok: false,
+          errorCode: loginError.code,
+          message: loginError.message,
+        });
+      } else {
+        parentSession?.dispose();
+        this.closePopup(popup);
+      }
+      throw loginError;
+    } finally {
+      parentSession?.dispose();
+      this.removeLocalStorageItem('oidc.pkce.popup');
     }
   }
 
-  // Called by OidcCallbackComponent when window.opener is set
+  isPopupCallback(search = location.search): boolean {
+    return this.popupCoordinator.isPopupCallback(search);
+  }
+
+  // Called by OidcCallbackComponent for a state-prefixed popup callback.
   async handleCallbackForPopup(): Promise<boolean> {
-    const params = new URLSearchParams(location.search);
-    const code = params.get('code');
-    const state = params.get('state');
-    if (!code || !state) return false;
+    await this.popupCoordinator.relayCurrentCallback();
+    return true;
+  }
 
-    const stored = localStorage.getItem(LS_POPUP_KEY);
-    if (!stored) return false;
-    const { verifier, state: storedState, nonce, issuer, clientId } = JSON.parse(stored) as {
-      verifier: string; state: string; nonce: string; issuer: string; clientId: string;
-    };
-    if (state !== storedState) return false;
-    localStorage.removeItem(LS_POPUP_KEY);
-
-    const tokenEndpoint = `${(issuer || this.issuer).replace(/\/$/, '')}/protocol/openid-connect/token`;
+  private async exchangePopupAuthorizationCode(input: {
+    tokenEndpoint: string;
+    clientId: string;
+    code: string;
+    redirectUri: string;
+    verifier: string;
+    nonce: string;
+  }): Promise<void> {
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
-      client_id: clientId || this.clientId,
-      code,
-      redirect_uri: `${location.origin}/oidc-callback`,
-      code_verifier: verifier,
+      client_id: input.clientId,
+      code: input.code,
+      redirect_uri: input.redirectUri,
+      code_verifier: input.verifier,
     });
-    const r = await fetch(tokenEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
-    });
-    if (!r.ok) return false;
-    const tokens = await r.json();
 
-    const idPayload = this._decodeJwt(tokens.id_token);
-    if (idPayload?.nonce && idPayload.nonce !== nonce) return false;
+    let response: Response;
+    const controller = new AbortController();
+    const timeoutHandle = window.setTimeout(
+      () => controller.abort(),
+      POPUP_TOKEN_EXCHANGE_TIMEOUT_MS,
+    );
+    try {
+      response = await fetch(input.tokenEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (controller.signal.aborted || this.isAbortError(error)) {
+        throw new OidcPopupLoginError(
+          'token_exchange_timeout',
+          'Keycloak hat den Anmeldecode nicht rechtzeitig eingelöst. Bitte eine neue Anmeldung starten.',
+          { cause: error },
+        );
+      }
+      throw new OidcPopupLoginError(
+        'token_endpoint_unreachable',
+        'Der Browser hat vom Keycloak-Token-Endpunkt keine lesbare Antwort erhalten. Bitte Netzwerk und Keycloak-Verfügbarkeit prüfen und die Anmeldung neu starten.',
+        { cause: error },
+      );
+    } finally {
+      window.clearTimeout(timeoutHandle);
+    }
 
-    // Write nonce to localStorage so parent window can read it via storage event
-    localStorage.setItem('oidc.popup.nonce', nonce);
-    this._sessionNonce = nonce;
-    // Writing the OIDC access token fires a storage event in the parent.
-    this.userAuth.setOidcAccessToken(tokens.access_token);
-    await this.userAuth.setOidcRefreshToken(tokens.refresh_token ?? null);
-    await this.tryRestoreLinkedHubSession(tokens.access_token);
-    return true;
+    if (!response.ok) {
+      throw new OidcPopupLoginError(
+        'token_exchange_failed',
+        'Keycloak hat den Anmeldecode abgelehnt oder er ist abgelaufen. Bitte erneut anmelden.',
+      );
+    }
+
+    let tokens: Record<string, unknown>;
+    try {
+      tokens = await response.json() as Record<string, unknown>;
+    } catch (error) {
+      throw new OidcPopupLoginError(
+        'token_exchange_failed',
+        'Keycloak hat keine gültige Token-Antwort geliefert.',
+        { cause: error },
+      );
+    }
+
+    const accessToken = typeof tokens['access_token'] === 'string' ? tokens['access_token'] : '';
+    const idToken = typeof tokens['id_token'] === 'string' ? tokens['id_token'] : '';
+    const refreshToken = typeof tokens['refresh_token'] === 'string' ? tokens['refresh_token'] : null;
+    if (!accessToken || !idToken) {
+      throw new OidcPopupLoginError(
+        'token_exchange_failed',
+        'Keycloak hat die erforderlichen OIDC-Tokens nicht geliefert.',
+      );
+    }
+
+    const idPayload = this._decodeJwt(idToken);
+    if (!idPayload || idPayload.nonce !== input.nonce) {
+      throw new OidcPopupLoginError(
+        'nonce_mismatch',
+        'Die Keycloak-Antwort gehört nicht zur gestarteten Anmeldung.',
+      );
+    }
+
+    // Persist only after code and nonce validation. The parent is the sole
+    // writer; no access or refresh token is sent over the popup transport.
+    await this.userAuth.setOidcRefreshToken(refreshToken);
+    this._sessionNonce = input.nonce;
+    this.userAuth.setOidcAccessToken(accessToken);
+    // Pair/OIDC login is complete here. Optional Hub linking must not delay
+    // the popup acknowledgement or turn a healthy Pair login into a timeout.
+    void this.tryRestoreLinkedHubSession(accessToken);
+  }
+
+  private isAbortError(error: unknown): boolean {
+    return error instanceof DOMException
+      ? error.name === 'AbortError'
+      : error instanceof Error && error.name === 'AbortError';
+  }
+
+  private authorizationError(errorCode: string): OidcPopupLoginError {
+    if (errorCode === 'access_denied') {
+      return new OidcPopupLoginError(
+        'authorization_denied',
+        'Die Keycloak-Anmeldung wurde abgebrochen oder abgelehnt.',
+      );
+    }
+    if (errorCode === 'communication_unavailable') {
+      return new OidcPopupLoginError(
+        'popup_communication_failed',
+        'Das Callback-Fenster konnte das Hauptfenster nicht sicher erreichen.',
+      );
+    }
+    return new OidcPopupLoginError(
+      'callback_invalid',
+      'Keycloak konnte die Popup-Anmeldung nicht abschließen. Bitte erneut anmelden.',
+    );
+  }
+
+  private normalizePopupError(error: unknown, callbackReceived: boolean): OidcPopupLoginError {
+    if (error instanceof OidcPopupLoginError) return error;
+    if (error instanceof OidcPopupCoordinatorError) {
+      if (error.code === 'popup_timeout') {
+        return new OidcPopupLoginError('popup_timeout', error.message, { cause: error });
+      }
+      if (error.code === 'communication_unavailable') {
+        return new OidcPopupLoginError('popup_communication_failed', error.message, { cause: error });
+      }
+      return new OidcPopupLoginError('callback_invalid', error.message, { cause: error });
+    }
+    return new OidcPopupLoginError(
+      callbackReceived ? 'token_exchange_failed' : 'popup_start_failed',
+      callbackReceived
+        ? 'Die Keycloak-Anmeldung konnte nicht abgeschlossen werden. Bitte erneut anmelden.'
+        : 'Das Keycloak-Anmeldefenster konnte nicht initialisiert werden. Bitte die Anmeldung erneut starten.',
+      error instanceof Error ? { cause: error } : undefined,
+    );
+  }
+
+  private closePopup(popup: Window): void {
+    try {
+      if (!popup.closed) popup.close();
+    } catch {
+      try { popup.close(); } catch { /* The browser owns a severed popup proxy. */ }
+    }
+  }
+
+  private removeLocalStorageItem(key: string): void {
+    try { localStorage.removeItem(key); } catch { /* Cleanup is best-effort. */ }
   }
 
 // ── T13: Silent token refresh via OIDC token endpoint ────────────────

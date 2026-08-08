@@ -51,9 +51,16 @@
       "redirectUris": [
         "http://localhost:*",
         "http://127.0.0.1:*",
+        "https://localhost/oidc-callback",
+        "https://127.0.0.1/oidc-callback",
         "ananta://*"
       ],
-      "webOrigins": ["+"],
+      "webOrigins": [
+        "http://localhost:4200",
+        "http://127.0.0.1:4200",
+        "https://localhost",
+        "https://127.0.0.1"
+      ],
       "protocol": "openid-connect",
       "fullScopeAllowed": false,
       "defaultClientScopes": [

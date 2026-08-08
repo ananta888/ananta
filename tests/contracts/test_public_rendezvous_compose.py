@@ -12,9 +12,11 @@ KEYCLOAK_BASE = (
 )
 KEYCLOAK_IMAGE = "ananta-keycloak:26.6.1-optimized-v1"
 KEYCLOAK_REALM = ROOT / "public-rendezvous/keycloak/ananta-realm.json"
+KEYCLOAK_SETUP = ROOT / "public-rendezvous/keycloak/setup.sh"
 KEYCLOAK_LOGIN_THEME = (
     ROOT / "public-rendezvous/keycloak-themes/ananta-minimal/login/theme.properties"
 )
+NGINX_CONFIG = ROOT / "docker/nginx/conf.d/default.conf"
 
 
 def _services() -> dict:
@@ -95,6 +97,44 @@ def test_public_keycloak_login_theme_limits_locale_warmup():
     assert realm["loginTheme"] == "ananta-minimal"
     assert "parent=keycloak" in theme_properties
     assert "locales=de,en" in theme_properties
+
+
+def test_public_tui_client_explicitly_allows_pair_dev_origins():
+    realm = json.loads(KEYCLOAK_REALM.read_text(encoding="utf-8"))
+    setup = KEYCLOAK_SETUP.read_text(encoding="utf-8")
+    tui_client = next(
+        client for client in realm["clients"] if client["clientId"] == "ananta-tui"
+    )
+
+    assert tui_client["webOrigins"] == [
+        "http://localhost:4200",
+        "http://127.0.0.1:4200",
+        "https://localhost",
+        "https://127.0.0.1",
+    ]
+    assert "+" not in tui_client["webOrigins"]
+    assert "*" not in tui_client["webOrigins"]
+    assert 'webOrigins=["+"]' not in setup
+    expected_setup_origins = (
+        'webOrigins=["http://localhost:4200","http://127.0.0.1:4200",'
+        '"https://localhost","https://127.0.0.1"]'
+    )
+    assert setup.count(expected_setup_origins) == 2
+
+    for redirect_uri in (
+        "https://localhost/oidc-callback",
+        "https://127.0.0.1/oidc-callback",
+    ):
+        assert redirect_uri in tui_client["redirectUris"]
+        assert setup.count(redirect_uri) == 2
+
+
+def test_local_https_edge_pins_the_supported_public_oidc_issuer():
+    nginx = NGINX_CONFIG.read_text(encoding="utf-8")
+    csp = next(line for line in nginx.splitlines() if "Content-Security-Policy" in line)
+
+    assert "connect-src 'self' https://keycloak.ananta.de ws: wss:;" in csp
+    assert "connect-src 'self' https: " not in csp
 
 
 def test_public_coturn_accepts_rendezvous_rest_credentials_only():

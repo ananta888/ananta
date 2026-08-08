@@ -90,8 +90,8 @@ if [ -n "$EXISTING_CLIENT" ]; then
     -s "directAccessGrantsEnabled=false" \
     -s "attributes.\"oauth2.device.authorization.grant.enabled\"=true" \
     -s "attributes.\"oauth2.device.polling.interval\"=5" \
-    -s 'redirectUris=["http://localhost:*","http://127.0.0.1:*","ananta://*"]' \
-    -s 'webOrigins=["+"]'
+    -s 'redirectUris=["http://localhost:*","http://127.0.0.1:*","https://localhost/oidc-callback","https://127.0.0.1/oidc-callback","ananta://*"]' \
+    -s 'webOrigins=["http://localhost:4200","http://127.0.0.1:4200","https://localhost","https://127.0.0.1"]'
 else
   echo "Erstelle Client '$CLIENT_ID'..."
   $KCADM create clients -r "$REALM" \
@@ -103,8 +103,8 @@ else
     -s "directAccessGrantsEnabled=false" \
     -s "attributes.\"oauth2.device.authorization.grant.enabled\"=true" \
     -s "attributes.\"oauth2.device.polling.interval\"=5" \
-    -s 'redirectUris=["http://localhost:*","http://127.0.0.1:*","ananta://*"]' \
-    -s 'webOrigins=["+"]' \
+    -s 'redirectUris=["http://localhost:*","http://127.0.0.1:*","https://localhost/oidc-callback","https://127.0.0.1/oidc-callback","ananta://*"]' \
+    -s 'webOrigins=["http://localhost:4200","http://127.0.0.1:4200","https://localhost","https://127.0.0.1"]' \
     -s "fullScopeAllowed=false"
   CLIENT_UUID=$($KCADM get clients -r "$REALM" --fields clientId,id \
     | grep -A1 "\"clientId\" : \"$CLIENT_ID\"" | grep '"id"' | grep -oE '"[0-9a-f-]{36}"' | tr -d '"')

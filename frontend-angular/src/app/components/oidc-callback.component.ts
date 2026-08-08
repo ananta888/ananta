@@ -10,7 +10,7 @@ import { OidcAuthService } from '../services/oidc-auth.service';
       @if (error) {
         <div style="color:#fb7185;">Login fehlgeschlagen: {{ error }}</div>
       } @else if (isPopup) {
-        <div style="color:#7fffd4;">Login erfolgreich – Fenster wird geschlossen…</div>
+        <div style="color:#7fffd4;">Anmeldung wird sicher abgeschlossen…</div>
       } @else {
         <div style="color:#7fffd4;">Authentifizierung läuft…</div>
       }
@@ -24,7 +24,10 @@ export class OidcCallbackComponent implements OnInit {
   isPopup = false;
 
   async ngOnInit(): Promise<void> {
-    this.isPopup = !!window.opener;
+    const hasOpener = !!window.opener;
+    // The state prefix is the protocol discriminator. window.opener is not
+    // stable across IdP navigations, COOP boundaries, previews, or WebViews.
+    this.isPopup = this.oidc.isPopupCallback();
     try {
       const query = new URLSearchParams(window.location.search);
       // Only `oidc_code` is a one-time Hub broker code. A plain `code` is
@@ -32,7 +35,7 @@ export class OidcCallbackComponent implements OnInit {
       const backendCode = query.get('oidc_code');
       if (backendCode) {
         const ok = await this.oidc.handleBackendCallback();
-        if (ok && this.isPopup) {
+        if (ok && hasOpener) {
           window.close();
         } else if (!ok) {
           this.error = 'Backend-OIDC-Austausch fehlgeschlagen.';
@@ -41,7 +44,7 @@ export class OidcCallbackComponent implements OnInit {
       }
 
       if (this.isPopup) {
-        // Popup-PKCE flow: reads from localStorage, closes window on success
+        // Popup-PKCE flow: relays code/state only; the parent exchanges tokens.
         const ok = await this.oidc.handleCallbackForPopup();
         if (ok) {
           window.close();

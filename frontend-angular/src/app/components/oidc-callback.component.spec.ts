@@ -10,11 +10,13 @@ describe('OidcCallbackComponent', () => {
     handleBackendCallback: vi.fn(async () => true),
     handleCallback: vi.fn(async () => true),
     handleCallbackForPopup: vi.fn(async () => true),
+    isPopupCallback: vi.fn(() => false),
   };
   const originalOpener = Object.getOwnPropertyDescriptor(window, 'opener');
 
   beforeEach(() => {
     vi.clearAllMocks();
+    oidc.isPopupCallback.mockReturnValue(false);
     window.history.replaceState({}, '', '/oidc-callback');
     Object.defineProperty(window, 'opener', { configurable: true, value: null });
     TestBed.resetTestingModule();
@@ -43,9 +45,9 @@ describe('OidcCallbackComponent', () => {
     expect(oidc.handleBackendCallback).not.toHaveBeenCalled();
   });
 
-  it('uses the popup callback and closes the popup for a standard code', async () => {
-    Object.defineProperty(window, 'opener', { configurable: true, value: {} });
-    window.history.replaceState({}, '', '/oidc-callback?code=standard&state=s');
+  it('uses the state-classified popup callback even when window.opener was lost', async () => {
+    oidc.isPopupCallback.mockReturnValue(true);
+    window.history.replaceState({}, '', '/oidc-callback?code=standard&state=p.popup-state');
     const close = vi.spyOn(window, 'close').mockImplementation(() => undefined);
     const component = TestBed.createComponent(OidcCallbackComponent).componentInstance;
 
@@ -54,6 +56,17 @@ describe('OidcCallbackComponent', () => {
     expect(oidc.handleCallbackForPopup).toHaveBeenCalledOnce();
     expect(oidc.handleBackendCallback).not.toHaveBeenCalled();
     expect(close).toHaveBeenCalledOnce();
+  });
+
+  it('does not classify a normal callback as popup merely because an opener exists', async () => {
+    Object.defineProperty(window, 'opener', { configurable: true, value: {} });
+    window.history.replaceState({}, '', '/oidc-callback?code=standard&state=r.redirect-state');
+    const component = TestBed.createComponent(OidcCallbackComponent).componentInstance;
+
+    await component.ngOnInit();
+
+    expect(oidc.handleCallback).toHaveBeenCalledOnce();
+    expect(oidc.handleCallbackForPopup).not.toHaveBeenCalled();
   });
 
   it('reserves oidc_code for the Hub backend callback', async () => {
