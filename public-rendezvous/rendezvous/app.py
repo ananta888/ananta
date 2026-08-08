@@ -8,6 +8,8 @@ Endpunkte:
   POST /rendezvous/sessions/join
   POST /rendezvous/sessions/<id>/join
   GET  /rendezvous/sessions/<id>/participants
+  GET  /rendezvous/sessions/<id>/security/key-packages
+  GET/POST /rendezvous/sessions/<id>/security/key-confirmations
   PATCH /rendezvous/sessions/<id>/permissions
   DELETE /rendezvous/sessions/<id>
   GET  /rendezvous/turn-credentials
@@ -37,6 +39,19 @@ log = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
+
+
+@app.after_request
+def add_cors_headers(response):
+    """Allow only explicitly configured browser app origins."""
+    origin = str(request.headers.get("Origin") or "").rstrip("/")
+    if origin and origin in cfg.CORS_ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, DELETE, OPTIONS"
+        response.headers["Access-Control-Max-Age"] = "600"
+    return response
 
 
 # --- Auth helper ---
@@ -86,16 +101,21 @@ def create_session():
     device_fp = str(body.get("owner_device_fingerprint") or "").strip()
     if not device_fp:
         return jsonify({"error": "owner_device_fingerprint_required"}), 400
-    session = svc.create_session(
-        owner_user_id=ctx.username,
-        owner_user_sub=ctx.sub,
-        owner_device_fingerprint=device_fp,
-        oidc_issuer=cfg.OIDC_ISSUER,
-        allowed_permissions=body.get("allowed_permissions"),
-        title=str(body.get("title") or "Rendezvous Session"),
-    )
+    try:
+        session = svc.create_session(
+            owner_user_id=ctx.username,
+            owner_user_sub=ctx.sub,
+            owner_device_fingerprint=device_fp,
+            owner_device_id=str(body.get("owner_device_id") or "").strip(),
+            owner_public_key_spki_b64=str(body.get("public_key_spki_b64") or "").strip(),
+            oidc_issuer=cfg.OIDC_ISSUER,
+            allowed_permissions=body.get("allowed_permissions") or body.get("permissions"),
+            title=str(body.get("title") or "Rendezvous Session"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     log.info("session_created id=%s owner=%s", session["id"], ctx.username)
-    return jsonify({"ok": True, "data": session}), 201
+    return jsonify({"ok": True, "session": session, "data": session}), 201
 
 
 @app.get("/rendezvous/sessions")
@@ -134,6 +154,7 @@ def _join_session_by_invite(*, expected_session_id: str):
         user_sub=ctx.sub,
         device_id=str(body.get("device_id") or "").strip(),
         device_fingerprint=str(body.get("device_fingerprint") or "").strip(),
+        public_key_spki_b64=str(body.get("public_key_spki_b64") or "").strip(),
         oidc_issuer=cfg.OIDC_ISSUER,
         expected_session_id=expected_session_id,
     )
@@ -145,7 +166,12 @@ def _join_session_by_invite(*, expected_session_id: str):
         return jsonify({"error": reason}), status
     session_label = expected_session_id or "invite"
     log.info("participant_joined session=%s user=%s", session_label, ctx.username)
-    return jsonify({"ok": True, "data": result.get("participant")}), 201 if not result.get("idempotent") else 200
+    return jsonify({
+        "ok": True,
+        "participant": result.get("participant"),
+        "session": result.get("session"),
+        "data": result.get("session"),
+    }), 201 if not result.get("idempotent") else 200
 
 
 @app.get("/rendezvous/sessions/<session_id>/participants")
@@ -159,6 +185,54 @@ def list_participants(session_id: str):
         return jsonify({"error": reason}), 403 if reason == "forbidden" else 404
     svc.touch_participant(session_id=session_id, user_id=ctx.username)
     return jsonify({"ok": True, "data": {"participants": result["participants"]}}), 200
+
+
+@app.get("/rendezvous/sessions/<session_id>/security/key-packages")
+def key_packages(session_id: str):
+    ctx = _require_auth()
+    if not ctx:
+        return _auth_error()
+    result = svc.get_key_packages(session_id=session_id, requester_user_id=ctx.username)
+    if not result.get("ok"):
+        reason = result["reason"]
+        status = 404 if reason == "session_not_found" else 403 if reason == "forbidden" else 409
+        return jsonify({"error": reason}), status
+    return jsonify(result), 200
+
+
+@app.post("/rendezvous/sessions/<session_id>/security/key-confirmations")
+def put_key_confirmation(session_id: str):
+    ctx = _require_auth()
+    if not ctx:
+        return _auth_error()
+    body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
+    result = svc.put_key_confirmation(
+        session_id=session_id,
+        sender_peer_id=ctx.username,
+        recipient_peer_id=str(body.get("recipient_peer_id") or "").strip(),
+        package_id=str(body.get("package_id") or "").strip(),
+        epoch=int(body.get("epoch") or 0),
+        confirmation_tag=str(body.get("confirmation_tag") or "").strip(),
+    )
+    if not result.get("ok"):
+        reason = result["reason"]
+        return jsonify({"error": reason}), 403 if reason == "forbidden" else 409
+    return jsonify(result), 201
+
+
+@app.get("/rendezvous/sessions/<session_id>/security/key-confirmations")
+def get_key_confirmation(session_id: str):
+    ctx = _require_auth()
+    if not ctx:
+        return _auth_error()
+    sender_peer_id = str(request.args.get("sender_peer_id") or "").strip()
+    result = svc.get_key_confirmation(
+        session_id=session_id, requester_user_id=ctx.username, sender_peer_id=sender_peer_id,
+    )
+    if not result.get("ok"):
+        reason = result["reason"]
+        return jsonify({"error": reason}), 403 if reason == "forbidden" else 404
+    return jsonify(result), 200
 
 
 @app.patch("/rendezvous/sessions/<session_id>/permissions")

@@ -109,6 +109,8 @@ The rendezvous service (`public-rendezvous/rendezvous/`) is a standalone Flask/G
 | `POST /rendezvous/sessions/join` | Beitreten per Invite-Code ohne bekannte Session-ID |
 | `POST /rendezvous/sessions/<id>/join` | Beitreten per Invite-Code |
 | `GET /rendezvous/sessions/<id>/participants` | Presence für berechtigte Teilnehmer |
+| `GET /rendezvous/sessions/<id>/security/key-packages` | Adressiertes, kurzlebiges Peer-Key-Paket und strikter E2EE-Vertrag |
+| `GET/POST /rendezvous/sessions/<id>/security/key-confirmations` | Undurchsichtige bilaterale Schlüsselbestätigung |
 | `PATCH /rendezvous/sessions/<id>/permissions` | Session-Rechte aktualisieren (Owner) |
 | `DELETE /rendezvous/sessions/<id>` | Session widerrufen (Owner) |
 | `GET /rendezvous/turn-credentials` | Kurzlebige TURN-Credentials (HMAC-SHA1) |
@@ -120,11 +122,12 @@ Alle Endpunkte außer `/health` und `/info` erfordern einen gültigen Keycloak-B
 
 `/signaling` is not currently a WebSocket endpoint. In particular, an OIDC
 nonce is not accepted as a replacement for the required bearer token. Angular
-Share sessions are Hub-owned and use the Hub-authenticated
-`/api/webrtc/sessions/<id>/signal` polling boundary for SDP/ICE; this still
-allows direct WebRTC media and DataChannels. The configured public signaling
-URL remains part of the public-rendezvous contract for compatible clients and
-a future ticket-authenticated native WebSocket adapter.
+uses OIDC-authenticated HTTP polling at the public `/webrtc/sessions/<id>/signal`
+boundary. Only SDP/ICE metadata passes through that boundary. Video, audio,
+chat, view deltas and artifacts use the peer-to-peer WebRTC media/DataChannel
+path. If direct ICE is impossible, the browser may use coturn with short-lived
+credentials; coturn relays encrypted DTLS/SRTP packets and does not receive
+application plaintext. Public sessions never fall back to the local Hub relay.
 
 ## Environment file
 
@@ -157,6 +160,13 @@ TURN_TTL_SECONDS=3600
 SESSION_MAX_DURATION_SECONDS=3600
 RENDEZVOUS_DB_PATH=/var/lib/ananta/rendezvous.db
 RENDEZVOUS_DB_TIMEOUT_SECONDS=5.0
+
+# Separate secret recommended; when omitted, TURN_SHARED_SECRET is used for
+# backwards-compatible signing-key derivation. Generate with openssl rand -hex 32.
+RENDEZVOUS_SECURITY_SIGNING_SECRET=replace_with_output_of_openssl_rand_hex_32
+
+# Exact browser origins permitted to call the bearer-authenticated API.
+CORS_ALLOWED_ORIGINS=http://127.0.0.1:4200,http://localhost:4200
 
 # Deliberately small defaults for the 1-GiB single-node test VM.
 KEYCLOAK_MEMORY_LIMIT=700m
@@ -478,9 +488,11 @@ The rendezvous service is implemented. The following features are available via 
 - OIDC-authentifizierte Session-Erstellung mit Invite-Code
 - Beitreten per Invite-Code (OIDC-Sub-Verifikation, Issuer-Bindung)
 - Presence-Metadaten für berechtigte Teilnehmer
+- Hub-signierte, adressierte Peer-Key-Pakete und bilaterale E2EE-Bestätigung
 - Ephemere TURN-Credentials (HMAC-SHA1)
 - WebRTC SDP Offer/Answer und ICE-Candidate-Relay
 - HTTP-Polling unter `/signaling` (zukünftig native WebSocket)
+- Direkte Browser-zu-Browser-Nutzdaten; TURN nur als ICE-Fallback, kein Hub-Relay
 
 Noch ausstehend (P2 / optional):
 - Native WebSocket-Verbindungen auf `/signaling` (statt HTTP-Polling)

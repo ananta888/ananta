@@ -14,6 +14,7 @@ OIDC_AUDIENCE = _env("OIDC_AUDIENCE", "ananta-hub")
 OIDC_JWKS_TTL = int(_env("OIDC_JWKS_TTL", "300"))  # Sekunden
 
 TURN_SHARED_SECRET = _env("TURN_SHARED_SECRET", "")
+RENDEZVOUS_SECURITY_SIGNING_SECRET = _env("RENDEZVOUS_SECURITY_SIGNING_SECRET", TURN_SHARED_SECRET)
 TURN_REALM = _env("TURN_REALM", "ananta.de")
 TURN_URLS = [u.strip() for u in _env("TURN_URLS", "turn:webrtc.ananta.de:3478").split(",") if u.strip()]
 TURN_TTL_SECONDS = int(_env("TURN_TTL_SECONDS", "3600"))
@@ -29,5 +30,13 @@ SESSION_MAX_DURATION_SECONDS = int(_env("SESSION_MAX_DURATION_SECONDS", str(60 *
 SESSION_CLEANUP_INTERVAL_SECONDS = int(_env("SESSION_CLEANUP_INTERVAL_SECONDS", "300"))
 RENDEZVOUS_DB_PATH = _env("RENDEZVOUS_DB_PATH", "/tmp/ananta-rendezvous.db")
 RENDEZVOUS_DB_TIMEOUT_SECONDS = float(_env("RENDEZVOUS_DB_TIMEOUT_SECONDS", "5.0"))
+CORS_ALLOWED_ORIGINS = {
+    origin.strip().rstrip("/")
+    for origin in _env(
+        "CORS_ALLOWED_ORIGINS",
+        "http://127.0.0.1:4200,http://localhost:4200",
+    ).split(",")
+    if origin.strip()
+}
 
 LOG_LEVEL = _env("LOG_LEVEL", "INFO")
