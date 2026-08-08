@@ -10,6 +10,7 @@ import {
 } from './webrtc-datachannel.service';
 import { WebrtcSessionService } from './webrtc-session.service';
 import { WebrtcTransportService } from './webrtc-transport.service';
+import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 
 const CIPHERTEXT_DIGEST = '2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881';
 
@@ -47,6 +48,7 @@ describe('WebrtcTransportService semantic relay', () => {
     sendSemantic: vi.fn(),
   };
   const profile = { current: { transport_order: ['hub_relay'] as string[] } };
+  const controlPlane = { isPublic: false };
   let service: WebrtcTransportService;
 
   beforeEach(() => {
@@ -58,6 +60,7 @@ describe('WebrtcTransportService semantic relay', () => {
     webrtc.startSession.mockReset();
     webrtc.state$.next('idle');
     profile.current.transport_order = ['hub_relay'];
+    controlPlane.isPublic = false;
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
@@ -65,6 +68,7 @@ describe('WebrtcTransportService semantic relay', () => {
         { provide: WebrtcSessionService, useValue: webrtc },
         { provide: NetworkProfileService, useValue: profile },
         { provide: HubApiCoreService, useValue: { request, get, post } },
+        { provide: PairSessionControlPlaneService, useValue: controlPlane },
         {
           provide: AgentDirectoryService,
           useValue: { list: () => [{ name: 'hub', role: 'hub', url: 'https://hub.test' }] },
@@ -131,6 +135,18 @@ describe('WebrtcTransportService semantic relay', () => {
     expect(closeSession).toHaveBeenCalledTimes(1);
     expect(service.mode$.value).toBe('hub_relay');
     modeSubscription.unsubscribe();
+  });
+
+  it('never sends a public Pair session through the local Hub relay', async () => {
+    profile.current.transport_order = ['webrtc', 'hub_relay'];
+    controlPlane.isPublic = true;
+
+    await service.open('public-session', true, { semanticEpoch: 2, remotePeerId: 'bob' });
+    webrtc.state$.next('failed');
+
+    expect(closeSession).toHaveBeenCalledTimes(1);
+    expect(service.mode$.value).toBe('idle');
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('posts the exact framed message and settles the send receipt once', async () => {

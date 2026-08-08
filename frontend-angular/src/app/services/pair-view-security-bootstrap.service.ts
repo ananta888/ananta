@@ -1,8 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, firstValueFrom } from 'rxjs';
 
-import { AgentDirectoryService } from './agent-directory.service';
-import { HubApiCoreService } from './hub-api-core.service';
+import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 import type { ShareSession } from './share-session.service';
 import { SignedPeerKeyPackage, WebrtcPeerKeyService } from './webrtc-peer-key.service';
 import {
@@ -30,8 +29,7 @@ interface KeyPackageResponse {
 
 @Injectable({ providedIn: 'root' })
 export class PairViewSecurityBootstrapService {
-  private readonly core = inject(HubApiCoreService);
-  private readonly directory = inject(AgentDirectoryService);
+  private readonly controlPlane = inject(PairSessionControlPlaneService);
   private readonly peerKeys = inject(WebrtcPeerKeyService);
   private inFlight: { key: string; promise: Promise<boolean> } | null = null;
   private lastPackageId = '';
@@ -97,15 +95,10 @@ export class PairViewSecurityBootstrapService {
       this.state$.next({ status: 'failed', reasonCode: 'strict_security_context_missing' });
       return false;
     }
-    const hubUrl = this.directory.list().find((agent) => agent.role === 'hub')?.url ?? '';
-    if (!hubUrl) {
-      this.state$.next({ status: 'failed', reasonCode: 'hub_unavailable' });
-      return false;
-    }
     try {
-      const response = await firstValueFrom(this.core.get<KeyPackageResponse>(
-        `${hubUrl}/share-sessions/${session.id}/security/key-packages`, hubUrl,
-      ));
+      const response = await firstValueFrom(
+        this.controlPlane.securityGet<KeyPackageResponse>(session.id, 'key-packages'),
+      );
       if (generation !== this.generation) return false;
       if (!Array.isArray(response.packages)) throw new Error('key_package_response_invalid');
       if (response.packages.length > 1) throw new Error('strict_pair_cardinality_exceeded');
@@ -159,24 +152,20 @@ export class PairViewSecurityBootstrapService {
         this.state$.next({ status: 'confirming', fingerprint: current.peerFingerprint });
       }
       const confirmationTag = await this.peerKeys.createConfirmation();
-      await firstValueFrom(this.core.post(
-        `${hubUrl}/share-sessions/${session.id}/security/key-confirmations`,
+      await firstValueFrom(this.controlPlane.securityPost(
+        session.id, 'key-confirmations',
         {
           recipient_peer_id: current.remotePeerId,
           package_id: this.lastPackageId || current.packageId,
           epoch: current.epoch,
           confirmation_tag: confirmationTag,
         },
-        hubUrl,
       ));
       if (generation !== this.generation) return false;
-      const confirmation = await firstValueFrom(this.core.get<{
+      const confirmation = await firstValueFrom(this.controlPlane.securityGet<{
         ok: boolean;
         confirmation: null | { confirmation_tag: string; package_id: string; epoch: number };
-      }>(
-        `${hubUrl}/share-sessions/${session.id}/security/key-confirmations?sender_peer_id=${encodeURIComponent(current.remotePeerId)}`,
-        hubUrl,
-      ));
+      }>(session.id, `key-confirmations?sender_peer_id=${encodeURIComponent(current.remotePeerId)}`));
       if (generation !== this.generation) return false;
       if (!confirmation.confirmation) {
         this.state$.next({ status: 'confirming', fingerprint: current.peerFingerprint });

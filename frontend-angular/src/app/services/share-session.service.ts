@@ -10,6 +10,7 @@ import { hasPermission, normalizePermissions, permissionsFromUiSelection } from 
 import { E2eEncryptionService } from './e2e-encryption.service';
 import { PAIR_VIEW_CRYPTO, PairViewCryptoPort } from './pair-view-crypto.service';
 import { PairSecureSequenceService } from './pair-secure-sequence.service';
+import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 import {
   PairSecurityBootstrapState,
   PairViewSecurityBootstrapService,
@@ -97,6 +98,7 @@ export class ShareSessionService implements OnDestroy {
   private cryptoPort: PairViewCryptoPort = inject(PAIR_VIEW_CRYPTO);
   private secureSequences = inject(PairSecureSequenceService);
   private securityBootstrap = inject(PairViewSecurityBootstrapService);
+  private controlPlane = inject(PairSessionControlPlaneService);
 
   readonly state$ = new BehaviorSubject<ActiveShareState>({
     session: null, participants: [], messages: [], cursor: '0', role: null,
@@ -164,11 +166,7 @@ export class ShareSessionService implements OnDestroy {
   }
 
   get currentUserId(): string {
-    const p = this.userAuth.userPayload;
-    // Keep the cryptographic peer identifier byte-for-byte aligned with the
-    // Hub's `_current_user_id()` projection. Display-oriented OIDC claims such
-    // as email/preferred_username must not become a different E2EE identity.
-    return String(p?.sub || p?.username || '');
+    return this.controlPlane.currentPeerId;
   }
 
   private get hubUrl(): string {
@@ -186,11 +184,8 @@ export class ShareSessionService implements OnDestroy {
     expiresInSeconds: number | null,
   ): Promise<ShareSession> {
     const deviceKey = await this.e2ee.ensureLocalKeyPair();
-    return new Promise((resolve, reject) => {
-      const url = this.hubUrl;
-      if (!url) { reject(new Error('no hub')); return; }
-      const transport = this.preferredTransport();
-      const body = {
+    const transport = this.preferredTransport();
+    const body = {
         title,
         permissions: permissionsFromUiSelection(permissions),
         permissions_version: 1,
@@ -201,18 +196,11 @@ export class ShareSessionService implements OnDestroy {
         mode: transport === 'webrtc' ? 'p2p' : 'relay',
         transport,
         expires_at: expiresInSeconds ? Date.now() / 1000 + expiresInSeconds : null,
-      };
-      this.core.post<{ ok: boolean; session: ShareSession; data: ShareSession }>(`${url}/share-sessions`, body, url).subscribe({
-        next: (r) => {
-          const sess = r?.session ?? r?.data;
-          if (sess) {
-            this.activateSession(sess, 'owner');
-            resolve(sess);
-          } else reject(new Error('no session in response'));
-        },
-        error: reject,
-      });
-    });
+    };
+    const session = await firstValueFrom(this.controlPlane.create<ShareSession>(body));
+    if (!session?.id) throw new Error('no session in response');
+    this.activateSession(session, 'owner');
+    return session;
   }
 
   async joinSession(
@@ -220,31 +208,18 @@ export class ShareSessionService implements OnDestroy {
     options: { allowLegacy?: boolean } = {},
   ): Promise<ShareSession> {
     const deviceKey = await this.e2ee.ensureLocalKeyPair();
-    return new Promise((resolve, reject) => {
-      const url = this.hubUrl;
-      if (!url) { reject(new Error('no hub')); return; }
-      this.core.post<{ ok: boolean; session: ShareSession; data: ShareSession }>(
-        `${url}/share-sessions/join-by-code`, {
-          invite_code: inviteCode,
-          minimum_security_mode: options.allowLegacy === true ? 'legacy' : 'strict_e2ee',
-          public_key_spki_b64: deviceKey.publicKeySpkiB64,
-          public_key_fingerprint: deviceKey.fingerprint,
-        }, url,
-      ).subscribe({
-        next: (r) => {
-          const sess = r?.session ?? r?.data;
-          if (sess) {
-            if (!this.isStrictSession(sess) && options.allowLegacy !== true) {
-              reject(new Error('legacy_session_requires_explicit_approval'));
-              return;
-            }
-            this.activateSession(sess, 'participant');
-            resolve(sess);
-          } else reject(new Error(String((r as any)?.error ?? 'join failed')));
-        },
-        error: reject,
-      });
-    });
+    const session = await firstValueFrom(this.controlPlane.join<ShareSession>({
+      invite_code: inviteCode,
+      minimum_security_mode: options.allowLegacy === true ? 'legacy' : 'strict_e2ee',
+      public_key_spki_b64: deviceKey.publicKeySpkiB64,
+      public_key_fingerprint: deviceKey.fingerprint,
+    }));
+    if (!session?.id) throw new Error('join failed');
+    if (!this.isStrictSession(session) && options.allowLegacy !== true) {
+      throw new Error('legacy_session_requires_explicit_approval');
+    }
+    this.activateSession(session, 'participant');
+    return session;
   }
 
   async sendMessage(text: string): Promise<void> {
@@ -328,8 +303,7 @@ export class ShareSessionService implements OnDestroy {
   endSession(): void {
     const { session } = this.state$.value;
     if (!session) return;
-    const url = this.hubUrl;
-    this.core.delete(`${url}/share-sessions/${session.id}`, url).subscribe({ error: () => {} });
+    this.controlPlane.end(session.id).subscribe({ error: () => {} });
     this.clearActiveSession();
   }
 
@@ -357,20 +331,17 @@ export class ShareSessionService implements OnDestroy {
   private sendHeartbeat(): void {
     const { session } = this.state$.value;
     if (!session) return;
-    const url = this.hubUrl;
-    this.core.post(`${url}/share-sessions/${session.id}/heartbeat`, {}, url)
+    this.controlPlane.heartbeat(session.id)
       .subscribe({ error: () => {} });
   }
 
   private fetchParticipants(): void {
     const { session } = this.state$.value;
     if (!session) return;
-    const url = this.hubUrl;
-    this.core.get<{ ok: boolean; participants: ShareParticipant[] }>(
-      `${url}/share-sessions/${session.id}/participants`, url,
-    ).subscribe({
+    this.controlPlane.participants<{ ok: boolean; participants: ShareParticipant[]; data?: { participants: ShareParticipant[] } }>(session.id).subscribe({
       next: (r) => {
-        if (r?.participants) this.state$.next({ ...this.state$.value, participants: r.participants });
+        const participants = r?.participants ?? r?.data?.participants;
+        if (participants) this.state$.next({ ...this.state$.value, participants });
       },
       error: () => {},
     });

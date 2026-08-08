@@ -4,7 +4,7 @@
  * T23: Audit Logging
  */
 import { Injectable, inject } from '@angular/core';
-import { Subject, BehaviorSubject, Subscription } from 'rxjs';
+import { Subject, BehaviorSubject, Subscription, firstValueFrom } from 'rxjs';
 import { NetworkProfileService } from './network-profile.service';
 import { WebrtcSignalingService, SignalMessage } from './webrtc-signaling.service';
 import { OidcAuthService } from './oidc-auth.service';
@@ -25,6 +25,7 @@ import {
 import { WebrtcChunkReassemblyStore } from './webrtc-chunk-reassembly.store';
 import { WebrtcPrioritySendQueue } from './webrtc-priority-send-queue';
 import { WebrtcSendOperation } from './webrtc-send-operation';
+import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 
 export type PeerState = 'idle' | 'connecting' | 'connected' | 'failed' | 'closed';
 
@@ -52,6 +53,7 @@ export class WebrtcSessionService {
   private profiles = inject(NetworkProfileService);
   private signaling = inject(WebrtcSignalingService);
   private oidc = inject(OidcAuthService);
+  private controlPlane = inject(PairSessionControlPlaneService);
 
   readonly state$ = new BehaviorSubject<PeerState>('idle');
   readonly dcMessage$ = new Subject<DcMessage>();
@@ -88,8 +90,24 @@ export class WebrtcSessionService {
     this.audit('session_start', `initiator=${isInitiator}`);
 
     const profile = this.profiles.current;
+    const iceServers = [...profile.ice_servers];
+    if (this.controlPlane.isPublic) {
+      try {
+        const credentials = await firstValueFrom(this.controlPlane.turnCredentials());
+        if (credentials?.uris?.length && credentials.username && credentials.password) {
+          iceServers.push({
+            urls: credentials.uris,
+            username: credentials.username,
+            credential: credentials.password,
+          });
+        }
+      } catch {
+        // STUN/direct connectivity remains available when TURN issuance is
+        // temporarily unavailable. No application payload falls back to Hub.
+      }
+    }
     const config: RTCConfiguration = {
-      iceServers: profile.ice_servers,
+      iceServers,
       iceTransportPolicy: profile.require_e2e_payload_encryption ? 'all' : 'all',
     };
 
@@ -115,9 +133,8 @@ export class WebrtcSessionService {
     this.connectionTimeout = setTimeout(() => {
       if (this.isCurrentSession(pc, sessionId, generation) && this.state$.value === 'connecting') {
         this.audit('ice_failed', 'timeout after 15s');
-        // Signaling already uses the Hub. A connection timeout therefore
-        // means the direct data plane failed and must be surfaced to the
-        // transport coordinator, which owns the explicit Hub-relay fallback.
+        // The transport coordinator decides whether a local legacy session
+        // may use Hub relay. Public sessions fail closed after direct/TURN ICE.
         this.state$.next('failed');
       }
     }, 15_000);
