@@ -7,6 +7,8 @@ import { OidcAuthService } from './oidc-auth.service';
 import { WebrtcChunkReassemblyStore } from './webrtc-chunk-reassembly.store';
 import { SignalMessage, WebrtcSignalingService } from './webrtc-signaling.service';
 import { WebrtcSessionService } from './webrtc-session.service';
+import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
+import { of } from 'rxjs';
 
 interface Deferred<T> {
   readonly promise: Promise<T>;
@@ -23,6 +25,7 @@ class FakePeerConnection {
   ontrack: ((event: RTCTrackEvent) => void) | null = null;
   ondatachannel: ((event: RTCDataChannelEvent) => void) | null = null;
   remoteDescriptionGate: Deferred<void> | null = null;
+  readonly configuration: RTCConfiguration | undefined;
 
   readonly setRemoteDescription = vi.fn(async () => {
     await this.remoteDescriptionGate?.promise;
@@ -34,7 +37,8 @@ class FakePeerConnection {
   readonly addIceCandidate = vi.fn(async () => undefined);
   readonly close = vi.fn(() => { this.connectionState = 'closed'; });
 
-  constructor() {
+  constructor(configuration?: RTCConfiguration) {
+    this.configuration = configuration;
     FakePeerConnection.instances.push(this);
   }
 }
@@ -75,6 +79,10 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
     fallbackToHubRelay: ReturnType<typeof vi.fn>;
   };
   let service: WebrtcSessionService;
+  const controlPlane = {
+    isPublic: false,
+    turnCredentials: vi.fn(() => of(null)),
+  };
 
   beforeAll(() => {
     runtime.RTCPeerConnection = FakePeerConnection as unknown as typeof RTCPeerConnection;
@@ -97,6 +105,8 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
       send: vi.fn(),
       fallbackToHubRelay: vi.fn(),
     };
+    controlPlane.isPublic = false;
+    controlPlane.turnCredentials.mockReturnValue(of(null));
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({ providers: [
       WebrtcSessionService,
@@ -105,6 +115,7 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
       } } },
       { provide: WebrtcSignalingService, useValue: signaling },
       { provide: OidcAuthService, useValue: { sessionNonce: 'nonce' } },
+      { provide: PairSessionControlPlaneService, useValue: controlPlane },
       { provide: WebrtcChunkReassemblyStore, useValue: {
         clearContext: vi.fn(), accept: vi.fn(),
       } },
@@ -130,6 +141,20 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
     expect(service.auditLog).toContainEqual(expect.objectContaining({
       type: 'ice_failed', session_id: 'session-timeout',
     }));
+  });
+
+  it('adds short-lived TURN credentials to STUN for public ICE fallback', async () => {
+    controlPlane.isPublic = true;
+    controlPlane.turnCredentials.mockReturnValue(of({
+      username: 'expiry:alice', password: 'credential', ttl: 3600,
+      uris: ['turn:webrtc.ananta.de:3478'],
+    }));
+
+    await service.startSession('public-session', false, 'bob');
+
+    expect(FakePeerConnection.instances[0].configuration?.iceServers).toContainEqual({
+      urls: ['turn:webrtc.ananta.de:3478'], username: 'expiry:alice', credential: 'credential',
+    });
   });
 
   it('handles each signal exactly once after closing and starting another session', async () => {

@@ -1,18 +1,17 @@
 /**
- * T18: WebRTC signaling for Hub-owned Share sessions.
+ * T18: Authenticated WebRTC signaling for local and public Share sessions.
  *
  * The configured public `/signaling` endpoint currently exposes authenticated
  * HTTP polling, not an authenticated WebSocket protocol. Browser WebSockets
  * cannot attach the required OIDC bearer header, and a nonce is not a bearer
- * credential. Until a ticket-bound native WebSocket adapter exists, Angular
- * therefore uses the authenticated Hub signaling boundary directly. WebRTC
- * media and DataChannels remain peer-to-peer; only SDP/ICE signaling is
- * relayed through the Hub control plane.
+ * credential. Angular therefore uses authenticated HTTP polling: OIDC bearer
+ * auth at the public rendezvous boundary and Hub auth for legacy/local
+ * sessions. Media and DataChannels remain peer-to-peer; only SDP/ICE metadata
+ * is relayed through the selected control plane.
  */
 import { Injectable, inject } from '@angular/core';
 import { Subject, BehaviorSubject } from 'rxjs';
-import { HubApiCoreService } from './hub-api-core.service';
-import { AgentDirectoryService } from './agent-directory.service';
+import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 
 export type SignalType = 'offer' | 'answer' | 'ice_candidate' | 'hangup' | 'hello';
 
@@ -38,8 +37,7 @@ interface HubSignalPollResponse extends HubSignalPollPayload {
 
 @Injectable({ providedIn: 'root' })
 export class WebrtcSignalingService {
-  private core = inject(HubApiCoreService);
-  private dir = inject(AgentDirectoryService);
+  private controlPlane = inject(PairSessionControlPlaneService);
 
   readonly status$ = new BehaviorSubject<SignalingStatus>('disconnected');
   readonly message$ = new Subject<SignalMessage>();
@@ -49,22 +47,18 @@ export class WebrtcSignalingService {
   private pollCursor = '';
   private recipientId = '';
 
-  private get hubUrl(): string {
-    return this.dir.list().find(a => a.role === 'hub')?.url ?? '';
-  }
-
   connect(_signalingUrl: string, sessionId: string, recipientId?: string): void {
     this.stopPoll();
     this.sessionId = sessionId;
     this.recipientId = normalizePeerId(recipientId);
     this.pollCursor = '';
     if (!this.recipientId) {
-      // Hub signaling is point-to-point. An unbound session must never turn
+      // Signaling is point-to-point. An unbound session must never turn
       // into a room-wide/broadcast signal path.
       this.status$.next('failed');
       return;
     }
-    this.fallbackToHubRelay();
+    this.startAuthenticatedPolling();
   }
 
   disconnect(): void {
@@ -73,7 +67,7 @@ export class WebrtcSignalingService {
   }
 
   /**
-   * Hard disconnect — irreversible: kills the Hub-signaling poll and clears
+   * Hard disconnect — irreversible: kills the signaling poll and clears
    * all peer-connection bindings.
    * Used by Identity-Registry logout: identity went away, so any WebRTC
    * session it was carrying must die now.
@@ -94,12 +88,17 @@ export class WebrtcSignalingService {
     // Always replace a caller-provided recipient with the peer selected by
     // connect(). This prevents stale or forged message-level routing.
     const outbound = { ...msg, recipient_id: this.recipientId };
-    this.hubRelaySend(outbound);
+    this.sendAuthenticatedSignal(outbound);
   }
 
-  // ── Authenticated Hub signaling ─────────────────────────────────────
+  // Kept for the local semantic-media E2E driver.
+  // New code starts the selected authenticated polling boundary directly.
 
   fallbackToHubRelay(): void {
+    this.startAuthenticatedPolling();
+  }
+
+  private startAuthenticatedPolling(): void {
     if (!this.sessionId || !this.recipientId) {
       this.stopPoll();
       this.status$.next('failed');
@@ -111,21 +110,20 @@ export class WebrtcSignalingService {
 
   private startPoll(): void {
     this.stopPoll();
-    this.pollHandle = setInterval(() => this.hubRelayPoll(), 1500);
+    this.pollHandle = setInterval(() => this.pollSignals(), 1500);
   }
 
   private stopPoll(): void {
     if (this.pollHandle) { clearInterval(this.pollHandle); this.pollHandle = null; }
   }
 
-  private hubRelayPoll(): void {
-    const url = this.hubUrl;
-    if (!url || !this.sessionId || !this.recipientId) return;
-    const endpoint = `${url}/api/webrtc/sessions/${this.sessionId}/signal?since=${encodeURIComponent(this.pollCursor)}`;
-    this.core.get<HubSignalPollResponse>(endpoint, url)
+  private pollSignals(): void {
+    if (!this.sessionId || !this.recipientId) return;
+    this.controlPlane.signalPoll<HubSignalPollResponse>(this.sessionId, this.pollCursor)
       .subscribe({
         next: r => {
-          // The Hub endpoint uses the legacy {ok, data:{signals}} envelope,
+          // Local Hub and public rendezvous endpoints use compatible legacy
+          // {ok, data:{signals}} envelopes,
           // while HubApiCoreService only unwraps {status, data}. Accept both
           // documented response shapes here and keep malformed rows out of
           // the peer-connection state machine.
@@ -139,10 +137,9 @@ export class WebrtcSignalingService {
       });
   }
 
-  private hubRelaySend(msg: SignalMessage): void {
-    const url = this.hubUrl;
-    if (!url || !this.sessionId) return;
-    this.core.post(`${url}/api/webrtc/sessions/${this.sessionId}/signal`, msg, url)
+  private sendAuthenticatedSignal(msg: SignalMessage): void {
+    if (!this.sessionId) return;
+    this.controlPlane.signalSend(this.sessionId, msg)
       .subscribe({ error: () => {} });
   }
 }

@@ -58,7 +58,7 @@ describe('WebRtcSignalingService authenticated Hub signaling', () => {
   it('routes a configured public WSS endpoint through the authenticated Hub without opening WebSocket', () => {
     service.connect('wss://signaling.test/signaling', 'session-1', 'peer-b');
     expect(service.status$.value).toBe<SignalingStatus>('connected');
-    (service as unknown as { hubRelayPoll(): void }).hubRelayPoll();
+    (service as unknown as { pollSignals(): void }).pollSignals();
     expect(polled).toEqual([
       'https://hub.test/api/webrtc/sessions/session-1/signal?since=',
     ]);
@@ -93,7 +93,7 @@ describe('WebRtcSignalingService authenticated Hub signaling', () => {
   it('fails closed instead of polling or sending without an exact recipient_id', () => {
     service.connect('', 'session-1');
     service.send({ type: 'offer', session_id: 'session-1', payload: { sdp: 'v=0' } });
-    (service as unknown as { hubRelayPoll(): void }).hubRelayPoll();
+    (service as unknown as { pollSignals(): void }).pollSignals();
 
     expect(service.status$.value).toBe('failed');
     expect(posted).toEqual([]);
@@ -116,7 +116,7 @@ describe('WebRtcSignalingService authenticated Hub signaling', () => {
       },
     };
 
-    (service as unknown as { hubRelayPoll(): void }).hubRelayPoll();
+    (service as unknown as { pollSignals(): void }).pollSignals();
 
     expect(observed).toEqual(['accepted']);
     service.hardDisconnect();

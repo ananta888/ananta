@@ -19,6 +19,7 @@ import {
   validateSemanticDcMessage,
 } from './webrtc-datachannel.service';
 import { WebrtcSendOperation } from './webrtc-send-operation';
+import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 
 export type TransportMode = 'webrtc' | 'hub_relay' | 'idle';
 
@@ -61,6 +62,7 @@ export class WebrtcTransportService {
   private profiles = inject(NetworkProfileService);
   private core = inject(HubApiCoreService);
   private dir = inject(AgentDirectoryService);
+  private controlPlane = inject(PairSessionControlPlaneService);
 
   readonly mode$ = new BehaviorSubject<TransportMode>('idle');
   readonly message$ = new Subject<TransportMessage>();
@@ -108,7 +110,8 @@ export class WebrtcTransportService {
       // Monitor for WebRTC failure and fall back
       this.subscriptions.add(this.webrtc.state$.subscribe(state => {
         if (state === 'failed' && this.mode$.value === 'webrtc') {
-          this.fallbackFromDirectToHubRelay();
+          if (this.controlPlane.isPublic) this.close();
+          else this.fallbackFromDirectToHubRelay();
         }
       }));
       // Relay DataChannel messages
@@ -122,6 +125,10 @@ export class WebrtcTransportService {
       }));
       await this.webrtc.startSession(sessionId, isInitiator, options.remotePeerId);
     } else {
+      if (this.controlPlane.isPublic) {
+        this.close();
+        throw new Error('public_pair_requires_webrtc');
+      }
       this.switchToHubRelay();
     }
   }
