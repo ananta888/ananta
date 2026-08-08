@@ -66,6 +66,7 @@ def test_python_and_angular_services_mount_only_live_sources():
         volumes = services[service_name]["volumes"]
         assert "../../agent:/app/agent:ro" in volumes
         assert "../../worker:/app/worker:ro" in volumes
+        assert "../../ananta_codecompass:/app/ananta_codecompass:ro" in volumes
         assert "../../config:/app/config:ro" in volumes
         assert not any(
             isinstance(value, str)
